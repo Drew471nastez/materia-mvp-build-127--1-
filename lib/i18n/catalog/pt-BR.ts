@@ -7043,6 +7043,7 @@ const words: Record<string, string> = {
  "Waiting for data": "Aguardando dados",
  "Waiting for the payment to go through": "Aguardando o pagamento ser concluído",
  "Waiting for the pictures to be ready": "Aguardando as imagens ficarem prontas",
+ "Waiting for the translator's allowance. It carries on by itself.": "Aguardando a cota do tradutor. Continua sozinho.",
  "Waiting for you": "Esperando você",
  "Waiting for {name} to connect.": "Aguardando o {name} conectar.",
  "Waiting on the buyer": "Aguardando o comprador",

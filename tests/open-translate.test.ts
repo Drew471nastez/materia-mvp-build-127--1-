@@ -59,6 +59,18 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
     const p = b.parameters as { tgt_lang: string }
     return send(res, 200, (b.inputs as string[]).map((t) => ({ translation_text: `${p.tgt_lang} ${t}` })))
   }
+  if (path === "/gem/chat/completions") {
+    const model = b.model as string
+    if (model === "gemini-2.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
+    if (process.env.GEMINI_BUSY) return send(res, 429, { error: { message: "Resource has been exhausted (e.g. check quota)." } })
+    const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
+    /* Drops the placeholder from a whole sentence: the check catches it and the words go again on their own. */
+    return send(res, 200, { choices: [{ message: { content: JSON.stringify({ t: list.map((t) => (t.includes("{{") ? "GEM lost it" : `GEM(${model}) ${t}`)) }) } }] })
+  }
+  if (path === "/deepl/v2/translate") {
+    const texts = b.text as string[]
+    return send(res, 200, { translations: texts.map((t) => ({ text: `DL(${b.target_lang}) ${t}` })) })
+  }
   if (path === "/hfr/chat/completions") {
     const model = b.model as string
     if (model !== "meta-llama/Llama-3.3-70B-Instruct") return send(res, 400, { error: { message: `Model ${model} is not supported by any provider you have enabled.` } })
@@ -141,7 +153,8 @@ async function main() {
   const many = Array.from({ length: 130 }, (_, i) => `Item number ${i}`)
   seen.length = 0
   r = await mod.translateOpen(many, "en", "es")
-  check("130 texts in batches of 50 at most", r.out.size === 130 && seen.filter((s) => s.path === "/lt/translate").every((s) => (s.body.q as string[]).length <= 50) && seen.filter((s) => s.path === "/lt/translate").length === 3)
+  /* Changed on purpose (whole texts first): batches of 40 texts. */
+  check("130 texts in batches of 40 at most", r.out.size === 130 && seen.filter((s) => s.path === "/lt/translate").every((s) => (s.body.q as string[]).length <= 40) && seen.filter((s) => s.path === "/lt/translate").length === 4)
 
   console.log("\nHugging Face")
   delete process.env.LIBRETRANSLATE_URL
@@ -150,7 +163,7 @@ async function main() {
   process.env.HF_ROUTER_URL = `${base}/hfr`
   seen.length = 0
   r = await mod.translateOpen(["Hello", "Shop <i>now</i>"], "en", "fr")
-  check("an open chat model through the router first, its JSON read even inside a code fence", r.out.get(0) === "CHAT Hello" && r.out.get(1) === "CHAT Shop <i>CHAT now</i>" && seen.some((x) => x.path === "/hfr/chat/completions"), JSON.stringify([...r.out]))
+  check("an open chat model through the router first, whole sentences with their markup, its JSON read even inside a code fence", r.out.get(0) === "CHAT Hello" && r.out.get(1) === "CHAT Shop <i>now</i>" && seen.some((x) => x.path === "/hfr/chat/completions"), JSON.stringify([...r.out]))
   check("the prompt names both languages", seen.some((x) => /from English into French/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
   process.env.HF_CHAT_MODEL = "acme/not-served"
   seen.length = 0
@@ -158,7 +171,7 @@ async function main() {
   check("the pair's opus-mt model when there is one", r.out.get(0) === "DE Hello" && seen.some((s) => s.path === "/hf/Helsinki-NLP/opus-mt-en-de"))
   seen.length = 0
   r = await mod.translateOpen(["Hello <b>there</b>"], "en", "ro")
-  check("NLLB 200 when there is none, with its language codes", r.out.get(0) === "ron_Latn Hello <b>ron_Latn there</b>" && seen.some((s) => s.path === "/hf/facebook/nllb-200-distilled-600M" && (s.body.parameters as { src_lang: string }).src_lang === "eng_Latn"), r.out.get(0))
+  check("NLLB 200 when there is none, with its language codes", r.out.get(0) === "ron_Latn Hello <b>there</b>" && seen.some((s) => s.path === "/hf/facebook/nllb-200-distilled-600M" && (s.body.parameters as { src_lang: string }).src_lang === "eng_Latn"), r.out.get(0))
 
   delete process.env.HF_INFERENCE_URL
   process.env.HF_INFERENCE_URL = `${base}/nowhere`
@@ -166,6 +179,38 @@ async function main() {
   check("when nothing answers, the failure names Hugging Face and what it said, not a guess about the language", r.out.size === 0 && /^Couldn't translate\. Hugging Face/.test(r.unavailable ?? "") && /HTTP 4\d\d/.test(r.unavailable ?? "") && !/can't be translated automatically/.test(r.unavailable ?? ""), r.unavailable ?? "")
   delete process.env.HF_TOKEN
   delete process.env.HF_CHAT_MODEL
+
+  console.log("\nGemini, recommended")
+  process.env.GEMINI_API_KEY = "gem_test"
+  process.env.GEMINI_URL = `${base}/gem`
+  delete process.env.LIBRETRANSLATE_URL
+  seen.length = 0
+  r = await mod.translateOpen(["Free shipping on orders over 200 lei", "<p>Our <b>linen</b> shirts</p>", "Hi {{ customer.first_name }}, welcome"], "en", "fr", { keep: ["Green Garden"] })
+  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-2.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-2.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
+  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-2.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-2.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
+  check("the store's name is named in the prompt to keep", seen.some((x) => /"Green Garden"/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
+  process.env.GEMINI_OLD_ONLY = "1"
+  r = await mod.translateOpen(["Another sentence"], "en", "de")
+  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-2.0-flash-lite) Another sentence", r.out.get(0))
+  delete process.env.GEMINI_OLD_ONLY
+  process.env.GEMINI_BUSY = "1"
+  r = await mod.translateOpen(["Out of allowance today"], "en", "es")
+  check("out of allowance: said as busy, so the job waits instead of failing", r.out.size === 0 && r.busy === true && /Gemini is busy or out of allowance/.test(r.unavailable ?? ""), JSON.stringify(r))
+  delete process.env.GEMINI_BUSY
+  delete process.env.GEMINI_API_KEY
+
+  console.log("\nDeepL")
+  check("its target codes: Brazilian Portuguese, US English, Traditional Chinese", mod.deeplTarget("pt-BR") === "PT-BR" && mod.deeplTarget("en") === "EN-US" && mod.deeplTarget("zh-Hant") === "ZH-HANT" && mod.deeplTarget("fr") === "FR")
+  const wrapped = mod.deeplWrap("Hi {name}, see https://a.co & more at Green Garden", ["Green Garden"])
+  check("plain text: escaped, and its fixed parts held in an ignored tag", wrapped === "Hi <x>{name}</x>, see <x>https://a.co</x> &amp; more at <x>Green Garden</x>", wrapped)
+  check("and back exactly", mod.deeplUnwrap(wrapped, false) === "Hi {name}, see https://a.co & more at Green Garden")
+  check("markup stays markup", mod.deeplWrap("<p>Hi {{ x }}</p>", []) === "<p>Hi <x>{{ x }}</x></p>")
+  process.env.DEEPL_API_KEY = "dl_test:fx"
+  process.env.DEEPL_URL = `${base}/deepl`
+  seen.length = 0
+  r = await mod.translateOpen(["Add to cart", "Hi {name} & co"], "en", "pt-BR")
+  check("translates with tag handling and the right target", r.out.get(0) === "DL(PT-BR) Add to cart" && r.out.get(1) === "DL(PT-BR) Hi {name} & co" && seen.some((x) => x.path === "/deepl/v2/translate" && x.body.tag_handling === "html" && JSON.stringify(x.body.ignore_tags) === '["x"]'), JSON.stringify([...r.out]))
+  delete process.env.DEEPL_API_KEY
 
   console.log("\nThe paid model is not used")
   process.env.LIBRETRANSLATE_URL = `${base}/lt`
@@ -177,6 +222,9 @@ async function main() {
   const sheet = read("components/app/settings/translate-sheet.tsx")
   check("the sheet says the work runs on with the tab closed", /You can close this or the tab/.test(sheet))
   check("a just-added language is asked again before saying it's missing", /attempt >= 2/.test(sheet))
+  const jobs = read("lib/markets/translation-jobs.ts")
+  check("a job whose translators are all out of allowance waits and carries on, not failed", /r\.status === 429 && Date\.now\(\) - Date\.parse\(row\.started_at\) < WAIT_LIMIT_MS/.test(jobs) && /rounds: rounds - 1, lease_until: new Date\(Date\.now\(\) \+ WAIT_MS\)/.test(jobs))
+  check("and the press says busy as 429", /status: busy \? 429 : 503/.test(read("lib/markets/translation-press.ts")))
   check("memory is kept for good (part 178)", /translation_memory/.test(read("supabase/sql/run-now/178_translation_memory.sql")))
 
   server.close()

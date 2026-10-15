@@ -33,7 +33,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
-import { useMoney, useStorefront, useWord } from "./theme/storefront-context"
+import { useCartMoney, useStorefront, useWord } from "./theme/storefront-context"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
@@ -56,9 +56,9 @@ interface AppliedCode {
 }
 
 export function CartPageBody({ palette, radius }: { palette: CartPalette; radius: number }) {
-  const { lines, ready, setQty, remove, clear, subtotalCents, count, shopId } = useSiteCart()
-  /* Amounts as the product cards show them: the visitor's market's currency, or the store's. */
-  const money = useMoney()
+  const { lines, ready, setQty, remove, clear, count, shopId } = useSiteCart()
+  /* Amounts as the product cards show them and checkout adds them up: the visitor's market's currency, or the store's. */
+  const cartMoney = useCartMoney()
   /* Back from checkout lands on this cart, in the page's language. */
   const cartPath = cartPathFor(useStorefront().language)
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
@@ -79,6 +79,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   /** The reason is about a code the page applied itself (from the link, or again after the basket changed): said quietly. */
   const [codeQuiet, setCodeQuiet] = useState(false)
   const items = JSON.stringify(checkoutItems(lines))
+  const amounts = cartMoney(lines, applied ? { subtotalCents: applied.subtotalCents, discountCents: applied.discountCents } : null)
 
   const applyCode = useCallback(
     async (typed: string, quiet: boolean) => {
@@ -234,7 +235,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
         <p className="mt-1 text-[14px] opacity-65">{count === 1 ? "One item" : `${count} items`}</p>
 
         <ul className="mt-7">
-          {lines.map((l) => {
+          {lines.map((l, i) => {
             const k = lineKey(l)
             return (
               <li
@@ -298,7 +299,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
                       </div>
                     )}
                     <span className="ml-auto text-[16px] font-semibold tabular-nums" style={{ color: palette.heading }}>
-                      {money(l.priceCents * l.quantity)}
+                      {amounts.lines[i]}
                     </span>
                   </div>
                 </div>
@@ -331,16 +332,16 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               <>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-[15px] opacity-70">{w("subtotal")}</dt>
-                  <dd className="text-[15px] tabular-nums">{money(applied.subtotalCents)}</dd>
+                  <dd className="text-[15px] tabular-nums">{amounts.subtotal}</dd>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-[15px] opacity-70">Discount ({applied.code})</dt>
-                  <dd className="text-[15px] tabular-nums">&minus;{money(applied.discountCents)}</dd>
+                  <dd className="text-[15px] tabular-nums">&minus;{amounts.discount}</dd>
                 </div>
                 <div className="flex items-baseline justify-between pt-1">
                   <dt className="text-[15px] opacity-70">{w("total")}</dt>
                   <dd className="text-[22px] font-bold tabular-nums" style={{ color: palette.heading }}>
-                    {money(applied.totalCents)}
+                    {amounts.total}
                   </dd>
                 </div>
               </>
@@ -348,7 +349,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               <div className="flex items-baseline justify-between">
                 <dt className="text-[15px] opacity-70">{w("subtotal")}</dt>
                 <dd className="text-[22px] font-bold tabular-nums" style={{ color: palette.heading }}>
-                  {money(subtotalCents)}
+                  {amounts.subtotal}
                 </dd>
               </div>
             )}

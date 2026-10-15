@@ -22,7 +22,8 @@
  * with this, so they can never disagree.
  */
 import { CURRENCY_FEE_RULES } from "@/lib/payments/fees/currency-rules"
-import { convertMinor, minorUnits } from "./money"
+import { convertMinor, formatMinor, minorUnits } from "./money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 import type { Pricing } from "./pricing"
 
 /** Whether a checkout can charge this currency: Storelib takes its fee in it, and it has cents. */
@@ -47,15 +48,46 @@ export interface MarketCharge {
   /** Any other amount (shipping, a fee): at the rate, not rounded as a price. */
   amount(cents: number): number
   currency: string
+  /** The store's own currency, which the amounts are converted from. */
+  base: string
 }
 
 /** The two conversions for a market. A price the rates cannot convert stays as it was (the caller only charges a market `chargingPricing` allowed). */
 export function marketCharge(pricing: Pricing): MarketCharge {
   return {
     currency: pricing.currency,
+    base: pricing.base,
     price: (cents) => (cents > 0 ? (pricing.convert(Math.round(cents)) ?? cents) : 0),
     amount: (cents) => (cents > 0 ? (convertMinor(Math.round(cents), pricing.base, pricing.currency, pricing.fx, { adjustBps: pricing.market.adjustBps }) ?? cents) : 0),
   }
+}
+
+/**
+ * The checkout's settings as its page says them in the market's currency:
+ * the cash on delivery fee ("adds a fee of €2.01") converted as the quote
+ * converts it, never the store's 10 lei written as €10.00.
+ */
+export function checkoutConfigInMarket<C extends { codFeeCents: number }>(config: C, charge: MarketCharge | null | undefined): C {
+  return charge && config.codFeeCents > 0 ? { ...config, codFeeCents: charge.amount(config.codFeeCents) } : config
+}
+
+/**
+ * Words with an amount in the store's currency, as the coupon rules write it
+ * ("That code needs an order of at least 150.00 lei", "5.00 lei off"), with
+ * each amount at the rate in the market's: a checkout in euros never says
+ * lei. Text with no such amount comes back as it was.
+ */
+export function amountsInMarket(text: string, charge: MarketCharge): string {
+  if (!text) return text
+  const sample = shopMoneyIn(123456, charge.base)
+  const at = sample.indexOf("1234.56")
+  if (at < 0) return text
+  const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const shape = new RegExp(`${escape(sample.slice(0, at))}(\\d+\\.\\d{2})${escape(sample.slice(at + 7))}`, "g")
+  return text.replace(shape, (whole, n: string) => {
+    const cents = Math.round(Number(n) * 100)
+    return Number.isFinite(cents) ? formatMinor(charge.amount(cents), charge.currency, "en-US") : whole
+  })
 }
 
 /** What a share of `whole` is in the converted whole: `part` of `whole` becomes the same part of `wholeNow`. */

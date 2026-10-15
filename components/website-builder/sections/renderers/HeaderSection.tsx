@@ -24,7 +24,7 @@ import { SearchModal } from "../../header-search-modal"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
-import { useMoney, useStorefront, useWord } from "../../theme/storefront-context"
+import { useCartMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { lineKey } from "@/lib/website-builder/cart"
 import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
@@ -781,11 +781,11 @@ function CartDrawerInner({
   positionClass: string
   frameStyle: CSSProperties
 }) {
-  const { lines, setQty, remove, subtotalCents, count, shopId, clear } = useSiteCart()
+  const { lines, setQty, remove, count, shopId, clear } = useSiteCart()
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
   const w = useWord()
-  /* Amounts in the visitor's market's currency, as the product cards show them; checkout charges the store's, and says so. */
-  const money = useMoney()
+  /* Amounts in the visitor's market's currency, as the product cards show them and checkout adds them up (lib/markets/cart-money). */
+  const amounts = useCartMoney()(lines)
   /* Back from checkout lands on the cart in the page's language. */
   const cartPath = cartPathFor(useStorefront().language)
   /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
@@ -906,7 +906,7 @@ function CartDrawerInner({
         ) : (
           <div className="site-slim-scroll flex-1 overflow-y-auto overscroll-contain px-3 py-3" style={{ WebkitOverflowScrolling: "touch" }}>
             <ul className="flex flex-col">
-              {lines.map((l) => {
+              {lines.map((l, i) => {
                 const k = lineKey(l)
                 return (
                   <li key={k} className="flex gap-3 py-3 border-b last:border-b-0" style={{ borderColor: scheme.inset_border }}>
@@ -960,7 +960,7 @@ function CartDrawerInner({
                           </div>
                         )}
                         <span className="ml-auto text-[14px] font-semibold tabular-nums">
-                          {money(l.priceCents * l.quantity)}
+                          {amounts.lines[i]}
                         </span>
                       </div>
                     </div>
@@ -975,7 +975,7 @@ function CartDrawerInner({
           <div className="shrink-0 px-4 pt-3 pb-4 border-t" style={{ borderColor: scheme.inset_border }}>
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] opacity-70">{w("subtotal")}</span>
-              <span className="text-[18px] font-semibold tabular-nums">{money(subtotalCents)}</span>
+              <span className="text-[18px] font-semibold tabular-nums">{amounts.subtotal}</span>
             </div>
             <a
               href="/cart"

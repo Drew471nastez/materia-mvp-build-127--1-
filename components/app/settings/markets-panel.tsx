@@ -48,6 +48,14 @@ import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
 import { chargeableCurrency } from "@/lib/markets/checkout-charge"
 import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
+import { TranslateBar, useRollingNumber } from "./translate-progress"
+
+/** "Waiting for the translator's allowance…" without the provider's own words, which are kept for the failure line. */
+const waitingLine = (error: string) => (/^Waiting/.test(error) ? tt("Waiting for the translator's allowance. It carries on by itself.") : null)
+
+function RollingCount({ done, total }: { done: number; total: number }) {
+  return <>{tt("{done} of {total} texts", { done: useRollingNumber(done), total })}</>
+}
 
 const PATH = "/api/store/markets"
 
@@ -293,7 +301,8 @@ export function MarketsPanel() {
             const p = progress?.[l.code] ?? null
             const job = jobs[l.code]
             /* The job's own count once its first round is in; before it, where the language stood. */
-            const fromJob = job?.status === "running" ? { state: "running" as const, done: job.total ? job.done : (p ? p.done + p.draft : 0), total: job.total || p?.total || 0 } : job?.status === "failed" && job.error ? { state: "error" as const, message: job.error } : null
+            /* A running job may be waiting for the translator's allowance: its note is said under the bar, and it carries on by itself. */
+            const fromJob = job?.status === "running" ? { state: "running" as const, done: job.total ? job.done : (p ? p.done + p.draft : 0), total: job.total || p?.total || 0, waiting: job.error ? waitingLine(job.error) : null } : job?.status === "failed" && job.error ? { state: "error" as const, message: job.error } : null
             const run = drafting[l.code] ?? fromJob
             const name = languageName(l.code, activeLocale())
             const menu: ActionMenuItem[] = [
@@ -321,7 +330,7 @@ export function MarketsPanel() {
                     </span>
                     <span className="block truncate text-[12.5px] leading-[18px] text-[#6b7280]" data-language-progress="">
                       {run?.state === "running"
-                        ? tt("{done} of {total} texts", { done: run.done, total: run.total })
+                        ? <RollingCount done={run.done} total={run.total} />
                         : p
                           ? [
                               `/${l.code.toLowerCase()}`,
@@ -364,8 +373,9 @@ export function MarketsPanel() {
                   />
                 </div>
                 {run?.state === "running" ? (
-                  <div className="ml-12 mt-2 h-1 overflow-hidden rounded-full bg-[#eef0f2]" role="progressbar" aria-valuemin={0} aria-valuemax={run.total} aria-valuenow={run.done} aria-label={tt("Translating {name}", { name })}>
-                    <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${run.total ? Math.min(100, Math.round((run.done / run.total) * 100)) : 4}%` }} />
+                  <div className="ml-12 mt-2">
+                    <TranslateBar done={run.done} total={run.total} running label={tt("Translating {name}", { name })} className="h-1" />
+                    {(run as { waiting?: string | null }).waiting ? <p className="mt-1.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-language-waiting="">{(run as { waiting?: string | null }).waiting}</p> : null}
                   </div>
                 ) : run?.state === "error" ? (
                   <p className="ml-12 mt-1.5 flex flex-wrap items-center gap-x-2 text-[12.5px] leading-[18px] text-[#b45309]" data-language-error="">

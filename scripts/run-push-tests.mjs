@@ -639,6 +639,8 @@ const STRICT_SUITES = [
   "tests/e2e-store-currency.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
+  /* More currencies: a lei store with euros for Germany and France, a visitor's card, cart, selector, card and cash checkout, order and emails all in the same euros; zloty shown and charged in lei (tests/_journey) */
+  "tests/e2e-more-currencies.test.ts",
   /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
   "tests/e2e-manual-fulfillment.test.ts",
   /*

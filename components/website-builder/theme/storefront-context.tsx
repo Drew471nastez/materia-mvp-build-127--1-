@@ -24,6 +24,7 @@ import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 import { uiWord, type UiWord } from "@/lib/markets/ui-words"
 import { shopMoneyIn, SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { amountMoney, cartAmounts, type CartAmountLine, type CartAmounts } from "@/lib/markets/cart-money"
 
 export interface Storefront {
   /** The creator whose site this is. Absent in the editor's canvas. */
@@ -109,6 +110,24 @@ export function useMoney(): (cents: number) => string {
     if (!pricing || !display) return ownMoney
     return (cents: number) => pricing.format(cents, display.locale) ?? ownMoney(cents)
   }, [display, currency])
+}
+
+/**
+ * A cart's amounts as checkout adds them up (lib/markets/cart-money): each
+ * unit converted as its card was, times the quantity, and a code's discount
+ * the same share of the converted subtotal. A line's or a subtotal's whole
+ * amount passed to useMoney is rounded again as one price, and drifts from
+ * checkout in a market that rounds.
+ */
+export function useCartMoney(): (lines: CartAmountLine[], code?: { subtotalCents: number; discountCents: number } | null) => CartAmounts {
+  const { display, currency } = useContext(StorefrontContext)
+  return useMemo(() => (lines: CartAmountLine[], code?: { subtotalCents: number; discountCents: number } | null) => cartAmounts(lines, display, currency ?? SHOP_CURRENCY, code), [display, currency])
+}
+
+/** An amount that is not a price (what is left to spend for free shipping), in the page's currency at the rate, never rounded up as a price. */
+export function useAmountMoney(): (cents: number) => string {
+  const { display, currency } = useContext(StorefrontContext)
+  return useMemo(() => amountMoney(display, currency ?? SHOP_CURRENCY), [display, currency])
 }
 
 /** What checkout charges in, when the cart shows another currency; null otherwise. */
