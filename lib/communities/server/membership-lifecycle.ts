@@ -394,12 +394,13 @@ export interface CancellationsSummary {
 }
 
 /** Cancellations still standing (resumed ones do not count), by reason, with the latest few. Null before part 101. */
-export async function cancellationsWithReasons(db: Db, communityId: string, opts: { since?: string; limit?: number } = {}): Promise<CancellationsSummary | null> {
+export async function cancellationsWithReasons(db: Db, communityId: string, opts: { since?: string; until?: string; limit?: number } = {}): Promise<CancellationsSummary | null> {
   if (!(await lifecycleReady(db))) return null
   const limit = Math.max(1, Math.min(50, opts.limit ?? 8))
   const base = () => {
     let q = db.from("community_cancellations").select("id", { head: true, count: "exact" }).eq("community_id", communityId).is("resumed_at", null)
     if (opts.since) q = q.gte("created_at", opts.since)
+    if (opts.until) q = q.lt("created_at", opts.until)
     return q
   }
   try {
@@ -413,6 +414,7 @@ export async function cancellationsWithReasons(db: Db, communityId: string, opts
     )
     let q = db.from("community_cancellations").select("reason, note, ends_at, created_at").eq("community_id", communityId).is("resumed_at", null)
     if (opts.since) q = q.gte("created_at", opts.since)
+    if (opts.until) q = q.lt("created_at", opts.until)
     const { data, error } = await q.order("created_at", { ascending: false }).limit(limit)
     if (error) throw error
     const latest = ((data as { reason: CancelReason | null; note: string | null; ends_at: string | null; created_at: string }[] | null) ?? []).map((r) => ({

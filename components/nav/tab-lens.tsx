@@ -223,7 +223,9 @@ export const slotLeft = (index: number, g: Geometry): number =>
  * the finger one to one. The only lag left is the pick up: a drag begins
  * with the circle on its slot and the finger somewhere in that slot, so the
  * gap between them is carried as an offset that dies away over about a
- * tenth of a second (CATCH_UP a frame), rather than a jump.
+ * tenth of a second (CATCH_UP a frame), rather than a jump. (Round 31 put
+ * it back a few pixels behind, on a spring rather than a fraction a frame:
+ * see FOLLOW_SPRING below.)
  *
  * LET GO OF IT and it springs onto the slot, carrying the speed the finger
  * gave it (settleSpring below). A spring started at the finger's speed has
@@ -234,7 +236,30 @@ export const slotLeft = (index: number, g: Geometry): number =>
  * Position and size are separate CSS properties (`translate`, `scale`), and
  * the stretch is `transform`, so each keeps its own motion.
  */
-const CATCH_UP = 0.6
+/*
+  ROUND 31: ON A SPRING BEHIND THE FINGER, NOT NAILED TO IT. The owner: "the liquid thing as I'm dragging needs to be more
+  flexible, more smooth and clean, more like liquid iOS, because it's too solid and looks really weird". One to one was the
+  solid part: the glass went exactly where the finger's last event put it, so every uneven event was a step, a stop was a
+  dead stop, and the stretch had to be guessed from a smoothed copy of the finger's speed rather than read off a thing
+  actually moving. So the glass now chases the finger on a critically damped spring (FOLLOW_SPRING): no overshoot while
+  the finger is down, a few pixels behind a moving finger (measured at the median: 4px at a slow 0.2px/ms slide, 13 to 16px
+  at an ordinary 0.7px/ms one), and on top of it within about 80ms of the finger stopping. The pick up gap needs no offset of its own any more, the spring
+  closes it. Solved exactly for each frame's real length rather than stepped, so a 60Hz, a 120Hz and a dropped frame all
+  draw the same curve. And the speed the stretch reads is the glass's own, which a spring makes smooth by itself.
+*/
+const FOLLOW_SPRING = { stiffness: 3600, damping: 120 }
+const FOLLOW_W = Math.sqrt(FOLLOW_SPRING.stiffness)
+/**
+ * One frame of the follow, exact for a critically damped spring whose target holds still for the frame: `x` is how far the
+ * glass is from the finger (px), `v` its speed (px per ms), `ms` the frame's real length. Returns both after the frame.
+ */
+function followStep(x: number, v: number, ms: number): { x: number; v: number } {
+  const t = ms / 1000
+  const e = Math.exp(-FOLLOW_W * t)
+  const c = v * 1000 + FOLLOW_W * x
+  const nx = (x + c * t) * e
+  return { x: nx, v: ((c - FOLLOW_W * (x + c * t)) * e) / 1000 }
+}
 /**
  * The spring a released drag lands on: stiff enough to be there in about a
  * third of a second, damped to a single small overshoot (about 3% of the
@@ -254,24 +279,24 @@ const SPRING = { stiffness: 520, damping: 34 }
  */
 /**
  * LIQUID, LIKE A DROP OF GLASS. It stretches along the way it is moving, by
- * how fast it is moving, and rounds off as it slows: up to STRETCH_MAX wider
- * (a little narrower top to bottom, so it reads as the same drop pulled
- * along rather than a bigger one), on top of the lift, for about 1.15 in
- * all. From the speed, smoothed over a few frames, so a finger's uneven
- * events do not make it wobble. Stretch is written as `transform`, which
- * composes with `translate` and `scale` without touching either.
+ * how fast it is moving, and rounds off as it slows: towards STRETCH_MAX
+ * wider (a little narrower top to bottom, so it reads as the same drop pulled
+ * along rather than a bigger one), on top of the lift, for about 1.2 at a
+ * flick since round 31. From the glass's own speed on its follow spring, so
+ * a finger's uneven events do not make it wobble. Stretch is written as
+ * `transform`, which composes with `translate` and `scale` without touching
+ * either.
  */
-const STRETCH_MAX = 0.11
-/**
- * px per ms of speed for all of STRETCH_MAX. It was 0.6, three slots in a
- * quarter of a second, which is a quick slide: an ordinary drag across the
- * bar reached barely half the stretch, so the glass read as a box being
- * carried rather than as a drop being pulled. 0.5 puts the whole stretch
- * within an ordinary slide's reach, and the cap is what keeps a flick from
- * going further (STRETCH_MAX).
- */
-const STRETCH_AT = 0.5
-const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / STRETCH_AT) * STRETCH_MAX)
+/*
+  ROUND 31: FURTHER, AND NEVER AGAINST A WALL. The stretch was a straight line of the speed cut off flat at 0.11, so an
+  ordinary slide sat pinned at the cap, a quick one no wider than a slow one, and the squash after a stop hit its own
+  floor (0.03) in a frame: two hard edges, which is what "too solid" looks like on something meant to be liquid. Now it
+  eases towards STRETCH_MAX and never reaches it: 0.04 at a slow slide (0.2px/ms), 0.11 at an ordinary one, about 0.17
+  at a flick (scripts/check-lens-round31.mjs). STRETCH_AT is the speed (px per ms) that gets about two thirds of it.
+*/
+const STRETCH_MAX = 0.2
+const STRETCH_AT = 0.9
+const stretchFor = (speed: number) => STRETCH_MAX * (1 - Math.exp(-Math.abs(speed) / STRETCH_AT))
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -312,7 +337,14 @@ const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / S
   settling. 13 is about a third of critical: the same 2.1px squash, then 0.7px back and 0.2px, and it rests (stepDrop,
   sampled at 240Hz). The stiffness, and so the lean, is unchanged.
 */
-const DROP_SPRING = { stiffness: 360, damping: 13 }
+/*
+  ROUND 31: TIGHTER, AND FOLLOWING A SPEED THAT IS ALREADY SMOOTH. The drop used to be the only soft thing in the motion,
+  so it was tuned loose (a fifth, then a third of critical) to carry all the give by itself, and a stop from a flick ran it
+  into the squash floor. The give is the follow spring's job now, and the speed the drop reads comes off that spring, so
+  the drop is tightened to 0.61 of critical: it leans in within a frame or two of the glass, and a stop leaves one soft
+  squash of under a pixel on the 70px glass before it is round again (scripts/check-lens-round31.mjs).
+*/
+const DROP_SPRING = { stiffness: 600, damping: 30 }
 const SQUASH_MAX = 0.03
 /** How far ahead of the finger the stretch reaches: a drop pulled across glass is fuller at its front. */
 const DROP_LEAD = 0.26
@@ -329,14 +361,23 @@ function stepDrop(drop: Drop, speed: number, ms: number) {
     drop.d = Math.max(-SQUASH_MAX, Math.min(STRETCH_MAX, drop.d + drop.dv * dt))
   }
 }
-/** The lens's shape for a drop: wider and a little flatter while stretched, leaning the way it goes; narrower and taller in the squash. `dot` is the lens's width on this screen. */
+/**
+ * The lens's shape for a drop: wider and a little flatter while stretched, leaning the way it goes; narrower and taller in
+ * the squash. `dot` is the lens's width on this screen.
+ *
+ * Round 31: the height is the width's inverse square root, so the drop keeps about the same amount of glass as it is
+ * pulled (1.18 wide is 0.92 high) instead of the old straight 1 - d/2, and the squash is the same rule run backwards.
+ */
 function dropStyle(drop: Drop, dot: number): string {
   const d = drop.d
   if (Math.abs(d) < 0.002) return "scale(1, 1)"
   const lead = d > 0 ? Math.round(drop.dir * d * dot * DROP_LEAD * 100) / 100 : 0
-  return `translateX(${lead}px) scale(${Math.round((1 + d) * 1000) / 1000}, ${Math.round((1 - d * 0.5) * 1000) / 1000})`
+  return `translateX(${lead}px) scale(${Math.round((1 + d) * 1000) / 1000}, ${Math.round(Math.pow(1 + d, -0.5) * 1000) / 1000})`
 }
 const dropSettled = (drop: Drop) => Math.abs(drop.d) < 0.002 && Math.abs(drop.dv) < 0.05
+/** How far the light inside the glass slides from one end of the bar to the middle (px), and how far it trails a moving glass. */
+const SHEEN_TRAVEL = 4
+const SHEEN_TRAIL = 2
 
 /**
  * The spring from `from` (px, with `speed` px/ms) to `to`, as keyframes of
@@ -661,11 +702,15 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
   const targetRef = useRef(0)
   const posRef = useRef<number | null>(null)
   const frameRef = useRef(0)
-  /* The gap between the circle and the finger when a drag picks it up,
-     dying away by CATCH_UP a frame. */
-  const offsetRef = useRef(0)
-  /* How fast it is going, px per ms, smoothed; and when it was last drawn. */
+  /* How fast the glass is going on its follow spring, px per ms; and when it
+     was last drawn. */
   const speedRef = useRef(0)
+  /* Reduced motion, read when a finger lands: the glass then goes straight
+     to the finger with no spring and no stretch. */
+  const reducedRef = useRef(false)
+  /* The light inside the glass that shifts with its place on the bar, if
+     the bar draws one (data-lens-sheen); found once, when a drag starts. */
+  const sheenRef = useRef<HTMLElement | null>(null)
   /* The drop's shape and its spring (A DROP OF WATER, above). */
   const dropRef = useRef<Drop>({ d: 0, dv: 0, dir: 1 })
   const stampRef = useRef(0)
@@ -722,26 +767,52 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
     if (!dot || posRef.current == null) return
     dot.style.translate = `${Math.round(posRef.current * 100) / 100}px 0`
     dot.style.transform = dropSettled(dropRef.current) ? "" : dropStyle(dropRef.current, geoRef.current.dot)
+    /* Round 31: the light inside the glass slides a few pixels with the glass's place across the bar, the way a highlight
+       on a real lens moves as it passes under the light, and trails its motion by a pixel or two. Its own layer, so this
+       is a transform like the rest and paints nothing. */
+    const sheen = sheenRef.current
+    const box = boxRef.current
+    if (sheen && box && box.width > 0) {
+      const across = (posRef.current + geoRef.current.dot / 2) / box.width - 0.5
+      const shift = across * 2 * SHEEN_TRAVEL - Math.max(-SHEEN_TRAIL, Math.min(SHEEN_TRAIL, speedRef.current * SHEEN_TRAIL))
+      sheen.style.translate = `${Math.round(shift * 100) / 100}px 0`
+    }
   }
   /**
-   * One frame under a finger: the finger's place, plus what is left of the
-   * pick up gap. Runs for as long as the finger is dragging, still or not,
-   * so the gap and the stretch both settle while it holds still.
+   * One frame under a finger: the glass a frame further along its follow
+   * spring towards the finger (FOLLOW_SPRING), the drop's shape from the
+   * speed that gives it. Runs while anything is still moving, and stops
+   * once the glass is on the finger and round, so a finger held still costs
+   * no frames; the next move wakes it.
    */
   const step = (now: number) => {
     frameRef.current = 0
     if (posRef.current == null || !activeRef.current) return
-    const dt = stampRef.current ? Math.min(64, Math.max(1, now - stampRef.current)) : 16.7
+    const dt = stampRef.current ? Math.min(100, Math.max(1, now - stampRef.current)) : 16.7
     stampRef.current = now
-    offsetRef.current *= Math.pow(CATCH_UP, dt / 16.7)
-    if (Math.abs(offsetRef.current) < 0.05) offsetRef.current = 0
-    const next = targetRef.current + offsetRef.current
-    /* Speed as an average over the last few frames: the finger's own events
-       are uneven, and a stretch read off one of them would wobble. */
-    const blend = 1 - Math.pow(0.55, dt / 16.7)
-    speedRef.current += ((next - posRef.current) / dt - speedRef.current) * blend
-    posRef.current = next
+    const target = targetRef.current
+    if (reducedRef.current) {
+      /* Reduced motion: where the finger is, no spring, no stretch, and nothing left running. */
+      posRef.current = target
+      speedRef.current = 0
+      paint()
+      stampRef.current = 0
+      return
+    }
+    const f = followStep(posRef.current - target, speedRef.current, dt)
+    posRef.current = target + f.x
+    speedRef.current = f.v
     stepDrop(dropRef.current, speedRef.current, dt)
+    if (Math.abs(f.x) < 0.05 && Math.abs(f.v) < 0.002 && dropSettled(dropRef.current)) {
+      /* At rest under a still finger: exactly there, and the loop parks until the finger moves again. */
+      posRef.current = target
+      speedRef.current = 0
+      dropRef.current.d = 0
+      dropRef.current.dv = 0
+      paint()
+      stampRef.current = 0
+      return
+    }
     paint()
     frameRef.current = requestAnimationFrame(step)
   }
@@ -815,23 +886,24 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
     if (!movedRef.current && Math.abs(clientX - downXRef.current) > DRAG_SLOP) {
       movedRef.current = true
       /* Pick the circle up from where it is drawn (a spring still running
-         included), so following it on starts where the eye last saw it, and
-         carry the gap to the finger as an offset that dies away. */
+         included), so following it on starts where the eye last saw it; the
+         follow spring closes the gap to the finger (round 31: no offset of
+         its own any more). */
       stopSettle()
       const drawn = drawnAt() ?? leftFor(clientX)
       posRef.current = drawn
-      offsetRef.current = drawn - leftFor(clientX)
       speedRef.current = 0
       dropRef.current = { d: 0, dv: 0, dir: 1 }
       stampRef.current = 0
+      sheenRef.current = dotRef.current?.querySelector<HTMLElement>("[data-lens-sheen]") ?? null
       setFollowing(true)
       /* And a drag, released, is the gesture the spring was asked for. */
       setBounce(true)
     }
     const next = slotAt(clientX)
     if (movedRef.current) {
-      /* Under the finger, one to one, every frame, with no transition to be
-         a delay. */
+      /* The finger is the target; the loop brings the glass to it on the
+         follow spring, with no CSS transition to be a second delay. */
       targetRef.current = leftFor(clientX)
       wake()
     }
@@ -944,6 +1016,7 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
            MEASURED AGAIN INSIDE THE GESTURE): everything after this reads it. */
         readBox()
         activeRef.current = true
+        reducedRef.current = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         /* Left null: the loop paints nothing until a finger proves it is
            dragging, so a press never animates. */
         posRef.current = null

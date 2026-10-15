@@ -19,6 +19,8 @@ import { useProductTopBarShown } from "@/lib/store-builder/product-top-bar"
 import { useRouter } from "next/navigation"
 import { carryTouches } from "@/lib/attribution/browser"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
+import { tint } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -157,7 +159,7 @@ function barRating(count: number, average: number, textColor: string | undefined
         "mt-0.5 flex items-center gap-1 text-[12px] leading-none",
         !textColor && (isDarkBg ? "text-gray-300" : "text-gray-500"),
       )}
-      style={{ color: textColor ? `${textColor}b3` : undefined }}
+      style={{ color: textColor ? tint(textColor, "b3") : undefined }}
     >
       <Star className="h-3 w-3 shrink-0 fill-current" />
       {average > 0 ? average.toFixed(1) : "5.0"}
@@ -452,6 +454,12 @@ export function LiveStickyAddToCart({
   /* Pressed on the way to checkout: a spinner at once, cleared when the page is shown again (lib/navigation/press-pending). */
   const [opening, startOpening] = usePressPending()
   const barRef = useRef<HTMLDivElement>(null)
+  /*
+    Round 31, the owner: "the sticky add to cart bar is not adapted" in the dark look. On Storelib's own product page
+    the bar's colours follow the person's look (lib/appearance/site-paint): the card's charcoal, a faint edge, light
+    words; in the light look exactly the colours it had. A creator's own look keeps its own.
+  */
+  const paint = useSitePaint()
 
   // Mount on client
   useEffect(() => {
@@ -608,7 +616,7 @@ export function LiveStickyAddToCart({
   )
 
   // Use textColor from settings if available, otherwise derive from background
-  const contentTextColor = settings.textColor || (isDarkBg ? "#ffffff" : undefined)
+  const contentTextColor = paint(settings.textColor || (isDarkBg ? "#ffffff" : undefined), "ink")
 
   const thumbnail = barThumbnail(product.thumbnail_url, !!isDarkBg)
   const ratingLine = barRating(reviewsCount, reviewsAverage, contentTextColor, !!isDarkBg)
@@ -626,9 +634,9 @@ export function LiveStickyAddToCart({
         !settings.borderColor && "border-gray-200",
       )}
       style={{
-        backgroundColor: settings.backgroundColor || "#ffffff",
+        backgroundColor: paint(settings.backgroundColor || "#ffffff", "bg"),
         backdropFilter: "none",
-        borderColor: settings.borderColor || undefined,
+        borderColor: paint(settings.borderColor, "line") || undefined,
         // env(safe-area-inset-bottom) keeps content above the iOS home indicator.
         // --sab was never defined anywhere; use the native env() directly.
         /* STANDING ON THE BUYER'S TAB BAR. Browsed from Storelib on a phone
@@ -675,7 +683,7 @@ export function LiveStickyAddToCart({
             data-sold-out={closed ? "" : undefined}
             className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10 flex items-center gap-2"
             style={{
-              backgroundColor: settings.buttonColor || "#2563eb",
+              backgroundColor: paint(settings.buttonColor || "#2563eb", "bg"),
               color: settings.buttonTextColor || "#ffffff",
               borderRadius: `${settings.borderRadius || 8}px`,
             }}
@@ -735,7 +743,7 @@ export function LiveStickyAddToCart({
               data-sold-out={closed ? "" : undefined}
               className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10 flex items-center gap-2"
               style={{
-                backgroundColor: settings.buttonColor || "#2563eb",
+                backgroundColor: paint(settings.buttonColor || "#2563eb", "bg"),
                 color: settings.buttonTextColor || "#ffffff",
                 borderRadius: `${settings.borderRadius || 8}px`,
               }}

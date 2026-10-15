@@ -4,7 +4,7 @@
  * ===========================================================================
  *  SETTINGS
  * ===========================================================================
- * Under one tab row (?tab=), the way /app/settings groups its panels:
+ * Panels named in the address (?tab=), grouped the way /app/settings groups them:
  *
  *   Page           what people see before they join: name, address,
  *                  tagline, category (the Explore pill it is found under),
@@ -21,27 +21,29 @@
  *                  (worker M's columns, run-now part 101).
  *   Roles          the owner's: what admins and moderators may do, a group
  *                  of actions at a time (run-now part 100).
- *   Gamification   points, levels, badges.
+ *   Points and     points, levels, badges (?tab=gamification).
+ *   levels
  *   Notifications  what you hear about in this community.
- *   Advanced       publish, videos, archive, delete (the name typed back).
+ *   Publish and    publish, videos, archive, delete (the name typed back;
+ *   archive        ?tab=advanced).
  *
  * The rules are written here and in Moderation, beside the reports.
  * Older links (?tab=general, ?tab=discovery) land on the tab that now holds
  * what they pointed at. A switch saves when it is flipped; a form saves
- * with its Save bar.
+ * with its save bar (./parts EditorFoot, the /app Settings bar, round 31).
  */
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
-import { Check, ChevronDown, Plus, Trash2, X } from "lucide-react"
-import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
+import { ChoicePicker } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
-import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, settingsTabAsked, settingsTabOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { accessSummary, privacyTitle, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 import { communityAppearance, type CommunityAppearance } from "@/lib/communities/appearance"
@@ -53,72 +55,102 @@ import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
+import { CommunityDomainPanel } from "./community-domain-panel"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
-import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
+import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, RemoveButton, Section, Segmented, SelectField, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
-type SettingsGroup = "community" | "people" | "account"
+type SettingsGroup = "community" | "people" | "you"
 
-const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"]; group: SettingsGroup }[] = [
-  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community" },
-  { value: "access", get label() { return tt("Access") }, needs: "manage_settings", group: "community" },
-  { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community" },
-  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people" },
+/*
+  NAMES A BUSINESS READS AT A GLANCE (round 31). Each panel has a line under its name saying what is in it, shown in the
+  phone's list and under the panel's title. Gamification is Points and levels; Advanced is Publish and archive, which is what
+  it holds, and sits with the community's other panels.
+*/
+const TABS: { value: SettingsTab; label: string; line: string; needs: keyof CommunityHead["can"]; group: SettingsGroup }[] = [
+  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community", get line() { return tt("Name, pictures, description and address") } },
+  { value: "access", get label() { return tt("Access") }, needs: "manage_settings", group: "community", get line() { return tt("Who can join, prices and who can find it") } },
+  { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") } },
+  { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") } },
+  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") } },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
-  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people" },
-  { value: "gamification", get label() { return tt("Gamification") }, needs: "manage_gamification", group: "people" },
-  { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "account" },
-  { value: "advanced", get label() { return tt("Advanced") }, needs: "archive", group: "account" },
+  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") } },
+  { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") } },
+  { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") } },
 ]
 
 const GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "community", get label() { return tt("Community") } },
   { id: "people", get label() { return tt("Members") } },
-  { id: "account", get label() { return tt("More") } },
+  { id: "you", get label() { return tt("You") } },
 ]
 
-/*
-  SETTINGS IS A COLUMN, NOT A SECOND ROW OF PILLS. The community's own tabs
-  are the row at the top; a second row of eight under them read as two
-  menus fighting. From 1024px the settings are the /app Settings page's
-  column of groups (components/app/settings-form-new.tsx data-settings-groups),
-  beside the one open. Below it, one compact control names the open one and
-  opens the same list as the shared bottom sheet (ResponsiveActionMenu).
+/** The history entry a phone pushes when it opens a panel from the list, so Back returns to the list. */
+const PANEL_ENTRY = "communitySettingsPanel"
 
-  A PANEL YOU LEFT KEEPS WHAT YOU TYPED. Each panel stays mounted once it has
-  been opened and is only hidden while another is showing, so going to
-  Access and back to Page does not throw away an unsaved name.
+/*
+  THE /app SETTINGS WAY OF FINDING A PANEL (round 31). "A pill shaped selector that opens a bottom sheet: weird." From
+  1024px the panels are a column of groups beside the one open (components/app/settings-form-new.tsx data-settings-groups).
+  Below it Settings opens on the list itself, in its groups, a row each with what it holds and a chevron; a row opens its
+  panel under a back row, and Back (the row, the browser's, a phone's swipe) returns to the list. An address that names a
+  panel (?tab=) opens on it.
+
+  A PANEL YOU LEFT KEEPS WHAT YOU TYPED. Each panel stays mounted once it has been opened and is only hidden while another is
+  showing, so going to Access and back to Page does not throw away an unsaved name.
 */
-export function SettingsSection({ head, data, tab: initialTab, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; videoProviders?: ProviderLine[] }) {
+export function SettingsSection({ head, data, tab: initialTab, asked = true, videoProviders = [] }: { head: CommunityHead; data: SettingsData; tab: SettingsTab; asked?: boolean; videoProviders?: ProviderLine[] }) {
   const tabs = TABS.filter((t) => head.can[t.needs])
   const [tab, setTab] = React.useState<SettingsTab>(tabs.some((t) => t.value === initialTab) ? initialTab : (tabs[0]?.value ?? "notifications"))
+  /* Below 1024px only: the list of panels, or the one open. From 1024px both are drawn by CSS, whatever this says. */
+  const [view, setView] = React.useState<"list" | "panel">(asked ? "panel" : "list")
   const [opened, setOpened] = React.useState<Set<SettingsTab>>(() => new Set([tab]))
-  const choose = (t: SettingsTab) => {
+  const root = React.useRef<HTMLDivElement>(null)
+  const open = (t: SettingsTab) => {
     setTab(t)
     setOpened((was) => (was.has(t) ? was : new Set(was).add(t)))
+  }
+  const toTop = () => {
+    const pane = root.current?.closest<HTMLElement>(".orders-pane")
+    if (pane) pane.scrollTop = 0
+  }
+  /* A computer's column: the address follows, with no history entry per panel. */
+  const choose = (t: SettingsTab) => {
+    open(t)
     const url = new URL(window.location.href)
     url.searchParams.set("tab", t)
     window.history.replaceState(window.history.state, "", url.pathname + url.search)
   }
-  const current = tabs.find((t) => t.value === tab)
-  const menu = React.useMemo<ActionMenuItem[]>(() => {
-    const out: ActionMenuItem[] = []
-    for (const g of GROUPS) {
-      const list = tabs.filter((t) => t.group === g.id)
-      list.forEach((t, i) =>
-        out.push({
-          label: t.label,
-          icon: t.value === tab ? <Check className="h-4 w-4" aria-hidden /> : <span aria-hidden className="h-4 w-4" />,
-          onClick: () => choose(t.value),
-          section: i === 0 ? g.label : undefined,
-        }),
-      )
+  /* A phone's list: a history entry, so Back returns to the list. */
+  const openFromList = (t: SettingsTab) => {
+    open(t)
+    setView("panel")
+    const url = new URL(window.location.href)
+    url.searchParams.set("tab", t)
+    window.history.pushState({ [PANEL_ENTRY]: true }, "", url.pathname + url.search)
+    toTop()
+  }
+  const backToList = () => {
+    if ((window.history.state as Record<string, unknown> | null)?.[PANEL_ENTRY]) return window.history.back()
+    setView("list")
+    const url = new URL(window.location.href)
+    url.searchParams.delete("tab")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search)
+    toTop()
+  }
+  React.useEffect(() => {
+    const onPop = () => {
+      if (!/\/settings\/?$/.test(window.location.pathname)) return
+      const raw = new URLSearchParams(window.location.search).get("tab")
+      if (!settingsTabAsked(raw)) return setView("list")
+      open(settingsTabOf(raw))
+      setView("panel")
     }
-    return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, tabs.length])
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
+  const current = tabs.find((t) => t.value === tab)
   const panel = (t: SettingsTab, node: React.ReactNode) =>
     opened.has(t) || tab === t ? (
       <div key={t} hidden={tab !== t} data-settings-panel={t}>
@@ -126,14 +158,14 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
       </div>
     ) : null
   return (
-    <div data-settings="" data-tab={tab} className="lg:grid lg:grid-cols-[196px_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[128px] hidden lg:block">
+    <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[136px] hidden lg:block">
         {GROUPS.map((g) => {
           const list = tabs.filter((t) => t.group === g.id)
           if (!list.length) return null
           return (
-            <div key={g.id} className="mb-1 last:mb-0" data-settings-group={g.id}>
-              <p className="px-3 pb-1 pt-4 text-[12px] font-medium text-[#9ca3af] first:pt-0">{g.label}</p>
+            <div key={g.id} className="mb-1 last:mb-0 [&+&]:mt-4" data-settings-group={g.id}>
+              <p className="px-3 pb-1 text-[12px] font-medium text-[#9ca3af]">{g.label}</p>
               {list.map((t) => {
                 const on = tab === t.value
                 return (
@@ -144,8 +176,8 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
                     data-settings-tab={t.value}
                     onClick={() => choose(t.value)}
                     className={cn(
-                      "flex h-9 w-full items-center rounded-[10px] px-3 text-left text-[14px] outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]",
-                      on ? "bg-[#e9e9eb] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.08),inset_0_0_0_1px_rgba(16,18,27,0.05)]" : "text-[#4b5563] hover:bg-[#f1f1f3] hover:text-[#1a1a2e]",
+                      "flex h-9 w-full items-center rounded-[10px] px-3 text-left text-[14px] outline-none transition-[background-color,color,box-shadow,scale] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]",
+                      on ? "bg-[#e9e9eb] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.08),inset_0_0_0_1px_rgba(16,18,27,0.05),inset_0_1px_0_rgba(255,255,255,0.7)]" : "text-[#4b5563] hover:bg-[#f1f1f3] hover:text-[#1a1a2e]",
                     )}
                   >
                     {t.label}
@@ -156,25 +188,46 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
           )
         })}
       </nav>
-      <div className="min-w-0">
-        {/* Below 1024px: one control that names the open settings and opens the list. */}
-        <div className="mb-4 lg:hidden" data-settings-picker="">
-          <ResponsiveActionMenu
-            title={tt("Settings")}
-            align="start"
-            menuWidth="w-64"
-            items={menu}
-            trigger={
-              <button type="button" className="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 active:bg-[#f6f7f8] sm:w-[280px]">
-                <span className="min-w-0 truncate text-[14px]">
-                  <span className="text-[#6b7280]">{tt("Settings")}</span>
-                  <span className="px-1.5 text-[#d1d5db]">/</span>
-                  <span className="font-medium text-[#1a1a2e]">{current?.label}</span>
-                </span>
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-              </button>
-            }
-          />
+
+      {/* Below 1024px, the list of panels in their groups. */}
+      <div data-settings-list="" className={cn("space-y-5 lg:hidden", view !== "list" && "hidden")}>
+        {GROUPS.map((g) => {
+          const list = tabs.filter((t) => t.group === g.id)
+          if (!list.length) return null
+          return (
+            <section key={g.id} data-settings-list-group={g.id}>
+              <h2 className="mb-1.5 px-1 text-[13px] font-medium text-[#6b7280]">{g.label}</h2>
+              <div className={cn(card, "divide-y divide-[#f1f2f4] overflow-hidden")}>
+                {list.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    data-settings-row={t.value}
+                    onClick={() => openFromList(t.value)}
+                    className="flex min-h-[60px] w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors duration-100 active:bg-[#f4f5f7] focus-visible:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium leading-5 text-[#1a1a2e]">{t.label}</span>
+                      <span className="mt-0.5 block truncate text-[13px] leading-[18px] text-[#6b7280]">{t.line}</span>
+                    </span>
+                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+
+      <div data-settings-open="" className={cn("min-w-0", view === "list" && "max-lg:hidden")}>
+        {/* The panel's name and what it holds; on a phone under the way back to the list. */}
+        <div className="mb-4 lg:mb-5" data-settings-head="">
+          <button type="button" onClick={backToList} data-settings-back="" className="-ml-2 mb-1.5 inline-flex h-10 cursor-pointer items-center gap-1 rounded-lg pl-1.5 pr-2.5 text-[14px] font-medium text-[#4b5563] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] active:bg-[#e4e6ea] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)] lg:hidden [-webkit-tap-highlight-color:transparent]">
+            <ChevronLeft aria-hidden className="h-[18px] w-[18px]" />
+            {tt("Settings")}
+          </button>
+          <h2 className="text-[20px] font-bold leading-7 text-[#1a1a2e] lg:text-[22px]">{current?.label}</h2>
+          <p className="mt-0.5 text-[14px] text-[#6b7280]">{current?.line}</p>
         </div>
         {panel("page", <PageSettings head={head} data={data} />)}
         {panel(
@@ -380,6 +433,9 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
             </div>
           </EditorCard>
 
+          {/* Round 31: a domain of the creator's own can show this community (components/community/creator/community-domain-panel.tsx). */}
+          <CommunityDomainPanel communityId={head.id} />
+
           <EditorCard title={tt("Logo")}>
             <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
           </EditorCard>
@@ -406,15 +462,19 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
           </EditorCard>
 
           <EditorCard title={tt("Category")} hint={tt("Where it shows up in Explore.")}>
-            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
-            <select id="g-category" value={s.category} aria-label={tt("Category")} onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
-              <option value="">{tt("No category")}</option>
-              {COMMUNITY_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. The /app Settings field (round 31), searchable. */}
+            <ChoicePicker
+              id="g-category"
+              name="community-category"
+              title={tt("Category")}
+              choices={[{ value: "", label: tt("No category") }, ...COMMUNITY_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))]}
+              value={s.category}
+              onChange={(v) => set("category", v)}
+              placeholder={tt("Search categories")}
+              fieldLabel={COMMUNITY_CATEGORIES.find((c) => c.id === s.category)?.label ?? tt("No category")}
+              fieldMuted={!s.category}
+              fieldClassName="h-11 rounded-lg border-[#e1e3e7] sm:h-10"
+            />
           </EditorCard>
 
           {head.can.manage_settings ? (
@@ -497,9 +557,7 @@ function ListEditor({ items, onChange, max, placeholder, addLabel }: { items: st
       {rows.map((b, i) => (
         <div key={i} className="flex items-center gap-2">
           <input value={b} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value.slice(0, 120) : x)))} placeholder={i === 0 ? placeholder : ""} aria-label={tt("Line {value}", { value: i + 1 })} className={cn(field, "h-11 sm:h-10")} />
-          <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label={tt("Remove line {value}", { value: i + 1 })} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
-            <Trash2 aria-hidden className="h-4 w-4" />
-          </button>
+          <RemoveButton label={tt("Remove line {value}", { value: i + 1 })} onClick={() => onChange(rows.filter((_, j) => j !== i))} />
         </div>
       ))}
       {rows.length < max ? (
@@ -525,9 +583,7 @@ function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel
               <textarea value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.slice(0, 2000) } : x)))} placeholder={bPlaceholder} rows={2} aria-label={tt("Detail {value}", { value: i + 1 })} className={cn(field, "resize-y py-2 leading-relaxed")} />
             )}
           </div>
-          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={tt("Remove {value}", { value: i + 1 })} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f4f5f7]">
-            <Trash2 aria-hidden className="h-4 w-4" />
-          </button>
+          <RemoveButton label={tt("Remove {value}", { value: i + 1 })} onClick={() => onChange(items.filter((_, j) => j !== i))} className="mt-0.5 sm:mt-1" />
         </div>
       ))}
       {items.length < max ? (
@@ -980,11 +1036,18 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
               <label htmlFor="d-vis" className={label}>
                 {tt("Visibility")}
               </label>
-              <select id="d-vis" value={s.visibility} onChange={(e) => setS({ ...s, visibility: e.target.value as typeof s.visibility })} className={selectField}>
-                <option value="public">{tt("Public: anyone can see the page")}</option>
-                <option value="unlisted">{tt("Unlisted: only with the link")}</option>
-                <option value="private">{tt("Private: members only")}</option>
-              </select>
+              <SelectField
+                id="d-vis"
+                name="community-visibility"
+                title={tt("Visibility")}
+                value={s.visibility}
+                onChange={(v) => setS({ ...s, visibility: v })}
+                options={[
+                  { value: "public", label: tt("Public: anyone can see the page") },
+                  { value: "unlisted", label: tt("Unlisted: only with the link") },
+                  { value: "private", label: tt("Private: members only") },
+                ]}
+              />
             </div>
             {/* The category is chosen in Page, from Explore's own list. */}
           </div>

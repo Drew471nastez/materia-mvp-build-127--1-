@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 interface PurchaseStatusWrapperProps {
   productId: string
@@ -168,6 +169,8 @@ function DigitalPurchaseStatus({
 
   const initialVariant = getInitialVariant()
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(initialVariant)
+  /* Round 31: on Storelib's own product page the colours here follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
   const [currentPrice, setCurrentPrice] = useState(
     initialVariant ? (initialVariant.price_cents || 0) : priceCents
   )
@@ -293,11 +296,11 @@ function DigitalPurchaseStatus({
               href={membership.memberHref}
               data-open-membership=""
               className="flex min-h-[48px] w-full items-center justify-center rounded-md px-4 text-[15px] font-semibold"
-              style={{ backgroundColor: downloadButtonBgColor || "#1a1a2e", color: downloadButtonTextColor || "#ffffff" }}
+              style={{ backgroundColor: paint(downloadButtonBgColor || "#1a1a2e", "bg"), color: downloadButtonTextColor || "#ffffff" }}
             >
               Open your membership
             </a>
-            <p className="text-center text-sm" style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}>
+            <p className="text-center text-sm" style={{ color: paint(themeColors?.cardPriceColor, "ink") || "var(--muted-foreground)" }}>
               You are a member
             </p>
           </>
@@ -353,14 +356,14 @@ function DigitalPurchaseStatus({
         <div className="mb-4">
           <p
             className="text-lg font-semibold mb-2"
-            style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+            style={{ color: paint(themeColors?.cardTextColor, "ink") || "var(--foreground)" }}
           >
             Name a fair price
           </p>
           <div className="relative">
             <span
               className="absolute left-3 top-1/2 -translate-y-1/2 text-lg font-medium"
-              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+              style={{ color: paint(themeColors?.cardTextColor, "ink") || "var(--foreground)" }}
             >
               $
             </span>
@@ -376,9 +379,9 @@ function DigitalPurchaseStatus({
               }}
               className="pl-8 h-12 text-lg font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               style={{
-                backgroundColor: themeColors?.cardBackground || undefined,
-                color: themeColors?.cardTextColor || undefined,
-                borderColor: pwywError ? "#ef4444" : (themeColors?.cardBorderColor || undefined),
+                backgroundColor: paint(themeColors?.cardBackground, "bg") || undefined,
+                color: paint(themeColors?.cardTextColor, "ink") || undefined,
+                borderColor: pwywError ? "#ef4444" : (paint(themeColors?.cardBorderColor, "line") || undefined),
               }}
             />
           </div>
@@ -388,7 +391,7 @@ function DigitalPurchaseStatus({
           {pwywSettings.minCents === 0 && !pwywError && (
             <p
               className="text-sm mt-1"
-              style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
+              style={{ color: paint(themeColors?.cardPriceColor, "ink") || "var(--muted-foreground)" }}
             >
               Pay what you want (including free)
             </p>
@@ -402,7 +405,7 @@ function DigitalPurchaseStatus({
         <div className="mb-4">
           <div
             className="text-2xl sm:text-3xl font-bold"
-            style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+            style={{ color: paint(themeColors?.cardTextColor, "ink") || "var(--foreground)" }}
           >
             {currentPrice === 0 ? "Free" : formatPrice(currentPrice)}
           </div>
@@ -410,7 +413,7 @@ function DigitalPurchaseStatus({
             <div className="mt-1 flex items-center gap-2">
               <span
                 className="text-base sm:text-lg line-through"
-                style={{ color: themeColors?.cardPriceColor || "var(--muted-foreground)" }}
+                style={{ color: paint(themeColors?.cardPriceColor, "ink") || "var(--muted-foreground)" }}
               >
                 {formatPrice(effectiveCompareAtPrice)}
               </span>
@@ -479,7 +482,7 @@ function DigitalPurchaseStatus({
               aria-disabled="true"
               data-sold-out=""
               className="flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-md px-4 text-[15px] font-semibold"
-              style={{ backgroundColor: themeColors?.cardBorderColor || "#e5e7eb", color: themeColors?.cardPriceColor || "#6b7280" }}
+              style={{ backgroundColor: paint(themeColors?.cardBorderColor || "#e5e7eb", "bg"), color: paint(themeColors?.cardPriceColor || "#6b7280", "ink") }}
             >
               Sold out
             </button>
@@ -497,7 +500,7 @@ function DigitalPurchaseStatus({
             />
           )}
           {!sales?.soldOut && sales?.fewLeft && (
-            <p data-few-left="" className="text-center text-[13px] font-medium tabular-nums" style={{ color: themeColors?.cardPriceColor || "#6b7280" }}>
+            <p data-few-left="" className="text-center text-[13px] font-medium tabular-nums" style={{ color: paint(themeColors?.cardPriceColor || "#6b7280", "ink") }}>
               {sales.fewLeft}
             </p>
           )}
@@ -519,11 +522,11 @@ function DigitalPurchaseStatus({
 
       {/* Variant selector - ALWAYS visible, allows switching between variants */}
       {variants.length > 0 && (
-        <div className="mt-4 pt-4 border-t" style={{ borderColor: themeColors?.cardBorderColor || "var(--border)" }}>
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: paint(themeColors?.cardBorderColor, "line") || "var(--border)" }}>
           {!showOwnedState && (
             <p
               className="text-sm font-medium mb-3"
-              style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+              style={{ color: paint(themeColors?.cardTextColor, "ink") || "var(--foreground)" }}
             >
               Select option
             </p>

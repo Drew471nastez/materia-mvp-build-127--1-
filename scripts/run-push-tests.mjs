@@ -135,6 +135,8 @@ const SUITES = [
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
   "tests/creator-domain-seo.test.ts",
+  /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
+  "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
@@ -575,6 +577,8 @@ const SUITES = [
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
   "tests/communities-frame12.test.ts",
+  /* Round 31: the community content sections in /app: the icon picker, rows that open, the form sheet, the member composer as the Feed writer (scripts/check-community-content-round31.mjs measures them). */
+  "tests/communities-content31.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-frame13.test.ts",
   "tests/communities-posts.test.ts",
@@ -589,6 +593,8 @@ const SUITES = [
   "tests/communities-feed-rank.test.ts",
   "tests/communities-admin13.test.ts",
   "tests/communities-events-admin.test.ts",
+  /* Round 31: a community analytics for any period, its visits and Google Analytics (scripts/check-community-analytics-round31.mjs measures the screen). */
+  "tests/community-analytics-r31.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
@@ -609,6 +615,8 @@ const SUITES = [
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
+  /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
+  "tests/communities-admin31.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",

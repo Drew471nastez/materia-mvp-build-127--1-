@@ -693,7 +693,10 @@ try {
     const COMPOSITOR = new Set(["opacity", "scale", "translate", "transform"])
     for (const r of all) {
       expect(!r.held.backdrop || r.held.backdrop === "none", `${r.tag}: no backdrop blur over an opaque bar`, r.held.backdrop)
-      expect(r.tap.peakOpacity >= 0.99, `${r.tag}: a 45ms tap still shows the glass whole`, r.tap.peakOpacity)
+      /* Changed on purpose (round 31, catching up with round 30): a tap shows the glass at its own strength, half in the light
+         and none in the dark (LENS_TAP_STRENGTH, --sl-tab-lens-tap), and a 45ms tap still reaches all of that strength. */
+      const tapStrength = r.tag === "dark" ? 0 : 0.5
+      expect(Math.abs(r.tap.peakOpacity - tapStrength) <= 0.01, `${r.tag}: a 45ms tap still shows the glass at the whole of a tap's strength (${tapStrength})`, r.tap.peakOpacity)
       expect(r.tap.end && r.tap.end.o === 0, `${r.tag}: and it is gone again after`, r.tap.end)
       expect(r.tap.maxStep <= 0.35, `${r.tag}: it comes and goes over several frames, never switched in one`, r.tap.maxStep)
       expect(r.tap.peakScale <= 1.02 && r.tap.minShownScale >= 0.88, `${r.tag}: it swells from 0.9 and runs a hair past whole at most`, [r.tap.minShownScale, r.tap.peakScale])

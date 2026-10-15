@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { Heart, Loader2, ChevronRight, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { paintAs, tint } from "@/lib/appearance/site-paint"
+import { useSitePaint, useSitePaintOn } from "@/lib/appearance/site-paint-context"
 import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 interface WishlistButtonProps {
@@ -43,6 +45,13 @@ export function WishlistButton({
   const [isAdding, setIsAdding] = useState(false)
   const [userLoggedIn, setUserLoggedIn] = useState(isLoggedIn)
   const [error, setError] = useState<string | null>(null)
+  /*
+    Round 31, the owner: "the add to wishlist button is not adapted". On Storelib's own product page its colours follow
+    the person's look (lib/appearance/site-paint): the card's charcoal, a faint edge, light words and heart in the dark;
+    exactly the colours it had in the light look.
+  */
+  const paint = useSitePaint()
+  const painting = useSitePaintOn()
 
   useEffect(() => {
     const checkWishlist = async () => {
@@ -121,12 +130,12 @@ export function WishlistButton({
 
   // Common button styles
   const buttonStyle = {
-    backgroundColor: backgroundColor || "#ffffff",
-    borderColor: borderColor || "#d1d5db",
-    color: textColor || "#111827",
+    backgroundColor: paint(backgroundColor || "#ffffff", "bg"),
+    borderColor: paint(borderColor || "#d1d5db", "line"),
+    color: paint(textColor || "#111827", "ink"),
   }
 
-  const iconStyle = iconColor ? { color: iconColor } : undefined
+  const iconStyle = iconColor ? { color: paint(iconColor, "ink") } : undefined
   const iconClassName = iconColor ? "h-4 w-4" : "h-4 w-4 text-gray-400"
 
   // Loading state
@@ -157,8 +166,8 @@ export function WishlistButton({
           className="w-full flex items-center justify-center gap-2 rounded-lg border py-3 px-4 min-h-[48px] hover:opacity-80 transition-colors cursor-pointer relative z-10"
           style={{
             ...buttonStyle,
-            borderColor: "#fca5a5",
-            color: textColor || "#dc2626",
+            borderColor: painting ? paintAs("danger-line", "#fca5a5") : "#fca5a5",
+            color: paint(textColor || "#dc2626", "ink"),
           }}
         >
           <Heart className="h-4 w-4" />
@@ -172,8 +181,8 @@ export function WishlistButton({
   // Already in wishlist - check icon in circle, themed text, chevron
   if (isWishlisted) {
     // Determine check badge colors based on theme
-    const checkBadgeBg = backgroundColor ? (textColor || "rgba(255,255,255,0.2)") : "#e5e7eb"
-    const checkIconColor = backgroundColor ? backgroundColor : "#6b7280"
+    const checkBadgeBg = backgroundColor ? paint(textColor || "rgba(255,255,255,0.2)", "ink") : paint("#e5e7eb", "bg")
+    const checkIconColor = backgroundColor ? paint(backgroundColor, "bg") : paint("#6b7280", "ink")
 
     const handleWishlistClick = () => {
       // Use window.location.href for reliable navigation (works across subdomains)
@@ -193,12 +202,12 @@ export function WishlistButton({
       >
         <div
           className="flex shrink-0 items-center justify-center w-5 h-5 rounded-full"
-          style={{ backgroundColor: iconColor ? `${iconColor}33` : checkBadgeBg }}
+          style={{ backgroundColor: iconColor ? tint(paint(iconColor, "ink"), "33") : checkBadgeBg }}
         >
           <Check
             className="h-3 w-3"
             strokeWidth={2.5}
-            style={{ color: iconColor || checkIconColor }}
+            style={{ color: paint(iconColor, "ink") || checkIconColor }}
           />
         </div>
         <span className="text-sm font-medium">In your wishlist</span>

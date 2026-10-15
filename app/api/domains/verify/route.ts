@@ -10,6 +10,7 @@ import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain }
 import { fixesFor, readRecord, recordFqdn, type RecordCheck } from "@/lib/custom-domains/dns-help"
 import { syncStripePaymentDomains } from "@/lib/custom-domains/stripe-pmd"
 import { LEGACY_CNAMES, SERVING_IPS, isServingCname } from "@/lib/custom-domains/targets"
+import { communityDomainTag, communityIdOf } from "@/lib/custom-domains/community"
 
 /**
  * ===========================================================================
@@ -170,6 +171,9 @@ export async function POST(request: Request) {
         .eq("id", domainId)
         .eq("creator_id", creatorId)
       revalidateTag(creatorDomainsTag(creatorId), "max")
+      /* A community's pages name their domain once it is live (lib/custom-domains/community-server.ts). */
+      const communityId = communityIdOf(domainRecord)
+      if (communityId) revalidateTag(communityDomainTag(communityId), "max")
       if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
       await syncStripePaymentDomains(admin, domainId, domain)
     }

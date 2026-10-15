@@ -72,10 +72,55 @@ export function visitorKey(facts: VisitorFacts, communityId: string, now: number
 
 export type ViewOutcome = "counted" | "repeat" | "skipped" | "unavailable"
 
-/** One view, through the database's own once a day rule. */
-export async function recordCommunityView(db: Db, communityId: string, key: string | null): Promise<ViewOutcome> {
+/**
+ * HOW THE VISIT ARRIVED, kept with the day's row once SQL part 184 has run
+ * (community_record_visit): the source in one word and the site that sent
+ * the visitor (lib/communities/visit-source.ts), the kind of device, the
+ * country, and whether they were already a member, so the community's
+ * Analytics can say where visits came from and how many non-members joined.
+ * Nothing in it says who the visitor is.
+ */
+export interface VisitFacts {
+  source: string | null
+  referrer: string | null
+  device: "mobile" | "tablet" | "desktop" | null
+  country: string | null
+  member: boolean | null
+}
+
+/** Whether community_record_visit is there; false once it was not, until the server restarts. */
+let visitReady = true
+
+/** For tests: ask for community_record_visit again. */
+export function resetVisitReady(): void {
+  visitReady = true
+}
+
+/**
+ * One view, through the database's own once a day rule. With `facts`, the
+ * day's row keeps them (part 184); before that part, the view is counted
+ * the way part 87 counts it, without them.
+ */
+export async function recordCommunityView(db: Db, communityId: string, key: string | null, facts?: VisitFacts | null): Promise<ViewOutcome> {
   if (!key) return "skipped"
   try {
+    if (facts && visitReady) {
+      const { data, error } = await db.rpc("community_record_visit", {
+        p_community: communityId,
+        p_visitor: key,
+        p_source: facts.source,
+        p_referrer: facts.referrer,
+        p_device: facts.device,
+        p_country: facts.country,
+        p_member: facts.member,
+      })
+      if (!error) return data === true ? "counted" : "repeat"
+      if (!missing(error)) {
+        console.error(`[communities] visit: ${reasonOf(error)}`)
+        return "unavailable"
+      }
+      visitReady = false
+    }
     const { data, error } = await db.rpc("community_record_view", { p_community: communityId, p_visitor: key })
     if (error) {
       if (!missing(error)) console.error(`[communities] view: ${reasonOf(error)}`)
@@ -88,7 +133,7 @@ export async function recordCommunityView(db: Db, communityId: string, key: stri
   }
 }
 
-/** The cron's tidy up: day rows older than three days are no longer needed to tell a repeat. */
+/** The cron's tidy up: day rows older than three days are no longer needed to tell a repeat, and the nightly count has added up their facts (part 184, ../analytics.ts rollupTraffic). */
 export const VIEW_DAYS_KEPT = 3
 
 export async function purgeOldViewDays(db: Db, now: number = Date.now()): Promise<void> {

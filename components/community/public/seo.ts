@@ -23,8 +23,15 @@ import type { PublicCommunityView } from "./types"
 
 export const SITE = "https://storelib.com"
 
-export function canonicalUrl(slug: string): string {
-  return `${SITE}/community/${slug}`
+/**
+ * THE COMMUNITY'S ONE ADDRESS. storelib.com/community/<slug>, or, once the
+ * community has its own domain connected with HTTPS (round 31,
+ * lib/custom-domains/community-server.ts), that domain's root: `origin` is
+ * `https://<host>`. The storelib.com address keeps working for members (it is
+ * where they are signed in); search engines are pointed at the domain.
+ */
+export function canonicalUrl(slug: string, origin?: string | null): string {
+  return origin ? `${origin}/` : `${SITE}/community/${slug}`
 }
 
 function plain(text: string | null | undefined, max: number): string {
@@ -53,6 +60,8 @@ export interface SeoFacts {
    * Left out, the cover (else the logo) is the preview, as before.
    */
   shareVersion?: string | null
+  /** `https://<host>` when the community's own domain is connected (canonicalUrl); left out, storelib.com. */
+  origin?: string | null
 }
 
 /**
@@ -128,7 +137,7 @@ export function previewImages(f: SeoFacts, invite: boolean): { og: NonNullable<M
 export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): Metadata {
   const title = (f.seoTitle || f.name).slice(0, 120)
   const description = plain(f.seoDescription || f.tagline || f.description, 300) || (f.creatorName ? `A community by ${f.creatorName} on Storelib.` : "A community on Storelib.")
-  const url = canonicalUrl(f.slug)
+  const url = canonicalUrl(f.slug, f.origin)
   const images = previewImages(f, false)
   return {
     /* Absolute (round 12): the community's layout puts its name after every page's own word, and these already say it. */
@@ -163,9 +172,9 @@ export function inviteMetadata(f: SeoFacts): Metadata {
 }
 
 /** The page's JSON-LD, or null when it is not indexable (nothing to claim to a search engine). */
-export function communityJsonLd(c: PublicCommunityView, indexable: boolean): Record<string, unknown> | null {
+export function communityJsonLd(c: PublicCommunityView, indexable: boolean, origin?: string | null): Record<string, unknown> | null {
   if (!indexable) return null
-  const url = canonicalUrl(c.slug)
+  const url = canonicalUrl(c.slug, origin)
   const description = plain(c.tagline || c.descriptionText || c.descriptionHtml, 500) || undefined
   const image = c.coverUrl || c.logoUrl || undefined
   const creator = c.creator ? { "@type": "Person", name: c.creator.name, ...(c.creator.href ? { url: `${SITE}${c.creator.href}` } : {}) } : undefined

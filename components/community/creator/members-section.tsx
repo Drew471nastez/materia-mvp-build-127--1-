@@ -35,7 +35,7 @@ import { MEMBER_STATUS_FILTERS, ROLE_LABEL, takenAwayLine, type MemberStatusFilt
 import { joinCosts, needsInvite } from "@/lib/communities/access-model"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
-import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast, ListLoading } from "./parts"
+import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, SelectField, errorText, field, label, send, shortDate, useToast, ListLoading } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
@@ -477,15 +477,14 @@ function InviteDialog({ open, onClose, base, head, tiers, canAdd, onMade, onAdde
       <label htmlFor="inv-tier" className={label}>
         {tt("Tier")}
       </label>
-      <select id="inv-tier" value={tier} onChange={(e) => setTier(e.target.value)} className={selectField}>
-        {mode !== "add" ? <option value="">{tt("The default tier")}</option> : null}
-        {tiers.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-            {t.kind === "paid" ? tt(" (free for them)") : ""}
-          </option>
-        ))}
-      </select>
+      <SelectField
+        id="inv-tier"
+        name="invite-tier"
+        title={tt("Tier")}
+        value={tier}
+        onChange={setTier}
+        options={[...(mode !== "add" ? [{ value: "", label: tt("The default tier") }] : []), ...tiers.map((t) => ({ value: t.id, label: `${t.name}${t.kind === "paid" ? tt(" (free for them)") : ""}` }))]}
+      />
     </div>
   ) : null
 
@@ -547,12 +546,19 @@ function InviteDialog({ open, onClose, base, head, tiers, canAdd, onMade, onAdde
               <label htmlFor="inv-days" className={label}>
                 {tt("Works for")}
               </label>
-              <select id="inv-days" value={days} onChange={(e) => setDays(e.target.value)} className={selectField}>
-                <option value="1">{tt("1 day")}</option>
-                <option value="7">{tt("7 days")}</option>
-                <option value="30">{tt("30 days")}</option>
-                <option value="never">{tt("No end date")}</option>
-              </select>
+              <SelectField
+                id="inv-days"
+                name="invite-days"
+                title={tt("Works for")}
+                value={days}
+                onChange={setDays}
+                options={[
+                  { value: "1", label: tt("1 day") },
+                  { value: "7", label: tt("7 days") },
+                  { value: "30", label: tt("30 days") },
+                  { value: "never", label: tt("No end date") },
+                ]}
+              />
             </div>
           </div>
         )}

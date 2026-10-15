@@ -177,7 +177,8 @@ async function main() {
     const proxy = read("proxy.ts")
     /* Changed on purpose (the owner: "Åland Islands (BRL)" kept by a cookie from before): the choice and the country are read in lib/markets/visitor-country.ts, a cookie without its mark is no choice. */
     check("the proxy picks the market from the visitor's choice, then their country", /visitorCountryFrom\(request\.cookies\.get\(COUNTRY_COOKIE\)\?\.value, seenCountry\(request\.headers\)\)/.test(proxy) && /x-vercel-ip-country/.test(read("lib/markets/visitor-country.ts")) && /if \(choice === "home"\) return null/.test(read("lib/markets/visitor-country.ts")))
-    check("  and every answer clears a country cookie from before choices were marked", /return forgetStaleCountry\(request, await routeRequest\(request\)\)/.test(proxy) && /readCountryCookie\(request\.cookies\.get\(COUNTRY_COOKIE\)\?\.value\)\.stale/.test(proxy))
+    /* Changed on purpose (round 31 merge): a request without cookies (a stand in, a probe) reads as none instead of throwing. */
+    check("  and every answer clears a country cookie from before choices were marked", /return forgetStaleCountry\(request, await routeRequest\(request\)\)/.test(proxy) && /readCountryCookie\(request\.cookies\??\.get\(COUNTRY_COOKIE\)\?\.value\)\.stale/.test(proxy))
     check("  the builder theme's selector writes its choice marked", /countryCookieValue\(option\.country\)/.test(read("components/website-builder/theme/language-switch.tsx")) && !/sl_country=\$\{encodeURIComponent\(option\.country\)\}/.test(read("components/website-builder/theme/language-switch.tsx")))
     check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
     const compat = read("lib/markets/compat.ts")

@@ -319,7 +319,8 @@ function hostOf(value: string): string | null {
 
 export function SourceIcon({ kind, value }: { kind: IconFor; value: string }) {
   let mark: Mark | null | undefined
-  if (kind === "source") mark = SOURCE[value]
+  /* A source named by its network ("social_instagram", a community's Traffic sources) wears that network's mark. */
+  if (kind === "source") mark = SOURCE[value] ?? (value.startsWith("social_") ? network(value.slice("social_".length)) : undefined)
   else if (kind === "social") mark = network(value)
   else if (kind === "referrer") {
     const host = hostOf(value)

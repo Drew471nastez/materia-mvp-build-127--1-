@@ -447,6 +447,18 @@ function screenCases() {
   const row = read("components/library/product-row.tsx")
   check("no stars and no Rate it on a product row", !/RateStars|rate-stars|\?rate=|<Stars/.test(row))
   check("More's review rows go to the Reviews tab focused on that product", /\/library\/reviews\?product=\$\{encodeURIComponent\(item\.productId\)\}/.test(row))
+  /*
+    Changed on purpose (round 31): every action on a row is one calm secondary (ROW_ACTION), not the near black primary
+    for one file and a grey well for several; the files list is a row of the grid of its own whose box clips, so what can
+    be seen is the room it makes on every frame (scripts/check-library-round31.mjs: 0px short, on the sheet's curve).
+  */
+  const fileRow = read("components/library/file-row.tsx")
+  check("round 31: Download, the files switch, Open, Receipt and More are all ROW_ACTION", /cn\(ROW_ACTION, `tabular-nums/.test(row) && /data-row-files=""\s*className=\{cn\(ROW_ACTION/.test(row) && /data-row-more="" className=\{ROW_ICON_ACTION\}/.test(row) && !/\bPRIMARY\b|\bSECONDARY\b/.test(row))
+  check("  a list's own Download is the same button, never dimmed while it works, the percent under the name on a phone", /tone === "primary" \? cn\(PRIMARY, SMALL\) : ROW_ACTION/.test(fileRow) && !/disabled:opacity/.test(read("components/library/library-ui.ts").split("export const ROW_ACTION")[1].split("\n")[0]) && /<span className="sm:hidden">/.test(fileRow))
+  check("  the list opens under the actions, its box clipping, inert while closed, on the sheet's curves", /data-row-file-panel=\{open \? "open" : "closed"\}/.test(row) && /inert=\{!open\}/.test(row) && /"col-span-2 -mx-1 grid grid-cols-\[minmax\(0,1fr\)\] overflow-hidden px-1/.test(row) && /const FILES_OPEN = "duration-\[320ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]"/.test(row) && row.indexOf("data-row-actions") < row.indexOf("data-row-file-panel"))
+  const tray = read("components/downloads/download-tray.tsx")
+  check("round 31: the tray keeps a closed card until it has sunk and its slot has folded", /\[data-tray-slot\]\[data-leaving\]\{grid-template-rows:0fr/.test(tray) && /LEAVE_MS \+ 40/.test(tray) && /align-content:end/.test(tray) && /grid-template-columns:minmax\(0,1fr\)/.test(tray))
+  check("  and the bar's row folds away when bytes stop instead of vanishing", /\[data-tray-track-row\]\[data-off\]\{grid-template-rows:0fr;opacity:0\}/.test(tray) && !/animate-pulse/.test(tray))
   const reviews = read("components/library/library-reviews.tsx")
   check("Leave a review opens the composer on the Reviews tab, never another page",
     /<ReviewComposer/.test(reviews) && /<SheetDialog/.test(reviews) && !/\/library\/products\/|\/receipt\//.test(reviews))

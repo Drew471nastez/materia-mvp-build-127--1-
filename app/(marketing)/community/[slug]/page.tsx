@@ -17,6 +17,7 @@ import { PlacePage } from "@/components/community/member/place-page"
 import { placeFromUrl } from "@/lib/communities/client/places"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityJsonLd, communityMetadata } from "@/components/community/public/seo"
+import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
 
 /**
  * ===========================================================================
@@ -41,7 +42,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const community = await communityBySlug(slug)
   /* A draft or a suspended community says nothing about itself to a link preview either. */
   if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
-  return communityMetadata(seoFacts(community))
+  /* Its own domain, once connected, is the canonical (round 31). */
+  return communityMetadata({ ...seoFacts(community), origin: await communityDomainOrigin(community.id) })
 }
 
 export default async function CommunityPage({
@@ -119,7 +121,7 @@ export default async function CommunityPage({
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
   const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
-  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community))
+  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), await communityDomainOrigin(load.community.id))
   return (
     <>
       {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}

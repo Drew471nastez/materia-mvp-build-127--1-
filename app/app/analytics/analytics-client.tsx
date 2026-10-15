@@ -100,9 +100,10 @@ export const COUNTING_NOTE_MS = 2500
  * What the percentages are measured against: "Dec 1–Dec 31, 2025", the
  * period just before, or null for All time, which has nothing before it.
  */
-const CompareContext = createContext<string | null>("the previous period")
+export const CompareContext = createContext<string | null>("the previous period")
 
-function PercentChangeIndicator({ current, previous }: { current: number | null; previous: number | null }) {
+/** `lowerIsBetter`: a figure that should fall (members who left, cancellations) is green when it falls, grey when it rises. */
+export function PercentChangeIndicator({ current, previous, lowerIsBetter = false }: { current: number | null; previous: number | null; lowerIsBetter?: boolean }) {
   const against = useContext(CompareContext)
   if (against === null || current === null || previous === null) return null
   if (previous === 0) {
@@ -119,7 +120,7 @@ function PercentChangeIndicator({ current, previous }: { current: number | null;
   /* What it is measured against, in the card every hover note uses (components/app/help-label). */
   return (
     <HoverNote
-      className={`inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums ${up ? "text-emerald-600" : "text-[#9ca3af]"}`}
+      className={`inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums ${up !== lowerIsBetter ? "text-emerald-600" : "text-[#9ca3af]"}`}
       note={tt("{value}{value2}% compared with {against}", { value: up ? "+" : "-", value2: Math.round(Math.abs(change)), against })}
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -152,7 +153,7 @@ function trendLabelsFor(span: Span, timeZone: string): string[] {
 const TREND_SKELETON_MAX = 90
 
 /** Which line is which: the period in violet, what it is compared with in grey, dashed. */
-function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
+export function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280]">
       <span className="inline-flex items-center gap-1.5 tabular-nums">

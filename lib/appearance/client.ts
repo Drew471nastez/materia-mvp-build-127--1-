@@ -7,6 +7,7 @@
  */
 import { useCallback, useSyncExternalStore } from "react"
 import { flushSync } from "react-dom"
+import { intoAppStillUp } from "@/lib/navigation/into-app-still"
 import { APPEARANCE_KEY, APP_FROM_DARK_CLASS, APP_FROM_DARK_MS, APP_FROM_DARK_OUT_CLASS, DARK_ATTR, LEGACY_APPEARANCE_KEY, LOOK_NOW_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
 
 const listeners = new Set<() => void>()
@@ -118,8 +119,13 @@ export function useAppearance(fallback: Appearance = "light"): { appearance: App
 /** Puts the look on <html> for this address: dark only on a themed page, and only when it is dark. */
 export function paintAppearance(pathname: string, appearance: Appearance | null, pageDefault: Appearance | null = null) {
   const html = document.documentElement
-  /* A page with a look of its own (a creator's page under /u/, [data-own-look]) is never darkened. */
-  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark" && !document.querySelector("[data-own-look]")
+  /*
+    Round 31: a page with a look of its own (a creator's page under /u/, a product page its creator designed,
+    [data-own-look]) keeps the dark attribute too. The creator's page is left out by app/theme-dark.css and keeps its
+    colours; the header, the tab bar and the sheets around it follow the person (lib/appearance/site-appearance, WHOSE
+    LOOK, PART BY PART).
+  */
+  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark"
   /* The look this tab shows now, for an /app document that opens next (APP_FROM_DARK_BOOT). */
   try {
     window.sessionStorage.setItem(LOOK_NOW_KEY, dark ? "dark" : "light")
@@ -131,8 +137,9 @@ export function paintAppearance(pathname: string, appearance: Appearance | null,
     html.setAttribute(DARK_ATTR, "")
     html.style.colorScheme = "dark"
   } else {
-    /* A client move from a dark page into the dashboard: the same veil a document gets, then its fade. */
-    if (APP_PATH.test(pathname)) veilIntoApp()
+    /* A client move from a dark page into the dashboard: the same veil a document gets, then its fade. Not under the copy of
+       the page left, which is already fading off the dashboard (lib/navigation/into-app-still.ts, round 31). */
+    if (APP_PATH.test(pathname) && !intoAppStillUp()) veilIntoApp()
     html.removeAttribute(DARK_ATTR)
     html.style.colorScheme = "light"
   }

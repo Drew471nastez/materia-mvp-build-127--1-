@@ -3,7 +3,7 @@ import { revalidateTag } from "next/cache"
 import crypto from "crypto"
 
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { domainOwner } from "@/lib/custom-domains/owner"
+import { domainOwner, type Owner } from "@/lib/custom-domains/owner"
 import {
   HOSTNAME_PROBLEM_TEXT,
   cleanHostname,
@@ -16,6 +16,7 @@ import {
 import {
   CURRENT_COLUMNS,
   LEGACY_COLUMNS,
+  TARGET_COLUMNS,
   creatorDomainsTag,
   ensurePrimary,
   isMissingColumn,
@@ -36,6 +37,8 @@ import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { siteGate } from "@/lib/sites/plan"
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { getMainDomain } from "@/lib/url-helpers"
+import { COMMUNITY_TARGET, communityDomainTag, communityIdOf } from "@/lib/custom-domains/community"
+import { ownedCommunities, ownedCommunity, type OwnedCommunity } from "@/lib/custom-domains/community-server"
 
 /**
  * ===========================================================================
@@ -46,9 +49,18 @@ import { getMainDomain } from "@/lib/url-helpers"
  *   GET      the creator's domains, each with the records it needs, and the
  *            primary host of each purpose
  *   POST     { domain, purpose: "website" | "creator_page", replace? }
+ *            { domain, purpose: "community", communityId }
  *   PATCH    { domainId, action: "make_primary" }
  *            { domainId, action: "set_purpose", purpose }
+ *            { domainId, action: "set_purpose", purpose: "community", communityId }
  *   DELETE   { domainId }
+ *
+ * A COMMUNITY'S DOMAIN (round 31). Only a community this creator owns
+ * (communities.creator_id, read with the service role after the session
+ * named the creator; ownedCommunity), one domain per community (checked
+ * here and held by a unique index, part 185). Moving a domain off a
+ * community clears what it pointed at. Until part 185 has run, community
+ * is not offered and asking for it is refused.
  *
  * The session decides whose domains these are (domainOwner, which reads the
  * user with auth.getUser() and their creator_id from it); every write goes
@@ -69,7 +81,8 @@ const MAX_PER_PURPOSE = 5
 /** How long a removed domain keeps sending its visitors on, and stays on the Vercel project. */
 const GRACE_DAYS = 30
 
-function views(rows: DomainRow[], schema: Schema) {
+function views(rows: DomainRow[], schema: Schema, more: { targets?: boolean; communities?: OwnedCommunity[] } = {}) {
+  const communityOn = schema === "current" && more.targets === true
   return {
     domains: rows.map((r) => toView(r, schema)),
     primary: {
@@ -77,15 +90,32 @@ function views(rows: DomainRow[], schema: Schema) {
       creator_page: primaryHostOf(rows, "creator_page", schema),
     },
     schema,
-    /* Creator page domains need the purpose column to be told apart from website ones. */
-    purposes: schema === "current" ? ["website", "creator_page"] : ["website"],
+    /* Creator page domains need the purpose column to be told apart from website ones; a community's, the target columns too. */
+    purposes: schema === "current" ? (communityOn ? ["website", "creator_page", "community"] : ["website", "creator_page"]) : ["website"],
+    /* The communities this creator owns, which a domain can connect to (round 31). */
+    communities: communityOn ? (more.communities ?? []) : [],
     registered: vercelConfigured(),
   }
 }
 
+/** The list as GET answers it, the creator's communities with it. */
+async function listed(admin: Owner["admin"], creatorId: string) {
+  const { rows, schema, targets } = await listCreatorDomains(admin, creatorId)
+  const communities = targets ? await ownedCommunities(admin, creatorId) : []
+  return views(rows, schema, { targets, communities })
+}
+
+/** A community's pages read its domain through a cache; this empties it. */
+function communityChanged(...ids: (string | null | undefined)[]) {
+  for (const id of ids) if (id) revalidateTag(communityDomainTag(id), "max")
+}
+
+const COMMUNITY_NEEDS_UPDATE = "Connecting a domain to a community needs a database update that has not run yet. A website domain works now."
+
 /** Where a removed domain sends its visitors while it is still attached. */
-async function fallbackFor(purpose: DomainPurpose, creatorId: string, username: string | null): Promise<string> {
+async function fallbackFor(purpose: DomainPurpose, creatorId: string, username: string | null, communitySlug?: string | null): Promise<string> {
   const main = getMainDomain()
+  if (purpose === "community") return communitySlug ? `https://${main}/community/${communitySlug}` : `https://${main}`
   if (purpose === "creator_page") return username ? `https://${main}/${username}` : `https://${main}`
   const handle = (await websiteHandleOf(creatorId).catch(() => null)) ?? username
   return handle ? `https://${handle}.${main}` : `https://${main}`
@@ -101,12 +131,13 @@ export async function GET() {
   try {
     const owner = await domainOwner()
     if (owner instanceof NextResponse) return owner
-    const { rows, schema, error } = await listCreatorDomains(owner.admin, owner.creatorId)
+    const { rows, schema, error, targets } = await listCreatorDomains(owner.admin, owner.creatorId)
     if (error && error !== "missing_table") {
       console.error("Error fetching domains:", error)
       return NextResponse.json({ error: "Failed to fetch domains" }, { status: 500 })
     }
-    return NextResponse.json(views(rows, schema))
+    const communities = targets ? await ownedCommunities(owner.admin, owner.creatorId) : []
+    return NextResponse.json(views(rows, schema, { targets, communities }))
   } catch (error) {
     console.error("Domains GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -120,14 +151,14 @@ export async function POST(request: Request) {
     if (owner instanceof NextResponse) return owner
     const { admin, creatorId, userId } = owner
 
-    const body = (await request.json().catch(() => ({}))) as { domain?: unknown; purpose?: unknown; replace?: unknown }
+    const body = (await request.json().catch(() => ({}))) as { domain?: unknown; purpose?: unknown; replace?: unknown; communityId?: unknown }
     const cleanDomain = cleanHostname(body.domain)
     const problem = hostnameProblem(cleanDomain, getMainDomain(), HOST_RESERVED_SUFFIXES)
     if (problem) {
       return NextResponse.json({ error: HOSTNAME_PROBLEM_TEXT[problem], problem }, { status: 400 })
     }
     const purpose: DomainPurpose = isDomainPurpose(body.purpose) ? body.purpose : "website"
-    const replace = body.replace === true
+    const replace = body.replace === true && purpose !== "community"
 
     const limited = await rateLimit({
       bucket: "domain-add",
@@ -140,9 +171,19 @@ export async function POST(request: Request) {
     const gate = siteGate(await creatorSitePlan(creatorId), "customDomain")
     if (gate) return NextResponse.json({ error: gate, upgrade: true }, { status: 403 })
 
-    const { rows, schema, error: listError } = await listCreatorDomains(admin, creatorId)
+    const { rows, schema, error: listError, targets } = await listCreatorDomains(admin, creatorId)
     if (listError === "missing_table") {
       return NextResponse.json({ error: "Domains are not switched on for this workspace yet." }, { status: 503 })
+    }
+    /* A community's domain: one this creator owns, and only one domain for it. */
+    let community: OwnedCommunity | null = null
+    if (purpose === "community") {
+      if (schema === "legacy" || !targets) return NextResponse.json({ error: COMMUNITY_NEEDS_UPDATE }, { status: 409 })
+      community = await ownedCommunity(admin, creatorId, body.communityId)
+      if (!community) return NextResponse.json({ error: "Community not found" }, { status: 404 })
+      const communityId = community.id
+      const holder = rows.find((r) => communityIdOf(r) === communityId)
+      if (holder) return NextResponse.json({ error: `${community.name} already has a domain, ${holder.domain}. Remove it first.` }, { status: 409 })
     }
     if (schema === "legacy" && purpose === "creator_page") {
       return NextResponse.json(
@@ -178,7 +219,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const samePurpose = rows.filter((r) => schema === "legacy" || purposeOf(r) === purpose)
+    /* A community's domain is its own; the limit and the primary are about the website and the creator page. */
+    const samePurpose = community ? [] : rows.filter((r) => schema === "legacy" || purposeOf(r) === purpose)
     /* On an old database a creator has one domain, and a new one replaces it, as it always did. */
     const replacing = replace || (schema === "legacy" && samePurpose.length > 0)
     if (!replacing && samePurpose.length >= MAX_PER_PURPOSE) {
@@ -197,18 +239,26 @@ export async function POST(request: Request) {
       .from("custom_domains")
       .insert(
         schema === "current"
-          ? { ...legacyRow, purpose, is_primary: replacing || !samePurpose.some((r) => r.is_primary === true), dns_records: firstRecords }
+          ? {
+              ...legacyRow,
+              purpose,
+              is_primary: replacing || !samePurpose.some((r) => r.is_primary === true),
+              dns_records: firstRecords,
+              ...(community ? { is_primary: false, target_type: COMMUNITY_TARGET, target_id: community.id } : {}),
+            }
           : legacyRow,
       )
-      .select(schema === "current" ? CURRENT_COLUMNS : LEGACY_COLUMNS)
+      .select(schema === "current" ? (targets ? TARGET_COLUMNS : CURRENT_COLUMNS) : LEGACY_COLUMNS)
       .single()
-    if (inserted.error && isMissingColumn(inserted.error)) {
+    /* Never a website domain in place of a community's: without the columns it is refused above. */
+    if (inserted.error && isMissingColumn(inserted.error) && !community) {
       inserted = await admin.from("custom_domains").insert(legacyRow).select(LEGACY_COLUMNS).single()
     }
     if (inserted.error || !inserted.data) {
       console.error("Error adding domain:", inserted.error)
       await removeDomainHosts(cleanDomain)
       if (inserted.error?.code === "23505") {
+        if (community) return NextResponse.json({ error: "This domain, or a domain for this community, is already connected." }, { status: 409 })
         return NextResponse.json({ error: "This domain is connected to another Storelib account." }, { status: 409 })
       }
       return NextResponse.json({ error: "Failed to add domain" }, { status: 500 })
@@ -249,6 +299,7 @@ export async function POST(request: Request) {
     await saveRecords(admin, newRow.id, records)
 
     changed(creatorId)
+    communityChanged(community?.id)
     if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
 
     return NextResponse.json({ domain: { ...toView(newRow, schema), records } })
@@ -264,7 +315,7 @@ export async function PATCH(request: Request) {
     const owner = await domainOwner()
     if (owner instanceof NextResponse) return owner
     const { admin, creatorId, userId } = owner
-    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; action?: unknown; purpose?: unknown }
+    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; action?: unknown; purpose?: unknown; communityId?: unknown }
     if (typeof body.domainId !== "string" || (body.action !== "make_primary" && body.action !== "set_purpose")) {
       return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
     }
@@ -272,9 +323,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
     }
 
-    const { rows, schema } = await listCreatorDomains(admin, creatorId)
+    const { rows, schema, targets } = await listCreatorDomains(admin, creatorId)
     const row = rows.find((r) => r.id === body.domainId)
     if (!row) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
+    const communityOn = schema === "current" && targets === true
 
     /*
       What a domain connects to is asked after it is added (Settings ›
@@ -284,6 +336,7 @@ export async function PATCH(request: Request) {
     */
     if (body.action === "set_purpose" && isDomainPurpose(body.purpose)) {
       const to = body.purpose
+      if (to === "community" && !communityOn) return NextResponse.json({ error: COMMUNITY_NEEDS_UPDATE }, { status: 409 })
       if (schema === "legacy") {
         if (to === "creator_page") {
           return NextResponse.json(
@@ -294,7 +347,8 @@ export async function PATCH(request: Request) {
         return NextResponse.json(views(rows, schema))
       }
       const from = purposeOf(row)
-      if (from === to) return NextResponse.json(views(rows, schema))
+      if (to === "community" || from === "community") return moveCommunityDomain(owner, row, rows, to, body.communityId)
+      if (from === to) return NextResponse.json(await listed(admin, creatorId))
       const there = rows.filter((r) => r.id !== row.id && purposeOf(r) === to)
       if (there.length >= MAX_PER_PURPOSE) {
         return NextResponse.json({ error: `You can connect up to ${MAX_PER_PURPOSE} domains there. Remove one first.` }, { status: 400 })
@@ -311,11 +365,11 @@ export async function PATCH(request: Request) {
       await ensurePrimary(admin, creatorId, from)
       changed(creatorId)
       if (from === "creator_page" || to === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
-      const after = await listCreatorDomains(admin, creatorId)
-      return NextResponse.json(views(after.rows, after.schema))
+      return NextResponse.json(await listed(admin, creatorId))
     }
 
     if (schema === "legacy") return NextResponse.json(views(rows, schema))
+    if (purposeOf(row) === "community") return NextResponse.json({ error: "A community has one domain." }, { status: 400 })
 
     const done = await makePrimary(admin, creatorId, row)
     if (!done.ok) {
@@ -324,8 +378,7 @@ export async function PATCH(request: Request) {
     }
     changed(creatorId)
     if (purposeOf(row) === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
-    const after = await listCreatorDomains(admin, creatorId)
-    return NextResponse.json(views(after.rows, after.schema))
+    return NextResponse.json(await listed(admin, creatorId))
   } catch (error) {
     console.error("Domains PATCH error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -351,6 +404,9 @@ export async function DELETE(request: Request) {
     const domainRecord = rows.find((r) => r.id === domainId)
     if (!domainRecord) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
     const purpose = purposeOf(domainRecord)
+    const communityId = communityIdOf(domainRecord)
+    /* Where a community's visitors go after: its storelib.com address, while it is still this creator's. */
+    const communityLeft = communityId ? await ownedCommunity(admin, creatorId, communityId) : null
 
     await disableStripePaymentDomains(admin, domainRecord.domain)
 
@@ -367,7 +423,7 @@ export async function DELETE(request: Request) {
     if (wasLive) {
       // Its visitors go to the domain that is primary now, or to the storelib.com address.
       const next = after.rows.find((r) => after.schema === "legacy" || (purposeOf(r) === purpose && r.is_primary === true))
-      const redirectTo = next ? `https://${servingHost(next.domain)}` : await fallbackFor(purpose, creatorId, username)
+      const redirectTo = next ? `https://${servingHost(next.domain)}` : await fallbackFor(purpose, creatorId, username, communityLeft?.slug)
       const keepUntil = new Date()
       keepUntil.setDate(keepUntil.getDate() + GRACE_DAYS)
       await admin.from("domain_redirects").upsert(
@@ -386,10 +442,65 @@ export async function DELETE(request: Request) {
     }
 
     changed(creatorId)
+    communityChanged(communityId)
     if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
-    return NextResponse.json({ success: true, ...views(after.rows, after.schema) })
+    const communities = after.targets ? await ownedCommunities(admin, creatorId) : []
+    return NextResponse.json({ success: true, ...views(after.rows, after.schema, { targets: after.targets, communities }) })
   } catch (error) {
     console.error("Domains DELETE error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+/**
+ * A domain moved onto a community, between communities, or off one
+ * (PATCH set_purpose, round 31). Onto one: the community must be this
+ * creator's and have no other domain; the row keeps is_primary false and
+ * names the community. Off one: it lands as a website or creator page
+ * domain, primary there only when that purpose has none, and no longer
+ * names the community. Both sides' caches are emptied.
+ */
+async function moveCommunityDomain(owner: Owner, row: DomainRow, rows: DomainRow[], to: DomainPurpose, communityIdAsked: unknown): Promise<NextResponse> {
+  const { admin, creatorId, userId } = owner
+  const from = purposeOf(row)
+  const was = communityIdOf(row)
+  if (to === "community") {
+    const community = await ownedCommunity(admin, creatorId, communityIdAsked)
+    if (!community) return NextResponse.json({ error: "Community not found" }, { status: 404 })
+    if (was === community.id) return NextResponse.json(await listed(admin, creatorId))
+    const holder = rows.find((r) => r.id !== row.id && communityIdOf(r) === community.id)
+    if (holder) return NextResponse.json({ error: `${community.name} already has a domain, ${holder.domain}. Remove it first.` }, { status: 409 })
+    const moved = await admin
+      .from("custom_domains")
+      .update({ purpose: "community", is_primary: false, target_type: COMMUNITY_TARGET, target_id: community.id })
+      .eq("id", row.id)
+      .eq("creator_id", creatorId)
+    if (moved.error) {
+      if (moved.error.code === "23505") return NextResponse.json({ error: `${community.name} already has a domain. Remove it first.` }, { status: 409 })
+      console.error("Connecting a domain to a community failed:", moved.error)
+      return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
+    }
+    if (from !== "community") await ensurePrimary(admin, creatorId, from)
+    changed(creatorId)
+    communityChanged(was, community.id)
+    if (from === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+    return NextResponse.json(await listed(admin, creatorId))
+  }
+  const there = rows.filter((r) => r.id !== row.id && purposeOf(r) === to)
+  if (there.length >= MAX_PER_PURPOSE) {
+    return NextResponse.json({ error: `You can connect up to ${MAX_PER_PURPOSE} domains there. Remove one first.` }, { status: 400 })
+  }
+  const moved = await admin
+    .from("custom_domains")
+    .update({ purpose: to, is_primary: !there.some((r) => r.is_primary === true), target_type: null, target_id: null })
+    .eq("id", row.id)
+    .eq("creator_id", creatorId)
+  if (moved.error) {
+    console.error("Moving a domain off a community failed:", moved.error)
+    return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
+  }
+  changed(creatorId)
+  communityChanged(was)
+  if (to === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+  return NextResponse.json(await listed(admin, creatorId))
 }

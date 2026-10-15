@@ -395,7 +395,8 @@ async function main() {
     check("Explore's categories for a creator: no Freebies, Development reads Tech", !COMMUNITY_CATEGORIES.some((c) => c.id === "freebies" || c.id === "all") && COMMUNITY_CATEGORIES.find((c) => c.id === "development")?.label === "Tech" && COMMUNITY_CATEGORIES.length >= 12)
     check("a saved category is a pill's id; old free text is read the products' way", communityCategoryId("design") === "design" && communityCategoryId(" AI ") === "ai" && communityCategoryId("Knitting circles") === "other" && communityCategoryId("") === null && communityCategoryId("all") === null && communityCategoryId(4) === null)
     const settings = code("components/community/creator/settings-section.tsx")
-    check("Settings, Page has the category select with that list", /<select id="g-category" value=\{s\.category\}[\s\S]{0,200}COMMUNITY_CATEGORIES\.map/.test(settings) && /category: communityCategoryId\(data\.category\) \?\? ""/.test(settings))
+    /* Changed on purpose (round 31): the /app Settings pick list (components/ui/choice-list ChoicePicker), not the browser's select. */
+    check("Settings, Page has the category field with that list", /<ChoicePicker\s+id="g-category"[\s\S]{0,300}COMMUNITY_CATEGORIES\.map/.test(settings) && !/<select/.test(settings) && /category: communityCategoryId\(data\.category\) \?\? ""/.test(settings))
     check("and the free text field is gone from Access", !/id="d-cat"/.test(settings))
     check("the server stores only a pill's id", /if \(b\.category !== undefined\) patch\.category = communityCategoryId\(b\.category\)/.test(code("lib/communities/server/creator.ts")))
   }

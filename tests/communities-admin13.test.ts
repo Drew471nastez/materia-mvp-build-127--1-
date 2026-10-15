@@ -296,7 +296,8 @@ async function main() {
   const freeStats = await loadMoneyAndGrowth(fakeDb({ community_tiers: [], community_members: [] }), CID, 30, now)
   check("a community that sells nothing has no revenue block", freeStats.revenue === null)
   const ana = code("components/community/creator/analytics-section.tsx")
-  check("the revenue strip is the /app Analytics figure tabs", /from "@\/components\/app\/metric-tab"/.test(ana) && /useTabStrip/.test(ana) && ["Monthly revenue", "Active subscribers", "Cancellations", "Churn rate", "Refunds"].every((w) => ana.includes(w)))
+  /* Changed on purpose (round 31): the revenue strip became a chart of five figures (Revenue, Monthly revenue, Active subscribers, New, Cancellations), with the churn rate under Cancellations and refunds in the line under Revenue; tests/community-analytics-r31.test.ts holds the rest. */
+  check("the revenue strip is the /app Analytics figure tabs", /from "@\/components\/app\/metric-tab"/.test(ana) && /useTabStrip/.test(ana) && ["Revenue", "Monthly revenue", "Active subscribers", "Cancellations", "Churn rate", "refunded in this period"].every((w) => ana.includes(w)))
   check("the joins and invite cards", /How people joined/.test(ana) && /Invite links/.test(ana))
   const anaRoute = code("app/api/app/community/[id]/analytics/route.ts")
   check("the analytics route answers money too, behind view_analytics", /requireCreatorCommunity\(id, "view_analytics"\)/.test(anaRoute) && /loadMoneyAndGrowth/.test(anaRoute))
@@ -314,7 +315,8 @@ async function main() {
   check("and is a page layer on a phone, as New product", /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/community/new/layout.tsx")))
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")
-  check("Settings forms have the editor's save foot: Cancel and Save, always there", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings))
+  /* Changed on purpose (round 31): the foot sat in the form and rode over it mid page on a phone; it is the /app Settings save bar now, fixed above the navigation pill and up only while there is something to save. */
+  check("Settings forms have a save bar: Cancel and Save, up while there is a change", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings) && /fixed inset-x-0 bottom-\[calc\(var\(--app-nav-top,0px\)\+10px\)\]/.test(parts))
   /* Changed on purpose (round 26): the settings column takes 196px beside the panel, so the Page tab's two columns start at 1280px. */
   check("the Page tab is two columns from 1280px with the editor's cards", /xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Address"/.test(settings))
   check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))

@@ -7,6 +7,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
 import { domainAddress, sendsToDomain } from "@/lib/custom-domains/subdomain-redirect"
+import { communityDomainStep, communityIdOf, communityServable } from "@/lib/custom-domains/community"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
 import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
@@ -535,7 +536,7 @@ function visitorCountry(request: NextRequest): string | null {
 }
 /** Clears a country cookie that is not a visitor's choice (readCountryCookie `stale`) from whatever the proxy answers. */
 function forgetStaleCountry<R extends Response | null | undefined>(request: NextRequest, r: R): R {
-  if (!r || !readCountryCookie(request.cookies.get(COUNTRY_COOKIE)?.value).stale) return r
+  if (!r || !readCountryCookie(request.cookies?.get(COUNTRY_COOKIE)?.value).stale) return r
   try {
     r.headers.append("Set-Cookie", FORGET_COUNTRY_COOKIE)
   } catch {
@@ -886,14 +887,27 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
  * The purpose columns may not exist yet (supabase/sql/run-now/22): a
  * database that does not know them is asked again the old way, and every
  * domain is a website domain, exactly as before.
+ *
+ * Or 'community' (round 31, run-now part 179): the domain serves ONE
+ * community, named by id (target_id) and read by id on every lookup, so a
+ * renamed community keeps its domain. It is served only once its DNS has
+ * been seen pointing here (active, or ssl_provisioning while the
+ * certificate is issued), and only while the community is still the
+ * domain owner's; `communitySlug` is null otherwise and the domain answers
+ * "not connected" instead of anybody's pages.
  */
 type ConnectedDomain = {
   username: string
-  purpose: "website" | "creator_page"
+  purpose: "website" | "creator_page" | "community"
   redirectTo: string | null
   /** Whose domain it is, so the site's own lookups need not find the creator by name again. */
   creatorId?: string
+  /** A community domain's community, by its current address; null while it may not be served. */
+  communitySlug?: string | null
 }
+
+/** A community's domain before it is verified, or after its community left: nobody's pages. */
+const DOMAIN_NOT_CONNECTED = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Not connected yet</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">Not connected yet</h1><p>This domain is being set up on Storelib.</p></main></body></html>`
 
 /** The host a stored domain is served at: www.<apex>, or a subdomain as it is. */
 function servedAt(domain: string): string {
@@ -954,12 +968,22 @@ async function resolveCustomDomainFresh(host: string): Promise<{ value: Connecte
 
     // Match active, ssl_provisioning, or pending (if request arrives, DNS is working)
     const served = ["active", "ssl_provisioning", "pending", "verifying"]
+    const missingColumn = (e: { code?: string; message?: string } | null) => !!e && /column|42703|PGRST204/i.test(`${e.code} ${e.message}`)
+    /* What the domain serves, a community's included (part 179); asked again without those columns, then without the purpose ones. */
     let { data: domainRecord, error } = await supabase
       .from("custom_domains")
-      .select("creator_id, status, purpose, is_primary, creator:creators ( user_id )")
+      .select("creator_id, status, purpose, is_primary, target_type, target_id, creator:creators ( user_id )")
       .eq("domain", lookupDomain)
       .in("status", served)
       .maybeSingle()
+    if (missingColumn(error)) {
+      ;({ data: domainRecord, error } = (await supabase
+        .from("custom_domains")
+        .select("creator_id, status, purpose, is_primary, creator:creators ( user_id )")
+        .eq("domain", lookupDomain)
+        .in("status", served)
+        .maybeSingle()) as never)
+    }
     if (error && /column|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
       ;({ data: domainRecord } = (await supabase
         .from("custom_domains")
@@ -970,7 +994,26 @@ async function resolveCustomDomainFresh(host: string): Promise<{ value: Connecte
     } else if (failedRead(error)) return { value: null, failed: true }
 
     if (!domainRecord) return none
-    const row = domainRecord as { creator_id: string; purpose?: string | null; is_primary?: boolean | null; creator?: { user_id?: string | null } | { user_id?: string | null }[] | null }
+    const row = domainRecord as { creator_id: string; status?: string | null; purpose?: string | null; is_primary?: boolean | null; target_type?: string | null; target_id?: string | null; creator?: { user_id?: string | null } | { user_id?: string | null }[] | null }
+
+    /* A COMMUNITY'S DOMAIN: that community, by id, only once verified and only while it is the domain owner's. */
+    if (row.purpose === "community") {
+      const communityId = communityIdOf(row)
+      const verified = row.status === "active" || row.status === "ssl_provisioning"
+      let communitySlug: string | null = null
+      if (communityId && verified) {
+        const { data: community, error: communityErr } = await supabase
+          .from("communities")
+          .select("slug, creator_id, deleted_at")
+          .eq("id", communityId)
+          .maybeSingle()
+        if (failedRead(communityErr)) return { value: null, failed: true }
+        const c = community as { slug: string | null; creator_id: string | null; deleted_at: string | null } | null
+        if (communityServable(row, c)) communitySlug = c!.slug
+      }
+      return { value: { username: "", purpose: "community", redirectTo: null, creatorId: row.creator_id, communitySlug }, failed: false }
+    }
+
     const purpose = row.purpose === "creator_page" ? "creator_page" : "website"
 
     /* The creator came with the domain (an embed on custom_domains.creator_id); read on its own only when it did not. */
@@ -1826,8 +1869,10 @@ async function routeRequest(request: NextRequest) {
    */
   let username: string | null = null
   let isCustomDomain = false
-  /* What the connected domain is for: the website, or the creator page. */
+  /* What the connected domain is for: the website, or the creator page (a community's is answered where it is found). */
   let domainPurpose: "website" | "creator_page" = "website"
+  /* A community's domain: the community page this request is served from (lib/custom-domains/community.ts). */
+  let communityPath: string | null = null
 
   // If no subdomain match, check if it's a custom domain
   if (!username) {
@@ -1870,7 +1915,44 @@ async function routeRequest(request: NextRequest) {
       return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
     }
     const connected = resolved === "unavailable" ? null : resolved
-    if (connected) {
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     *  A DOMAIN CONNECTED TO A COMMUNITY SHOWS THAT COMMUNITY, AND ONLY IT
+     * ═══════════════════════════════════════════════════════════════════════
+     * Round 31. Decided by communityDomainStep (lib/custom-domains/community.ts, pure, pinned case by
+     * case in tests/community-domains-round31.test.ts): its pages at the
+     * root, its own /community/<slug>/... links sent back without the
+     * prefix, and everything else of Storelib's (sign in, /app, another
+     * community, a creator page) sent to storelib.com, where the session
+     * lives. No session is read or written for this host: the response is
+     * built further down like every page's (respond), so the security
+     * headers below still apply, but there is never a Storelib cookie here
+     * to read. Before it is verified, or once the community is no longer the
+     * domain owner's, the domain shows nobody's pages.
+     */
+    if (connected?.purpose === "community") {
+      isCustomDomain = true
+      const slug = connected.communitySlug
+      if (!slug) {
+        if (isApiCall) return NextResponse.json({ error: "Not found" }, { status: 404, headers: { "Cache-Control": "no-store" } })
+        return new NextResponse(DOMAIN_NOT_CONNECTED, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } })
+      }
+      const step = communityDomainStep({ slug, pathname, search, host: hostWithoutPort.toLowerCase(), mainDomain: MAIN_DOMAIN })
+      if (step.kind === "redirect") {
+        const to = step.location.startsWith("https://") ? new URL(step.location) : new URL(step.location, request.url)
+        const answer = NextResponse.redirect(to, { status: step.status })
+        answer.headers.set("Cache-Control", "no-store")
+        return answer
+      }
+      if (step.kind === "text") {
+        return new NextResponse(step.body, { headers: { "Content-Type": step.contentType, "Cache-Control": "public, max-age=3600" } })
+      }
+      if (step.kind === "rewrite") {
+        communityPath = step.path
+        /* The community's layouts read the page asked for from this header (lib/communities/slug-move.ts): the community's own path, never the domain's. */
+        request.headers.set(COMMUNITY_PATH_HEADER, `${step.path}${search}`)
+      }
+    } else if (connected) {
       /**
        * NOT THE PRIMARY DOMAIN: ITS VISITORS GO TO THE ONE THAT IS.
        * A creator with two domains for one thing picks which one is the
@@ -1990,6 +2072,23 @@ async function routeRequest(request: NextRequest) {
    * it. Now both builds are this function.
    */
   let respond: () => NextResponse = () => NextResponse.next({ request })
+
+  /*
+    A COMMUNITY'S DOMAIN: its page, rewritten (communityPath above). Per
+    viewer, so never held by a shared cache: next.config.mjs caches `/` for
+    the marketing page, and on this host `/` is the community.
+  */
+  if (communityPath) {
+    const communityUrl = request.nextUrl.clone()
+    communityUrl.pathname = communityPath
+    const domainHost = host.split(":")[0]
+    respond = () => {
+      const r = NextResponse.rewrite(communityUrl, { request })
+      r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      r.headers.set("x-custom-domain", domainHost)
+      return r
+    }
+  }
 
   /**
    * THE WEBSITE'S WISHLIST, ON ITS OWN DOMAIN. `/wishlist` is also a

@@ -49,6 +49,7 @@ import { memberCountLabel } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
+import { gaCommunityJoin } from "@/lib/communities/client/ga-events"
 import { CheckDot } from "./check-dot"
 import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
@@ -168,6 +169,8 @@ export function enterCommunity(slug: string, router: { refresh: () => void }) {
   } catch {
     /* Offline: the community still opens. */
   }
+  /* The store's Google Analytics hears the join, when the store has it (lib/communities/client/ga-events.ts). */
+  if (typeof window !== "undefined") gaCommunityJoin(window, slug)
   if (typeof window !== "undefined" && window.location.pathname.replace(/\/+$/, "") !== home) window.history.pushState(null, "", home)
   router.refresh()
 }

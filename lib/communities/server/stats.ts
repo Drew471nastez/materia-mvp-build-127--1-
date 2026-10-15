@@ -131,8 +131,9 @@ async function revenueStats(db: Db, communityId: string, since: string): Promise
     activeSubscribers: mrr.active,
     newSubscribers: started,
     cancellations,
-    reasons: (why?.counts ?? []).filter((c) => c.count > 0).sort((a, b) => b.count - a.count),
-    latestCancellations: why?.latest ?? [],
+    /* A cancellation that gave no reason is "none", which the screen words as such. */
+    reasons: (why?.counts ?? []).filter((c) => c.count > 0).map((c) => ({ reason: c.reason ?? "none", count: c.count })).sort((a, b) => b.count - a.count),
+    latestCancellations: (why?.latest ?? []).map((l) => ({ ...l, reason: l.reason ?? "none" })),
     churnRate: churnRate({ activeNow: mrr.active, cancelled: cancellations, started }),
     refunds: refundLine,
   }
@@ -148,11 +149,12 @@ type TicketSums = { rows: number; cents: number; currency: string | null; invite
  * taken, `refunded_at` for what went back. Null when part 105 has not run,
  * which is how the screen knows to say nothing about tickets at all.
  */
-async function ticketSums(db: Db, communityId: string, since: string, column: "paid_at" | "refunded_at"): Promise<TicketSums | null> {
+async function ticketSums(db: Db, communityId: string, since: string, column: "paid_at" | "refunded_at", until?: string): Promise<TicketSums | null> {
   const out: TicketSums = { rows: 0, cents: 0, currency: null, invited: 0, events: new Set<string>() }
   let after: string | null = null
   for (let page = 0; page < MAX_PAGES; page++) {
     let q = db.from("community_event_tickets").select("id, event_id, source, amount_cents, currency").eq("community_id", communityId).gte(column, since)
+    if (until) q = q.lt(column, until)
     if (after) q = q.gt("id", after)
     const { data, error } = await q.order("id", { ascending: true }).limit(PAGE)
     if (error) {
@@ -181,9 +183,10 @@ async function ticketSums(db: Db, communityId: string, since: string, column: "p
  * gross, refunded and what is left. Counted from the ticket rows, never
  * from a price times a count. Null while part 105 has not run, or when
  * nothing has ever been sold, so the Analytics screen stays as it was.
+ * `until` ends the period (round 31: any period the picker chooses).
  */
-export async function loadEventMoney(db: Db, communityId: string, since: string): Promise<EventMoneyStats | null> {
-  const [took, back] = await Promise.all([ticketSums(db, communityId, since, "paid_at"), ticketSums(db, communityId, since, "refunded_at")])
+export async function loadEventMoney(db: Db, communityId: string, since: string, until?: string): Promise<EventMoneyStats | null> {
+  const [took, back] = await Promise.all([ticketSums(db, communityId, since, "paid_at", until), ticketSums(db, communityId, since, "refunded_at", until)])
   if (!took) return null
   const refundedCents = back?.cents ?? 0
   if (took.rows === 0 && took.invited === 0 && refundedCents === 0) return null
@@ -206,8 +209,12 @@ export function inviteLabel(i: { email: string | null; created_at: string; max_u
   return `Link made ${when}`
 }
 
-async function joinStats(db: Db, communityId: string, since: string): Promise<JoinStats> {
-  const joined = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).gte("joined_at", since)
+/** How the members who joined in the period came in, and the invite links that brought the most. `until` ends the period (round 31). */
+export async function joinStats(db: Db, communityId: string, since: string, until?: string): Promise<JoinStats> {
+  const joined = () => {
+    const q = db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).gte("joined_at", since)
+    return until ? q.lt("joined_at", until) : q
+  }
   const sources = MEMBER_SOURCES.filter((s) => s !== "owner")
   const counts = await Promise.all(sources.map((s) => headCount(joined().eq("source", s))))
   const bySource = sources.map((source, i) => ({ source, count: counts[i] })).filter((x) => x.count > 0).sort((a, b) => b.count - a.count)
@@ -217,7 +224,9 @@ async function joinStats(db: Db, communityId: string, since: string): Promise<Jo
   const { data: links, error } = await db.from("community_invites").select("id, email, created_at, max_uses, revoked_at").eq("community_id", communityId).gte("uses", 1).order("created_at", { ascending: false }).limit(200)
   const byId = new Map(((links as Invite[] | null) ?? []).map((r) => [r.id, r]))
   if (!error && byId.size) {
-    const { data: uses } = await db.from("community_invite_uses").select("invite_id").in("invite_id", [...byId.keys()]).gte("used_at", since).limit(5000)
+    let usesQ = db.from("community_invite_uses").select("invite_id").in("invite_id", [...byId.keys()]).gte("used_at", since)
+    if (until) usesQ = usesQ.lt("used_at", until)
+    const { data: uses } = await usesQ.limit(5000)
     const per = new Map<string, number>()
     for (const u of (uses as { invite_id: string }[] | null) ?? []) per.set(u.invite_id, (per.get(u.invite_id) ?? 0) + 1)
     for (const [id, n] of [...per.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5)) {

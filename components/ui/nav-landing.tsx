@@ -18,7 +18,8 @@
 import { useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 
-import { LANDING_HOLD_MS, LANDING_HTML_CLASS, LANDING_SURFACES, landsWithPageFade, prefersReducedMotion } from "@/lib/ui/landing"
+import { LANDED_ATTR, LANDING_HOLD_MS, LANDING_HTML_CLASS, LANDING_MARKED_CLASS, LANDING_SURFACES, landsWithPageFade, prefersReducedMotion } from "@/lib/ui/landing"
+import { holdLandingGround } from "@/components/community/member/landing"
 
 export function NavLanding() {
   const pathname = usePathname()
@@ -55,11 +56,32 @@ export function NavLanding() {
     if ((pathname ?? "").startsWith("/community/") && !document.querySelector(LANDING_SURFACES)) return
 
     const html = document.documentElement
+    /*
+      ROUND 31: ONE LANDING PER ARRIVAL, ON ITS OWN GROUND. The owner: "a white blink on the way to Explore". Explore often
+      commits as its loading.tsx first (the header's Discover reads ahead only to the loading screen), and the page that
+      replaces it inside the hold is a new .explore-ground, which matched the rule and started the fade from nothing again:
+      the screen dipped to the document twice. So the surfaces on screen at the commit are the ones that land
+      (LANDED_ATTR, app/globals.css), and one that comes later in the hold is simply there. And for the length of the fade
+      the document under it is the page's own ground (components/community/member/landing.ts holdLandingGround): in a
+      browser <body> is white under Explore's #f8f9fa, which was the white of the blink in the light look.
+    */
+    const surfaces = Array.from(document.querySelectorAll<HTMLElement>(LANDING_SURFACES))
+    for (const el of surfaces) el.setAttribute(LANDED_ATTR, "")
+    if (surfaces.length) html.classList.add(LANDING_MARKED_CLASS)
+    const ground = holdLandingGround(surfaces[0], LANDING_HOLD_MS)
     html.classList.add(LANDING_HTML_CLASS)
+    const clear = () => {
+      html.classList.remove(LANDING_HTML_CLASS, LANDING_MARKED_CLASS)
+      for (const el of surfaces) el.removeAttribute(LANDED_ATTR)
+      ground()
+    }
     const done = window.setTimeout(() => html.classList.remove(LANDING_HTML_CLASS), LANDING_HOLD_MS)
+    const after = window.setTimeout(clear, LANDING_HOLD_MS)
     return () => {
       window.clearTimeout(done)
+      window.clearTimeout(after)
       html.classList.remove(LANDING_HTML_CLASS)
+      clear()
     }
   }, [pathname])
 

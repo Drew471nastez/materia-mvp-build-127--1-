@@ -5,6 +5,8 @@ import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ReviewCard, type ReviewCardData } from "./review-card"
 import { ReviewsRatingBreakdown } from "./reviews-rating-breakdown"
+import { tint } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 /**
  * ===========================================================================
@@ -61,6 +63,8 @@ export function ReviewsList({
   const [loadError, setLoadError] = useState(false)
   const [hasMore, setHasMore] = useState(initialReviews.length < initialTotal)
   const [stars, setStars] = useState<StarCounts>(NONE)
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
 
   useEffect(() => {
     setReviews(initialReviews)
@@ -100,13 +104,13 @@ export function ReviewsList({
   }
 
   const count = reviewsCount || total || reviews.length
-  const muted = textColor ? `${textColor}99` : "#6b7280"
+  const muted = textColor ? tint(paint(textColor, "ink"), "99") : paint("#6b7280", "ink")
 
   if (count === 0 && reviews.length === 0) {
     if (!isPreview) return null
     return (
-      <div className="rounded-2xl border border-dashed px-6 py-10 text-center" style={{ borderColor: cardBorderColor || "#d5d9e0", backgroundColor: cardBackgroundColor || "transparent" }}>
-        <p className="text-[15px] font-semibold" style={{ color: textColor || "#1a1a2e" }}>
+      <div className="rounded-2xl border border-dashed px-6 py-10 text-center" style={{ borderColor: paint(cardBorderColor || "#d5d9e0", "line"), backgroundColor: paint(cardBackgroundColor, "bg") || "transparent" }}>
+        <p className="text-[15px] font-semibold" style={{ color: paint(textColor || "#1a1a2e", "ink") }}>
           No reviews yet
         </p>
         <p className="mt-1 text-[13px]" style={{ color: muted }}>
@@ -121,7 +125,7 @@ export function ReviewsList({
   return (
     <div id="reviews" data-reviews-block="" className="scroll-mt-20">
       {showHeader ? (
-        <h2 className={cn("font-semibold tracking-[-0.01em]", isMobile ? "text-[18px]" : "text-[20px]")} style={{ color: textColor || "#1a1a2e" }}>
+        <h2 className={cn("font-semibold tracking-[-0.01em]", isMobile ? "text-[18px]" : "text-[20px]")} style={{ color: paint(textColor || "#1a1a2e", "ink") }}>
           Reviews <span className="font-normal tabular-nums" style={{ color: muted }}>({count})</span>
         </h2>
       ) : null}
@@ -160,7 +164,7 @@ export function ReviewsList({
                 onClick={loadMore}
                 disabled={isLoading}
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[10px] border px-4 text-[14px] font-medium transition-colors duration-100 hover:bg-black/[0.03] disabled:opacity-60 sm:w-auto"
-                style={{ borderColor: cardBorderColor || "#d5d9e0", color: textColor || "#1a1a2e" }}
+                style={{ borderColor: paint(cardBorderColor || "#d5d9e0", "line"), color: paint(textColor || "#1a1a2e", "ink") }}
               >
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {isLoading ? "Loading" : "Show more reviews"}

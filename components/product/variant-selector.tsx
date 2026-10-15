@@ -5,6 +5,8 @@ import { shopAmountIn } from "@/lib/store/shop-money"
 import { usePageMoney, usePriceCurrency } from "@/components/platform/price-currency"
 import { cn } from "@/lib/utils"
 import { Check } from "lucide-react"
+import { tint } from "@/lib/appearance/site-paint"
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 export interface ProductVariant {
   id: string
@@ -60,6 +62,21 @@ export function VariantSelector({
   }
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(getInitialVariantId)
+  /*
+    Round 31: on Storelib's own product page the option rows follow the person's look (lib/appearance/site-paint): the
+    chosen row's ring and dot are the ink, the others' edge a hairline, in either look exactly the colours they were.
+    A near black accent is a ring in the light look and a graphite row with a strong hairline in the dark one, never a
+    white ring (the dark sheet's chosen pill); a coloured accent (the buy button's blue) is itself in both.
+  */
+  const paint = useSitePaint()
+  const accentLit = themeColors?.accentColor || "#000000"
+  const accent = paint(accentLit, "ink")
+  const ring = paint(accentLit, "line")
+  const chosenBg = ring !== accentLit ? `var(--sl-pp-selected, ${accentLit}08)` : tint(accent, "08")
+  const edge = paint(themeColors?.cardBorderColor || "#e5e7eb", "line")
+  const dotEdge = paint(themeColors?.cardBorderColor || "#d1d5db", "line")
+  const rowBg = paint(themeColors?.cardBackground, "bg")
+  const ink = paint(themeColors?.cardTextColor, "ink")
 
   useEffect(() => {
     // Notify parent of initial selection
@@ -117,15 +134,13 @@ export function VariantSelector({
                 variants.length === 1 ? "cursor-default" : "cursor-pointer"
               )}
               style={{
-                border: `2px solid ${isSelected
-                  ? `${themeColors?.accentColor || "#000000"}`
-                  : themeColors?.cardBorderColor || "#e5e7eb"}`,
+                border: `2px solid ${isSelected ? ring : edge}`,
                 boxShadow: isSelected
-                  ? `0 0 0 1px ${themeColors?.accentColor || "#000000"}80`
+                  ? `0 0 0 1px ${tint(ring, "80")}`
                   : "none",
                 backgroundColor: isSelected
-                  ? `${themeColors?.accentColor || "#000000"}08`
-                  : themeColors?.cardBackground || undefined,
+                  ? chosenBg
+                  : rowBg || undefined,
               }}
             >
               <div className="flex items-start gap-3">
@@ -136,16 +151,14 @@ export function VariantSelector({
                     isSelected ? "border-black" : "border-gray-300"
                   )}
                   style={{
-                    borderColor: isSelected
-                      ? themeColors?.accentColor || "#000000"
-                      : themeColors?.cardBorderColor || "#d1d5db",
+                    borderColor: isSelected ? ring : dotEdge,
                     backgroundColor: "transparent",
                   }}
                 >
                   {isSelected && (
                     <div
                       className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: themeColors?.accentColor || "#000000" }}
+                      style={{ backgroundColor: accent }}
                     />
                   )}
                 </div>
@@ -156,7 +169,7 @@ export function VariantSelector({
                     <div className="flex items-center gap-2 min-w-0">
                       <h4
                         className="font-semibold text-sm sm:text-base truncate"
-                        style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+                        style={{ color: ink || "var(--foreground)" }}
                       >
                         {variant.name}
                       </h4>
@@ -169,7 +182,7 @@ export function VariantSelector({
                     </div>
                     <span
                       className="font-bold text-sm sm:text-base flex-shrink-0"
-                      style={{ color: themeColors?.cardTextColor || "var(--foreground)" }}
+                      style={{ color: ink || "var(--foreground)" }}
                     >
                       {isPwyw
                         ? formatPwywMin(variant.pwyw_min_price_cents)
@@ -181,7 +194,7 @@ export function VariantSelector({
                   {variant.description && (
                     <p
                       className="text-xs sm:text-sm mt-1 line-clamp-2"
-                      style={{ color: `${themeColors?.cardTextColor || "var(--foreground)"}99` }}
+                      style={{ color: ink ? tint(ink, "99") : undefined }}
                     >
                       {variant.description}
                     </p>

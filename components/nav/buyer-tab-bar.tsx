@@ -173,9 +173,10 @@ const LENS_EDGE = "var(--sl-tab-lens-edge, inset 0 0.5px 0 rgba(255,255,255,0.95
  * stays for LENS_HOLD_MS after a finger lands however short the touch, long
  * enough to arrive, and then goes: the same in and out on every tap.
  *
- * The slide is untouched: under a finger the glass is where the finger is,
- * lifts by LIFT on the same spring, and a release lands it on its slot on
- * the spring in components/nav/tab-lens.tsx, all of it on the compositor too.
+ * The slide is untouched: under a finger the glass follows the finger (on a
+ * spring a few pixels behind it since round 31), lifts by LIFT on the same
+ * spring, and a release lands it on its slot on the spring in
+ * components/nav/tab-lens.tsx, all of it on the compositor too.
  */
 /*
   HOW MUCH OF IT A TAP SHOWS, AND A DRAG (round 30, the owner: "too visible ... very subtle; on dark it should not
@@ -185,6 +186,24 @@ const LENS_EDGE = "var(--sl-tab-lens-edge, inset 0 0.5px 0 rgba(255,255,255,0.95
   light, a fainter whole in the dark). Opacity only, on the same curves, so nothing about the motion changes.
   Dark values: scripts/gen-theme-dark.mjs.
 */
+/*
+  ROUND 31: UNDER A DRAGGING FINGER IT IS GLASS, NOT A TINT (the owner: "too solid and looks really weird"). The tint, sheen
+  and hairline above stay what a tap shows. A drag adds one more layer, faded in by opacity only while the finger is
+  dragging, so a tap never sees it:
+
+    --sl-tab-lens-rim   the glass's thickness: a soft rim of light just inside its edge, brighter along the top and the
+                        bottom where a real lens bends the most light, with a faint cool shade under it towards the edge,
+                        and a slightly deeper shadow, because a held thing is lifted
+    --sl-tab-lens-spec  a specular sheen, a soft oval of light high on its left and a fainter one low on its right,
+                        drawn on its own layer that the slide moves a few pixels with the glass's place on the bar
+                        (components/nav/tab-lens.tsx, SHEEN_TRAVEL), so the light seems to stay where it is while the
+                        glass passes under it
+
+  Every value is faint: over a white bar it reads as glass catching light rather than as a shape. Dark values in
+  scripts/gen-theme-dark.mjs, fainter again. Still no backdrop blur: the bar under it is one opaque colour.
+*/
+const LENS_RIM = "var(--sl-tab-lens-rim, inset 0 1px 1.5px -0.5px rgba(255,255,255,0.95), inset 0 -1px 1.5px -0.5px rgba(255,255,255,0.7), inset 0 0 0 1px rgba(255,255,255,0.45), inset 0 0 8px rgba(100,110,140,0.16), 0 4px 12px -3px rgba(16,18,27,0.12))"
+const LENS_SPEC = "var(--sl-tab-lens-spec, radial-gradient(34% 26% at 36% 32%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%), radial-gradient(28% 18% at 66% 78%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%))"
 const LENS_TAP_STRENGTH = "var(--sl-tab-lens-tap, 0.5)"
 const LENS_DRAG_STRENGTH = "var(--sl-tab-lens-drag, 1)"
 const LENS_REST = 0.9
@@ -868,7 +887,27 @@ function TabBar({
                   : `${NO_TRAVEL}, scale ${LENS_OUT}, opacity ${LENS_OUT}, transform 0s`,
               willChange: "opacity, translate, scale, transform",
             }}
-          />
+          >
+            {/* Round 31: the glass under a dragging finger (UNDER A DRAGGING FINGER IT IS GLASS, above): its rim, and the
+                sheen the slide moves (data-lens-sheen). Opacity only, and only while dragging, so a tap is unchanged. */}
+            <span
+              aria-hidden="true"
+              data-buyer-tabs-lens-glass=""
+              className="pointer-events-none absolute inset-0 rounded-full"
+              style={{
+                boxShadow: LENS_RIM,
+                opacity: slide.following && !arriving ? 1 : 0,
+                transition: arriving ? "opacity 0s" : slide.following ? LENS_FADE_IN : `opacity ${LENS_OUT}`,
+                willChange: "opacity",
+              }}
+            >
+              <span
+                data-lens-sheen=""
+                className="absolute inset-0 rounded-full"
+                style={{ backgroundImage: LENS_SPEC, willChange: "translate" }}
+              />
+            </span>
+          </span>
 
           {tabs.map((tab, i) => {
             const on = i === shown

@@ -595,14 +595,21 @@ async function main() {
   /* One to one now: it closed 72% of the gap a frame and leaned 22% into the
      slot, which left it a few pixels off a moving finger. The probe reads it
      0px from the finger at the median once the pick up is over. */
-  check("under a finger the circle is where the finger is, one to one, with no transition",
-    !/const FOLLOW =/.test(nav) && !/MAGNET/.test(strip(nav))
+  /* Changed on purpose (round 31): "too solid ... more like liquid iOS". Not one to one any more and not a fraction of the
+     gap a frame either: a critically damped spring, solved exactly for each frame's real length, a few pixels behind a
+     moving finger and on it within about 80ms of a stop. Still no CSS transition, still no slot under the finger, still the
+     loop. scripts/check-lens-round31.mjs: 4px behind a slow slide, 13px behind an ordinary one, at the median. */
+  check("under a finger the circle chases the finger on a critically damped spring, with no transition",
+    !/const FOLLOW =/.test(nav) && !/MAGNET/.test(strip(nav)) && !/CATCH_UP\b/.test(strip(nav)) && !/offsetRef/.test(nav)
+      && /const FOLLOW_SPRING = \{ stiffness: 3600, damping: 120 \}/.test(nav)
       && /targetRef\.current = leftFor\(clientX\)/.test(nav)
-      && /const next = targetRef\.current \+ offsetRef\.current/.test(nav)
-      && /offsetRef\.current \*= Math\.pow\(CATCH_UP, dt \/ 16\.7\)/.test(nav)
+      && /const f = followStep\(posRef\.current - target, speedRef\.current, dt\)/.test(nav)
+      && /const e = Math\.exp\(-FOLLOW_W \* t\)/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
       && /transition: `\$\{NO_TRAVEL\}, \$\{LIFT_EASE\}, transform 0s,/.test(nav),
     "a transition under the finger is a delay; a slot under the finger is a step")
+  check("and the loop parks once the glass is on a still finger and round, woken by the next move",
+    /At rest under a still finger: exactly there, and the loop parks/.test(nav) && /stampRef\.current = 0\s*\n\s*return\s*\n\s*\}\s*\n\s*paint\(\)\s*\n\s*frameRef\.current = requestAnimationFrame\(step\)/.test(nav))
   check("written straight to the element by the loop, and never by a style prop",
     /dot\.style\.translate = `\$\{Math\.round\(posRef\.current \* 100\) \/ 100\}px 0`/.test(nav)
       && /dot\.style\.translate = `\$\{x\}px 0`/.test(nav)
@@ -650,7 +657,8 @@ async function main() {
   */
   check("and a drag beginning during a spring picks the circle up from where it is drawn",
     /stopSettle\(\)\s*\n\s*const drawn = drawnAt\(\) \?\? leftFor\(clientX\)/.test(nav)
-      && /offsetRef\.current = drawn - leftFor\(clientX\)/.test(nav)
+      /* Changed on purpose (round 31): no offset to carry, the follow spring closes the gap from where it was drawn. */
+      && /posRef\.current = drawn\s*\n\s*speedRef\.current = 0/.test(nav)
       && /getComputedStyle\(dot\)\.translate/.test(nav))
   /* Let go, it lands on a spring that starts at the finger's speed: sampled
      into keyframes the compositor plays, ending on the slot's exact centre
@@ -1011,15 +1019,22 @@ async function main() {
      feel round): the cap is 0.11 rather than 0.08 and an ordinary slide now
      reaches it (STRETCH_AT 0.5 rather than 0.6), so the widest it gets with
      the lift is about 1.15. "That bubble liquid more flowing." */
-  check("under a finger the lens stretches with its speed, like a drop, never past about 1.15",
-    /const STRETCH_MAX = 0\.11/.test(nav) && /const STRETCH_AT = 0\.5/.test(nav)
-      && /scale\(\$\{Math\.round\(\(1 \+ d\) \* 1000\) \/ 1000\}, \$\{Math\.round\(\(1 - d \* 0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
+  /* Changed on purpose (round 31): "too solid". The stretch eased towards a cap of 0.2 instead of a straight line cut off
+     flat at 0.11, so a faster drag is always a wider drop (probe: 0.04, 0.11, 0.17 at 0.2, 0.7 and 2px/ms) and nothing
+     sits pinned at a wall; its height is the width's inverse square root, the same glass pulled along; and the speed it
+     reads is the glass's own, off its follow spring, rather than a smoothed copy of the finger's. */
+  check("under a finger the lens stretches with its speed, like a drop, easing towards 1.2 and never past it",
+    /const STRETCH_MAX = 0\.2/.test(nav) && /const STRETCH_AT = 0\.9/.test(nav)
+      && /STRETCH_MAX \* \(1 - Math\.exp\(-Math\.abs\(speed\) \/ STRETCH_AT\)\)/.test(nav)
+      && /scale\(\$\{Math\.round\(\(1 \+ d\) \* 1000\) \/ 1000\}, \$\{Math\.round\(Math\.pow\(1 \+ d, -0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
       && /drop\.d = Math\.max\(-SQUASH_MAX, Math\.min\(STRETCH_MAX, drop\.d \+ drop\.dv \* dt\)\)/.test(nav)
-      && /speedRef\.current \+= \(\(next - posRef\.current\) \/ dt - speedRef\.current\) \* blend/.test(nav))
+      && /speedRef\.current = f\.v/.test(nav))
   /* "Make the glassy bubble a bit more fluid, like a drop of water stretching slightly in the drag direction and settling." The stretch has a small underdamped spring of its own, leans the way it goes, and runs on into a slight squash when the finger stops; the probe reads 0.994x narrowest after a slow slide, and 1x at rest. */
   check("the stretch is a drop with a body: its own soft spring, leaning the way it goes, a slight squash as it stops, settling round",
     /* Changed on purpose (round 29): damping 8 to 13, the same lean, one wobble after a stop instead of three. */
-    /const DROP_SPRING = \{ stiffness: 360, damping: 13 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.26/.test(nav)
+    /* Changed on purpose (round 31): 600 and 30, 0.61 of critical: the give is the follow spring's now, so the drop leans in
+       a frame or two behind the glass and a stop leaves under 1% of squash before it is round (probe: 0.5% to 0.9%). */
+    /const DROP_SPRING = \{ stiffness: 600, damping: 30 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.26/.test(nav)
       && /stepDrop\(dropRef\.current, speedRef\.current, dt\)/.test(nav) && /translateX\(\$\{lead\}px\) scale\(/.test(nav))
   check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop, dot\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
   /* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." One fixed animation from the touch, the same every tap, on the glyph's own `scale`, never the lens. */
