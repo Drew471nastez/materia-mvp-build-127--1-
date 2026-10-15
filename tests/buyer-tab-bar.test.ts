@@ -121,8 +121,9 @@ check("the finger's gesture decides, and a keyboard's Enter still picks", /\{\.\
   scripts/gen-theme-dark.mjs) and only its opacity comes and goes, so a fade is the compositor's and not a repaint. It
   is there while a finger is, and for LENS_HOLD_MS after a tap, so a short tap still shows it whole.
 */
-check("the glass is there while a finger is, and a tap's moment after, by opacity alone", /const lit = slide\.pressed \|\| slide\.following/.test(bar) && /const shows = lit \|\| holding/.test(bar) && /opacity: shows && !arriving \? 1 : 0,/.test(bar) && /backgroundColor: LENS_FILL,/.test(bar) && !/backdropFilter/.test(bar))
-check("the glass is a translucent tint with a thin highlight, its dark look from variables", /const LENS_FILL = "var\(--sl-tab-lens, rgba\(120,128,150,0\.1\)\)"/.test(bar) && /--sl-tab-lens-sheen/.test(bar) && /--sl-tab-lens-edge/.test(bar) && /--sl-tab-lens: rgba\(255,255,255,0\.06\);/.test(read("scripts/gen-theme-dark.mjs")))
+/* Changed on purpose (round 30): a tap shows the glass at a strength of its own, less than a drag. */
+check("the glass is there while a finger is, and a tap's moment after, by opacity alone", /const lit = slide\.pressed \|\| slide\.following/.test(bar) && /const shows = lit \|\| holding/.test(bar) && /opacity: shows && !arriving \? \(slide\.following \? LENS_DRAG_STRENGTH : LENS_TAP_STRENGTH\) : 0,/.test(bar) && /backgroundColor: LENS_FILL,/.test(bar) && !/backdropFilter/.test(bar))
+check("the glass is a translucent tint with a thin highlight, its dark look from variables", /const LENS_FILL = "var\(--sl-tab-lens, rgba\(120,128,150,0\.1\)\)"/.test(bar) && /--sl-tab-lens-sheen/.test(bar) && /--sl-tab-lens-edge/.test(bar) && /--sl-tab-lens: rgba\(255,255,255,0\.045\);/.test(read("scripts/gen-theme-dark.mjs")))
 check("a plain white bar across the foot, not a pill: full width, phones only", /className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"/.test(bar) && !/rounded-full"[^>]*data-buyer-tab-bar/.test(bar))
 check("with a hairline and a little depth along its top", /const BAR_SHADOW = "0 -0\.5px 0 rgba\(16,18,27,0\.09\)/.test(bar))
 check("the home indicator's inset under it", /paddingBottom: "env\(safe-area-inset-bottom, 0px\)"/.test(bar))

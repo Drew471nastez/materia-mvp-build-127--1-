@@ -177,6 +177,16 @@ const LENS_EDGE = "var(--sl-tab-lens-edge, inset 0 0.5px 0 rgba(255,255,255,0.95
  * lifts by LIFT on the same spring, and a release lands it on its slot on
  * the spring in components/nav/tab-lens.tsx, all of it on the compositor too.
  */
+/*
+  HOW MUCH OF IT A TAP SHOWS, AND A DRAG (round 30, the owner: "too visible ... very subtle; on dark it should not
+  show on a click"). A tap is a choice, made already: the glass only hints at it, at half its strength in the light
+  look and not at all in the dark one, where any lit shape on the near black bar reads as a flash. A finger dragging
+  along the bar is looking for a place, and there the glass is the thing it moves, so it shows more (all of it in the
+  light, a fainter whole in the dark). Opacity only, on the same curves, so nothing about the motion changes.
+  Dark values: scripts/gen-theme-dark.mjs.
+*/
+const LENS_TAP_STRENGTH = "var(--sl-tab-lens-tap, 0.5)"
+const LENS_DRAG_STRENGTH = "var(--sl-tab-lens-drag, 1)"
 const LENS_REST = 0.9
 const LENS_SPRING = "cubic-bezier(0.3, 1.32, 0.5, 1)"
 const LENS_FADE_IN = "opacity 200ms cubic-bezier(0.3, 0.7, 0.4, 1)"
@@ -845,7 +855,7 @@ function TabBar({
               left: 0,
               /* A drag lifts it; under a finger it is whole; gone, it has sunk a little, so it comes back by swelling. */
               scale: String(slide.following ? LIFT : shows && !arriving ? 1 : LENS_REST),
-              opacity: shows && !arriving ? 1 : 0,
+              opacity: shows && !arriving ? (slide.following ? LENS_DRAG_STRENGTH : LENS_TAP_STRENGTH) : 0,
               backgroundColor: LENS_FILL,
               backgroundImage: LENS_SHEEN,
               boxShadow: LENS_EDGE,
