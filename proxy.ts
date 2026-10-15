@@ -17,6 +17,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
+import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { countryOfCurrency, resolveMarketCountries } from "@/lib/markets/market-countries"
@@ -780,8 +781,11 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   let page = asked
   let query = search
   let gated = false
+  /* Whether the website asks for a password at all: a page let in with a pass is that visitor's, never a stranger's (strangerPage below). */
+  let protectedSite = false
   if ((!/\.[a-z0-9]{1,8}$/i.test(asked) && !asked.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(asked)) {
     const gate = await passwordPageFor(request, name, host, asked, search)
+    protectedSite = gate.protected
     if (gate.blocked) {
       /*
         THE THEME'S OWN PASSWORD PAGE, never Storelib's builder one: that
@@ -796,8 +800,33 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
       gated = true
     }
   }
+  /*
+    A STRANGER'S PAGE, HELD BY THE CDN FOR A MINUTE (lib/storelib-theme/
+    compat/anonymous-cache.ts): a GET for a page, with no cookie that could
+    change it, on a website without a password, where no language is being
+    offered. It goes to an address of its own, marked with the host, the
+    country, the language and the market it is drawn for, so the copy held
+    there is never handed to anybody else. Everything else is drawn per
+    request and kept private, as before.
+  */
+  const country = visitorCountry(request)
+  const market = await visitorMarket(request, name)
+  const offersLanguage = !!(own && "suggest" in own && !gated)
+  const marker = !gated && strangerPage({
+    method: request.method,
+    path: page,
+    query: new URLSearchParams(query),
+    cookie: request.headers.get("cookie"),
+    accept: request.headers.get("accept"),
+    contentType: request.headers.get("content-type"),
+    requestedWith: request.headers.get("x-requested-with"),
+    protectedSite,
+    offersLanguage,
+  })
+    ? strangerMarker({ host: siteHostOf(request.headers), country, locale, market })
+    : null
   const to = request.nextUrl.clone()
-  to.pathname = `/api/site-theme/site/${name}${page === "/" ? "" : page}`
+  to.pathname = `/api/site-theme/site/${name}${marker ? `/${marker}` : ""}${page === "/" ? "" : page}`
   to.search = query
   /* Sealed for this name on this host: the handler draws nothing it was not sent by this proxy (lib/storelib-theme/compat/site-seal.ts). */
   const headers = new Headers(request.headers)
@@ -812,15 +841,27 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     this rewrite, so the theme's country selector took the market's first
     country ("Åland Islands (BRL)" for a visitor in Romania, the owner).
   */
-  const country = visitorCountry(request)
   if (country) headers.set(SITE_COUNTRY_HEADER, country)
   /* The visitor's market, when it shows its own currency (visitorMarket): the theme draws its prices in it. */
-  const market = await visitorMarket(request, name)
   if (market) headers.set(SITE_MARKET_HEADER, market)
   const seal = await sealSite(name, siteHostOf(request.headers))
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
   const r = offerLanguage(NextResponse.rewrite(to, { request: { headers } }), own && "suggest" in own && !gated ? own.suggest : null)
   if (gated) r.headers.set("X-Robots-Tag", "noindex")
+  /*
+    THE FRONT PAGE, SAID HERE. next.config's rule for `/` (the marketing
+    landing page's `public, s-maxage=3600`) matches the path the browser
+    asked for, on every host, and a header set on this rewrite is the one
+    that wins over it (the built website's front page does the same, above).
+    So `/` says outright what the handler would: a stranger's front page a
+    minute in the CDN, anybody else's private.
+  */
+  if (asked === "/" && page === "/") {
+    if (marker) {
+      r.headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
+      r.headers.set("Vary", PUBLIC_PAGE_VARY)
+    } else r.headers.set("Cache-Control", "private, no-cache")
+  }
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
     "private, no-cache", which keeps the browser's back/forward cache on; the
@@ -1255,6 +1296,14 @@ export async function proxy(request: NextRequest) {
 async function routeRequest(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
+
+  /*
+    A STRANGER'S COPY OF AN IMPORTED THEME'S PAGE is held by the CDN at a
+    marked address only this proxy rewrites to (compatRewrite,
+    lib/storelib-theme/compat/anonymous-cache.ts). Typed straight at the API,
+    on any host, it is refused here, before any cache is asked.
+  */
+  if (markedThemeAddress(pathname)) return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
 
   /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
   if (pathname.startsWith("/media/")) return NextResponse.next()
