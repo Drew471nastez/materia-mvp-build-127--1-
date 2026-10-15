@@ -595,8 +595,9 @@ function faces() {
     /\.select\("id, rating, content, created_at, reviewer_name, product:products/.test(creatorPage) && /missingColumn\(res\.error\)/.test(creatorPage) && /const author = reviewerOf\(review\)/.test(creatorPage))
 
   const card = source("components/reviews/review-card.tsx")
+  /* Changed on purpose (round 31): the page's text colour is painted first (lib/appearance/site-paint), so on Storelib's own product page the circle follows the person's dark look; anywhere else paint() hands the colour back and the circle is `${textColor}1f` exactly as before. */
   check("the product page's review card draws the page's own colours in the circle",
-    /name=\{avatarName\}/.test(card) && /markWhileLoading/.test(card) && /backgroundColor: `\$\{textColor\}1f`, color: textColor/.test(card))
+    /name=\{avatarName\}/.test(card) && /markWhileLoading/.test(card) && /const ink = paint\(textColor, "ink"\)/.test(card) && /backgroundColor: tintColour\(ink, "1f"\), color: ink/.test(card))
   const form = source("components/reviews/review-form.tsx")
   check("Leave a review is handed the name it has, empty when there is none, never a \"?\"",
     /name=\{\(name \?\? ""\)\.trim\(\)\} alt="" size=\{48\} markWhileLoading/.test(form) && !/\|\| "\?"/.test(code("components/reviews/review-form.tsx")))
@@ -606,7 +607,8 @@ function faces() {
   /* On a dark product page the bars were darker than the track they run in. */
   const breakdown = source("components/reviews/reviews-rating-breakdown.tsx")
   check("the rating bars follow the page's text colour rather than Storelib's near black",
-    /const bar = starColor \|\| accentColor \|\| textColor \|\| "#1a1a2e"/.test(breakdown))
+    /* Changed on purpose (round 31): the same colour, painted to follow the person's look on Storelib's own product page (lib/appearance/site-paint). */
+    /const bar = paint\(starColor \|\| accentColor \|\| textColor \|\| "#1a1a2e", "ink"\)/.test(breakdown))
 }
 
 async function main() {

@@ -545,7 +545,8 @@ export const useParams = () => ({})
       const followsLook = /data-product-look="site"/.test(markup)
       console.log(`\nPRODUCT: ${which}, ${markup.length} characters of HTML; own look ${ownLook}, follows the person's look ${followsLook}`)
       if (which === "custom") {
-        expect(ownLook && !followsLook && /storelib:appearance|removeAttribute\("data-sl-dark"\)/.test(markup), "custom: a creator's own scheme keeps its look (data-own-look, and the boot that takes the dark look off before it is drawn)")
+        /* Changed on purpose (round 31): no boot takes the dark look off the document; the dark sheet leaves [data-own-look] out, so the Storelib header and the sheets around the creator's page follow the person (lib/appearance/site-appearance, WHOSE LOOK, PART BY PART). */
+        expect(ownLook && !followsLook && !/removeAttribute\("data-sl-dark"\)/.test(markup), "custom: a creator's own scheme keeps its look (data-own-look), and nothing takes the dark look off the document")
       } else {
         expect(followsLook && !ownLook, "default: the platform's default look follows the person's look (data-product-look=\"site\", no data-own-look)")
       }
@@ -564,7 +565,8 @@ export const useParams = () => ({})
           const state = await p.evaluate(() => ({ dark: document.documentElement.hasAttribute("data-sl-dark"), ground: getComputedStyle(document.querySelector("[data-product-look], [data-own-look]") || document.body).backgroundColor }))
           const label = `product ${which} ${look} ${vp.width}`
           if (which === "custom") {
-            expect(!state.dark, `${label}: the dark look is never on a creator's own scheme`, state)
+            /* Changed on purpose (round 31): <html> is in the person's look; the creator's page keeps its own ground in it. */
+            expect(state.dark === (look === "dark") && state.ground === "rgb(238, 241, 234)", `${label}: <html> is in the person's look, the creator's page keeps its own ground`, state)
           } else {
             expect(state.dark === (look === "dark"), `${label}: <html> is in the person's ${look} look`, state)
             if (look === "dark") {

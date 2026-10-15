@@ -44,6 +44,22 @@ export const THEMED_PREFIXES = ["/explore", "/account", "/community", "/u/", "/m
   (lib/routes/reserved-segments) and whose second is not the creator's links page. A creator's product page with a look
   of their own (a scheme, colours or an arranged page) says so with data-own-look and keeps it, as a creator page under
   /u/ does; only the platform's default look is drawn dark (app/(marketing)/p/[slug]/page.tsx, productHasOwnLook).
+
+  WHOSE LOOK, PART BY PART (round 31, the owner: "in dark mode, opening a product from Explore lands on a white product
+  page and a white header"):
+    - Storelib's own chrome follows the person, on every themed page, whatever is under it: the header, the tab bar,
+      the strip under the clock, and the sheets, menus and dialogs a page opens (they are drawn over the page, in
+      Storelib's components, and portalled out of it).
+    - A creator's own look ([data-own-look]: a creator page under /u/, a product page its creator designed) keeps
+      exactly the colours the creator chose, in both looks, and everything drawn inside it with them: its bars, its buy
+      card, its option rows, its wishlist button. Those carry the creator's colours, and a dark one on a light page of
+      the creator's would be the clash.
+    - Storelib's own product page (no look of the creator's, data-product-look="site") is Storelib's chrome all the
+      way down: the whole page follows the person, its inline colours painted through ./site-paint.
+  So the dark attribute stays on <html> on a themed page with a look of the creator's own: app/theme-dark.css leaves
+  [data-own-look] out of every rule and puts the light tokens back inside it (scripts/gen-theme-dark.mjs OWN). Until
+  round 31 a boot took the dark look off the whole document there (OWN_LOOK_BOOT), and the header and the sheets went
+  white with the page.
 */
 export const PLATFORM_FIRST_SEGMENTS: readonly string[] = [...RESERVED_ROOT_SEGMENTS, ...RESERVED_ROOT_EXTRAS].map((s) => s.toLowerCase())
 
@@ -100,8 +116,7 @@ export const APP_FROM_DARK_CAP_MS = 1500
 /** Printed in <head>: the veil, before the first paint, on an /app document opened after a dark page in this tab. */
 export const APP_FROM_DARK_BOOT = `(function(){try{if(!/^\\/app(\\/|$)/.test(location.pathname))return;if(sessionStorage.getItem(${JSON.stringify(LOOK_NOW_KEY)})!=="dark")return;var h=document.documentElement;h.classList.add(${JSON.stringify(APP_FROM_DARK_CLASS)});setTimeout(function(){if(!h.classList.contains(${JSON.stringify(APP_FROM_DARK_CLASS)}))return;h.classList.add(${JSON.stringify(APP_FROM_DARK_OUT_CLASS)});setTimeout(function(){h.classList.remove(${JSON.stringify(APP_FROM_DARK_CLASS)},${JSON.stringify(APP_FROM_DARK_OUT_CLASS)})},${APP_FROM_DARK_MS + 60})},${APP_FROM_DARK_CAP_MS})}catch(e){}})();`
 
-/**
- * Printed as the first thing inside a page with a look of its own (a creator's page under /u/): the boot has already
- * put the dark look on <html> for the address, and this takes it off again before anything of the page is drawn.
- */
-export const OWN_LOOK_BOOT = `(function(){try{var h=document.documentElement;h.removeAttribute(${JSON.stringify(DARK_ATTR)});h.style.colorScheme="light"}catch(e){}})();`
+/*
+  No boot for a page with a look of its own any more (round 31): it took the dark look off the whole document, the
+  Storelib header and the sheets with it. The dark sheet leaves [data-own-look] out instead (WHOSE LOOK, PART BY PART).
+*/

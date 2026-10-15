@@ -1,5 +1,6 @@
 "use client"
 
+import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
@@ -21,6 +22,8 @@ export function ViewInLibraryButton({
   borderColor,
   className = "w-full min-h-[44px]",
 }: ViewInLibraryButtonProps) {
+  /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */
+  const paint = useSitePaint()
   const handleClick = () => {
     const canonical = getCanonicalSiteUrl()
     window.location.assign(new URL("/account/library", canonical).toString())
@@ -33,9 +36,9 @@ export function ViewInLibraryButton({
       className={`cursor-pointer relative z-10 ${className}`}
       onClick={handleClick}
       style={{
-        backgroundColor: backgroundColor || "transparent",
-        color: textColor || "inherit",
-        borderColor: borderColor || "var(--border)",
+        backgroundColor: paint(backgroundColor, "bg") || "transparent",
+        color: paint(textColor, "ink") || "inherit",
+        borderColor: paint(borderColor, "line") || "var(--border)",
       }}
     >
       <ArrowRight className="mr-2 h-4 w-4" />
