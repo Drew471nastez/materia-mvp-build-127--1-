@@ -332,6 +332,7 @@ export const isNativePlatform = () => false
       await p.evaluate(() => { document.documentElement.setAttribute("data-sl-dark", ""); document.documentElement.style.colorScheme = "dark" })
       await sleep(400)
       const patches = await lightPatches(p)
+      if (process.env.STRIP_DEBUG) console.log(JSON.stringify(await p.evaluate(() => [...document.querySelectorAll("*")].map((el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { el: `${el.tagName}.${String(el.className).slice(0, 140)}`, bb: cs.borderBottomWidth, bbc: cs.borderBottomColor, bt: cs.borderTopWidth, btc: cs.borderTopColor, h: Math.round(r.height), bg: cs.backgroundColor, top: Math.round(r.top) } }).filter((o) => parseFloat(o.bb) >= 4 || parseFloat(o.bt) >= 4 || (o.h > 0 && o.h <= 12 && o.bg !== "rgba(0, 0, 0, 0)" && o.top < 1200)))))
       await p.screenshot({ path: join(shots, `${kind}-${vp.width}-dark.png`) })
       expect(patches.length === 0, `${kind} ${vp.width}: nothing left light, and no dark ink or icon on the dark ground`, patches)
       expect(errors.length === 0, `${kind} ${vp.width}: no page errors`, errors)

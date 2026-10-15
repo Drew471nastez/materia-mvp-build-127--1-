@@ -97,7 +97,7 @@ async function main() {
   /* Changed on purpose (round 28): the owner found the switch laggy. It no longer starts a transition on every
      element (html.sl-theme-switching *); one still of the old page fades over the new one. */
   check("the switch is one still fading away, never a transition on every element", !/sl-theme-switching/.test(css) && /html\[data-theme-swap\]::view-transition-old\(root\) \{[^}]*animation: sl-theme-out 220ms/.test(css))
-  check("the status bar band and the bounce follow the dark look", /--native-band: #111113/.test(css) && /--bounce-ground: #111113/.test(css))
+  check("the status bar band is the dark header's surface and the bounce the dark page", /--native-band: #18181b/.test(css) && /--bounce-ground: #111113/.test(css))
   check("a member's profile page is dark too", /\[data-member-profile\]/.test(css))
   const swapSrc = read("lib/appearance/client.ts")
   check("the look is on <html> and every reader rendered inside the same still", /paintAppearance\(window\.location\.pathname, next, pageDefault\)\s*flushSync\(/.test(swapSrc) && /startViewTransition\(/.test(swapSrc) && /prefers-reduced-motion: reduce/.test(swapSrc))

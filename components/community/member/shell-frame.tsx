@@ -414,7 +414,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const lessonPage = shown.kind === "program"
   /* A member's profile too (round J1, the owner: "no longer tabs in the right side, and larger cards"): it takes the right column's room. */
   const profilePage = shown.kind === "profile"
-  const wideCenter = about || lessonPage || profilePage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event"
+  /* And the person's membership (round 29, the owner: no Top contributors beside it): their plan is the page, not the community's leaders. */
+  const wideCenter = about || lessonPage || profilePage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event" || shown.kind === "membership"
   const noGo = useCallback(() => {}, [])
   const place = useMemo<PlaceState>(() => ({ tab, onGo: noGo }), [tab, noGo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
