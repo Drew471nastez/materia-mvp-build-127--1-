@@ -17,6 +17,7 @@ import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { priceCents } from "@/lib/storelib-theme/compat/objects"
 import type { CompatCommerce } from "@/lib/storelib-theme/compat/site-commerce-markup"
 import { minorUnits } from "./money"
+import { naturalCountry } from "./market-countries"
 import { convertedCents, moneyFormatFor, type Pricing } from "./pricing"
 
 type O = Record<string, unknown>
@@ -58,9 +59,9 @@ export function countryList(markets: CountryMarket[], base: string): ThemeCountr
  * THE THEME'S OWN COUNTRY SELECTOR ("Show currency" on its header,
  * announcement bar or footer) lists every country, as Shopify's does, with
  * the currency each sees prices in, and the visitor's own picked: the one
- * they chose, else where they are in the market shown, else the store's
- * home. Converted prices need the day's rates: without them every country
- * is listed in the store's currency, which is what it would see.
+ * they chose, else where they are, else the store's own country.
+ * Converted prices need the day's rates: without them every country is
+ * listed in the store's currency, which is what it would see.
  */
 export function themeCountries(input: {
   /** The store's active markets that show their own currency; empty for a store that never saved Markets and languages. */
@@ -77,11 +78,20 @@ export function themeCountries(input: {
   const countries = countryList(input.markets, input.base)
   const inMarket = input.marketId ? input.markets.find((m) => m.id === input.marketId) : undefined
   const wanted = input.visitorCountry?.toUpperCase() ?? null
-  const country =
-    (wanted && (!inMarket || inMarket.countries.includes(wanted)) ? countries.find((c) => c.code === wanted) : undefined) ??
-    (inMarket ? countries.find((c) => inMarket.countries.includes(c.code)) : undefined) ??
-    countries.find((c) => c.code === input.homeCountry) ??
-    countries.find((c) => c.code === "US")
+  /*
+    THE VISITOR'S OWN COUNTRY, NEVER THE MARKET'S FIRST IN THE ALPHABET.
+    "Åland Islands (BRL)" was shown to a visitor in Romania (the owner):
+    the page did not know where they were and took the market's first
+    country. Now: where they are (or chose) when it sees the prices shown;
+    else the store's own country; and only for a page in a market's
+    currency that holds neither, the market's most natural country (Brazil
+    for BRL).
+  */
+  const home = input.homeCountry?.toUpperCase() ?? null
+  const seesShown = (code: string) => (inMarket ? inMarket.countries.includes(code) : !input.markets.some((m) => m.countries.includes(code)))
+  const pick = (code: string | null) => (code && seesShown(code) ? countries.find((c) => c.code === code) : undefined)
+  const natural = inMarket ? naturalCountry(inMarket.currency, inMarket.countries) : null
+  const country = pick(wanted) ?? pick(home) ?? (natural ? countries.find((c) => c.code === natural) : undefined) ?? (home ? countries.find((c) => c.code === home) : undefined) ?? countries.find((c) => c.code === "US")
   const shown = inMarket || (input.markets.length > 0 && input.fresh) ? countries : countries.map((c) => ({ ...c, currency: input.base }))
   const shownCountry = country ? shown.find((c) => c.code === country.code) : undefined
   return { countries: shown, ...(shownCountry ? { country: shownCountry } : {}) }

@@ -18,7 +18,8 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
-import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
+import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
+import { resolveMarketCountries } from "@/lib/markets/market-countries"
 import { visitorLanguageDecision } from "@/lib/markets/visitor-language"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
@@ -461,21 +462,42 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
       if (error && /visitor_language/.test(error.message ?? "")) ({ data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
       /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
       if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
-      const row = data as { default_language?: string; visitor_language?: boolean | null; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown }[] } | null
+      const row = data as { default_language?: string; visitor_language?: boolean | null; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown; rest?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
       const languages = (Array.isArray(row?.languages) ? row!.languages : [])
         .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
         .map((l) => String(l.code))
+      /*
+        THE STORE'S OWN COUNTRY IS NEVER IN A MARKET, and All other countries
+        is worked out from the rest (lib/markets/market-countries.ts), exactly
+        as the page this sends the visitor to reads them (lib/markets/live.ts).
+      */
+      const rawMarkets = (Array.isArray(row?.markets) ? row!.markets : []).filter((m) => m && typeof m === "object")
+      const own = rawMarkets.some((m) => m.primary !== true)
+        ? await db
+            .from("store_settings")
+            .select("default_country")
+            .eq("creator_id", facts.creatorId)
+            .maybeSingle()
+            .then(
+              (r) => (r.data as { default_country?: unknown } | null)?.default_country,
+              () => null,
+            )
+        : null
+      const placed = resolveMarketCountries(
+        rawMarkets.map((m) => ({ ...m, countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string"), primary: m.primary === true, active: m.active !== false, rest: m.rest === true, currency: typeof m.currency === "string" && m.currency ? m.currency : null })),
+        typeof own === "string" ? own : null,
+      )
       value = {
         languages,
         defaultLanguage: row?.default_language || "en",
         visitorLanguage: row?.visitor_language === true,
-        starts: (Array.isArray(row?.markets) ? row!.markets : [])
-          .filter((m) => m && m.primary !== true && m.active !== false && typeof m.language === "string" && languages.some((l) => l.toLowerCase() === String(m.language).toLowerCase()))
-          .map((m) => ({ language: String(m.language).toLowerCase(), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
-        markets: (Array.isArray(row?.markets) ? row!.markets : [])
-          .filter((m) => m && m.primary !== true && m.active !== false && typeof m.currency === "string" && m.currency && typeof m.id === "string" && /^[a-z0-9-]{1,40}$/.test(m.id))
-          .map((m) => ({ id: String(m.id), countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string") })),
+        starts: placed
+          .filter((m) => !m.primary && m.active && typeof m.language === "string" && languages.some((l) => l.toLowerCase() === String(m.language).toLowerCase()))
+          .map((m) => ({ language: String(m.language).toLowerCase(), countries: m.countries })),
+        markets: placed
+          .filter((m) => !m.primary && m.active && m.currency && typeof m.id === "string" && /^[a-z0-9-]{1,40}$/.test(m.id))
+          .map((m) => ({ id: String(m.id), countries: m.countries })),
       }
     }
     if (localizationHeld.size > 10_000) localizationHeld.clear()
@@ -765,7 +787,16 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   headers.delete(SITE_SEAL_HEADER)
   headers.delete(SITE_LOCALE_HEADER)
   headers.delete(SITE_MARKET_HEADER)
+  headers.delete(SITE_COUNTRY_HEADER)
   if (locale) headers.set(SITE_LOCALE_HEADER, locale)
+  /*
+    THE VISITOR'S COUNTRY, SAID OUTRIGHT: the one they chose, else where
+    Vercel sees them. The handler did not get x-vercel-ip-country through
+    this rewrite, so the theme's country selector took the market's first
+    country ("Åland Islands (BRL)" for a visitor in Romania, the owner).
+  */
+  const country = visitorCountry(request)
+  if (country) headers.set(SITE_COUNTRY_HEADER, country)
   /* The visitor's market, when it shows its own currency (visitorMarket): the theme draws its prices in it. */
   const market = await visitorMarket(request, name)
   if (market) headers.set(SITE_MARKET_HEADER, market)

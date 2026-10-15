@@ -34,6 +34,7 @@
 import { normalizeLocale } from "./locales"
 import { currencyCode, type PriceRounding } from "./money"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
+import { resolveMarketCountries, storeHomeCountry } from "./market-countries"
 import { tt } from "@/lib/i18n/text"
 
 export interface SiteLanguage {
@@ -54,6 +55,12 @@ export interface Market {
   active: boolean
   /** The store's home market: in the store's currency, and where a country in no other market falls. */
   primary: boolean
+  /**
+   * All other countries: every country except the store's own and those in
+   * another market, worked out when it is read (lib/markets/market-countries.ts),
+   * so it stays right as countries move. Its `countries` is kept empty.
+   */
+  rest?: boolean
   rounding: PriceRounding
   /** A price adjustment for this market, in hundredths of a percent (250 = +2.5%), -5000 to 10000. */
   adjustBps: number
@@ -103,7 +110,7 @@ export function defaultLocalization(homeCountry?: string | null, defaultLanguage
 const ROUNDINGS: PriceRounding[] = ["none", "whole", "nine_nine"]
 
 /** What a form sent, checked and cleaned. Every problem is said in the creator's words, one at a time. */
-export function validateLocalization(input: unknown, opts: { baseCurrency: string }): { ok: true; value: Localization } | { ok: false; error: string } {
+export function validateLocalization(input: unknown, opts: { baseCurrency: string; homeCountry?: string | null }): { ok: true; value: Localization } | { ok: false; error: string } {
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
   const defaultLanguage = normalizeLocale(raw.defaultLanguage)
   if (!defaultLanguage) return { ok: false, error: tt("Choose the website's default language.") }
@@ -122,15 +129,22 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
   const seen = new Map<string, string>()
   const list = Array.isArray(raw.markets) ? raw.markets : []
   if (list.length > MAX_MARKETS) return { ok: false, error: tt("A store can have up to {maxMarkets} markets.", { maxMarkets: MAX_MARKETS }) }
+  /* The store's own country sees the store currency, always: it is never kept in another market (lib/markets/market-countries.ts). */
+  const homeCountry = storeHomeCountry(opts.homeCountry, list.map((m) => ({ countries: Array.isArray((m as Record<string, unknown>)?.countries) ? ((m as Record<string, unknown>).countries as string[]) : [], primary: (m as Record<string, unknown>)?.primary === true })))
+  let restTaken = false
   for (const [i, m] of list.entries()) {
     const r = (m && typeof m === "object" ? m : {}) as Record<string, unknown>
     const name = typeof r.name === "string" ? r.name.replace(/\s+/g, " ").trim().slice(0, 60) : ""
     if (!name) return { ok: false, error: tt("Give every market a name.") }
     const id = typeof r.id === "string" && /^[a-z0-9-]{1,40}$/.test(r.id) ? r.id : `m${i + 1}`
+    const rest = r.primary !== true && r.rest === true
+    if (rest && restTaken) return { ok: false, error: tt("Only one currency can be for all other countries.") }
+    if (rest) restTaken = true
     const countries: string[] = []
-    for (const c of Array.isArray(r.countries) ? r.countries : []) {
+    for (const c of rest ? [] : Array.isArray(r.countries) ? r.countries : []) {
       const code = typeof c === "string" ? c.trim().toUpperCase() : ""
       if (!COUNTRY_CODES.has(code)) return { ok: false, error: tt("{name}: one of its countries isn't one we recognise.", { name }) }
+      if (r.primary !== true && code === homeCountry) continue
       const other = seen.get(code)
       if (other && other !== id) return { ok: false, error: tt("{code} is in two markets. A country can be in one market only.", { code }) }
       seen.set(code, id)
@@ -147,7 +161,7 @@ export function validateLocalization(input: unknown, opts: { baseCurrency: strin
     const rawRate = r.rate === null || r.rate === undefined || r.rate === "" ? null : Number(r.rate)
     if (rawRate !== null && (!Number.isFinite(rawRate) || rawRate <= 0 || rawRate > 1_000_000)) return { ok: false, error: tt("{name}: the exchange rate has to be a number above 0.", { name }) }
     const rate = rawRate === null ? null : Number(rawRate.toPrecision(6))
-    markets.push({ id, name, countries, currency: currency === opts.baseCurrency ? null : currency, language, active: r.active !== false, primary: r.primary === true, rounding, adjustBps: adjust, ...(rate !== null && currency && currency !== opts.baseCurrency ? { rate } : {}) })
+    markets.push({ id, name, countries, currency: currency === opts.baseCurrency ? null : currency, language, active: r.active !== false, primary: r.primary === true, ...(rest ? { rest: true } : {}), rounding, adjustBps: adjust, ...(rate !== null && currency && currency !== opts.baseCurrency ? { rate } : {}) })
   }
   if (markets.length === 0) markets.push(defaultLocalization(null, defaultLanguage).markets[0])
   const primaries = markets.filter((m) => m.primary)
@@ -172,12 +186,13 @@ export function editorLanguages(loc: Localization): string[] {
   return [loc.defaultLanguage, ...loc.languages.map((l) => l.code)]
 }
 
-/** The market a country is sold to through: the active market that lists it, else the primary one. */
-export function marketForCountry(loc: Localization, country: string | null | undefined): Market {
+/** The market a country is sold to through: the active market that holds it (never the store's own country, All other countries worked out), else the primary one. */
+export function marketForCountry(loc: Localization, country: string | null | undefined, homeCountry?: string | null): Market {
   const code = typeof country === "string" ? country.toUpperCase() : ""
   const primary = loc.markets.find((m) => m.primary) ?? loc.markets[0]
   if (!code) return primary
-  return loc.markets.find((m) => m.active && m.countries.includes(code)) ?? primary
+  const at = resolveMarketCountries(loc.markets, homeCountry).findIndex((m) => m.active && !m.primary && m.countries.includes(code))
+  return at >= 0 ? loc.markets[at] : primary
 }
 
 /** Is there anything to localize at all? One language and one market is a website exactly as today. */

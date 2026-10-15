@@ -75,6 +75,8 @@ export async function GET(request: Request) {
     /* Translate changes automatically: what its last run did, and whether Storelib AI can run at all. */
     autoTranslate: { run: loc.autoTranslateRun ?? null, available: canDraftWithAi() },
     baseCurrency,
+    /* The store's own country (Store currency): it always sees the store currency, so a More currencies market never holds it. */
+    homeCountry: loc.homeCountry,
     /* A store's checkout charges in its own currency, the one its prices are in. */
     chargeCurrency: baseCurrency,
     /* With the rates, so the builder can show a market's prices as the website does (components/website-builder/use-preview-language.ts). */

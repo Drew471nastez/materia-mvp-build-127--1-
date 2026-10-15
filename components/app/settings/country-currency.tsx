@@ -99,7 +99,12 @@ export function CountryCurrency() {
   return (
     <Card
       title={tt("Store currency")}
-      description={tt("Your prices, your website, the builder and checkout all use it.")}
+      description={
+        /* What it means for a visitor, said plainly beside More currencies below (the owner: a store in Romania expected lei in Romania). */
+        data.country
+          ? tt("What you price in. Visitors in {country}, and anywhere not listed under More currencies, see prices in it and pay in it.", { country: countryName(data.country) })
+          : tt("What you price in. Visitors anywhere not listed under More currencies see prices in it and pay in it.")
+      }
       help="currency"
       action={
         editing ? null : (

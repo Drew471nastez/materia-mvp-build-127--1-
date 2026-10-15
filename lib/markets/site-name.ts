@@ -18,6 +18,21 @@ export const SITE_LOCALE_HEADER = "x-storelib-site-locale"
 /** The header the proxy names an imported theme's visitor market in (the market a country falls in, lib/markets/model marketForCountry); stripped like the locale's. */
 export const SITE_MARKET_HEADER = "x-storelib-site-market"
 
+/** The header the proxy names an imported theme's visitor country in (the one they chose, else where they are); stripped like the locale's. */
+export const SITE_COUNTRY_HEADER = "x-storelib-site-country"
+
+/**
+ * The country an imported theme's page is drawn for: the one the proxy
+ * names (SITE_COUNTRY_HEADER), else the one picked in the theme
+ * (sl_country), else where the connection is. "home", the store's own
+ * prices chosen, is no country: the page shows the store's own.
+ */
+export function siteVisitorCountry(input: { chosen: string | null | undefined; told: string | null | undefined; seen: string | null | undefined }): string | null {
+  const two = (v: string | null | undefined) => (v && /^[A-Za-z]{2}$/.test(v) ? v.toUpperCase() : null)
+  if (input.chosen === "home") return null
+  return two(input.told) ?? two(input.chosen) ?? two(input.seen)
+}
+
 /** A market id as the settings write it (lib/markets/model validateLocalization). */
 const MARKET_ID = /^[a-z0-9-]{1,40}$/
 

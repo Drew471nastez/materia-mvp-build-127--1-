@@ -16,6 +16,12 @@
  * for reference, charged in lei, and said so. And the builder's canvas: the
  * store's currency until the theme's selector picks another.
  *
+ * Then the owner's own report: a store in Romania that added reais for 239
+ * countries, Romania among them, and was shown "Åland Islands (BRL)" and
+ * "5.02 R$" at home. The store's own country is never in an extra currency
+ * (saved, or already saved before), "All other countries" is one choice
+ * that stays right, and every page knows the visitor's real country.
+ *
  * Every amount the visitor is shown is worked out by the functions the pages
  * draw with (lib/markets/live.ts, pricing.ts, the storefront's cart money),
  * so "the checkout charges what the page showed" is a measurement.
@@ -38,6 +44,7 @@ const NBSP = " "
 /* A day's rates as the ECB writes them, per euro. */
 const RON_PER_EUR = 4.9775
 const PLN_PER_EUR = 4.25
+const BRL_PER_EUR = 6.2
 
 async function main() {
   const j = await Journey.start()
@@ -99,7 +106,7 @@ async function main() {
 
   section("2. More currencies: euros for Germany and France, rounded to .99")
   const today = new Date().toISOString().slice(0, 10)
-  j.db.insert("fx_rates", { as_of: today, base: "EUR", rates: { RON: RON_PER_EUR, PLN: PLN_PER_EUR, USD: 1.08, GBP: 0.85 }, source: "ecb", fetched_at: new Date().toISOString() }, {})
+  j.db.insert("fx_rates", { as_of: today, base: "EUR", rates: { RON: RON_PER_EUR, PLN: PLN_PER_EUR, BRL: BRL_PER_EUR, USD: 1.08, GBP: 0.85 }, source: "ecb", fetched_at: new Date().toISOString() }, {})
   const m0 = await j.call("GET /api/store/markets", { as: seller })
   check("Languages & Currency reads RON as the store's currency", m0.status === 200 && m0.json?.baseCurrency === "RON" && m0.json?.ready === true, { status: m0.status, base: m0.json?.baseCurrency, ready: m0.json?.ready })
   const loc = m0.json?.localization
@@ -277,6 +284,95 @@ async function main() {
   const eu = (pv.json?.markets ?? []).find((m: any) => m.id === "eu")
   const canvasEu = eu ? pricingFor(eu, pv.json.base, pv.json.fx) : null
   check("  and the theme's selector previews euros with the live site's numbers", canvasEu?.format(9900) === "€19.99", canvasEu?.format(9900))
+
+  section("11. The owner's report: a store in Romania, reais for 239 countries")
+  const { COUNTRY_CODES } = await import("@/lib/checkout/countries")
+  const { themeCountries } = await import("@/lib/markets/compat-prices")
+  const { localizeCompatSite } = await import("@/lib/markets/compat")
+  const { checkoutMarket } = await import("@/lib/markets/checkout-market-server")
+  const { siteVisitorCountry } = await import("@/lib/markets/site-name")
+  const { formatMinor } = await import("@/lib/markets/money")
+  const { pricingFor: converts } = await import("@/lib/markets/pricing")
+  const { cachedRates } = await import("@/lib/markets/fx-server")
+  const homeMarket = { ...home, countries: ["RO"] }
+  const everyCountry = [...COUNTRY_CODES].filter((c) => c !== "AQ").slice(0, 239)
+  check("  (the list the owner ticked has Romania in it)", everyCountry.includes("RO") && everyCountry.length === 239)
+  const ticked = await j.call("PUT /api/store/markets", { as: seller, body: { localization: { ...loc, markets: [homeMarket, { id: "brl", name: "Brasil", countries: everyCountry, currency: "BRL", language: null, active: true, primary: false, rounding: "none", adjustBps: 0 }] } } })
+  const tickedBrl = (ticked.json?.localization?.markets ?? []).find((m: any) => m.id === "brl")
+  check("saved without Romania: the store's own country always sees lei", ticked.status === 200 && tickedBrl?.countries?.length === 238 && !tickedBrl.countries.includes("RO"), { status: ticked.status, n: tickedBrl?.countries?.length, ro: tickedBrl?.countries?.includes("RO") })
+  const m1 = await j.call("GET /api/store/markets", { as: seller })
+  check("  Settings knows the store's country, to show it disabled with why", m1.json?.homeCountry === "RO", m1.json?.homeCountry)
+
+  /* Saved before this rule, straight in the table: Romania in the reais market. */
+  j.db.update("store_localization", { markets: [homeMarket, { id: "brl", name: "Brasil", countries: everyCountry, currency: "BRL", language: null, active: true, primary: false, rounding: "none", adjustBps: 0 }] }, [{ path: "creator_id", op: "eq", value: creator.id as string, not: false }])
+  const old = await siteLanguages(creator.id)
+  const oldFor = (cookie: string | null, ip: string | null) => marketOfCountry(old, checkoutVisitorCountry(cookie, ip))?.id ?? null
+  check("already saved with Romania: a visitor from Romania still sees lei", oldFor(null, "RO") === null && oldFor(null, "BR") === "brl" && !old.markets[0]?.countries.includes("RO"), { ro: oldFor(null, "RO"), br: oldFor(null, "BR") })
+  check("  the market's own country comes first: Brazil, not the Åland Islands", old.markets[0]?.countries[0] === "BR", old.markets[0]?.countries.slice(0, 3))
+  check("  and checkout charges a visitor from Romania in lei", (await checkoutMarket(creator.id, "RO")).pricing === null && (await checkoutMarket(creator.id, "BR")).pricing?.currency === "BRL")
+
+  section("12. All other countries, as one choice")
+  const rest = await j.call("PUT /api/store/markets", {
+    as: seller,
+    body: {
+      localization: {
+        ...loc,
+        markets: [
+          homeMarket,
+          { id: "eu", name: "Europe", countries: ["DE", "FR", "RO"], currency: "EUR", language: null, active: true, primary: false, rounding: "nine_nine", adjustBps: 0 },
+          { id: "brl", name: "Brasil", countries: [], rest: true, currency: "BRL", language: null, active: true, primary: false, rounding: "none", adjustBps: 0 },
+        ],
+      },
+    },
+  })
+  const saved12 = rest.json?.localization?.markets ?? []
+  const restBrl = saved12.find((m: any) => m.id === "brl")
+  check("saved as a flag, not 239 countries; Romania left out of the euros too", rest.status === 200 && restBrl?.rest === true && restBrl?.countries?.length === 0 && saved12.find((m: any) => m.id === "eu")?.countries.join() === "DE,FR", saved12)
+  const twoRest = await j.call("PUT /api/store/markets", { as: seller, body: { localization: { ...loc, markets: [homeMarket, { ...restBrl }, { ...restBrl, id: "usd", name: "Dollars", currency: "USD" }] } } })
+  check("  only one currency can be for all other countries", twoRest.status === 400 && /all other countries/.test(twoRest.json?.error ?? ""), twoRest.json)
+  const langs12 = await siteLanguages(creator.id)
+  const live = langs12.markets.find((m) => m.id === "brl")
+  check("on the live site it is every country but Romania, Germany and France", !!live && live.countries.length === COUNTRY_CODES.size - 3 && !["RO", "DE", "FR"].some((c) => live.countries.includes(c)) && live.countries.includes("AX") && live.countries[0] === "BR", live && { n: live.countries.length, first: live.countries[0] })
+  const for12 = (cookie: string | null, ip: string | null) => marketOfCountry(langs12, checkoutVisitorCountry(cookie, ip))?.id ?? null
+  check("a visitor from Romania sees lei", for12(null, "RO") === null)
+  check("a visitor from Brazil sees reais", for12(null, "BR") === "brl")
+  check("a visitor from Germany sees euros, not reais", for12(null, "DE") === "eu")
+  check("a visitor whose country is unknown sees lei", for12(null, null) === null)
+  check("  and a visitor from Brazil who picks lei sees lei", for12("home", "BR") === null)
+  check("checkout: reais for Brazil, lei for Romania", (await checkoutMarket(creator.id, "BR")).pricing?.currency === "BRL" && (await checkoutMarket(creator.id, "RO")).pricing === null)
+  const pv12 = await j.call("GET /api/store/markets?preview=1", { as: seller })
+  const pvBrl = (pv12.json?.markets ?? []).find((m: any) => m.id === "brl")
+  check("the builder's preview has the same countries, and its home is Romania (it opens in lei)", pv12.json?.base === "RON" && pv12.json?.home?.country === "RO" && pvBrl?.countries?.length === live?.countries.length && !pvBrl?.countries.includes("RO"), { base: pv12.json?.base, home: pv12.json?.home, n: pvBrl?.countries?.length })
+  const choice12 = await languageChoice(creator.id, null, "brl")
+  check("the builder theme's selector names reais by Brazil", choice12?.currency?.options.find((o) => o.id === "brl")?.country === "BR", choice12?.currency?.options)
+
+  section("13. Reais, written and converted right")
+  const brlPage = await siteLocalizer(creator.id, null, "brl")
+  const brlCard = brlPage?.cards(await listCards(creator.id)).find((c) => c.id === mugId)
+  /* 99 lei at 4.9775 lei and 6.2 reais a euro: 99 / 4.9775 × 6.2 = 123.3149 reais. More reais than lei, as a real is worth less. */
+  const reais = Math.round((99 / RON_PER_EUR) * BRL_PER_EUR * 100)
+  check("99 lei is R$123.31: lei to reais, the right way round", reais === 12331 && brlCard?.settings.price === "R$123.31", { reais, card: brlCard?.settings.price })
+  const brlPricing = converts(live!, "RON", await cachedRates())
+  check("  written with R$ in every language: R$ 123,31 in Portuguese, 123,31 R$ in Romanian, never BRL", formatMinor(12331, "BRL", "pt-BR").replace(/\s/g, " ") === "R$ 123,31" && formatMinor(12331, "BRL", "ro").replace(/\s/g, " ") === "123,31 R$" && brlPricing?.format(9900, "ro")?.includes("R$") === true, [formatMinor(12331, "BRL", "pt-BR"), formatMinor(12331, "BRL", "ro"), brlPricing?.format(9900, "ro")])
+
+  section("14. The imported theme's country selector is the visitor's own country")
+  check("the proxy names the visitor's country to the theme; a choice of lei is no country", siteVisitorCountry({ chosen: null, told: "RO", seen: null }) === "RO" && siteVisitorCountry({ chosen: "BR", told: null, seen: "RO" }) === "BR" && siteVisitorCountry({ chosen: "home", told: null, seen: "BR" }) === null && siteVisitorCountry({ chosen: null, told: null, seen: null }) === null)
+  const site = { creatorId: creator.id, theme: { language: "en", defaultWords: () => [], schemaOf: () => ({}), schemaLabel: () => "" }, shop: { name: "Lia Shop", currency: "RON", moneyFormat: "{{amount}} lei" }, pages: {}, products: [], collections: [], menus: {}, host } as any
+  const drawn = async (country: string | null) => {
+    const market = marketOfCountry(langs12, country)?.id ?? null
+    const s = await localizeCompatSite(site, null, market, country)
+    return s.i18n?.country
+  }
+  const atHome = await drawn("RO")
+  check("a visitor from Romania: Romania (RON), not the Åland Islands (BRL)", atHome?.code === "RO" && atHome?.currency === "RON", atHome)
+  const inBrazil = await drawn("BR")
+  check("a visitor from Brazil: Brazil (BRL)", inBrazil?.code === "BR" && inBrazil?.currency === "BRL", inBrazil)
+  const unknown = await drawn(null)
+  check("a visitor whose country is unknown: the store's own, Romania (RON)", unknown?.code === "RO" && unknown?.currency === "RON", unknown)
+  const noCountry = themeCountries({ markets: [live!], base: "RON", marketId: "brl", visitorCountry: null, homeCountry: "RO", fresh: true })
+  check("  a page in reais with no country known: Brazil, the market's own, never its first in the alphabet", noCountry.country?.code === "BR", noCountry.country)
+  const homeInBrazil = themeCountries({ markets: [live!], base: "RON", marketId: null, visitorCountry: "BR", homeCountry: "RO", fresh: true })
+  check("  lei chosen by a visitor in Brazil: the selector says Romania (RON), as the prices are", homeInBrazil.country?.code === "RO" && homeInBrazil.country?.currency === "RON", homeInBrazil.country)
 
   console.log(`\n  server errors: ${JSON.stringify(j.serverErrors).slice(0, 600)}`)
   check("no route answered with a server error", j.serverErrors.length === 0, j.serverErrors)
