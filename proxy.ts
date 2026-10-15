@@ -533,7 +533,7 @@ function visitorCountry(request: NextRequest): string | null {
 }
 /** Clears a country cookie that is not a visitor's choice (readCountryCookie `stale`) from whatever the proxy answers. */
 function forgetStaleCountry<R extends Response | null | undefined>(request: NextRequest, r: R): R {
-  if (!r || !readCountryCookie(request.cookies.get(COUNTRY_COOKIE)?.value).stale) return r
+  if (!r || !readCountryCookie(request.cookies?.get(COUNTRY_COOKIE)?.value).stale) return r
   try {
     r.headers.append("Set-Cookie", FORGET_COUNTRY_COOKIE)
   } catch {
