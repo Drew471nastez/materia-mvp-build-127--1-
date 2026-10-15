@@ -24,12 +24,16 @@
  * records Vercel reports, and Vercel knows the real apex.
  */
 
-/** The purposes a connected domain can serve. */
-export type DomainPurpose = "website" | "creator_page"
-export const DOMAIN_PURPOSES: readonly DomainPurpose[] = ["website", "creator_page"]
+/**
+ * The purposes a connected domain can serve. A 'community' domain also names
+ * WHICH community (custom_domains.target_type and target_id, run-now part
+ * 179; lib/custom-domains/community.ts), and serves only that one.
+ */
+export type DomainPurpose = "website" | "creator_page" | "community"
+export const DOMAIN_PURPOSES: readonly DomainPurpose[] = ["website", "creator_page", "community"]
 
 export function isDomainPurpose(value: unknown): value is DomainPurpose {
-  return value === "website" || value === "creator_page"
+  return value === "website" || value === "creator_page" || value === "community"
 }
 
 /** Two label public suffixes: example.co.uk is an apex, not a subdomain of co.uk. */

@@ -135,6 +135,8 @@ const SUITES = [
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
   "tests/creator-domain-seo.test.ts",
+  /* Round 31: a domain connected to one community: what it serves, who may connect it, the canonical, the panels */
+  "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
