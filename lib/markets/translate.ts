@@ -27,9 +27,18 @@
  * and numbers are the original's in every language.
  *
  * OUTDATED, NEVER OVERWRITTEN. Each value keeps a hash of the original it was
- * written for (sourceHash). When the original changes, the value is said to
- * be outdated in the translations list; it is still used until someone
- * reviews it, and nothing here ever rewrites a value a person wrote.
+ * written for (sourceHash). When the original changes:
+ *
+ *   Storelib AI's   no longer shown (the new original shows) and written
+ *                   again by the next automatic run, minutes after a publish
+ *   the merchant's  kept on the website as they wrote it, never rewritten,
+ *                   and listed as "Needs review" (needsReview) in Settings
+ *                   until they edit it or keep it as it is
+ *
+ * The merchant's stays live because it is their words and the translation
+ * they chose: hiding it would put the original language back in the middle
+ * of their translated page, which reads as Storelib changing their work.
+ * Shopify's Translate & Adapt does the same with an outdated translation.
  *
  * Pure.
  */
@@ -115,20 +124,21 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
  * The value a key has in a language, for the live website (`approvedOnly`)
  * or the editor's preview (drafts too): null when the original should show.
  *
- * `fresh`, with the original it stands for: a translation written for a
+ * `fresh`, with the original it stands for: Storelib AI's translation of a
  * text that has since changed is not shown, so a visitor reads the new
- * original rather than an old sentence that no longer says the same. The
- * Translate sheet lists it as outdated (statusOf), to be written again.
+ * original until the automatic run writes it again. A translation the
+ * merchant wrote or edited stays (see OUTDATED above): it is theirs, and the
+ * Translate sheet lists it as Needs review (needsReview).
  */
 export function valueFor(map: TranslationMap | null | undefined, key: string, opts: TranslateOpts = {}, original?: string): string | null {
   const row = map?.get(key)
   if (!row || !row.value.trim()) return null
   if (opts.approvedOnly && row.status !== "approved") return null
-  if (opts.fresh && original !== undefined && row.sourceHash && row.sourceHash !== sourceHash(original)) return null
+  if (opts.fresh && row.source === "ai" && original !== undefined && row.sourceHash && row.sourceHash !== sourceHash(original)) return null
   return row.value
 }
 
-/** How a translation is laid over: approved ones only (the live site), and only while written for the original as it is now (`fresh`). */
+/** How a translation is laid over: approved ones only (the live site), and Storelib AI's only while written for the original as it is now (`fresh`). */
 export interface TranslateOpts {
   approvedOnly?: boolean
   fresh?: boolean
@@ -155,7 +165,16 @@ export const isBuiltInWordKey = (key: string) => /^(ui|checkout|email|tw):/.test
 /** An imported theme's own word, by its locale key (lib/storelib-theme/compat/theme.ts defaultWords). */
 export const themeWordKey = (key: string) => `tw:${key}`
 
-/** What Storelib AI may write, by the press or the hourly job: missing, or outdated and its own. Never the merchant's words. */
+/**
+ * A translation the merchant wrote or edited whose original has changed
+ * since: still on the website, never rewritten by Storelib AI, and counted
+ * in Settings until they edit it or keep it as it is.
+ */
+export function needsReview(row: TranslationRow | undefined, source: string): boolean {
+  return !!row && row.source === "manual" && statusOf(row, source) === "outdated"
+}
+
+/** What Storelib AI may write, by the press or the automatic run: missing, or outdated and its own. Never the merchant's words. */
 export function aiMayWrite(row: TranslationRow | undefined, source: string): boolean {
   if (row?.source === "manual") return false
   const s = statusOf(row, source)
