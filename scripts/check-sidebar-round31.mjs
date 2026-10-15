@@ -1,31 +1,36 @@
 /**
  * ===========================================================================
- *  ROUND 30: THE /app SIDEBAR'S COLLAPSE HANDLE AND ITS MOTION, MEASURED
+ *  ROUND 31: THE /app SIDEBAR'S COLLAPSE TOGGLE AS A ROW, AND ITS MOTION
  * ===========================================================================
- * The owner, on round 29's control in a band of its own above Dashboard:
- * "I don't like that you put the collapsible sidebar icon above the
- * Dashboard and created that empty space above the Dashboard menu link.
- * Come up with another solution, more smooth, subtle, clean. Make sure the
- * collapsible animation is very smooth, clean and accurate."
+ * The owner, on round 30's handle on the border that came out on hover:
+ * "I don't like the collapsible one that appears on hover. Put the collapse
+ * toggle above the 'Upgrade to Pro' card in the sidebar, as a line/row. It
+ * must not be a hover thing: just an icon like Shopify has, always visible,
+ * I click it to collapse and click again to expand."
  *
  * The real sidebar beside the real Integrations page (scripts/render-sidebar-
  * round29.tsx), in headless Chromium:
  *
- *   the band      gone: Dashboard is 12px from the sidebar's top, open and
- *                 collapsed, the same gutter as everywhere else in it
- *   the handle    a 24px circle on the border, level with Dashboard; out of
- *                 sight and letting clicks through until the pointer is on
- *                 the sidebar or the keyboard focuses it; named, with
- *                 aria-expanded, and the ⌘B or Ctrl+B tooltip and shortcut
+ *   no hover      nothing in the sidebar is shown or hidden by the pointer
+ *                 being on it: no :hover rule on the sidebar in the CSS, and
+ *                 every control reads the same with the pointer on the page
+ *                 and on the sidebar
+ *   the toggle    a row like Settings (38px, 12px corners, no pill), seen and
+ *                 clickable at rest, directly above the Upgrade card, its icon
+ *                 in the same column as every other icon, "Collapse" beside
+ *                 it; named, with aria-expanded, aria-controls, the ⌘B or
+ *                 Ctrl+B tooltip and shortcut
+ *   collapsed     the card folded, the toggle still there, over Settings
  *   the motion    filmed every frame both ways: the sidebar's width, the
  *                 page's edge and the content each move one way only, in
- *                 lockstep, over many frames; every icon in the sidebar stays
- *                 on the same pixel the whole time; the handle stays on the
- *                 border; Settings never jumps; the labels only fade
- *   the phone     no sidebar, no handle, no padding, whatever the cookie says
+ *                 lockstep, over many frames; every icon in the sidebar, the
+ *                 toggle's too, stays on the same pixel the whole time; the
+ *                 toggle stays in sight and only moves down (collapsing) or
+ *                 up (opening) as the card folds; Settings never jumps
+ *   the phone     no sidebar, no toggle, no padding, whatever the cookie says
  *   reduced       motion off: there on the next frame
  *
- *   PROBE_CSS=source node scripts/check-sidebar-round30.mjs
+ *   PROBE_CSS=source node scripts/check-sidebar-round31.mjs
  *
  * Pictures go to SHOTS_DIR (a temporary directory by default) to look at.
  */
@@ -37,8 +42,8 @@ import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
-const stubs = join(root, ".sidebar-round30-probe")
-const shots = process.env.SHOTS_DIR || join(tmpdir(), "round30-shots")
+const stubs = join(root, ".sidebar-round31-probe")
+const shots = process.env.SHOTS_DIR || join(tmpdir(), "round31-shots")
 mkdirSync(shots, { recursive: true })
 mkdirSync(stubs, { recursive: true })
 const ORIGIN = "https://storelib.com"
@@ -95,7 +100,7 @@ export const isNativePlatform = () => false
     bundle: true,
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
-    alias: { "@": ".", "next/navigation": "./.sidebar-round30-probe/navigation.js", "next/link": "./.sidebar-round30-probe/link.jsx", "next/image": "./.sidebar-round30-probe/image.jsx" },
+    alias: { "@": ".", "next/navigation": "./.sidebar-round31-probe/navigation.js", "next/link": "./.sidebar-round31-probe/link.jsx", "next/image": "./.sidebar-round31-probe/image.jsx" },
     plugins: [{ name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } }],
     loader: { ".css": "empty" },
     logLevel: "error",
@@ -169,18 +174,36 @@ export const isNativePlatform = () => false
       const ab = aside.getBoundingClientRect()
       const t = aside.querySelector("[data-rail-toggle]")
       const tb = t.getBoundingClientRect()
+      const card = aside.querySelector("[data-upgrade-card]")
+      const cb = card.getBoundingClientRect()
+      const settings = aside.querySelector('[data-nav-row][href="/app/settings"]')
+      const sb = settings.getBoundingClientRect()
       const dash = aside.querySelector('[data-nav-row][href="/app"]').getBoundingClientRect()
       const nav = aside.querySelector("nav").getBoundingClientRect()
-      const icons = [...aside.querySelectorAll("[data-nav-row] [data-nav-icon]")].map((i) => { const b = i.getBoundingClientRect(); return +(b.left + b.width / 2 - ab.left).toFixed(2) })
+      const centre = (el) => { const b = el.getBoundingClientRect(); return +(b.left + b.width / 2 - ab.left).toFixed(2) }
+      const icons = [...aside.querySelectorAll("[data-nav-icon]")].map(centre)
       const cs = getComputedStyle(t)
+      const ss = getComputedStyle(settings)
+      const word = t.querySelector("[data-nav-label]")
+      const hit = document.elementFromPoint(tb.left + 31 - 7, tb.top + tb.height / 2)
       return {
         w: ab.width,
         inner: aside.clientWidth,
         dashTop: dash.top - ab.top,
         navTop: nav.top - ab.top,
-        dashMid: dash.top + dash.height / 2,
         icons,
-        toggle: { w: tb.width, h: tb.height, cx: tb.left + tb.width / 2, cy: tb.top + tb.height / 2, offBorder: tb.left + tb.width / 2 - (ab.right - 0.5), opacity: +cs.opacity, events: cs.pointerEvents, radius: cs.borderRadius, text: t.textContent.trim(), svg: !!t.querySelector("svg"), turn: getComputedStyle(t.querySelector("svg")).transform },
+        toggle: {
+          w: tb.width, h: tb.height, top: tb.top, bottom: tb.bottom, left: tb.left - ab.left, right: tb.right,
+          iconX: centre(t.querySelector("[data-nav-icon]")),
+          cy: tb.top + tb.height / 2,
+          opacity: +cs.opacity, visibility: cs.visibility, events: cs.pointerEvents, radius: parseFloat(cs.borderRadius), bg: cs.backgroundColor, color: cs.color, font: cs.fontSize,
+          word: word?.textContent ?? null, wordOpacity: word ? +getComputedStyle(word).opacity : null,
+          hitAtRest: !!hit?.closest("[data-rail-toggle]"),
+          inside: tb.left >= ab.left && tb.right <= ab.right && tb.top >= ab.top && tb.bottom <= ab.bottom,
+        },
+        settings: { top: sb.top, h: sb.height, radius: parseFloat(ss.borderRadius), color: ss.color, font: ss.fontSize, iconX: centre(settings.querySelector("[data-nav-icon]")) },
+        card: { top: cb.top, h: cb.height, shown: getComputedStyle(card.closest("[data-rail-fold]")).visibility !== "hidden" && cb.height > 0 },
+        asideBottom: ab.bottom,
         label: t.getAttribute("aria-label"),
         expanded: t.getAttribute("aria-expanded"),
         controls: !!document.getElementById(t.getAttribute("aria-controls")),
@@ -190,36 +213,63 @@ export const isNativePlatform = () => false
       }
     })
 
-  // ── No band, and the handle ────────────────────────────────────────────────
-  console.log("\nNo band above Dashboard; the handle on the edge\n")
+  /* Every control in the sidebar and how it reads: the same with the pointer away and on it, or something is a hover thing. */
+  const controls = (p) =>
+    p.evaluate(() =>
+      [...document.querySelectorAll("[data-rail-aside] a, [data-rail-aside] button")].map((el) => {
+        const cs = getComputedStyle(el)
+        const b = el.getBoundingClientRect()
+        return `${el.getAttribute("href") ?? el.getAttribute("aria-label") ?? el.textContent.trim().slice(0, 20)}:${cs.opacity}:${cs.visibility}:${cs.pointerEvents}:${Math.round(b.width)}x${Math.round(b.height)}`
+      }),
+    )
+
+  // ── At rest: the toggle is a row above the card, and nothing is a hover thing ─
+  console.log("\nAt rest: a row above the Upgrade card, no hover thing\n")
   {
     const { p, errors } = await open("/app/integrations")
     await p.mouse.move(900, 500)
-    await sleep(250)
+    await sleep(300)
     const g = await geometry(p)
     report.open = g
-    expect(g.dashTop === 12 && g.navTop === 0, "Dashboard is the first thing in the sidebar, 12px from its top: no band above it", { dashboardTop: g.dashTop, navTop: g.navTop })
-    expect(g.toggle.w === 24 && g.toggle.h === 24 && parseFloat(g.toggle.radius) >= 12 && g.toggle.svg && g.toggle.text === "", "the handle: a 24px circle with a chevron, no words", { w: g.toggle.w, h: g.toggle.h, radius: g.toggle.radius })
-    expect(Math.abs(g.toggle.offBorder) <= 0.5 && Math.abs(g.toggle.cy - g.dashMid) <= 0.5, "centred on the border, level with Dashboard", { offBorder: g.toggle.offBorder, dy: g.toggle.cy - g.dashMid })
-    expect(g.toggle.opacity === 0 && g.toggle.events === "none", "at rest, with the pointer on the page: out of sight", { opacity: g.toggle.opacity, events: g.toggle.events })
-    const through = await p.evaluate((x, y) => !document.elementFromPoint(x, y)?.closest("[data-rail-toggle]"), g.toggle.cx + 8, g.toggle.cy)
-    expect(through, "and its half over the page takes no clicks from the page")
-    expect(g.timing[0] === "width 0.24s cubic-bezier(0.2, 0, 0, 1)" && g.timing[1] === "padding-left 0.24s cubic-bezier(0.2, 0, 0, 1)", "the sidebar's width and the page's edge on one duration and one curve", g.timing)
+    const awayControls = await controls(p)
+    const hoverRules = await p.evaluate(() => {
+      const found = []
+      const walk = (rules) => {
+        for (const r of rules) {
+          if (r.cssRules) walk(r.cssRules)
+          if (r.selectorText && /\[data-rail-aside\][^,]*:hover|\[data-rail-toggle\][^,]*/.test(r.selectorText) && /:hover/.test(r.selectorText)) found.push(r.selectorText)
+        }
+      }
+      for (const sheet of document.styleSheets) { try { walk(sheet.cssRules) } catch {} }
+      return found
+    })
+    expect(hoverRules.length === 0, "no :hover rule on the sidebar or the toggle in the CSS", hoverRules)
+    expect(g.dashTop === 12 && g.navTop === 0, "Dashboard is still the first thing in the sidebar, 12px from its top", { dashboardTop: g.dashTop, navTop: g.navTop })
+    expect(g.toggle.opacity === 1 && g.toggle.visibility === "visible" && g.toggle.events === "auto" && g.toggle.hitAtRest && g.toggle.inside, "the toggle, with the pointer on the page: in sight, inside the sidebar, and a click on its icon lands on it", { opacity: g.toggle.opacity, visibility: g.toggle.visibility, hit: g.toggle.hitAtRest })
+    const above = g.card.top - g.toggle.bottom
+    expect(above >= 0 && above <= 12 && g.card.shown, "directly above the Upgrade card", { gapPx: +above.toFixed(1) })
+    expect(g.toggle.h === g.settings.h && g.toggle.radius === g.settings.radius && g.toggle.radius < g.toggle.h / 2 && g.toggle.font === g.settings.font && g.toggle.color === g.settings.color && g.toggle.bg === "rgba(0, 0, 0, 0)",
+      "a row like Settings: the same height, 12px corners (no pill), size and grey, no background at rest", { h: g.toggle.h, radius: g.toggle.radius, font: g.toggle.font, color: g.toggle.color, bg: g.toggle.bg })
+    expect(g.toggle.iconX === g.settings.iconX && g.icons.every((x) => x === g.icons[0]), "its icon in the same column as every other icon", { toggle: g.toggle.iconX, settings: g.settings.iconX, icons: [...new Set(g.icons)] })
+    expect(g.toggle.word === "Collapse" && g.toggle.wordOpacity === 1, "Collapse beside it", g.toggle.word)
+    expect(g.timing[0] === "width 0.24s cubic-bezier(0.2, 0, 0, 1)" && g.timing[1] === "padding-left 0.24s cubic-bezier(0.2, 0, 0, 1)", "the sidebar's width and the page's edge on one duration (240ms) and one curve", g.timing)
     expect(g.label === "Collapse sidebar" && g.expanded === "true" && g.controls && g.keys === "Control+B" && !g.title, "named Collapse sidebar, aria-expanded, controls the sidebar, Control+B", { label: g.label, expanded: g.expanded, keys: g.keys })
-    await p.screenshot({ path: join(shots, "open-rest.png"), clip: { x: 0, y: 0, width: 520, height: 420 }, captureBeyondViewport: false })
+    await p.screenshot({ path: join(shots, "open-rest.png"), clip: { x: 0, y: 0, width: 520, height: 900 }, captureBeyondViewport: false })
 
-    /* The pointer on a row of the sidebar brings it out. */
+    /* The pointer on a row of the sidebar changes nothing about the toggle or anything else. */
     const row = await (await p.$('[data-nav-row][href="/app/orders"]')).boundingBox()
     await p.mouse.move(row.x + 40, row.y + row.height / 2)
-    await sleep(250)
-    const shown = await geometry(p)
-    expect(shown.toggle.opacity === 1 && shown.toggle.events === "auto", "the pointer anywhere on the sidebar brings it out", { opacity: shown.toggle.opacity })
-    await p.screenshot({ path: join(shots, "open-hover.png"), clip: { x: 0, y: 0, width: 520, height: 420 }, captureBeyondViewport: false })
+    await sleep(300)
+    const onControls = await controls(p)
+    const differ = awayControls.filter((c, i) => c !== onControls[i])
+    expect(differ.length === 0 && awayControls.length === onControls.length, "the pointer on the sidebar shows and hides nothing", differ)
 
-    /* On the handle itself: the tooltip, after a short wait. */
-    await p.mouse.move(g.toggle.cx - 4, g.toggle.cy)
+    /* On the toggle itself: the rows' hover grey, and the tooltip after a short wait. */
+    await p.mouse.move(g.toggle.left + 31 + 30, g.toggle.cy)
     await sleep(150)
     const early = await p.evaluate(() => !!document.querySelector("[data-rail-tip]"))
+    const hovered = await p.evaluate(() => getComputedStyle(document.querySelector("[data-rail-toggle]")).backgroundColor)
+    expect(/^rgba?\(243, 243, 243(, 1)?\)$/.test(hovered), "under the pointer, the rows' own hover grey", hovered)
     await sleep(450)
     const tip = await p.evaluate(() => {
       const el = document.querySelector("[data-rail-tip]")
@@ -228,8 +278,8 @@ export const isNativePlatform = () => false
       const t = document.querySelector("[data-rail-toggle]").getBoundingClientRect()
       return { text: el.textContent, gap: b.left - t.right, midDy: b.top + b.height / 2 - (t.top + t.height / 2), role: el.getAttribute("role") }
     })
-    expect(!early && !!tip && tip.text === "Collapse sidebarCtrlB" && tip.role === "tooltip" && tip.gap >= 6 && tip.gap <= 10 && Math.abs(tip.midDy) <= 1, "on the handle, after a short wait: Collapse sidebar, Ctrl B, beside it", tip)
-    await p.screenshot({ path: join(shots, "open-tooltip.png"), clip: { x: 0, y: 0, width: 520, height: 420 }, captureBeyondViewport: false })
+    expect(!early && !!tip && tip.text === "Collapse sidebarCtrlB" && tip.role === "tooltip" && tip.gap >= 6 && tip.gap <= 10 && Math.abs(tip.midDy) <= 1, "after a short wait: Collapse sidebar, Ctrl B, beside it", tip)
+    await p.screenshot({ path: join(shots, "open-toggle-hover.png"), clip: { x: 0, y: 400, width: 520, height: 500 }, captureBeyondViewport: false })
     await p.mouse.move(900, 500)
     await sleep(250)
 
@@ -237,8 +287,8 @@ export const isNativePlatform = () => false
     await p.keyboard.press("Shift")
     await p.evaluate(() => document.querySelector("[data-rail-toggle]").focus())
     await sleep(250)
-    const focused = await p.evaluate(() => { const t = document.querySelector("[data-rail-toggle]"); return { visible: t.matches(":focus-visible"), opacity: +getComputedStyle(t).opacity, ring: getComputedStyle(t).boxShadow !== "none" } })
-    expect(focused.visible && focused.opacity === 1 && focused.ring, "focused from the keyboard: shown, with a ring", focused)
+    const focused = await p.evaluate(() => { const t = document.querySelector("[data-rail-toggle]"); return { visible: t.matches(":focus-visible"), ring: getComputedStyle(t).boxShadow !== "none" } })
+    expect(focused.visible && focused.ring, "focused from the keyboard: a ring", focused)
     await p.keyboard.press("Enter")
     await sleep(400)
     const afterEnter = await p.evaluate(() => document.querySelector("[data-app-rail]").getAttribute("data-app-rail"))
@@ -251,16 +301,23 @@ export const isNativePlatform = () => false
     const c = await geometry(p)
     report.collapsed = c
     expect(c.w === COLLAPSED && c.dashTop === 12, `collapsed: ${COLLAPSED}px, Dashboard still 12px from the top`, { w: c.w, dashTop: c.dashTop })
-    expect(c.icons.every((x) => Math.abs(x - c.inner / 2) <= 0.01), "every icon exactly on the column's centre", { column: c.inner / 2, icons: [...new Set(c.icons)] })
-    expect(Math.abs(c.toggle.offBorder) <= 0.5 && c.toggle.turn !== "none" && c.label === "Expand sidebar" && c.expanded === "false", "the handle on the border, its chevron turned over, Expand sidebar, aria-expanded false", { offBorder: c.toggle.offBorder, turn: c.toggle.turn, label: c.label })
-    const icon = await (await p.$('[data-nav-row][href="/app/orders"]')).boundingBox()
-    await p.mouse.move(icon.x + icon.width / 2, icon.y + icon.height / 2)
-    await sleep(250)
-    await p.screenshot({ path: join(shots, "collapsed-hover.png"), clip: { x: 0, y: 0, width: 420, height: 900 }, captureBeyondViewport: false })
-    await p.mouse.move(c.toggle.cx - 4, c.toggle.cy)
+    expect(c.icons.every((x) => Math.abs(x - c.inner / 2) <= 0.01) && c.toggle.iconX === g.toggle.iconX, "every icon, the toggle's too, exactly on the column's centre, where it was open", { column: c.inner / 2, icons: [...new Set(c.icons)] })
+    const overSettings = c.settings.top - c.toggle.bottom
+    expect(!c.card.shown && c.toggle.opacity === 1 && c.toggle.hitAtRest && c.toggle.inside && overSettings >= 0 && overSettings <= 6 && c.toggle.top > c.asideBottom - 140,
+      "the card folded away; the toggle still in sight at the foot, over Settings", { card: c.card, gapToSettings: +overSettings.toFixed(1) })
+    expect(c.toggle.wordOpacity === 0 && c.label === "Expand sidebar" && c.expanded === "false", "its word gone, Expand sidebar, aria-expanded false", { word: c.toggle.wordOpacity, label: c.label })
+    await p.screenshot({ path: join(shots, "collapsed-rest.png"), clip: { x: 0, y: 0, width: 420, height: 900 }, captureBeyondViewport: false })
+    await p.mouse.move(c.toggle.left + 31, c.toggle.cy)
     await sleep(600)
-    const tip2 = await p.evaluate(() => document.querySelector("[data-rail-tip]")?.textContent ?? null)
-    expect(tip2 === "Expand sidebarCtrlB", "its tooltip says Expand sidebar, Ctrl B", tip2)
+    const tip2 = await p.evaluate(() => {
+      const el = document.querySelector("[data-rail-tip]")
+      if (!el) return null
+      const b = el.getBoundingClientRect()
+      const t = document.querySelector("[data-rail-toggle]").getBoundingClientRect()
+      return { text: el.textContent, gap: b.left - t.right }
+    })
+    expect(tip2?.text === "Expand sidebarCtrlB" && tip2.gap >= 6 && tip2.gap <= 10, "its tooltip says Expand sidebar, Ctrl B, beside it", tip2)
+    await p.screenshot({ path: join(shots, "collapsed-tooltip.png"), clip: { x: 0, y: 400, width: 420, height: 500 }, captureBeyondViewport: false })
     await p.mouse.move(900, 500)
 
     /* The shortcut, and not while typing. */
@@ -279,6 +336,15 @@ export const isNativePlatform = () => false
     await p.evaluate(() => document.activeElement.blur())
     expect(afterCtrl === "open" && /sl_rail=open/.test(cookie), "Ctrl+B opens it again, and the choice is kept", { afterCtrl, cookie })
     expect(afterMeta === "open" && typing === "open", "⌘B does nothing off a Mac, and Ctrl+B in the search box is the box's", { afterMeta, typing })
+
+    /* A click collapses, a second click opens. */
+    await p.click("[data-rail-toggle]")
+    await sleep(400)
+    const once = await railOf()
+    await p.click("[data-rail-toggle]")
+    await sleep(400)
+    const twice = await railOf()
+    expect(once === "collapsed" && twice === "open", "a click collapses it, a second click opens it", { once, twice })
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }
@@ -302,7 +368,7 @@ export const isNativePlatform = () => false
   console.log("\nThe motion, frame by frame\n")
   {
     const { p } = await open("/app/integrations")
-    /* The pointer on the sidebar, as it is when someone clicks the handle. */
+    /* The pointer on the sidebar, as it is when someone clicks the toggle. */
     await p.mouse.move(120, 400)
     await sleep(250)
     await p.evaluate(() => {
@@ -311,7 +377,7 @@ export const isNativePlatform = () => false
           const aside = document.querySelector("[data-rail-aside]")
           const main = document.querySelector("main")
           const content = document.querySelector("[data-integrations-scroll] > div:nth-child(2)") || document.querySelector("[data-integrations-scroll] > *")
-          const icons = [...aside.querySelectorAll("[data-nav-row] [data-nav-icon]")]
+          const icons = [...aside.querySelectorAll("[data-nav-icon]")]
           const label = aside.querySelector('[data-nav-row][href="/app"] [data-nav-label]')
           const dash = aside.querySelector('[data-nav-row][href="/app"]')
           const settings = aside.querySelector('[data-nav-row][href="/app/settings"]')
@@ -331,7 +397,8 @@ export const isNativePlatform = () => false
               dashTop: dash.getBoundingClientRect().top - ab.top,
               lab: +getComputedStyle(label).opacity,
               set: settings.getBoundingClientRect().top,
-              onBorder: tb.left + tb.width / 2 - (ab.right - 0.5),
+              ty: tb.top,
+              tShown: +getComputedStyle(toggle).opacity === 1 && getComputedStyle(toggle).visibility === "visible" && tb.left >= ab.left && tb.top >= ab.top && tb.bottom <= ab.bottom,
             })
             if (t - t0 < ms) requestAnimationFrame(tick)
             else res(frames)
@@ -369,19 +436,21 @@ export const isNativePlatform = () => false
       const lab = one(frames, "lab", dir)
       const lockstep = Math.max(...frames.map((f) => Math.abs(f.w - f.pad)))
       const iconDrift = Math.max(...frames.flatMap((f) => f.icons.map((x, i) => Math.abs(x - frames[0].icons[i]))))
-      const borderDrift = Math.max(...frames.map((f) => Math.abs(f.onBorder)))
+      const ty = one(frames, "ty", -dir)
+      const hidden = frames.filter((f) => !f.tShown).length
       const band = Math.max(...frames.map((f) => Math.abs(f.dashTop - 12)))
       const end = frames.findIndex((f) => f.w === endW && f.pad === endW)
       const widths = frames.map((f) => +f.w.toFixed(1))
-      report[name] = { frames: frames.length, settledAtMs: end >= 0 ? frames[end].t : null, widths: widths.slice(0, end + 2).join(" "), sidebarVsPageEdgeMaxPx: +lockstep.toFixed(3), iconDriftPx: iconDrift, handleOffBorderMaxPx: +borderDrift.toFixed(3), biggestWidthShare: +w.share.toFixed(2) }
+      report[name] = { frames: frames.length, settledAtMs: end >= 0 ? frames[end].t : null, widths: widths.slice(0, end + 2).join(" "), sidebarVsPageEdgeMaxPx: +lockstep.toFixed(3), iconDriftPx: iconDrift, toggleMovedPx: +(ty.to - ty.from).toFixed(1), toggleHiddenFrames: hidden, biggestWidthShare: +w.share.toFixed(2) }
       expect(w.back === 0 && pad.back === 0 && cx.back === 0, `${name}: the width, the page's edge and the content each move one way only (monotonic)`, { w: w.back, pad: pad.back, content: cx.back })
       expect(lockstep <= 0.5, `${name}:   the page's edge on the sidebar's every frame`, +lockstep.toFixed(3))
       expect(w.moving >= 8 && cx.moving >= 8 && w.share <= 0.3 && cx.share <= 0.3, `${name}:   over many frames, no frame more than 30% of the way`, { frames: w.moving, biggestShare: +Math.max(w.share, cx.share).toFixed(2) })
       expect(end >= 0 && frames[end].t <= 400 && w.to === endW, `${name}:   lands at ${endW}px`, { at: end >= 0 ? frames[end].t : null, w: w.to })
       expect(iconDrift <= 0.01, `${name}:   all ${frames[0].icons.length} icons on the same pixel every frame`, { maxDriftPx: iconDrift })
-      expect(borderDrift <= 0.5, `${name}:   the handle on the border every frame`, +borderDrift.toFixed(3))
+      expect(hidden === 0, `${name}:   the toggle in sight inside the sidebar every frame`, hidden)
+      expect(ty.back === 0 && ty.share <= 0.3, `${name}:   the toggle only moves ${dir < 0 ? "down" : "up"}, smoothly, as the card ${dir < 0 ? "folds" : "opens"}`, { moved: +(ty.to - ty.from).toFixed(1), biggestShare: +ty.share.toFixed(2) })
       expect(band <= 0.01, `${name}:   Dashboard 12px from the top every frame`, band)
-      expect(set.back === 0 && set.share <= 0.3, `${name}:   Settings, at the foot, never jumps as the card folds`, { moved: +(set.to - set.from).toFixed(1), biggestShare: +set.share.toFixed(2) })
+      expect(set.back === 0 && Math.abs(set.to - set.from) <= 0.01, `${name}:   Settings, at the foot, never moves as the card folds`, { moved: +(set.to - set.from).toFixed(1) })
       expect(lab.back === 0, `${name}:   the labels only fade ${dir < 0 ? "out" : "in"}`, { from: lab.from, to: lab.to })
     }
     const collapse = await p.evaluate(() => window.__film(440, () => document.querySelector("[data-rail-toggle]").click()))
@@ -437,11 +506,11 @@ export const isNativePlatform = () => false
           const main = document.querySelector("main")
           requestAnimationFrame(() => {
             document.querySelector("[data-rail-toggle]").click()
-            requestAnimationFrame(() => res({ w: aside.getBoundingClientRect().width, pad: parseFloat(getComputedStyle(main).paddingLeft), lab: +getComputedStyle(aside.querySelector("[data-nav-label]")).opacity, turn: getComputedStyle(aside.querySelector("[data-rail-toggle] svg")).transform }))
+            requestAnimationFrame(() => res({ w: aside.getBoundingClientRect().width, pad: parseFloat(getComputedStyle(main).paddingLeft), lab: +getComputedStyle(aside.querySelector("[data-nav-label]")).opacity }))
           })
         }),
     )
-    expect(f.w === COLLAPSED && f.pad === COLLAPSED && f.lab === 0 && f.turn !== "none", "there on the next frame, nothing animates", f)
+    expect(f.w === COLLAPSED && f.pad === COLLAPSED && f.lab === 0, "there on the next frame, nothing animates", f)
     await p.close()
   }
 
@@ -455,7 +524,7 @@ export const isNativePlatform = () => false
         pad: parseFloat(getComputedStyle(document.querySelector("main")).paddingLeft),
         scrollW: document.documentElement.scrollWidth,
       }))
-      expect(m.aside === "none" && !m.toggleShown && m.pad === 0 && m.scrollW <= 390 && errors.length === 0, `cookie ${rail}: no sidebar, no handle, no padding, no sideways scroll`, m)
+      expect(m.aside === "none" && !m.toggleShown && m.pad === 0 && m.scrollW <= 390 && errors.length === 0, `cookie ${rail}: no sidebar, no toggle, no padding, no sideways scroll`, m)
       if (rail === "collapsed") await p.screenshot({ path: join(shots, "phone.png") })
       await p.close()
     }

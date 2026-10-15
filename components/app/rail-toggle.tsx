@@ -1,28 +1,31 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { toggleAppRail, type RailState } from "@/lib/ui/app-rail"
 import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
- *  THE SIDEBAR'S COLLAPSE CONTROL (round 29)
+ *  THE SIDEBAR'S COLLAPSE CONTROL (round 31)
  * ===========================================================================
- * The owner: the full "Collapse" button under Settings should be an icon,
- * somewhere better, out of the way of the rows. Round 29 put it in a 40px
- * band above Dashboard, and the owner did not like the empty space that
- * made: "another solution, more smooth, subtle, clean".
+ * Round 29 put it in a band above Dashboard; round 30 made it a round handle
+ * on the sidebar's border that only showed while the pointer was over the
+ * sidebar. The owner, on that: "I don't like the collapsible one that
+ * appears on hover. Put the collapse toggle above the 'Upgrade to Pro' card
+ * in the sidebar, as a line/row. It must not be a hover thing: just an icon
+ * like Shopify has, always visible, I click it to collapse and click again
+ * to expand."
  *
- * ROUND 30, A HANDLE ON THE EDGE. A 24px round button centred on the
- * sidebar's border, level with Dashboard, the way Atlassian's products and
- * Shopify's admin keep theirs. It takes no room from the rows at all. It
- * shows while the pointer is anywhere over the sidebar and on keyboard
- * focus, stays on a touch screen, and otherwise is out of sight and lets
- * clicks through to the page under it (app/globals.css). It is a child of
- * the sidebar, placed against its right edge, so it travels with that edge
- * every frame; its chevron points the way the sidebar will go and turns
- * over on the sidebar's own curve.
+ * So it is a row now, at the foot of the sidebar directly above the Upgrade
+ * card (components/app/sidebar-desktop-nav), drawn the way every other row
+ * there is drawn: the same 38px height, 14px padding, 20px icon, grey and
+ * hover background, which the caller hands in so there is one palette. Its
+ * icon is a panel with its left side marked off, the way Shopify draws
+ * theirs, and it never moves sideways: 31px from the sidebar's left, open
+ * and collapsed, like every other icon. "Collapse" beside it while the
+ * sidebar is open; collapsed, the word fades with the other labels, the card
+ * folds away under it, and the icon stays where it is, above Settings.
  *
  * Under the pointer, after a short wait, a small tooltip says what it does
  * and its shortcut: ⌘B on a Mac, Ctrl+B elsewhere, read from the platform
@@ -46,19 +49,29 @@ function typingIn(target: EventTarget | null): boolean {
   return el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || !!el.closest?.("[contenteditable=''], [contenteditable='true']")
 }
 
-/** A small chevron pointing left, to close; globals.css turns it over while the sidebar is collapsed. */
-function EdgeChevron() {
+/** A panel with its left side marked off: the sidebar, in Shopify's way of drawing it. Stroked at the rows' weight. */
+function PanelIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <path d="M7.25 3L4.25 6L7.25 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M9.5 4.5V19.5" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   )
 }
 
-export function RailToggle() {
+export function RailToggle({
+  rowClassName,
+  paint,
+}: {
+  /** The rows' own geometry (sidebar-desktop-nav's ROW). */
+  rowClassName: string
+  /** The rows' own colours for a row that is not the page you are on, resting or hovered. */
+  paint: (hovered: boolean) => CSSProperties
+}) {
   const [state, setState] = useState<RailState>("open")
   const [mac, setMac] = useState<boolean | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
+  const [hovered, setHovered] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
   const wait = useRef<number | undefined>(undefined)
 
@@ -91,6 +104,7 @@ export function RailToggle() {
 
   const place = () => {
     const r = button.current?.getBoundingClientRect()
+    /* Beside the icon while the sidebar is a column of icons, beside the sidebar while it is open. */
     if (r) setTip({ x: Math.round(r.right + 8), y: Math.round(r.top + r.height / 2) })
   }
   const show = (after: number) => {
@@ -117,9 +131,13 @@ export function RailToggle() {
           toggleAppRail()
         }}
         onPointerEnter={(e) => {
+          setHovered(true)
           if (e.pointerType === "mouse") show(SHOW_AFTER_MS)
         }}
-        onPointerLeave={hide}
+        onPointerLeave={() => {
+          setHovered(false)
+          hide()
+        }}
         onPointerDown={hide}
         onFocus={(e) => {
           if (e.currentTarget.matches(":focus-visible")) show(0)
@@ -133,10 +151,14 @@ export function RailToggle() {
         aria-controls="app-rail"
         aria-keyshortcuts={mac === null ? undefined : mac ? "Meta+B" : "Control+B"}
         data-rail-toggle=""
-        /* On the 1px border (its centre on the border's inner edge, whole pixels so its own hairline stays crisp), its centre level with Dashboard's (12px of gutter + half a 38px row). A 32px hit area round a 24px circle. */
-        className="absolute -right-[12px] top-[19px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-[#8a8a8a] shadow-[0_1px_2px_rgba(16,18,27,0.06)] outline-none before:absolute before:-inset-1 before:content-[''] hover:border-neutral-300 hover:text-[#333333] active:bg-[#f3f3f3] focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]"
+        className={`${rowClassName} outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]`}
+        /* Its box-shadow is the focus ring's: a row that is never the page you are on has no depth to give it. */
+        style={{ ...paint(hovered), boxShadow: undefined }}
       >
-        <EdgeChevron />
+        <span data-nav-icon="outline" className="relative flex h-5 w-5 min-w-5 shrink-0 items-center justify-center">
+          <PanelIcon />
+        </span>
+        <span data-nav-label="" className="whitespace-nowrap">{tt("Collapse")}</span>
       </button>
       {tip && keys
         ? createPortal(

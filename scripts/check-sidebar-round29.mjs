@@ -4,7 +4,7 @@
  * ===========================================================================
  * The real sidebar beside the real Integrations page (scripts/render-sidebar-
  * round29.tsx), in headless Chromium. The sidebar's collapse control and its
- * motion are measured by scripts/check-sidebar-round30.mjs since round 30.
+ * motion are measured by scripts/check-sidebar-round31.mjs since round 30 (round 31 moved the control to a row).
  *
  *   the pills    each pill's number is the cards it shows, no card twice,
  *                 each category holds exactly its integrations, working ones
@@ -170,10 +170,10 @@ export const isNativePlatform = () => false
 
   /*
     The sidebar's collapse control and its motion moved to
-    scripts/check-sidebar-round30.mjs. Changed on purpose (the owner: "I don't
+    scripts/check-sidebar-round31.mjs. Changed on purpose (the owner: "I don't
     like that you put the collapsible sidebar icon above the Dashboard and
     created that empty space above the Dashboard menu link"): the control is
-    a handle on the sidebar's edge now, the collapsed width is 63px and the
+    a row above the Upgrade card since round 31, the collapsed width is 63px and the
     icons never move, so the expectations here (an icon in the top corner,
     68px, a 2.5px slide) no longer describe the product.
   */
