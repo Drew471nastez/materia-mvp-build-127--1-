@@ -105,7 +105,8 @@ async function main() {
   check("a new community never takes another community's old address", /if \(await communityIdForOldSlug\(db, slug\)\) \{\s*if \(tries\.explicit\) return \{ ok: false, error: "slug_taken" \}\s*continue/.test(createSrc) && createSrc.indexOf("communityIdForOldSlug(db, slug)") < createSrc.indexOf('.from("communities")\n      .insert('))
   check("the history is the database's to write (part 94's trigger), so no path that renames a community forgets it", !/community_slug_history/.test(creatorSrc))
   const settingsUi = read("components/community/creator/settings-section.tsx")
-  check("the editor no longer says old links stop working; it says they open the new address", !/stop working/.test(settingsUi) && /Links to \/community\/\{start\.slug\} will open the new address\./.test(settingsUi))
+  /* Changed on purpose (round 32): the address is its own panel (Address and domain) with its own save, so the old address is the one last saved there (`saved`), not the Page form's start. */
+  check("the editor no longer says old links stop working; it says they open the new address", !/stop working/.test(settingsUi) && /Links to \/community\/\{saved\} will open the new address\./.test(settingsUi))
 
   /* ── The layout, the proxy ───────────────────────────────────────────── */
   console.log("\nThe 308, above every page")

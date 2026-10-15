@@ -991,8 +991,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/row\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/row):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:border-\[\#d2d5da\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { border-color: rgba(255,255,255,0.07); }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/step\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/step):hover *) { color: #ececee; }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/10:not([data-own-look], [data-own-look] *):is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.1); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/20:not([data-own-look], [data-own-look] *):is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.2); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#26262b\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2a2a40\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
@@ -1141,6 +1140,9 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .max-sm\:border-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .max-sm\:border-b-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *) { border-bottom-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .max-sm\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *) { color: hsla(215,14%,72%,1); }
+}
+@media (width < 80rem) {
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .max-xl\:border-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 }
 @media (width >= 40rem) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .sm\:bg-white:not([data-own-look], [data-own-look] *) { background-color: #18181b; }

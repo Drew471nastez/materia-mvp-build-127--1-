@@ -102,6 +102,7 @@ import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { inviteCount } from "./invites"
 import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
+import { overviewActivity } from "./overview-activity"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
@@ -406,6 +407,8 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
   const d30 = sinceIso(30, now)
   const d7 = sinceIso(7, now)
   const members = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id)
+  /* Round 32: the newest posts and members, read beside the figures (./overview-activity). */
+  const recentLines = overviewActivity(db, c)
   const recurring = await recurringProductIds(db, c.id)
   const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells] = await Promise.all([
     count(members().eq("status", "active").gte("last_active_at", d30)),
@@ -452,6 +455,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
       pendingRequests: pending,
     },
     upcoming,
+    recent: await recentLines,
     sells: sells > 0,
     pricedEventsUnsellable: pricedEvents,
     publicUrl: `/community/${c.slug}`,

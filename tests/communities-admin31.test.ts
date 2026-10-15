@@ -109,7 +109,8 @@ function main() {
   check("names a business reads: Points and levels, Publish and archive", /label: "Points and levels"/.test(settings) && /label: "Publish and archive"/.test(settings))
   const raw = read("components/community/creator/settings-section.tsx")
   /* Changed on purpose (round 31 merge): the marker became the panel itself. */
-  check("the custom domain panel has its place in Page, after the address", raw.indexOf("<CommunityDomainPanel communityId={head.id} />") > raw.indexOf('<EditorCard title={tt("Address")}') && raw.indexOf('<EditorCard title={tt("Address")}') > 0)
+  /* Changed on purpose (round 32): the address and the domain are a panel of their own (Address and domain), the domain under the Storelib address. */
+  check("the custom domain panel has its place in Address and domain, after the address", raw.indexOf("<CommunityDomainPanel communityId={head.id} />") > raw.indexOf('<EditorCard title={tt("Storelib address")}') && raw.indexOf('<EditorCard title={tt("Storelib address")}') > raw.indexOf("function AddressSettings") && raw.indexOf("function AddressSettings") > 0)
 
   console.log("\nCONTROLS")
   const mine = ["settings-section", "access-editor", "members-section", "moderation-section", "gamification-panel", "gallery-editor", "gallery-tiles", "parts"].map((f) => `components/community/creator/${f}.tsx`)
