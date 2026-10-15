@@ -100,9 +100,9 @@ export const COUNTING_NOTE_MS = 2500
  * What the percentages are measured against: "Dec 1–Dec 31, 2025", the
  * period just before, or null for All time, which has nothing before it.
  */
-const CompareContext = createContext<string | null>("the previous period")
+export const CompareContext = createContext<string | null>("the previous period")
 
-function PercentChangeIndicator({ current, previous }: { current: number | null; previous: number | null }) {
+export function PercentChangeIndicator({ current, previous }: { current: number | null; previous: number | null }) {
   const against = useContext(CompareContext)
   if (against === null || current === null || previous === null) return null
   if (previous === 0) {
@@ -152,7 +152,7 @@ function trendLabelsFor(span: Span, timeZone: string): string[] {
 const TREND_SKELETON_MAX = 90
 
 /** Which line is which: the period in violet, what it is compared with in grey, dashed. */
-function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
+export function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280]">
       <span className="inline-flex items-center gap-1.5 tabular-nums">

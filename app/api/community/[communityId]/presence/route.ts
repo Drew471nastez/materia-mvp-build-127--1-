@@ -6,6 +6,7 @@ import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, memberSubject, sessionUserId } from "@/lib/communities/server/feed"
 import { touchPresence } from "@/lib/communities/server/presence"
+import { recordMemberDay } from "@/lib/communities/server/member-days"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,6 +33,7 @@ export async function POST(_request: Request, { params }: Params) {
   if (gate instanceof NextResponse) return gate
   const limited = await rateLimit({ bucket: rateBucket("presence"), subjects: [memberSubject(String(gate.viewer.userId))], windows: RATE_LIMITS.presence })
   if (limited) return limited
-  const done = await touchPresence(db, gate.community.id, String(gate.viewer.userId))
+  /* Here today, for the community's active members (lib/communities/server/member-days.ts): once a day, beside the minute's mark. */
+  const [done] = await Promise.all([touchPresence(db, gate.community.id, String(gate.viewer.userId)), recordMemberDay(db, gate.community.id, String(gate.viewer.userId))])
   return NextResponse.json({ ok: true, ready: done.ready }, { headers: NO_STORE })
 }

@@ -8,6 +8,7 @@ import "server-only"
  */
 import type { ActivityKind } from "../types"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import { recordMemberDay } from "./member-days"
 
 export const ACTIVE_BUMP_MS = 10 * 60_000
 
@@ -32,7 +33,8 @@ export async function recordActivity(db: Db, a: ActivityEntry): Promise<void> {
   } catch (err) {
     console.error(`[communities] activity ${a.kind} not written: ${reasonOf(err)}`)
   }
-  if (a.userId) await touchMember(db, a.communityId, a.userId)
+  /* A member who did something was here today (./member-days.ts); one leaving is not. */
+  if (a.userId) await Promise.all([touchMember(db, a.communityId, a.userId), a.kind === "left" ? null : recordMemberDay(db, a.communityId, a.userId)])
 }
 
 /** Moves the member's last_active_at to now, unless it moved in the last ten minutes. */

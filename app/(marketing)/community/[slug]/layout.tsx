@@ -9,6 +9,8 @@ import { meetsRole } from "@/lib/communities/permissions"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
 import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
 import { communityTitle, tabIconUrl } from "@/components/community/public/seo"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { CommunityGaEvents } from "@/components/community/public/community-ga"
 
 /**
  * EVERY PAGE INSIDE A COMMUNITY IS FOR ITS MEMBERS, so none of them is
@@ -74,11 +76,13 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   if (page.community && page.community.slug !== slug && barVisible(page)) {
     permanentRedirect(movedCommunityPath(slug, page.community.slug, (await headers()).get(COMMUNITY_PATH_HEADER)))
   }
+  const tracking = storeTracking(page)
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>
         {children}
         <OpenInAppPill />
+        {tracking}
       </CommunityShell>
     )
   }
@@ -86,8 +90,32 @@ export default async function CommunitySlugLayout({ children, params }: { childr
     return (
       <CommunityPublicShell community={page.community} viewer={page.viewer}>
         {children}
+        {tracking}
       </CommunityPublicShell>
     )
   }
   return children
+}
+
+/*
+ * THE STORE'S OWN GOOGLE ANALYTICS AND PIXELS (round 31), on every page of a
+ * published community as on the store's creator page and website
+ * (components/website-builder/store-tracking.tsx: only each service's own tag
+ * with a checked ID, consent mode before the first hit, Storelib's cookie
+ * banner answered, the IDs switched off the moment the visitor leaves the
+ * store's pages). Here in the layout, so moving between the feed, a space and
+ * a post keeps one tag and counts each page (GaRoute). Not for a draft or a
+ * suspended community, and not for its owner: the owner on their own
+ * community is not a visit, as in Storelib's own count (lib/communities/
+ * server/views.ts). A join is told to it as join_group (community-ga.tsx).
+ */
+function storeTracking(page: MemberPage): React.ReactNode {
+  const c = page.community
+  if (!c || !c.creator_id || c.status !== "published" || page.viewer?.isOwner) return null
+  return (
+    <>
+      <StoreTracking creatorId={c.creator_id} />
+      <CommunityGaEvents slug={c.slug} />
+    </>
+  )
 }
