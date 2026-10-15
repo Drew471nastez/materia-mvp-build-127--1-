@@ -289,12 +289,16 @@ async function main() {
     check("the grid puts them back before its first paint, on a return only", /React\.useLayoutEffect\(\(\) => \{\s*if \(!exploreDocumentReturn\(\)\) return\s*const kept = restoreKeptCommunities\(query\)/.test(results))
   }
 
-  console.log("\n8. A community opened on a computer: a fade, no slide; a phone keeps its push and pop")
+  console.log("\n8. A community opened: a fade, no slide, at every width")
   {
     const frame = readCode("components/community/member/shell-frame.tsx")
-    check("from PAGE_PHONE up, opacity only, on the site's landing timing", /if \(wide\) el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE \}\)/.test(frame))
-    check("a phone keeps the push in from the right", /else el\.animate\(\[\{ translate: "36px 0", opacity: 0\.6 \}, \{ translate: "0 0", opacity: 1 \}\]/.test(frame))
-    check("leaving for Explore slides off only on a phone", /if \(leavingRef\.current === "pop" && el && window\.matchMedia\?\.\(PAGE_PHONE\)\.matches\) holdLeavingStill\(el, 320, \{ motion: "pop", under: true \}\)/.test(frame))
+    check("opacity only, on the site's landing timing", /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE \}\)/.test(frame))
+    /* Changed on purpose (round 30): the owner, on a phone: "it slides in from the left or right, there is a flash and a
+       white space during it, in dark mode too". The phone's push in from the right (36px at 60% opacity) and the pop off
+       to the right on the way to Explore are gone; every width lands on the fade, over the frame's own ground. */
+    check("round 30: no push in from the right on a phone either", !/translate: "36px 0"/.test(frame) && !/if \(wide\) el\.animate/.test(frame))
+    check("round 30: leaving for Explore is a plain swap, no copy sliding off", !/holdLeavingStill/.test(frame) && !/motion: "pop"/.test(frame))
+    check("round 30: the document under the fade is the frame's own ground", /holdLandingGround\(el\)\s*el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(frame) && /holdLandingGround\(rootRef\.current\)/.test(readCode("components/community/public/public-frame.tsx")))
     const push = await import("../lib/navigation/page-push")
     check("a full page pushed from a community on a computer fades without moving", push.PAGE_WIDE_SHIFT_PX === 0 && push.PAGE_PHONE === "(max-width: 767px)")
   }

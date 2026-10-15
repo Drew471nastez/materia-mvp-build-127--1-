@@ -7,7 +7,7 @@
  */
 import { useCallback, useSyncExternalStore } from "react"
 import { flushSync } from "react-dom"
-import { APPEARANCE_KEY, DARK_ATTR, LEGACY_APPEARANCE_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
+import { APPEARANCE_KEY, APP_FROM_DARK_CLASS, APP_FROM_DARK_MS, APP_FROM_DARK_OUT_CLASS, DARK_ATTR, LEGACY_APPEARANCE_KEY, LOOK_NOW_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
 
 const listeners = new Set<() => void>()
 /** A page's own look for people who never chose (a community whose creator picked dark); see setPageDefaultAppearance. */
@@ -120,14 +120,43 @@ export function paintAppearance(pathname: string, appearance: Appearance | null,
   const html = document.documentElement
   /* A page with a look of its own (a creator's page under /u/, [data-own-look]) is never darkened. */
   const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark" && !document.querySelector("[data-own-look]")
+  /* The look this tab shows now, for an /app document that opens next (APP_FROM_DARK_BOOT). */
+  try {
+    window.sessionStorage.setItem(LOOK_NOW_KEY, dark ? "dark" : "light")
+  } catch {
+    /* No session storage: the dashboard opens on its own canvas, as it did. */
+  }
   if (dark === html.hasAttribute(DARK_ATTR)) return
   if (dark) {
     html.setAttribute(DARK_ATTR, "")
     html.style.colorScheme = "dark"
   } else {
+    /* A client move from a dark page into the dashboard: the same veil a document gets, then its fade. */
+    if (APP_PATH.test(pathname)) veilIntoApp()
     html.removeAttribute(DARK_ATTR)
     html.style.colorScheme = "light"
   }
+}
+
+const APP_PATH = /^\/app(\/|$)/
+
+/** Puts the dashboard's veil up now (a client move from a dark page) and fades it off two frames later, once /app is painted under it. */
+function veilIntoApp() {
+  const html = document.documentElement
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+  html.classList.add(APP_FROM_DARK_CLASS)
+  requestAnimationFrame(() => requestAnimationFrame(revealAppFromDark))
+}
+
+/**
+ * The dashboard's shell is on the screen: the veil it opened under after a dark page fades off it (APP_FROM_DARK_BOOT,
+ * app/globals.css html.app-from-dark). Nothing when there is no veil.
+ */
+export function revealAppFromDark() {
+  const html = document.documentElement
+  if (!html.classList.contains(APP_FROM_DARK_CLASS) || html.classList.contains(APP_FROM_DARK_OUT_CLASS)) return
+  html.classList.add(APP_FROM_DARK_OUT_CLASS)
+  window.setTimeout(() => html.classList.remove(APP_FROM_DARK_CLASS, APP_FROM_DARK_OUT_CLASS), APP_FROM_DARK_MS + 60)
 }
 
 /* ── A page's own default (a community whose creator picked dark) ─────────── */

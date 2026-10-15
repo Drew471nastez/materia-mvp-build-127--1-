@@ -32,6 +32,11 @@ async function main() {
   section("Where the look applies")
   for (const p of ["/explore", "/explore/search", "/account", "/account/library", "/account/settings", "/community/clay-studio", "/community/clay-studio/members", "/u/maria", "/wishlist"]) check(`${p} follows the person's look`, site.themedPath(p))
   for (const p of ["/", "/app", "/app/community/clay-studio/feed", "/app/settings", "/checkout/site", "/@maria", "/maria", "/accounting", "/communityx", "/sell", "/login"]) check(`${p} never does`, !site.themedPath(p))
+  /* Changed on purpose (round 30): the owner, "in dark mode I open a product from Explore and it is light". The product
+     page follows the look: /p/<slug>, and /<handle>/<slug>, the address Explore's cards hand out (lib/url-helpers). A
+     creator's own scheme on it keeps its look (data-own-look, checked below). */
+  for (const p of ["/p/glaze-notes", "/maria/glaze-notes"]) check(`round 30: the product page ${p} follows the person's look`, site.themedPath(p))
+  for (const p of ["/maria/links", "/app/products", "/checkout/site", "/blog/a-post", "/sitemap/products.xml", "/@maria/x", "/maria/glaze-notes/reviews", "/legal/terms"]) check(`round 30: ${p} is not a product and never does`, !site.themedPath(p))
 
   section("The first paint")
   const boot = site.APPEARANCE_BOOT
@@ -56,6 +61,8 @@ async function main() {
   }
   check("dark chosen, on Explore: dark before the first paint", run("/explore", "dark").dark && run("/explore", "dark").scheme === "dark")
   check("dark chosen, in the dashboard: light", !run("/app/orders", "dark").dark)
+  check("round 30: dark chosen, on a product: dark before the first paint; on a platform page of two segments: light", run("/maria/glaze-notes", "dark").dark && run("/p/glaze-notes", "dark").dark && !run("/blog/a-post", "dark").dark && !run("/maria/links", "dark").dark)
+  check("round 30: the boot carries the same platform words as productAddress", boot.includes(JSON.stringify(site.PLATFORM_FIRST_SEGMENTS)))
   check("light chosen, or nothing chosen: light", !run("/account", "light").dark && !run("/account", null).dark)
 
   section("Kept for the account")
@@ -109,6 +116,36 @@ async function main() {
     ["components/search/search-screen.tsx", /var\(--sl-ink-strong, #1a1a2e\)/],
     ["components/community/member/arrive.ts", /var\(--sl-arrive, #fdf8ec\)/],
   ] as const) check(`${f}: an inline colour keeps its light value and has a dark one`, re.test(read(f)))
+  const product = read("app/(marketing)/p/[slug]/page.tsx")
+  check("round 30: a product page with the creator's own look keeps it, the platform's default page follows the person's", /data-own-look=\{ownLook \? "" : undefined\}/.test(product) && /data-product-look=\{ownLook \? undefined : "site"\}/.test(product) && /productPageTone\(productPageConfig, \{ site: !ownLook \}\)/.test(product) && (product.match(/__html: OWN_LOOK_BOOT/g) || []).length === 2)
+  const tone = await import("../lib/store-builder/product-page-tone")
+  check("round 30: no config, or the default scheme with nothing of the creator's, is Storelib's look", !tone.productHasOwnLook(null) && !tone.productHasOwnLook({ globalSettings: { themePreset: "default" }, globalColors: { backgroundColor: "#ffffff" }, headerSettings: {} }))
+  check("round 30: a scheme, a page colour, colours of their own or an arranged page are the creator's look", tone.productHasOwnLook({ globalSettings: { themePreset: "sage" } }) && tone.productHasOwnLook({ globalColors: { backgroundColor: "#f4efe6" } }) && tone.productHasOwnLook({ headerSettings: { buyButtonColor: "#111111" } }) && tone.productHasOwnLook({}, true))
+  check("round 30: Storelib's look on a product page has no scheme colours of its own, so the design system's tokens draw it", tone.productPageTone(null, { site: true }).themeConfig === undefined && tone.productPageTone(null).themeConfig !== undefined)
+
+  section("Into the dashboard from the dark look (round 30)")
+  check("the tab remembers the look it painted last", /window\.sessionStorage\.setItem\(LOOK_NOW_KEY, dark \? "dark" : "light"\)/.test(client))
+  check("an /app document after a dark page opens under the veil, from <head>", site.APP_FROM_DARK_BOOT.includes(JSON.stringify(site.LOOK_NOW_KEY)) && site.APP_FROM_DARK_BOOT.includes(JSON.stringify(site.APP_FROM_DARK_CLASS)) && /<script dangerouslySetInnerHTML=\{\{ __html: APP_FROM_DARK_BOOT \}\} \/>/.test(layout))
+  check("the veil fades off once the shell is on the screen", /classList\.remove\("app-arriving"\)\s*revealAppFromDark\(\)/.test(read("components/app/app-layout-wrapper.tsx")))
+  const globals = readFileSync(join(process.cwd(), "app/globals.css"), "utf8")
+  check("the veil is the header's colour and fades on opacity alone, the time the script waits", /html\.app-from-dark::after \{[^}]*background-color: #111111;[^}]*transition: opacity 240ms/.test(globals) && /html\.app-from-dark\.app-from-dark-out::after \{\s*opacity: 0;/.test(globals) && site.APP_FROM_DARK_MS === 240)
+  const veil = (path: string, look: string | null) => {
+    const classes = new Set<string>()
+    const g = globalThis as unknown as Record<string, unknown>
+    const before = { sessionStorage: g.sessionStorage, location: g.location, document: g.document, setTimeout: g.setTimeout }
+    g.sessionStorage = { getItem: () => look }
+    g.location = { pathname: path }
+    g.document = { documentElement: { classList: { add: (...c: string[]) => c.forEach((x) => classes.add(x)), remove: () => {}, contains: (c: string) => classes.has(c) } } }
+    g.setTimeout = () => 0
+    try {
+      new Function(site.APP_FROM_DARK_BOOT)()
+    } finally {
+      Object.assign(g, before)
+    }
+    return classes.has(site.APP_FROM_DARK_CLASS)
+  }
+  check("only on /app, and only after a dark page in this tab", veil("/app", "dark") && veil("/app/orders", "dark") && !veil("/app", "light") && !veil("/app", null) && !veil("/explore", "dark"))
+
   check("a creator's page under /u/ keeps its own look", /data-own-look=""/.test(read("app/(marketing)/u/[username]/page.tsx")) && site.themedPath("/member/maya"))
   const sw = read("components/platform/appearance-switch.tsx")
   check("pressed, the button and the knob give a little", /active:scale-\[0\.9\]/.test(sw) && /group-active\/appearance:scale-\[0\.85\]/.test(sw))

@@ -77,7 +77,8 @@ import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 import { shownCustomFields } from "@/lib/products/custom-fields"
 
-import { productPageTone } from "@/lib/store-builder/product-page-tone"
+import { productHasOwnLook, productPageTone } from "@/lib/store-builder/product-page-tone"
+import { OWN_LOOK_BOOT } from "@/lib/appearance/site-appearance"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { imagesOnly } from "@/lib/media/video"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
@@ -497,8 +498,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   /* The scheme's colours, dark or not, and the page's own colour: decided in
      lib/store-builder/product-page-tone, which scripts/check-creator-chrome.mjs
      measures per scheme on the real components. */
+  /* Round 30: a look of the creator's own keeps it in the person's dark look; the platform's default page follows that look (productHasOwnLook). */
+  const ownLook = productHasOwnLook(productPageConfig, !!productPageConfig?.sections?.length)
   const { themePreset, themeConfig, isDarkTheme, themeColors, categoryBadgeStyle, ratingStarColor, pageBackgroundColor: tonePageBackground } =
-    productPageTone(productPageConfig)
+    productPageTone(productPageConfig, { site: !ownLook })
   const isColorfulTheme = false // No more colorful themes
 
   // Download button colors - use buyButtonColor if set (custom), otherwise use theme preset colors
@@ -1806,7 +1809,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           background: pageBackgroundColor || "var(--background)",
           color: pageTextColor || "var(--foreground)",
         }}
+        /* An arranged page is the creator's design: it keeps its colours in the person's dark look (lib/appearance, round 30). */
+        data-own-look=""
       >
+        <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
@@ -1971,7 +1977,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         background: defaultPageBackgroundColor || "var(--background)",
         color: defaultPageTextColor || "var(--foreground)",
       }}
+      /*
+        ROUND 30: whose look this is. A scheme or colours of the creator's own keep them in the person's dark look
+        (data-own-look, and the boot that takes the dark look off before anything here is drawn); the platform's default
+        page is Storelib's, drawn in the person's look (data-product-look="site", app/theme-dark.css).
+      */
+      data-own-look={ownLook ? "" : undefined}
+      data-product-look={ownLook ? undefined : "site"}
     >
+      {ownLook ? <script dangerouslySetInnerHTML={{ __html: OWN_LOOK_BOOT }} /> : null}
       {/*
         INSIDE THE WORKSPACE'S CANVAS, this page is reached by clicking a card
         on the creator page above it. Two things it needs there and nowhere
