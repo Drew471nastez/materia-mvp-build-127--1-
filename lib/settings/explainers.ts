@@ -169,7 +169,7 @@ export const EXPLAINERS = {
       tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
       tt("Only approved translations go live, once the language is published. The rest shows in your default language."),
     ] },
-    guide: "/help/physical-products/languages-and-currencies-for-visitors",
+    guide: "/help/physical-products/translate-your-website",
   },
   currency: {
     get title() { return tt("How your currency works") },
@@ -189,7 +189,7 @@ export const EXPLAINERS = {
       tt("Visitors are matched by the country they browse from, and can change it with the currency selector. Their choice is remembered."),
       tt("Checkout charges the visitor's currency, the amounts they saw. A currency Storelib can't charge yet is shown for reference, and checkout says it charges yours."),
     ] },
-    guide: "/help/physical-products/languages-and-currencies-for-visitors",
+    guide: "/help/physical-products/sell-in-more-currencies",
   },
 } satisfies Record<string, Explainer>
 

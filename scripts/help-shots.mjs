@@ -223,6 +223,22 @@ const SHOTS = [
   },
   { name: "integration-shipstation", view: "integrations", q: "integration=shipstation&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
   { name: "integration-shippo", view: "integrations", q: "integration=shippo&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
+  /* Settings › Languages & Currency (components/app/settings/markets-panel.tsx), the Translate sheet, and the website's own selectors. */
+  { name: "store-currency", view: "languages", width: 820, phone: true, settle: 1800, clip: cards("Store currency") },
+  {
+    name: "store-currency-change", view: "languages", width: 820, settle: 1800,
+    act: [press("Edit"), async (p) => { await p.select("#store-currency", "EUR"); await wait(700); await p.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => b.textContent.includes("Convert the amounts"))?.click()); await wait(300) }],
+    clip: cards("Store currency"),
+  },
+  { name: "more-currencies", view: "languages", width: 820, phone: true, settle: 1800, clip: cards("More currencies") },
+  { name: "add-currency", view: "languages", width: 1000, height: 1500, settle: 1800, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-market="eu"] button')?.click()); await wait(600) }], clip: (p) => p.evaluate(() => window.__dialog()) },
+  { name: "languages-settings", view: "languages", width: 820, phone: true, settle: 1800, clip: cards("Languages") },
+  { name: "default-language-translated", view: "languages", q: "written=1", width: 820, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-languages]")], 12)) },
+  { name: "translate-sheet", view: "translate-sheet", width: 1000, height: 1300, phone: true, settle: 1800,
+    /* The owner rewrites the heading whose original changed: Save counts it. */
+    act: [press("All"), async (p) => { const f = '[data-translation="s2:heading"] input'; await p.evaluate((sel) => { const el = document.querySelector(sel); el.focus(); el.select() }, f); await p.keyboard.press("Backspace"); await p.type(f, "Nouveau cet automne"); await p.evaluate(() => document.activeElement?.blur()); await wait(300) }],
+    clip: (p) => p.evaluate(() => window.__dialog()) },
+  { name: "site-selectors", view: "site-selectors", width: 560, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot > div")], 0)) },
   /* The real emails, as their templates write them. */
   { name: "low-stock-email", view: "email-low-stock", width: 640, height: 900, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot iframe")], 0)) },
   { name: "shipping-email", view: "email-shipped", width: 640, height: 1400, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot iframe")], 0)) },
