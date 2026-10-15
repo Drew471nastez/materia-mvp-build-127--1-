@@ -388,6 +388,10 @@ ${SCOPE} {
   --sl-course-track: rgba(255,255,255,0.1);
   --sl-course-line: rgba(255,255,255,0.16);
   --sl-seg-on: ${P.selected};
+  /* Round 29: the surface tokens inside a community frame set dark too (the comment pill, its typing ground: comments.tsx PILL_BOX). */
+  --sl-surface: ${P.surface};
+  --sl-raised: ${P.raised};
+  --sl-line: ${L(P.line)};
 }
 [data-community-theme="dark"] {
   background-color: ${P.page};

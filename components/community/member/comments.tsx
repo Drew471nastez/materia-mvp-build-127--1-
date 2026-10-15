@@ -310,13 +310,21 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   ROUND 25: the opened post is the website builder's bottom sheet. The box rides the room the sheet makes for the keyboard
   (its content padded, the sheet itself white to the foot of the screen and a sheet's height beyond); the pill stays solid
   white (nothing marks the sheet settled, so the frosted pill never comes on inside a sheet a finger can move).
+  ROUND 29 (the owner, in the dark look: "a white rounded frame around the dark input"). The pill's colours were written as
+  variants on its parent ([&_[data-comment-box=comment]]:bg-white and the like), which the dark stylesheet cannot read
+  (scripts/gen-theme-dark.mjs maps plain colour classes), so the pill stayed white round a dark field, and its typing ground
+  stayed white. The pill is now drawn by the box itself (CommentBox `pill`) in plain classes and theme variables: a raised
+  step of the sheet (--sl-raised) with a hairline that barely reads, the field inside it bare, and the typing ground is the
+  sheet's own surface (--sl-surface). The frosted variant for a settled page is gone (nothing sets it since round 25).
 */
-/** Round 16's block, kept only as the box's white ground while typed in (the page under it is white to the foot anyway). */
-export const KEYBOARD_BLOCK = "[[data-typing]_&]:shadow-[0_-1px_0_#eef0f2]"
+/** Round 16's block, kept only as the box's ground while typed in (the page under it is the sheet's surface to the foot anyway). */
+export const KEYBOARD_BLOCK = "[[data-typing]_&]:shadow-[0_-1px_0_var(--sl-line,#eef0f2)]"
+/** The floating box itself (round 29): a pill a step above the sheet, in light white on a hairline. */
+export const PILL_BOX = "items-center rounded-[26px] border border-[#e6e8eb]/80 bg-[var(--sl-raised,#fff)] py-1 pl-1.5 pr-1 shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)]"
 /** The dock's room at rest, on the tab bar. */
 const DOCK_REST_PAD = "max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)))"
 const FLOAT_COMPOSER =
-  `sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:z-[8] [[data-typing]_&]:bg-white [[data-typing]_&]:pt-2 ${KEYBOARD_BLOCK} [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white [[data-settled]_&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [[data-settled]_&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]>[data-app-avatar]]:select-none [&_[data-comment-box=comment]>[data-app-avatar]]:[-webkit-touch-callout:none] [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none`
+  `sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:z-[8] [[data-typing]_&]:bg-[var(--sl-surface,#fff)] [[data-typing]_&]:pt-2 ${KEYBOARD_BLOCK} [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]>[data-app-avatar]]:select-none [&_[data-comment-box=comment]>[data-app-avatar]]:[-webkit-touch-callout:none]`
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, floatComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
@@ -688,7 +696,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         data-comments-composer={dockComposer ? (dockPhone ? "dock" : "top") : pinComposer ? (floatComposer ? "float" : "pin") : "top"}
       >
         {dockComposer && dockPhone ? <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full hidden h-[100lvh] bg-white [[data-typing]>&]:block" data-comments-dock-skirt="" /> : null}
-        <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
+        <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} pill={pinComposer && floatComposer} />
         <TypingLine names={typing.writers.map((w) => w.name)} />
       </div>
     ) : (
@@ -801,6 +809,7 @@ function CommentBox({
   canUpload = false,
   media: mediaOn = true,
   nearby,
+  pill = false,
 }: {
   communityId: string
   postId: string
@@ -819,6 +828,8 @@ function CommentBox({
   media?: boolean
   /** The people on screen, offered first for "@". */
   nearby?: () => MentionPerson[]
+  /** The floating box at the foot of a phone's post (round 29): the box is the pill (PILL_BOX), its field bare inside it. */
+  pill?: boolean
 }) {
   const [body, setBody] = useState(initial)
   const [picks, setPicks] = useState<Picked[]>([])
@@ -948,11 +959,15 @@ function CommentBox({
   /* A tool pressed keeps the caret (and a phone its keyboard) in the words. */
   const keep = { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() }
   return (
-    <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
+    <div className={`flex gap-2.5 ${pill ? PILL_BOX : "items-start"}`} data-comment-box={parentId ? "reply" : "comment"} data-comment-pill={pill ? "" : undefined} data-keep-in-sight="">
       {me ? <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} className="mt-1" /> : null}
       <div className="min-w-0 flex-1">
         <div
-          className="rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
+          className={
+            pill
+              ? "rounded-[10px] border border-transparent bg-transparent"
+              : "rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
+          }
           data-comment-field=""
         >
           {picks.length ? (

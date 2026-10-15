@@ -79,6 +79,24 @@
  * and glitching when the title was tapped). Round 10's toolbar dock below is
  * no longer used on a phone; the notes are kept for its history.
  *
+ * ROUND 29 (the owner, on a phone and in dark mode).
+ *   CANCEL AND POST. Cancel is a plain word (CANCEL_BTN), Post the one
+ *   filled button (POST_BTN), with no hairline round it, so in the dark look
+ *   it is a graphite step and never a light edge.
+ *   A CALM PENDING STATE. Post keeps its width and its colour while the
+ *   server is asked: a thin ring turns where the word was (opacity only
+ *   between the faces, no scale), and the button is never `disabled`, so no
+ *   disabled style can dim it in the middle of the press.
+ *   ONE MOVE DOWN. Post keeps the caret through the press like Cancel, so the
+ *   keyboard goes down with the sheet, not a moment before it.
+ *   BACK WITH WORDS WRITTEN, THEN LEAVE goes down on the sheet's own close too
+ *   (it was taken off the screen in one frame).
+ *   THEN THE FEED GLIDES. Once the sheet is down the page glides to where the
+ *   post goes (arrive.ts glideIntoSight) and only then is the post put in,
+ *   with its slide and its warm highlight.
+ *   AN EMOJI GOES WHERE THE CARET WAS: in the title when the title had it
+ *   last, at its caret (it always went into the words).
+ *
  * ROUND 25 (the owner: "when the keyboard closes and I tap 'Write
  * something' again, the sheet bumps up weirdly"). The sheet is primed: its
  * fields are drawn and painted before it rises, the caret goes in when the
@@ -116,15 +134,16 @@
  *   changed, and once somebody has voted only its end can change (the server
  *   says so too: feed.ts POLL_VOTED). Save turns to a spinner, then a check,
  *   and the editor folds back into the post. Nothing is kept in storage.
- *   A SOFT WHOOSH ON POST (heart.tsx postSound, the Sounds switch), primed in
- *   the press and played once the server has the post.
+ *   A SOUND ON POST (heart.tsx postSound, the Sounds switch), primed in the
+ *   press and played once the server has the post. Round 29: one soft two
+ *   note chime, no whoosh and no tap on the press.
  *   THE SPACE'S GLYPH beside its name in the space picker (space-glyph.ts).
  */
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { flushSync } from "react-dom"
-import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
+import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Paperclip, Plus, X } from "lucide-react"
 import { MemberAvatar } from "./member-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
@@ -135,7 +154,7 @@ import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { EMBED_NAMES, MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, fileSizeLabel, postEmbedFromUrl } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
-import { holdAnchor, useArrivals } from "./arrive"
+import { glideIntoSight, holdAnchor, useArrivals } from "./arrive"
 import { AttachmentTray, moveKey } from "./attachment-tray"
 import { LinkCard } from "./media"
 import { PHONE_ROW } from "./post-card"
@@ -144,10 +163,10 @@ import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
 import { stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
-import { postPressSound, postSound, primeSounds } from "./heart"
+import { postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
+import { BTN, BTN_GHOST, BTN_PRIMARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
 import { hapticTap } from "@/lib/native-bridge"
 import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
 import type { ComposerSpace, LinkPreview } from "./view-types"
@@ -267,6 +286,12 @@ const FADE_COMING = "cubic-bezier(0, 0, 0.2, 1)"
 const CLOSED_FALLBACK_H = 72
 /** How long the Post button shows its check before the editor closes. */
 const SENT_HOLD_MS = 260
+/** The title's own limit (its field's maxLength). */
+const TITLE_MAX = 200
+/** Cancel: a plain word, tinted under a pointer (round 29). */
+const CANCEL_BTN = BTN_GHOST
+/** Post: the one filled button, with no hairline round it (round 29: DEPTH_INK's ink border read as a light edge in the dark look). */
+const POST_BTN = `${BTN} h-10 bg-[#1a1a2e] px-4 text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)] hover:bg-[#2b2b42] sm:h-9`
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -752,7 +777,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     /* In place, an edit hands the post back at once: the post card fades its words in where the editor was (post-card.tsx). */
     if (edit && !phone) return end()
     const el = phone ? sheetRef.current : cardRef.current
-    if (!el || typeof el.animate !== "function" || reducedMotion()) return end()
+    /* Round 29: a phone's sheet always goes down on its own close (shorter with reduced motion, mobile-editor-sheet.tsx), never in one frame. */
+    if (!el || typeof el.animate !== "function" || (!phone && reducedMotion())) return end()
     leaving.current = true
     let finished = false
     const finish = () => {
@@ -802,6 +828,27 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     else titleRef.current?.focus({ preventScroll: true })
   }, [])
 
+  /*
+    AN EMOJI GOES WHERE THE CARET WAS (round 29, the owner: "with the cursor in the title, the emoji went into the words").
+    The field that had the caret last is noted as it takes it (the emoji's own search box is neither, so it changes
+    nothing), and a pick goes into that one: the title at its caret, replacing what is selected there, the words through
+    their own handle. An input keeps its selection after it lets the focus go, so the place is still there to read.
+  */
+  const lastField = useRef<"title" | "body">("body")
+  const insertEmoji = (emoji: string) => {
+    const el = titleRef.current
+    if (lastField.current !== "title" || !el) return textRef.current?.insert(emoji)
+    const from = el.selectionStart ?? el.value.length
+    const to = el.selectionEnd ?? from
+    if (el.value.length - (to - from) + emoji.length > TITLE_MAX) return
+    setTitle(el.value.slice(0, from) + emoji + el.value.slice(to))
+    const caret = from + emoji.length
+    requestAnimationFrame(() => {
+      el.focus({ preventScroll: true })
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
   const cancel = async () => {
     if (dirty && !(await ask())) return
     if (!editing) clearAfter.current = true
@@ -814,6 +861,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     ask,
     onLeave: () => {
       if (edit) return shut()
+      /* On a phone the sheet goes down on its own close and is emptied once it is down (round 29: it went in one frame). */
+      if (phone) {
+        clearAfter.current = true
+        return shut()
+      }
       clear()
       setSheetIn(false)
       setOpen(false)
@@ -982,9 +1034,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     if (busy || sent) return
     if (!ready) return nudgePost()
     setBusy(true)
-    /* The whoosh is made ready in the press (a browser starts sound only from one) and played once the post is up. */
+    /* The chime is made ready in the press (a browser starts sound only from one) and played once the post is up. */
     primeSounds()
-    postPressSound()
     const all = linkMedia ? [...media, linkMedia] : media
     const r = await api<{ post: FeedPostView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts`, {
       body: {
@@ -1035,9 +1086,19 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       clear()
       setSent(false)
       /* Into the feed with its finish; a list that does not show it (another order) says it in words instead, unless the feed already did ("Posted in ..."). Away from the feed, the words alone: the feed has it when the member goes there. */
-      if (awayRef.current) toast("Posted")
-      else arrive([post.id], { mine: true, missing: () => !document.querySelector('.fixed[role="status"]') && toast("Posted") })
-      onPosted(post)
+      if (awayRef.current) {
+        toast("Posted")
+        onPosted(post)
+        return
+      }
+      const land = () => {
+        arrive([post.id], { mine: true, missing: () => !document.querySelector('.fixed[role="status"]') && toast("Posted") })
+        onPosted(post)
+      }
+      /* Round 29: the page glides to where the post goes (the closed field, which the list starts under), then it lands there. */
+      const spot = cardRef.current
+      if (spot) glideIntoSight(spot, land)
+      else land()
     }
     window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
   }
@@ -1228,7 +1289,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         <BarChart3 className="h-5 w-5" strokeWidth={1.75} />
       </button>
       <span data-composer-tool="emoji" className="contents">
-        <EmojiControl className={TOOL} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={(e) => textRef.current?.insert(e)} />
+        <EmojiControl className={TOOL} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={insertEmoji} />
       </span>
       <GifButton communityId={communityId} className={TOOL} onPick={addGif} />
     </div>
@@ -1240,7 +1301,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         ref={titleRef}
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        maxLength={200}
+        onFocus={() => (lastField.current = "title")}
+        maxLength={TITLE_MAX}
         placeholder="Title"
         aria-label="Title"
         aria-required="true"
@@ -1252,6 +1314,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         communityId={communityId}
         value={body}
         onChange={setBody}
+        onFocus={() => (lastField.current = "body")}
         placeholder="Write something..."
         ariaLabel="Post"
         caretAtEnd={editing}
@@ -1317,7 +1380,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         {tools}
         {spacePicker}
         <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
+          <button type="button" className={CANCEL_BTN} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
             Cancel
           </button>
           <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} />
@@ -1378,13 +1441,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
             className="flex min-h-0 flex-1 flex-col bg-white"
           >
             <div className="shrink-0 border-b border-[#f0f1f3]">
-              <div className="flex h-12 items-center gap-2 px-2">
+              <div className="flex h-12 items-center gap-2 pl-1.5 pr-3">
                 {/* The field keeps the caret through the press (no blur), so the keyboard goes down with the sheet. */}
-                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
+                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${CANCEL_BTN} px-2.5 text-[15px]`} disabled={sent} data-composer-cancel="">
                   Cancel
                 </button>
                 <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
-                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} />
+                {/* Round 29: Post keeps the caret through the press too, so the keyboard goes down with the sheet, in one move. */}
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} keepCaret />
               </div>
             </div>
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
@@ -1412,20 +1476,28 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 }
 
 /**
- * Post, then a spinner while the server is asked, then a check once it has
- * the post: three faces in one cell, so the button keeps the width "Post"
- * gives it and the faces crossfade rather than the words changing length.
+ * Post, then a turning ring while the server is asked, then a check once it
+ * has the post: three faces in one cell, so the button keeps the width
+ * "Post" gives it and the faces crossfade rather than the words changing
+ * length. Round 29: a calm ring of its own (a faint track, one short arc
+ * turning on the compositor), the faces trade opacity only, and the button
+ * is never `disabled` (it says so to assistive tech with aria-disabled and
+ * ignores a press), so nothing dims or jumps while it waits.
  */
-function PostButton({ busy, sent, ready, onClick, className = "", label = "Post" }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save" }) {
-  const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${on ? "opacity-100 scale-100" : "opacity-0 scale-75"}`
+function PostButton({ busy, sent, ready, onClick, className = "", label = "Post", keepCaret = false }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save"; keepCaret?: boolean }) {
+  const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${on ? "opacity-100" : "opacity-0"}`
   const state = sent ? "sent" : busy ? "busy" : "idle"
   const said = label === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
+  const keep = keepCaret ? { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() } : {}
   return (
     <button
       type="button"
-      className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""} ${!ready && !busy && !sent ? "opacity-90" : ""}`}
-      onClick={onClick}
-      disabled={busy || sent}
+      className={`${POST_BTN} ${className} ${state !== "idle" ? "cursor-default active:opacity-100" : !ready ? "opacity-90" : ""}`}
+      {...keep}
+      onClick={() => {
+        if (state === "idle") onClick()
+      }}
+      aria-disabled={state !== "idle" || undefined}
       aria-label={sent ? said.sent : busy ? said.busy : !ready ? `${label}: add what's missing` : undefined}
       data-composer-post=""
       data-post-state={state}
@@ -1433,8 +1505,11 @@ function PostButton({ busy, sent, ready, onClick, className = "", label = "Post"
     >
       <span className="grid">
         <span className={face(state === "idle")}>{label}</span>
-        <span className={face(state === "busy")} aria-hidden>
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+        <span className={face(state === "busy")} aria-hidden data-post-ring="">
+          <span className="relative block h-4 w-4">
+            <span className="absolute inset-0 rounded-full border-2 border-current opacity-25" />
+            <span className={`absolute inset-0 rounded-full border-2 border-transparent border-t-current [animation-duration:800ms] motion-reduce:animate-none ${state === "busy" ? "animate-spin" : ""}`} />
+          </span>
         </span>
         <span className={face(state === "sent")} aria-hidden>
           <Check className="h-[17px] w-[17px]" strokeWidth={2.5} />

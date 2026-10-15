@@ -697,9 +697,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                 />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
-              <CardMedia media={media} priority={priority} phoneOnly={!several} className={several ? "mt-3" : "mt-3 sm:hidden"} />
+              <CardMedia media={media} priority={priority} phoneOnly={!several} communityId={post.communityId} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
-            {several ? null : <PostThumb media={media} className="max-sm:hidden" />}
+            {several ? null : <PostThumb media={media} communityId={post.communityId} className="max-sm:hidden" />}
           </div>
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">

@@ -99,6 +99,64 @@ export function bringIntoSight(el: HTMLElement) {
   window.scrollTo({ top: Math.max(0, window.scrollY + r.top - top), behavior: reduced() ? "auto" : "smooth" })
 }
 
+/*
+  THE PAGE GLIDES, THEN THE POST LANDS (round 29, the owner: "after Post the sheet closes and it should smoothly scroll to
+  the new post, like a native app, no direct jumps"). The member's own post is put in only once the page is where it goes:
+  `el` (the closed composer, which the list starts under) is brought under the community's bar on one even move of the
+  page's own scroll, an ease out whose time grows a little with the distance (GLIDE_MIN_MS to GLIDE_MAX_MS), then `then`
+  runs (the post goes in with its slide and its highlight, which then finds it in sight and moves nothing). Already in
+  sight, `then` runs at once. A finger or a wheel on the way stops the glide where it is and lands the post. Scroll
+  anchoring is held for the whole of it, so nothing above moves the page as it goes.
+*/
+export const GLIDE_MIN_MS = 320
+export const GLIDE_MAX_MS = 620
+/** The glide's time for a distance in px. */
+export function glideMs(distance: number): number {
+  return Math.round(Math.min(GLIDE_MAX_MS, Math.max(GLIDE_MIN_MS, 260 + Math.abs(distance) * 0.12)))
+}
+/** An ease out with a long soft finish (easeOutQuart): most of the way early, no overshoot. */
+export function glideEase(p: number): number {
+  return 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 4)
+}
+export function glideIntoSight(el: HTMLElement, then: () => void) {
+  const r = el.getBoundingClientRect()
+  const bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--community-top")) || 65
+  const top = bar + 12
+  const target = Math.max(0, Math.round(window.scrollY + r.top - top))
+  const from = window.scrollY
+  const distance = target - from
+  /* In sight already: the field's top under the bar and the first post's place on the screen. */
+  if ((r.top >= top - 4 && r.bottom < window.innerHeight * 0.6) || Math.abs(distance) < 2) return then()
+  if (reduced() || typeof requestAnimationFrame !== "function") {
+    window.scrollTo({ top: target, behavior: "instant" as ScrollBehavior })
+    return then()
+  }
+  const ms = glideMs(distance)
+  holdAnchor(ms + SLIDE_MS + 400)
+  let start = 0
+  let raf = 0
+  let done = false
+  const stop = () => {
+    window.removeEventListener("touchstart", stop, true)
+    window.removeEventListener("wheel", stop, true)
+    if (done) return
+    done = true
+    cancelAnimationFrame(raf)
+    then()
+  }
+  window.addEventListener("touchstart", stop, { capture: true, passive: true })
+  window.addEventListener("wheel", stop, { capture: true, passive: true })
+  const step = (now: number) => {
+    if (done) return
+    if (!start) start = now
+    const p = (now - start) / ms
+    window.scrollTo({ top: from + distance * glideEase(p), behavior: "instant" as ScrollBehavior })
+    if (p >= 1) return stop()
+    raf = requestAnimationFrame(step)
+  }
+  raf = requestAnimationFrame(step)
+}
+
 export interface ArriveOptions {
   /** The member's own post: highlighted and brought into sight. */
   mine?: boolean
