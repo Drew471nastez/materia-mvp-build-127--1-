@@ -126,7 +126,7 @@ export interface CommunityReport {
   figures: Record<CommunityMetric, Figure>
   lines: Record<CommunityMetric, Line>
   /** What is counted: false hides a figure the database cannot count yet (SQL part 184). */
-  counted: { visits: boolean; active: boolean; engagement: boolean; detail: boolean }
+  counted: { visits: boolean; /** False for an hour chart of days older than three days: visits are counted by day there. */ visitsByHour: boolean; active: boolean; engagement: boolean; detail: boolean }
   /** The first day a figure was counted, when the period starts before it ("2026-10-15"); null when the whole period is counted. */
   countedSince: { visits: string | null; active: string | null }
   /** Members now, and who was here in the last 7 and 30 days. */

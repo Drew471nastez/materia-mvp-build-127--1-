@@ -222,6 +222,8 @@ interface TabSpec<K extends string> {
   foot: React.ReactNode
   figure: Figure | null
   kind: Kind
+  /** A figure that should fall: its change is green when it does. */
+  lowerIsBetter?: boolean
 }
 
 /**
@@ -244,6 +246,7 @@ function TrendCard<K extends string>({
   note,
   detail,
   label,
+  compareLabel,
 }: {
   name: string
   tabs: TabSpec<K>[]
@@ -259,6 +262,8 @@ function TrendCard<K extends string>({
   note?: React.ReactNode
   detail?: React.ReactNode
   label: string
+  /** What the dashed line is, "Sep 1–Sep 30, 2026", or null for All time. */
+  compareLabel: string | null
 }) {
   const strip = useTabStrip<HTMLDivElement>(selected, tabs.map((t) => t.key))
   const tab = tabs.find((t) => t.key === selected) ?? tabs[0]
@@ -277,7 +282,7 @@ function TrendCard<K extends string>({
             className="flex-shrink-0 min-w-[132px] lg:min-w-0"
             label={t.label}
             value={t.value}
-            change={t.figure ? <PercentChangeIndicator current={t.figure.value} previous={t.figure.previous} /> : null}
+            change={t.figure ? <PercentChangeIndicator current={t.figure.value} previous={t.figure.previous} lowerIsBetter={t.lowerIsBetter} /> : null}
             foot={t.foot}
             selected={t.key === selected}
             soft={soft}
@@ -295,7 +300,7 @@ function TrendCard<K extends string>({
             chartMetricFilter={FILTER[tab.kind]}
             onePageChartFilter="views"
             formatPrice={formatMoney}
-            compareLabel={null}
+            compareLabel={compareLabel}
             seriesLabels={seriesLabels}
           />
           <div className="mt-2">{legend}</div>
@@ -372,17 +377,18 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   const [moneyTab, setMoneyTab] = React.useState<MoneyMetric>("revenue")
 
   const f = r?.figures
-  const counted = r?.counted ?? { visits: true, active: true, engagement: true, detail: true }
+  const counted = r?.counted ?? { visits: true, visitsByHour: true, active: true, engagement: true, detail: true }
   const since = (day: string | null | undefined) => (day ? tt("Counted since {date}.", { date: longDate(day) }) : null)
   const fig = (k: keyof NonNullable<typeof f>): Figure | null => (f ? f[k] : null)
   const count = (x: Figure | null) => (x && x.value !== null ? compact(x.value) : "–")
 
   const net = f ? (f.joined.value ?? 0) - (f.left.value ?? 0) : 0
-  const membersAtStart = r ? r.lines.members.current[0] ?? null : null
+  /** Members who left, as a share of the members there were when the period began. */
+  const leftShare = (left: number, atStart: number) => (atStart > 0 ? Math.round((left / atStart) * 1000) / 10 : null)
   const growthTabs: TabSpec<GrowthMetric>[] = [
     { key: "members", label: tt("Members"), value: count(fig("members")), figure: fig("members"), kind: "count", foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }) },
     { key: "joined", label: tt("Joined"), value: count(fig("joined")), figure: fig("joined"), kind: "count", foot: tt("{left} left", { left: n(f?.left.value ?? 0) }) },
-    { key: "left", label: tt("Left"), value: count(fig("left")), figure: fig("left"), kind: "count", foot: tt("{rate} of members", { rate: pct(f && membersAtStart ? Math.round(((f.left.value ?? 0) / Math.max(1, membersAtStart + (f.joined.value ?? 0))) * 1000) / 10 : null) }) },
+    { key: "left", label: tt("Left"), value: count(fig("left")), figure: fig("left"), kind: "count", lowerIsBetter: true, foot: tt("{rate} of members", { rate: pct(f && f.members.value !== null ? leftShare(f.left.value ?? 0, f.members.value - (f.joined.value ?? 0) + (f.left.value ?? 0)) : null) }) },
     ...(counted.visits
       ? [
           { key: "visits" as const, label: tt("Visits"), value: count(fig("visits")), figure: fig("visits"), kind: "count" as const, foot: tt("One a person a day") },
@@ -396,7 +402,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   const activeShare = f && f.active.value !== null && membersEnd ? Math.round((f.active.value / membersEnd) * 1000) / 10 : null
   const people = r?.people
   const activityTabs: TabSpec<ActivityMetric>[] = [
-    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), kind: "count", foot: r && !r.counted.active ? tt("Counted by day") : tt("{rate} of members", { rate: pct(activeShare) }) },
+    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), kind: "count", foot: tt("{rate} of members", { rate: pct(activeShare) }) },
     { key: "posts", label: tt("Posts"), value: count(fig("posts")), figure: fig("posts"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person posted} other {# people posted}}", { n: people.posters }) : tt("In this period") },
     { key: "comments", label: tt("Comments"), value: count(fig("comments")), figure: fig("comments"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person commented} other {# people commented}}", { n: people.commenters }) : tt("In this period") },
     { key: "reactions", label: tt("Reactions"), value: count(fig("reactions")), figure: fig("reactions"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person reacted} other {# people reacted}}", { n: people.reactors }) : tt("In this period") },
@@ -411,8 +417,8 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
         { key: "revenue", label: tt("Revenue"), value: formatMoney(m.figures.revenue.value ?? 0), figure: m.figures.revenue, kind: "money", foot: tt("Less refunds") },
         { key: "mrr", label: tt("Monthly revenue"), value: formatMoney(m.figures.mrr.value ?? 0), figure: m.figures.mrr, kind: "money", foot: runsToToday ? tt("Recurring, today") : tt("At the end of the period") },
         { key: "subscribers", label: tt("Active subscribers"), value: count(m.figures.subscribers), figure: m.figures.subscribers, kind: "count", foot: runsToToday ? tt("Paying now") : tt("At the end of the period") },
-        { key: "newPaid", label: tt("New"), value: count(m.figures.newPaid), figure: m.figures.newPaid, kind: "count", foot: m.upgrades > 0 ? tt("{n, plural, one {# upgraded from free} other {# upgraded from free}}", { n: m.upgrades }) : tt("Paid memberships started") },
-        { key: "cancellations", label: tt("Cancellations"), value: count(m.figures.cancellations), figure: m.figures.cancellations, kind: "count", foot: tt("Churn rate {rate}", { rate: pct(m.churnRate) }) },
+        { key: "newPaid", label: tt("New"), value: count(m.figures.newPaid), figure: m.figures.newPaid, kind: "count", foot: m.upgrades > 0 ? tt("{n} upgraded from free", { n: n(m.upgrades) }) : tt("Paid memberships started") },
+        { key: "cancellations", label: tt("Cancellations"), value: count(m.figures.cancellations), figure: m.figures.cancellations, kind: "count", lowerIsBetter: true, foot: tt("Churn rate {rate}", { rate: pct(m.churnRate) }) },
       ]
     : []
 
@@ -441,7 +447,8 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
             waiting={waiting}
             formatMoney={formatMoney}
             legend={legend}
-            note={shownGrowth === "visits" || shownGrowth === "joinRate" ? since(r?.countedSince.visits) : null}
+            compareLabel={compareLabel}
+            note={shownGrowth === "visits" || shownGrowth === "joinRate" ? (counted.visitsByHour ? since(r?.countedSince.visits) : tt("Visits older than three days are counted by day, not by hour.")) : null}
           />
 
           <TrendCard
@@ -457,7 +464,8 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
             waiting={waiting}
             formatMoney={formatMoney}
             legend={legend}
-            note={shownActivity === "active" ? since(r?.countedSince.active) : null}
+            compareLabel={compareLabel}
+            note={shownActivity === "active" ? (r && !r.counted.active ? tt("Active members are counted by day, not by hour.") : since(r?.countedSince.active)) : null}
           />
 
           {m ? (
@@ -475,6 +483,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
                 waiting={waiting}
                 formatMoney={formatMoney}
                 legend={legend}
+                compareLabel={compareLabel}
                 detail={moneyDetail}
               />
             </div>
@@ -572,6 +581,8 @@ function Lists({ r, slug }: { r: CommunityReport | null; slug: string }) {
         </ReportBody>
       </ReportCard>
 
+      {/* Before part 184 one card says how to count visits; countries and devices wait for it rather than say it twice more. */}
+      {!r || t ? (<>
       <ReportCard card="countries" title={tt("Countries")} help={tt("Where visits came from, from their connection.")}>
         <ReportBody blank={blank} wait="list">
           {r ? (countries ? <ReportList title={tt("Countries")} rows={share(countries.rows)} previous={countries.previous} format={n} lead={{ flag: true }} empty={tt("No locations recorded in this period.")} /> : notCounted) : null}
@@ -583,6 +594,7 @@ function Lists({ r, slug }: { r: CommunityReport | null; slug: string }) {
           {r ? (devices ? <ReportList title={tt("Devices")} rows={share(devices.rows)} previous={devices.previous} format={n} lead={{ icon: "device" }} empty={tt("No visits in this period.")} /> : notCounted) : null}
         </ReportBody>
       </ReportCard>
+      </>) : null}
 
       <ReportCard card="joins" title={tt("How people joined")} help={tt("Everyone who joined in this period, by how they came in.")}>
         <ReportBody blank={blank} wait="list">
@@ -680,14 +692,14 @@ function PostList({ posts, slug }: { posts: CommunityReport["topPosts"]; slug: s
     <ol className="mt-0.5" data-list="">
       {posts.slice(0, 5).map((p) => (
         <li key={p.id} className="group flex h-10 items-center gap-3" data-row-key={p.id}>
-          <div className="relative flex h-8 min-w-0 flex-1 items-center">
+          <div className="relative flex h-10 min-w-0 flex-1 items-center">
             <div
               aria-hidden
               data-bar=""
-              className="absolute inset-y-0 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] group-hover:brightness-[0.975]"
+              className="absolute inset-y-1 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] group-hover:brightness-[0.975]"
               style={{ width: `${Math.max(2, ((p.reactions + p.comments) / max) * 100)}%` }}
             />
-            <a href={`/community/${slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="relative flex h-8 min-w-0 items-center truncate pl-2.5 text-[13px] text-[#303036] hover:underline" title={p.title}>
+            <a href={`/community/${slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="relative flex h-10 min-w-0 items-center truncate pl-2.5 text-[13px] text-[#303036] hover:underline" title={p.title}>
               {p.title}
             </a>
           </div>
@@ -731,7 +743,7 @@ function GaCard({ ga, loading }: { ga: CommunityReport["ga"] | null; loading: bo
             : tt("Send this community's page views and joins to your own Google Analytics.")}
         </p>
       </div>
-      <a href={GA_SETUP} className="inline-flex h-9 shrink-0 items-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f9fafb]">
+      <a href={GA_SETUP} className="inline-flex h-10 shrink-0 items-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f9fafb]">
         {ga.id ? tt("Manage") : tt("Connect")}
       </a>
     </section>

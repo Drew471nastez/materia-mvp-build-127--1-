@@ -259,6 +259,8 @@ interface Visits {
   visits: number[]
   prospects: number[]
   traffic: Record<TrafficDimension, Counts>
+  /** False for an hour chart of days whose rows are gone (older than three days): counted by day, so the hours have no line. */
+  hourly?: boolean
 }
 
 const emptyTraffic = (): Record<TrafficDimension, Counts> => ({ source: {}, referrer: {}, device: {}, country: {} })
@@ -266,6 +268,12 @@ const emptyTraffic = (): Record<TrafficDimension, Counts> => ({ source: {}, refe
 /** A period's visits by bucket and by where they came from. */
 async function visitsOf(db: Db, communityId: string, span: Span, grain: Grain, starts: number[], keys: string[], now: number): Promise<Visits> {
   const out: Visits = { counted: false, since: null, visits: new Array(keys.length).fill(0), prospects: new Array(keys.length).fill(0), traffic: emptyTraffic() }
+  if (grain === "hour" && span.start < now - 3 * DAY + 60 * 60_000) {
+    /* A day or two from before the day rows' three days: only the nightly counts are left, by day. */
+    const byDay = [...new Set(keys.map((k) => k.slice(0, 10)))]
+    const d = await visitsOf(db, communityId, span, "day", byDay.map((k) => Date.parse(`${k}T00:00:00.000Z`)), byDay, now)
+    return { ...d, visits: [sum(d.visits), ...new Array(keys.length - 1).fill(0)], prospects: [sum(d.prospects), ...new Array(keys.length - 1).fill(0)], hourly: false }
+  }
   const range = dayRange(keys, grain, now)
   const today = iso(now).slice(0, 10)
   const { data: dayRows, error } = await db
@@ -706,13 +714,23 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
 
   const engagementLine = (c: number[], m: number[]) => c.map((x, i) => rate(x, m[i]))
   const activeCounted = ready ? ca?.active !== null : grain !== "hour"
+  const activeFigure = ready || grain !== "hour"
+  /*
+    A PERIOD BEFORE THAT WAS NOT COUNTED WHOLE IS NOT A COMPARISON. Visits
+    and member days began with part 184; a period before that began reads
+    as nothing to compare with (no percentage), never as zero, which would
+    read as growth from nobody.
+  */
+  const prevVisits = visitsPrev && visitsPrev.counted && visitsPrev.since === null ? visitsPrev : null
+  const prevFirstDay = prevKeys?.[0] ? (prevKeys[0].length === 7 ? `${prevKeys[0]}-01` : prevKeys[0].slice(0, 10)) : null
+  const prevActive = ready && !!ca?.activeSince && !!prevFirstDay && ca.activeSince.slice(0, 10) <= prevFirstDay
   const lines: Record<CommunityMetric, Line> = {
     members: { current: members.cur, previous: alignTo(members.prev, n) },
     joined: { current: joined.cur, previous: alignTo(joined.prev, n) },
     left: { current: left.cur, previous: alignTo(left.prev, n) },
-    visits: { current: visitsCur.visits, previous: alignTo(visitsPrev?.visits, n) },
-    joinRate: { current: joined.cur.map((j, i) => rate(j, visitsCur.prospects[i])), previous: visitsPrev ? alignTo(joined.prev?.map((j, i) => rate(j, visitsPrev.prospects[i])), n) : null },
-    active: { current: activeCounted ? activeLine.cur : new Array(n).fill(null), previous: activeCounted ? alignTo(activeLine.prev, n) : null },
+    visits: { current: visitsCur.hourly === false ? new Array(n).fill(null) : visitsCur.visits, previous: visitsCur.hourly === false || prevVisits?.hourly === false ? null : alignTo(prevVisits?.visits, n) },
+    joinRate: { current: visitsCur.hourly === false ? new Array(n).fill(null) : joined.cur.map((j, i) => rate(j, visitsCur.prospects[i])), previous: prevVisits && prevVisits.hourly !== false && visitsCur.hourly !== false ? alignTo(joined.prev?.map((j, i) => rate(j, prevVisits.prospects[i])), n) : null },
+    active: { current: activeCounted ? activeLine.cur : new Array(n).fill(null), previous: activeCounted && (prevActive || !ready) ? alignTo(activeLine.prev, n) : null },
     posts: { current: posts.cur, previous: alignTo(posts.prev, n) },
     comments: { current: comments.cur, previous: alignTo(comments.prev, n) },
     reactions: { current: reactions.cur, previous: alignTo(reactions.prev, n) },
@@ -722,19 +740,22 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
   const total = (xs: number[] | null) => (xs ? sum(xs) : null)
   const visitsTotal = sum(visitsCur.visits)
   const prospectsTotal = sum(visitsCur.prospects)
-  const prospectsPrev = visitsPrev ? sum(visitsPrev.prospects) : null
+  const prospectsPrev = prevVisits ? sum(prevVisits.prospects) : null
+  const countedFrom = visitsCur.since ? (grain === "hour" ? null : dayKey(visitsCur.since, grain)) : null
   /* Unique members active in the whole period (part 184), not a sum of days, which would count a member once a day. */
   const activeTotal = ready ? (ca?.totals?.active ?? null) : span.end >= now - 60_000 ? await headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").or(`last_seen_at.gte.${iso(span.start)},last_active_at.gte.${iso(span.start)}`)) : null
-  const activePrev = ready ? (cb?.totals?.active ?? null) : null
+  const activePrev = prevActive ? (cb?.totals?.active ?? null) : null
   const membersEnd = lastOf(members.cur)
   const membersPrevEnd = lastOf(members.prev)
   const figures: Record<CommunityMetric, Figure> = {
     members: { value: membersEnd, previous: membersPrevEnd },
     joined: { value: total(joined.cur), previous: total(joined.prev) },
     left: { value: total(left.cur), previous: total(left.prev) },
-    visits: { value: visitsCur.counted ? visitsTotal : null, previous: visitsPrev?.counted ? sum(visitsPrev.visits) : null },
-    joinRate: { value: rate(total(joined.cur) ?? 0, prospectsTotal), previous: prospectsPrev === null ? null : rate(total(joined.prev) ?? 0, prospectsPrev) },
-    active: { value: activeCounted ? activeTotal : null, previous: activeCounted ? activePrev : null },
+    visits: { value: visitsCur.counted ? visitsTotal : null, previous: prevVisits ? sum(prevVisits.visits) : null },
+    /* Joins over visits from non-members, both from the buckets visits were counted in: joins before counting began had no visits to come from. */
+    joinRate: { value: rate(sum(joined.cur.filter((_, i) => countedFrom === null || cur.keys[i] >= countedFrom)), prospectsTotal), previous: prospectsPrev === null ? null : rate(total(joined.prev) ?? 0, prospectsPrev) },
+    /* Unique members in the period: counted for an hour chart too (from whole days), though its line is by day only. */
+    active: { value: activeFigure ? activeTotal : null, previous: activeFigure ? activePrev : null },
     posts: { value: total(posts.cur), previous: total(posts.prev) },
     comments: { value: total(comments.cur), previous: total(comments.prev) },
     reactions: { value: total(reactions.cur), previous: total(reactions.prev) },
@@ -760,7 +781,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     firstDay: (community.created_at ?? iso(now)).slice(0, 10),
     figures,
     lines,
-    counted: { visits: visitsCur.counted, active: activeCounted, engagement: ready, detail: ready },
+    counted: { visits: visitsCur.counted, visitsByHour: visitsCur.hourly !== false, active: activeCounted, engagement: ready, detail: ready },
     countedSince: {
       visits: visitsCur.counted ? visitsCur.since : null,
       /* Member days began with part 184: a period that starts before the first one says so (none yet: counting starts today). */
@@ -769,7 +790,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     live: { members: membersNow, active7, active30 },
     people: { posters: ca?.totals?.posters ?? 0, commenters: ca?.totals?.commenters ?? 0, reactors: ca?.totals?.reactors ?? 0 },
     money,
-    traffic: visitsCur.counted ? trafficRows(visitsCur.traffic, visitsPrev?.counted ? visitsPrev.traffic : null) : null,
+    traffic: visitsCur.counted ? trafficRows(visitsCur.traffic, prevVisits ? prevVisits.traffic : null) : null,
     joins: {
       bySource: SOURCES.map((s) => ({ key: s, label: s, value: joins.bySource.find((x) => x.source === s)?.count ?? 0 })).filter((r) => r.value > 0).sort((x, y) => y.value - x.value),
       invites: joins.invites.map((i) => ({ key: i.id, label: i.label, value: i.uses, note: i.revoked ? "off" : null })),
