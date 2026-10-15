@@ -164,7 +164,8 @@ const elastic = readCode("components/ui/elastic-overscroll.tsx")
 check("the class comes off again on a page that is not one of them", /classList\.remove\(ELASTIC_CLASS\)/.test(elastic))
 check("the ground is written before the class goes on, so it is in place on the frame the bounce starts", elastic.indexOf("setProperty(GROUND_VAR") < elastic.indexOf("classList.add(ELASTIC_CLASS)"))
 check("and it is measured again once, for a footer that streams in after the page landed", /window\.setTimeout\(apply, SETTLE_MS\)/.test(elastic))
-check("it re-measures on every move", /\}, \[pathname\]\)/.test(elastic))
+/* Changed on purpose (round 28): it also re-measures when the light or dark look changes. */
+check("it re-measures on every move", /\}, \[pathname, look\]\)/.test(elastic))
 check("the class and the custom property have one spelling each", ELASTIC_CLASS === "elastic-scroll" && GROUND_VAR === "--bounce-ground" && new RegExp(`html\\.${ELASTIC_CLASS}\\b`).test(cssCode) && cssCode.includes(`var(${GROUND_VAR}`))
 
 /* ════════════════════════════════════════════════════════════════════════ */

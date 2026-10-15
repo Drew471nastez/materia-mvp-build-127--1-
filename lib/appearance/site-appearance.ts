@@ -30,7 +30,7 @@ export const LEGACY_APPEARANCE_KEY = "storelib:community-appearance"
 export const DARK_ATTR = "data-sl-dark"
 
 /** Storelib's own pages that follow the person's look. Never /app, a store, a checkout or a site. */
-export const THEMED_PREFIXES = ["/explore", "/account", "/community", "/u/", "/wishlist", "/notifications"] as const
+export const THEMED_PREFIXES = ["/explore", "/account", "/community", "/u/", "/member/", "/wishlist", "/notifications"] as const
 
 export function themedPath(pathname: string | null | undefined): boolean {
   const p = pathname || "/"
@@ -46,3 +46,9 @@ export function isAppearance(v: unknown): v is Appearance {
  * person who chose dark, on a themed page. Mirrors themedPath.
  */
 export const APPEARANCE_BOOT = `(function(){try{var s=localStorage.getItem(${JSON.stringify(APPEARANCE_KEY)})||localStorage.getItem(${JSON.stringify(LEGACY_APPEARANCE_KEY)});if(s!=="dark")return;var p=location.pathname||"/";var t=${JSON.stringify(THEMED_PREFIXES)};for(var i=0;i<t.length;i++){var x=t[i];if(x.charAt(x.length-1)==="/"?p.indexOf(x)===0:(p===x||p.indexOf(x+"/")===0)){var h=document.documentElement;h.setAttribute(${JSON.stringify(DARK_ATTR)},"");h.style.colorScheme="dark";return}}}catch(e){}})();`
+
+/**
+ * Printed as the first thing inside a page with a look of its own (a creator's page under /u/): the boot has already
+ * put the dark look on <html> for the address, and this takes it off again before anything of the page is drawn.
+ */
+export const OWN_LOOK_BOOT = `(function(){try{var h=document.documentElement;h.removeAttribute(${JSON.stringify(DARK_ATTR)});h.style.colorScheme="light"}catch(e){}})();`

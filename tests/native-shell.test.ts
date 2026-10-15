@@ -75,7 +75,8 @@ console.log("\n1. ONE BAND, AND THE STATUS BAR'S TEXT FROM IT")
   check("a dark buyer header says so to the band, from the server's HTML, in the bar and its stand in", /--native-band:\$\{BUYER_HEADER_DARK_BG\}/.test(header) && /--native-band:\$\{BUYER_HEADER_DARK_BG\}/.test(conditional))
   check("theme-color starts white", /themeColor: "#ffffff"/.test(layout) && !/themeColor: "#000000"/.test(layout))
   check("NativeChrome is mounted once in the root layout", (layout.match(/<NativeChrome \/>/g) ?? []).length === 1)
-  check("it reads the band after every move and when <html> changes its mind, not on every style write", /readBand\(\)/.test(nativeChrome) && /applyThemeColor\(band\)/.test(nativeChrome) && /applyStatusBar\(band\)/.test(nativeChrome) && /attributeFilter: \["class", "style"\]/.test(nativeChrome) && /if \(now === last\) return/.test(nativeChrome) && /\[pathname\]/.test(nativeChrome))
+  /* Changed on purpose (round 28): the dark look on <html> is one more change it reads the band on. */
+  check("it reads the band after every move and when <html> changes its mind, not on every style write", /readBand\(\)/.test(nativeChrome) && /applyThemeColor\(band\)/.test(nativeChrome) && /applyStatusBar\(band\)/.test(nativeChrome) && /attributeFilter: \["class", "style", "data-sl-dark"\]/.test(nativeChrome) && /if \(now === last\) return/.test(nativeChrome) && /\[pathname\]/.test(nativeChrome))
   check("a white full screen page says its colour through the band and no longer sets the status bar itself (light text on the way out)", /setProperty\("--native-band", color\)/.test(light) && !/status-bar/.test(light) && !/Style\.Dark/.test(light))
 
   check("white band: dark status text", statusStyleFor("#ffffff") === "LIGHT")

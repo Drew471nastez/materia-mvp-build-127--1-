@@ -16,6 +16,7 @@
  */
 
 import { useEffect } from "react"
+import { useAppearanceChoice, usePageDefaultAppearance } from "@/lib/appearance/client"
 import { usePathname } from "next/navigation"
 
 import {
@@ -32,6 +33,8 @@ const SETTLE_MS = 450
 
 export function ElasticOverscroll() {
   const pathname = usePathname()
+  /* And again when the look changes (lib/appearance): the page's ground below the foot is a different colour in dark. */
+  const look = `${useAppearanceChoice() ?? ""}|${usePageDefaultAppearance() ?? ""}`
 
   useEffect(() => {
     if (typeof document === "undefined") return
@@ -73,7 +76,7 @@ export function ElasticOverscroll() {
     apply()
     const settle = window.setTimeout(apply, SETTLE_MS)
     return () => window.clearTimeout(settle)
-  }, [pathname])
+  }, [pathname, look])
 
   return null
 }

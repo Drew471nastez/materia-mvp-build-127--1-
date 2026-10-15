@@ -115,8 +115,9 @@ import { keepFresh } from "@/components/nav/keep-fresh"
 export const TAB_BAR_BODY = "@media (max-width: 767px){body{padding-bottom:0}}"
 
 /** Ink on the tab you are on, and on the others: the pill's two. */
-const ACTIVE_TEXT = "#1a1a2e"
-const REST_TEXT = "#616b7a"
+/* Round 28: as variables with today's colours as their fallbacks, so the person's dark look (app/theme-dark.css) can set them and the light look is unchanged. */
+const ACTIVE_TEXT = "var(--sl-tab-on, #1a1a2e)"
+const REST_TEXT = "var(--sl-tab-rest, #616b7a)"
 /** The icons, a touch larger than the pill's: this bar is not trying to be small. */
 const GLYPH = "24px"
 /**
@@ -138,7 +139,7 @@ const LENS_H = 44
  * speak of, so this one carries the faintest cool grey in it, the colour a
  * thick piece of glass takes on over paper.
  */
-const LENS_FILL = "rgba(238,239,242,0.92)"
+const LENS_FILL = "var(--sl-tab-lens, rgba(238,239,242,0.92))"
 /** Clear: the same list as the lit one with nothing in it, so the shadow eases out rather than switching off. */
 const EDGE_CLEAR = "inset 0 1px 0.5px rgba(255,255,255,0), inset 0 -1px 1px rgba(16,18,27,0), inset 0 0 0 0.5px rgba(16,18,27,0)"
 const DROP_CLEAR = "0 1px 1.5px rgba(16,18,27,0), 0 4px 12px -2px rgba(16,18,27,0)"

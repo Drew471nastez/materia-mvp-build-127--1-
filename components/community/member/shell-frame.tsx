@@ -325,7 +325,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   /* The creator's look, or the reader's own choice from the "..." menu (lib/communities/client/appearance-choice.ts). */
   const { appearance } = useCommunityAppearance(community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
-  useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
+  useLightChrome(true, appearance === "dark" ? "#111113" : "#f8f9fa")
   /*
     Opened from Discover or anywhere outside (landing.ts): the middle
     column's spinner waits as the app's slow page does. The frame itself

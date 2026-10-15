@@ -32,15 +32,22 @@ import { join, relative } from "node:path"
 const root = process.cwd()
 const OUT = join(root, "app/theme-dark.css")
 
-/* Where Storelib's buyer pages are drawn. Not the dashboard, the builders, a store or a checkout. */
-const SOURCES = [
-  "components/account", "components/community", "components/courses", "components/explore", "components/library",
-  "components/memberships", "components/nav", "components/navigation", "components/notifications", "components/platform",
-  "components/profile", "components/receipt", "components/reviews", "components/search", "components/shared",
-  "components/social", "components/ui", "components/video", "components/wishlist", "components/media",
-  "app/(marketing)/explore", "app/(marketing)/community", "app/(marketing)/u", "app/(marketing)/wishlist",
-  "app/(marketing)/member", "app/account", "app/library",
-]
+/*
+  Where Storelib's buyer pages are drawn (round 28: every component folder and route that is not the dashboard, a
+  builder or the admin, and lib/ for the class strings kept there, so nothing on a buyer page is left out). A rule for a
+  class that only the dashboard uses costs nothing: the dark attribute is never on <html> there.
+*/
+const SKIP = new Set([
+  "components/app", "components/admin", "components/website-builder", "components/store-builder", "components/onepage",
+  "components/dashboard", "components/developers", "components/sites", "components/domains", "components/analytics",
+  "app/app", "app/admin", "app/website-builder", "app/store-builder", "app/onepage-preview", "app/api", "app/(sites)",
+  "lib/website-builder", "lib/store-builder", "lib/sites", "lib/onepage",
+])
+const SOURCES = ["components", "app", "lib"].flatMap((top) =>
+  readdirSync(join(root, top))
+    .map((n) => `${top}/${n}`)
+    .filter((d) => !SKIP.has(d)),
+)
 
 /* ── The palette: charcoal steps, never pure black ──────────────────────── */
 const P = {
@@ -158,7 +165,7 @@ function mapColour(prop, c, alpha, interactive) {
     return null
   }
   if (prop === "fill" || prop === "stroke") {
-    if (isNeutral && l >= 0.85) return rgba(l >= 0.995 ? P.surface : P.raised2, a)
+    /* A white or pale fill is an icon drawn light on purpose (a play glyph on a dark disc): it stays. Only near black ink turns light. */
     if (isNeutral && l < 0.3) return rgba(P.ink, a)
     return null
   }
@@ -167,6 +174,15 @@ function mapColour(prop, c, alpha, interactive) {
 
 /* ── Reading the sources ────────────────────────────────────────────────── */
 function* files(dir) {
+  /* A source that is a file of its own (components/smart-link.tsx). */
+  if (/\.(tsx|ts|jsx)$/.test(dir)) {
+    try {
+      if (statSync(dir).isFile()) yield dir
+    } catch {
+      /* gone */
+    }
+    return
+  }
   let names = []
   try {
     names = readdirSync(dir)
@@ -175,6 +191,7 @@ function* files(dir) {
   }
   for (const n of names) {
     const p = join(dir, n)
+    if (SKIP.has(relative(root, p))) continue
     const st = statSync(p)
     if (st.isDirectory()) yield* files(p)
     else if (/\.(tsx|ts|jsx)$/.test(n)) yield p
@@ -324,6 +341,9 @@ const head = `/**
 html[data-sl-dark] {
   color-scheme: dark;
   background-color: ${P.page};
+  /* The strip under the clock, the browser's bar and the status bar's text all follow this one number (components/platform/native-chrome.tsx). */
+  --native-band: ${P.page};
+  --bounce-ground: ${P.page};
   --sl-page: ${P.page};
   --sl-surface: ${P.surface};
   --sl-raised: ${P.raised};
@@ -344,6 +364,12 @@ html[data-sl-dark] {
   --secondary-foreground: ${P.ink};
   --border: ${L(P.line)};
   --input: ${L(P.line2)};
+  /* Colours some components set inline, as var(--name, today's colour) (round 28). */
+  --sl-tab-on: ${P.ink};
+  --sl-tab-rest: ${P.muted};
+  --sl-tab-lens: rgba(255,255,255,0.09);
+  --sl-ink-strong: ${P.ink};
+  --sl-arrive: rgba(253,248,236,0.07);
 }
 html[data-sl-dark] body {
   background-color: ${P.page};
@@ -370,6 +396,40 @@ ${SCOPE} ::selection {
 }
 
 /*
+  A MEMBER'S PROFILE (/u/<name>, components/profile/member-profile-page.tsx) is drawn with the storefront's chrome,
+  which writes its colours and the design system's variables inline on its root. In the dark look those are the
+  dark ones (round 28); a creator's own page keeps its creator's colours ([data-own-look], never darkened).
+*/
+html[data-sl-dark] [data-member-profile] {
+  background: ${P.page} !important;
+  color: ${P.ink} !important;
+  --background: ${P.page} !important;
+  --foreground: ${P.ink} !important;
+  --card: ${P.surface} !important;
+  --card-foreground: ${P.ink} !important;
+  --popover: ${P.surface} !important;
+  --popover-foreground: ${P.ink} !important;
+  --muted: ${P.raised} !important;
+  --muted-foreground: ${P.muted} !important;
+  --secondary: ${P.raised} !important;
+  --secondary-foreground: ${P.ink} !important;
+  --accent: ${P.raised2} !important;
+  --accent-foreground: ${P.ink} !important;
+  --border: ${L(P.line)} !important;
+  --input: ${L(P.line2)} !important;
+  --sl-profile-text: ${P.ink};
+  --sl-profile-muted: ${P.muted};
+  --sl-profile-line: ${L(P.line)};
+  --sl-profile-page: ${P.page};
+  --sl-profile-badge: ${P.raised};
+}
+html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
+  background-color: ${P.surface} !important;
+  color: ${P.ink} !important;
+  border-color: ${L(P.line)} !important;
+}
+
+/*
   DEPTH, NOT OUTLINES. A card is a matte surface a step above the ground, with
   a faint lit top edge, a hairline that barely reads, and a soft shadow under
   it, so cards separate by light rather than by white borders.
@@ -387,14 +447,26 @@ ${SCOPE} img:not([data-keep-bright]) {
   filter: brightness(0.96);
 }
 
-/* The switch itself: every colour eases together for a moment (lib/appearance/client.ts softly). */
-html.sl-theme-switching,
-html.sl-theme-switching *,
-html.sl-theme-switching *::before,
-html.sl-theme-switching *::after {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow, outline-color !important;
-  transition-duration: 320ms !important;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+/*
+  THE SWITCH ITSELF (round 28): one still of the page as it was fades away over the page as it is now, on the
+  compositor, for SWITCH_MS (lib/appearance/client.ts swap). The still is on top; nothing else moves.
+*/
+html[data-theme-swap]::view-transition-group(root) {
+  animation: none;
+}
+html[data-theme-swap]::view-transition-old(root) {
+  z-index: 1;
+  mix-blend-mode: normal;
+  animation: sl-theme-out 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+html[data-theme-swap]::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation: none;
+}
+@keyframes sl-theme-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* ── Every colour class the buyer pages use, ${rules.length} of them ─────────────── */

@@ -40,7 +40,8 @@ export function NativeChrome() {
     */
     const html = document.documentElement
     /* What on <html> can say a band, read without a style recalc: the viewport's own variables are written to the same style attribute many times a second while a keyboard moves, and those are not a band. */
-    const said = () => `${html.className}|${html.style.getPropertyValue("--native-band")}|${html.style.backgroundColor}`
+    /* And the person's dark look (lib/appearance, data-sl-dark), which moves the band without a move (round 28). */
+    const said = () => `${html.className}|${html.style.getPropertyValue("--native-band")}|${html.style.backgroundColor}|${html.hasAttribute("data-sl-dark")}`
     let last = said()
     const mo = new MutationObserver(() => {
       const now = said()
@@ -48,7 +49,7 @@ export function NativeChrome() {
       last = now
       sync()
     })
-    mo.observe(html, { attributes: true, attributeFilter: ["class", "style"] })
+    mo.observe(html, { attributes: true, attributeFilter: ["class", "style", "data-sl-dark"] })
     /* Coming back to the app from the background: the system may have reset the bar. */
     const onShow = () => {
       if (document.visibilityState === "visible") sync()

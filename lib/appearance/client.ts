@@ -6,9 +6,12 @@
  * header's menu, a community's bar and its "..." sheet all read and write it.
  */
 import { useCallback, useSyncExternalStore } from "react"
+import { flushSync } from "react-dom"
 import { APPEARANCE_KEY, DARK_ATTR, LEGACY_APPEARANCE_KEY, isAppearance, themedPath, type Appearance } from "./site-appearance"
 
 const listeners = new Set<() => void>()
+/** A page's own look for people who never chose (a community whose creator picked dark); see setPageDefaultAppearance. */
+let pageDefault: Appearance | null = null
 /** Only when storage refuses the write (a private window with it off). */
 let memory: Appearance | null = null
 
@@ -33,17 +36,38 @@ function subscribe(fn: () => void) {
   }
 }
 
-/** How long every colour eases on a switch (app/theme-dark.css reads the class). */
-export const SWITCH_MS = 320
-let switching = 0
+/** How long the old look fades into the new one (app/theme-dark.css reads html[data-theme-swap]). */
+export const SWITCH_MS = 220
 
-/** The page turns rather than cuts: every colour eases together for a moment, then the page has its own transitions back. */
-function softly() {
+/*
+  ROUND 28, THE OWNER: "switching is very laggy, the theme doesn't apply smoothly". It eased a transition on every
+  element of the page at once (html.sl-theme-switching *), which on a long feed is thousands of transitions started in
+  one frame. Now the switch is one picture: the browser takes a still of the page as it is, the new look is put on in
+  the same task (the attribute on <html> at once, and React's render flushed synchronously), and the still fades away
+  over the new page on the compositor (a View Transition). Nothing per element, nothing that waits for React. Where a
+  browser has no View Transitions, or motion is reduced, the new look is simply there on the next frame.
+*/
+type ViewTransitionDoc = Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } }
+function swap(apply: () => void) {
+  const doc = document as ViewTransitionDoc
   const html = document.documentElement
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-  html.classList.add("sl-theme-switching")
-  window.clearTimeout(switching)
-  switching = window.setTimeout(() => html.classList.remove("sl-theme-switching"), SWITCH_MS + 80)
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  /* Never inside another transition of the app's (a layer or a tab moving): the look then changes in place. */
+  const busy = html.hasAttribute("data-layer-motion") || html.hasAttribute("data-tab-swap") || html.hasAttribute("data-page-swap")
+  if (reduce || busy || typeof doc.startViewTransition !== "function" || document.visibilityState !== "visible") {
+    apply()
+    return
+  }
+  html.setAttribute("data-theme-swap", "")
+  try {
+    const vt = doc.startViewTransition(() => {
+      apply()
+    })
+    vt.finished.finally(() => html.removeAttribute("data-theme-swap"))
+  } catch {
+    html.removeAttribute("data-theme-swap")
+    apply()
+  }
 }
 
 function store(next: Appearance) {
@@ -54,13 +78,16 @@ function store(next: Appearance) {
     memory = next
   }
   memory = next
-  for (const fn of listeners) fn()
+  /* The look on <html> first, in this task (the page under the still is already right), then every reader rendered now. */
+  paintAppearance(window.location.pathname, next, pageDefault)
+  flushSync(() => {
+    for (const fn of listeners) fn()
+  })
 }
 
 /** The person chose: this browser at once, their account behind it (a failed save keeps the browser's copy). */
 export function chooseAppearance(next: Appearance) {
-  softly()
-  store(next)
+  swap(() => store(next))
   void fetch("/api/account/appearance", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -72,8 +99,7 @@ export function chooseAppearance(next: Appearance) {
 /** The account's choice, arrived from the server: taken quietly when it differs from this browser's. */
 export function adoptAccountAppearance(v: unknown) {
   if (!isAppearance(v) || read() === v) return
-  softly()
-  store(v)
+  swap(() => store(v))
 }
 
 /** The person's own choice, or null when they never made one. */
@@ -92,7 +118,8 @@ export function useAppearance(fallback: Appearance = "light"): { appearance: App
 /** Puts the look on <html> for this address: dark only on a themed page, and only when it is dark. */
 export function paintAppearance(pathname: string, appearance: Appearance | null, pageDefault: Appearance | null = null) {
   const html = document.documentElement
-  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark"
+  /* A page with a look of its own (a creator's page under /u/, [data-own-look]) is never darkened. */
+  const dark = themedPath(pathname) && (appearance ?? pageDefault) === "dark" && !document.querySelector("[data-own-look]")
   if (dark === html.hasAttribute(DARK_ATTR)) return
   if (dark) {
     html.setAttribute(DARK_ATTR, "")
@@ -104,8 +131,6 @@ export function paintAppearance(pathname: string, appearance: Appearance | null,
 }
 
 /* ── A page's own default (a community whose creator picked dark) ─────────── */
-
-let pageDefault: Appearance | null = null
 const defaultListeners = new Set<() => void>()
 function subscribeDefault(fn: () => void) {
   defaultListeners.add(fn)

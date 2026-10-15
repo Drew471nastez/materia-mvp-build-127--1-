@@ -12,7 +12,7 @@ import { PERSON_CHROME } from "@/components/storefront/storefront-template"
  */
 export default function MemberProfileSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading profile" className="min-h-screen" style={{ backgroundColor: PERSON_CHROME.pageBackground }}>
+    <div aria-busy="true" aria-label="Loading profile" className="min-h-screen" style={{ backgroundColor: `var(--sl-page, ${PERSON_CHROME.pageBackground})` }}>
       <div className="skeleton-deferred native-top-surface w-full border-b border-black/[0.06] bg-white" data-profile-skeleton-bar="">
         <div className="h-14" />
       </div>

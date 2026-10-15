@@ -53,7 +53,7 @@ export interface PublicFrameCard {
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
   const { appearance } = useCommunityAppearance(card?.community.appearance === "dark" ? "dark" : "light")
   useCommunityTheme(appearance)
-  useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
+  useLightChrome(true, appearance === "dark" ? "#111113" : "#f8f9fa")
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
