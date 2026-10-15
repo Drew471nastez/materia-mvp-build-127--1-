@@ -101,11 +101,20 @@ export function EmailDetail({
   const [mode, setMode] = React.useState<PreviewMode>(() => (typeof window !== "undefined" && window.innerWidth >= 1024 ? "desktop" : "mobile"))
   const running = status === "queued" || status === "sending"
 
-  /* While it sends, the numbers are read again every few seconds. */
+  /* While it sends, the numbers are read again every few seconds: not while the tab is hidden, and once more the moment it comes back. */
   React.useEffect(() => {
     if (!running) return
-    const t = window.setInterval(() => refresh(reportKey(seed.id)), 3000)
-    return () => window.clearInterval(t)
+    const t = window.setInterval(() => {
+      if (!document.hidden) refresh(reportKey(seed.id))
+    }, 5000)
+    const back = () => {
+      if (!document.hidden) refresh(reportKey(seed.id))
+    }
+    document.addEventListener("visibilitychange", back)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener("visibilitychange", back)
+    }
   }, [running, seed.id])
 
   /* Escape goes back, as on an order. */

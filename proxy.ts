@@ -2074,6 +2074,14 @@ async function routeRequest(request: NextRequest) {
       const r = NextResponse.rewrite(rewriteUrl, { request })
       r.headers.set("x-seller-subdomain", seller)
       if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      /*
+        A built website's homepage on a connected domain: the same rule as on
+        its subdomain (the long comment there). Without it, `/` took the
+        marketing landing page's `public, s-maxage=3600, stale-while-revalidate=7200`
+        from next.config, so a creator's front page on their own domain could
+        stay as it was for up to three hours after Publish.
+      */
+      else if (builtSite && (pathname === "/" || pathname === "")) r.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
       if (guardedDomain) r.headers.set("Cache-Control", "private, no-store")
       /* Drawn in the visitor's market's currency: theirs alone (visitorMarket). */
       else if (/~m-/.test(rewritePath)) r.headers.set("Cache-Control", "private, no-cache")
