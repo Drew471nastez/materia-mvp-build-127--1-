@@ -6,14 +6,20 @@
  * variable --app-rail-w on the shell's root (app/app/layout.tsx), so the two
  * can never disagree. The choice is a cookie, read on the server, so the
  * first frame is already the right width: nothing jumps after load.
- * globals.css hides the labels, submenus and cards while it is collapsed;
+ * globals.css fades the labels and folds the submenus and cards while it is collapsed;
  * every row keeps its icon, its link and a tooltip with its name.
  *
  * Pure but for `toggleAppRail`, which only runs in the browser.
  */
 export const RAIL_COOKIE = "sl_rail"
 export const RAIL_OPEN_PX = 240
-export const RAIL_COLLAPSED_PX = 68
+/**
+ * 63: the icons sit 31px from the sidebar's left (7px of gutter, 14px of row
+ * padding, half a 20px icon), so a column of 62px plus the 1px border has
+ * its centre exactly there. Collapsing then moves no icon at all (round 30;
+ * it was 68, and the icons slid the last 2.5px to its centre).
+ */
+export const RAIL_COLLAPSED_PX = 63
 
 export type RailState = "open" | "collapsed"
 
