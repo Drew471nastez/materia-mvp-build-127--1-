@@ -205,9 +205,10 @@ for (const [label, vp] of [
   if (phone) await p.tap("[data-lesson-video] button[aria-label=Play]")
   else await p.click("[data-lesson-video] button[aria-label=Play]")
   await sleep(1600)
+  /* Round 29: the bars are scaled layers, so how far each reaches is read from its transform. */
   const playing = await p.evaluate(() => {
     const v = document.querySelector("video")
-    return { paused: v.paused, t: +v.currentTime.toFixed(2), played: parseFloat(document.querySelector("[data-played]").style.width), buffered: parseFloat(document.querySelector("[data-buffered]").style.width) }
+    return { paused: v.paused, t: +v.currentTime.toFixed(2), played: 100 * new DOMMatrix(getComputedStyle(document.querySelector("[data-played]")).transform).a, buffered: 100 * new DOMMatrix(getComputedStyle(document.querySelector("[data-buffered]")).transform).a }
   })
   expect(!playing.paused && playing.t > 12.5, "PLAY: it plays from where it resumed", playing)
   expect(playing.played > 19 && playing.buffered >= playing.played, "PLAY: the played bar moves, the buffered bar is ahead of it", playing)

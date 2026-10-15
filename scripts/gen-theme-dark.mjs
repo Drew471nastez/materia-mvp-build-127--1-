@@ -377,6 +377,16 @@ html[data-sl-dark] body {
 }
 ${SCOPE} {
   color-scheme: dark;
+  /*
+    A course's ink (round 29, components/courses): the ring, the progress bars and the current lesson's mark are near
+    black in the light look and light ink here, on a faint track; a waiting lesson's ring is a faint line; the filter
+    switch's raised pill is a graphite step.
+    Set here and not only on <html>, so a community frame set dark has them too.
+  */
+  --sl-course-ink: ${P.ink};
+  --sl-course-track: rgba(255,255,255,0.1);
+  --sl-course-line: rgba(255,255,255,0.16);
+  --sl-seg-on: ${P.selected};
 }
 [data-community-theme="dark"] {
   background-color: ${P.page};

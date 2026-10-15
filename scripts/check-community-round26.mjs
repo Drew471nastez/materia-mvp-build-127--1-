@@ -14,7 +14,7 @@
  *             with no pill row; 390: one picker control instead; a panel you
  *             leave stays mounted (hidden), so what you typed is kept
  *   COURSES   1280: the Library's courses are cards, three to a row, each
- *             with an orange ring and its state in words
+ *             with an ink ring (round 29: no orange) and its state in words
  *
  *   PROBE_CSS=source node scripts/check-community-round26.mjs [section ...]
  */
@@ -239,11 +239,11 @@ export const isNativePlatform = () => false
     console.log("\nCOURSES: cards with a ring")
     const { p, errors } = await open("courses", "/account/library/courses", { width: 1280, height: 900, deviceScaleFactor: 1 })
     const cards = await p.evaluate(() => [...document.querySelectorAll("[data-course-row]")].map((el) => { const b = el.getBoundingClientRect(); return { y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), state: el.querySelector("[data-course-state]")?.textContent } }))
-    const ring = await p.evaluate(() => [...document.querySelectorAll("[data-course-ring] circle")].map((c) => c.getAttribute("stroke")))
+    const ring = await p.evaluate(() => [...document.querySelectorAll("[data-course-ring] circle")].map((c) => getComputedStyle(c).stroke))
     expect(cards.length === 3 && new Set(cards.map((c) => c.y)).size === 1, "three cards in one row", cards)
     expect(new Set(cards.map((c) => c.h)).size === 1, "the cards are one height", cards.map((c) => c.h))
     expect(cards.map((c) => c.state).join() === "In progress,Not started,Completed", "each says where you are in words", cards.map((c) => c.state))
-    expect(ring.includes("#f26b1d") && ring.includes("#fde7d9"), "the rings are orange on a pale orange track", ring)
+    expect(ring.length > 0 && ring.every((s) => !/rgb\(242, 107, 29\)|rgb\(253, 231, 217\)/.test(s)), "the rings are ink on a faint track, no orange (round 29)", ring)
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }
