@@ -920,6 +920,8 @@ export const HELP_MOVED: Record<string, string> = {
   "physical-products/tax-and-units": "physical-products/units-and-packages",
   /* The currency is set in Store details › Country & Currency now, apart from the payout currency. */
   "physical-products/store-currency": "physical-products/country-and-currency",
+  /* Languages and visitor currencies were one article; now Translate your website, Edit a translation and Sell in more currencies. */
+  "physical-products/languages-and-currencies-for-visitors": "physical-products/translate-your-website",
 }
 
 /** The articles most people come for, first on the Help Center's home. The physical ones show only while the guide is on. */

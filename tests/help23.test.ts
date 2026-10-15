@@ -143,7 +143,8 @@ check("Refund lives under More actions and in the payment card, and only the own
 check("the guide no longer says Mark as shipped, which the order page doesn't have", !/Mark as shipped/.test(guideText) && !orderPanel.includes(">Mark as shipped<"))
 /* Changed on purpose: the country sits with the currency now, in the Country & Currency card (components/app/settings/country-currency). */
 const store = read("components/app/settings/store-details-panel.tsx") + read("components/app/settings/country-currency.tsx")
-for (const words of ["Choose a logo", "Store name", "Contact email", "Country & Currency", "Selling in", "Where orders ship from"]) check(`store details: "${words}"`, store.includes(words) && text("store-details").includes(words))
+/* Changed on purpose: the card in Store details is titled Country & currency now, with Change, which opens Languages & Currency. */
+for (const words of ["Choose a logo", "Store name", "Contact email", "Country & currency", "Selling in", "Change", "Where orders ship from"]) check(`store details: "${words}"`, store.includes(words) && text("store-details").includes(words))
 const shipping = read("components/physical/shipping-settings.tsx")
 for (const words of ["Low stock line", "Email me when stock runs low", "Add shipping zone", "Rest of world", "Accept returns", "Return window", "Ships orders from here", "Usually ready in", "Pickup instructions"]) check(`shipping settings: "${words}"`, shipping.includes(words) && guideText.includes(words))
 const models = [...shipping.matchAll(/\{ id: "[a-z_]+", title: "([^"]+)", line: "([^"]+)" \}/g)].map((m) => [m[1], m[2]])

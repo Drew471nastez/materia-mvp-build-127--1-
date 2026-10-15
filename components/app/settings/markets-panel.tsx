@@ -906,7 +906,8 @@ function MarketEditor({
 
         {!m.primary ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tt("Currency")} hint={currencies.length ? tt("Converted from {baseCurrency} at the day's rate. Cards are charged in {chargeCurrency}.", { baseCurrency, chargeCurrency }) : tt("Exchange rates aren't in yet: try again in a minute.")}>
+            {/* What checkout really charges (lib/markets/checkout-charge chargingPricing): this currency when Storelib can charge it, else the store's. It said the store's for every one, euros included. */}
+            <Field label={tt("Currency")} hint={currencies.length ? tt("Converted from {baseCurrency} at the day's rate. Cards are charged in {chargeCurrency}.", { baseCurrency, chargeCurrency: m.currency && chargeableCurrency(m.currency) && chargeableCurrency(chargeCurrency) ? m.currency : chargeCurrency }) : tt("Exchange rates aren't in yet: try again in a minute.")}>
               <SelectInput value={m.currency ?? ""} onChange={(v) => setM({ ...m, currency: v || null })}>
                 <option value="">{tt("{baseCurrency} (your prices)", { baseCurrency })}</option>
                 {currencies
