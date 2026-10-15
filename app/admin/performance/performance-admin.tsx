@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { AREA_LABEL, AREAS, CLIENT_SAMPLE_RATE, MIN_RATE_BASE, MIN_SAMPLES, PROVISIONAL_SHARE, STEPS, STEP_ROUTES, type Area } from "@/lib/perf/config"
+import { AREA_LABEL, AREAS, CLIENT_SAMPLE_RATE, MIN_RATE_BASE, SERVER_SAMPLE_RATE, estimatedCount, MIN_SAMPLES, PROVISIONAL_SHARE, STEPS, STEP_ROUTES, type Area } from "@/lib/perf/config"
 import { WINDOWS, type PerfReport, type ScoreDay, type WindowId } from "@/lib/perf/report"
 import {
   MIN_MEASURES,
@@ -72,6 +72,17 @@ function Insufficient({ note, className }: { note?: string; className?: string }
 }
 
 const plural = (n: number, one: string, many: string) => `${num(n)} ${n === 1 ? one : many}`
+/*
+  A COUNT OF PAGE VIEWS, CALLS OR ERRORS, from a sample. One page load in
+  four and one timed call in four is measured (lib/perf/config.ts), so the
+  number shown is what was counted divided by the rate, and says it is an
+  estimate. Counts of samples are never scaled: they are what decides
+  whether there is enough data.
+*/
+const estimated = (n: number, rate: number, one: string, many: string) => {
+  const e = estimatedCount(n, rate)
+  return `${rate < 1 ? "about " : ""}${plural(e, one, many)}`
+}
 
 /* ── One measured figure, or the honest absence of one ─────────────────── */
 
@@ -435,7 +446,7 @@ function ProblemsPanel({ report }: { report: PerfReport }) {
                   <Dot rating={p.severity >= 0.5 ? "poor" : "needs-improvement"} />
                   {kindWord[p.kind]}
                 </span>
-                <p className="text-[11px] tabular-nums text-[#6b6b76]">{plural(p.samples, p.kind === "slow" ? "sample" : "time", p.kind === "slow" ? "samples" : "times")}</p>
+                <p className="text-[11px] tabular-nums text-[#6b6b76]">{p.kind === "slow" ? plural(p.samples, "sample", "samples") : estimated(p.samples, p.kind === "api-error" ? SERVER_SAMPLE_RATE : CLIENT_SAMPLE_RATE, "time", "times")}</p>
               </div>
             </li>
           ))}
@@ -497,7 +508,7 @@ function ErrorsCell({ aggs, area }: { aggs: Aggregate[]; area: string }) {
 function AreasPanel({ aggs }: { aggs: Aggregate[] }) {
   const views = (area: string) => {
     const n = findAggregate(aggs, area, "view")?.samples ?? 0
-    return n ? plural(n, "page view", "page views") : "nothing measured"
+    return n ? estimated(n, CLIENT_SAMPLE_RATE, "page view", "page views") : "nothing measured"
   }
   return (
     <Panel title="Each part of Storelib" meta="75th percentile">
@@ -563,10 +574,10 @@ function ApiPanel({ aggs }: { aggs: Aggregate[] }) {
   const l = METRIC_LINES.api
   const columns: Column<Aggregate>[] = [
     { key: "route", label: "Route", width: "minmax(0,2.2fr)", phone: "primary", render: (a) => <span className="font-mono text-[12px]">{a.route}</span> },
-    { key: "calls", label: "Timed calls", width: "88px", align: "right", render: (a) => plural(a.samples, "call", "calls") },
+    { key: "calls", label: "Calls", width: "104px", align: "right", render: (a) => estimated(a.samples, SERVER_SAMPLE_RATE, "call", "calls") },
     { key: "p75", label: "p75", width: "88px", align: "right", phone: "end", render: (a) => <Figure unit="ms" value={a.p75} samples={a.samples} min={MIN_SAMPLES} good={l.good} poor={l.poor} compact /> },
     { key: "p95", label: "p95", width: "72px", align: "right", render: (a) => (a.samples >= MIN_SAMPLES && a.p95 !== null ? formatValue("ms", a.p95) : "") },
-    { key: "bad", label: "Server errors", width: "96px", align: "right", render: (a) => (a.bad ? `${a.bad} (${formatValue("pct", (a.bad / a.samples) * 100)})` : "None") },
+    { key: "bad", label: "Server errors", width: "96px", align: "right", render: (a) => (a.bad ? `${num(estimatedCount(a.bad, SERVER_SAMPLE_RATE))} (${formatValue("pct", (a.bad / a.samples) * 100)})` : "None") },
   ]
   return (
     <Panel title="API routes" meta="Timed on the server">
@@ -596,11 +607,11 @@ function ErrorsPanel({ report }: { report: PerfReport }) {
   const columns: Column<NonNullable<PerfReport["errors"]>[number]>[] = [
     { key: "detail", label: "Message", width: "minmax(0,2.4fr)", phone: "primary", render: (e) => <span className="font-mono text-[12px]" title={e.detail}>{e.detail}</span> },
     { key: "where", label: "Where", width: "minmax(0,1.2fr)", render: (e) => `${AREA_LABEL[e.area as Area] ?? e.area}, ${e.route}` },
-    { key: "n", label: "Times", width: "64px", align: "right", phone: "end", render: (e) => num(e.n) },
+    { key: "n", label: "Times", width: "64px", align: "right", phone: "end", render: (e) => num(estimatedCount(e.n, CLIENT_SAMPLE_RATE)) },
     { key: "last", label: "Last", width: "80px", align: "right", render: (e) => ago(e.lastAt) },
   ]
   return (
-    <Panel title="JavaScript errors" meta="In measured page views">
+    <Panel title="JavaScript errors" meta={CLIENT_SAMPLE_RATE < 1 ? `Estimated from ${Math.round(CLIENT_SAMPLE_RATE * 100)}% of page views` : "In measured page views"}>
       {rows === null ? (
         <p className="px-4 py-6 text-[13px]"><Insufficient /></p>
       ) : (
@@ -845,7 +856,7 @@ function RulesPanel() {
           Short of rule 3, a figure with at least {Math.round(PROVISIONAL_SHARE * 100)}% of the samples it needs is shown as provisional, with how sure it is: low, or medium from half. Sub scores and the index are then worked out the same way from those, marked provisional. They never replace an official score.
         </li>
         <li>
-          {CLIENT_SAMPLE_RATE >= 1 ? "Every page load and every timed API call is measured" : `${Math.round(CLIENT_SAMPLE_RATE * 100)}% of page loads are measured`}, with caps per page load and per route so a long session or a busy route cannot cost more. Raw samples are kept 31 days, daily rollups 120.
+          {CLIENT_SAMPLE_RATE >= 1 && SERVER_SAMPLE_RATE >= 1 ? "Every page load and every timed API call is measured" : `${Math.round(CLIENT_SAMPLE_RATE * 100)}% of page loads and ${Math.round(SERVER_SAMPLE_RATE * 100)}% of timed API calls are measured, and counts of page views, calls and errors are scaled up to match`}, with caps per page load and per route so a long session or a busy route cannot cost more. Raw samples are kept 31 days, daily rollups 120.
         </li>
       </ol>
       <details className="border-t border-white/[0.08]">

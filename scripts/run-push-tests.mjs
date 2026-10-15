@@ -467,6 +467,7 @@ const SUITES = [
   "tests/checkout-phone.test.ts",
   "tests/translation-coverage.test.ts",
   "tests/vercel-costs.test.ts",
+  "tests/vercel-runtime-costs.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",

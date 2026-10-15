@@ -64,6 +64,21 @@
 export const CSP_REPORT_PATH = "/api/csp-report"
 
 /**
+ * The share of reports that reach the route and its log. The policy is on
+ * every page of every host (creator sites and imported themes included, which
+ * is where it matters most), so the same violation arrives thousands of times
+ * a day and each one used to be a function call. One in twenty still shows
+ * every kind of violation that happens with any regularity; the proxy answers
+ * the rest with the route's own 204.
+ */
+export const CSP_REPORT_SAMPLE_RATE = 0.05
+
+/** Whether a report is kept, given a number in [0, 1): Math.random() in the proxy. */
+export function keepsCspReport(roll: number): boolean {
+  return roll < CSP_REPORT_SAMPLE_RATE
+}
+
+/**
  * The policy, as a list so it reads as one rule per line. Order does not
  * matter to a browser; it matters to whoever reads this next.
  */
