@@ -99,6 +99,7 @@ import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
 
 import { cn } from "@/lib/utils"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
+import { RailToggle } from "@/components/app/rail-toggle"
 import { tt } from "@/lib/i18n/text"
 
 // ── The palette, in one place ───────────────────────────────────────────────
@@ -832,9 +833,9 @@ export function DesktopSidebarContent({
       {/*
         NO BAND ABOVE DASHBOARD (round 30). The collapse control had a 40px
         strip of its own up here; the owner did not want the empty space.
-        It is a handle on the sidebar's edge now (components/app/rail-toggle,
-        placed by components/app/sidebar), and Dashboard is the first thing
-        in the sidebar again, 12px from its top.
+        Since round 31 it is a row at the foot, above the Upgrade card
+        (components/app/rail-toggle), and Dashboard is the first thing in
+        the sidebar, 12px from its top.
       */}
       <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto px-[7px] py-3">
         <div className="space-y-[2px]">
@@ -865,7 +866,22 @@ export function DesktopSidebarContent({
 
       {/* pb accounts for the iOS home indicator in Capacitor; env() is 0 in a
           browser, so this is a no-op there. */}
-      <div className="space-y-2 px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
+      {/*
+        space-y-[2px], the rows' own gap: the card's breathing room is inside
+        its fold (py-2), so it closes with the card and, collapsed, the
+        toggle sits over Settings the way any two rows sit.
+      */}
+      <div className="space-y-[2px] px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
+        {/*
+          THE COLLAPSE TOGGLE, A ROW ABOVE THE CARD (round 31). The owner: "Put
+          the collapse toggle above the 'Upgrade to Pro' card in the sidebar,
+          as a line/row. It must not be a hover thing: just an icon like
+          Shopify has, always visible." It is drawn as a row that is never
+          the page you are on, from the same ROW and rowStyle as Settings
+          under it, so its icon is 31px from the left like every other one.
+        */}
+        <RailToggle rowClassName={ROW} paint={(hovered) => rowStyle(false, hovered)} />
+
         {/*
           THE CARD AS IT WAS. "Make it how it was before": the light violet
           card the rail had until 09-25, a violet hairline, 13px title and
@@ -887,6 +903,7 @@ export function DesktopSidebarContent({
         */}
         <div data-rail-fold="">
         <div>
+        <div className="py-2">
         <Link
           href={UPGRADE_HREF}
           data-upgrade-card=""
@@ -905,6 +922,7 @@ export function DesktopSidebarContent({
           </div>
           <UpgradeBolt size={28} />
         </Link>
+        </div>
         </div>
         </div>
 
