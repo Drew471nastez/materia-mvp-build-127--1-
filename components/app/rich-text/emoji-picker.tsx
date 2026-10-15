@@ -148,7 +148,8 @@ const GroupTabs = React.memo(function GroupTabs({ phone, active, onJump }: { pho
   )
 })
 
-function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?: boolean; onPick: (emoji: string) => void }) {
+/** The search, the recent ones and the groups; exported (round 31) for the community's space icon picker. */
+export function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?: boolean; onPick: (emoji: string) => void }) {
   const [query, setQuery] = React.useState("")
   const [recent, setRecent] = React.useState<string[]>([])
   const listRef = React.useRef<HTMLDivElement>(null)

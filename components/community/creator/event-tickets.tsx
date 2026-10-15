@@ -20,6 +20,9 @@
  *
  * Every button here is one the route also checks: hiding it is not the
  * permission.
+ *
+ * Round 31: Invite free is the New post sheet on a phone (form-sheet.tsx),
+ * Cancel and Give them a ticket in its top row, the fields above the keyboard.
  */
 import * as React from "react"
 import { ArrowLeft, Check, Plus } from "lucide-react"
@@ -29,7 +32,8 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { eventTime } from "@/lib/communities/format"
 import { eventPriceLabel } from "@/lib/communities/event-tickets"
 import type { CommunityHead, EventEditView, EventTicketPanelView, InvitePickMember, TicketHolderView } from "./view-types"
-import { Confirm, Dialog, Empty, ListCard, Notice, SearchField, buttonPrimary, buttonSecondary, card, errorText, field, label, send, shortDate, useToast, ListLoading } from "./parts"
+import { Confirm, Empty, ListCard, Notice, SearchField, buttonPrimary, buttonSecondary, card, errorText, field, label, send, shortDate, useToast, ListLoading } from "./parts"
+import { FormSheet } from "./form-sheet"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -322,20 +326,13 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
   }
 
   return (
-    <Dialog
+    <FormSheet
       open={open}
       onClose={onClose}
       title={tt("Invite people free")}
-      footer={
-        <>
-          <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-            {done ? tt("Close") : tt("Cancel")}
-          </button>
-          <button type="button" onClick={() => void sendInvites()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-invite-send="">
-            {busy ? tt("Sending") : tt("Give them a ticket")}
-          </button>
-        </>
-      }
+      name="invite-free"
+      cancelLabel={done ? tt("Close") : tt("Cancel")}
+      action={{ label: tt("Give them a ticket"), busyLabel: tt("Sending"), busy, onClick: () => void sendInvites(), data: { "data-invite-send": "" } }}
     >
       <div className="space-y-3.5" data-invite-free-sheet="">
         {/* WHAT HAPPENED FIRST, at the top where it is read without scrolling on a phone. */}
@@ -388,6 +385,6 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
           <input id="invite-note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder={tt("Hope you can make it")} className={cn(field, "h-11 sm:h-10")} />
         </div>
       </div>
-    </Dialog>
+    </FormSheet>
   )
 }

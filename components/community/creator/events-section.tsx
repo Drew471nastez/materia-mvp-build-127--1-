@@ -16,6 +16,11 @@
  * has run; the Tickets panel beside each event (./event-tickets.tsx) shows
  * who holds one, what they paid and whether they turned up. Cancelling a
  * paid event asks whether everybody should have their money back.
+ *
+ * Round 31: an event's row opens its editor wherever it is pressed (the menu
+ * keeps the event page, Tickets and Cancel), and on a phone the editor is the
+ * New post sheet (form-sheet.tsx): Cancel and Schedule in its top row, the
+ * field being typed in kept above the keyboard.
  */
 import * as React from "react"
 import Link from "next/link"
@@ -33,6 +38,8 @@ import { EventTicketsPanel } from "./event-tickets"
 import { AccessEditor } from "./access-editor"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { FormSheet } from "./form-sheet"
+import { ROW_PRESS, RowControls, RowOpen, rowPress } from "./rows"
 import { tt } from "@/lib/i18n/text"
 import { appTimeZone } from "@/lib/i18n/format"
 
@@ -185,9 +192,14 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     await reload()
   }
 
+  const edit = (e: EventEditView) => {
+    setError(null)
+    setDraft(draftOf(e))
+  }
+
   const menu = (e: EventEditView): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [
-      { label: Date.parse(e.startsAt) < Date.now() ? tt("Edit or add the replay") : tt("Edit"), onClick: () => { setError(null); setDraft(draftOf(e)) } },
+      { label: Date.parse(e.startsAt) < Date.now() ? tt("Edit or add the replay") : tt("Edit"), onClick: () => edit(e) },
       { label: tt("Open event page"), href: `/community/${head.slug}/events/${e.id}`, target: "_blank" },
     ]
     if (tickets.ready && ((e.priceCents ?? 0) > 0 || e.ticketsSold > 0)) items.push({ label: tt("Tickets"), onClick: () => setPanelFor(e) })
@@ -251,7 +263,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               </button>
             </Empty>
           ) : (
-            <Empty title={tt("No past events.")} />
+            <Empty icon={CalendarDays} title={tt("No past events.")} />
           )
         ) : (
           <ul className="divide-y divide-[#f1f2f4]">
@@ -259,25 +271,27 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               const d = eventDateBadge(e.startsAt)
               const money = moneyLine(e)
               return (
-                <li key={e.id} className="flex min-h-[72px] items-center gap-3 px-4 py-3 sm:px-5" data-event-row="">
+                <li key={e.id} onClick={rowPress(() => edit(e))} className={cn("flex min-h-[72px] items-center gap-3 px-4 py-3 sm:px-5", ROW_PRESS)} data-event-row="">
                   <span aria-hidden className={cn("grid h-12 w-12 shrink-0 place-content-center rounded-xl border border-[#e5e7eb] text-center leading-none", e.status === "cancelled" && "opacity-50")}>
                     <span className="text-[10.5px] font-semibold uppercase tracking-wide text-[#b42318]">{d.month}</span>
                     <span className="mt-0.5 text-[17px] font-semibold tabular-nums text-[#1a1a2e]">{d.day}</span>
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center gap-2">
+                  <RowOpen label={tt("Edit {title}", { title: e.title })} className="flex-1">
+                    <span className="flex min-w-0 items-center gap-2">
                       <span className={cn("truncate text-[14.5px] font-medium", e.status === "cancelled" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{e.title}</span>
                       {e.status === "cancelled" ? <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge> : null}
                       {view === "past" && e.replayVideoId ? <StatusBadge tone="success">{tt("Replay")}</StatusBadge> : null}
-                    </p>
-                    <p className="line-clamp-2 text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], tt("{goingCount}{value} going", { goingCount: e.goingCount, value: e.capacity ? tt(" of {capacity}", { capacity: e.capacity }) : "" })].join(" · ")}</p>
+                    </span>
+                    <span className="line-clamp-2 block text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], tt("{goingCount}{value} going", { goingCount: e.goingCount, value: e.capacity ? tt(" of {capacity}", { capacity: e.capacity }) : "" })].join(" · ")}</span>
                     {money ? (
-                      <p className="mt-0.5 text-[12.5px] leading-snug tabular-nums text-[#4b5563] max-sm:line-clamp-2 sm:truncate" data-event-money="">
+                      <span className="mt-0.5 block text-[12.5px] leading-snug tabular-nums text-[#4b5563] max-sm:line-clamp-2 sm:truncate" data-event-money="">
                         {money}
-                      </p>
+                      </span>
                     ) : null}
-                  </div>
-                  <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
+                  </RowOpen>
+                  <RowControls>
+                    <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
+                  </RowControls>
                 </li>
               )
             })}
@@ -285,29 +299,24 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
         )}
       </ListCard>
 
-      <Dialog
+      <FormSheet
         open={draft !== null}
         onClose={() => setDraft(null)}
         title={draft?.id ? tt("Edit event") : tt("Schedule an event")}
         wide
-        footer={
-          <>
-            <button type="button" onClick={() => setDraft(null)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              {tt("Cancel")}
-            </button>
-            <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-event-save="">
-              {busy ? tt("Saving") : draft?.id ? tt("Save") : tt("Schedule")}
-            </button>
-          </>
-        }
+        name="event"
+        focus={draft !== null && !draft.id}
+        action={{ label: draft?.id ? tt("Save") : tt("Schedule"), busyLabel: tt("Saving"), busy, onClick: () => void save(), data: { "data-event-save": "" } }}
       >
         {draft ? (
           <div className="space-y-4" data-event-editor="">
+            {/* What is wrong first, where it is read without scrolling; the field itself is marked too. */}
+            {error ? <Notice>{error.text}</Notice> : null}
             <div>
               <label htmlFor="ev-title" className={label}>
                 {tt("Title")}
               </label>
-              <input id="ev-title" value={draft.title} onChange={(e) => set("title", e.target.value.slice(0, 140))} placeholder={tt("Monthly Q&A")} aria-invalid={bad("title") || undefined} className={cn(field, "h-11 sm:h-10", bad("title") && "border-[#dc2626]")} />
+              <input id="ev-title" data-autofocus={draft.id ? undefined : ""} enterKeyHint="next" value={draft.title} onChange={(e) => set("title", e.target.value.slice(0, 140))} placeholder={tt("Monthly Q&A")} aria-invalid={bad("title") || undefined} className={cn(field, "h-11 sm:h-10", bad("title") && "border-[#dc2626]")} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr]">
               <div>
@@ -519,10 +528,9 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                 <p className="mt-1 text-[12.5px] text-[#6b7280]">{tt("Members who could attend can watch it on the event page afterwards.")}</p>
               </div>
             ) : null}
-            {error ? <Notice>{error.text}</Notice> : null}
           </div>
         ) : null}
-      </Dialog>
+      </FormSheet>
 
       {/* CANCELLING. With live tickets it asks plainly whether everybody should have their money back, and says how much. */}
       <Dialog

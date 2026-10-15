@@ -569,6 +569,8 @@ const SUITES = [
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
   "tests/communities-frame12.test.ts",
+  /* Round 31: the community content sections in /app: the icon picker, rows that open, the form sheet, the member composer as the Feed writer (scripts/check-community-content-round31.mjs measures them). */
+  "tests/communities-content31.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-frame13.test.ts",
   "tests/communities-posts.test.ts",
