@@ -286,10 +286,10 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
               <thead>
                 <tr>
                   <th className={TH}>{tt("Event")}</th>
-                  <th className={cn(TH, "w-[27%]")}>{tt("When")}</th>
+                  <th className={cn(TH, "w-[24%]")}>{tt("When")}</th>
                   <th className={cn(TH, "w-[120px]")}>{tt("Kind")}</th>
-                  <th className={cn(TH, "w-[104px]")}>{tt("Going")}</th>
-                  {ticketColumn ? <th className={cn(TH, "w-[19%]")}>{tt("Tickets")}</th> : null}
+                  <th className={cn(TH, "w-[96px]")}>{tt("Going")}</th>
+                  {ticketColumn ? <th className={cn(TH, "w-[17%]")}>{tt("Tickets")}</th> : null}
                   <th className={cn(TH, "w-[60px]")} aria-label={tt("Actions")} />
                 </tr>
               </thead>

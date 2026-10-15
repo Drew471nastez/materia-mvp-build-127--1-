@@ -21,6 +21,7 @@
  * dialogs and the list card itself.
  */
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { ArrowUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Checkbox } from "@/app/app/orders/order-parts"
@@ -131,24 +132,49 @@ export function PickOne({ on, label, onChange }: { on: boolean; label: string; o
 }
 
 /**
- * What to do with the picked rows, in the card's toolbar row while any are
- * picked: how many, the actions, Clear. The same height as the toolbar it
- * stands in for, so nothing under it moves.
+ * What to do with the picked rows: how many, the actions, Clear. It floats at
+ * the foot of the screen while any are picked, the way Settings' save bar
+ * does (components/app/settings-form-new.tsx): a white bar with a hairline
+ * and a soft shadow, above the navigation pill on a phone, rising in on
+ * transform and opacity. So it is in reach wherever the list is scrolled to,
+ * and nothing in the list moves when it comes or goes. Drawn into the body,
+ * so no scrolling pane around the list can hold it.
  */
 export function BulkBar({ size, onClear, children }: { size: number; onClear: () => void; children: React.ReactNode }) {
-  return (
-    <div data-bulk-bar="" className="flex min-h-12 items-center gap-2 border-b border-[#eef0f2] bg-[#f7f7f8] py-1.5 pl-4 pr-2 md:min-h-11 md:pl-5 md:pr-3">
-      <span className="shrink-0 text-[13.5px] font-medium tabular-nums text-[#1a1a2e]">{tt("{size} selected", { size })}</span>
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto scrollbar-hide">{children}</div>
-      <button type="button" onClick={onClear} className="h-10 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#ececef] md:h-8">
-        {tt("Clear")}
-      </button>
-    </div>
+  const [host, setHost] = React.useState<HTMLElement | null>(null)
+  React.useEffect(() => setHost(document.body), [])
+  const up = size > 0
+  /* The last words while it leaves, so it does not empty itself on the way down. */
+  const kept = React.useRef({ size, children })
+  if (up) kept.current = { size, children }
+  if (!host) return null
+  return createPortal(
+    <div
+      data-bulk-bar={up ? "up" : "down"}
+      aria-hidden={!up || undefined}
+      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 bottom-[calc(var(--app-nav-top,0px)+10px)] md:left-[var(--app-rail-w,240px)] md:bottom-[max(16px,env(safe-area-inset-bottom))] md:px-6"
+    >
+      <div
+        role="region"
+        aria-label={tt("Selected rows")}
+        className={cn(
+          "flex w-full max-w-[640px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          up ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]",
+        )}
+      >
+        <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{tt("{size} selected", { size: kept.current.size })}</span>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-x-auto scrollbar-hide">{kept.current.children}</div>
+        <button type="button" onClick={onClear} tabIndex={up ? 0 : -1} className="h-10 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] md:h-9">
+          {tt("Clear")}
+        </button>
+      </div>
+    </div>,
+    host,
   )
 }
 
-/** A bulk action's button: the secondary button, a little shorter on a computer to sit in the bar. */
-export const bulkButton = cn(buttonSecondary, "shrink-0 md:h-7 md:px-2.5 md:text-[12.5px]")
+/** A bulk action's button: the secondary button, the bar's height. */
+export const bulkButton = cn(buttonSecondary, "shrink-0 md:h-9 md:rounded-[10px] md:px-3 md:text-[13.5px]")
 
 /* ── The foot ───────────────────────────────────────────────────────────── */
 

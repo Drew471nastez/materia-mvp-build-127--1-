@@ -290,18 +290,23 @@ export function MembersSection(p: Props) {
       <div className="flex min-w-0 flex-1 items-center">
         <SearchField value={q} onChange={setQ} placeholder={tt("Search members")} label={p.canEmail ? tt("Search members by name or email") : tt("Search members by name")} />
       </div>
-      <div className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto border-t border-[#f1f2f4] px-1 scrollbar-hide md:mx-0 md:border-t-0 md:px-0" data-member-filters="">
-        <ToolbarDivider />
-        <PickButton name="role" title={tt("Role")} options={roleOptions} value={role} onPick={setRole} align="end" />
-        {p.tiers.length > 1 ? <PickButton name="tier" title={tt("Tier")} options={tierOptions} value={tier} onPick={setTier} align="end" /> : null}
-        {!pending ? <PickButton name="joined" title={tt("Joined")} options={joinedOptions} value={joined} onPick={setJoined} align="end" /> : null}
-        <span className="flex-1 md:hidden" />
+      {/* On a phone the filters are a second row that scrolls sideways, the order pinned at its end; on a computer they follow the search. */}
+      <div className="-mx-1 flex min-w-0 items-center border-t border-[#f1f2f4] pl-1 md:mx-0 md:border-t-0 md:pl-0" data-member-filters="">
+        <span className="contents max-md:hidden">
+          <ToolbarDivider />
+        </span>
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide md:flex-none md:overflow-visible">
+          <PickButton name="role" title={tt("Role")} options={roleOptions} value={role} onPick={setRole} align="end" />
+          {p.tiers.length > 1 ? <PickButton name="tier" title={tt("Tier")} options={tierOptions} value={tier} onPick={setTier} align="end" /> : null}
+          {!pending ? <PickButton name="joined" title={tt("Joined")} options={joinedOptions} value={joined} onPick={setJoined} align="end" /> : null}
+        </div>
+        <span aria-hidden className="h-6 w-px shrink-0 bg-[#e5e7eb] md:hidden" />
         <SortPick value={sort} options={sortOptions} onPick={(v) => setSort(v as MemberSort)} />
       </div>
     </div>
   )
 
-  const bulkBar = sel.size > 0 ? (
+  const bulkBar = (
     <BulkBar size={sel.size} onClear={sel.clear}>
       {pending && doable("approve").length ? (
         <button type="button" disabled={bulkBusy} onClick={() => void runBulk("approve")} className={bulkButton} data-bulk="approve">
@@ -322,7 +327,7 @@ export function MembersSection(p: Props) {
         </button>
       ) : null}
     </BulkBar>
-  ) : null
+  )
 
   const total = filtered ? null : (counts[status] ?? null)
   const cols = pending ? "pending" : restricted ? "restricted" : "members"
@@ -404,11 +409,11 @@ export function MembersSection(p: Props) {
                     </>
                   ) : (
                     <>
-                      <th className={cn(TH, "w-[128px]")}>{tt("Role")}</th>
-                      <th className={cn(TH, "w-[15%]")}>{tt("Tier")}</th>
-                      {showLevel ? <th className={cn(TH, "w-[112px]")}>{tt("Level")}</th> : null}
-                      <th className={cn(TH, "w-[112px]")}>{tt("Joined")}</th>
-                      <th className={cn(TH, "w-[124px]")}>{tt("Last active")}</th>
+                      <th className={cn(TH, "w-[112px]")}>{tt("Role")}</th>
+                      <th className={cn(TH, "w-[14%]")}>{tt("Tier")}</th>
+                      {showLevel ? <th className={cn(TH, "w-[100px]")}>{tt("Level")}</th> : null}
+                      <th className={cn(TH, "w-[104px]")}>{tt("Joined")}</th>
+                      <th className={cn(TH, "w-[116px]")}>{tt("Last active")}</th>
                       <th className={cn(TH, "w-[60px]")} aria-label={tt("Actions")} />
                     </>
                   )}
