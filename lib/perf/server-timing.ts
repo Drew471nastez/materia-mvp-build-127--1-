@@ -25,8 +25,8 @@ import { serverRow, type PerfRow } from "./telemetry"
  * Webhooks are timed the same way under the area `infra`; a scheduled job's
  * run is recorded by lib/observability/report.ts recordCronRun (timedJob).
  *
- * EVERY CALL, UP TO A CAP. SERVER_SAMPLE_RATE is 1: at Storelib's traffic
- * one call in five left the API figures on "insufficient data" for days. A
+ * ONE CALL IN FOUR, UP TO A CAP (SERVER_SAMPLE_RATE, lib/perf/config.ts
+ * says why). /admin/performance scales the call and error counts back up. A
  * route past SERVER_ROUTE_PER_MINUTE calls a minute on one instance is not
  * recorded for the rest of that minute, so a busy route cannot fill the
  * day's DAILY_CAP alone.

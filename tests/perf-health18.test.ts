@@ -197,14 +197,15 @@ async function main() {
     check("one address gets 20 beacons a minute", allowed === 20 && allowedBeacon("1.2.3.4", now + 61_000, 20, store))
   }
 
-  console.log("\nCheap: every page load, capped, batched, after the page")
+  console.log("\nCheap: sampled, capped, batched, after the page")
   {
     /*
       Round 20: one in five left most figures on "insufficient data" for days
       at Storelib's traffic. Every page load and every timed call is measured
       now; what keeps it cheap is the caps (tests/perf-collect.test.ts).
     */
-    check("every page load and every timed API call, with caps per page load and per route", CLIENT_SAMPLE_RATE === 1 && SERVER_SAMPLE_RATE === 1 && MAX_ITEMS_PER_PAGE_LOAD > 0 && FULL_VIEWS_PER_PAGE_LOAD > 0 && SERVER_ROUTE_PER_MINUTE > 0)
+    /* Changed on purpose (the owner: lower Vercel costs): one in four, and /admin/performance scales its counts back up (tests/vercel-runtime-costs.test.ts). */
+    check("one page load and one timed API call in four, with caps per page load and per route", CLIENT_SAMPLE_RATE === 0.25 && SERVER_SAMPLE_RATE === 0.25 && MAX_ITEMS_PER_PAGE_LOAD > 0 && FULL_VIEWS_PER_PAGE_LOAD > 0 && SERVER_ROUTE_PER_MINUTE > 0)
     const comp = read("components/perf/perf-beacon.tsx")
     check("the dice are rolled before the collector is downloaded", /if \(Math\.random\(\) >= CLIENT_SAMPLE_RATE\) return[\s\S]*import\("@\/lib\/perf\/beacon-client"\)/.test(comp))
     check("and it loads when the browser is idle", /requestIdleCallback/.test(comp))
@@ -222,11 +223,12 @@ async function main() {
       Math.random = () => 0.99
       const handler = timed("app", "/api/dashboard", async () => new Response("ok", { status: 200 }))
       const res = await handler()
-      check("every request is answered untouched and recorded", res.status === 200 && pendingTimings().length === before + 1)
+      /* Changed on purpose (the owner: lower Vercel costs): a call outside the one in four is answered untouched and not recorded. */
+      check("every request is answered untouched, and one outside the sample is not recorded", res.status === 200 && pendingTimings().length === before)
       Math.random = () => 0
       await handler()
       const last = pendingTimings()[pendingTimings().length - 1]
-      check("a request is recorded with its status", pendingTimings().length === before + 2 && last.m === "api" && last.s === 200 && last.r === "/api/dashboard")
+      check("a request is recorded with its status", pendingTimings().length === before + 1 && last.m === "api" && last.s === 200 && last.r === "/api/dashboard")
       const throws = timed("checkout", "/api/checkout/process", async (): Promise<Response> => {
         throw new Error("boom")
       })

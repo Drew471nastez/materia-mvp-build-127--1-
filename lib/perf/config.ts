@@ -18,12 +18,19 @@
  *   3. What already exists: orders, the scheduled jobs' traces, and the
  *      database's own statement statistics.
  *
- * EVERY PAGE LOAD MEASURES ITSELF (CLIENT_SAMPLE_RATE is 1). Storelib's
- * traffic is small enough that one in five left most figures on
- * "insufficient data" for days. The cost per page load stays negligible:
- * the collector is a few kilobytes, downloaded when the browser is idle,
- * runs the browser's own PerformanceObserver and nothing per frame, and
- * sends a few small batches.
+ * ONE PAGE LOAD IN FOUR MEASURES ITSELF (CLIENT_SAMPLE_RATE), and one timed
+ * API call in four is timed (SERVER_SAMPLE_RATE). It was every one, when one
+ * in five left most figures on "insufficient data" for days; each measured
+ * page load is a few beacon calls to a function, so the rate came down to
+ * lower Vercel costs (the owner). Percentiles and rates are unchanged by
+ * sampling, though a quiet area needs four times as long to reach
+ * MIN_SAMPLES. A count the page shows as page views, calls or errors is
+ * scaled back up by the rate (estimatedCount); a count of samples is what
+ * was measured and decides whether there is enough data, so it never is.
+ *
+ * Not sampled: published websites' own Web Vitals (their creators read them),
+ * a scheduled job's run (timedJob), crashes sent to /api/client-errors, and
+ * visitor analytics (/api/track-view), which creators read as exact counts.
  *
  * AUTOMATIC CAPS, so a busy day or a long session cannot cost more:
  *   per page load (one session of the app: it never reloads)
@@ -46,10 +53,18 @@
  * read these.
  */
 
-/** Every page load measures itself; see above for the caps that keep it cheap. */
-export const CLIENT_SAMPLE_RATE = 1
-/** Every call to a timed API route is timed, up to SERVER_ROUTE_PER_MINUTE a route a minute per instance. */
-export const SERVER_SAMPLE_RATE = 1
+/** One page load in four measures itself; see above for the caps that keep it cheap. */
+export const CLIENT_SAMPLE_RATE = 0.25
+/** One call in four to a timed API route is timed, up to SERVER_ROUTE_PER_MINUTE a route a minute per instance. */
+export const SERVER_SAMPLE_RATE = 0.25
+
+/**
+ * How many page views, calls or errors `n` sampled ones stand for. The same
+ * number at a rate of 1. Never for a count of samples (see above).
+ */
+export function estimatedCount(n: number, rate: number): number {
+  return rate > 0 && rate < 1 ? Math.round(n / rate) : n
+}
 /** Timings one server instance records per route a minute. */
 export const SERVER_ROUTE_PER_MINUTE = 120
 
