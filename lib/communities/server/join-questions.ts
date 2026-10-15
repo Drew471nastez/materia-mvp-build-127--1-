@@ -46,7 +46,7 @@ export type FormResult = { ok: true; questions: JoinQuestion[] } | { ok: false; 
 /** Saves the questions as the editor sent them (checked first), and writes the change to the audit log. */
 export async function saveJoinForm(db: Db, a: { communityId: string; actorId: string; raw: unknown }): Promise<FormResult> {
   const checked = checkJoinQuestions(a.raw)
-  if (!checked.ok) return { ok: false, status: 400, error: checked.error, index: checked.index }
+  if (checked.ok === false) return { ok: false, status: 400, error: checked.error, index: checked.index }
   const { error } = await db.from("community_join_forms").upsert({ community_id: a.communityId, questions: checked.value, updated_by: a.actorId, updated_at: nowIso() }, { onConflict: "community_id" })
   if (error) {
     if (missing(error)) return { ok: false, status: 503, error: "not_ready" }

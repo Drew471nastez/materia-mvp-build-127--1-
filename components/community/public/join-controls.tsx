@@ -18,6 +18,13 @@
  *                     its note, a paid tier goes to checkout)
  *   join_free         POST join, then straight into the community (below)
  *   request           a note (optional) in a sheet or dialog, then POST join
+ *
+ * QUESTIONS BEFORE JOINING (round 32). When the community asks questions
+ * (GET join-questions, asked as the page arrives for a signed in visitor who
+ * can join), the press opens them in the same sheet or dialog first, for a
+ * free join and a paid one as well as a request; the answers go with POST
+ * join, which checks them again and answers the question it did not accept
+ * (answers_needed), and only then joins, asks or sends to checkout.
  *   checkout          to the existing checkout on the chosen interval; the
  *                     server answers the same address and checks again there
  *   pending           nothing to press; "Withdraw request" is POST leave
@@ -50,6 +57,8 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
 import { gaCommunityJoin } from "@/lib/communities/client/ga-events"
+import { draftComplete, type AnswerDraft, type JoinQuestion } from "@/lib/communities/join-questions"
+import { JoinQuestionFields } from "./join-questions-form"
 import { CheckDot } from "./check-dot"
 import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
@@ -67,14 +76,18 @@ interface JoinCtx {
   busy: boolean
   phase: JoinPhase
   error: string | null
-  press: () => void
+  press: () => void | Promise<void>
   withdraw: () => void
   leave: (why?: { reason: LeaveReason | null; note: string }) => void
   /** Part 98 is in: leaving asks why (the six reasons and a note, all optional). */
   askWhy: boolean
   requestOpen: boolean
   setRequestOpen: (open: boolean) => void
-  sendRequest: (note: string) => void
+  sendRequest: (note: string, answers?: AnswerDraft) => void
+  /** The community's questions before joining: null until they are known. */
+  questions: JoinQuestion[] | null
+  /** The question the server did not accept. */
+  invalid: string | null
   leaveOpen: boolean
   setLeaveOpen: (open: boolean) => void
 }
@@ -185,8 +198,30 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const api = `/api/community/${community.id}`
+  const [questions, setQuestions] = React.useState<JoinQuestion[] | null>(null)
+  const [invalid, setInvalid] = React.useState<string | null>(null)
 
   const go = React.useCallback((href: string) => goJoinAuth(router, href), [router])
+
+  /* The questions, asked once as the page arrives for somebody who can join, so a press opens them at once. */
+  const canAsk = join.signedIn && (join.kind === "join_free" || join.kind === "request" || join.kind === "checkout")
+  const asking = React.useRef<Promise<JoinQuestion[]> | null>(null)
+  const loadQuestions = React.useCallback(
+    (fresh = false): Promise<JoinQuestion[]> => {
+      if (asking.current && !fresh) return asking.current
+      const ask = fetch(`${api}/join-questions`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { questions: [] }))
+        .then((d: { questions?: unknown }) => (Array.isArray(d.questions) ? (d.questions as JoinQuestion[]) : []))
+        .catch(() => [] as JoinQuestion[])
+      asking.current = ask
+      void ask.then(setQuestions)
+      return ask
+    },
+    [api],
+  )
+  React.useEffect(() => {
+    if (canAsk) void loadQuestions()
+  }, [canAsk, loadQuestions])
 
   React.useEffect(() => {
     if (join.signedIn) return
@@ -230,31 +265,51 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   )
 
   const joinNow = React.useCallback(
-    async (note?: string) => {
+    async (note?: string, answers?: AnswerDraft) => {
       /* On the next frame: the button answers before the request leaves. */
       setBusy(true)
       setPhase("joining")
       setError(null)
-      const r = await post(`${api}/join`, { note: note || undefined, interval })
+      const r = await post(`${api}/join`, { note: note || undefined, interval, answers })
       setBusy(false)
+      /* An answer the server did not accept: the questions stay open (asked again, in case they changed), pointing at it. */
+      if (!r.ok && r.data.error === "answers_needed") {
+        setPhase("idle")
+        setInvalid(typeof r.data.field === "string" ? r.data.field : null)
+        setError(typeof r.data.message === "string" ? r.data.message : "Answer the questions to continue.")
+        const fresh = await loadQuestions(true)
+        if (fresh.length) setRequestOpen(true)
+        return
+      }
+      setInvalid(null)
       setRequestOpen(false)
       answer(r)
     },
-    [answer, api, interval],
+    [answer, api, interval, loadQuestions],
   )
 
-  const press = React.useCallback(() => {
+  const press = React.useCallback(async () => {
     if (busy || phase !== "idle") return
     if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) {
       return go(join.href)
     }
-    if (join.kind === "join_free") return void joinNow()
     if (join.kind === "request") return setRequestOpen(true)
-    if (join.kind === "checkout") {
-      const href = checkoutHref(join.option, interval)
-      if (href) go(href)
+    if (join.kind !== "join_free" && join.kind !== "checkout") return
+    /* The questions first, when the community asks any (known since the page arrived, or a moment more). */
+    let asked = questions
+    if (!asked) {
+      setBusy(true)
+      asked = await loadQuestions()
+      setBusy(false)
     }
-  }, [busy, phase, go, interval, join, joinNow])
+    if (asked.length) {
+      setError(null)
+      return setRequestOpen(true)
+    }
+    if (join.kind === "join_free") return void joinNow()
+    const href = checkoutHref(join.option, interval)
+    if (href) go(href)
+  }, [busy, phase, go, interval, join, joinNow, questions, loadQuestions])
 
   const withdraw = React.useCallback(async () => {
     setBusy(true)
@@ -283,7 +338,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     const url = new URL(window.location.href)
     url.searchParams.delete("join")
     window.history.replaceState(window.history.state, "", url.pathname + url.search)
-    if (join.kind === "join_free" || join.kind === "request" || join.kind === "checkout") press()
+    if (join.kind === "join_free" || join.kind === "request" || join.kind === "checkout") void press()
   }, [join.kind, join.signedIn, params, press])
 
   const value: JoinCtx = {
@@ -300,7 +355,9 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     askWhy,
     requestOpen,
     setRequestOpen,
-    sendRequest: (note) => void joinNow(note),
+    sendRequest: (note, answers) => void joinNow(note, answers),
+    questions,
+    invalid,
     leaveOpen,
     setLeaveOpen,
   }
@@ -351,7 +408,7 @@ function PrimaryAction({ className, short = false }: { className?: string; /** B
     request is out, "You're in" with a check once it is in. The words cross by opacity only; nothing moves.
   */
   return (
-    <button type="button" onClick={press} aria-busy={busy || phase !== "idle"} data-join-state={join.kind} data-join-phase={phase} className={cn(PRIMARY, "relative", className)}>
+    <button type="button" onClick={() => void press()} aria-busy={busy || phase !== "idle"} data-join-state={join.kind} data-join-phase={phase} className={cn(PRIMARY, "relative", className)}>
       <span className={cn("inline-flex items-center gap-2 transition-opacity duration-150", phase === "idle" ? "opacity-100" : "opacity-0")}>{label}</span>
       {phase !== "idle" ? (
         <span aria-live="polite" className="absolute inset-0 inline-flex items-center justify-center gap-2 animate-in fade-in-0 duration-150" data-join-progress="">
@@ -729,41 +786,74 @@ function usePhone(): boolean {
   return phone
 }
 
+/**
+ * THE JOIN FORM (round 32): a request's note, and the community's questions
+ * before joining when it has any, for a request, a free join or a paid one.
+ * The title, the line under it and the button say which: "Request to join"
+ * and Send request, or "Before you join" and Join or Continue to payment.
+ * The button waits for every required question. The questions scroll
+ * between the title and the buttons, so the buttons never leave the screen.
+ */
 function RequestDialog() {
-  const { community, requestOpen, setRequestOpen, sendRequest, busy, error } = useJoin()
+  const { community, join, requestOpen, setRequestOpen, sendRequest, busy, error, questions, invalid } = useJoin()
   const phone = usePhone()
   const [note, setNote] = React.useState("")
+  const [draft, setDraft] = React.useState<AnswerDraft>({})
   const max = LENGTHS.requestNote.max
+  const asked = questions ?? []
+  const request = join.kind === "request"
+  const ready = draftComplete(asked, draft)
+  const title = request ? "Request to join" : "Before you join"
+  const line = request
+    ? asked.length
+      ? `An admin of ${community.name} reviews requests. Answer a few questions first.`
+      : `An admin of ${community.name} reviews requests. Add a line about yourself if you like.`
+    : join.kind === "checkout"
+      ? `${community.name} asks new members a few questions. You pay on the next page.`
+      : `${community.name} asks new members a few questions.`
+  const action = request ? (busy ? "Sending" : "Send request") : join.kind === "checkout" ? (busy ? "Opening checkout" : "Continue to payment") : busy ? "Joining" : "Join"
   return (
-    <SheetDialog open={requestOpen} onClose={() => setRequestOpen(false)} phone={phone} label={`Request to join ${community.name}`} className="max-w-[440px] gap-0 rounded-2xl p-6">
-      <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""}>
-        <SheetDialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">Request to join</SheetDialogTitle>
-        <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">An admin of {community.name} reviews requests. Add a line about yourself if you like.</p>
-        <label className="mt-4 block">
-          <span className="sr-only">A note for the admins</span>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, max))}
-            rows={4}
-            placeholder="Who you are and why you'd like to join"
-            className="w-full resize-none rounded-xl border border-[#e5e7eb] bg-white px-3.5 py-3 text-[16px] leading-snug text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd2] focus:ring-2 focus:ring-[#1a1a2e]/10 sm:text-[15px]"
-          />
-        </label>
-        <div className="mt-1 text-right text-[12px] tabular-nums text-[#9ca3af]">
-          {note.length}/{max}
+    <SheetDialog open={requestOpen} onClose={() => setRequestOpen(false)} phone={phone} label={request ? `Request to join ${community.name}` : `Join ${community.name}`} className={cn("gap-0 rounded-2xl p-0", asked.length ? "max-w-[480px]" : "max-w-[440px]")}>
+      <div className="flex max-h-[min(80vh,720px)] min-h-0 flex-col" data-join-form={join.kind} data-join-form-questions={asked.length}>
+        <div className={phone ? "px-5 pt-1" : "px-6 pt-6"}>
+          <SheetDialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
+          <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">{line}</p>
         </div>
-        {error ? (
-          <p role="alert" className="mt-1 text-[13px] text-[#b42318]">
-            {error}
-          </p>
-        ) : null}
-        <div className="mt-4 flex gap-2.5">
-          <button type="button" onClick={() => setRequestOpen(false)} className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[15px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20">
-            Cancel
-          </button>
-          <button type="button" onClick={() => sendRequest(note.trim())} disabled={busy} className={cn(PRIMARY, "flex-1")}>
-            {busy ? "Sending" : "Send request"}
-          </button>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto pb-1 pt-4", phone ? "px-5" : "px-6")} data-join-form-body="">
+          {asked.length ? (
+            <JoinQuestionFields questions={asked} draft={draft} onChange={setDraft} invalid={invalid} disabled={busy} />
+          ) : (
+            <>
+              <label className="block">
+                <span className="sr-only">A note for the admins</span>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value.slice(0, max))}
+                  rows={4}
+                  placeholder="Who you are and why you'd like to join"
+                  className="w-full resize-none rounded-xl border border-[#e5e7eb] bg-white px-3.5 py-3 text-[16px] leading-snug text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd2] focus:ring-2 focus:ring-[#1a1a2e]/10 sm:text-[15px]"
+                />
+              </label>
+              <div className="mt-1 text-right text-[12px] tabular-nums text-[#9ca3af]">
+                {note.length}/{max}
+              </div>
+            </>
+          )}
+        </div>
+        <div className={cn("border-t border-[#f1f2f4] pt-3", phone ? "px-5 pb-[calc(16px+env(safe-area-inset-bottom,0px))]" : "px-6 pb-5")} data-join-form-foot="">
+          {error ? (
+            <p role="alert" className="mb-2.5 text-[13px] text-[#b42318]" data-join-form-error="">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex gap-2.5">
+            <button type="button" onClick={() => setRequestOpen(false)} className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[15px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20">
+              Cancel
+            </button>
+            <button type="button" onClick={() => sendRequest(note.trim(), asked.length ? draft : undefined)} disabled={busy || !ready} className={cn(PRIMARY, "flex-1")} data-join-form-send="">
+              {action}
+            </button>
+          </div>
         </div>
       </div>
     </SheetDialog>

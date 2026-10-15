@@ -173,7 +173,7 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
     const form = await readJoinForm(db, community.id)
     if (form.questions.length) {
       const checked = checkJoinAnswers(form.questions, input.answers)
-      if (!checked.ok) return { ...refuse(400, "answers_needed", checked.error), ...(checked.id ? { field: checked.id } : {}) }
+      if (checked.ok === false) return { ...refuse(400, "answers_needed", checked.error), ...(checked.id ? { field: checked.id } : {}) }
       if (!(await saveJoinAnswers(db, { communityId: community.id, userId, answers: checked.value }))) return refuse(503, "answers_not_saved", "Your answers could not be saved. Try again.")
     }
   }

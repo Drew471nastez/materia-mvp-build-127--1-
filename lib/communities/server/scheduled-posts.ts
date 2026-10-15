@@ -132,9 +132,9 @@ async function oneView(db: Db, a: Actor, row: Row): Promise<ScheduledPostView> {
 export async function createScheduled(db: Db, a: Actor, raw: unknown): Promise<Done<{ post: ScheduledPostView }>> {
   if (a.community.status === "archived" || a.community.archived_at) return no(403, "archived")
   const checked = checkScheduledInput(raw)
-  if (!checked.ok) return no(400, checked.error, checked.field)
+  if (checked.ok === false) return no(400, checked.error, checked.field)
   const space = await spaceFor(db, a.community, a.viewer, checked.value.spaceId)
-  if (!space.ok) return space
+  if (space.ok === false) return space
   const { count } = await db.from("community_scheduled_posts").select("id", { count: "exact", head: true }).eq("community_id", a.community.id).in("status", ["draft", "scheduled"])
   if (typeof count === "number" && count >= WAITING_MAX) return no(409, `A community keeps up to ${WAITING_MAX} drafts and scheduled posts. Publish or delete some first.`)
   const v = checked.value
@@ -162,7 +162,7 @@ async function rowOf(db: Db, communityId: string, id: string): Promise<Row | nul
  * { publishNow: true }, which puts it up at once through the same path the
  * schedule uses.
  */
-export async function updateScheduled(db: Db, a: Actor, id: string, raw: unknown): Promise<Done<{ post: ScheduledPostView }>> {
+export async function updateScheduled(db: Db, a: Actor, id: string, raw: unknown, make: MakePost = createPost): Promise<Done<{ post: ScheduledPostView }>> {
   const row = await rowOf(db, a.community.id, id)
   if (!row) return no(404, "not_found")
   if (!mayChange(row, actorOf(a))) return no(403, "forbidden")
@@ -172,10 +172,10 @@ export async function updateScheduled(db: Db, a: Actor, id: string, raw: unknown
   const now = r.publishNow === true
   const merged = { spaceId: "spaceId" in r ? r.spaceId : row.space_id, title: "title" in r ? r.title : row.title, body: "body" in r ? r.body : row.body, publishAt: now ? new Date(Date.now() + 120_000).toISOString() : "publishAt" in r ? r.publishAt : row.publish_at }
   const checked = checkScheduledInput(merged)
-  if (!checked.ok) return no(400, checked.error, checked.field)
+  if (checked.ok === false) return no(400, checked.error, checked.field)
   const v = checked.value
   const space = await spaceFor(db, a.community, a.viewer, v.spaceId)
-  if (!space.ok) return space
+  if (space.ok === false) return space
   const status: ScheduledStatus = now ? "publishing" : v.publishAt ? "scheduled" : "draft"
   const { data, error } = await db
     .from("community_scheduled_posts")
@@ -191,7 +191,7 @@ export async function updateScheduled(db: Db, a: Actor, id: string, raw: unknown
   }
   if (!data) return no(409, "This one changed a moment ago. Refresh to see it.")
   let saved = data as Row
-  if (now) saved = await publishOne(db, saved, a.community)
+  if (now) saved = await publishOne(db, saved, a.community, make)
   else await audit(db, { communityId: a.community.id, actorId: a.userId, actorKind: "member", action: v.publishAt ? "post.scheduled" : "post.drafted", targetType: "scheduled_post", targetId: row.id, targetLabel: v.title || v.body.slice(0, 80), detail: { publishAt: v.publishAt } })
   if (saved.status === "failed" && now) return no(409, saved.error || "It did not go up. Try again.")
   return { ok: true, post: await oneView(db, a, saved) }
@@ -220,7 +220,10 @@ function failWords(error: string | undefined): string {
  * Puts one taken row up, as its author, through createPost. The row must be
  * in publishing (taken by this run). Answers the row as it now is.
  */
-export async function publishOne(db: Db, row: Row, given?: CommunityRow | null): Promise<Row> {
+/** What puts a post up: createPost, or a stand in for the tests. */
+type MakePost = typeof createPost
+
+export async function publishOne(db: Db, row: Row, given?: CommunityRow | null, make: MakePost = createPost): Promise<Row> {
   const finish = async (patch: Partial<Row>): Promise<Row> => {
     const next = { ...patch, updated_at: nowIso() }
     const { data } = await db.from("community_scheduled_posts").update(next).eq("id", row.id).eq("status", "publishing").select(COLUMNS).maybeSingle()
@@ -236,8 +239,8 @@ export async function publishOne(db: Db, row: Row, given?: CommunityRow | null):
     if (viewer.isCreatorAccount && !viewer.active) viewer = { ...viewer, role: "owner", active: true }
     if (!viewer.active) return finish({ status: "failed", error: "Its author is no longer a member." })
     if (viewer.mutedUntil) return finish({ status: "failed", error: "Its author is muted." })
-    const made = await createPost({ db, community, viewer }, { spaceId: row.space_id, title: row.title, body: row.body, media: [], poll: null })
-    if (!made.ok) return finish({ status: "failed", error: failWords(made.error) })
+    const made = await make({ db, community, viewer }, { spaceId: row.space_id, title: row.title, body: row.body, media: [], poll: null })
+    if (made.ok === false) return finish({ status: "failed", error: failWords(made.error) })
     const done = await finish({ status: "published", post_id: made.value.id, published_at: nowIso(), error: null })
     await audit(db, { communityId: community.id, actorId: row.author_id, actorKind: "system", action: "post.schedule_published", targetType: "post", targetId: made.value.id, targetLabel: row.title.slice(0, 80) })
     return done
@@ -252,7 +255,7 @@ export async function publishOne(db: Db, row: Row, given?: CommunityRow | null):
  * due is taken one row at a time (scheduled to publishing in one update, so a
  * second run gets nothing) and put up. Answers how many went up and failed.
  */
-export async function publishDuePosts(db: Db, now: number = Date.now(), budgetMs = 20_000): Promise<{ published: number; failed: number; available: boolean }> {
+export async function publishDuePosts(db: Db, now: number = Date.now(), budgetMs = 10_000, make: MakePost = createPost): Promise<{ published: number; failed: number; available: boolean }> {
   const out = { published: 0, failed: 0, available: true }
   const stale = await db
     .from("community_scheduled_posts")
@@ -280,7 +283,7 @@ export async function publishDuePosts(db: Db, now: number = Date.now(), budgetMs
       .select(COLUMNS)
       .maybeSingle()
     if (taken.error || !taken.data) continue
-    const row = await publishOne(db, taken.data as Row)
+    const row = await publishOne(db, taken.data as Row, null, make)
     if (row.status === "published") out.published++
     else out.failed++
   }

@@ -124,7 +124,7 @@ export function checkOnboarding(raw: unknown, random: () => number = Math.random
     let id: string = kind
     if (kind === "custom") {
       id = typeof s.id === "string" && CUSTOM_ID.test(s.id) && !seen.has(s.id) ? s.id : ""
-      while (!id || seen.has(id)) id = newCustomId(random)
+      for (let tries = 0; !id || seen.has(id); tries++) id = newCustomId(tries < 20 ? random : Math.random)
     } else if (seen.has(id)) return { ok: false, error: "Each step appears once.", index: i }
     seen.add(id)
     steps.push({ id, kind, label, url })

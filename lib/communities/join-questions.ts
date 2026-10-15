@@ -91,7 +91,8 @@ export function checkJoinQuestions(raw: unknown, random: () => number = Math.ran
       if (options.length > JOIN_OPTIONS_MAX) return { ok: false, error: `A question has up to ${JOIN_OPTIONS_MAX} choices.`, index: i }
     }
     let id = typeof r.id === "string" && ID.test(r.id) && !seen.has(r.id) ? r.id : ""
-    while (!id || seen.has(id)) id = newQuestionId(random)
+    /* A given random that keeps repeating itself (a test's) cannot loop for ever: after a few tries, Math.random. */
+    for (let tries = 0; !id || seen.has(id); tries++) id = newQuestionId(tries < 20 ? random : Math.random)
     seen.add(id)
     out.push({ id, kind, label, help, required: r.required === true, options })
   }

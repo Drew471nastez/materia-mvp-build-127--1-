@@ -595,6 +595,8 @@ const SUITES = [
   "tests/communities-events-admin.test.ts",
   /* Round 31: a community analytics for any period, its visits and Google Analytics (scripts/check-community-analytics-round31.mjs measures the screen). */
   "tests/community-analytics-r31.test.ts",
+  /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
+  "tests/community-features-round32.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",

@@ -145,4 +145,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "179", file: "179_cache_invalidation_pings.sql", sha256: "6782ec428c895abef8920e6daf39916bf42010018170c2e29d8c0325a2e6dddc" },
   { part: "184", file: "184_community_analytics.sql", sha256: "ffcb48cf432c715b31c848adf4ea22bf8bedd3ff1bb62ad1b643c87dd6131654" },
   { part: "185", file: "185_community_domains.sql", sha256: "cf8fc37d786bd7be59817e7b064c366971d71119b19ae548f46eb21328c50329" },
+  { part: "186", file: "186_community_join_questions.sql", sha256: "7090be8e994a23906b2beffd6652bcf66372812378d007614c9e0c2e16f0fab6" },
+  { part: "187", file: "187_community_onboarding_checklist.sql", sha256: "19fe42e5fb23479e25f4d2b2a38c5eed4fc096f093f39612e4d6b4a39d83a7fa" },
+  { part: "188", file: "188_community_scheduled_posts.sql", sha256: "2e9c7de668bfb4a99aa3afe878ee06710cc3a8f1d2694bd6fd3c31d58b642c12" },
 ]

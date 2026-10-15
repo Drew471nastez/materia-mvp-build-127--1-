@@ -55,7 +55,7 @@ export type OnboardingResult = { ok: true; config: OnboardingConfig } | { ok: fa
 
 export async function saveOnboardingConfig(db: Db, a: { communityId: string; actorId: string; raw: unknown }): Promise<OnboardingResult> {
   const checked = checkOnboarding(a.raw)
-  if (!checked.ok) return { ok: false, status: 400, error: checked.error, index: checked.index }
+  if (checked.ok === false) return { ok: false, status: 400, error: checked.error, index: checked.index }
   const c = checked.value
   const { error } = await db.from("community_onboarding").upsert({ community_id: a.communityId, steps: c.steps, dm_enabled: c.dmEnabled, dm_body: c.dmBody, updated_by: a.actorId, updated_at: nowIso() }, { onConflict: "community_id" })
   if (error) {
@@ -159,7 +159,9 @@ export async function markStep(db: Db, community: CommunityRow, viewer: Viewer, 
  * when a member row becomes active; never throws. Answers what happened,
  * for the tests and the log.
  */
-export async function welcomeNewMember(db: Db, row: Pick<MemberRow, "community_id" | "user_id" | "role" | "status">): Promise<"sent" | "off" | "already" | "not_ready" | "failed"> {
+type Direct = Pick<typeof import("./direct"), "directReady" | "openConversation" | "conversationOf" | "sendDirectMessage">
+
+export async function welcomeNewMember(db: Db, row: Pick<MemberRow, "community_id" | "user_id" | "role" | "status">, given?: { direct?: Direct }): Promise<"sent" | "off" | "already" | "not_ready" | "failed"> {
   try {
     if (row.status !== "active" || row.role !== "member") return "off"
     const { config, ready } = await readOnboardingConfig(db, row.community_id)
@@ -168,7 +170,7 @@ export async function welcomeNewMember(db: Db, row: Pick<MemberRow, "community_i
     const { loadCommunity, viewerContext, communityOpen } = await import("./context")
     const community = await loadCommunity(db, { id: row.community_id })
     if (!community || !communityOpen(community) || !community.chat_enabled || !community.owner_user_id || community.owner_user_id === row.user_id) return "off"
-    const direct = await import("./direct")
+    const direct: Direct = given?.direct ?? (await import("./direct"))
     if (!(await direct.directReady(db, community))) return "off"
     /* The claim: one row per member, so this runs once whatever calls it. */
     const claim = await db.from("community_onboarding_progress").insert({ community_id: community.id, user_id: row.user_id, step: PROGRESS_WELCOME_DM, done_at: nowIso() })
@@ -177,7 +179,7 @@ export async function welcomeNewMember(db: Db, row: Pick<MemberRow, "community_i
     const owner = await viewerContext(db, community, community.owner_user_id)
     const sender: Viewer = { ...owner, role: "owner", active: true, isOwner: true }
     const opened = await direct.openConversation(db, community, sender, row.user_id)
-    if (!opened.ok) {
+    if (opened.ok === false) {
       await release()
       return "failed"
     }
