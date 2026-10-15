@@ -559,14 +559,24 @@ section("The collapse toggle: a row above the Upgrade card, not a hover thing")
   const css = r("app/globals.css")
   const at = (re: RegExp) => nav.search(re)
   check("the shell no longer hangs a handle on the sidebar's border", !/RailToggle/.test(shell) && !/-right-\[12px\]/.test(toggle))
+  /*
+    Changed on purpose (round 32): the owner, on round 31's row with
+    "Collapse" beside it: it must not look like a button row, just the icon,
+    like Shopify's. These pinned the row's geometry, its hover fill and the
+    word; now they pin a bare icon whose colour alone answers the pointer.
+  */
   check("  it is in the sidebar's foot, before the Upgrade card and Settings",
-    at(/<RailToggle rowClassName=\{ROW\} paint=\{\(hovered\) => rowStyle\(false, hovered\)\} \/>/) > at(/<\/nav>/) &&
+    at(/<RailToggle rest=\{REST_TEXT\} hover=\{HOVER_TEXT\} \/>/) > at(/<\/nav>/) &&
       at(/<RailToggle /) < at(/data-upgrade-card=""/) &&
       at(/data-upgrade-card=""/) < at(/href="\/app\/settings"/))
-  check("  drawn as a row: the rows' geometry and colours, an icon in the icon column, a word that fades",
-    /className=\{`\$\{rowClassName\} /.test(toggle) && /style=\{\{ \.\.\.paint\(hovered\), boxShadow: undefined \}\}/.test(toggle) &&
+  check("  a bare icon: no word, no background or border, the icon in the icon column, only its colour on hover",
+    /className="ml-\[8px\] flex h-8 w-8 items-center justify-center rounded-\[8px\] bg-transparent /.test(toggle) &&
+      /style=\{\{ color: hovered \? hover : rest \}\}/.test(toggle) &&
       /data-nav-icon="outline" className="relative flex h-5 w-5 min-w-5 shrink-0/.test(toggle) &&
-      /<span data-nav-label="" className="whitespace-nowrap">Collapse<\/span>/.test(toggle))
+      !/data-nav-label/.test(toggle) && !/rowClassName|paint\(/.test(toggle) && !/>Collapse</.test(toggle))
+  check("  collapsed, nothing in the sidebar can be scrolled sideways: labels clip their own text, the layer clips without a scroll box",
+    /\[data-rail-aside\] \[data-nav-label\] \{\s*min-width: 0;\s*overflow: hidden;\s*overflow: clip;\s*\}/.test(css) &&
+      /<div className="absolute inset-0 overflow-clip">/.test(shell))
   check("  named, with aria-expanded, aria-controls and the shortcut",
     /aria-label=\{label\}/.test(toggle) && /aria-expanded=\{open\}/.test(toggle) && /aria-controls="app-rail"/.test(toggle) && /aria-keyshortcuts=/.test(toggle) && /toggleAppRail\(\)/.test(toggle))
   check("  nothing in the CSS hides it or brings it out on hover",

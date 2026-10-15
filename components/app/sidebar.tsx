@@ -1001,7 +1001,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',
         }}
       >
-        <div className="absolute inset-0 overflow-hidden">
+        {/*
+          overflow-clip, not overflow-hidden (round 32): hidden still makes
+          a scroll box that focus or a script can push sideways while the
+          sidebar is 63px wide. clip makes no scroll box at all.
+        */}
+        <div className="absolute inset-0 overflow-clip">
         {/*
           THE DESKTOP NAV LIVES AT MODULE SCOPE — see sidebar-desktop-nav.tsx.
 
