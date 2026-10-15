@@ -122,7 +122,13 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     join(stubs, "supabase-client.js"),
     `export function createClient() { const ch = { on() { return ch }, subscribe() { return ch } }; return { channel: () => ch, removeChannel() {}, auth: { getSession: async () => ({ data: { session: null } }) } } }\nexport const isNativePlatform = () => false\n`,
   )
-  const css = await appCss(root)
+  /* With BASE_SRC, the stylesheet is compiled over that copy too, so its own classes have their CSS. */
+  let sheet = null
+  if (process.env.BASE_SRC) {
+    sheet = join(stubs, "globals-with-base.css")
+    writeFileSync(sheet, `${readFileSync(join(root, "app/globals.css"), "utf8")}\n@source "${process.env.BASE_SRC}";\n`)
+  }
+  const css = await appCss(root, sheet)
   const fonts = interFaces(root)
   const { build } = await import("esbuild")
   await build({
@@ -132,7 +138,17 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
     alias: { "@": ".", "next/navigation": "./.community-admin32-probe/navigation.js", "next/link": "./.community-admin32-probe/link.jsx", "next/image": "./.community-admin32-probe/image.jsx" },
-    plugins: [{ name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } }],
+    plugins: [
+      { name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } },
+      /*
+        BASE_SRC=dir measures an older copy of the community screens (components/community and lib/communities, say from
+        `git archive <commit> components/community lib/communities | tar -x -C dir`) with everything else from this
+        checkout, for a before and after with the same probe.
+      */
+      ...(process.env.BASE_SRC
+        ? [{ name: "base-src", setup(b) { b.onResolve({ filter: /^(@|\.)\/(components\/community|lib\/communities)\// }, (args) => (args.resolveDir === root || args.path.startsWith("@") ? b.resolve(`./${args.path.replace(/^(@|\.)\//, "")}`, { resolveDir: process.env.BASE_SRC, kind: args.kind }) : undefined)) } }]
+        : []),
+    ],
     banner: { js: "var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};" },
     loader: { ".css": "empty" },
     outfile: join(stubs, "admin.js"),
@@ -238,6 +254,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const body = bodyEl.getBoundingClientRect()
       const inner = body.width - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight)
       const scope = document.querySelector(scopeSel)
+      /* A panel this build does not have (an older checkout, measured for a before and after). */
+      if (!scope) return null
       const sb = scope.getBoundingClientRect()
       const shown = (el) => {
         if (el.closest("[data-editor-foot]") || el.closest("[hidden]")) return false
@@ -317,6 +335,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         await sleep(150)
         const m = await measure(p, scope)
         const tag = `${vpName} ${name}`
+        if (!m) {
+          expect(false, `${tag}: the panel is on screen`)
+          await p.close()
+          continue
+        }
         console.log(`  ..    ${tag}: content ${m.content}px, this ${m.scope}px (${m.used}%), cards ${m.cards ? `${m.cards.n} at ${m.cards.min} to ${m.cards.max}px` : "none"}, narrowest sentence ${m.narrowestWrap}px`)
         expect(m.narrow.length === 0, `${tag}: no words of two lines or more in a strip under 240px`, m.narrow.slice(0, 4))
         expect(!m.hscroll && m.outside === 0, `${tag}: no sideways scroll, nothing past the edge`, { hscroll: m.hscroll, outside: m.outside })
