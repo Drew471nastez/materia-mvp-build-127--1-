@@ -576,6 +576,20 @@ html[data-theme-swap]::view-transition-new(root) {
   mix-blend-mode: normal;
   animation: none;
 }
+/*
+  The control that was pressed (lib/appearance/client.ts OWN_LAYER) is live on top of the still, with no picture of
+  its old state and no fade of its own: its knob slides and its colours ease on the element's own transitions.
+*/
+html[data-theme-swap]::view-transition-group(appearance-control) {
+  animation: none;
+}
+html[data-theme-swap]::view-transition-old(appearance-control) {
+  display: none;
+}
+html[data-theme-swap]::view-transition-new(appearance-control) {
+  mix-blend-mode: normal;
+  animation: none;
+}
 @keyframes sl-theme-out {
   to {
     opacity: 0;

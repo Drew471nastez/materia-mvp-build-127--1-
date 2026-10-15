@@ -232,13 +232,27 @@ html[data-theme-swap]::view-transition-new(root) {
   mix-blend-mode: normal;
   animation: none;
 }
+/*
+  The control that was pressed (lib/appearance/client.ts OWN_LAYER) is live on top of the still, with no picture of
+  its old state and no fade of its own: its knob slides and its colours ease on the element's own transitions.
+*/
+html[data-theme-swap]::view-transition-group(appearance-control) {
+  animation: none;
+}
+html[data-theme-swap]::view-transition-old(appearance-control) {
+  display: none;
+}
+html[data-theme-swap]::view-transition-new(appearance-control) {
+  mix-blend-mode: normal;
+  animation: none;
+}
 @keyframes sl-theme-out {
   to {
     opacity: 0;
   }
 }
 
-/* ── Every colour class the buyer pages use, 771 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 768 of them ─────────────── */
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d3d6db\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d4d7dd\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:border-white::-webkit-scrollbar-thumb { border-color: rgba(255,255,255,0.07); }
@@ -312,7 +326,6 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/85 { background-color: rgba(45,45,51,0.85); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/95 { background-color: rgba(45,45,51,0.95); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1f2230\] { background-color: #2d2d33; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#3a3a42\] { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#c7cbd1\] { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d1d5db\] { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d4d4d8\] { background-color: #3a3a41; }
@@ -321,7 +334,6 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e0e7ff\] { background-color: hsla(226,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e1e3e7\] { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e2e4e8\] { background-color: #26262b; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e3e5e9\] { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e3f5e9\] { background-color: hsla(140,47%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e4e5e9\] { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e4e6ea\] { background-color: #26262b; }
@@ -336,7 +348,6 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e9ebef\] { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e9f6ef\] { background-color: hsla(148,42%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ebecef\] { background-color: #26262b; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ececee\] { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#eceef1\] { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#eceef2\] { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ecfdf3\] { background-color: hsla(145,60%,50%,0.16); }

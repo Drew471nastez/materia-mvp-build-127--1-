@@ -47,8 +47,18 @@ export const SWITCH_MS = 220
   over the new page on the compositor (a View Transition). Nothing per element, nothing that waits for React. Where a
   browser has no View Transitions, or motion is reduced, the new look is simply there on the next frame.
 */
+/*
+  THE CONTROL THAT WAS PRESSED IS NOT IN THE STILL (the owner: the switch's circle glitches turning on and off, in the
+  phone's sheet and in the menu). The still is the whole page, the switch with it, and it lay on top: for 220ms the
+  knob stood frozen at its old end while the live knob slid underneath, then the still faded off a knob already most
+  of the way across. A ghost at one end, a jump to the other. The pressed control is now a layer of its own for the
+  length of the swap (a view-transition-name on that one element, so two switches never share a name): no still of
+  it, only the live element on top, whose knob slides on its own transition and whose colours ease with it.
+*/
+const OWN_LAYER = "appearance-control"
+
 type ViewTransitionDoc = Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } }
-function swap(apply: () => void) {
+function swap(apply: () => void, own?: HTMLElement | null) {
   const doc = document as ViewTransitionDoc
   const html = document.documentElement
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -59,13 +69,18 @@ function swap(apply: () => void) {
     return
   }
   html.setAttribute("data-theme-swap", "")
+  own?.style.setProperty("view-transition-name", OWN_LAYER)
+  const done = () => {
+    html.removeAttribute("data-theme-swap")
+    own?.style.removeProperty("view-transition-name")
+  }
   try {
     const vt = doc.startViewTransition(() => {
       apply()
     })
-    vt.finished.finally(() => html.removeAttribute("data-theme-swap"))
+    vt.finished.finally(done)
   } catch {
-    html.removeAttribute("data-theme-swap")
+    done()
     apply()
   }
 }
@@ -85,9 +100,12 @@ function store(next: Appearance) {
   })
 }
 
-/** The person chose: this browser at once, their account behind it (a failed save keeps the browser's copy). */
-export function chooseAppearance(next: Appearance) {
-  swap(() => store(next))
+/**
+ * The person chose: this browser at once, their account behind it (a failed save keeps the browser's copy).
+ * `own` is the control they pressed (the switch, the sun and moon): it moves live through the swap, never as a still.
+ */
+export function chooseAppearance(next: Appearance, own?: HTMLElement | null) {
+  swap(() => store(next), own)
   void fetch("/api/account/appearance", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

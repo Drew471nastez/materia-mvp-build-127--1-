@@ -70,7 +70,8 @@ async function main() {
   check("the account keeps it in the person's own metadata, written with their own session", /supabase\.auth\.updateUser\(\{ data: \{ storelib_appearance: body\.appearance \} \}\)/.test(route) && !/createAdminClient/.test(route))
   check("only light or dark is accepted", /if \(!isAppearance\(body\.appearance\)\)/.test(route))
   const client = read("lib/appearance/client.ts")
-  check("a choice is this browser's at once, the account's behind it", /swap\(\(\) => store\(next\)\)\s*void fetch\("\/api\/account\/appearance", \{\s*method: "PUT"/.test(client))
+  /* Changed on purpose: swap also takes the control that was pressed, which moves live through the fade. */
+  check("a choice is this browser's at once, the account's behind it", /swap\(\(\) => store\(next\), own\)\s*void fetch\("\/api\/account\/appearance", \{\s*method: "PUT"/.test(client))
   const root = read("components/platform/site-appearance.tsx")
   check("once per tab, the account's choice is read and taken when it differs", /sessionStorage\.getItem\(SYNCED\)/.test(root) && /adoptAccountAppearance\(d\?\.appearance\)/.test(root))
   check("the look is put on <html> in a layout effect on every move, so the dashboard is light on its first frame", /useLayoutEffect\(\(\) => paintAppearance\(pathname, choice, pageDefault\), \[pathname, choice, pageDefault\]\)/.test(root))
@@ -148,7 +149,10 @@ async function main() {
 
   check("a creator's page under /u/ keeps its own look", /data-own-look=""/.test(read("app/(marketing)/u/[username]/page.tsx")) && site.themedPath("/member/maya"))
   const sw = read("components/platform/appearance-switch.tsx")
-  check("pressed, the button and the knob give a little", /active:scale-\[0\.9\]/.test(sw) && /group-active\/appearance:scale-\[0\.85\]/.test(sw))
+  /* Changed on purpose: the knob no longer squeezes when pressed. A scale on top of the slide, inside a page that is
+     fading, read as the circle glitching; the knob now slides on translate alone, drawn by the shared switch. */
+  check("pressed, the button gives a little; the knob only slides, on the shared switch", /active:scale-\[0\.9\]/.test(sw) && !/group-active\/appearance:scale/.test(sw) && /switchKnob\(on\)/.test(sw) && /switchTrack\(on\)/.test(sw))
+  check("the pressed control is live through the swap, never part of the still", /own\?\.style\.setProperty\("view-transition-name", OWN_LAYER\)/.test(swapSrc) && /view-transition-old\(appearance-control\) \{\s*display: none;/.test(css) && /sw\.flip\(e\.currentTarget/.test(sw))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
