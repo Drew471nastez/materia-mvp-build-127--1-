@@ -4,6 +4,7 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
+import { detectLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
 import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, statusOf, translationMap } from "@/lib/markets/translate"
@@ -63,7 +64,10 @@ export async function GET(request: Request) {
     texts for all of them.
   */
   if (url.searchParams.get("summary") === "1") {
-    const items = (await siteTexts(c.db, c.creatorId)).flatMap((g) => g.items)
+    const groups = await siteTexts(c.db, c.creatorId)
+    const items = groups.flatMap((g) => g.items)
+    /* The language the website's own text is in (not the shop's built-in words, which are English): Settings says so when it is not the default. */
+    const writtenIn = detectLanguage(groups.filter((g) => !BUILT_IN_GROUPS.has(g.id)).flatMap((g) => g.items.map((t) => t.source)))
     const progress: Record<string, { done: number; draft: number; todo: number; total: number }> = {}
     await Promise.all(
       loc.languages.map(async (l) => {
@@ -78,7 +82,7 @@ export async function GET(request: Request) {
         progress[l.code] = row
       }),
     )
-    return physicalJson({ ready, progress })
+    return physicalJson({ ready, progress, writtenIn })
   }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
   const [groups, saved] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])

@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs"
 import { join as joinPath } from "node:path"
 import { cut, join, wordsOf } from "../lib/markets/translate-segments"
 import { keepsFixedParts } from "../lib/markets/draft-check"
+import { detectLanguage } from "../lib/markets/detect-language"
 
 let passed = 0
 let failed = 0
@@ -225,6 +226,19 @@ async function main() {
   const jobs = read("lib/markets/translation-jobs.ts")
   check("a job whose translators are all out of allowance waits and carries on, not failed", /r\.status === 429 && Date\.now\(\) - Date\.parse\(row\.started_at\) < WAIT_LIMIT_MS/.test(jobs) && /rounds: rounds - 1, lease_until: new Date\(Date\.now\(\) \+ WAIT_MS\)/.test(jobs))
   check("and the press says busy as 429", /status: busy \? 429 : 503/.test(read("lib/markets/translation-press.ts")))
+  console.log("\nThe website's own language, and translations that go live")
+  const en = ["Shop the new summer collection", "Free shipping on all orders over 200 lei", "Our linen shirts are made by hand in Lisbon", "Join the club and get 10% off your first order", "Add to cart", "About us", "Contact us for more information about our products", "We ship to all of Europe in two days"]
+  const fr = ["Découvrez la nouvelle collection d'été", "Livraison gratuite pour toutes les commandes de plus de 200 lei", "Nos chemises en lin sont faites à la main à Lisbonne", "Rejoignez le club et obtenez 10% sur votre première commande", "Ajouter au panier", "À propos de nous", "Contactez-nous pour plus d'informations sur nos produits", "Nous livrons dans toute l'Europe en deux jours"]
+  check("an English website reads as English", detectLanguage(en) === "en", String(detectLanguage(en)))
+  check("a French one as French", detectLanguage(fr) === "fr", String(detectLanguage(fr)))
+  check("a handful of words says nothing", detectLanguage(["Shop", "Home"]) === null)
+  check("Settings offers to make the written language the default", /data-fix-default-language/.test(read("components/app/settings/markets-panel.tsx")) && /writtenIn = detectLanguage\(/.test(read("app/api/store/translations/route.ts")))
+  check("an automatic translation is saved live, not a draft", /approved: true, ai: true/.test(read("lib/markets/translation-press.ts")))
+  check("drafts from before are put live by the next run", /const waiting = all\.filter\(\(t\) => map\.get\(t\.key\)\?\.source === "ai"/.test(read("lib/markets/translation-press.ts")))
+  check("a write never touches one key twice (Postgres refused the whole save)", /ONE ROW PER KEY/.test(read("lib/markets/server.ts")))
+  check("a finished language is published by itself", /if \(finished \|\| stuck\) await publishLanguage\(db, creatorId, locale\)/.test(jobs))
+  check("a stalled job is picked up by the next progress read, cron or not", /const idle = await idleJobs\(c\.db, c\.creatorId\)/.test(read("app/api/store/translations/jobs/route.ts")))
+  check("the press shows Translating at once, before the server answers", /starting\.add\(locale\)/.test(read("components/app/settings/translation-jobs-store.ts")))
   check("memory is kept for good (part 178)", /translation_memory/.test(read("supabase/sql/run-now/178_translation_memory.sql")))
 
   server.close()

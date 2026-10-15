@@ -161,7 +161,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   React.useEffect(() => {
     if (wasRunning.current && !jobRunning && locale) {
       void load(locale)
-      setNote(job?.status === "done" ? (job.error ? job.error : job.drafted ? tt("{total} drafted. Read them, then approve.", { total: job.drafted }) : tt("Nothing left to draft.")) : null)
+      setNote(job?.status === "done" ? (job.error ? job.error : job.drafted ? tt("{total} translated and live on your website.", { total: job.drafted }) : tt("Everything is translated.")) : null)
       if (job?.status === "failed" && job.error) setError(job.error)
     }
     wasRunning.current = jobRunning
@@ -202,7 +202,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     }
     await load(locale)
     setBusy(null)
-    setNote(total ? tt("{total} drafted. Read them, then approve.", { total }) : tt("Nothing left to draft."))
+    setNote(total ? tt("{total} translated and live on your website.", { total }) : tt("Everything is translated."))
   }
 
   const name = locale ? languageName(locale, activeLocale()) : ""

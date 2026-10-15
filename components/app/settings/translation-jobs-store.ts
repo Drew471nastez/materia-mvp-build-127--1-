@@ -37,6 +37,8 @@ let state: State = { ready: null, jobs: {} }
 const listeners = new Set<() => void>()
 let timer: number | null = null
 let reading: Promise<void> | null = null
+/* Languages whose start is on its way: a read in between keeps their "Translating" rather than blinking it off. */
+const starting = new Set<string>()
 
 function set(next: State) {
   state = next
@@ -65,7 +67,8 @@ export function readJobs(): Promise<void> {
     const r = await api<{ ready: boolean; jobs: Record<string, TranslationJob> }>("/api/store/translations/jobs")
     if (r.ok) {
       /* An answer without jobs (an older server, a stub) is read as none. */
-      const jobs = r.data.jobs && typeof r.data.jobs === "object" ? r.data.jobs : {}
+      const jobs = { ...(r.data.jobs && typeof r.data.jobs === "object" ? r.data.jobs : {}) }
+      for (const l of starting) if (jobs[l]?.status !== "running" && state.jobs[l]) jobs[l] = state.jobs[l]
       const ready = r.data.ready !== false
       const same = JSON.stringify(jobs) === JSON.stringify(state.jobs) && ready === state.ready
       if (!same) set({ ready, jobs })
@@ -81,7 +84,24 @@ export type StartAnswer = { ok: true; job: TranslationJob } | { ok: false; error
 
 /** Starts translating a language in the background, or joins the job already running for it. */
 export async function startTranslation(locale: string): Promise<StartAnswer> {
-  const r = await api<{ ready: boolean; job?: TranslationJob }>("/api/store/translations/jobs", { method: "POST", body: { locale } })
+  /*
+    AT ONCE. The press shows "Translating" in the same frame, before the
+    server has answered (it reads the website's texts first, two or three
+    seconds on a large one, during which the button used to look dead).
+    The server's job replaces it, or a refusal takes it away again.
+  */
+  const before = state.jobs[locale]
+  starting.add(locale)
+  const now = new Date().toISOString()
+  set({ ready: state.ready, jobs: { ...state.jobs, [locale]: { locale, status: "running", done: before?.done ?? 0, total: before?.total ?? 0, drafted: 0, error: null, startedAt: now, updatedAt: now } } })
+  const undo = () => {
+    const jobs = { ...state.jobs }
+    if (before) jobs[locale] = before
+    else delete jobs[locale]
+    set({ ...state, jobs })
+  }
+  const r = await api<{ ready: boolean; job?: TranslationJob }>("/api/store/translations/jobs", { method: "POST", body: { locale } }).finally(() => starting.delete(locale))
+  if (!r.ok) undo()
   if (!r.ok) {
     /* No jobs table yet (SQL part 177): the caller presses round by round. */
     if ((r as { data?: { ready?: unknown } }).data?.ready === false) {
@@ -90,7 +110,10 @@ export async function startTranslation(locale: string): Promise<StartAnswer> {
     }
     return { ok: false, error: r.error }
   }
-  if (!r.data.ready || !r.data.job) return { ok: false, fallback: true }
+  if (!r.data.ready || !r.data.job) {
+    undo()
+    return { ok: false, fallback: true }
+  }
   set({ ready: true, jobs: { ...state.jobs, [locale]: r.data.job } })
   return { ok: true, job: r.data.job }
 }

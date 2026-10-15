@@ -250,6 +250,18 @@ export async function saveTranslations(
     }
     upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value, source_hash: sourceHash(source), status: raw.approved === false ? "draft" : "approved", source: raw.ai ? "ai" : "manual", updated_by: userId, updated_at: now })
   }
+  /*
+    ONE ROW PER KEY. The same text can come in twice in one write (a header
+    or footer read on more than one page, a product in two collections), and
+    Postgres refuses an upsert that touches a row twice ("cannot affect row a
+    second time"): the whole write failed with "Could not save the
+    translations". The last one wins.
+  */
+  for (let i = upserts.length - 1, seen = new Set<string>(); i >= 0; i--) {
+    const k = upserts[i].key as string
+    if (seen.has(k)) upserts.splice(i, 1)
+    else seen.add(k)
+  }
   if (upserts.length && opts.keepManual) {
     const { data: theirs } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", upserts.map((u) => u.key as string))
     const kept = new Set(((theirs ?? []) as { key: string }[]).map((r) => r.key))
@@ -257,7 +269,10 @@ export async function saveTranslations(
   }
   if (upserts.length) {
     const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })
-    if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
+    if (error) {
+      console.error(`[translations] save ${lang}: ${error.code ?? ""} ${String(error.message ?? "").slice(0, 200)}`)
+      return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
+    }
   }
   if (removals.length) {
     const { error } = await db.from("site_translations").delete().eq("creator_id", creatorId).eq("locale", lang).in("key", removals)

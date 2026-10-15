@@ -36,7 +36,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { cn } from "@/lib/utils"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, Pill, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { REGIONS } from "@/lib/markets/regions"
-import { SITE_LANGUAGE_CODES, languageFlag, languageName } from "@/lib/markets/locales"
+import { SITE_LANGUAGE_CODES, baseLanguage, languageFlag, languageName } from "@/lib/markets/locales"
 import { CountryFlag } from "./country-picker"
 import type { Localization, Market } from "@/lib/markets/model"
 import { isEnglish } from "@/lib/markets/translate"
@@ -120,9 +120,14 @@ export function MarketsPanel() {
   /* A translation running now, by language: how far it is, or why it stopped. */
   const [drafting, setDrafting] = React.useState<Record<string, { state: "running"; done: number; total: number } | { state: "error"; message: string }>>({})
 
+  /* The language the website's text is actually written in (lib/markets/detect-language.ts), when it can be told. */
+  const [writtenIn, setWrittenIn] = React.useState<string | null>(null)
   const loadProgress = React.useCallback(async () => {
-    const r = await api<{ progress: Record<string, { done: number; draft: number; todo: number; total: number }> }>("/api/store/translations?summary=1")
-    if (r.ok) setProgress(r.data.progress)
+    const r = await api<{ progress: Record<string, { done: number; draft: number; todo: number; total: number }>; writtenIn?: string | null }>("/api/store/translations?summary=1")
+    if (r.ok) {
+      setProgress(r.data.progress)
+      setWrittenIn(r.data.writtenIn ?? null)
+    }
   }, [])
   React.useEffect(() => {
     void loadProgress()
@@ -262,6 +267,32 @@ export function MarketsPanel() {
         description={tt("Your website in more languages, each at its own address like /fr.")}
         action={status ? <span className="text-[12.5px] text-[#6b7280]" aria-live="polite" data-markets-status="">{status}</span> : null}
       >
+        {/*
+          WRITTEN IN ONE LANGUAGE, SET TO ANOTHER. A default of French on a
+          website written in English: "translating into French" reached only
+          the shop's own words, and adding the real languages was refused.
+          Said once, with the one press that puts it right; the old default
+          is kept as a language to translate into.
+        */}
+        {writtenIn && baseLanguage(writtenIn) !== baseLanguage(draft.defaultLanguage) ? (
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-[#fffbeb] px-3.5 py-3 text-[13px] leading-[19px] text-[#92400e]" data-language-mismatch={writtenIn}>
+            <span className="min-w-0 flex-1 basis-[240px]">
+              {tt("Your website's text is in {written}, but its default language is {current}.", { written: languageName(writtenIn, activeLocale()), current: languageName(draft.defaultLanguage, activeLocale()) })}
+            </span>
+            <button
+              type="button"
+              className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3")}
+              data-fix-default-language=""
+              onClick={() => {
+                const old = draft.defaultLanguage
+                const others = draft.languages.filter((l) => baseLanguage(l.code) !== baseLanguage(writtenIn))
+                commit({ ...draft, defaultLanguage: writtenIn, languages: others.some((l) => l.code === old) ? others : [...others, { code: old, published: false }] })
+              }}
+            >
+              {tt("Make {written} the default", { written: languageName(writtenIn, activeLocale()) })}
+            </button>
+          </div>
+        ) : null}
         <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-languages="">
           <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3" data-language-default={draft.defaultLanguage}>
             <LanguageBadge code={draft.defaultLanguage} />

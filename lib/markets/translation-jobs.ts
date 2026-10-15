@@ -22,7 +22,9 @@ import "server-only"
  * Without part 177 the page falls back to pressing round by round itself.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
+import { revalidateTag } from "next/cache"
 import { draftRound } from "./translation-press"
+import { localizationTag } from "./server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -128,6 +130,32 @@ async function claim(db: Db, creatorId: string, locale: string): Promise<Row | n
   return ((data ?? []) as Row[])[0] ?? null
 }
 
+/*
+  FINISHED, THEN LIVE. A language translated to the end goes on the website
+  by itself (the owner: "it said everything was translated, and I cannot see
+  any of it": the language was still hidden). Unpublish stays in its menu.
+*/
+async function publishLanguage(db: Db, creatorId: string, locale: string): Promise<void> {
+  try {
+    const { data } = await db.from("store_localization").select("languages").eq("creator_id", creatorId).maybeSingle()
+    const langs = (data as { languages?: unknown } | null)?.languages
+    if (!Array.isArray(langs)) return
+    let changed = false
+    const next = langs.map((l: { code?: unknown; published?: unknown }) => {
+      if (l && l.code === locale && l.published !== true) {
+        changed = true
+        return { ...l, published: true }
+      }
+      return l
+    })
+    if (!changed) return
+    await db.from("store_localization").update({ languages: next, updated_at: new Date().toISOString() }).eq("creator_id", creatorId)
+    revalidateTag(localizationTag(creatorId), { expire: 0 })
+  } catch {
+    /* The language stays as it was; Publish is one press in Settings. */
+  }
+}
+
 async function write(db: Db, creatorId: string, locale: string, patch: Partial<Row>): Promise<void> {
   await db.from("store_translation_jobs").update({ ...patch, updated_at: new Date().toISOString() }).eq("creator_id", creatorId).eq("locale", locale)
 }
@@ -178,6 +206,7 @@ export async function runJob(db: Db, creatorId: string, locale: string, deadline
             ? { status: "failed", error: "Paused after a long run. Press Translate again to carry on.", lease_until: null }
             : /* Going again: a waiting note from before is cleared. */ { error: null, lease_until: new Date(Date.now() + LEASE_MS).toISOString() }),
     })
+    if (finished || stuck) await publishLanguage(db, creatorId, locale)
     if (finished || stuck || capped) return { more: false }
   }
   /* Out of time with work left: let go, so the next run (asked for now, or the cron's) takes it straight away. */
@@ -201,6 +230,14 @@ export async function continueJobs(deadlineAt: number, only?: { creatorId: strin
     if (r.more) break
   }
   return { ran }
+}
+
+/** This store's running jobs that nobody is working on now (a run cut off, or let go for the next): picked up by whoever looks. */
+export async function idleJobs(db: Db, creatorId: string): Promise<string[]> {
+  const { data, error } = await db.from("store_translation_jobs").select("locale, lease_until").eq("creator_id", creatorId).eq("status", "running")
+  if (error) return []
+  const now = Date.now()
+  return ((data ?? []) as { locale: string; lease_until: string | null }[]).filter((r) => !r.lease_until || Date.parse(r.lease_until) < now).map((r) => r.locale)
 }
 
 /** Asks for the next run of a job now, rather than at the cron's next minute. Best effort: the cron is the net. */
