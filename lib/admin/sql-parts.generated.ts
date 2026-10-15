@@ -142,4 +142,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "176", file: "176_store_currency.sql", sha256: "5fb8d6d92a03988dde5a5d25abb4ba48386afbb000d9b854d8dd62645258a4ec" },
   { part: "177", file: "177_translation_jobs.sql", sha256: "18b0172c415ba12483c37e036aacc24d62831504f1716d509da7af07f36888ae" },
   { part: "178", file: "178_translation_memory.sql", sha256: "ed0097c2b24f1aba1a2479d6ec000d376159572fd3ffc7a9228d7d069bdd9e52" },
+  { part: "179", file: "179_cache_invalidation_pings.sql", sha256: "6782ec428c895abef8920e6daf39916bf42010018170c2e29d8c0325a2e6dddc" },
 ]
