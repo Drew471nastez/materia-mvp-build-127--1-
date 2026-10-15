@@ -22,70 +22,43 @@ The parts it contains:
 | 177 | Translation jobs in the background |
 | 178 | Translation memory, the permanent cache |
 
-## 2. Set the environment variables in Vercel
+## 2. Set up the translator (one key)
 
-Vercel → your project → Settings → Environment Variables. Add each one for
-Production (and Preview if you test there), then redeploy.
+**Recommended: Google Gemini.** Accurate (it translates whole sentences as
+shop copy, with their markup and placeholders kept), fast, and free to start:
+Gemini's free tier covers a lot of translating every day, and past it a whole
+website costs about a cent or two. Every sentence translated is kept for good
+in the translation memory (SQL part 178) and shared by every store, so the
+same sentence is never paid for twice and the cost falls as Storelib grows.
 
-| Name | Value | Why |
-| --- | --- | --- |
-| `CRON_SECRET` | any long random string, for example the output of `openssl rand -hex 32` | Vercel sends it to every scheduled job, and a translation that runs out of time uses it to start its next run straight away |
-| `LIBRETRANSLATE_URL` | the address of a LibreTranslate server, for example `https://translate.yourdomain.com` | the free, open source translator (option A below) |
-| `LIBRETRANSLATE_API_KEY` | only if that server asks for a key | |
-| `HF_TOKEN` | a Hugging Face access token, `hf_...` | open chat models (Llama, Qwen) through Hugging Face (option B below) |
-| `TRANSLATE_LLM_URL`, `TRANSLATE_LLM_MODEL`, `TRANSLATE_LLM_KEY` | any OpenAI-compatible host serving an open model, for example `https://api.groq.com/openai/v1` with `llama-3.3-70b-versatile` | option C below |
-| `MYMEMORY_EMAIL` | your email | raises the free fallback's daily allowance from 5,000 to 50,000 characters |
+1. Open https://aistudio.google.com/apikey and press **Create API key**.
+2. Vercel → your project → Settings → Environment Variables: add
+   `GEMINI_API_KEY` with that key, for Production.
+3. Redeploy.
 
-Translators are tried in this order: LibreTranslate, your own model host,
-Hugging Face, then MyMemory. MyMemory is free, needs no key and is always the
-last resort, so translating works before anything is set up; its daily
-allowance runs out on a large website. `TRANSLATE_FREE_FALLBACK=off` turns it
-off. `OPENAI_API_KEY` is used only when every free translator is off.
+When the free daily allowance runs out, a translation waits and carries on by
+itself a few minutes later (the cron below), instead of failing. Enable
+billing on the Google Cloud project for no daily limit at all.
 
-When a translation fails, the Languages page now says which translator
-refused and what it answered (for example "Hugging Face refused the key
-(HTTP 401)"), so the fix is the one it names.
+**Also good, as a backup: DeepL.** Very accurate, 500,000 characters a month
+free. Create a free account at https://www.deepl.com/pro-api and add
+`DEEPL_API_KEY`. With both keys, Gemini goes first and DeepL takes over
+whatever Gemini cannot do.
 
-### Option A: LibreTranslate on your own server (recommended)
+Other choices, used in this order after those two when set:
 
-Free and open source (Argos Translate models). It needs a small server with
-about 2 to 4 GB of memory, for example a Hetzner, DigitalOcean or Railway box.
+| Name | Value |
+| --- | --- |
+| `TRANSLATE_LLM_URL`, `TRANSLATE_LLM_MODEL`, `TRANSLATE_LLM_KEY` | any OpenAI-compatible host with an open model (Groq, OpenRouter, a local Ollama) |
+| `LIBRETRANSLATE_URL`, `LIBRETRANSLATE_API_KEY` | your own LibreTranslate server |
+| `HF_TOKEN` | Hugging Face (its free credits are small) |
+| `MYMEMORY_EMAIL` | the keyless last resort's allowance, 50,000 characters a day |
 
-```bash
-docker run -d --restart unless-stopped -p 5000:5000 \
-  -e LT_LOAD_ONLY=en,es,fr,de,it,pt,ro,pl,nl \
-  libretranslate/libretranslate
-```
+`TRANSLATE_FREE_FALLBACK=off` turns the keyless last resort off. When a
+translation fails, Languages says which translator refused and what it said.
 
-`LT_LOAD_ONLY` keeps memory low: list the languages your stores use. Put it
-behind HTTPS (Caddy or the host's own proxy), then set `LIBRETRANSLATE_URL`
-to that address. To check it:
-
-```bash
-curl -s https://translate.yourdomain.com/translate \
-  -H 'Content-Type: application/json' \
-  -d '{"q":["Add to cart"],"source":"en","target":"fr","format":"text"}'
-```
-
-### Option B: Hugging Face
-
-1. Sign in at huggingface.co → Settings → Access Tokens → Create new token,
-   type "Read" (tick "Make calls to Inference Providers").
-2. Set `HF_TOKEN` to it.
-
-Storelib asks an open chat model through Hugging Face's router first
-(`meta-llama/Llama-3.3-70B-Instruct`, then Qwen 2.5 72B, then Llama 3.1 8B;
-`HF_CHAT_MODEL` picks others, comma separated), then the older translation
-models (opus-mt, NLLB 200) where Hugging Face still serves them. The free
-tier has a small monthly allowance; the translation memory (part 178) means
-each sentence is only ever sent once.
-
-### Option C: your own model host
-
-Any host with an OpenAI-compatible `/chat/completions` endpoint serving an
-open model works: Groq and OpenRouter have free tiers, Together is cheap, or
-run Ollama yourself (`TRANSLATE_LLM_URL=http://your-server:11434/v1`,
-`TRANSLATE_LLM_MODEL=llama3.1`, no key).
+Also add `CRON_SECRET` (any long random string, `openssl rand -hex 32`): it
+lets the background job carry on between runs.
 
 ## 3. The scheduled jobs (crons)
 

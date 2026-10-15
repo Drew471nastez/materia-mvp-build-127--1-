@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch"
 import { languageName } from "@/lib/markets/locales"
 import { activeLocale, tt } from "@/lib/i18n/text"
 import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
+import { TranslateBar, useRollingNumber } from "./translate-progress"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 interface Item {
@@ -207,6 +208,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   const name = locale ? languageName(locale, activeLocale()) : ""
   /* The bar: the running job's own count once its first round is in, else where the language stands. */
   const shown = jobRunning && job && job.total > 0 ? { done: job.done, total: job.total } : (data?.progress ?? { done: 0, total: 0 })
+  const rolled = useRollingNumber(shown.done)
   const shownGroups = (data?.groups ?? [])
     .map((g) => ({ ...g, items: g.items.filter((i) => filter === "all" || i.status !== "done" || i.key in edits) }))
     .filter((g) => g.items.length)
@@ -220,9 +222,10 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
           {onPublish ? (
-            <label className="mr-auto flex items-center gap-2 text-[13px] font-medium text-[#1a1a2e]" data-translate-publish="">
+            /* One label whatever the state: the switch says on or off, and the footer never changes width under the press (it flipped between "Publish" and "Live on your website", and the buttons beside it jumped). */
+            <label className="mr-auto flex min-h-[40px] cursor-pointer select-none items-center gap-2.5 whitespace-nowrap text-[13px] font-medium text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]" data-translate-publish="" data-published={published ? "true" : "false"}>
               <Switch checked={published} onCheckedChange={onPublish} aria-label={tt("Publish {name}", { name })} className="!min-h-0 shrink-0" />
-              {published ? tt("Live on your website") : tt("Publish")}
+              <span className={cn("transition-colors duration-200", published ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{tt("Live on your website")}</span>
             </label>
           ) : note ? (
             <span className="mr-auto text-[13px] text-[#4b5563]">{note}</span>
@@ -247,19 +250,16 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
               <div data-translate-progress={jobRunning ? "running" : ""} className={cn("rounded-xl px-4 py-3.5 transition-colors", jobRunning ? "bg-[#f5f3ff]" : "bg-[#f8f9fa]")}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[14px] font-semibold tabular-nums text-[#1a1a2e]">
-                    {jobRunning ? tt("Translating {done} of {total}", { done: shown.done, total: shown.total }) : tt("{done} of {total} translated", { done: shown.done, total: shown.total })}
+                    {jobRunning ? tt("Translating {done} of {total}", { done: rolled, total: shown.total }) : tt("{done} of {total} translated", { done: rolled, total: shown.total })}
                   </span>
-                  <span className="text-[13px] tabular-nums text-[#6b7280]">{shown.total ? `${Math.min(100, Math.round((shown.done / shown.total) * 100))}%` : ""}</span>
+                  <span className="text-[13px] tabular-nums text-[#6b7280]">{shown.total ? `${Math.min(100, Math.round((rolled / shown.total) * 100))}%` : ""}</span>
                 </div>
-                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white">
-                  <div
-                    className={cn("h-full rounded-full transition-[width] duration-700 ease-out", jobRunning ? "animate-pulse bg-[#8b5cf6]" : "bg-[#1a1a2e]")}
-                    style={{ width: `${shown.total ? Math.max(jobRunning ? 3 : 0, Math.min(100, Math.round((shown.done / shown.total) * 100))) : 3}%` }}
-                  />
-                </div>
+                <TranslateBar done={shown.done} total={shown.total} running={jobRunning} tone={jobRunning ? "violet" : "ink"} className="mt-2.5 bg-white" />
                 <p className="mt-2 text-[12.5px] text-[#6b7280]" aria-live="polite">
                   {jobRunning
-                    ? tt("Runs on Storelib's servers. You can close this or the tab.")
+                    ? job?.error && /^Waiting/.test(job.error)
+                      ? tt("Waiting for the translator's allowance. It carries on by itself.")
+                      : tt("Runs on Storelib's servers. You can close this or the tab.")
                     : tt("The rest shows in {name}", { name: languageName(locale === defaultLanguage ? "en" : defaultLanguage, activeLocale()) })}
                 </p>
               </div>

@@ -31,6 +31,10 @@ type Db = any
 const LEASE_MS = 330_000
 /** A job never runs more rounds than this (150 texts each): a very large website is finished by pressing again. */
 const MAX_ROUNDS = 40
+/** A job waiting for a translator's allowance is tried again after this long (the cron runs every three minutes). */
+const WAIT_MS = 4 * 60_000
+/** And stops waiting, and says why, after this long. */
+const WAIT_LIMIT_MS = 12 * 3_600_000
 /** One round's own window, as the press route's. */
 const ROUND_MS = 85_000
 
@@ -141,6 +145,16 @@ export async function runJob(db: Db, creatorId: string, locale: string, deadline
   while (Date.now() + 15_000 < deadlineAt) {
     const r = await draftRound(db, creatorId, locale, row.started_by, Math.min(deadlineAt - 10_000, Date.now() + ROUND_MS)).catch((e: unknown) => ({ ok: false as const, status: 500, error: e instanceof Error ? e.message.slice(0, 200) : "Translating stopped." }))
     rounds += 1
+    /*
+      OUT OF ALLOWANCE FOR NOW (429): every translator is busy or has used
+      its free allowance. The job waits and the cron picks it up again in a
+      few minutes, rather than failing and asking the merchant to press
+      again. After a long wait it stops and says why.
+    */
+    if (r.ok === false && r.status === 429 && Date.now() - Date.parse(row.started_at) < WAIT_LIMIT_MS) {
+      await write(db, creatorId, locale, { error: `Waiting for the translator's allowance. It carries on by itself. (${r.error.slice(0, 300)})`, rounds: rounds - 1, lease_until: new Date(Date.now() + WAIT_MS).toISOString() })
+      return { more: false }
+    }
     if (r.ok === false) {
       await write(db, creatorId, locale, { status: "failed", error: r.error.slice(0, 500), rounds, lease_until: null })
       return { more: false }
@@ -162,7 +176,7 @@ export async function runJob(db: Db, creatorId: string, locale: string, deadline
             { status: "done", error: `${r.left} ${r.left === 1 ? "text" : "texts"} couldn't be translated automatically. Write them in the list.`, lease_until: null }
           : capped
             ? { status: "failed", error: "Paused after a long run. Press Translate again to carry on.", lease_until: null }
-            : { lease_until: new Date(Date.now() + LEASE_MS).toISOString() }),
+            : /* Going again: a waiting note from before is cleared. */ { error: null, lease_until: new Date(Date.now() + LEASE_MS).toISOString() }),
     })
     if (finished || stuck || capped) return { more: false }
   }

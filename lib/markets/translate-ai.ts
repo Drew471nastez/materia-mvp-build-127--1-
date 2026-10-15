@@ -90,13 +90,13 @@ export async function draftTranslations(
    * kept rather than cut off by the function's own limit with nothing saved.
    */
   opts: { deadlineAt?: number; concurrency?: number } = {},
-): Promise<{ drafts: Map<string, string>; unavailable: boolean; reason?: string }> {
+): Promise<{ drafts: Map<string, string>; unavailable: boolean; reason?: string; busy?: boolean }> {
   const drafts = new Map<string, string>()
   /* FREE AND OPEN FIRST. LibreTranslate or Hugging Face when either is set up; the chat model below only when neither is. */
   if (canTranslateOpen()) {
     const got = await translateOpen(items.map((i) => i.source), from, to, { keep: [shopName], deadlineAt: opts.deadlineAt, concurrency: opts.concurrency })
     for (const [i, text] of got.out) if (keepsFixedParts(items[i].source, text)) drafts.set(items[i].key, text)
-    return { drafts, unavailable: got.unavailable !== null, ...(got.unavailable ? { reason: got.unavailable } : {}) }
+    return { drafts, unavailable: got.unavailable !== null, ...(got.unavailable ? { reason: got.unavailable } : {}), ...(got.busy ? { busy: true } : {}) }
   }
   if (!process.env.OPENAI_API_KEY) return { drafts, unavailable: true, reason: OPEN_NOT_SET_UP }
   if (Date.now() < pausedUntil) return { drafts, unavailable: true }
@@ -179,7 +179,7 @@ export async function draftReusing(
   to: string,
   shopName: string,
   opts: { deadlineAt?: number; concurrency?: number } = {},
-): Promise<{ drafts: Map<string, string>; unavailable: boolean; reused: number; reason?: string }> {
+): Promise<{ drafts: Map<string, string>; unavailable: boolean; reused: number; reason?: string; busy?: boolean }> {
   const known = reusableTranslations(rows)
   const reused = new Map<string, string>()
   const ask: DraftItem[] = []
@@ -196,12 +196,14 @@ export async function draftReusing(
   const drafts = new Map<string, string>()
   let unavailable = false
   let reason: string | undefined
+  let busy = false
   for (const g of groups) {
     const got = await draftTranslations(g.items, g.from, to, shopName, opts)
     for (const [k, v] of got.drafts) drafts.set(k, v)
     unavailable = unavailable || got.unavailable
     reason ??= got.reason
+    busy = busy || got.busy === true
   }
   for (const [k, v] of reused) drafts.set(k, v)
-  return { drafts, unavailable, reused: reused.size, ...(reason ? { reason } : {}) }
+  return { drafts, unavailable, reused: reused.size, ...(reason ? { reason } : {}), ...(busy ? { busy } : {}) }
 }

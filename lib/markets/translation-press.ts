@@ -56,8 +56,9 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft").length
   if (todo.length === 0) return { ok: true, drafted: 0, left: 0, done: counted(new Set()), total: all.length }
   /* One already translated under another key is reused (translate-ai.ts draftReusing); the rest go to Storelib AI. */
-  const { drafts, unavailable, reason } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, where.defaultLanguage, locale, store?.name || "the store", { deadlineAt })
-  if (unavailable && drafts.size === 0) return { ok: false, status: 503, error: reason ?? AI_UNAVAILABLE }
+  const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, where.defaultLanguage, locale, store?.name || "the store", { deadlineAt })
+  /* 429: every translator is out of allowance for now; the background job waits and carries on. */
+  if (unavailable && drafts.size === 0) return { ok: false, status: busy ? 429 : 503, error: reason ?? AI_UNAVAILABLE }
   const items = todo.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: false, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
   /* keepManual: one the merchant saved while this was drafting is read again just before the write and left alone. */
   const done = await saveTranslations(db, creatorId, locale, items, userId, { keepManual: true })
