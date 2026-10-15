@@ -72,7 +72,17 @@ export const PHYSICAL_SECTIONS = [
 export type PhysicalSection = (typeof PHYSICAL_SECTIONS)[number]
 
 const C = PHYSICAL_CATEGORY.slug
-const link = (slug: string, label: string) => `[${label}](/help/${C}/${slug})`
+/*
+  Currency and languages are in Settings for every store, physical commerce
+  on or not, so their articles live under Website builder, a topic every
+  store sees. Written here beside the guide they grew from.
+*/
+const SITE_WIDE = new Set(["country-and-currency", "sell-in-more-currencies", "translate-your-website", "edit-a-translation"])
+const SITE_WIDE_TOPIC = "website-builder"
+const topicOf = (slug: string) => (SITE_WIDE.has(slug) ? SITE_WIDE_TOPIC : C)
+const link = (slug: string, label: string) => `[${label}](/help/${topicOf(slug)}/${slug})`
+/** A related slug as seen from `topic`: "topic/slug" when it lives in the other one. */
+const relatedFrom = (topic: string, r: string) => (r.includes("/") || topicOf(r) === topic ? r : `${topicOf(r)}/${r}`)
 
 type ShotName = keyof typeof PHYSICAL_SHOTS
 /** A screenshot from public/help/physical/, at its real size, with its phone picture when there is one. */
@@ -2781,4 +2791,17 @@ const ARTICLES: Article[] = [
   },
 ]
 
-export const PHYSICAL_ARTICLES: HelpArticle[] = ARTICLES.map((a) => ({ updated: REVIEWED, ...a, category: C }))
+export const PHYSICAL_ARTICLES: HelpArticle[] = ARTICLES.filter((a) => !SITE_WIDE.has(a.slug)).map((a) => ({
+  updated: REVIEWED,
+  ...a,
+  category: C,
+  ...(a.related ? { related: a.related.map((r) => relatedFrom(C, r)) } : {}),
+}))
+
+/** Store currency, more currencies and languages: under Website builder, for every store. */
+export const SITE_WIDE_ARTICLES: HelpArticle[] = ARTICLES.filter((a) => SITE_WIDE.has(a.slug)).map(({ section: _section, ...a }) => ({
+  updated: REVIEWED,
+  ...a,
+  category: SITE_WIDE_TOPIC,
+  ...(a.related ? { related: a.related.map((r) => relatedFrom(SITE_WIDE_TOPIC, r)) } : {}),
+}))

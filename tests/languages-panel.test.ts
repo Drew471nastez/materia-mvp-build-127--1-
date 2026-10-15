@@ -64,7 +64,8 @@ check("the back address still decides when nothing was picked", pickCheckoutLang
 
 console.log("\nHow it works, and the guide")
 /* Changed on purpose: the one languages and currencies article is now Translate your website and Sell in more currencies (its old address sends people on, HELP_MOVED). */
-check("Languages and More currencies each link to their own guide", EXPLAINERS.languages.guide === "/help/physical-products/translate-your-website" && EXPLAINERS.markets.guide === "/help/physical-products/sell-in-more-currencies")
+/* Changed on purpose: the guides moved under Website builder, which every store sees (the Languages & Currency tab is every store's). */
+check("Languages and More currencies each link to their own guide", EXPLAINERS.languages.guide === "/help/website-builder/translate-your-website" && EXPLAINERS.markets.guide === "/help/website-builder/sell-in-more-currencies")
 /* Changed on purpose (overhaul): checkout charges the visitor's currency, the store's only for one it cannot charge. */
 check("Visitor currencies says checkout charges the visitor's currency", EXPLAINERS.markets.lines.some((l) => /Checkout charges the visitor's currency/.test(l)))
 
