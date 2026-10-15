@@ -6,7 +6,7 @@ import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
 import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { fileKindOf, formatFileSize, splitFileName } from "@/lib/receipts/rules"
 import type { LibraryFile } from "@/lib/library/library-view"
-import { PRIMARY, SECONDARY, SMALL } from "./library-ui"
+import { PRIMARY, ROW_ACTION, SMALL } from "./library-ui"
 import { cn } from "@/lib/utils"
 
 /**
@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils"
  * one download path (lib/downloads/download-file.ts), so it saves in a
  * browser, in the iPhone app and in the Android app alike, and counts up
  * while it does.
+ *
+ * Round 31: in a purchase row's list (tone "secondary") its Download is the
+ * row's calm secondary (library-ui.ts ROW_ACTION), never dimmed while it
+ * runs. On a phone the button is the arrow alone and keeps that width while
+ * it works: the spinner stays in it and the percent goes on the line under
+ * the name, so neither the name nor the button changes width as it counts.
  */
 export function LibraryFileRow({
   file,
@@ -62,10 +68,15 @@ export function LibraryFileRow({
         </span>
         <div className="min-w-0 flex-1">
           <p title={file.name} className="flex min-w-0 text-[14px] font-medium leading-5 text-[#1a1a2e]">
-            <span className="truncate">{head}</span>
+            <span className="overflow-hidden text-ellipsis whitespace-pre">{head}</span>
             {tail ? <span className="shrink-0 whitespace-pre">{tail}</span> : null}
           </p>
-          {size ? <p className="text-[12px] leading-4 tabular-nums text-[#8a919c]">{size}</p> : null}
+          {size || (busy && pct !== null) ? (
+            <p data-file-meta="" className="text-[12px] leading-4 tabular-nums text-[#6b7280]">
+              {size}
+              {busy && pct !== null ? <span className="sm:hidden">{size ? " · " : ""}{pct}%</span> : null}
+            </p>
+          ) : null}
           {note ? <p className="text-[12px] font-medium leading-4 text-[#6d28d9]">{note}</p> : null}
         </div>
         <button
@@ -75,12 +86,12 @@ export function LibraryFileRow({
           aria-busy={busy || undefined}
           aria-label={`Download ${file.name}`}
           data-file-download=""
-          className={cn(tone === "primary" ? PRIMARY : SECONDARY, SMALL, "min-w-[48px] px-2.5 tabular-nums sm:min-w-[112px] sm:px-3")}
+          className={cn(tone === "primary" ? cn(PRIMARY, SMALL) : ROW_ACTION, "w-12 px-0 tabular-nums sm:w-auto sm:min-w-[112px] sm:px-3")}
         >
           {busy ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-              {pct !== null ? `${pct}%` : <span className="hidden sm:inline">Preparing</span>}
+              <span className="hidden sm:inline">{pct !== null ? `${pct}%` : "Preparing"}</span>
             </>
           ) : done ? (
             <>

@@ -415,6 +415,26 @@ ${SCOPE} {
   --sl-line: ${L(P.line)};
   /* Round 30: a slim scrollbar's thumb (post-overlay.tsx SLIM_SCROLL), a graphite step, not the light grey. */
   --sl-scroll-thumb: ${P.thumb};
+  /*
+    Round 31, the owner: a library row's Download "too light, washed grey, especially in dark". The calm secondary
+    (components/library/library-ui.ts CALM, ROW_ACTION): a graphite surface two steps above the card, a hairline that
+    reads, a lit top edge and a shadow under it; lighter under a pointer, darker and pressed in under a finger.
+  */
+  --sl-btn2: #29292e;
+  --sl-btn2-hover: #313137;
+  --sl-btn2-press: #222226;
+  --sl-btn2-line: rgba(255,255,255,0.13);
+  --sl-btn2-line-hover: rgba(255,255,255,0.2);
+  --sl-btn2-ink: ${P.ink};
+  --sl-btn2-depth: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.45);
+  --sl-btn2-press-depth: inset 0 1px 2px rgba(0,0,0,0.5);
+  /* And a quiet destructive answer (the composer's Leave): a faint red ground, a red hairline, light red words. */
+  --sl-danger-soft: rgba(240,68,56,0.14);
+  --sl-danger-soft-hover: rgba(240,68,56,0.2);
+  --sl-danger-soft-press: rgba(240,68,56,0.26);
+  --sl-danger-line: rgba(249,112,102,0.38);
+  --sl-danger-line-hover: rgba(249,112,102,0.55);
+  --sl-danger-ink: #ffa198;
 }
 [data-community-theme="dark"] {
   background-color: ${P.page};

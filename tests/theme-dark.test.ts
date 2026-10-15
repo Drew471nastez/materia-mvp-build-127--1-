@@ -150,6 +150,19 @@ async function main() {
   const sw = read("components/platform/appearance-switch.tsx")
   check("pressed, the button and the knob give a little", /active:scale-\[0\.9\]/.test(sw) && /group-active\/appearance:scale-\[0\.85\]/.test(sw))
 
+  /*
+    Changed on purpose (round 31): a library row's Download was "too light, washed grey, especially in dark". Its calm
+    secondary and the composer's Leave carry their colours as variables, and the dark look sets its own for them here
+    (measured in scripts/check-library-round31.mjs: words 12.3:1, ground 1.22:1 and edge 1.47:1 on the dark card).
+  */
+  section("A row's calm secondary and a quiet Leave (round 31)")
+  const ui = read("components/library/library-ui.ts")
+  check("the row's button reads its colours from --sl-btn2-*, white on a real hairline in the light look", /bg-\[var\(--sl-btn2,#ffffff\)\]/.test(ui) && /border-\[color:var\(--sl-btn2-line,#cfd4dc\)\]/.test(ui) && /text-\[color:var\(--sl-btn2-ink,#1a1a2e\)\]/.test(ui))
+  check("the dark look gives it a graphite surface above the card, a hairline that reads, and its own hover and press", /--sl-btn2: #29292e;/.test(css) && /--sl-btn2-hover: #313137;/.test(css) && /--sl-btn2-press: #222226;/.test(css) && /--sl-btn2-line: rgba\(255,255,255,0\.13\);/.test(css) && /--sl-btn2-ink: #ececee;/.test(css))
+  check("and Leave a faint red ground, a red hairline and light red words", /--sl-danger-soft: rgba\(240,68,56,0\.14\);/.test(css) && /--sl-danger-ink: #ffa198;/.test(css) && /bg-\[var\(--sl-danger-soft,#fef3f2\)\]/.test(read("components/community/member/composer.tsx")))
+  check("the leave dialog's scrim is an rgba the dark look leaves alone, not a hex it turns into a grey haze", /bg-\[rgba\(15,17,21,0\.4\)\]/.test(read("components/community/member/composer.tsx")) && !/bg-\[#0f1115\]\/40/.test(read("components/community/member/composer.tsx")))
+  check("the app's download bar is ink on its track in both looks", /bg-\[var\(--sl-course-ink,#1a1a2e\)\]/.test(read("components/downloads/download-tray.tsx")) && /bg-\[var\(--sl-course-track,#eef0f3\)\]/.test(read("components/downloads/download-tray.tsx")))
+
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
 }

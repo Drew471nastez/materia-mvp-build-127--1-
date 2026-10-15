@@ -71,6 +71,26 @@ html[data-sl-dark] body {
   --sl-line: rgba(255,255,255,0.07);
   /* Round 30: a slim scrollbar's thumb (post-overlay.tsx SLIM_SCROLL), a graphite step, not the light grey. */
   --sl-scroll-thumb: #3a3a41;
+  /*
+    Round 31, the owner: a library row's Download "too light, washed grey, especially in dark". The calm secondary
+    (components/library/library-ui.ts CALM, ROW_ACTION): a graphite surface two steps above the card, a hairline that
+    reads, a lit top edge and a shadow under it; lighter under a pointer, darker and pressed in under a finger.
+  */
+  --sl-btn2: #29292e;
+  --sl-btn2-hover: #313137;
+  --sl-btn2-press: #222226;
+  --sl-btn2-line: rgba(255,255,255,0.13);
+  --sl-btn2-line-hover: rgba(255,255,255,0.2);
+  --sl-btn2-ink: #ececee;
+  --sl-btn2-depth: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.45);
+  --sl-btn2-press-depth: inset 0 1px 2px rgba(0,0,0,0.5);
+  /* And a quiet destructive answer (the composer's Leave): a faint red ground, a red hairline, light red words. */
+  --sl-danger-soft: rgba(240,68,56,0.14);
+  --sl-danger-soft-hover: rgba(240,68,56,0.2);
+  --sl-danger-soft-press: rgba(240,68,56,0.26);
+  --sl-danger-line: rgba(249,112,102,0.38);
+  --sl-danger-line-hover: rgba(249,112,102,0.55);
+  --sl-danger-ink: #ffa198;
 }
 [data-community-theme="dark"] {
   background-color: #111113;
@@ -238,7 +258,7 @@ html[data-theme-swap]::view-transition-new(root) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 775 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 773 of them ─────────────── */
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d3d6db\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:bg-\[\#d4d7dd\]::-webkit-scrollbar-thumb { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\&\:\:-webkit-scrollbar-thumb\]\:border-white::-webkit-scrollbar-thumb { border-color: rgba(255,255,255,0.07); }
@@ -297,7 +317,6 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f0f14\] { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f0f17\] { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/35 { background-color: rgba(45,45,51,0.35); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/40 { background-color: rgba(45,45,51,0.4); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/45 { background-color: rgba(45,45,51,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/60 { background-color: rgba(45,45,51,0.6); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111\] { background-color: #2d2d33; }
@@ -306,7 +325,6 @@ html[data-theme-swap]::view-transition-new(root) {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#18181b\] { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\] { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/35 { background-color: rgba(45,45,51,0.35); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/40 { background-color: rgba(45,45,51,0.4); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/45 { background-color: rgba(45,45,51,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/75 { background-color: rgba(45,45,51,0.75); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/80 { background-color: rgba(45,45,51,0.8); }
