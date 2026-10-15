@@ -70,9 +70,12 @@ function main() {
   check("drawn again with no ask (a refresh after a save) keeps it", !sectionRestarts("new", "") && !sectionRestarts("", "") && !sectionRestarts("invite", "invite"))
 
   const shell = code("components/community/creator/community-shell.tsx")
-  check("a held section moves the address with pushState, the router is not asked", /window\.history\.pushState\(null, "", tab\.href\)/.test(shell) && /if \(move === "fetch"\) return\s+e\.preventDefault\(\)/.test(shell))
-  check("sections are kept as blocks not displayed, not under <Activity> (their effects stay)", /data-section-kept="" hidden=\{active !== id\}/.test(shell) && !/<Activity/.test(shell))
-  check("the router drawing a held section again updates it in place", /if \(keptRef\.current\.includes\(id\)\) held\(\)/.test(shell))
+  /* Changed on purpose (round 32): a section never opened shows its frame on the press (show(id)) while the link goes on to the router. */
+  check("a held section moves the address with pushState, the router is not asked", /window\.history\.pushState\(null, "", tab\.href\)/.test(shell) && /if \(move === "fetch"\) \{\s+fetching\.current = \{ id, at: Date\.now\(\) \}\s+show\(id\)\s+return\s+\}\s+e\.preventDefault\(\)/.test(shell))
+  /* Changed on purpose (round 32): hidden by the section on screen (`shown`: the one pressed, or the one a link inside a section is opening). */
+  check("sections are kept as blocks not displayed, not under <Activity> (their effects stay)", /data-section-kept="" hidden=\{shown !== id\}/.test(shell) && !/<Activity/.test(shell))
+  /* Changed on purpose (round 32): drawn again in a transition, so a section streamed under Suspense keeps what it shows until its new reads are in. */
+  check("the router drawing a held section again updates it in place", /if \(keptRef\.current\.includes\(id\)\) React\.startTransition\(\(\) => held\(\)\)/.test(shell))
   check("Back and Forward follow the address", /window\.addEventListener\("popstate", onPop\)/.test(shell) && /show\(id, \{ traversal: true \}\)/.test(shell))
   check("the sections not opened are read ahead, never on Save-Data or 2G", /readAheadAllowed\(connectionFacts\(\)\)/.test(shell) && /prefetchAppPage\(router, t\.href\)/.test(shell))
   check("the arrival starts from 55%, never an empty frame", /SECTION_ARRIVE_FROM = 0\.55/.test(shell) && /prefers-reduced-motion: reduce/.test(shell))

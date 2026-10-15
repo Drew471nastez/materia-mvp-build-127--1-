@@ -11,6 +11,7 @@ import {
   markTraversal,
   NAV_BAR_AFTER_MS,
   routerStartCount,
+  sameStageFrame,
   spinnerDelay,
   takeTraversal,
   useAppNavigation,
@@ -121,6 +122,13 @@ export function NavigationLoadingBar() {
      gets the bar. */
   useEffect(() => {
     if (!nav) return
+    /*
+      ANOTHER SECTION OF THE COMMUNITY OPEN (round 32, the owner: "the reloading bar above the charts"). Its shell keeps the
+      header and the tabs, lights the tab on the press and shows the section's frame in its place while the router brings
+      it (components/community/creator/community-shell.tsx). A bar over the header on top of that is a second answer to
+      the same press, and it read as the whole page reloading.
+    */
+    if (nav.href && sameStageFrame(window.location.pathname, nav.href)) return
     if (isPhoneShell() && spinnerDelay(nav.href, true) !== null) {
       /* A bar still finishing the last navigation (the editor's, say) goes
          now rather than running again under the spinner. */

@@ -89,7 +89,7 @@ import type {
 } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
 import { createCommunity } from "./create"
-import { loadCommunity, viewerContext, type Viewer } from "./context"
+import { loadCommunity, type Viewer } from "./context"
 import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { awardPoints } from "./points"
 import { notifyEventChanged, queueJob } from "./notify"
@@ -161,17 +161,65 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
-  const db = admin()
-  /* Who is asking and which community, at once: two answers that do not wait on each other. */
-  const [creator, community] = await Promise.all([creatorForRequest(user.id), loadCommunity(db, key)])
-  if (!creator) return null
-  if (!community) return null
-  const viewer = await viewerContext(db, community, user.id)
-  const ownsIt = community.creator_id === creator.id || community.owner_user_id === user.id
-  const role: Role | null = ownsIt ? "owner" : viewer.role
-  if (!role || role === "member") return null
+  return staffContext(admin(), key, user.id, creatorForRequest(user.id))
+})
+
+/** The creator row as lib/auth/request-scope.ts reads it: the columns the gate needs. */
+type PageCreator = { id: string; display_name?: string | null; username?: string | null; slug?: string | null; stripe_account_id?: string | null; stripe_onboarding_status?: string | null; charges_enabled?: boolean | null }
+
+/**
+ * WHO IS ASKING, IN AS FEW ROUNDS AS THE ANSWER ALLOWS (round 32). Every
+ * section page starts here, so its rounds are paid on every first visit of
+ * every section. It used to ask viewerContext (./context.ts), the member
+ * side's question: it reconciles paid access, looks up the creator account
+ * and the products the person owns, and only then the owner's role choices:
+ * five reads one after another for the owner, nine for an admin
+ * (scripts/measure-community-admin-server.mjs). A staff page needs the role
+ * and, for an admin or a moderator, what the owner lets them do. So:
+ *
+ *   round 1   the creator row and the community, at once
+ *   owner     done: the role is the ownership. Their own member row, made
+ *             again if it was ever lost, is checked beside the section's
+ *             reads instead of before them.
+ *   staff     round 2: their member row and the owner's role choices, at
+ *             once
+ *
+ * Every write still goes through requireCreatorCommunity, which asks
+ * viewerContext and reconciles, so nothing a route decides rests on this.
+ */
+export async function staffContext(db: Db, key: { id: string } | { slug: string }, userId: string, creatorRead: Promise<PageCreator | null>): Promise<CreatorPageContext | null> {
+  const [creator, community] = await Promise.all([creatorRead, loadCommunity(db, key)])
+  if (!creator || !community) return null
+  const ownsIt = community.creator_id === creator.id || community.owner_user_id === userId
+  let member: MemberRow | null = null
+  let perms: RolePermissions | null = null
+  if (ownsIt) {
+    if (community.owner_user_id === userId) void keepOwnerRow(db, community.id, userId)
+  } else {
+    const [row, choices] = await Promise.all([memberOf(db, community.id, userId), rolePermissionsOf(db, community.id)])
+    if (row?.status !== "active" || !row.role || row.role === "member") return null
+    member = row
+    perms = row.role === "admin" || row.role === "moderator" ? choices.perms : null
+  }
+  const role: Role = ownsIt ? "owner" : (member as MemberRow).role
+  const viewer: Viewer = {
+    userId,
+    member,
+    role: member?.role ?? "owner",
+    active: true,
+    status: member?.status ?? "active",
+    tierId: member?.tier_id ?? null,
+    ownedProductIds: [],
+    level: member?.level ?? 1,
+    points: member?.points ?? 0,
+    isOwner: community.owner_user_id === userId,
+    isCreatorAccount: community.creator_id === creator.id,
+    banned: false,
+    mutedUntil: null,
+    perms,
+  }
   return {
-    userId: user.id,
+    userId,
     creatorId: creator.id,
     creatorName: creator.display_name || creator.username || creator.slug || "A creator",
     community,
@@ -180,7 +228,17 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
     db,
     paymentsReady: Boolean(creator.stripe_account_id) && creator.stripe_onboarding_status === "connected" && creator.charges_enabled !== false,
   }
-})
+}
+
+/** The owner's own member row, made again if it was ever lost (viewerContext did this before every page; now beside it). */
+async function keepOwnerRow(db: Db, communityId: string, userId: string): Promise<void> {
+  try {
+    const row = await memberOf(db, communityId, userId)
+    if (!row || row.role !== "owner" || row.status !== "active") await grantMembership(db, { communityId, userId, source: "owner", role: "owner", status: "active" })
+  } catch (e) {
+    console.error(`[communities] owner row ${userId} in ${communityId}: ${reasonOf(e)}`)
+  }
+}
 
 /**
  * The first line of every section page: the context when this person may
@@ -406,8 +464,12 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
   const d30 = sinceIso(30, now)
   const d7 = sinceIso(7, now)
   const members = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id)
-  const recurring = await recurringProductIds(db, c.id)
-  const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells] = await Promise.all([
+  /*
+    ONE ROUND, NOT THREE (round 32): the products that sell it were read first and the unsellable events last, each a
+    round of its own before or after the figures. Now only the money waits on the products; everything else goes at once.
+  */
+  const recurringRead = recurringProductIds(db, c.id)
+  const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells, pricedEvents] = await Promise.all([
     count(members().eq("status", "active").gte("last_active_at", d30)),
     count(members().eq("status", "active").gte("joined_at", d30)),
     count(members().eq("status", "active").in("source", [...PAID_SOURCES])),
@@ -415,17 +477,17 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     count(db.from("community_feed_comments").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     openReportCount(db, c.id),
-    monthlyRevenue(db, recurring),
-    recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : Promise.resolve(0),
+    recurringRead.then((recurring) => monthlyRevenue(db, recurring)),
+    recurringRead.then((recurring) => (recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : 0)),
     inviteCount(db, c.id),
     count(db.from("community_courses").select("product_id", { count: "exact", head: true }).eq("community_id", c.id)),
     count(db.from("community_events").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
     count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
     db.from("community_events").select("id, title, starts_at, ends_at, timezone, going_count, capacity, kind").eq("community_id", c.id).eq("status", "scheduled").gte("starts_at", nowIso(now - 60 * 60_000)).order("starts_at", { ascending: true }).limit(3),
     count(db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid")),
+    /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
+    ctx.paymentsReady ? Promise.resolve(0) : pricedEventCount(db, c.id),
   ])
-  /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
-  const pricedEvents = ctx.paymentsReady ? 0 : await pricedEventCount(db, c.id)
   const base = `/app/community/${c.slug}`
   const upcoming: UpcomingEvent[] = ((upcomingRows.data as { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string; going_count: number; capacity: number | null; kind: UpcomingEvent["kind"] }[] | null) ?? []).map((e) => ({
     id: e.id,
@@ -844,8 +906,12 @@ export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView
   const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
   if (error) return []
   const rows = (data as SpaceRow[] | null) ?? []
-  const posts = await Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id))))
-  const messages = await Promise.all(rows.map((s, i) => (s.kind === "chat" && posts[i] === 0 ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0))))
+  /* A chat space's messages are counted beside its posts, not in a round after them (round 32), and used when it has no posts. */
+  const [posts, chats] = await Promise.all([
+    Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id)))),
+    Promise.all(rows.map((s) => (s.kind === "chat" ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0)))),
+  ])
+  const messages = rows.map((_, i) => (posts[i] === 0 ? chats[i] : 0))
   return rows.map((s, i) => ({
     id: s.id,
     slug: s.slug,
@@ -1073,18 +1139,19 @@ function eventView(e: EventRow, money: EventTicketMoney | null = null): EventEdi
 /** Upcoming events oldest first, and the latest past ones, with what each took. */
 export async function loadEvents(db: Db, communityId: string): Promise<{ upcoming: EventEditView[]; past: EventEditView[]; tickets: EventTicketSetup }> {
   const cut = nowIso(Date.now() - 2 * 60 * 60_000)
-  const columns = await eventReadColumns(db)
+  /* Round 32: whether tickets are set up, and the ticket setup itself, are asked beside the events, not after them. */
+  const [columns, ready, tickets] = await Promise.all([eventReadColumns(db), ticketsReady(db), eventTicketSetup(db, communityId)])
   const [up, past] = await Promise.all([
     db.from("community_events").select(columns).eq("community_id", communityId).gte("starts_at", cut).order("starts_at", { ascending: true }).limit(100),
     db.from("community_events").select(columns).eq("community_id", communityId).lt("starts_at", cut).order("starts_at", { ascending: false }).limit(30),
   ])
   const upRows = (up.data as EventRow[] | null) ?? []
   const pastRows = (past.data as EventRow[] | null) ?? []
-  const money = (await ticketsReady(db)) ? await eventsTicketMoney(db, communityId, [...upRows, ...pastRows]) : new Map<string, EventTicketMoney>()
+  const money = ready ? await eventsTicketMoney(db, communityId, [...upRows, ...pastRows]) : new Map<string, EventTicketMoney>()
   return {
     upcoming: upRows.map((e) => eventView(e, money.get(e.id) ?? null)),
     past: pastRows.map((e) => eventView(e, money.get(e.id) ?? null)),
-    tickets: await eventTicketSetup(db, communityId),
+    tickets,
   }
 }
 
