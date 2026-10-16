@@ -46,7 +46,9 @@ import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
-import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
+import { renderWithSources, sectionSources, sourcesFromFiles } from "@/lib/website-builder/storefront-render"
+import { livePointer, releaseFiles, releaseManifest, type LivePointer } from "@/lib/website-builder/site-releases-server"
+import { pageRowsOf, settingsRowOf } from "@/lib/website-builder/site-releases"
 import { siteLocalizer, type Localizer } from "@/lib/markets/live"
 import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -272,7 +274,14 @@ async function renamedTo(name: string): Promise<string | null> {
  */
 type BuiltLookup = { kind: "site"; site: PublishedSite } | Exclude<SiteLookup, { kind: "site" }>
 
-async function buildSite(creatorId: string, displayName: string): Promise<BuiltLookup> {
+/**
+ * `pointer` names the live release Publish wrote (SQL part 180,
+ * lib/website-builder/site-releases-server.ts): when there is one for the
+ * published install, its settings, pages and section files are what was
+ * published, read through caches that never go stale. Null, or a release
+ * that cannot be read: the rows, exactly as before releases.
+ */
+async function buildSite(creatorId: string, displayName: string, pointer: LivePointer | null = null): Promise<BuiltLookup> {
   const admin = createAdminClient()
 
   /* Thrown, not "unpublished", when the database did not answer: that was cached for an hour as "Coming soon". */
@@ -289,9 +298,16 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   if (!install) return { kind: "unpublished", displayName }
 
   const row = install as { id: string; name?: string | null; store_theme_settings?: unknown }
-  const settingsRow = Array.isArray(row.store_theme_settings)
-    ? (row.store_theme_settings[0] ?? null)
-    : (row.store_theme_settings ?? null)
+  /* Only a release of the install that is published now. */
+  const manifest = pointer && pointer.installId === row.id ? await releaseManifest(pointer.releaseId) : null
+  const releaseSources = manifest ? await releaseFiles(manifest).then((files) => (files ? sourcesFromFiles(files) : null)) : null
+  /* Drawn from the release only when all of it could be read. */
+  const release = manifest && releaseSources ? manifest : null
+  const settingsRow = release
+    ? settingsRowOf(release)
+    : Array.isArray(row.store_theme_settings)
+      ? (row.store_theme_settings[0] ?? null)
+      : (row.store_theme_settings ?? null)
 
   /**
    * `false` is the whole point: published values only, never the drafts.
@@ -309,16 +325,18 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   /* The saved section files first: a creator's own section is cleaned by
      the schema its file declares, below, not only by the built-in ones. */
   const [sources, profile] = await Promise.all([
-    sectionSources(admin as never, row.id),
+    releaseSources ?? sectionSources(admin as never, row.id),
     creatorFacts(admin as never, creatorId),
   ])
   const ownSchemas = schemaLookupFrom(sources)
 
-  const pageRows = await siteRead("pages", (signal) => admin
-    .from("store_theme_pages")
-    .select("page_key, sections, draft_sections")
-    .eq("install_id", row.id)
-    .abortSignal(signal))
+  const pageRows = release
+    ? pageRowsOf(release)
+    : await siteRead("pages", (signal) => admin
+      .from("store_theme_pages")
+      .select("page_key, sections, draft_sections")
+      .eq("install_id", row.id)
+      .abortSignal(signal))
 
   /**
    * And again on the way out. The database already holds rich text saved
@@ -667,9 +685,17 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     return to ? { kind: "renamed", to } : { kind: "missing" }
   }
 
+  /*
+    WHICH RELEASE IS LIVE, the one read held only for a minute (and purged
+    by Publish with the rest of the site). The site itself is then held
+    under the release's id: a release never changes, so the key says
+    exactly what was drawn. No release: the key of old, and the rows.
+  */
+  const pointer = await livePointer(match.creatorId, [creatorSiteTag(match.creatorId)])
+  const releaseId = pointer?.releaseId ?? null
   const found = await unstable_cache(
-    () => buildSite(match.creatorId, match.displayName),
-    ["published-site", match.creatorId],
+    () => buildSite(match.creatorId, match.displayName, pointer),
+    releaseId ? ["published-site", match.creatorId, "release", releaseId] : ["published-site", match.creatorId],
     { tags: [creatorSiteTag(match.creatorId)], revalidate: SITE_TTL },
   )()
   if (found.kind !== "site") return found

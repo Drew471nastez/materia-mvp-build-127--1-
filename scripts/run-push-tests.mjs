@@ -647,6 +647,8 @@ const SUITES = [
   /* Round 25 */
   "tests/i18n25.test.ts",
   "tests/publishing-cache.test.ts",
+  /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
+  "tests/site-releases.test.ts",
 ]
 
 /**
