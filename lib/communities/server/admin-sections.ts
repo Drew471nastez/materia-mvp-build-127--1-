@@ -21,6 +21,7 @@ import { listInvites } from "./invites"
 import { auditLog, listReports } from "./moderation"
 import { leaveReasonsSummary } from "./leave-reasons"
 import { learnBuilderFor } from "./learn-builder"
+import { scheduledPanelReads } from "./scheduled-posts"
 import { parseMemberQuery } from "@/components/community/creator/logic"
 
 type Query = Record<string, string | undefined>
@@ -35,13 +36,18 @@ export async function overviewReads(ctx: CreatorPageContext) {
   return { head, data, left }
 }
 
-/** Posts: the first page of the feed and the spaces this person may post in. */
+/**
+ * Posts: the first page of the feed, the spaces this person may post in, and (round 33) the Scheduled and drafts panel's
+ * rows, in the same round, so the panel is drawn with the page rather than after a request of its own. A panel read that
+ * fails is null, and the panel then reads itself as it did before.
+ */
 export async function feedReads(ctx: CreatorPageContext) {
-  const [head, rows, spaces] = await Promise.all([communityHead(ctx), loadFeedRows(ctx.db, ctx.community.id, { cursor: null, show: "all" }), loadSpaces(ctx.db, ctx.community.id)])
+  const panel = can(ctx.role, "post", ctx.viewer.perms) ? scheduledPanelReads(ctx.db, ctx.community, ctx.viewer, ctx.userId).catch(() => null) : Promise.resolve(null)
+  const [head, rows, spaces, scheduled] = await Promise.all([communityHead(ctx), loadFeedRows(ctx.db, ctx.community.id, { cursor: null, show: "all" }), loadSpaces(ctx.db, ctx.community.id), panel])
   const postable = spaces
     .filter((s) => !s.archived && s.kind !== "chat" && meetsRole(ctx.role, s.postRole) && (s.kind !== "announcements" || can(ctx.role, "announce", ctx.viewer.perms)))
     .map((s) => ({ id: s.id, name: s.name, announcements: s.kind === "announcements" }))
-  return { head, rows, spaces: postable }
+  return { head, rows, spaces: postable, scheduled }
 }
 
 export async function spacesReads(ctx: CreatorPageContext) {

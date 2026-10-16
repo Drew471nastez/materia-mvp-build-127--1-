@@ -28,6 +28,7 @@ import { Checkbox } from "@/app/app/orders/order-parts"
 import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
 import { csvRow } from "./logic"
 import { buttonSecondary } from "./parts"
+import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -227,5 +228,145 @@ export function Facts({ items }: { items: { label: string; value: React.ReactNod
         </div>
       ))}
     </dl>
+  )
+}
+
+/* ── A sheet from the right, on a computer (round 33) ───────────────────── */
+
+/**
+ * Above the app's bars and the section's toasts, under everything that can open from inside it: the dialogs and menus
+ * (components/ui/dialog.tsx, the action menu), the lightbox (160) and the member side's confirm sheet (150).
+ */
+export const SIDE_SHEET_Z = 85
+const SIDE_IN_MS = 260
+const SIDE_OUT_MS = 200
+/** Off screen to the right, with room for its shadow. */
+const SIDE_OFF = "calc(100% + 32px) 0"
+
+/**
+ * What a row opens without leaving the list (the Posts viewer, ./post-viewer.tsx): the full height of the screen on its
+ * right, the page dimmed under it. The move is a Web Animation on `translate`, started before the first paint, so the
+ * compositor runs it from the first frame; a plain fade with reduced motion. Escape, the dim and the bar's own close
+ * button close it, unless a dialog, a menu or the lightbox opened from inside it is up (Escape is theirs then). What was
+ * in it stays while it slides out. A wheel over the dim does not scroll the page under it.
+ */
+export function SideSheet({ open, onClose, label, bar, onShown, name, children }: { open: boolean; onClose: () => void; label: string; /** Its top: a title, a close button, whatever stays put while the rest scrolls. */ bar: React.ReactNode; /** The move in has finished. */ onShown?: () => void; /** data-side-sheet, for the probes. */ name: string; children: React.ReactNode }) {
+  const [present, setPresent] = React.useState(open)
+  if (open && !present) setPresent(true)
+  const kept = React.useRef({ bar, children })
+  if (open) kept.current = { bar, children }
+  if (!present || typeof document === "undefined") return null
+  return createPortal(
+    <SideSheetPanel open={open} onClose={onClose} label={label} name={name} onShown={onShown} onGone={() => setPresent(false)} bar={open ? bar : kept.current.bar}>
+      {open ? children : kept.current.children}
+    </SideSheetPanel>,
+    document.body,
+  )
+}
+
+function SideSheetPanel({ open, onClose, label, name, onShown, onGone, bar, children }: { open: boolean; onClose: () => void; label: string; name: string; onShown?: () => void; onGone: () => void; bar: React.ReactNode; children: React.ReactNode }) {
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const scrimRef = React.useRef<HTMLDivElement>(null)
+  const done = React.useRef({ onShown, onGone })
+  React.useEffect(() => {
+    done.current = { onShown, onGone }
+  })
+  const first = React.useRef(true)
+  const returnTo = React.useRef<HTMLElement | null>(null)
+
+  React.useLayoutEffect(() => {
+    const panel = panelRef.current
+    const scrim = scrimRef.current
+    if (!panel || !scrim) return
+    const arriving = first.current
+    first.current = false
+    if (arriving) {
+      returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      panel.focus({ preventScroll: true })
+    }
+    const finish = () => {
+      if (open) return done.current.onShown?.()
+      done.current.onGone()
+      const back = returnTo.current
+      if (back && back.isConnected) back.focus({ preventScroll: true })
+    }
+    if (typeof panel.animate !== "function") return finish()
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      if (open) return finish()
+      const fade = panel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: "forwards" })
+      scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: "forwards" })
+      fade.onfinish = finish
+      return
+    }
+    /* From wherever it is now (a close while it was still coming in starts from there), to where it is going. */
+    const now = getComputedStyle(panel).translate
+    const from = arriving ? SIDE_OFF : now === "none" ? "0px 0px" : now
+    const dimFrom = arriving ? 0 : Number(getComputedStyle(scrim).opacity)
+    for (const a of [...panel.getAnimations(), ...scrim.getAnimations()]) a.cancel()
+    const ms = open ? SIDE_IN_MS : SIDE_OUT_MS
+    const move = panel.animate([{ translate: from }, { translate: open ? "0 0" : SIDE_OFF }], { duration: ms, easing: open ? SHEET_EASE : SHEET_CLOSE_EASE, fill: "forwards" })
+    const dim = scrim.animate([{ opacity: dimFrom }, { opacity: open ? 1 : 0 }], { duration: ms, easing: "ease-out", fill: "forwards" })
+    let ended = false
+    const end = () => {
+      if (ended) return
+      ended = true
+      /* Arrived: the move lets go, so nothing in the sheet sits inside a moved box (a fixed child is placed on the screen again). */
+      if (open) {
+        move.cancel()
+        dim.cancel()
+      }
+      finish()
+    }
+    move.onfinish = end
+    /* A tab in the background draws no frames: it still arrives or goes. */
+    const t = window.setTimeout(end, ms + 200)
+    return () => window.clearTimeout(t)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return
+      if (document.querySelector("[data-lightbox], [role=alertdialog], [role=dialog][data-state=open], [role=menu]")) return
+      e.preventDefault()
+      onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onClose])
+
+  React.useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !(e.target as HTMLElement | null)?.closest?.("[data-side-sheet-scroll]")) e.preventDefault()
+    }
+    root.addEventListener("wheel", onWheel, { passive: false })
+    return () => root.removeEventListener("wheel", onWheel)
+  }, [])
+
+  return (
+    <div ref={rootRef} className="fixed inset-0" style={{ zIndex: SIDE_SHEET_Z, pointerEvents: open ? undefined : "none" }} data-side-sheet-root={name}>
+      <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-[#0f1115]/25" onClick={open ? onClose : undefined} data-side-sheet-scrim="" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        data-sheet-root=""
+        data-side-sheet={name}
+        data-side-sheet-open={open ? "" : undefined}
+        className="absolute inset-y-0 right-0 flex w-[min(640px,calc(100vw-48px))] flex-col border-l border-[#e5e7eb]/80 bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-[-24px_0_64px_-28px_rgba(17,24,39,0.3)] outline-none"
+      >
+        <div className="shrink-0 border-b border-[#f0f1f3]" data-side-sheet-bar="">
+          {bar}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:var(--sl-scroll-thumb,#d3d6db)_transparent] [scrollbar-width:thin]" data-side-sheet-scroll="">
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }

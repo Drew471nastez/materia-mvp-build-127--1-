@@ -19,8 +19,26 @@
  * ordinary post path, so members hear about an announcement as usual
  * (lib/communities/server/scheduled-posts.ts).
  *
- * Mounted by Feed above its list: <ScheduledPostsPanel head={head} />. It
- * reads and writes its own data (app/api/app/community/[id]/scheduled-posts).
+ * Mounted by Feed above its list: <ScheduledPostsPanel head={head}
+ * initial={scheduled} />. It writes its own data (app/api/app/community/[id]/
+ * scheduled-posts).
+ *
+ * ROUND 33, the owner: the panel "appears very delayed and has to load". It
+ * read itself only after the page had arrived, behind a spinner, so it came a
+ * request after everything else and pushed the list down when it did. Now:
+ *
+ *   WITH THE PAGE   the Posts page reads its rows on the server beside the
+ *                   posts (lib/communities/server/admin-sections.ts feedReads,
+ *                   scheduledPanelReads) and hands them in as `initial`, so
+ *                   the panel is in the first paint of the section.
+ *   KEPT            what it last showed is kept per community (KEPT below), so
+ *                   coming back draws it at once and reads it again quietly.
+ *   ITS FRAME       with neither, the card is drawn at once with its title and
+ *                   its words and one quiet line where the rows go, the same
+ *                   height as "Nothing scheduled", never a spinner. It is the
+ *                   card the Posts frame draws too (section-frame.tsx
+ *                   ScheduledFrame), so the list under it does not move.
+ *   NOBODY ELSE     someone who may not post sees no panel and asks nothing.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -30,24 +48,18 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { relativeTime } from "@/lib/communities/format"
 import { LENGTHS } from "@/lib/communities/limits"
-import { EDITABLE, fromLocalParts, localParts, type ScheduledPostView, type ScheduledStatus } from "@/lib/communities/scheduled-posts"
+import { EDITABLE, fromLocalParts, localParts, type ScheduledPanelData, type ScheduledPostView, type ScheduledStatus } from "@/lib/communities/scheduled-posts"
+import { ScheduledFrame } from "./section-frame"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import type { CommunityHead } from "./view-types"
 import { FormSheet } from "./form-sheet"
 import { ROW_PRESS, rowPress } from "./rows"
-import { Confirm, ListLoading, Notice, Section, Segmented, SelectField, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { Confirm, Notice, Section, Segmented, SelectField, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 
-interface SpaceOption {
-  id: string
-  name: string
-  kind: string
-}
+type Loaded = ScheduledPanelData
 
-interface Loaded {
-  ready: boolean
-  rows: ScheduledPostView[]
-  spaces: SpaceOption[]
-}
+/** What each community's panel last showed, for as long as the page is open (KEPT, above). */
+const KEPT = new Map<string, Loaded>()
 
 interface Form {
   id: string | null
@@ -83,10 +95,11 @@ function deviceZone(): string {
   }
 }
 
-export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
+export function ScheduledPostsPanel({ head, initial }: { head: CommunityHead; /** Read on the server with the page (round 33); null or left out, the panel reads itself. */ initial?: Loaded | null }) {
   const toast = useToast()
   const router = useRouter()
-  const [data, setData] = React.useState<Loaded | null>(null)
+  const allowed = head.can.post === true
+  const [data, setData] = React.useState<Loaded | null>(() => initial ?? KEPT.get(head.id) ?? null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [form, setForm] = React.useState<Form | null>(null)
   const [open, setOpen] = React.useState(false)
@@ -96,14 +109,23 @@ export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
 
   const load = React.useCallback(async () => {
     const res = await send<Loaded>(`/api/app/community/${head.id}/scheduled-posts`, "GET")
+    /* A read again that fails leaves what is on screen as it is; only a panel with nothing to show says so. */
     if (!res.ok) return setLoadError(errorText(res.data.error, tt("This did not load. Refresh the page.")))
     setLoadError(null)
+    KEPT.set(head.id, res.data)
     setData(res.data)
   }, [head.id])
 
+  /* Handed in by the server: it is the latest there is, kept and drawn, nothing asked. Otherwise read (quietly when kept). */
   React.useEffect(() => {
+    if (!allowed) return
+    if (initial) {
+      KEPT.set(head.id, initial)
+      setData(initial)
+      return
+    }
     void load()
-  }, [load])
+  }, [allowed, initial, head.id, load])
 
   const spaces = data?.spaces ?? []
   const start = (row?: ScheduledPostView) => {
@@ -165,8 +187,9 @@ export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
     void load()
   }
 
-  if (loadError) return <Notice>{loadError}</Notice>
-  if (!data) return <ListLoading />
+  if (!allowed) return null
+  if (loadError && !data) return <Notice>{loadError}</Notice>
+  if (!data) return <ScheduledFrame />
 
   const waiting = data.rows.filter((r) => r.status === "scheduled" || r.status === "publishing")
   const drafts = data.rows.filter((r) => r.status === "draft")

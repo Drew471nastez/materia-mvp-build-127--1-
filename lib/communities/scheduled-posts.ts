@@ -85,6 +85,18 @@ export interface ScheduledPostView {
   updatedAt: string
 }
 
+/**
+ * What the Scheduled and drafts panel draws (round 33): its rows, and the spaces the signed in person may post in. The
+ * Posts page reads it on the server beside the posts (lib/communities/server/admin-sections.ts feedReads), so the panel is
+ * drawn with the page; the route answers the same shape for a read again.
+ */
+export interface ScheduledPanelData {
+  /** False before run-now part 194. */
+  ready: boolean
+  rows: ScheduledPostView[]
+  spaces: { id: string; name: string; kind: string; icon?: string | null }[]
+}
+
 /** The local day and time inputs for an ISO time, in the browser's zone: ["2026-10-15", "09:30"]. */
 export function localParts(iso: string | null, fallback: number = Date.now() + 3_600_000): [string, string] {
   const t = iso ? Date.parse(iso) : fallback
