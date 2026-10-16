@@ -157,5 +157,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "200", file: "200_learn_access_types.sql", sha256: "9959b7a0fcad7ce8025c05e4d4f168319aeba2b57b48d8fcc5d1823b35e0a38b" },
   { part: "202", file: "202_community_deletion_and_setup.sql", sha256: "b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92" },
   { part: "203", file: "203_translation_glossary.sql", sha256: "ad33f5ffe7eb0faea50fd6eef30144dec5ec32dc6a8d833bcaef3049f3a0149f" },
+  { part: "204", file: "204_reviews_dashboard.sql", sha256: "7512ee93a4d29359700dacf17c030a8ede61bf57408b30dbde90d3b92d38f6ba" },
   { part: "205", file: "205_review_widget_presets.sql", sha256: "6f6545a8445ce0cb113058654297fdc4ebf508319b20439f3aa18e3612cdb699" },
 ]

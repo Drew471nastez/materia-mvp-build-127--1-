@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
+import { GUTTER, LIST_WIDTH, RowMenuButton, buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
 import { Pill, usePill } from "@/app/app/coupons/coupon-parts"
 import { STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
 import { REVIEW_WIDGETS, changedSettings, editorAddUrl, MAX_PRESET_NAME, type PlacementAt, type PlacementPage, type ReviewWidget, type WidgetPreset } from "@/lib/reviews/widgets"
@@ -94,7 +94,8 @@ export function WidgetsClient({ data }: { data: WidgetsPageData }) {
   const widget = selected ? REVIEW_WIDGETS.find((w) => w.type === selected) ?? null : null
 
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-review-widgets="">
+    /* Inside the Reviews area's frame (app/app/reviews/layout.tsx): it draws the title and the tabs, and scrolls. */
+    <div data-review-widgets="">
       <Pill notice={notice} />
       {widget ? (
         <WidgetScreen key={widget.type} widget={widget} data={data} phone={phone} presets={presets} setPresets={setPresets} say={say} onBack={() => open(null)} />
@@ -131,10 +132,6 @@ function Gallery({ data, presets, phone, onOpen }: { data: WidgetsPageData; pres
   const defaults = useMemo(() => Object.fromEntries(REVIEW_WIDGETS.map((w) => [w.type, defaultsOf(w.type)])), [])
   return (
     <>
-      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Review widgets")}</h1>
-        <a href="/app/reviews" className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")}>{tt("Reviews")}</a>
-      </PaneBar>
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         <Notices data={data} />
         <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2" data-widget-gallery="">
@@ -304,20 +301,20 @@ function WidgetScreen({
 
   return (
     <>
-      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
+      <div className={cn("mx-auto flex items-center justify-between gap-3 pt-2", LIST_WIDTH, GUTTER)}>
         <div className="flex min-w-0 items-center gap-1">
           <button type="button" onClick={onBack} aria-label={tt("All widgets")} className="-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#4b5563] hover:bg-[#eceef1] hover:text-[#1a1a2e] max-md:h-10 max-md:w-10" data-widget-back="">
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <h1 className="truncate text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{nameOf(widget)}</h1>
+          <h2 className="truncate text-[18px] font-semibold text-[#1a1a2e]">{nameOf(widget)}</h2>
         </div>
         <div className="hidden md:block">{deviceSwitch}</div>
-      </PaneBar>
+      </div>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         <Notices data={data} />
         <div className="mt-3 grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <section aria-label={tt("Preview")} className={cn(card, "overflow-hidden lg:sticky lg:top-[72px]")} data-widget-stage="">
+          <section aria-label={tt("Preview")} className={cn(card, "overflow-hidden lg:sticky lg:top-[124px]")} data-widget-stage="">
             <div className="border-b border-[#eef0f2] px-3 py-2 md:px-4 md:py-2.5">
               <p className="hidden truncate text-[13px] text-[#6b7280] md:block">{lineOf(widget)}</p>
               {/* A phone has the room for the switch alone, at full width. */}

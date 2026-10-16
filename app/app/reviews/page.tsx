@@ -1,23 +1,33 @@
 import { redirect } from "next/navigation"
-import { ReviewsClient } from "./reviews-client"
-import { loadSellerReviews } from "./load-reviews"
-import type { Metadata } from "next"
-import { getServerTt } from "@/lib/i18n/server"
+import { ReviewsOverview } from "@/components/app/reviews/overview"
+import { loadOverview, storeProducts } from "@/lib/reviews/dashboard-server"
+import { reviewsAppFor, reviewsCaller } from "./load-reviews"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { tt } = await getServerTt()
-  return {
-    title: tt("Reviews"),
+/**
+ * Reviews › Overview. The address every link to Reviews has used, so the
+ * old ones are sent on: ?review=<id> (the bell, the new review email) and
+ * ?status=pending (the digest, "waiting for approval") open the Reviews tab
+ * on that review or that list.
+ */
+export default async function ReviewsOverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams
+  const one = (k: string) => {
+    const v = sp[k]
+    return (Array.isArray(v) ? v[0] : v) ?? ""
   }
-}
-
-export default async function ReviewsPage() {
-  const load = await loadSellerReviews()
+  if (one("review") || one("status")) {
+    const q = new URLSearchParams()
+    if (one("status")) q.set("tab", one("status") === "hidden" ? "rejected" : one("status"))
+    if (one("review")) q.set("review", one("review"))
+    redirect(`/app/reviews/list?${q.toString()}`)
+  }
+  const c = await reviewsCaller()
   /* No session yet: the app shell's gate draws its own frame over this while it restores the session. */
-  if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/sell")
-  return <ReviewsClient initialReviews={load.reviews} products={load.products} ready={load.ready} app={load.app} requests={load.requests} />
+  if (c.state === "signed-out") return null
+  if (c.state === "no-creator") redirect("/sell")
+  const [data, products, app] = await Promise.all([loadOverview(c.db, c.creatorId), storeProducts(c.db, c.creatorId), reviewsAppFor(c.creatorId)])
+  return <ReviewsOverview data={data} products={products} app={{ enabled: app.settings.enabled, ready: app.ready }} />
 }

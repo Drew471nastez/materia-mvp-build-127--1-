@@ -15,7 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Reviews › Widgets: every Storelib Reviews section drawn with the store's
  * own reviews, set up and saved here, and placed on the website from here
- * (components/app/reviews/widgets).
+ * (components/app/reviews/widgets). Drawn inside the Reviews area's frame:
+ * its layout draws the title and the tabs, and scrolls the page.
  */
 export default async function ReviewWidgetsPage() {
   const data = await loadWidgetsPage()

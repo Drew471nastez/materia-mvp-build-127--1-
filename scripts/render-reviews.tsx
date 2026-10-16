@@ -17,6 +17,7 @@ import { ReviewsList } from "@/components/reviews/reviews-list"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { LibraryReview } from "@/components/reviews/library-review"
 import { ReviewsClient } from "@/app/app/reviews/reviews-client"
+import { NO_FILTERS, tabCounts } from "@/lib/reviews/dashboard"
 import { ReviewsPanel } from "@/components/storefront/reviews-panel"
 import { ReviewForm } from "@/components/reviews/review-form"
 
@@ -178,8 +179,8 @@ function Page() {
   }
   if (view === "seller") {
     const rows = [
-      ...REVIEWS.map((r) => ({ ...r, edited_at: r.edited_at ?? null, status: "published", reviewer_name: r.reviewer_name ?? null, seller_reply: r.seller_reply ?? null, seller_reply_at: r.seller_reply_at ?? null })),
-      { id: "r5", product_id: "p2", rating: 1, content: "Scam, the seller is a thief, call me on 0722 000 000.", created_at: days(3), edited_at: null, status: "hidden", reviewer_name: null, seller_reply: null, seller_reply_at: null, buyer: { display_name: "anon123", avatar_url: null } },
+      ...REVIEWS.map((r) => ({ ...r, edited_at: r.edited_at ?? null, status: "published", site_status: "shown", verified: true, order_id: `order-${r.id}`, on_storelib: true, hidden_by: null, photos: [], featured: false, title: null, source: "storelib", reviewer_name: r.reviewer_name ?? null, seller_reply: r.seller_reply ?? null, seller_reply_at: r.seller_reply_at ?? null })),
+      { id: "r5", product_id: "p2", rating: 1, content: "Scam, the seller is a thief, call me on 0722 000 000.", created_at: days(3), edited_at: null, status: "hidden", site_status: "shown", verified: true, order_id: "order-r5", on_storelib: false, hidden_by: "report", photos: [], featured: false, title: null, source: "storelib", reviewer_name: null, seller_reply: null, seller_reply_at: null, buyer: { display_name: "anon123", avatar_url: null } },
     ]
     const products = [
       { id: "p1", title: "Notion Budget", slug: "notion-budget", thumbnail_url: null },
@@ -187,7 +188,8 @@ function Page() {
     ]
     return (
       <div className="h-screen">
-        <ReviewsClient initialReviews={rows as never} products={products} ready />
+        {/* Changed on purpose: the list is Reviews › Reviews now, handed a page of its rows and their tab counts (lib/reviews/dashboard-server listReviews). */}
+        <ReviewsClient initialList={{ rows, total: rows.length, page: 1, pages: 1, counts: tabCounts(rows), ready: { replies: true, app: true } } as never} initialFilters={NO_FILTERS} products={products} app={{ enabled: true, ready: true, requestsOn: true }} />
       </div>
     )
   }

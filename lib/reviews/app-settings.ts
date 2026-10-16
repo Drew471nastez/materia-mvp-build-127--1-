@@ -26,6 +26,12 @@
  *                product page gets the stars under its name and the reviews
  *                under the product without the store placing them
  *   editDays     how long a buyer can change their review from their link
+ *   videos       buyers may add one short video (run-now part 204 lets the
+ *                buckets take video files; until then the upload says so)
+ *   spam         hold a review for approval when it carries a link, or one
+ *                of the store's own words (spamHold)
+ *   email        the request email's own words, sender name and product
+ *                picture (lib/reviews/request-copy.ts); empty is the default
  *
  * Nothing here imports a server module, so the settings page shares it.
  */
@@ -35,6 +41,17 @@ export const MAX_TITLE_CHARS = 120
 export const MAX_BODY_CHARS = 2000
 export const MIN_BODY_CHARS = 2
 export const MAX_AUTHOR_CHARS = 40
+/** One short video a review, up to this size, uploaded straight to storage (app/api/reviews/video). */
+export const MAX_VIDEOS = 1
+export const VIDEO_MAX_BYTES = 50 * 1024 * 1024
+/** A photo the upload route takes (photos-server REVIEW_PHOTO_MAX_BYTES), said in the browser before it is sent. */
+export const REVIEW_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
+export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as const
+/** The store's own spam words: how many, and how long each. */
+export const MAX_SPAM_WORDS = 30
+export const MAX_SPAM_WORD_CHARS = 40
+/** The request email's own words (lib/reviews/request-copy.ts). */
+export const EMAIL_COPY_LIMITS = { subject: 120, heading: 120, body: 800, button: 40, reminderSubject: 120, reminderBody: 800, fromName: 60 } as const
 
 export type PublishMode = "auto" | "manual"
 export type WhoCanWrite = "verified" | "anyone"
@@ -69,6 +86,24 @@ export interface ReviewsAppSettings {
     perPage: number
   }
   editDays: number
+  videos: boolean
+  spam: {
+    /** A review with a link in it waits for approval. */
+    holdLinks: boolean
+    /** A review with one of these words waits for approval. Lower case. */
+    words: string[]
+  }
+  email: {
+    subject: string
+    heading: string
+    body: string
+    button: string
+    reminderSubject: string
+    reminderBody: string
+    /** The name the inbox shows; empty is the store's name. */
+    fromName: string
+    showProduct: boolean
+  }
 }
 
 export const DEFAULT_STAR_COLOR = "#f5a623"
@@ -83,6 +118,9 @@ export const REVIEWS_APP_DEFAULTS: ReviewsAppSettings = {
   request: { enabled: true, digitalDays: 7, physicalDays: 7, physicalFrom: "delivered", reminder: true, reminderDays: 7 },
   display: { starColor: DEFAULT_STAR_COLOR, showVerified: true, showDate: true, showPhotos: true, showCardRating: true, productPage: true, sort: "featured", perPage: 6 },
   editDays: 30,
+  videos: false,
+  spam: { holdLinks: true, words: [] },
+  email: { subject: "", heading: "", body: "", button: "", reminderSubject: "", reminderBody: "", fromName: "", showProduct: true },
 }
 
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
@@ -109,6 +147,9 @@ export function readReviewsApp(raw: unknown): ReviewsAppSettings {
   const d = REVIEWS_APP_DEFAULTS
   const rq = obj(r.request)
   const dp = obj(r.display)
+  const sp = obj(r.spam)
+  const em = obj(r.email)
+  const copy = (k: keyof typeof EMAIL_COPY_LIMITS) => (k === "body" || k === "reminderBody" ? cleanReviewText(em[k], EMAIL_COPY_LIMITS[k]) : cleanLine(em[k], EMAIL_COPY_LIMITS[k]))
   return {
     enabled: bool(r.enabled, d.enabled),
     enabledAt: typeof r.enabledAt === "string" && Number.isFinite(Date.parse(r.enabledAt)) ? new Date(Date.parse(r.enabledAt)).toISOString() : null,
@@ -135,7 +176,57 @@ export function readReviewsApp(raw: unknown): ReviewsAppSettings {
       perPage: int(dp.perPage, d.display.perPage, 3, 24),
     },
     editDays: int(r.editDays, d.editDays, 0, 365),
+    videos: bool(r.videos, d.videos),
+    spam: { holdLinks: bool(sp.holdLinks, d.spam.holdLinks), words: readSpamWords(sp.words) },
+    email: {
+      subject: copy("subject"),
+      heading: copy("heading"),
+      body: copy("body"),
+      button: copy("button"),
+      reminderSubject: copy("reminderSubject"),
+      reminderBody: copy("reminderBody"),
+      fromName: copy("fromName"),
+      showProduct: bool(em.showProduct, d.email.showProduct),
+    },
   }
+}
+
+/** The store's spam words: lower case, trimmed, each once, at most MAX_SPAM_WORDS of MAX_SPAM_WORD_CHARS. A string is read as one a line or comma. */
+export function readSpamWords(raw: unknown): string[] {
+  const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(/[\n,]+/) : []
+  const out: string[] = []
+  for (const w of list) {
+    if (typeof w !== "string") continue
+    const clean = w.replace(/[\u0000-\u001f<>"`\\]/g, " ").replace(/\s+/g, " ").trim().toLowerCase().slice(0, MAX_SPAM_WORD_CHARS)
+    if (clean.length >= 2 && !out.includes(clean)) out.push(clean)
+    if (out.length >= MAX_SPAM_WORDS) break
+  }
+  return out
+}
+
+const LINK = /https?:\/\/|\bwww\.|\b[a-z0-9-]{2,}\.(?:com|net|org|io|co|shop|store|xyz|ru|cn|info|biz|top|site|online|link|click)\b/i
+
+/**
+ * Why a new review waits for the store whatever the publish rule says: it
+ * carries a link (when the store holds those), or one of the store's own
+ * words, matched as a whole word in any case. Null when nothing holds it.
+ * Pure, so the routes and the tests share it.
+ */
+export function spamHold(settings: Pick<ReviewsAppSettings, "spam">, text: { title?: unknown; content?: unknown; name?: unknown }): "link" | "word" | null {
+  const all = [text.title, text.content, text.name].filter((t): t is string => typeof t === "string").join("\n")
+  if (!all) return null
+  if (settings.spam.holdLinks && LINK.test(all)) return "link"
+  const lower = all.toLowerCase()
+  for (const w of settings.spam.words) {
+    let at = lower.indexOf(w)
+    while (at >= 0) {
+      const before = at === 0 ? "" : lower[at - 1]
+      const after = lower[at + w.length] ?? ""
+      if (!/[\p{L}\p{N}]/u.test(before) && !/[\p{L}\p{N}]/u.test(after)) return "word"
+      at = lower.indexOf(w, at + 1)
+    }
+  }
+  return null
 }
 
 /** A change from the settings page laid over what is saved, then read back through the same rules. */
@@ -148,6 +239,8 @@ export function mergeReviewsApp(current: unknown, patch: unknown, at: Date = new
     ...p,
     request: { ...now.request, ...obj(p.request) },
     display: { ...now.display, ...obj(p.display) },
+    spam: { ...now.spam, ...obj(p.spam) },
+    email: { ...now.email, ...obj(p.email) },
   })
   /* The moment it is turned on is the app's to record, never the page's. */
   next.enabledAt = next.enabled && !now.enabled ? at.toISOString() : now.enabledAt
@@ -266,7 +359,16 @@ export function cleanEmail(raw: unknown): string | null {
   return s
 }
 
-export type ReviewPhoto = { path: string; url: string; status: "approved" | "removed" }
+/**
+ * A review's pictures and its video, in `reviews.photos` (one list, so the
+ * part 134 column and its limits hold both). Each is approved (shown with the
+ * review), removed (taken off by the store, kept and restorable) or held: a
+ * video waits for the store to look at it before it is ever public, since no
+ * reader checks a video the way the picture reader checks a photo.
+ */
+export type ReviewPhoto = { path: string; url: string; status: "approved" | "removed" | "held"; kind?: "video" }
+
+export const isVideoPath = (path: string) => /\.(mp4|webm|mov)$/i.test(path)
 
 /** A review's photos as stored, keeping only well formed entries. */
 export function readPhotos(raw: unknown): ReviewPhoto[] {
@@ -275,8 +377,9 @@ export function readPhotos(raw: unknown): ReviewPhoto[] {
   for (const p of raw) {
     const o = obj(p)
     if (typeof o.path !== "string" || typeof o.url !== "string" || !/^https:\/\//.test(o.url)) continue
-    out.push({ path: o.path, url: o.url, status: o.status === "removed" ? "removed" : "approved" })
-    if (out.length >= MAX_PHOTOS + 2) break
+    const video = o.kind === "video" || isVideoPath(o.path)
+    out.push({ path: o.path, url: o.url, status: o.status === "removed" ? "removed" : o.status === "held" ? "held" : "approved", ...(video ? { kind: "video" as const } : {}) })
+    if (out.length >= MAX_PHOTOS + MAX_VIDEOS + 1) break
   }
   return out
 }
@@ -284,8 +387,16 @@ export function readPhotos(raw: unknown): ReviewPhoto[] {
 /** The photos a visitor may see. */
 export function shownPhotos(raw: unknown): string[] {
   return readPhotos(raw)
-    .filter((p) => p.status === "approved")
+    .filter((p) => p.status === "approved" && p.kind !== "video")
     .slice(0, MAX_PHOTOS)
+    .map((p) => p.url)
+}
+
+/** The video a visitor may see: one the store let through. */
+export function shownVideos(raw: unknown): string[] {
+  return readPhotos(raw)
+    .filter((p) => p.status === "approved" && p.kind === "video")
+    .slice(0, MAX_VIDEOS)
     .map((p) => p.url)
 }
 
@@ -301,6 +412,27 @@ export function isReviewPhotoPath(path: unknown, creatorId: string): path is str
   return typeof path === "string" && new RegExp(`^${creatorId}/[0-9a-f]{32}\\.(jpg|jpeg|png|webp|gif|avif)$`).test(path)
 }
 
+/** The same for a review's video (app/api/reviews/video names it). */
+export function isReviewVideoPath(path: unknown, creatorId: string): path is string {
+  return typeof path === "string" && new RegExp(`^${creatorId}/[0-9a-f]{32}\\.(mp4|webm|mov)$`).test(path)
+}
+
+/** A form sent sooner than a person could fill it in. */
+export const MIN_FORM_MS = 2500
+
+/**
+ * Whether a review form was sent by a script: the field nobody sees
+ * (`website`) is filled in, or it went less than MIN_FORM_MS after the page
+ * opened (`openedAt`, the page's own clock). A form with no time is not
+ * judged by it (an older page).
+ */
+export function looksAutomated(body: Record<string, unknown> | null | undefined, now = Date.now()): "honeypot" | "too_fast" | null {
+  if (typeof body?.website === "string" && body.website.trim() !== "") return "honeypot"
+  const opened = Number(body?.openedAt)
+  if (Number.isFinite(opened) && opened > 0 && now - opened >= 0 && now - opened < MIN_FORM_MS) return "too_fast"
+  return null
+}
+
 export type AppReviewInput =
   | { ok: true; rating: number; title: string; content: string; name: string | null; photoPaths: string[] }
   | { ok: false; error: string }
@@ -312,7 +444,7 @@ export type AppReviewInput =
  * creator's folder (the upload route made them). Photos are dropped when
  * the store does not take them.
  */
-export function checkAppReviewInput(body: Record<string, unknown> | null | undefined, opts: { creatorId: string; photos: boolean }): AppReviewInput {
+export function checkAppReviewInput(body: Record<string, unknown> | null | undefined, opts: { creatorId: string; photos: boolean; videos?: boolean }): AppReviewInput {
   const rating = Number(body?.rating)
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: "Choose from one to five stars." }
   const content = cleanReviewText(body?.content, MAX_BODY_CHARS + 1)
@@ -321,7 +453,12 @@ export function checkAppReviewInput(body: Record<string, unknown> | null | undef
   const title = cleanLine(body?.title, MAX_TITLE_CHARS)
   const name = publicName(cleanLine(body?.name, MAX_AUTHOR_CHARS))
   const asked = Array.isArray(body?.photos) ? (body?.photos as unknown[]) : []
-  if (asked.length > MAX_PHOTOS) return { ok: false, error: `Add up to ${MAX_PHOTOS} photos.` }
-  const photoPaths = opts.photos ? [...new Set(asked.filter((p): p is string => isReviewPhotoPath(p, opts.creatorId)))] : []
+  const videos = asked.filter((p) => typeof p === "string" && isVideoPath(p)).length
+  if (asked.length - videos > MAX_PHOTOS) return { ok: false, error: `Add up to ${MAX_PHOTOS} photos.` }
+  if (videos > MAX_VIDEOS) return { ok: false, error: "Add one video at most." }
+  const photoPaths = [
+    ...(opts.photos ? asked.filter((p): p is string => isReviewPhotoPath(p, opts.creatorId)) : []),
+    ...(opts.videos ? asked.filter((p): p is string => isReviewVideoPath(p, opts.creatorId)) : []),
+  ].filter((p, i, all) => all.indexOf(p) === i)
   return { ok: true, rating, title, content, name, photoPaths }
 }

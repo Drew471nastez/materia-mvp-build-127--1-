@@ -25,7 +25,7 @@ import "server-only"
  */
 import { canDeliver } from "@/lib/receipts/rules"
 import { refreshReviewStats } from "./store"
-import { startingStatus, type ReviewsAppSettings } from "./app-settings"
+import { isVideoPath, spamHold, startingStatus, type ReviewPhoto, type ReviewsAppSettings } from "./app-settings"
 import { notifySellerOfReview } from "./notify-seller"
 import { REVIEW_PHOTO_BUCKET, syncReviewPhotos } from "./photos-server"
 
@@ -34,13 +34,13 @@ type Db = any
 
 export { REVIEW_PHOTO_BUCKET }
 
-/** Each photo path as the review stores it: its address in the public bucket, approved. */
-export function photoEntries(db: Db, paths: string[]): { path: string; url: string; status: "approved" }[] {
-  const out: { path: string; url: string; status: "approved" }[] = []
+/** Each photo path as the review stores it: its address in the public bucket, approved. A video is held until the store looks at it (app-settings ReviewPhoto). */
+export function photoEntries(db: Db, paths: string[]): ReviewPhoto[] {
+  const out: ReviewPhoto[] = []
   for (const path of paths) {
     try {
       const url = db.storage?.from(REVIEW_PHOTO_BUCKET).getPublicUrl(path)?.data?.publicUrl
-      if (typeof url === "string" && /^https:\/\//.test(url)) out.push({ path, url, status: "approved" })
+      if (typeof url === "string" && /^https:\/\//.test(url)) out.push(isVideoPath(path) ? { path, url, status: "held", kind: "video" } : { path, url, status: "approved" })
     } catch {
       /* A storage client that cannot say: the photo is left off rather than the review refused. */
     }
@@ -73,7 +73,9 @@ export interface NewAppReview {
 export type WriteResult = { ok: true; review: Record<string, unknown>; status: "published" | "pending" } | { ok: false; status: number; error: string; alreadyReviewed?: boolean }
 
 export async function insertAppReview(db: Db, r: NewAppReview): Promise<WriteResult> {
-  const start = startingStatus(r.settings, r.rating, r.verified)
+  /* A link or one of the store's own words: it waits for the store whatever the publish rule says (app-settings spamHold). */
+  const held = spamHold(r.settings, { title: r.title, content: r.content, name: r.name })
+  const start = startingStatus(held ? { publish: "manual", minStars: 5 } : r.settings, r.rating, r.verified)
   const status: "published" | "pending" = start.site_status === "pending" || start.status === "pending" ? "pending" : "published"
   const now = new Date().toISOString()
   const row: Record<string, unknown> = {

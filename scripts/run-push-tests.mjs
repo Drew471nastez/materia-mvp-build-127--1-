@@ -54,6 +54,8 @@ const SUITES = [
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   "tests/storelib-reviews.test.ts",
+  /* Reviews in one place: import, moderation, requests, analytics, the list, spam, the area (app/app/reviews). */
+  "tests/reviews-dashboard.test.ts",
   "tests/reviews-product-page.test.ts",
   /* Reviews › Widgets: each widget drawn with real reviews, never samples live, in the page's language, presets, Apps › Reviews (scripts/check-review-widgets.mjs measures them). */
   "tests/review-widgets.test.ts",

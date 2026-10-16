@@ -3,12 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { canDeliver } from "@/lib/receipts/rules"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
-import { canEditUntil, checkAppReviewInput, initialStatus, readSiteStatus, websiteStatus } from "@/lib/reviews/app-settings"
+import { canEditUntil, checkAppReviewInput, initialStatus, looksAutomated, readSiteStatus, spamHold, websiteStatus } from "@/lib/reviews/app-settings"
 import { requestLinkOpen, verifyRequest } from "@/lib/reviews/request-token"
 import { requestContext } from "@/lib/reviews/requests-server"
 import { insertAppReview, photoEntries } from "@/lib/reviews/write-server"
 import { refreshReviewStats } from "@/lib/reviews/store"
-import { claimUploads, removeReviewPhotos, syncReviewPhotos } from "@/lib/reviews/photos-server"
+import { claimUploads, removeReviewPhotos, syncReviewPhotos, verifyVideos } from "@/lib/reviews/photos-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,7 +29,15 @@ export const dynamic = "force-dynamic"
  * A new review is taken only while the store has Storelib Reviews on and
  * within REQUEST_LINK_DAYS of the email (a link is not a key forever). Photos are
  * only uploads made from this same link, each taken once (photos-server
- * claimUploads); a change keeps the photos the review already has.
+ * claimUploads); a change keeps the photos the review already has. A video
+ * (when the store takes them) is checked to be there and small enough
+ * (verifyVideos) and waits for the store before it is ever public.
+ *
+ * SPAM. The link already proves a purchase; on top of it the form carries a
+ * field nobody sees and the moment the page opened (app-settings
+ * looksAutomated). A filled field gets the usual answer and nothing is kept;
+ * a form sent faster than a person types is asked to wait. A review with a
+ * link or one of the store's own words waits for the store (spamHold).
  */
 const NO_LINK = "This review link does not work. Open the newest email about it, or ask the store."
 
@@ -64,14 +72,17 @@ export async function POST(request: NextRequest) {
   const { body, db, ctx } = c
   const { order, product, creator, settings } = ctx
   if (!order || !product || !creator) return answer({ error: NO_LINK }, 404)
+  const bot = looksAutomated(body)
+  if (bot === "honeypot") return answer({ ok: true, status: "pending" })
+  if (bot === "too_fast") return answer({ error: "That was quick. Check your review, then send it again." }, 429)
   if (ctx.review) return answer({ error: "You already reviewed this. You can change it from this page.", alreadyReviewed: true }, 409)
   if (!canDeliver(order)) return answer({ error: "Only a completed purchase can be reviewed." }, 403)
   if (product.status === "deleted") return answer({ error: "This product is not sold any more." }, 410)
   if (!settings.enabled) return answer({ error: "This store isn't taking reviews from this link right now." }, 403)
   if (!requestLinkOpen(ctx.request as { sent_at?: string | null; created_at?: string | null })) return answer({ error: "This review link has expired." }, 410)
-  const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos })
+  const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos, videos: settings.videos })
   if (!input.ok) return answer({ error: input.error }, 400)
-  input.photoPaths = await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths })
+  input.photoPaths = await verifyVideos(db, await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths }))
 
   const buyerId = typeof order.buyer_id === "string" ? order.buyer_id : null
   const eligibility = buyerId
@@ -113,18 +124,22 @@ export async function PATCH(request: NextRequest) {
   if (!product || !creator) return answer({ error: NO_LINK }, 404)
   if (!review) return answer({ error: "There is no review to change yet." }, 404)
   if (!canEditUntil(review.created_at, settings.editDays)) return answer({ error: "This review can no longer be changed from the link." }, 403)
-  const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos })
+  if (looksAutomated(body) === "honeypot") return answer({ ok: true, status: websiteStatus(review) })
+  const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos, videos: settings.videos })
   if (!input.ok) return answer({ error: input.error }, 400)
   /* A change is read again by the store's rule, on the store's website only: a review lowered under the auto publish line waits again there, and one the store hid there stays hidden there. For Storelib it is a verified buyer's and stays as Storelib has it (published, or hidden after a report). */
   const status = review.status === "hidden" ? "hidden" : "published"
-  const site_status = readSiteStatus(review.site_status) === "hidden" ? "hidden" : initialStatus(settings, input.rating) === "pending" ? "pending" : "shown"
+  const held = spamHold(settings, { title: input.title, content: input.content, name: input.name })
+  const site_status = readSiteStatus(review.site_status) === "hidden" ? "hidden" : held || initialStatus(settings, input.rating) === "pending" ? "pending" : "shown"
   const now = new Date().toISOString()
   const kept = Array.isArray(review.photos) ? (review.photos as { path?: string; status?: string }[]) : []
   const removedByStore = new Set(kept.filter((p) => p?.status === "removed").map((p) => p.path))
   const already = new Set(kept.map((p) => p?.path).filter((p): p is string => typeof p === "string"))
-  const fresh = await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths.filter((p) => !already.has(p)) })
+  const fresh = await verifyVideos(db, await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths.filter((p) => !already.has(p)) }))
   const allowed = new Set([...already, ...fresh])
-  const photos = photoEntries(db, input.photoPaths.filter((p) => allowed.has(p))).map((p) => (removedByStore.has(p.path) ? { ...p, status: "removed" as const } : p))
+  /* What the store already decided about a file stays: one it took off stays off, a video it let through stays through. */
+  const decided = new Map(kept.filter((p) => typeof p?.path === "string").map((p) => [p.path as string, p.status]))
+  const photos = photoEntries(db, input.photoPaths.filter((p) => allowed.has(p))).map((p) => (removedByStore.has(p.path) ? { ...p, status: "removed" as const } : p.kind === "video" && decided.get(p.path) === "approved" ? { ...p, status: "approved" as const } : p))
   const { data: updated, error } = await db
     .from("reviews")
     .update({ rating: input.rating, title: input.title || null, content: input.content, ...(input.name ? { reviewer_name: input.name } : {}), photos, status, site_status, edited_at: now, updated_at: now, ...(status === "published" && review.status !== "published" ? { published_at: now } : {}) })

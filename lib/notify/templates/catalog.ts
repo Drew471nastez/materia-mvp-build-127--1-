@@ -113,8 +113,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PURCHASE_CONFIRMATION: ["productTitle", "productId", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", "occurredAt"],
   DIGITAL_PRODUCT_ACCESS: ["productTitle", "productId", "storeName", "creatorName", "receiptToken"],
   CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
-  REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken", "reminderOn"],
-  REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken"],
+  REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken", "reminderOn", "copySubject", "copyHeading", "copyParagraphs", "copyButton", "copyFromName", "hideProduct"],
+  REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken", "copySubject", "copyHeading", "copyParagraphs", "copyButton", "copyFromName", "hideProduct"],
   MEMBERSHIP_STARTED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_RENEWED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_RENEWAL_REMINDER: [...MEMBERSHIP_KEYS],
@@ -256,6 +256,11 @@ export class Data {
   constructor(private readonly raw: Record<string, unknown>) {}
   text(key: string, max = 80): string {
     return cleanText(this.raw?.[key], max)
+  }
+  /** A list of short paragraphs (a store's own words), each plain text, at most six. */
+  paragraphs(key: string, max = 800): string[] {
+    const v = this.raw?.[key]
+    return Array.isArray(v) ? v.map((p) => cleanText(p, max)).filter(Boolean).slice(0, 6) : []
   }
   /** A first name only. */
   first(key: string): string {
@@ -2186,20 +2191,25 @@ function reviewAsk(d: Data, reminder: boolean): Message {
   const what = title || "your purchase"
   const from = creator ? ` from ${creator}` : ""
   if (app) {
+    /* The store's own words from Reviews › Requests (lib/reviews/request-copy.ts emailCopyFor), already filled in; each one left empty is ours. */
+    const own = { subject: d.text("copySubject", 120), heading: d.text("copyHeading", 120), paragraphs: d.paragraphs("copyParagraphs"), button: d.text("copyButton", 40), from: d.text("copyFromName", 60) }
+    const ownAction = action && own.button ? { ...action, label: own.button } : action
     return {
       family: "lifecycle",
       audience: "customer",
-      subject: reminder ? fitSubject("A quick review of ", title, "?") || "A quick review of your purchase?" : fitSubject("How is ", title, "?") || "How is your purchase?",
+      subject: own.subject || (reminder ? fitSubject("A quick review of ", title, "?") || "A quick review of your purchase?" : fitSubject("How is ", title, "?") || "How is your purchase?"),
       preview: reminder ? "One line and a rating is plenty." : "A few honest words help other buyers decide.",
-      heading: reminder ? `Would you review ${what}?` : `How is ${what}?`,
-      media: title ? { title, subtitle: creator ? `by ${creator}` : null, imageUrl: d.text("productImage", 500) } : null,
-      paragraphs: reminder
-        ? [`If you have had a chance to use ${what}${title ? "" : from}, a rating and a line or two is all it takes.`, "Good or bad, an honest review helps the next buyer."]
-        : [`If you have had a chance to use ${what}${title ? "" : from}, how was it?`, `Your review helps other buyers decide, and tells ${creator || "the seller"} what works.`],
+      heading: own.heading || (reminder ? `Would you review ${what}?` : `How is ${what}?`),
+      media: title && !d.bool("hideProduct") ? { title, subtitle: creator ? `by ${creator}` : null, imageUrl: d.text("productImage", 500) } : null,
+      paragraphs: own.paragraphs.length
+        ? own.paragraphs
+        : reminder
+          ? [`If you have had a chance to use ${what}${title ? "" : from}, a rating and a line or two is all it takes.`, "Good or bad, an honest review helps the next buyer."]
+          : [`If you have had a chance to use ${what}${title ? "" : from}, how was it?`, `Your review helps other buyers decide, and tells ${creator || "the seller"} what works.`],
       rate,
-      action,
+      action: ownAction,
       note: reminder ? "This is the last email about reviewing this purchase." : d.bool("reminderOn") ? "If you have not reviewed it, we will ask once more." : null,
-      sender: creator ? { name: creator, replyTo: d.text("creatorSupportEmail", 200) } : null,
+      sender: own.from || creator ? { name: own.from || creator, replyTo: d.text("creatorSupportEmail", 200) } : null,
       unsubscribeLabel: "Turn off review emails",
       greet: false,
       inApp: { title: reminder ? "Review your purchase" : "How was your purchase?", body: title ? `Tell other buyers about ${title}.` : "Tell other buyers about it.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },

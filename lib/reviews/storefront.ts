@@ -21,7 +21,7 @@
  *
  * Pure: no database, no server modules.
  */
-import { publicName, shownPhotos, type ReviewsAppSettings } from "./app-settings"
+import { publicName, shownPhotos, shownVideos, type ReviewsAppSettings } from "./app-settings"
 import { summarize } from "./rules"
 
 export interface StorefrontReview {
@@ -40,6 +40,8 @@ export interface StorefrontReview {
   featured: boolean
   photos: string[]
   has_photos: boolean
+  /** The review's video, once the store let it through (app-settings shownVideos). */
+  videos: string[]
   reply: string
   product_id: string
   product_title: string
@@ -144,6 +146,7 @@ export function toStorefrontReview(row: StorefrontReviewRow, product: Storefront
   const verified = row.verified !== false
   const author = buyerName(row) ?? (verified ? "Verified buyer" : "Customer")
   const photos = showPhotos ? shownPhotos(row.photos) : []
+  const videos = showPhotos ? shownVideos(row.photos) : []
   const rating = Math.max(1, Math.min(5, Math.round(Number(row.rating) || 0)))
   return {
     id: row.id,
@@ -158,6 +161,7 @@ export function toStorefrontReview(row: StorefrontReviewRow, product: Storefront
     featured: row.featured === true,
     photos,
     has_photos: photos.length > 0,
+    videos,
     reply: (row.seller_reply ?? "").trim(),
     product_id: row.product_id,
     product_title: (product?.title ?? "").trim(),
@@ -291,6 +295,7 @@ export function sampleStorefrontReviews(settings: ReviewsAppSettings, creatorId:
       featured: i === 0,
       photos: [],
       has_photos: false,
+      videos: [],
       reply: "",
       product_id: product?.id ?? "sample",
       product_title: product?.title ?? "Sample product",
