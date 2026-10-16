@@ -7,7 +7,7 @@ import { normalizeLocale } from "@/lib/markets/locales"
 import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
 import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
-import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
+import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, keptOriginal, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,8 +18,9 @@ export const dynamic = "force-dynamic"
  *      language and where it stands: missing, outdated (the original changed
  *      since), draft or done
  * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview)
- * PUT  { locale, items: [{ key, value, source, approved, rich }] }   saved;
- *      an empty value takes the translation away
+ * PUT  { locale, items: [{ key, value, source, approved, rich, original }] }   saved;
+ *      an empty value takes the translation away; `original` is Don't
+ *      translate, kept as the original and never written by Storelib AI
  *
  * The store's own, through its owner (lib/team: the website is not open to
  * team members yet). Only a language the website has may be read or written.
@@ -117,8 +118,9 @@ export async function GET(request: Request) {
       const status = statusOf(row, t.source)
       total++
       if (status === "done") done++
-      /* `review`: the merchant's own, its original changed since: still live, listed under Needs review. */
-      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: row?.value ?? "", status, ai: row?.source === "ai", review: needsReview(row, t.source) }
+      /* `review`: the merchant's own, its original changed since: still live, listed under Needs review. `kept`: Don't translate, the original shows (translate.ts keptOriginal). */
+      const kept = keptOriginal(row)
+      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: kept ? "" : (row?.value ?? ""), status, ai: row?.source === "ai", review: needsReview(row, t.source), ...(kept ? { kept: true } : {}) }
     }),
   }))
   return physicalJson({ ready: ready && saved.ready, locale, defaultLanguage: loc.defaultLanguage, languages, groups: out, progress: { done, total } })

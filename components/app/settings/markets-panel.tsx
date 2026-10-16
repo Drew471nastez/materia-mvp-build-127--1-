@@ -11,7 +11,10 @@
  *   Languages   the default language, and others the website is offered
  *               in, each published or not, each with "Translate" (the
  *               website's texts, products and collections, by hand or
- *               drafted by AI to review)
+ *               drafted by AI to review), and under More options the words
+ *               never translated (./translation-glossary.tsx). One line says
+ *               the rule: the owner's edits are never replaced, machine
+ *               translations follow the original.
  *   Markets     the store's home, and groups of countries that see prices
  *               in their own currency (converted at the day's ECB rate,
  *               with the rounding and adjustment set here), starting in
@@ -44,6 +47,7 @@ import { isEnglish } from "@/lib/markets/translate"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
+import { TranslationGlossary } from "./translation-glossary"
 import { CountryCurrency } from "./country-currency"
 import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
@@ -468,10 +472,18 @@ export function MarketsPanel() {
             )
           })}
         </ul>
-        <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
-          <Plus className="h-4 w-4" />
-          {tt("Add language")}
-        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" className={cn(BTN_SECONDARY, "shrink-0")} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
+            <Plus className="h-4 w-4" />
+            {tt("Add language")}
+          </button>
+          {/* The rule every automatic translation follows (lib/markets/translate.ts aiMayWrite), in one line, where the languages are. */}
+          {draft.languages.length || translateDefault ? (
+            <p className="min-w-0 flex-1 basis-[16rem] text-[12.5px] leading-[18px] text-[#6b7280] [text-wrap:balance]" data-translation-rule="">
+              {tt("Your edits are never replaced. Machine translations update when you change the original.")}
+            </p>
+          ) : null}
+        </div>
         {/* The two switches most stores never touch, folded away (both saved as they are switched, like the rest). */}
         <details className="group mt-4 border-t border-[#f1f2f4] pt-3" data-language-options="" open={draft.visitorLanguage === true || draft.autoTranslate === true ? true : undefined}>
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
@@ -520,6 +532,8 @@ export function MarketsPanel() {
               />
             ) : null}
           </div>
+          {/* Words not to translate (lib/markets/glossary.ts): brand and product names kept as written, or a fixed translation per language. */}
+          <TranslationGlossary languages={[...(translateDefault ? [draft.defaultLanguage] : []), ...draft.languages.map((l) => l.code)]} disabled={!data.ready} />
         </details>
       </Card>
 

@@ -48,3 +48,24 @@ export function keepsFixedParts(source: string, translated: string): boolean {
   for (const [k, n] of a) if (b.get(k) !== n) return false
   return true
 }
+
+/** How many times `word` is in `text` as a whole word (never "Bloom" inside "Bloomsbury"), as ./translate-segments.ts cut sets it aside. */
+function timesIn(text: string, word: string): number {
+  if (!word) return 0
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}])`, "gu")
+  return [...String(text ?? "").matchAll(re)].length
+}
+
+/**
+ * True when a translation still has each name in `keep` (the store's, the
+ * words the owner listed not to translate, lib/markets/glossary.ts) at least
+ * as many times as its original did, spelled exactly as it was.
+ */
+export function keepsTerms(source: string, translated: string, keep: readonly string[]): boolean {
+  for (const k of new Set(keep)) {
+    if (!k) continue
+    const want = timesIn(source, k)
+    if (want > 0 && timesIn(translated, k) < want) return false
+  }
+  return true
+}

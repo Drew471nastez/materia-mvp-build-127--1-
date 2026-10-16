@@ -15,7 +15,7 @@ import "server-only"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { editorLanguages } from "./model"
-import { localizationOf, saveTranslations, siteTexts, translationsOf } from "./server"
+import { glossaryOf, localizationOf, saveTranslations, siteTexts, translationsOf } from "./server"
 import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, needsReview, statusOf, translationMap } from "./translate"
 import { draftReusing } from "./translate-ai"
 import { defaultLanguageScope, writtenLanguage } from "./detect-language"
@@ -49,7 +49,8 @@ export async function translatableLocale(db: Db, creatorId: string, locale: stri
 export async function draftRound(db: Db, creatorId: string, locale: string, userId: string | null, deadlineAt: number): Promise<PressResult> {
   const where = await translatableLocale(db, creatorId, locale)
   if (!where.ok) return { ok: false, status: 400, error: "Add this language to your website first." }
-  const [allGroups, saved, store] = await Promise.all([siteTexts(db, creatorId), translationsOf(db, creatorId, locale), storeIdentity(db, creatorId).catch(() => null)])
+  /* With the words not to translate (./glossary.ts): kept as written in every draft. */
+  const [allGroups, saved, store, words] = await Promise.all([siteTexts(db, creatorId), translationsOf(db, creatorId, locale), storeIdentity(db, creatorId).catch(() => null), glossaryOf(db, creatorId)])
   /*
     WHAT IT COVERS, AND FROM WHAT. The language the website's text is
     really written in is read from the texts (./detect-language.ts). Into
@@ -77,7 +78,7 @@ export async function draftRound(db: Db, creatorId: string, locale: string, user
   const counted = (drafted: Set<string>) => all.filter((t) => drafted.has(t.key) || statusOf(map.get(t.key), t.source) === "done" || statusOf(map.get(t.key), t.source) === "draft" || needsReview(map.get(t.key), t.source)).length
   if (todo.length === 0) return { ok: true, drafted: 0, left: 0, done: counted(new Set()), total: all.length }
   /* One already translated under another key is reused (translate-ai.ts draftReusing); the rest go to Storelib AI. */
-  const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt })
+  const { drafts, unavailable, reason, busy } = await draftReusing(todo.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt, glossary: words.glossary })
   /* 429: every translator is out of allowance for now; the background job waits and carries on. */
   if (unavailable && drafts.size === 0) return { ok: false, status: busy ? 429 : 503, error: reason ?? AI_UNAVAILABLE }
   /* LIVE AT ONCE (the owner: "I have to click approve"): a translation goes on the website as soon as it is written, still marked as automatic, so a later run may improve it and a person's edit always wins. */
