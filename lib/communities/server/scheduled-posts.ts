@@ -24,7 +24,7 @@ import "server-only"
  *
  * Before part 194 every read answers "not ready".
  */
-import { EDITABLE, checkScheduledInput, type ScheduledPostView, type ScheduledStatus } from "../scheduled-posts"
+import { EDITABLE, checkScheduledInput, type ScheduledPanelData, type ScheduledPostView, type ScheduledStatus } from "../scheduled-posts"
 import { can } from "../permissions"
 import type { CommunityRow } from "../types"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
@@ -104,6 +104,16 @@ export async function listScheduled(db: Db, communityId: string, actor: { userId
   }
   const rows = [...((waiting.data as Row[] | null) ?? []), ...((history.data as Row[] | null) ?? [])]
   return { ready: true, rows: await views(db, communityId, rows, actor) }
+}
+
+/**
+ * THE PANEL'S READ (round 33): the rows and the spaces this person may post in, at once. The route's GET answers it, and the
+ * Posts page reads it beside the posts, so the panel is on screen with the page instead of after a request of its own.
+ */
+export async function scheduledPanelReads(db: Db, community: CommunityRow, viewer: Viewer, userId: string): Promise<ScheduledPanelData> {
+  const [list, spaces] = await Promise.all([listScheduled(db, community.id, { userId, role: viewer.role, perms: viewer.perms }), listSpaces(db, community.id)])
+  const writable = spaces.filter((s) => s.kind !== "chat" && canPostIn(s, viewer, community.chat_enabled)).map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
+  return { ...list, spaces: writable }
 }
 
 /** The space a post is going to, checked for the person writing it now. */

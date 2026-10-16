@@ -24,7 +24,8 @@ export default async function CommunityFeedAdminPage({ params, searchParams }: {
   )
 }
 
+/* Round 33: the Scheduled and drafts panel's rows come in the same reads (feedReads), so the panel is drawn with the posts. */
 async function feedBody({ ctx, compose }: { ctx: CreatorPageContext; compose: string | null }) {
-  const { head, rows, spaces } = await feedReads(ctx)
-  return <FeedSection head={head} initial={rows} spaces={spaces} compose={compose} />
+  const { head, rows, spaces, scheduled } = await feedReads(ctx)
+  return <FeedSection head={head} initial={rows} spaces={spaces} compose={compose} scheduled={scheduled} />
 }

@@ -20,10 +20,42 @@
  * section's will be and the rows land under it.
  * scripts/check-community-admin-round32.mjs measures the difference.
  */
+import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { card } from "./parts"
+import { tt } from "@/lib/i18n/text"
+import { Section, buttonPrimary, card } from "./parts"
 import { Shimmer, ShimmerBlock, ShimmerRows, ShimmerChart } from "@/components/ui/shimmer"
 import type { AdminSection } from "./logic"
+
+/**
+ * Posts' Scheduled and drafts card before its rows are here (round 33): its own title and words, the room of its button
+ * (unseen, so the words wrap where they will beside it), and one quiet line the height of "Nothing scheduled". Drawn by
+ * the Posts frame for whoever may post and by the panel itself while it has nothing yet (scheduled-posts-panel.tsx), so
+ * neither hand over moves the list under it.
+ */
+export function ScheduledFrame() {
+  return (
+    <Section
+      title={tt("Scheduled and drafts")}
+      hint={tt("Write a post now and choose when it goes up, or keep it as a draft.")}
+      action={
+        <span aria-hidden className={cn(buttonPrimary, "invisible")}>
+          <Plus className="h-4 w-4" />
+          {tt("Schedule a post")}
+        </span>
+      }
+    >
+      <div data-scheduled-frame="">
+        {/* A line of the panel's own 13.5px words, so it is exactly the height "Nothing scheduled" will be. */}
+        <Shimmer>
+          <p className="text-[13.5px]">
+            <ShimmerBlock className="inline-block h-2.5 w-64 max-w-full rounded-full align-middle" />
+          </p>
+        </Shimmer>
+      </div>
+    </Section>
+  )
+}
 
 /** What the frame needs to know about the section that the address alone does not say. */
 export interface SectionFrameFacts {
@@ -154,6 +186,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
               </Shimmer>
             </section>
           ) : null}
+          {facts.composer ? <ScheduledFrame /> : null}
           <ListFrame words={[64, 64]} rows={6} rowHeight={92} />
         </>
       )

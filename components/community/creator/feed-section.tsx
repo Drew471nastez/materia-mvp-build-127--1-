@@ -34,6 +34,12 @@
  *   narrowed to one space, and shows All, Pinned or Removed, each read on
  *   the server (lib/communities/server/creator.ts loadFeedRows). How many are
  *   shown and Show more sit in the card's own foot.
+ *
+ *   ROUND 33: a row opens its post here, in the viewer (./post-viewer.tsx),
+ *   not in the community; View in community is in the viewer's bar and the
+ *   row's menu. All, Pinned and Removed are read side by side and kept, so a
+ *   press on one shows it at once (ALL, PINNED AND REMOVED, AT ONCE, below).
+ *   The Scheduled and drafts panel comes with the page (its `initial`).
  */
 import * as React from "react"
 import Link from "next/link"
@@ -50,6 +56,9 @@ import { Composer, draftKey } from "@/components/community/member/composer"
 import { ScheduledPostsPanel } from "./scheduled-posts-panel"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { PostThumb } from "@/components/community/member/media"
+import { WARM_ON_HOVER_MS } from "@/components/community/member/post-card"
+import type { ScheduledPanelData } from "@/lib/communities/scheduled-posts"
+import { PostViewer, staffViewer, warmPost, type ViewerAction } from "./post-viewer"
 import { spaceGlyph } from "@/components/community/member/space-glyph"
 import { Toasts } from "@/components/community/member/toast"
 import { api, apiBase } from "@/components/community/member/api"
@@ -98,19 +107,116 @@ export function rowOfPost(post: FeedPostView, me: CommunityHead["me"] | null): F
 }
 
 type Show = "all" | "pinned" | "removed"
+const SHOWS: readonly Show[] = ["all", "pinned", "removed"]
 
-export function FeedSection({ head, initial, spaces, compose }: { head: CommunityHead; initial: { rows: FeedRowView[]; next: string | null }; spaces: ComposerSpace[]; compose: string | null }) {
+/*
+  ===========================================================================
+   ALL, PINNED AND REMOVED, AT ONCE (round 33)
+  ===========================================================================
+  The owner: switching between All posts, Pinned and Removed was "slow, laggy and delayed". Each press asked the server
+  and waited, the old list on screen under the new tab until the answer came. Now the three lists are read side by side as
+  the section mounts (All comes with the page), each kept per community, view, search and space (LISTS), so a press shows
+  its list on the frame of the press. A kept list older than LIST_FRESH_MS is shown and read again quietly; the answer
+  replaces it only when nothing changed it here meanwhile and it has not grown with Show more (it would shrink under the
+  person). The search and the space stay the server's filters: a change reads the three lists for it, side by side.
+
+  A pin, a removal, a restore, a move, an edit or a new post changes every kept list at once (relist): the row goes into
+  the views it now belongs in, at its place by date, and out of the ones it left, so Pinned has the post pinned a moment
+  ago without asking. A list of another search only changes the row it holds, and is read again when it is next shown.
+*/
+interface List {
+  show: Show
+  /** The search, trimmed, and the space, as the server was asked. */
+  q: string
+  space: string
+  rows: FeedRowView[]
+  next: string | null
+  /** When it was read or last changed here; 0 once it is known to be out of date. */
+  at: number
+  /** Pages in it (Show more): a list grown past its first page is never read again under the person. */
+  pages: number
+}
+const LISTS = new Map<string, List>()
+const READING = new Map<string, Promise<List | null>>()
+/** A kept list younger than this is shown and not asked for again. */
+export const LIST_FRESH_MS = 15_000
+const words = (q: string) => q.trim()
+const listKey = (communityId: string, show: Show, q: string, space: string) => `${communityId}|${show}|${space}|${words(q).toLowerCase()}`
+
+/** Whether a row belongs in a view, as the server's filter for it reads (lib/communities/server/creator.ts loadFeedRows). */
+export function belongsIn(show: Show, r: Pick<FeedRowView, "status" | "pinned">): boolean {
+  return show === "removed" ? r.status === "removed" : show === "pinned" ? r.status === "published" && r.pinned : r.status === "published" || r.status === "removed"
+}
+
+/** A row put where its date puts it among rows newest first; older than the last row read while there is more, it waits for that page. */
+function placed(rows: FeedRowView[], r: FeedRowView, more: boolean): FeedRowView[] {
+  const at = rows.findIndex((x) => x.createdAt < r.createdAt || (x.createdAt === r.createdAt && x.id < r.id))
+  if (at === -1) return more ? rows : [...rows, r]
+  return [...rows.slice(0, at), r, ...rows.slice(at)]
+}
+
+/**
+ * Every kept list after one row changed (`row`) or went (null). The lists of the search and space on screen take it in,
+ * change it or let it go, as the server would now answer them; a new row goes into a searched list only when that search
+ * already had it. A list of another search or space changes the row it holds and is marked out of date.
+ */
+export function relist(lists: Record<string, List>, id: string, row: FeedRowView | null, filter: { q: string; space: string }, now = Date.now()): Record<string, List> {
+  const q = words(filter.q)
+  const here = (l: List) => l.q === q && l.space === filter.space
+  const matched = Object.values(lists).some((l) => here(l) && l.rows.some((x) => x.id === id))
+  const out: Record<string, List> = {}
+  for (const [k, l] of Object.entries(lists)) {
+    const has = l.rows.some((x) => x.id === id)
+    const fits = !!row && belongsIn(l.show, row) && (!l.space || row.spaceId === l.space)
+    let rows = l.rows
+    if (!fits) rows = has ? l.rows.filter((x) => x.id !== id) : l.rows
+    else if (has) rows = l.rows.map((x) => (x.id === id ? row! : x))
+    else if (here(l) && (!l.q || matched)) rows = placed(l.rows, row!, !!l.next)
+    out[k] = !here(l) ? { ...l, rows, at: 0 } : rows === l.rows ? l : { ...l, rows, at: now }
+  }
+  return out
+}
+
+function rowIn(lists: Record<string, List>, id: string): FeedRowView | null {
+  for (const l of Object.values(lists)) {
+    const r = l.rows.find((x) => x.id === id)
+    if (r) return r
+  }
+  return null
+}
+
+/** What a moderation action changes on the row, as the server has just done it. */
+function patched(x: FeedRowView, action: string, to: ComposerSpace | undefined, icon: string | null): FeedRowView {
+  switch (action) {
+    case "pin":
+      return { ...x, pinned: true }
+    case "unpin":
+      return { ...x, pinned: false }
+    case "lock":
+      return { ...x, locked: true }
+    case "reopen":
+      return { ...x, locked: false }
+    case "feature":
+      return { ...x, featured: true }
+    case "unfeature":
+      return { ...x, featured: false }
+    case "remove":
+      return { ...x, status: "removed", pinned: false }
+    case "move":
+      return { ...x, spaceId: to?.id ?? x.spaceId, spaceName: to?.name ?? x.spaceName, spaceIcon: icon, spaceKind: to?.announcements ? "announcements" : "feed", kind: to?.announcements ? "announcement" : x.kind === "announcement" ? "post" : x.kind }
+    default:
+      return { ...x, status: "published" }
+  }
+}
+
+export function FeedSection({ head, initial, spaces, compose, scheduled }: { head: CommunityHead; initial: { rows: FeedRowView[]; next: string | null }; spaces: ComposerSpace[]; compose: string | null; /** The Scheduled and drafts panel's rows, read with the page (round 33). */ scheduled?: ScheduledPanelData | null }) {
   const router = useRouter()
   const toast = useToast()
   const base = `/api/app/community/${head.id}`
   const me = head.me ?? null
-  const [rows, setRows] = React.useState(initial.rows)
-  const [next, setNext] = React.useState(initial.next)
   const [show, setShow] = React.useState<Show>("all")
   const [q, setQ] = React.useState("")
   const [space, setSpace] = React.useState("")
-  const [loading, setLoading] = React.useState(false)
-  const request = React.useRef(0)
   const [more, setMore] = React.useState(false)
   const [removing, setRemoving] = React.useState<FeedRowView | null>(null)
   const [deleting, setDeleting] = React.useState<FeedRowView | null>(null)
@@ -119,6 +225,26 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   const [busy, setBusy] = React.useState(false)
   const welcome = compose === "welcome"
   const canWrite = head.can.post === true && spaces.length > 0 && !head.archived && !!me
+
+  /* The kept lists of this community (ALL, PINNED AND REMOVED, AT ONCE), All from the page itself. */
+  const [lists, setLists] = React.useState<Record<string, List>>(() => {
+    const seed: Record<string, List> = {}
+    for (const [k, l] of LISTS) if (k.startsWith(`${head.id}|`)) seed[k] = l
+    seed[listKey(head.id, "all", "", "")] = { show: "all", q: "", space: "", rows: initial.rows, next: initial.next, at: Date.now(), pages: 1 }
+    return seed
+  })
+  const listsRef = React.useRef(lists)
+  const commit = React.useCallback(
+    (next: Record<string, List>) => {
+      for (const k of Object.keys(listsRef.current)) if (!(k in next)) LISTS.delete(k)
+      for (const [k, l] of Object.entries(next)) LISTS.set(k, l)
+      listsRef.current = next
+      setLists(next)
+    },
+    [],
+  )
+  const filter = React.useRef({ show, q, space })
+  filter.current = { show, q, space }
 
   /* The spaces as the composer draws them: each with its icon, where a row of this page has told it. */
   const writerSpaces = React.useMemo<MemberComposerSpace[]>(() => {
@@ -146,80 +272,122 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     return null
   })
 
-  const listQuery = React.useCallback(
-    (which: Show, cursor?: string | null) => {
-      const u = new URLSearchParams({ show: which })
-      if (q.trim()) u.set("q", q.trim())
-      if (space) u.set("space", space)
-      if (cursor) u.set("cursor", cursor)
-      return u.toString()
+  const listQuery = (which: Show, qq: string, sp: string, cursor?: string | null) => {
+    const u = new URLSearchParams({ show: which })
+    if (words(qq)) u.set("q", words(qq))
+    if (sp) u.set("space", sp)
+    if (cursor) u.set("cursor", cursor)
+    return u.toString()
+  }
+
+  /* One list from the server, asked for once however many times this is called while it is out. */
+  const read = React.useCallback(
+    (which: Show, qq: string, sp: string): Promise<List | null> => {
+      const k = listKey(head.id, which, qq, sp)
+      const going = READING.get(k)
+      if (going) return going
+      const started = Date.now()
+      const p = send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(which, qq, sp)}`, "GET").then((res) => {
+        READING.delete(k)
+        const cur = listsRef.current[k]
+        if (!res.ok) {
+          if (!cur && listKey(head.id, filter.current.show, filter.current.q, filter.current.space) === k) toast(errorText(res.data.error, tt("The posts could not be loaded.")))
+          return cur ?? null
+        }
+        /* Changed here while it was out, or grown by Show more: what is on screen is newer than this answer. */
+        if (cur && (cur.at > started || cur.pages > 1)) return cur
+        const got: List = { show: which, q: words(qq), space: sp, rows: res.data.rows ?? [], next: res.data.next ?? null, at: Date.now(), pages: 1 }
+        commit({ ...listsRef.current, [k]: got })
+        return got
+      })
+      READING.set(k, p)
+      return p
     },
-    [q, space],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [base, head.id, commit, toast],
+  )
+  /* A list shown: as kept when it is recent (or grown), read again quietly when it is not, read when there is none. */
+  const ensure = React.useCallback(
+    (which: Show, qq: string, sp: string) => {
+      const kept = listsRef.current[listKey(head.id, which, qq, sp)]
+      if (kept && (kept.pages > 1 || Date.now() - kept.at < LIST_FRESH_MS)) return
+      void read(which, qq, sp)
+    },
+    [head.id, read],
   )
 
-  const reload = React.useCallback(
-    async (which: Show) => {
-      const mine = ++request.current
-      setLoading(true)
-      const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(which)}`, "GET")
-      if (mine !== request.current) return
-      setLoading(false)
-      if (res.ok) {
-        setRows(res.data.rows ?? [])
-        setNext(res.data.next ?? null)
-      } else toast(errorText(res.data.error, tt("The posts could not be loaded.")))
-    },
-    [base, listQuery, toast],
-  )
+  /* Pinned and Removed, side by side, as the section mounts (All came with the page). */
+  React.useEffect(() => {
+    void read("pinned", "", "")
+    void read("removed", "", "")
+  }, [read])
 
-  /* The search and the space apply as they change; typing waits a moment so every key is not a request. */
+  /* The search and the space apply as they change, all three views at once; typing waits a moment so every key is not a request. */
   const firstFilter = React.useRef(true)
   React.useEffect(() => {
     if (firstFilter.current) {
       firstFilter.current = false
       return
     }
-    const t = window.setTimeout(() => void reload(show), q ? 300 : 0)
+    const t = window.setTimeout(() => {
+      ensure(filter.current.show, q, space)
+      for (const s of SHOWS) if (s !== filter.current.show) ensure(s, q, space)
+    }, q ? 300 : 0)
     return () => window.clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, space])
+  }, [q, space, ensure])
+
+  /* What is drawn: the list asked for, or while it is first read for a new search, the one that was on screen. */
+  const key = listKey(head.id, show, q, space)
+  const current = lists[key]
+  const lastShown = React.useRef(key)
+  if (current) lastShown.current = key
+  const view = current ?? lists[lastShown.current]
+  const rows = view?.rows ?? []
+  const next = view?.next ?? null
+  const loading = !current
+
+  /* The post open in the viewer (./post-viewer.tsx): its row as the lists have it now, or as it was when it left them. */
+  const [viewing, setViewing] = React.useState<FeedRowView | null>(null)
+  const [viewerOpen, setViewerOpen] = React.useState(false)
+  const [viewerError, setViewerError] = React.useState<string | null>(null)
+  const viewer = React.useMemo(() => staffViewer(head), [head])
+  const viewerRow = viewing ? (rowIn(lists, viewing.id) ?? viewing) : null
+
+  /* One row changed (or went, null) everywhere it is kept. */
+  const changeRow = React.useCallback(
+    (id: string, fn: (r: FeedRowView) => FeedRowView | null, known?: FeedRowView) => {
+      const was = rowIn(listsRef.current, id) ?? known ?? null
+      const row = was ? fn(was) : null
+      commit(relist(listsRef.current, id, row, filter.current))
+      setViewing((v) => (v && v.id === id && row ? row : v))
+    },
+    [commit],
+  )
 
   const onPosted = (post: FeedPostView) => {
-    if (show === "all" && !q.trim() && (!space || space === post.space?.id)) setRows((x) => [rowOfPost(post, me), ...x.filter((y) => y.id !== post.id)])
+    const row = rowOfPost(post, me)
+    changeRow(post.id, () => row, row)
     toast(post.kind === "announcement" ? tt("Announcement posted") : tt("Posted"))
     router.refresh()
   }
 
-  const act = async (r: FeedRowView, action: string, extra?: { reason?: string; spaceId?: string }) => {
+  /* `quiet`: asked from the viewer, whose buttons show what happened; an error is handed back for it to say. */
+  const act = async (r: FeedRowView, action: string, extra?: { reason?: string; spaceId?: string }, quiet = false): Promise<string | null> => {
     setBusy(true)
     const res = await send<{ status?: string }>(`${base}/moderation`, "POST", { action, targetType: "post", targetId: r.id, reason: extra?.reason, spaceId: extra?.spaceId })
     setBusy(false)
-    if (!res.ok) return toast(errorText(res.data.error))
+    if (!res.ok) {
+      const said = errorText(res.data.error)
+      if (!quiet) toast(said)
+      return said
+    }
     setRemoving(null)
     setMoving(null)
     const to = extra?.spaceId ? spaces.find((s) => s.id === extra.spaceId) : undefined
-    const patch: Partial<FeedRowView> =
-      action === "pin"
-        ? { pinned: true }
-        : action === "unpin"
-          ? { pinned: false }
-          : action === "lock"
-            ? { locked: true }
-            : action === "reopen"
-              ? { locked: false }
-              : action === "feature"
-                ? { featured: true }
-                : action === "unfeature"
-                  ? { featured: false }
-                  : action === "remove"
-                    ? { status: "removed", pinned: false }
-                    : action === "move"
-                      ? { spaceId: to?.id ?? r.spaceId, spaceName: to?.name ?? r.spaceName, spaceIcon: writerSpaces.find((s) => s.id === to?.id)?.icon ?? null, spaceKind: to?.announcements ? "announcements" : "feed", kind: to?.announcements ? "announcement" : r.kind === "announcement" ? "post" : r.kind }
-                      : { status: "published" }
-    /* A row that no longer belongs in the view it is in leaves it: restored under Removed, unpinned or removed under Pinned. */
-    const leaves = (show === "removed" && action === "restore") || (show === "pinned" && (action === "unpin" || action === "remove"))
-    setRows((x) => (leaves ? x.filter((y) => y.id !== r.id) : x.map((y) => (y.id === r.id ? { ...y, ...patch } : y))))
-    toast(action === "remove" ? tt("Post removed") : action === "restore" ? tt("Post restored") : action === "move" ? tt("Moved to {name}", { name: to?.name ?? "" }) : tt("Saved"))
+    const icon = writerSpaces.find((s) => s.id === to?.id)?.icon ?? null
+    changeRow(r.id, (x) => patched(x, action, to, icon), r)
+    if (!quiet) toast(action === "remove" ? tt("Post removed") : action === "restore" ? tt("Post restored") : action === "move" ? tt("Moved to {name}", { name: to?.name ?? "" }) : tt("Saved"))
+    return null
   }
 
   /* Edit: the post as the feed has it (the member route), then the composer opens with it. */
@@ -235,28 +403,46 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     const res = await api<{ ok: true }>(`${apiBase(head.id)}/posts/${deleting.id}`, { method: "DELETE" })
     setBusy(false)
     if (!res.ok) return toast(res.error || tt("The post was not deleted. Try again."))
-    setRows((x) => x.filter((y) => y.id !== deleting.id))
+    changeRow(deleting.id, () => null)
+    if (viewing?.id === deleting.id) setViewerOpen(false)
     setDeleting(null)
     toast(tt("Post deleted"))
   }
 
   const loadMore = async () => {
-    if (!next) return
+    const k = key
+    const l = lists[k]
+    if (!l?.next) return
     setMore(true)
-    const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(show, next)}`, "GET")
+    const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(show, q, space, l.next)}`, "GET")
     setMore(false)
-    if (res.ok) {
-      setRows((x) => [...x, ...(res.data.rows ?? [])])
-      setNext(res.data.next ?? null)
+    const cur = listsRef.current[k]
+    if (res.ok && cur) {
+      const fresh = (res.data.rows ?? []).filter((x) => !cur.rows.some((y) => y.id === x.id))
+      commit({ ...listsRef.current, [k]: { ...cur, rows: [...cur.rows, ...fresh], next: res.data.next ?? null, at: Date.now(), pages: cur.pages + 1 } })
     }
   }
 
   const hrefOf = (r: FeedRowView) => postPath(head.slug, { id: r.id, title: r.title, bodyText: r.excerpt })
 
+  /* A row opens its post here, over the list (./post-viewer.tsx); what it needs is asked for as the press lands. */
+  const openPost = (r: FeedRowView) => {
+    warmPost(head.id, r)
+    setViewerError(null)
+    setViewing(r)
+    setViewerOpen(true)
+  }
+  /* A mouse resting on a row (WARM_ON_HOVER_MS, the member feed's) reads its post ahead; a press reads it as it lands (hands, below). */
+  const hoverTimer = React.useRef(0)
+  React.useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
+
   const menu = (r: FeedRowView): ActionMenuItem[] => {
     const c = head.can
     const mine = !!me && r.authorId === me.userId
-    const items: ActionMenuItem[] = [{ label: tt("Open post"), href: hrefOf(r) }]
+    const items: ActionMenuItem[] = [
+      { label: tt("Open post"), onClick: () => openPost(r) },
+      { label: tt("View in community"), href: hrefOf(r) },
+    ]
     if (r.status === "published") {
       if (mine) items.push({ label: tt("Edit post"), onClick: () => void startEdit(r) })
       if (c.pin) items.push({ label: r.pinned ? tt("Unpin") : tt("Pin to the top"), onClick: () => void act(r, r.pinned ? "unpin" : "pin"), separatorBefore: true })
@@ -271,10 +457,51 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     return items
   }
 
-  return (
-    <div className="space-y-4" data-feed="">
-      <Toasts />
-      {canWrite && me ? (
+  /* The same actions as the row's menu, as the viewer's row of buttons (Edit is the viewer's own: the card's composer). */
+  const viewerActions = (r: FeedRowView): ViewerAction[] => {
+    const c = head.can
+    const mine = !!me && r.authorId === me.userId
+    const now = (action: string) => async () => setViewerError(await act(r, action, undefined, true))
+    const out: ViewerAction[] = []
+    if (r.status === "published") {
+      if (c.pin) out.push(r.pinned ? { id: "unpin", label: tt("Unpin"), run: now("unpin") } : { id: "pin", label: tt("Pin"), run: now("pin") })
+      if (c.moderate_content && spaces.length > 1) out.push({ id: "move", label: tt("Move"), run: () => setMoving({ row: r, to: r.spaceId ?? "" }) })
+      if (c.lock) out.push(r.locked ? { id: "reopen", label: tt("Allow comments"), run: now("reopen") } : { id: "lock", label: tt("Lock comments"), run: now("lock") })
+      if (c.feature) out.push(r.featured ? { id: "unfeature", label: tt("Stop featuring"), run: now("unfeature") } : { id: "feature", label: tt("Feature"), run: now("feature") })
+      if (mine) out.push({ id: "delete", label: tt("Delete"), danger: true, run: () => setDeleting(r) })
+      else if (c.moderate_content) out.push({ id: "remove", label: tt("Remove"), danger: true, run: () => setRemoving(r) })
+    } else if (r.status === "removed" && c.moderate_content) {
+      out.push({ id: "restore", label: tt("Restore"), run: now("restore") })
+    }
+    return out
+  }
+
+  /*
+    NOTHING BUT THE LIST IS DRAWN AGAIN FOR A TAB (round 33). The writer and the panel are the same elements from one press
+    to the next (so React leaves them as they are), and a row that is in both lists is not drawn again (FeedRow, memo):
+    a press on a tab costs the rows that change, not the section.
+  */
+  const latest = React.useRef({ onPosted, openPost, menu })
+  latest.current = { onPosted, openPost, menu }
+  const posted = React.useCallback((post: FeedPostView) => latest.current.onPosted(post), [])
+  const hands = React.useMemo<RowHands>(
+    () => ({
+      openPost: (r) => latest.current.openPost(r),
+      menu: (r) => latest.current.menu(r),
+      warm: (r) => warmPost(head.id, r),
+      hover: (r, e) => {
+        if (e.pointerType !== "mouse") return
+        window.clearTimeout(hoverTimer.current)
+        hoverTimer.current = window.setTimeout(() => warmPost(head.id, r), WARM_ON_HOVER_MS)
+      },
+      unhover: () => window.clearTimeout(hoverTimer.current),
+    }),
+    [head.id],
+  )
+  const writerMe = React.useMemo(() => (me ? { name: me.name, avatarUrl: me.avatarUrl } : null), [me])
+  const writer = React.useMemo(
+    () =>
+      canWrite && me && writerMe ? (
         /*
           The member feed's composer, as it is. On a phone its card is a full width row there; here, inside the page's own
           gutter, it keeps the rounded card the rest of the section has.
@@ -284,22 +511,30 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
           data-feed-writer=""
           data-composer-welcome={welcome ? "" : undefined}
         >
-          <Composer communityId={head.id} userId={me.userId} me={{ name: me.name, avatarUrl: me.avatarUrl }} spaces={writerSpaces} onPosted={onPosted} />
+          <Composer communityId={head.id} userId={me.userId} me={writerMe} spaces={writerSpaces} onPosted={posted} />
         </div>
-      ) : null}
+      ) : null,
+    [canWrite, me, writerMe, welcome, head.id, writerSpaces, posted],
+  )
+  /* Drafts and posts set to go up later (./scheduled-posts-panel), drawn with the page from what it read (round 33). */
+  const panel = React.useMemo(() => <ScheduledPostsPanel head={head} initial={scheduled} />, [head, scheduled])
 
-      {/* Round 32: drafts and posts set to go up later (./scheduled-posts-panel); it draws nothing for someone who may not post. */}
-      <ScheduledPostsPanel head={head} />
+  return (
+    <div className="space-y-4" data-feed="">
+      <Toasts />
+      {writer}
+      {panel}
 
       <ListCard
         busy={loading}
+        data-feed-show={show}
         head={
           <FilterTabs
             label={tt("Which posts")}
             value={show}
             onChange={(v) => {
               setShow(v)
-              void reload(v)
+              ensure(v, q, space)
             }}
             tabs={[
               { value: "all", label: tt("All posts") },
@@ -350,7 +585,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                     edit={{
                       post: editing,
                       onSaved: (post) => {
-                        setRows((x) => x.map((y) => (y.id === post.id ? { ...y, ...rowOfPost(post, me), authorName: y.authorName, authorAvatar: y.authorAvatar } : y)))
+                        changeRow(post.id, (y) => ({ ...y, ...rowOfPost(post, me), authorName: y.authorName, authorAvatar: y.authorAvatar }))
                         setEditing(null)
                         toast(tt("Saved"))
                       },
@@ -359,16 +594,11 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                   />
                   {/* On a phone the composer is its sheet over the list, and the row stays as it is under it. */}
                   <div className="flex gap-3 sm:hidden">
-                    <FeedRowBody r={r} head={head} href={hrefOf(r)} />
+                    <FeedRowBody r={r} head={head} href={hrefOf(r)} onOpen={() => openPost(r)} />
                   </div>
                 </li>
               ) : (
-                <li key={r.id} onClick={rowPress(() => router.push(hrefOf(r)))} className={cn("flex gap-3 py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3", ROW_PRESS, r.status !== "published" && "bg-[#fcfcfd]")} data-feed-row={r.id}>
-                  <FeedRowBody r={r} head={head} href={hrefOf(r)} />
-                  <RowControls className="items-start self-start">
-                    <RowMenu items={menu(r)} label={tt("Post actions")} />
-                  </RowControls>
-                </li>
+                <FeedRow key={r.id} r={r} head={head} href={hrefOf(r)} open={viewerOpen && viewing?.id === r.id} hands={hands} />
               ),
             )}
           </ul>
@@ -377,6 +607,20 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
       </ListCard>
       {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">{tt("There is no space to post in. Add one under Spaces.")}</Notice> : null}
       {head.can.post && spaces.length > 0 && !head.archived && !me ? <Notice tone="info">{tt("Refresh the page to write a post.")}</Notice> : null}
+
+      <PostViewer
+        open={viewerOpen}
+        row={viewerRow}
+        head={head}
+        viewer={viewer}
+        spaces={writerSpaces}
+        actions={viewerRow ? viewerActions(viewerRow) : []}
+        busy={busy}
+        error={viewerError}
+        communityHref={viewerRow ? hrefOf(viewerRow) : `/community/${head.slug}`}
+        onClose={() => setViewerOpen(false)}
+        onChange={(post) => changeRow(post.id, (y) => ({ ...y, ...rowOfPost(post, me), authorName: y.authorName, authorAvatar: y.authorAvatar }))}
+      />
 
       <FormSheet
         open={moving !== null}
@@ -413,8 +657,38 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   )
 }
 
+/** What a row asks its section for: the same functions for the section's whole life, so a row is drawn again only when it changes. */
+interface RowHands {
+  openPost: (r: FeedRowView) => void
+  menu: (r: FeedRowView) => ActionMenuItem[]
+  warm: (r: FeedRowView) => void
+  hover: (r: FeedRowView, e: React.PointerEvent) => void
+  unhover: () => void
+}
+
+/** One row: a press opens its post in the viewer, a press landing reads it ahead, its dots keep the rest (round 33). */
+const FeedRow = React.memo(function FeedRow({ r, head, href, open, hands }: { r: FeedRowView; head: CommunityHead; href: string; /** Its post is open in the viewer. */ open: boolean; hands: RowHands }) {
+  const { openPost } = hands
+  return (
+    <li
+      onClick={rowPress(() => openPost(r))}
+      onPointerDown={() => hands.warm(r)}
+      onPointerEnter={(e) => hands.hover(r, e)}
+      onPointerLeave={hands.unhover}
+      className={cn("flex gap-3 py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3", ROW_PRESS, r.status !== "published" && "bg-[#fcfcfd]", open && "bg-[#f5f6f7]")}
+      data-feed-row={r.id}
+      data-feed-row-open={open ? "" : undefined}
+    >
+      <FeedRowBody r={r} head={head} href={href} onOpen={() => openPost(r)} />
+      <RowControls className="items-start self-start">
+        <RowMenu items={hands.menu(r)} label={tt("Post actions")} />
+      </RowControls>
+    </li>
+  )
+})
+
 /** One row's words and what the post carries, as the community's feed card shows them. */
-function FeedRowBody({ r, head, href }: { r: FeedRowView; head: CommunityHead; href: string }) {
+function FeedRowBody({ r, head, href, onOpen }: { r: FeedRowView; head: CommunityHead; href: string; onOpen: () => void }) {
   const media = r.media ?? []
   const visual = media.filter((m) => VISUAL.has(m.type))
   const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
@@ -449,8 +723,22 @@ function FeedRowBody({ r, head, href }: { r: FeedRowView; head: CommunityHead; h
         </div>
         <div className="mt-1 flex min-w-0 gap-3">
           <div className="min-w-0 flex-1">
-            {/* The row's one link: Tab reaches it, Enter opens the post; a press anywhere else in the row does the same. */}
-            <Link href={href} prefetch={false} data-row-open="" className="block min-w-0 rounded-sm outline-none focus-visible:shadow-[0_0_0_2px_#1a1a2e]" data-feed-open="">
+            {/*
+              The row's one link: Tab reaches it, Enter opens the post in the viewer, as a press anywhere else in the row does
+              (round 33). It stays a link to the post in the community, for a press with a modifier key or a new tab.
+            */}
+            <Link
+              href={href}
+              prefetch={false}
+              data-row-open=""
+              onClick={(e) => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                e.preventDefault()
+                onOpen()
+              }}
+              className="block min-w-0 rounded-sm outline-none focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
+              data-feed-open=""
+            >
               {r.title ? <span className={cn("block truncate text-[15px] font-semibold leading-snug", live ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{r.title}</span> : null}
               {r.excerpt ? <span className={cn("mt-0.5 line-clamp-2 block text-[14px] leading-snug", live ? "text-[#4b5563]" : "text-[#9ca3af]")}>{r.excerpt}</span> : null}
               {!r.title && !r.excerpt ? <span className="block text-[14px] text-[#9ca3af]">{tt("Open post")}</span> : null}

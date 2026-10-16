@@ -3,8 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
-import { canPostIn, listSpaces } from "@/lib/communities/server/feed"
-import { createScheduled, listScheduled } from "@/lib/communities/server/scheduled-posts"
+import { createScheduled, scheduledPanelReads } from "@/lib/communities/server/scheduled-posts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,10 +24,8 @@ export async function GET(_request: Request, { params }: Params) {
   const { id } = await params
   const gate = await requireCreatorCommunity(id, "post")
   if (gate instanceof NextResponse) return gate
-  const db = gate.ctx.admin
-  const [list, spaces] = await Promise.all([listScheduled(db, gate.community.id, { userId: gate.ctx.userId, role: gate.viewer.role, perms: gate.viewer.perms }), listSpaces(db, gate.community.id)])
-  const writable = spaces.filter((s) => s.kind !== "chat" && canPostIn(s, gate.viewer, gate.community.chat_enabled)).map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
-  return NextResponse.json({ ...list, spaces: writable }, { headers: noStore })
+  /* The same read the Posts page makes on the server (round 33). */
+  return NextResponse.json(await scheduledPanelReads(gate.ctx.admin, gate.community, gate.viewer, gate.ctx.userId), { headers: noStore })
 }
 
 export async function POST(request: Request, { params }: Params) {
