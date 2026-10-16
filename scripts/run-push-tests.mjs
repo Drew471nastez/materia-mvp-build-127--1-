@@ -641,6 +641,8 @@ const SUITES = [
   "tests/publishing-cache.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
+  /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
+  "tests/db-indexes.test.ts",
 ]
 
 /**
