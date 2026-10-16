@@ -1,8 +1,8 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Loader2, Plus, X } from "lucide-react"
-import { MAX_BODY_CHARS, MAX_PHOTOS, MAX_TITLE_CHARS } from "@/lib/reviews/app-settings"
+import { Film, Loader2, Plus, X } from "lucide-react"
+import { MAX_BODY_CHARS, MAX_PHOTOS, MAX_TITLE_CHARS, REVIEW_PHOTO_UPLOAD_BYTES, VIDEO_MAX_BYTES, VIDEO_TYPES } from "@/lib/reviews/app-settings"
 import { RATING_WORDS } from "@/lib/reviews/rules"
 
 export interface ReviewPageProps {
@@ -11,6 +11,7 @@ export interface ReviewPageProps {
   product: { title: string; image: string | null }
   starColor: string
   photosAllowed: boolean
+  videosAllowed?: boolean
   initialRating: number
   suggestedName: string
   closed: boolean
@@ -19,13 +20,13 @@ export interface ReviewPageProps {
     title: string
     content: string
     name: string
-    photos: { path: string; url: string; removed: boolean }[]
+    photos: { path: string; url: string; removed: boolean; video?: boolean }[]
     status: "published" | "pending" | "hidden"
     editable: boolean
   } | null
 }
 
-type Photo = { path: string; url: string; removed?: boolean }
+type Photo = { path: string; url: string; removed?: boolean; video?: boolean }
 
 const field = "block w-full rounded-xl border border-[#e3e4e8] bg-white px-3.5 py-2.5 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c4c9d2] focus:shadow-[0_0_0_4px_rgba(26,26,46,0.06)] sm:text-[15px]"
 
@@ -42,11 +43,20 @@ export function ReviewPageForm(p: ReviewPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string>(p.review?.status ?? "")
   const fileRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLInputElement>(null)
+  /* When the page opened, and a field nobody sees: the route's spam check (app-settings looksAutomated). */
+  const [openedAt] = useState(() => Date.now())
+  const [trap, setTrap] = useState("")
+  const [videoProgress, setVideoProgress] = useState<number | null>(null)
   const editing = !!p.review
+  const pictures = photos.filter((x) => !x.removed && !x.video)
+  const clip = photos.find((x) => !x.removed && x.video) ?? null
 
   const shown = hover || rating
   const addPhoto = async (file: File) => {
     setError(null)
+    /* Said here, before a phone sends 20 MB to be told no. */
+    if (file.size > REVIEW_PHOTO_UPLOAD_BYTES) return setError("That photo is too large. Use one under 8 MB.")
     setUploading(true)
     const form = new FormData()
     form.append("file", file)
@@ -58,6 +68,35 @@ export function ReviewPageForm(p: ReviewPageProps) {
     setPhotos((list) => [...list, { path: data.path, url: data.url }])
   }
 
+  /* A video goes straight to storage on an address the server signs for this link (app/api/reviews/video). */
+  const addVideo = async (file: File) => {
+    setError(null)
+    if (!(VIDEO_TYPES as readonly string[]).includes(file.type)) return setError("Use an MP4, WebM or MOV video.")
+    if (file.size > VIDEO_MAX_BYTES) return setError("That video is too large. Use one under 50 MB.")
+    setVideoProgress(0)
+    const res = await fetch("/api/reviews/video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: p.token, type: file.type, size: file.size }) }).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
+    if (!res?.ok || !data.uploadUrl) {
+      setVideoProgress(null)
+      return setError(data.error || "The video didn't upload. Try again.")
+    }
+    const ok = await new Promise<boolean>((resolve) => {
+      const form = new FormData()
+      form.append("cacheControl", "3600")
+      form.append("", file)
+      const xhr = new XMLHttpRequest()
+      xhr.open("PUT", data.uploadUrl)
+      xhr.setRequestHeader("x-upsert", "false")
+      xhr.upload.onprogress = (e) => e.lengthComputable && setVideoProgress(Math.round((e.loaded / e.total) * 100))
+      xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300)
+      xhr.onerror = () => resolve(false)
+      xhr.send(form)
+    })
+    setVideoProgress(null)
+    if (!ok) return setError("The video didn't upload. Try again, or use a shorter one.")
+    setPhotos((list) => [...list.filter((x) => !x.video), { path: data.path, url: URL.createObjectURL(file), video: true }])
+  }
+
   const submit = async () => {
     if (!rating) return setError("Choose how many stars.")
     if (content.trim().length < 2) return setError("Write a few words about it.")
@@ -66,7 +105,7 @@ export function ReviewPageForm(p: ReviewPageProps) {
     const res = await fetch("/api/reviews/request", {
       method: editing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: p.token, rating, title, content, name, photos: photos.filter((x) => !x.removed).map((x) => x.path) }),
+      body: JSON.stringify({ token: p.token, rating, title, content, name, photos: photos.filter((x) => !x.removed).map((x) => x.path), website: trap, openedAt }),
     }).catch(() => null)
     const data = res ? await res.json().catch(() => ({})) : {}
     setBusy(false)
@@ -110,10 +149,14 @@ export function ReviewPageForm(p: ReviewPageProps) {
               <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-[#374151] [overflow-wrap:anywhere]">{content}</p>
               {photos.some((x) => !x.removed) ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {photos.filter((x) => !x.removed).map((x) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={x.path} src={x.url} alt="" className="h-20 w-20 rounded-lg object-cover" />
-                  ))}
+                  {photos.filter((x) => !x.removed).map((x) =>
+                    x.video ? (
+                      <video key={x.path} src={x.url} controls playsInline preload="metadata" className="h-20 w-32 rounded-lg bg-black object-cover" />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={x.path} src={x.url} alt="" className="h-20 w-20 rounded-lg object-cover" />
+                    ),
+                  )}
                 </div>
               ) : null}
               <p className="mt-3 text-[13px] text-[#6b7280]">
@@ -131,6 +174,7 @@ export function ReviewPageForm(p: ReviewPageProps) {
           ) : (
             <form
               data-review-form=""
+              className="relative"
               onSubmit={(e) => {
                 e.preventDefault()
                 void submit()
@@ -176,13 +220,24 @@ export function ReviewPageForm(p: ReviewPageProps) {
               <input id="review-name" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} className={`${field} mt-1.5`} placeholder="First name" autoComplete="given-name" />
               <p className="mt-1 text-[12.5px] text-[#6b7280]">Shown as your first name and last initial.</p>
 
-              {p.photosAllowed ? (
+              {p.photosAllowed || p.videosAllowed ? (
                 <div className="mt-4">
                   <p className="text-[14px] font-medium text-[#1a1a2e]">
-                    Photos <span className="font-normal text-[#9ca3af]">(optional, up to {MAX_PHOTOS})</span>
+                    {p.photosAllowed && p.videosAllowed ? "Photos and a video" : p.photosAllowed ? "Photos" : "A video"}{" "}
+                    <span className="font-normal text-[#9ca3af]">
+                      (optional{p.photosAllowed ? `, up to ${MAX_PHOTOS} photos` : ""}{p.videosAllowed ? ", one video under 50 MB" : ""})
+                    </span>
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {photos.filter((x) => !x.removed).map((x) => (
+                    {clip ? (
+                      <div className="relative" data-review-video="">
+                        <video src={clip.url} muted playsInline preload="metadata" className="h-20 w-32 rounded-lg bg-black object-cover" />
+                        <button type="button" aria-label="Remove video" onClick={() => setPhotos((list) => list.filter((y) => y.path !== clip.path))} className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#1a1a2e] text-white">
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    ) : null}
+                    {pictures.map((x) => (
                       <div key={x.path} className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={x.url} alt="" className="h-20 w-20 rounded-lg object-cover" />
@@ -191,12 +246,28 @@ export function ReviewPageForm(p: ReviewPageProps) {
                         </button>
                       </div>
                     ))}
-                    {photos.filter((x) => !x.removed).length < MAX_PHOTOS ? (
+                    {p.photosAllowed && pictures.length < MAX_PHOTOS ? (
                       <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()} className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[#c4c9d2] text-[#6b7280] hover:bg-[#f7f7f8]" aria-label="Add a photo">
                         {uploading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Plus className="h-5 w-5" aria-hidden />}
                       </button>
                     ) : null}
+                    {p.videosAllowed && !clip ? (
+                      <button type="button" disabled={videoProgress !== null} onClick={() => videoRef.current?.click()} className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#c4c9d2] text-[12px] text-[#6b7280] hover:bg-[#f7f7f8]" aria-label="Add a video" data-review-add-video="">
+                        {videoProgress !== null ? <span className="tabular-nums">{videoProgress}%</span> : <Film className="h-5 w-5" aria-hidden />}
+                      </button>
+                    ) : null}
                   </div>
+                  <input
+                    ref={videoRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ""
+                      if (f) void addVideo(f)
+                    }}
+                  />
                   <input
                     ref={fileRef}
                     type="file"
@@ -211,13 +282,21 @@ export function ReviewPageForm(p: ReviewPageProps) {
                 </div>
               ) : null}
 
+              {/* Nobody sees this field; a script that fills every field fills it (app-settings looksAutomated). */}
+              <div aria-hidden className="absolute -left-[9999px] h-px w-px overflow-hidden">
+                <label>
+                  Website
+                  <input name="website" tabIndex={-1} autoComplete="off" value={trap} onChange={(e) => setTrap(e.target.value)} />
+                </label>
+              </div>
+
               {error ? (
                 <p role="alert" className="mt-4 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">
                   {error}
                 </p>
               ) : null}
 
-              <button type="submit" disabled={busy || uploading} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white transition-colors hover:bg-[#2a2a40] disabled:opacity-60" data-review-submit="">
+              <button type="submit" disabled={busy || uploading || videoProgress !== null} className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white transition-colors hover:bg-[#2a2a40] disabled:opacity-60" data-review-submit="">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                 {editing ? "Save changes" : "Post review"}
               </button>

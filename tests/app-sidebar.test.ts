@@ -537,7 +537,8 @@ section("The sidebar advertises nothing that does not exist")
   check("  each installed one under it, with its own small logo, to its page there", /href: `\/app\/integrations\?integration=\$\{encodeURIComponent\(i\.id\)\}`/.test(sidebar) && /thumb: <MiniMark/.test(sidebar) && /logo: i\.logo \?\? null/.test(r("app/api/store/integrations/installed/route.ts")))
   check("  a row's picture is drawn on desktop and phone alike", /child\.thumb \?/.test(r("components/app/sidebar-desktop-nav.tsx")) && /child\.thumb \?/.test(r("components/app/sidebar-mobile-nav.tsx")))
   check("the page: yours first, then everything to add, the same directory as Settings", /<IntegrationsDirectory page \/>/.test(r("app/app/integrations/integrations-client.tsx")) && /data-installed-integrations=""/.test(r("components/app/settings/integrations-directory.tsx")))
-  check("  links that went to Settings › Integrations open the page", /"\/app\/integrations\?integration=storelib-reviews"/.test(r("app/app/reviews/reviews-client.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
+  /* Changed on purpose: Storelib Reviews' settings moved into Reviews (Reviews › Settings, components/app/reviews/reviews-nav.tsx), so the Reviews list links there and the integration's page links back to it. */
+  check("  links that went to Settings › Integrations open the page", /const SETTINGS_HREF = reviewsHref\("settings"\)/.test(r("app/app/reviews/reviews-client.tsx")) && /href: `\$\{REVIEWS_BASE\}\/settings`/.test(r("components/app/reviews/reviews-nav.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
 }
 
 /*

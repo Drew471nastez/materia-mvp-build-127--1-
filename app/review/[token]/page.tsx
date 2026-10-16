@@ -53,6 +53,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
     product: { title: ctx.product.title ?? "Your purchase", image: mediaUrl(ctx.product.thumbnail_url) ?? null },
     starColor: ctx.settings.display.starColor,
     photosAllowed: ctx.settings.photos,
+    videosAllowed: ctx.settings.videos,
     initialRating: Number.isInteger(rateRaw) && rateRaw >= 1 && rateRaw <= 5 ? rateRaw : 0,
     suggestedName: publicName(ctx.order?.buyer_first_name) ?? "",
     closed,
@@ -63,7 +64,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
           content: review.content ?? "",
           name: review.reviewer_name ?? "",
           /* A photo not public yet (the store has not approved the review on its website) is shown to its writer by a short signed address. */
-          photos: await Promise.all(readPhotos(review.photos).map(async (p) => ({ path: p.path, url: (await photoViewUrl(db, review, p)) ?? p.url, removed: p.status === "removed" }))),
+          photos: await Promise.all(readPhotos(review.photos).map(async (p) => ({ path: p.path, url: (await photoViewUrl(db, review, p)) ?? p.url, removed: p.status === "removed", ...(p.kind === "video" ? { video: true } : {}) }))),
           status: websiteStatus(review),
           editable: canEditUntil(review.created_at, ctx.settings.editDays),
         }

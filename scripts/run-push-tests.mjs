@@ -50,6 +50,8 @@ const SUITES = [
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   "tests/storelib-reviews.test.ts",
+  /* Reviews in one place: import, moderation, requests, analytics, the list, spam, the area (app/app/reviews). */
+  "tests/reviews-dashboard.test.ts",
   "tests/reviews-product-page.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",

@@ -31,7 +31,7 @@ import "server-only"
 import { randomBytes } from "node:crypto"
 import { preparePublicImage } from "@/lib/storage/public-image"
 import { screenInBackground } from "@/lib/storage/upload-guard"
-import { readPhotos, websiteStatus, type ReviewPhoto } from "./app-settings"
+import { VIDEO_MAX_BYTES, isVideoPath, readPhotos, websiteStatus, type ReviewPhoto } from "./app-settings"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -119,6 +119,35 @@ export async function claimUploads(db: Db, a: { creatorId: string; owner: Upload
   return out
 }
 
+/**
+ * A video goes straight from the buyer's browser to the private bucket
+ * (app/api/reviews/video signs the upload), so the review that names it
+ * checks it is really there, a video, and under VIDEO_MAX_BYTES. Paths that
+ * are not videos pass through unchanged; a video that fails is left out and
+ * its file removed.
+ */
+export async function verifyVideos(db: Db, paths: string[]): Promise<string[]> {
+  const out: string[] = []
+  for (const path of paths) {
+    if (!isVideoPath(path)) {
+      out.push(path)
+      continue
+    }
+    const slash = path.lastIndexOf("/")
+    try {
+      const { data } = await db.storage.from(REVIEW_UPLOAD_BUCKET).list(path.slice(0, slash), { search: path.slice(slash + 1), limit: 1 })
+      const file = ((data ?? []) as { name?: string; metadata?: { size?: number; mimetype?: string } | null }[]).find((f) => f.name === path.slice(slash + 1))
+      const size = Number(file?.metadata?.size)
+      const type = String(file?.metadata?.mimetype ?? "")
+      if (file && Number.isFinite(size) && size > 0 && size <= VIDEO_MAX_BYTES && /^video\//.test(type)) out.push(path)
+      else await removeReviewPhotos(db, [path])
+    } catch {
+      /* Storage did not answer: the video is left off rather than the review refused. */
+    }
+  }
+  return out
+}
+
 /** Whether a photo's file belongs in the public bucket: the store's website shows the review, and the store has not removed the photo. */
 export function photoIsPublic(review: { status?: unknown; site_status?: unknown }, photo: Pick<ReviewPhoto, "status">): boolean {
   return photo.status === "approved" && websiteStatus(review) === "published"
@@ -140,6 +169,34 @@ export async function syncReviewPhotos(db: Db, review: { status?: unknown; site_
 /** Where the reviewer's own page shows a photo: its public address when it is public, a short signed one otherwise. */
 export async function photoViewUrl(db: Db, review: { status?: unknown; site_status?: unknown }, photo: ReviewPhoto): Promise<string | null> {
   return photoIsPublic(review, photo) ? photo.url : signedUrl(db, photo.path)
+}
+
+/**
+ * Where the store's own list shows each photo and video of these reviews:
+ * the public address when the website shows it, else a signed one from the
+ * private bucket (a review waiting for approval, a photo the store took off,
+ * a video it has not let through yet). One signing call for the lot.
+ */
+export async function withViewUrls<T extends { status?: unknown; site_status?: unknown; photos: ReviewPhoto[] }>(db: Db, reviews: T[]): Promise<(T & { photos: (ReviewPhoto & { view: string })[] })[]> {
+  const privatePaths = [...new Set(reviews.flatMap((r) => r.photos.filter((p) => !photoIsPublic(r, p)).map((p) => p.path)))]
+  const signed = new Map<string, string>()
+  if (privatePaths.length) {
+    try {
+      const bucket = db.storage.from(REVIEW_UPLOAD_BUCKET)
+      if (typeof bucket.createSignedUrls === "function") {
+        const { data } = await bucket.createSignedUrls(privatePaths, PREVIEW_SECONDS)
+        for (const s of (data ?? []) as { path?: string; signedUrl?: string }[]) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl)
+      } else {
+        for (const path of privatePaths) {
+          const url = await signedUrl(db, path)
+          if (url) signed.set(path, url)
+        }
+      }
+    } catch {
+      /* Unsigned: the list shows the public address, which works for what is public. */
+    }
+  }
+  return reviews.map((r) => ({ ...r, photos: r.photos.map((p) => ({ ...p, view: signed.get(p.path) ?? p.url })) }))
 }
 
 /** A review's files, gone from both buckets. */

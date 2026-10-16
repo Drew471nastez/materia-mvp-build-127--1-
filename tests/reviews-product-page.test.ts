@@ -67,8 +67,10 @@ console.log("\nThe setting")
   check("a value that is not true or false reads as the default", readReviewsApp({ display: { productPage: "no" } }).display.productPage === true)
   const empty = emptyStorefrontReviews(readReviewsApp({ enabled: true, display: { productPage: false } }), CREATOR)
   check("what a page is handed says whether product pages get them", empty.product_page === false && emptyStorefrontReviews(readReviewsApp({ enabled: true }), CREATOR).product_page === true)
-  const panel = read("components/app/settings/reviews-app-panel.tsx")
-  check("the switch is in Settings › Integrations › Storelib Reviews, under On your website", /label="Add to product pages"/.test(panel) && /productPage: v/.test(panel) && panel.indexOf("Add to product pages") > panel.indexOf("On your website"))
+  /* Changed on purpose: Storelib Reviews is set up in one place, Reviews › Settings (components/app/reviews/settings-form.tsx); Settings › Integrations links there. */
+  const panel = read("components/app/reviews/settings-form.tsx")
+  check("the switch is in Reviews › Settings, under On your website", /label="Add to product pages"/.test(panel) && /productPage: v/.test(panel) && panel.indexOf("Add to product pages") > panel.indexOf("On your website"))
+  check("  and Settings › Integrations › Storelib Reviews keeps no second copy of it", !/Add to product pages/.test(read("components/app/settings/reviews-app-panel.tsx")) && /reviewsHref\("settings"\)/.test(read("components/app/settings/reviews-app-panel.tsx")))
 }
 
 /* ── A Storelib theme's product page ─────────────────────────────────── */

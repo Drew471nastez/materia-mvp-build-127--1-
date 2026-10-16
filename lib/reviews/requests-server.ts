@@ -28,6 +28,14 @@ import "server-only"
  * otherwise. Its unsubscribe link turns review emails off for the address,
  * the same "review_requests" scope the engine's emails use.
  *
+ * The email carries the store's own words when it wrote them (Reviews ›
+ * Requests, lib/reviews/request-copy.ts emailCopyFor). A second order of a
+ * product by an address already asked about it is planned as skipped, with
+ * the reason "duplicate" (dedupeAsks), so one person is asked once.
+ *
+ * The store can also act on one row from Reviews › Requests (requestAction):
+ * send it now, send it again, cancel it, or try a failed one again.
+ *
  * The reply says how many and never quotes an address.
  */
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -40,6 +48,7 @@ import { soldOnStorelib } from "./request-rules"
 import { readReviewsApp, type ReviewsAppSettings } from "./app-settings"
 import { reminderDueAt, requestBlock, requestDueAt, type RequestFacts, type Shipment } from "./request-schedule"
 import { signRequest } from "./request-token"
+import { dedupeAsks, emailCopyFor, requestActionBlock, type RequestAction } from "./request-copy"
 import { sweepReviewUploads } from "./photos-server"
 import { sendReviewDigests } from "./digest-server"
 
@@ -164,10 +173,11 @@ async function factsFor(db: Db, row: RequestRow): Promise<RequestFacts & { produ
 }
 
 /** The email, rendered and sent. True when the provider took it. */
-async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean): Promise<"sent" | "retry" | "failed"> {
+async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean, again = false): Promise<"sent" | "retry" | "failed"> {
   const token = signRequest(row.id)
   if (!token) return "failed"
   const base = row.origin || storelibBase()
+  const copy = emailCopyFor(settings, { firstName: row.first_name, product: facts.product?.title ?? "", store: facts.storeName ?? "" }, reminder)
   const unsubscribe = reviewUnsubscribeUrl(row.order_id)
   /* The footer link on the host the email links to: /api passes through on a website's own host. */
   const unsubscribeHere = unsubscribe ? `${base}${new URL(unsubscribe).pathname}${new URL(unsubscribe).search}` : null
@@ -182,6 +192,12 @@ async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFo
       orderId: row.order_id,
       reviewToken: token,
       reminderOn: settings.request.reminder,
+      copySubject: copy.subject ?? "",
+      copyHeading: copy.heading ?? "",
+      copyParagraphs: copy.paragraphs ?? [],
+      copyButton: copy.button ?? "",
+      copyFromName: copy.fromName ?? "",
+      hideProduct: !copy.showProduct,
     },
     { baseUrl: base, recipientName: row.first_name, unsubscribeUrl: unsubscribeHere, preferencesUrl: null, when: null },
   )
@@ -200,7 +216,8 @@ async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFo
     headers,
     tags: ["storelib-reviews", reminder ? "REVIEW_REMINDER" : "REVIEW_REQUEST"],
     variables: { review_request_id: row.id },
-    messageId: `<review.${row.id}.${reminder ? 2 : 1}@storelib.com>`,
+    /* A copy sent again by the store gets its own id: an inbox drops a second message with an id it has seen. */
+    messageId: `<review.${row.id}.${reminder ? 2 : 1}${again ? `.${Date.now().toString(36)}` : ""}@storelib.com>`,
   })
   if (result.status === "sent" || result.status === "unknown") return "sent"
   return result.status === "retry" ? "retry" : "failed"
@@ -251,7 +268,18 @@ async function planStore(db: Db, creatorId: string, settings: ReviewsAppSettings
   if (orders.length === 0) return
   const { data: had } = await db.from("review_requests").select("order_id").in("order_id", orders.map((o) => o.id))
   const known = new Set(((had ?? []) as { order_id: string }[]).map((r) => r.order_id))
-  const fresh = orders.filter((o) => !known.has(o.id))
+  const unplanned = orders.filter((o) => !known.has(o.id))
+  if (unplanned.length === 0) return
+  /* One ask an address and product (request-copy dedupeAsks): a second order of the same product is planned as a skipped duplicate. */
+  const emails = [...new Set(unplanned.map((o) => lower(o.buyer_email)))]
+  const { data: askedRows } = await db.from("review_requests").select("email, product_id").eq("creator_id", creatorId).in("email", emails.slice(0, 200))
+  const { fresh, duplicates } = dedupeAsks(unplanned as (Record<string, any> & { id: string; created_at?: string | null; source?: string | null })[], (askedRows ?? []) as { email: string; product_id: string | null }[])
+  for (const o of duplicates) {
+    await db
+      .from("review_requests")
+      .upsert({ creator_id: creatorId, order_id: o.id, product_id: o.product_id, email: lower(o.buyer_email), status: "skipped", skip_reason: "duplicate", due_at: new Date(now).toISOString() }, { onConflict: "order_id", ignoreDuplicates: true })
+    out.skipped++
+  }
   if (fresh.length === 0) return
   const ships = await shipmentsFor(db, [...new Set(fresh.filter((o) => o.requires_shipping && o.checkout_id).map((o) => String(o.checkout_id)))])
   let origin: string | null | undefined
@@ -372,6 +400,60 @@ export async function askNow(db: Db, creatorId: string, orderId: string, setting
   const stamp = new Date().toISOString()
   await db.from("review_requests").update({ status: r.status === "scheduled" ? "sent" : r.status, sent_at: r.sent_at ?? stamp, last_sent_at: stamp, attempts: (r.attempts ?? 0) + 1, updated_at: stamp }).eq("id", r.id)
   return true
+}
+
+/**
+ * One row, from Reviews › Requests: send it now (it was waiting for its
+ * day), send it again (a day after it last went), cancel it (kept as
+ * skipped, "cancelled"), or try a failed one again (scheduled for now, so
+ * this call sends it). The same rules as the hourly run before any email
+ * (requestBlock: still theirs, not reviewed, not unsubscribed, not the
+ * store's own), but no "too late": the store asked for it. Only the store's
+ * own rows.
+ */
+export async function requestAction(db: Db, creatorId: string, requestId: string, action: RequestAction, settings: ReviewsAppSettings, nowMs = Date.now()): Promise<{ ok: true; row: RequestRow & { skip_reason?: string | null } } | { ok: false; status: number; error: string }> {
+  const { data } = await db.from("review_requests").select("*").eq("id", requestId).eq("creator_id", creatorId).maybeSingle()
+  const row = data as (RequestRow & { skip_reason?: string | null }) | null
+  if (!row) return { ok: false, status: 404, error: "That request is not there any more." }
+  const blocked = requestActionBlock(row, action, nowMs)
+  if (blocked) return { ok: false, status: 409, error: blocked }
+  const stamp = new Date(nowMs).toISOString()
+  if (action === "cancel") {
+    const { data: done } = await db.from("review_requests").update({ status: "skipped", skip_reason: "cancelled", updated_at: stamp }).eq("id", row.id).eq("status", row.status).select("*")
+    const after = ((done ?? []) as RequestRow[])[0]
+    return after ? { ok: true, row: after } : { ok: false, status: 409, error: "It changed while you were looking. Refresh and try again." }
+  }
+  if (!settings.enabled) return { ok: false, status: 409, error: "Turn Storelib Reviews on to send review emails." }
+  const facts = await factsFor(db, row)
+  const block = requestBlock(facts, { enabledAt: null }, nowMs, nowMs)
+  if (block) {
+    const reasons: Record<string, string> = {
+      reviewed: "They already wrote a review.",
+      unsubscribed: "This address turned review emails off.",
+      not_open: "The order was refunded or not paid.",
+      own_order: "This is your own order.",
+      no_product: "The product is not sold any more.",
+      test_sale: "This was a test sale.",
+      no_order: "The order is not there any more.",
+    }
+    if (block === "reviewed") await db.from("review_requests").update({ status: "reviewed", updated_at: stamp }).eq("id", row.id)
+    return { ok: false, status: 409, error: reasons[block] ?? "This request can't be sent." }
+  }
+  /* Claimed before it is sent, as the hourly run does: a second press (or the run beside it) finds the row moved and sends nothing. */
+  const change: Record<string, unknown> = { last_sent_at: stamp, attempts: (row.attempts ?? 0) + 1, updated_at: stamp }
+  if (row.status === "scheduled" || row.status === "failed") Object.assign(change, { status: "sent", sent_at: stamp, skip_reason: null })
+  let claim = db.from("review_requests").update(change).eq("id", row.id).eq("status", row.status)
+  claim = row.last_sent_at ? claim.eq("last_sent_at", row.last_sent_at) : claim.is("last_sent_at", null)
+  const { data: claimed } = await claim.select("*")
+  const mine = ((claimed ?? []) as RequestRow[])[0]
+  if (!mine) return { ok: false, status: 409, error: "It changed while you were looking. Refresh and try again." }
+  const sent = await sendAsk(row, facts, settings, false, action === "resend").catch(() => "retry" as const)
+  if (sent !== "sent") {
+    /* Back as it was, so the store can press it again. */
+    await db.from("review_requests").update({ status: row.status, sent_at: row.sent_at ?? null, last_sent_at: row.last_sent_at ?? null, skip_reason: row.skip_reason ?? null, updated_at: stamp }).eq("id", row.id)
+    return { ok: false, status: 502, error: "The email did not go. Try again in a few minutes." }
+  }
+  return { ok: true, row: mine }
 }
 
 /* ── The review page's side: a link, back to its request ─────────────── */

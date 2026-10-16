@@ -76,6 +76,13 @@ const REVIEW_COLUMNS = new Set([
   "source",
   "hidden_by",
   "published_at",
+  /*
+    Changed on purpose: run-now part 189 (Reviews in one place) adds the
+    import a review came from, so a whole import can be taken back. Only the
+    import route writes it, and it imports without it when the part has not
+    run.
+  */
+  "import_batch_id",
 ])
 
 const SKIP = new Set(["node_modules", ".next", ".git", "ios", "android", "public", "tests"])

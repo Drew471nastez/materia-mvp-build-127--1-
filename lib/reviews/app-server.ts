@@ -50,6 +50,8 @@ export async function saveReviewsApp(db: Db, creatorId: string, patch: unknown):
   if (!now.ready) return { ok: false, error: REVIEWS_APP_NEEDS_PART, status: 409 }
   const next = mergeReviewsApp(now.settings, patch)
   const { error } = await db.from("store_settings").upsert({ creator_id: creatorId, reviews: next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  /* Part 134 kept the settings under 4 KB; the request email's own words can pass that until part 189 makes room. */
+  if (error && String((error as { code?: string }).code ?? "") === "23514") return { ok: false, error: "Those settings are too long to keep yet. Shorten the email's words, or run SQL part 189 in Supabase.", status: 409 }
   if (error) return { ok: false, error: missingColumn(error) ? REVIEWS_APP_NEEDS_PART : "It could not be saved.", status: missingColumn(error) ? 409 : 500 }
   forgetReviewsApp(creatorId)
   return { ok: true, settings: next }
