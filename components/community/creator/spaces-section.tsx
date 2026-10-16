@@ -49,7 +49,7 @@
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { DndContext, DragOverlay, closestCenter, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
+import { DndContext, DragOverlay, closestCenter, useDndContext, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ArrowDown, ArrowUp, GripVertical, LayoutGrid, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -104,6 +104,16 @@ const COLS = ["", "w-[132px]", "w-[150px]", "w-[19%]", "w-[96px]", "w-[124px]"]
 function settle(): { duration: number; easing: string } | null {
   const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
   return still ? null : { duration: 200, easing: "cubic-bezier(0.2, 0, 0, 1)" }
+}
+
+/**
+ * The space being dragged, read from the drag itself rather than from the section, so lifting a row draws the copy and the
+ * rows that move, not the whole section again (a long frame at the moment of the lift, measured).
+ */
+function LiftedCopy({ spaces, children }: { spaces: SpaceView[]; children: (space: SpaceView, index: number) => React.ReactNode }) {
+  const { active } = useDndContext()
+  const index = active ? spaces.findIndex((s) => s.id === active.id) : -1
+  return index >= 0 ? <>{children(spaces[index], index)}</> : null
 }
 
 /** The lift: the copy grows to its lifted size over 140ms once it is on the page, so it rises rather than appears. */
@@ -172,7 +182,6 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
 
   /* ── Dragging (hold-to-drag.ts, as the product editor and the gallery) ── */
   const sensors = useHoldToDragSensors()
-  const [lifted, setLifted] = React.useState<UniqueIdentifier | null>(null)
   const quietUntil = React.useRef(0)
   const ids = spaces.map((s) => s.id)
   const place = (id: UniqueIdentifier | undefined) => (id == null ? 0 : ids.indexOf(String(id)) + 1)
@@ -184,17 +193,14 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     onDragCancel: ({ active }) => tt("Cancelled. {name} is back where it was.", { name: nameOf(active.id) }),
   }
   const onDragStart = (e: DragStartEvent) => {
-    setLifted(e.active.id)
     liftTick(e.activatorEvent)
   }
   const onDragEnd = ({ active, over }: DragEndEvent) => {
-    setLifted(null)
     quietUntil.current = Date.now() + AFTER_DRAG_QUIET_MS
     if (!over || active.id === over.id) return
     moveTo(ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
   }
   const onDragCancel = () => {
-    setLifted(null)
     quietUntil.current = Date.now() + AFTER_DRAG_QUIET_MS
   }
   const dnd = {
@@ -291,8 +297,6 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     </>
   )
 
-  const liftedSpace = lifted == null ? null : (spaces.find((s) => s.id === lifted) ?? null)
-  const liftedIndex = liftedSpace ? spaces.indexOf(liftedSpace) : -1
 
   return (
     <div className="space-y-4" data-spaces="">
@@ -319,7 +323,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
         ) : (
           <>
             <DndContext {...dnd}>
-              <table className={TABLE} data-spaces-table="" data-dragging={lifted != null ? "" : undefined}>
+              <table className={TABLE} data-spaces-table="">
                 <thead>
                   <tr>
                     <th className={TH}>{tt("Space")}</th>
@@ -355,7 +359,8 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                 </SortableContext>
               </table>
               <DragOverlay dropAnimation={settle()}>
-                {liftedSpace ? (
+                <LiftedCopy spaces={spaces}>
+                {(liftedSpace, liftedIndex) => (
                   <Lift>
                     {/* One row of the same table, so every cell is where it is under it. */}
                     <table className="w-full table-fixed border-separate border-spacing-0">
@@ -383,12 +388,13 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                       </tbody>
                     </table>
                   </Lift>
-                ) : null}
+                )}
+                </LiftedCopy>
               </DragOverlay>
             </DndContext>
             <DndContext {...dnd}>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                <ul className={PHONE_LIST} data-spaces-list="" data-dragging={lifted != null ? "" : undefined}>
+                <ul className={PHONE_LIST} data-spaces-list="">
                   {spaces.map((s, i) => (
                     <PhoneRow key={s.id} space={s} onOpen={() => edit(s)}>
                       {glyph(s)}
@@ -401,7 +407,8 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                 </ul>
               </SortableContext>
               <DragOverlay dropAnimation={settle()}>
-                {liftedSpace ? (
+                <LiftedCopy spaces={spaces}>
+                {(liftedSpace) => (
                   <Lift className="flex min-h-[64px] items-center gap-3 py-2.5 pl-1.5 pr-4">
                     <span aria-hidden className="-mr-1.5 grid h-10 w-6 shrink-0 place-items-center text-[#9ca3af]">
                       <GripVertical className="h-4 w-4" />
@@ -409,7 +416,8 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                     {glyph(liftedSpace)}
                     <span className="block min-w-0 flex-1">{words(liftedSpace, "phone")}</span>
                   </Lift>
-                ) : null}
+                )}
+                </LiftedCopy>
               </DragOverlay>
             </DndContext>
           </>

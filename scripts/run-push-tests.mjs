@@ -608,6 +608,7 @@ const SUITES = [
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
+  "tests/communities-round33.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",

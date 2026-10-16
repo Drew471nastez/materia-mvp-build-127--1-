@@ -21,14 +21,7 @@
  */
 import Link from "next/link"
 import { PenLine } from "lucide-react"
-import type { CommunityAction } from "@/lib/communities/permissions"
-import type { ViewerView } from "@/lib/communities/types"
-
-/** The admin's place for this block, for a viewer who may open it and change it; null for everybody else. */
-export function adminHref(slug: string, viewer: Pick<ViewerView, "isOwner" | "isCreatorAccount" | "active" | "can"> | null | undefined, action: CommunityAction, tab: string): string | null {
-  if (!viewer || !viewer.active || !(viewer.isOwner || viewer.isCreatorAccount) || !viewer.can?.[action]) return null
-  return `/app/community/${slug}/${tab}`
-}
+export { adminHref } from "./edit-href"
 
 /** The class the block carries so its pencil shows while the pointer is on it. */
 export const EDIT_GROUP = "group/edit"
@@ -45,7 +38,7 @@ export function EditHint({ href, label, phone = false, className = "" }: { href:
       aria-label={label}
       title={label}
       data-edit-hint=""
-      className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white/95 px-2 text-[12.5px] font-medium text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.06)] outline-none transition-[opacity,background-color,color] duration-[120ms] ease-out hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/edit:opacity-100 [@media(hover:hover)]:group-focus-within/edit:opacity-100 ${phone ? "max-[639px]:w-7 max-[639px]:justify-center max-[639px]:px-0" : "[@media(hover:none)]:hidden"} ${className}`}
+      className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white/95 px-2 text-[12.5px] font-medium text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.06)] outline-none transition-[opacity,background-color,color] duration-[120ms] ease-out hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/edit:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/edit:opacity-100 ${phone ? "max-[639px]:w-7 max-[639px]:justify-center max-[639px]:px-0" : "[@media_not_all_and_(hover:hover)_and_(pointer:fine)]:hidden"} ${className}`}
     >
       <PenLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
       <span className={phone ? "max-[639px]:sr-only" : ""}>{label}</span>
