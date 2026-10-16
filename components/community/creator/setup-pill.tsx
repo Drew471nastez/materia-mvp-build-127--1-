@@ -57,6 +57,7 @@ function Ring({ percent, size = 20, stroke = 2.5 }: { percent: number; size?: nu
 
 const quietButton = "inline-flex h-8 items-center rounded-lg px-2 text-[12.5px] font-medium text-[#6b7280] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
 const actionButton = "inline-flex h-8 items-center gap-1 rounded-lg bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-[#2a2a40]"
+const secondaryButton = "inline-flex h-8 items-center gap-1 rounded-lg border border-[#e1e3e7] bg-white px-3 text-[12.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
 const storeButton = "inline-flex h-8 items-center rounded-lg border border-[#e1e3e7] bg-white px-3 text-[12.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
 
 function StepRow({ s, next, onMark }: { s: SetupStepView; next: boolean; onMark: (key: string) => void }) {
@@ -94,11 +95,11 @@ function StepRow({ s, next, onMark }: { s: SetupStepView; next: boolean; onMark:
                   </button>
                 </>
               ) : s.external ? (
-                <a href={s.href} target="_blank" rel="noopener noreferrer" onClick={() => s.id === "intro" && onMark(INTRO_WATCHED)} className={actionButton}>
+                <a href={s.href} target="_blank" rel="noopener noreferrer" onClick={() => s.id === "intro" && onMark(INTRO_WATCHED)} className={next ? actionButton : secondaryButton}>
                   {s.action}
                 </a>
               ) : (
-                <Link href={s.href} className={actionButton}>
+                <Link href={s.href} className={next ? actionButton : secondaryButton}>
                   {s.action}
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />
                 </Link>

@@ -65,9 +65,9 @@ const INTERVALS: { value: PriceInterval; label: string }[] = [
 
 const STEP_TITLE: Record<WizardStep, () => string> = {
   name: () => tt("Name and address"),
-  look: () => tt("Icon and cover"),
+  look: () => tt("Logo and cover"),
   access: () => tt("Who can join"),
-  welcome: () => tt("First space"),
+  welcome: () => tt("First space and welcome"),
   review: () => tt("Review"),
 }
 
@@ -172,7 +172,7 @@ function Preview({ d, compact }: { d: WizardDraft; compact?: boolean }) {
         ) : null}
       </div>
       <div className={cn("px-4 pb-4", compact ? "pt-0" : "pt-0 sm:px-5 sm:pb-5")}>
-        <span className="-mt-7 mb-2.5 grid h-14 w-14 place-items-center overflow-hidden rounded-[14px] text-[24px] font-semibold text-white shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.18)]" style={{ background: d.logoUrl ? "#f1f2f4" : paletteCss(d.palette) }} data-wizard-preview-icon="">
+        <span className="relative z-[1] -mt-7 mb-2.5 grid h-14 w-14 place-items-center overflow-hidden rounded-[14px] text-[24px] font-semibold text-white shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.18)]" style={{ background: d.logoUrl ? "#f1f2f4" : paletteCss(d.palette) }} data-wizard-preview-icon="">
           {d.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={optimizedImageUrl(d.logoUrl, 160)} alt="" className="h-full w-full object-cover" decoding="async" />
@@ -491,7 +491,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                     <div className={cn("flex h-11 min-w-0 items-center rounded-lg border border-[#e1e3e7] bg-white shadow-[0_1px_0_rgba(17,24,39,0.04)] transition-[border-color,box-shadow] focus-within:border-[#1a1a2e]/50 focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] sm:h-10", err("slug") && "border-[#dc2626]")}>
                       <span className="shrink-0 pl-3 text-[14px] text-[#8a8f98] max-[380px]:hidden">storelib.com/community/</span>
                       <span className="shrink-0 pl-3 text-[14px] text-[#8a8f98] min-[381px]:hidden">…/</span>
-                      <input id="c-slug" value={draft.slug || slugify(draft.name)} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/\s+/g, "-").slice(0, 48))} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="your-community" aria-invalid={!!err("slug") || undefined} aria-describedby="c-slug-state" className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] font-medium text-[#1a1a2e] outline-none placeholder:font-normal placeholder:text-[#a2a7b0] sm:text-[14px]" />
+                      <input id="c-slug" value={draft.slugEdited ? draft.slug : slugify(draft.name)} onChange={(e) => { const v = e.target.value.toLowerCase().replace(/\s+/g, "-").slice(0, 48); setDraft((d) => ({ ...d, slug: v, slugEdited: true })); if (errors.slug) setErrors((x) => ({ ...x, slug: undefined })) }} onBlur={() => { if (!draft.slug.trim()) setDraft((d) => ({ ...d, slug: "", slugEdited: false })) }} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="your-community" aria-invalid={!!err("slug") || undefined} aria-describedby="c-slug-state" className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] font-medium text-[#1a1a2e] outline-none placeholder:font-normal placeholder:text-[#a2a7b0] sm:text-[14px]" />
                     </div>
                     {err("slug") ? (
                       <FieldError id="c-slug-state" text={err("slug")} />
@@ -528,7 +528,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                   </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:gap-6">
                     <div>
-                      <p className={label}>{tt("Icon")}</p>
+                      <p className={label}>{tt("Logo")}</p>
                       <PicturePick value={draft.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={(m) => setNotice(m)} />
                     </div>
                     <div className="min-w-0">
@@ -579,7 +579,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                 <>
                   <div>
                     <label htmlFor="c-spaceName" className={label}>
-                      {tt("First space")}
+                      {tt("Space name")}
                     </label>
                     <input id="c-spaceName" value={draft.spaceName} onChange={(e) => set("spaceName", e.target.value.slice(0, 40))} autoComplete="off" aria-invalid={!!err("spaceName") || undefined} className={cn(field, "h-11 sm:h-10", err("spaceName") && "border-[#dc2626]")} />
                     <FieldError id="c-spaceName-error" text={err("spaceName")} />
@@ -608,13 +608,13 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                       { at: 0, k: tt("Name"), v: draft.name.trim() },
                       { at: 0, k: tt("Address"), v: `storelib.com/community/${slug}` },
                       { at: 0, k: tt("Description"), v: draft.description.trim() || tt("None yet") },
-                      { at: 1, k: tt("Icon and cover"), v: draft.logoUrl && draft.coverUrl ? tt("Your pictures") : draft.logoUrl || draft.coverUrl ? tt("One picture, the rest from the colour") : tt("Drawn from the colour") },
+                      { at: 1, k: tt("Logo and cover"), v: draft.logoUrl && draft.coverUrl ? tt("Your pictures") : draft.logoUrl || draft.coverUrl ? tt("One picture, the rest from the colour") : tt("Drawn from the colour") },
                       { at: 2, k: tt("Who can join"), v: draft.type === "paid" ? (priceText ? tt("Paid, {priceText}", { priceText }) : tt("Paid membership")) : draft.type === "private" ? tt("Private, invite only") : tt("Free, anyone can join") },
                       { at: 3, k: tt("First space"), v: draft.spaceName.trim() },
                       { at: 3, k: tt("Welcome post"), v: draft.welcomeTitle.trim() || (draft.welcomeBody.trim() ? draft.welcomeBody.trim().slice(0, 80) : tt("None")) },
                     ].map((r) => (
-                      <div key={r.k} className="flex min-h-12 items-start gap-3 py-2.5 sm:items-center">
-                        <dt className="w-[112px] shrink-0 pt-px text-[13px] text-[#6b7280] sm:w-[140px] sm:pt-0">{r.k}</dt>
+                      <div key={r.k} className="flex min-h-12 items-center gap-3 py-2">
+                        <dt className="w-[104px] shrink-0 text-[13px] text-[#6b7280] sm:w-[140px]">{r.k}</dt>
                         <dd className="min-w-0 flex-1 text-[14px] text-[#1a1a2e] [overflow-wrap:anywhere]">{r.v}</dd>
                         <button type="button" onClick={() => go(r.at)} className="-mr-1.5 inline-flex h-9 shrink-0 items-center rounded-lg px-2 text-[13px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:h-8">
                           {tt("Edit")}
@@ -622,7 +622,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                       </div>
                     ))}
                   </dl>
-                  <p className="text-[13px] leading-snug text-[#6b7280]">{tt("It starts as a draft. Only you and your team see it until you publish, and the Overview lists what to do first.")}</p>
+                  <p className="border-t border-[#f1f2f4] pt-4 text-[13px] leading-snug text-[#6b7280]">{tt("It starts as a draft. Only you and your team see it until you publish, and the Overview lists what to do first.")}</p>
                 </>
               ) : null}
             </EditorCard>

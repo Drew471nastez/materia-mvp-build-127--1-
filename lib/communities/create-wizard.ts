@@ -9,9 +9,9 @@
  *
  *   name      the name, the address (made from the name until it is typed),
  *             a line about it
- *   look      the icon and the cover; without a picture, one of six
+ *   look      the logo and the cover; without a picture, one of six
  *             gradients the browser draws and uploads as the cover and,
- *             with the first letter, as the icon (create-flow.tsx)
+ *             with the first letter, as the logo (create-flow.tsx)
  *   access    free, paid with a price, or private
  *   welcome   the first space's name (General until changed) and the
  *             welcome post pinned in it, written for them and editable
@@ -65,6 +65,8 @@ export interface WizardDraft {
   name: string
   /** What the person typed for the address; empty means made from the name. */
   slug: string
+  /** The address field is being typed in, so it shows what was typed, even nothing, rather than the name's. */
+  slugEdited: boolean
   description: string
   logoUrl: string | null
   coverUrl: string | null
@@ -80,7 +82,7 @@ export interface WizardDraft {
 }
 
 export function emptyDraft(): WizardDraft {
-  return { step: 0, name: "", slug: "", description: "", logoUrl: null, coverUrl: null, palette: "ink", type: "free", price: "", interval: "month", spaceName: "General", welcomeTitle: "", welcomeBody: "", welcomeEdited: false }
+  return { step: 0, name: "", slug: "", slugEdited: false, description: "", logoUrl: null, coverUrl: null, palette: "ink", type: "free", price: "", interval: "month", spaceName: "General", welcomeTitle: "", welcomeBody: "", welcomeEdited: false }
 }
 
 /** The address the community will have: what was typed, else the name's. */
@@ -118,6 +120,7 @@ export function readDraft(text: string | null | undefined): WizardDraft | null {
     step: Number.isInteger(step) && step >= 0 && step < WIZARD_STEPS.length ? step : 0,
     name: str(r.name, LENGTHS.communityName.max),
     slug: str(r.slug, SLUG_MAX),
+    slugEdited: r.slugEdited === true && !!str(r.slug, SLUG_MAX),
     description: str(r.description, DESCRIPTION_CHARS),
     logoUrl: https(r.logoUrl),
     coverUrl: https(r.coverUrl),

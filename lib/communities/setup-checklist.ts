@@ -86,7 +86,7 @@ export function appLinks(ios: string | null = appStoreUrl()): AppLink[] {
 
 /** What is still missing from the group: the words for its detail line. */
 function groupMissing(f: SetupFacts): string[] {
-  return [!f.hasLogo ? tt("an icon") : null, !f.hasCover ? tt("a cover") : null, !f.hasDescription ? tt("a description") : null].filter((x): x is string => !!x)
+  return [!f.hasLogo ? tt("a logo") : null, !f.hasCover ? tt("a cover") : null, !f.hasDescription ? tt("a description") : null].filter((x): x is string => !!x)
 }
 
 function listWords(parts: string[]): string {
@@ -112,7 +112,7 @@ export function setupChecklist(f: SetupFacts, base: string, opts: { introUrl?: s
     {
       id: "group",
       title: tt("Set up your group"),
-      detail: missing.length ? tt("Add {missing}, so people know what they are joining.", { missing: listWords(missing) }) : tt("Name, icon, cover and description are in."),
+      detail: missing.length ? tt("Add {missing}, so people know what they are joining.", { missing: listWords(missing) }) : tt("Name, logo, cover and description are in."),
       href: `${base}/settings?tab=page`,
       action: tt("Edit"),
       done: missing.length === 0,

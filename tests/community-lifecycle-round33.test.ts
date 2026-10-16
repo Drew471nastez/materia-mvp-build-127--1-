@@ -363,7 +363,7 @@ async function main() {
     const ids = list.steps.map((s) => s.id).join(",")
     check("the steps, in order", ids === "payouts,group,rules,publish,invite,post,app,customize", ids)
     check("nothing done on day one", list.done === 0 && list.percent === 0)
-    check("the group step says what is missing", /an icon and a description/.test(list.steps.find((s) => s.id === "group")!.detail))
+    check("the group step says what is missing", /a logo and a description/.test(list.steps.find((s) => s.id === "group")!.detail))
     check("the intro is hidden while its address is empty, and the constant is empty", INTRO_VIDEO_URL === "" && !list.steps.some((s) => s.id === "intro"))
     const withIntro = setupChecklist(fresh, "/b", { introUrl: "https://example.com/intro", ios: null })
     check("with an address it is a step that opens the video", withIntro.steps.some((s) => s.id === "intro" && s.href === "https://example.com/intro" && s.external === true))
