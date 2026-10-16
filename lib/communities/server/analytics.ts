@@ -23,6 +23,7 @@ import "server-only"
 import { fillDays } from "@/components/community/creator/logic"
 import type { AnalyticsView } from "@/components/community/creator/view-types"
 import { missing, reasonOf, type Db } from "./db"
+import { VIEW_DAYS_KEPT } from "./views"
 
 const DAY = 86_400_000
 
@@ -131,9 +132,15 @@ const TRAFFIC_PAGES = 50
  * site, device and country), which is all Analytics reads for any day
  * before today. Before part 184 the columns are not there and this does
  * nothing. Never throws: the day's other figures are already written.
+ *
+ * NEVER A COUNT FROM ROWS THAT ARE GONE (round 33). The day rows are kept
+ * VIEW_DAYS_KEPT days; a day older than that (a job held up, a day counted
+ * again by hand) would read as nobody and write 0 visitors over the count
+ * the night already kept. Such a day is left as it is.
  */
-export async function rollupTraffic(db: Db, communityId: string, day: string): Promise<boolean> {
+export async function rollupTraffic(db: Db, communityId: string, day: string, now: number = Date.now()): Promise<boolean> {
   const d = day.slice(0, 10)
+  if (d < new Date(now - VIEW_DAYS_KEPT * DAY).toISOString().slice(0, 10)) return false
   try {
     const rows: VisitRow[] = []
     for (let page = 0; page < TRAFFIC_PAGES; page++) {

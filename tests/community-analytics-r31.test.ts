@@ -87,8 +87,9 @@ async function main() {
   check("and does not ask for the missing function again", calls.map((c) => c[0]).join() === "community_record_view")
   resetVisitReady()
   const rec = raw("lib/communities/server/record-view.ts")
-  check("the page reads the referrer, the address with its query, the device and the country while it renders", /h\.get\("referer"\)/.test(rec) && /COMMUNITY_PATH_HEADER/.test(rec) && /visitDevice\(/.test(rec) && /visitCountry\(h\)/.test(rec))
-  check("and whether a signed in visitor is a member only after the response", /after\(async \(\) => \{\s*await recordCommunityView\(admin\(\), input\.communityId, key, \{ \.\.\.visit, member: await isMember\(/.test(rec))
+  /* Changed on purpose (round 33): the page's own beacon posts the referrer and the address with its query to app/api/community/<id>/visit, which reads the device and the country from its request (tests/community-analytics-r33.test.ts). */
+  check("the visit reads the referrer, the address with its query, the device and the country", /referer: req\.body\.referrer, path: req\.body\.path/.test(rec) && /visitDevice\(ua, req\.body\.touch\)/.test(rec) && /visitCountry\(req\.headers\)/.test(rec))
+  check("and whether a signed in visitor is a member", /recordCommunityView\(db, community\.id, key, \{ \.\.\.visit, member: await isMember\(db, community\.id, req\.userId\) \}\)/.test(rec))
 
   /* ── Member days ─────────────────────────────────────────────────────── */
   console.log("\nmember days")
@@ -121,7 +122,8 @@ async function main() {
     community_daily_stats: [{ community_id: CID, day: "2026-10-14", members: 3 }],
     community_daily_traffic: [],
   })
-  check("the nightly count writes the day's visits", (await rollupTraffic(night, CID, "2026-10-14")) === true && night.tables.community_daily_stats[0].visitors === 2 && night.tables.community_daily_stats[0].prospects === 1)
+  /* Changed on purpose (round 33): the nightly count leaves a day older than the three days of rows alone, so the test counts at its own NOW, not the clock. */
+  check("the nightly count writes the day's visits", (await rollupTraffic(night, CID, "2026-10-14", NOW)) === true && night.tables.community_daily_stats[0].visitors === 2 && night.tables.community_daily_stats[0].prospects === 1)
   const lines = night.tables.community_daily_traffic
   check("and one line per source, device and country, only for that day", lines.find((l) => l.dimension === "source" && l.key === "explore")?.visitors === 2 && lines.filter((l) => l.dimension === "device").length === 2 && !lines.some((l) => l.key === "direct"))
   check("nothing that says who the visitor is", lines.every((l) => !("visitor_key" in l)))
@@ -218,7 +220,8 @@ async function main() {
   /* Changed on purpose (round 32): the question, its instants and the period before are worked out in lib/communities/client/report-cache (communityAsk), which keeps answers by period. */
   check("the period opens on the last 30 days, compared with the period before", /usePeriodParams\(timeZone, "last_30_days"\)/.test(s) && /communityAsk\(head\.id, period, timeZone, reportNow\(\)\)/.test(s) && /compareBounds\(period, PREVIOUS_PERIOD/.test(raw("lib/communities/client/report-cache.ts")))
   check("the props stay { head, initial? }", /export function AnalyticsSection\(\{ head \}: \{ head: CommunityHead; initial\?: AnalyticsView \| null \}\)/.test(s))
-  check("Google Analytics: connected with its ID, or a link to set it up", s.includes('"/app/integrations?integration=google-analytics"') && /data-ga=\{ga\.id \? "connected" : "off"\}/.test(s))
+  /* Changed on purpose (round 33): the link beside the period is gone; a connected Google Analytics is one quiet line under Traffic, one that is not connected is not mentioned. */
+  check("Google Analytics: one quiet line when connected, with the way to manage it", s.includes('"/app/integrations?integration=google-analytics"') && /if \(!ga\?\.id\) return null/.test(s) && /data-ga="connected"/.test(s) && !/Connect Google Analytics/.test(s))
   check("the page reads only the head", !/loadAnalytics|loadMoneyAndGrowth/.test(raw("app/app/community/[id]/analytics/page.tsx")) && /<AnalyticsSection head=\{head\} \/>/.test(raw("app/app/community/[id]/analytics/page.tsx")))
 
   /* ── Google Analytics ───────────────────────────────────────────────── */

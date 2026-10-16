@@ -4,7 +4,6 @@ import { connection } from "next/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
-import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
@@ -38,7 +37,7 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   const load = await loadSalesPage(slug, user?.id ?? null)
   if (!load) notFound()
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
-  await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
+  /* The visit is counted by the community's layout once the page is on a screen (round 33, components/community/public/visit-beacon.tsx). */
   /*
     ABOUT, FOR A MEMBER, IS A PLACE IN THE SHELL (round 15): the same sheet, drawn by the community's frame from the one
     loader (lib/communities/server/places.ts), so moving to About and back never leaves the frame. Everybody else gets the

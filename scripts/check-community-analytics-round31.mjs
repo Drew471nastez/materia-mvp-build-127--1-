@@ -16,7 +16,8 @@
  *               members who stayed, events and programs have rows
  *   BEFORE 184  no visits, sources or engagement are drawn, the lists that
  *               need the part say how to get them, nothing sold, no money
- *   GA          Google Analytics says connected with its ID, or offers Connect
+ *   GA          Google Analytics says connected with its ID, under Traffic; not
+ *               connected, it is not mentioned (round 33)
  *   FITS        nothing scrolls sideways on the page; a phone's tab strips
  *               scroll inside themselves
  *   TAPS        on a phone every tab, link and button is 40px or more
@@ -130,13 +131,15 @@ export const notFound = () => {}
           const ga = document.querySelector("[data-ga]")
           return {
             growth: trend("growth"),
+            traffic: trend("traffic"),
             activity: trend("activity"),
+            content: trend("content"),
             money: trend("money"),
             lists,
             pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
             wide,
             ga: ga ? { state: ga.getAttribute("data-ga"), text: ga.textContent.trim().slice(0, 140) } : null,
-            notice: document.querySelector("[role=alert], [data-notice]")?.textContent ?? [...document.querySelectorAll("p")].find((x) => /could not be loaded/.test(x.textContent))?.textContent ?? null,
+            notice: document.querySelector("[role=alert], [role=status], [data-notice]")?.textContent ?? [...document.querySelectorAll("p")].find((x) => /could not be loaded/.test(x.textContent))?.textContent ?? null,
             asks: window.__asks.length,
             lastAsk: window.__asks[window.__asks.length - 1] ?? null,
             allAsks: window.__asks.slice(),
@@ -148,36 +151,66 @@ export const notFound = () => {}
           }
         })
 
+      /*
+        Changed on purpose (round 33): the section is an overview and five sections (Growth, Traffic, Engagement,
+        Content, Revenue), one on screen at a time, so each chart and list is measured with its own section chosen;
+        Growth's visits and join rate are Traffic's chart now, Activity is Engagement and Content, and Google
+        Analytics is one line under Traffic when connected and not mentioned when it is not
+        (scripts/check-community-analytics-round33.mjs measures the overview and the sections themselves).
+      */
+      const show = async (section) => {
+        await p.evaluate((s) => document.querySelector(`[data-section-tab="${s}"]`)?.click(), section)
+        await sleep(700)
+        return look()
+      }
       let m = await look()
       expect(m.pageScroll <= 0 && m.wide === 0, "nothing scrolls sideways on the page", { pageScroll: m.pageScroll, wide: m.wide })
 
       if (data === "full") {
-        expect(m.growth?.loading === "false" && m.growth.shape > 10, "Growth draws a line with a shape", m.growth && { loading: m.growth.loading, shape: m.growth.shape })
-        expect(m.growth?.compared === true, "and the dashed period before it", m.growth?.compared)
-        expect(m.activity?.loading === "false" && m.activity.shape > 10, "Activity draws a line with a shape", m.activity && m.activity.shape)
-        expect(m.money?.loading === "false" && m.money.shape > 5, "Paid memberships draws a line with a shape", m.money && m.money.shape)
-        expect(m.growth?.tabs.map((t) => t.tab).join() === "members,joined,left,visits,joinRate", "Growth's figures: members, joined, left, visits, join rate", m.growth?.tabs.map((t) => t.tab))
-        expect(m.activity?.tabs.map((t) => t.tab).join() === "active,posts,comments,reactions,engagement", "Activity's figures: active, posts, comments, reactions, engagement", m.activity?.tabs.map((t) => t.tab))
-        expect(m.money?.tabs.map((t) => t.tab).join() === "revenue,mrr,subscribers,newPaid,cancellations", "Money's figures: revenue, monthly revenue, subscribers, new, cancellations", m.money?.tabs.map((t) => t.tab))
-        expect(m.growth.dates.length >= 3, "the chart has dates along it", m.growth.dates.slice(0, 4))
-        for (const card of ["traffic", "countries", "devices", "joins", "posts", "contributors", "cohorts", "invites", "events", "programs"]) expect((m.lists[card]?.rows ?? 0) > 0, `the ${card} list has rows`, m.lists[card])
-        expect(m.ga?.state === "connected" && /G-7XK2Q9PL0D/.test(m.ga.text), "Google Analytics says it is connected, with its ID", m.ga)
-        if (phone) {
-          const own = m.smallTaps.filter((x) => !x.shared)
-          expect(own.length === 0, "every figure tab, post, list row link and button of the section is 40px or more", own.slice(0, 6))
-          console.log(`  note  shared /app Analytics controls under 40px, as on /app Analytics: ${JSON.stringify(m.smallTaps.filter((x) => x.shared).map((x) => `${x.t} ${x.h}px`))}`)
+        const lists = {}
+        const taps = []
+        const seen = {}
+        for (const s of ["growth", "traffic", "engagement", "content", "revenue"]) {
+          const x = await show(s)
+          Object.assign(lists, x.lists)
+          taps.push(...x.smallTaps)
+          seen[s] = x
+          expect(x.pageScroll <= 0 && x.wide === 0, `${s}: nothing scrolls sideways on the page`, { pageScroll: x.pageScroll, wide: x.wide })
         }
+        const g = seen.growth.growth
+        expect(g?.loading === "false" && g.shape > 10, "Growth draws a line with a shape", g && { loading: g.loading, shape: g.shape })
+        expect(g?.compared === true, "and the dashed period before it", g?.compared)
+        expect(seen.traffic.traffic?.loading === "false" && seen.traffic.traffic.shape > 10, "Traffic draws a line with a shape", seen.traffic.traffic && seen.traffic.traffic.shape)
+        expect(seen.engagement.activity?.loading === "false" && seen.engagement.activity.shape > 10, "Engagement draws a line with a shape", seen.engagement.activity && seen.engagement.activity.shape)
+        expect(seen.content.content?.loading === "false" && seen.content.content.shape > 10, "Content draws a line with a shape", seen.content.content && seen.content.content.shape)
+        expect(seen.revenue.money?.loading === "false" && seen.revenue.money.shape > 5, "Paid memberships draws a line with a shape", seen.revenue.money && seen.revenue.money.shape)
+        expect(g?.tabs.map((t) => t.tab).join() === "members,joined,left,churn", "Growth's figures: members, joined, left, member churn", g?.tabs.map((t) => t.tab))
+        expect(seen.traffic.traffic?.tabs.map((t) => t.tab).join() === "visits,prospects,joinRate", "Traffic's figures: visits, from non-members, join rate", seen.traffic.traffic?.tabs.map((t) => t.tab))
+        expect(seen.engagement.activity?.tabs.map((t) => t.tab).join() === "active,engagement,rsvps,lessons", "Engagement's figures: active, engagement, RSVPs, lessons", seen.engagement.activity?.tabs.map((t) => t.tab))
+        expect(seen.content.content?.tabs.map((t) => t.tab).join() === "posts,comments,reactions", "Content's figures: posts, comments, reactions", seen.content.content?.tabs.map((t) => t.tab))
+        expect(seen.revenue.money?.tabs.map((t) => t.tab).join() === "revenue,mrr,subscribers,newPaid,cancellations", "Money's figures: revenue, monthly revenue, subscribers, new, cancellations", seen.revenue.money?.tabs.map((t) => t.tab))
+        expect(g.dates.length >= 3, "the chart has dates along it", g.dates.slice(0, 4))
+        for (const card of ["traffic", "countries", "devices", "joins", "new-returning", "leave-reasons", "posts", "spaces", "contributors", "cohorts", "invites", "events", "programs"]) expect((lists[card]?.rows ?? 0) > 0, `the ${card} list has rows`, lists[card])
+        expect(seen.traffic.ga?.state === "connected" && /G-7XK2Q9PL0D/.test(seen.traffic.ga.text), "Google Analytics says it is connected, with its ID, under Traffic", seen.traffic.ga)
+        if (phone) {
+          const own = taps.filter((x) => !x.shared)
+          expect(own.length === 0, "every figure tab, section tab, post, list row link and button of the section is 40px or more", own.slice(0, 6))
+          console.log(`  note  shared /app Analytics controls under 40px, as on /app Analytics: ${JSON.stringify([...new Set(taps.filter((x) => x.shared).map((x) => `${x.t} ${x.h}px`))])}`)
+        }
+        m = await show("growth")
         await p.screenshot({ path: join(shots, `${label}-${c}-top.png`) })
         await p.screenshot({ path: join(shots, `${label}-${c}-full.png`), fullPage: true })
 
         /* A figure tab moves its chart. */
-        const before = (await look()).growth.path
-        await p.click('[data-trend="growth"] [data-tab="visits"]')
+        m = await show("traffic")
+        const before = m.traffic.path
+        await p.click('[data-trend="traffic"] [data-tab="prospects"]')
         await sleep(900)
         m = await look()
-        expect(m.growth.chartFor === "visits" && m.growth.tabs.find((t) => t.tab === "visits")?.sel === "true", "Visits moves the Growth chart to visits", m.growth.chartFor)
-        expect(m.growth.shape > 10 && m.growth.path !== before, "and redraws its line", { shape: m.growth.shape, changed: m.growth.path !== before })
-        expect(/Counted since/.test(m.growth.note ?? ""), "with the day counting began under it", m.growth.note)
+        expect(m.traffic.chartFor === "prospects" && m.traffic.tabs.find((t) => t.tab === "prospects")?.sel === "true", "From non-members moves the Traffic chart to it", m.traffic.chartFor)
+        expect(m.traffic.shape > 10 && m.traffic.path !== before, "and redraws its line", { shape: m.traffic.shape, changed: m.traffic.path !== before })
+        expect(/Counted since/.test(m.traffic.note ?? ""), "with the day counting began under it", m.traffic.note)
+        await show("revenue")
         await p.click('[data-trend="money"] [data-tab="cancellations"]')
         await sleep(500)
         const why = await p.$$eval('[data-revenue-detail="cancellations"] [data-row-key]', (els) => els.map((e) => e.getAttribute("data-row-key")))
@@ -185,6 +218,7 @@ export const notFound = () => {}
       }
 
       if (c === "period") {
+        m = await show("growth")
         const asked = m.asks
         const datesBefore = m.growth.dates.length
         await p.click("[data-analytics-controls] button")
@@ -202,17 +236,21 @@ export const notFound = () => {}
       }
 
       if (c === "nopart") {
-        expect(m.growth.tabs.map((t) => t.tab).join() === "members,joined,left", "before part 184 Growth has no visits or join rate", m.growth.tabs.map((t) => t.tab))
-        expect(!m.activity.tabs.some((t) => t.tab === "engagement"), "and Activity no engagement", m.activity.tabs.map((t) => t.tab))
-        expect(m.money === null, "nothing sold: no money chart", m.money)
-        expect(/SQL part 184/.test(m.lists.traffic?.empty ?? ""), "sources say how to get them", m.lists.traffic)
-        expect(!m.lists.contributors && !m.lists.cohorts, "no contributor or retention list without the part", Object.keys(m.lists))
-        expect(m.ga?.state === "off" && /Connect/.test(m.ga.text), "Google Analytics offers Connect", m.ga)
+        expect(m.growth.tabs.map((t) => t.tab).join() === "members,joined,left,churn", "before part 184 Growth has its four figures, none of them visits", m.growth.tabs.map((t) => t.tab))
+        expect(!m.lists.cohorts && !m.lists["new-returning"], "and no retention or new and returning list without the part", Object.keys(m.lists))
+        const e = await show("engagement")
+        expect(e.activity.tabs.map((t) => t.tab).join() === "active", "Engagement has active members alone: no engagement, RSVPs or lessons", e.activity.tabs.map((t) => t.tab))
+        expect(!e.lists.contributors, "no contributor list without the part", Object.keys(e.lists))
+        expect(!(await p.$('[data-section-tab="revenue"]')), "nothing sold: no Revenue section")
+        const t = await show("traffic")
+        expect(t.traffic === null && /SQL part 184/.test(t.notice ?? ""), "Traffic says how to count visits, with no empty chart", { trend: t.traffic, notice: t.notice })
+        expect(t.ga === null, "Google Analytics not connected: not mentioned", t.ga)
         await p.screenshot({ path: join(shots, `${label}-${c}.png`), fullPage: true })
       }
 
       if (c === "quiet") {
         expect(m.growth.loading === "false", "a quiet period still draws its chart", m.growth.loading)
+        m = await show("traffic")
         expect((m.lists.traffic?.rows ?? 1) === 0 && !!m.lists.traffic?.empty, "the lists say there was nothing", m.lists.traffic)
         await p.screenshot({ path: join(shots, `${label}-${c}.png`), fullPage: true })
       }

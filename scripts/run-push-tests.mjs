@@ -603,6 +603,8 @@ const SUITES = [
   "tests/community-analytics-r31.test.ts",
   /* Round 32: a community's analytics counted against a seeded fixture, and read without a bar or a blur (scripts/check-community-analytics-round32.mjs measures it beside /app Analytics). */
   "tests/community-analytics-r32.test.ts",
+  /* Round 33: a community's visits counted by the page once it is on a screen (sources, devices, countries, the app), member churn, DAU to MAU, new and returning, an overview over the sections (scripts/check-community-analytics-round33.mjs measures it). */
+  "tests/community-analytics-r33.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
   "tests/communities-paid-events.test.ts",

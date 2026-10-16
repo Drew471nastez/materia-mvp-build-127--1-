@@ -283,7 +283,8 @@ try {
     const n0 = await com.evaluate(() => window.__fetches.length)
     const sw = await frames(() => pick("last_7_days"), 1800)
     /* Opening the picker asks for its usual periods ahead; the one chosen is asked once, by whichever got there first. */
-    const asked = await com.evaluate((n) => window.__fetches.slice(n).map((f) => Math.round((Date.parse(new URLSearchParams(f.url).get("end")) - Date.parse(new URLSearchParams(f.url).get("start"))) / 86_400_000)), n0)
+    /* Changed on purpose (round 33): a period that runs to now holds a part of today, so its days are counted up (ceil); rounded, the last 7 days read as 6 every morning. */
+    const asked = await com.evaluate((n) => window.__fetches.slice(n).map((f) => Math.ceil((Date.parse(new URLSearchParams(f.url).get("end")) - Date.parse(new URLSearchParams(f.url).get("start"))) / 86_400_000)), n0)
     expect(asked.filter((d) => d === 7).length === 1, "the period chosen is asked for once", asked)
     expect(asked.length >= 3, "and opening the picker asked for its usual periods ahead", asked)
     expect(sw.bars === 0, "no progress line in any frame", sw.bars)

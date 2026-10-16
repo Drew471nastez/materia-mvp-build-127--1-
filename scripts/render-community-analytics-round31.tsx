@@ -76,6 +76,9 @@ function report(q: URLSearchParams): CommunityReport {
   let level = 380
   const members: Line = { current: joined.current.map((j, i) => (level += (j ?? 0) - (left.current[i] ?? 0))), previous: compared ? joined.current.map((_, i) => 340 + i) : null }
   const visits = make(60, 25, 4)
+  const prospects = make(40, 18, 4)
+  const rsvps = make(3, 2, 10)
+  const lessons = make(5, 3, 11)
   const active = make(70, 20, 5)
   const posts = make(6, 4, 6)
   const comments = make(18, 9, 7)
@@ -105,7 +108,7 @@ function report(q: URLSearchParams): CommunityReport {
     : null
   const rows = (xs: [string, number][]) => (quiet ? [] : xs.map(([key, value]) => ({ key, label: key, value, previous: compared ? Math.round(value * 0.8) : undefined })))
   return {
-    version: 1,
+    version: 2,
     grain,
     buckets: n,
     firstDay: "2025-03-02",
@@ -113,7 +116,11 @@ function report(q: URLSearchParams): CommunityReport {
       members: { value: members.current[n - 1], previous: compared ? 360 : null },
       joined: fig(joined),
       left: fig(left),
+      churn: { value: quiet ? 0 : 3.1, previous: compared ? 3.6 : null },
       visits: counted ? fig(visits) : { value: null, previous: null },
+      prospects: counted ? fig(prospects) : { value: null, previous: null },
+      rsvps: counted ? fig(rsvps) : { value: null, previous: null },
+      lessons: counted ? fig(lessons) : { value: null, previous: null },
       joinRate: counted ? { value: quiet ? null : 6.4, previous: compared ? 5.1 : null } : { value: null, previous: null },
       active: { value: quiet ? 0 : 214, previous: compared ? 190 : null },
       posts: fig(posts),
@@ -121,10 +128,12 @@ function report(q: URLSearchParams): CommunityReport {
       reactions: fig(reactions),
       engagement: counted ? { value: quiet ? 0 : 31.2, previous: compared ? 28.4 : null } : { value: null, previous: null },
     },
-    lines: { members, joined, left, visits: counted ? visits : nul, joinRate: counted ? pctLine(joined, visits) : nul, active, posts, comments, reactions, engagement: counted ? pctLine(posts, active) : nul },
+    lines: { members, joined, left, churn: pctLine(left, members), visits: counted ? visits : nul, prospects: counted ? prospects : nul, joinRate: counted ? pctLine(joined, prospects) : nul, active, posts, comments, reactions, engagement: counted ? pctLine(posts, active) : nul, rsvps: counted ? rsvps : nul, lessons: counted ? lessons : nul },
     counted: { visits: counted, visitsByHour: true, active: true, engagement: counted, detail: counted },
     countedSince: { visits: counted && !quiet ? "2026-10-01" : null, active: null },
-    live: { members: 412, active7: 120, active30: 214 },
+    live: { members: 412, active1: quiet ? 0 : 48, active7: quiet ? 0 : 120, active30: quiet ? 0 : 214, stickiness: quiet ? null : 22.4 },
+    activeSplit: counted ? { new: quiet ? 0 : 38, returning: quiet ? 0 : 176 } : null,
+    leaveReasons: counted ? (quiet ? [] : [{ reason: "too_busy", count: 4 }, { reason: "not_for_me", count: 2 }, { reason: "none", count: 3 }]) : null,
     people: { posters: quiet ? 0 : 41, commenters: quiet ? 0 : 88, reactors: quiet ? 0 : 160 },
     money,
     traffic: counted
