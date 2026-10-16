@@ -151,4 +151,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "188", file: "188_site_release_rollback.sql", sha256: "1aaf18e28e87f0fe06a91e07be428873b582ccf2be2c51258faed9f511b486d5" },
   { part: "189", file: "189_username_history_and_flow_log_locked.sql", sha256: "1e39a172ce209b1bf0dc17729c22eb27ac7ae5098354e69bdd31178bd7f97e84" },
   { part: "190", file: "190_orders_one_row_per_payment_line.sql", sha256: "65db81be6dcbad2ed985f8a7a390d03a7207318775817d6641b019e8bec6b69c" },
+  { part: "192", file: "192_community_join_questions.sql", sha256: "7090be8e994a23906b2beffd6652bcf66372812378d007614c9e0c2e16f0fab6" },
+  { part: "193", file: "193_community_onboarding_checklist.sql", sha256: "19fe42e5fb23479e25f4d2b2a38c5eed4fc096f093f39612e4d6b4a39d83a7fa" },
+  { part: "194", file: "194_community_scheduled_posts.sql", sha256: "2e9c7de668bfb4a99aa3afe878ee06710cc3a8f1d2694bd6fd3c31d58b642c12" },
 ]

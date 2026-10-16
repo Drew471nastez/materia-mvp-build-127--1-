@@ -61,6 +61,8 @@ import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permiss
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
 import { CommunityDomainPanel } from "./community-domain-panel"
+import { JoinQuestionsPanel } from "./join-questions-panel"
+import { OnboardingPanel } from "./onboarding-panel"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, EDITOR_CARD_TITLE, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, RemoveButton, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
@@ -546,6 +548,9 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
         </div>
       </EditorCard>
 
+      {/* Round 32: a new member's first steps and the welcome message sent to them (./onboarding-panel). */}
+      <OnboardingPanel head={head} />
+
       <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setW(JSON.parse(saved)); setError(null) }} />
     </div>
   )
@@ -707,6 +712,9 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
           />
         </div>
       </EditorCard>
+
+      {/* Round 32: the questions asked before joining (./join-questions-panel). */}
+      <JoinQuestionsPanel head={head} />
 
       <EditorCard
         title={tt("Tiers")}

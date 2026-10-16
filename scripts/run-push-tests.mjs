@@ -603,6 +603,8 @@ const SUITES = [
   "tests/community-analytics-r31.test.ts",
   /* Round 32: a community's analytics counted against a seeded fixture, and read without a bar or a blur (scripts/check-community-analytics-round32.mjs measures it beside /app Analytics). */
   "tests/community-analytics-r32.test.ts",
+  /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
+  "tests/community-features-round32.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
@@ -626,7 +628,9 @@ const SUITES = [
   /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
   "tests/communities-admin31.test.ts",
   /* Round 32: the community admin's Overview and Settings use the width, the gallery is the product editor's, members pick their own look (scripts/check-community-admin-round32.mjs measures them). */
+  /* Round 32: moving between a community's sections (scripts/check-community-admin-round32.mjs, scripts/measure-community-admin-server.mjs measure it). */
   "tests/communities-admin32.test.ts",
+  "tests/communities-admin-nav32.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",

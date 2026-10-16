@@ -17,6 +17,12 @@
  * never a text box with a caret over the emoji. On a phone the form is the
  * New post sheet (form-sheet.tsx): Cancel and Add space in its top row, the
  * fields lifted above the keyboard.
+ *
+ * Round 32 (the owner, on a computer: "too shrunk"): from 768px the spaces
+ * are a table (./ui-kit.tsx), each fact in its own column (kind, who posts,
+ * who can see it, how many posts) instead of one long grey line, the drag
+ * handle and the arrows in the row, the menu last. Kind and Who posts are
+ * the app's own picks, never the browser's select.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -28,7 +34,8 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, RuleOptions, SpaceView } from "./view-types"
 import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
-import { Confirm, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Empty, ListCard, ListNote, Notice, RowMenu, SelectField, Toggle, buttonPrimary, errorText, field, label, send, useToast } from "./parts"
+import { MUTED, PHONE_LIST, TABLE, TD, TH, TR, count } from "./ui-kit"
 import { chosenEmoji } from "@/components/community/member/space-glyph"
 import { FormSheet } from "./form-sheet"
 import { IconGlyph, SpaceIconField } from "./space-icon-field"
@@ -153,6 +160,35 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: chosenEmoji(s.icon) ?? "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess })
   }
 
+  const dragFrom = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.effectAllowed = "move"
+    dragStart.current = spaces.map((x) => x.id).join()
+    setDragging(id)
+  }
+
+  const postsWords = (s: SpaceView) => (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))
+
+  const glyph = (s: SpaceView) => (
+    <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6]", s.archived && "opacity-50")} data-space-glyph="">
+      <IconGlyph value={spaceGlyph(s)} size="sm" />
+    </span>
+  )
+
+  /* The arrows (a computer) and the menu: their presses stay theirs. */
+  const controls = (s: SpaceView, i: number) => (
+    <RowControls className="justify-end gap-0.5">
+      <div className="hidden items-center gap-0.5 md:flex">
+        <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:cursor-default disabled:opacity-30">
+          <ArrowUp aria-hidden className="h-4 w-4" />
+        </button>
+        <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:cursor-default disabled:opacity-30">
+          <ArrowDown aria-hidden className="h-4 w-4" />
+        </button>
+      </div>
+      <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
+    </RowControls>
+  )
+
   const menu = (s: SpaceView, i: number): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [{ label: tt("Edit"), onClick: () => edit(s) }]
     if (i > 0) items.push({ label: tt("Move up"), onClick: () => void move(i, -1) })
@@ -185,52 +221,73 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
             </button>
           </Empty>
         ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {spaces.map((s, i) => (
-              <li
-                key={s.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move"
-                  dragStart.current = spaces.map((x) => x.id).join()
-                  setDragging(s.id)
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  dragOver(s.id)
-                }}
-                onDragEnd={dragEnd}
-                onClick={rowPress(() => edit(s))}
-                className={cn("group/space flex min-h-[64px] items-center gap-3 px-4 py-2.5 transition-[background-color,opacity] duration-150 sm:px-5", ROW_PRESS, dragging === s.id && "bg-[#f6f7f8] opacity-70")}
-                data-space-row=""
-              >
-                <GripVertical aria-hidden className="-ml-1.5 hidden h-4 w-4 shrink-0 cursor-grab text-[#c4c6cc] opacity-0 transition-opacity duration-150 group-hover/space:opacity-100 sm:block" />
-                <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6]", s.archived && "opacity-50")} data-space-glyph="">
-                  <IconGlyph value={spaceGlyph(s)} size="sm" />
-                </span>
-                <RowOpen label={tt("Edit {name}", { name: s.name })} className="flex-1">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn("truncate text-[14.5px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
-                    {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
-                  </span>
-                  <span className="block truncate text-[12.5px] text-[#6b7280]">
-                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))].filter(Boolean).join(" · ")}
-                  </span>
-                </RowOpen>
-                <RowControls className="gap-0.5">
-                  <div className="hidden items-center gap-0.5 sm:flex">
-                    <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                      <ArrowUp aria-hidden className="h-4 w-4" />
-                    </button>
-                    <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                      <ArrowDown aria-hidden className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
-                </RowControls>
-              </li>
-            ))}
-          </ul>
+          <>
+            <table className={TABLE} data-spaces-table="">
+              <thead>
+                <tr>
+                  <th className={TH}>{tt("Space")}</th>
+                  <th className={cn(TH, "w-[132px]")}>{tt("Kind")}</th>
+                  <th className={cn(TH, "w-[150px]")}>{tt("Who posts")}</th>
+                  <th className={cn(TH, "w-[19%]")}>{tt("Who can see it")}</th>
+                  <th className={cn(TH, "w-[96px] text-right")}>{tt("Posts")}</th>
+                  <th className={cn(TH, "w-[124px]")} aria-label={tt("Actions")} />
+                </tr>
+              </thead>
+              <tbody>
+                {spaces.map((s, i) => (
+                  <tr
+                    key={s.id}
+                    draggable
+                    onDragStart={(e) => dragFrom(e, s.id)}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      dragOver(s.id)
+                    }}
+                    onDragEnd={dragEnd}
+                    onClick={rowPress(() => edit(s))}
+                    className={cn(TR, "group/space", dragging === s.id && "bg-[#f6f7f8] opacity-70")}
+                    data-space-row=""
+                  >
+                    <td className={cn(TD, "h-[60px]")}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <GripVertical aria-hidden className="-ml-3 h-4 w-4 shrink-0 cursor-grab text-[#c4c6cc] opacity-0 transition-opacity duration-150 group-hover/space:opacity-100" />
+                        {glyph(s)}
+                        <RowOpen label={tt("Edit {name}", { name: s.name })} className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className={cn("truncate text-[14px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
+                            {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
+                          </span>
+                          {s.description ? <span className="block truncate text-[12.5px] text-[#6b7280]">{s.description}</span> : null}
+                        </RowOpen>
+                      </div>
+                    </td>
+                    <td className={cn(TD, "truncate")}>{SPACE_KIND_LABEL[s.kind]}</td>
+                    <td className={cn(TD, "truncate", MUTED)}>{s.kind === "chat" ? tt("Every member") : POST_ROLE_LABEL[s.postRole]}</td>
+                    <td className={cn(TD, "truncate", MUTED)} title={describeRule(s.viewAccess, options)}>{describeRule(s.viewAccess, options)}</td>
+                    <td className={cn(TD, "text-right tabular-nums")}>{count(s.posts)}</td>
+                    <td className={TD}>{controls(s, i)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ul className={PHONE_LIST}>
+              {spaces.map((s, i) => (
+                <li key={s.id} onClick={rowPress(() => edit(s))} className={cn("flex min-h-[64px] items-center gap-3 px-4 py-2.5", ROW_PRESS)} data-space-row="">
+                  {glyph(s)}
+                  <RowOpen label={tt("Edit {name}", { name: s.name })} className="flex-1">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={cn("truncate text-[14.5px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
+                      {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
+                    </span>
+                    <span className="block truncate text-[12.5px] text-[#6b7280]">
+                      {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), postsWords(s)].filter(Boolean).join(" · ")}
+                    </span>
+                  </RowOpen>
+                  {controls(s, i)}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </ListCard>
 
@@ -271,24 +328,32 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                 <label htmlFor="sp-kind" className={label}>
                   {tt("Kind")}
                 </label>
-                <select id="sp-kind" value={draft.kind} onChange={(e) => { const kind = e.target.value as SpaceKind; setDraft({ ...draft, kind, postRole: kind === "announcements" ? "admin" : draft.postRole }) }} className={selectField}>
-                  {(["feed", "chat", "announcements", "resources"] as const).map((k) => (
-                    <option key={k} value={k}>
-                      {SPACE_KIND_LABEL[k]}
-                    </option>
-                  ))}
-                </select>
+                <SelectField
+                  id="sp-kind"
+                  name="space-kind"
+                  title={tt("Kind")}
+                  value={draft.kind}
+                  onChange={(kind) => setDraft((d) => (d ? { ...d, kind, postRole: kind === "announcements" ? "admin" : d.postRole } : d))}
+                  options={(["feed", "chat", "announcements", "resources"] as const).map((k) => ({ value: k, label: SPACE_KIND_LABEL[k] }))}
+                />
               </div>
               {draft.kind !== "chat" ? (
                 <div>
                   <label htmlFor="sp-role" className={label}>
                     {tt("Who posts")}
                   </label>
-                  <select id="sp-role" value={draft.postRole} onChange={(e) => setDraft({ ...draft, postRole: e.target.value as PostRole })} className={selectField}>
-                    <option value="member">{tt("Every member")}</option>
-                    <option value="moderator">{tt("Moderators and up")}</option>
-                    <option value="admin">{tt("Admins only")}</option>
-                  </select>
+                  <SelectField
+                    id="sp-role"
+                    name="space-role"
+                    title={tt("Who posts")}
+                    value={draft.postRole}
+                    onChange={(postRole) => setDraft((d) => (d ? { ...d, postRole } : d))}
+                    options={[
+                      { value: "member" as PostRole, label: tt("Every member") },
+                      { value: "moderator" as PostRole, label: tt("Moderators and up") },
+                      { value: "admin" as PostRole, label: tt("Admins only") },
+                    ]}
+                  />
                 </div>
               ) : null}
             </div>
@@ -299,7 +364,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
         ) : null}
       </FormSheet>
 
-      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action="Delete" danger busy={busy} onConfirm={() => void remove()} />
+      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action={tt("Delete")} danger busy={busy} onConfirm={() => void remove()} />
     </div>
   )
 }

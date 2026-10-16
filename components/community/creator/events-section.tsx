@@ -21,6 +21,12 @@
  * keeps the event page, Tickets and Cancel), and on a phone the editor is the
  * New post sheet (form-sheet.tsx): Cancel and Schedule in its top row, the
  * field being typed in kept above the keyboard.
+ *
+ * Round 32 (the owner, on a computer: "too shrunk"): from 768px the events
+ * are a table (./ui-kit.tsx): the date and the title, when it runs, what
+ * kind, who is going, and the tickets each in their own column, the menu
+ * last. Kind is the app's own pick and the time zone the account settings'
+ * search (components/app/time-zone-picker), never the browser's select.
  */
 import * as React from "react"
 import Link from "next/link"
@@ -37,7 +43,10 @@ import { EVENT_KIND_LABEL, checkEvent, checkEventTickets, refundWindowWords, utc
 import { EventTicketsPanel } from "./event-tickets"
 import { AccessEditor } from "./access-editor"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
-import { Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Dialog, Empty, FilterTabs, ListCard, Notice, PicturePick, RowMenu, SelectField, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
+import { MUTED, PHONE_LIST, TABLE, TD, TH, TR } from "./ui-kit"
+import { ChoicePicker } from "@/components/ui/choice-list"
+import { offsetOf, timeZoneChoices, zoneName } from "@/components/app/time-zone-picker"
 import { FormSheet } from "./form-sheet"
 import { ROW_PRESS, RowControls, RowOpen, rowPress } from "./rows"
 import { tt } from "@/lib/i18n/text"
@@ -77,17 +86,6 @@ function browserZone(): string {
   } catch {
     return "UTC"
   }
-}
-
-function zones(current: string): string[] {
-  let list: string[] = []
-  try {
-    list = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? []
-  } catch {
-    list = []
-  }
-  if (!list.length) list = ["UTC", "Europe/London", "Europe/Berlin", "Europe/Bucharest", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Australia/Sydney"]
-  return list.includes(current) ? list : [current, ...list]
 }
 
 function blankDraft(): Draft {
@@ -150,7 +148,6 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
   const [panelFor, setPanelFor] = React.useState<EventEditView | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<{ text: string; field?: string } | null>(null)
-  const zoneList = React.useMemo(() => zones(draft?.timezone ?? browserZone()), [draft?.timezone])
   const tickets = data.tickets
   const mayPrice = head.can.price_events === true
 
@@ -218,7 +215,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
   const moneyLine = (e: EventEditView): string | null => {
     if (!tickets.ready) return null
     const m = e.money
-    if (!m || (m.sold === 0 && m.invited === 0)) return (e.priceCents ?? 0) > 0 ? `${eventPriceLabel(e.priceCents as number, e.currency)} a ticket · none sold yet` : null
+    if (!m || (m.sold === 0 && m.invited === 0)) return (e.priceCents ?? 0) > 0 ? tt("{price} a ticket · none sold yet", { price: eventPriceLabel(e.priceCents as number, e.currency) }) : null
     const parts = [tt("{sold, plural, one {# ticket} other {# tickets}}", { sold: m.sold }), eventPriceLabel(m.grossCents, m.currency)]
     if (m.invited > 0) parts.push(tt("{invited} free", { invited: m.invited }))
     if (m.refundedCents > 0) parts.push(tt("{amount} refunded", { amount: eventPriceLabel(m.refundedCents, m.currency) }))
@@ -241,6 +238,24 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     )
 
   const list = view === "upcoming" ? data.upcoming : data.past
+  /* The Tickets column only while some event here has a price or sold a seat. */
+  const ticketColumn = tickets.ready && list.some((e) => (e.priceCents ?? 0) > 0 || e.ticketsSold > 0)
+  const dateBadge = (e: EventEditView) => {
+    const d = eventDateBadge(e.startsAt)
+    return (
+      <span aria-hidden className={cn("grid h-11 w-11 shrink-0 place-content-center rounded-xl border border-[#e5e7eb] bg-white text-center leading-none md:h-10 md:w-10", e.status === "cancelled" && "opacity-50")}>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#b42318]">{d.month}</span>
+        <span className="mt-0.5 text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{d.day}</span>
+      </span>
+    )
+  }
+  const titleLine = (e: EventEditView) => (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className={cn("truncate text-[14px] font-medium md:text-[13.5px]", e.status === "cancelled" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{e.title}</span>
+      {e.status === "cancelled" ? <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge> : null}
+      {view === "past" && e.replayVideoId ? <StatusBadge tone="success">{tt("Replay")}</StatusBadge> : null}
+    </span>
+  )
   const bad = (f: string) => error?.field === f
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -266,36 +281,72 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
             <Empty icon={CalendarDays} title={tt("No past events.")} />
           )
         ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {list.map((e) => {
-              const d = eventDateBadge(e.startsAt)
-              const money = moneyLine(e)
-              return (
-                <li key={e.id} onClick={rowPress(() => edit(e))} className={cn("flex min-h-[72px] items-center gap-3 px-4 py-3 sm:px-5", ROW_PRESS)} data-event-row="">
-                  <span aria-hidden className={cn("grid h-12 w-12 shrink-0 place-content-center rounded-xl border border-[#e5e7eb] text-center leading-none", e.status === "cancelled" && "opacity-50")}>
-                    <span className="text-[10.5px] font-semibold uppercase tracking-wide text-[#b42318]">{d.month}</span>
-                    <span className="mt-0.5 text-[17px] font-semibold tabular-nums text-[#1a1a2e]">{d.day}</span>
-                  </span>
-                  <RowOpen label={tt("Edit {title}", { title: e.title })} className="flex-1">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className={cn("truncate text-[14.5px] font-medium", e.status === "cancelled" ? "text-[#9ca3af] line-through" : "text-[#1a1a2e]")}>{e.title}</span>
-                      {e.status === "cancelled" ? <StatusBadge tone="neutral">{tt("Cancelled")}</StatusBadge> : null}
-                      {view === "past" && e.replayVideoId ? <StatusBadge tone="success">{tt("Replay")}</StatusBadge> : null}
-                    </span>
-                    <span className="line-clamp-2 block text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], tt("{goingCount}{value} going", { goingCount: e.goingCount, value: e.capacity ? tt(" of {capacity}", { capacity: e.capacity }) : "" })].join(" · ")}</span>
-                    {money ? (
-                      <span className="mt-0.5 block text-[12.5px] leading-snug tabular-nums text-[#4b5563] max-sm:line-clamp-2 sm:truncate" data-event-money="">
-                        {money}
-                      </span>
-                    ) : null}
-                  </RowOpen>
-                  <RowControls>
-                    <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
-                  </RowControls>
-                </li>
-              )
-            })}
-          </ul>
+          <>
+            <table className={TABLE} data-events-table="">
+              <thead>
+                <tr>
+                  <th className={TH}>{tt("Event")}</th>
+                  <th className={cn(TH, "w-[24%]")}>{tt("When")}</th>
+                  <th className={cn(TH, "w-[120px]")}>{tt("Kind")}</th>
+                  <th className={cn(TH, "w-[96px]")}>{tt("Going")}</th>
+                  {ticketColumn ? <th className={cn(TH, "w-[17%]")}>{tt("Tickets")}</th> : null}
+                  <th className={cn(TH, "w-[60px]")} aria-label={tt("Actions")} />
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((e) => {
+                  const money = moneyLine(e)
+                  return (
+                    <tr key={e.id} onClick={rowPress(() => edit(e))} className={TR} data-event-row="">
+                      <td className={cn(TD, "h-[64px]")}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          {dateBadge(e)}
+                          <RowOpen label={tt("Edit {title}", { title: e.title })} className="min-w-0 flex-1">
+                            {titleLine(e)}
+                          </RowOpen>
+                        </div>
+                      </td>
+                      <td className={cn(TD, "truncate", MUTED)} title={eventTime(e.startsAt, e.endsAt)}>{eventTime(e.startsAt, e.endsAt)}</td>
+                      <td className={cn(TD, "truncate")}>{EVENT_KIND_LABEL[e.kind]}</td>
+                      <td className={cn(TD, "whitespace-nowrap tabular-nums")}>{e.capacity ? tt("{goingCount} of {capacity}", { goingCount: e.goingCount, capacity: e.capacity }) : e.goingCount}</td>
+                      {ticketColumn ? (
+                        <td className={cn(TD, "truncate tabular-nums", money ? "text-[#4b5563]" : "text-[#c4c7cd]")} title={money ?? undefined} data-event-money={money ? "" : undefined}>
+                          {money ?? tt("Free")}
+                        </td>
+                      ) : null}
+                      <td className={TD}>
+                        <RowControls className="justify-end">
+                          <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
+                        </RowControls>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <ul className={PHONE_LIST}>
+              {list.map((e) => {
+                const money = moneyLine(e)
+                return (
+                  <li key={e.id} onClick={rowPress(() => edit(e))} className={cn("flex min-h-[72px] items-center gap-3 px-4 py-3", ROW_PRESS)} data-event-row="">
+                    {dateBadge(e)}
+                    <RowOpen label={tt("Edit {title}", { title: e.title })} className="flex-1">
+                      {titleLine(e)}
+                      <span className="line-clamp-2 block text-[12.5px] text-[#6b7280]">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], tt("{goingCount}{value} going", { goingCount: e.goingCount, value: e.capacity ? tt(" of {capacity}", { capacity: e.capacity }) : "" })].join(" · ")}</span>
+                      {money ? (
+                        <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-snug tabular-nums text-[#4b5563]" data-event-money="">
+                          {money}
+                        </span>
+                      ) : null}
+                    </RowOpen>
+                    <RowControls>
+                      <RowMenu items={menu(e)} label={tt("Actions for {title}", { title: e.title })} />
+                    </RowControls>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
         )}
       </ListCard>
 
@@ -323,25 +374,25 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                 <label htmlFor="ev-kind" className={label}>
                   {tt("Kind")}
                 </label>
-                <select id="ev-kind" value={draft.kind} onChange={(e) => set("kind", e.target.value as EventKind)} className={selectField}>
-                  {(["online", "live", "workshop", "ama", "meetup", "in_person"] as const).map((k) => (
-                    <option key={k} value={k}>
-                      {EVENT_KIND_LABEL[k]}
-                    </option>
-                  ))}
-                </select>
+                <SelectField id="ev-kind" name="event-kind" title={tt("Kind")} value={draft.kind} onChange={(k) => set("kind", k)} options={(["online", "live", "workshop", "ama", "meetup", "in_person"] as const).map((k) => ({ value: k, label: EVENT_KIND_LABEL[k] }))} />
               </div>
               <div>
                 <label htmlFor="ev-zone" className={label}>
                   {tt("Time zone")}
                 </label>
-                <select id="ev-zone" value={draft.timezone} onChange={(e) => set("timezone", e.target.value)} className={selectField}>
-                  {zoneList.map((z) => (
-                    <option key={z} value={z}>
-                      {z.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
+                <ChoicePicker
+                  id="ev-zone"
+                  name="event-zone"
+                  title={tt("Time zone")}
+                  choices={timeZoneChoices}
+                  value={draft.timezone}
+                  onChange={(z) => set("timezone", z)}
+                  placeholder={tt("Search a city, region or UTC offset")}
+                  fieldLabel={zoneName(draft.timezone)}
+                  fieldAside={offsetOf(draft.timezone) === zoneName(draft.timezone) ? undefined : offsetOf(draft.timezone)}
+                  /* The fields beside it: 44px on a phone, 40px on a computer, the same corner and border. */
+                  fieldClassName="rounded-lg border-[#e1e3e7] pl-3 pr-2.5 text-[16px] sm:h-10 sm:text-[14px]"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1.3fr_1fr_1fr]">
@@ -629,7 +680,7 @@ function TicketMode({ value, onChange, paidOff }: { value: "free" | "paid"; onCh
             v === "paid" && paidOff && "cursor-default text-[#9ca3af] hover:text-[#9ca3af]",
           )}
         >
-          {v === "free" ? "Free" : tt("Paid")}
+          {v === "free" ? tt("Free") : tt("Paid")}
         </button>
       ))}
     </div>

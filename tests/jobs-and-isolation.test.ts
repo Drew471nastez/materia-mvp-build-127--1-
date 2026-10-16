@@ -154,7 +154,8 @@ async function main() {
     check("flow_execution_log gets row level security and nothing for the public roles", part.includes("ALTER TABLE public.flow_execution_log ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.flow_execution_log FROM PUBLIC, anon, authenticated;"))
     check("either table missing is skipped, not an error", (part.match(/IF to_regclass\('public\.(username_history|flow_execution_log)'\) IS NULL THEN RAISE NOTICE/g) ?? []).length === 2)
     const after = read("supabase/sql/run-now/99_check_after.sql")
-    check("99_check_after has its column", / as p189_username_history_and_flow_log_locked[,;]/.test(after))
+    /* Changed on purpose (round 32 merge): the community parts 192 to 194 follow it in the check now. */
+    check("99_check_after has its column", /as p189_username_history_and_flow_log_locked[,;]/.test(after))
     const readme = read("supabase/sql/run-now/README.md")
     check("the README lists it", readme.includes("| `189_username_history_and_flow_log_locked.sql` |"))
     check("the four files carry it", read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 189_username_history_and_flow_log_locked.sql"))

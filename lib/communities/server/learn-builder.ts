@@ -12,6 +12,12 @@ import { loadLearnBuilder } from "./learn"
  */
 export async function learnBuilderFor(db: Db, community: CommunityRow): Promise<LearnBuilderData> {
   const [{ platformChargeCurrency }, { checkoutReadyForCreator }] = await Promise.all([import("@/lib/payments/fees/currency-rules"), import("@/lib/payments/service")])
-  const canSell = community.creator_id ? await checkoutReadyForCreator(community.creator_id).catch(() => false) : false
-  return loadLearnBuilder(db, community, { currency: platformChargeCurrency(), canSell })
+  /*
+    BESIDE THE PROGRAMS, NOT BEFORE THEM (round 32). Whether payouts take payments is two reads of its own (the provider,
+    then its row), and the programs waited for both. `canSell` is only handed through to the builder (lib/communities/
+    server/learn.ts loadLearnBuilder), so the programs are read at once and the answer is put in when both are in.
+  */
+  const canSellRead = community.creator_id ? checkoutReadyForCreator(community.creator_id).catch(() => false) : Promise.resolve(false)
+  const [data, canSell] = await Promise.all([loadLearnBuilder(db, community, { currency: platformChargeCurrency(), canSell: false }), canSellRead])
+  return { ...data, canSell }
 }

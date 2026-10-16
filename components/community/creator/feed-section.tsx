@@ -29,6 +29,11 @@
  *   delete for the person's own post, the composer opening in the row on a
  *   computer and as its sheet on a phone (the member post route, which only
  *   lets an author change or delete their own).
+ *
+ *   ROUND 32: the list can be searched (words in a title or the text) and
+ *   narrowed to one space, and shows All, Pinned or Removed, each read on
+ *   the server (lib/communities/server/creator.ts loadFeedRows). How many are
+ *   shown and Show more sit in the card's own foot.
  */
 import * as React from "react"
 import Link from "next/link"
@@ -42,6 +47,7 @@ import { requestCompose } from "@/lib/communities/client/compose-intent"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { Composer, draftKey } from "@/components/community/member/composer"
+import { ScheduledPostsPanel } from "./scheduled-posts-panel"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { PostThumb } from "@/components/community/member/media"
 import { spaceGlyph } from "@/components/community/member/space-glyph"
@@ -49,7 +55,8 @@ import { Toasts } from "@/components/community/member/toast"
 import { api, apiBase } from "@/components/community/member/api"
 import type { ComposerSpace as MemberComposerSpace } from "@/components/community/member/view-types"
 import type { CommunityHead, FeedRowView } from "./view-types"
-import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, errorText, send, useToast } from "./parts"
+import { Confirm, Empty, FilterTabs, ListCard, Notice, PickButton, RowMenu, SearchField, ToolbarDivider, buttonPrimary, errorText, send, useToast } from "./parts"
+import { ListFoot } from "./ui-kit"
 import { FormSheet } from "./form-sheet"
 import { ROW_PRESS, RowControls, rowPress } from "./rows"
 import { tt } from "@/lib/i18n/text"
@@ -90,6 +97,8 @@ export function rowOfPost(post: FeedPostView, me: CommunityHead["me"] | null): F
   }
 }
 
+type Show = "all" | "pinned" | "removed"
+
 export function FeedSection({ head, initial, spaces, compose }: { head: CommunityHead; initial: { rows: FeedRowView[]; next: string | null }; spaces: ComposerSpace[]; compose: string | null }) {
   const router = useRouter()
   const toast = useToast()
@@ -97,7 +106,11 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   const me = head.me ?? null
   const [rows, setRows] = React.useState(initial.rows)
   const [next, setNext] = React.useState(initial.next)
-  const [show, setShow] = React.useState<"all" | "removed">("all")
+  const [show, setShow] = React.useState<Show>("all")
+  const [q, setQ] = React.useState("")
+  const [space, setSpace] = React.useState("")
+  const [loading, setLoading] = React.useState(false)
+  const request = React.useRef(0)
   const [more, setMore] = React.useState(false)
   const [removing, setRemoving] = React.useState<FeedRowView | null>(null)
   const [deleting, setDeleting] = React.useState<FeedRowView | null>(null)
@@ -133,16 +146,46 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
     return null
   })
 
-  const reload = async (which: "all" | "removed") => {
-    const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?show=${which}`, "GET")
-    if (res.ok) {
-      setRows(res.data.rows ?? [])
-      setNext(res.data.next ?? null)
+  const listQuery = React.useCallback(
+    (which: Show, cursor?: string | null) => {
+      const u = new URLSearchParams({ show: which })
+      if (q.trim()) u.set("q", q.trim())
+      if (space) u.set("space", space)
+      if (cursor) u.set("cursor", cursor)
+      return u.toString()
+    },
+    [q, space],
+  )
+
+  const reload = React.useCallback(
+    async (which: Show) => {
+      const mine = ++request.current
+      setLoading(true)
+      const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(which)}`, "GET")
+      if (mine !== request.current) return
+      setLoading(false)
+      if (res.ok) {
+        setRows(res.data.rows ?? [])
+        setNext(res.data.next ?? null)
+      } else toast(errorText(res.data.error, tt("The posts could not be loaded.")))
+    },
+    [base, listQuery, toast],
+  )
+
+  /* The search and the space apply as they change; typing waits a moment so every key is not a request. */
+  const firstFilter = React.useRef(true)
+  React.useEffect(() => {
+    if (firstFilter.current) {
+      firstFilter.current = false
+      return
     }
-  }
+    const t = window.setTimeout(() => void reload(show), q ? 300 : 0)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, space])
 
   const onPosted = (post: FeedPostView) => {
-    if (show === "all") setRows((x) => [rowOfPost(post, me), ...x.filter((y) => y.id !== post.id)])
+    if (show === "all" && !q.trim() && (!space || space === post.space?.id)) setRows((x) => [rowOfPost(post, me), ...x.filter((y) => y.id !== post.id)])
     toast(post.kind === "announcement" ? tt("Announcement posted") : tt("Posted"))
     router.refresh()
   }
@@ -173,7 +216,9 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
                     : action === "move"
                       ? { spaceId: to?.id ?? r.spaceId, spaceName: to?.name ?? r.spaceName, spaceIcon: writerSpaces.find((s) => s.id === to?.id)?.icon ?? null, spaceKind: to?.announcements ? "announcements" : "feed", kind: to?.announcements ? "announcement" : r.kind === "announcement" ? "post" : r.kind }
                       : { status: "published" }
-    setRows((x) => (show === "removed" && action === "restore" ? x.filter((y) => y.id !== r.id) : x.map((y) => (y.id === r.id ? { ...y, ...patch } : y))))
+    /* A row that no longer belongs in the view it is in leaves it: restored under Removed, unpinned or removed under Pinned. */
+    const leaves = (show === "removed" && action === "restore") || (show === "pinned" && (action === "unpin" || action === "remove"))
+    setRows((x) => (leaves ? x.filter((y) => y.id !== r.id) : x.map((y) => (y.id === r.id ? { ...y, ...patch } : y))))
     toast(action === "remove" ? tt("Post removed") : action === "restore" ? tt("Post restored") : action === "move" ? tt("Moved to {name}", { name: to?.name ?? "" }) : tt("Saved"))
   }
 
@@ -198,7 +243,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
   const loadMore = async () => {
     if (!next) return
     setMore(true)
-    const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?show=${show}&cursor=${encodeURIComponent(next)}`, "GET")
+    const res = await send<{ rows: FeedRowView[]; next: string | null }>(`${base}/posts?${listQuery(show, next)}`, "GET")
     setMore(false)
     if (res.ok) {
       setRows((x) => [...x, ...(res.data.rows ?? [])])
@@ -243,7 +288,11 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
         </div>
       ) : null}
 
+      {/* Round 32: drafts and posts set to go up later (./scheduled-posts-panel); it draws nothing for someone who may not post. */}
+      <ScheduledPostsPanel head={head} />
+
       <ListCard
+        busy={loading}
         head={
           <FilterTabs
             label={tt("Which posts")}
@@ -254,14 +303,30 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
             }}
             tabs={[
               { value: "all", label: tt("All posts") },
+              { value: "pinned", label: tt("Pinned") },
               { value: "removed", label: tt("Removed") },
             ]}
           />
         }
+        toolbar={
+          <>
+            <SearchField value={q} onChange={setQ} placeholder={tt("Search posts")} label={tt("Search posts by title or text")} />
+            {spaces.length > 1 ? (
+              <>
+                <ToolbarDivider />
+                <PickButton name="post-space" title={tt("Space")} options={[{ value: "", label: tt("All spaces") }, ...spaces.map((x) => ({ value: x.id, label: x.name }))]} value={space} onPick={setSpace} align="end" />
+              </>
+            ) : null}
+          </>
+        }
       >
         {rows.length === 0 ? (
-          show === "removed" ? (
+          q.trim() || space ? (
+            <Empty title={tt("No posts like that.")} detail={q.trim() ? tt("Try fewer words, or another space.") : undefined} />
+          ) : show === "removed" ? (
             <Empty title={tt("Nothing removed.")} icon={MessageCircle} />
+          ) : show === "pinned" ? (
+            <Empty title={tt("Nothing pinned.")} detail={tt("Pin a post from its menu to keep it at the top of its space.")} icon={Pin} />
           ) : (
             <Empty title={tt("No posts yet.")} detail={tt("Start the conversation: say who it is for and how to begin.")} icon={MessageCircle}>
               {canWrite ? (
@@ -308,15 +373,8 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
             )}
           </ul>
         )}
+        <ListFoot shown={rows.length} more={Boolean(next)} loading={more} onMore={() => void loadMore()} label={(n) => tt("{n, plural, one {# post} other {# posts}}", { n })} />
       </ListCard>
-
-      {next ? (
-        <div className="flex justify-center">
-          <button type="button" onClick={() => void loadMore()} disabled={more} className={cn(buttonSecondary, "h-10 px-5")}>
-            {more ? tt("Loading") : tt("Show more")}
-          </button>
-        </div>
-      ) : null}
       {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">{tt("There is no space to post in. Add one under Spaces.")}</Notice> : null}
       {head.can.post && spaces.length > 0 && !head.archived && !me ? <Notice tone="info">{tt("Refresh the page to write a post.")}</Notice> : null}
 
@@ -349,7 +407,7 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
         ) : null}
       </FormSheet>
 
-      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={tt("Remove this post?")} detail={tt("Members stop seeing it. You can restore it from Removed.")} action="Remove" danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", { reason: reason || undefined })} />
+      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={tt("Remove this post?")} detail={tt("Members stop seeing it. You can restore it from Removed.")} action={tt("Remove")} danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", { reason: reason || undefined })} />
       <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete this post?")} detail={tt("It is gone for everyone, with its comments. This cannot be undone.")} action={tt("Delete")} danger busy={busy} onConfirm={() => void remove()} />
     </div>
   )

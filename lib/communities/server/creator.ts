@@ -89,7 +89,7 @@ import type {
 } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
 import { createCommunity } from "./create"
-import { loadCommunity, viewerContext, type Viewer } from "./context"
+import { loadCommunity, type Viewer } from "./context"
 import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { awardPoints } from "./points"
 import { notifyEventChanged, queueJob } from "./notify"
@@ -162,17 +162,65 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
-  const db = admin()
-  /* Who is asking and which community, at once: two answers that do not wait on each other. */
-  const [creator, community] = await Promise.all([creatorForRequest(user.id), loadCommunity(db, key)])
-  if (!creator) return null
-  if (!community) return null
-  const viewer = await viewerContext(db, community, user.id)
-  const ownsIt = community.creator_id === creator.id || community.owner_user_id === user.id
-  const role: Role | null = ownsIt ? "owner" : viewer.role
-  if (!role || role === "member") return null
+  return staffContext(admin(), key, user.id, creatorForRequest(user.id))
+})
+
+/** The creator row as lib/auth/request-scope.ts reads it: the columns the gate needs. */
+type PageCreator = { id: string; display_name?: string | null; username?: string | null; slug?: string | null; stripe_account_id?: string | null; stripe_onboarding_status?: string | null; charges_enabled?: boolean | null }
+
+/**
+ * WHO IS ASKING, IN AS FEW ROUNDS AS THE ANSWER ALLOWS (round 32). Every
+ * section page starts here, so its rounds are paid on every first visit of
+ * every section. It used to ask viewerContext (./context.ts), the member
+ * side's question: it reconciles paid access, looks up the creator account
+ * and the products the person owns, and only then the owner's role choices:
+ * five reads one after another for the owner, nine for an admin
+ * (scripts/measure-community-admin-server.mjs). A staff page needs the role
+ * and, for an admin or a moderator, what the owner lets them do. So:
+ *
+ *   round 1   the creator row and the community, at once
+ *   owner     done: the role is the ownership. Their own member row, made
+ *             again if it was ever lost, is checked beside the section's
+ *             reads instead of before them.
+ *   staff     round 2: their member row and the owner's role choices, at
+ *             once
+ *
+ * Every write still goes through requireCreatorCommunity, which asks
+ * viewerContext and reconciles, so nothing a route decides rests on this.
+ */
+export async function staffContext(db: Db, key: { id: string } | { slug: string }, userId: string, creatorRead: Promise<PageCreator | null>): Promise<CreatorPageContext | null> {
+  const [creator, community] = await Promise.all([creatorRead, loadCommunity(db, key)])
+  if (!creator || !community) return null
+  const ownsIt = community.creator_id === creator.id || community.owner_user_id === userId
+  let member: MemberRow | null = null
+  let perms: RolePermissions | null = null
+  if (ownsIt) {
+    if (community.owner_user_id === userId) void keepOwnerRow(db, community.id, userId)
+  } else {
+    const [row, choices] = await Promise.all([memberOf(db, community.id, userId), rolePermissionsOf(db, community.id)])
+    if (row?.status !== "active" || !row.role || row.role === "member") return null
+    member = row
+    perms = row.role === "admin" || row.role === "moderator" ? choices.perms : null
+  }
+  const role: Role = ownsIt ? "owner" : (member as MemberRow).role
+  const viewer: Viewer = {
+    userId,
+    member,
+    role: member?.role ?? "owner",
+    active: true,
+    status: member?.status ?? "active",
+    tierId: member?.tier_id ?? null,
+    ownedProductIds: [],
+    level: member?.level ?? 1,
+    points: member?.points ?? 0,
+    isOwner: community.owner_user_id === userId,
+    isCreatorAccount: community.creator_id === creator.id,
+    banned: false,
+    mutedUntil: null,
+    perms,
+  }
   return {
-    userId: user.id,
+    userId,
     creatorId: creator.id,
     creatorName: creator.display_name || creator.username || creator.slug || "A creator",
     community,
@@ -181,7 +229,17 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
     db,
     paymentsReady: Boolean(creator.stripe_account_id) && creator.stripe_onboarding_status === "connected" && creator.charges_enabled !== false,
   }
-})
+}
+
+/** The owner's own member row, made again if it was ever lost (viewerContext did this before every page; now beside it). */
+async function keepOwnerRow(db: Db, communityId: string, userId: string): Promise<void> {
+  try {
+    const row = await memberOf(db, communityId, userId)
+    if (!row || row.role !== "owner" || row.status !== "active") await grantMembership(db, { communityId, userId, source: "owner", role: "owner", status: "active" })
+  } catch (e) {
+    console.error(`[communities] owner row ${userId} in ${communityId}: ${reasonOf(e)}`)
+  }
+}
 
 /**
  * The first line of every section page: the context when this person may
@@ -409,8 +467,12 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
   const members = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id)
   /* Round 32: the newest posts and members, read beside the figures (./overview-activity). */
   const recentLines = overviewActivity(db, c)
-  const recurring = await recurringProductIds(db, c.id)
-  const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells] = await Promise.all([
+  /*
+    ONE ROUND, NOT THREE (round 32): the products that sell it were read first and the unsellable events last, each a
+    round of its own before or after the figures. Now only the money waits on the products; everything else goes at once.
+  */
+  const recurringRead = recurringProductIds(db, c.id)
+  const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells, pricedEvents] = await Promise.all([
     count(members().eq("status", "active").gte("last_active_at", d30)),
     count(members().eq("status", "active").gte("joined_at", d30)),
     count(members().eq("status", "active").in("source", [...PAID_SOURCES])),
@@ -418,17 +480,17 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     count(db.from("community_feed_comments").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "published").gte("created_at", d7)),
     openReportCount(db, c.id),
-    monthlyRevenue(db, recurring),
-    recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : Promise.resolve(0),
+    recurringRead.then((recurring) => monthlyRevenue(db, recurring)),
+    recurringRead.then((recurring) => (recurring.length ? count(db.from("memberships").select("id", { count: "exact", head: true }).in("product_id", recurring).gte("canceled_at", d30)) : 0)),
     inviteCount(db, c.id),
     count(db.from("community_courses").select("product_id", { count: "exact", head: true }).eq("community_id", c.id)),
     count(db.from("community_events").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
     count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", c.id)),
     db.from("community_events").select("id, title, starts_at, ends_at, timezone, going_count, capacity, kind").eq("community_id", c.id).eq("status", "scheduled").gte("starts_at", nowIso(now - 60 * 60_000)).order("starts_at", { ascending: true }).limit(3),
     count(db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid")),
+    /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
+    ctx.paymentsReady ? Promise.resolve(0) : pricedEventCount(db, c.id),
   ])
-  /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
-  const pricedEvents = ctx.paymentsReady ? 0 : await pricedEventCount(db, c.id)
   const base = `/app/community/${c.slug}`
   const upcoming: UpcomingEvent[] = ((upcomingRows.data as { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string; going_count: number; capacity: number | null; kind: UpcomingEvent["kind"] }[] | null) ?? []).map((e) => ({
     id: e.id,
@@ -848,8 +910,12 @@ export async function loadSpaces(db: Db, communityId: string): Promise<SpaceView
   const { data, error } = await db.from("community_spaces").select(SPACE_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).limit(MAX_SPACES + 10)
   if (error) return []
   const rows = (data as SpaceRow[] | null) ?? []
-  const posts = await Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id))))
-  const messages = await Promise.all(rows.map((s, i) => (s.kind === "chat" && posts[i] === 0 ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0))))
+  /* A chat space's messages are counted beside its posts, not in a round after them (round 32), and used when it has no posts. */
+  const [posts, chats] = await Promise.all([
+    Promise.all(rows.map((s) => count(db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("space_id", s.id)))),
+    Promise.all(rows.map((s) => (s.kind === "chat" ? count(db.from("community_messages").select("id", { count: "exact", head: true }).eq("space_id", s.id)) : Promise.resolve(0)))),
+  ])
+  const messages = rows.map((_, i) => (posts[i] === 0 ? chats[i] : 0))
   return rows.map((s, i) => ({
     id: s.id,
     slug: s.slug,
@@ -1077,18 +1143,19 @@ function eventView(e: EventRow, money: EventTicketMoney | null = null): EventEdi
 /** Upcoming events oldest first, and the latest past ones, with what each took. */
 export async function loadEvents(db: Db, communityId: string): Promise<{ upcoming: EventEditView[]; past: EventEditView[]; tickets: EventTicketSetup }> {
   const cut = nowIso(Date.now() - 2 * 60 * 60_000)
-  const columns = await eventReadColumns(db)
+  /* Round 32: whether tickets are set up, and the ticket setup itself, are asked beside the events, not after them. */
+  const [columns, ready, tickets] = await Promise.all([eventReadColumns(db), ticketsReady(db), eventTicketSetup(db, communityId)])
   const [up, past] = await Promise.all([
     db.from("community_events").select(columns).eq("community_id", communityId).gte("starts_at", cut).order("starts_at", { ascending: true }).limit(100),
     db.from("community_events").select(columns).eq("community_id", communityId).lt("starts_at", cut).order("starts_at", { ascending: false }).limit(30),
   ])
   const upRows = (up.data as EventRow[] | null) ?? []
   const pastRows = (past.data as EventRow[] | null) ?? []
-  const money = (await ticketsReady(db)) ? await eventsTicketMoney(db, communityId, [...upRows, ...pastRows]) : new Map<string, EventTicketMoney>()
+  const money = ready ? await eventsTicketMoney(db, communityId, [...upRows, ...pastRows]) : new Map<string, EventTicketMoney>()
   return {
     upcoming: upRows.map((e) => eventView(e, money.get(e.id) ?? null)),
     past: pastRows.map((e) => eventView(e, money.get(e.id) ?? null)),
-    tickets: await eventTicketSetup(db, communityId),
+    tickets,
   }
 }
 
@@ -1198,10 +1265,14 @@ export async function setEventCancelled(db: Db, a: { communityId: string; eventI
 export const FEED_PAGE = 20
 
 /** The feed as the creator manages it: newest first, removed posts included so they can be put back. */
-export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" }): Promise<{ rows: FeedRowView[]; next: string | null }> {
+export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" | "pinned"; spaceId?: string | null; q?: string | null }): Promise<{ rows: FeedRowView[]; next: string | null }> {
   /* Round 31: the media too, so the row shows what the post carries (pictures, a video's still, files), as the feed does. */
   let q = db.from("community_feed_posts").select("id, kind, title, body_text, media, space_id, author_id, pinned, locked, featured, status, reaction_count, comment_count, created_at").eq("community_id", communityId)
-  q = opts.show === "removed" ? q.eq("status", "removed") : q.in("status", ["published", "removed"])
+  q = opts.show === "removed" ? q.eq("status", "removed") : opts.show === "pinned" ? q.eq("status", "published").eq("pinned", true) : q.in("status", ["published", "removed"])
+  /* Round 32: one space, and words in the title or the text (the member search's cleaning, so nothing reaches the filter as syntax). */
+  if (opts.spaceId && isUuid(opts.spaceId)) q = q.eq("space_id", opts.spaceId)
+  const words = opts.q ? safeSearch(opts.q) : ""
+  if (words.length >= 2) q = q.or(`title.ilike.*${words}*,body_text.ilike.*${words}*`)
   const c = decodeCursor(opts.cursor)
   if (c && typeof c.sort === "string") q = q.or(keysetOr("created_at", c.sort, c.id))
   const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(FEED_PAGE + 1)
@@ -1495,7 +1566,31 @@ function sortColumn(status: MemberQuery["status"]): "joined_at" | "requested_at"
   return "created_at"
 }
 
-function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId">) {
+/**
+ * ROUND 32: THE ORDER THE LIST IS READ IN. The default is the view's own column, newest first, as it always was. Oldest
+ * turns it round; Recently active reads last_active_at, which a member who never came back does not have, so those are
+ * read after everybody else (by id: a page cursor whose sort is the number -1 says the list has reached them); Most
+ * points reads points. Each is a keyset on (column, id), so the hundredth page costs what the first does.
+ */
+interface MemberSortSpec {
+  col: "joined_at" | "requested_at" | "created_at" | "last_active_at" | "points"
+  asc: boolean
+  /** The column can be empty: those rows come last, after a cursor of -1. */
+  nullable: boolean
+}
+
+function memberSortSpec(query: Pick<MemberQuery, "status" | "sort">): MemberSortSpec {
+  const base = sortColumn(query.status)
+  if (query.sort === "oldest") return { col: base, asc: true, nullable: false }
+  if (query.sort === "active") return { col: "last_active_at", asc: false, nullable: true }
+  if (query.sort === "points") return { col: "points", asc: false, nullable: false }
+  return { col: base, asc: false, nullable: false }
+}
+
+/** A cursor whose sort is this number has passed every row with a value and is among the empty ones. */
+const EMPTY_PHASE = -1
+
+function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId" | "joined">) {
   let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId)
   if (query.status === "restricted") {
     /*
@@ -1512,6 +1607,7 @@ function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "stat
   }
   if (query.role) q = q.eq("role", query.role)
   if (query.tierId) q = q.eq("tier_id", query.tierId)
+  if (query.joined) q = q.gte("joined_at", new Date(Date.now() - query.joined * 86_400_000).toISOString())
   const col = sortColumn(query.status)
   if (col !== "created_at") q = q.not(col, "is", null)
   return q
@@ -1558,31 +1654,54 @@ async function memberViews(db: Db, communityId: string, rows: ListMember[], with
  * than reading the whole list.
  */
 export async function listMembers(db: Db, communityId: string, query: MemberQuery, opts: { withEmail: boolean }): Promise<MemberPage> {
-  const col = sortColumn(query.status)
+  const spec = memberSortSpec(query)
+  const valueOf = (r: ListMember): string | number | null => (r as unknown as Record<string, string | number | null>)[spec.col] ?? null
   if (query.q) {
     const found = await searchUserIds(db, query.q, opts.withEmail)
     if (found.ids.length === 0) return { rows: [], next: null, capped: false }
     const chunks: string[][] = []
     for (let i = 0; i < found.ids.length; i += 100) chunks.push(found.ids.slice(i, i + 100))
-    const reads = await Promise.all(chunks.map((ids) => memberQuery(db, communityId, query).in("user_id", ids).order(col, { ascending: false }).limit(MEMBERS_PAGE + 1)))
+    const reads = await Promise.all(chunks.map((ids) => memberQuery(db, communityId, query).in("user_id", ids).order(spec.col, { ascending: spec.asc, nullsFirst: false }).limit(MEMBERS_PAGE + 1)))
+    /* Each chunk is in order; put together they are ordered once more the same way, empty values last. */
     const rows = reads
       .flatMap((r: { data: ListMember[] | null }) => r.data ?? [])
-      .sort((a: ListMember, b: ListMember) => String((b as unknown as Record<string, unknown>)[col] ?? "").localeCompare(String((a as unknown as Record<string, unknown>)[col] ?? "")))
+      .sort((a: ListMember, b: ListMember) => {
+        const x = valueOf(a)
+        const y = valueOf(b)
+        if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1
+        const d = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))
+        return spec.asc ? d : -d
+      })
     return { rows: await memberViews(db, communityId, rows.slice(0, MEMBERS_PAGE), opts.withEmail), next: null, capped: found.capped || rows.length > MEMBERS_PAGE }
   }
-  let q = memberQuery(db, communityId, query)
+  const dir = spec.asc ? "asc" : "desc"
   const c = decodeCursor(query.cursor)
-  if (c && typeof c.sort === "string") q = q.or(keysetOr(col, c.sort, c.id))
-  const { data, error } = await q.order(col, { ascending: false }).order("id", { ascending: false }).limit(MEMBERS_PAGE + 1)
-  if (error) {
-    if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
-    return { rows: [], next: null, capped: false }
+  const amongEmpty = spec.nullable && c !== null && c.sort === EMPTY_PHASE
+  let all: ListMember[] = []
+  if (!amongEmpty) {
+    let q = memberQuery(db, communityId, query)
+    if (spec.nullable) q = q.not(spec.col, "is", null)
+    if (c && (typeof c.sort === "string" || (typeof c.sort === "number" && spec.col === "points"))) q = q.or(keysetOr(spec.col, c.sort, c.id, dir))
+    const { data, error } = await q.order(spec.col, { ascending: spec.asc }).order("id", { ascending: spec.asc }).limit(MEMBERS_PAGE + 1)
+    if (error) {
+      if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
+      return { rows: [], next: null, capped: false }
+    }
+    all = (data as ListMember[] | null) ?? []
   }
-  const all = (data as ListMember[] | null) ?? []
+  if (spec.nullable && all.length <= MEMBERS_PAGE) {
+    /* Everybody with a value has been read: the ones without follow, newest row first. */
+    let q = memberQuery(db, communityId, query).is(spec.col, null)
+    if (amongEmpty && c) q = q.lt("id", c.id)
+    const { data, error } = await q.order("id", { ascending: false }).limit(MEMBERS_PAGE + 1 - all.length)
+    if (error && !missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
+    all = [...all, ...((data as ListMember[] | null) ?? [])]
+  }
   const rows = all.slice(0, MEMBERS_PAGE)
   const last = rows[rows.length - 1]
-  const lastSort = last ? ((last as unknown as Record<string, string | null>)[col] ?? null) : null
-  return { rows: await memberViews(db, communityId, rows, opts.withEmail), next: all.length > MEMBERS_PAGE && last && lastSort ? encodeCursor(lastSort, last.id) : null, capped: false }
+  const lastSort = last ? valueOf(last) : null
+  const next = all.length > MEMBERS_PAGE && last ? (lastSort !== null ? encodeCursor(lastSort, last.id) : spec.nullable ? encodeCursor(EMPTY_PHASE, last.id) : null) : null
+  return { rows: await memberViews(db, communityId, rows, opts.withEmail), next, capped: false }
 }
 
 /** How many members each status has, for the filter's counts (head requests). */
@@ -1600,7 +1719,7 @@ export async function memberCounts(db: Db, communityId: string): Promise<Record<
  * The members as CSV, written a page of 500 at a time while it is read, so
  * an export of 10,000 members never holds them all at once.
  */
-export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQuery, "status" | "role" | "tierId">, opts: { withEmail: boolean }): ReadableStream<Uint8Array> {
+export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQuery, "status" | "role" | "tierId" | "joined">, opts: { withEmail: boolean }): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   const col = sortColumn(query.status)
   let cursor: { sort: string; id: string } | null = null

@@ -292,7 +292,7 @@ async function main() {
     check("the preview starts on a resting pointer or most of the way on screen, one at a time, fades in once frames play", /PREVIEW_HOVER_MS/.test(sv) && /new IntersectionObserver/.test(sv) && /window\.dispatchEvent\(new CustomEvent\(PREVIEW, \{ detail: me \}\)\)/.test(sv) && /onPlaying=\{\(\) => want && setShown\(true\)\}/.test(sv) && /muted/.test(sv))
     check("the preview asks for the lighter file and nothing until it starts", /fetchPlayback\(communityId, videoId, \{ light: true \}\)/.test(sv))
     check("an answer is kept for the page, so a preview then a press ask once", /const KEPT = new Map<string, VideoPlayback>\(\)/.test(sv))
-    check("a post's video passes its size to keep its shape", /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} width=\{item\.w\} height=\{item\.h\} \/>/.test(code("components/community/member/media.tsx")))
+    check("a post's video passes its size to keep its shape", /* Changed on purpose (round 32): the play mark waits for the picture under it (holdMark). */ /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} width=\{item\.w\} height=\{item\.h\} holdMark=\{!seen\} \/>/.test(code("components/community/member/media.tsx")))
   }
 
   /* ── The cover ────────────────────────────────────────────────────────── */

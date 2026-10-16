@@ -189,7 +189,9 @@ console.log("\nLEAVE: asking why")
   check("before part 98 nothing is asked or saved: the table is looked for and remembered", /export async function leaveReasonsReady\(db: Db\)/.test(srv) && /if \(!\(await leaveReasonsReady\(db\)\)\) return false/.test(srv) && /if \(!\(await leaveReasonsReady\(db\)\)\) return null/.test(srv))
   check("the dashboard reads counts per reason and the latest notes, bounded", /select\("id", \{ head: true, count: "exact" \}\)\.eq\("community_id", communityId\)\.eq\("reason", r\.key\)/.test(srv) && /\.limit\(LEAVE_NOTES_SHOWN\)/.test(srv))
   const page = code("app/app/community/[id]/page.tsx")
-  check("only the owner and admins see why people left", /meetsRole\(ctx\.role, "admin"\) \? leaveReasonsSummary\(ctx\.db, ctx\.community\.id\) : Promise\.resolve\(null\)/.test(page) && /<LeaveReasonsCard summary=\{left\} \/>/.test(page))
+  /* Changed on purpose (round 32): the overview's reads are in lib/communities/server/admin-sections.ts, streamed by the page under a Suspense boundary. */
+  const reads = code("lib/communities/server/admin-sections.ts")
+  check("only the owner and admins see why people left", /meetsRole\(ctx\.role, "admin"\) \? leaveReasonsSummary\(ctx\.db, ctx\.community\.id\) : Promise\.resolve\(null\)/.test(reads) && /overviewReads\(ctx\)/.test(page) && /<LeaveReasonsCard summary=\{left\} \/>/.test(page))
   const j = code("components/community/public/join-controls.tsx")
   check("the dialog asks only when part 98 is in, every answer optional", /\{askWhy \? \(/.test(j) && /role="radiogroup"/.test(j) && /onClick=\{\(\) => setReason\(on \? null : r\.key\)\}/.test(j) && /leave\(askWhy \? \{ reason, note \} : undefined\)/.test(j))
 }

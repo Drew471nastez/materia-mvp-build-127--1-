@@ -315,7 +315,9 @@ async function main() {
   check("removing reported content goes through the moderation route", /send\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
   check("an author action from a report resolves the report", /fromReport\.current = r/.test(modSrc) && /setStatus\(r, "resolved"/.test(modSrc))
   const modPage = code("app/app/community/[id]/moderation/page.tsx")
-  check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modPage) && /can\(ctx\.role, "view_audit", ctx\.viewer\.perms\) \? auditLog/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
+  /* Changed on purpose (round 32): the page's reads moved to lib/communities/server/admin-sections.ts, so the page can stream them under a Suspense boundary. */
+  const modReads = code("lib/communities/server/admin-sections.ts")
+  check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modReads) && /can\(ctx\.role, "view_audit", ctx\.viewer\.perms\) \? auditLog/.test(modReads) && /moderationReads\(ctx, query\)/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
 
   /* ── Gallery ─────────────────────────────────────────────────────────── */
   console.log("\ngallery")
