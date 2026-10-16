@@ -290,7 +290,8 @@ export async function changeCommunityMembership(
   if (input.action === "resume" && !(row.status === "canceled" && grantsAccess(row)))
     return { ok: false, status: 409, error: "ended", message: "This membership has ended. Join again from the community's page." }
   /* Round 33: a community on its way to being deleted renews nobody (./community-deletion.ts). */
-  if (input.action === "resume" && (await import("./community-deletion").then((m) => m.deletionScheduled(db, input.communityId)).catch(() => false)))
+  /* Read here rather than through ./community-deletion, which would bring the tier code into everything that reads this file. */
+  if (input.action === "resume" && (await closing(db, input.communityId)))
     return { ok: false, status: 409, error: "closing", message: "This community is closing, so the membership cannot renew." }
   let next: MembershipLite | null
   try {
@@ -316,6 +317,16 @@ export async function changeCommunityMembership(
     detail: { membershipId: row.id, endsAt: next.current_period_end },
   })
   return { ok: true, value: next }
+}
+
+/** Round 33: whether the community's deletion is scheduled (run-now part 202); before that part, never. */
+async function closing(db: Db, communityId: string): Promise<boolean> {
+  try {
+    const { data, error } = await db.from("community_deletions").select("state").eq("community_id", communityId).maybeSingle()
+    return !error && (data as { state?: string } | null)?.state === "scheduled"
+  } catch {
+    return false
+  }
 }
 
 /** Once per scheduled end: the key is the membership and its end date, so a double tap or a webhook after the button is one row. */

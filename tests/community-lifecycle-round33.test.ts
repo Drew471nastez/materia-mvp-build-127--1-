@@ -245,7 +245,7 @@ async function main() {
     const unarchive = await setArchived(db, { community: row(db), actorId: OWNER, archived: false })
     check("unarchiving meanwhile is refused", !unarchive.ok && unarchive.status === 409 && row(db).status === "archived")
     const life = code("lib/communities/server/membership-lifecycle.ts")
-    check("a member's resume meanwhile is refused", /input\.action === "resume" && \(await import\("\.\/community-deletion"\)\.then\(\(m\) => m\.deletionScheduled\(db, input\.communityId\)\)/.test(life))
+    check("a member's resume meanwhile is refused", /input\.action === "resume" && \(await closing\(db, input\.communityId\)\)/.test(life) && /from\("community_deletions"\)\.select\("state"\)/.test(life))
   }
 
   /* ── Undo ────────────────────────────────────────────────────────────── */
