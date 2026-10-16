@@ -95,20 +95,121 @@ export function previewAllowed(c: Connection = connection(), reduced: boolean = 
 /* Answers kept for the page, by video and quality, until five minutes before they expire. */
 const KEPT = new Map<string, VideoPlayback>()
 const KEEP_MARGIN_MS = 5 * 60_000
+type Answer = { ok: true; playback: VideoPlayback } | { ok: false; status: number; error: string }
+/* Questions on their way (round 32): the card, a warm, the player and its preview asking at once ask the server once. */
+const ASKING = new Map<string, Promise<Answer>>()
+/* Where the files come from, connected to ahead (round 32): the press starts on a warm connection. */
+const WARMED = new Set<string>()
 
-export async function fetchPlayback(communityId: string, videoId: string, opts: { light?: boolean; fresh?: boolean } = {}): Promise<{ ok: true; playback: VideoPlayback } | { ok: false; status: number; error: string }> {
+function preconnect(url: string): void {
+  if (typeof document === "undefined") return
+  let origin = ""
+  try {
+    origin = new URL(url, location.href).origin
+  } catch {
+    return
+  }
+  if (!origin || origin === location.origin || WARMED.has(origin)) return
+  WARMED.add(origin)
+  /* Both kinds of connection: the player's (with the page's credentials) and a first frame's (anonymous, so it can be kept as a picture). */
+  for (const cors of [false, true]) {
+    const link = document.createElement("link")
+    link.rel = "preconnect"
+    link.href = origin
+    if (cors) link.crossOrigin = "anonymous"
+    document.head.appendChild(link)
+  }
+}
+
+export async function fetchPlayback(communityId: string, videoId: string, opts: { light?: boolean; fresh?: boolean } = {}): Promise<Answer> {
   const key = `${communityId}/${videoId}/${opts.light ? "low" : "auto"}`
   const kept = KEPT.get(key)
   if (!opts.fresh && kept && Number(kept.expiresAt) - KEEP_MARGIN_MS > Date.now()) return { ok: true, playback: kept }
+  const asking = ASKING.get(key)
+  if (!opts.fresh && asking) return asking
+  const ask = (async (): Promise<Answer> => {
+    try {
+      const res = await fetch(`/api/community/${communityId}/videos/${videoId}/play${opts.light ? "?q=low" : ""}`, { cache: "no-store", credentials: "same-origin" })
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+      if (!res.ok) return { ok: false, status: res.status, error: String(body.error || "failed") }
+      const playback = body as unknown as VideoPlayback
+      KEPT.set(key, playback)
+      if (playback.url) preconnect(playback.url)
+      return { ok: true, playback }
+    } catch {
+      return { ok: false, status: 0, error: "offline" }
+    }
+  })()
+  ASKING.set(key, ask)
+  void ask.finally(() => {
+    if (ASKING.get(key) === ask) ASKING.delete(key)
+  })
+  return ask
+}
+
+/**
+ * ===========================================================================
+ *  A VIDEO WITH NO STILL, ITS FIRST FRAME KEPT FOR THE PAGE (round 32)
+ * ===========================================================================
+ * The owner: "a video attachment, its cover or the video as a whole takes too
+ * much to load, always". A video with no still of its own showed its first
+ * frame on the card (media.tsx VideoFrame) by loading the file, and the
+ * opened post then loaded the file again for the same frame, on a quiet
+ * ground meanwhile. The card's frame is now drawn once into a picture and
+ * kept for the page by the video's id (an object address, decoded ahead), so
+ * the opened post, the viewer and the player's own poster draw it in their
+ * first frame.
+ */
+const FRAME_STILLS = new Map<string, { src: string; w: number; h: number }>()
+const HELD_FRAMES: HTMLImageElement[] = []
+/* Frames being drawn into a picture now: each video once, however many of its events arrive. */
+const KEEPING = new Set<string>()
+export function videoFrameStill(videoId: string): { src: string; w: number; h: number } | null {
+  return FRAME_STILLS.get(videoId) ?? null
+}
+
+/** Keeps the frame `video` shows now as the picture for this video, once. Quietly nothing when the file may not be read back (another site's, without CORS). */
+export function keepVideoFrame(videoId: string, video: HTMLVideoElement): void {
+  if (FRAME_STILLS.has(videoId) || KEEPING.has(videoId) || typeof document === "undefined") return
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  if (!vw || !vh || video.readyState < 2) return
+  KEEPING.add(videoId)
+  const done = () => void KEEPING.delete(videoId)
   try {
-    const res = await fetch(`/api/community/${communityId}/videos/${videoId}/play${opts.light ? "?q=low" : ""}`, { cache: "no-store", credentials: "same-origin" })
-    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    if (!res.ok) return { ok: false, status: res.status, error: String(body.error || "failed") }
-    const playback = body as unknown as VideoPlayback
-    KEPT.set(key, playback)
-    return { ok: true, playback }
+    const scale = Math.min(1, 1280 / vw)
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.max(1, Math.round(vw * scale))
+    canvas.height = Math.max(1, Math.round(vh * scale))
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return done()
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    canvas.toBlob(
+      (blob) => {
+        if (!blob || FRAME_STILLS.has(videoId)) return done()
+        const src = URL.createObjectURL(blob)
+        /* Decoded before anyone draws it, so the first frame that draws it has it. */
+        const img = new Image()
+        img.src = src
+        /* The decoded picture held for the page, so the browser keeps it ready to draw. */
+        const keep = () => {
+          FRAME_STILLS.set(videoId, { src, w: vw, h: vh })
+          HELD_FRAMES.push(img)
+          done()
+        }
+        if (typeof img.decode === "function")
+          img.decode().then(keep, () => {
+            URL.revokeObjectURL(src)
+            done()
+          })
+        else keep()
+      },
+      "image/jpeg",
+      0.86,
+    )
   } catch {
-    return { ok: false, status: 0, error: "offline" }
+    /* A frame from another site without CORS cannot be read back: the next one loads the file, as before. */
+    done()
   }
 }
 
@@ -195,6 +296,8 @@ export interface StorelibVideoProps {
   height?: number | null
   /** The short muted loop over the poster; on unless a page says otherwise. */
   preview?: boolean
+  /** Round 32: the play mark waits, invisible, until the caller has a picture under it (an opened post: never a play mark on an empty box). */
+  holdMark?: boolean
 }
 
 /** The box's width over height: the video's own shape, kept between a tall 4:5 and a wide 2.4:1. */
@@ -203,7 +306,7 @@ export function boxRatio(width?: number | null, height?: number | null): number 
   return Math.min(2.4, Math.max(0.8, width / height))
 }
 
-export function StorelibVideo({ communityId, videoId, poster, durationSeconds, title, eager = false, width, height, preview = true }: StorelibVideoProps) {
+export function StorelibVideo({ communityId, videoId, poster, durationSeconds, title, eager = false, width, height, preview = true, holdMark = false }: StorelibVideoProps) {
   const [state, setState] = useState<State>({ kind: "idle" })
   const [posterUrl, setPosterUrl] = useState<string | null>(poster ?? null)
   const me = useId()
@@ -246,6 +349,17 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
   )
 
   const [autoPlay, setAutoPlay] = useState(false)
+  /*
+    THE PLAYER STARTS ON THE PICTURE ALREADY ON SCREEN (round 32). The player draws its poster from the address it is given,
+    and the address given was the poster as stored, a file the page had not fetched (it shows the optimizer's copy): the box
+    went dark between the press and the first frame. Read on the press, the file the poster is drawn from now is given
+    instead, from the cache in the frame the player appears.
+  */
+  const [playerPoster, setPlayerPoster] = useState<string | null>(null)
+  const notePoster = () => {
+    const el = box.current?.querySelector<HTMLImageElement>("img[data-video-poster]")
+    if (el && el.complete && el.naturalWidth > 0 && el.currentSrc) setPlayerPoster(el.currentSrc)
+  }
   useEffect(() => {
     if (eager) void load(false)
   }, [eager, load])
@@ -274,7 +388,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
   if (state.kind === "playing") {
     return (
       <div ref={box} data-storelib-video={videoId} data-video-state="playing" onPointerDownCapture={() => window.dispatchEvent(new CustomEvent(ACTIVATE, { detail: me }))}>
-        <VideoPlayer source={state.source} startAt={state.startAt} autoPlay={autoPlay} poster={posterUrl} title={title} ratio={ratio} renew={renew} onPlace={onPlace} live={live} />
+        <VideoPlayer source={state.source} startAt={state.startAt} autoPlay={autoPlay} poster={playerPoster ?? posterUrl ?? videoFrameStill(videoId)?.src ?? null} title={title} ratio={ratio} renew={renew} onPlace={onPlace} live={live} />
       </div>
     )
   }
@@ -285,7 +399,9 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
       ref={box}
       data-storelib-video={videoId}
       data-video-state={state.kind}
-      className="relative w-full overflow-hidden rounded-xl bg-[#0f0f17] [dynamic-range-limit:standard]"
+      /* Round 32: the ground as a property, not a colour class, so the dark look keeps it near black instead of the grey it gives a dark fill. */
+      className="relative w-full overflow-hidden rounded-xl [background-color:#0f0f17] [dynamic-range-limit:standard]"
+      data-video-mark={holdMark ? "held" : "shown"}
       style={{ aspectRatio: String(ratio) }}
     >
       {posterUrl ? <PosterPicture key={posterUrl} url={posterUrl} /> : null}
@@ -294,6 +410,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
         <button
           type="button"
           onClick={() => {
+            notePoster()
             setAutoPlay(true)
             void load(true)
           }}
@@ -302,7 +419,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
           className="group/play absolute inset-0 flex items-center justify-center outline-none"
           data-video-play=""
         >
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_6px_24px_rgba(0,0,0,0.3)] transition-[scale] duration-150 group-hover/play:scale-105 group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/50 motion-reduce:transition-none">
+          <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_6px_24px_rgba(0,0,0,0.3)] transition-[scale,opacity] duration-150 group-hover/play:scale-105 group-focus-visible/play:opacity-100 group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/50 motion-reduce:transition-none ${holdMark ? "opacity-0" : "opacity-100"}`} data-video-play-mark="">
             {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <Play className="ml-0.5 h-6 w-6" fill="currentColor" />}
           </span>
           {durationSeconds ? (

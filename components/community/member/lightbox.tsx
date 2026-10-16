@@ -42,6 +42,16 @@
  *   slide has come to rest, so a swipe never lands on a picture still being
  *   decoded on the main thread, and the picture mounted after a slide is not
  *   the next one in line but the one after it.
+ *
+ * Round 32, the owner's recording of a picture closing (a wide crop, then two
+ * pictures on top of each other, then a snap): ONE PICTURE ON SCREEN at every
+ * frame of the way in, the time open and the way out. The copy that flies
+ * lands on the picture as the post shows it (return-morph.ts pictureRect),
+ * not on its tile's box, with the tile's round corners; the thumbnail is
+ * hidden while its picture is open and shown again in the frame the copy
+ * lands on it; nothing fades but the black. A press outside the picture
+ * closes it too (on the black, beside it), the same way back as Escape, the
+ * close button and a swipe down. With reduced motion it fades in and out.
  */
 import { markLayerBack } from "@/lib/nav/layer-back"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -52,7 +62,7 @@ import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { EMBED_NAMES, embedPlayerSrc, type ViewerItem } from "@/lib/communities/post-media"
 import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
 import { ProviderMark } from "./media-providers"
-import { coverMorph, revealForReturn } from "./return-morph"
+import { coverMorph, hideOrigin, pictureRect, releaseMorph, revealForReturn, shownPicture } from "./return-morph"
 import { useLayer } from "@/lib/ui/layers"
 /* The app's sheet arithmetic, so the slider is let go the way a sheet is (pure: no DOM, no React). */
 import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sample } from "@/components/website-builder/sheet-gestures"
@@ -203,10 +213,15 @@ function readX(el: HTMLElement): number {
 /** An element on screen, as a rectangle, or null when it is not there to go back to. */
 function onScreen(el: HTMLElement | null | undefined): DOMRect | null {
   if (!el || !el.isConnected) return null
-  const r = el.getBoundingClientRect()
-  if (r.width < 4 || r.height < 4 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return null
+  return inView(el.getBoundingClientRect())
+}
+function inView(r: DOMRect | null | undefined): DOMRect | null {
+  if (!r || r.width < 4 || r.height < 4 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return null
   return r
 }
+
+/** Under reduced motion the viewer comes and goes on opacity alone, this long. */
+const FADE_MS = 160
 
 /**
  * ===========================================================================
@@ -279,9 +294,34 @@ export function Lightbox({
   })
   const originRef = useRef(originOf)
   originRef.current = originOf
+  /* The thumbnail of the picture on screen, hidden while it is open: the way to show it again. */
+  const originBack = useRef<(() => void) | null>(null)
+  /* A finger that came down on a slide still moving: it stopped the slide, it is not a press to close. */
+  const caught = useRef(false)
+  const showOrigin = useCallback(() => {
+    originBack.current?.()
+    originBack.current = null
+  }, [])
+  /** The thumbnail of picture `i` steps aside (only a picture's, and never with reduced motion: that way is a fade). */
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const hideOriginOf = useCallback(
+    (i: number) => {
+      showOrigin()
+      const kind = itemsRef.current[i]?.kind
+      if (reducedNow() || (kind !== "image" && kind !== "gif")) return
+      originBack.current = hideOrigin(originRef.current?.(i))
+    },
+    [showOrigin],
+  )
 
   const width = () => rootRef.current?.clientWidth || window.innerWidth
   const media = (i: number) => trackRef.current?.querySelector<HTMLElement>(`[data-lightbox-slide="${i}"] [data-lightbox-media]`) ?? null
+  /** Whether a point is on the picture (or the player) shown now, as it is drawn: zoomed, or moved by a pull. */
+  const onMedia = (x: number, y: number) => {
+    const r = media(indexRef.current)?.getBoundingClientRect()
+    return !!r && r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+  }
 
   /* One write a frame, whatever the finger sends. */
   const paint = useCallback(() => {
@@ -310,9 +350,23 @@ export function Lightbox({
     raf.current = null
     const stage = stageRef.current
     const back = backRef.current
-    const done = () => onCloseRef.current()
-    if (!stage || !back || reducedNow() || typeof stage.animate !== "function") {
+    const root = rootRef.current
+    /* The thumbnail is back on the page before the viewer is taken off it, in the same frame. */
+    const done = () => {
+      showOrigin()
+      onCloseRef.current()
+    }
+    /* A way in's copy still waiting on the large picture goes first: the way out measures and flies the real one. */
+    releaseMorph(root)
+    if (!stage || !back || !root || typeof stage.animate !== "function") {
       window.setTimeout(done, reducedNow() ? 0 : CLOSE_MS)
+      return
+    }
+    if (reducedNow()) {
+      /* Reduced motion: the viewer fades away where it is, over the page as it was (its thumbnail was never hidden). */
+      showOrigin()
+      root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_MS, easing: "ease-out", fill: "forwards" }).onfinish = () => onCloseRef.current()
+      window.setTimeout(() => onCloseRef.current(), FADE_MS + 200)
       return
     }
     const i = indexRef.current
@@ -326,7 +380,9 @@ export function Lightbox({
     */
     const thumbEl = zoomRef.current.s > 1 ? null : originRef.current?.(i)
     if (thumbEl && backFrom >= 0.98 && drag.current.y <= 0) revealForReturn(thumbEl)
-    const target = thumbEl ? onScreen(thumbEl) : null
+    /* Where the post shows the picture (round 32): its own rectangle in the tile, not the tile's box. */
+    const seen = el instanceof HTMLImageElement ? pictureRect(thumbEl) : null
+    const target = el instanceof HTMLImageElement ? inView(seen?.rect) : thumbEl ? onScreen(thumbEl) : null
     back.style.opacity = "0"
     back.animate([{ opacity: backFrom }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out" })
     if (chromeRef.current) chromeRef.current.style.opacity = "0"
@@ -343,8 +399,8 @@ export function Lightbox({
       const laid = el.getBoundingClientRect()
       const from = { dx: now.left + now.width / 2 - (laid.left + laid.width / 2), dy: now.top + now.height / 2 - (laid.top + laid.height / 2), s: now.width / laid.width }
       if (el instanceof HTMLImageElement) {
-        /* A copy flies in a box that crops it, by translate and scale only: no clip-path repainted every frame on iOS. */
-        void coverMorph({ host: rootRef.current, img: el, thumb: target, laid, way: "out", ms: CLOSE_MS, easing: SHEET_CLOSE_EASE, from, fallback: thumbEl?.querySelector("img") ?? null }).then(end)
+        /* One picture flies in a box that crops it, by translate and scale only, onto the thumbnail's picture and its corners; the thumbnail comes back as it lands. */
+        void coverMorph({ host: rootRef.current, img: el, thumb: target, laid, way: "out", ms: CLOSE_MS, easing: SHEET_CLOSE_EASE, from, fallback: shownPicture(thumbEl), corners: seen?.corners }).then(end)
         return
       }
       /* A video or a player: the whole box, uniformly, onto the thumbnail's middle, fading as it lands. */
@@ -359,7 +415,7 @@ export function Lightbox({
     const down = drag.current.y > 0
     stage.style.opacity = "0"
     stage.animate([{ opacity: 1, ...fromP }, { opacity: 0, ...(down ? pose(0, Math.max(drag.current.y, 0) + 160, 0.9) : pose(0, 0, 0.96)) }], { duration: CLOSE_MS, easing: SHEET_CLOSE_EASE }).onfinish = end
-  }, [])
+  }, [showOrigin])
 
   useHistoryLayer(true, finish, null, phase !== "closing")
 
@@ -368,7 +424,13 @@ export function Lightbox({
     const stage = stageRef.current
     const back = backRef.current
     const opened = () => setPhase((p) => (p === "opening" ? "open" : p))
-    if (!stage || !back || reducedNow() || typeof stage.animate !== "function") {
+    if (!stage || !back || typeof stage.animate !== "function") {
+      opened()
+      return
+    }
+    if (reducedNow()) {
+      /* Reduced motion: nothing travels, the viewer comes up over the page on opacity alone. */
+      rootRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: "ease-out" })
       opened()
       return
     }
@@ -377,11 +439,15 @@ export function Lightbox({
     const el = media(index)
     const laid = el?.getBoundingClientRect()
     const thumbEl = originRef.current?.(index)
-    const from = onScreen(thumbEl)
+    /* A picture grows out of the picture the post shows (round 32: its own rectangle and corners, pictureRect); a player out of its tile. */
+    const seen = el instanceof HTMLImageElement ? pictureRect(thumbEl) : null
+    const from = el instanceof HTMLImageElement ? inView(seen?.rect) : onScreen(thumbEl)
     if (el && laid && laid.width > 0 && laid.height > 0 && from && rootRef.current) {
       if (el instanceof HTMLImageElement) {
-        /* Out of the thumbnail by translate and scale only (return-morph.ts), the thumbnail's own loaded picture flown while the large one arrives. */
-        void coverMorph({ host: rootRef.current, img: el, thumb: from, laid, way: "in", ms: OPEN_MS, easing: SHEET_EASE, fallback: thumbEl?.querySelector("img") ?? null }).then(opened)
+        /* The thumbnail's own loaded picture flies while the large one arrives; the thumbnail is hidden in this same frame, so one picture is seen. */
+        const fallback = shownPicture(thumbEl)
+        hideOriginOf(index)
+        void coverMorph({ host: rootRef.current, img: el, thumb: from, laid, way: "in", ms: OPEN_MS, easing: SHEET_EASE, fallback, corners: seen?.corners }).then(opened)
         return
       }
       const s = Math.min(from.width / laid.width, from.height / laid.height)
@@ -462,6 +528,12 @@ export function Lightbox({
     [],
   )
 
+  /* The thumbnail of the picture on screen stays aside; a swipe to another picture hands that to the other's thumbnail. Shown again however the viewer goes. */
+  useEffect(() => {
+    if (!closing.current) hideOriginOf(index)
+  }, [index, hideOriginOf])
+  useEffect(() => () => showOrigin(), [showOrigin])
+
   /* NEIGHBOURS READY: once the slide has come to rest (and the open has finished), every mounted picture is decoded ahead. */
   useEffect(() => {
     if (phase !== "open") return
@@ -483,6 +555,8 @@ export function Lightbox({
   const onPointerDown = (e: React.PointerEvent) => {
     if (closing.current) return
     if ((e.target as HTMLElement).closest("button, a, iframe, video, [data-lightbox-media-control]")) return
+    /* A finger on the viewer while the way in's copy still waits for the large picture: the picture itself from now on. */
+    releaseMorph(rootRef.current)
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const pts = [...pointers.current.values()]
@@ -512,6 +586,7 @@ export function Lightbox({
       downAt.current = { t: now, x: e.clientX, y: e.clientY }
       /* Caught mid-slide: the track stops where it is and the finger takes it from there. */
       const track = trackRef.current
+      caught.current = !!track?.getAnimations().length
       if (track?.getAnimations().length) {
         const x = readX(track)
         for (const a of track.getAnimations()) a.cancel()
@@ -595,6 +670,21 @@ export function Lightbox({
       go(indexRef.current)
     }
     if (pointers.current.size === 0) {
+      /*
+        A PRESS OUTSIDE THE PICTURE CLOSES IT (round 32): on the black, above or below it, beside it on a computer. A press
+        and nothing more (no move past the slop, not two fingers, not the finger that stopped a slide), anywhere the picture
+        or the player is not. The same way back as Escape. Read here rather than as a click: the viewer holds the pointer
+        from its press, so a click lands on the viewer itself, never on the black under it.
+      */
+      const pressed = !moved && !swipeAxis && g.kind !== "pinch" && e.type !== "pointercancel" && !caught.current
+      caught.current = false
+      if (pressed && !onMedia(e.clientX, e.clientY)) {
+        downAt.current = null
+        lastTap.current = null
+        gesture.current = { ...g, kind: null, axis: null }
+        finish()
+        return
+      }
       const now = e.timeStamp || performance.now()
       const image = items[indexRef.current]?.kind === "image"
       const tap =
@@ -655,7 +745,8 @@ export function Lightbox({
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      <div ref={backRef} aria-hidden className="absolute inset-0 bg-[#0b0c0f]/[0.94]" style={{ willChange: "opacity" }} onClick={finish} data-lightbox-back="" />
+      {/* Near black in both looks, written here so the dark sheet leaves it (a photograph is looked at on black, never on a grey). A press on it closes (onPointerUp). */}
+      <div ref={backRef} aria-hidden className="absolute inset-0" style={{ backgroundColor: "rgba(11, 12, 15, 0.94)", willChange: "opacity" }} data-lightbox-back="" />
       <div ref={stageRef} className="absolute inset-0" data-lightbox-stage="">
         <div
           ref={trackRef}
@@ -664,7 +755,7 @@ export function Lightbox({
           style={{ width: `${n * 100}%`, translate: rest(index, n), willChange: "translate" }}
         >
           {items.map((item, i) => (
-            <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / n}%` }} onClick={(e) => e.target === e.currentTarget && finish()} data-lightbox-slide={i}>
+            <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / n}%` }} data-lightbox-slide={i}>
               {Math.abs(i - index) <= (phase === "open" ? LIGHTBOX_AHEAD : 1) ? (
                 <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} zooming={i === index && zooming} />
               ) : null}
@@ -744,26 +835,28 @@ function Slide({ item, communityId, active, autoplay, zoom, zooming }: { item: V
       />
     )
   }
-  const box = "w-full max-w-[min(1100px,calc((100dvh-140px)*16/9))] overflow-hidden bg-black sm:rounded-xl"
+  const box = "w-full max-w-[min(1100px,calc((100dvh-140px)*16/9))] overflow-hidden sm:rounded-xl"
+  /* A video on black in both looks, written here so the dark sheet does not turn it grey (round 32). */
+  const ground = { backgroundColor: "#000" }
   if (item.kind === "video") {
     return (
-      <div className={box} data-lightbox-media-control="" data-lightbox-media="">
+      <div className={box} style={ground} data-lightbox-media-control="" data-lightbox-media="">
         <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} key={active ? "on" : "off"} />
       </div>
     )
   }
   if (item.kind === "clip") {
     return (
-      <div className={`${box} flex items-center justify-center`} data-lightbox-media-control="" data-lightbox-media="">
+      <div className={`${box} flex items-center justify-center`} style={ground} data-lightbox-media-control="" data-lightbox-media="">
         {active ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={item.url} poster={item.poster} controls playsInline preload="auto" autoPlay={first} className="max-h-[calc(100dvh-140px)] w-full bg-black" data-lightbox-clip="" />
+          <video src={item.url} poster={item.poster} controls playsInline preload="auto" autoPlay={first} className="max-h-[calc(100dvh-140px)] w-full" style={ground} data-lightbox-clip="" />
         ) : null}
       </div>
     )
   }
   return (
-    <div className={box} data-lightbox-media-control="" data-lightbox-media="">
+    <div className={box} style={ground} data-lightbox-media-control="" data-lightbox-media="">
       <EmbedPlayer key={active ? "on" : "off"} item={item} autoplay={active && first} posterWidth={960} />
     </div>
   )
