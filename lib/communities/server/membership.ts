@@ -135,6 +135,13 @@ async function afterJoin(db: Db, row: MemberRow, input: GrantInput): Promise<voi
     targetId: row.user_id,
     detail: { source: row.source, tierId: row.tier_id, role: row.role },
   })
+  /* The community's welcome message, once per member, when it has one (round 32, ./onboarding-checklist.ts). Never throws. */
+  try {
+    const { welcomeNewMember } = await import("./onboarding-checklist")
+    await welcomeNewMember(db, row)
+  } catch (e) {
+    console.error(`[communities] welcome message: ${reasonOf(e)}`)
+  }
 }
 
 /**

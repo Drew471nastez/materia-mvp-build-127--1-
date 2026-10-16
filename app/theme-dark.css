@@ -280,7 +280,7 @@ html[data-theme-swap]::view-transition-new(root) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 786 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 788 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -507,6 +507,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fef2f2\]\/90:not([data-own-look], [data-own-look] *) { background-color: hsla(0,60%,50%,0.144); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fef3c7\]:not([data-own-look], [data-own-look] *) { background-color: hsla(48,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fef3f2\]:not([data-own-look], [data-own-look] *) { background-color: hsla(5,60%,50%,0.16); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fef7f6\]:not([data-own-look], [data-own-look] *) { background-color: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fff1f3\]:not([data-own-look], [data-own-look] *) { background-color: hsla(351,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fff6e0\]:not([data-own-look], [data-own-look] *) { background-color: hsla(43,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#fff8e6\]:not([data-own-look], [data-own-look] *) { background-color: hsla(43,60%,50%,0.16); }
@@ -738,6 +739,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f4f5f7\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f5f6f7\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f6f7f8\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f6f7f9\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f7f7f8\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
