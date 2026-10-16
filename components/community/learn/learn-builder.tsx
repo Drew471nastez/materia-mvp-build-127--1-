@@ -20,20 +20,31 @@
  * sells can be added too: its lessons stay the course's own.
  *
  * Nothing here is a Storelib product: a program made here is not one.
+ *
+ * Round 32 (the owner, on a computer: the admin "looks horrible, too
+ * shrunk"): the list is the card every other section of the community admin
+ * draws (components/community/creator/parts.tsx ListCard), its count in the
+ * first row with Add a course and New program beside it, near black like the
+ * rest of the admin rather than a violet of its own. From 768px the programs
+ * are a table (creator/ui-kit.tsx): the program, whether it is published,
+ * its lessons, who can open it, each in its own column, the menu last.
  */
 import * as React from "react"
 import Image from "next/image"
-import { ArrowDown, ArrowUp, ChevronRight, MoreHorizontal, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { accentDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useConfirm } from "@/app/app/products/new/confirm-sheet"
 import { PlaceIcon } from "@/components/community/member/place-icons"
 import { programPrice } from "@/lib/communities/learn"
 import { lessonsLabel, type BuilderProgram, type LearnBuilderData } from "./model"
 import { ProgramEditor } from "./program-editor"
 import { learnRequest, usePhone } from "./builder-parts"
+import { Empty, ListCard, ListNote, RowMenu, buttonPrimary, buttonSecondary } from "@/components/community/creator/parts"
+import { ROW_PRESS, RowControls, RowOpen, rowPress } from "@/components/community/creator/rows"
+import { MUTED, PHONE_LIST, TABLE, TD, TH, TR } from "@/components/community/creator/ui-kit"
 import { tt } from "@/lib/i18n/text"
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
@@ -143,88 +154,131 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
     void reload()
   }
 
+  const menuOf = (p: BuilderProgram, i: number): ActionMenuItem[] => [
+    { label: tt("Edit"), onClick: () => setOpenId(p.id) },
+    { label: tt("View as a member"), href: `/community/${data.slug}/learn/${p.id}`, target: "_blank" },
+    ...(i > 0 ? [{ label: tt("Move up"), icon: <ArrowUp className="h-4 w-4" />, onClick: () => void move(p.id, -1), separatorBefore: true }] : []),
+    ...(i < data.programs.length - 1 ? [{ label: tt("Move down"), icon: <ArrowDown className="h-4 w-4" />, onClick: () => void move(p.id, 1), separatorBefore: i === 0 }] : []),
+    { label: p.kind === "course" ? tt("Take out of Learn") : tt("Delete"), icon: <Trash2 className="h-4 w-4" />, variant: "destructive" as const, onClick: () => void remove(p), separatorBefore: true },
+  ]
+  const cover = (p: BuilderProgram, wide: boolean) => (
+    <span className={cn("relative aspect-[16/9] shrink-0 overflow-hidden rounded-lg border border-black/[0.04] bg-[#f1f2f4]", wide ? "w-[68px]" : "w-[76px]")}>
+      {p.coverUrl ? (
+        <Image src={p.coverUrl} alt="" fill sizes="76px" className="object-cover" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-[#b0b4bb]">
+          <PlaceIcon place="classroom" size={18} />
+        </span>
+      )}
+    </span>
+  )
+
   return (
     <div className="space-y-4" data-learn-builder="list">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">{tt("Programs")}</h2>
-          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{tt("Modules and lessons for your members, free, from a level, or sold on their own.")}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {data.courses.length ? (
-            <button type="button" className={cn(secondaryDepth, BTN)} onClick={() => setAttaching(true)}>
-              {tt("Add a course")}
-            </button>
-          ) : null}
-          <button type="button" className={cn(accentDepth, BTN, "gap-1.5")} onClick={() => setNaming(true)} disabled={!data.ready} data-new-program>
-            <Plus className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            {tt("New program")}
-          </button>
-        </div>
-      </div>
-
       {!data.ready ? <Banner>{tt("Programs need the latest database update (part 102). Courses you add keep working meanwhile.")}</Banner> : null}
       {!data.enabled ? <Banner>{tt("Learn is switched off, so members do not see it. Switch it on in Settings.")}</Banner> : null}
 
-      {data.programs.length === 0 ? (
-        <div className={cn(CARD, "flex flex-col items-center px-6 py-12 text-center")} data-learn-builder-empty>
-          <span className="flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#e8eaee] bg-[#f6f7f9] text-[#4b5563]">
-            <PlaceIcon place="classroom" size={24} />
-          </span>
-          <p className="mt-4 text-[16px] font-semibold text-[#1a1a2e]">{tt("Make the first program")}</p>
-          <p className="mt-1 max-w-[360px] text-[14px] leading-relaxed text-[#6b7280]">{tt("A program is modules of lessons: videos, notes and files. Members find it under Learn.")}</p>
-          <button type="button" className={cn(primaryDepth, BTN, "mt-5")} onClick={() => setNaming(true)} disabled={!data.ready}>
-            {tt("New program")}
-          </button>
-        </div>
-      ) : (
-        <ul className={cn(CARD, "divide-y divide-[#f0f1f3] overflow-hidden")} data-program-list>
-          {data.programs.map((p, i) => {
-            const items: ActionMenuItem[] = [
-              { label: tt("Edit"), onClick: () => setOpenId(p.id) },
-              { label: tt("View as a member"), href: `/community/${data.slug}/learn/${p.id}`, target: "_blank" },
-              ...(i > 0 ? [{ label: tt("Move up"), icon: <ArrowUp className="h-4 w-4" />, onClick: () => void move(p.id, -1), separatorBefore: true }] : []),
-              ...(i < data.programs.length - 1 ? [{ label: tt("Move down"), icon: <ArrowDown className="h-4 w-4" />, onClick: () => void move(p.id, 1), separatorBefore: i === 0 }] : []),
-              { label: p.kind === "course" ? tt("Take out of Learn") : tt("Delete"), icon: <Trash2 className="h-4 w-4" />, variant: "destructive", onClick: () => void remove(p), separatorBefore: true },
-            ]
-            return (
-              <li key={p.id} className="flex items-center gap-1 pr-2 sm:pr-3" data-program-row={p.id}>
-                <button type="button" onClick={() => setOpenId(p.id)} className="flex min-h-[72px] min-w-0 flex-1 items-center gap-3 px-3 py-3 text-left outline-none transition-colors hover:bg-[#fafafb] focus-visible:bg-[#f6f7f9] sm:px-4">
-                  <span className="relative aspect-[16/9] w-[76px] shrink-0 overflow-hidden rounded-lg border border-black/[0.04] bg-[#f1f2f4] sm:w-[88px]">
-                    {p.coverUrl ? (
-                      <Image src={p.coverUrl} alt="" fill sizes="88px" className="object-cover" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-[#b0b4bb]">
-                        <PlaceIcon place="classroom" size={18} />
-                      </span>
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e] sm:line-clamp-1">{p.title}</span>
-                    <span className="mt-1 line-clamp-2 text-[13px] leading-[18px] tabular-nums text-[#6b7280] sm:line-clamp-1">
+      <ListCard
+        data-program-list=""
+        head={
+          <ListNote>
+            {tt("{n, plural, one {# program} other {# programs}}", { n: data.programs.length })}
+            <span className="max-sm:hidden">{tt(", in the order members see them")}</span>
+          </ListNote>
+        }
+        actions={
+          <>
+            {data.courses.length ? (
+              <button type="button" className={cn(buttonSecondary, "max-sm:hidden")} onClick={() => setAttaching(true)} data-attach-course="">
+                {tt("Add a course")}
+              </button>
+            ) : null}
+            <button type="button" className={buttonPrimary} onClick={() => setNaming(true)} disabled={!data.ready} data-new-program>
+              <Plus className="h-4 w-4" aria-hidden />
+              {tt("New program")}
+            </button>
+          </>
+        }
+      >
+        {data.programs.length === 0 ? (
+          <div data-learn-builder-empty>
+            <Empty title={tt("Make the first program")} detail={tt("A program is modules of lessons: videos, notes and files. Members find it under Learn.")}>
+              <button type="button" className={cn(buttonPrimary, "h-10 px-4")} onClick={() => setNaming(true)} disabled={!data.ready}>
+                {tt("New program")}
+              </button>
+              {data.courses.length ? (
+                <button type="button" className={cn(buttonSecondary, "h-10 px-4")} onClick={() => setAttaching(true)}>
+                  {tt("Add a course")}
+                </button>
+              ) : null}
+            </Empty>
+          </div>
+        ) : (
+          <>
+            <table className={TABLE}>
+              <thead>
+                <tr>
+                  <th className={TH}>{tt("Program")}</th>
+                  <th className={cn(TH, "w-[124px]")}>{tt("Status")}</th>
+                  <th className={cn(TH, "w-[116px]")}>{tt("Lessons")}</th>
+                  <th className={cn(TH, "w-[28%]")}>{tt("Who can open it")}</th>
+                  <th className={cn(TH, "w-[60px]")} aria-label={tt("Actions")} />
+                </tr>
+              </thead>
+              <tbody>
+                {data.programs.map((p, i) => (
+                  <tr key={p.id} onClick={rowPress(() => setOpenId(p.id))} className={TR} data-program-row={p.id}>
+                    <td className={cn(TD, "h-[64px]")}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        {cover(p, true)}
+                        <RowOpen label={tt("Edit {title}", { title: p.title })} className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{p.title}</span>
+                          {p.kind === "course" ? <span className="block truncate text-[12.5px] text-[#6b7280]">{tt("A course you sell")}</span> : null}
+                        </RowOpen>
+                      </div>
+                    </td>
+                    <td className={TD}>
+                      <StatusDot status={p.status} bare />
+                    </td>
+                    <td className={cn(TD, "whitespace-nowrap tabular-nums", MUTED)}>{lessonsLabel(p.lessons)}</td>
+                    <td className={cn(TD, "truncate tabular-nums", MUTED)} title={accessLine(p, levelName(p.level))}>{accessLine(p, levelName(p.level))}</td>
+                    <td className={TD}>
+                      <RowControls className="justify-end">
+                        <RowMenu items={menuOf(p, i)} label={tt("More for {title}", { title: p.title })} />
+                      </RowControls>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ul className={PHONE_LIST}>
+              {data.programs.map((p, i) => (
+                <li key={p.id} onClick={rowPress(() => setOpenId(p.id))} className={cn("flex min-h-[72px] items-center gap-3 py-3 pl-4 pr-2", ROW_PRESS)} data-program-row={p.id}>
+                  {cover(p, false)}
+                  <RowOpen label={tt("Edit {title}", { title: p.title })} className="min-w-0 flex-1">
+                    <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e]">{p.title}</span>
+                    <span className="mt-1 line-clamp-2 text-[13px] leading-[18px] tabular-nums text-[#6b7280]">
                       <StatusDot status={p.status} />
                       <span data-program-line>
                         {lessonsLabel(p.lessons)} · {accessLine(p, levelName(p.level))}
                         {p.kind === "course" ? tt(" · a course you sell") : ""}
                       </span>
                     </span>
-                  </span>
-                  <ChevronRight className="hidden h-4 w-4 shrink-0 text-[#9ca3af] sm:block" aria-hidden />
-                </button>
-                <ResponsiveActionMenu
-                  title={p.title}
-                  items={items}
-                  trigger={
-                    <button type="button" aria-label={tt("More for {title}", { title: p.title })} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[#4b5563] outline-none hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 sm:w-9">
-                      <MoreHorizontal className="h-[18px] w-[18px]" />
-                    </button>
-                  }
-                />
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  </RowOpen>
+                  <RowControls>
+                    <RowMenu items={menuOf(p, i)} label={tt("More for {title}", { title: p.title })} />
+                  </RowControls>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </ListCard>
+      {data.courses.length && data.programs.length ? (
+        <button type="button" className={cn(buttonSecondary, "h-10 w-full sm:hidden")} onClick={() => setAttaching(true)}>
+          {tt("Add a course")}
+        </button>
+      ) : null}
 
       <p className="min-h-[20px] text-[13px] text-[#4b5563]" role="status" aria-live="polite">
         {note}
@@ -264,12 +318,12 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
 }
 
 /* The state, quietly, at the start of the row's line: a dot and the word, not another pill. */
-function StatusDot({ status }: { status: "draft" | "published" }) {
+function StatusDot({ status, bare = false }: { status: "draft" | "published"; /** In its own column: no dot after the word. */ bare?: boolean }) {
   return (
     <span className={cn("font-medium", status === "published" ? "text-[#1d6b45]" : "text-[#8a5a00]")} data-status={status}>
       <span aria-hidden className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-[2px]", status === "published" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
       {status === "published" ? tt("Published") : tt("Draft")}
-      <span aria-hidden className="font-normal text-[#6b7280]"> · </span>
+      {bare ? null : <span aria-hidden className="font-normal text-[#6b7280]"> · </span>}
     </span>
   )
 }

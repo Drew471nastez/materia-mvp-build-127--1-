@@ -1265,10 +1265,14 @@ export async function setEventCancelled(db: Db, a: { communityId: string; eventI
 export const FEED_PAGE = 20
 
 /** The feed as the creator manages it: newest first, removed posts included so they can be put back. */
-export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" }): Promise<{ rows: FeedRowView[]; next: string | null }> {
+export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: string | null; show: "all" | "removed" | "pinned"; spaceId?: string | null; q?: string | null }): Promise<{ rows: FeedRowView[]; next: string | null }> {
   /* Round 31: the media too, so the row shows what the post carries (pictures, a video's still, files), as the feed does. */
   let q = db.from("community_feed_posts").select("id, kind, title, body_text, media, space_id, author_id, pinned, locked, featured, status, reaction_count, comment_count, created_at").eq("community_id", communityId)
-  q = opts.show === "removed" ? q.eq("status", "removed") : q.in("status", ["published", "removed"])
+  q = opts.show === "removed" ? q.eq("status", "removed") : opts.show === "pinned" ? q.eq("status", "published").eq("pinned", true) : q.in("status", ["published", "removed"])
+  /* Round 32: one space, and words in the title or the text (the member search's cleaning, so nothing reaches the filter as syntax). */
+  if (opts.spaceId && isUuid(opts.spaceId)) q = q.eq("space_id", opts.spaceId)
+  const words = opts.q ? safeSearch(opts.q) : ""
+  if (words.length >= 2) q = q.or(`title.ilike.*${words}*,body_text.ilike.*${words}*`)
   const c = decodeCursor(opts.cursor)
   if (c && typeof c.sort === "string") q = q.or(keysetOr("created_at", c.sort, c.id))
   const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(FEED_PAGE + 1)
@@ -1562,7 +1566,31 @@ function sortColumn(status: MemberQuery["status"]): "joined_at" | "requested_at"
   return "created_at"
 }
 
-function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId">) {
+/**
+ * ROUND 32: THE ORDER THE LIST IS READ IN. The default is the view's own column, newest first, as it always was. Oldest
+ * turns it round; Recently active reads last_active_at, which a member who never came back does not have, so those are
+ * read after everybody else (by id: a page cursor whose sort is the number -1 says the list has reached them); Most
+ * points reads points. Each is a keyset on (column, id), so the hundredth page costs what the first does.
+ */
+interface MemberSortSpec {
+  col: "joined_at" | "requested_at" | "created_at" | "last_active_at" | "points"
+  asc: boolean
+  /** The column can be empty: those rows come last, after a cursor of -1. */
+  nullable: boolean
+}
+
+function memberSortSpec(query: Pick<MemberQuery, "status" | "sort">): MemberSortSpec {
+  const base = sortColumn(query.status)
+  if (query.sort === "oldest") return { col: base, asc: true, nullable: false }
+  if (query.sort === "active") return { col: "last_active_at", asc: false, nullable: true }
+  if (query.sort === "points") return { col: "points", asc: false, nullable: false }
+  return { col: base, asc: false, nullable: false }
+}
+
+/** A cursor whose sort is this number has passed every row with a value and is among the empty ones. */
+const EMPTY_PHASE = -1
+
+function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId" | "joined">) {
   let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId)
   if (query.status === "restricted") {
     /*
@@ -1579,6 +1607,7 @@ function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "stat
   }
   if (query.role) q = q.eq("role", query.role)
   if (query.tierId) q = q.eq("tier_id", query.tierId)
+  if (query.joined) q = q.gte("joined_at", new Date(Date.now() - query.joined * 86_400_000).toISOString())
   const col = sortColumn(query.status)
   if (col !== "created_at") q = q.not(col, "is", null)
   return q
@@ -1625,31 +1654,54 @@ async function memberViews(db: Db, communityId: string, rows: ListMember[], with
  * than reading the whole list.
  */
 export async function listMembers(db: Db, communityId: string, query: MemberQuery, opts: { withEmail: boolean }): Promise<MemberPage> {
-  const col = sortColumn(query.status)
+  const spec = memberSortSpec(query)
+  const valueOf = (r: ListMember): string | number | null => (r as unknown as Record<string, string | number | null>)[spec.col] ?? null
   if (query.q) {
     const found = await searchUserIds(db, query.q, opts.withEmail)
     if (found.ids.length === 0) return { rows: [], next: null, capped: false }
     const chunks: string[][] = []
     for (let i = 0; i < found.ids.length; i += 100) chunks.push(found.ids.slice(i, i + 100))
-    const reads = await Promise.all(chunks.map((ids) => memberQuery(db, communityId, query).in("user_id", ids).order(col, { ascending: false }).limit(MEMBERS_PAGE + 1)))
+    const reads = await Promise.all(chunks.map((ids) => memberQuery(db, communityId, query).in("user_id", ids).order(spec.col, { ascending: spec.asc, nullsFirst: false }).limit(MEMBERS_PAGE + 1)))
+    /* Each chunk is in order; put together they are ordered once more the same way, empty values last. */
     const rows = reads
       .flatMap((r: { data: ListMember[] | null }) => r.data ?? [])
-      .sort((a: ListMember, b: ListMember) => String((b as unknown as Record<string, unknown>)[col] ?? "").localeCompare(String((a as unknown as Record<string, unknown>)[col] ?? "")))
+      .sort((a: ListMember, b: ListMember) => {
+        const x = valueOf(a)
+        const y = valueOf(b)
+        if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1
+        const d = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))
+        return spec.asc ? d : -d
+      })
     return { rows: await memberViews(db, communityId, rows.slice(0, MEMBERS_PAGE), opts.withEmail), next: null, capped: found.capped || rows.length > MEMBERS_PAGE }
   }
-  let q = memberQuery(db, communityId, query)
+  const dir = spec.asc ? "asc" : "desc"
   const c = decodeCursor(query.cursor)
-  if (c && typeof c.sort === "string") q = q.or(keysetOr(col, c.sort, c.id))
-  const { data, error } = await q.order(col, { ascending: false }).order("id", { ascending: false }).limit(MEMBERS_PAGE + 1)
-  if (error) {
-    if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
-    return { rows: [], next: null, capped: false }
+  const amongEmpty = spec.nullable && c !== null && c.sort === EMPTY_PHASE
+  let all: ListMember[] = []
+  if (!amongEmpty) {
+    let q = memberQuery(db, communityId, query)
+    if (spec.nullable) q = q.not(spec.col, "is", null)
+    if (c && (typeof c.sort === "string" || (typeof c.sort === "number" && spec.col === "points"))) q = q.or(keysetOr(spec.col, c.sort, c.id, dir))
+    const { data, error } = await q.order(spec.col, { ascending: spec.asc }).order("id", { ascending: spec.asc }).limit(MEMBERS_PAGE + 1)
+    if (error) {
+      if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
+      return { rows: [], next: null, capped: false }
+    }
+    all = (data as ListMember[] | null) ?? []
   }
-  const all = (data as ListMember[] | null) ?? []
+  if (spec.nullable && all.length <= MEMBERS_PAGE) {
+    /* Everybody with a value has been read: the ones without follow, newest row first. */
+    let q = memberQuery(db, communityId, query).is(spec.col, null)
+    if (amongEmpty && c) q = q.lt("id", c.id)
+    const { data, error } = await q.order("id", { ascending: false }).limit(MEMBERS_PAGE + 1 - all.length)
+    if (error && !missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
+    all = [...all, ...((data as ListMember[] | null) ?? [])]
+  }
   const rows = all.slice(0, MEMBERS_PAGE)
   const last = rows[rows.length - 1]
-  const lastSort = last ? ((last as unknown as Record<string, string | null>)[col] ?? null) : null
-  return { rows: await memberViews(db, communityId, rows, opts.withEmail), next: all.length > MEMBERS_PAGE && last && lastSort ? encodeCursor(lastSort, last.id) : null, capped: false }
+  const lastSort = last ? valueOf(last) : null
+  const next = all.length > MEMBERS_PAGE && last ? (lastSort !== null ? encodeCursor(lastSort, last.id) : spec.nullable ? encodeCursor(EMPTY_PHASE, last.id) : null) : null
+  return { rows: await memberViews(db, communityId, rows, opts.withEmail), next, capped: false }
 }
 
 /** How many members each status has, for the filter's counts (head requests). */
@@ -1667,7 +1719,7 @@ export async function memberCounts(db: Db, communityId: string): Promise<Record<
  * The members as CSV, written a page of 500 at a time while it is read, so
  * an export of 10,000 members never holds them all at once.
  */
-export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQuery, "status" | "role" | "tierId">, opts: { withEmail: boolean }): ReadableStream<Uint8Array> {
+export function membersCsv(db: Db, community: CommunityRow, query: Pick<MemberQuery, "status" | "role" | "tierId" | "joined">, opts: { withEmail: boolean }): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   const col = sortColumn(query.status)
   let cursor: { sort: string; id: string } | null = null

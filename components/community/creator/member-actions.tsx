@@ -29,7 +29,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { Role } from "@/lib/communities/types"
 import type { BadgeView, CommunityHead, MemberActionTaken } from "./view-types"
 import { MUTE_CHOICES, memberChoices, memberConfirmText, memberDoneText, type MemberChoice } from "./logic"
-import { Confirm, Dialog, Notice, Segmented, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Dialog, Notice, Segmented, SelectField, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 
 export interface ActOnPerson {
@@ -52,6 +52,15 @@ type Open =
   | { kind: "points"; person: ActOnPerson }
   | { kind: "badge"; person: ActOnPerson }
   | null
+
+/** A group of choices by its name in the reader's language (round 32: the menu and the member sheet showed the English key). */
+const SECTION_TITLE: Record<string, string> = {
+  get Role() { return tt("Role") },
+  get Access() { return tt("Access") },
+  get Points() { return tt("Points") },
+  get Moderate() { return tt("Moderate") },
+}
+export const sectionTitle = (key: string): string => SECTION_TITLE[key] ?? key
 
 export function useMemberActions({ head, meId, tiers, badges, onDone }: { head: CommunityHead; meId: string; tiers: { id: string; name: string; kind: string }[]; badges: BadgeView[]; onDone: (choice: MemberChoice, person: ActOnPerson) => void }) {
   const toast = useToast()
@@ -100,7 +109,7 @@ export function useMemberActions({ head, meId, tiers, badges, onDone }: { head: 
       .map((c) => {
         const starts = c.section !== last
         last = c.section
-        return { label: c.label, onClick: () => run(c, person), variant: c.danger ? "destructive" : undefined, section: starts ? c.section : undefined }
+        return { label: c.label, onClick: () => run(c, person), variant: c.danger ? "destructive" : undefined, section: starts && c.section ? sectionTitle(c.section) : undefined }
       })
   }
 
@@ -194,13 +203,8 @@ function CompDialog({ base, tiers, person, onClose, onDone }: { base: string; ti
       <label htmlFor="comp-tier" className={label}>
         {tt("Tier")}
       </label>
-      <select id="comp-tier" value={tier} onChange={(e) => setTier(e.target.value)} className={selectField}>
-        {tiers.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+      {/* Round 32: the app's own pick (a dropdown on a computer, the shared sheet on a phone), never the browser's select. */}
+      <SelectField id="comp-tier" name="comp-tier" title={tt("Tier")} value={tier} onChange={setTier} options={tiers.map((t) => ({ value: t.id, label: t.name }))} />
       {error ? (
         <div className="mt-3">
           <Notice>{error}</Notice>

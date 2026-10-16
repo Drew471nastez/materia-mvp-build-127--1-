@@ -38,6 +38,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_LEVEL, PROGRAM_SUMMARY_MAX, PROGRAM_TITLE_MAX, centsFromTyped, programPrice, typedFromCents, type ProgramMode, type ProgramStatus } from "@/lib/communities/learn"
 import type { BuilderProgram, LearnBuilderData } from "./model"
 import { StatusPill, learnRequest } from "./builder-parts"
+import { SelectField } from "@/components/community/creator/parts"
 import { msg, tt } from "@/lib/i18n/text"
 
 const CARD = "space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
@@ -296,19 +297,15 @@ export function ProgramEditor({
               <label htmlFor="program-level" className={LABEL}>
                 {tt("Opens at")}
               </label>
-              <div className="relative">
-                <select id="program-level" className={cn(FIELD, "h-11 appearance-none pr-9 sm:h-10")} value={form.level} onChange={(e) => set("level", Number(e.target.value))}>
-                  {Array.from({ length: MAX_LEVEL - 1 }, (_, i) => i + 2).map((n) => (
-                    <option key={n} value={n}>
-                      {tt("Level {n}", { n })}
-                      {levelName(n) ? `, ${levelName(n)}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <svg aria-hidden viewBox="0 0 20 20" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]">
-                  <path d="M5.5 8l4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              {/* Round 32: the app's own pick (a dropdown on a computer, the shared sheet on a phone), never the browser's select. */}
+              <SelectField
+                id="program-level"
+                name="program-level"
+                title={tt("Opens at")}
+                value={String(form.level)}
+                onChange={(v) => set("level", Number(v))}
+                options={Array.from({ length: MAX_LEVEL - 1 }, (_, i) => i + 2).map((n) => ({ value: String(n), label: `${tt("Level {n}", { n })}${levelName(n) ? `, ${levelName(n)}` : ""}` }))}
+              />
               <p className={HINT}>{tt("Members reach levels by taking part. Below it, they see the program with the level it opens at.")}</p>
               <FieldError text={errorFor("level")} />
             </div>

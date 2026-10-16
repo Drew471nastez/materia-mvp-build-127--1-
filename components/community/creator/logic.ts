@@ -656,12 +656,27 @@ export type MemberStatusFilter = (typeof MEMBER_STATUS_FILTERS)[number]
 
 export const MEMBERS_PAGE = 50
 
+/**
+ * Round 32: the order of the list. Newest joined first is the default; oldest first, most recently active (members who
+ * never came back go last) and most points are the others. Kept out of the query when it is the default, so an address
+ * without one reads exactly as before.
+ */
+export const MEMBER_SORTS = ["newest", "oldest", "active", "points"] as const
+export type MemberSort = (typeof MEMBER_SORTS)[number]
+
+/** Round 32: who joined within this many days (the Joined filter). */
+export const MEMBER_JOINED_DAYS = [7, 30, 90, 365] as const
+
 export interface MemberQuery {
   status: MemberStatusFilter
   role: Role | null
   tierId: string | null
   q: string
   cursor: string | null
+  /** Absent means newest first. */
+  sort?: MemberSort
+  /** Joined in the last this many days; absent means any time. */
+  joined?: number | null
 }
 
 export function parseMemberQuery(p: URLSearchParams | Record<string, string | undefined>): MemberQuery {
@@ -675,6 +690,14 @@ export function parseMemberQuery(p: URLSearchParams | Record<string, string | un
     tierId: isUuid(tier) ? tier : null,
     q: line(get("q"), 80),
     cursor: get("cursor") || null,
+    ...(() => {
+      const sort = get("sort")
+      const joined = Number(get("joined"))
+      return {
+        ...(isOneOf(MEMBER_SORTS, sort) && sort !== "newest" ? { sort } : {}),
+        ...((MEMBER_JOINED_DAYS as readonly number[]).includes(joined) ? { joined } : {}),
+      }
+    })(),
   }
 }
 
