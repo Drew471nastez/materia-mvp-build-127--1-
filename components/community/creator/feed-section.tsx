@@ -47,6 +47,7 @@ import { requestCompose } from "@/lib/communities/client/compose-intent"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { Composer, draftKey } from "@/components/community/member/composer"
+import { ScheduledPostsPanel } from "./scheduled-posts-panel"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { PostThumb } from "@/components/community/member/media"
 import { spaceGlyph } from "@/components/community/member/space-glyph"
@@ -286,6 +287,9 @@ export function FeedSection({ head, initial, spaces, compose }: { head: Communit
           <Composer communityId={head.id} userId={me.userId} me={{ name: me.name, avatarUrl: me.avatarUrl }} spaces={writerSpaces} onPosted={onPosted} />
         </div>
       ) : null}
+
+      {/* Round 32: drafts and posts set to go up later (./scheduled-posts-panel); it draws nothing for someone who may not post. */}
+      <ScheduledPostsPanel head={head} />
 
       <ListCard
         busy={loading}

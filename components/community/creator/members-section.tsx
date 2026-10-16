@@ -46,6 +46,8 @@ import { relativeTime } from "@/lib/communities/format"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
 import { MEMBER_STATUS_FILTERS, ROLE_LABEL, takenAwayLine, type MemberChoice, type MemberSort, type MemberStatusFilter } from "./logic"
 import { joinCosts, needsInvite } from "@/lib/communities/access-model"
+import { JoinRequestsPanel } from "./join-requests-panel"
+import { BulkInviteButton } from "./bulk-invite-panel"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Confirm, Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, SelectField, errorText, field, label, send, shortDate, useToast, ListLoading, usePhone } from "./parts"
@@ -348,6 +350,8 @@ export function MembersSection(p: Props) {
                 <span className="max-sm:hidden">{tt("Export")}</span>
               </a>
             ) : null}
+            {/* Round 32: a list of addresses at once (./bulk-invite-panel); it hides itself without the invite permission. */}
+            <BulkInviteButton head={p.head} />
             {p.head.can.invite ? (
               <button type="button" onClick={() => setInviteOpen(true)} className={buttonPrimary} data-invite-open="">
                 <UserPlus aria-hidden className="h-4 w-4" />
@@ -358,6 +362,8 @@ export function MembersSection(p: Props) {
         }
         toolbar={toolbar}
       >
+        {pending ? null : (
+          <>
         {bulkBar}
         {rows.length === 0 ? (
           loading ? (
@@ -472,7 +478,11 @@ export function MembersSection(p: Props) {
           </>
         )}
         <ListFoot shown={rows.length} total={total} more={Boolean(page.next)} loading={more} onMore={() => void loadMore()} label={(n) => tt("{n, plural, one {# member} other {# members}}", { n })} />
+          </>
+        )}
       </ListCard>
+      {/* Round 32: on Requests, the queue with what each person answered before joining (./join-requests-panel), in place of the plain list. */}
+      {pending ? <JoinRequestsPanel head={p.head} /> : null}
 
       {page.capped ? <p className="px-1 text-[13px] text-[#6b7280]">{tt("Showing the first matches. Type more of the name to narrow it down.")}</p> : null}
 
