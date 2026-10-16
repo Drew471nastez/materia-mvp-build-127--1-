@@ -212,7 +212,7 @@ function Outline({ outline }: { outline: ProgramOutline }) {
               <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{lessonsLabel(m.lessons.length)}</span>
             </p>
             {m.lessons.length ? (
-              <ul className="mt-1 space-y-0.5 pl-[22px]">
+              <ul className={`mt-1 space-y-0.5 ${m.coverUrl ? "pl-[80px]" : "pl-[22px]"}`}>
                 {m.lessons.slice(0, 4).map((t, j) => (
                   <li key={j} className="truncate text-[13.5px] leading-6 text-[#4b5563]">
                     {t}

@@ -362,7 +362,7 @@ function CoverThumb({ url, label, onChange, notify, size }: { url: string | null
     }
   }
   return (
-    <span className={cn("relative shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f1f2f4]", size === "bar" ? "aspect-[16/9] w-12" : "block aspect-[16/9] w-full max-w-[240px] rounded-xl")} data-cover-thumb={size}>
+    <span className={cn("relative shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f1f2f4]", size === "bar" ? "block h-[42px] w-14 sm:aspect-[16/9] sm:h-auto sm:w-12" : "block aspect-[16/9] w-full max-w-[240px] rounded-xl")} data-cover-thumb={size}>
       {url ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
@@ -458,7 +458,7 @@ function ModuleBlock(props: {
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white" data-module={m.id} data-glide={m.id}>
       <div className="flex items-center gap-1 bg-[#fafafb] py-1.5 pl-3 pr-1.5 sm:pl-4">
         <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[#9ca3af]">{index + 1}</span>
-        <span className="ml-1.5">
+        <span className="ml-1.5 flex shrink-0">
           <CoverThumb url={m.coverUrl} label={m.title} size="bar" notify={props.notify} onChange={(coverUrl) => void act({ action: "update-module", moduleId: m.id, coverUrl })} />
         </span>
         <input

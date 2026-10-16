@@ -115,6 +115,26 @@ export function accessChoices(): { value: ProgramMode; title: string; detail: st
   ]
 }
 
+/*
+  WHERE THE DESCRIPTION'S TOOLBAR HOLDS STILL: just under the community editor's own bar, which stays at the top of the
+  pane while it scrolls (creator/community-shell.tsx data-community-header). Its height is read from the bar itself, once
+  and again whenever it changes (the bar is being made more compact elsewhere), never written down twice. Outside the
+  shell there is no bar, and the toolbar holds at the top.
+*/
+function useBarHeight(ref: React.RefObject<HTMLElement | null>): string {
+  const [h, setH] = React.useState(0)
+  React.useEffect(() => {
+    const bar = ref.current?.closest(".orders-pane")?.querySelector<HTMLElement>("[data-community-header]")
+    if (!bar) return
+    const read = () => setH(Math.round(bar.getBoundingClientRect().height))
+    read()
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(read) : null
+    ro?.observe(bar)
+    return () => ro?.disconnect()
+  }, [ref])
+  return `${h}px`
+}
+
 /** A picture for the description or the cover, through the same upload as the program's cover. */
 async function uploadPicture(file: File): Promise<{ url: string }> {
   const problem = imageFileProblem(file)
@@ -154,6 +174,8 @@ export function ProgramEditor({
   const [uploading, setUploading] = React.useState<number | null>(null)
   const [lessons, setLessons] = React.useState(program.lessons)
   const [ask, confirmSheet] = useConfirm()
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const barHeight = useBarHeight(rootRef)
   const native = program.kind === "program"
   const changes = changesOf(saved, form, program.kind)
   const dirty = Object.keys(changes).length > 0
@@ -338,7 +360,7 @@ export function ProgramEditor({
   }
 
   return (
-    <div className="pb-24 md:pb-20" data-program-editor={program.id}>
+    <div ref={rootRef} className="pb-24 md:pb-20" data-program-editor={program.id}>
       {/* THE HEAD: one row, the height of a button. */}
       <div className="mb-3 flex min-h-10 items-center gap-2.5 sm:mb-4" data-program-head="">
         <button type="button" onClick={() => void leave()} aria-label={tt("Back to programs")} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9">
@@ -403,7 +425,8 @@ export function ProgramEditor({
                 uploadImage={data.accessReady === false ? undefined : uploadPicture}
                 checkSize={(html) => (html.length > PROGRAM_DESCRIPTION_MAX ? tt("The description is too long. Shorten it, or remove formatting that came with a paste.") : null)}
                 minHeight={140}
-                resizable
+                grow
+                stickyToolbar={barHeight}
               />
               <FieldError text={errorFor("summary")} />
             </div>
@@ -578,7 +601,7 @@ function MemberPicker({ communityId, value, onChange }: { communityId: string; v
             <li key={m.userId} className="flex min-h-11 items-center gap-2.5 py-1">
               <Avatar m={m} />
               <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{m.name}</span>
-              <button type="button" onClick={() => onChange(value.filter((x) => x.userId !== m.userId))} aria-label={tt("Take {name} off", { name: m.name })} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#6b7280] hover:bg-[#eceef1] hover:text-[#1a1a2e]">
+              <button type="button" onClick={() => onChange(value.filter((x) => x.userId !== m.userId))} aria-label={tt("Take {name} off", { name: m.name })} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#6b7280] hover:bg-[#eceef1] hover:text-[#1a1a2e] sm:h-9 sm:w-9">
                 <X className="h-4 w-4" />
               </button>
             </li>
