@@ -336,8 +336,13 @@ export function ExploreCommunityCard({
             fetchPriority={priority ? "high" : undefined}
             className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.02]"
           />
+        ) : storefront ? (
+          /* On a creator's storefront the ground is their theme's own token. */
+          <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <Mark card={card} size={72} eager={priority} className={`h-[72px] w-[72px] rounded-[16px] ${MARK_DEPTH}`} />
+          </div>
         ) : (
-          /* Round 33: no cover is the community's own colours, read from its logo (lib/communities/cover-gradient.ts), never a grey box. */
+          /* Round 33: in Explore no cover is the community's own colours, read from its logo (lib/communities/cover-gradient.ts), never a grey box. */
           <CoverFill name={card.name} iconUrl={card.logoUrl}>
             <div className="flex h-full w-full items-center justify-center">
               <Mark card={card} size={72} eager={priority} className={`h-[72px] w-[72px] rounded-[16px] ${MARK_DEPTH}`} />

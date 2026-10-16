@@ -49,7 +49,7 @@ import { rolePermissionsOf, saveRolePermissions, staffPermissions, staffPermissi
 import { actOnContent, actOnMember, updateReport } from "@/lib/communities/server/moderation"
 import { churnRate, inviteLabel, loadMoneyAndGrowth } from "@/lib/communities/server/stats"
 import { duplicateCommunity, loadPolicies, savePolicies } from "@/lib/communities/server/creator-policies"
-import { settingsTabOf, systemReportKind } from "@/components/community/creator/logic"
+import { pageTabAsked, settingsTabOf, systemReportKind } from "@/components/community/creator/logic"
 import type { CommunityRow } from "@/lib/communities/types"
 import { untt } from "./i18n-source"
 
@@ -305,7 +305,8 @@ async function main() {
   /* ── The list, the editor, the settings ──────────────────────────────── */
   console.log("\nscreens")
   check("the list is a grid of cards with cover, logo, state, members and MRR", /data-community-grid/.test(list) && /sm:grid-cols-2/.test(list) && /lg:grid-cols-3/.test(list) && /data-card-cover/.test(list) && /data-card-logo/.test(list) && /data-card-mrr/.test(list) && /data-card-members/.test(list))
-  check("each card's menu: Open, Edit, Share, Analytics, Duplicate settings, Archive", ["\"Open\"", "\"Edit\"", "\"Share\"", "\"Analytics\"", "\"Duplicate settings\"", "\"Archive\"", "\"Bring back\""].every((w) => list.includes(w)) && /ResponsiveActionMenu/.test(list))
+  /* Changed on purpose (round 33): Edit opens the community's page in its own section, so it says Edit page. */
+  check("each card's menu: Open, Edit page, Share, Analytics, Duplicate settings, Archive", ["\"Open\"", "\"Edit page\"", "\"Share\"", "\"Analytics\"", "\"Duplicate settings\"", "\"Archive\"", "\"Bring back\""].every((w) => list.includes(w)) && /ResponsiveActionMenu/.test(list))
   check("and only what this person may do", /r\.can\.edit/.test(list) && /r\.can\.analytics/.test(list) && /r\.can\.duplicate/.test(list) && /r\.can\.archive/.test(list))
   check("MRR on a card only for somebody who may see analytics", /may\(c, "view_analytics"\)/.test(creator))
   check("archiving asks first; sharing uses the system sheet or copies", /<Confirm/.test(list) && /navigator\.share/.test(list) && /clipboard\.writeText/.test(list))
@@ -316,12 +317,14 @@ async function main() {
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")
   /* Changed on purpose (round 31): the foot sat in the form and rode over it mid page on a phone; it is the /app Settings save bar now, fixed above the navigation pill and up only while there is something to save. */
-  check("Settings forms have a save bar: Cancel and Save, up while there is a change", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings) && /fixed inset-x-0 bottom-\[calc\(var\(--app-nav-top,0px\)\+10px\)\]/.test(parts))
+  check("Settings forms have a save bar: Cancel and Save, up while there is a change", /export function EditorFoot/.test(parts) && /<SaveButton/.test(parts) && /Cancel/.test(parts) && /<EditorFoot/.test(settings) && /fixed inset-x-0 bottom-\[max\(calc\(var\(--app-nav-top,0px\)\+10px\),calc\(env\(safe-area-inset-bottom\)\+10px\)\)\]/.test(parts))
   /* Changed on purpose (round 26): the settings column takes 196px beside the panel, so the Page tab's two columns start at 1280px. */
   /* Changed on purpose (round 32): "too shrunk on a computer". The Page tab's 300px side column squeezed the domain and the address; every panel is now one column of the editor's cards at the panel's full width, and the address is a panel of its own. */
-  check("the Page tab is one column of the editor's cards, the address in its own panel", !/xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && /<EditorCard title="About"/.test(settings) && /<EditorCard title="Storelib address"/.test(settings))
-  check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))
-  check("old links to the rules land on the new tab", settingsTabOf("rules") === "policies" && settingsTabOf("roles") === "roles" && settingsTabOf("policies") === "policies" && settingsTabOf("page") === "page")
+  /* Changed on purpose (round 33): the community's page left Settings for a Page section of its own (app/app/community/[id]/page); the address keeps its panel. */
+  check("Settings has no Page panel any more, the address in its own panel", !/xl:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(settings) && !/<EditorCard title="About"/.test(settings) && !/value: "page"/.test(settings) && /<EditorCard title="Storelib address"/.test(settings))
+  /* Changed on purpose (round 33): Roles is named Roles and permissions, for what it holds; ?tab=page opens the Page section (pageTabAsked). */
+  check("Settings has Rules and policies and, for the owner, Roles", /value: "policies", label: "Rules and policies"/.test(settings) && /value: "roles", label: "Roles and permissions", needs: "transfer_ownership"/.test(settings) && /<RulesEditor/.test(settings) && /PERMISSION_GROUPS\.map/.test(settings))
+  check("old links to the rules land on the new tab", settingsTabOf("rules") === "policies" && settingsTabOf("roles") === "roles" && settingsTabOf("policies") === "policies" && settingsTabOf("page") === "access" && pageTabAsked("page") && pageTabAsked("general") && !pageTabAsked("rules"))
   const patch = code("app/api/app/community/[id]/route.ts")
   check("the settings route saves roles and policies through the owner only helpers", /saveRolePermissions\(/.test(patch) && /savePolicies\(/.test(patch))
 
