@@ -16,7 +16,8 @@ import "server-only"
  *
  * ONCE, UNDER A RACE. Each line's receipt token is an HMAC of the session id
  * and the line's place in the basket, and the orders table holds receipt
- * tokens UNIQUE. Two callers writing at once therefore write each line once:
+ * tokens UNIQUE (and, from run-now part 190, each (stripe_session_id,
+ * receipt_token) pair once: orders_stripe_session_line_key). Two callers writing at once therefore write each line once:
  * the second insert of a line fails with 23505 and counts as "exists". The
  * session fingerprint is derived the same way, so whichever caller wrote an
  * order, the browser's cookie matches it.

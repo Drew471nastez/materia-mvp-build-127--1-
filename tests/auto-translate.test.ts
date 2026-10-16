@@ -81,7 +81,9 @@ function fakeDb(tables: Record<string, Record<string, unknown>[]>, opts: { claim
         q.then = (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => {
           if (writing) {
             /* The lease taken: the store comes back, unless another run holds it. */
-            const claimed = typeof writing.translate_lease_until === "string" && opts.claim !== false
+            /* Before part 186 the hourly run holds it by claimed_until on its kept run. */
+            const run = writing.auto_translate_run as Record<string, unknown> | undefined
+            const claimed = (typeof writing.translate_lease_until === "string" || typeof run?.claimed_until === "string") && opts.claim !== false
             return Promise.resolve({ data: claimed ? [{ creator_id: "c1" }] : [], error: null }).then(ok, bad)
           }
           const named = (x: unknown) => typeof x === "string" && !!opts.missing && x.includes(opts.missing)

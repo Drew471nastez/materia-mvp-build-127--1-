@@ -84,6 +84,7 @@ class FakeDb {
     for (const j of due) {
       j.status = "running"
       j.attempts = (j.attempts ?? 0) + 1
+      j.locked_until = new Date(now + (args.p_lease_seconds ?? 120) * 1000).toISOString()
     }
     return { data: due.map((j) => ({ ...j })), error: null }
   }
@@ -108,6 +109,10 @@ class Query {
   }
   in(c: string, vs: unknown[]) {
     this.filters.push((r) => vs.includes(r[c]))
+    return this
+  }
+  gt(c: string, v: string) {
+    this.filters.push((r) => String(r[c] ?? "") > v)
     return this
   }
   gte(c: string, v: string) {
@@ -176,8 +181,10 @@ class Query {
       return { data: this.wantOne ? list[0] : list, error: null }
     }
     if (this.op === "update") {
-      for (const r of rows.filter(match)) Object.assign(r, this.payload)
-      return { data: null, error: null }
+      const hit = rows.filter(match)
+      for (const r of hit) Object.assign(r, this.payload)
+      /* An update answers the rows it changed, as PostgREST does with a select after it. */
+      return { data: hit.map((r) => ({ id: r.id })), error: null }
     }
     if (this.op === "upsert") {
       const r = this.payload as Row

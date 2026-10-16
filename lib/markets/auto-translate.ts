@@ -114,11 +114,13 @@ async function keepRun(db: Db, creatorId: string, run: AutoTranslateRun): Promis
   )
 }
 
+type Listed = { creator_id: string; auto_translate_run?: Record<string, unknown> | null }
+
 /** The stores with it on, the one waiting longest first. Empty before part 175. */
-async function storesToRun(db: Db): Promise<string[]> {
+async function storesToRun(db: Db): Promise<Listed[]> {
   const { data, error } = await db
     .from("store_localization")
-    .select("creator_id")
+    .select("creator_id, auto_translate_run")
     .eq("auto_translate", true)
     .order("auto_translate_run->>at", { ascending: true, nullsFirst: true })
     .limit(STORES_PER_RUN)
@@ -130,7 +132,26 @@ async function storesToRun(db: Db): Promise<string[]> {
     if (!autoTranslateMissing(error) && !marketsMissing(error)) console.error("[auto-translate] could not list the stores")
     return []
   }
-  return ((data ?? []) as { creator_id: string }[]).map((r) => r.creator_id)
+  return ((data ?? []) as Listed[]).filter((r) => typeof r?.creator_id === "string")
+}
+
+/**
+ * Holds a store for the hourly run before part 186, when there is no lease
+ * column: the run kept on the store (auto_translate_run) is swapped for the
+ * same run plus `claimed_until`, only while it is still the one read. A
+ * second delivery of the cron read the same run, so its swap finds nothing
+ * and it leaves the store; one that reads after sees the claim. The switch
+ * reads only at, translated, left and error (server.ts readAutoTranslate),
+ * so what it shows mid run does not change; keepRun writes the new run
+ * without the claim, which lets it go.
+ */
+export async function claimQuietStore(db: Db, row: Listed, now: number): Promise<boolean> {
+  const prev = row.auto_translate_run && typeof row.auto_translate_run === "object" && !Array.isArray(row.auto_translate_run) ? row.auto_translate_run : null
+  const until = typeof prev?.claimed_until === "string" ? Date.parse(prev.claimed_until) : NaN
+  if (Number.isFinite(until) && until > now) return false
+  const update = db.from("store_localization").update({ auto_translate_run: { ...(prev ?? {}), claimed_until: iso(now + LEASE_MS) } }).eq("creator_id", row.creator_id)
+  const { data } = await (prev === null ? update.is("auto_translate_run", null) : update.eq("auto_translate_run", JSON.stringify(prev))).select("creator_id").then(settled, failedRead)
+  return Array.isArray(data) && data.length > 0
 }
 
 /* ── The changed stores, every five minutes ─────────────────────────── */
@@ -161,17 +182,18 @@ async function changedStores(db: Db, now: number): Promise<Marked[] | null> {
   return ((data ?? []) as Marked[]).filter((r) => typeof r.creator_id === "string" && typeof r.translate_dirty_at === "string")
 }
 
-/** Holds the store for this run, while its mark is still the one read and no other run holds it. */
-async function claimStore(db: Db, s: Marked, now: number): Promise<boolean> {
+/** Holds the store for this run, while its mark is still the one read and no other run holds it. The lease written, or null when the store was not taken. */
+async function claimStore(db: Db, s: Marked, now: number): Promise<string | null> {
+  const lease = iso(now + LEASE_MS)
   const { data } = await db
     .from("store_localization")
-    .update({ translate_lease_until: iso(now + LEASE_MS) })
+    .update({ translate_lease_until: lease })
     .eq("creator_id", s.creator_id)
     .eq("translate_dirty_at", s.translate_dirty_at)
     .or(`translate_lease_until.is.null,translate_lease_until.lt."${iso(now)}"`)
     .select("creator_id")
     .then(settled, failedRead)
-  return Array.isArray(data) && data.length > 0
+  return Array.isArray(data) && data.length > 0 ? lease : null
 }
 
 /**
@@ -188,11 +210,12 @@ export function outcomeOf(run: AutoTranslateRun | null): "done" | "more" | "retr
   return run.left > 0 && run.translated > 0 ? "more" : "done"
 }
 
-async function settleStore(db: Db, s: Marked, outcome: "done" | "more" | "retry"): Promise<void> {
+/* Every write here is on this run's own lease: a run that outlived it leaves the store to the run that holds it now. */
+async function settleStore(db: Db, s: Marked, outcome: "done" | "more" | "retry", lease: string): Promise<void> {
   const ignore = () => undefined
-  if (outcome === "done") await db.from("store_localization").update({ translate_dirty_at: null, translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).then(ignore, ignore)
-  if (outcome === "retry") await db.from("store_localization").update({ translate_dirty_at: iso(Date.now() + RETRY_MS - SETTLE_MS), translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).then(ignore, ignore)
-  await db.from("store_localization").update({ translate_lease_until: null }).eq("creator_id", s.creator_id).then(ignore, ignore)
+  if (outcome === "done") await db.from("store_localization").update({ translate_dirty_at: null, translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).eq("translate_lease_until", lease).then(ignore, ignore)
+  if (outcome === "retry") await db.from("store_localization").update({ translate_dirty_at: iso(Date.now() + RETRY_MS - SETTLE_MS), translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).eq("translate_lease_until", lease).then(ignore, ignore)
+  await db.from("store_localization").update({ translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_lease_until", lease).then(ignore, ignore)
 }
 
 /**
@@ -208,7 +231,8 @@ export async function runChangedStores(deadlineAt: number, db: Db = createAdminC
   for (const s of list) {
     /* A store is started only with a minute left: it gets at least one language's call. */
     if (Date.now() > deadlineAt - 60_000) break
-    if (!(await claimStore(db, s, Date.now()))) continue
+    const lease = await claimStore(db, s, Date.now())
+    if (!lease) continue
     let run: AutoTranslateRun | null = null
     let outcome: "done" | "more" | "retry" = "retry"
     try {
@@ -218,7 +242,7 @@ export async function runChangedStores(deadlineAt: number, db: Db = createAdminC
     } catch (err) {
       console.error(`[auto-translate] a store failed: ${err instanceof Error ? err.name : "error"}`)
     }
-    await settleStore(db, s, outcome)
+    await settleStore(db, s, outcome, lease)
     if (!run) continue
     out.stores++
     out.translated += run.translated
@@ -264,10 +288,13 @@ export async function runAutoTranslate(deadlineAt: number, db: Db = createAdminC
   if (!canDraftWithAi()) return { stores: 0, translated: 0, left: 0, skipped: "no AI key" }
   const queued = await queueQuietStores(db, Date.now())
   if (queued !== null) return { stores: 0, translated: 0, left: 0, queued }
-  const ids = await storesToRun(db)
+  const rows = await storesToRun(db)
   const out = { stores: 0, translated: 0, left: 0 }
-  for (const id of ids) {
+  for (const row of rows) {
     if (Date.now() > deadlineAt - 30_000) break
+    const id = row.creator_id
+    /* A second delivery of this cron, or a run still going: the store is theirs. */
+    if (!(await claimQuietStore(db, row, Date.now()))) continue
     try {
       const run = await autoTranslateStore(db, id, deadlineAt)
       if (!run) continue
