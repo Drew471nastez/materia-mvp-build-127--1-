@@ -389,7 +389,9 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                   onChange={(z) => set("timezone", z)}
                   placeholder={tt("Search a city, region or UTC offset")}
                   fieldLabel={zoneName(draft.timezone)}
-                  fieldAside={offsetOf(draft.timezone)}
+                  fieldAside={offsetOf(draft.timezone) === zoneName(draft.timezone) ? undefined : offsetOf(draft.timezone)}
+                  /* The fields beside it: 44px on a phone, 40px on a computer, the same corner and border. */
+                  fieldClassName="rounded-lg border-[#e1e3e7] pl-3 pr-2.5 text-[16px] sm:h-10 sm:text-[14px]"
                 />
               </div>
             </div>

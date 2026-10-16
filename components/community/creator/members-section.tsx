@@ -295,7 +295,7 @@ export function MembersSection(p: Props) {
         <span className="contents max-md:hidden">
           <ToolbarDivider />
         </span>
-        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide md:flex-none md:overflow-visible">
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)] md:flex-none md:overflow-visible md:[mask-image:none]">
           <PickButton name="role" title={tt("Role")} options={roleOptions} value={role} onPick={setRole} align="end" />
           {p.tiers.length > 1 ? <PickButton name="tier" title={tt("Tier")} options={tierOptions} value={tier} onPick={setTier} align="end" /> : null}
           {!pending ? <PickButton name="joined" title={tt("Joined")} options={joinedOptions} value={joined} onPick={setJoined} align="end" /> : null}
