@@ -52,6 +52,9 @@ const ARCS = [
   { startLat: 28.61, startLng: 77.23, endLat: 6.52, endLng: 3.38 },
 ]
 
+/** How far outside the screen the globe starts loading: about a screen of a phone. */
+export const GLOBE_AHEAD_PX = 800
+
 export default function GlobeWidget() {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<any>(null)
@@ -61,8 +64,19 @@ export default function GlobeWidget() {
 
     let cancelled = false
     let stopWatching = () => {}
+    let stopApproach = () => {}
 
-    ;(async () => {
+    /**
+     * BUILT WHEN IT IS ABOUT TO BE SEEN. globe.gl with three.js is 1.8 MB of
+     * script (500 KB over the wire), and on a 390px phone this widget sits
+     * about two and a half screens below the top of the front page. It was
+     * downloaded, parsed and given a WebGL context as soon as the page
+     * hydrated, in the middle of the hero's first seconds. Now it starts a
+     * screen before it scrolls into view (GLOBE_AHEAD_PX), which on
+     * any phone is long before a finger gets it there, so what is seen is the
+     * same globe at the same moment.
+     */
+    const build = async () => {
       const GlobeGl = (await import("globe.gl")).default
       if (cancelled || !containerRef.current) return
 
@@ -133,10 +147,26 @@ export default function GlobeWidget() {
         io?.disconnect()
         document.removeEventListener("visibilitychange", sync)
       }
-    })()
+    }
+
+    if (typeof IntersectionObserver !== "function") {
+      void build()
+    } else {
+      const approach = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry?.isIntersecting) return
+          approach.disconnect()
+          void build()
+        },
+        { rootMargin: `${GLOBE_AHEAD_PX}px 0px ${GLOBE_AHEAD_PX}px 0px` },
+      )
+      approach.observe(containerRef.current)
+      stopApproach = () => approach.disconnect()
+    }
 
     return () => {
       cancelled = true
+      stopApproach()
       stopWatching()
       /* Clearing the container left the render loop and its WebGL context
          running after the page had gone. */
