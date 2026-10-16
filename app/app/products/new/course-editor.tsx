@@ -20,13 +20,15 @@
  * are checked where they land before a lesson points at them.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, Captions, ChevronDown, Film, Link2, Loader2, Paperclip, Play, Plus, Trash2, Upload, X } from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
+import { ArrowDown, ArrowUp, Captions, ChevronDown, Film, ImagePlus, Link2, Loader2, Paperclip, Play, Plus, Trash2, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { externalVideo } from "@/lib/courses/external"
 import { clock } from "@/lib/courses/progress"
 import { UploadStopped, manageCourse, uploadLessonFile, videoLength, type LessonFileKind } from "@/lib/courses/upload-client"
 import type { EditorLesson, EditorModule, EditorTree } from "@/lib/courses/types"
+import { namesAny, newRowId, treeOnScreen } from "@/lib/courses/editor-ops"
+import { DirectUploader } from "@/lib/storage/chunked-upload"
 import { secondaryDepth } from "./editor-buttons"
 import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { useConfirm } from "./confirm-sheet"
@@ -59,26 +61,93 @@ export interface CourseEditorProps {
   notify: (message: string) => void
 }
 
+/** One change waiting for the server, and who is waiting to hear how it went. */
+interface PendingOp {
+  body: Record<string, unknown>
+  /** Ids this change makes (a new module and its first lesson): a change still waiting that names one goes with it on a failure. */
+  creates?: string[]
+  done: (tree: EditorTree | null) => void
+}
+
+/*
+  SMOOTH REORDER (round 33). A module or a lesson moved up or down glides from where it was to where it is, over 220ms:
+  where every row stands is read just before the change (snap), and once React has put the rows in their new order each
+  is moved back by the difference and let go. A lesson inside a module that moved glides only by what is its own, so it
+  does not travel twice. Nothing animates when the motion setting asks for less.
+*/
+const GLIDE_MS = 220
+function useGlide(container: RefObject<HTMLElement | null>, order: string): () => void {
+  const before = useRef<Map<string, number> | null>(null)
+  const snap = useCallback(() => {
+    const root = container.current
+    if (!root) return
+    before.current = new Map(Array.from(root.querySelectorAll<HTMLElement>("[data-glide]")).map((el) => [el.dataset.glide ?? "", el.getBoundingClientRect().top]))
+  }, [container])
+  useLayoutEffect(() => {
+    const root = container.current
+    const was = before.current
+    before.current = null
+    if (!root || !was) return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const moved = new Map<Element, number>()
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-glide]"))) {
+      const from = was.get(el.dataset.glide ?? "")
+      if (from !== undefined) moved.set(el, from - el.getBoundingClientRect().top)
+    }
+    for (const [el, by] of moved) {
+      const parent = el.parentElement?.closest("[data-glide]")
+      const own = by - (parent ? (moved.get(parent) ?? 0) : 0)
+      if (Math.abs(own) > 1 && typeof (el as HTMLElement).animate === "function") (el as HTMLElement).animate([{ translate: `0 ${own}px` }, { translate: "0 0" }], { duration: GLIDE_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+    }
+  }, [container, order])
+  return snap
+}
+
 export function CourseEditor({ productId, ensureProductId, onLessonCount, notify }: CourseEditorProps) {
   const [tree, setTree] = useState<EditorTree | null>(productId ? null : { courseId: null, modules: [] })
   const [openId, setOpenId] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  /* The row whose name takes the caret once it is drawn: a module just added, or a lesson just added. */
+  const [focusId, setFocusId] = useState<string | null>(null)
   const [uploads, setUploads] = useState<Record<string, Uploading>>({})
   const [ask, confirmSheet] = useConfirm()
   const idRef = useRef(productId)
   idRef.current = productId
+  const listRef = useRef<HTMLDivElement>(null)
+
+  /*
+    EVERY CHANGE SHOWS AT ONCE AND IS SAVED BEHIND IT (round 33: "adding a module is not smooth and takes too much
+    time"). The tree on screen is the last one the server answered with, plus every change still on its way, applied
+    here the way the server will apply it (optimistic). The changes go one at a time, in the order they were made, so a
+    rename sent while its module is still being made arrives after it. A change that fails comes off again, with the
+    reason, and so does anything waiting that names a row it was making.
+  */
+  const confirmed = useRef<EditorTree | null>(tree)
+  const queue = useRef<PendingOp[]>([])
+  const running = useRef(false)
+  const redraw = useCallback(() => {
+    const base = confirmed.current
+    if (!base) return
+    setTree(treeOnScreen(base, queue.current.map((op) => op.body)))
+  }, [])
+  const confirm = useCallback(
+    (next: EditorTree) => {
+      confirmed.current = next
+      redraw()
+    },
+    [redraw],
+  )
 
   useEffect(() => {
     if (!productId) return
     let cancelled = false
     fetch(`/api/courses/manage?productId=${encodeURIComponent(productId)}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: { tree?: EditorTree }) => !cancelled && setTree(j.tree ?? { courseId: null, modules: [] }))
-      .catch(() => !cancelled && setTree({ courseId: null, modules: [] }))
+      .then((j: { tree?: EditorTree }) => !cancelled && confirm(j.tree ?? { courseId: null, modules: [] }))
+      .catch(() => !cancelled && confirm({ courseId: null, modules: [] }))
     return () => {
       cancelled = true
     }
-  }, [productId])
+  }, [productId, confirm])
 
   /*
     A VIDEO GOING UP IS NOT LEFT BY ACCIDENT. The bytes go from this page, so
@@ -102,23 +171,51 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
     onLessonCount(count)
   }, [count, onLessonCount])
 
-  const act = useCallback(
-    async (body: Record<string, unknown>) => {
-      const id = idRef.current ?? (await ensureProductId())
-      if (!id) return null
-      setBusy(true)
-      try {
-        const next = await manageCourse({ ...body, productId: id })
-        setTree(next)
-        return next
-      } catch (e) {
-        notify(e instanceof Error ? e.message : tt("That did not save. Try again."))
-        return null
-      } finally {
-        setBusy(false)
+  const drain = useCallback(async () => {
+    if (running.current) return
+    running.current = true
+    try {
+      while (queue.current.length) {
+        const op = queue.current[0]
+        const id = idRef.current ?? (await ensureProductId())
+        if (!id) {
+          /* The product could not be saved, so nothing waiting can be: every change comes off. */
+          const dropped = queue.current
+          queue.current = []
+          redraw()
+          dropped.forEach((d) => d.done(null))
+          break
+        }
+        try {
+          const next = await manageCourse({ ...op.body, productId: id })
+          queue.current.shift()
+          confirm(next)
+          op.done(next)
+        } catch (e) {
+          queue.current.shift()
+          const made = op.creates ?? []
+          const dropped = made.length ? queue.current.filter((o) => namesAny(o.body, made)) : []
+          if (dropped.length) queue.current = queue.current.filter((o) => !dropped.includes(o))
+          redraw()
+          notify(e instanceof Error ? e.message : tt("That did not save. Try again."))
+          op.done(null)
+          dropped.forEach((d) => d.done(null))
+        }
       }
-    },
-    [ensureProductId, notify],
+    } finally {
+      running.current = false
+    }
+  }, [confirm, ensureProductId, notify, redraw])
+
+  const act = useCallback(
+    (body: Record<string, unknown>, creates?: string[]): Promise<EditorTree | null> =>
+      new Promise((resolve) => {
+        if (!confirmed.current) confirmed.current = { courseId: null, modules: [] }
+        queue.current.push({ body, creates, done: resolve })
+        redraw()
+        void drain()
+      }),
+    [drain, redraw],
   )
 
   const upload = useCallback(
@@ -141,7 +238,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
         })
         const seconds = await length
         if (seconds) next = await manageCourse({ action: "update-lesson", productId: id, lessonId, durationSeconds: seconds }).catch(() => next)
-        setTree(next)
+        confirm(next)
       } catch (e) {
         if (!(e instanceof UploadStopped)) notify(e instanceof Error ? e.message : tt("The upload did not finish. Try again."))
       } finally {
@@ -152,14 +249,35 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
         })
       }
     },
-    [notify],
+    [confirm, notify],
   )
 
-  const addModule = async () => {
-    const next = await act({ action: "add-module", title: tt("Module {value}", { value: (tree?.modules.length ?? 0) + 1 }) })
-    const last = next?.modules[next.modules.length - 1]
-    if (last?.lessons[0]) setOpenId(last.lessons[0].id)
+  /* A module is there the moment Add module is pressed, with its first lesson, the caret in its name. */
+  const addModule = () => {
+    const moduleId = newRowId()
+    const lessonId = newRowId()
+    const title = tt("Module {value}", { value: (tree?.modules.length ?? 0) + 1 })
+    void act({ action: "add-module", moduleId, lessonId, title, lessonTitle: tt("Lesson {value}", { value: 1 }) }, [moduleId, lessonId])
+    setFocusId(moduleId)
   }
+  const addLesson = (m: EditorModule) => {
+    const lessonId = newRowId()
+    void act({ action: "add-lesson", moduleId: m.id, lessonId, title: tt("Lesson {value}", { value: m.lessons.length + 1 }) }, [lessonId])
+    setOpenId(lessonId)
+    setFocusId(lessonId)
+  }
+  const clearFocus = useCallback(() => setFocusId(null), [])
+
+  const order = tree ? tree.modules.map((m) => `${m.id}:${m.lessons.map((l) => l.id).join(",")}`).join("|") : ""
+  const snap = useGlide(listRef, order)
+  /* A move: where everything stands is read first, so the rows glide to their new places. */
+  const reorder = useCallback(
+    (body: Record<string, unknown>) => {
+      snap()
+      void act(body)
+    },
+    [act, snap],
+  )
 
   if (!tree) {
     return (
@@ -172,12 +290,12 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
   /* Lesson numbers run through the whole course, as the buyer sees them. */
   const starts = tree.modules.map((_, i) => tree.modules.slice(0, i).reduce((n, x) => n + x.lessons.length, 0) + 1)
   return (
-    <div data-course-editor className="space-y-3">
+    <div data-course-editor className="space-y-3" ref={listRef}>
       {tree.modules.length === 0 ? (
         <div className="rounded-xl border-2 border-dashed border-gray-200 px-4 py-7 text-center">
           <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No lessons yet")}</p>
           <p className="mx-auto mt-1 max-w-[340px] text-[13px] text-[#6b7280]">{tt("Lessons sit in modules. Start with one module; you can add more and reorder them later.")}</p>
-          <button type="button" onClick={addModule} disabled={busy} className={cn(SMALL, "mt-3")}>
+          <button type="button" onClick={addModule} className={cn(SMALL, "mt-3")} data-add-module>
             <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
             {tt("Add a module")}
           </button>
@@ -193,22 +311,92 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
           firstNumber={starts[mi]}
           openId={openId}
           setOpenId={setOpenId}
-          busy={busy}
+          focusId={focusId}
+          onFocused={clearFocus}
           uploads={uploads}
           act={act}
+          reorder={reorder}
           upload={upload}
           ask={ask}
+          onAddLesson={() => addLesson(m)}
+          notify={notify}
         />
       ))}
 
       {tree.modules.length > 0 ? (
-        <button type="button" onClick={addModule} disabled={busy} className={SMALL} data-add-module>
+        <button type="button" onClick={addModule} className={SMALL} data-add-module>
           <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
           {tt("Add module")}
         </button>
       ) : null}
       {confirmSheet}
     </div>
+  )
+}
+
+/** A picture for a module or a lesson: uploaded to the product pictures folder, the same as a product's photos. */
+async function uploadCover(file: File): Promise<string> {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error(tt("Pick a picture: JPG, PNG or WebP."))
+  const uploader = new DirectUploader({ file, folder: "product-images" })
+  try {
+    const result = await uploader.start()
+    if (!result.publicUrl) throw new Error(tt("The picture did not upload. Try again."))
+    return result.publicUrl
+  } finally {
+    uploader.destroy()
+  }
+}
+
+/** The small 16:9 cover at the start of a module's bar, and the lesson's cover field: press to pick, a cross to take it off. */
+function CoverThumb({ url, label, onChange, notify, size }: { url: string | null | undefined; label: string; onChange: (url: string | null) => void; notify: (m: string) => void; size: "bar" | "field" }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const pick = async (file: File) => {
+    setBusy(true)
+    try {
+      onChange(await uploadCover(file))
+    } catch (e) {
+      notify(e instanceof Error ? e.message : tt("The picture did not upload. Try again."))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <span className={cn("relative shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f1f2f4]", size === "bar" ? "block h-[42px] w-14 sm:aspect-[16/9] sm:h-auto sm:w-12" : "block aspect-[16/9] w-full max-w-[240px] rounded-xl")} data-cover-thumb={size}>
+      {url ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={url} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        aria-label={url ? tt("Change the cover of {title}", { title: label }) : tt("Add a cover to {title}", { title: label })}
+        className={cn(
+          "absolute inset-0 flex items-center justify-center gap-1.5 text-[12.5px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]/40",
+          url ? "text-transparent hover:bg-black/30 hover:text-white" : "text-[#6b7280] hover:bg-[#e9ebee]",
+        )}
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : !url ? <ImagePlus className="h-3.5 w-3.5" aria-hidden /> : null}
+        {size === "field" && !busy ? (url ? tt("Change") : tt("Add a cover, 16:9")) : null}
+      </button>
+      {url && size === "field" && !busy ? (
+        <button type="button" onClick={() => onChange(null)} aria-label={tt("Remove the cover")} className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ""
+          if (f) void pick(f)
+        }}
+      />
+    </span>
   )
 }
 
@@ -219,24 +407,43 @@ function ModuleBlock(props: {
   firstNumber: number
   openId: string | null
   setOpenId: (id: string | null) => void
-  busy: boolean
+  focusId: string | null
+  onFocused: () => void
   uploads: Record<string, Uploading>
-  act: (body: Record<string, unknown>) => Promise<EditorTree | null>
+  act: (body: Record<string, unknown>, creates?: string[]) => Promise<EditorTree | null>
+  reorder: (body: Record<string, unknown>) => void
   upload: (lessonId: string, kind: LessonFileKind, file: File) => Promise<void>
   ask: ReturnType<typeof useConfirm>[0]
+  onAddLesson: () => void
+  notify: (message: string) => void
 }) {
   const { module: m, index, modules, act } = props
   const [name, setName] = useState(m.title)
   const focused = useRef(false)
+  const nameRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (!focused.current) setName(m.title)
   }, [m.title])
+  /* Just added: the caret goes into its name with the name selected, so typing replaces "Module 2". */
+  const wantsFocus = props.focusId === m.id
+  const { onFocused } = props
+  useEffect(() => {
+    if (!wantsFocus) return
+    const el = nameRef.current
+    if (el) {
+      el.focus({ preventScroll: false })
+      el.select()
+      el.scrollIntoView?.({ block: "nearest", behavior: "smooth" })
+    }
+    onFocused()
+  }, [wantsFocus, onFocused])
 
   const move = (dir: -1 | 1) => {
     const ids = modules.map((x) => x.id)
     const at = ids.indexOf(m.id)
+    if (at + dir < 0 || at + dir >= ids.length) return
     ;[ids[at], ids[at + dir]] = [ids[at + dir], ids[at]]
-    void act({ action: "order-modules", ids })
+    props.reorder({ action: "order-modules", ids })
   }
 
   const moveLesson = (lessonId: string, dir: -1 | 1) => {
@@ -244,14 +451,18 @@ function ModuleBlock(props: {
     const at = ids.indexOf(lessonId)
     if (at + dir < 0 || at + dir >= ids.length) return
     ;[ids[at], ids[at + dir]] = [ids[at + dir], ids[at]]
-    void act({ action: "order-lessons", moduleId: m.id, ids })
+    props.reorder({ action: "order-lessons", moduleId: m.id, ids })
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white" data-module={m.id}>
+    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white" data-module={m.id} data-glide={m.id}>
       <div className="flex items-center gap-1 bg-[#fafafb] py-1.5 pl-3 pr-1.5 sm:pl-4">
         <span className="shrink-0 text-[12px] font-semibold tabular-nums text-[#9ca3af]">{index + 1}</span>
+        <span className="ml-1.5 flex shrink-0">
+          <CoverThumb url={m.coverUrl} label={m.title} size="bar" notify={props.notify} onChange={(coverUrl) => void act({ action: "update-module", moduleId: m.id, coverUrl })} />
+        </span>
         <input
+          ref={nameRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onFocus={() => (focused.current = true)}
@@ -262,14 +473,15 @@ function ModuleBlock(props: {
           }}
           onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
           aria-label={tt("Module name")}
+          data-module-name=""
           className="min-h-10 min-w-0 flex-1 rounded-lg bg-transparent px-2 py-1.5 text-[16px] font-semibold sm:min-h-0 text-[#1a1a2e] outline-none focus:bg-white focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-sm"
         />
         {modules.length > 1 ? (
           <>
-            <button type="button" className={TOOL} disabled={index === 0 || props.busy} onClick={() => move(-1)} aria-label={tt("Move {title} up", { title: m.title })}>
+            <button type="button" className={TOOL} disabled={index === 0} onClick={() => move(-1)} aria-label={tt("Move {title} up", { title: m.title })}>
               <ArrowUp className="h-4 w-4" />
             </button>
-            <button type="button" className={TOOL} disabled={index === modules.length - 1 || props.busy} onClick={() => move(1)} aria-label={tt("Move {title} down", { title: m.title })}>
+            <button type="button" className={TOOL} disabled={index === modules.length - 1} onClick={() => move(1)} aria-label={tt("Move {title} down", { title: m.title })}>
               <ArrowDown className="h-4 w-4" />
             </button>
           </>
@@ -306,11 +518,13 @@ function ModuleBlock(props: {
             canUp={li > 0}
             canDown={li < m.lessons.length - 1}
             onMove={(dir) => moveLesson(l.id, dir)}
-            busy={props.busy}
+            focus={props.focusId === l.id}
+            onFocused={props.onFocused}
             uploads={props.uploads}
             act={act}
             upload={props.upload}
             ask={props.ask}
+            notify={props.notify}
           />
         ))}
       </ol>
@@ -318,14 +532,8 @@ function ModuleBlock(props: {
       <div className="border-t border-[#f0f1f3] px-3 py-2 sm:px-4">
         <button
           type="button"
-          disabled={props.busy}
           className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] sm:h-9 hover:bg-[#f4f5f7] hover:text-[#1a1a2e]"
-          onClick={async () => {
-            const next = await act({ action: "add-lesson", moduleId: m.id, title: tt("Lesson {value}", { value: m.lessons.length + 1 }) })
-            const mod = next?.modules.find((x) => x.id === m.id)
-            const added = mod?.lessons[mod.lessons.length - 1]
-            if (added) props.setOpenId(added.id)
-          }}
+          onClick={props.onAddLesson}
           data-add-lesson
         >
           <Plus className="h-3.5 w-3.5" />
@@ -344,18 +552,21 @@ function LessonRow(props: {
   canUp: boolean
   canDown: boolean
   onMove: (dir: -1 | 1) => void
-  busy: boolean
+  /** Just added: its title takes the caret. */
+  focus: boolean
+  onFocused: () => void
   uploads: Record<string, Uploading>
   act: (body: Record<string, unknown>) => Promise<EditorTree | null>
   upload: (lessonId: string, kind: LessonFileKind, file: File) => Promise<void>
   ask: ReturnType<typeof useConfirm>[0]
+  notify: (message: string) => void
 }) {
   const { lesson: l, act } = props
   const videoUp = props.uploads[`${l.id}:video:`]
   const external = externalVideo(l.externalUrl)
   const what = videoUp ? (videoUp.retrying ? tt("Reconnecting") : tt("Uploading {percent}%", { percent: videoUp.percent })) : l.video ? tt("Video") : external ? (external.provider === "youtube" ? "YouTube" : "Vimeo") : tt("Text")
   return (
-    <li data-lesson={l.id}>
+    <li data-lesson={l.id} data-glide={l.id} className="bg-white">
       <button type="button" onClick={props.onToggle} aria-expanded={props.open} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#fafafb] sm:px-4">
         <span className="w-5 shrink-0 text-right text-[12px] tabular-nums text-[#9ca3af]">{props.number}</span>
         <span className="min-w-0 flex-1">
@@ -380,6 +591,18 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
   const [notes, setNotes] = useState(l.notes)
   const [link, setLink] = useState(l.externalUrl)
   const editing = useRef<string | null>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
+  const { focus, onFocused } = props
+  useEffect(() => {
+    if (!focus) return
+    const el = titleRef.current
+    if (el) {
+      el.focus()
+      el.select()
+      el.scrollIntoView?.({ block: "nearest", behavior: "smooth" })
+    }
+    onFocused()
+  }, [focus, onFocused])
   const notesTimer = useRef<number | null>(null)
   useEffect(() => () => { if (notesTimer.current) window.clearTimeout(notesTimer.current) }, [])
   useEffect(() => {
@@ -413,7 +636,9 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
           {tt("Lesson title")}
         </label>
         <input
+          ref={titleRef}
           id={`t-${l.id}`}
+          data-lesson-title=""
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onFocus={() => (editing.current = "title")}
@@ -498,6 +723,12 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
             if (f) void upload(l.id, "video", f)
           }}
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-gray-700">{tt("Cover")}</p>
+        <CoverThumb url={l.coverUrl} label={l.title} size="field" notify={props.notify} onChange={(coverUrl) => void act({ action: "update-lesson", lessonId: l.id, coverUrl })} />
+        <p className="text-[12px] text-[#9ca3af]">{tt("Shown at the top of a lesson that has no video.")}</p>
       </div>
 
       <div className="space-y-1.5">
@@ -601,10 +832,10 @@ function LessonPanel(props: Parameters<typeof LessonRow>[0]) {
           }}
         />
         <div className="ml-auto flex items-center">
-          <button type="button" className={TOOL} disabled={!props.canUp || props.busy} onClick={() => props.onMove(-1)} aria-label={tt("Move lesson up")}>
+          <button type="button" className={TOOL} disabled={!props.canUp} onClick={() => props.onMove(-1)} aria-label={tt("Move lesson up")}>
             <ArrowUp className="h-4 w-4" />
           </button>
-          <button type="button" className={TOOL} disabled={!props.canDown || props.busy} onClick={() => props.onMove(1)} aria-label={tt("Move lesson down")}>
+          <button type="button" className={TOOL} disabled={!props.canDown} onClick={() => props.onMove(1)} aria-label={tt("Move lesson down")}>
             <ArrowDown className="h-4 w-4" />
           </button>
           <button

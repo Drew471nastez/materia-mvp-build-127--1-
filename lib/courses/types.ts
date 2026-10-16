@@ -18,11 +18,15 @@ export interface PlayerLesson extends OutlineLesson {
   hasCaptions: boolean
   /** A preview visitor sees the title of every lesson but can open only these. */
   locked: boolean
+  /** The lesson's cover (part 200), shown across the top of a lesson with no video. */
+  coverUrl?: string | null
 }
 
 export interface PlayerModule {
   id: string
   title: string
+  /** The module's cover (part 200). */
+  coverUrl?: string | null
   lessons: PlayerLesson[]
 }
 
@@ -72,6 +76,8 @@ export interface MyCourse {
 export interface EditorLesson {
   id: string
   title: string
+  /** A picture for the lesson (part 200), from Storelib's storage. */
+  coverUrl?: string | null
   notes: string
   isPreview: boolean
   durationSeconds: number | null
@@ -84,6 +90,8 @@ export interface EditorLesson {
 export interface EditorModule {
   id: string
   title: string
+  /** A picture for the module (part 200), from Storelib's storage. */
+  coverUrl?: string | null
   lessons: EditorLesson[]
 }
 

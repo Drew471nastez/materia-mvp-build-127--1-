@@ -154,4 +154,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "192", file: "192_community_join_questions.sql", sha256: "7090be8e994a23906b2beffd6652bcf66372812378d007614c9e0c2e16f0fab6" },
   { part: "193", file: "193_community_onboarding_checklist.sql", sha256: "19fe42e5fb23479e25f4d2b2a38c5eed4fc096f093f39612e4d6b4a39d83a7fa" },
   { part: "194", file: "194_community_scheduled_posts.sql", sha256: "2e9c7de668bfb4a99aa3afe878ee06710cc3a8f1d2694bd6fd3c31d58b642c12" },
+  { part: "200", file: "200_learn_access_types.sql", sha256: "9959b7a0fcad7ce8025c05e4d4f168319aeba2b57b48d8fcc5d1823b35e0a38b" },
 ]

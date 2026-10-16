@@ -7,7 +7,7 @@ import type { ProgramMode, ProgramStatus } from "@/lib/communities/learn"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
-export type ProgramLockReason = "level" | "paid" | "drip" | "tier" | "product" | "role" | "not_member"
+export type ProgramLockReason = "level" | "paid" | "drip" | "private" | "tier" | "product" | "role" | "not_member"
 
 export interface ProgramLock {
   reason: ProgramLockReason
@@ -18,6 +18,8 @@ export interface ProgramLock {
   /** For a paid program: the price in cents, and its currency. */
   priceCents: number | null
   currency: string | null
+  /** For a level lock: the level the viewer is at now, so the page can say how far it is. */
+  viewerLevel?: number | null
 }
 
 export interface ProgramCard {
@@ -26,7 +28,10 @@ export interface ProgramCard {
   /** A course product attached to the community, or a program made in it. */
   kind: "course" | "program"
   title: string
+  /** The description as plain text (cards, the checkout sheet). */
   summary: string | null
+  /** The description as written in the rich text field: cleaned HTML, drawn on the program's page. Null for a plain one. */
+  descriptionHtml?: string | null
   coverUrl: string | null
   lessons: number
   completedLessons: number
@@ -52,6 +57,7 @@ export interface BuilderProgram {
   /** For an attached course: the product, edited in the product editor. */
   productId: string | null
   title: string
+  /** The description as the rich text field edits it: HTML when it was written there, plain text from before. */
   summary: string
   coverUrl: string | null
   status: ProgramStatus
@@ -60,11 +66,19 @@ export interface BuilderProgram {
   priceCents: number | null
   currency: string
   dripDays: number | null
+  /** A private program's members, with the names the picker shows. */
+  members: BuilderMember[]
   lessons: number
   /** Members who bought it (a paid program). */
   buyers: number
   /** Where an attached course's lessons are edited: the product editor. */
   editHref: string | null
+}
+
+export interface BuilderMember {
+  userId: string
+  name: string
+  avatarUrl: string | null
 }
 
 export interface BuilderLevel {
@@ -84,6 +98,8 @@ export interface LearnBuilderData {
   slug: string
   /** Part 102 has run: programs can be made and sold. Before it, attached courses only. */
   ready: boolean
+  /** Part 200 has run: a program can be private, and keeps a rich description. */
+  accessReady?: boolean
   /** Learn is switched on for members. */
   enabled: boolean
   currency: string
@@ -126,6 +142,8 @@ export function lockHint(lock: ProgramLock, now: number = Date.now()): string {
       return tt("Opens at {value}", { value: lock.label.toLowerCase() })
     case "paid":
       return tt("Sold separately")
+    case "private":
+      return tt("For members the owner picked")
     default:
       return tt("Not part of your membership")
   }

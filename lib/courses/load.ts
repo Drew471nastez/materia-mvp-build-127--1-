@@ -102,15 +102,18 @@ export async function playerFromTree(
   ])
 
   const rowOf = new Map(tree.modules.flatMap((m) => m.lessons).map((l) => [l.id, l] as const))
+  const moduleRow = new Map(tree.modules.map((m) => [m.id, m] as const))
   const modules: PlayerModule[] = outline.map((m) => ({
     id: m.id,
     title: m.title,
+    coverUrl: httpsCover(moduleRow.get(m.id)),
     lessons: m.lessons.map((l) => {
       const row = rowOf.get(l.id) as LessonRow
       const locked = lessonAccess(level, l.isPreview) === "none"
       return {
         ...l,
         locked,
+        coverUrl: httpsCover(row),
         notes: locked ? null : (row.content_text ?? null),
         hasCaptions: !locked && !!row.captions_path,
         attachments: locked
@@ -143,6 +146,12 @@ export async function playerFromTree(
     emailsOff: !!enrollment?.emails_off,
     ...(meta.contact === false ? { contact: false } : {}),
   }
+}
+
+/* A module's or a lesson's cover (part 200, a public picture): only an https address goes to the page. */
+function httpsCover(row: unknown): string | null {
+  const url = (row as { cover_url?: unknown } | null | undefined)?.cover_url
+  return typeof url === "string" && /^https:\/\//.test(url) ? url : null
 }
 
 async function readAttachments(db: Db, lessonIds: string[]): Promise<AttachmentRow[]> {

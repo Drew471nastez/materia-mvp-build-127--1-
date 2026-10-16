@@ -53,9 +53,11 @@ const FIELD =
   "h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-[16px] text-[#1a1a2e] outline-none transition-shadow placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 sm:h-10 sm:text-sm"
 
 /** What a member needs to know about a program, in one line. */
-export function accessLine(p: Pick<BuilderProgram, "mode" | "level" | "priceCents" | "currency" | "buyers">, levelName?: string): string {
+export function accessLine(p: Pick<BuilderProgram, "mode" | "level" | "priceCents" | "currency" | "buyers"> & Partial<Pick<BuilderProgram, "dripDays" | "members">>, levelName?: string): string {
   if (p.mode === "paid" && p.priceCents) return `${programPrice(p.priceCents, p.currency)}${p.buyers ? tt(" · {buyers} bought", { buyers: p.buyers }) : ""}`
   if (p.mode === "level") return tt("From level {level}{value}", { level: p.level, value: levelName ? ` (${levelName})` : "" })
+  if (p.mode === "time") return tt("{days, plural, one {# day} other {# days}} after joining", { days: p.dripDays ?? 0 })
+  if (p.mode === "private") return tt("Private, {n, plural, one {# member} other {# members}}", { n: p.members?.length ?? 0 })
   return tt("Free for members")
 }
 

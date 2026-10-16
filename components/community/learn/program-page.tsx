@@ -10,6 +10,12 @@
  * to Learn. A program the member cannot open yet says why in a sentence and
  * shows what is inside it; one sold on its own has the price on its button,
  * and paying happens right here, in a sheet (./program-checkout.tsx).
+ *
+ * Round 33: every lock says what opens it and offers the one step there is:
+ * Buy for a price, the leaderboard for a level (with the level the member
+ * is at), the date for one that opens after joining. A private program never gets here for
+ * somebody not on its list: the server does not list it or open its page.
+ * The description is drawn as it was written in the rich text field.
  */
 import { useCallback } from "react"
 import Image from "next/image"
@@ -24,6 +30,7 @@ import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
 import { BuyProgram } from "./program-checkout"
 import { cameFromLearn } from "./learn-history"
 import { tt } from "@/lib/i18n/text"
+import { cleanStoredHtml } from "@/lib/rich-text/html"
 
 export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref: string }) {
   const nav = useCommunityNavigator()
@@ -46,7 +53,15 @@ export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref
 
 /** What is inside, for a program the member cannot open yet: each module with its lesson titles. */
 export interface ProgramOutline {
-  modules: { id: string; title: string; lessons: string[] }[]
+  modules: { id: string; title: string; coverUrl?: string | null; lessons: string[] }[]
+}
+
+/** The description: as written in the rich text field (cleaned on the server and again here), or the plain text from before. */
+export function ProgramDescription({ program }: { program: Pick<ProgramCard, "summary" | "descriptionHtml"> }) {
+  if (program.descriptionHtml)
+    return <div data-program-description="" className="storelib-prose mt-2 break-words text-[15px] leading-6 text-[#374151] [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg" dangerouslySetInnerHTML={{ __html: cleanStoredHtml(program.descriptionHtml) }} />
+  if (program.summary) return <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p>
+  return null
 }
 
 function sentence(p: ProgramCard, timeZone?: string): string {
@@ -58,7 +73,11 @@ function sentence(p: ProgramCard, timeZone?: string): string {
     case "drip":
       return tt("{value}. Programs like this open a set number of days after you join.", { value: l.opensAt ? opensOnLabel(l.opensAt, timeZone) : tt("It opens soon") })
     case "level":
-      return tt("This program opens at {value}. Levels come from taking part in the community.", { value: l.label.toLowerCase() })
+      return typeof l.viewerLevel === "number"
+        ? tt("This program opens at {value}. You are at level {current}. Levels come from points for taking part in the community.", { value: l.label.toLowerCase(), current: l.viewerLevel })
+        : tt("This program opens at {value}. Levels come from taking part in the community.", { value: l.label.toLowerCase() })
+    case "private":
+      return tt("This program is for members the owner picked.")
     case "tier":
       return tt("This program is for {label}.", { label: l.label })
     case "product":
@@ -104,6 +123,7 @@ export function LockedProgram({
   communityId,
   communityName,
   timeZone,
+  levelsHref = null,
 }: {
   program: ProgramCard
   outline: ProgramOutline | null
@@ -112,10 +132,13 @@ export function LockedProgram({
   communityId: string
   communityName: string
   timeZone?: string
+  /** The leaderboard, where a member sees their points and level; null when the community has no points. */
+  levelsHref?: string | null
 }) {
   const reason = program.locked?.reason
   const paid = reason === "paid"
   const upgrade = reason === "tier" || reason === "product"
+  const level = reason === "level" && !!levelsHref
   return (
     <div data-locked-program={reason ?? ""} className="mx-auto w-full max-w-[600px]">
       <Back href={learnHref} />
@@ -129,7 +152,7 @@ export function LockedProgram({
             {paid && program.priceLabel ? <span className="font-semibold text-[#1a1a2e]">{program.priceLabel}</span> : null}
           </p>
           <h1 className="mt-1 text-[21px] font-bold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">{program.title}</h1>
-          {program.summary ? <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p> : null}
+          <ProgramDescription program={program} />
           <p className="mt-3 text-[14px] leading-6 text-[#6b7280]" data-lock-sentence>
             {sentence(program, timeZone)}
           </p>
@@ -148,6 +171,11 @@ export function LockedProgram({
             {upgrade ? (
               <Link href={aboutHref} className={`${BTN_PRIMARY} h-11 min-[420px]:flex-1 sm:h-10`}>
                 {tt("See membership options")}
+              </Link>
+            ) : null}
+            {level ? (
+              <Link href={levelsHref as string} className={`${BTN_PRIMARY} h-11 min-[420px]:flex-1 sm:h-10`} data-open-action="level">
+                {tt("See your points")}
               </Link>
             ) : null}
             <Link href={learnHref} className={`${BTN_SECONDARY} h-11 min-[420px]:flex-1 sm:h-10`}>
@@ -169,15 +197,22 @@ function Outline({ outline }: { outline: ProgramOutline }) {
       <ol className="mt-2 divide-y divide-[#f0f1f3]">
         {outline.modules.map((m, i) => (
           <li key={m.id} className="py-2.5">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-[14.5px] font-semibold text-[#1a1a2e]">
-                <span className="mr-2 tabular-nums text-[#9ca3af]">{i + 1}</span>
-                {m.title}
+            <p className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2.5 text-[14.5px] font-semibold text-[#1a1a2e]">
+                {m.coverUrl ? (
+                  <span className="relative aspect-[16/9] w-12 shrink-0 overflow-hidden rounded-md bg-[#f1f2f4]" data-module-cover="">
+                    <Image src={m.coverUrl} alt="" fill sizes="48px" className="object-cover" />
+                  </span>
+                ) : null}
+                <span className="min-w-0 truncate">
+                  <span className="mr-2 tabular-nums text-[#9ca3af]">{i + 1}</span>
+                  {m.title}
+                </span>
               </span>
               <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{lessonsLabel(m.lessons.length)}</span>
             </p>
             {m.lessons.length ? (
-              <ul className="mt-1 space-y-0.5 pl-[22px]">
+              <ul className={`mt-1 space-y-0.5 ${m.coverUrl ? "pl-[80px]" : "pl-[22px]"}`}>
                 {m.lessons.slice(0, 4).map((t, j) => (
                   <li key={j} className="truncate text-[13.5px] leading-6 text-[#4b5563]">
                     {t}
@@ -202,7 +237,7 @@ export function EmptyProgram({ program, learnHref, manageHref }: { program: Prog
         <Cover url={program.coverUrl} dim={false} />
         <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
           <h1 className="text-[21px] font-bold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">{program.title}</h1>
-          {program.summary ? <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p> : null}
+          <ProgramDescription program={program} />
           <p className="mt-3 text-[14px] leading-6 text-[#6b7280]">{manageHref ? tt("Add the first module and its lessons, and they show up here.") : tt("The lessons show up here as soon as they are added.")}</p>
           {manageHref ? (
             <Link href={manageHref} className={`${BTN_PRIMARY} mt-5 h-11 sm:h-10`}>
