@@ -113,7 +113,7 @@ export function RequestsPanel({ initial, products, settings: initialSettings, re
     const data = res?.ok ? ((await res.json().catch(() => null)) as RequestList | null) : null
     if (n !== ask.current) return
     setLoading(false)
-    if (data) setList(data)
+    if (data && Array.isArray(data.rows) && data.counts) setList(data)
     else say(tt("The list did not load. Check your connection and try again."), "error")
   }, [say])
 

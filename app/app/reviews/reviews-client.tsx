@@ -143,7 +143,7 @@ export function ReviewsClient({
     const data = (res?.ok ? await res.json().catch(() => null) : null) as ReviewList | null
     if (n !== ask.current) return
     setLoading(false)
-    if (!data) return say(tt("The list did not load. Check your connection and try again."), "error")
+    if (!data || !Array.isArray(data.rows) || !data.counts) return say(tt("The list did not load. Check your connection and try again."), "error")
     setList(data)
     setRows(data.rows)
     setSelected((s) => new Set([...s].filter((id) => data.rows.some((r) => r.id === id))))

@@ -296,20 +296,14 @@ try {
         tabs: [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent),
         rows: document.querySelectorAll("[data-review-row]").length,
         hidden: /Hidden, reported/.test(document.getElementById("app")?.textContent || ""),
-        summary: document.querySelector("[data-reviews-summary]")?.textContent,
-        product: !!document.querySelector("select"),
+        product: !!document.querySelector("select[data-reviews-filter=product]"),
+        rating: !!document.querySelector("select[data-reviews-filter=rating]"),
       }))
-      expect(s.tabs.join("|") === "All5|No reply3|5 star2|4 star1|3 star0|2 star1|1 star0|Hidden1", "filters by stars, with counts, and No reply and Hidden", s.tabs.join("|"))
+      /* Changed on purpose: Reviews › Reviews has a tab for each place a review can be, and the rating as a filter beside the product (scripts/check-reviews-dashboard.mjs measures the rest of the area). */
+      expect(s.tabs.join("|") === "All5|Pending0|Published4|Rejected0|Reported1|No reply3", "a tab for each place a review can be, with counts", s.tabs.join("|"))
       expect(s.rows === 5 && s.hidden, "every review, the reported one marked hidden", JSON.stringify(s))
-      expect(/4\.0/.test(s.summary || "") && /4 reviews/.test(s.summary || ""), "the average of the published ones", s.summary)
-      expect(s.product, "a product filter when there is more than one product")
+      expect(s.product && s.rating, "a product filter when there is more than one product, and a rating filter")
       await shot(page, `seller-reviews-${size}`)
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^1 star/.test(t.textContent || ""))?.click())
-      await wait(150)
-      const oneStar = await page.evaluate(() => document.querySelectorAll("[data-review-row]").length)
-      expect(oneStar === 0, "the 1 star filter shows none (the hidden one is not counted)", String(oneStar))
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^No reply/.test(t.textContent || ""))?.click())
-      await wait(150)
       await page.evaluate(() => [...document.querySelectorAll("[data-review-row] button")].find((b) => b.textContent?.trim() === "Reply")?.click())
       await wait(200)
       await page.type("#review-reply", "Thank you, a dark version is coming.")
@@ -319,8 +313,6 @@ try {
       const put = asked.find((a) => a.method === "PUT" && /\/reply$/.test(a.path))
       expect(!!put && /dark version/.test(put.body.text), "Reply posts the words to the reply route", JSON.stringify(asked))
       await shot(page, `seller-reviews-replied-${size}`)
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^All/.test(t.textContent || ""))?.click())
-      await wait(150)
       await page.click("[data-review-row] button[aria-label^='Actions']")
       await wait(400)
       await page.evaluate(() => [...document.querySelectorAll("[role=menuitem], button, a")].find((b) => /Report review/.test(b.textContent || ""))?.click())
