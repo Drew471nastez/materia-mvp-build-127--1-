@@ -64,6 +64,8 @@ async function handlePOST(request: Request) {
   /* Part 76 not run: nothing can be recorded, and nothing is Airwallex's yet. */
   if (claim === "missing") return NextResponse.json({ received: true, recorded: false })
   if (claim === "done") return NextResponse.json({ received: true, duplicate: true })
+  /* Another delivery of this event is being handled now: Airwallex sends it again later (lib/payments/store claimEvent). */
+  if (claim === "busy") return NextResponse.json({ error: "retry" }, { status: 409 })
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
   try {

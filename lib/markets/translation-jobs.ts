@@ -39,6 +39,20 @@ const WAIT_MS = 4 * 60_000
 const WAIT_LIMIT_MS = 12 * 3_600_000
 /** One round's own window, as the press route's. */
 const ROUND_MS = 85_000
+/**
+ * And a job is never carried on past this from its start. Every other limit
+ * counts something a run finishes (a round, a wait); a run cut off before it
+ * writes anything counted nothing, so a job that is cut off every time was
+ * picked up every five minutes for ever. A job that works ends well inside
+ * this: MAX_ROUNDS rounds, or WAIT_LIMIT_MS of waiting and then its rounds.
+ */
+export const JOB_LIMIT_MS = 24 * 3_600_000
+
+/** Whether a running job started so long ago that it is stopped rather than carried on. */
+export function jobOutlived(startedAt: string, now = Date.now()): boolean {
+  const t = Date.parse(startedAt)
+  return Number.isFinite(t) && now - t > JOB_LIMIT_MS
+}
 
 export type JobStatus = "running" | "done" | "failed"
 
@@ -168,6 +182,10 @@ export async function runJob(db: Db, creatorId: string, locale: string, deadline
   const { data } = await db.from("store_translation_jobs").select("*").eq("creator_id", creatorId).eq("locale", locale).maybeSingle()
   const row = data as Row | null
   if (!row || row.status !== "running") return { more: false }
+  if (jobOutlived(row.started_at)) {
+    await write(db, creatorId, locale, { status: "failed", error: "Stopped after a day without finishing. Press Translate again to carry on.", lease_until: null })
+    return { more: false }
+  }
   let drafted = row.drafted
   let rounds = row.rounds
   while (Date.now() + 15_000 < deadlineAt) {
