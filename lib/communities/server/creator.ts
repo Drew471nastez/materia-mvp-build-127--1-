@@ -53,7 +53,6 @@ import {
   htmlToText,
   isUuid,
   keysetOr,
-  nextSteps,
   replayVideoId,
   taglineFrom,
   textToHtml,
@@ -109,6 +108,10 @@ import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
 import { communityRoom, loadPolicies } from "./creator-policies"
+import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
+import { factsFrom, setupExtras } from "./setup-checklist"
+import { setupChecklist, stepsLeft } from "../setup-checklist"
+import type { ScheduledDeletionView } from "../community-deletion"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { communityLimitFor, PLAN_LIMIT_ERROR } from "../plan-limit"
 
@@ -472,6 +475,9 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     round of its own before or after the figures. Now only the money waits on the products; everything else goes at once.
   */
   const recurringRead = recurringProductIds(db, c.id)
+  /* Round 33: the setup list's own facts (members who came without an invite, staff posts, the app, this person's skips), read beside the figures. */
+  const staffSees = ctx.role === "owner" || ctx.role === "admin"
+  const extrasRead = staffSees ? setupExtras(db, c, ctx.userId) : null
   const [active30d, new30d, paidMembers, pending, posts7d, comments7d, openReports, revenue, cancellations, invites, courses, events, anyPost, upcomingRows, sells, pricedEvents] = await Promise.all([
     count(members().eq("status", "active").gte("last_active_at", d30)),
     count(members().eq("status", "active").gte("joined_at", d30)),
@@ -521,26 +527,38 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     sells: sells > 0,
     pricedEventsUnsellable: pricedEvents,
     publicUrl: `/community/${c.slug}`,
+    /*
+      ROUND 33: the setup list (lib/communities/setup-checklist.ts): set up the group, the rules, three people, the first
+      post, the app, the intro, and the steps the Overview always had, each ticked from rows; what is left or not skipped
+      is what this card shows.
+    */
     steps:
-      ctx.role === "owner" || ctx.role === "admin"
-        ? nextSteps(
-            {
-              published: c.status === "published",
-              paid: c.access === "paid",
-              paymentsReady: ctx.paymentsReady,
-              members: c.member_count,
-              invites,
-              posts: anyPost,
-              courses,
-              events,
-              customized: Array.isArray(c.benefits) && c.benefits.length > 0,
-              rules: Array.isArray(c.rules) ? c.rules.length : 0,
-              classroomEnabled: c.classroom_enabled,
-              eventsEnabled: c.events_enabled,
-              pricedEventsUnsellable: pricedEvents,
-            },
-            base,
-          ).filter((s) => s.id !== "payouts" || ctx.role === "owner")
+      staffSees && extrasRead
+        ? stepsLeft(
+            setupChecklist(
+              factsFrom(
+                c,
+                {
+                  published: c.status === "published",
+                  paid: c.access === "paid",
+                  paymentsReady: ctx.paymentsReady,
+                  members: c.member_count,
+                  invites,
+                  posts: anyPost,
+                  courses,
+                  events,
+                  customized: Array.isArray(c.benefits) && c.benefits.length > 0,
+                  rules: Array.isArray(c.rules) ? c.rules.length : 0,
+                  classroomEnabled: c.classroom_enabled,
+                  eventsEnabled: c.events_enabled,
+                  pricedEventsUnsellable: pricedEvents,
+                },
+                await extrasRead,
+                { invitesSent: invites, isOwner: ctx.role === "owner" },
+              ),
+              base,
+            ),
+          )
         : [],
   }
 }
@@ -840,6 +858,8 @@ export async function setPublished(db: Db, a: { community: CommunityRow; actorId
 /** Archived: kept to read, nothing new; off sale. Brought back as a draft. */
 export async function setArchived(db: Db, a: { community: CommunityRow; actorId: string; archived: boolean }): Promise<Result<{ community: CommunityRow }>> {
   const c = a.community
+  /* Round 33: a community on its way to being deleted comes back through Keep (./community-deletion.ts undoDeletion), which renews its memberships too. */
+  if (!a.archived && (await deletionScheduled(db, c.id))) return no(409, "It is being deleted. Press Keep the community first.")
   const patch = a.archived ? { status: "archived", archived_at: nowIso() } : { status: "draft", archived_at: null }
   const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
   if (error) return no(500, "That did not save. Try again.")
@@ -849,22 +869,29 @@ export async function setArchived(db: Db, a: { community: CommunityRow; actorId:
 }
 
 /**
- * Deleted, after the name is typed back: hidden everywhere (deleted_at),
- * archived, off sale. Rows, posts and orders are kept. Refused while
- * members are still paying, because their billing would carry on for a
- * community they can no longer open.
+ * Deleted, after the name is typed back.
+ *
+ * NOBODY PAYS: at once, as it always was: hidden everywhere (deleted_at),
+ * archived, off sale. Rows, posts and orders are kept.
+ *
+ * SOMEBODY PAYS (round 33, the owner: "do it the way big platforms do"):
+ * it was refused here with "Archive it instead". Now every membership is
+ * stopped through Stripe and the community is deleted when the last paid
+ * period ends, or now with prorated refunds when the owner chose that
+ * (./community-deletion.ts scheduleDeletion, `mode`).
  */
-export async function deleteCommunity(db: Db, a: { community: CommunityRow; actorId: string; confirm: unknown }): Promise<Result> {
+export async function deleteCommunity(db: Db, a: { community: CommunityRow; actorId: string; confirm: unknown; mode?: unknown }, deps?: DeletionDeps): Promise<Result<{ deleted: boolean; scheduled: ScheduledDeletionView | null }>> {
   const c = a.community
   const typed = typeof a.confirm === "string" ? a.confirm.trim() : ""
   if (typed !== c.name.trim() && typed !== c.slug) return no(400, "Type the community's name exactly to delete it.", "confirm")
-  const paying = await count(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("status", "active").eq("source", "subscription"))
-  if (paying > 0) return no(409, `${paying} ${paying === 1 ? "member still pays" : "members still pay"} for this community. Archive it instead, so their access matches what they pay for.`)
+  const paid = await paidMemberships(db, c.id)
+  if (paid.length > 0) return scheduleDeletion(db, { community: c, actorId: a.actorId, mode: a.mode, paid }, deps)
+  if (await deletionScheduled(db, c.id)) return no(409, "It is already being deleted. Keep it first to delete it another way.")
   const { error } = await db.from("communities").update({ status: "archived", archived_at: c.archived_at ?? nowIso(), deleted_at: nowIso() }).eq("id", c.id)
   if (error) return no(500, "That did not save. Try again.")
   await syncTierProducts(db, { ...c, status: "archived" }, false)
   await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: "community.deleted", targetType: "community", targetId: c.id, targetLabel: c.name })
-  return { ok: true }
+  return { ok: true, deleted: true, scheduled: null }
 }
 
 /** The owner's own notification choices in this community (their member row). */

@@ -289,6 +289,9 @@ export async function changeCommunityMembership(
   if (input.action === "cancel" && !RUNNING.includes(row.status)) return { ok: false, status: 409, error: "not_renewing", message: "This membership is not renewing." }
   if (input.action === "resume" && !(row.status === "canceled" && grantsAccess(row)))
     return { ok: false, status: 409, error: "ended", message: "This membership has ended. Join again from the community's page." }
+  /* Round 33: a community on its way to being deleted renews nobody (./community-deletion.ts). */
+  if (input.action === "resume" && (await import("./community-deletion").then((m) => m.deletionScheduled(db, input.communityId)).catch(() => false)))
+    return { ok: false, status: 409, error: "closing", message: "This community is closing, so the membership cannot renew." }
   let next: MembershipLite | null
   try {
     await deps.update(row.stripe_subscription_id, { cancel_at_period_end: input.action === "cancel" })
