@@ -122,48 +122,153 @@ export async function uploadPicture(file: File, userId: string, communityId: str
 }
 
 /**
- * A still from a video file, for the card: a frame a second in (or the
- * first, for a short clip), as a JPEG. Null when the browser cannot decode
- * it; the video is still posted, its card simply has no picture.
+ * ===========================================================================
+ *  A STILL FROM A VIDEO FILE, FOR THE CARD (round 33: every time it can be)
+ * ===========================================================================
+ * A frame a little way in (a quarter of the way, a second at most, so a fade
+ * from black is past), as a JPEG at 1280px at most. Null only when the
+ * browser cannot decode the file at all (an iPhone's HEVC .mov on Chrome);
+ * the video is still posted, and its still is filled in later from the
+ * first frame its author's browser draws (media.tsx VideoFrame, ./video-posters).
+ *
+ * What made it fail before, and what it does now:
+ *   SEEKING TO WHERE IT WAS   a clip with no length yet (NaN, Infinity on a
+ *                             recorded WebM) was sent to 0, where it already
+ *                             was: no `seeked` ever came, and after 8s, no still.
+ *                             The frame is taken from `loadeddata` when there
+ *                             is nowhere to seek to, and from whichever of
+ *                             seeked or a played frame comes first.
+ *   A VIDEO ON NO PAGE        iOS Safari decodes nothing for a <video> that is
+ *                             not in the document. It is put in the page now,
+ *                             1px, invisible, and taken out after.
+ *   NO FRAME AFTER A SEEK     Safari can answer `seeked` before it has a frame
+ *                             to draw. The draw waits for the frame
+ *                             (requestVideoFrameCallback where there is one), and
+ *                             a muted inline play is tried when nothing has
+ *                             come in a while.
+ *   A BLACK FRAME             a frame that is all but black is tried once more,
+ *                             further in.
  */
-export function videoStill(file: Blob): Promise<{ blob: Blob; w: number; h: number } | null> {
+export const STILL_WAIT_MS = 15_000
+const STILL_EDGE = 1280
+
+type StillOut = { blob: Blob; w: number; h: number }
+
+/** How dark a frame is, 0 to 255, read from a few pixels; NaN when it cannot be read. */
+function frameLight(canvas: HTMLCanvasElement): number {
+  try {
+    const probe = document.createElement("canvas")
+    probe.width = 8
+    probe.height = 8
+    const ctx = probe.getContext("2d", { willReadFrequently: true })
+    if (!ctx) return NaN
+    ctx.drawImage(canvas, 0, 0, 8, 8)
+    const px = ctx.getImageData(0, 0, 8, 8).data
+    let sum = 0
+    for (let i = 0; i < px.length; i += 4) sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]
+    return sum / (px.length / 4)
+  } catch {
+    return NaN
+  }
+}
+
+/** The frame a <video> shows now, drawn at 1280px at most. Null when it has no frame or may not be read. */
+export function drawFrame(v: HTMLVideoElement): HTMLCanvasElement | null {
+  if (!v.videoWidth || !v.videoHeight || v.readyState < 2) return null
+  try {
+    const scale = Math.min(1, STILL_EDGE / Math.max(v.videoWidth, v.videoHeight))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.max(1, Math.round(v.videoWidth * scale))
+    canvas.height = Math.max(1, Math.round(v.videoHeight * scale))
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return null
+    ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
+    return canvas
+  } catch {
+    return null
+  }
+}
+
+export function videoStill(file: Blob, opts: { waitMs?: number } = {}): Promise<StillOut | null> {
+  if (typeof document === "undefined") return Promise.resolve(null)
   return new Promise((resolve) => {
     let done = false
-    const finish = (v: { blob: Blob; w: number; h: number } | null) => {
-      if (done) return
-      done = true
-      URL.revokeObjectURL(url)
-      resolve(v)
-    }
+    let retried = false
+    let nudged = 0
     const url = URL.createObjectURL(file)
     const v = document.createElement("video")
-    v.muted = true
-    v.playsInline = true
-    v.preload = "auto"
-    v.onloadedmetadata = () => {
-      v.currentTime = Math.min(1, (v.duration || 0) / 3)
-    }
-    v.onseeked = () => {
+    const finish = (out: StillOut | null) => {
+      if (done) return
+      done = true
+      window.clearTimeout(giveUp)
+      window.clearTimeout(nudged)
       try {
-        const scale = Math.min(1, 1280 / Math.max(v.videoWidth, 1))
-        const w = Math.max(1, Math.round(v.videoWidth * scale))
-        const h = Math.max(1, Math.round(v.videoHeight * scale))
-        const canvas = document.createElement("canvas")
-        canvas.width = w
-        canvas.height = h
-        canvas.getContext("2d")?.drawImage(v, 0, 0, w, h)
-        canvas.toBlob((blob) => finish(blob ? { blob, w: v.videoWidth, h: v.videoHeight } : null), "image/jpeg", 0.82)
+        v.pause()
+        v.removeAttribute("src")
+        v.load()
       } catch {
-        finish(null)
+        /* Gone already. */
       }
+      v.remove()
+      URL.revokeObjectURL(url)
+      resolve(out)
     }
-    v.onerror = () => finish(null)
-    window.setTimeout(() => finish(null), 8000)
+    const giveUp = window.setTimeout(() => finish(null), opts.waitMs ?? STILL_WAIT_MS)
+    const target = () => {
+      const d = v.duration
+      return Number.isFinite(d) && d > 0 ? Math.min(1, d / 4) : 0
+    }
+    const take = () => {
+      if (done) return
+      const canvas = drawFrame(v)
+      if (!canvas) return
+      /* All but black (a fade in): once more, further in, when there is further. */
+      const light = frameLight(canvas)
+      const d = v.duration
+      if (!retried && light < 6 && Number.isFinite(d) && d > 1.5) {
+        retried = true
+        v.currentTime = Math.min(d / 2, 3)
+        return
+      }
+      canvas.toBlob((blob) => finish(blob ? { blob, w: v.videoWidth, h: v.videoHeight } : null), "image/jpeg", 0.82)
+    }
+    /* After a seek or a played frame: on the frame itself where the browser can say when it is there. */
+    const takeWhenPainted = () => {
+      const rvfc = (v as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback
+      if (typeof rvfc === "function" && !v.paused) rvfc.call(v, () => take())
+      else window.requestAnimationFrame(() => take())
+    }
+    v.muted = true
+    v.defaultMuted = true
+    v.playsInline = true
+    v.setAttribute("muted", "")
+    v.setAttribute("playsinline", "")
+    v.preload = "auto"
+    v.disablePictureInPicture = true
+    v.setAttribute("aria-hidden", "true")
+    v.style.cssText = "position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1"
+    v.addEventListener("loadeddata", () => {
+      const t = target()
+      if (t > 0.05 && Math.abs(v.currentTime - t) > 0.05) v.currentTime = t
+      else takeWhenPainted()
+    })
+    v.addEventListener("seeked", () => takeWhenPainted())
+    v.addEventListener("playing", () => {
+      v.pause()
+      takeWhenPainted()
+    })
+    v.addEventListener("error", () => finish(null))
+    /* Nothing to draw after a while (Safari holding back the data): a muted inline play, which it allows, brings a frame. */
+    nudged = window.setTimeout(() => {
+      if (!done && v.readyState < 2) void v.play().catch(() => undefined)
+    }, 2500)
+    document.body.appendChild(v)
     v.src = url
+    v.load()
   })
 }
 
-/** The still, kept as a picture next to the post's other pictures. Null on any failure. */
+/** The still, kept as a picture next to the post's other pictures. Null on any failure (its still is filled in later, see below). */
 export async function uploadVideoPoster(file: File, userId: string, communityId: string): Promise<{ poster: string; w: number; h: number } | null> {
   try {
     const still = await videoStill(file)
@@ -172,6 +277,61 @@ export async function uploadVideoPoster(file: File, userId: string, communityId:
     return { poster: pic.url, w: still.w, h: still.h }
   } catch {
     return null
+  }
+}
+
+/*
+  ROUND 33, A STILL FILLED IN LATER. A video posted without a still (the browser could not cut one) gets the first frame
+  its author's or a moderator's browser draws on the card (media.tsx VideoFrame): sent once, kept by the server for every
+  post of theirs carrying it (app/api/community/<id>/videos/<videoId>/poster, lib/communities/server/video-posters.ts).
+  Each video is sent once a page, and not again this session once the server has answered either way.
+*/
+const FILLED = new Set<string>()
+const FILL_KEY = "storelib.video-still."
+
+function onceThisSession(key: string): boolean {
+  if (FILLED.has(key)) return false
+  FILLED.add(key)
+  try {
+    if (sessionStorage.getItem(FILL_KEY + key)) return false
+  } catch {
+    /* No session storage: once a page is enough. */
+  }
+  return true
+}
+
+function answered(key: string) {
+  try {
+    sessionStorage.setItem(FILL_KEY + key, "1")
+  } catch {
+    /* Private mode: asked again on the next page, answered the same. */
+  }
+}
+
+/** Sends the frame drawn for this video as its still. Quietly nothing on any failure: the card shows the frame either way. */
+export async function sendVideoFrame(communityId: string, videoId: string, frame: Blob, size: { w?: number; h?: number } = {}): Promise<{ poster: string; w: number; h: number; blur: string | null } | null> {
+  const key = `${videoId}:frame`
+  if (!frame.size || !onceThisSession(key)) return null
+  const q = size.w && size.h ? `?w=${Math.round(size.w)}&h=${Math.round(size.h)}` : ""
+  try {
+    const res = await fetch(`${apiBase(communityId)}/videos/${videoId}/poster${q}`, { method: "POST", body: frame, headers: { "Content-Type": frame.type || "image/jpeg" }, credentials: "same-origin" })
+    if (res.status !== 429 && res.status < 500) answered(key)
+    if (!res.ok) return null
+    return (await res.json()) as { poster: string; w: number; h: number; blur: string | null }
+  } catch {
+    return null
+  }
+}
+
+/** Asks for the 16px copies of this video's stills (an older post, seen by its author or a moderator). */
+export async function askVideoBlurs(communityId: string, videoId: string): Promise<void> {
+  const key = `${videoId}:blur`
+  if (!onceThisSession(key)) return
+  try {
+    const res = await fetch(`${apiBase(communityId)}/videos/${videoId}/poster`, { method: "POST", body: "{}", headers: { "Content-Type": "application/json" }, credentials: "same-origin" })
+    if (res.status !== 429 && res.status < 500) answered(key)
+  } catch {
+    /* Asked again on another page. */
   }
 }
 

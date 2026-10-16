@@ -38,6 +38,7 @@ import Link from "next/link"
 import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, type Press } from "./chip-hit"
 import { placeHref } from "@/lib/communities/client/places"
 import { spaceGlyph } from "./space-glyph"
+import { EDIT_GROUP, EditHint } from "./edit-hint"
 import type { SpaceView } from "./view-types"
 
 /*
@@ -139,6 +140,8 @@ export interface SpaceChipsProps {
   onIntent?: (pick: ChipPick) => void
   /** The sort button, at the row's right end (the feed only). */
   sort?: React.ReactNode
+  /** Round 33: the admin's Spaces, for somebody who may change them (edit-hint.tsx adminHref); a small pencil at the row's end. */
+  editHref?: string | null
 }
 
 /*
@@ -204,7 +207,7 @@ let tookAt = 0
   address a tap puts up; this one is for a new tab, a reload or a page with no script.
 */
 
-export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort }: SpaceChipsProps) {
+export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort, editHref = null }: SpaceChipsProps) {
   if (typeof window !== "undefined") drawn.set(slug, spaces)
   const base = `/community/${slug}`
   const allOn = active === null && !savedOn
@@ -258,7 +261,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         }
       : {}
   return (
-    <nav aria-label="Spaces" data-space-chips="" className="-mx-4 mb-3 flex items-center gap-2 pr-4 sm:mx-0 sm:pr-0">
+    <nav aria-label="Spaces" data-space-chips="" className={`-mx-4 mb-3 flex items-center gap-2 pr-4 sm:mx-0 sm:pr-0 ${editHref ? EDIT_GROUP : ""}`}>
       <div
         className="-my-1 min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none scrollbar-hide touch-pan-x [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
         data-space-chips-track=""
@@ -299,6 +302,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
           })}
         </div>
       </div>
+      {editHref ? <EditHint href={editHref} label="Edit spaces" phone /> : null}
       {sort}
     </nav>
   )

@@ -7,6 +7,7 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, checkPostInput, createPost, feedSort, listFeed, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { announcePost } from "@/lib/communities/server/realtime"
 import { HELD_MESSAGE, isHeld } from "@/lib/communities/server/safety"
+import { blurPostVideos } from "@/lib/communities/server/video-posters"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -66,5 +67,7 @@ export async function POST(request: Request, { params }: Params) {
   const post = result.value
   if (isHeld(result)) return NextResponse.json({ post, held: true, message: HELD_MESSAGE }, { status: 202, headers: NO_STORE })
   after(() => announcePost(communityId, { id: post.id, spaceId: post.space?.id ?? null, authorId: post.author?.id ?? null }))
+  /* Round 33: each video still gets its 16px copy once the post is up, so nobody waits for it (video-posters.ts). */
+  if (post.media.some((m) => m.type === "video")) after(() => blurPostVideos(db, communityId, post.id))
   return NextResponse.json({ post }, { status: 201, headers: NO_STORE })
 }

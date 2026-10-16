@@ -2568,6 +2568,8 @@ const words: Record<string, string> = {
  "Per paid member": "Na płacącego członka",
  "Each month": "Co miesiąc",
  "Roles and permissions": "Role i uprawnienia",
+ "To move a space, press Enter on its handle, then the arrow keys. Press Enter again to drop it, or Escape to put it back.": "Aby przenieść przestrzeń, naciśnij Enter na jej uchwycie, potem strzałki. Naciśnij ponownie Enter, aby upuścić, albo Escape, aby odłożyć na miejsce.",
+ "Edit programs": "Edytuj programy",
  "Earlier visits": "Wcześniejsze wizyty",
  "Earnings summary (CSV)": "Podsumowanie zarobków (CSV)",
  "EasyPost": "EasyPost",
