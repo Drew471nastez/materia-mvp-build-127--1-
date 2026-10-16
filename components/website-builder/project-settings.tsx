@@ -20,6 +20,7 @@ import {
   SETTINGS_GROUP_LABELS,
   SETTINGS_SECTIONS,
   type ConnectVia,
+  type PreviewControls,
   type SettingsContext,
   type SettingsSection,
   type SitePage,
@@ -101,6 +102,7 @@ export function ProjectSettings({
   onNavigate = (href) => window.location.assign(href),
   onAddressChanged = () => {},
   navigation = {},
+  preview,
 }: {
   open: boolean
   onClose: () => void
@@ -138,6 +140,8 @@ export function ProjectSettings({
   onNavigate?: (href: string) => void
   /** The header, the footer and the editor's writers for them: Navigation. */
   navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved">
+  /** The canvas's language and currency, switched from General as from the theme's own selectors. */
+  preview?: PreviewControls
 }) {
   const [section, setSection] = useState<SettingsSection>("general")
   /** A phone shows the list until a subject is picked. */
@@ -285,6 +289,7 @@ export function ProjectSettings({
     onNavigate,
     ...navigation,
     onAddressChanged,
+    preview,
   }
 
   const current = SETTINGS_SECTIONS.find((s) => s.id === section)

@@ -230,6 +230,17 @@ export function MarketsPanel() {
     return () => window.removeEventListener(STORE_CURRENCY_EVENT, read)
   }, [])
 
+  /* Opened from the website builder's Edit translation (?translate=es, components/website-builder/editor/preview-language-note.tsx): that language's sheet, once its row is read. The address then forgets it, so a reload does not open it again. */
+  React.useEffect(() => {
+    if (!draft) return
+    const url = new URL(window.location.href)
+    const code = url.searchParams.get("translate")
+    if (!code || (code !== draft.defaultLanguage && !draft.languages.some((l) => l.code === code))) return
+    url.searchParams.delete("translate")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    setTranslating(code)
+  }, [draft])
+
   /* SAVED AS IT IS MADE: one at a time, in order; a refusal puts back what was saved last and says why. */
   const commit = (next: Localization): Promise<boolean> => {
     setDraft(next)

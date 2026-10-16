@@ -20,6 +20,8 @@ import { translationMap, valueFor, type TranslationMap } from "@/lib/markets/tra
 import { UI_WORDS, uiKey, type UiWord } from "@/lib/markets/ui-words"
 
 export interface PreviewLanguage {
+  /** The first answer is in (or failed): until then nothing is known, not "one language". */
+  ready: boolean
   /** Every language of the website, its own first; empty for a website in one language. */
   languages: string[]
   published: string[]
@@ -40,6 +42,7 @@ type Answer = { locale: string | null; defaultLanguage: string; languages: strin
 export function usePreviewLanguage(installId: string): PreviewLanguage {
   const [info, setInfo] = useState<{ languages: string[]; published: string[]; defaultLanguage: string }>({ languages: [], published: [], defaultLanguage: "en" })
   const [locale, setLocaleState] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
   const [values, setValues] = useState<{ locale: string; values: Values } | null>(null)
   const localeRef = useRef(locale)
   localeRef.current = locale
@@ -65,6 +68,8 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
       setValues((prev) => (prev && prev.locale === d.locale && JSON.stringify(prev.values) === JSON.stringify(d.values) ? prev : { locale: d.locale!, values: d.values ?? {} }))
     } catch {
       /* The canvas stays as it is drawn. */
+    } finally {
+      setReady(true)
     }
   }, [])
 
@@ -114,5 +119,5 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
     return out
   }, [map])
 
-  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words }
+  return { ...info, ready, locale: info.languages.length ? locale : null, setLocale, map, words }
 }

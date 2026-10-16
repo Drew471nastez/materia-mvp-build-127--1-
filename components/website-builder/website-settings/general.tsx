@@ -119,6 +119,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
         defaults, and the theme's own selectors switch it, as on the website.
       */}
       <LocalizationCard ctx={ctx} fallbackLanguage={language} />
+      <PreviewCard ctx={ctx} />
       {error && <ErrorNote>{error}</ErrorNote>}
     </>
   )
@@ -177,6 +178,62 @@ function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fal
         <Row label={tt("More currencies")} hint={manage("/app/settings?tab=markets")} inline>
           {value(data === null ? "" : markets.length ? markets.map((m) => `${m.currency}${m.countries?.length ? ` · ${m.countries.length <= 2 ? m.countries.map(countryName).join(", ") : tt("{length} countries", { length: m.countries.length })}` : ""}`).join("; ") : tt("None"))}
         </Row>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * THE CANVAS'S LANGUAGE AND CURRENCY, PICKED HERE. The same state the
+ * theme's own selectors on the page change (ctx.preview, the editor's
+ * usePreviewLanguage and usePreviewMarket), so a pick here is what the page
+ * shows on Back to editor, and a pick on the page is what is selected here.
+ * Only what the website has: a language not published yet is listed and
+ * says so, because the editor can show it before visitors can. A website in
+ * one language and one currency gets one line, to where more are added.
+ */
+function PreviewCard({ ctx }: { ctx: SettingsContext }) {
+  const p = ctx.preview
+  if (!p || !p.ready) return null
+  if (p.languages.length < 2 && p.currencies.length < 2) {
+    return (
+      <Card>
+        <div data-wb-preview="single">
+          <Row label={tt("Preview")} inline>
+            <button type="button" onClick={() => ctx.onNavigate("/app/settings?tab=markets")} className={cn(textLinkClass, "text-[13px]")}>
+              {tt("Add languages and currencies")}
+            </button>
+          </Row>
+        </div>
+      </Card>
+    )
+  }
+  const lang = activeLocale()
+  return (
+    <Card title={tt("Preview")} footer={tt("Changes what the editor shows. Your website stays as it is.")}>
+      <div data-wb-preview="">
+        {p.languages.length > 1 && (
+          <Row label={tt("Language")} htmlFor="wb-preview-language">
+            <select id="wb-preview-language" value={p.locale} onChange={(e) => p.setLocale(e.target.value)} className={inputClass}>
+              {p.languages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {languageName(l.code, lang) + (l.published || l.code === p.defaultLanguage ? "" : tt(" · Not published"))}
+                </option>
+              ))}
+            </select>
+          </Row>
+        )}
+        {p.currencies.length > 1 && (
+          <Row label={tt("Currency")} htmlFor="wb-preview-currency">
+            <select id="wb-preview-currency" value={p.market} onChange={(e) => p.setMarket(e.target.value)} className={inputClass}>
+              {p.currencies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {`${c.currency} · ${c.id === "home" ? tt("Store currency") : c.name}`}
+                </option>
+              ))}
+            </select>
+          </Row>
+        )}
       </div>
     </Card>
   )

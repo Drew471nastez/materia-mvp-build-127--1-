@@ -64,6 +64,28 @@ export interface SitePage {
   custom?: boolean
 }
 
+/**
+ * The language and currency the editor's canvas is drawn in: the same state
+ * the theme's own selectors on the page change (use-preview-language.ts,
+ * use-preview-market.ts), so General's Preview and the page agree both ways.
+ * Display only; nothing here is saved.
+ */
+export interface PreviewControls {
+  /** Both answers are in; until then General draws nothing here. */
+  ready: boolean
+  /** Every language of the website, its default first. */
+  languages: { code: string; published: boolean }[]
+  defaultLanguage: string
+  /** The language drawn: the one picked, else the default. */
+  locale: string
+  setLocale: (code: string) => void
+  /** "home" (the store currency) first, then each market a visitor can be shown prices in today. */
+  currencies: { id: string; currency: string; name: string }[]
+  /** The one drawn: a market's id, or "home". */
+  market: string
+  setMarket: (id: string) => void
+}
+
 /** Everything a page of Website Settings may read or ask the editor to do. */
 export interface SettingsContext {
   installId: string
@@ -122,4 +144,6 @@ export interface SettingsContext {
   currentSections?: SectionInstance[]
   /** A page's draft was saved from here: the builder says there is something to publish, and lists a page it did not have. */
   onPageDraftSaved?: (pageKey: string) => void
+  /** The canvas's language and currency, for General's Preview. */
+  preview?: PreviewControls
 }

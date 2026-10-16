@@ -173,6 +173,8 @@ import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/web
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
+import { PreviewLanguageNote } from "@/components/website-builder/editor/preview-language-note"
+import { previewControlsOf } from "@/components/website-builder/preview-controls"
 import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
 import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
@@ -7361,6 +7363,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </button>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+              <PreviewLanguageNote locale={previewLang.locale} onEdit={requestExit} />
               <div className="px-3.5 py-3.5 space-y-3.5" data-block-row={key}>
                 <BlockFields
                   section={section}
@@ -7449,6 +7452,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+            {/* The page in another language, the fields in the website's own: said once, with the way to the translation. */}
+            <PreviewLanguageNote locale={previewLang.locale} onEdit={requestExit} />
             {/* A built-in this site has its own copy of (edited in GitHub or the code editor): said, with the way back. */}
             {!compatInstall && isEditedBuiltIn(section.type, storelibSources, { defaults: DEFAULT_THEME_SOURCES as Record<string, string>, drawnByStorelib: (t) => !!SECTION_SCHEMAS[t] }) && (
               <EditedBuiltInNote installId={installId} type={section.type} onReset={() => void loadStorelibSources()} />
@@ -8094,6 +8099,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     },
     [setPreviewLocale, setPreviewMarket, allMarkets, marketOptions],
+  )
+  /* Website settings › General › Preview: the same state and the same setters as the theme's own selectors, so the two agree both ways. */
+  const previewControls = useMemo(
+    () => previewControlsOf({
+      ready: previewLang.ready && previewMarket.ready,
+      defaultLanguage: previewLang.defaultLanguage,
+      languages: previewLang.languages,
+      published: previewLang.published,
+      locale: previewLang.locale,
+      setLocale: setPreviewLocale,
+      base: previewMarket.base,
+      options: marketOptions,
+      marketId: previewMarket.marketId,
+      pickMarket: pickPreviewMarket,
+    }),
+    [previewLang.ready, previewMarket.ready, previewLang.defaultLanguage, previewLang.languages, previewLang.published, previewLang.locale, setPreviewLocale, previewMarket.base, marketOptions, previewMarket.marketId, pickPreviewMarket],
   )
   const compatMarkets = useMemo<CompatMarkets | null>(() => {
     const where = themeCountries({
@@ -9499,6 +9520,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onPublish={() => setPublishOpen(true)}
         onUnpublished={() => setInstall((cur) => (cur ? { ...cur, status: "unpublished" } : cur))}
         onNavigate={requestExit}
+        preview={previewControls}
         /* Website Settings › Navigation edits the header and footer through the same writers the sidebar uses. */
         navigation={{
           header: sections.find((sec) => sec.type === "header"),

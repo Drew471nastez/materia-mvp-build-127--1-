@@ -32,6 +32,8 @@ export interface PreviewMarketOption {
 }
 
 export interface PreviewMarket {
+  /** The first answer is in (or failed): until then nothing is known, not "one currency". */
+  ready: boolean
   /** The store saved Markets and languages (the theme's country list follows its markets; not saved, every country sees the store's prices). */
   saved: boolean
   /** The store's own currency: what every price is typed in. */
@@ -60,6 +62,7 @@ const NONE: Info = { saved: false, base: "", chargeCurrency: "", home: { name: n
 export function usePreviewMarket(installId: string): PreviewMarket {
   const [info, setInfo] = useState<Info>(NONE)
   const [marketId, setMarketState] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
 
   const read = useCallback(async () => {
     try {
@@ -77,6 +80,8 @@ export function usePreviewMarket(installId: string): PreviewMarket {
       setInfo((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
     } catch {
       /* The canvas keeps the prices it shows. */
+    } finally {
+      setReady(true)
     }
   }, [])
 
@@ -109,5 +114,5 @@ export function usePreviewMarket(installId: string): PreviewMarket {
     return market ? pricingFor(market, info.base, info.fx) : null
   }, [shown, options, info.base, info.fx])
 
-  return { ...info, options, marketId: shown, setMarket, pricing }
+  return { ...info, ready, options, marketId: shown, setMarket, pricing }
 }

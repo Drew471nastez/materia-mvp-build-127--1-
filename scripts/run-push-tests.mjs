@@ -41,6 +41,8 @@ const SUITES = [
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
+  /* The editor's preview language and currency from Website settings › General, and the inspector's line while another language is drawn. */
+  "tests/editor-preview-controls.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
   "tests/order-emails-language.test.ts",
