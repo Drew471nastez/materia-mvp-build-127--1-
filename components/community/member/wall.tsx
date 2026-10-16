@@ -126,7 +126,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
   return (
     <section className={`${CARD} relative overflow-hidden ${card.settingsHref ? EDIT_GROUP : ""}`} data-wall-card="">
       {/* Round 33: for whoever may change the page, the cover, name and tagline are a pencil away, under the pointer only. */}
-      {card.settingsHref ? <EditHint href={`${card.settingsHref}?tab=page`} label="Edit page" className="absolute right-2.5 top-2.5 z-[1]" /> : null}
+      {card.settingsHref ? <EditHint href={card.settingsHref.replace(/\/settings$/, "/page")} label="Edit page" className="absolute right-2.5 top-2.5 z-[1]" /> : null}
       {community.coverUrl ? (
         /*
           ROUND 27, THE COVER ARRIVES SOFTLY AND AT ITS SIZE. It sits at the top of the left column on every place, so it
