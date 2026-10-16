@@ -1,0 +1,513 @@
+{# ===========================================================================
+   Review grid (Storelib Reviews)
+
+   Reviews as cards in columns, in rows or stacked at their own heights
+   (CSS columns), or as a plain list. The rest behind a Show more that is a
+   <details>, so it works with no script. From `reviews` through the
+   review_scope and review_list filters (lib/reviews/widgets.ts): published
+   reviews only. With Storelib Reviews off, or no review to show, it draws
+   nothing on a live page.
+   =========================================================================== #}
+<template>
+{% if reviews.enabled %}
+{% for s in reviews | review_scope: settings.scope %}
+{% if s.items.size > 0 or page.in_editor %}
+<div class="rw rw--{{ settings.show_on }} rw--{{ settings.star_style }}">
+<section class="s rg" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ settings.background | default: scheme.bg }}; --s-text: {{ settings.text_color | default: scheme.text }}; --s-heading: {{ settings.text_color | default: scheme.heading }}; --s-para: {{ settings.text_color | default: scheme.paragraph }}; --s-border: {{ settings.border_color | default: scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --rv-star: {{ settings.star_color | default: reviews.star_color }}; --rv-size: {{ settings.star_size }}px; --rw-scale: {{ settings.text_scale }}; --rw-hscale: {{ settings.heading_scale }}; --rw-card: {{ settings.card_background | default: 'transparent' }}; --rw-bw: {{ settings.border_width }}px; --rw-radius: {{ settings.radius }}px; --rw-gap: {{ settings.gap }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }};">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    {% if settings.heading or settings.subheading %}<div class="rw__head rw__head--{{ settings.align }}">{% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}{% if settings.subheading %}<p class="rw__sub">{{ settings.subheading }}</p>{% endif %}</div>{% endif %}
+    {% if page.in_editor and reviews.sample %}<p class="rv__sample">Sample reviews. Your real reviews show here once you have some.</p>{% endif %}
+    <div class="rg__list rg__list--{{ settings.layout }}">
+      {% for r in s.items | review_list: settings.sort, settings.min_rating limit: settings.count %}<article class="rw-card" data-review-id="{{ r.id }}"><div class="rw-card__top"><span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>{% if settings.show_date and reviews.show_date %}<span class="rw-card__date">{{ r.date }}</span>{% endif %}</div>{% if settings.show_title and r.title %}<h3 class="rw-card__title">{{ r.title }}</h3>{% endif %}<p class="rw-card__body">{{ r.body }}</p>{% if settings.show_photos and r.has_photos %}<div class="rw-card__photos">{% for ph in r.photos limit: 4 %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}<p class="rw-card__by">{% if settings.show_avatar %}<span class="rw-card__av" aria-hidden="true">{{ r.initial }}</span>{% endif %}<span class="rw-card__name">{{ r.author }}</span>{% if settings.show_verified and reviews.show_verified and r.verified %}<span class="rw-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>{% if settings.show_product and r.product_title %}<p class="rw-card__prod">{% if r.product_image %}<img src="{{ r.product_image }}" alt="" loading="lazy" decoding="async">{% endif %}{% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span>{{ r.product_title }}</span>{% endif %}</p>{% endif %}</article>{% endfor %}
+    </div>
+    {% if settings.show_more %}{% for more in s.items | review_list: settings.sort, settings.min_rating offset: settings.count limit: 1 %}
+      <details class="rg__more">
+        <summary class="rg__btn">{{ words.show_more_reviews }}</summary>
+        <div class="rg__list rg__list--{{ settings.layout }}">{% for r in s.items | review_list: settings.sort, settings.min_rating offset: settings.count %}<article class="rw-card" data-review-id="{{ r.id }}"><div class="rw-card__top"><span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>{% if settings.show_date and reviews.show_date %}<span class="rw-card__date">{{ r.date }}</span>{% endif %}</div>{% if settings.show_title and r.title %}<h3 class="rw-card__title">{{ r.title }}</h3>{% endif %}<p class="rw-card__body">{{ r.body }}</p>{% if settings.show_photos and r.has_photos %}<div class="rw-card__photos">{% for ph in r.photos limit: 4 %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}<p class="rw-card__by">{% if settings.show_avatar %}<span class="rw-card__av" aria-hidden="true">{{ r.initial }}</span>{% endif %}<span class="rw-card__name">{{ r.author }}</span>{% if settings.show_verified and reviews.show_verified and r.verified %}<span class="rw-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>{% if settings.show_product and r.product_title %}<p class="rw-card__prod">{% if r.product_image %}<img src="{{ r.product_image }}" alt="" loading="lazy" decoding="async">{% endif %}{% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span>{{ r.product_title }}</span>{% endif %}</p>{% endif %}</article>{% endfor %}</div>
+      </details>
+    {% endfor %}{% endif %}
+  </div>
+</section>
+{% if page.in_editor %}<p class="rw__off rw__off--desktop">Shown on computers only. Switch the preview to a computer to see it.</p><p class="rw__off rw__off--mobile">Shown on phones only. Switch the preview to a phone to see it.</p>{% endif %}
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+</template>
+
+<style scoped>
+.rw { container-type: inline-size; }
+@container (max-width: 749px) { .rw--desktop > .s { display: none; } }
+@container (min-width: 750px) { .rw--mobile > .s { display: none; } }
+.rw__off { display: none; margin: 0; padding: 14px 16px; border: 1px dashed currentColor; opacity: 0.55; font: 13px/1.4 system-ui, sans-serif; text-align: center; }
+@container (max-width: 749px) { .rw--desktop > .rw__off--desktop { display: block; } }
+@container (min-width: 750px) { .rw--mobile > .rw__off--mobile { display: block; } }
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); font-size: calc(15px * var(--rw-scale, 100) / 100); }
+.s__in { margin: 0 auto; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); }
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__h {
+  margin: 0;
+  font-size: calc(var(--section-heading-size, 32px) * var(--rw-hscale, 100) / 100);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+}
+.rw__head { margin-bottom: 28px; }
+.rw__head--center { text-align: center; }
+.rw__sub { margin: 10px 0 0; font-size: calc(var(--section-text-size, 17px) * var(--rw-scale, 100) / 100); line-height: 1.6; color: var(--s-para); max-width: 44rem; }
+.rw__head--center .rw__sub { margin-left: auto; margin-right: auto; }
+.rv__sample { margin: -12px 0 20px; font-size: 13px; color: var(--s-para); opacity: 0.7; }
+.rv-stars { --rv-g: "\2605\2605\2605\2605\2605"; position: relative; display: inline-block; flex: none; font-size: var(--rv-size, 16px); line-height: 1; letter-spacing: 0.12em; white-space: nowrap; color: color-mix(in srgb, var(--s-para) 22%, transparent); }
+.rv-stars::before { content: var(--rv-g); }
+.rv-stars::after { content: var(--rv-g); position: absolute; inset: 0 auto 0 0; width: var(--rv, 0%); overflow: hidden; white-space: nowrap; color: var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars { color: transparent; -webkit-text-stroke: 1px var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars::after { -webkit-text-stroke: 0; }
+.rw--heart .rv-stars { --rv-g: "\2665\2665\2665\2665\2665"; }
+.rw-card { display: flex; flex-direction: column; min-width: 0; box-sizing: border-box; padding: 20px; background: var(--rw-card); border: var(--rw-bw) solid var(--s-border); border-radius: var(--rw-radius); }
+.rw-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rw-card__date { font-size: 0.85em; color: var(--s-para); }
+.rw-card__title { margin: 12px 0 0; font-size: 1.05em; font-weight: 600; line-height: 1.35; color: var(--s-heading); overflow-wrap: anywhere; }
+.rw-card__body { margin: 8px 0 0; line-height: 1.6; color: var(--s-para); white-space: pre-line; overflow-wrap: anywhere; }
+.rw-card__photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rw-card__photos img { width: 64px; height: 64px; object-fit: cover; border-radius: calc(var(--rw-radius) * 0.5); display: block; }
+.rw-card__by { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 14px 0 0; font-size: 0.87em; color: var(--s-para); }
+.rw-card__av { width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--s-para) 12%, transparent); color: var(--s-heading); }
+.rw-card__name { font-weight: 600; color: var(--s-heading); }
+.rw-card__ver { display: inline-flex; align-items: center; gap: 4px; font-size: 0.92em; }
+.rw-card__ver::before { content: "\2713"; font-weight: 700; color: var(--s-heading); }
+.rw-card__prod { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 0.85em; color: var(--s-para); }
+.rw-card__prod img { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex: none; }
+.rw-card__prod a { color: var(--s-heading); text-decoration: underline; text-underline-offset: 3px; }
+.rg__list { display: grid; gap: var(--rw-gap); grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); align-items: start; }
+@container (min-width: 640px) { .rg__list { grid-template-columns: repeat(var(--cols-t), minmax(0, 1fr)); } }
+@container (min-width: 900px) { .rg__list { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
+.rg__list--grid { align-items: stretch; }
+.rg__list--masonry { display: block; columns: var(--cols-m); column-gap: var(--rw-gap); }
+@container (min-width: 640px) { .rg__list--masonry { columns: var(--cols-t); } }
+@container (min-width: 900px) { .rg__list--masonry { columns: var(--cols-d); } }
+.rg__list--masonry .rw-card { break-inside: avoid; margin-bottom: var(--rw-gap); }
+.rg__list--list { grid-template-columns: minmax(0, 1fr) !important; gap: 0; }
+.rg__list--list .rw-card { border-width: 0 0 var(--rw-bw); border-radius: 0; padding: 22px 0; background: transparent; }
+.rg__more { margin-top: var(--rw-gap); }
+.rg__more > .rg__list { margin-top: var(--rw-gap); }
+.rg__more[open] > summary { display: none; }
+.rg__btn { display: flex; width: max-content; margin: 8px auto 0; align-items: center; justify-content: center; padding: var(--sl-button-padding, 12px 22px); font-size: var(--sl-button-size, 15px); font-weight: var(--theme-button-weight, 600); border-radius: var(--rw-radius); border: 1px solid var(--s-border); background: transparent; color: var(--s-heading); cursor: pointer; list-style: none; }
+.rg__btn::-webkit-details-marker { display: none; }
+.rg__btn:hover { background: color-mix(in srgb, var(--s-para) 8%, transparent); }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "reviews_grid",
+  "name": "Review grid",
+  "category": "reviews",
+  "description": "Storelib Reviews: reviews as cards in columns.",
+  "version": "1.0.0",
+  "icon": "star",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "What buyers say"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Supporting line",
+      "default": ""
+    },
+    {
+      "type": "radio",
+      "id": "align",
+      "label": "Heading sits",
+      "default": "left",
+      "options": [
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Centre",
+          "value": "center"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_reviews",
+      "label": "Reviews"
+    },
+    {
+      "type": "select",
+      "id": "scope",
+      "label": "Whose reviews",
+      "default": "all",
+      "options": [
+        {
+          "label": "This page: the product's on a product page",
+          "value": "here"
+        },
+        {
+          "label": "The whole shop",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "sort",
+      "label": "Order",
+      "default": "featured",
+      "options": [
+        {
+          "label": "Featured first",
+          "value": "featured"
+        },
+        {
+          "label": "Newest",
+          "value": "newest"
+        },
+        {
+          "label": "Highest rated",
+          "value": "highest"
+        },
+        {
+          "label": "Lowest rated",
+          "value": "lowest"
+        },
+        {
+          "label": "With photos first",
+          "value": "photos"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "min_rating",
+      "label": "Lowest rating shown",
+      "default": 1,
+      "min": 1,
+      "max": 5,
+      "step": 1
+    },
+    {
+      "type": "range",
+      "id": "count",
+      "label": "How many",
+      "default": 6,
+      "min": 1,
+      "max": 24,
+      "step": 1
+    },
+    {
+      "type": "toggle",
+      "id": "show_more",
+      "label": "Show more button for the rest",
+      "default": true
+    },
+    {
+      "type": "header",
+      "id": "hdr_shown",
+      "label": "Shown on each review"
+    },
+    {
+      "type": "toggle",
+      "id": "show_title",
+      "label": "Title",
+      "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_date",
+      "label": "Date",
+      "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_verified",
+      "label": "Verified buyer",
+      "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_photos",
+      "label": "Photos",
+      "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_product",
+      "label": "Product",
+      "default": false
+    },
+    {
+      "type": "toggle",
+      "id": "show_avatar",
+      "label": "Initial beside the name",
+      "default": true
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "grid",
+      "options": [
+        {
+          "label": "Cards in rows",
+          "value": "grid"
+        },
+        {
+          "label": "Cards at their own height",
+          "value": "masonry"
+        },
+        {
+          "label": "List",
+          "value": "list"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns",
+      "default": {
+        "desktop": 3,
+        "tablet": 2,
+        "mobile": 1
+      },
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "responsive": true
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Space between",
+      "default": 16,
+      "min": 0,
+      "max": 48,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "white"
+    },
+    {
+      "type": "color",
+      "id": "background",
+      "label": "Background",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Card background",
+      "default": ""
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "default": 1,
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Corner radius",
+      "default": 12,
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "star_style",
+      "label": "Stars",
+      "default": "solid",
+      "options": [
+        {
+          "label": "Solid",
+          "value": "solid"
+        },
+        {
+          "label": "Outline",
+          "value": "outline"
+        },
+        {
+          "label": "Hearts",
+          "value": "heart"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Star colour",
+      "default": "",
+      "info": "Empty uses the colour set in Storelib Reviews."
+    },
+    {
+      "type": "range",
+      "id": "star_size",
+      "label": "Star size",
+      "default": 16,
+      "min": 10,
+      "max": 40,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "id": "hdr_type",
+      "label": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "text_scale",
+      "label": "Text size",
+      "default": 100,
+      "min": 80,
+      "max": 140,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "default": 100,
+      "min": 60,
+      "max": 160,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "header",
+      "id": "hdr_visibility",
+      "label": "Visibility"
+    },
+    {
+      "type": "select",
+      "id": "show_on",
+      "label": "Show on",
+      "default": "all",
+      "options": [
+        {
+          "label": "Phones and computers",
+          "value": "all"
+        },
+        {
+          "label": "Computers only",
+          "value": "desktop"
+        },
+        {
+          "label": "Phones only",
+          "value": "mobile"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 64,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 64,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Review grid",
+      "settings": {}
+    }
+  ]
+}
+</schema>

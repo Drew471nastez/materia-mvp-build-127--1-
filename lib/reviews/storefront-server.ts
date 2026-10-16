@@ -26,6 +26,7 @@ import { publishedReviewsApp } from "./app-server"
 import { readReviewsApp, type ReviewsAppSettings } from "./app-settings"
 import { buildStorefrontReviews, emptyStorefrontReviews, sampleStorefrontReviews, type StorefrontProductRow, type StorefrontReviewRow, type StorefrontReviews } from "./storefront"
 import { missingColumn } from "./store"
+import { sampleWidgetReviews } from "./widgets"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -144,7 +145,8 @@ export async function canvasReviews(db: Db, creatorId: string, product?: { id: s
   const settings = readReviewsApp((data as { reviews?: unknown } | null)?.reviews)
   const shop = await readShop(db, creatorId).catch(() => ({ rows: [], ratings: [], products: [] }) as ShopReviews)
   const own = product?.id ? { rows: await readRows(db, "product_id", product.id, PRODUCT_LIMIT), ratings: await readRatings(db, "product_id", product.id) } : null
-  if (shop.rows.length === 0 && !(own && own.rows.length)) return { ...sampleStorefrontReviews(settings, creatorId, product ?? null), enabled: true }
+  /* With pictures on a few, so the photo gallery widget has something to lay out (lib/reviews/widgets.ts sampleWidgetReviews). */
+  if (shop.rows.length === 0 && !(own && own.rows.length)) return { ...sampleWidgetReviews(sampleStorefrontReviews(settings, creatorId, product ?? null)), enabled: true }
   const built = buildStorefrontReviews({ settings, creatorId, rows: shop.rows, shopRatings: shop.ratings, products: shop.products, product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null })
   return { ...built, enabled: true }
 }

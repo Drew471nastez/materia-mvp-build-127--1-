@@ -44,6 +44,7 @@ import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
 import { markFor, stripMarks } from "./marks"
 import { shopWords } from "@/lib/markets/ui-words"
+import { reviewList, reviewScope } from "@/lib/reviews/widgets"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -725,6 +726,14 @@ const FILTERS: Record<string, Filter> = {
     const n = parseInt(h, 16)
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Number(a ?? 1)})`
   },
+  /**
+   * Storelib Reviews (lib/reviews/widgets.ts). `reviews | review_scope: "here"`
+   * is a list of one, this page's reviews or ("all") the whole shop's, so a
+   * template names it once: {% for s in reviews | review_scope: settings.scope %}.
+   */
+  review_scope: (v, [which]) => reviewScope(v, which),
+  /** `s.items | review_list: sort, min_rating, media`: in that order, from that many stars, with photos only when media is "photos". */
+  review_list: (v, [sort, min, media]) => reviewList(v, sort, min, media),
 }
 
 export const FILTER_NAMES = Object.keys(FILTERS)

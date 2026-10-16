@@ -85,7 +85,11 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
-import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
+import { APP_GROUP_LABELS, APP_SECTION_CATEGORIES, appCategoryOf, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
+import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
+import { readReviewsApp } from "@/lib/reviews/app-settings"
+import { sampleWidgetReviews } from "@/lib/reviews/widgets"
+import type { StorefrontData } from "@/lib/storelib-theme/types"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -149,6 +153,22 @@ export function buildPreviewSection(type: string, presetIndex: number, schema: S
   }
 }
 
+
+/**
+ * THE REVIEW WIDGETS' CARDS, WITH REVIEWS IN THEM. A Storelib Reviews section
+ * draws nothing without reviews, so its card was an empty box. Its preview is
+ * drawn with the canvas's sample reviews (lib/reviews/widgets.ts
+ * sampleWidgetReviews), the way the canvas shows them before a store has any:
+ * a card in this list, never a page.
+ */
+let previewReviewsData: StorefrontData | undefined
+function previewReviews(): StorefrontData {
+  if (!previewReviewsData) {
+    const sample = { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), ""), enabled: true }
+    previewReviewsData = { reviews: sampleWidgetReviews(sample) as unknown as StorefrontData["reviews"] }
+  }
+  return previewReviewsData
+}
 
 /* The styles taken out of each preview (lib/website-builder/preview-markup.ts), in sheets of the library's own. */
 const styleQueue: string[] = []
@@ -256,7 +276,7 @@ function drawOne(job: Job): string {
   const floats = job.schema.enabled_on?.groups?.includes("overlay") === true
   flushSync(() => {
     root!.render(
-      <StorelibLiveProvider sources={job.sources} inEditor={floats}>
+      <StorelibLiveProvider sources={job.sources} inEditor={floats} data={appCategoryOf(job.type, job.schema.category) === "reviews" ? previewReviews() : undefined}>
         <Capture onCapture={(h) => { html = h }}>
           <SectionRenderer
             section={section}
@@ -773,6 +793,9 @@ interface LibraryEntry {
   keyFor: (width: number) => string
 }
 
+/** An app category's own label (Apps › Reviews), or undefined. */
+const appLabel = (id: string): string | undefined => APP_SECTION_CATEGORIES.find((c) => c.id === id)?.label
+
 /** A card's own name: its React key, and what the set of filled previews holds. */
 const cardKey = (e: { type: string; presetIndex: number }) => `${e.type}-${e.presetIndex}`
 
@@ -808,6 +831,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   sources,
   theme,
   compatInstallId = null,
+  initialCategory = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -832,6 +856,8 @@ export const SectionLibrary = memo(function SectionLibrary({
    * a blank white box. They are drawn by the theme's own engine instead.
    */
   compatInstallId?: string | null
+  /** The category it opens on: Apps › Reviews when Reviews › Widgets sent the store here to pick a place itself. */
+  initialCategory?: string | null
 }) {
   const [phone, setPhone] = useState(false)
   useEffect(() => {
@@ -851,12 +877,13 @@ export const SectionLibrary = memo(function SectionLibrary({
    */
   useLayoutEffect(() => {
     if (open) {
-      setActiveCategory(null)
+      setActiveCategory(initialCategory)
       setQuery("")
       /* Before its first frame: a card held at the crop last time opens at its own height. */
       releaseHeld(true)
       releaseCompatHeld()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const own = useMemo(() => new Set(ownTypes), [ownTypes])
@@ -896,7 +923,11 @@ export const SectionLibrary = memo(function SectionLibrary({
           under Created, 143 cards in one list. Each is filed by its kind
           instead, from what the theme says about it (section-categories.ts).
         */
-        const category = compatInstallId && schema.imported
+        /* A Storelib app's section (Storelib Reviews) goes under Apps, in any theme (section-categories.ts APP_SECTION_CATEGORIES). */
+        const app = own_ && !schema.imported ? null : appCategoryOf(type, schema.category)
+        const category = app
+          ? app
+          : compatInstallId && schema.imported
           ? classifyImportedSection({
               type,
               name: schema.name,
@@ -907,7 +938,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               groups: schema.enabled_on?.groups,
             })
           : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
-        const label = (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
+        const label = appLabel(category) ?? (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,
@@ -931,8 +962,10 @@ export const SectionLibrary = memo(function SectionLibrary({
     for (const e of entries) counts.set(e.category, (counts.get(e.category) ?? 0) + 1)
     /* An imported theme's kinds in their own order (section-categories.ts); Storelib's in the theme's. */
     const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
-    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY)
-    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
+    const apps = APP_SECTION_CATEGORIES.filter((c) => counts.has(c.id))
+    const isApp = (id: string) => apps.some((c) => c.id === id)
+    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY && !isApp(id))
+    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY && !isApp(id))
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
@@ -941,7 +974,9 @@ export const SectionLibrary = memo(function SectionLibrary({
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ]
+      /* What a Storelib app added, last, under its group's heading: Apps › Reviews. */
+      ...apps.map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: c.group as string })),
+    ] as { key: string; label: string; count: number; group?: string }[]
   }, [entries, compatInstallId])
 
   /**
@@ -1264,7 +1299,16 @@ export const SectionLibrary = memo(function SectionLibrary({
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
-            <div className="flex w-max gap-2">{categories.map(chip)}</div>
+            <div className="flex w-max items-center gap-2">
+              {categories.map((cat, i) => (
+                <span key={cat.key} className="contents">
+                  {cat.group && categories[i - 1]?.group !== cat.group && (
+                    <span data-category-group={cat.group} className="ml-2 shrink-0 text-[13px] font-medium text-[#9ca3af]">{APP_GROUP_LABELS[cat.group]?.() ?? cat.group}</span>
+                  )}
+                  {chip(cat)}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
           <div
@@ -1297,11 +1341,15 @@ export const SectionLibrary = memo(function SectionLibrary({
       </div>
       <div className="flex min-h-0 flex-1">
         <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label={tt("Categories")}>
-          {categories.map((cat) => {
+          {categories.map((cat, i) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
+            const heading = cat.group && categories[i - 1]?.group !== cat.group
             return (
+              <div key={cat.key}>
+              {heading && (
+                <p data-category-group={cat.group} className="mt-4 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[12px] font-medium text-[#9ca3af]">{APP_GROUP_LABELS[cat.group!]?.() ?? cat.group}</p>
+              )}
               <button
-                key={cat.key}
                 type="button"
                 aria-pressed={on}
                 onClick={() => {
@@ -1317,6 +1365,7 @@ export const SectionLibrary = memo(function SectionLibrary({
                 {/* How many each holds, so a long theme's list says where the most is. */}
                 <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
+              </div>
             )
           })}
         </nav>

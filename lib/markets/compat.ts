@@ -30,6 +30,7 @@ import { pricingFor } from "./pricing"
 import { commerceInMarket, compatPrices, compatShop, themeCountries } from "./compat-prices"
 import { localizeMenus, localizeSections, translationMap, valueFor, type TranslationMap } from "./translate"
 import { linkLanguageScript } from "./link-script"
+import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "./compat-fields"
 
 export { compatFields }
@@ -80,6 +81,13 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   /* THE THEME'S OWN WORDS (`| t`) as the store translated them, each only while written for the theme's word as it is now (the builder's canvas asks the same function). */
   const themeWords = map.size ? compatThemeWords(site.theme.defaultWords(), map) : {}
   if (Object.keys(themeWords).length) i18n.words = themeWords
+  /* The shop's own words (Storelib Reviews' section and blocks draw them), as a Storelib theme's page has them (live.ts). */
+  const shopWordsHere: Record<string, string> = {}
+  for (const w of Object.keys(UI_WORDS)) {
+    const v = valueFor(map, uiKey(w as UiWord), { approvedOnly: true, fresh: true })
+    if (v) shopWordsHere[w] = v
+  }
+  if (Object.keys(shopWordsHere).length) i18n.shopWords = shopWordsHere
   /* No "charged in USD" line put into an imported theme's cart (the owner): the website's checkout says it, where the card is charged. */
   const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}`
   if (map.size === 0 && !pricing) return { ...site, i18n, extraBodyEnd }

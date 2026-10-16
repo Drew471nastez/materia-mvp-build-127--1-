@@ -1,0 +1,481 @@
+{# ===========================================================================
+   Photo reviews (Storelib Reviews)
+
+   The reviews buyers added photos to, as a gallery: each the first photo,
+   with the stars and the name under it or over it. Only approved photos
+   reach a page (lib/reviews/app-settings.ts shownPhotos), and Storelib
+   Reviews takes photos, not video. With no review with a photo, or the app
+   off, it draws nothing on a live page; the builder says why.
+   =========================================================================== #}
+<template>
+{% if reviews.enabled %}
+{% for s in reviews | review_scope: settings.scope %}
+{% for first in s.items | review_list: 'featured', settings.min_rating, 'photos' limit: 1 %}
+<div class="rw rw--{{ settings.show_on }} rw--{{ settings.star_style }}">
+<section class="s rm" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ settings.background | default: scheme.bg }}; --s-text: {{ settings.text_color | default: scheme.text }}; --s-heading: {{ settings.text_color | default: scheme.heading }}; --s-para: {{ settings.text_color | default: scheme.paragraph }}; --s-border: {{ settings.border_color | default: scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --rv-star: {{ settings.star_color | default: reviews.star_color }}; --rv-size: {{ settings.star_size }}px; --rw-scale: {{ settings.text_scale }}; --rw-hscale: {{ settings.heading_scale }}; --rw-card: {{ settings.card_background | default: 'transparent' }}; --rw-bw: {{ settings.border_width }}px; --rw-radius: {{ settings.radius }}px; --rw-gap: {{ settings.gap }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }};">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    {% if settings.heading or settings.subheading %}<div class="rw__head rw__head--{{ settings.align }}">{% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}{% if settings.subheading %}<p class="rw__sub">{{ settings.subheading }}</p>{% endif %}</div>{% endif %}
+    {% if page.in_editor and reviews.sample %}<p class="rv__sample">Sample reviews. Your real reviews show here once you have some.</p>{% endif %}
+    <div class="rm__grid rm__grid--{{ settings.caption }}">
+      {% for r in s.items | review_list: settings.sort, settings.min_rating, 'photos' limit: settings.count %}<figure class="rm__tile" data-review-id="{{ r.id }}">{% for ph in r.photos limit: 1 %}<a class="rm__pic" href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}<figcaption class="rm__cap"><span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>{% if settings.show_body %}<p class="rm__body">{{ r.body }}</p>{% endif %}<p class="rm__by"><span class="rm__name">{{ r.author }}</span>{% if settings.show_verified and reviews.show_verified and r.verified %}<span class="rm__ver">{{ words.verified_buyer }}</span>{% endif %}{% if settings.show_date and reviews.show_date %}<span>{{ r.date }}</span>{% endif %}</p>{% if settings.show_product and r.product_title %}<p class="rm__prod">{% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}</figcaption></figure>{% endfor %}
+    </div>
+  </div>
+</section>
+{% if page.in_editor %}<p class="rw__off rw__off--desktop">Shown on computers only. Switch the preview to a computer to see it.</p><p class="rw__off rw__off--mobile">Shown on phones only. Switch the preview to a phone to see it.</p>{% endif %}
+</div>
+{% else %}{% if page.in_editor %}
+<div class="rw rw--{{ settings.show_on }} rw--{{ settings.star_style }}">
+<section class="s rm" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ settings.background | default: scheme.bg }}; --s-text: {{ settings.text_color | default: scheme.text }}; --s-heading: {{ settings.text_color | default: scheme.heading }}; --s-para: {{ settings.text_color | default: scheme.paragraph }}; --s-border: {{ settings.border_color | default: scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --rv-star: {{ settings.star_color | default: reviews.star_color }}; --rv-size: {{ settings.star_size }}px; --rw-scale: {{ settings.text_scale }}; --rw-hscale: {{ settings.heading_scale }}; --rw-card: {{ settings.card_background | default: 'transparent' }}; --rw-bw: {{ settings.border_width }}px; --rw-radius: {{ settings.radius }}px;">
+  <div class="s__in s__in--{{ settings.max_width }}">
+    {% if settings.heading or settings.subheading %}<div class="rw__head rw__head--{{ settings.align }}">{% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}{% if settings.subheading %}<p class="rw__sub">{{ settings.subheading }}</p>{% endif %}</div>{% endif %}
+    <p class="rm__empty">Reviews with photos show here. None of the reviews shown here has a photo yet.</p>
+  </div>
+</section>
+{% if page.in_editor %}<p class="rw__off rw__off--desktop">Shown on computers only. Switch the preview to a computer to see it.</p><p class="rw__off rw__off--mobile">Shown on phones only. Switch the preview to a phone to see it.</p>{% endif %}
+</div>
+{% endif %}{% endfor %}
+{% endfor %}
+{% endif %}
+</template>
+
+<style scoped>
+.rw { container-type: inline-size; }
+@container (max-width: 749px) { .rw--desktop > .s { display: none; } }
+@container (min-width: 750px) { .rw--mobile > .s { display: none; } }
+.rw__off { display: none; margin: 0; padding: 14px 16px; border: 1px dashed currentColor; opacity: 0.55; font: 13px/1.4 system-ui, sans-serif; text-align: center; }
+@container (max-width: 749px) { .rw--desktop > .rw__off--desktop { display: block; } }
+@container (min-width: 750px) { .rw--mobile > .rw__off--mobile { display: block; } }
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); font-size: calc(15px * var(--rw-scale, 100) / 100); }
+.s__in { margin: 0 auto; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); }
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__h {
+  margin: 0;
+  font-size: calc(var(--section-heading-size, 32px) * var(--rw-hscale, 100) / 100);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+}
+.rw__head { margin-bottom: 28px; }
+.rw__head--center { text-align: center; }
+.rw__sub { margin: 10px 0 0; font-size: calc(var(--section-text-size, 17px) * var(--rw-scale, 100) / 100); line-height: 1.6; color: var(--s-para); max-width: 44rem; }
+.rw__head--center .rw__sub { margin-left: auto; margin-right: auto; }
+.rv__sample { margin: -12px 0 20px; font-size: 13px; color: var(--s-para); opacity: 0.7; }
+.rv-stars { --rv-g: "\2605\2605\2605\2605\2605"; position: relative; display: inline-block; flex: none; font-size: var(--rv-size, 16px); line-height: 1; letter-spacing: 0.12em; white-space: nowrap; color: color-mix(in srgb, var(--s-para) 22%, transparent); }
+.rv-stars::before { content: var(--rv-g); }
+.rv-stars::after { content: var(--rv-g); position: absolute; inset: 0 auto 0 0; width: var(--rv, 0%); overflow: hidden; white-space: nowrap; color: var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars { color: transparent; -webkit-text-stroke: 1px var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars::after { -webkit-text-stroke: 0; }
+.rw--heart .rv-stars { --rv-g: "\2665\2665\2665\2665\2665"; }
+.rm__grid { display: grid; gap: var(--rw-gap); grid-template-columns: repeat(var(--cols-m), minmax(0, 1fr)); }
+@container (min-width: 640px) { .rm__grid { grid-template-columns: repeat(var(--cols-t), minmax(0, 1fr)); } }
+@container (min-width: 900px) { .rm__grid { grid-template-columns: repeat(var(--cols-d), minmax(0, 1fr)); } }
+.rm__tile { position: relative; margin: 0; min-width: 0; overflow: hidden; border-radius: var(--rw-radius); border: var(--rw-bw) solid var(--s-border); background: var(--rw-card); display: flex; flex-direction: column; }
+.rm__pic { display: block; aspect-ratio: 1 / 1; background: color-mix(in srgb, var(--s-para) 8%, transparent); }
+.rm__pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rm__cap { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; font-size: 0.87em; color: var(--s-para); }
+.rm__grid--overlay .rm__cap { position: absolute; inset: auto 0 0 0; padding: 36px 14px 12px; color: #fff; background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0)); pointer-events: none; }
+.rm__grid--overlay .rm__cap a { pointer-events: auto; }
+.rm__grid--overlay .rm__name, .rm__grid--overlay .rm__prod a, .rm__grid--overlay .rm__ver::before { color: #fff; }
+.rm__grid--overlay .rv-stars { color: rgba(255, 255, 255, 0.35); }
+.rm__body { margin: 0; line-height: 1.5; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.rm__by { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; }
+.rm__name { font-weight: 600; color: var(--s-heading); }
+.rm__ver::before { content: "\2713  "; font-weight: 700; color: var(--s-heading); }
+.rm__prod { margin: 0; }
+.rm__prod a { color: var(--s-heading); text-decoration: underline; text-underline-offset: 3px; }
+.rm__empty { margin: 0; padding: 28px; border: 1px dashed var(--s-border); border-radius: var(--rw-radius); font-size: 14px; color: var(--s-para); text-align: center; }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "reviews_media",
+  "name": "Photo reviews",
+  "category": "reviews",
+  "description": "Storelib Reviews: the reviews with photos, as a gallery.",
+  "version": "1.0.0",
+  "icon": "star",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Photos from buyers"
+    },
+    {
+      "type": "textarea",
+      "id": "subheading",
+      "label": "Supporting line",
+      "default": ""
+    },
+    {
+      "type": "radio",
+      "id": "align",
+      "label": "Heading sits",
+      "default": "left",
+      "options": [
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Centre",
+          "value": "center"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_reviews",
+      "label": "Reviews"
+    },
+    {
+      "type": "select",
+      "id": "scope",
+      "label": "Whose reviews",
+      "default": "all",
+      "options": [
+        {
+          "label": "This page: the product's on a product page",
+          "value": "here"
+        },
+        {
+          "label": "The whole shop",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "sort",
+      "label": "Order",
+      "default": "newest",
+      "options": [
+        {
+          "label": "Featured first",
+          "value": "featured"
+        },
+        {
+          "label": "Newest",
+          "value": "newest"
+        },
+        {
+          "label": "Highest rated",
+          "value": "highest"
+        },
+        {
+          "label": "Lowest rated",
+          "value": "lowest"
+        },
+        {
+          "label": "With photos first",
+          "value": "photos"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "min_rating",
+      "label": "Lowest rating shown",
+      "default": 1,
+      "min": 1,
+      "max": 5,
+      "step": 1
+    },
+    {
+      "type": "range",
+      "id": "count",
+      "label": "How many",
+      "default": 8,
+      "min": 1,
+      "max": 24,
+      "step": 1
+    },
+    {
+      "type": "header",
+      "id": "hdr_shown",
+      "label": "Shown on each photo"
+    },
+    {
+      "type": "toggle",
+      "id": "show_body",
+      "label": "Review text",
+      "default": false
+    },
+    {
+      "type": "toggle",
+      "id": "show_date",
+      "label": "Date",
+      "default": false
+    },
+    {
+      "type": "toggle",
+      "id": "show_verified",
+      "label": "Verified buyer",
+      "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_product",
+      "label": "Product",
+      "default": true
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "caption",
+      "label": "Words",
+      "default": "below",
+      "options": [
+        {
+          "label": "Under the photo",
+          "value": "below"
+        },
+        {
+          "label": "Over the photo",
+          "value": "overlay"
+        }
+      ]
+    },
+    {
+      "type": "range",
+      "id": "columns",
+      "label": "Columns",
+      "default": {
+        "desktop": 4,
+        "tablet": 3,
+        "mobile": 2
+      },
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "responsive": true
+    },
+    {
+      "type": "range",
+      "id": "gap",
+      "label": "Space between",
+      "default": 12,
+      "min": 0,
+      "max": 48,
+      "step": 2,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "white"
+    },
+    {
+      "type": "color",
+      "id": "background",
+      "label": "Background",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Card background",
+      "default": ""
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "default": 0,
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Corner radius",
+      "default": 12,
+      "min": 0,
+      "max": 32,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "star_style",
+      "label": "Stars",
+      "default": "solid",
+      "options": [
+        {
+          "label": "Solid",
+          "value": "solid"
+        },
+        {
+          "label": "Outline",
+          "value": "outline"
+        },
+        {
+          "label": "Hearts",
+          "value": "heart"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Star colour",
+      "default": "",
+      "info": "Empty uses the colour set in Storelib Reviews."
+    },
+    {
+      "type": "range",
+      "id": "star_size",
+      "label": "Star size",
+      "default": 13,
+      "min": 10,
+      "max": 40,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "id": "hdr_type",
+      "label": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "text_scale",
+      "label": "Text size",
+      "default": 100,
+      "min": 80,
+      "max": 140,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "default": 100,
+      "min": 60,
+      "max": 160,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "header",
+      "id": "hdr_visibility",
+      "label": "Visibility"
+    },
+    {
+      "type": "select",
+      "id": "show_on",
+      "label": "Show on",
+      "default": "all",
+      "options": [
+        {
+          "label": "Phones and computers",
+          "value": "all"
+        },
+        {
+          "label": "Computers only",
+          "value": "desktop"
+        },
+        {
+          "label": "Phones only",
+          "value": "mobile"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 64,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 64,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Photo reviews",
+      "settings": {}
+    }
+  ]
+}
+</schema>
