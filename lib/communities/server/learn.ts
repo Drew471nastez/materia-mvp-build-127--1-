@@ -29,12 +29,20 @@ import "server-only"
  *              points once (key program:<id>), as a course does.
  *
  * Everything degrades quietly before part 102: programs cannot be made or
- * sold, and the attached courses show as they always did.
+ * sold, and the attached courses show as they always did. Before part 200
+ * (round 33) the rows are read without access_mode, member_ids and
+ * description: a program keeps its free, level, paid or drip choice and a
+ * plain description, and cannot be made private.
+ *
+ * A PRIVATE PROGRAM IS NOT THERE for anybody but its members and staff: not
+ * a card, not a page, not a lesson, not a free preview. Every one of those
+ * reads goes through programGate, so the list is checked each time.
  */
 import { communitiesEnabled } from "../flag"
 import { can } from "../permissions"
 import { parseAccessRule } from "../access"
-import { MAX_PROGRAMS, accessForMode, checkProgramInput, contentKey, programGate, programHref, programMode, programPrice, uniqueContentKey, type ProgramGate, type ProgramInput, type ProgramRule, type ProgramStatus, type ProgramViewer } from "../learn"
+import { MAX_PROGRAMS, PROGRAM_DESCRIPTION_MAX, PROGRAM_SUMMARY_MAX, accessForMode, checkProgramInput, contentKey, programGate, programHref, programMemberIds, programMode, programPrice, uniqueContentKey, type ProgramGate, type ProgramInput, type ProgramMode, type ProgramRule, type ProgramStatus, type ProgramViewer } from "../learn"
+import { cleanStoredHtml, htmlToPlainText, isBlankHtml, looksLikeHtml } from "@/lib/rich-text/html"
 import type { CommunityRow, Role } from "../types"
 import type { BuilderProgram, LearnBuilderData, ProgramCard, ProgramLock } from "@/components/community/learn/model"
 import { opensOnLabel } from "@/components/community/learn/model"
@@ -51,7 +59,22 @@ export const PROGRAM_COMPLETED_POINTS = 10
 const STAFF: readonly Role[] = ["owner", "admin", "moderator"]
 
 const FULL_COLUMNS = "id, community_id, product_id, course_id, title, summary, cover_url, status, price_cents, currency, access, drip_days, position, added_at"
+/* Part 200 (round 33): who opens it, a private program's members, the rich description. */
+const ACCESS_COLUMNS = `${FULL_COLUMNS}, access_mode, member_ids, description`
 const OLD_COLUMNS = "community_id, product_id, access, drip_days, position, added_at"
+
+type Filtered = PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>
+
+/**
+ * One read of community_courses with part 200's columns, and again without
+ * them on a database where part 200 has not run. `accessReady` says which.
+ */
+async function programRead(db: Db, query: (select: Db) => Filtered): Promise<{ data: unknown; error: { code?: string; message?: string } | null; accessReady: boolean }> {
+  const first = await query(db.from("community_courses").select(ACCESS_COLUMNS))
+  if (!first.error || !missing(first.error)) return { ...first, accessReady: !first.error }
+  const second = await query(db.from("community_courses").select(FULL_COLUMNS))
+  return { ...second, accessReady: false }
+}
 
 export interface ProgramRow {
   id: string
@@ -67,6 +90,10 @@ export interface ProgramRow {
   access: unknown
   dripDays: number | null
   position: number
+  /** Part 200: the creator's choice, the members of a private program, the description as cleaned HTML. */
+  accessMode: ProgramMode | null
+  memberIds: string[]
+  description: string | null
 }
 
 type RawRow = {
@@ -83,6 +110,9 @@ type RawRow = {
   access: unknown
   drip_days: number | null
   position: number | null
+  access_mode?: string | null
+  member_ids?: string[] | null
+  description?: string | null
 }
 
 function toRow(r: RawRow): ProgramRow {
@@ -100,23 +130,26 @@ function toRow(r: RawRow): ProgramRow {
     access: r.access ?? {},
     dripDays: r.drip_days,
     position: Number(r.position) || 0,
+    accessMode: ["free", "level", "paid", "time", "private"].includes(r.access_mode ?? "") ? (r.access_mode as ProgramMode) : null,
+    memberIds: programMemberIds(r.member_ids),
+    description: typeof r.description === "string" && r.description ? r.description : null,
   }
 }
 
-/** The community's programs in the creator's order, and whether part 102 has run. */
-export async function readPrograms(db: Db, communityId: string): Promise<{ ready: boolean; rows: ProgramRow[] }> {
-  const full = await db.from("community_courses").select(FULL_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).order("added_at", { ascending: true }).limit(MAX_PROGRAMS)
-  if (!full.error) return { ready: true, rows: ((full.data as RawRow[] | null) ?? []).map(toRow) }
+/** The community's programs in the creator's order, whether part 102 has run, and whether part 200 has. */
+export async function readPrograms(db: Db, communityId: string): Promise<{ ready: boolean; accessReady: boolean; rows: ProgramRow[] }> {
+  const full = await programRead(db, (q) => q.eq("community_id", communityId).order("position", { ascending: true }).order("added_at", { ascending: true }).limit(MAX_PROGRAMS))
+  if (!full.error) return { ready: true, accessReady: full.accessReady, rows: ((full.data as RawRow[] | null) ?? []).map(toRow) }
   if (!missing(full.error)) {
     console.error(`[communities] learn read: ${reasonOf(full.error)}`)
-    return { ready: false, rows: [] }
+    return { ready: false, accessReady: false, rows: [] }
   }
   const old = await db.from("community_courses").select(OLD_COLUMNS).eq("community_id", communityId).order("position", { ascending: true }).order("added_at", { ascending: true }).limit(MAX_PROGRAMS)
   if (old.error) {
     if (!missing(old.error)) console.error(`[communities] learn read: ${reasonOf(old.error)}`)
-    return { ready: false, rows: [] }
+    return { ready: false, accessReady: false, rows: [] }
   }
-  return { ready: false, rows: ((old.data as RawRow[] | null) ?? []).filter((r) => !!r.product_id).map(toRow) }
+  return { ready: false, accessReady: false, rows: ((old.data as RawRow[] | null) ?? []).filter((r) => !!r.product_id).map(toRow) }
 }
 
 /** One program of this community by its id, an attached course's product id, or its public title key. */
@@ -144,8 +177,9 @@ export async function ownedPrograms(db: Db, userId: string | null, programIds: s
   return new Set(((data as { program_id: string }[] | null) ?? []).map((r) => r.program_id))
 }
 
-export function programViewer(viewer: Pick<Viewer, "role" | "active" | "tierId" | "ownedProductIds" | "level" | "member">, purchased: boolean): ProgramViewer {
+export function programViewer(viewer: Pick<Viewer, "role" | "active" | "tierId" | "ownedProductIds" | "level" | "member"> & { userId?: string | null }, purchased: boolean): ProgramViewer {
   return {
+    userId: viewer.userId ?? viewer.member?.user_id ?? null,
     role: viewer.role,
     active: viewer.active,
     tierId: viewer.tierId,
@@ -179,14 +213,16 @@ async function lockNames(db: Db, communityId: string, gates: ProgramGate[]): Pro
 }
 
 /** The lock as words, or null when the program is open. A draft never gets here for a member: it is not listed. */
-export function lockOf(open: ProgramGate, names: Names, program: Pick<ProgramRow, "currency">, timeZone?: string): ProgramLock | null {
+export function lockOf(open: ProgramGate, names: Names, program: Pick<ProgramRow, "currency">, timeZone?: string, viewerLevel?: number): ProgramLock | null {
   if (open.open) return null
   /* Narrowed by hand: the test build compiles without strict, where a boolean tag does not narrow. */
   const gate = open as Exclude<ProgramGate, { open: true }>
   const base = { opensAt: null, priceCents: null, currency: null }
   switch (gate.reason) {
     case "level":
-      return { ...base, reason: "level", label: `Level ${gate.level}` }
+      return { ...base, reason: "level", label: `Level ${gate.level}`, ...(viewerLevel !== undefined ? { viewerLevel } : {}) }
+    case "private":
+      return { ...base, reason: "private", label: "Members picked" }
     case "paid":
       return { ...base, reason: "paid", label: programPrice(gate.priceCents, program.currency), priceCents: gate.priceCents, currency: program.currency ?? "usd" }
     case "drip":
@@ -208,6 +244,13 @@ interface CourseFacts {
   title: string | null
   coverUrl: string | null
   lessons: { id: string; duration_seconds: number | null }[]
+}
+
+/* A description fit to draw: cleaned again on the way out, whatever the row holds. Null for a plain one or an empty one. */
+function descriptionHtmlOf(r: Pick<ProgramRow, "description">): string | null {
+  if (!r.description || !looksLikeHtml(r.description)) return null
+  const clean = cleanStoredHtml(r.description)
+  return isBlankHtml(clean) ? null : clean
 }
 
 /** The courses behind these programs, in one pass: the attached products' and the programs' own. */
@@ -272,11 +315,16 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
   for (const r of rows) {
     const f = facts.get(r.id)
     if (!f) continue
+    /* Private and not on its list: not there at all. Its key is still taken, so the others' addresses do not move when it is. */
+    if (privateToThem(gates.get(r.id) as ProgramGate)) {
+      takenKeys.add(uniqueContentKey(f.title || "Program", r.id, takenKeys))
+      continue
+    }
     const enrollment = f.courseId ? enrollments.get(f.courseId) : undefined
     const percent = Math.max(0, Math.min(100, Math.round(Number(enrollment?.percent) || 0)))
     const status: ProgramCard["status"] = enrollment?.completed_at ? "completed" : percent > 0 || (enrollment?.completed_lessons ?? 0) > 0 ? "in_progress" : "not_started"
     const gate = gates.get(r.id) as ProgramGate
-    const locked = lockOf(gate, names, r, opts.timeZone)
+    const locked = lockOf(gate, names, r, opts.timeZone, viewer.level || 1)
     const resume = !locked && status === "in_progress" ? (enrollment?.last_lesson_id ?? null) : null
     const title = f.title || (r.productId ? "Course" : "Program")
     const key = uniqueContentKey(title, r.id, takenKeys)
@@ -286,6 +334,7 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
       kind: r.productId ? "course" : "program",
       title,
       summary: r.summary,
+      descriptionHtml: descriptionHtmlOf(r),
       coverUrl: f.coverUrl,
       lessons: f.lessons.length,
       completedLessons: Math.min(f.lessons.length, Math.max(0, Number(enrollment?.completed_lessons) || 0)),
@@ -303,6 +352,11 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
   return out
 }
 
+/** A private program this viewer is not on the list of: hidden, not locked. */
+function privateToThem(gate: ProgramGate): boolean {
+  return !gate.open && (gate as { reason?: string }).reason === "private"
+}
+
 /** One program's card for its own page (found by its id or an old course link's product id), or null when it is not here. */
 export async function programCard(db: Db, community: CommunityRow, viewer: Viewer, id: string, opts: { now?: number; timeZone?: string } = {}): Promise<ProgramCard | null> {
   const list = await listPrograms(db, community, viewer, opts)
@@ -314,12 +368,18 @@ export async function programCard(db: Db, community: CommunityRow, viewer: Viewe
 
 /* ── A program's own page ───────────────────────────────────────────────── */
 
-/** The module and lesson titles of a program (its own course, or the attached course's), for its locked page. */
-export async function programOutline(db: Db, program: ProgramRow): Promise<{ modules: { id: string; title: string; lessons: string[] }[] } | null> {
+/** The module and lesson titles of a program (its own course, or the attached course's), with each module's cover, for its locked page. */
+export async function programOutline(db: Db, program: ProgramRow): Promise<{ modules: { id: string; title: string; coverUrl?: string | null; lessons: string[] }[] } | null> {
   const { readCourseTree, readCourseTreeById } = await import("@/lib/courses/server")
   const tree = program.productId ? await readCourseTree(db, program.productId) : program.courseId ? await readCourseTreeById(db, program.courseId) : null
   if (!tree) return null
-  return { modules: tree.modules.map((m) => ({ id: m.id, title: m.title, lessons: m.lessons.map((l) => l.title) })) }
+  return { modules: tree.modules.map((m) => ({ id: m.id, title: m.title, coverUrl: coverOf(m), lessons: m.lessons.map((l) => l.title) })) }
+}
+
+/* A module's or a lesson's cover (part 200), only ever an https address. */
+function coverOf(row: unknown): string | null {
+  const url = (row as { cover_url?: unknown } | null)?.cover_url
+  return typeof url === "string" && /^https:\/\//.test(url) ? url : null
 }
 
 /**
@@ -367,7 +427,7 @@ export async function programLessonLevel(
   courseId: string,
   opts: { enabled?: boolean; now?: number } = {},
 ): Promise<{ level: ProductLevel; programId: string; creatorId: string; product: ProductRow } | null> {
-  const { data, error } = await db.from("community_courses").select(FULL_COLUMNS).eq("course_id", courseId).maybeSingle()
+  const { data, error } = await programRead(db, (q) => q.eq("course_id", courseId).maybeSingle())
   if (error || !data) return null
   const program = toRow(data as RawRow)
   const { loadCommunity, communityOpen, viewerContext } = await import("./context")
@@ -391,6 +451,8 @@ export async function programLessonLevel(
   const owned = program.priceCents ? await ownedPrograms(db, userId, [program.id]) : new Set<string>()
   const gate = programGate(program, programViewer(viewer, owned.has(program.id)), opts.now)
   if (gate.open) return found("owner")
+  /* A private program is not there for the others: not even its free previews. */
+  if (privateToThem(gate)) return found("none")
   return found(program.status === "published" ? "public" : "none")
 }
 
@@ -402,7 +464,7 @@ export async function programLessonLevel(
  * means bought there).
  */
 export async function attachedCourseOpen(db: Db, userId: string, productId: string, opts: { now?: number } = {}): Promise<boolean> {
-  const full = await db.from("community_courses").select(FULL_COLUMNS).eq("product_id", productId).limit(50)
+  const full = await programRead(db, (q) => q.eq("product_id", productId).limit(50))
   const rows = !full.error
     ? ((full.data as RawRow[] | null) ?? []).map(toRow)
     : missing(full.error)
@@ -431,7 +493,7 @@ export async function attachedCourseOpen(db: Db, userId: string, productId: stri
     const rule = parseAccessRule(row.access)
     const { ownedProductIds } = await import("./membership")
     const productsOwned = rule.productIds?.length ? await ownedProductIds(db, userId, rule.productIds) : []
-    const gate = programGate(row, { role: m.role, active: true, tierId: m.tier_id, ownedProductIds: productsOwned, level: m.level || 1, joinedAt: m.joined_at ?? m.created_at, purchased: owned.has(row.id) }, opts.now)
+    const gate = programGate(row, { userId, role: m.role, active: true, tierId: m.tier_id, ownedProductIds: productsOwned, level: m.level || 1, joinedAt: m.joined_at ?? m.created_at, purchased: owned.has(row.id) }, opts.now)
     if (gate.open) return true
   }
   return false
@@ -547,15 +609,17 @@ export async function programManager(db: Db, userId: string, programId: string):
 
 /** Everything the builder shows: the programs, the levels, the creator's courses not attached yet, and whether selling is possible. */
 export async function loadLearnBuilder(db: Db, community: CommunityRow, opts: { currency: string; canSell: boolean }): Promise<LearnBuilderData> {
-  const { ready, rows } = await readPrograms(db, community.id)
+  const { ready, accessReady, rows } = await readPrograms(db, community.id)
   const facts = await courseFacts(db, rows)
   const paid = rows.filter((r) => r.priceCents).map((r) => r.id)
-  const [{ data: levelRows }, { data: courseRows }, buyers] = await Promise.all([
+  const picked = [...new Set(rows.flatMap((r) => r.memberIds))]
+  const [{ data: levelRows }, { data: courseRows }, buyers, people] = await Promise.all([
     db.from("community_levels").select("level, name").eq("community_id", community.id).order("level", { ascending: true }).limit(20),
     community.creator_id
       ? db.from("products").select("id, title, status, thumbnail_url").eq("creator_id", community.creator_id).eq("type", "course").neq("status", "archived").order("created_at", { ascending: false }).limit(200)
       : Promise.resolve({ data: [] }),
     buyerCounts(db, paid),
+    picked.length ? import("./moderation").then((m) => m.peopleOf(db, picked)) : Promise.resolve(new Map<string, { name: string; avatarUrl: string | null }>()),
   ])
   const attached = new Set(rows.map((r) => r.productId).filter(Boolean))
   const programs: BuilderProgram[] = rows
@@ -568,7 +632,7 @@ export async function loadLearnBuilder(db: Db, community: CommunityRow, opts: { 
         kind: r.productId ? "course" : "program",
         productId: r.productId,
         title: f.title || (r.productId ? "Course" : "Program"),
-        summary: r.summary ?? "",
+        summary: descriptionHtmlOf(r) ?? r.summary ?? "",
         coverUrl: f.coverUrl,
         status: r.status,
         mode: programMode(r),
@@ -576,6 +640,7 @@ export async function loadLearnBuilder(db: Db, community: CommunityRow, opts: { 
         priceCents: r.priceCents,
         currency: r.currency || opts.currency,
         dripDays: r.dripDays,
+        members: r.memberIds.map((userId) => ({ userId, name: people.get(userId)?.name ?? "Member", avatarUrl: people.get(userId)?.avatarUrl ?? null })),
         lessons: f.lessons.length,
         buyers: buyers.get(r.id) ?? 0,
         editHref: r.productId ? `/app/products/${r.productId}/edit` : null,
@@ -585,6 +650,7 @@ export async function loadLearnBuilder(db: Db, community: CommunityRow, opts: { 
     communityId: community.id,
     slug: community.slug,
     ready,
+    accessReady,
     enabled: community.classroom_enabled,
     currency: opts.currency,
     canSell: opts.canSell,
@@ -654,9 +720,9 @@ export async function updateProgram(db: Db, a: { communityId: string; programId:
   if (checked.ok === false) return no(400, checked.error, checked.field)
   const c = checked.patch
   const patch: Record<string, unknown> = {}
+  if (c.summary !== undefined) Object.assign(patch, descriptionPatch(c.summary))
   if (!row.productId) {
     if (c.title !== undefined) patch.title = c.title
-    if (c.summary !== undefined) patch.summary = c.summary
     if (a.input.coverUrl !== undefined) {
       if (a.input.coverUrl === null || a.input.coverUrl === "") patch.cover_url = null
       else {
@@ -665,24 +731,62 @@ export async function updateProgram(db: Db, a: { communityId: string; programId:
         patch.cover_url = url
       }
     }
-  } else if (c.summary !== undefined) {
-    patch.summary = c.summary
   }
   if (c.status !== undefined) patch.status = c.status
   if (c.mode !== undefined) {
     patch.access = accessForMode(row.access, c.mode, c.level)
     patch.price_cents = c.mode === "paid" ? c.priceCents : null
     patch.currency = c.mode === "paid" ? a.currency : null
+    patch.access_mode = c.mode
+    /* Only people who are members here (whatever their state today) go on a private program's list. */
+    patch.member_ids = c.mode === "private" ? await membersHere(db, a.communityId, c.memberIds ?? []) : []
   }
   if (c.dripDays !== undefined) patch.drip_days = c.dripDays
   if (Object.keys(patch).length === 0) return { ok: true }
   patch.updated_at = new Date().toISOString()
-  const { error } = await db.from("community_courses").update(patch).eq("community_id", a.communityId).eq("id", row.id)
+  let { error } = await db.from("community_courses").update(patch).eq("community_id", a.communityId).eq("id", row.id)
+  if (error && missing(error) && PART_200_FIELDS.some((k) => k in patch)) {
+    /* Before part 200: a private program cannot be kept; everything else saves as it did, the description as plain text. */
+    if (c.mode === "private") return no(409, "Private programs need the latest database update (part 200).", "mode")
+    for (const k of PART_200_FIELDS) delete patch[k]
+    ;({ error } = await db.from("community_courses").update(patch).eq("community_id", a.communityId).eq("id", row.id))
+  }
   if (error) return missing(error) ? no(409, "Programs need the latest database update (part 102).") : no(500, "That did not save. Try again.")
   await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "program.updated", targetType: "program", targetId: row.id, detail: { fields: Object.keys(patch).filter((k) => k !== "updated_at") } })
   /* Published for the first time (or again from a draft): the members who can see it hear once (notify.ts, idempotent per program). */
-  if (c.status === "published" && row.status !== "published") await announceProgram(db, { ...row, ...(c.title ? { title: c.title } : {}), access: patch.access ?? row.access, priceCents: patch.price_cents !== undefined ? (patch.price_cents as number | null) : row.priceCents }, a.actorId)
+  /* A private program is told to nobody: the members it is for are picked by hand, and the others must not hear of it. */
+  const privateNow = (c.mode ?? programMode(row)) === "private"
+  if (c.status === "published" && row.status !== "published" && !privateNow) await announceProgram(db, { ...row, ...(c.title ? { title: c.title } : {}), access: patch.access ?? row.access, priceCents: patch.price_cents !== undefined ? (patch.price_cents as number | null) : row.priceCents }, a.actorId)
   return { ok: true }
+}
+
+const PART_200_FIELDS = ["access_mode", "member_ids", "description"] as const
+
+/**
+ * THE DESCRIPTION, AS THE RICH TEXT FIELD WROTE IT: the HTML through the
+ * same allow list as a product's description (lib/rich-text/html
+ * cleanStoredHtml) into `description`, and its words as plain text into
+ * `summary` for the cards and the checkout. Plain text stays plain.
+ */
+export function descriptionPatch(input: string | null): { summary: string | null; description: string | null } {
+  const raw = (input ?? "").trim()
+  if (!raw) return { summary: null, description: null }
+  if (!looksLikeHtml(raw)) return { summary: raw.slice(0, PROGRAM_SUMMARY_MAX), description: null }
+  const html = cleanStoredHtml(raw).slice(0, PROGRAM_DESCRIPTION_MAX)
+  if (isBlankHtml(html)) return { summary: null, description: null }
+  const plain = htmlToPlainText(html).replace(/\n{3,}/g, "\n\n").trim().slice(0, PROGRAM_SUMMARY_MAX)
+  return { summary: plain || null, description: html }
+}
+
+/* The ids among these that belong to members of this community, in the order given. */
+async function membersHere(db: Db, communityId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return []
+  const found = new Set<string>()
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await db.from("community_members").select("user_id").eq("community_id", communityId).in("user_id", ids.slice(i, i + 200))
+    for (const r of (data as { user_id: string }[] | null) ?? []) found.add(r.user_id.toLowerCase())
+  }
+  return ids.filter((id) => found.has(id))
 }
 
 /* The members' bell and push for a program just published. A paid one is told to every member (anyone can buy it); a level or tier one only to those its rule lets see it. Never throws. */

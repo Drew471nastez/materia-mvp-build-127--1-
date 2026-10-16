@@ -27,6 +27,12 @@ import "server-only"
  *
  * Each change answers with the whole course again, so the editor never has
  * to reconcile two copies.
+ *
+ * ROUND 33: a new module or lesson may come with its id, made in the browser
+ * (crypto.randomUUID), so the editor can show it, focus its name and send
+ * the next change to it before this answers. An id that is taken anywhere
+ * is refused by the primary key, never reused. A module and a lesson may
+ * have a cover (part 200): a picture already in Storelib's storage.
  */
 
 import { cleanStoredHtml, looksLikeHtml } from "@/lib/rich-text/html"
@@ -39,6 +45,7 @@ import { sanitizeDisplayName } from "@/lib/security/uploads/filename"
 import { isLessonMediaPath, isUuid, lessonMediaPrefix } from "./access"
 import { CAPTION_MAX_BYTES, isCaptionName, looksLikeCaptions } from "./captions"
 import { externalVideo } from "./external"
+import { isOwnMedia } from "@/lib/storage/media-url"
 import { readCourseTree, type AttachmentRow, type LessonRow } from "./server"
 import type { EditorTree } from "./types"
 
@@ -105,9 +112,11 @@ export async function editorTree(db: Db, productId: string): Promise<EditorTree>
     modules: tree.modules.map((m) => ({
       id: m.id,
       title: m.title,
+      coverUrl: coverOf(m),
       lessons: m.lessons.map((l) => ({
         id: l.id,
         title: l.title,
+        coverUrl: coverOf(l),
         notes: l.content_text ?? "",
         isPreview: !!l.is_preview,
         durationSeconds: l.duration_seconds ?? null,
@@ -118,6 +127,24 @@ export async function editorTree(db: Db, productId: string): Promise<EditorTree>
       })),
     })),
   }
+}
+
+/* A cover as stored (part 200): an https address, or nothing. */
+function coverOf(row: unknown): string | null {
+  const url = (row as { cover_url?: unknown } | null)?.cover_url
+  return typeof url === "string" && /^https:\/\//.test(url) ? url : null
+}
+
+/** A cover the editor sends: empty clears it; otherwise only a picture Storelib holds. */
+export function coverInput(raw: unknown): string | null {
+  if (raw === null || raw === "") return null
+  if (typeof raw !== "string" || raw.length > 1000 || !/^https:\/\//.test(raw) || !isOwnMedia(raw)) throw new ManageError("Upload the cover here.")
+  return raw
+}
+
+/* An id the browser made for a new row, or none (the database makes one). */
+function newId(raw: unknown): { id?: string } {
+  return isUuid(raw) ? { id: raw.toLowerCase() } : {}
 }
 
 function title(raw: unknown, fallback: string): string {
@@ -310,14 +337,25 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
       if (list.length >= MAX_MODULES) throw new ManageError(`A course holds up to ${MAX_MODULES} modules.`)
       const { data: mod, error } = await db
         .from("course_modules")
-        .insert({ course_id: courseId, title: title(body.title, `Module ${list.length + 1}`), position: list.reduce((m, r) => Math.max(m, (r.position ?? 0) + 1), 0) })
+        .insert({ ...newId(body.moduleId), course_id: courseId, title: title(body.title, `Module ${list.length + 1}`), position: list.reduce((m, r) => Math.max(m, (r.position ?? 0) + 1), 0) })
         .select("id")
         .single()
+      if (error?.code === "23505") throw new ManageError("That module is already there. Reload and try again.", 409)
       if (error || !mod) throw new ManageError("The module could not be added. Try again.", 500)
       /* A new module comes with its first lesson, which is what the creator is about to add anyway. */
       if (body.withLesson !== false) {
-        await db.from("course_lessons").insert({ module_id: (mod as { id: string }).id, title: "Lesson 1", position: 0 })
+        await db.from("course_lessons").insert({ ...newId(body.lessonId), module_id: (mod as { id: string }).id, title: title(body.lessonTitle, "Lesson 1"), position: 0 })
       }
+      return
+    }
+    case "update-module": {
+      const mod = await moduleOf(db, o, body.moduleId)
+      const patch: Record<string, unknown> = {}
+      if (body.title !== undefined) patch.title = title(body.title, "Module")
+      if (body.coverUrl !== undefined) patch.cover_url = coverInput(body.coverUrl)
+      if (Object.keys(patch).length === 0) return
+      const { error } = await db.from("course_modules").update(patch).eq("id", mod.id)
+      if (error) throw new ManageError(error.code === "42703" ? "Covers need the latest database update (part 200)." : "The module could not be saved. Try again.", error.code === "42703" ? 409 : 500)
       return
     }
     case "rename-module": {
@@ -348,7 +386,8 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
       if (list.length >= MAX_LESSONS_PER_MODULE) throw new ManageError(`A module holds up to ${MAX_LESSONS_PER_MODULE} lessons.`)
       const { error } = await db
         .from("course_lessons")
-        .insert({ module_id: mod.id, title: title(body.title, `Lesson ${list.length + 1}`), position: list.reduce((m, r) => Math.max(m, (r.position ?? 0) + 1), 0) })
+        .insert({ ...newId(body.lessonId), module_id: mod.id, title: title(body.title, `Lesson ${list.length + 1}`), position: list.reduce((m, r) => Math.max(m, (r.position ?? 0) + 1), 0) })
+      if (error?.code === "23505") throw new ManageError("That lesson is already there. Reload and try again.", 409)
       if (error) throw new ManageError("The lesson could not be added. Try again.", 500)
       return
     }
@@ -368,7 +407,9 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
         if (raw && !externalVideo(raw)) throw new ManageError("Paste a YouTube or Vimeo link.")
         patch.video_url = raw || null
       }
+      if (body.coverUrl !== undefined) patch.cover_url = coverInput(body.coverUrl)
       const { error } = await db.from("course_lessons").update(patch).eq("id", lesson.id)
+      if (error?.code === "42703") throw new ManageError("Covers need the latest database update (part 200).", 409)
       if (error) throw new ManageError("The lesson could not be saved. Try again.", 500)
       return
     }
