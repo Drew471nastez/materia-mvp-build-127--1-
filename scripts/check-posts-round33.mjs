@@ -439,11 +439,16 @@ export const isNativePlatform = () => false
     /* A phone. */
     const ph = await open("server", PHONE, 400)
     await sleep(1200)
+    /* The row brought on screen first: below the writer and the panel it can sit under a phone's fold. */
     const tb = await ph.p.evaluate((sel) => {
-      const b = document.querySelector(sel).querySelector("[data-feed-open]").getBoundingClientRect()
+      const el = document.querySelector(sel).querySelector("[data-feed-open]")
+      el.scrollIntoView({ block: "center" })
+      const b = el.getBoundingClientRect()
       return { x: b.left + 20, y: b.top + b.height / 2 }
     }, rowSel)
+    if (process.env.DEBUG) console.log("    tap", tb, await ph.p.evaluate((x, y) => { const e = document.elementFromPoint(x, y); return e ? e.outerHTML.slice(0, 160) : null }, tb.x, tb.y))
     await ph.p.touchscreen.tap(tb.x, tb.y)
+    if (process.env.DEBUG) { await sleep(300); console.log("    after", await ph.p.evaluate(() => ({ sheets: [...document.querySelectorAll("[data-form-sheet], [data-mobile-bottom-sheet]")].map((x) => x.outerHTML.slice(0, 120)), open: document.querySelector("[data-feed-row-open]")?.getAttribute("data-feed-row") }))) }
     await sleep(1400)
     const phone = await ph.p.evaluate(() => {
       const s = document.querySelector("[data-form-sheet='post-viewer']")
