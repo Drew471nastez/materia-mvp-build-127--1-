@@ -152,29 +152,9 @@ export function OnboardingPanel({ head }: { head: CommunityHead }) {
         <ol className="-my-1 divide-y divide-[#f1f2f4]">
           {steps.map((s, i) => (
             <li key={s.key} className={cn("py-3 first:pt-1", badIndex === i && "-mx-2 rounded-lg bg-[#fef7f6] px-2")} data-onboarding-step={s.kind}>
-              <div className="flex items-start gap-1.5">
-                <span className="mt-2.5 w-5 shrink-0 text-[13px] font-semibold tabular-nums text-[#9ca3af] sm:mt-2">{i + 1}</span>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <input
-                    value={s.label}
-                    onChange={(e) => set(i, { label: e.target.value.slice(0, STEP_LABEL_MAX) })}
-                    placeholder={s.kind === "custom" ? tt("What should they do?") : kindLabel(s.kind)}
-                    aria-label={tt("Step {value}", { value: i + 1 })}
-                    className={cn(field, "h-11 sm:h-10")}
-                  />
-                  {s.kind === "custom" ? (
-                    <input
-                      value={s.url}
-                      onChange={(e) => set(i, { url: e.target.value.slice(0, STEP_URL_MAX) })}
-                      placeholder={tt("Link (optional), https://")}
-                      aria-label={tt("Link for step {value}", { value: i + 1 })}
-                      inputMode="url"
-                      className={cn(field, "h-11 sm:h-9")}
-                    />
-                  ) : null}
-                  <p className="text-[12.5px] leading-snug text-[#6b7280]">{kindHint(s.kind)}</p>
-                </div>
-                <div className="flex shrink-0 flex-col items-center sm:flex-row">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-[12.5px] font-medium text-[#6b7280]"><span className="tabular-nums">{i + 1}.</span> {kindLabel(s.kind)}</span>
+                <div className="-mr-2 flex shrink-0 items-center">
                   <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={tt("Move step {value} up", { value: i + 1 })} className="grid h-10 w-10 place-items-center rounded-lg text-[#9ca3af] outline-none hover:bg-[#f1f2f4] hover:text-[#1a1a2e] disabled:opacity-35 disabled:hover:bg-transparent sm:h-8 sm:w-8">
                     <ArrowUp aria-hidden className="h-4 w-4" />
                   </button>
@@ -183,6 +163,26 @@ export function OnboardingPanel({ head }: { head: CommunityHead }) {
                   </button>
                   <RemoveButton label={tt("Remove step {value}", { value: i + 1 })} onClick={() => setSteps((l) => l.filter((_, j) => j !== i))} />
                 </div>
+              </div>
+              <div className="mt-1 space-y-2">
+                <input
+                  value={s.label}
+                  onChange={(e) => set(i, { label: e.target.value.slice(0, STEP_LABEL_MAX) })}
+                  placeholder={s.kind === "custom" ? tt("What should they do?") : kindLabel(s.kind)}
+                  aria-label={tt("Step {value}", { value: i + 1 })}
+                  className={cn(field, "h-11 sm:h-10")}
+                />
+                {s.kind === "custom" ? (
+                  <input
+                    value={s.url}
+                    onChange={(e) => set(i, { url: e.target.value.slice(0, STEP_URL_MAX) })}
+                    placeholder={tt("Link (optional), https://")}
+                    aria-label={tt("Link for step {value}", { value: i + 1 })}
+                    inputMode="url"
+                    className={cn(field, "h-11 sm:h-9")}
+                  />
+                ) : null}
+                <p className="text-[12.5px] leading-snug text-[#6b7280]">{kindHint(s.kind)}</p>
               </div>
             </li>
           ))}

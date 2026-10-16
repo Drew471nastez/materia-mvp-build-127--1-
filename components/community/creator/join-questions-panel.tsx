@@ -131,53 +131,9 @@ export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
             <ol className="-my-1 divide-y divide-[#f1f2f4]">
               {list.map((q, i) => (
                 <li key={q.key} className={cn("py-3.5 first:pt-1", badIndex === i && "rounded-lg bg-[#fef7f6] px-2 -mx-2")} data-join-question-row={i}>
-                  <div className="flex items-start gap-1.5">
-                    <span className="mt-2.5 w-5 shrink-0 text-[13px] font-semibold tabular-nums text-[#9ca3af] sm:mt-2">{i + 1}</span>
-                    <div className="min-w-0 flex-1 space-y-2.5">
-                      <input
-                        value={q.label}
-                        onChange={(e) => set(i, { label: e.target.value.slice(0, JOIN_QUESTION_LABEL_MAX) })}
-                        placeholder={tt("What would you like to ask?")}
-                        aria-label={tt("Question {value}", { value: i + 1 })}
-                        className={cn(field, "h-11 font-medium sm:h-10")}
-                        data-join-question-label=""
-                      />
-                      <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-center">
-                        <SelectField name={`join-question-kind-${i}`} title={tt("Answer")} value={q.kind} options={KINDS} onChange={(kind) => set(i, { kind, options: isChoiceKind(kind) && q.options.length < 2 ? [...q.options, "", ""].slice(0, Math.max(2, q.options.length)) : q.options })} />
-                        <CheckRow checked={q.required} onChange={(required) => set(i, { required })} title={tt("Required")} />
-                      </div>
-                      {isChoiceKind(q.kind) ? (
-                        <div className="space-y-2" data-join-question-options="">
-                          {q.options.map((o, k) => (
-                            <div key={k} className="flex items-center gap-2">
-                              <span aria-hidden className={cn("h-4 w-4 shrink-0 border border-[#c9ccd2]", q.kind === "multi" ? "rounded-[4px]" : "rounded-full")} />
-                              <input
-                                value={o}
-                                onChange={(e) => set(i, { options: q.options.map((x, j) => (j === k ? e.target.value.slice(0, JOIN_OPTION_MAX) : x)) })}
-                                placeholder={tt("Choice {value}", { value: k + 1 })}
-                                aria-label={tt("Choice {value}", { value: k + 1 })}
-                                className={cn(field, "h-11 sm:h-9")}
-                              />
-                              <RemoveButton label={tt("Remove choice {value}", { value: k + 1 })} onClick={() => set(i, { options: q.options.filter((_, j) => j !== k) })} />
-                            </div>
-                          ))}
-                          {q.options.length < JOIN_OPTIONS_MAX ? (
-                            <button type="button" onClick={() => set(i, { options: [...q.options, ""] })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-1.5 text-[13px] font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)]">
-                              <Plus aria-hidden className="h-4 w-4" />
-                              {tt("Add choice")}
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <input
-                        value={q.help}
-                        onChange={(e) => set(i, { help: e.target.value.slice(0, JOIN_QUESTION_HELP_MAX) })}
-                        placeholder={tt("A line under the question (optional)")}
-                        aria-label={tt("A line under question {value}", { value: i + 1 })}
-                        className={cn(field, "h-11 text-[#4b5563] sm:h-9")}
-                      />
-                    </div>
-                    <div className="flex shrink-0 flex-col items-center sm:flex-row">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12.5px] font-medium tabular-nums text-[#6b7280]">{tt("Question {value}", { value: i + 1 })}</span>
+                    <div className="-mr-2 flex shrink-0 items-center">
                       <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={tt("Move question {value} up", { value: i + 1 })} className={ARROW}>
                         <ArrowUp aria-hidden className="h-4 w-4" />
                       </button>
@@ -186,6 +142,50 @@ export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
                       </button>
                       <RemoveButton label={tt("Remove question {value}", { value: i + 1 })} onClick={() => setList((l) => l.filter((_, j) => j !== i))} />
                     </div>
+                  </div>
+                  <div className="mt-1 space-y-2.5">
+                    <input
+                      value={q.label}
+                      onChange={(e) => set(i, { label: e.target.value.slice(0, JOIN_QUESTION_LABEL_MAX) })}
+                      placeholder={tt("What would you like to ask?")}
+                      aria-label={tt("Question {value}", { value: i + 1 })}
+                      className={cn(field, "h-11 font-medium sm:h-10")}
+                      data-join-question-label=""
+                    />
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto] sm:items-center">
+                      <SelectField name={`join-question-kind-${i}`} title={tt("Answer")} value={q.kind} options={KINDS} onChange={(kind) => set(i, { kind, options: isChoiceKind(kind) && q.options.length < 2 ? [...q.options, "", ""].slice(0, Math.max(2, q.options.length)) : q.options })} />
+                      <CheckRow checked={q.required} onChange={(required) => set(i, { required })} title={tt("Required")} />
+                    </div>
+                    {isChoiceKind(q.kind) ? (
+                      <div className="space-y-2" data-join-question-options="">
+                        {q.options.map((o, k) => (
+                          <div key={k} className="flex items-center gap-2">
+                            <span aria-hidden className={cn("h-4 w-4 shrink-0 border border-[#c9ccd2]", q.kind === "multi" ? "rounded-[4px]" : "rounded-full")} />
+                            <input
+                              value={o}
+                              onChange={(e) => set(i, { options: q.options.map((x, j) => (j === k ? e.target.value.slice(0, JOIN_OPTION_MAX) : x)) })}
+                              placeholder={tt("Choice {value}", { value: k + 1 })}
+                              aria-label={tt("Choice {value}", { value: k + 1 })}
+                              className={cn(field, "h-11 sm:h-9")}
+                            />
+                            <RemoveButton label={tt("Remove choice {value}", { value: k + 1 })} onClick={() => set(i, { options: q.options.filter((_, j) => j !== k) })} />
+                          </div>
+                        ))}
+                        {q.options.length < JOIN_OPTIONS_MAX ? (
+                          <button type="button" onClick={() => set(i, { options: [...q.options, ""] })} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-1.5 text-[13px] font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)]">
+                            <Plus aria-hidden className="h-4 w-4" />
+                            {tt("Add choice")}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <input
+                      value={q.help}
+                      onChange={(e) => set(i, { help: e.target.value.slice(0, JOIN_QUESTION_HELP_MAX) })}
+                      placeholder={tt("A line under it (optional)")}
+                      aria-label={tt("A line under question {value}", { value: i + 1 })}
+                      className={cn(field, "h-11 text-[#4b5563] sm:h-9")}
+                    />
                   </div>
                 </li>
               ))}

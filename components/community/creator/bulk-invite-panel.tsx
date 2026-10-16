@@ -122,7 +122,7 @@ export function BulkInviteButton({ head, className }: { head: CommunityHead; cla
                 onChange={(e) => setText(e.target.value.slice(0, BULK_TEXT_MAX))}
                 rows={7}
                 placeholder={SAMPLE}
-                className={cn(field, "resize-y py-2.5 font-mono text-[14px] leading-relaxed sm:text-[13px]")}
+                className={cn(field, "resize-y py-2.5 font-mono leading-relaxed sm:text-[13px]")}
               />
               <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[12.5px] tabular-nums text-[#6b7280]" data-bulk-invite-count={list.emails.length}>

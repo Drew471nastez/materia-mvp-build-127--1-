@@ -59,7 +59,7 @@ export function JoinRequestsPanel({ head }: { head: CommunityHead }) {
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [working, setWorking] = React.useState<string | null>(null)
   const [declining, setDeclining] = React.useState<RequestRow | null>(null)
-  const [all, setAll] = React.useState(false)
+  const [asking, setAll] = React.useState(false)
   const [progress, setProgress] = React.useState<{ done: number; of: number } | null>(null)
 
   const load = React.useCallback(async () => {
@@ -115,25 +115,31 @@ export function JoinRequestsPanel({ head }: { head: CommunityHead }) {
   if (!data.rows.length && !data.approvalRequired) return null
 
   const waiting = data.rows.filter((r) => !r.approved).length
+  const exportable = data.canExport && data.ready
+  const all = waiting > 1 && head.can.approve_member
+  const actions =
+    exportable || all ? (
+      <>
+        {exportable ? (
+          <a href={`/api/app/community/${head.id}/join-requests?format=csv`} className={buttonSecondary} data-join-answers-export="">
+            {tt("Download answers")}
+          </a>
+        ) : null}
+        {all ? (
+          <button type="button" onClick={() => setAll(true)} disabled={!!progress} className={buttonPrimary} data-join-approve-all="">
+            {progress ? tt("Approving {done} of {of}", progress) : tt("Approve all")}
+          </button>
+        ) : null}
+      </>
+    ) : null
   return (
     <Section
       title={tt("Requests")}
       hint={data.total ? tt("{n, plural, one {# person is waiting} other {# people are waiting}} for you to approve them.", { n: data.total }) : tt("Nobody is waiting. New requests show here.")}
-      action={
-        <>
-          {data.canExport && data.ready ? (
-            <a href={`/api/app/community/${head.id}/join-requests?format=csv`} className={buttonSecondary} data-join-answers-export="">
-              {tt("Download answers")}
-            </a>
-          ) : null}
-          {waiting > 1 && head.can.approve_member ? (
-            <button type="button" onClick={() => setAll(true)} disabled={!!progress} className={buttonPrimary} data-join-approve-all="">
-              {progress ? tt("Approving {done} of {of}", progress) : tt("Approve all")}
-            </button>
-          ) : null}
-        </>
-      }
+      action={actions ? <div className="hidden items-center gap-2 sm:flex">{actions}</div> : null}
     >
+      {/* On a phone the actions sit under the heading, where they have the width; beside it they squeezed it to a word a line. */}
+      {actions ? <div className="-mt-1 mb-3 flex flex-wrap gap-2 sm:hidden [&>*]:flex-1">{actions}</div> : null}
       {data.rows.length === 0 ? (
         <Empty title={tt("No requests")} detail={tt("When somebody asks to join, they show here with their answers.")} />
       ) : (
@@ -192,7 +198,7 @@ export function JoinRequestsPanel({ head }: { head: CommunityHead }) {
         onConfirm={() => declining && void one(declining, "reject")}
       />
       <Confirm
-        open={all}
+        open={asking}
         onClose={() => setAll(false)}
         title={tt("Approve {n, plural, one {# request} other {# requests}}?", { n: waiting })}
         detail={tt("Everyone waiting is let in, or let through to pay for a paid tier. Each one is told.")}

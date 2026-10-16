@@ -2231,7 +2231,7 @@ const words: Record<string, string> = {
  "Options for {kind} {value}": "Opções para {kind} {value}",
  "Uploading picture": "Enviando imagem",
  "A line under question {value}": "Uma linha abaixo da pergunta {value}",
- "A line under the question (optional)": "Uma linha abaixo da pergunta (opcional)",
+ "A line under it (optional)": "Uma linha abaixo (opcional)",
  "A short list new members see above the feed for their first 30 days, until they finish it or hide it.": "Uma lista curta que novos membros veem acima do feed nos primeiros 30 dias, até terminarem ou ocultarem.",
  "A step of your own": "Um passo seu",
  "Add a line about yourself": "Adicione uma linha sobre você",
