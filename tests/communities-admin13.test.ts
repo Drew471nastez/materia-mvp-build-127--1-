@@ -311,7 +311,8 @@ async function main() {
   check("archiving asks first; sharing uses the system sheet or copies", /<Confirm/.test(list) && /navigator\.share/.test(list) && /clipboard\.writeText/.test(list))
   const shell = code("components/community/creator/community-shell.tsx")
   check("the editor's sections: Learn and Calendar", /label: "Learn"/.test(shell) && /label: "Calendar"/.test(shell) && !/label: "Classroom"/.test(shell) && !/label: "Events"/.test(shell))
-  check("New community is the product editor: phone bar, two columns, foot bar from 1024px", /data-create-bar/.test(create) && /lg:hidden/.test(create) && /lg:grid-cols-\[minmax\(0,1fr\)_340px\]/.test(create) && /data-create-foot/.test(create) && /sticky bottom-0/.test(create) && /barButton/.test(create) && /primaryDepth/.test(create))
+  /* Changed on purpose (round 33): New community is a five step wizard; the step's card is held to 760px beside the 340px preview, in the product editor's frame (phone bar, foot bar from 1024px). */
+  check("New community is the product editor: phone bar, two columns, foot bar from 1024px", /data-create-bar/.test(create) && /lg:hidden/.test(create) && /lg:grid-cols-\[minmax\(0,760px\)_340px\]/.test(create) && /data-create-foot/.test(create) && /sticky bottom-0/.test(create) && /barButton/.test(create) && /primaryDepth/.test(create))
   check("and is a page layer on a phone, as New product", /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/community/new/layout.tsx")))
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")
