@@ -107,14 +107,14 @@ async function main() {
     check("its answer read: the new release, what was live, each file that changed", done.ok === true && done.releaseId === C && done.wasLive[0] === B && done.files.length === 1, done)
     const refused = async (error: Err) => {
       const r = await rollbackRelease(db({ data: null, error }), { installId: A, creatorId: B, releaseId: C })
-      return r.ok ? "ok" : r.reason
+      return "reason" in r ? r.reason : "ok"
     }
     check("part 188 not run: missing", (await refused({ code: "PGRST202", message: "Could not find the function public.rollback_site_release" })) === "missing")
     check("another website's or creator's release: not found", (await refused({ code: "P0002", message: "rollback: no such release of this website" })) === "not_found")
     check("a release with a file's text gone: unreadable", (await refused({ code: "22023", message: "rollback: 1 files of the release are missing" })) === "unreadable")
     check("anything else: failed", (await refused({ code: "40001", message: "serialization" })) === "failed")
     const thrown = await rollbackRelease(db(new Error("socket hang up")), { installId: A, creatorId: B, releaseId: C })
-    check("never throws", thrown.ok === false && thrown.reason === "failed")
+    check("never throws", "reason" in thrown && thrown.reason === "failed")
     const empty = await rollbackRelease(db({ data: {}, error: null }), { installId: A, creatorId: B, releaseId: C })
     check("an answer without a release is not a success", empty.ok === false)
     check("the failure names", rollbackFailure({ code: "42883" }) === "missing" && rollbackFailure(null) === "failed")
