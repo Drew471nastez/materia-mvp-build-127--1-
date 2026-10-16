@@ -1116,7 +1116,7 @@ export function systemReportKind(note: string | null | undefined): "join_alarm" 
 */
 
 /** The sections, by the place in the address after the community's slug. */
-export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "settings"
+export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "page" | "settings"
 
 /** The section an address is on: /app/community/<slug or id>/<section>. Old addresses land on the section that holds them now. */
 export function adminSectionOf(pathname: string): AdminSection {
@@ -1133,6 +1133,7 @@ export function adminSectionOf(pathname: string): AdminSection {
     case "members":
     case "moderation":
     case "analytics":
+    case "page":
     case "settings":
       return seg
     default:

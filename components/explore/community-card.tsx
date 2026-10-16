@@ -333,6 +333,7 @@ export function ExploreCommunityCard({
             sizes={phone ? "390px" : GRID_SIZES}
             eager={priority}
             fetchPriority={priority ? "high" : undefined}
+            style={card.coverPosition ? { objectPosition: card.coverPosition } : undefined}
             className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.02]"
           />
         ) : (

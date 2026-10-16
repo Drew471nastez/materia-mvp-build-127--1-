@@ -106,6 +106,8 @@ import { overviewActivity } from "./overview-activity"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
+import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "../page-look"
+import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
 import { communityRoom, loadPolicies } from "./creator-policies"
@@ -305,7 +307,7 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
  * plan's limit (lib/communities/plan-limit.ts) for New community.
  */
 export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
-  const LIST_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, status, access, visibility, member_count, post_count, created_at, archived_at, creator_id, owner_user_id"
+  const LIST_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, status, access, visibility, member_count, post_count, created_at, archived_at, creator_id, owner_user_id, onboarding"
   const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
     db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
@@ -316,7 +318,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
     if (missing(owned.error)) return { available: false, rows: [], limit }
     console.error(`[communities] creator list: ${reasonOf(owned.error)}`)
   }
-  type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null }
+  type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null; onboarding?: unknown }
   const rows = new Map<string, Lite & { role: Role }>()
   for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
   limit.owned = rows.size
@@ -373,6 +375,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
         tagline: c.tagline,
         logoUrl: c.logo_url,
         coverUrl: c.cover_url,
+        coverPosition: coverPosition(pageLookOf(c.onboarding)) ?? null,
         status: c.status,
         access: c.access,
         visibility: c.visibility,
@@ -574,6 +577,9 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
   ])
   return {
     description: htmlToText(c.description),
+    /* Round 33: the stored HTML, for the Page editor's rich text field. */
+    descriptionHtml: c.description ?? "",
+    pageLook: pageLookOf(c.onboarding),
     tagline: c.tagline,
     category: c.category,
     rules: Array.isArray(c.rules) ? c.rules : [],
@@ -647,6 +653,19 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const text = typeof b.description === "string" ? b.description.slice(0, 10_000) : ""
     patch.description = text.trim() ? sanitizeDescription(textToHtml(text)) : null
   }
+  /*
+    ROUND 33: THE DESCRIPTION AS THE PRODUCT EDITOR WRITES IT. The Page editor sends the rich text field's HTML
+    (components/app/rich-text-editor.tsx: headings, lists, links, pictures, emoji), cleaned here by the same allow list
+    a product description is (lib/rich-text/sanitize.ts) and refused over the same size. A field with nothing in it
+    (no words, no picture) is no description.
+  */
+  if (b.descriptionHtml !== undefined) {
+    const html = typeof b.descriptionHtml === "string" ? b.descriptionHtml : ""
+    const tooLong = descriptionTooLong(html)
+    if (tooLong) return no(400, tooLong, "descriptionHtml")
+    const clean = html.trim() ? sanitizeDescription(html) : ""
+    patch.description = clean && (htmlToText(clean) || /<(img|iframe|hr)\b/i.test(clean)) ? clean : null
+  }
   if (b.slug !== undefined) {
     const slug = typeof b.slug === "string" ? b.slug.trim().toLowerCase() : ""
     if (!validSlug(slug)) return no(400, "An address is 3 to 48 lowercase letters, numbers and single hyphens.", "slug")
@@ -710,7 +729,11 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
     /* The look lives beside the welcome steps, so saving one never drops the other. */
     const look = communityAppearance(c.onboarding)
-    patch.onboarding = { ...keptSafety(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+    patch.onboarding = { ...keptSafety(c.onboarding), ...keptLook(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+  }
+  /* Round 33: the cover's focus and the join button (../page-look.ts), beside the welcome steps, everything else kept. */
+  if (b.pageLook !== undefined) {
+    patch.onboarding = withPageLook(patch.onboarding ?? c.onboarding, cleanLook(b.pageLook))
   }
   if (b.appearance !== undefined) {
     if (b.appearance !== "light" && b.appearance !== "dark") return no(400, "Pick a look.", "appearance")

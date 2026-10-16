@@ -646,6 +646,8 @@ export interface CommunityCard {
   tagline: string | null
   logoUrl: string | null
   coverUrl: string | null
+  /** Round 33: where the cover sits in the card's frame (CSS object-position), or null for the middle. */
+  coverPosition?: string | null
   category: string | null
   access: CommunityAccess
   visibility: CommunityVisibility

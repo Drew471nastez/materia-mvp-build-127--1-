@@ -186,7 +186,7 @@ export interface NavigatorModel {
    * shape the ways out already use, in grey, with a shop in the line family
    * the rest of the panel draws in. Dashboard is untouched.
    */
-  actions: { key: "dashboard" | "start-creating" | "log-in"; label: string; href: string; primary: boolean; quiet?: boolean }[]
+  actions: { key: "dashboard" | "start-creating" | "log-in" | "sign-up"; label: string; href: string; primary: boolean; quiet?: boolean }[]
 }
 
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
@@ -197,7 +197,7 @@ const SAFE_ID = /^[0-9a-zA-Z-]{1,64}$/
  * and communities, the last touched first, the community being looked at
  * marked), Discover communities, Explore, then Dashboard for a seller or
  * Start creating for everybody else. Signed out: Explore, Discover
- * communities, then Log in and Start creating. With communities switched
+ * communities, then Log in and Sign up (round 33). With communities switched
  * off there is no community anywhere in it. A slug or an id that would not
  * make a safe path is dropped rather than linked.
  */
@@ -229,9 +229,10 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
     ? [places.hasSellerAccess
         ? { key: "dashboard", label: "Dashboard", href: "/app", primary: true }
         : { key: "start-creating", label: "Start creating", href: "/sell", primary: false, quiet: true }]
-    : [
+    : /* Round 33, the owner: signed out, the menu offers Log in and Sign up, not Start creating. */
+      [
         { key: "log-in", label: "Log in", href: "/login", primary: false },
-        { key: "start-creating", label: "Start creating", href: "/sell", primary: true },
+        { key: "sign-up", label: "Sign up", href: "/signup", primary: true },
       ]
   return { recent, links, actions }
 }
