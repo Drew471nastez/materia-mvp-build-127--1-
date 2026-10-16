@@ -55,6 +55,8 @@ export interface TranslationRow {
   sourceHash: string
   status: TranslationStatus
   source: TranslationSource
+  /** One of Storelib's hand written words (lib/markets/curated-words.ts), never saved: laid in when a language is read. */
+  curated?: boolean
 }
 
 /** One language's values, by key. */

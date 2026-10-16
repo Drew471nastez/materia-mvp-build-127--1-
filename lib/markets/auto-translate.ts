@@ -94,8 +94,9 @@ export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: 
       continue
     }
     const batch = todo.slice(0, PER_LANGUAGE)
-    const { drafts, unavailable } = await draftReusing(batch.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt, glossary: words.glossary })
-    if (unavailable && drafts.size === 0) unreachable = true
+    const { drafts, unavailable, reused } = await draftReusing(batch.map((t) => ({ key: t.key, source: t.source })), saved.rows, from, locale, store?.name || "the store", { deadlineAt, glossary: words.glossary })
+    /* Unreachable is the translator's: words reused at no cost (a hand written one with the same English, ./curated-words.ts) are saved all the same, and say nothing about it. */
+    if (unavailable && drafts.size <= reused) unreachable = true
     /* Live at once, and labelled as Storelib AI's: the Translate sheet shows it, and an edit there makes it the merchant's. */
     const items = batch.filter((t) => drafts.has(t.key)).map((t) => ({ key: t.key, value: drafts.get(t.key)!, source: t.source, approved: true, ai: true, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
     const done = items.length ? await saveTranslations(db, creatorId, locale, items, null, { keepManual: true }) : { ok: true as const, saved: 0, removed: 0 }

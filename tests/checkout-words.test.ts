@@ -94,7 +94,7 @@ check("  and refuses any other text in it", /!isBuiltInWordKey\(i\.key\)\)\) ret
 check("Storelib AI drafts them from English", /from: "en"/.test(read("lib/markets/translate-ai.ts")))
 check("the hourly job does them too", /* Changed on purpose (the owner: the default language is what the website shows; written in another, every text is translated into it). */ /const own = scope === "all" \|\| !isEnglish\(loc\.defaultLanguage\) \? \[loc\.defaultLanguage\] : \[\]/.test(read("lib/markets/auto-translate.ts")))
 check("the live pages draw the shop's words in it, and every translation into the default", /* Changed on purpose (the owner: the default language is what the website shows; written in another, every text is translated into it). */ /: await cachedTranslations\(creatorId, langs\.defaultLanguage\)/.test(read("lib/markets/live.ts")))
-check("the checkout too", /if \(isEnglish\(langs\.defaultLanguage\)\) return/.test(read("lib/markets/checkout-language.ts")))
+check("the checkout too", /* Changed on purpose: an English website reads the store's own checkout wording (Settings › Checkout › Checkout text), its manual rows only, instead of returning no words. */ /const english = isEnglish\(langs\.defaultLanguage\)/.test(read("lib/markets/checkout-language.ts")) && /\(!english \|\| r\.source === "manual"\)/.test(read("lib/markets/checkout-language.ts")))
 check("Translate on its row in Markets and languages", /* Changed on purpose (the owner: the default language is what the website shows; written in another, every text is translated into it). */ /translateDefault \|\| !isEnglish\(draft\.defaultLanguage\) \?/.test(read("components/app/settings/markets-panel.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)

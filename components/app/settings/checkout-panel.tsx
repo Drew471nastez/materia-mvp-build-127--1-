@@ -16,6 +16,9 @@
  *   marketing             the unticked "Email me with news and offers" box
  *   customer information  the name as one field or two, and whether company,
  *                         phone and the second address line are asked for
+ *   checkout text         the store's own wording for the cart's and
+ *                         checkout's buttons, headings and messages, per
+ *                         language (./checkout-text.tsx)
  *
  * Saved as each one changes, the way Shopify's checkout settings are; a
  * line at the foot says when the last change was kept.
@@ -29,6 +32,7 @@ import { COD_INSTRUCTIONS_MAX, DEFAULT_CHECKOUT, checkoutConfig, type CheckoutCo
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
 import { CountryFlag, CountryPicker } from "./country-picker"
+import { CheckoutTextCard } from "./checkout-text"
 import { tt } from "@/lib/i18n/text"
 
 const RULES: { id: FieldRule; label: string }[] = [
@@ -234,6 +238,9 @@ export function CheckoutPanel() {
           ) : null}
         </div>
       </Card>
+
+      {/* The cart's and checkout's words in the store's own wording, per language (./checkout-text.tsx): saved on their own, as each field is left. */}
+      <CheckoutTextCard />
 
       {error ? <Notice>{error}</Notice> : null}
       <p className="px-1 text-[12.5px] text-[#6b7280]" aria-live="polite" data-checkout-saved={saved}>
