@@ -15,8 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * /app/community/new: name, description, logo, cover, who can join, the
- * price; then its Overview. On the Free plan with two communities made, the
+ * /app/community/new: the five step wizard (round 33: name and address, logo
+ * and cover, who can join and the price, the first space and its welcome
+ * post, review); then its Overview. On the Free plan with two communities made, the
  * page opens on the upgrade sheet (lib/communities/plan-limit.ts).
  */
 export default async function NewCommunityPage() {

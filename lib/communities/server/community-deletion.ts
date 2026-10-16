@@ -359,7 +359,15 @@ async function stopNow(db: Db, deps: DeletionDeps, community: CommunityRow, row:
       const cents = last ? proratedRefundCents({ paidCents: last.paidCents, refundableCents: last.refundableCents, periodStart: last.periodStart, periodEnd: last.periodEnd, now: deps.now() }) : 0
       await patchRow(db, row, { refund_order_id: last?.orderId ?? null, refund_cents: cents })
     }
-    if (m && m.stripe_subscription_id && stillPaid(m, deps.now())) await deps.endNow(m.stripe_subscription_id)
+    if (m && m.stripe_subscription_id && stillPaid(m, deps.now())) {
+      try {
+        await deps.endNow(m.stripe_subscription_id)
+      } catch (e) {
+        /* Ended already (a run that stopped before writing it down): Stripe refuses a second cancel, and the engine's sync says so. */
+        const now = await deps.sync(m.stripe_subscription_id).catch(() => null)
+        if (!now || stillPaid({ status: String(now.status ?? ""), current_period_end: now.current_period_end ?? null, past_due_since: now.past_due_since ?? null }, deps.now())) throw e
+      }
+    }
     await patchRow(db, row, { cancelled_at: nowIso(deps.now()), period_end: nowIso(deps.now()), error: null })
     await audit(db, { communityId: community.id, actorId, actorKind: actorId ? "member" : "system", action: "membership.cancelled", targetType: "member", targetId: row.buyer_id, reason: "community_deleted", detail: { membershipId: row.membership_id, endedNow: true, refundCents: row.refund_cents } })
   }
