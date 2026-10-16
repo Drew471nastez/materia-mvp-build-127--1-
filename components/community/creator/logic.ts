@@ -586,7 +586,8 @@ export interface NextStepFacts {
   pricedEventsUnsellable?: number
 }
 
-export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "event_payouts" | "customize" | "rules"
+/* Round 33: group, post, app and intro come from the setup list (lib/communities/setup-checklist.ts), which the Overview now reads. */
+export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "event_payouts" | "customize" | "rules" | "group" | "post" | "app" | "intro"
 
 export interface NextStep {
   id: NextStepId

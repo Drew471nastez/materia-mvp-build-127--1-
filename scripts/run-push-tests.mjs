@@ -701,6 +701,12 @@ const STRICT_SUITES = [
     clean.
   */
   "tests/claude-integration.test.ts",
+  /*
+    Round 33: making a community, its setup list, deleting one members pay for (scripts/check-create-round33.mjs
+    measures the wizard and the pill). Here, not above: it runs lib/communities/server/creator.ts, whose results are
+    narrowed by `if (!x.ok)`, which only narrows under strict.
+  */
+  "tests/community-lifecycle-round33.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
