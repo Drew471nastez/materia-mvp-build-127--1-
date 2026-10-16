@@ -647,6 +647,8 @@ const SUITES = [
   "tests/release-rollback.test.ts",
   /* Safety nets that measure: build memory, bundle budgets, the post-deploy smoke, the load test, the rollback runbook, each job from cron_runs */
   "tests/ops-safety-nets.test.ts",
+  /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
+  "tests/db-indexes.test.ts",
 ]
 
 /**

@@ -293,13 +293,23 @@ export const cachedProductAssets = (productId: string) =>
     { revalidate: PRODUCT_CACHE_TTL, tags: [productTag(productId)] },
   )()
 
+/** What a "More from seller" card reads of a product, and nothing else. */
+export const MORE_FROM_CREATOR_COLUMNS = "id, slug, title, thumbnail_url, price_cents, compare_at_cents, sales_count, description, type"
+
 export const cachedMoreFromCreator = (creatorId: string, excludeProductId: string) =>
   unstable_cache(
     async () => {
       const supabase = createPublicReadClient()
+      /*
+        The card's columns only (app/(marketing)/p/[slug] moreProductsData),
+        not the whole row: `*` carried every product's search vector, gallery,
+        questions and custom fields into the data cache and back on every
+        product page, to draw four cards. All of these are columns the
+        Explore catalogue already names, so no database lacks one.
+      */
       const { data } = await supabase
         .from("products")
-        .select("*")
+        .select(MORE_FROM_CREATOR_COLUMNS)
         .eq("creator_id", creatorId)
         .eq("status", "published")
         .neq("type", "physical")

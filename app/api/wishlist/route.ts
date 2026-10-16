@@ -99,28 +99,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: [], count: 0, error: error.message })
     }
 
-    // Now fetch profile info for each creator
     const items = data || []
     const enrichedItems = []
 
+    /* Deleted (no row), or archived, unpublished or a draft now: not on sale, so not on the list (lib/products/visibility). */
+    const shown: typeof items = []
     for (const item of items) {
-      /* Deleted (no row), or archived, unpublished or a draft now: not on sale, so not on the list (lib/products/visibility). */
       if (!item.products || !isPubliclyVisible(item.products as { status?: string | null })) continue
+      shown.push(item)
+    }
 
+    /*
+      THE CREATORS' NAMES IN ONE READ. This asked for one profile per saved
+      item, one after another, and the site header asks for the wishlist on
+      every page: a list of 40 saves was 40 round trips before the count
+      showed. Now every creator's profile in a read per 200, and an item
+      whose creator has no profile still gets none, as before.
+    */
+    type CreatorProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null }
+    const creatorUserIds = [...new Set(shown.map((item) => item.products?.creators?.user_id).filter((id): id is string => typeof id === "string" && id !== ""))]
+    const profileByUser = new Map<string, CreatorProfile>()
+    for (let i = 0; i < creatorUserIds.length; i += 200) {
+      const { data: profileRows } = await adminClient
+        .from("profiles")
+        .select("id, display_name, username, avatar_url")
+        .in("id", creatorUserIds.slice(i, i + 200))
+      for (const p of (profileRows ?? []) as CreatorProfile[]) profileByUser.set(p.id, p)
+    }
+
+    for (const item of shown) {
       let creatorInfo = null
-      if (item.products.creators?.user_id) {
-        const { data: profileData } = await adminClient
-          .from("profiles")
-          .select("display_name, username, avatar_url")
-          .eq("id", item.products.creators.user_id)
-          .single()
-
-        if (profileData) {
-          creatorInfo = {
-            display_name: profileData.display_name,
-            username: profileData.username,
-            avatar_url: profileData.avatar_url
-          }
+      const profileData = item.products?.creators?.user_id ? profileByUser.get(item.products.creators.user_id) : undefined
+      if (profileData) {
+        creatorInfo = {
+          display_name: profileData.display_name,
+          username: profileData.username,
+          avatar_url: profileData.avatar_url
         }
       }
 
