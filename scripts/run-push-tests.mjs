@@ -55,6 +55,8 @@ const SUITES = [
   "tests/buyer24.test.ts",
   "tests/storelib-reviews.test.ts",
   "tests/reviews-product-page.test.ts",
+  /* Reviews › Widgets: each widget drawn with real reviews, never samples live, in the page's language, presets, Apps › Reviews (scripts/check-review-widgets.mjs measures them). */
+  "tests/review-widgets.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",

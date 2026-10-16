@@ -62,7 +62,8 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
-import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock } from "./storelib-reviews"
+import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, STARS_DEFAULTS, STARS_WIDGET_LIQUID, isReviewsAppBlock, isReviewsBadgeBlock } from "./storelib-reviews"
+import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
@@ -710,6 +711,8 @@ export class CompatTheme {
       search,
       customer: page.customer ?? null,
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
+      /* The words the Storelib Reviews section and blocks draw, in the page's language (lib/markets/ui-words.ts): the store's approved translations, English where there is none. */
+      storelib_words: shopWords(page.i18n?.shopWords),
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
       /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
@@ -777,7 +780,7 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
-      appBlock: (ctx, block) => (isReviewsAppBlock(block.app_type ?? block.type) ? this.reviewsBlock(ctx, String(block.id ?? ""), (block.settings as O | undefined) ?? {}) : null),
+      appBlock: (ctx, block) => (isReviewsAppBlock(block.app_type ?? block.type) ? this.reviewsBlock(ctx, String(block.id ?? ""), (block.settings as O | undefined) ?? {}, String(block.app_type ?? block.type)) : null),
       placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
@@ -921,9 +924,11 @@ export class CompatTheme {
   }
 
   /** A reviews app's block from Shopify, drawn as Storelib Reviews in its place (./storelib-reviews.ts). Its own settings are an app's and mean nothing here. */
-  private reviewsBlock(ctx: Ctx, id: string, _settings: unknown): string {
+  private reviewsBlock(ctx: Ctx, id: string, _settings: unknown, type?: string): string {
     void _settings
     try {
+      /* A star or badge block was the stars under a product's title on Shopify: the stars here too, not the list of reviews. */
+      if (isReviewsBadgeBlock(type)) return `<div class="shopify-app-block" ${blockAttributes(id)}>${renderString(STARS_WIDGET_LIQUID, ctx.child({ rv: { ...STARS_DEFAULTS } }))}</div>`
       return `<div class="shopify-app-block" ${blockAttributes(id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: { ...REVIEWS_DEFAULTS } }))}</div>`
     } catch (e) {
       this.warnings.push(`Storelib Reviews: ${(e as Error).message}`)
@@ -949,7 +954,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b.id, b.settings) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b.id, b.settings, b.type) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })

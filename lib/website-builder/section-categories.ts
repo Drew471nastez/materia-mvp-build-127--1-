@@ -23,6 +23,32 @@ import { tt } from "@/lib/i18n/text"
  * (tests/section-categories.test.ts).
  */
 
+/**
+ * ===========================================================================
+ *  APPS: SECTIONS A STORELIB APP ADDS, IN EVERY THEME
+ * ===========================================================================
+ * Storelib Reviews' widgets are sections like any other (themes/default/
+ * sections/reviews_*.storelib, and in an imported theme the Storelib
+ * Reviews sections compat/storelib-reviews.ts adds), filed in Add a section
+ * under Apps › Reviews: after the theme's own kinds, under an Apps heading,
+ * so a store finds what an app gave it in one place whatever theme it runs.
+ * `category` is the id a section's schema files itself under.
+ */
+export const APP_SECTION_CATEGORIES = [
+  { id: "reviews", group: "apps", get label() { return tt("Reviews") } },
+] as const
+
+export const APP_GROUP_LABELS: Record<string, () => string> = {
+  apps: () => tt("Apps"),
+}
+
+/** The app category a section is filed under, or null. An imported theme's Storelib Reviews sections are found by their file name. */
+export function appCategoryOf(type: string, category?: string): string | null {
+  if (category && APP_SECTION_CATEGORIES.some((c) => c.id === category)) return category
+  if (/^storelib-reviews(?:-[a-z0-9-]+)?$/.test(type)) return "reviews"
+  return null
+}
+
 export interface ImportedSectionFacts {
   /** The file name: `sections/<type>.storelib`. */
   type: string

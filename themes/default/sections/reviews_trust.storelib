@@ -1,0 +1,361 @@
+{# ===========================================================================
+   Trust badge (Storelib Reviews)
+
+   The shop's rating, or the product's on its page, as a small badge or a
+   full width bar that links to the reviews. From `reviews` through
+   review_scope (lib/reviews/widgets.ts). With no review yet, or the app
+   off, it draws nothing on a live page.
+   =========================================================================== #}
+<template>
+{% if reviews.enabled %}
+{% for sc in reviews | review_scope: settings.scope %}
+{% if sc.summary.count > 0 or page.in_editor %}
+<div class="rw rw--{{ settings.show_on }} rw--{{ settings.star_style }}">
+<section class="s tb" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ settings.background | default: scheme.bg }}; --s-text: {{ settings.text_color | default: scheme.text }}; --s-heading: {{ settings.text_color | default: scheme.heading }}; --s-para: {{ settings.text_color | default: scheme.paragraph }}; --s-border: {{ settings.border_color | default: scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --rv-star: {{ settings.star_color | default: reviews.star_color }}; --rv-size: {{ settings.star_size }}px; --rw-scale: {{ settings.text_scale }}; --rw-hscale: {{ settings.heading_scale }}; --rw-card: {{ settings.card_background | default: 'transparent' }}; --rw-bw: {{ settings.border_width }}px; --rw-radius: {{ settings.radius }}px;">
+  <div class="s__in s__in--{{ settings.max_width }} tb__in tb__in--{{ settings.align }}">
+    {% if sc.summary.count > 0 %}<a class="tb__box tb__box--{{ settings.layout }}" href="{{ settings.link | default: reviews.page_url | url }}"><span class="rv-stars" style="--rv: {{ sc.summary.percent }}%;" role="img" aria-label="{{ sc.summary.average_label }} {{ words.out_of_five_stars }}"></span><span class="tb__text">{% if settings.layout == 'banner' %}{{ words.rated }} {% endif %}<b class="tb__avg">{{ sc.summary.average_label }}</b> {{ words.out_of_five }} <span class="tb__count">{{ words.rating_from }} {{ sc.summary.count }} {% if sc.summary.count == 1 %}{{ words.review }}{% else %}{{ words.reviews }}{% endif %}</span></span>{% if settings.link_label %}<span class="tb__link">{{ settings.link_label }}</span>{% endif %}</a>{% else %}<span class="tb__box tb__box--{{ settings.layout }} tb__box--empty"><span class="rv-stars" style="--rv: 0%;"></span><span class="tb__text">{{ words.no_reviews_yet }}</span></span>{% endif %}
+  </div>
+</section>
+{% if page.in_editor %}<p class="rw__off rw__off--desktop">Shown on computers only. Switch the preview to a computer to see it.</p><p class="rw__off rw__off--mobile">Shown on phones only. Switch the preview to a phone to see it.</p>{% endif %}
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+</template>
+
+<style scoped>
+.rw { container-type: inline-size; }
+@container (max-width: 749px) { .rw--desktop > .s { display: none; } }
+@container (min-width: 750px) { .rw--mobile > .s { display: none; } }
+.rw__off { display: none; margin: 0; padding: 14px 16px; border: 1px dashed currentColor; opacity: 0.55; font-size: 13px; line-height: 1.4; text-align: center; }
+@container (max-width: 749px) { .rw--desktop > .rw__off--desktop { display: block; } }
+@container (min-width: 750px) { .rw--mobile > .rw__off--mobile { display: block; } }
+.s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); font-size: calc(15px * var(--rw-scale, 100) / 100); }
+.s__in { margin: 0 auto; padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1)); }
+.s__in--narrow { max-width: 720px; }
+.s__in--medium { max-width: 960px; }
+.s__in--wide { max-width: var(--theme-page-width, 1280px); }
+.s__in--full { max-width: none; }
+.s__h {
+  margin: 0;
+  font-size: calc(var(--section-heading-size, 32px) * var(--rw-hscale, 100) / 100);
+  line-height: var(--section-heading-line-height, 1.15);
+  font-weight: var(--section-heading-weight, 700);
+  color: var(--s-heading);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
+}
+.rw__head { margin-bottom: 28px; }
+.rw__head--center { text-align: center; }
+.rw__sub { margin: 10px 0 0; font-size: calc(var(--section-text-size, 17px) * var(--rw-scale, 100) / 100); line-height: 1.6; color: var(--s-para); max-width: 44rem; }
+.rw__head--center .rw__sub { margin-left: auto; margin-right: auto; }
+.rv__sample { margin: -12px 0 20px; font-size: 13px; color: var(--s-para); opacity: 0.7; }
+.rv-stars { --rv-g: "\2605\2605\2605\2605\2605"; position: relative; display: inline-block; flex: none; font-size: var(--rv-size, 16px); line-height: 1; letter-spacing: 0.12em; white-space: nowrap; color: color-mix(in srgb, var(--s-para) 22%, transparent); }
+.rv-stars::before { content: var(--rv-g); }
+.rv-stars::after { content: var(--rv-g); position: absolute; inset: 0 auto 0 0; width: var(--rv, 0%); overflow: hidden; white-space: nowrap; color: var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars { color: transparent; -webkit-text-stroke: 1px var(--rv-star, var(--s-accent)); }
+.rw--outline .rv-stars::after { -webkit-text-stroke: 0; }
+.rw--heart .rv-stars { --rv-g: "\2665\2665\2665\2665\2665"; }
+.tb__in { display: flex; }
+.tb__in--center { justify-content: center; }
+.tb__in--right { justify-content: flex-end; }
+.tb__box { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; color: var(--s-para); text-decoration: none; box-sizing: border-box; }
+.tb__box--badge { padding: 10px 16px; background: var(--rw-card); border: var(--rw-bw) solid var(--s-border); border-radius: var(--rw-radius); }
+.tb__box--banner { width: 100%; justify-content: center; text-align: center; padding: 14px 20px; background: var(--rw-card); border: var(--rw-bw) solid var(--s-border); border-radius: var(--rw-radius); font-size: 1.05em; }
+.tb__box--empty { opacity: 0.6; }
+.tb__text { color: var(--s-heading); }
+.tb__avg { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tb__count { color: var(--s-para); }
+.tb__link { font-weight: 600; color: var(--s-heading); text-decoration: underline; text-underline-offset: 3px; }
+a.tb__box:hover .tb__link, a.tb__box:hover .tb__count { text-decoration: underline; text-underline-offset: 3px; }
+</style>
+
+<schema>
+{
+  "schema_version": 1,
+  "type": "reviews_trust",
+  "name": "Trust badge",
+  "category": "reviews",
+  "description": "Storelib Reviews: the rating as a badge or a bar.",
+  "version": "1.0.0",
+  "icon": "star",
+  "settings": [
+    {
+      "type": "header",
+      "id": "hdr_content",
+      "label": "Content"
+    },
+    {
+      "type": "select",
+      "id": "scope",
+      "label": "Whose rating",
+      "default": "all",
+      "options": [
+        {
+          "label": "This page: the product's on a product page",
+          "value": "here"
+        },
+        {
+          "label": "The whole shop",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "link_label",
+      "label": "Link label",
+      "default": "Read reviews"
+    },
+    {
+      "type": "text",
+      "id": "link",
+      "label": "Link",
+      "default": "",
+      "info": "Empty goes to the shop's reviews page. #reviews jumps to the reviews on the same page."
+    },
+    {
+      "type": "header",
+      "id": "hdr_layout",
+      "label": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Shape",
+      "default": "badge",
+      "options": [
+        {
+          "label": "Badge",
+          "value": "badge"
+        },
+        {
+          "label": "Full width bar",
+          "value": "banner"
+        }
+      ]
+    },
+    {
+      "type": "radio",
+      "id": "align",
+      "label": "Align",
+      "default": "center",
+      "options": [
+        {
+          "label": "Left",
+          "value": "left"
+        },
+        {
+          "label": "Centre",
+          "value": "center"
+        },
+        {
+          "label": "Right",
+          "value": "right"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "max_width",
+      "label": "Content width",
+      "default": "wide",
+      "options": [
+        {
+          "label": "Narrow",
+          "value": "narrow"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Wide",
+          "value": "wide"
+        },
+        {
+          "label": "Full",
+          "value": "full"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_style",
+      "label": "Style"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Colour scheme",
+      "default": "white"
+    },
+    {
+      "type": "color",
+      "id": "background",
+      "label": "Background",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "color",
+      "id": "card_background",
+      "label": "Card background",
+      "default": ""
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "default": "",
+      "info": "Empty uses the colour scheme."
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "label": "Border width",
+      "default": 1,
+      "min": 0,
+      "max": 4,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "Corner radius",
+      "default": 999,
+      "min": 0,
+      "max": 999,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "select",
+      "id": "star_style",
+      "label": "Stars",
+      "default": "solid",
+      "options": [
+        {
+          "label": "Solid",
+          "value": "solid"
+        },
+        {
+          "label": "Outline",
+          "value": "outline"
+        },
+        {
+          "label": "Hearts",
+          "value": "heart"
+        }
+      ]
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Star colour",
+      "default": "",
+      "info": "Empty uses the colour set in Storelib Reviews."
+    },
+    {
+      "type": "range",
+      "id": "star_size",
+      "label": "Star size",
+      "default": 16,
+      "min": 10,
+      "max": 40,
+      "step": 1,
+      "unit": "px"
+    },
+    {
+      "type": "header",
+      "id": "hdr_type",
+      "label": "Typography"
+    },
+    {
+      "type": "range",
+      "id": "text_scale",
+      "label": "Text size",
+      "default": 100,
+      "min": 80,
+      "max": 140,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "range",
+      "id": "heading_scale",
+      "label": "Heading size",
+      "default": 100,
+      "min": 60,
+      "max": 160,
+      "step": 5,
+      "unit": "%"
+    },
+    {
+      "type": "header",
+      "id": "hdr_visibility",
+      "label": "Visibility"
+    },
+    {
+      "type": "select",
+      "id": "show_on",
+      "label": "Show on",
+      "default": "all",
+      "options": [
+        {
+          "label": "Phones and computers",
+          "value": "all"
+        },
+        {
+          "label": "Computers only",
+          "value": "desktop"
+        },
+        {
+          "label": "Phones only",
+          "value": "mobile"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "id": "hdr_spacing",
+      "label": "Spacing"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Top padding",
+      "default": 16,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Bottom padding",
+      "default": 16,
+      "min": 0,
+      "max": 160,
+      "step": 4,
+      "unit": "px"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Trust badge",
+      "settings": {}
+    }
+  ]
+}
+</schema>

@@ -184,6 +184,7 @@ read the ends of a list or a string.
 | `append: "…"` `prepend: "…"` `replace: "a", "b"` `truncate: 40` | text |
 | `size` `first` `last` `join: ", "` | lists |
 | `plus` `minus` `times` `divided_by` `round` | numbers |
+| `review_scope: "here"` `review_list: sort, min_rating, media` | Storelib Reviews: `{% for s in reviews \| review_scope: settings.scope %}` names this page's reviews ("all": the shop's), and `s.items \| review_list: "newest", 4, "photos"` sorts and filters them |
 | `json` | the value as JSON, for a data attribute |
 | `date: "short"` | a `datetime` for people to read: `long`, `short`, `time`, `long_time`, `iso` |
 | `strip_html` | the words of some markup, for an alt text made from rich text |

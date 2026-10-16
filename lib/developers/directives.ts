@@ -77,6 +77,8 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
   strip_html: { use: `alt="{{ settings.heading | strip_html }}"`, does: "The words of some markup, entities decoded, on one line. For an alt text or a title made from a rich text setting." },
   lines: { use: `{% for line in block.settings.features | lines %}`, does: "Each line of a text that has something on it, trimmed, as a list, at most 100. For a `textarea` typed one item per line: the features of a plan, the lessons of a module." },
   alpha: { use: `{{ settings.color | alpha: 0.4 }}`, does: "A 3 or 6 digit hex colour at that opacity, as `rgba()`. Anything else passes through unchanged." },
+  review_scope: { use: `{% for s in reviews | review_scope: settings.scope %}`, does: "Storelib Reviews: a list of one, this page's reviews (`\"here\"`: the product's on its page, the shop's elsewhere) or the whole shop's (`\"all\"`), with `summary`, `items` and `featured_items`, so the template names the scope once." },
+  review_list: { use: `{% for r in s.items | review_list: settings.sort, settings.min_rating limit: 6 %}`, does: "Storelib Reviews in an order (`featured`, `newest`, `highest`, `lowest`, `photos`), from that many stars up, and only the ones with photos when the third argument is `\"photos\"`." },
 }
 
 export const CAPABILITY_DOCS: Record<string, { grants: string; now: boolean }> = {

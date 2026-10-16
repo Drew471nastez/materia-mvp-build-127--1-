@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 203: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 205: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3643,6 +3643,16 @@ CREATE OR REPLACE FUNCTION public.site_translations_keep_manual() RETURNS trigge
 REVOKE ALL ON FUNCTION public.site_translations_keep_manual() FROM PUBLIC, anon, authenticated;
 DO $do$ BEGIN IF to_regclass('public.site_translations') IS NULL THEN RAISE NOTICE 'translation glossary: site_translations is not there yet, run part 136 first.'; ELSE DROP TRIGGER IF EXISTS site_translations_keep_manual ON public.site_translations; CREATE TRIGGER site_translations_keep_manual BEFORE UPDATE ON public.site_translations FOR EACH ROW EXECUTE FUNCTION public.site_translations_keep_manual(); END IF; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('203', '203_translation_glossary.sql', 'ad33f5ffe7eb0faea50fd6eef30144dec5ec32dc6a8d833bcaef3049f3a0149f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 205_review_widget_presets.sql
+/* Reviews › Widgets: the settings a store saves for a review widget under a name of its own (a preset), so the same carousel or grid can be placed again on another page with one press. `review_widget_presets`: one row per saved widget, the widget being the section type it is for (reviews_carousel, reviews_grid and the rest, themes/default/sections), its name unique per store and widget whatever its case, and its settings a small object of that section's own setting values (lib/reviews/widgets.ts cleanPresetSettings decides what is kept). A placed widget is an ordinary section saved with the website's theme; removing it from a page leaves its preset here, and deleting a preset changes no page. Server only, as the other Storelib Reviews tables are: row level security on with no policy, and only the service role may read or write it, from the store owner's signed in routes (app/api/reviews/widgets/presets). Until it runs, Reviews › Widgets shows every widget and its settings and says that saving needs this part. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.review_widget_presets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, widget text NOT NULL CHECK (widget ~ '^reviews_[a-z_]{2,40}$'), name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 60), settings jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(settings) = 'object' AND pg_column_size(settings) < 8192), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS review_widget_presets_one_name ON public.review_widget_presets (creator_id, widget, lower(name));
+CREATE INDEX IF NOT EXISTS review_widget_presets_creator ON public.review_widget_presets (creator_id, updated_at DESC);
+ALTER TABLE public.review_widget_presets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.review_widget_presets FROM anon, authenticated;
+GRANT ALL ON public.review_widget_presets TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('205', '205_review_widget_presets.sql', '6f6545a8445ce0cb113058654297fdc4ebf508319b20439f3aa18e3612cdb699') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

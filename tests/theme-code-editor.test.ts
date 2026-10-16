@@ -735,7 +735,8 @@ section("The library draws what you would actually get")
   /* The library is its own module now: components/website-builder/editor/section-library.tsx. */
   const library = readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8")
   check("a section you wrote has a preview, because the cards get your files",
-    /<StorelibLiveProvider sources=\{job\.sources\}( inEditor=\{floats\})?>/.test(library) && /<SectionLibrary[\s\S]{0,400}sources=\{storelibSources\}/.test(editor))
+    /* Changed on purpose (Reviews widgets): a Storelib Reviews card is drawn with sample reviews (data=), the rest as before. */
+    /<StorelibLiveProvider sources=\{job\.sources\}( inEditor=\{floats\})?( data=\{[^}]*\})?>/.test(library) && /<SectionLibrary[\s\S]{0,400}sources=\{storelibSources\}/.test(editor))
   check("and each preview is drawn once, off screen, not by a live renderer in every card",
     (library.match(/<StorelibLiveProvider/g) ?? []).length === 1 && /dangerouslySetInnerHTML=\{html\}/.test(library))
   /**

@@ -218,6 +218,7 @@ function compatPages(keys: string[], extra: string[]): SwitcherPage[] {
 /** The sections that show the creator's collections, offered only while collections are on. */
 const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
+import { placementIndex, readPlacement, type PlacementAt } from "@/lib/reviews/widgets"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -5486,6 +5487,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
     const schema = librarySchemas[type]
     if (!schema) return
+    /* Where Reviews › Widgets asked for it and with what (WIDGET PLACEMENT, below): for this one add. */
+    const place = widgetPlace.current?.type === type ? widgetPlace.current : null
+    widgetPlace.current = null
+    /* Settings Reviews › Widgets sent with this widget (a preset, or what was set there), for this one add (WIDGET PLACEMENT, below). */
+    const carried = place?.settings ?? (widgetSettings.current?.type === type ? widgetSettings.current.settings : null)
+    if (!place && widgetSettings.current?.type === type) widgetSettings.current = null
     /**
      * WHERE IT GOES, BY WHAT IT IS (lib/storelib-theme/section-groups.ts). An
      * announcement bar goes in the Header group above the header from
@@ -5507,7 +5514,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       id: `${type}-${Date.now()}`,
       type,
       name: schema.name,
-      settings: newSectionSettings(type, preset?.settings, storelibSources),
+      settings: { ...newSectionSettings(type, preset?.settings, storelibSources), ...(carried ?? {}) },
       /* The preset's blocks as this section's own: new ids, so adding the same preset twice is two sets of blocks, not one shared. */
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
@@ -5520,9 +5527,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * never land above the header or below the footer.
      */
     const insertAt =
-      canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+      place ? place.at : canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
     const before = splitGroups(sections)
-    const requested: SectionGroup = canvasInsertAt != null ? "template" : addGroup
+    const requested: SectionGroup = place || canvasInsertAt != null ? "template" : addGroup
     const placed = placeSection(sections, newSection, {
       groups,
       kind,
@@ -5599,6 +5606,68 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       },
     )
   }
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  WIDGET PLACEMENT: A REVIEW WIDGET SENT FROM REVIEWS › WIDGETS
+   * ═════════════════════════════════════════════════════════════════════════
+   * "Add to website" in Reviews › Widgets opens the editor at
+   * ?add=<widget>&page=product|home&at=top|after_product|bottom, with
+   * `preset=<id>` (a saved widget) or `settings=` (what was set there and
+   * not saved), lib/reviews/widgets.ts editorAddUrl. Once that page's
+   * sections are in, the widget is added as any section is (addSection),
+   * where it was asked for and with those settings, selected with its
+   * settings open, and the page is unsaved until the store saves it. With
+   * `at=choose` the library opens on Apps › Reviews instead, and the
+   * settings go with that widget when it is picked. The words are taken off
+   * the address, so a reload does not add it twice.
+   */
+  const widgetPlacement = useRef<ReturnType<typeof readPlacement> | undefined>(undefined)
+  if (widgetPlacement.current === undefined && typeof window !== "undefined") widgetPlacement.current = readPlacement(new URLSearchParams(window.location.search))
+  const widgetSettings = useRef<{ type: string; settings: Record<string, unknown> } | null>(null)
+  const widgetPlace = useRef<{ type: string; at: number; settings: Record<string, unknown> } | null>(null)
+  const [libraryCategory, setLibraryCategory] = useState<string | null>(null)
+  useEffect(() => {
+    const p = widgetPlacement.current
+    if (!p || loading) return
+    /* An imported theme has its own two Storelib Reviews sections (compat/storelib-reviews.ts): the library opens on them. */
+    const imported = importedTheme.current
+    if (!imported && !librarySchemas[p.widget.type]) return
+    widgetPlacement.current = null
+    const url = new URL(window.location.href)
+    for (const k of ["add", "at", "preset", "settings"]) url.searchParams.delete(k)
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    let alive = true
+    const settingsOf = async (): Promise<Record<string, unknown>> => {
+      if (!p.presetId) return p.settings
+      const res = await fetch(`/api/reviews/widgets/presets/${p.presetId}`, { credentials: "same-origin", cache: "no-store" }).catch(() => null)
+      const j = res && res.ok ? ((await res.json().catch(() => null)) as { preset?: { settings?: Record<string, unknown> } } | null) : null
+      return j?.preset?.settings ?? p.settings
+    }
+    void settingsOf().then((settings) => {
+      if (!alive) return
+      if (imported || p.at === "choose") {
+        if (!imported) widgetSettings.current = { type: p.widget.type, settings }
+        setLibraryCategory("reviews")
+        setAddGroup("template")
+        setAddSectionOpen(true)
+        return
+      }
+      const list = sectionsRef.current
+      const g = splitGroups(list)
+      const at = placementIndex(list.map((x) => x.type), p.at as PlacementAt, g.header.length, g.header.length + g.template.length)
+      widgetPlace.current = { type: p.widget.type, at, settings }
+      addSectionRef.current(p.widget.type, 0)
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, librarySchemas])
+  /* Apps › Reviews is where the library opened once; the next time it opens on everything, as always. */
+  useEffect(() => {
+    if (!addSectionOpen && libraryCategory) setLibraryCategory(null)
+  }, [addSectionOpen, libraryCategory])
 
   // Add custom page
   const handleAddCustomPage = async () => {
@@ -10562,6 +10631,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         sources={storelibSources}
         compatInstallId={compatInstall ? installId : null}
         theme={settingsDraft}
+        initialCategory={libraryCategory}
       />
 
       {/* ── Add Custom Page Modal ── */}

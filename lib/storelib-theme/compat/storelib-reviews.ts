@@ -24,9 +24,20 @@
  *                           whether the theme draws its blocks with
  *                           {% content_for 'blocks' %} or {% render block %}.
  *
+ *   THE STARS ALONE         "Storelib star rating" (sections/storelib-reviews-
+ *                           stars), the stars, the average and how many,
+ *                           linking to the reviews; and a reviews app's
+ *                           star or badge block (Judge.me's preview badge,
+ *                           Loox's rating) drawn as that, not as the whole
+ *                           list of reviews.
+ *
  * The markup is plain Liquid over `storelib_reviews` and `rv` (the section's
  * settings, or the defaults for an app block), with its own small
  * stylesheet scoped to .slrv, inheriting the theme's font and text colour.
+ * Every word it draws is the shop's own (`storelib_words`, lib/markets/
+ * ui-words.ts), in the page's language once the store's Translate has it,
+ * as the Storelib theme's review sections are; the reviews themselves stay
+ * in the words their buyers wrote them in.
  * The write form posts to /api/reviews/site with no script and comes back
  * to #review-posted and the rest, as the Storelib theme's section does.
  * Pure: no Node, no DOM, the same in the canvas and on the website.
@@ -35,12 +46,19 @@ import { wrapCompatTemplate, isCompatSource } from "./theme"
 
 export const REVIEWS_SECTION_TYPE = "storelib-reviews"
 export const REVIEWS_SECTION_PATH = `sections/${REVIEWS_SECTION_TYPE}.storelib`
+export const STARS_SECTION_TYPE = "storelib-reviews-stars"
+export const STARS_SECTION_PATH = `sections/${STARS_SECTION_TYPE}.storelib`
 
 /** An app block that was a reviews app's on Shopify. */
 const REVIEW_APPS = /^shopify:\/\/apps\/[^/]*(judge-?me|product-reviews|reviews|loox|yotpo|okendo|stamped|ali-?reviews|reviewsio|rivyo|opinew|storelib-reviews)[^/]*\/blocks\//i
 
 export function isReviewsAppBlock(type: unknown): boolean {
   return typeof type === "string" && REVIEW_APPS.test(type)
+}
+
+/** A reviews app's stars-only block (a "preview badge", a "star rating"): drawn as the stars, not as the list of reviews. */
+export function isReviewsBadgeBlock(type: unknown): boolean {
+  return isReviewsAppBlock(type) && /\/blocks\/[^/]*(badge|stars?|rating|preview)[^/]*(\/|$)/i.test(String(type))
 }
 
 /** The settings an app block is drawn with: the section's defaults. */
@@ -88,7 +106,7 @@ const STYLE = `<style>
 .slrv-sample{margin:-10px 0 18px;font-size:13px;color:var(--slrv-muted)}
 </style>`
 
-const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class="slrv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>{% if storelib_reviews.show_date %}<span>{{ r.date }}</span>{% endif %}</div>{% if r.title != blank %}<h3>{{ r.title | escape }}</h3>{% endif %}<p class="slrv-body">{{ r.body | escape }}</p>{% if storelib_reviews.show_photos and r.has_photos %}<div class="slrv-photos">{% for ph in r.photos %}<a href="{{ ph | escape }}" target="_blank" rel="noopener"><img src="{{ ph | escape }}" alt="Photo from {{ r.author | escape }}" loading="lazy"></a>{% endfor %}</div>{% endif %}<p class="slrv-by"><b>{{ r.author | escape }}</b>{% if storelib_reviews.show_verified and r.verified %} · Verified buyer{% endif %}{% if slrv_here.scope == 'shop' and r.product_title != blank %} · on <a href="{{ r.product_url | escape }}">{{ r.product_title | escape }}</a>{% endif %}</p>{% if r.reply != blank %}<div class="slrv-reply"><p class="slrv-small"><b>Reply from {{ shop.name | escape }}</b></p><p class="slrv-body">{{ r.reply | escape }}</p></div>{% endif %}</article>`
+const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class="slrv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ storelib_words.out_of_five_stars | escape }}"></span>{% if storelib_reviews.show_date %}<span>{{ r.date }}</span>{% endif %}</div>{% if r.title != blank %}<h3>{{ r.title | escape }}</h3>{% endif %}<p class="slrv-body">{{ r.body | escape }}</p>{% if storelib_reviews.show_photos and r.has_photos %}<div class="slrv-photos">{% for ph in r.photos %}<a href="{{ ph | escape }}" target="_blank" rel="noopener"><img src="{{ ph | escape }}" alt="{{ storelib_words.photo_from | escape }} {{ r.author | escape }}" loading="lazy"></a>{% endfor %}</div>{% endif %}<p class="slrv-by"><b>{{ r.author | escape }}</b>{% if storelib_reviews.show_verified and r.verified %} · {{ storelib_words.verified_buyer | escape }}{% endif %}{% if slrv_here.scope == 'shop' and r.product_title != blank %} · {{ storelib_words.review_on | escape }} <a href="{{ r.product_url | escape }}">{{ r.product_title | escape }}</a>{% endif %}</p>{% if r.reply != blank %}<div class="slrv-reply"><p class="slrv-small"><b>{{ storelib_words.reply_from | escape }} {{ shop.name | escape }}</b></p><p class="slrv-body">{{ r.reply | escape }}</p></div>{% endif %}</article>`
 
 /** The widget, over `storelib_reviews` and `rv`. */
 export const REVIEWS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}{%- assign slrv_per = rv.per_page | default: 5 -%}
@@ -97,26 +115,26 @@ ${STYLE}
 <div class="slrv" id="reviews" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %};">
 {%- if rv.heading != blank -%}<h2 class="h2">{{ rv.heading | escape }}</h2>{%- endif -%}
 {%- if storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
-{%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} out of 5 stars"></span><p class="slrv-count">Based on {{ slrv_here.summary.count_label }}</p></div>{%- else -%}<p class="slrv-none">No reviews yet</p>{%- endif -%}</div>
-{%- if rv.show_bars and slrv_here.summary.count > 0 -%}<ul class="slrv-bars">{%- for b in slrv_here.summary.bars -%}<li><span>{{ b.stars }} &#9733;</span><span class="slrv-bar"><span style="width: {{ b.percent }}%;"></span></span><span>{{ b.count }}</span></li>{%- endfor -%}</ul>{%- endif -%}</div>{%- endif -%}
-<p class="slrv-note" id="review-posted">Thanks. Your review is up.</p><p class="slrv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p><p class="slrv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p><p class="slrv-note" id="review-error">That didn't go through. Check the form and try again.</p>
+{%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} {{ storelib_words.out_of_five_stars | escape }}"></span><p class="slrv-count">{{ storelib_words.based_on | escape }} {{ slrv_here.summary.count }} {% if slrv_here.summary.count == 1 %}{{ storelib_words.review | escape }}{% else %}{{ storelib_words.reviews | escape }}{% endif %}</p></div>{%- else -%}<p class="slrv-none">{{ storelib_words.no_reviews_yet | escape }}</p>{%- endif -%}</div>
+{%- if rv.show_bars and slrv_here.summary.count > 0 -%}<ul class="slrv-bars" aria-label="{{ storelib_words.reviews_by_rating | escape }}">{%- for b in slrv_here.summary.bars -%}<li><span>{{ b.stars }} &#9733;</span><span class="slrv-bar"><span style="width: {{ b.percent }}%;"></span></span><span>{{ b.count }}</span></li>{%- endfor -%}</ul>{%- endif -%}</div>{%- endif -%}
+<p class="slrv-note" id="review-posted">{{ storelib_words.review_posted | escape }}</p><p class="slrv-note" id="review-waiting">{{ storelib_words.review_waiting | escape }}</p><p class="slrv-note" id="review-check-email">{{ storelib_words.review_check_email | escape }}</p><p class="slrv-note" id="review-error">{{ storelib_words.review_error | escape }}</p>
 {%- if rv.show_write and storelib_reviews.can_write and slrv_here.scope == 'product' -%}
-<details class="slrv-write"><summary class="slrv-btn"><span>Write a review</span></summary>
+<details class="slrv-write"><summary class="slrv-btn"><span>{{ storelib_words.write_a_review | escape }}</span></summary>
 <form class="slrv-form" method="post" action="{{ storelib_reviews.form_action }}" enctype="multipart/form-data" data-storelib-form="native">
 <input type="hidden" name="productId" value="{{ slrv_here.product_id }}">
-<fieldset><legend>Your rating</legend><div class="slrv-rate">{%- for n in (1..5) reversed -%}<input type="radio" id="slrv-r{{ n }}" name="rating" value="{{ n }}"{% if n == 5 %} required{% endif %}><label for="slrv-r{{ n }}"><span class="slrv-sr">{{ n }} stars</span></label>{%- endfor -%}</div></fieldset>
-<label>Title (optional)<input name="title" maxlength="120"></label>
-<label>Your review<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
-<label>Name<input name="name" required maxlength="40" autocomplete="given-name"></label>
-<label>Email<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
-{%- if storelib_reviews.photos_allowed -%}<label>Photos (optional, up to 4)<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{%- endif -%}
+<fieldset><legend>{{ storelib_words.your_rating | escape }}</legend><div class="slrv-rate">{%- for n in (1..5) reversed -%}<input type="radio" id="slrv-r{{ n }}" name="rating" value="{{ n }}"{% if n == 5 %} required{% endif %}><label for="slrv-r{{ n }}"><span class="slrv-sr">{{ n }} {% if n == 1 %}{{ storelib_words.star | escape }}{% else %}{{ storelib_words.stars | escape }}{% endif %}</span></label>{%- endfor -%}</div></fieldset>
+<label>{{ storelib_words.review_title | escape }} {{ storelib_words.optional | escape }}<input name="title" maxlength="120"></label>
+<label>{{ storelib_words.your_review | escape }}<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
+<label>{{ storelib_words.your_name | escape }}<input name="name" required maxlength="40" autocomplete="given-name"></label>
+<label>{{ storelib_words.email | escape }}<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
+{%- if storelib_reviews.photos_allowed -%}<label>{{ storelib_words.photos | escape }} {{ storelib_words.optional_up_to_four | escape }}<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{%- endif -%}
 <div class="slrv-hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
-<p class="slrv-small">Only your first name and last initial are shown. Your email is not.</p>
-<button class="slrv-btn" type="submit"><span>Post review</span></button>
+<p class="slrv-small">{{ storelib_words.review_privacy | escape }}</p>
+<button class="slrv-btn" type="submit"><span>{{ storelib_words.post_review | escape }}</span></button>
 </form></details>
 {%- endif -%}
 {%- for r in slrv_here.items limit: slrv_per -%}${CARD}{%- endfor -%}
-{%- if slrv_here.items.size > slrv_per -%}<details class="slrv-more"><summary class="slrv-btn slrv-quiet"><span>Show more reviews</span></summary>{%- for r in slrv_here.items offset: slrv_per -%}${CARD}{%- endfor -%}</details>{%- endif -%}
+{%- if slrv_here.items.size > slrv_per -%}<details class="slrv-more"><summary class="slrv-btn slrv-quiet"><span>{{ storelib_words.show_more_reviews | escape }}</span></summary>{%- for r in slrv_here.items offset: slrv_per -%}${CARD}{%- endfor -%}</details>{%- endif -%}
 </div>
 {%- endif -%}{%- endif -%}`
 
@@ -170,15 +188,81 @@ ${JSON.stringify(
 </schema>
 `
 
+/** The settings a star badge app block is drawn with: the star section's defaults. */
+export const STARS_DEFAULTS = { show_average: true, show_count: true, link: "#reviews", size: 16, align: "left", star_color: "" }
+
+/**
+ * The stars alone, over `storelib_reviews` and `rv`: the product's on its
+ * page, the shop's anywhere else, linking to the reviews. Nothing at all
+ * until there is a review, except a quiet line in the builder.
+ */
+export const STARS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}
+{%- if slrv_here.summary.count > 0 or storelib_reviews.sample -%}
+<style>.slrv-badge{display:flex;margin:6px 0;font:inherit;color:inherit}.slrv-badge--center{justify-content:center}.slrv-badge--right{justify-content:flex-end}.slrv-badge a,.slrv-badge span.slrv-b{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none}.slrv-badge a:hover .slrv-bc{text-decoration:underline;text-underline-offset:3px}.slrv-bs{position:relative;display:inline-block;line-height:1;letter-spacing:2px;color:color-mix(in srgb,currentColor 18%,transparent)}.slrv-bs:before{content:"\\2605\\2605\\2605\\2605\\2605"}.slrv-bs:after{content:"\\2605\\2605\\2605\\2605\\2605";position:absolute;left:0;top:0;bottom:0;width:var(--rv,0%);overflow:hidden;white-space:nowrap;color:var(--slrv-star)}.slrv-ba{font-weight:700}.slrv-bc{opacity:.75}</style>
+<div class="slrv-badge slrv-badge--{{ rv.align | default: 'left' | escape }}" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %}; font-size: {{ rv.size | default: 16 | times: 0.85 }}px;">
+{%- if slrv_here.summary.count > 0 -%}<a href="{{ rv.link | default: '#reviews' | escape }}"><span class="slrv-bs" style="--rv: {{ slrv_here.summary.percent }}%; font-size: {{ rv.size | default: 16 }}px;" role="img" aria-label="{{ slrv_here.summary.average_label }} {{ storelib_words.out_of_five_stars | escape }}"></span>{%- if rv.show_average -%}<span class="slrv-ba">{{ slrv_here.summary.average_label }}</span>{%- endif -%}{%- if rv.show_count -%}<span class="slrv-bc">({{ slrv_here.summary.count }} {% if slrv_here.summary.count == 1 %}{{ storelib_words.review | escape }}{% else %}{{ storelib_words.reviews | escape }}{% endif %})</span>{%- endif -%}</a>
+{%- else -%}<span class="slrv-b" style="opacity:.6"><span class="slrv-bs" style="--rv: 0%; font-size: {{ rv.size | default: 16 }}px;"></span><span class="slrv-bc">{{ storelib_words.no_reviews_yet | escape }}</span></span>{%- endif -%}
+</div>
+{%- endif -%}{%- endif -%}`
+
+let starsSource: string | null = null
+export function starsSectionSource(): string {
+  if (starsSource === null) starsSource = makeStarsSource()
+  return starsSource
+}
+
+const makeStarsSource = () => `${wrapCompatTemplate(`{%- assign rv = section.settings -%}\n${STARS_WIDGET_LIQUID}`)}
+
+<schema>
+${JSON.stringify(
+  {
+    schema_version: 1,
+    type: STARS_SECTION_TYPE,
+    name: "Storelib star rating",
+    description: "The stars and how many reviews from Storelib Reviews, linking to the reviews.",
+    version: "1.0.0",
+    icon: "star",
+    settings: [
+      { type: "toggle", id: "show_average", label: "Show the average", default: true },
+      { type: "toggle", id: "show_count", label: "Show how many reviews", default: true },
+      { type: "text", id: "link", label: "Link", default: STARS_DEFAULTS.link },
+      { type: "radio", id: "align", label: "Align", default: "left", options: [{ label: "Left", value: "left" }, { label: "Centre", value: "center" }, { label: "Right", value: "right" }] },
+      { type: "range", id: "size", label: "Star size", default: STARS_DEFAULTS.size, min: 12, max: 32, step: 1, unit: "px" },
+      { type: "color", id: "star_color", label: "Star colour", default: "" },
+    ],
+    presets: [{ name: "Storelib star rating", settings: {} }],
+    shopify: {
+      name: "Storelib star rating",
+      settings: [
+        { type: "checkbox", id: "show_average", label: "Show the average", default: true },
+        { type: "checkbox", id: "show_count", label: "Show how many reviews", default: true },
+        { type: "text", id: "link", label: "Link", default: STARS_DEFAULTS.link },
+        { type: "select", id: "align", label: "Align", default: "left", options: [{ label: "Left", value: "left" }, { label: "Centre", value: "center" }, { label: "Right", value: "right" }] },
+        { type: "range", id: "size", label: "Star size", default: STARS_DEFAULTS.size, min: 12, max: 32, step: 1, unit: "px" },
+        { type: "color", id: "star_color", label: "Star colour", default: "" },
+      ],
+      presets: [{ name: "Storelib star rating" }],
+    },
+  },
+  null,
+  2,
+)}
+</schema>
+`
+
 /**
  * An imported theme's files with the Storelib Reviews section in them: only
  * a theme drawn by the compatible engine (its layout is a compatible file),
  * and never over a file of the theme's own by that name.
  */
 export function withStorelibReviewsSection(files: Record<string, string>): Record<string, string> {
-  if (files[REVIEWS_SECTION_PATH] !== undefined || files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] !== undefined) return files
   if (!isCompatSource(files["layout/theme.storelib"])) return files
-  return { ...files, [REVIEWS_SECTION_PATH]: reviewsSectionSource() }
+  const has = (type: string) => files[`sections/${type}.storelib`] !== undefined || files[`sections/${type}.liquid`] !== undefined
+  const add: Record<string, string> = {}
+  if (!has(REVIEWS_SECTION_TYPE)) add[REVIEWS_SECTION_PATH] = reviewsSectionSource()
+  /* The stars alone, beside it: Add section › Apps › Reviews in an imported theme has both. */
+  if (!has(STARS_SECTION_TYPE)) add[STARS_SECTION_PATH] = starsSectionSource()
+  return Object.keys(add).length ? { ...files, ...add } : files
 }
 
 /**
