@@ -25,7 +25,7 @@
  * sales-page.tsx and join-controls.tsx) it opens that part's editor. Resting
  * on a part outlines it and shows a small Edit button at its corner; the
  * part being edited keeps a solid outline. On a touch screen, where nothing
- * rests, every part shows its Edit button. The outlines and buttons are
+ * rests, each part has a small pencil on its top right corner. The outlines and buttons are
  * drawn by the frame over the page, never inside it, so the page's own
  * layout is untouched; they are sized against the frame's scale, so they
  * read the same at 0.5 as at 1.
@@ -123,11 +123,11 @@ export function PreviewFrame({
   pick.current = onPick
   const hover = React.useSyncExternalStore(
     (f) => {
-      const mq = window.matchMedia("(hover: hover) and (pointer: fine)")
+      const mq = window.matchMedia("(pointer: coarse)")
       mq.addEventListener("change", f)
       return () => mq.removeEventListener("change", f)
     },
-    () => window.matchMedia("(hover: hover) and (pointer: fine)").matches,
+    () => !window.matchMedia("(pointer: coarse)").matches,
     () => true,
   )
 
@@ -182,7 +182,11 @@ export function PreviewFrame({
   React.useEffect(() => {
     if (!doc || !focus) return
     const el = [...doc.querySelectorAll(`[data-page-block="${focus.block}"]`)].find((x) => x.getClientRects().length > 0 && (x as HTMLElement).offsetParent !== null)
-    el?.scrollIntoView({ block: "center", behavior: "smooth" })
+    /* The frame's own scroll only: scrollIntoView would scroll the editor around the frame too. */
+    const win = doc.defaultView
+    if (!el || !win) return
+    const r = el.getBoundingClientRect()
+    win.scrollTo({ top: Math.max(0, win.scrollY + r.top - Math.max(80, (win.innerHeight - r.height) / 2)), behavior: "smooth" })
   }, [doc, focus])
 
   const width = DEVICE_WIDTH[device]
@@ -204,7 +208,7 @@ export function PreviewFrame({
           srcDoc={BLANK}
           data-page-preview=""
           className="block border-0"
-          style={{ width, height, transform: scale === 1 ? undefined : `scale(${scale})`, transformOrigin: "0 0" }}
+          style={{ width, height, scale: scale === 1 ? undefined : String(scale), transformOrigin: "0 0" }}
         />
       </div>
       {doc && root
@@ -290,14 +294,21 @@ function Hotspots({ doc }: { doc: Document }) {
   }, [doc])
 
   const px = (n: number) => n / scale
+  /* On a touch screen one badge a part, on its largest copy on screen: the name is in the bar, the sheet and the side card. */
+  const best = new Map<string, Spot>()
+  for (const s of spots) {
+    if (s.y < 0 || s.y > vh) continue
+    const was = best.get(s.block)
+    if (!was || s.w * s.h > was.w * was.h) best.set(s.block, s)
+  }
   return (
-    <div aria-hidden={false} data-preview-hotspots="" style={{ position: "fixed", inset: 0, zIndex: 2147483000, pointerEvents: "none" }}>
+    <div data-preview-hotspots="" style={{ position: "fixed", inset: 0, zIndex: 2147483000, pointerEvents: "none" }}>
       {spots.map((s) => {
         const on = s.block === selected
-        const hovered = over === s.key
-        const chip = hovered || (!hover && !on)
-        if (!on && !hovered && hover) return null
+        const hovered = hover && over === s.key
         if (s.y + s.h < 0 || s.y > vh) return null
+        const badge = !hover && !on && best.get(s.block) === s
+        if (!on && !hovered && !badge) return null
         const pad = px(4)
         return (
           <React.Fragment key={s.key}>
@@ -317,7 +328,8 @@ function Hotspots({ doc }: { doc: Document }) {
                 }}
               />
             ) : null}
-            {chip ? (
+            {hovered ? (
+              /* Resting on a part: Edit, inside its top right corner. */
               <button
                 type="button"
                 data-edit-chip={s.block}
@@ -345,6 +357,37 @@ function Hotspots({ doc }: { doc: Document }) {
                 }}
               >
                 {tt("Edit")}
+              </button>
+            ) : badge ? (
+              /* A touch screen: a small pencil on the part's top right corner, over the edge rather than the words. */
+              <button
+                type="button"
+                data-edit-chip={s.block}
+                data-edit-spot={s.key}
+                data-edit-badge=""
+                aria-label={`${tt("Edit")} ${labels[s.block] ?? ""}`.trim()}
+                style={{
+                  position: "absolute",
+                  top: Math.max(px(2), s.y - px(12)),
+                  left: Math.min(s.x + s.w + px(12), (doc.defaultView?.innerWidth ?? 0) - px(2)),
+                  translate: "-100% 0",
+                  pointerEvents: "auto",
+                  width: px(28),
+                  height: px(28),
+                  padding: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  borderRadius: "999px",
+                  color: "#1a1a2e",
+                  background: "rgba(255,255,255,0.97)",
+                  border: 0,
+                  boxShadow: `0 0 0 ${px(1)}px rgba(16,24,40,0.12), 0 ${px(2)}px ${px(6)}px rgba(16,24,40,0.14)`,
+                  cursor: "pointer",
+                }}
+              >
+                <svg aria-hidden viewBox="0 0 24 24" width={px(14)} height={px(14)} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" />
+                </svg>
               </button>
             ) : null}
           </React.Fragment>

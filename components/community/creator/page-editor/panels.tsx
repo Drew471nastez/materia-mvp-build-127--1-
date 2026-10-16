@@ -79,26 +79,29 @@ export interface PanelProps {
 export function BlockPanel(p: PanelProps) {
   const { block, draft: d, set } = p
   switch (block) {
-    case "cover":
+    case "cover": {
+      /* A picture is shown once, as the frames crop it, to be dragged; a video or no cover is the cover field's own frame. */
+      const picture = !!d.coverUrl && !coverItem(d.gallery)
       return (
-        <div className="space-y-5" data-panel="cover">
+        <div className="space-y-3" data-panel="cover">
+          {picture && d.coverUrl ? (
+            <>
+              <CoverFocus url={d.coverUrl} x={d.look.coverX} y={d.look.coverY} onChange={(x, y) => set("look", { ...d.look, coverX: x, coverY: y })} />
+              <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Drag the picture to choose what stays in view where it is cropped: the card beside your page, your card in Explore.")}</p>
+            </>
+          ) : null}
           <CoverField
             communityId={p.communityId}
             coverUrl={d.coverUrl}
             gallery={d.gallery}
+            pictureFrame={false}
             onBusy={(b) => p.onBusy("cover", b)}
             onChange={(next) => p.setMany({ coverUrl: next.coverUrl, gallery: next.gallery })}
             onError={(m) => p.onError(m)}
           />
-          {d.coverUrl ? (
-            <div>
-              <p className={label}>{tt("What stays in view")}</p>
-              <p className="-mt-1 mb-2.5 text-[12.5px] leading-snug text-[#6b7280]">{tt("Where the cover is cropped to a frame: the card beside your page, your card in Explore. Drag it.")}</p>
-              <CoverFocus url={d.coverUrl} x={d.look.coverX} y={d.look.coverY} onChange={(x, y) => set("look", { ...d.look, coverX: x, coverY: y })} />
-            </div>
-          ) : null}
         </div>
       )
+    }
     case "gallery": {
       const cover = coverItem(d.gallery)
       return (
@@ -182,7 +185,7 @@ export function BlockPanel(p: PanelProps) {
 
 /* ── The join button ─────────────────────────────────────────────────── */
 
-const SAMPLE = "pointer-events-none inline-flex h-9 w-full items-center justify-center rounded-[10px] border px-3 text-[13px] font-semibold"
+const SAMPLE = "pointer-events-none inline-flex h-9 w-full items-center justify-center rounded-[10px] border px-1.5 text-[12px] font-semibold"
 
 function JoinPanel(p: PanelProps) {
   const look = p.draft.look

@@ -816,7 +816,7 @@ export function JoinBarPhone() {
         ) : null}
         <PrimaryAction className={wide ? "w-full" : "min-w-[132px] shrink-0"} short={!wide} />
       </div>
-      <JoinNote className="mx-auto mt-1.5 max-w-[640px] text-[12.5px]" />
+      <JoinNote className={cn("mx-auto mt-1.5 max-w-[640px] text-[12.5px]", !wide && "text-right")} />
     </div>
   )
   return onClient ? createPortal(bar, surface ?? document.body) : bar

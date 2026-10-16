@@ -333,7 +333,7 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
       </div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-5">
-        <section className={cn(card, "h-[min(76dvh,760px)] overflow-hidden lg:h-[max(560px,calc(var(--vv-h,100dvh)-236px))]")} aria-label={tt("Your page")} data-page-preview-card="">
+        <section className={cn(card, "h-[min(76dvh,760px)] overflow-hidden lg:h-[max(540px,calc(var(--vv-h,100dvh)-272px))]")} aria-label={tt("Your page")} data-page-preview-card="">
           {shown ? (
             <PreviewFrame device={device} selected={open} labels={labels} onPick={pick} focus={focus}>
               <FramedPage data={shown} />
@@ -344,7 +344,7 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
         </section>
 
         {/* From 1024px: the parts, or the one open, beside the page. */}
-        <aside className={cn(card, "hidden overflow-hidden lg:flex lg:h-[max(560px,calc(var(--vv-h,100dvh)-236px))] lg:flex-col")} data-page-side="">
+        {wide ? <aside className={cn(card, "hidden overflow-hidden lg:flex lg:h-[max(540px,calc(var(--vv-h,100dvh)-272px))] lg:flex-col")} data-page-side="">
           {open ? (
             <>
               <div className="flex shrink-0 items-center gap-1 border-b border-[#f1f2f4] px-2 py-2">
@@ -367,7 +367,7 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
               <div className="min-h-0 flex-1 overflow-y-auto pb-2">{list}</div>
             </>
           )}
-        </aside>
+        </aside> : null}
       </div>
 
       {/* Below 1024px: the parts under the page, each opening in the bottom sheet; the save bar rises with a change. */}

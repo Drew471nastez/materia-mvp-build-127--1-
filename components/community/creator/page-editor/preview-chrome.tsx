@@ -34,13 +34,13 @@ export function PreviewChrome({ community, children }: { community: PublicCommun
               <p data-page-block="name" className="line-clamp-2 break-words text-[15px] font-semibold leading-[1.2] tracking-[-0.005em] text-[#1a1a2e] md:line-clamp-1 md:text-[16px] md:leading-tight">{community.name}</p>
               {community.creator ? (
                 <p className="hidden truncate text-[12.5px] leading-[1.35] text-[#6b7280] md:block">
-                  By <span className="font-medium text-[#4b5563]">{community.creator.name}</span>
+                  By <span className="font-medium text-[#4b5563]">{community.creator.name}</span> {/* i18n-ignore: the visitor's bar, in its own words (member/top-bar.tsx) */}
                 </p>
               ) : null}
             </div>
           </div>
           <div className="ml-auto flex h-14 shrink-0 items-center lg:h-16">
-            <span className="-mr-2 inline-flex h-10 items-center px-2 text-[14px] font-semibold text-[#1a1a2e]">Log in</span>
+            <span className="-mr-2 inline-flex h-10 items-center px-2 text-[14px] font-semibold text-[#1a1a2e]">Log in</span> {/* i18n-ignore: the visitor's bar, in its own words */}
           </div>
         </div>
       </header>
