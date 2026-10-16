@@ -132,7 +132,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
           own size (SoftImg), so nothing jumps and nothing pops.
         */
         <Link href={base} tabIndex={-1} aria-hidden className="block aspect-[16/9] w-full overflow-hidden bg-[#f1f2f4]">
-          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" className="h-full w-full object-cover" data-wall-cover="" />
+          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">

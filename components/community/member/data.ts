@@ -17,6 +17,7 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView } from "./view-types"
+import { coverPosition, pageLookOf } from "@/lib/communities/page-look"
 
 export type MemberState = "off" | "missing" | "closed" | "signed_out" | "unknown" | "member" | "pending" | "banned" | "not_member"
 
@@ -53,6 +54,7 @@ export function toShellCommunity(c: CommunityRow): ShellCommunity {
     tagline: c.tagline,
     logoUrl: c.logo_url,
     coverUrl: c.cover_url,
+    coverPosition: coverPosition(pageLookOf(c.onboarding)) ?? null,
     memberCount: c.member_count,
     postCount: c.post_count,
     classroomEnabled: c.classroom_enabled,

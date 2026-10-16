@@ -33,6 +33,8 @@ export interface ShellCommunity {
   tagline: string | null
   logoUrl: string | null
   coverUrl: string | null
+  /** Round 33: where the cover sits in the card's frame (CSS object-position), or null for the middle. */
+  coverPosition?: string | null
   memberCount: number
   postCount: number
   classroomEnabled: boolean

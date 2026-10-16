@@ -63,7 +63,8 @@ export const MAX_MEDIA_PER_POST = 10
 export const MAX_RULES = 20
 export const MAX_FAQ = 20
 export const MAX_BENEFITS = 12
-export const MAX_LINKS = 6
+/* Round 33: ten, so a website and the networks a creator is on fit (lib/communities/social-links.ts). */
+export const MAX_LINKS = 10
 
 /* ── Rate windows: one bucket each, counted per member ──────────────────── */
 

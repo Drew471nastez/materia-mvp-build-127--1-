@@ -304,7 +304,7 @@ function Cover({ row: r }: { row: CommunityListRow }) {
     <div aria-hidden className={cn("pointer-events-none relative aspect-[5/2] w-full overflow-hidden bg-[#eef0f2] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[rgba(17,24,39,0.06)] after:content-[''] sm:aspect-[2/1]", r.archived && "opacity-70 grayscale")} data-card-cover="">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here, as the Products list does
-        <img src={optimizedImageUrl(src, 480)} srcSet={optimizedSrcSet(src, [384, 640, 1080])} sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" />
+        <img src={optimizedImageUrl(src, 480)} srcSet={optimizedSrcSet(src, [384, 640, 1080])} sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" alt="" loading="lazy" decoding="async" draggable={false} style={r.coverPosition ? { objectPosition: r.coverPosition } : undefined} className="h-full w-full object-cover" />
       ) : null}
     </div>
   )

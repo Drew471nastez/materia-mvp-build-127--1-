@@ -473,6 +473,7 @@ export function CoverField({
   onChange,
   onError,
   onBusy,
+  pictureFrame = true,
 }: {
   communityId?: string
   coverUrl: string | null
@@ -480,6 +481,8 @@ export function CoverField({
   onChange: (next: { coverUrl: string | null; gallery: GalleryItem[] }) => void
   onError?: (message: string) => void
   onBusy?: (busy: boolean) => void
+  /** Round 33: false leaves a cover picture's frame out (the Page editor draws the picture itself, to be moved); a video, an empty cover and an upload keep it. */
+  pictureFrame?: boolean
 }) {
   const video = coverVideo(gallery)
   const upload = coverUpload(gallery)
@@ -576,6 +579,7 @@ export function CoverField({
       <input ref={picker} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void uploadVideo(e.target.files?.[0]), (e.target.value = ""))} data-cover-video-input="" />
       <input ref={photo} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onChange={(e) => (void pictureUp.upload(e.target.files?.[0]), (e.target.value = ""))} data-cover-picture-input="" />
       <div
+        hidden={!pictureFrame && has && !busy && !video && !upload}
         onDragOver={(e) => {
           if (busy || !Array.from(e.dataTransfer.types).includes("Files")) return
           e.preventDefault()

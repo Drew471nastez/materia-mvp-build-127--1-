@@ -32,10 +32,11 @@ import type {
   TierKind,
 } from "@/lib/communities/types"
 import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
+import type { PageLook } from "@/lib/communities/page-look"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
-export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "settings"
+export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
 
 /** The community as every section's header shows it. */
 export interface CommunityHead {
@@ -82,6 +83,8 @@ export interface CommunityListRow {
   createdAt: string
   /** Round 13 cards: the cover, the line under the name, and the money when this person may see it. */
   coverUrl: string | null
+  /** Round 33: where the cover sits in the card (CSS object-position), or null for the middle. */
+  coverPosition?: string | null
   tagline: string | null
   /** Monthly recurring revenue, for a paid community and somebody allowed to see analytics; else null. */
   mrrCents: number | null
@@ -182,6 +185,10 @@ export interface PickProduct {
 
 export interface SettingsData {
   description: string
+  /** Round 33: the description as stored (sanitized HTML, or the plain text of an older row), for the Page editor. */
+  descriptionHtml?: string
+  /** Round 33: the cover's focus and the join button (lib/communities/page-look.ts). */
+  pageLook?: PageLook
   tagline: string | null
   category: string | null
   rules: CommunityRule[]

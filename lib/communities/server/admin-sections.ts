@@ -23,6 +23,7 @@ import { leaveReasonsSummary } from "./leave-reasons"
 import { learnBuilderFor } from "./learn-builder"
 import { scheduledPanelReads } from "./scheduled-posts"
 import { parseMemberQuery } from "@/components/community/creator/logic"
+import { pageEditorReads } from "./page-editor"
 
 type Query = Record<string, string | undefined>
 type TierLite = { id: string; name: string; kind: string }
@@ -129,4 +130,6 @@ export const ADMIN_SECTION_READS: Record<string, (ctx: CreatorPageContext, query
   moderation: moderationReads,
   analytics: analyticsReads,
   settings: settingsReads,
+  /* Round 33: the Page editor (./page-editor.ts). */
+  page: pageEditorReads,
 }

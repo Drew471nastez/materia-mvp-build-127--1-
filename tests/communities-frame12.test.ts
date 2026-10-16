@@ -78,7 +78,8 @@ console.log("\nPLACES: a fade and a rise, and nothing fixed rides it")
   /* Round J, the owner on a computer: switching places was "a little too bumpy". From 1024px (the left column) the same landing, quieter. */
   check("from 1024px a place lands quieter (3px over 160ms); a phone 4px over 180ms; the place left goes out over 120ms", /export const ARRIVE_WIDE = "\(min-width: 1024px\)"/.test(host) && /export const IN_MS = 180/.test(fade) && /export const IN_RISE_PX = 4/.test(fade) && /export const IN_WIDE_MS = 160/.test(fade) && /export const IN_WIDE_RISE_PX = 3/.test(fade) && /export const OUT_MS = 120/.test(fade) && /arriving\.animate\(\[\{ opacity: 0, translate: `0 \$\{rise\}px` \}, \{ opacity: 1, translate: "0 0" \}\]/.test(fade))
   const j = code("components/community/public/join-controls.tsx")
-  check("the phone's join bar is portalled to the body once the page is in the browser", /const onClient = React\.useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(j) && /return onClient \? createPortal\(bar, document\.body\) : bar/.test(j) && /\}, \[onClient\]\)/.test(j))
+  /* Changed on purpose (round 33): the body is the Page editor's preview frame's when it draws the page (JoinSurface), else the document's. */
+  check("the phone's join bar is portalled to the body once the page is in the browser", /const onClient = React\.useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(j) && /return onClient \? createPortal\(bar, surface \?\? document\.body\) : bar/.test(j) && /\}, \[onClient, surface\]\)/.test(j))
 }
 
 console.log("\nCONTEXT: the community stays Home")
@@ -163,7 +164,8 @@ console.log("\nABOUT: the same columns")
   const pub = code("components/community/public/public-frame.tsx")
   check("the visitor's frame is the member frame's grid, the bar wide, the card on the left until 1280px (round 15: About's own card carries it from there)", /<CommunityTopBar data=\{topBar\} wide \/>/.test(pub) && /lg:grid-cols-\[260px_minmax\(0,1fr\)\][^"]*xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(pub) && /<WallCommunityCard community=\{card\.community\} card=\{card\.card\} membersHref=\{null\} \/>/.test(pub) && /lg:block xl:hidden/.test(pub) && /xl:col-span-full xl:col-start-1/.test(pub))
   const sales = code("components/community/public/sales-page.tsx")
-  check("round 15: from 1280px About is one centred page of 1120px, the sheet and its 320px card", /xl:mx-auto xl:grid xl:max-w-\[1120px\] xl:grid-cols-\[minmax\(0,1fr\)_320px\] xl:gap-7/.test(sales))
+  /* Changed on purpose (round 33): the owner asked for the sheet with the gallery 10% wider on a large screen, 772px to 849px, so the page is 1197px. */
+  check("round 15: from 1280px About is one centred page of 1197px, the sheet and its 320px card", /xl:mx-auto xl:grid xl:max-w-\[1197px\] xl:grid-cols-\[minmax\(0,1fr\)_320px\] xl:gap-7/.test(sales))
   const shell = readSource("components/community/member/shell.tsx")
   check("a visitor's card says nothing a member alone may see (no faces, no online, no admins)", /stats: \{ members: community\.member_count \?\? 0, online: null, admins: null \}, faces: \[\], more: 0, settingsHref: null/.test(shell))
   check("round 15: the side card from 1280px carries the cover, the picture and the address (the left card steps aside there)", /<aside data-join-card="" className="hidden xl:block">/.test(code("components/community/public/join-controls.tsx")) && /data-join-card-cover=""/.test(code("components/community/public/join-controls.tsx")))

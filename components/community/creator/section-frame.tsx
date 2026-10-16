@@ -225,6 +225,19 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
         </>
       )
       break
+    case "page":
+      /* Round 33, the Page editor: the page's preview, and from 1024px the panel beside it. */
+      body = (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6" data-frame-page="">
+          <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
+            <Shimmer className="h-full">
+              <ShimmerBlock className="h-full w-full rounded-xl" />
+            </Shimmer>
+          </section>
+          <PanelFrame rows={5} className="hidden lg:block" />
+        </div>
+      )
+      break
     case "settings":
       body = (
         <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">

@@ -377,10 +377,46 @@ const PRIMARY =
 /* A quiet second action: text, but a 40px target, so a thumb finds it. Pressed: no bump (round 11), the button only darkens. */
 const QUIET = "-mx-1 inline-flex min-h-10 items-center px-1 text-[13px] font-medium text-[#6b7280] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline disabled:opacity-60"
 
+/*
+  THE CREATOR'S OWN BUTTON (round 33, lib/communities/page-look.ts). Their words take the place of the page's own on a
+  button that joins, asks or pays (never on Open community, a pending request or a sentence), and its style is theirs:
+  ink (the page's own), the community's colour from its logo (darkened until white reads on it at 4.5:1), or an outline.
+  Pending keeps the quiet disabled look whatever the style.
+*/
+const OUTLINE =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1a1a2e] bg-white px-5 text-[15px] font-semibold text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[#f6f7f8] active:bg-[#eef0f2] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+const BRAND = "hover:brightness-[0.94] active:brightness-[0.88]"
+
+/** Whether this button is one the creator's words and style apply to. */
+export function ownButton(kind: JoinStateView["kind"]): boolean {
+  return kind === "join_free" || kind === "request" || kind === "checkout"
+}
+
+function lookOf(community: PublicCommunityView, kind: JoinStateView["kind"]): { className: string; style: React.CSSProperties | undefined; ink: boolean } {
+  const look = community.joinLook
+  if (!look || !ownButton(kind) || look.style === "ink") return { className: PRIMARY, style: undefined, ink: false }
+  if (look.style === "outline") return { className: OUTLINE, style: undefined, ink: true }
+  return look.brand ? { className: cn(PRIMARY, BRAND), style: { backgroundColor: look.brand, borderColor: look.brand }, ink: false } : { className: PRIMARY, style: undefined, ink: false }
+}
+
+/** The creator's line under the button, when there is one and the button is theirs. */
+function JoinNote({ className }: { className?: string }) {
+  const { community, join } = useJoin()
+  const note = community.joinLook?.note
+  if (!note || !ownButton(join.kind)) return null
+  return (
+    <p className={cn("mt-2 text-center text-[13px] leading-snug text-[#6b7280]", className)} data-join-note="">
+      {note}
+    </p>
+  )
+}
+
 /** The button itself, or the sentence when there is nothing to press. */
 function PrimaryAction({ className, short = false }: { className?: string; /** Beside a price that already says it (the phone's bar): "Join" alone. */ short?: boolean }) {
-  const { join, interval, busy, phase, press } = useJoin()
-  const label = short && (join.kind === "checkout" || join.kind === "join_free") ? "Join" : buttonLabel(join, interval)
+  const { community, join, interval, busy, phase, press } = useJoin()
+  const own = ownButton(join.kind) ? community.joinLook?.label?.trim() || "" : ""
+  const label = own && (!short || own.length <= 18) ? own : short && (join.kind === "checkout" || join.kind === "join_free") ? "Join" : buttonLabel(join, interval)
+  const look = lookOf(community, join.kind)
   if (join.kind === "invite_only" || join.kind === "banned" || join.kind === "closed" || join.kind === "unavailable") {
     return (
       <p data-join-state={join.kind} className={cn("flex min-h-11 items-center justify-center rounded-xl bg-[#f1f2f4] px-4 py-2.5 text-center text-[14px] font-medium text-[#4b5563]", className)}>
@@ -408,13 +444,13 @@ function PrimaryAction({ className, short = false }: { className?: string; /** B
     request is out, "You're in" with a check once it is in. The words cross by opacity only; nothing moves.
   */
   return (
-    <button type="button" onClick={() => void press()} aria-busy={busy || phase !== "idle"} data-join-state={join.kind} data-join-phase={phase} className={cn(PRIMARY, "relative", className)}>
+    <button type="button" onClick={() => void press()} aria-busy={busy || phase !== "idle"} data-join-state={join.kind} data-join-phase={phase} data-join-style={community.joinLook?.style ?? "ink"} style={look.style} className={cn(look.className, "relative", className)}>
       <span className={cn("inline-flex items-center gap-2 transition-opacity duration-150", phase === "idle" ? "opacity-100" : "opacity-0")}>{label}</span>
       {phase !== "idle" ? (
         <span aria-live="polite" className="absolute inset-0 inline-flex items-center justify-center gap-2 animate-in fade-in-0 duration-150" data-join-progress="">
           {phase === "joining" ? (
             <>
-              <Spinner size={18} className="!text-white" />
+              <Spinner size={18} className={look.ink ? "!text-[#1a1a2e]" : "!text-white"} />
               {!join.signedIn && join.href && isJoinAuthHref(join.href) ? "Continue" : "Joining"}
             </>
           ) : (
@@ -595,19 +631,19 @@ export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]">
           {/* The community's cover and picture, here rather than in a second card on the left (round 15). */}
           {community.coverUrl ? (
-            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-join-card-cover="">
+            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-join-card-cover="" data-page-block="cover">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" />
+              <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="absolute inset-0 h-full w-full object-cover" decoding="async" />
             </div>
           ) : null}
           <div className="p-5">
             <div className="flex items-center gap-3">
               {community.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={optimizedImageUrl(community.logoUrl, 96)} alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]" decoding="async" />
+                <img src={optimizedImageUrl(community.logoUrl, 96)} alt="" width={44} height={44} data-page-block="logo" className="h-11 w-11 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]" decoding="async" />
               ) : null}
               <div className="min-w-0">
-                <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
+                <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]" data-page-block="name">{community.name}</p>
                 <a href={community.url} className="mt-0.5 block truncate text-[13px] text-[#8a8f98] hover:text-[#4b5563]">{community.address}</a>
               </div>
             </div>
@@ -619,8 +655,11 @@ export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
                 <IntervalSwitch className="mt-3" full />
               </>
             )}
-            <PrimaryAction className="mt-4 w-full" />
-            <Status />
+            <div data-page-block="join">
+              <PrimaryAction className="mt-4 w-full" />
+              <JoinNote />
+              <Status />
+            </div>
             {facts ? (
               <div className="-mb-2 mt-4 border-t border-[#eef0f2] pt-1" data-join-card-facts="">
                 {facts}
@@ -671,7 +710,10 @@ export function PricingCard({ others }: { others?: React.ReactNode }) {
             ))}
           </ul>
         ) : null}
-        <PrimaryAction className="mt-5 w-full sm:w-auto sm:min-w-[240px]" />
+        <div data-page-block="join" className="sm:inline-block">
+          <PrimaryAction className="mt-5 w-full sm:w-auto sm:min-w-[240px]" />
+          <JoinNote />
+        </div>
         <Status />
       </div>
       {others}
@@ -701,8 +743,15 @@ export function JoinSummaryPhone() {
  * ends above the home indicator. The price (with the interval) beside the
  * button, or the button alone across the width.
  */
+/**
+ * WHERE THE PHONE'S BAR IS FIXED (round 33): the document's body, or the body of the Page editor's preview frame, so the
+ * bar is fixed to the preview's screen and never to the editor's own.
+ */
+export const JoinSurface = React.createContext<HTMLElement | null>(null)
+
 export function JoinBarPhone() {
   const { join, interval, community } = useJoin()
+  const surface = React.useContext(JoinSurface)
   const parts = join.kind === "open" ? null : priceParts(join.option, interval)
   const wide = join.kind === "open" || join.kind === "pending" || !parts || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
   const ref = React.useRef<HTMLDivElement>(null)
@@ -726,23 +775,25 @@ export function JoinBarPhone() {
   React.useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const body = document.body
+    const doc = el.ownerDocument
+    const body = doc.body
+    const view = doc.defaultView ?? window
     const before = body.style.paddingBottom
     const sync = () => {
-      const tabs = document.querySelector<HTMLElement>("[data-buyer-tab-bar='shown']")
+      const tabs = doc.querySelector<HTMLElement>("[data-buyer-tab-bar='shown']")
       const under = tabs && tabs.offsetHeight > 0 ? tabs.offsetHeight : 0
       body.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
     }
     sync()
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync)
     ro?.observe(el)
-    window.addEventListener("resize", sync)
+    view.addEventListener("resize", sync)
     return () => {
       ro?.disconnect()
-      window.removeEventListener("resize", sync)
+      view.removeEventListener("resize", sync)
       body.style.paddingBottom = before
     }
-  }, [onClient])
+  }, [onClient, surface])
   const bar = (
     <div
       ref={ref}
@@ -753,7 +804,7 @@ export function JoinBarPhone() {
       /* Down to the screen's foot: under the tab bar where there is one, above the home indicator where there is not. */
       style={{ paddingBottom: "calc(12px + var(--buyer-tabs-h, env(safe-area-inset-bottom, 0px)))" }}
     >
-      <div className="mx-auto flex max-w-[640px] items-center gap-3" data-join-bar-row="">
+      <div className="mx-auto flex max-w-[640px] items-center gap-3" data-join-bar-row="" data-page-block="join">
         {!wide && parts ? (
           <div className="min-w-0 flex-1" data-join-bar-price="">
             <p className="flex items-baseline gap-1 truncate">
@@ -765,9 +816,10 @@ export function JoinBarPhone() {
         ) : null}
         <PrimaryAction className={wide ? "w-full" : "min-w-[132px] shrink-0"} short={!wide} />
       </div>
+      <JoinNote className={cn("mx-auto mt-1.5 max-w-[640px] text-[12.5px]", !wide && "text-right")} />
     </div>
   )
-  return onClient ? createPortal(bar, document.body) : bar
+  return onClient ? createPortal(bar, surface ?? document.body) : bar
 }
 
 const noSubscribe = () => () => {}

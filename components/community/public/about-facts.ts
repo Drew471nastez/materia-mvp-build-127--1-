@@ -47,6 +47,32 @@ export function aboutFacts(c: Pick<PublicCommunityView, "visibility" | "creator"
   return out
 }
 
+/** One fact in the row under the name: a figure or a word in ink, and what it is in grey. */
+export interface AboutRowFact {
+  key: "visibility" | "members" | "online" | "price" | "admins"
+  /** In ink: "1,284", "Free", "$19/month", "Private". */
+  value: string
+  /** In grey after it: "members", "online", "admins"; "" for a fact that is its own word. */
+  word: string
+}
+
+/**
+ * THE ROW UNDER THE NAME (round 33, the owner: "key facts in a horizontal row
+ * with light grey dividers like Skool"). Who it is for, how many members,
+ * how many are here now, what it costs, how many run it. Online and admins
+ * only when they are known and above zero; the price is the button's own
+ * tier, else the first paid one, else Free. Pure, for the tests.
+ */
+export function aboutRow(c: Pick<PublicCommunityView, "visibility" | "options">, stats: CommunityStatsView, option: { kind: string; priceLine: string } | null): AboutRowFact[] {
+  const out: AboutRowFact[] = [{ key: "visibility", value: VISIBILITY[c.visibility] ?? VISIBILITY.public, word: "" }]
+  out.push({ key: "members", value: factFigure(stats.members), word: stats.members === 1 ? "member" : "members" })
+  if (stats.online && stats.online > 0) out.push({ key: "online", value: factFigure(stats.online), word: "online" })
+  const paid = option && option.kind === "paid" && option.priceLine ? option : c.options.find((o) => o.kind === "paid" && o.priceLine && o.priceLine !== "Free") ?? null
+  out.push({ key: "price", value: paid ? paid.priceLine : "Free", word: "" })
+  if (stats.admins && stats.admins > 0) out.push({ key: "admins", value: factFigure(stats.admins), word: stats.admins === 1 ? "admin" : "admins" })
+  return out
+}
+
 /**
  * THE FIGURES (round 11, ask 23), kept for the cards that still draw a row of
  * figures. Round 13 took "Active this week" out everywhere: members, posts in

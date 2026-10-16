@@ -16,7 +16,7 @@
  *                Explore, then Dashboard for a seller (one solid button) or,
  *                for anybody who does not sell, Start creating as a quiet
  *                grey row under the ways out
- *   signed out   Explore, Discover communities, Log in and Start creating
+ *   signed out   Explore, Discover communities, Log in and Sign up (round 33)
  *
  * With communities switched off nothing about communities is in it. It no
  * longer browses categories: those live on Explore itself.
@@ -543,7 +543,7 @@ const NavigatorBody = memo(function NavigatorBody({
         got, drawn quietly: the row shape above, grey, with a shop in the line
         family, so the panel offers it without asking for it
         (lib/nav/places-shared.ts, `quiet`). Signed out is unchanged: Log in
-        and Start creating are what a visitor's panel is for.
+        and Sign up are what a visitor's panel is for (round 33: it was Start creating).
       */}
       {quiet.length ? (
         <div className={cn("shrink-0", pad, !phone && "pt-0")} data-navigator-quiet="">
