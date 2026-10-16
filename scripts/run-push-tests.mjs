@@ -42,6 +42,8 @@ const SUITES = [
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
+  /* Your edits are never replaced: every write path, a save during a run, the default language, words not to translate, Don't translate (SQL part 188) */
+  "tests/translation-safety.test.ts",
   "tests/checkout-words.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",

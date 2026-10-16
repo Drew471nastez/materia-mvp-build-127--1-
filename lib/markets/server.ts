@@ -29,7 +29,8 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { defaultLocalization, validateLocalization, type Localization } from "./model"
 import { normalizeLocale } from "./locales"
-import { MAX_TRANSLATION_LENGTH, isTranslationKey, menuTranslatables, optionTranslatables, themeWordKey, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { MAX_TRANSLATION_LENGTH, STALE_HASH, isTranslationKey, menuTranslatables, optionTranslatables, themeWordKey, seoTranslatables, sourceHash, themeTextTranslatables, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+import { changedTerms, keysWithTerms, readGlossary, validateGlossary, type Glossary } from "./glossary"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
@@ -186,6 +187,64 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
   return { ok: true, value: v }
 }
 
+/* ── Words not to translate (lib/markets/glossary.ts, SQL part 188) ───── */
+
+/** store_localization.translation_glossary is SQL part 188's: a database without it reads as an empty list. */
+export function glossaryMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && /translation_glossary/.test(error.message ?? "")
+}
+
+export const GLOSSARY_NEEDS_PART = "Words not to translate needs a database update. Run SQL part 188 in Supabase, then try again."
+
+/** The store's words not to translate. Empty, and `ready` false, before part 188; empty on any failed read, so a translation run is never stopped by it. */
+export async function glossaryOf(db: Db, creatorId: string): Promise<{ ready: boolean; glossary: Glossary }> {
+  const { data, error } = await db.from("store_localization").select("translation_glossary").eq("creator_id", creatorId).maybeSingle().then(
+    (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
+    (e: unknown) => ({ data: null, error: { message: String(e) } }),
+  )
+  if (error) return { ready: !glossaryMissing(error) && !marketsMissing(error), glossary: [] }
+  return { ready: true, glossary: readGlossary((data as { translation_glossary?: unknown } | null)?.translation_glossary) }
+}
+
+/**
+ * The list saved. When a word's rule changed (added, taken away, its fixed
+ * translation changed), Storelib AI's translations of the texts that have
+ * it, in every language, are marked outdated (STALE_HASH) and written again
+ * by the next run; a translation the merchant wrote is never touched.
+ * `refreshed`: how many texts that is.
+ */
+export async function saveGlossary(db: Db, creatorId: string, input: unknown): Promise<{ ok: true; value: Glossary; refreshed: number } | { ok: false; status: number; error: string }> {
+  const checked = validateGlossary(input)
+  if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
+  const { data: row, error: readError } = await db.from("store_localization").select("default_language, languages, translation_glossary").eq("creator_id", creatorId).maybeSingle()
+  if (readError) return glossaryMissing(readError) ? { ok: false, status: 409, error: GLOSSARY_NEEDS_PART } : marketsMissing(readError) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
+  /* No row yet: Languages was never saved, so there is nothing to translate and nowhere to keep the list. */
+  if (!row) return { ok: false, status: 409, error: "Add a language first, then list the words." }
+  const before = readGlossary((row as { translation_glossary?: unknown }).translation_glossary)
+  const { error } = await db.from("store_localization").update({ translation_glossary: checked.value, updated_at: new Date().toISOString() }).eq("creator_id", creatorId)
+  if (error) return glossaryMissing(error) ? { ok: false, status: 409, error: GLOSSARY_NEEDS_PART } : { ok: false, status: 500, error: "Could not save. Try again." }
+  const changed = changedTerms(before, checked.value)
+  let refreshed = 0
+  if (changed.length) {
+    const texts = (await siteTexts(db, creatorId).catch(() => [] as TextGroup[])).flatMap((g) => g.items)
+    const keys = keysWithTerms(texts, changed)
+    refreshed = keys.length
+    /* Storelib AI's only (source "ai"): the merchant's own and the ones kept as the original are theirs. */
+    for (let at = 0; at < keys.length; at += 200) {
+      await db.from("site_translations").update({ source_hash: STALE_HASH }).eq("creator_id", creatorId).eq("source", "ai").in("key", keys.slice(at, at + 200)).then(
+        () => undefined,
+        () => undefined,
+      )
+    }
+    const r = row as { default_language?: unknown; languages?: unknown }
+    const locales = [r.default_language, ...(Array.isArray(r.languages) ? (r.languages as { code?: unknown }[]).map((l) => l?.code) : [])].filter((c): c is string => typeof c === "string")
+    for (const l of new Set(locales)) revalidateTag(translationsTag(creatorId, l), { expire: 0 })
+    /* With Translate changes automatically on, the next five-minute run writes them again (./translate-queue.ts). */
+    if (keys.length) await markTranslationsChanged(db, creatorId)
+  }
+  return { ok: true, value: checked.value, refreshed }
+}
+
 export async function translationsOf(db: Db, creatorId: string, locale: string): Promise<{ ready: boolean; rows: TranslationRow[] }> {
   const rows: TranslationRow[] = []
   for (let from = 0; from < 20_000; from += 1000) {
@@ -216,6 +275,12 @@ export interface TranslationWrite {
   ai?: boolean
   /** A rich text setting: its HTML is cleaned as the original's is. */
   rich?: boolean
+  /**
+   * "Don't translate": shown as the original in this language. Saved as the
+   * merchant's own with the original as its value (translate.ts
+   * keptOriginal), whatever `value` says, so Storelib AI never writes it.
+   */
+  original?: boolean
 }
 
 const escapeText = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -236,7 +301,15 @@ export async function saveTranslations(
   locale: string,
   items: unknown,
   userId: string | null,
-  /** keepManual: an AI write, which never replaces a translation the merchant wrote (read again here, just before the write). */
+  /**
+   * keepManual: an AI write, which never replaces a translation the merchant
+   * wrote (read again here, just before the write). An item labelled as
+   * Storelib AI's (`ai`) is held to the same rule whoever sends it: an AI
+   * draft approved from a Translate sheet opened before the merchant edited
+   * that text in another tab never puts the AI words back over theirs. SQL
+   * part 188's trigger holds the same line in the database, for a write that
+   * lands between this read and the upsert.
+   */
   opts: { keepManual?: boolean } = {},
 ): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
   const lang = normalizeLocale(locale)
@@ -249,6 +322,13 @@ export async function saveTranslations(
   for (const raw of items as Partial<TranslationWrite>[]) {
     if (!isTranslationKey(raw?.key)) return { ok: false, status: 400, error: "One of the texts isn't one we know." }
     const source = typeof raw.source === "string" ? raw.source : ""
+    if (raw.original === true) {
+      /* Don't translate: the original, cleaned as any value is, and the hash of exactly that, so it reads as kept (translate.ts keptOriginal) even when cleaning changed a character. */
+      const kept = (raw.rich ? sanitizeRichText(source) : source.replace(/<[^>]*>/g, "")).slice(0, MAX_TRANSLATION_LENGTH)
+      if (!kept.trim()) return { ok: false, status: 400, error: "One of the texts isn't one we know." }
+      upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value: kept, source_hash: sourceHash(kept), status: "approved", source: "manual", updated_by: userId, updated_at: now })
+      continue
+    }
     let value = typeof raw.value === "string" ? raw.value.replace(/\r\n?/g, "\n") : ""
     /* Rich text typed as plain words (the Translate sheet's field): its paragraphs and line breaks made into the HTML the original is drawn from. */
     if (raw.rich && !/<[a-z][\s\S]*>/i.test(value)) value = paragraphsOf(value)
@@ -272,10 +352,15 @@ export async function saveTranslations(
     if (seen.has(k)) upserts.splice(i, 1)
     else seen.add(k)
   }
-  if (upserts.length && opts.keepManual) {
-    const { data: theirs } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", upserts.map((u) => u.key as string))
+  /* The ones that must not replace the merchant's own: every one of an AI write, and any item labelled as Storelib AI's. */
+  const guarded = upserts.filter((u) => opts.keepManual || u.source === "ai").map((u) => u.key as string)
+  if (guarded.length) {
+    const { data: theirs, error: readError } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("locale", lang).eq("source", "manual").in("key", guarded)
+    /* Not knowing which are theirs is not a reason to risk one: an AI write that cannot check writes nothing, and is tried again. */
+    if (readError && opts.keepManual) return marketsMissing(readError) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
     const kept = new Set(((theirs ?? []) as { key: string }[]).map((r) => r.key))
-    for (let i = upserts.length - 1; i >= 0; i--) if (kept.has(upserts[i].key as string)) upserts.splice(i, 1)
+    const isGuarded = new Set(guarded)
+    for (let i = upserts.length - 1; i >= 0; i--) if (isGuarded.has(upserts[i].key as string) && kept.has(upserts[i].key as string)) upserts.splice(i, 1)
   }
   if (upserts.length) {
     const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })

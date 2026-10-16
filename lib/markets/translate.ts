@@ -149,6 +149,8 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
 export function valueFor(map: TranslationMap | null | undefined, key: string, opts: TranslateOpts = {}, original?: string): string | null {
   const row = map?.get(key)
   if (!row || !row.value.trim()) return null
+  /* "Don't translate": the original as it is now, whatever it was when they chose it. */
+  if (keptOriginal(row)) return null
   if (opts.approvedOnly && row.status !== "approved") return null
   if (opts.fresh && row.source === "ai" && original !== undefined && row.sourceHash && row.sourceHash !== sourceHash(original)) return null
   return row.value
@@ -160,9 +162,32 @@ export interface TranslateOpts {
   fresh?: boolean
 }
 
+/**
+ * "DON'T TRANSLATE" (the Translate sheet): the owner chose to show this text
+ * as the original in this language. Saved as their own translation whose
+ * value is the original it was written for (lib/markets/server.ts
+ * saveTranslations `original`), so it needs no column of its own: it is the
+ * merchant's, so Storelib AI never writes it (aiMayWrite), and the website
+ * shows the original as it is now, so a later edit to the original shows
+ * here too instead of the old words.
+ */
+export function keptOriginal(row: TranslationRow | undefined): boolean {
+  return !!row && row.source === "manual" && !!row.value.trim() && sourceHash(row.value) === row.sourceHash
+}
+
+/**
+ * The hash a Storelib AI translation is given when the words not to
+ * translate change (lib/markets/glossary.ts): no text has it, so it reads
+ * as outdated and the next run writes it again, exactly as when its
+ * original changes. Only ever written on Storelib AI's rows.
+ */
+export const STALE_HASH = "00000000"
+
 /** Missing, outdated (the original changed since), draft or done: what the translations list says about one key. */
 export function statusOf(row: TranslationRow | undefined, source: string): "missing" | "outdated" | "draft" | "done" {
   if (!row || !row.value.trim()) return "missing"
+  /* Kept as the original: it follows the original, so it is never outdated. */
+  if (keptOriginal(row)) return "done"
   if (row.sourceHash !== sourceHash(source)) return "outdated"
   return row.status === "approved" ? "done" : "draft"
 }
@@ -206,7 +231,8 @@ export function aiMayWrite(row: TranslationRow | undefined, source: string): boo
 export function reusableTranslations(rows: TranslationRow[]): Map<string, string> {
   const out = new Map<string, string>()
   for (const r of [...rows].sort((a, b) => (a.source === "manual" ? 0 : 1) - (b.source === "manual" ? 0 : 1))) {
-    if (r.status !== "approved" || !r.value.trim() || out.has(r.sourceHash)) continue
+    /* Don't translate is a choice for that one text, never copied to the same words elsewhere. */
+    if (r.status !== "approved" || !r.value.trim() || out.has(r.sourceHash) || keptOriginal(r)) continue
     out.set(r.sourceHash, r.value)
   }
   return out

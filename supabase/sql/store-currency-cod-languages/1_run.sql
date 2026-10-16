@@ -1,8 +1,9 @@
 -- STORELIB: STORE CURRENCY, CASH ON DELIVERY AND LANGUAGES
 -- One file for the overhaul: run-now parts 174 (cash on delivery), 175 (translate
 -- changes automatically), 176 (a store's own selling currency), 177 (translating in
--- the background), 178 (translation memory, the permanent cache) and 186 (changes
--- translated within minutes of a publish), text unchanged.
+-- the background), 178 (translation memory, the permanent cache), 186 (changes
+-- translated within minutes of a publish) and 188 (words not to translate, and a
+-- merchant's own translation nothing automatic replaces), text unchanged.
 -- HOW: paste into a NEW query tab in the Supabase SQL editor and press Run. The
 -- editor runs it as one transaction: an error changes nothing. Safe to run again.
 -- Cash on delivery's countries, fee and note, and the Languages list, need no
@@ -62,6 +63,13 @@ REVOKE ALL ON public.translation_memory FROM anon, authenticated;
 -- part 186_translation_queue.sql
 /* Translate changes within minutes of a publish. `store_localization.translate_dirty_at` (part 136's table): when a store with "Translate changes automatically" on publishes its website, saves a menu, a product or a collection, the server writes the time here. The translation run every three minutes (/api/cron/translation-jobs) takes the stores whose last change is a couple of minutes old, so a burst of edits is translated once, and clears it when the store is up to date; the hourly sweep (/api/cron/translations) only queues a store nothing has queued for a day. `store_localization.translate_lease_until`: while one run translates a store no other run takes it. Both empty for every store until something is saved. A translation the merchant wrote or edited is never replaced. Server only, as the table already is. No rows change. Skips itself with a notice where the table is not there (run 136 first). Until it runs, the hourly run works through the stores as before. Safe to run again. */
 DO $do$ BEGIN IF to_regclass('public.store_localization') IS NULL THEN RAISE NOTICE 'translation queue: store_localization is not there yet, run part 136 first.'; ELSE ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translate_dirty_at timestamptz; ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translate_lease_until timestamptz; CREATE INDEX IF NOT EXISTS idx_store_localization_translate_dirty ON public.store_localization (translate_dirty_at) WHERE translate_dirty_at IS NOT NULL; END IF; END $do$;
+
+-- part 188_translation_glossary.sql
+/* Words not to translate, and a merchant's translation that nothing automatic can replace. `store_localization.translation_glossary` (part 136's table): the brand names, product names and other words the store's owner lists in Settings > Languages & Currency, each kept exactly as written in every language, or with a fixed translation in one, as a JSON list (lib/markets/glossary.ts); empty for every store until the owner adds one. `site_translations_keep_manual`: a trigger on site_translations that skips any write turning a translation the merchant wrote or edited (source 'manual') into Storelib AI's (source 'ai'), so a translation run that read the table a moment before the merchant saved can never put its words back over theirs; the app already checks just before it writes, and this closes the moment in between. A merchant's own save, and Storelib AI refreshing its own, are untouched. Server only, as both tables already are. No rows change. Skips itself with a notice where the tables are not there (run 136 first). Until it runs, Words not to translate says it needs this part and translating works as before. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_localization') IS NULL THEN RAISE NOTICE 'translation glossary: store_localization is not there yet, run part 136 first.'; ELSE ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translation_glossary jsonb NOT NULL DEFAULT '[]'::jsonb; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'store_localization_glossary_array') THEN ALTER TABLE public.store_localization ADD CONSTRAINT store_localization_glossary_array CHECK (jsonb_typeof(translation_glossary) = 'array'); END IF; END IF; END $do$;
+CREATE OR REPLACE FUNCTION public.site_translations_keep_manual() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$ BEGIN IF OLD.source = 'manual' AND NEW.source = 'ai' THEN RETURN NULL; END IF; RETURN NEW; END $f$;
+REVOKE ALL ON FUNCTION public.site_translations_keep_manual() FROM PUBLIC, anon, authenticated;
+DO $do$ BEGIN IF to_regclass('public.site_translations') IS NULL THEN RAISE NOTICE 'translation glossary: site_translations is not there yet, run part 136 first.'; ELSE DROP TRIGGER IF EXISTS site_translations_keep_manual ON public.site_translations; CREATE TRIGGER site_translations_keep_manual BEFORE UPDATE ON public.site_translations FOR EACH ROW EXECUTE FUNCTION public.site_translations_keep_manual(); END IF; END $do$;
 
 notify pgrst, 'reload schema';
 select 'Store currency, cash on delivery and languages ran. Now run 2_check.sql.' as done;

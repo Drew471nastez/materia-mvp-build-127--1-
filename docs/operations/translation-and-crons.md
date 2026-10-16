@@ -22,6 +22,7 @@ The parts it contains:
 | 177 | Translation jobs in the background |
 | 178 | Translation memory, the permanent cache |
 | 186 | Changes translated within minutes of a publish (`translate_dirty_at`, `translate_lease_until`) |
+| 188 | Words not to translate (`translation_glossary`), and the `site_translations_keep_manual` trigger: no automatic write replaces the store's own translation |
 
 ## 2. Set up the translator (one key)
 
@@ -112,6 +113,29 @@ with a Review link, and in the Translate sheet's Needs review list, where
 they edit it or press Keep as is. Storelib AI's own translation of a
 changed text is hidden (the new original shows) and written again by the
 next run.
+
+Every write path is held to this: the Translate with AI round and the
+background job (`lib/markets/translation-press.ts`), the automatic run
+(`lib/markets/auto-translate.ts`), and any write labelled as Storelib AI's,
+even one sent from the Translate sheet. Each reads the store's own
+translations again just before it writes and leaves them out; part 188's
+trigger skips the write in the database if the store saved one in the
+moment between. `tests/translation-safety.test.ts` proves each path,
+including a save made while a run works and a Spanish store on an English
+theme.
+
+- **Don't translate**, on a text in the Translate sheet, saves the original
+  as the store's own translation (`translate.ts keptOriginal`): the website
+  shows the original as it is now, and nothing automatic writes it.
+- **Words not to translate** (Settings › Languages & Currency › More
+  options, `lib/markets/glossary.ts`): each listed word is set aside before
+  the text goes to the translator and checked to be there after; a
+  translation that lost or translated one is not kept. A word can have a
+  fixed translation per language. Changing the list marks Storelib AI's
+  translations of the texts with that word outdated (`source_hash`
+  `00000000`) so the next run writes them again; the store's own are never
+  touched. Translation memory keys a text with one of those words by the
+  words too, so one store's list never leaks into another's.
 
 The SQL check, to see what is waiting:
 

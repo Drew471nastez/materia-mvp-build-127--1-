@@ -9,7 +9,9 @@
  * Store details reads "Selling in", Edit asks keep or convert before Save
  * and sends what was chosen; cash on delivery's options appear only once it
  * is on; each language says where it is, and a running translation shows
- * its progress.
+ * its progress. The rule line under the languages, Words not to translate
+ * (a word added, a fixed translation per language) and the sheet's Don't
+ * translate are pressed and measured too.
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
@@ -94,6 +96,8 @@ const API = {
   "GET /api/store/markets": MARKETS,
   "GET /api/store/translations": SUMMARY,
   "GET /api/store/translations/jobs": { ready: true, jobs: {} },
+  "GET /api/store/translations/glossary": { ready: true, glossary: [{ term: "Angus Farm" }, { term: "Gift card", as: { fr: "Carte cadeau" } }] },
+  "PUT /api/store/translations/glossary": { glossary: [{ term: "Angus Farm" }, { term: "Gift card", as: { fr: "Carte cadeau" } }, { term: "Bloom" }], refreshed: 4 },
 }
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--force-device-scale-factor=1"] })
@@ -278,6 +282,105 @@ for (const vp of [{ width: 390, height: 844, isMobile: true, hasTouch: true }, {
   say(vp.width < 640 ? !sheet.sideBySide : sheet.sideBySide, vp.width < 640 ? "on a phone the translation is under its original" : "on a computer the translation is beside its original")
   say(sheet.over <= 0, `nothing runs off the side (${sheet.over}px over)`)
   await shot("translate-sheet", vp)
+}
+
+/* Your edits are never replaced: the rule in one line, Words not to translate, and Don't translate on a text. */
+for (const vp of [{ width: 390, height: 844, isMobile: true, hasTouch: true }, { width: 1280, height: 900 }]) {
+  console.log(`\nWords not to translate at ${vp.width}px`)
+  await open("markets", vp)
+  await wait(300)
+  const rule = await page.evaluate(() => {
+    const p = document.querySelector("[data-translation-rule]")
+    const r = p?.getBoundingClientRect()
+    return { text: (p?.textContent || "").trim(), visible: !!p?.checkVisibility(), right: r ? r.right : 0, lines: r ? Math.round(r.height / 18) : 0 }
+  })
+  say(rule.visible && rule.text === "Your edits are never replaced. Machine translations update when you change the original." && rule.right <= vp.width, `the rule, in one line under the languages (${rule.lines} line(s) of text at this width)`)
+  await page.click("[data-language-options] summary")
+  await wait(500)
+  const listed = await page.evaluate(() => ({
+    visible: !!document.querySelector("[data-translation-glossary]")?.checkVisibility(),
+    rows: [...document.querySelectorAll("[data-glossary-term]")].map((li) => (li.textContent || "").replace(/\s+/g, " ").trim()),
+  }))
+  say(listed.visible && listed.rows.length === 2 && /Angus Farm.*Same in every language/.test(listed.rows[0]) && /Gift card.*French: Carte cadeau/.test(listed.rows[1]), `under More options, each word with what it does (${listed.rows.join(" | ")})`)
+  await page.type("[data-glossary-input]", "Bloom")
+  await page.click("[data-glossary-add]")
+  await wait(500)
+  const added = await page.evaluate(() => ({
+    sent: window.__sent.filter((s) => s.path === "/api/store/translations/glossary" && s.method === "PUT").map((s) => s.body),
+    note: (document.querySelector("[data-glossary-note]")?.textContent || "").trim(),
+    rows: document.querySelectorAll("[data-glossary-term]").length,
+  }))
+  say(added.sent.length === 1 && added.sent[0].glossary.map((t) => t.term).join() === "Angus Farm,Gift card,Bloom" && added.rows === 3, `a word added is saved at once, with the rest (${JSON.stringify(added.sent[0] ?? null).slice(0, 120)})`)
+  say(added.note === "4 machine translations will update.", `and says what it refreshes ("${added.note}")`)
+  let f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, `nothing runs off the side or is cut (${f.over}px over${f.cut.length ? `, cut: ${f.cut.join(" | ")}` : ""})`)
+  await page.evaluate(() => document.querySelector("[data-translation-glossary]")?.scrollIntoView())
+  await shot("glossary", vp)
+  await page.click('[data-glossary-fixed="Gift card"]')
+  await wait(300)
+  const fixedRow = await page.evaluate(() => {
+    const li = document.querySelector('[data-glossary-term="Gift card"]')
+    return { inputs: [...(li?.querySelectorAll("[data-glossary-as]") ?? [])].map((i) => `${i.getAttribute("data-glossary-as")}=${i.value}`), placeholder: li?.querySelector("[data-glossary-as]")?.getAttribute("placeholder") }
+  })
+  say(fixedRow.inputs.join() === "ro=,fr=Carte cadeau,de=" && fixedRow.placeholder === "Gift card", `Fixed translation opens one field per language, empty ones showing the word as written (${fixedRow.inputs.join()})`)
+  await page.type('[data-glossary-term="Gift card"] [data-glossary-as=de]', "Geschenkkarte")
+  await page.evaluate(() => document.querySelector('[data-glossary-term="Gift card"] [data-glossary-as=de]')?.blur())
+  await wait(500)
+  const fixedSent = await page.evaluate(() => window.__sent.filter((s) => s.path === "/api/store/translations/glossary" && s.method === "PUT").map((s) => s.body).at(-1))
+  say(fixedSent?.glossary?.find((t) => t.term === "Gift card")?.as?.de === "Geschenkkarte", `a fixed translation is saved when the field is left (${JSON.stringify(fixedSent?.glossary?.find((t) => t.term === "Gift card") ?? null)})`)
+  f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, `the open word fits (${f.over}px over${f.cut.length ? `, cut: ${f.cut.join(" | ")}` : ""})`)
+  await page.evaluate(() => document.querySelector('[data-glossary-term="Gift card"]')?.scrollIntoView())
+  await shot("glossary-fixed", vp)
+
+  console.log(`\nDon't translate at ${vp.width}px`)
+  await open("markets", vp)
+  await page.evaluate(() => {
+    const real = window.fetch
+    const item = (key, label, source, value, status, extra = {}) => ({ key, label, where: "Home", source, value, status, multiline: source.length > 60, rich: false, ai: false, ...extra })
+    const loaded = {
+      ready: true,
+      locale: "fr",
+      defaultLanguage: "en",
+      languages: ["en", "fr"],
+      progress: { done: 121, total: 140 },
+      groups: [{ id: "home", title: "Home", items: [item("h1", "Heading", "Fresh from the farm", "", "missing"), item("h4", "Announcement bar text", "Angus Farm Spring Box", "", "done", { kept: true })] }],
+    }
+    window.fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input.url
+      if (url.includes("/api/store/translations?locale=fr")) return new Response(JSON.stringify(loaded), { status: 200, headers: { "Content-Type": "application/json" } })
+      return real(input, init)
+    }
+  })
+  await page.click("[data-translate-language=fr]")
+  await wait(700)
+  await page.click('[data-translate-filter="all"]')
+  await wait(200)
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-translation]")].map((r) => {
+      const label = r.querySelector("span.truncate")
+      return {
+        key: r.getAttribute("data-translation"),
+        status: r.querySelector("[data-status]")?.getAttribute("data-status"),
+        action: (r.querySelector("[data-keep-original]")?.textContent || "").trim(),
+        kept: (r.querySelector("[data-kept-original]")?.textContent || "").trim(),
+        field: !!r.querySelector("input, textarea"),
+        labelWidth: label ? Math.round(label.getBoundingClientRect().width) : 0,
+      }
+    }),
+  )
+  const h1 = rows.find((r) => r.key === "h1")
+  const h4 = rows.find((r) => r.key === "h4")
+  say(h1?.action === "Don't translate" && h1.field, `a text to translate offers Don't translate beside its status (${JSON.stringify(h1)})`)
+  say(h4?.status === "kept" && h4.action === "Translate it" && h4.kept === "Stays as the original in French" && !h4.field, `a kept one says Not translated, shows no field, and offers Translate it (${JSON.stringify(h4)})`)
+  say(rows.every((r) => r.labelWidth >= 90), `each row's label keeps room to be read (${rows.map((r) => r.labelWidth).join("px, ")}px)`)
+  await page.click('[data-keep-original="h1"]')
+  await wait(500)
+  const keptSent = await page.evaluate(() => window.__sent.filter((s) => s.path === "/api/store/translations" && s.method === "PUT").map((s) => s.body).at(-1))
+  say(keptSent?.locale === "fr" && keptSent.items?.length === 1 && keptSent.items[0].key === "h1" && keptSent.items[0].original === true, `Don't translate is saved at once, as the original (${JSON.stringify(keptSent ?? null).slice(0, 140)})`)
+  const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+  say(over <= 0, `nothing runs off the side (${over}px over)`)
+  await shot("translate-sheet-keep", vp)
 }
 
 await browser.close()

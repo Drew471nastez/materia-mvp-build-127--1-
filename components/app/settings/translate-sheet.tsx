@@ -18,6 +18,9 @@
  *                  Storelib AI. Editing it, or Keep as is, settles it.
  *   Draft          translated automatically, not on the website until approved
  *   Done           on the website
+ *   Not translated Don't translate was pressed: the original shows in this
+ *                  language, as it is now, and nothing automatic writes it.
+ *                  Translate it takes that back.
  *
  * "Translate the rest" drafts the ones to translate and Storelib AI's
  * changed ones, never one a person wrote or edited. Save keeps what was
@@ -36,7 +39,7 @@ import { TranslateBar, useRollingNumber } from "./translate-progress"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 /** What the row says: the server's status, with the merchant's own outdated ones as Needs review. */
-type Shown = Status | "review"
+type Shown = Status | "review" | "kept"
 interface Item {
   key: string
   source: string
@@ -49,6 +52,8 @@ interface Item {
   ai: boolean
   /** The merchant's own, its original changed since (lib/markets/translate.ts needsReview). */
   review?: boolean
+  /** Don't translate: shown as the original in this language, never written by Storelib AI (lib/markets/translate.ts keptOriginal). */
+  kept?: boolean
 }
 interface Group {
   id: string
@@ -68,6 +73,7 @@ const STATUS: Record<Shown, { label: string; tone: "gray" | "amber" | "blue" | "
   review: { get label() { return tt("Needs review") }, tone: "amber" },
   draft: { get label() { return tt("Draft") }, tone: "blue" },
   done: { get label() { return tt("Done") }, tone: "green" },
+  kept: { get label() { return tt("Not translated") }, tone: "gray" },
 }
 
 const DOT: Record<"gray" | "amber" | "blue" | "green", string> = { gray: "bg-[#d1d5db]", amber: "bg-[#f59e0b]", blue: "bg-[#8b5cf6]", green: "bg-[#10b981]" }
@@ -83,7 +89,7 @@ const DRAFT_WAIT_MS = 125_000
 */
 const loadedCache = new Map<string, Loaded>()
 
-const shownStatus = (i: Item): Shown => (i.review ? "review" : i.status)
+const shownStatus = (i: Item): Shown => (i.kept ? "kept" : i.review ? "review" : i.status)
 /** What Translate the rest can do: missing, or Storelib AI's with a changed original. Never the merchant's own. */
 const aiCanDo = (i: Item) => i.status === "missing" || (i.status === "outdated" && !i.review)
 
@@ -163,6 +169,31 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     setBusy(null)
     setNote(tt("Saved"))
     window.setTimeout(() => setNote(null), 1800)
+  }
+
+  /*
+    DON'T TRANSLATE, ONE TEXT: saved at once as the original in this language
+    (lib/markets/server.ts saveTranslations `original`), so nothing automatic
+    writes it. Translate it takes that back: the text has no translation
+    again, and is written by hand or by the next automatic run.
+  */
+  const [keeping, setKeeping] = React.useState<string | null>(null)
+  const keepOriginal = async (i: Item, keep: boolean) => {
+    if (!locale) return
+    setKeeping(i.key)
+    setError(null)
+    const r = await api(`/api/store/translations`, { method: "PUT", body: { locale, items: [keep ? { key: i.key, source: i.source, value: "", original: true, approved: true, rich: i.rich } : { key: i.key, source: i.source, value: "", approved: true, rich: i.rich }] } })
+    if (!r.ok) {
+      setKeeping(null)
+      return setError(r.error)
+    }
+    setEdits((x) => {
+      const n = { ...x }
+      delete n[i.key]
+      return n
+    })
+    await load(locale)
+    setKeeping(null)
   }
 
   /*
@@ -365,11 +396,27 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                           />
                           {i.review ? tt("Keep as is") : tt("Approve")}
                         </label>
-                      ) : null}
+                      ) : (
+                        /* Don't translate: this text shows as the original in this language, and nothing automatic writes it. Not beside Approve or Keep as is, so a phone's row keeps its label. */
+                        <button
+                          type="button"
+                          disabled={keeping === i.key || !!busy}
+                          onClick={() => void keepOriginal(i, !i.kept)}
+                          data-keep-original={i.key}
+                          data-kept={i.kept ? "true" : undefined}
+                          className="-my-1 shrink-0 rounded-md px-1.5 py-1 text-[12.5px] font-medium text-[#6b7280] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
+                        >
+                          {i.kept ? tt("Translate it") : tt("Don't translate")}
+                        </button>
+                      )}
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <p className="whitespace-pre-wrap break-words rounded-lg bg-[#f8f9fa] px-3 py-2 text-[13px] leading-[19px] text-[#4b5563]">{i.rich ? plain(i.source) : i.source}</p>
-                      {i.multiline ? (
+                      {i.kept ? (
+                        <p className="flex items-center rounded-lg border border-dashed border-[#e5e7eb] px-3 py-2 text-[13px] leading-[19px] text-[#6b7280]" data-kept-original="">
+                          {tt("Stays as the original in {name}", { name })}
+                        </p>
+                      ) : i.multiline ? (
                         <textarea
                           value={value}
                           onChange={(e) => setEdits((x) => ({ ...x, [i.key]: e.target.value }))}
@@ -388,7 +435,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                         />
                       )}
                     </div>
-                    {i.rich ? <p className="mt-1.5 text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
+                    {i.rich && !i.kept ? <p className="mt-1.5 text-[12px] text-[#9ca3af]">{tt("Edited here, it's saved as plain text: a blank line starts a new paragraph.")}</p> : null}
                   </li>
                 )
               })}

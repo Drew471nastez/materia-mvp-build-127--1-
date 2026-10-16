@@ -39,10 +39,15 @@ notify pgrst, 'reload schema';
 -- loses that, never a translation (they are in store_translations), and the
 -- page translates round by round again.
 --
--- Part 179's two columns only say which stores have changes waiting to be
+-- Part 186's two columns only say which stores have changes waiting to be
 -- translated. Taking them away is harmless: the code reads their absence as
 -- "work through the stores hourly", as before. Only if wanted:
 --   alter table public.store_localization drop column if exists translate_dirty_at, drop column if exists translate_lease_until;
+--
+-- Part 188: the trigger only refuses an automatic write over the merchant's own
+-- translation, and the column is a list that defaults to empty. Only if wanted:
+--   drop trigger if exists site_translations_keep_manual on public.site_translations; drop function if exists public.site_translations_keep_manual();
+--   alter table public.store_localization drop column if exists translation_glossary;
 --
 -- Parts 174 (cash on delivery) and 175 (translate automatically) are left in
 -- place: they only allow more (a provider value, a column defaulting to off)

@@ -18,7 +18,9 @@ union all select 'translate changes within minutes of a publish', to_regclass('p
 union all select 'translate with AI in the background', to_regclass('public.store_translation_jobs') is not null
 union all select 'nobody but the server reads translation jobs', to_regclass('public.store_translation_jobs') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'store_translation_jobs' and grantee in ('anon', 'authenticated'))
 union all select 'translation memory, the permanent cache', to_regclass('public.translation_memory') is not null
-union all select 'nobody but the server reads translation memory', to_regclass('public.translation_memory') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'translation_memory' and grantee in ('anon', 'authenticated'));
+union all select 'nobody but the server reads translation memory', to_regclass('public.translation_memory') is null or not exists (select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'translation_memory' and grantee in ('anon', 'authenticated'))
+union all select 'words not to translate', to_regclass('public.store_localization') is null or exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'store_localization' and column_name = 'translation_glossary')
+union all select 'a merchant''s own translation is never replaced by Storelib AI', to_regclass('public.site_translations') is null or exists (select 1 from pg_trigger where tgname = 'site_translations_keep_manual' and tgrelid = to_regclass('public.site_translations'));
 
 -- What stores sell in now (empty: the platform's currency, as before).
 select coalesce(currency, '(platform)') as currency, count(*) as stores from public.store_settings group by 1 order by 2 desc;
