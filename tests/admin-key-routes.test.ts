@@ -178,6 +178,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "reviews/site/route.ts": "Storelib Reviews: a visitor's review on a website whose store lets anyone write, checked against that store's own settings; one answer whatever address is typed, nothing posted until the emailed link is confirmed, never verified, a hidden field and limits per address, per email and per store, the address kept server only",
   "reviews/confirm/route.ts": "Storelib Reviews: the confirm link emailed to the address typed into a website review form; the HMAC token signed for one held review is the proof, it posts that review once, unverified, rate limited per address",
   "reviews/photo/route.ts": "Storelib Reviews: a photo for a review, with the request link as its credential or for a store that lets anyone write; a picture by its bytes, the picture reader and the malware scan, limited per address",
+  "reviews/video/route.ts": "Storelib Reviews: a signed upload address for one review video, with the request link as its credential, only for a store that takes videos, MP4, WebM or MOV under 50 MB, tied to that link and checked again when a review claims it, limited per address",
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",
