@@ -56,7 +56,10 @@ export function AppLinkOpener() {
       try {
         const { App } = await import("@capacitor/app")
         if (gone) return
-        handle = await App.addListener("appUrlOpen", ({ url }) => go(url))
+        const added = await App.addListener("appUrlOpen", ({ url }) => go(url))
+        /* Gone while the bridge answered: the cleanup has already run, so the listener is taken off here. */
+        if (gone) return void added.remove()
+        handle = added
         /* The launch link is the app's for as long as it runs, and every full page load mounts this again: it is followed once. */
         const launch = (await App.getLaunchUrl().catch(() => null))?.url
         if (gone || !launch) return
