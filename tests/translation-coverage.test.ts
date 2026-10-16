@@ -179,9 +179,13 @@ async function coverage() {
   check("a value the creator typed is listed as typed, never the default", written.some((i) => i.key === "section:w:heading" && i.source === "Spring sale"))
   const cleared = translatablesOf([{ id: "c", type: "hero", name: "hero", settings: { heading: "" }, blocks: [] } as SectionInstance], fieldsOf, blockFieldsOf)
   check("  and a text the creator emptied is not listed (it shows nothing)", !cleared.some((i) => i.key === "section:c:heading"))
-  const stale = translationMap([{ key: "section:w:heading", value: "Soldes", sourceHash: sourceHash("Spring sale"), status: "approved", source: "manual" }])
+  /* Changed on purpose: only Storelib AI's outdated translation gives way; the owner's own stays live and is flagged for review (lib/markets/translate needsReview). */
+  const stale = translationMap([{ key: "section:w:heading", value: "Soldes", sourceHash: sourceHash("Spring sale"), status: "approved", source: "ai" }])
   const changed = localizeSections([{ id: "w", type: "hero", name: "hero", settings: { heading: "Summer sale" }, blocks: [] } as SectionInstance], stale, fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
-  check("  a translation written for another default is not shown over the words there now", (changed[0].settings as Record<string, unknown>).heading === "Summer sale")
+  check("  a machine translation written for another default is not shown over the words there now", (changed[0].settings as Record<string, unknown>).heading === "Summer sale")
+  const owned = translationMap([{ key: "section:w:heading", value: "Soldes", sourceHash: sourceHash("Spring sale"), status: "approved", source: "manual" }])
+  const kept = localizeSections([{ id: "w", type: "hero", name: "hero", settings: { heading: "Summer sale" }, blocks: [] } as SectionInstance], owned, fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
+  check("  the owner's own translation stays until they look at it", (kept[0].settings as Record<string, unknown>).heading === "Soldes")
 
   console.log("\n5. Each .storelib section drawn: every text it draws is in the page's language, the shop's own words too")
   const words = Object.fromEntries(Object.keys(UI_WORDS).map((w) => [w, `zw${w}wz`]))
