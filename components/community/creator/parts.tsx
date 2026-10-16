@@ -179,17 +179,18 @@ export const useToast = () => React.useContext(ToastContext)
 /** A card with a heading, the way the settings screens group things. */
 export function Section({ title, hint, action, children, className, id }: { title?: React.ReactNode; hint?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={cn(card, "px-4 py-4 sm:px-5 sm:py-5", className)}>
+    /* Round 33: the editor card's padding, heading and line (EditorCard below), so a panel's cards in Settings read as one set. */
+    <section id={id} className={cn(card, "app-card-x py-4 sm:py-6", className)}>
       {title || action ? (
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            {title ? <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h2> : null}
-            {hint ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{hint}</p> : null}
+            {title ? <h2 className={EDITOR_CARD_TITLE}>{title}</h2> : null}
+            {hint ? <p className={EDITOR_CARD_HINT}>{hint}</p> : null}
           </div>
           {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
         </div>
       ) : null}
-      <div className={title || action ? "mt-3.5" : undefined}>{children}</div>
+      <div className={title || action ? "mt-4" : undefined}>{children}</div>
     </section>
   )
 }
