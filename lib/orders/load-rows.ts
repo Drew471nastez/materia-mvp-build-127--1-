@@ -7,12 +7,14 @@ import { currencyCode } from "@/lib/markets/money"
 import { orderCurrency } from "./money"
 
 /**
- * EVERY ORDER A CREATOR HAS, AS THE ORDERS PAGE READS THEM
+ * AN ORDER ROW AS THE ORDERS PAGE READS IT, AND EVERY ONE AT ONCE
  *
- * The Orders page (app/app/orders/sales/page.tsx) and the app's export link
- * (app/api/app/orders/export/route.ts) both need the same rows: the export
- * names orders by number, and a number is only the same number if it is
- * counted over the same rows. So there is one reader.
+ * toOrderRow, the products and the checkouts are what every read of the
+ * Orders page shares. The page itself reads one page of orders at a time
+ * (lib/orders/paged.ts); readCreatorOrders, every row at once, is left for
+ * an export of every order, where all of them are wanted. Both number the
+ * orders the same way: lib/orders/paged.ts buildIndex counts what
+ * order-view groupOrders counts.
  *
  * Read with the service role and scoped by the order's own creator
  * (orders.creator_id, run-now part 32), as Analytics reads them, so a sale
@@ -127,15 +129,38 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   /* Both settle before either answer is used, so a failure of one is never left unhandled. */
   const [{ data: productsData, error: productsError }, ordersData] = await Promise.all([productsRead, ordersRead])
   if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
-  const products: CreatorProduct[] = (productsData || []).map((p: any) => ({
+  const products = productsOf(productsData)
+
+  const byId = new Map(products.map((p) => [p.id, p]))
+  const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))
+  await attachCheckouts(admin, creatorId, rows)
+  return { products, rows }
+}
+
+/** The creator's products, every column (see readCreatorOrders), as the Orders page names them. */
+export async function readCreatorProducts(admin: any, creatorId: string): Promise<CreatorProduct[]> {
+  const { data, error: productsError } = await Promise.resolve(admin.from("products").select("*").eq("creator_id", creatorId))
+  if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
+  return productsOf(data)
+}
+
+function productsOf(productsData: any[] | null): CreatorProduct[] {
+  return (productsData || []).map((p: any) => ({
     id: p.id as string,
     title: (p.title as string) || "Untitled product",
     type: (p.type as string) || null,
     thumbnail_url: (p.thumbnail_url as string) || imagesOnly(p.gallery_urls ?? [])[0] || p.gallery_images?.[0] || null,
   }))
+}
 
-  const byId = new Map(products.map((p) => [p.id, p]))
-  const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))
+/**
+ * WHERE EACH PHYSICAL ORDER IS, written onto its rows in place: its stage,
+ * returns and delivery, a parcel in trouble, cash still to collect, and the
+ * currency and tax its checkout charged. For any set of rows: every order
+ * (readCreatorOrders, the export of everything) or one page of them
+ * (lib/orders/paged.ts).
+ */
+export async function attachCheckouts(admin: any, creatorId: string, rows: OrderRow[]): Promise<void> {
   /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid: its stage, returns and delivery come from its checkout. */
   const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
   if (checkoutIds.length) {
@@ -194,5 +219,4 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
       for (const r of own) r.tax_included = true
     }
   }
-  return { products, rows }
 }

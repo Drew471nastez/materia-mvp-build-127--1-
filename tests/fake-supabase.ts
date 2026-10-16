@@ -131,6 +131,7 @@ class Query implements PromiseLike<Result> {
   private head = false
   private orderBy: Array<{ col: string; asc: boolean }> = []
   private max: number | null = null
+  private skip = 0
   private one: "one" | "maybe" | null = null
   private conflict: string[] = []
   private ignoreDuplicates = false
@@ -183,6 +184,25 @@ class Query implements PromiseLike<Result> {
   lte(col: string, v: unknown) { this.filters.push((r) => r[col] !== null && r[col] !== undefined && cmp(r[col], v) <= 0); return this }
   order(col: string, opts?: { ascending?: boolean }) { this.orderBy.push({ col, asc: opts?.ascending !== false }); return this }
   limit(n: number) { this.max = n; return this }
+  /* `range(from, to)`, both ends included, as PostgREST pages. */
+  range(from: number, to: number) { this.skip = from; this.max = to - from + 1; return this }
+  /* `or("col.op.value,col.op.value")` with eq, neq, gt, gte, lt, lte, a quoted value read as text: the keyset's "past this row". */
+  or(filters: string) {
+    const parts = filters.match(/(?:[^,"]+|"[^"]*")+/g) ?? []
+    const tests = parts.map((part) => {
+      const m = /^([a-z_]+)\.(eq|neq|gt|gte|lt|lte)\.(.*)$/i.exec(part.trim())
+      if (!m) throw new Error(`fake-supabase: or(${part}) is not modelled`)
+      const [, col, op, raw] = m
+      const v = raw.startsWith('"') && raw.endsWith('"') ? raw.slice(1, -1) : raw
+      return (r: Row) => {
+        if (r[col] === null || r[col] === undefined) return false
+        const c = cmp(r[col], v)
+        return op === "eq" ? c === 0 : op === "neq" ? c !== 0 : op === "gt" ? c > 0 : op === "gte" ? c >= 0 : op === "lt" ? c < 0 : c <= 0
+      }
+    })
+    this.filters.push((r) => tests.some((t) => t(r)))
+    return this
+  }
   maybeSingle() { this.one = "maybe"; return this }
   single() { this.one = "one"; return this }
 
@@ -228,7 +248,7 @@ class Query implements PromiseLike<Result> {
     if (this.op === "select") {
       let rows = table.filter(match)
       for (const o of [...this.orderBy].reverse()) rows = [...rows].sort((a, b) => (o.asc ? 1 : -1) * cmp(a[o.col], b[o.col]))
-      if (this.max !== null) rows = rows.slice(0, this.max)
+      if (this.skip || this.max !== null) rows = rows.slice(this.skip, this.max === null ? undefined : this.skip + this.max)
       return this.finish(this.shape(rows))
     }
 

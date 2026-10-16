@@ -27,7 +27,8 @@ export const LINK_TTL_MS = 5 * 60_000
 
 export type OrderLink =
   | { k: "invoice"; c: string; o: string; z: string; d: "inline" | "attachment"; e: number }
-  | { k: "csv"; c: string; n: string; f: "spreadsheet" | "plain"; z: string; name: string; d: "inline" | "attachment"; e: number }
+  /* Orders by number (`n`), or a list as the Orders page draws it: its address (`q`) and the instants of its dates (`ws`, `we`; none for every order). */
+  | { k: "csv"; c: string; n: string; q?: string; ws?: number; we?: number; f: "spreadsheet" | "plain"; z: string; name: string; d: "inline" | "attachment"; e: number }
 
 /** A link before it is dated: every field but the expiry, per kind. */
 export type OrderLinkRequest = OrderLink extends infer T ? (T extends unknown ? Omit<T, "e"> : never) : never

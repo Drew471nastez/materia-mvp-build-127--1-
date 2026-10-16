@@ -139,6 +139,8 @@ const SUITES = [
   "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
+  /* The Orders page a page at a time (lib/orders/paged.ts): the same orders, numbers, counts and figures as when it read every row. */
+  "tests/orders-paging.test.ts",
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
   "tests/analytics-collection.test.ts",

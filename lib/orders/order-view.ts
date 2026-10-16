@@ -265,14 +265,28 @@ export function isSale(order: Pick<Order, "payment">): boolean {
   return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed" && order.payment !== "voided"
 }
 
+/** The order a row belongs to: every row of one payment (a basket) is one order, any other row its own. */
+export function orderKeyOf(row: { id: string; stripe_session_id?: string | null }): string {
+  return row.stripe_session_id ? `s:${row.stripe_session_id}` : `o:${row.id}`
+}
+
+/** Rows, and orders by their first row, oldest first: the order the numbers are given in. */
+export function byTimeThenId(a: { created_at: string; id: string }, b: { created_at: string; id: string }): number {
+  return a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+}
+
 /**
  * Rows in, orders out, newest first. Numbers are given oldest first, so an
  * order keeps its number as newer ones arrive.
+ *
+ * `numbers` (first row id to number) is for rows that are only part of the
+ * store's orders, one page of them (lib/orders/paged.ts): their numbers were
+ * counted over every order, and are kept rather than counted again here.
  */
-export function groupOrders(rows: OrderRow[]): Order[] {
+export function groupOrders(rows: OrderRow[], numbers?: Record<string, number> | null): Order[] {
   const groups = new Map<string, OrderRow[]>()
   for (const row of rows) {
-    const key = row.stripe_session_id ? `s:${row.stripe_session_id}` : `o:${row.id}`
+    const key = orderKeyOf(row)
     const group = groups.get(key)
     if (group) group.push(row)
     else groups.set(key, [row])
@@ -280,7 +294,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
 
   const orders: Order[] = []
   for (const lines of groups.values()) {
-    lines.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+    lines.sort(byTimeThenId)
     const first = lines[0]
     /* `amount_cents` is what was charged, the tip already inside it (the
        PaymentIntent's amount), so the tip is taken out for the subtotal and
@@ -338,7 +352,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
 
   orders.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
   orders.forEach((order, i) => {
-    order.number = FIRST_ORDER_NUMBER + i
+    order.number = numbers ? numbers[order.id] ?? 0 : FIRST_ORDER_NUMBER + i
   })
   return orders.reverse()
 }
@@ -477,17 +491,27 @@ export function filterOrders(orders: Order[], query: ListQuery, within?: { start
       matchesSearch(o, query.q)
     )
   })
-  const byDate = (a: Order, b: Order) => b.createdAt.localeCompare(a.createdAt) || b.number - a.number
-  switch (query.sort) {
+  return list.sort(orderComparator(query.sort))
+}
+
+/** The list's order for a sort: by date (newest first unless told otherwise), or by total with the date breaking ties. */
+export function orderComparator(sort: Sort): (a: Pick<Order, "createdAt" | "number" | "totalCents">, b: Pick<Order, "createdAt" | "number" | "totalCents">) => number {
+  const byDate = (a: Pick<Order, "createdAt" | "number">, b: Pick<Order, "createdAt" | "number">) => b.createdAt.localeCompare(a.createdAt) || b.number - a.number
+  switch (sort) {
     case "oldest":
-      return list.sort((a, b) => -byDate(a, b))
+      return (a, b) => -byDate(a, b)
     case "total_desc":
-      return list.sort((a, b) => b.totalCents - a.totalCents || byDate(a, b))
+      return (a, b) => b.totalCents - a.totalCents || byDate(a, b)
     case "total_asc":
-      return list.sort((a, b) => a.totalCents - b.totalCents || byDate(a, b))
+      return (a, b) => a.totalCents - b.totalCents || byDate(a, b)
     default:
-      return list.sort(byDate)
+      return byDate
   }
+}
+
+/** A list without a view, a search or a filter that needs the orders' rows: dates, a product and a sort by date only. */
+export function isPlainQuery(query: ListQuery): boolean {
+  return query.view === "all" && !query.q.trim() && query.source === "any" && (query.fulfillment ?? "any") === "any" && (query.sort === "newest" || query.sort === "oldest")
 }
 
 export function pageOf<T>(items: T[], page: number): { items: T[]; page: number; pages: number; from: number; to: number } {
