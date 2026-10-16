@@ -222,7 +222,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const atOverview = await p.evaluate(() => Math.round(document.querySelector("[data-community-shell]").scrollTop))
       await press(p, "members")
       const backAt = await p.evaluate(() => Math.round(document.querySelector("[data-community-shell]").scrollTop))
-      expect(set > 100 && Math.abs(backAt - set) <= 1 && atOverview === 0, `${vpName}: Members comes back where it was scrolled; the overview at its own top`, { set, atOverview, backAt })
+      expect(set > 100 && Math.abs(backAt - set) <= 1 && atOverview <= 72, `${vpName}: Members comes back where it was scrolled; the overview at its own top (round 33: below the bar that scrolled away, so the row of tabs stays put)`, { set, atOverview, backAt })
       /* Back and Forward: the address is the truth, no router call. */
       const n = await p.evaluate(() => (window.__router || []).length)
       await p.goBack()
@@ -246,20 +246,20 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
 
   if (want("REFRESH")) {
     console.log("\nREFRESH: a section drawn again by the router keeps its state")
-    const { p, errors } = await open(`${BASE}/settings?tab=page`, DESK)
+    const { p, errors } = await open(`${BASE}/settings?tab=address`, DESK)
     await press(p, "overview")
     await press(p, "settings")
     await p.evaluate(() => document.querySelector("[data-settings]").setAttribute("data-probe-mark", "1"))
-    await p.click("#g-tagline")
-    await p.$eval("#g-tagline", (el) => el.select())
-    await p.type("#g-tagline", "Typed before the refresh")
+    await p.click("#g-slug")
+    await p.$eval("#g-slug", (el) => el.select())
+    await p.type("#g-slug", "typedbeforetherefresh")
     const n = await p.evaluate(() => (window.__router || []).length)
     await p.evaluate(() => window.__probeRouterApi.refresh())
     await sleep(DELAY + 300)
-    const after = await p.evaluate(() => ({ mark: !!document.querySelector("[data-settings][data-probe-mark]"), tagline: document.querySelector("#g-tagline").value, foot: document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-state"), on: [...document.querySelectorAll("[data-section-screen]")].filter((el) => el.offsetHeight > 0).map((el) => el.getAttribute("data-section-screen")) }))
+    const after = await p.evaluate(() => ({ mark: !!document.querySelector("[data-settings][data-probe-mark]"), tagline: document.querySelector("#g-slug").value, foot: document.querySelector('[data-settings-panel="address"] [data-editor-foot]').getAttribute("data-state"), on: [...document.querySelectorAll("[data-section-screen]")].filter((el) => el.offsetHeight > 0).map((el) => el.getAttribute("data-section-screen")) }))
     const calls = await p.evaluate((n) => (window.__router || []).slice(n).map((c) => c[0]), n)
     expect(calls.includes("refresh"), "the router drew Settings again", calls)
-    expect(after.mark && after.tagline === "Typed before the refresh" && after.foot === "dirty", "Settings was not mounted again: what was typed is still there, still to save", after)
+    expect(after.mark && after.tagline === "typedbeforetherefresh" && after.foot === "dirty", "Settings was not mounted again: what was typed is still there, still to save", after)
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }
@@ -325,7 +325,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await sleep(250)
     const back = { list: (await box(p, "[data-settings-list]"))?.shown, url: await p.evaluate(() => location.search), path: await p.evaluate(() => location.pathname) }
     expect(back.list && back.url === "" && back.path === `${BASE}/settings`, "390: Back returns to the list, still in Settings", back)
-    await p.click('[data-settings-row="page"]')
+    await p.click('[data-settings-row="address"]')
     await sleep(200)
     await p.click("[data-settings-back]")
     await sleep(250)
@@ -335,15 +335,15 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const d = await open(`${BASE}/settings`, DESK)
     const col = await box(d.p, "[data-settings-groups]")
     const dl = await box(d.p, "[data-settings-list]")
-    const page = await box(d.p, '[data-settings-panel="page"]')
-    expect(col?.shown && !dl?.shown && page?.shown, "1440: the column of groups beside the Page panel, no list", { col, dl, page })
+    const page = await box(d.p, '[data-settings-panel="access"]')
+    expect(col?.shown && !dl?.shown && page?.shown, "1440: the column of groups beside the first panel, no list", { col, dl, page })
     await d.p.screenshot({ path: join(shots, "settings-page-1440.png") })
     await d.p.close()
   }
 
   if (want("CONTROLS")) {
     console.log("\nCONTROLS: the app's own, no browser select or box")
-    for (const tab of ["page", "access", "features", "policies", "gamification", "notifications", "advanced"]) {
+    for (const tab of ["address", "access", "features", "policies", "gamification", "notifications", "advanced"]) {
       const { p } = await open(`${BASE}/settings?tab=${tab}`, DESK)
       const native = await p.evaluate(() => [...document.querySelectorAll("[data-settings-open] select, [data-settings-open] input[type=checkbox], [data-settings-open] input[type=radio]")].filter((el) => el.offsetParent !== null).length)
       const shown = await p.evaluate(() => [...document.querySelectorAll("[data-settings-open] input[type=file]")].filter((el) => el.offsetParent !== null).length)
@@ -355,14 +355,14 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   if (want("SAVEBAR")) {
     for (const [vpName, vp] of [["390", PHONE], ["1440", DESK]]) {
       console.log(`\nSAVEBAR at ${vpName}`)
-      const { p, errors } = await open(`${BASE}/settings?tab=page`, vp)
-      const down = await p.evaluate(() => { const el = document.querySelector('[data-settings-panel="page"] [data-editor-foot]'); return { foot: el?.getAttribute("data-foot"), opacity: Number(getComputedStyle(el.firstElementChild).opacity) } })
+      const { p, errors } = await open(`${BASE}/settings?tab=address`, vp)
+      const down = await p.evaluate(() => { const el = document.querySelector('[data-settings-panel="address"] [data-editor-foot]'); return { foot: el?.getAttribute("data-foot"), opacity: Number(getComputedStyle(el.firstElementChild).opacity) } })
       expect(down.foot === "down" && down.opacity < 0.05, `${vpName}: nothing changed, no bar`, down)
-      await p.click("#g-name", { clickCount: 3 })
-      await p.type("#g-name", "SalajanyWood Club")
+      await p.click("#g-slug", { clickCount: 3 })
+      await p.type("#g-slug", "salajanywood-club")
       await sleep(450)
       const bar = await p.evaluate(() => {
-        const el = document.querySelector('[data-settings-panel="page"] [data-editor-foot] > div')
+        const el = document.querySelector('[data-settings-panel="address"] [data-editor-foot] > div')
         const b = el.getBoundingClientRect()
         const pill = document.querySelector("[data-app-nav-pill]")
         const pb = pill && getComputedStyle(pill).display !== "none" ? pill.getBoundingClientRect() : null
@@ -380,19 +380,20 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(bar.top > bar.headBottom, `${vpName}: under the header, never over it`, bar)
       await p.evaluate(() => { document.querySelector("[data-community-shell]").scrollTop = 500 })
       await sleep(150)
-      const moved = await p.evaluate(() => Math.round(document.querySelector('[data-settings-panel="page"] [data-editor-foot] > div').getBoundingClientRect().top))
+      const moved = await p.evaluate(() => Math.round(document.querySelector('[data-settings-panel="address"] [data-editor-foot] > div').getBoundingClientRect().top))
       expect(moved === bar.top, `${vpName}: it stays put while the form scrolls`, { before: bar.top, after: moved })
       await p.screenshot({ path: join(shots, `savebar-${vpName}.png`) })
-      await p.click('[data-settings-panel="page"] [data-foot-cancel]')
+      await p.click('[data-settings-panel="address"] [data-foot-cancel]')
       await sleep(450)
-      const gone = await p.evaluate(() => document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-foot"))
+      const gone = await p.evaluate(() => document.querySelector('[data-settings-panel="address"] [data-editor-foot]').getAttribute("data-foot"))
       expect(gone === "down", `${vpName}: Cancel puts the change back and the bar away`, gone)
       expect(errors.length === 0, `${vpName}: no page errors`, errors)
       await p.close()
     }
   }
 
-  if (want("DRAG")) {
+  /* Round 33: the community's page (and its gallery) left Settings for the Page section; measured there by its own probe. */
+  if (want("DRAG") && process.env.GALLERY_IN_SETTINGS) {
     console.log("\nDRAG: the gallery reorders")
     const order = (p) => p.evaluate(() => [...document.querySelectorAll("[data-gallery-item]")].map((el) => { const k = el.getAttribute("data-gallery-key"); let h = 0; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0; return (h >>> 0).toString(36).slice(0, 5) }))
     const centre = (p, i) => p.evaluate((i) => { const b = document.querySelectorAll("[data-gallery-item]")[i].getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } }, i)
@@ -414,7 +415,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await sleep(300)
       const after = await order(p)
       expect(after[2] === before[0] && after.length === before.length, "mouse: the first tile dragged to the third place", { before, after })
-      const dirty = await p.evaluate(() => document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-state"))
+      const dirty = await p.evaluate(() => document.querySelector('[data-settings-panel="address"] [data-editor-foot]').getAttribute("data-state"))
       expect(dirty === "dirty", "mouse: the new order is a change to save", dirty)
       /* The keyboard: Space lifts, an arrow moves, Space drops. */
       const k0 = await order(p)
@@ -442,7 +443,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(errors.length === 0, "desktop: no page errors", errors)
       await p.close()
     }
-    {
+    tile: {
+      if (!process.env.GALLERY_IN_SETTINGS) break tile
       const { p, errors } = await open(`${BASE}/settings?tab=page`, PHONE)
       await p.evaluate(() => { const pane = document.querySelector("[data-community-shell]"); const g = document.querySelector("[data-gallery]"); pane.scrollTop += g.getBoundingClientRect().top - pane.getBoundingClientRect().top - 220 })
       await sleep(250)

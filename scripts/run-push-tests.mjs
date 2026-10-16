@@ -636,6 +636,8 @@ const SUITES = [
   /* Round 32: the community admin's Overview and Settings use the width, the gallery is the product editor's, members pick their own look (scripts/check-community-admin-round32.mjs measures them). */
   /* Round 32: moving between a community's sections (scripts/check-community-admin-round32.mjs, scripts/measure-community-admin-server.mjs measure it). */
   "tests/communities-admin32.test.ts",
+  /* Round 33: the Page section after Overview, Settings without the page, the /app badge, one save bar, covers from the logo (scripts/check-community-admin-round33.mjs measures them). */
+  "tests/communities-admin33.test.ts",
   "tests/communities-admin-nav32.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",

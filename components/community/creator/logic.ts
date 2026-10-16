@@ -616,7 +616,7 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
       href: "/app/settings?tab=payments",
       action: tt("Connect"),
     })
-  if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/settings?tab=page`, action: tt("Edit") })
+  if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/page`, action: tt("Edit") })
   if (f.rules === 0) steps.push({ id: "rules", title: tt("Write the rules"), detail: tt("Members see them before they join and when they post."), href: `${base}/moderation?tab=rules`, action: tt("Write") })
   return steps
 }
@@ -1054,21 +1054,33 @@ export function memberConfirmText(choice: MemberChoice, name: string, person?: {
   ./settings-section.tsx PANELS. "address" (the storelib address and the creator's own domain) and "discovery" (the
   Explore category, Explore and search) were inside Page and Access; they are panels of their own now.
 */
+/*
+  ROUND 33, THE OWNER: the community's page is edited on its own, in the Page section beside Overview
+  (/app/community/<slug>/page), not in Settings. Settings keeps what runs the community: who gets in and what it costs,
+  its address, how it is found, its features, publishing, the people and rules, points, your notifications. An address
+  from before (?tab=page, ?tab=general and the page's parts) is sent on to the Page section (pageTabAsked).
+*/
 export const SETTINGS_TABS = [
-  "page",
-  "address",
   "access",
+  "address",
   "discovery",
   "features",
   "advanced",
-  "policies",
   "roles",
+  "policies",
   "gamification",
   "notifications",
   /* round32: features panels */
 ] as const
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+/** The settings tabs that held the community's page before round 33: an address naming one opens the Page section. */
+const PAGE_TABS = new Set(["page", "general", "about", "gallery", "media", "photos", "benefits", "faq", "links", "appearance", "look"])
+
+export function pageTabAsked(raw: string | undefined | null): boolean {
+  return typeof raw === "string" && PAGE_TABS.has(raw.trim().toLowerCase())
+}
 
 /** A tab asked for by name, old names included, as the tab that holds it now. */
 export function settingsTabOf(raw: string | undefined | null): SettingsTab {
@@ -1084,8 +1096,19 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "rules":
     case "contact":
       return "policies"
+    case "team":
+    case "permissions":
+      return "roles"
+    case "publish":
+    case "archive":
+    case "delete":
+      return "advanced"
+    case "pricing":
+    case "tiers":
+      return "access"
     default:
-      return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "page"
+      /* Nothing named, or a page tab (the server sends those on to the Page section first): the first panel. */
+      return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "access"
   }
 }
 

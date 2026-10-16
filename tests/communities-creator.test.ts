@@ -137,7 +137,8 @@ async function main() {
   check("a new paid community without payouts has every step", ids(fresh) === "payouts,publish,invite,welcome,course,event,customize,rules", ids(fresh))
   check("each step disappears once done", ids({ ...fresh, paymentsReady: true, published: true, invites: 1, posts: 1, courses: 1, events: 1, customized: true, rules: 2 }) === "")
   check("writing the rules opens Moderation on its Rules view", nextSteps(fresh, "/b").find((s) => s.id === "rules")?.href === "/b/moderation?tab=rules")
-  check("customizing the page opens Settings on its Page tab, where the gallery is", nextSteps(fresh, "/b").find((s) => s.id === "customize")?.href === "/b/settings?tab=page")
+  /* Changed on purpose (round 33): the community's page is a section of its own, after Overview. */
+  check("customizing the page opens the Page section, where the gallery is", nextSteps(fresh, "/b").find((s) => s.id === "customize")?.href === "/b/page")
   check("a second member counts as invited", !ids({ ...fresh, members: 2 }).includes("invite"))
   check("a section that is off asks for nothing", !ids({ ...fresh, classroomEnabled: false, eventsEnabled: false }).match(/course|event/))
   check("the welcome step opens the composer", nextSteps(fresh, "/b").find((s) => s.id === "welcome")?.href === "/b/feed?compose=welcome")
@@ -358,13 +359,18 @@ async function main() {
   /* Changed on purpose (round 31): "dragging doesn't work at all". The browser's drag and drop (no finger ever starts it) is the product editor's hold to drag (dnd-kit: a mouse, a held finger, the keyboard), and each tile keeps its menu. scripts/check-community-admin-round31.mjs DRAG moves them for real. */
   const galleryTiles = code("components/community/creator/gallery-tiles.tsx")
   check("tiles reorder by dragging (mouse, held finger, keyboard) and from each tile's menu", /useHoldToDragSensors\(\)/.test(galleryEditor) && /<SortableContext items=\{ids\} strategy=\{rectSortingStrategy\}>/.test(galleryEditor) && /useSortable\(\{ id \}\)/.test(galleryTiles) && /\{\.\.\.listeners\}/.test(galleryTiles) && /label: "Move later"/.test(galleryTiles) && /label: "Show first"/.test(galleryTiles) && !/\sdraggable(\s|>)/.test(galleryEditor))
-  check("Save waits while a file is still uploading", /onBusy=\{setUploading\}/.test(code("components/community/creator/settings-section.tsx")) && /busy=\{busy \|\| uploading\}/.test(code("components/community/creator/settings-section.tsx")))
+  /* Changed on purpose (round 33): the gallery left Settings for the Page section (components/community/creator/page-editor), whose own checks pin its save waiting for uploads; Settings must not hold a gallery that does not. */
+  {
+    const settingsSrc = code("components/community/creator/settings-section.tsx")
+    check("Save waits while a file is still uploading", !/<GalleryEditor/.test(settingsSrc) || (/onBusy=\{setUploading\}/.test(settingsSrc) && /busy=\{busy \|\| uploading\}/.test(settingsSrc)))
+  }
   check("the editor says so while the database has no gallery yet", /galleryReady: gallery\.ready/.test(creatorSrc) && /if \(!ready\)/.test(galleryEditor))
 
   /* ── Settings and the shell ──────────────────────────────────────────── */
   console.log("\nsettings")
   /* Changed on purpose (round 32): Explore and search is a panel of its own, so ?tab=discovery opens it rather than Access. */
-  check("old tab names land on the tab that holds them now", settingsTabOf("general") === "page" && settingsTabOf("discovery") === "discovery" && settingsTabOf("domain") === "address" && settingsTabOf("gamification") === "gamification" && settingsTabOf("nonsense") === "page" && settingsTabOf(undefined) === "page")
+  /* Changed on purpose (round 33): the page is a section of its own (?tab=page and ?tab=general are sent there by the settings page); an unknown tab opens Access and prices. */
+  check("old tab names land on the tab that holds them now", settingsTabOf("general") === "access" && settingsTabOf("discovery") === "discovery" && settingsTabOf("domain") === "address" && settingsTabOf("gamification") === "gamification" && settingsTabOf("nonsense") === "access" && settingsTabOf(undefined) === "access")
   check("Gamification is a Settings tab, not a section of its own", !/id: "gamification"/.test(code("components/community/creator/community-shell.tsx")) && /redirect\(`\/app\/community\/\$\{ctx\.community\.slug\}\/settings\?tab=gamification`\)/.test(code("app/app/community/[id]/gamification/page.tsx")))
   check("lists are one card: views and actions in its first row (ListCard)", ["members", "moderation", "feed", "events", "spaces", "classroom"].every((f) => /<ListCard/.test(code(`components/community/creator/${f}-section.tsx`))))
 

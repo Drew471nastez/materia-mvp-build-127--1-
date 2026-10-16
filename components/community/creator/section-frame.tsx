@@ -69,7 +69,7 @@ export interface SectionFrameFacts {
 function SettingsListFrame() {
   return (
     <Shimmer className="space-y-5 lg:hidden">
-      {[4, 3, 1].map((rows, g) => (
+      {[5, 3, 1].map((rows, g) => (
         <div key={g}>
           <div className="mb-1.5 flex h-[19.5px] items-center px-1">
             <ShimmerBlock className="h-2.5 w-20 rounded-full" />
@@ -243,7 +243,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
         <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">
           {/* From 1024px the column of panels (the groups' names, then 36px rows), and the panel with its name over it. */}
           <Shimmer className="hidden lg:block">
-            {[4, 3, 1].map((rows, g) => (
+            {[5, 3, 1].map((rows, g) => (
               <div key={g} className={cn("mb-1", g > 0 && "mt-4")}>
                 <div className="flex h-[22px] items-center px-3 pb-1">
                   <ShimmerBlock className="h-2 w-16 rounded-full" />
@@ -273,6 +273,14 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
         </div>
       )
       break
+    default:
+      /* A section with no frame of its own yet: two cards of rows, so the press never shows an empty screen. */
+      body = (
+        <>
+          <PanelFrame rows={4} />
+          <PanelFrame rows={3} />
+        </>
+      )
   }
   return (
     <div className="space-y-4" data-section-frame={id} aria-busy="true">

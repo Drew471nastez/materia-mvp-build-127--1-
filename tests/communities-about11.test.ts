@@ -179,7 +179,8 @@ async function main() {
     check("the gallery takes a link, read with the composer's parser before anything is saved", /data-gallery-add-link=""/.test(editor) && /const embed = galleryEmbed\(text\.trim\(\)\)/.test(editor) && /That is not a YouTube or Vimeo video link\./.test(editor))
     check("the cover takes a link too: the video first in the gallery, marked as the cover", /export function CoverField/.test(editor) && /onChange\(\{ coverUrl: null, gallery: \[\{ \.\.\.embed, cover: true \}, \.\.\.rest\] \}\)/.test(editor))
     const settings = code("components/community/creator/settings-section.tsx")
-    check("the settings draw the cover field, and the gallery edits what follows a cover video", /<CoverField/.test(settings) && /value=\{coverOf\(s\.gallery\) \? s\.gallery\.slice\(1\) : s\.gallery\}/.test(settings) && /max=\{coverOf\(s\.gallery\) \? GALLERY_MAX - 1 : GALLERY_MAX\}/.test(settings))
+    /* Changed on purpose (round 33): the cover and the gallery are the community's page, edited in its Page section (app/app/community/[id]/page), not in Settings. */
+    check("Settings no longer draws the cover field or the gallery: they are the Page section's", !/<CoverField|<GalleryEditor/.test(settings) && /pageTabAsked/.test(code("app/app/community/[id]/settings/page.tsx")))
   }
 
   /* ── Words ───────────────────────────────────────────────────────────── */

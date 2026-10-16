@@ -8,9 +8,12 @@
  * community's logo, name and state, the way back to the list, View page,
  * and Publish while it is a draft; under it the sections, as the
  * memberships screen draws its views (a compact row of tabs, the one you
- * are on filled grey). Both stay at the top while the section scrolls. On a
- * phone the tabs scroll sideways and the one you are on is brought into
- * view.
+ * are on filled grey). The tabs stay at the top while the section scrolls;
+ * the bar scrolls away with it (round 33). On a phone the tabs scroll
+ * sideways and the one you are on is brought into view.
+ *
+ * Round 33: Page, after Overview, is the community's page (what people see
+ * before they join), edited apart from Settings.
  *
  * Which tabs appear is the role's (lib/communities/permissions.ts, handed
  * down as `head.can`, with what the owner lets admins and moderators do):
@@ -66,7 +69,8 @@ import { cn } from "@/lib/utils"
 import { iconButton } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, SectionId } from "./view-types"
-import { ToastHost, buttonPrimary, buttonSecondary, errorText, send, useToast } from "./parts"
+import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, useFootsUp, useToast } from "./parts"
+import { nameCoverGradient } from "@/lib/communities/cover-gradient"
 import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
 import { tt } from "@/lib/i18n/text"
@@ -117,6 +121,8 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
   const can = head.can
   const tabs: (SectionTab | null)[] = [
     { id: "overview", label: tt("Overview"), href: base },
+    /* Round 33: the community's page (name, pictures, what members get, the join button), edited apart from Settings. */
+    can.manage_settings ? { id: "page", label: tt("Page"), href: `${base}/page` } : null,
     can.moderate_content ? { id: "feed", label: tt("Posts"), href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: tt("Spaces"), href: `${base}/spaces` } : null,
     can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
@@ -187,30 +193,11 @@ export function SectionSeed({ id, stamp = "", children }: { id: AdminSection; st
 
 /* ── The bar ─────────────────────────────────────────────────────────────── */
 
-function stateOf(head: CommunityHead): { word: string; dot: string; tone: "success" | "neutral" | "critical" } {
-  if (head.suspended) return { word: tt("Suspended"), dot: "bg-[#d92d20]", tone: "critical" }
-  if (head.archived) return { word: tt("Archived"), dot: "bg-[#9ca3af]", tone: "neutral" }
-  if (head.status === "published") return { word: tt("Published"), dot: "bg-[#22a06b]", tone: "success" }
-  return { word: tt("Draft"), dot: "bg-[#9ca3af]", tone: "neutral" }
-}
-
-/**
- * THE STATE, AS A QUIET LINE UNDER THE NAME (round 31). The green pill beside
- * the name took the room the name needed on a phone ("SalajanyWood ..."); the
- * state is now a dot and a word under it, with the member count, at every
- * width, the way an order's date sits under its number.
- */
-function StateLine({ head }: { head: CommunityHead }) {
-  const s = stateOf(head)
-  return (
-    <p data-community-state={s.tone} className="flex min-w-0 items-center gap-1.5 truncate text-[12.5px] leading-5 text-[#6b7280] sm:text-[13px]">
-      <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", s.dot)} />
-      <span className="shrink-0">{s.word}</span>
-      <span aria-hidden className="text-[#c4c7cd]">·</span>
-      <span className="truncate tabular-nums">{tt("{n, plural, one {# member} other {# members}}", { n: head.memberCount })}</span>
-    </p>
-  )
-}
+/*
+  THE STATE, AS A BADGE BESIDE THE NAME (round 33, the owner: "Published must be a badge, not text"). The /app badge
+  (./parts CommunityStatusBadge, the coupon and the product editor's header), after the name, which truncates first so
+  the badge is always whole. The member count under the name is gone: the Members tab carries it.
+*/
 
 function usePublish(head: CommunityHead) {
   const router = useRouter()
@@ -247,23 +234,26 @@ function CommunityBar({ head }: { head: CommunityHead }) {
     },
   ]
   return (
-    <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1 sm:gap-x-3">
-      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" className={cn(iconButton, "-ml-1.5 h-10 w-10 text-[#1a1a2e] hover:bg-[#eceef1] active:bg-[#e4e6ea] sm:h-9 sm:w-9")}>
+    <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1.5 sm:min-h-14 sm:gap-x-3">
+      {/* The /app way back (the coupon and the order's header): the quiet 36px square, the arrow at 20px. */}
+      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
         <ArrowLeft aria-hidden className="h-5 w-5" />
       </AppLink>
       {head.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={head.logoUrl} alt="" data-community-logo="" className="h-9 w-9 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)] sm:h-10 sm:w-10" />
+        <img src={head.logoUrl} alt="" data-community-logo="" className="h-9 w-9 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)]" />
       ) : (
-        <span aria-hidden data-community-logo="" className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white sm:h-10 sm:w-10">
-          {head.name.trim().charAt(0).toUpperCase() || "C"}
+        /* No logo: the letter on the name's own gradient (lib/communities/cover-gradient.ts), as the list's cards draw it. */
+        <span aria-hidden data-community-logo="" className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[15px] font-semibold text-white shadow-[0_0_0_1px_rgba(16,24,40,0.06)] [text-shadow:0_1px_1px_rgba(0,0,0,0.18)]" style={{ backgroundImage: nameCoverGradient(head.name) }}>
+          {(Array.from(head.name.trim())[0] || "C").toUpperCase()}
         </span>
       )}
-      <div className="min-w-0" data-community-title="">
-        <h1 className="truncate text-[17px] font-bold leading-6 text-[#1a1a2e] sm:text-[20px] sm:leading-7 lg:text-[22px]" title={head.name}>
+      {/* As an order's header: the badge after the name, and under it when the row has no room for both (a phone, a long name). */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:gap-x-2.5" data-community-title="">
+        <h1 className="min-w-0 max-w-full truncate text-[18px] font-bold leading-7 text-[#1a1a2e] sm:text-[20px] lg:text-[22px]" title={head.name}>
           {head.name}
         </h1>
-        <StateLine head={head} />
+        <CommunityStatusBadge state={communityState(head)} />
       </div>
       <div className="relative flex shrink-0 items-center gap-1.5" data-community-actions="">
         {/* From 640px View page is a button of its own; on a phone it is in the menu, so the name keeps the row. */}
@@ -422,6 +412,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* ── Showing a section ── */
   const scrolls = React.useRef(new Map<AdminSection, number>())
+  /* Where the pane was scrolled to before a switch (the scroll events come after it, from the next frame). */
+  const paneTop = React.useRef(0)
   const traversing = React.useRef(false)
   const refreshTimer = React.useRef(0)
   /* The section on screen (the one being opened while the router brings it), for the scroll it is given and keeps. */
@@ -430,7 +422,10 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   React.useEffect(() => {
     const el = pane.current
     if (!el) return
-    const on = () => scrolls.current.set(screenRef.current, el.scrollTop)
+    const on = () => {
+      scrolls.current.set(screenRef.current, el.scrollTop)
+      paneTop.current = el.scrollTop
+    }
     el.addEventListener("scroll", on, { passive: true })
     return () => el.removeEventListener("scroll", on)
   }, [])
@@ -588,7 +583,14 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     }
     const el = pane.current
     if (!el) return
-    el.scrollTop = scrolls.current.get(shown) ?? 0
+    /*
+      THE ROW STAYS WHERE IT WAS (round 33). With the bar scrolled away, a section opened at its top would bring the bar
+      back and push the row of tabs, the one just pressed, 60px down. A section is shown at least as far down as the bar,
+      when the bar was out of sight, so the row stays at the top; back at the top, it is shown from the top.
+    */
+    const floor = Math.min(paneTop.current, barHeight(el))
+    el.scrollTop = Math.max(scrolls.current.get(shown) ?? 0, floor)
+    paneTop.current = el.scrollTop
     const screen = el.querySelector<HTMLElement>(`[data-section-screen="${shown}"]`)
     const back = traversing.current
     traversing.current = false
@@ -619,13 +621,19 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   }, [framed, shown])
 
   const hostValue = React.useMemo<HostValue>(() => ({ active, kept, settled, hold, routedHere }), [active, kept, settled, hold, routedHere])
+  const foots = useFootsUp()
 
   return (
     <ToastHost>
       <Host.Provider value={hostValue}>
         <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={shown} data-routed={routed ?? ""}>
           <CommunityHeader head={head} shown={shown} onGo={go} onWarm={warm} />
-          <div className={cn("mx-auto pb-28 pt-4 md:pb-12 lg:pt-5", SHELL_GUTTER, SHELL_WIDTH)} data-community-body="">
+          {/*
+            ROOM FOR THE SAVE BARS (round 33): each bar that is up (./parts EditorFoot) adds FOOT_ROOM_PX under the last card,
+            so scrolled to the end nothing is under a bar; with none up the foot is as before. At least the pane's height, so
+            a short section can still be scrolled until only the row of tabs is above it (a press keeps the row in place).
+          */}
+          <div className={cn("mx-auto min-h-full pb-[calc(7rem+var(--foot-room))] pt-4 md:pb-[calc(3rem+var(--foot-room))] lg:pt-5", SHELL_GUTTER, SHELL_WIDTH)} style={{ "--foot-room": `${foots * FOOT_ROOM_PX}px` } as React.CSSProperties} data-community-body="" data-foots={foots}>
             {head.suspended ? (
               <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">{tt("Storelib suspended this community. Members cannot open it. Contact support to talk about it.")}</p>
             ) : head.archived ? (
@@ -659,36 +667,50 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 }
 
 /**
- * THE BAR AND THE ROW, held at the top of the pane while the section scrolls
- * (app/app/orders/order-parts PaneBar: a hairline and a soft shadow only once
- * something is under it).
+ * THE BAR AND THE ROW (round 33, the owner: an editor page "height narrowed"
+ * by the header, the tabs, its own back header and the save bar). The bar
+ * with the name scrolls away with the section; the row of tabs is what stays
+ * at the top of the pane (52px), with a hairline and a soft shadow only once
+ * something is under it (app/app/orders/order-parts PaneBar). Scrolled back
+ * up, the bar is there again. On a 900px screen that gives a section 60px
+ * more of the screen than round 32's header, which kept both.
  */
+/** How far the pane scrolls before the row of tabs is stuck: the height of the bar above it (it is the pane's first box). */
+function barHeight(pane: HTMLElement): number {
+  return pane.querySelector<HTMLElement>("[data-community-header]")?.offsetHeight ?? 0
+}
+
 function CommunityHeader({ head, shown, onGo, onWarm }: { head: CommunityHead; shown: AdminSection; onGo: (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => void; onWarm: (tab: SectionTab) => void }) {
   const ref = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
-    const bar = ref.current
-    const pane = bar?.closest<HTMLElement>(".orders-pane")
-    if (!bar || !pane) return
+    const row = ref.current
+    const pane = row?.closest<HTMLElement>(".orders-pane")
+    if (!row || !pane) return
     let under = false
     const read = () => {
-      const now = pane.scrollTop > 0
+      /* Stuck once the pane has scrolled past the bar above the row. */
+      const now = pane.scrollTop > Math.max(0, barHeight(pane) - 1)
       if (now === under) return
       under = now
-      bar.dataset.scrolled = now ? "true" : "false"
+      row.dataset.scrolled = now ? "true" : "false"
     }
     read()
     pane.addEventListener("scroll", read, { passive: true })
     return () => pane.removeEventListener("scroll", read)
   }, [])
   return (
-    <div ref={ref} data-orders-bar="" data-scrolled="false" data-community-header="" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
-      <div className={cn("mx-auto pt-1.5 sm:pt-2.5 lg:pt-3.5", SHELL_GUTTER, SHELL_WIDTH)}>
-        <CommunityBar head={head} />
-        <div className="mt-1 sm:mt-1.5">
+    <>
+      <div data-community-header="" className="bg-[#f8f9fa]">
+        <div className={cn("mx-auto pt-1.5 sm:pt-2.5 lg:pt-3", SHELL_GUTTER, SHELL_WIDTH)}>
+          <CommunityBar head={head} />
+        </div>
+      </div>
+      <div ref={ref} data-orders-bar="" data-scrolled="false" data-community-tabs-bar="" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
+        <div className={cn("mx-auto pt-1", SHELL_GUTTER, SHELL_WIDTH)}>
           <CommunityTabs head={head} active={shown} onGo={onGo} onWarm={onWarm} />
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

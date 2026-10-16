@@ -114,7 +114,8 @@ function main() {
 
   console.log("\nWIDTH")
   check("the column is Products': 1200px, 1323px from 1024px, in the app's gutter", /const SHELL_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(shell) && /const SHELL_GUTTER = "app-gutter"/.test(shell) &&/const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(code("app/app/products/products-client.tsx")))
-  check("the bar, the tabs and the section share it", (shell.match(/SHELL_GUTTER, SHELL_WIDTH/g) ?? []).length === 2 && !/SECTION_WIDTH/.test(shell))
+  /* Changed on purpose (round 33): the bar and the row of tabs are two boxes now (the bar scrolls away, the row stays), so three share the column. */
+  check("the bar, the tabs and the section share it", (shell.match(/SHELL_GUTTER, SHELL_WIDTH/g) ?? []).length === 3 && !/SECTION_WIDTH/.test(shell))
   check("below 1280px a row of tabs that does not fit fades at its end and scrolls", /xl:\[mask-image:none\]/.test(shell))
 
   console.log("\nCOPY")
