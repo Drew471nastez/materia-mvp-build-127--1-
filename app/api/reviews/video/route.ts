@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic"
  * straight to the private review-uploads bucket on a signed address this
  * route makes, good for one file at one path. Only from a review request
  * link, only for a store that takes videos, only MP4, WebM or QuickTime and
- * at most VIDEO_MAX_BYTES (the bucket's own limit, run-now part 189, says
+ * at most VIDEO_MAX_BYTES (the bucket's own limit, run-now part 204, says
  * the same). The path is tied to the link (review_uploads, as a photo is),
  * so only a review from the same link can claim it, once; the review checks
  * the file is really there, a video and small enough (photos-server

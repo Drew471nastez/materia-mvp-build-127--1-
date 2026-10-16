@@ -26,7 +26,7 @@
  *                product page gets the stars under its name and the reviews
  *                under the product without the store placing them
  *   editDays     how long a buyer can change their review from their link
- *   videos       buyers may add one short video (run-now part 189 lets the
+ *   videos       buyers may add one short video (run-now part 204 lets the
  *                buckets take video files; until then the upload says so)
  *   spam         hold a review for approval when it carries a link, or one
  *                of the store's own words (spamHold)

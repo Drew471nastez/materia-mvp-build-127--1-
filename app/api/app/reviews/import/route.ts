@@ -26,7 +26,7 @@ export const maxDuration = 60
  * file is kept apart from the review (review_authors), so that address is
  * never sent a request for a product it already reviewed. A review the store
  * already has (the same product, words and author, importKey) is skipped, so
- * the same file imported twice adds nothing. With run-now part 189 the
+ * the same file imported twice adds nothing. With run-now part 204 the
  * import is kept (review_import_batches) with its report, and each review
  * names it, so a whole import can be taken back; before it the import works
  * the same and the report is only on the page.
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
   const summary = { header, mapping, sample, rows: plan.rows, missingFields: plan.missingFields, total: plan.rows.length, ready: plan.reviews.length }
   if (!commit || plan.missingFields.length || plan.reviews.length === 0) return physicalJson({ ...summary, imported: 0, batchId: null })
 
-  /* The import, kept with its report (part 189); before it, the reviews import without a batch. */
+  /* The import, kept with its report (part 204); before it, the reviews import without a batch. */
   const fileName = typeof body.fileName === "string" ? body.fileName.replace(/[\u0000-\u001f]/g, "").slice(0, 120) : null
   const skippedRows = plan.rows.filter((r) => !r.ok).map((r) => ({ row: r.row, why: r.problem }))
   const batch = await c.db
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
 /**
  *   DELETE ?batch=<id>   take a whole import back: every review it made is
- *                        deleted, with the import kept as undone (part 189).
+ *                        deleted, with the import kept as undone (part 204).
  *                        Ratings are counted again.
  */
 export async function DELETE(request: Request) {
@@ -165,7 +165,7 @@ export async function DELETE(request: Request) {
 }
 
 /**
- *   GET   the last ten imports (part 189): when, the file, how many came in,
+ *   GET   the last ten imports (part 204): when, the file, how many came in,
  *         how many were skipped, whether it was taken back. Empty before it.
  */
 export async function GET() {

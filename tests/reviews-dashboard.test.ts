@@ -495,7 +495,7 @@ async function routes() {
     const made = d.tables.reviews
     check("imported: published, unverified, from an import, named in public form, matched by SKU too", done.imported === 2 && made.length === 2 && made.every((r: any) => r.verified === false && r.source === "import" && r.status === "published") && made.some((r: any) => r.product_id === P2) && made.some((r: any) => r.reviewer_name === "Maya R."), made)
     check("  the reply is the store's, the address kept apart", made.find((r: any) => r.reviewer_name === "Maya R.")?.seller_reply === "Thanks Maya" && d.tables.review_authors.some((a: any) => a.email === "maya@example.com") && !made.some((r: any) => "email" in r))
-    check("  kept with its report (part 189), each review naming it", !!done.batchId && d.tables.review_import_batches[0]?.imported === 2 && d.tables.review_import_batches[0]?.skipped === 1 && made.every((r: any) => r.import_batch_id === done.batchId))
+    check("  kept with its report (part 204), each review naming it", !!done.batchId && d.tables.review_import_batches[0]?.imported === 2 && d.tables.review_import_batches[0]?.skipped === 1 && made.every((r: any) => r.import_batch_id === done.batchId))
     const twice = await json(await importRoute.POST(req("/api/app/reviews/import", "POST", { csv, commit: true })))
     check("the same file again: nothing new, every row said to be in the store already", twice.imported === 0 && d.tables.reviews.length === 2 && twice.rows.filter((r: any) => r.problem === "already_imported").length === 2)
     const undo = await importRoute.DELETE(req(`/api/app/reviews/import?batch=${done.batchId}`, "DELETE"))
@@ -558,9 +558,9 @@ function area() {
   const list = read("app/app/reviews/reviews-client.tsx")
   check("Verified purchase only for a review tied to a real order", /const purchase = review\.verified && !!review\.order_id/.test(list))
   check("a change is drawn at once and put back when the server says no", /patchRow\(review\.id, \(\) => before\)/.test(list) && /optimisticRow\(row, action\)/.test(list))
-  const part = raw("supabase/sql/run-now/189_reviews_dashboard.sql")
-  check("SQL part 189: one statement a line, guarded, safe to run again, schema reloaded last", part.trim().split("\n").length === 6 && /CREATE TABLE IF NOT EXISTS public\.review_import_batches/.test(part) && /ADD COLUMN IF NOT EXISTS import_batch_id/.test(part) && /REVOKE ALL ON public\.review_import_batches FROM PUBLIC, anon, authenticated/.test(part) && /ENABLE ROW LEVEL SECURITY/.test(part) && /'video\/mp4'/.test(part) && /pg_column_size\(reviews\) < 16384/.test(part) && /notify pgrst, 'reload schema';$/.test(part.trim()))
-  check("  the same as its migration, checked after, listed, and in the bundles", part === raw("supabase/migrations/20270128_reviews_dashboard.sql") && /as p189_reviews_dashboard;/.test(raw("supabase/sql/run-now/99_check_after.sql")) && /189_reviews_dashboard\.sql/.test(raw("supabase/sql/run-now/README.md")) && raw("supabase/sql/run-four/3_of_4_latest.sql").includes(part.split("\n")[1]) && /part: "189", file: "189_reviews_dashboard\.sql"/.test(raw("lib/admin/sql-parts.generated.ts")))
+  const part = raw("supabase/sql/run-now/204_reviews_dashboard.sql")
+  check("SQL part 204: one statement a line, guarded, safe to run again, schema reloaded last", part.trim().split("\n").length === 6 && /CREATE TABLE IF NOT EXISTS public\.review_import_batches/.test(part) && /ADD COLUMN IF NOT EXISTS import_batch_id/.test(part) && /REVOKE ALL ON public\.review_import_batches FROM PUBLIC, anon, authenticated/.test(part) && /ENABLE ROW LEVEL SECURITY/.test(part) && /'video\/mp4'/.test(part) && /pg_column_size\(reviews\) < 16384/.test(part) && /notify pgrst, 'reload schema';$/.test(part.trim()))
+  check("  the same as its migration, checked after, listed, and in the bundles", part === raw("supabase/migrations/20270128_reviews_dashboard.sql") && /as p204_reviews_dashboard;/.test(raw("supabase/sql/run-now/99_check_after.sql")) && /204_reviews_dashboard\.sql/.test(raw("supabase/sql/run-now/README.md")) && raw("supabase/sql/run-four/3_of_4_latest.sql").includes(part.split("\n")[1]) && /part: "204", file: "204_reviews_dashboard\.sql"/.test(raw("lib/admin/sql-parts.generated.ts")))
 }
 
 async function main() {
