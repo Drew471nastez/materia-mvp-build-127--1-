@@ -89,7 +89,8 @@ async function main() {
   const rec = raw("lib/communities/server/record-view.ts")
   /* Changed on purpose (round 33): the page's own beacon posts the referrer and the address with its query to app/api/community/<id>/visit, which reads the device and the country from its request (tests/community-analytics-r33.test.ts). */
   check("the visit reads the referrer, the address with its query, the device and the country", /referer: req\.body\.referrer, path: req\.body\.path/.test(rec) && /visitDevice\(ua, req\.body\.touch\)/.test(rec) && /visitCountry\(req\.headers\)/.test(rec))
-  check("and whether a signed in visitor is a member", /recordCommunityView\(db, community\.id, key, \{ \.\.\.visit, member: await isMember\(db, community\.id, req\.userId\) \}\)/.test(rec))
+  /* Changed on purpose (round 33 merge): read from the route's viewerContext when it has one, else asked as before. */
+  check("and whether a signed in visitor is a member", /recordCommunityView\(db, community\.id, key, \{ \.\.\.visit, member: v \? v\.active : await isMember\(db, community\.id, req\.userId\) \}\)/.test(rec))
 
   /* ── Member days ─────────────────────────────────────────────────────── */
   console.log("\nmember days")

@@ -70,12 +70,12 @@ import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CommunityDomainPanel } from "./community-domain-panel"
+import { DeleteCommunity } from "./delete-community"
 import { JoinQuestionsPanel } from "./join-questions-panel"
 import { OnboardingPanel } from "./onboarding-panel"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, EDITOR_CARD_TITLE, EditorCard, EditorFoot, Notice, PriceInput, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
-import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
 type SettingsGroup = "community" | "people" | "you"
@@ -1107,8 +1107,6 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
   const router = useRouter()
   const toast = useToast()
   const [busy, setBusy] = React.useState<string | null>(null)
-  const [deleting, setDeleting] = React.useState(false)
-  const [typed, setTyped] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
 
   const run = async (key: string, url: string, body: unknown, done: string) => {
@@ -1119,15 +1117,6 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
     if (!res.ok) return setError(errorText(res.data.error))
     toast(done)
     router.refresh()
-  }
-
-  const remove = async () => {
-    setBusy("delete")
-    setError(null)
-    const res = await send(`/api/app/community/${head.id}/delete`, "POST", { confirm: typed })
-    setBusy(null)
-    if (!res.ok) return setError(errorText(res.data.error))
-    router.push("/app/community")
   }
 
   return (
@@ -1165,42 +1154,8 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
           </button>
         }
       />
-      {head.can.delete ? (
-        <EditorCard
-          title={tt("Delete")}
-          hint={tt("It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.")}
-          action={
-            <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3.5 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8 sm:px-3">
-              {tt("Delete community")}
-            </button>
-          }
-        />
-      ) : null}
-      <Dialog
-        open={deleting}
-        onClose={() => setDeleting(false)}
-        title={tt("Delete this community?")}
-        footer={
-          <>
-            <button type="button" onClick={() => setDeleting(false)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              {tt("Cancel")}
-            </button>
-            <button type="button" disabled={typed.trim() !== head.name.trim() || busy === "delete"} onClick={() => void remove()} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white hover:bg-[#9a1d14] disabled:opacity-40 sm:h-9" data-delete-confirm="">
-              {busy === "delete" ? tt("Deleting") : tt("Delete")}
-            </button>
-          </>
-        }
-      >
-        <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          <Rich text={tt("Type {name} to delete it.")} parts={{ name: <span className="font-semibold text-[#1a1a2e]">{head.name}</span> }} />
-        </p>
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={tt("Community name")} autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} />
-        {error ? (
-          <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
-            {error}
-          </p>
-        ) : null}
-      </Dialog>
+      {/* Round 33: deleting, with members who pay, at the end of what they paid for or now with refunds (./delete-community). */}
+      {head.can.delete ? <DeleteCommunity head={head} /> : null}
     </div>
   )
 }

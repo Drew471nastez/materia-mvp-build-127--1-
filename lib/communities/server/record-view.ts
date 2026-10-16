@@ -91,6 +91,8 @@ export interface VisitRequest {
   browserId: string | null
   userId: string | null
   body: VisitBody
+  /** The route's viewerContext, when it has one: owner, store account and membership read from it instead of asked again. */
+  viewer?: { isOwner: boolean; isCreatorAccount: boolean; active: boolean } | null
 }
 
 export type VisitOutcome = ViewOutcome | "owner" | "not_a_person" | "not_published"
@@ -109,12 +111,13 @@ export async function recordVisit(db: Db, community: VisitCommunity, req: VisitR
     if (community.status !== "published") return "not_published"
     const ua = req.headers.get("user-agent")
     if (!isPersonBrowser(ua)) return "not_a_person"
-    if (await isOwnerOf(db, community, req.userId)) return "owner"
+    const v = req.userId ? req.viewer : null
+    if (v ? v.isOwner || v.isCreatorAccount : await isOwnerOf(db, community, req.userId)) return "owner"
     const facts: VisitorFacts = { userId: req.userId, browserId: req.browserId, ip: clientIp(req.headers), userAgent: ua }
     const key = visitorKey(facts, community.id)
     if (!key) return "skipped"
     const visit = visitFactsOf(req, community.slug)
-    return await recordCommunityView(db, community.id, key, { ...visit, member: await isMember(db, community.id, req.userId) })
+    return await recordCommunityView(db, community.id, key, { ...visit, member: v ? v.active : await isMember(db, community.id, req.userId) })
   } catch (e) {
     console.error(`[communities] visit: ${reasonOf(e)}`)
     return "unavailable"

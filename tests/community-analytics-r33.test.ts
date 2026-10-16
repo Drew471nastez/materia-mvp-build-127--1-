@@ -165,7 +165,8 @@ async function main() {
   console.log("\nthe route, the beacon, the layout")
   const route = code("app/api/community/[communityId]/visit/route.ts")
   check("the route answers only the page itself", /if \(site && site !== "same-origin"\) return NextResponse\.json\(\{ error: "forbidden" \}, \{ status: 403/.test(route))
-  check("and reads the session, the browser id and the body before counting", /userId: await sessionUserId\(\)/.test(route) && /request\.cookies\.get\("materia_visitor"\)/.test(route) && /readVisitBody\(await readJson\(request\)\)/.test(route) && /recordVisit\(db, community,/.test(route))
+  /* Changed on purpose (round 33 merge): the route asks viewerContext who is visiting and rate limits, as every community route must (communities-security). */
+  check("and reads the session, the browser id and the body before counting", /const userId = await sessionUserId\(\)/.test(route) && /viewerContext\(db, community, userId\)/.test(route) && /rateLimit\(\{/.test(route) && /request\.cookies\.get\("materia_visitor"\)/.test(route) && /readVisitBody\(await readJson\(request\)\)/.test(route) && /recordVisit\(db, community,/.test(route))
   const beacon = code("components/community/public/visit-beacon.tsx")
   check("the beacon is a client file that posts to the route", /^"use client"/.test(raw("components/community/public/visit-beacon.tsx")) && /fetch\(`\/api\/community\/\$\{communityId\}\/visit`, \{ method: "POST"/.test(beacon) && /keepalive: true/.test(beacon))
   check("it says nothing from a browser a program drives", /if \(typeof navigator !== "undefined" && navigator\.webdriver\) return/.test(beacon))

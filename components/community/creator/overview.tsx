@@ -141,9 +141,16 @@ function NextSteps({ steps, created }: { steps: OverviewData["steps"]; created: 
                 <span className="block text-[14px] font-medium text-[#1a1a2e]">{s.title}</span>
                 <span className="block text-[13px] leading-snug text-[#6b7280]">{s.detail}</span>
               </span>
-              <Link href={s.href} className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
-                {s.action}
-              </Link>
+              {/* Round 33: the app step goes to /api/get-app (it picks the store) and the intro is a video elsewhere, so both open a new tab. */}
+              {s.href.startsWith("/api/") || /^https?:/.test(s.href) ? (
+                <a href={s.href} target="_blank" rel="noopener noreferrer" className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
+                  {s.action}
+                </a>
+              ) : (
+                <Link href={s.href} className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
+                  {s.action}
+                </Link>
+              )}
             </span>
           </li>
         ))}

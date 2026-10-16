@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
-import { loadCommunity } from "@/lib/communities/server/context"
+import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
+import { loadCommunity, viewerContext } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { readVisitBody, recordVisit } from "@/lib/communities/server/record-view"
@@ -31,12 +32,19 @@ export async function POST(request: NextRequest, { params }: Params) {
   const db = admin()
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
-  const body = readVisitBody(await readJson(request))
-  const outcome = await recordVisit(db, community, {
-    headers: request.headers,
-    browserId: request.cookies.get("materia_visitor")?.value ?? request.cookies.get("visitor_id")?.value ?? null,
-    userId: await sessionUserId(),
-    body,
+  /* Who is asking, so the owner and the store account are left out and a member is counted as one. */
+  const userId = await sessionUserId()
+  const viewer = await viewerContext(db, community, userId)
+  const browserId = request.cookies.get("materia_visitor")?.value ?? request.cookies.get("visitor_id")?.value ?? null
+  /* The beacon sends once a day per browser; this only stops a script from filling the table. */
+  const limited = await rateLimit({
+    bucket: "community-visit",
+    subjects: [addressSubject(request), userId ? `user:${userId}` : null],
+    windows: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
+    message: "Too many visits from one place. Try again shortly.",
   })
+  if (limited) return limited
+  const body = readVisitBody(await readJson(request))
+  const outcome = await recordVisit(db, community, { headers: request.headers, browserId, userId, body, viewer })
   return NextResponse.json({ ok: outcome !== "unavailable", counted: outcome === "counted" }, { headers: NO_STORE })
 }
