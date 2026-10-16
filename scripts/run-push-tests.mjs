@@ -645,6 +645,8 @@ const SUITES = [
   "tests/site-releases.test.ts",
   /* An earlier publish live again (SQL part 186) */
   "tests/release-rollback.test.ts",
+  /* Safety nets that measure: build memory, bundle budgets, the post-deploy smoke, the load test, the rollback runbook, each job from cron_runs */
+  "tests/ops-safety-nets.test.ts",
 ]
 
 /**
