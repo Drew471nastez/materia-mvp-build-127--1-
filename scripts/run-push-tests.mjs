@@ -376,6 +376,8 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
+  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  "tests/jobs-and-isolation.test.ts",
   "tests/backups.test.ts",
   "tests/schema-source.test.ts",
   "tests/ops-safety.test.ts",
@@ -649,6 +651,14 @@ const SUITES = [
   "tests/publishing-cache.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
+  /* An earlier publish live again (SQL part 188) */
+  "tests/release-rollback.test.ts",
+  /* Safety nets that measure: build memory, bundle budgets, the post-deploy smoke, the load test, the rollback runbook, each job from cron_runs */
+  "tests/ops-safety-nets.test.ts",
+  /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
+  "tests/db-indexes.test.ts",
+  /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
+  "tests/mobile-perf.test.ts",
 ]
 
 /**

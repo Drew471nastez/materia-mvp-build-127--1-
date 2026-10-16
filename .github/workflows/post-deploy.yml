@@ -1,0 +1,60 @@
+# After Vercel says a deployment is ready: open it and check that it answers
+# the way Storelib should (scripts/smoke-deploy.mjs): the pages, their
+# Cache-Control, the security headers, /api/health, robots and sitemap.
+#
+# ADVISORY. It runs after the deployment exists, so it cannot stop one, and
+# a failure here is a warning on the run and its summary, not a red check.
+# docs/operations/release-safety.md says how to make it blocking.
+name: Post-deploy smoke
+
+on:
+  # Vercel's GitHub integration posts a deployment status for every deployment.
+  deployment_status:
+  # Vercel's Deployment Checks dispatch this instead (see release-safety.md).
+  repository_dispatch:
+    types: [vercel.deployment.success]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Deployment address, e.g. https://storelib-abc123.vercel.app
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: post-deploy-${{ github.event.deployment_status.environment_url || github.event.client_payload.url || inputs.url }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke the deployment
+    if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url || github.event.client_payload.url || inputs.url }}
+      SMOKE_SITE: ${{ vars.SMOKE_SITE }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Smoke
+        id: smoke
+        # Blocking only when the owner sets the repository variable SMOKE_BLOCKING to true.
+        continue-on-error: ${{ vars.SMOKE_BLOCKING != 'true' }}
+        run: node scripts/smoke-deploy.mjs
+      - name: Say so
+        if: steps.smoke.outcome == 'failure'
+        run: |
+          echo "::warning title=Post-deploy smoke failed::$BASE_URL did not pass every check. See the job summary."
+          if [ -n "$ALERT_WEBHOOK_URL" ]; then
+            curl -fsS -X POST -H 'Content-Type: application/json' \
+              -d "{\"text\":\"Storelib post-deploy smoke failed on ${BASE_URL}: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+              "$ALERT_WEBHOOK_URL" || true
+          fi

@@ -652,8 +652,13 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
   }, [periodKey, load]);
 
   useEffect(() => {
+    /* Coming back fires visibilitychange and focus together: one read for both, as the balances below already do. */
+    let lastRead = 0;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastRead < 10000) return;
+      lastRead = now;
       load(period, true);
     };
     /* Once a minute in the background (it was every 15s); coming back to the tab reads at once. Changed on purpose (the owner: lower Vercel costs). */

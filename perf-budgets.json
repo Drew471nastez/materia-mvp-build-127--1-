@@ -1,0 +1,42 @@
+{
+  "$comment": "First-load JS per route, gzipped KB, and the server output in MB. Set by `node scripts/perf-budget.mjs --write` at the measured value plus 10%. Raising one is a decision: change it in the pull request that needs it and say why.",
+  "measuredAt": "2026-10-15T21:29:46.279Z",
+  "routes": {
+    "/": {
+      "firstLoadGzipKb": 563,
+      "measuredGzipKb": 511.3
+    },
+    "/pricing": {
+      "firstLoadGzipKb": 555,
+      "measuredGzipKb": 503.8
+    },
+    "/explore": {
+      "firstLoadGzipKb": 581,
+      "measuredGzipKb": 527.3
+    },
+    "/p/[slug]": {
+      "firstLoadGzipKb": 773,
+      "measuredGzipKb": 701.9
+    },
+    "/app": {
+      "firstLoadGzipKb": 697,
+      "measuredGzipKb": 632.9
+    },
+    "/website-builder/editor/[installId]": {
+      "firstLoadGzipKb": 1462,
+      "measuredGzipKb": 1329
+    },
+    "/w/[username]": {
+      "firstLoadGzipKb": 706,
+      "measuredGzipKb": 641.4
+    },
+    "/checkout/site": {
+      "firstLoadGzipKb": 543,
+      "measuredGzipKb": 493.2
+    }
+  },
+  "serverOutputMb": {
+    "budget": 240,
+    "measured": 217.9
+  }
+}

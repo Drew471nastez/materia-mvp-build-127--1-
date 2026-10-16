@@ -164,7 +164,7 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
   const approved = member?.status === "pending" && Boolean(member.approved_by)
 
   /*
-    QUESTIONS BEFORE JOINING (round 32, ./join-questions.ts, run-now part 189). Whoever joins from the community's page
+    QUESTIONS BEFORE JOINING (round 32, ./join-questions.ts, run-now part 192). Whoever joins from the community's page
     answers them first: a free join, a request, or the way to checkout. Not asked again of somebody whose request is
     already waiting or was approved, nor of somebody who came in with an invite (the invite is the approval). An answer
     that is missing or does not fit is refused with the question's id, so the form can point at it.

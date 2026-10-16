@@ -117,6 +117,57 @@ export async function stripeEventHandled(db: Tables, eventId: string): Promise<b
   }
 }
 
+/**
+ * How long a delivery holds an event before another delivery of the same
+ * event may run it: past any webhook function's time, so only a run that
+ * died is overtaken.
+ */
+export const STRIPE_EVENT_HOLD_MS = 10 * 60_000
+
+export type StripeEventClaim = "run" | "busy" | "done"
+
+/**
+ * ONE DELIVERY AT A TIME. Stripe sends an event again when an answer is slow,
+ * so a second copy can arrive while the first is still being handled. Only
+ * a finished event was recorded, so both ran: two orders for one Checkout
+ * session (the order is looked up, then inserted), and a sale on the ledger
+ * for each, keyed by its own order. The event is now taken before it is
+ * handled, after its signature is checked:
+ *
+ *   run   this delivery holds it: a new event (inserted), or one whose last
+ *         delivery failed, or one held longer than STRIPE_EVENT_HOLD_MS (that
+ *         run died). Taking it clears last_error and stamps received_at, in
+ *         one conditional update, so of two deliveries only one gets it.
+ *   busy  another delivery is handling it now: answer so Stripe sends it again
+ *         later, when it reads as done.
+ *   done  finished meanwhile.
+ *
+ * Without the table (before run-now part 64), or when the database does not
+ * answer, it is "run": the handlers are idempotent on their own records, as
+ * before. noteStripeEvent still writes the outcome, which lets the event go.
+ */
+export async function claimStripeEvent(db: Tables, e: { id: string; type: string; account?: string | null }, now = Date.now()): Promise<StripeEventClaim> {
+  try {
+    const at = new Date(now).toISOString()
+    const fresh = await db.from("stripe_webhook_events").insert({ event_id: e.id, type: e.type, account: e.account ?? null, attempts: 0, received_at: at })
+    if (!fresh.error) return "run"
+    if (String(fresh.error.code ?? "") !== "23505") return "run"
+    const stale = new Date(now - STRIPE_EVENT_HOLD_MS).toISOString()
+    const taken = await db
+      .from("stripe_webhook_events")
+      .update({ received_at: at, last_error: null })
+      .eq("event_id", e.id)
+      .is("processed_at", null)
+      .or(`last_error.not.is.null,received_at.lt."${stale}"`)
+      .select("event_id")
+    if (taken.error) return "run"
+    if (Array.isArray(taken.data) && taken.data.length > 0) return "run"
+    return (await stripeEventHandled(db, e.id)) ? "done" : "busy"
+  } catch {
+    return "run"
+  }
+}
+
 /** The webhook's outcome for one event: finished, or failed with what went wrong so the next delivery tries again. */
 export async function noteStripeEvent(db: Tables, e: { id: string; type: string; account?: string | null; ok: boolean; error?: string | null }) {
   try {

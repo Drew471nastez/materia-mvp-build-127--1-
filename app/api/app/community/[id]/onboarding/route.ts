@@ -17,7 +17,7 @@ type Params = { params: Promise<{ id: string }> }
  *
  * Settings › Features › First steps (round 32): the list a new member sees
  * and the welcome message sent to them. manage_settings. `ready` is false
- * until run-now part 190; `messages` says whether a welcome message can be
+ * until run-now part 193; `messages` says whether a welcome message can be
  * sent at all (Chat on and part 83).
  */
 export async function GET(_request: Request, { params }: Params) {

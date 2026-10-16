@@ -76,18 +76,23 @@ export default function NativeOAuthBridge() {
 
   useEffect(() => {
     let removeHandle: (() => void) | undefined
+    let gone = false
 
     async function setupResumeListener() {
       try {
         const { Capacitor } = await import("@capacitor/core")
-        if (!Capacitor.isNativePlatform()) return
+        if (gone || !Capacitor.isNativePlatform()) return
 
         const { App } = await import("@capacitor/app")
+        if (gone) return
         const handle = await App.addListener("appStateChange", ({ isActive }) => {
           if (isActive) onResume()
         })
+        /* Unmounted while the bridge answered: the cleanup has run already, so take it off now. */
+        if (gone) return void handle.remove()
         removeHandle = () => handle.remove()
       } catch {
+        if (gone) return
         // Capacitor plugin unavailable — fall back to visibilitychange
         const fn = () => {
           if (document.visibilityState === "visible") onResume()
@@ -98,7 +103,10 @@ export default function NativeOAuthBridge() {
     }
 
     setupResumeListener()
-    return () => { removeHandle?.() }
+    return () => {
+      gone = true
+      removeHandle?.()
+    }
   }, [onResume])
 
   return null

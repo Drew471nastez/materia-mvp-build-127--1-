@@ -135,7 +135,7 @@ export function OnboardingPanel({ head }: { head: CommunityHead }) {
     setBusy(false)
     if (!res.ok) {
       setBadIndex(typeof res.data.index === "number" ? res.data.index : null)
-      return setError(res.data.error === "not_ready" ? tt("First steps need the database update (run-now part 190).") : errorText(res.data.error))
+      return setError(res.data.error === "not_ready" ? tt("First steps need the database update (run-now part 193).") : errorText(res.data.error))
     }
     take(res.data.config)
     toast(tt("Saved"))
@@ -143,7 +143,7 @@ export function OnboardingPanel({ head }: { head: CommunityHead }) {
 
   if (loadError) return <Notice>{loadError}</Notice>
   if (ready === null) return <ListLoading />
-  if (!ready) return <Notice tone="warn">{tt("First steps and the welcome message need the database update (run-now part 190).")}</Notice>
+  if (!ready) return <Notice tone="warn">{tt("First steps and the welcome message need the database update (run-now part 193).")}</Notice>
 
   return (
     <div className="space-y-4" data-onboarding-panel="">

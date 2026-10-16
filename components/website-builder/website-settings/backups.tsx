@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { Card, ErrorNote, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
@@ -21,6 +21,14 @@ function backupWhen(iso: string): string {
   const date = d.toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "long", year: "numeric" }))
   const time = d.toLocaleTimeString(appLocale(), zoned({ hour: "2-digit", minute: "2-digit" }))
   return tt("{date} at {time}", { date, time })
+}
+
+/** A published version (lib/website-builder/site-releases.ts ReleaseListItem). */
+interface ReleaseRow {
+  id: string
+  createdAt: string
+  restored: boolean
+  live: boolean
 }
 
 const SOURCE_WORD: Record<BackupRow["source"], string> = {
@@ -46,18 +54,61 @@ const SOURCE_WORD: Record<BackupRow["source"], string> = {
  * then pushes the rest of the page down from.
  */
 const lastBackups = new Map<string, BackupRow[]>()
+/** Published versions, the same way. Null: not loaded yet, or not set up (SQL part 188), and the card is not drawn. */
+const lastReleases = new Map<string, ReleaseRow[]>()
 
 export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   const [backups, setBackups] = useState<BackupRow[] | null>(() => lastBackups.get(ctx.installId) ?? null)
+  const [releases, setReleases] = useState<ReleaseRow[] | null>(() => lastReleases.get(ctx.installId) ?? null)
   const [error, setError] = useState<string | null>(null)
   const [backingUp, setBackingUp] = useState(false)
   const [confirming, setConfirming] = useState<BackupRow | null>(null)
+  const [confirmingRelease, setConfirmingRelease] = useState<ReleaseRow | null>(null)
   const [restoring, setRestoring] = useState(false)
   const [copying, setCopying] = useState(false)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
     if (backups && !error) lastBackups.set(ctx.installId, backups)
   }, [backups, error, ctx.installId])
+  useEffect(() => {
+    if (releases) lastReleases.set(ctx.installId, releases)
+    else lastReleases.delete(ctx.installId)
+  }, [releases, ctx.installId])
+
+  /* Hidden, not an error, when the database is not ready for it: the route answers `available: false`. */
+  const loadReleases = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/website-builder/themes/${ctx.installId}/releases`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || tt("Could not load published versions"))
+      setReleases(json.available ? ((json.releases ?? []) as ReleaseRow[]) : null)
+    } catch (e) {
+      setReleases(null)
+      setError(e instanceof Error ? e.message : tt("Could not load published versions"))
+    }
+  }, [ctx.installId])
+
+  useEffect(() => {
+    void loadReleases()
+  }, [loadReleases])
+
+  const restoreRelease = async (row: ReleaseRow) => {
+    if (restoring) return
+    setRestoring(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${ctx.installId}/releases/${row.id}/restore`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || tt("Could not restore this version"))
+      setConfirmingRelease(null)
+      ctx.onRestored?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tt("Could not restore this version"))
+      setConfirmingRelease(null)
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   const load = useCallback(async () => {
     setError(null)
@@ -172,6 +223,31 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
         )}
       </Card>
 
+      {/* Every publish, kept whole (SQL parts 180 and 188). Not drawn until
+          the database has them, so nothing is offered that cannot happen. */}
+      {releases && (
+        <Card title={tt("Published versions")} footer={tt("The newest 20 are kept.")}>
+          {releases.length === 0 ? (
+            <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">{tt("No published versions yet.")}</p>
+          ) : (
+            releases.map((r) => (
+              <Row
+                key={r.id}
+                label={backupWhen(r.createdAt)}
+                hint={r.live ? tt("Live now") : r.restored ? tt("Restored from an earlier version") : tt("Published")}
+                inline
+              >
+                {!r.live && (
+                  <button type="button" onClick={() => setConfirmingRelease(r)} className={buttonClass}>
+                    {tt("Restore this version")}
+                  </button>
+                )}
+              </Row>
+            ))
+          )}
+        </Card>
+      )}
+
       <Card title={tt("Duplicate")}>
         <Row label={tt("Copy this website")} hint={copied ? tt("Copied. The copy is a draft in your library.") : tt("Makes a draft copy with the same pages, sections and settings.")} inline>
           <button type="button" onClick={() => void duplicate()} disabled={copying || copied} className={buttonClass}>
@@ -184,53 +260,101 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
       {/* The question before a restore. It says what will happen and what
           will not, which is the whole reason it is asked. */}
       {confirming && (
-        <div
-          className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 px-3 pt-4 pb-[max(12px,env(safe-area-inset-bottom))] md:items-center md:p-4"
-          onClick={() => !restoring && setConfirming(null)}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={tt("Restore this backup")}
-            onClick={(e) => e.stopPropagation()}
-            className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] md:p-6"
-          >
-            <h2 className="text-[20px] font-semibold">{tt("Restore this backup?")}</h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-white/70">
+        <ConfirmRestore
+          title={tt("Restore this backup?")}
+          label={tt("Restore this backup")}
+          busy={restoring}
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => void restore(confirming)}
+          lead={
+            <>
               {tt("Your draft will be replaced with the website as it was on")} <span className="text-white">{backupWhen(confirming.created_at)}</span>.
-            </p>
-            <ul className="mt-4 space-y-2 text-[14px] text-white/70">
-              <li className="flex gap-2.5">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
-                {tt("A backup of the draft you have now is saved first, so this can be undone.")}
-              </li>
-              <li className="flex gap-2.5">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
-                {tt("Nothing changes on your live site until you publish.")}
-              </li>
-            </ul>
-            <div className="mt-6 grid grid-cols-2 gap-2.5 md:flex md:justify-end">
-              <button
-                type="button"
-                onClick={() => setConfirming(null)}
-                disabled={restoring}
-                className="h-11 rounded-xl px-4 text-[15px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white active:bg-white/[0.06] md:h-10 md:text-[14px]"
-              >
-                {tt("Cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void restore(confirming)}
-                disabled={restoring}
-                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-60 md:h-10 md:text-[14px]"
-              >
-                {restoring && <Loader2 className="h-4 w-4 animate-spin" />}
-                {restoring ? tt("Restoring") : tt("Restore")}
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          points={[tt("A backup of the draft you have now is saved first, so this can be undone."), tt("Nothing changes on your live site until you publish.")]}
+        />
+      )}
+      {/* A published version goes live at once, so the question says so, and
+          that the draft is replaced (and backed up first, by the route). */}
+      {confirmingRelease && (
+        <ConfirmRestore
+          title={tt("Restore this version?")}
+          label={tt("Restore this version")}
+          busy={restoring}
+          onCancel={() => setConfirmingRelease(null)}
+          onConfirm={() => void restoreRelease(confirmingRelease)}
+          lead={
+            <>
+              {tt("Your website goes back to the version published on")} <span className="text-white">{backupWhen(confirmingRelease.createdAt)}</span>.
+            </>
+          }
+          points={[tt("Your current draft will be replaced. A backup of it is saved first."), tt("This version goes live right away.")]}
+        />
       )}
     </>
+  )
+}
+
+/** The sheet both restores ask in: a bottom sheet on a phone, a dialog above it. */
+function ConfirmRestore({
+  title,
+  label,
+  lead,
+  points,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  title: string
+  label: string
+  lead: ReactNode
+  points: string[]
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 px-3 pt-4 pb-[max(12px,env(safe-area-inset-bottom))] md:items-center md:p-4"
+      onClick={() => !busy && onCancel()}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={label}
+        onClick={(e) => e.stopPropagation()}
+        className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] md:p-6"
+      >
+        <h2 className="text-[20px] font-semibold">{title}</h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-white/70">{lead}</p>
+        <ul className="mt-4 space-y-2 text-[14px] text-white/70">
+          {points.map((point) => (
+            <li key={point} className="flex gap-2.5">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" strokeWidth={2} />
+              {point}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-6 grid grid-cols-2 gap-2.5 md:flex md:justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="h-11 rounded-xl px-4 text-[15px] font-medium text-white/80 transition-colors hover:bg-white/[0.08] hover:text-white active:bg-white/[0.06] md:h-10 md:text-[14px]"
+          >
+            {tt("Cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-60 md:h-10 md:text-[14px]"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {busy ? tt("Restoring") : tt("Restore")}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

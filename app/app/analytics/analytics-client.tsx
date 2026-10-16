@@ -250,11 +250,24 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [selectedProduct, setSelectedProduct] = useState("all")
 
-  /* Asked again every minute, so a sale shows up without a reload. */
+  /* Asked again every minute, so a sale shows up without a reload. Not while
+     the tab or the app is in the background: coming back asks at once when a
+     minute has gone by, so what is on screen is as fresh as it was before. */
   const [tick, setTick] = useState(0)
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 60_000)
-    return () => clearInterval(id)
+    let last = Date.now()
+    const again = () => {
+      if (document.visibilityState === "hidden") return
+      if (Date.now() - last < 59_000) return
+      last = Date.now()
+      setTick((n) => n + 1)
+    }
+    const id = setInterval(again, 60_000)
+    document.addEventListener("visibilitychange", again)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener("visibilitychange", again)
+    }
   }, [])
 
   /**
