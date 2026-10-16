@@ -376,6 +376,8 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
+  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  "tests/jobs-and-isolation.test.ts",
   "tests/backups.test.ts",
   "tests/schema-source.test.ts",
   "tests/ops-safety.test.ts",

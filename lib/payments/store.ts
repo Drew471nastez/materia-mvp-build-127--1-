@@ -246,16 +246,26 @@ export async function cachedBalances(creatorId: string, db: Db = createAdminClie
 
 /* ── The webhook ledger ───────────────────────────────────────────────── */
 
+/** How long a delivery holds an event it is handling before another delivery may take it over (that run died). */
+export const EVENT_HOLD_MS = 10 * 60_000
+
 /**
  * Each event id once. `fresh` is a first delivery; `retry` an event seen
  * before that did not finish (failed, or still marked processing after a
  * crash), which is handled again; `done` one that finished, which is only
- * acknowledged.
+ * acknowledged; `busy` one another delivery is handling right now.
+ *
+ * ONE DELIVERY AT A TIME. A retry used to be handled whatever the row said,
+ * so a copy arriving while the first was still running ran beside it. It is
+ * taken now with one conditional update (the attempts it read, and failed or
+ * held longer than EVENT_HOLD_MS), which stamps received_at as the hold's
+ * start; of two deliveries only one gets it, and the other is `busy`.
  */
 export async function claimEvent(
   e: { id: string; name: string; accountId: string | null; objectId: string | null; createdAt: string | null },
   db: Db = createAdminClient(),
-): Promise<"fresh" | "retry" | "done" | "missing"> {
+  now = Date.now(),
+): Promise<"fresh" | "retry" | "done" | "busy" | "missing"> {
   const { error } = await db.from("payment_webhook_events").insert({
     provider: PROVIDER,
     event_id: e.id.slice(0, 200),
@@ -270,8 +280,18 @@ export async function claimEvent(
   const { data } = await db.from("payment_webhook_events").select("outcome, attempts").eq("provider", PROVIDER).eq("event_id", e.id).maybeSingle()
   const row = data as { outcome: string; attempts: number } | null
   if (row && (row.outcome === "done" || row.outcome === "ignored")) return "done"
-  await db.from("payment_webhook_events").update({ attempts: (row?.attempts ?? 1) + 1, outcome: "processing" }).eq("provider", PROVIDER).eq("event_id", e.id)
-  return "retry"
+  if (!row) return "retry"
+  const stale = new Date(now - EVENT_HOLD_MS).toISOString()
+  const { data: taken, error: takeError } = await db
+    .from("payment_webhook_events")
+    .update({ attempts: (row.attempts ?? 1) + 1, outcome: "processing", received_at: new Date(now).toISOString() })
+    .eq("provider", PROVIDER)
+    .eq("event_id", e.id)
+    .eq("attempts", row.attempts)
+    .or(`outcome.eq.failed,received_at.lt."${stale}"`)
+    .select("event_id")
+  if (takeError) throw new Error(takeError.message)
+  return Array.isArray(taken) && taken.length > 0 ? "retry" : "busy"
 }
 
 export async function finishEvent(eventId: string, outcome: "done" | "ignored" | "failed", error: string | null, db: Db = createAdminClient()): Promise<void> {

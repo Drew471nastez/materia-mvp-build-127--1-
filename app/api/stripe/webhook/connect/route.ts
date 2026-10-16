@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { handleConnectAccountEvent, isConnectStatusEvent, resyncConnectedAccount } from "@/lib/stripe/connect-webhook"
 import { handleConnectPayoutEvent, isConnectPayoutEvent } from "@/lib/stripe/connect-payout-webhook"
-import { noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
+import { claimStripeEvent, noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
 import { createClient } from "@supabase/supabase-js"
 import { reportError } from "@/lib/observability/report"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
@@ -34,6 +34,11 @@ async function handlePOST(request: Request) {
   if (await stripeEventHandled(supabaseAdmin, event.id)) {
     return NextResponse.json({ received: true, duplicate: true })
   }
+
+  /* One delivery of an event at a time, shared with /api/stripe/webhook (lib/payments/ledger claimStripeEvent). */
+  const claim = await claimStripeEvent(supabaseAdmin, { id: event.id, type: event.type, account: event.account })
+  if (claim === "done") return NextResponse.json({ received: true, duplicate: true })
+  if (claim === "busy") return NextResponse.json({ error: "This event is being handled. Stripe will send it again." }, { status: 409 })
 
   try {
     if (event.type.startsWith("account.")) {

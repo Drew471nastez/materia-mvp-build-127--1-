@@ -20,7 +20,7 @@ import { disputeContext, disputeCreator, giveBackAfterWon, readDispute, reversed
 import { decimalsOf } from "@/lib/payments/money"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
-import { noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
+import { claimStripeEvent, noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
@@ -99,15 +99,20 @@ async function handlePOST(request: Request) {
     return NextResponse.json({ received: true, duplicate: true })
   }
   let answer: Response
+  /* Whether this delivery took the event (claimStripeEvent, after the signature): only then is its outcome written, which also lets it go. */
+  const held = { claimed: false }
   try {
-    answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }))
+    answer = await handleStripeEvent(new Request(request.url, { method: "POST", headers: request.headers, body }), held)
   } catch (error) {
     if (eventId) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: error instanceof Error ? error.message : String(error) })
     await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error, context: { eventId } })
     throw error
   }
   if (eventId && answer.status === 200) await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: true })
-  else if (eventId && answer.status >= 500) {
+  else if (eventId && held.claimed && answer.status < 500) {
+    /* Taken and answered 4xx: written down as failed, so the hold does not keep the next delivery waiting. */
+    await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
+  } else if (eventId && answer.status >= 500) {
     await noteStripeEvent(supabaseAdmin, { id: eventId, type: eventType, account, ok: false, error: `answered ${answer.status}` })
     /* Stripe will try again, but a payment event failing is the owner's to know about now. */
     await reportError({ source: "webhook", where: `stripe ${eventType || "event"}`, error: new Error(`answered ${answer.status}`), context: { eventId } })
@@ -115,7 +120,7 @@ async function handlePOST(request: Request) {
   return answer
 }
 
-async function handleStripeEvent(request: Request) {
+async function handleStripeEvent(request: Request, held: { claimed: boolean } = { claimed: false }) {
   console.log("[Webhook] Received")
 
   const body = await request.text()
@@ -152,6 +157,12 @@ async function handleStripeEvent(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
   const event = verified.event
+
+  /* One delivery of an event at a time (lib/payments/ledger claimStripeEvent). Signed first, so nothing is written for a forged body. */
+  const claim = await claimStripeEvent(supabaseAdmin, { id: event.id, type: event.type, account: typeof event.account === "string" ? event.account : null })
+  if (claim === "done") return NextResponse.json({ received: true, duplicate: true })
+  if (claim === "busy") return NextResponse.json({ error: "This event is being handled. Stripe will send it again." }, { status: 409 })
+  held.claimed = true
 
   console.log("[Webhook] Event type:", event.type)
 

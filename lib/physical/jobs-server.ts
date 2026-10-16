@@ -310,12 +310,34 @@ function backoffSeconds(attempts: number): number {
   return Math.min(6 * 3600, 60 * 2 ** Math.max(0, attempts - 1))
 }
 
+/** A job claimed past its last attempt: only a lease that ran out gets here (a failure on the last attempt is marked dead in the catch). */
+export function deadAfterLease(job: { attempts: number; max_attempts: number }): boolean {
+  return Number(job.attempts) > Number(job.max_attempts)
+}
+
 export async function runJobs(db: Db, limit = 20): Promise<{ done: number; failed: number }> {
   const { data, error } = await db.rpc("commerce_claim_jobs", { p_limit: limit, p_lease_seconds: 120 })
   if (error) return { done: 0, failed: 0 }
   let done = 0
   let failed = 0
   for (const job of (data ?? []) as { id: number; kind: JobKind; payload: Record<string, any>; attempts: number; max_attempts: number; creator_id: string | null }[]) {
+    /*
+      A LEASE THAT RAN OUT ON ITS LAST ATTEMPT. commerce_claim_jobs takes back
+      a running job whose lease ran out whatever its attempts, and counts one
+      more. A job whose run is cut off every time (the function's time ran
+      out mid send) never reached the catch below, so it was never marked
+      dead and was taken again every ten minutes for ever. Past its attempts
+      it is dead now, without running again (deadAfterLease).
+    */
+    if (deadAfterLease(job)) {
+      failed++
+      await db
+        .from("commerce_jobs")
+        .update({ status: "dead", last_error: "Its run was cut off on every attempt.", locked_until: null, finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", job.id)
+        .eq("status", "running")
+      continue
+    }
     try {
       await handle(db, job)
       await db.from("commerce_jobs").update({ status: "done", finished_at: new Date().toISOString(), last_error: null, locked_until: null, updated_at: new Date().toISOString() }).eq("id", job.id)
