@@ -250,9 +250,16 @@ function allSql(): string {
   }
   for (const d of ["supabase/migrations", "supabase/sql", "scripts", "sql"]) if (existsSync(d)) walk(d)
   const mine = new Set([PART, CONCURRENT, MIGRATION].map((p) => join(p)))
-  /* The built files repeat part 187; they are not "before" it. */
+  /* The built files repeat part 187; they are not "before" it. Nor are later parts and their migration copies (190's unique index on orders (stripe_session_id, receipt_token)). */
+  const migrationName = MIGRATION.split("/").pop() ?? ""
+  const later = (f: string) => {
+    const part = /supabase\/sql\/run-now\/(\d+)_/.exec(f)
+    if (part) return Number(part[1]) > 187
+    const migration = /supabase\/migrations\/([^/]+)$/.exec(f)
+    return !!migration && migration[1] > migrationName
+  }
   return files
-    .filter((f) => !mine.has(f) && !/supabase\/sql\/(run-four|all-in-two|all-in-three|all-last-three-days|all-last-14-days)\//.test(f) && !f.endsWith("99_check_after.sql"))
+    .filter((f) => !mine.has(f) && !later(f) && !/supabase\/sql\/(run-four|all-in-two|all-in-three|all-last-three-days|all-last-14-days)\//.test(f) && !f.endsWith("99_check_after.sql"))
     .map((f) => read(f))
     .join("\n")
 }

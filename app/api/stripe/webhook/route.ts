@@ -26,6 +26,7 @@ import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
+import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-order"
 
 export const runtime = "nodejs"
 
@@ -556,6 +557,15 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     order = result1.data
     orderInsertError = result1.error
 
+    /* Another delivery of this payment wrote the order first (orders_stripe_session_line_key, run-now part 190): read it back, and leave its follow up to that delivery. */
+    if (isUniqueViolation(orderInsertError)) {
+      const written = await existingSessionOrder(supabaseAdmin, session.id, receiptToken)
+      if (written) {
+        console.log("[Webhook] Order already written by another delivery:", written.id)
+        return NextResponse.json({ received: true, message: "Already processed" })
+      }
+    }
+
     if (orderInsertError) {
       console.log("[Webhook] Full insert failed, trying minimal:", orderInsertError.message)
 
@@ -576,6 +586,13 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       const result2 = await supabaseAdmin.from("orders").insert(minimalOrderData).select().single()
       order = result2.data
       orderInsertError = result2.error
+      if (isUniqueViolation(orderInsertError)) {
+        const written = await existingSessionOrder(supabaseAdmin, session.id, receiptToken)
+        if (written) {
+          console.log("[Webhook] Order already written by another delivery:", written.id)
+          return NextResponse.json({ received: true, message: "Already processed" })
+        }
+      }
     }
 
     if (orderInsertError) {
