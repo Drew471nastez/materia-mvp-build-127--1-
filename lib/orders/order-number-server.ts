@@ -26,7 +26,7 @@ import "server-only"
  * from the store's order rows. Null when they cannot be read; the caller
  * then falls back to the buyer's reference.
  */
-import { FIRST_ORDER_NUMBER } from "./order-view"
+import { buildIndex } from "./order-index"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,28 +53,19 @@ export async function sellerOrderNumbers(db: Db, creatorId: string): Promise<{ b
   }
 }
 
-/** Pure: the same grouping and order as groupOrders, so the numbers are the Orders page's. */
+/** Pure: the Orders page's own count (lib/orders/order-index buildIndex), so the numbers are the Orders page's. */
 export function numbersOf(rows: Row[]): { byOrder: Map<string, number>; byCheckout: Map<string, number> } {
-  const groups = new Map<string, Row[]>()
-  for (const r of rows) {
-    const key = r.stripe_session_id ? `s:${r.stripe_session_id}` : `o:${r.id}`
-    const g = groups.get(key)
-    if (g) g.push(r)
-    else groups.set(key, [r])
-  }
-  const firsts = [...groups.values()].map((g) => {
-    g.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
-    return g
-  })
-  firsts.sort((a, b) => a[0].created_at.localeCompare(b[0].created_at) || a[0].id.localeCompare(b[0].id))
+  const index = buildIndex(rows)
+  const checkoutOf = new Map(rows.map((r) => [r.id, r.checkout_id ?? null]))
   const byOrder = new Map<string, number>()
   const byCheckout = new Map<string, number>()
-  firsts.forEach((g, i) => {
-    for (const r of g) {
-      byOrder.set(r.id, FIRST_ORDER_NUMBER + i)
-      if (r.checkout_id && !byCheckout.has(r.checkout_id)) byCheckout.set(r.checkout_id, FIRST_ORDER_NUMBER + i)
+  for (const order of index.orders) {
+    for (const id of order.rowIds) {
+      byOrder.set(id, order.number)
+      const checkout = checkoutOf.get(id)
+      if (checkout && !byCheckout.has(checkout)) byCheckout.set(checkout, order.number)
     }
-  })
+  }
   return { byOrder, byCheckout }
 }
 

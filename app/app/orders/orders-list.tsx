@@ -24,12 +24,12 @@ import {
   SORTS,
   SOURCE_LABEL,
   VIEWS,
-  inView,
   itemsLabel,
   listDate,
   type ColumnKey,
   type ListQuery,
   type Order,
+  type View,
 } from "@/lib/orders/order-view"
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
 import { fromLabel, sourceText } from "@/lib/orders/order-source"
@@ -57,10 +57,13 @@ import {
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
-import { ordersCurrency } from "@/lib/orders/money"
+import type { OrdersSummary } from "@/lib/orders/paged"
 
 export interface OrdersListProps {
-  allOrders: Order[]
+  /* What the list knows of every order, not only this page's (lib/orders/paged.ts): how many, whether anything ships, which tabs have something, the figures' currency. */
+  summary: OrdersSummary
+  /** A new page is on its way: the one shown dims until it is here. */
+  loading?: boolean
   pageOrders: Order[]
   matching: number
   range: { page: number; pages: number; from: number; to: number }
@@ -89,9 +92,9 @@ export interface OrdersListProps {
 }
 
 export function OrdersList(props: OrdersListProps) {
-  const { allOrders, stripeConnected } = props
+  const { summary, stripeConnected } = props
   /* The metrics add many orders up: written in the currency they were charged in. */
-  const currency = React.useMemo(() => ordersCurrency(allOrders), [allOrders])
+  const currency = summary.currency
   return (
     <>
       {/* The top bar: the same bar, the pane's full width, as an order's own. */}
@@ -102,7 +105,7 @@ export function OrdersList(props: OrdersListProps) {
           /* 32px to see, 44px to tap on a phone: the reach is a box around it. */
           className={cn(buttonAccent, "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden")}
           onClick={() => props.onExport()}
-          disabled={allOrders.length === 0}
+          disabled={summary.total === 0}
           data-orders-export=""
           aria-haspopup="dialog"
         >
@@ -130,7 +133,7 @@ export function OrdersList(props: OrdersListProps) {
         <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} firstDay={props.firstDay} />
       </div>
 
-      <MetricsStrip metrics={props.metrics} comparable={props.comparable} currency={currency} />
+      <MetricsStrip metrics={props.metrics} comparable={props.comparable} currency={currency} loading={props.loading} />
 
       <OrdersTable {...props} />
       </div>
@@ -140,9 +143,12 @@ export function OrdersList(props: OrdersListProps) {
 
 /* ─── Metrics ─────────────────────────────────────────────────────────── */
 
-function MetricsStrip({ metrics, comparable, currency }: { metrics: MetricReading[]; comparable: boolean; currency: string }) {
+/* While the next page is read the one shown stays, a little dimmer, after a beat so a quick answer never flickers. */
+const WAITING = "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:delay-150"
+
+function MetricsStrip({ metrics, comparable, currency, loading }: { metrics: MetricReading[]; comparable: boolean; currency: string; loading?: boolean }) {
   return (
-    <section aria-label={tt("Order metrics")} className={cn(card, "mt-3 overflow-hidden")}>
+    <section aria-label={tt("Order metrics")} aria-busy={loading || undefined} className={cn(card, WAITING, "mt-3 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
         {metrics.map((reading, i) => {
           const meta = METRICS.find((m) => m.key === reading.key)!
@@ -191,7 +197,7 @@ function Change({ reading, upIsBad }: { reading: MetricReading; upIsBad: boolean
 
 function OrdersTable(props: OrdersListProps) {
   const {
-    allOrders,
+    summary,
     pageOrders,
     matching,
     range,
@@ -208,7 +214,7 @@ function OrdersTable(props: OrdersListProps) {
   const filtering = query.q.trim() !== "" || query.source !== "any" || query.product !== "" || (query.fulfillment ?? "any") !== "any"
   const [searching, setSearching] = React.useState(filtering)
   /* The Fulfillment filter is for a shop that ships something: a shop of downloads never sees it. */
-  const ships = React.useMemo(() => allOrders.some((o) => o.shipping), [allOrders])
+  const ships = summary.ships
   const searchRef = React.useRef<HTMLInputElement>(null)
 
   const columns = COLUMNS.filter((c) => !hidden.has(c.key))
@@ -217,7 +223,7 @@ function OrdersTable(props: OrdersListProps) {
   const allOnPage = pageIds.length > 0 && selectedOnPage === pageIds.length
 
   return (
-    <section aria-label={tt("Orders")} className={cn(card, "mt-4 overflow-hidden")}>
+    <section aria-label={tt("Orders")} aria-busy={props.loading || undefined} className={cn(card, WAITING, "mt-4 overflow-hidden")}>
       {/* Toolbar: one row, the same height whether searching or not. */}
       <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
         {searching ? (
@@ -253,7 +259,7 @@ function OrdersTable(props: OrdersListProps) {
           </>
         ) : (
           <>
-            <ViewTabs allOrders={allOrders} query={query} onQuery={onQuery} />
+            <ViewTabs views={summary.views} query={query} onQuery={onQuery} />
             <button
               type="button"
               className={cn(iconButton, "ml-auto w-auto gap-1 px-2")}
@@ -274,7 +280,7 @@ function OrdersTable(props: OrdersListProps) {
 
       {pageOrders.length === 0 ? (
         <EmptyState
-          hasOrders={allOrders.length > 0}
+          hasOrders={summary.total > 0}
           filtering={filtering || query.view !== "all"}
           rangeName={props.period.preset === "all_time" ? null : rangeLabel(props.period)}
           onClear={() => {
@@ -401,7 +407,7 @@ function OrdersTable(props: OrdersListProps) {
         </ScrollEdge>
       )}
 
-      {allOrders.length > 0 ? (
+      {summary.total > 0 ? (
         <div className="flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3">
           <span className="text-[12px] tabular-nums text-[#6b7280]">
             {matching > 0 ? tt("{from}–{to} of {value}", { from: range.from, to: range.to, value: matching.toLocaleString(appLocale()) }) : tt("0 orders")}
@@ -480,16 +486,17 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
 }
 
 function ViewTabs({
-  allOrders,
+  views: withOrders,
   query,
   onQuery,
 }: {
-  allOrders: Order[]
+  /** The views with an order in them (lib/orders/paged.ts readTabs). */
+  views: View[]
   query: ListQuery
   onQuery: (next: Partial<ListQuery>) => void
 }) {
   /* Only the views that have something in them, plus the one that is open. */
-  const views = VIEWS.filter((v) => v.value === "all" || v.value === query.view || allOrders.some((o) => inView(o, v.value)))
+  const views = VIEWS.filter((v) => v.value === "all" || v.value === query.view || withOrders.includes(v.value))
   return (
     <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 items-center gap-0.5 overflow-x-auto py-2">
       {views.map((v) => {

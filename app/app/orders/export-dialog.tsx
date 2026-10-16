@@ -5,11 +5,13 @@
  *  EXPORT ORDERS
  * ===========================================================================
  * Which orders (this view, the ones ticked, this page, all of them, or a
- * range of dates) and which kind of file. Every order is already on the page
- * (app/app/orders/sales/page.tsx reads them all), so in a browser the file
- * is written here, with nothing sent anywhere. The phone app cannot save a
- * file written in the page, so there the server writes the same file behind
- * a short lived link (lib/platform/save-file.ts, app/api/app/orders/export).
+ * range of dates) and which kind of file. The page has one page of orders
+ * (lib/orders/paged.ts): this page, and ticked orders it still has, are
+ * written here in a browser with nothing sent anywhere; anything wider is
+ * written by the server, from the same rows by the same function, and saved
+ * the same way. The phone app cannot save a file written in the page, so
+ * there the server writes the file behind a short lived link
+ * (lib/platform/save-file.ts, app/api/app/orders/export).
  *
  * Two kinds of CSV, because they are read by different things:
  *   for spreadsheets   a byte order mark and CRLF line ends, which is what
@@ -35,8 +37,8 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { RangePanel, onRowsKey, pickerSurface, usePhone } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
 import { boundsOf, presetRange, rangeLabel, todayIn, valueLabel, type RangeValue } from "@/lib/date-range/range"
-import type { Order } from "@/lib/orders/order-view"
-import { CSV_HEADER, csvCell, encodeRuns, ordersCsv, type ExportFormat } from "@/lib/orders/export-csv"
+import { paramsFromQuery, type ListQuery, type Order } from "@/lib/orders/order-view"
+import { CSV_HEADER, csvCell, encodeRuns, ordersCsv, pickByNumber, type ExportFormat } from "@/lib/orders/export-csv"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { buttonPrimary, buttonSecondary } from "./order-parts"
 import { tt } from "@/lib/i18n/text"
@@ -110,12 +112,23 @@ function Group({ compact, label, children }: { compact: boolean; label: string; 
   )
 }
 
+/**
+ * What the server is asked to write when the orders are not all on this
+ * page (app/api/app/orders/export): orders by number, or a list as the page
+ * draws it, its address and its dates (every order for no dates).
+ */
+export type ExportAsk = { numbers: string } | { query: string; window: { start: number; end: number } | null }
+
 export function ExportOrders({
   open,
   onClose,
-  all,
+  total,
+  known,
+  numbers,
   pageOrders,
   matching,
+  query,
+  span,
   period,
   filtering,
   selected,
@@ -124,10 +137,18 @@ export function ExportOrders({
 }: {
   open: boolean
   onClose: () => void
-  all: Order[]
+  /** Every order the store has had. */
+  total: number
+  /** The orders the page has whole (this page, the ones beside it, an open one). */
+  known: Order[]
+  /** Every order number the page has seen, by order id: ticked orders on other pages are named by it. */
+  numbers: Record<string, number>
   pageOrders: Order[]
-  /** What the table shows: the page's dates, view, filters and search. */
-  matching: Order[]
+  /** How many orders the table shows across its pages: the page's dates, view, filters and search. */
+  matching: number
+  /** The table's view, filters, search and sort, and the instants its dates cover. */
+  query: ListQuery
+  span: { start: number; end: number }
   /** The page's dates, which "By date" starts from. */
   period: RangeValue
   /** A view, filter or search narrows the table beyond its dates. */
@@ -142,6 +163,8 @@ export function ExportOrders({
   const [format, setFormat] = React.useState<ExportFormat>("spreadsheet")
   const [dates, setDates] = React.useState<RangeValue>(() => ({ preset: "last_30_days", ...presetRange("last_30_days", today) }))
   const [busy, setBusy] = React.useState(false)
+  /* By date: how many orders those dates hold, counted by the server (the page has one page of them). */
+  const [dateCount, setDateCount] = React.useState<number | null>(null)
 
   /*
     FRESH EACH TIME IT OPENS, AND ALREADY SO ON ITS FIRST FRAME. This was an
@@ -159,43 +182,71 @@ export function ExportOrders({
     }
   }
 
-  const byDate = React.useMemo(() => {
-    const b = boundsOf(dates, timeZone)
-    return all.filter((o) => {
-      const t = new Date(o.createdAt).getTime()
-      return t >= b.start && t < b.end
-    })
-  }, [all, dates, timeZone])
+  const bounds = React.useMemo(() => boundsOf(dates, timeZone), [dates, timeZone])
+  React.useEffect(() => {
+    if (!open || scope !== "dates") return
+    const ctrl = new AbortController()
+    setDateCount(null)
+    fetch(`/api/app/orders/list?count=1&ws=${Math.round(bounds.start)}&we=${Math.round(bounds.end)}`, { signal: ctrl.signal, cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { count?: number }) => setDateCount(typeof data.count === "number" ? data.count : null))
+      .catch(() => undefined)
+    return () => ctrl.abort()
+  }, [open, scope, bounds])
 
-  const chosen: Order[] =
+  /* Ticked orders, newest first as the list has them, by the numbers they were shown with. */
+  const selectedNumbers = React.useMemo(
+    () => [...selected].map((id) => numbers[id]).filter((n): n is number => typeof n === "number" && n > 0).sort((a, b) => b - a),
+    [selected, numbers],
+  )
+
+  /* The orders already here whole, written on this device as before; anything wider is written by the server. */
+  const local: Order[] | null =
     scope === "page" ? pageOrders
-      : scope === "all" ? all
-        : scope === "selected" ? all.filter((o) => selected.has(o.id))
+      : scope === "selected" ? pickByNumber(known, selectedNumbers).length === selectedNumbers.length ? pickByNumber(known, selectedNumbers) : null
+        : null
+  const ask: ExportAsk =
+    scope === "page" ? { numbers: encodeRuns(pageOrders.map((o) => o.number)) }
+      : scope === "selected" ? { numbers: encodeRuns(selectedNumbers) }
+        : scope === "all" ? { query: "", window: null }
+          : scope === "matching" ? { query: paramsFromQuery(query).toString(), window: { start: span.start, end: span.end } }
+            : { query: "", window: { start: bounds.start, end: bounds.end } }
+  const size =
+    scope === "page" ? pageOrders.length
+      : scope === "all" ? total
+        : scope === "selected" ? selectedNumbers.length
           : scope === "matching" ? matching
-            : byDate
+            : dateCount ?? 0
 
   const run = async () => {
-    if (chosen.length === 0 || busy) return
+    if (!ready || busy) return
     const name = scope === "dates" ? `orders-${dates.start}-to-${dates.end}.csv` : `orders-${today}.csv`
-    const numbers = encodeRuns(chosen.map((o) => o.number))
-    const what = plural(chosen.length)
+    const what = plural(size)
+    /* The file itself (download) or a link to it, written by the server for this choice. */
+    const fromServer = async (download: boolean) => {
+      const res = await fetch("/api/app/orders/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...ask, format, timeZone, name, download }),
+      })
+      if (download && res.ok) return res
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || (!download && !data?.url)) throw new Error(data?.error || tt("The export could not be made. Try again."))
+      return data.url as string
+    }
     setBusy(true)
     try {
-      /* A browser saves the file written here; the phone app opens a link
-         the server writes the same file behind (lib/platform/save-file.ts). */
+      /* A browser saves the file written here (or by the server, for orders
+         this page does not have); the phone app opens a link the server
+         writes the same file behind (lib/platform/save-file.ts). */
       const outcome = await saveFile({
         name,
-        file: async () => new Blob([ordersCsv(chosen, timeZone, format)], { type: "text/csv;charset=utf-8" }),
-        link: async () => {
-          const res = await fetch("/api/app/orders/export", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ numbers, format, timeZone, name }),
-          })
-          const data = await res.json().catch(() => ({}))
-          if (!res.ok || !data?.url) throw new Error(data?.error || tt("The export could not be made. Try again."))
-          return data.url as string
-        },
+        file: async () =>
+          local
+            ? new Blob([ordersCsv(local, timeZone, format)], { type: "text/csv;charset=utf-8" })
+            : /* The bytes as written, the byte order mark for spreadsheets included (text() would drop it). */
+              new Blob([await ((await fromServer(true)) as Response).arrayBuffer()], { type: "text/csv;charset=utf-8" }),
+        link: async () => (await fromServer(false)) as string,
       })
       setBusy(false)
       onClose()
@@ -207,8 +258,11 @@ export function ExportOrders({
     }
   }
 
-  const label = busy ? tt("Exporting…") : chosen.length === 0 ? tt("Nothing to export") : tt("Export {count}", { count: plural(chosen.length) })
-  const viewDetail = `${valueLabel(period)}${filtering ? tt(", filtered") : ""} · ${count(matching.length)}`
+  /* By date while its count is on its way: the button waits rather than saying there is nothing. */
+  const counting = scope === "dates" && dateCount === null
+  const ready = size > 0 && !counting
+  const label = busy ? tt("Exporting…") : counting ? tt("Export") : size === 0 ? tt("Nothing to export") : tt("Export {count}", { count: plural(size) })
+  const viewDetail = `${valueLabel(period)}${filtering ? tt(", filtered") : ""} · ${count(matching)}`
 
   const choices = (compact: boolean) => (
     <>
@@ -218,13 +272,13 @@ export function ExportOrders({
           <Choice compact={compact} checked={scope === "selected"} onSelect={() => setScope("selected")} label={tt("Selected")} detail={count(selected.size)} />
         ) : null}
         <Choice compact={compact} checked={scope === "page"} onSelect={() => setScope("page")} label={tt("This page")} detail={count(pageOrders.length)} />
-        <Choice compact={compact} checked={scope === "all"} onSelect={() => setScope("all")} label={tt("All orders")} detail={count(all.length)} />
+        <Choice compact={compact} checked={scope === "all"} onSelect={() => setScope("all")} label={tt("All orders")} detail={count(total)} />
         <Choice
           compact={compact}
           checked={scope === "dates"}
           onSelect={() => setScope("dates")}
           label={tt("By date")}
-          detail={scope === "dates" ? `${rangeLabel(dates)} · ${count(byDate.length)}` : null}
+          detail={scope === "dates" ? (dateCount === null ? rangeLabel(dates) : `${rangeLabel(dates)} · ${count(dateCount)}`) : null}
         />
       </Group>
       {scope === "dates" ? (
@@ -250,7 +304,7 @@ export function ExportOrders({
           <button
             type="button"
             onClick={run}
-            disabled={chosen.length === 0 || busy}
+            disabled={!ready || busy}
             aria-busy={busy || undefined}
             className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors duration-100 active:bg-[#111122] disabled:bg-[#d4d4d8] disabled:shadow-none"
           >
@@ -261,7 +315,7 @@ export function ExportOrders({
     )
   }
 
-  return <ExportPanel open={open} busy={busy} onClose={onClose} onRun={run} label={label} ready={chosen.length > 0} body={choices(false)} />
+  return <ExportPanel open={open} busy={busy} onClose={onClose} onRun={run} label={label} ready={ready} body={choices(false)} />
 }
 
 /**

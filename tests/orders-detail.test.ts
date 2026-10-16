@@ -129,7 +129,8 @@ async function main() {
     }
     const exportRoute = code("app/api/app/orders/export/route.ts")
     check("the export link is only served to a link this server signed", /const link = verifyOrderLink\(/.test(exportRoute) && /if \(!link \|\| link\.k !== "csv"\)/.test(exportRoute))
-    check("  for the creator it was signed for", /readCreatorOrders\(admin, link\.c\)/.test(exportRoute))
+    /* Changed on purpose: the export reads through lib/orders/paged.ts, as the page does (tests/orders-paging.test.ts). */
+    check("  for the creator it was signed for", /readOrdersForExport\(admin, link\.c, /.test(exportRoute) && /readOrdersForExport\(admin, creator\.id, /.test(exportRoute))
     const invoice = code("app/api/invoice/route.ts")
     check("the invoice checks the order is the creator's, signed in or by link", (invoice.match(/ownedOrderLines\(admin, creatorId/g) ?? []).length >= 2 && /verifyOrderLink\(signed\)/.test(invoice))
     check("  and covers every row of the order", /for \(const line of lines\)/.test(invoice))
@@ -395,7 +396,8 @@ async function main() {
     /* Changed on purpose: a pull to refresh reads the page again, and that is the one router.refresh in the file. */
     check("an action updates the rows from the server's answer, without reloading every order", (client.match(/router\.refresh\(\)/g) ?? []).length === 1 && /rowsArrived\.current = resolve\s+router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
     const list = code("app/app/orders/orders-list.tsx")
-    check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))
+    /* Changed on purpose: the list has one page of orders, and knows how many there are in all from the server (lib/orders/paged.ts summary). */
+    check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{summary\.total === 0\}/.test(list))
     check("  44px to tap on a phone, 32px to see", /cn\(buttonAccent, "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"\)/.test(list))
     check("  near black (no purple on the app's actions, the owner's ask), white, a step lighter on hover, with a shadow", /buttonAccent =\s*"[^"]*bg-\[#1a1a2e\][^"]*text-white[^"]*hover:bg-\[#2a2a40\]/.test(read("app/app/orders/order-parts.tsx")) && !/buttonAccent =\s*"[^"]*8b5cf6/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
   }
