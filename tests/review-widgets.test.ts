@@ -16,7 +16,7 @@
  *                   theme and in an imported one; the reviews keep the words
  *                   their buyers wrote
  *   PRESETS         saved, listed, changed and deleted per store, holding
- *                   only what the section's schema allows (run-now part 190)
+ *                   only what the section's schema allows (run-now part 205)
  *   ADD SECTION     every widget under Apps › Reviews, and Add to website
  *                   placing it in the editor
  *
@@ -230,12 +230,12 @@ console.log("\nAn imported theme: the reviews section and the star rating, as se
 }
 
 /* ── SQL ─────────────────────────────────────────────────────────────── */
-console.log("\nRun-now part 190")
+console.log("\nRun-now part 205")
 {
-  const sql = read("supabase/sql/run-now/190_review_widget_presets.sql")
+  const sql = read("supabase/sql/run-now/205_review_widget_presets.sql")
   check("one table, server only, row level security on, one name per store and widget", /CREATE TABLE IF NOT EXISTS public\.review_widget_presets/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.review_widget_presets FROM anon, authenticated/.test(sql) && /GRANT ALL ON public\.review_widget_presets TO service_role/.test(sql) && /review_widget_presets_one_name ON public\.review_widget_presets \(creator_id, widget, lower\(name\)\)/.test(sql))
   check("  safe to run again, and the schema reloaded last", !/CREATE TABLE public|CREATE INDEX review/.test(sql) && /notify pgrst, 'reload schema';$/.test(sql.trim()))
-  check("  the same as its migration, checked after, and in the bundles", sql === read("supabase/migrations/20270126_review_widget_presets.sql") && /as p190_review_widget_presets/.test(read("supabase/sql/run-now/99_check_after.sql")) && read("supabase/sql/run-four/3_of_4_latest.sql").includes(sql.split("\n")[1]) && /part: "190", file: "190_review_widget_presets\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
+  check("  the same as its migration, checked after, and in the bundles", sql === read("supabase/migrations/20270130_review_widget_presets.sql") && /as p205_review_widget_presets/.test(read("supabase/sql/run-now/99_check_after.sql")) && read("supabase/sql/run-four/3_of_4_latest.sql").includes(sql.split("\n")[1]) && /part: "205", file: "205_review_widget_presets\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
 }
 
 /* ── Add section, and Add to website ─────────────────────────────────── */
@@ -347,7 +347,7 @@ async function presetsSuite() {
     missing = true
     const before = await listPresets(db, "store-a")
     const write = await createPreset(db, "store-a", { widget: "reviews_grid", name: "x", settings: {} })
-    check("before part 190 runs: nothing listed, not ready, and saving says which part to run", before.ready === false && before.presets.length === 0 && write.ok === false && write.status === 503 && write.error === PRESETS_NEED_SQL)
+    check("before part 205 runs: nothing listed, not ready, and saving says which part to run", before.ready === false && before.presets.length === 0 && write.ok === false && write.status === 503 && write.error === PRESETS_NEED_SQL)
   }
   await main()
   const route = read("app/api/reviews/widgets/presets/route.ts") + read("app/api/reviews/widgets/presets/[id]/route.ts")

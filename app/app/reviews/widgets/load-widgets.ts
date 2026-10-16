@@ -25,7 +25,7 @@ import type { WidgetPreset } from "@/lib/reviews/widgets"
  *   the website     the live one, else the first in the library: its theme
  *                   settings (colours, type, corners) and whether it is an
  *                   imported theme, which takes only the two widgets it has
- *   the presets     run-now part 190; `ready: false` before it runs
+ *   the presets     run-now part 205; `ready: false` before it runs
  *
  * Read with the service role, for the creator the /app layout resolved.
  */

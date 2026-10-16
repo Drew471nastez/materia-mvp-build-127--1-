@@ -4,14 +4,14 @@ import "server-only"
  * ===========================================================================
  *  STORELIB REVIEWS WIDGETS: THE SAVED ONES
  * ===========================================================================
- * A store's named settings for a review widget (run-now part 190,
+ * A store's named settings for a review widget (run-now part 205,
  * review_widget_presets), read and written with the service role for the
  * store the signed in owner runs (app/api/reviews/widgets/presets). What a
  * preset may hold is decided by lib/reviews/widgets.ts against the widget's
  * own section schema, so nothing stored can draw a setting the section does
  * not have.
  *
- * Before part 190 runs the table is not there: a read answers no presets and
+ * Before part 205 runs the table is not there: a read answers no presets and
  * `ready: false`, and a write says which part to run. Never a table name in
  * a message the store reads.
  */
@@ -24,9 +24,9 @@ type PgError = { code?: string; message?: string } | null | undefined
 
 const COLUMNS = "id, widget, name, settings, created_at, updated_at"
 
-export const PRESETS_NEED_SQL = "Saving widgets needs SQL part 190. Run it in Supabase, then try again."
+export const PRESETS_NEED_SQL = "Saving widgets needs SQL part 205. Run it in Supabase, then try again."
 
-/** The table is not there yet (part 190 not run). */
+/** The table is not there yet (part 205 not run). */
 export function missingTable(error: PgError): boolean {
   const code = String(error?.code ?? "")
   return code === "42P01" || code === "PGRST205" || code === "PGRST200"

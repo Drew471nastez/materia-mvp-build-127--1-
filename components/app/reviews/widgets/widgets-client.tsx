@@ -13,7 +13,7 @@
  *   ONE WIDGET      ?widget=<type>: the preview at a computer's or a phone's
  *                   width, its settings (./widget-controls.tsx, from the
  *                   section's own schema), the settings saved under names of
- *                   the store's own (presets, run-now part 190), and Add to
+ *                   the store's own (presets, run-now part 205), and Add to
  *                   website: which page and where, and the editor opens with
  *                   the widget placed (lib/reviews/widgets.ts editorAddUrl).
  *
@@ -389,7 +389,7 @@ function WidgetScreen({
                 {loaded ? <ResponsiveActionMenu title={loaded.name} align="end" trigger={<RowMenuButton label={tt("Actions for {name}", { name: loaded.name })} className="h-9 w-9 max-md:h-10 max-md:w-10" />} items={presetMenu} /> : null}
               </div>
               {!data.presets.ready ? (
-                <p className="mt-2 rounded-lg bg-[#fff8e6] px-3 py-2 text-[12.5px] text-[#5c4300]">{tt("Saving settings turns on after the database update (run-now part 190).")}</p>
+                <p className="mt-2 rounded-lg bg-[#fff8e6] px-3 py-2 text-[12.5px] text-[#5c4300]">{tt("Saving settings turns on after the database update (run-now part 205).")}</p>
               ) : naming ? (
                 <form
                   className="mt-2 flex gap-2"

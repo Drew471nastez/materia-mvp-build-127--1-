@@ -11,7 +11,7 @@
  *
  * Reviews › Widgets (app/app/reviews/widgets) shows each one drawn with the
  * store's own reviews and lets the store save named settings for it, a
- * preset (run-now part 190, review_widget_presets). A preset is a copy of
+ * preset (run-now part 205, review_widget_presets). A preset is a copy of
  * some of a section's settings, nothing more: placing the widget copies it
  * into the new section, and removing the section from a page leaves the
  * preset where it was.

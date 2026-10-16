@@ -5507,7 +5507,7 @@ const words: Record<string, string> = {
  "Saves {saving}% against monthly": "Ahorra un {saving} % frente al mensual",
  "Saving": "Guardando",
  "Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.": "Para guardar cambios hace falta la actualización de base de datos (parte SQL 129). Mientras tanto, puedes probar textos aquí.",
- "Saving settings turns on after the database update (run-now part 190).": "Guardar ajustes se activa tras la actualización de la base de datos (run-now part 190).",
+ "Saving settings turns on after the database update (run-now part 205).": "Guardar ajustes se activa tras la actualización de la base de datos (run-now part 205).",
  "Saving too fast": "Guardando demasiado rápido",
  "Saving...": "Guardando...",
  "Saving…": "Guardando…",

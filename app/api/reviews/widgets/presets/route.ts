@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 /**
  * Reviews › Widgets: the store's saved widget settings. GET lists them
- * (`ready: false` before run-now part 190), POST saves one under a name:
+ * (`ready: false` before run-now part 205), POST saves one under a name:
  * `{ widget, name, settings }`, the settings checked against that widget's
  * section (lib/reviews/widgets.ts). The signed in owner's store only.
  */
