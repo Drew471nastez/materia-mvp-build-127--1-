@@ -335,7 +335,7 @@ async function main() {
       "full" prefetch on a card a pointer rested on rendered the page and counted a visit nobody made, and every
       other way in (a post, a space, an event) was never counted. tests/community-analytics-r33.test.ts holds the rest.
     */
-    check("the route's visit is the database's once a day rule, after the owner and the browser are checked", /if \(!isPersonBrowser\(ua\)\) return "not_a_person"/.test(record) && /if \(await isOwnerOf\(db, community, req\.userId\)\) return "owner"/.test(record) && /recordCommunityView\(db, community\.id, key,/.test(record))
+    check("the route's visit is the database's once a day rule, after the owner and the browser are checked", /if \(!isPersonBrowser\(ua\)\) return "not_a_person"/.test(record) && /if \(v \? v\.isOwner \|\| v\.isCreatorAccount : await isOwnerOf\(db, community, req\.userId\)\) return "owner"/.test(record) /* Changed on purpose (round 33 merge): the route's viewerContext answers it when there is one */ && /recordCommunityView\(db, community\.id, key,/.test(record))
     check("owners and unpublished communities are not counted", /if \(community\.status !== "published"\) return "not_published"/.test(record) && /community\.owner_user_id === userId/.test(record))
     const feed = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")

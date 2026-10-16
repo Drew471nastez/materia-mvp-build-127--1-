@@ -34,6 +34,7 @@
  * that scrolls inside the page, and a head of one 40px row, so the editor
  * is the height of the pane.
  */
+import { AppAvatar } from "@/components/app/app-avatar"
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -615,12 +616,9 @@ function MemberPicker({ communityId, value, onChange }: { communityId: string; v
   )
 }
 
+/* The shared avatar: a picture, or the default face, never a letter guessed from nothing (tests/avatar-one-rule). */
 function Avatar({ m }: { m: BuilderMember }) {
-  return (
-    <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eceef1] text-[11px] font-semibold text-[#4b5563]">
-      {m.avatarUrl ? <Image src={m.avatarUrl} alt="" fill sizes="28px" className="object-cover" /> : (m.name.trim()[0] ?? "?").toUpperCase()}
-    </span>
-  )
+  return <AppAvatar src={m.avatarUrl} name={m.name.trim()} alt="" size={28} className="shrink-0" />
 }
 
 function FieldError({ text }: { text: string | null }) {

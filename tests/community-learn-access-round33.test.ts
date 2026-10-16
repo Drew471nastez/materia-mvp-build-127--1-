@@ -375,7 +375,7 @@ async function main() {
     check("every constraint added only when missing", (part.match(/ADD CONSTRAINT/g) ?? []).length === 5 && (part.match(/IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = /g) ?? []).length === 5)
     check("the five choices, the list held to 1,000, covers https only", /access_mode IN \('free', 'level', 'paid', 'time', 'private'\)/.test(part) && /cardinality\(member_ids\) <= 1000/.test(part) && (part.match(/cover_url LIKE 'https:\/\/%'/g) ?? []).length === 2)
     check("the migration copy is the part, byte for byte", existsSync("supabase/migrations/20270128_learn_access_types.sql") && raw("supabase/migrations/20270128_learn_access_types.sql") === part)
-    check("its README row and its check after column", raw("supabase/sql/run-now/README.md").includes(`| \`${file}\` |`) && /as p200_learn_access_types;/.test(raw("supabase/sql/run-now/99_check_after.sql")))
+    check("its README row and its check after column", raw("supabase/sql/run-now/README.md").includes(`| \`${file}\` |`) && /as p200_learn_access_types[,;]/.test(raw("supabase/sql/run-now/99_check_after.sql")) /* Changed on purpose (round 33 merge): part 202 is checked after it */)
     check("the check after also says the table stays server only", /not has_table_privilege\('authenticated', 'public\.community_courses', 'SELECT'\) as p200_learn_access_types/.test(raw("supabase/sql/run-now/99_check_after.sql")))
     check("in the built files and the parts record", raw("supabase/sql/run-four/3_of_4_latest.sql").includes(`-- part ${file}`) && raw("lib/admin/sql-parts.generated.ts").includes(`part: "200", file: "${file}"`))
   }
