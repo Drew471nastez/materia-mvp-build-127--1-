@@ -605,6 +605,8 @@ const SUITES = [
   "tests/community-analytics-r32.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
+  /* Round 33: who opens a program (Open, Reach a level, Buy now, Days after joining, Private) decided on the server for the shelf, the page, every lesson and the checkout; modules and lessons added at once (SQL part 200; scripts/check-learn-round33.mjs measures the screens). */
+  "tests/community-learn-access-round33.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",

@@ -51,7 +51,8 @@ async function main() {
   check("a video lesson plays with no poster", /<LessonVideo[\s\S]{0,200}poster=\{null\}/.test(player))
   /* Changed on purpose (round 29): the still's black is bg-[rgb(0,0,0)], which the dark stylesheet leaves black, as the video's own box is. */
   check("while it is asked for: a black 16:9 still, its spinner only past half a second", /data-stage-still=""/.test(player) && /relative aspect-video w-full overflow-hidden bg-\[rgb\(0,0,0\)\]/.test(player) && /delay-500[^"]*starting:opacity-0/.test(player))
-  check("a text lesson has no stage and is not asked for", /if \(play\.state === "text"\) return null/.test(player) && /if \(l\.kind === "text"\) return \{ state: "text" \}/.test(player))
+  /* Changed on purpose (round 33): a text lesson with a cover of its own (part 200) shows that picture where a video would; without one it still has no stage. Never the program's cover, and never asked for. */
+  check("a text lesson has no stage and is not asked for", /if \(play\.state === "text"\) \{\s*if \(!lesson\.coverUrl \|\| lesson\.locked\) return null/.test(player) && /src=\{lesson\.coverUrl\}/.test(player) && !/src=\{data\.thumbnailUrl\}/.test(player) && /if \(l\.kind === "text"\) return \{ state: "text" \}/.test(player))
 
   console.log("\nChanging lessons happens in place")
   check("what the stage shows is held with its lesson's id, and a new lesson starts from what is known on the same render", /useState<\{ id: string \| null; play: Play \}>/.test(player) && /const play: Play = lesson && held\.id === lesson\.id \? held\.play : firstPlay\(lesson\)/.test(player))

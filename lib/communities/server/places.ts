@@ -101,7 +101,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       if (!card || !row) return missing
       if (card.locked) {
         const outline = await programOutline(db, row)
-        return ok({ kind: "program", mode: "locked", program: card, outline, learnHref: back, aboutHref: `/community/${community.slug}/about`, communityId: community.id, communityName: community.name })
+        return ok({ kind: "program", mode: "locked", program: card, outline, learnHref: back, aboutHref: `/community/${community.slug}/about`, communityId: community.id, communityName: community.name, levelsHref: community.gamification_enabled ? `/community/${community.slug}/leaderboard` : null })
       }
       const asked = typeof opts.lesson === "string" && opts.lesson ? opts.lesson : null
       if (row.productId) {

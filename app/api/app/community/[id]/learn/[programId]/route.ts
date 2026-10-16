@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string; programId: string }> }
 
 /**
- * PATCH  /api/app/community/<id>/learn/<programId> { title?, summary?, coverUrl?, status?, mode?, level?, priceCents?, dripDays? }
+ * PATCH  /api/app/community/<id>/learn/<programId> { title?, summary?, coverUrl?, status?, mode?, level?, priceCents?, dripDays?, memberIds? }
  *        The builder's Save: only the fields sent change (lib/communities/learn.ts checkProgramInput).
  * DELETE /api/app/community/<id>/learn/<programId>
  *        Out of Learn: an attached course is only taken out; a program made here goes with its lessons, unless members bought it.
