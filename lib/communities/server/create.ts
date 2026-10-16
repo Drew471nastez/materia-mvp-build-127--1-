@@ -146,3 +146,19 @@ export async function createCommunity(db: Db, input: CreateCommunityInput): Prom
   const { data: fresh } = await db.from("communities").select(COMMUNITY_COLUMNS).eq("id", community.id).maybeSingle()
   return { ok: true, community: (fresh as CommunityRow | null) ?? community }
 }
+
+/**
+ * Round 33, the wizard's address check: whether this address is free for a
+ * new community now (not another community's, now or before). Answers the
+ * address as it would be stored. Create checks again, so a race only means
+ * the person hears "taken" one step later.
+ */
+export async function addressFree(db: Db, raw: unknown): Promise<{ slug: string; available: boolean; reason: "invalid" | "taken" | null }> {
+  const slug = slugify(typeof raw === "string" ? raw : "")
+  if (!validSlug(slug)) return { slug, available: false, reason: "invalid" }
+  const { data, error } = await db.from("communities").select("id").eq("slug", slug).limit(1)
+  if (error) return { slug, available: true, reason: null }
+  if (Array.isArray(data) && data.length) return { slug, available: false, reason: "taken" }
+  if (await communityIdForOldSlug(db, slug)) return { slug, available: false, reason: "taken" }
+  return { slug, available: true, reason: null }
+}

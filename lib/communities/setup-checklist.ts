@@ -33,6 +33,7 @@
 import { nextSteps, type NextStep, type NextStepFacts } from "@/components/community/creator/logic"
 import { PLAY_URL } from "@/lib/platform/open-in-app"
 import { tt } from "@/lib/i18n/text"
+import { APP_CONFIRMED, INTRO_WATCHED, PILL_HIDDEN, SETUP_STEP_IDS, skipKey, type AppLink, type SetupChecklistView, type SetupStepId, type SetupStepView } from "./setup-keys"
 
 /** The three minute intro. Empty hides the step; put the video's https address here when it is ready. */
 export const INTRO_VIDEO_URL = ""
@@ -40,14 +41,8 @@ export const INTRO_VIDEO_URL = ""
 /** People to bring in before the invite step is done. */
 export const INVITE_GOAL = 3
 
-export const SETUP_STEP_IDS = ["payouts", "group", "rules", "publish", "invite", "post", "app", "intro", "customize", "course", "event", "event_payouts"] as const
-export type SetupStepId = (typeof SETUP_STEP_IDS)[number]
-
-/** Kept per person in community_setup_progress: a skip, a tick by hand, the pill hidden. */
-export const PILL_HIDDEN = "pill_hidden"
-export const INTRO_WATCHED = "intro_watched"
-export const APP_CONFIRMED = "app_confirmed"
-export const skipKey = (id: SetupStepId) => `skip_${id}`
+export { SETUP_STEP_IDS, PILL_HIDDEN, INTRO_WATCHED, APP_CONFIRMED, skipKey }
+export type { SetupStepId, AppLink, SetupStepView, SetupChecklistView }
 
 export function isSetupStepId(v: unknown): v is SetupStepId {
   return typeof v === "string" && (SETUP_STEP_IDS as readonly string[]).includes(v)
@@ -75,33 +70,6 @@ export interface SetupFacts extends NextStepFacts {
   progress: ReadonlySet<string>
   /** The payouts step is the owner's: an admin cannot connect Stripe for them. */
   isOwner: boolean
-}
-
-export interface AppLink {
-  store: "ios" | "android"
-  label: string
-  href: string
-}
-
-export interface SetupStepView extends NextStep {
-  id: SetupStepId & NextStep["id"]
-  done: boolean
-  skipped: boolean
-  /** A count toward a goal, as "1 of 3". */
-  progress?: { n: number; of: number }
-  /** The app's stores, for the app step. */
-  links?: AppLink[]
-  /** Opens outside Storelib (the intro video, a store). */
-  external?: boolean
-}
-
-export interface SetupChecklistView {
-  name: string
-  steps: SetupStepView[]
-  done: number
-  total: number
-  percent: number
-  pillHidden: boolean
 }
 
 /** The App Store's address for the app: NEXT_PUBLIC_IOS_APP_STORE_ID or _URL when set, else none (the step then offers Google Play only). */
@@ -136,7 +104,7 @@ export function setupChecklist(f: SetupFacts, base: string, opts: { introUrl?: s
   const older = new Map(nextSteps(f, base).map((s) => [s.id, s]))
   const invited = Math.max(0, f.invitesSent) + Math.max(0, f.joinedWithoutInvite)
   const missing = groupMissing(f)
-  type Draft = Omit<SetupStepView, "skipped"> | null
+  type Draft = (Omit<SetupStepView, "skipped" | "id"> & { id: SetupStepId }) | null
   const drafts: Draft[] = [
     f.paid && f.isOwner
       ? { id: "payouts", title: tt("Connect payouts"), detail: tt("Members pay you through Stripe. Nobody can join a paid community until payouts are connected."), href: "/app/settings?tab=payments", action: tt("Connect"), done: f.paymentsReady }

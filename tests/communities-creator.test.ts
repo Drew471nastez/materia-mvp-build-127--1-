@@ -213,7 +213,8 @@ async function main() {
   check("a price change goes through saveMembership", /updateTier[\s\S]*saveMembership\(db, u\.creatorId, product,/.test(tiers))
   check("the products go on and off sale with the community", /syncTierProducts/.test(creatorSrc) && /status: onSale \? "published" : "draft"/.test(tiers))
   check("a paid community is never made without its price", /if \(!tier\.ok\) \{\s*await db\.from\("communities"\)\.delete\(\)\.eq\("id", community\.id\)/.test(creatorSrc))
-  check("deleting is refused while members still pay", /still pay/.test(creatorSrc) && /eq\("source", "subscription"\)/.test(creatorSrc))
+  /* Changed on purpose (round 33): deleting while members still pay is no longer refused; their memberships are stopped through Stripe first and the deletion waits for the last paid period (tests/community-lifecycle-round33.test.ts holds it). */
+  check("deleting while members still pay stops their memberships first", /const paid = await paidMemberships\(db, c\.id\)\n\s+if \(paid\.length > 0\) return scheduleDeletion\(db,/.test(creatorSrc))
 
   /* ── Moderation ──────────────────────────────────────────────────────── */
   console.log("\nmoderation")

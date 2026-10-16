@@ -50,6 +50,10 @@ import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-na
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { tt } from "@/lib/i18n/text"
+import dynamic from "next/dynamic"
+
+/* Round 33: a community's own setup pill, loaded only on a community's pages (components/community/creator/setup-pill.tsx). */
+const CommunitySetupPill = dynamic(() => import("@/components/community/creator/setup-pill").then((m) => m.CommunitySetupPill), { ssr: false })
 
 
 // Progress circle component for setup widget
@@ -578,7 +582,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   // product editor, whether it is a new product or /app/products/<id>.
   // Products › Collections is a list under the same address, not an editor.
   const inProductEditor = /^\/app\/products\/(?!collections(\/|$))[^/]+/.test(pathname)
+  /*
+    ROUND 33: on a community's own pages the store's "Setup 71%" was counting the store, not the community open under
+    it. There the pill is the community's (CommunitySetupPill below, its own list) and the store's steps wait.
+  */
+  const inCommunity = /^\/app\/community\/(?!new(\/|$))[^/]+/.test(pathname)
   const showSetupWidget = setupProgress &&
+    !inCommunity &&
     setupProgress.completed < setupProgress.total &&
     !pathname.startsWith("/creator-page") &&
     !pathname.startsWith("/app/creator-page") &&
@@ -1107,6 +1117,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <span className="font-medium tabular-nums text-violet-600">{setupProgressPercent}%</span>
         </button>
       )}
+
+      {inCommunity && !mobileMenuOpen ? <CommunitySetupPill pathname={pathname} hidden={COMMUNITY_SETTINGS_PATH.test(pathname)} /> : null}
 
       {/* Outside both account menus: each closes itself on the click that opens
           this, so it cannot be a child of either. */}

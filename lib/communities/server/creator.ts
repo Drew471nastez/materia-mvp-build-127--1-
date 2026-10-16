@@ -111,6 +111,7 @@ import { communityRoom, loadPolicies } from "./creator-policies"
 import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
 import { factsFrom, setupExtras } from "./setup-checklist"
 import { setupChecklist, stepsLeft } from "../setup-checklist"
+import type { WizardInput } from "../create-wizard"
 import type { ScheduledDeletionView } from "../community-deletion"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { communityLimitFor, PLAN_LIMIT_ERROR } from "../plan-limit"
@@ -401,13 +402,15 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
  * that sells it (tiers.ts). If the price cannot be saved the community is
  * taken back, so a paid community never exists without a price.
  */
-export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput }): Promise<Result<{ community: CommunityRow }>> {
+export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput & Partial<Pick<WizardInput, "slug" | "spaceName" | "welcome">> }): Promise<Result<{ community: CommunityRow }>> {
   if (!(await communityRoom(db, a.creatorId)).ok) return no(402, PLAN_LIMIT_ERROR)
   const { access, visibility } = accessForType(a.input.type)
   const made = await createCommunity(db, {
     creatorId: a.creatorId,
     ownerUserId: a.userId,
     name: a.input.name,
+    /* Round 33: the address the wizard asked for, as asked; none means made from the name, with -2, -3 when taken. */
+    slug: a.input.slug ?? null,
     tagline: taglineFrom(a.input.description),
     access,
     visibility,
@@ -417,6 +420,8 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
   if (!made.ok) {
     if (made.error === "not_set_up") return no(503, "Communities are not set up on Storelib yet.")
     if (made.error === "invalid_name") return no(400, "Give your community a name up to 80 characters.", "name")
+    if (made.error === "slug_taken") return no(409, "That address is taken.", "slug")
+    if (made.error === "invalid_slug") return no(400, "That address cannot be used. Try another.", "slug")
     return no(500, "The community could not be made. Try again.")
   }
   let community = made.community
@@ -431,6 +436,17 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
       await db.from("communities").delete().eq("id", community.id)
       return no(tier.status, tier.error, "price")
     }
+  }
+  /*
+    ROUND 33, THE FIRST SPACE AND THE WELCOME: General renamed as the wizard asked, and the welcome post in it, the owner's,
+    pinned. Neither ever fails the create: a community without them is still a whole community.
+  */
+  const { data: spaceRow } = await db.from("community_spaces").select("id, name").eq("community_id", community.id).eq("slug", "general").maybeSingle()
+  const general = spaceRow as { id: string; name: string } | null
+  if (general && a.input.spaceName && a.input.spaceName !== general.name) await db.from("community_spaces").update({ name: a.input.spaceName }).eq("id", general.id)
+  if (general && a.input.welcome) {
+    const posted = await createCreatorPost(db, { community, role: "owner", actorId: a.userId, spaceId: general.id, title: a.input.welcome.title, body: a.input.welcome.body, pin: true })
+    if (!posted.ok) console.error(`[communities] create ${community.slug}: the welcome post was not written: ${posted.error}`)
   }
   return { ok: true, community }
 }
