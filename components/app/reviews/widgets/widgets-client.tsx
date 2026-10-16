@@ -50,7 +50,7 @@ export function defaultsOf(type: string): Record<string, unknown> {
   return out
 }
 
-/* One line of a widget, drawn near its own size in a card; the rest at a computer's layout, scaled to fit. */
+/* On a computer: one line of a widget near its own size in a card, the rest at a computer's layout, scaled to fit. On a phone: each at a phone's layout. */
 const COMPACT = new Set(["reviews_badge", "reviews_trust"])
 
 const nameOf = (w: ReviewWidget) => WIDGET_COPY[w.type]?.name() ?? w.name
@@ -99,7 +99,7 @@ export function WidgetsClient({ data }: { data: WidgetsPageData }) {
       {widget ? (
         <WidgetScreen key={widget.type} widget={widget} data={data} phone={phone} presets={presets} setPresets={setPresets} say={say} onBack={() => open(null)} />
       ) : (
-        <Gallery data={data} presets={presets} onOpen={open} />
+        <Gallery data={data} presets={presets} phone={phone} onOpen={open} />
       )}
     </div>
   )
@@ -127,7 +127,7 @@ function Notices({ data }: { data: WidgetsPageData }) {
 
 /* ── The gallery ─────────────────────────────────────────────────────── */
 
-function Gallery({ data, presets, onOpen }: { data: WidgetsPageData; presets: WidgetPreset[]; onOpen: (type: string) => void }) {
+function Gallery({ data, presets, phone, onOpen }: { data: WidgetsPageData; presets: WidgetPreset[]; phone: boolean; onOpen: (type: string) => void }) {
   const defaults = useMemo(() => Object.fromEntries(REVIEW_WIDGETS.map((w) => [w.type, defaultsOf(w.type)])), [])
   return (
     <>
@@ -144,7 +144,7 @@ function Gallery({ data, presets, onOpen }: { data: WidgetsPageData; presets: Wi
               <li key={w.type} className="min-w-0">
                 <button type="button" onClick={() => onOpen(w.type)} className={cn(card, "flex h-full w-full flex-col overflow-hidden text-left transition-shadow hover:shadow-[0_2px_10px_rgba(16,24,40,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20")} data-widget-card={w.type}>
                   <div className="border-b border-[#eef0f2]" aria-hidden>
-                    <WidgetPreview type={w.type} settings={defaults[w.type]} theme={data.theme} reviews={data.reviews} device="desktop" product={w.page === "product"} frame={230} renderWidth={COMPACT.has(w.type) ? 620 : 1000} />
+                    <WidgetPreview type={w.type} settings={defaults[w.type]} theme={data.theme} reviews={data.reviews} device={phone ? "mobile" : "desktop"} product={w.page === "product"} frame={230} renderWidth={phone ? undefined : COMPACT.has(w.type) ? 620 : 1000} />
                   </div>
                   <div className="flex flex-1 items-start justify-between gap-3 px-4 py-3.5">
                     <div className="min-w-0">

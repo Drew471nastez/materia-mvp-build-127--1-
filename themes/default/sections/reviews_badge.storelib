@@ -33,7 +33,7 @@
 .rw { container-type: inline-size; }
 @container (max-width: 749px) { .rw--desktop > .s { display: none; } }
 @container (min-width: 750px) { .rw--mobile > .s { display: none; } }
-.rw__off { display: none; margin: 0; padding: 14px 16px; border: 1px dashed currentColor; opacity: 0.55; font: 13px/1.4 system-ui, sans-serif; text-align: center; }
+.rw__off { display: none; margin: 0; padding: 14px 16px; border: 1px dashed currentColor; opacity: 0.55; font-size: 13px; line-height: 1.4; text-align: center; }
 @container (max-width: 749px) { .rw--desktop > .rw__off--desktop { display: block; } }
 @container (min-width: 750px) { .rw--mobile > .rw__off--mobile { display: block; } }
 .s { container-type: inline-size; background: var(--s-bg); color: var(--s-text); }

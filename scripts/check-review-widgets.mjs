@@ -224,7 +224,7 @@ for (const [vw, vh] of [[1280, 900], [390, 844]]) {
   const g = await page.evaluate(`(() => { const cards = [...document.querySelectorAll("[data-widget-card]")]; const lefts = new Set(cards.map((c) => Math.round(c.getBoundingClientRect().left))); const previews = cards.map((c) => c.querySelector("[data-widget-preview]").getBoundingClientRect().height); const fit = cards.filter((c) => { const box = c.querySelector("[data-widget-preview]"); const drawn = box.querySelector("[data-keep-transform]"); return drawn.getBoundingClientRect().width <= box.clientWidth + 1 && c.getBoundingClientRect().right <= innerWidth }).length; return { cards: cards.length, columns: lefts.size, fit, empty: previews.filter((h) => h < 8).length, overflow: document.documentElement.scrollWidth - innerWidth, sample: !!document.querySelector("[data-widgets-sample]") } })()`)
   expect(g.cards === 10 && g.columns === (desk ? 2 : 1), `gallery at ${vw}: 10 widgets in ${desk ? 2 : 1} column${desk ? "s" : ""}`, g)
   expect(g.empty === 0, "  every preview has the widget drawn in it", g)
-  expect(g.fit === 10, "  each drawn at a computer's layout and scaled down into its card, every card inside the screen, touch screen or not", g)
+  expect(g.fit === 10, `  each drawn at ${desk ? "a computer's" : "a phone's"} layout and scaled into its card, every card inside the screen, touch screen or not`, g)
   expect(g.overflow <= 0 && !g.sample, "  nothing sideways, and no sample notice with real reviews", g)
   await shot(`gallery-${vw}`, false)
 }

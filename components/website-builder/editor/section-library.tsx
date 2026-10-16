@@ -877,11 +877,13 @@ export const SectionLibrary = memo(function SectionLibrary({
    */
   useLayoutEffect(() => {
     if (open) {
-      setActiveCategory(initialCategory)
+      setActiveCategory(null)
       setQuery("")
       /* Before its first frame: a card held at the crop last time opens at its own height. */
       releaseHeld(true)
       releaseCompatHeld()
+      /* Sent here from Reviews › Widgets to pick a place: on Apps › Reviews instead, in the same frame. */
+      if (initialCategory) setActiveCategory(initialCategory)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])

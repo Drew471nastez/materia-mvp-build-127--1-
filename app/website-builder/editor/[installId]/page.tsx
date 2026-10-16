@@ -5482,9 +5482,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false, place?: { at: number; settings: Record<string, unknown> }) => {
+  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
     const schema = librarySchemas[type]
     if (!schema) return
+    /* Where Reviews › Widgets asked for it and with what (WIDGET PLACEMENT, below): for this one add. */
+    const place = widgetPlace.current?.type === type ? widgetPlace.current : null
+    widgetPlace.current = null
     /* Settings Reviews › Widgets sent with this widget (a preset, or what was set there), for this one add (WIDGET PLACEMENT, below). */
     const carried = place?.settings ?? (widgetSettings.current?.type === type ? widgetSettings.current.settings : null)
     if (!place && widgetSettings.current?.type === type) widgetSettings.current = null
@@ -5620,6 +5623,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const widgetPlacement = useRef<ReturnType<typeof readPlacement> | undefined>(undefined)
   if (widgetPlacement.current === undefined && typeof window !== "undefined") widgetPlacement.current = readPlacement(new URLSearchParams(window.location.search))
   const widgetSettings = useRef<{ type: string; settings: Record<string, unknown> } | null>(null)
+  const widgetPlace = useRef<{ type: string; at: number; settings: Record<string, unknown> } | null>(null)
   const [libraryCategory, setLibraryCategory] = useState<string | null>(null)
   useEffect(() => {
     const p = widgetPlacement.current
@@ -5650,7 +5654,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const list = sectionsRef.current
       const g = splitGroups(list)
       const at = placementIndex(list.map((x) => x.type), p.at as PlacementAt, g.header.length, g.header.length + g.template.length)
-      addSectionRef.current(p.widget.type, 0, false, { at, settings })
+      widgetPlace.current = { type: p.widget.type, at, settings }
+      addSectionRef.current(p.widget.type, 0)
     })
     return () => {
       alive = false
@@ -6373,7 +6378,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }))
     }
   }, [])
-  const addSectionRef = useRef<(type: string, presetIndex?: number, replaceConfirmed?: boolean, place?: { at: number; settings: Record<string, unknown> }) => void>(() => {})
+  const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
   const addSectionStable = useCallback((type: string, presetIndex?: number) => addSectionRef.current(type, presetIndex), [])
   addSectionRef.current = addSection
 
