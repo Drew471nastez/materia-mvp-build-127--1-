@@ -35,7 +35,7 @@ import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
-export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "settings"
+export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
 
 /** The community as every section's header shows it. */
 export interface CommunityHead {

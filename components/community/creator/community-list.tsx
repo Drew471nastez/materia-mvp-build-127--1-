@@ -8,12 +8,12 @@
  * (round 13). Each community is a card in a grid: its cover across the top,
  * the logo sitting on the cover's lower edge, the name and the line under
  * it, and a foot with the members and, for a paid one, the monthly revenue
- * (only for somebody who may see its analytics). The state is the Products
- * list's dot and word (green live, amber draft, grey archived). The whole
+ * (only for somebody who may see its analytics). The state is the /app
+ * status badge (round 33: green Published, Draft, Archived). The whole
  * card opens the community's editor; the more button at its foot is the
  * Products row's (quietDepth, ResponsiveActionMenu: a menu on a computer,
- * a sheet on a phone) with Open, Edit, Share, Analytics, Duplicate settings
- * and Archive, each only when this person may.
+ * a sheet on a phone) with Open, Edit page, Share, Analytics, Duplicate
+ * settings and Archive, each only when this person may.
  *
  * One column on a phone, two from 640px, three from 1024px. The bar keeps
  * the title and New community, as Products keeps New product.
@@ -36,7 +36,9 @@ import { compactCount } from "@/lib/communities/format"
 import { money } from "@/lib/memberships/state"
 import type { CommunityLimitView, CommunityListRow } from "./view-types"
 import { ROLE_LABEL } from "./logic"
-import { Confirm, ToastHost, card, errorText, send, useToast } from "./parts"
+import { COMMUNITY_STATE_WORD, CommunityStatusBadge, Confirm, ToastHost, card, communityState, errorText, send, useToast, type CommunityState } from "./parts"
+import { CoverFill } from "@/components/community/cover-fill"
+import { nameCoverGradient } from "@/lib/communities/cover-gradient"
 import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
@@ -47,16 +49,8 @@ const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13p
 /** The card's more button: the Products row's quiet square, 32px with a 44px press on a phone. */
 const MENU_LOOK = cn(quietDepth, "relative z-[1] h-8 w-8 rounded-lg text-[#4b5563] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']")
 
-type State = "live" | "draft" | "archived" | "suspended"
-
-function stateOf(r: CommunityListRow): State {
-  if (r.status === "suspended") return "suspended"
-  if (r.archived) return "archived"
-  return r.status === "published" ? "live" : "draft"
-}
-
-const STATE_WORD: Record<State, string> = { get live() { return tt("Published") }, get draft() { return tt("Draft") }, get archived() { return tt("Archived") }, get suspended() { return tt("Suspended") } }
-const STATE_DOT: Record<State, string> = { live: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#b6bac1]", suspended: "bg-[#d92d20]" }
+/* Round 33: the state is the /app badge (./parts CommunityStatusBadge), not a dot and a word. */
+const stateOf = (r: CommunityListRow): CommunityState => communityState(r)
 
 /**
  * The address a card shares and opens: storelib.com, always. Only a
@@ -129,7 +123,8 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
       if (res.status === 402) return setUpgrade(true)
       if (!res.ok || !res.data.id) return toast(errorText(res.data.error, tt("The copy could not be made. Try again.")))
       toast(tt("Copied as a new draft"))
-      router.push(`/app/community/${res.data.slug || res.data.id}/settings`)
+      /* Round 33: a copy is renamed first, on its page. */
+      router.push(`/app/community/${res.data.slug || res.data.id}/page`)
     },
     [room, router, toast],
   )
@@ -232,7 +227,8 @@ const CommunityCard = React.memo(function CommunityCard({
   const base = `/app/community/${r.slug}`
   const items = React.useMemo<ActionMenuItem[]>(() => {
     const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
-    if (r.can.edit) out.push({ label: tt("Edit"), icon: <Pencil className="h-4 w-4" />, href: `${base}/settings` })
+    /* Round 33: Edit opens the community's page in its own section; Settings is a tab beside it. */
+    if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, href: `${base}/page` })
     out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
     if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
     if (r.can.duplicate) out.push({ label: tt("Duplicate settings"), icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
@@ -254,14 +250,13 @@ const CommunityCard = React.memo(function CommunityCard({
       className={cn(card, "group/card relative flex min-w-0 flex-col overflow-hidden transition-[box-shadow,border-color] duration-150 pointer-fine:hover:border-[#e5e7eb] pointer-fine:hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_6px_16px_-8px_rgba(16,24,40,0.12)]")}
     >
       {/* The whole card opens the editor; the menu sits above this link. */}
-      <Link href={base} aria-label={`${r.name}, ${STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
+      <Link href={base} aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
       <Cover row={r} />
       <div className="pointer-events-none relative flex min-w-0 flex-1 flex-col px-4 pb-3">
         <div className="-mt-6 flex items-end justify-between gap-3">
           <Logo row={r} />
-          <span data-card-state={state} className="mb-0.5 inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-medium text-[#4b5563]">
-            <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", STATE_DOT[state])} />
-            {STATE_WORD[state]}
+          <span data-card-state={state} className="-mb-0.5 inline-flex">
+            <CommunityStatusBadge state={state} />
           </span>
         </div>
         <p className="mt-2.5 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-card-name="">
@@ -294,18 +289,21 @@ const CommunityCard = React.memo(function CommunityCard({
 
 /**
  * The cover across the top, 5:2 on a phone (a column of cards is not a
- * column of posters) and 2:1 from 640px; a quiet grey field when there is
- * none, the logo below it already says whose it is. An archived community's
- * cover goes grey and a little faint.
+ * column of posters) and 2:1 from 640px. With none (round 33: "never flat
+ * grey"), a gradient in the community's own colours, read from its logo
+ * (components/community/cover-fill.tsx), or from its name while there is no
+ * logo. An archived community's cover goes grey and a little faint.
  */
 function Cover({ row: r }: { row: CommunityListRow }) {
   const src = r.coverUrl
   return (
-    <div aria-hidden className={cn("pointer-events-none relative aspect-[5/2] w-full overflow-hidden bg-[#eef0f2] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[rgba(17,24,39,0.06)] after:content-[''] sm:aspect-[2/1]", r.archived && "opacity-70 grayscale")} data-card-cover="">
+    <div aria-hidden className={cn("pointer-events-none relative aspect-[5/2] w-full overflow-hidden bg-[#eef0f2] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[rgba(17,24,39,0.06)] after:content-[''] sm:aspect-[2/1]", r.archived && "opacity-70 grayscale")} data-card-cover={src ? "picture" : "gradient"}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here, as the Products list does
         <img src={optimizedImageUrl(src, 480)} srcSet={optimizedSrcSet(src, [384, 640, 1080])} sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" />
-      ) : null}
+      ) : (
+        <CoverFill name={r.name} iconUrl={r.logoUrl} />
+      )}
     </div>
   )
 }
@@ -314,12 +312,16 @@ function Cover({ row: r }: { row: CommunityListRow }) {
 function Logo({ row: r }: { row: CommunityListRow }) {
   const letter = (Array.from(r.name.trim())[0] || "C").toUpperCase()
   return (
-    <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-[#1a1a2e] shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.12)]" data-card-logo="">
+    <span
+      className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-white shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.12)]"
+      style={r.logoUrl ? undefined : { backgroundImage: nameCoverGradient(r.name) }}
+      data-card-logo=""
+    >
       {r.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={optimizedImageUrl(r.logoUrl, 48)} srcSet={optimizedSrcSet(r.logoUrl, [48, 96, 128])} sizes="48px" alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       ) : (
-        <span aria-hidden className="text-[18px] font-semibold text-white">
+        <span aria-hidden className="text-[18px] font-semibold text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.18)]">
           {letter}
         </span>
       )}
