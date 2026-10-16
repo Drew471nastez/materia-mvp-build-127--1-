@@ -30,6 +30,20 @@
  *   the phone     no sidebar, no toggle, no padding, whatever the cookie says
  *   reduced       motion off: there on the next frame
  *
+ * ROUND 32. The owner, on the row: it must not look like a button row. Just
+ * the icon, like Shopify's: no word, no background, no border, a tooltip,
+ * and under the pointer only the icon's colour changes. And collapsed, the
+ * page could be scrolled sideways: each label stuck out of its 63px row and
+ * the nav, a vertical scroller and so a horizontal one too, scrolled them
+ * into view. So, added:
+ *
+ *   the toggle    a bare icon: no text, no background or border at rest or
+ *                 under the pointer, the icon darker under the pointer
+ *   no sideways   at 1280 and 1440, open and collapsed and on every frame
+ *                 between: the document, the nav, the sidebar's layer and
+ *                 the page's scroller are no wider than their boxes, and a
+ *                 sideways wheel over the collapsed sidebar moves nothing
+ *
  *   PROBE_CSS=source node scripts/check-sidebar-round31.mjs
  *
  * Pictures go to SHOTS_DIR (a temporary directory by default) to look at.
@@ -185,7 +199,9 @@ export const isNativePlatform = () => false
       const cs = getComputedStyle(t)
       const ss = getComputedStyle(settings)
       const word = t.querySelector("[data-nav-label]")
-      const hit = document.elementFromPoint(tb.left + 31 - 7, tb.top + tb.height / 2)
+      /* On the icon's own centre, where a person aims. */
+      const ib = t.querySelector("[data-nav-icon]").getBoundingClientRect()
+      const hit = document.elementFromPoint(ib.left + ib.width / 2, ib.top + ib.height / 2)
       return {
         w: ab.width,
         inner: aside.clientWidth,
@@ -196,8 +212,12 @@ export const isNativePlatform = () => false
           w: tb.width, h: tb.height, top: tb.top, bottom: tb.bottom, left: tb.left - ab.left, right: tb.right,
           iconX: centre(t.querySelector("[data-nav-icon]")),
           cy: tb.top + tb.height / 2,
+          cx: ib.left + ib.width / 2,
           opacity: +cs.opacity, visibility: cs.visibility, events: cs.pointerEvents, radius: parseFloat(cs.borderRadius), bg: cs.backgroundColor, color: cs.color, font: cs.fontSize,
           word: word?.textContent ?? null, wordOpacity: word ? +getComputedStyle(word).opacity : null,
+          text: t.textContent.trim(),
+          border: cs.borderTopWidth + " " + cs.borderRightWidth + " " + cs.borderBottomWidth + " " + cs.borderLeftWidth,
+          iconColor: getComputedStyle(t.querySelector("svg")).color,
           hitAtRest: !!hit?.closest("[data-rail-toggle]"),
           inside: tb.left >= ab.left && tb.right <= ab.right && tb.top >= ab.top && tb.bottom <= ab.bottom,
         },
@@ -248,10 +268,12 @@ export const isNativePlatform = () => false
     expect(g.toggle.opacity === 1 && g.toggle.visibility === "visible" && g.toggle.events === "auto" && g.toggle.hitAtRest && g.toggle.inside, "the toggle, with the pointer on the page: in sight, inside the sidebar, and a click on its icon lands on it", { opacity: g.toggle.opacity, visibility: g.toggle.visibility, hit: g.toggle.hitAtRest })
     const above = g.card.top - g.toggle.bottom
     expect(above >= 0 && above <= 12 && g.card.shown, "directly above the Upgrade card", { gapPx: +above.toFixed(1) })
-    expect(g.toggle.h === g.settings.h && g.toggle.radius === g.settings.radius && g.toggle.radius < g.toggle.h / 2 && g.toggle.font === g.settings.font && g.toggle.color === g.settings.color && g.toggle.bg === "rgba(0, 0, 0, 0)",
-      "a row like Settings: the same height, 12px corners (no pill), size and grey, no background at rest", { h: g.toggle.h, radius: g.toggle.radius, font: g.toggle.font, color: g.toggle.color, bg: g.toggle.bg })
+    /* Changed on purpose (round 32): it was "a row like Settings", the same 38px height, font and hover fill. The owner: not a button row, just the icon. */
+    expect(g.toggle.text === "" && g.toggle.word === null && g.toggle.bg === "rgba(0, 0, 0, 0)" && g.toggle.border === "0px 0px 0px 0px" && g.toggle.w === 32 && g.toggle.h === 32 && g.toggle.color === g.settings.color,
+      "a bare icon: no text, no background, no border, a 32px square to hit, the rows' grey", { text: g.toggle.text, bg: g.toggle.bg, border: g.toggle.border, size: `${g.toggle.w}x${g.toggle.h}`, color: g.toggle.color })
     expect(g.toggle.iconX === g.settings.iconX && g.icons.every((x) => x === g.icons[0]), "its icon in the same column as every other icon", { toggle: g.toggle.iconX, settings: g.settings.iconX, icons: [...new Set(g.icons)] })
-    expect(g.toggle.word === "Collapse" && g.toggle.wordOpacity === 1, "Collapse beside it", g.toggle.word)
+    /* Changed on purpose (round 32): "Collapse" was beside it. No word now. */
+    expect(g.toggle.word === null && g.toggle.text === "", "no word beside it", g.toggle.text)
     expect(g.timing[0] === "width 0.24s cubic-bezier(0.2, 0, 0, 1)" && g.timing[1] === "padding-left 0.24s cubic-bezier(0.2, 0, 0, 1)", "the sidebar's width and the page's edge on one duration (240ms) and one curve", g.timing)
     expect(g.label === "Collapse sidebar" && g.expanded === "true" && g.controls && g.keys === "Control+B" && !g.title, "named Collapse sidebar, aria-expanded, controls the sidebar, Control+B", { label: g.label, expanded: g.expanded, keys: g.keys })
     await p.screenshot({ path: join(shots, "open-rest.png"), clip: { x: 0, y: 0, width: 520, height: 900 }, captureBeyondViewport: false })
@@ -264,12 +286,15 @@ export const isNativePlatform = () => false
     const differ = awayControls.filter((c, i) => c !== onControls[i])
     expect(differ.length === 0 && awayControls.length === onControls.length, "the pointer on the sidebar shows and hides nothing", differ)
 
-    /* On the toggle itself: the rows' hover grey, and the tooltip after a short wait. */
-    await p.mouse.move(g.toggle.left + 31 + 30, g.toggle.cy)
+    /* On the toggle itself: only the icon darkens, and the tooltip after a short wait. */
+    await p.mouse.move(g.toggle.cx, g.toggle.cy)
     await sleep(150)
     const early = await p.evaluate(() => !!document.querySelector("[data-rail-tip]"))
-    const hovered = await p.evaluate(() => getComputedStyle(document.querySelector("[data-rail-toggle]")).backgroundColor)
-    expect(/^rgba?\(243, 243, 243(, 1)?\)$/.test(hovered), "under the pointer, the rows' own hover grey", hovered)
+    const hovered = await p.evaluate(() => { const t = document.querySelector("[data-rail-toggle]"); const cs = getComputedStyle(t); return { bg: cs.backgroundColor, border: cs.borderTopWidth, icon: getComputedStyle(t.querySelector("svg")).color } })
+    report.toggleHover = { rest: g.toggle.iconColor, hovered }
+    /* Changed on purpose (round 32): under the pointer it took the rows' #f3f3f3 fill. Now nothing is filled; the icon goes from #666 to #333. */
+    expect(hovered.bg === "rgba(0, 0, 0, 0)" && hovered.border === "0px" && hovered.icon !== g.toggle.iconColor && /^rgb\(51, 51, 51\)$/.test(hovered.icon),
+      "under the pointer: still no background or border, only the icon darker", { rest: g.toggle.iconColor, hovered })
     await sleep(450)
     const tip = await p.evaluate(() => {
       const el = document.querySelector("[data-rail-tip]")
@@ -305,9 +330,9 @@ export const isNativePlatform = () => false
     const overSettings = c.settings.top - c.toggle.bottom
     expect(!c.card.shown && c.toggle.opacity === 1 && c.toggle.hitAtRest && c.toggle.inside && overSettings >= 0 && overSettings <= 6 && c.toggle.top > c.asideBottom - 140,
       "the card folded away; the toggle still in sight at the foot, over Settings", { card: c.card, gapToSettings: +overSettings.toFixed(1) })
-    expect(c.toggle.wordOpacity === 0 && c.label === "Expand sidebar" && c.expanded === "false", "its word gone, Expand sidebar, aria-expanded false", { word: c.toggle.wordOpacity, label: c.label })
+    expect(c.toggle.text === "" && c.label === "Expand sidebar" && c.expanded === "false", "no word, Expand sidebar, aria-expanded false", { text: c.toggle.text, label: c.label })
     await p.screenshot({ path: join(shots, "collapsed-rest.png"), clip: { x: 0, y: 0, width: 420, height: 900 }, captureBeyondViewport: false })
-    await p.mouse.move(c.toggle.left + 31, c.toggle.cy)
+    await p.mouse.move(c.toggle.cx, c.toggle.cy)
     await sleep(600)
     const tip2 = await p.evaluate(() => {
       const el = document.querySelector("[data-rail-tip]")
@@ -494,6 +519,75 @@ export const isNativePlatform = () => false
     report.stills = stills
     expect(Object.values(stills).every((s) => Math.abs(s.aside - s.pad) <= 0.5), "stopped partway, the page's edge is still on the sidebar's", stills)
     await p.close()
+  }
+
+  // ── Round 32: no sideways scroll, open, collapsed, and on the way ──────────
+  console.log("\nNo sideways scroll\n")
+  {
+    const wide = (p) =>
+      p.evaluate(() => {
+        const de = document.documentElement
+        const box = (el) => (el ? { sw: el.scrollWidth, cw: el.clientWidth } : null)
+        return {
+          doc: { sw: de.scrollWidth, cw: de.clientWidth },
+          body: box(document.body),
+          nav: box(document.querySelector("[data-rail-aside] nav")),
+          layer: box(document.querySelector("[data-rail-aside] > div")),
+          page: box(document.querySelector(".app-content-scroll")),
+        }
+      })
+    const fits = (m) => Object.values(m).every((b) => !b || b.sw <= b.cw)
+    report.overflow = {}
+    for (const width of [1280, 1440]) {
+      const { p } = await open("/app/integrations", { vp: { width, height: 900, deviceScaleFactor: 1 } })
+      await p.mouse.move(width - 100, 500)
+      const open1 = await wide(p)
+      expect(fits(open1), `${width}px open: nothing scrolls sideways (document, nav, sidebar layer, page)`, { doc: open1.doc, nav: open1.nav })
+      await p.evaluate(() => {
+        window.__wide = (ms) =>
+          new Promise((res) => {
+            const nav = document.querySelector("[data-rail-aside] nav")
+            const layer = document.querySelector("[data-rail-aside] > div")
+            const page = document.querySelector(".app-content-scroll")
+            const de = document.documentElement
+            let worst = 0
+            let frames = 0
+            let t0 = 0
+            const tick = (t) => {
+              if (!t0) { t0 = t; document.querySelector("[data-rail-toggle]").click() }
+              frames++
+              for (const el of [de, document.body, nav, layer, page]) worst = Math.max(worst, el.scrollWidth - el.clientWidth)
+              if (t - t0 < ms) requestAnimationFrame(tick)
+              else res({ frames, worstPx: worst })
+            }
+            requestAnimationFrame(tick)
+          })
+      })
+      const during1 = await p.evaluate(() => window.__wide(400))
+      const shut = await wide(p)
+      expect(during1.worstPx <= 0, `${width}px collapsing: no frame wider than its box`, during1)
+      expect(fits(shut), `${width}px collapsed: nothing scrolls sideways`, { doc: shut.doc, nav: shut.nav, layer: shut.layer })
+      /* A sideways swipe over the collapsed sidebar, and over the page. */
+      for (const [x, where] of [[30, "sidebar"], [width / 2, "page"]]) {
+        await p.mouse.move(x, 300)
+        await p.mouse.wheel({ deltaX: 400 })
+        await sleep(250)
+      }
+      const moved = await p.evaluate(() => ({
+        window: window.scrollX,
+        nav: document.querySelector("[data-rail-aside] nav").scrollLeft,
+        layer: document.querySelector("[data-rail-aside] > div").scrollLeft,
+        page: document.querySelector(".app-content-scroll").scrollLeft,
+        root: document.querySelector("[data-app-rail]").scrollLeft,
+      }))
+      expect(Object.values(moved).every((v) => v === 0), `${width}px collapsed: a sideways swipe over the sidebar or the page moves nothing`, moved)
+      const during2 = await p.evaluate(() => window.__wide(400))
+      const back = await wide(p)
+      expect(during2.worstPx <= 0 && fits(back), `${width}px expanding and open again: no frame wider than its box`, { during: during2, doc: back.doc })
+      report.overflow[width] = { open: open1.doc, collapsed: shut.doc, collapsedNav: shut.nav, collapsing: during1, expanding: during2, swipe: moved }
+      if (width === 1440) await p.screenshot({ path: join(shots, "open-1440.png"), clip: { x: 0, y: 500, width: 400, height: 400 }, captureBeyondViewport: false })
+      await p.close()
+    }
   }
 
   console.log("\nReduced motion\n")

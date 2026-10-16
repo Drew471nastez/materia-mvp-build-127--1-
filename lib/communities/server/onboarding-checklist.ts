@@ -19,7 +19,7 @@ import "server-only"
  * activations at once send one message, and a member who leaves and comes
  * back is not welcomed twice. Nothing here ever throws into a join.
  *
- * Before part 187 every read answers "not ready" and nothing is shown or
+ * Before part 190 every read answers "not ready" and nothing is shown or
  * sent.
  */
 import { communityPath } from "@/components/community/public/paths"
@@ -30,7 +30,7 @@ import { audit } from "./audit"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 
 export interface OnboardingState {
-  /** Part 187 has run. */
+  /** Part 190 has run. */
   ready: boolean
   config: OnboardingConfig
 }

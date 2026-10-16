@@ -22,7 +22,7 @@ import "server-only"
  *              15 minutes (a run that died part way) is marked failed, never
  *              retried on its own: the post may already be up.
  *
- * Before part 188 every read answers "not ready".
+ * Before part 191 every read answers "not ready".
  */
 import { EDITABLE, checkScheduledInput, type ScheduledPostView, type ScheduledStatus } from "../scheduled-posts"
 import { can } from "../permissions"

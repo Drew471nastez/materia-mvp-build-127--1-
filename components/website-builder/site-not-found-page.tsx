@@ -14,7 +14,7 @@ export interface NotFoundPayload {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
   prerendered: Record<string, RenderedSection>
-  storefront: { creatorId: string; installId: string }
+  storefront: { creatorId: string; installId: string; words?: Record<string, string> }
 }
 
 /**

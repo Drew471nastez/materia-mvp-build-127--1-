@@ -57,10 +57,10 @@ import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/produ
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
-import { compatFields } from "@/lib/markets/compat-fields"
+import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "@/lib/markets/compat-fields"
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
-import { localizeMenus, localizeRecord, localizeSections, type TranslationMap } from "@/lib/markets/translate"
+import { localizeMenus, localizeOptions, localizeSections, type TranslationMap } from "@/lib/markets/translate"
 import { localePrefix } from "@/lib/markets/locales"
 import { compatPrices, compatShop, type ThemeCountry } from "@/lib/markets/compat-prices"
 import type { Pricing } from "@/lib/markets/pricing"
@@ -232,14 +232,9 @@ export { loadCompatFiles }
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
 
-/** A product in the language previewed: its title and description, as lib/markets/compat.ts lays them over on the website. */
+/** A product in the language previewed: its title, description, options and search engine title, by the function lib/markets/compat.ts lays them over with on the website. */
 function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
-  const c = card as ProductCard & { descriptionHtml?: string }
-  const opts = { approvedOnly: true, fresh: true }
-  const settings = localizeRecord(c.settings as unknown as Record<string, unknown>, `product:${c.id}`, ["title", "description"], map, opts)
-  const html = c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : undefined
-  if (settings === (c.settings as unknown) && html === c.descriptionHtml) return card
-  return { ...c, settings, ...(html !== undefined ? { descriptionHtml: html } : {}) } as unknown as ProductCard
+  return compatCardIn(card as ProductCard & { descriptionHtml?: string }, map) as ProductCard
 }
 
 /** A link in the previewed language's page (/fr/products/x), as the builder names the page (/products/x). */
@@ -371,9 +366,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }, [map, pricing])
   const products = useMemo(() => (inPreview ? props.products.map(inPreview) : props.products), [props.products, inPreview])
   const catalog = useMemo(() => (inPreview && props.catalog ? props.catalog.map(inPreview) : props.catalog), [props.catalog, inPreview])
+  /* Each collection's own title and description, and its products as the cards above, in a language with no currency change too (as the website: compat.ts). */
   const collections = useMemo(
-    () => (pricing && inPreview ? props.collections.map((c) => (c.products ? { ...c, products: (c.products as unknown as ProductCard[]).map(inPreview) } : c)) as CollectionLike[] : props.collections),
-    [props.collections, pricing, inPreview],
+    () => (inPreview ? props.collections.map((c) => {
+      const words = map ? compatCollectionIn(c, map) : c
+      return c.products ? { ...words, products: (c.products as unknown as ProductCard[]).map(inPreview) } : words
+    }) as CollectionLike[] : props.collections),
+    [props.collections, map, inPreview],
   )
   const menus = useMemo(() => (map ? localizeMenus(props.menus as never, map, { approvedOnly: true }) as CompatCanvasProps["menus"] : props.menus), [props.menus, map])
   /*
@@ -384,13 +383,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const ownLanguage = compatTheme?.language ?? "en"
   const i18nKey = JSON.stringify([language?.locale, language?.defaultLanguage, language?.languages, markets?.saved, markets?.defaultLanguage, markets?.languages, markets?.country, markets?.countries.length, markets?.countries.map((c) => c.currency).join(""), ownLanguage])
+  /* The theme's own words (`| t`) as the store translated them (tw:<key>), as the website hands them over (compat.ts). By what they say, so a theme setting changed under a finger does not draw the page again. */
+  const themeWords = useMemo(() => (compatTheme && map ? compatThemeWords(compatTheme.defaultWords(), map) : {}), [compatTheme, map])
+  const themeWordsKey = JSON.stringify(themeWords)
   const i18n = useMemo((): SiteI18n | undefined => {
     const where = markets ? { countries: markets.countries, ...(markets.country ? { country: markets.country } : {}) } : {}
     if (markets && !markets.saved) return { locale: ownLanguage, defaultLanguage: ownLanguage, languages: [ownLanguage], ...where }
-    if (markets) return { locale: language?.locale ?? markets.defaultLanguage, defaultLanguage: markets.defaultLanguage, languages: markets.languages.length ? markets.languages : [markets.defaultLanguage], ...where }
-    return language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages } : undefined
+    const translated = Object.keys(themeWords).length ? { words: themeWords } : {}
+    if (markets) return { locale: language?.locale ?? markets.defaultLanguage, defaultLanguage: markets.defaultLanguage, languages: markets.languages.length ? markets.languages : [markets.defaultLanguage], ...where, ...translated }
+    return language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages, ...translated } : undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18nKey])
+  }, [i18nKey, themeWordsKey])
   /* Money written the market's way in the page's language, as the website writes it. */
   /* The store's own currency, which its cards are priced in (lib/website-builder/shop-products), as the live site says it (compat-site); a market converts from it. */
   const storeCurrency = pricing?.base || props.storeCurrency || (props.products[0] ?? props.catalog?.[0])?.settings.currency || SHOP_CURRENCY
@@ -456,7 +459,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const found = picked ?? products[0] ?? null
-    const sample = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
+    const facted = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
+    /* The facts carry each variant's option values as saved: put in the language previewed again, as the live page's product is after its facts (compat.ts card). */
+    const sample = facted && facted !== found && map ? ({ ...facted, settings: localizeOptions(facted.settings, map, { approvedOnly: true, fresh: true }) } as ProductCard) : facted
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
     return {

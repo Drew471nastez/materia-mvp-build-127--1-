@@ -33,7 +33,8 @@ export interface PreviewLanguage {
   words: Record<string, string>
 }
 
-type Values = Record<string, { v: string; h: string }>
+/** `s`: "ai" for Storelib AI's, so the preview hides an outdated one as the live site does (lib/markets/translate.ts valueFor); a person's stays. */
+type Values = Record<string, { v: string; h: string; s?: "ai" }>
 type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values }
 
 export function usePreviewLanguage(installId: string): PreviewLanguage {
@@ -100,7 +101,7 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
   const shown = locale ?? info.defaultLanguage
   const map = useMemo(() => {
     if (!values || values.locale !== shown || Object.keys(values.values).length === 0) return null
-    return translationMap(Object.entries(values.values).map(([key, x]) => ({ key, value: x.v, sourceHash: x.h, status: "approved" as const, source: "manual" as const })))
+    return translationMap(Object.entries(values.values).map(([key, x]) => ({ key, value: x.v, sourceHash: x.h, status: "approved" as const, source: x.s === "ai" ? ("ai" as const) : ("manual" as const) })))
   }, [shown, values])
 
   const words = useMemo(() => {

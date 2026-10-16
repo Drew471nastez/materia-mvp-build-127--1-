@@ -96,7 +96,7 @@ export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
     setBusy(false)
     if (!res.ok) {
       setBadIndex(typeof res.data.index === "number" ? res.data.index : null)
-      return setError(res.data.error === "not_ready" ? tt("Questions need the database update (run-now part 186).") : errorText(res.data.error))
+      return setError(res.data.error === "not_ready" ? tt("Questions need the database update (run-now part 189).") : errorText(res.data.error))
     }
     /* The server's ids, kept with the editor's keys so nothing redraws. */
     const back = res.data.questions ?? []
@@ -124,7 +124,7 @@ export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
     >
       <div data-join-questions-panel="">
         {loadError ? <Notice>{loadError}</Notice> : ready === null ? <ListLoading /> : !ready ? (
-          <Notice tone="warn">{tt("Questions need the database update (run-now part 186). Until then people join without answering anything.")}</Notice>
+          <Notice tone="warn">{tt("Questions need the database update (run-now part 189). Until then people join without answering anything.")}</Notice>
         ) : (
           <>
             {list.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">{tt("No questions. People join without answering anything.")}</p> : null}

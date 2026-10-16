@@ -18,7 +18,7 @@
         {% if settings.subheading %}<p class="rc__sub">{{ settings.subheading }}</p>{% endif %}
       </div>
       {% if settings.show_score and reviews.all.summary.count > 0 %}
-        <p class="rc__score"><span class="rv-stars" style="--rv: {{ reviews.all.summary.percent }}%;" role="img" aria-label="{{ reviews.all.summary.average_label }} out of 5 stars"></span><b>{{ reviews.all.summary.average_label }}</b> from {{ reviews.all.summary.count_label }}{% if settings.show_all_link %} · <a class="rc__all" href="{{ reviews.page_url | url }}">{{ settings.all_link_label }}</a>{% endif %}</p>
+        <p class="rc__score"><span class="rv-stars" style="--rv: {{ reviews.all.summary.percent }}%;" role="img" aria-label="{{ reviews.all.summary.average_label }} {{ words.out_of_five_stars }}"></span><b>{{ reviews.all.summary.average_label }}</b> {{ words.rating_from }} {{ reviews.all.summary.count }} {% if reviews.all.summary.count == 1 %}{{ words.review }}{% else %}{{ words.reviews }}{% endif %}{% if settings.show_all_link %} · <a class="rc__all" href="{{ reviews.page_url | url }}">{{ settings.all_link_label }}</a>{% endif %}</p>
       {% endif %}
     </div>
     {% if page.in_editor and reviews.sample %}<p class="rv__sample">Sample reviews. Your real reviews show here once you have some.</p>{% endif %}
@@ -26,19 +26,19 @@
       {% if settings.source == 'recent' %}
         {% for r in reviews.all.items limit: settings.count %}
           <article class="rc__card" role="listitem" data-review-id="{{ r.id }}">
-            <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+            <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
             {% if r.title %}<h3 class="rc__title">{{ r.title }}</h3>{% endif %}
             <p class="rc__body">{{ r.body }}</p>
-            <p class="rc__foot"><span class="rc__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rc__ver">Verified buyer</span>{% endif %}{% if settings.show_product and r.product_title %}{% if r.product_url %}<a class="rc__prod" href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span class="rc__prod">{{ r.product_title }}</span>{% endif %}{% endif %}</p>
+            <p class="rc__foot"><span class="rc__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rc__ver">{{ words.verified_buyer }}</span>{% endif %}{% if settings.show_product and r.product_title %}{% if r.product_url %}<a class="rc__prod" href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span class="rc__prod">{{ r.product_title }}</span>{% endif %}{% endif %}</p>
           </article>
         {% endfor %}
       {% else %}
         {% for r in reviews.all.featured_items limit: settings.count %}
           <article class="rc__card" role="listitem" data-review-id="{{ r.id }}">
-            <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+            <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
             {% if r.title %}<h3 class="rc__title">{{ r.title }}</h3>{% endif %}
             <p class="rc__body">{{ r.body }}</p>
-            <p class="rc__foot"><span class="rc__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rc__ver">Verified buyer</span>{% endif %}{% if settings.show_product and r.product_title %}{% if r.product_url %}<a class="rc__prod" href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span class="rc__prod">{{ r.product_title }}</span>{% endif %}{% endif %}</p>
+            <p class="rc__foot"><span class="rc__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rc__ver">{{ words.verified_buyer }}</span>{% endif %}{% if settings.show_product and r.product_title %}{% if r.product_url %}<a class="rc__prod" href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}<span class="rc__prod">{{ r.product_title }}</span>{% endif %}{% endif %}</p>
           </article>
         {% endfor %}
       {% endif %}

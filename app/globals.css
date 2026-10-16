@@ -8381,6 +8381,22 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
   --rail-ms: 240ms;
   --rail-ease: cubic-bezier(0.2, 0, 0, 1);
 }
+/*
+  ROUND 32, NO SIDEWAYS SCROLL WHEN COLLAPSED. A label is a nowrap flex item
+  with min-width auto, so in a 63px sidebar it stuck out of its row by up to
+  80px ("Creator Page" ended 141px from the left). The nav scrolls its
+  height, which makes its width a scroll box too (overflow-y auto turns
+  overflow-x visible into auto), so a sideways swipe over the collapsed
+  sidebar scrolled the nav and slid the faded words into view. Each label
+  now gives up its width and clips its own text instead: nothing is wider
+  than its row, nothing reflows (it is still nowrap), and the open sidebar,
+  where every label fits, is unchanged.
+*/
+[data-rail-aside] [data-nav-label] {
+  min-width: 0;
+  overflow: hidden;
+  overflow: clip;
+}
 @media (min-width: 768px) {
   /* Written out long, the delay on its own line: it is the sidebar opening, not a pressed state (tests/native-feel). */
   [data-rail-aside] [data-nav-label] {

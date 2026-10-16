@@ -35,6 +35,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { queueProductFanout } from "@/lib/notifications/fanout"
 import { creatorShopTag, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
 import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 
 export async function POST(request: NextRequest) {
   try {
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
     /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */
     await revalidatePublishedProduct(owned.creator_id, slug)
     exploreCatalogueChanged()
+    /* Its title, description and search engine text, translated in a few minutes when the store has it on (lib/markets/translate-queue.ts). */
+    translationsChanged(owned.creator_id)
 
     revalidatePath(`/p/${slug}`)
     if (typeof handle === "string" && handle.trim()) {

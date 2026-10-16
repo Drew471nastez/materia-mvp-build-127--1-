@@ -31,6 +31,10 @@ import { OrderMessagesCard } from "@/components/support/order-messages-card"
 import { CaseView } from "@/app/order-help/[id]/case-view"
 import { shipmentEmail } from "@/lib/physical/email-templates"
 import { lowStockEmail } from "@/lib/notify/seller-commerce"
+import { MarketsPanel } from "@/components/app/settings/markets-panel"
+import { TranslateSheet } from "@/components/app/settings/translate-sheet"
+import { LanguageSwitch } from "@/components/website-builder/theme/language-switch"
+import { languageChoiceOf } from "@/lib/markets/choice"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -283,7 +287,71 @@ const marketing = () => [
 
 /* ── The API ───────────────────────────────────────────────────────────── */
 
-function route(method: string, path: string, body: Record<string, unknown>): unknown {
+/*
+  LANGUAGES & CURRENCY (the currency and translation articles): Fern & Clay
+  sells in US dollars from the United States, shows euros in four European
+  countries, pounds in the United Kingdom and yen in Japan (a currency
+  Storelib shows but does not charge), and is in French and German with
+  Spanish translating. ?written=1: a store whose default is Spanish on a
+  theme written in English, its texts being translated into Spanish.
+*/
+const written = params.has("written")
+const storeCurrency = {
+  ready: true, country: "US", currency: "USD", chosen: "USD", suggested: "USD", unsupportedLocal: null, detectedCountry: "US",
+  currencies: ["USD", "EUR", "GBP", "RON", "CAD", "AUD"].map((code) => ({ code, label: code })),
+  catalog: { products: 12, variants: 30, shippingRates: 4, coupons: 2, total: 48 },
+  lastChange: null,
+}
+const storeCurrencyPreview = { from: "USD", to: "EUR", counts: storeCurrency.catalog, rate: 0.9184, asOf: "2026-10-14", examples: [{ title: "Speckled mug", before: 3200, converted: 2939 }] }
+const markets = {
+  ready: true,
+  localization: {
+    defaultLanguage: written ? "es" : "en",
+    languages: written ? [] : [{ code: "fr", published: true }, { code: "de", published: true }, { code: "es", published: false }],
+    markets: [
+      { id: "home", name: "Home", primary: true, countries: ["US"], currency: null, language: null, rounding: "none", adjustBps: 0, active: true },
+      { id: "eu", name: "Europe", primary: false, countries: ["DE", "FR", "IT", "ES"], currency: "EUR", language: null, rounding: "nine_nine", adjustBps: 0, active: true },
+      { id: "uk", name: "United Kingdom", primary: false, countries: ["GB"], currency: "GBP", language: null, rounding: "whole", adjustBps: 0, active: true },
+      { id: "jp", name: "Japan", primary: false, countries: ["JP"], currency: "JPY", language: null, rounding: "none", adjustBps: 0, active: true },
+    ],
+    visitorLanguage: false,
+    autoTranslate: true,
+  },
+  autoTranslate: { run: { at: "2026-10-15T09:00:00Z", translated: 6, left: 0 }, available: true },
+  baseCurrency: "USD",
+  homeCountry: "US",
+  chargeCurrency: "USD",
+  fx: { asOf: "2026-10-14", fresh: true, currencies: ["EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "PLN", "RON", "SEK"], rates: { EUR: 1, USD: 1.0888, GBP: 0.8412, JPY: 163.2 } },
+}
+const translationSummary = written
+  ? { ready: true, progress: { es: { done: 96, draft: 0, todo: 44, total: 140 } }, writtenIn: "en" }
+  : { ready: true, progress: { fr: { done: 140, draft: 0, todo: 0, total: 140 }, de: { done: 138, draft: 0, todo: 2, total: 140 }, es: { done: 61, draft: 0, todo: 79, total: 140 } }, writtenIn: "en" }
+const translationJobs = { ready: true, jobs: written ? {} : { es: { locale: "es", status: "running", done: 61, total: 140, drafted: 61, error: null, startedAt: hoursAgo(0.05), updatedAt: hoursAgo(0.01) } } }
+/* The French sheet: a page's sections, a product and its description; most done, one edited by the owner, one changed since, one to do. */
+const frenchTexts = {
+  ready: true,
+  locale: "fr",
+  defaultLanguage: "en",
+  progress: { done: 138, total: 140 },
+  groups: [
+    { id: "page:home", title: "Home page", items: [
+      { key: "s1:heading", source: "Handmade stoneware for slow mornings", label: "Heading", where: "Hero", multiline: false, rich: false, value: "Grès fait main pour les matins tranquilles", status: "done", ai: false },
+      { key: "s1:text", source: "Every piece is thrown, glazed and fired in our Portland studio.", label: "Text", where: "Hero", multiline: true, rich: false, value: "Chaque pièce est tournée, émaillée et cuite dans notre atelier de Portland.", status: "done", ai: true },
+      { key: "s2:heading", source: "New this autumn", label: "Heading", where: "Featured collection", multiline: false, rich: false, value: "Nouveautés de l'automne", status: "outdated", ai: false },
+    ] },
+    { id: "products", title: "Products", items: [
+      { key: "product:mug:title", source: "Speckled mug", label: "Title", where: "Speckled mug", multiline: false, rich: false, value: "Tasse mouchetée", status: "done", ai: true },
+      { key: "product:mug:description", source: "A 12 oz mug with a speckled sand glaze. Dishwasher safe.", label: "Description", where: "Speckled mug", multiline: true, rich: false, value: "Une tasse de 35 cl à l'émail sable moucheté. Va au lave-vaisselle.", status: "done", ai: true },
+      { key: "product:bowl:title", source: "Serving bowl", label: "Title", where: "Serving bowl", multiline: false, rich: false, value: "", status: "missing", ai: false },
+    ] },
+  ],
+}
+
+function route(method: string, path: string, body: Record<string, unknown>, query: URLSearchParams = new URLSearchParams()): unknown {
+  if (path === "/api/store/currency") return method === "POST" ? storeCurrencyPreview : storeCurrency
+  if (path === "/api/store/markets") return markets
+  if (path === "/api/store/translations/jobs") return translationJobs
+  if (path === "/api/store/translations") return query.get("summary") === "1" ? translationSummary : frenchTexts
   /* Buy a label: Shippo's rates, then the label (only with ?label; otherwise no label app is connected). */
   if (path.startsWith("/api/physical/orders/") && path.endsWith("/label")) {
     if (method === "GET") return labelOptions()
@@ -343,7 +411,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   } catch {
     body = {}
   }
-  const out = route((init?.method || "GET").toUpperCase(), u.pathname, body)
+  const out = route((init?.method || "GET").toUpperCase(), u.pathname, body, u.searchParams)
   return new Response(JSON.stringify(out), { status: 200, headers: { "content-type": "application/json" } })
 }
 
@@ -457,8 +525,37 @@ function EmailView({ html }: { html: string }) {
   )
 }
 
+/* The website's own selectors under its footer (the builder theme's), as a visitor shown euros sees them; the editor's canvas draws the same ones. */
+function SiteSelectors() {
+  const choice = languageChoiceOf({
+    defaultLanguage: "en",
+    others: ["fr", "de"],
+    locale: "en",
+    markets: markets.localization.markets.filter((m) => !m.primary && m.currency).map((m) => ({ id: m.id, name: m.name, currency: m.currency!, countries: m.countries })),
+    fresh: true,
+    pricing: null,
+    base: "USD",
+    charge: "USD",
+  })
+  const currency = choice.currency ? { ...choice.currency, current: "eu" } : undefined
+  return (
+    <Page width={560} bg="#ffffff">
+      <div style={{ background: "#f4efe8", color: "#2f2a24", borderRadius: 16 }}>
+        <div className="px-6 pb-1 pt-6 text-center text-[13px] opacity-70">© 2026 Fern &amp; Clay</div>
+        <LanguageSwitch choice={{ ...choice, currency }} preview={{ language: () => {}, currency: () => {} }} />
+      </div>
+    </Page>
+  )
+}
+
 function App() {
   switch (view) {
+    case "languages":
+      return <Page width={760}><MarketsPanel /></Page>
+    case "translate-sheet":
+      return <TranslateSheet locale="fr" defaultLanguage="en" published onPublish={() => {}} onClose={() => {}} />
+    case "site-selectors":
+      return <SiteSelectors />
     case "site-checkout":
       return <SiteCheckoutView />
     case "kinds":

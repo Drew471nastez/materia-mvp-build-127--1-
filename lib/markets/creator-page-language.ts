@@ -70,7 +70,8 @@ export async function creatorPageLanguage(creatorId: string, asked: string | nul
   }
   code = code ?? langs.defaultLanguage
   if (suggest && suggest.toLowerCase() === code.toLowerCase()) suggest = null
-  const localizer = code !== langs.defaultLanguage ? await siteLocalizer(creatorId, code) : null
+  /* The default language's translations too, as the website draws them. */
+  const localizer = await siteLocalizer(creatorId, code === langs.defaultLanguage ? null : code)
   return {
     code,
     defaultLanguage: langs.defaultLanguage,

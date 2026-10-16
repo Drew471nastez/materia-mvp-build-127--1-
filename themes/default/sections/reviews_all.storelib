@@ -20,12 +20,12 @@
         <div class="rv__sum">
           <p class="rv__avg">{{ reviews.all.summary.average_label }}</p>
           <div>
-            <span class="rv-stars rv-stars--lg" style="--rv: {{ reviews.all.summary.percent }}%;" role="img" aria-label="{{ reviews.all.summary.average_label }} out of 5 stars"></span>
-            <p class="rv__count">Based on {{ reviews.all.summary.count_label }}</p>
+            <span class="rv-stars rv-stars--lg" style="--rv: {{ reviews.all.summary.percent }}%;" role="img" aria-label="{{ reviews.all.summary.average_label }} {{ words.out_of_five_stars }}"></span>
+            <p class="rv__count">{{ words.based_on }} {{ reviews.all.summary.count }} {% if reviews.all.summary.count == 1 %}{{ words.review }}{% else %}{{ words.reviews }}{% endif %}</p>
           </div>
         </div>
         {% if settings.show_bars %}
-          <ul class="rv__bars" aria-label="Reviews by rating">
+          <ul class="rv__bars" aria-label="{{ words.reviews_by_rating }}">
             {% for b in reviews.all.summary.bars %}<li><span class="rv__bar-n">{{ b.stars }}<span aria-hidden="true"> &#9733;</span></span><span class="rv__bar"><span style="width: {{ b.percent }}%;"></span></span><span class="rv__bar-c">{{ b.count }}</span></li>{% endfor %}
           </ul>
         {% endif %}
@@ -37,33 +37,33 @@
           <article class="rv-card" data-review-id="{{ r.id }}">
             {% if settings.show_product and r.product_title %}<a class="rv-card__prod" href="{{ r.product_url | url }}">{% if r.product_image %}<img src="{{ r.product_image }}" alt="" loading="lazy" decoding="async">{% endif %}<span>{{ r.product_title }}</span></a>{% endif %}
             <div class="rv-card__top">
-              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
               {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
             </div>
             {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
             <p class="rv-card__body">{{ r.body }}</p>
-            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
-            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">Verified buyer</span>{% endif %}</p>
-            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">Reply from {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
+            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
+            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
+            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
           </article>
         {% endfor %}
       </div>
       {% if reviews.all.items.size > settings.per_page %}
         <details class="rv-more">
-          <summary class="rv-btn rv-btn--quiet">Show more reviews</summary>
+          <summary class="rv-btn rv-btn--quiet">{{ words.show_more_reviews }}</summary>
           <div class="rv__list rv__list--{{ settings.layout }}">
             {% for r in reviews.all.items offset: settings.per_page %}
           <article class="rv-card" data-review-id="{{ r.id }}">
             {% if settings.show_product and r.product_title %}<a class="rv-card__prod" href="{{ r.product_url | url }}">{% if r.product_image %}<img src="{{ r.product_image }}" alt="" loading="lazy" decoding="async">{% endif %}<span>{{ r.product_title }}</span></a>{% endif %}
             <div class="rv-card__top">
-              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>
+              <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
               {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
             </div>
             {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
             <p class="rv-card__body">{{ r.body }}</p>
-            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="Photo from {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
-            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">Verified buyer</span>{% endif %}</p>
-            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">Reply from {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
+            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
+            <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
+            {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
           </article>
             {% endfor %}
           </div>

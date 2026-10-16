@@ -14,7 +14,7 @@
       <div class="grid">
         {% for block in blocks %}
           <figure class="q" data-block-id="{{ block.id }}">
-            {% if settings.show_stars %}<div class="stars" aria-label="{{ block.settings.rating }} out of 5">
+            {% if settings.show_stars %}<div class="stars" aria-label="{{ block.settings.rating }} {{ words.out_of_five }}">
                 <span class="{% if block.settings.rating > 0 %}on{% endif %}">★</span><span class="{% if block.settings.rating > 1 %}on{% endif %}">★</span><span class="{% if block.settings.rating > 2 %}on{% endif %}">★</span><span class="{% if block.settings.rating > 3 %}on{% endif %}">★</span><span class="{% if block.settings.rating > 4 %}on{% endif %}">★</span>
               </div>{% endif %}
             <blockquote class="q__text">{{ block.settings.quote }}</blockquote>

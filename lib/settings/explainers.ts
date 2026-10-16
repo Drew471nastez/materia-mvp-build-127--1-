@@ -167,9 +167,9 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Each language gets its own address, like yourstore.com/fr."),
       tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
-      tt("Only approved translations go live, once the language is published. The rest shows in your default language."),
+      tt("A translation goes live as soon as it is done. Anything not translated yet shows in your default language."),
     ] },
-    guide: "/help/physical-products/languages-and-currencies-for-visitors",
+    guide: "/help/website-builder/translate-your-website",
   },
   currency: {
     get title() { return tt("How your currency works") },
@@ -179,7 +179,7 @@ export const EXPLAINERS = {
       tt("Changing the currency asks what happens to your prices: keep the numbers (100 EUR becomes 100 USD) or convert them at the day's exchange rate. Orders already placed keep their own currency."),
       tt("Payouts arrive in your bank's currency. Stripe converts them, which never changes what a buyer paid."),
     ] },
-    guide: "/help/physical-products/country-and-currency",
+    guide: "/help/website-builder/country-and-currency",
   },
   markets: {
     get title() { return tt("How visitor currencies work") },
@@ -189,7 +189,7 @@ export const EXPLAINERS = {
       tt("Visitors are matched by the country they browse from, and can change it with the currency selector. Their choice is remembered."),
       tt("Checkout charges the visitor's currency, the amounts they saw. A currency Storelib can't charge yet is shown for reference, and checkout says it charges yours."),
     ] },
-    guide: "/help/physical-products/languages-and-currencies-for-visitors",
+    guide: "/help/website-builder/sell-in-more-currencies",
   },
 } satisfies Record<string, Explainer>
 

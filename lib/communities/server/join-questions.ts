@@ -9,10 +9,10 @@ import "server-only"
  * the caller already checked: the admin routes through
  * requireCreatorCommunity (manage_settings to write the questions,
  * approve_member to read the answers), the join route through the signed in
- * person joining. Both tables are server only (run-now part 186): nobody
+ * person joining. Both tables are server only (run-now part 189): nobody
  * reads them from a browser.
  *
- * Before part 186 runs every read answers "not ready" with no questions, so
+ * Before part 189 runs every read answers "not ready" with no questions, so
  * joining is exactly what it was.
  */
 import { csvRow } from "@/components/community/creator/logic"
@@ -22,7 +22,7 @@ import { audit } from "./audit"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
 export interface JoinForm {
-  /** Part 186 has run. */
+  /** Part 189 has run. */
   ready: boolean
   questions: JoinQuestion[]
 }

@@ -9,7 +9,7 @@
  *               them; joining asks them for a free join, a request and a
  *               paid one, keeps the answers with the words asked, refuses a
  *               missing answer with the question's id, skips an invite, and
- *               before part 186 joins as it always did
+ *               before part 189 joins as it always did
  *   REQUESTS    the queue carries the answers, emails only when allowed, and
  *               the CSV is every answer with formulas made harmless
  *   FIRST STEPS the list is checked; a member's list ticks a post, a comment,
@@ -23,7 +23,7 @@
  *               up once, as its author, and fails what cannot go up
  *   INVITES     the addresses in a paste or a CSV; members, this week's
  *               invites and the day's limit are skipped
- *   SQL         parts 186 to 188 follow the run-now rules
+ *   SQL         parts 189 to 191 follow the run-now rules
  *   WIRING      the routes' gates, the cron, the join form, the feed
  *   COPY        no em dash, no banned word, no server code in a client file
  *
@@ -228,7 +228,7 @@ async function main() {
   {
     const db = world({ fail: { community_join_forms: { code: "42P01", message: "relation does not exist" } } })
     const r = A(await joinCommunity(db, C, U))
-    check("before part 186 a join asks nothing, as before", r.ok && r.state === "member")
+    check("before part 189 a join asks nothing, as before", r.ok && r.state === "member")
     check("  and the form reads as not ready", (await readJoinForm(db, C)).ready === false)
   }
   {
@@ -319,7 +319,7 @@ async function main() {
     check("not a member: nothing, and nothing ticked", (await memberChecklist(db2, communityOf(db2), viewerOf({ ...fresh, status: "pending" }) as Any, NOW)) === null && !(await markStep(db2, communityOf(db2), viewerOf({ ...fresh, status: "pending" }) as Any, "dismissed")).ok)
     const before = world({ fail: { community_onboarding: { code: "42P01", message: "missing" } } })
     before.tables.community_members.push(fresh)
-    check("before part 187: nothing, no error", (await memberChecklist(before, communityOf(before), viewerOf(fresh) as Any, NOW)) === null)
+    check("before part 190: nothing, no error", (await memberChecklist(before, communityOf(before), viewerOf(fresh) as Any, NOW)) === null)
   }
 
   console.log("\nThe welcome message")
@@ -422,7 +422,7 @@ async function main() {
     check("publish now puts it up at once through the same path", pub.ok && pub.post.status === "published" && posted.at(-1)?.title === "Now")
 
     const missing = world({ fail: { community_scheduled_posts: { code: "42P01", message: "missing" } } })
-    check("before part 188 the run does nothing and says so", (await publishDuePosts(missing, NOW, 10_000, make)).available === false)
+    check("before part 191 the run does nothing and says so", (await publishDuePosts(missing, NOW, 10_000, make)).available === false)
   }
 
   /* ── Invite a list ───────────────────────────────────────────────────── */
@@ -447,11 +447,11 @@ async function main() {
   }
 
   /* ── SQL parts ───────────────────────────────────────────────────────── */
-  console.log("\nSQL parts 186 to 188")
+  console.log("\nSQL parts 189 to 191")
   const PARTS: [string, string, string[]][] = [
-    ["186_community_join_questions.sql", "20270125_community_join_questions.sql", ["community_join_forms", "community_join_answers"]],
-    ["187_community_onboarding_checklist.sql", "20270126_community_onboarding_checklist.sql", ["community_onboarding", "community_onboarding_progress"]],
-    ["188_community_scheduled_posts.sql", "20270127_community_scheduled_posts.sql", ["community_scheduled_posts"]],
+    ["189_community_join_questions.sql", "20270125_community_join_questions.sql", ["community_join_forms", "community_join_answers"]],
+    ["190_community_onboarding_checklist.sql", "20270126_community_onboarding_checklist.sql", ["community_onboarding", "community_onboarding_progress"]],
+    ["191_community_scheduled_posts.sql", "20270127_community_scheduled_posts.sql", ["community_scheduled_posts"]],
   ]
   const after = raw("supabase/sql/run-now/99_check_after.sql")
   const readme = raw("supabase/sql/run-now/README.md")

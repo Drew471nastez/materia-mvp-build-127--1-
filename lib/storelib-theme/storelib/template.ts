@@ -43,6 +43,7 @@ import { Linked, formatDatetime, parseVideoUrl, plainText, safeHref } from "../v
 import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
 import { markFor, stripMarks } from "./marks"
+import { shopWords } from "@/lib/markets/ui-words"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -918,6 +919,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     collection: ctx.collection ?? null,
     /* Storelib Reviews: lib/reviews/storefront.ts. */
     reviews: ctx.reviews ?? null,
+    /* The words a section draws itself (Price, Verified buyer), in the page's language; English wherever none was handed over. */
+    words: ctx.words ?? shopWords(undefined),
     request: ctx.request ?? { page_type: typeof ctx.page?.template === "string" ? ctx.page.template : "", path: "", design_mode: ctx.page?.in_editor === true },
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {

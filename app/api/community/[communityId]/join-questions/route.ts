@@ -13,7 +13,7 @@ type Params = { params: Promise<{ communityId: string }> }
 /**
  * GET /api/community/<communityId>/join-questions -> { questions }
  *
- * What the join form asks (round 32, run-now part 186), for the signed in
+ * What the join form asks (round 32, run-now part 189), for the signed in
  * person about to join: 401 signed out (the join button sends them to sign
  * in first), 403 when they are banned or removed, 404 for a draft,
  * archived, suspended or deleted community, like its page. The answers are

@@ -10,15 +10,19 @@
  * translation under it, and where it stands:
  *
  *   To translate   no translation yet: the original shows on the website
- *   Changed        the original was changed after this was written: still
- *                  shown, until it is looked at again
+ *   Changed        Storelib AI's, and the original changed since: the new
+ *                  original shows until it is translated again (by the
+ *                  automatic run, or Translate the rest)
+ *   Needs review   the merchant's own, and the original changed since: still
+ *                  on the website as they wrote it, never replaced by
+ *                  Storelib AI. Editing it, or Keep as is, settles it.
  *   Draft          translated automatically, not on the website until approved
  *   Done           on the website
  *
- * "Translate the rest" drafts the ones to translate and the changed ones
- * (never a translation a person approved whose original did not change).
- * Save keeps what was typed, approved. An empty translation shows the
- * original again.
+ * "Translate the rest" drafts the ones to translate and Storelib AI's
+ * changed ones, never one a person wrote or edited. Save keeps what was
+ * typed, approved. An empty translation shows the original again. Opened
+ * from a Needs review count (`focus`), the list starts on those.
  */
 import * as React from "react"
 import { Languages, Loader2 } from "lucide-react"
@@ -31,6 +35,8 @@ import { startTranslation, useTranslationJobs } from "./translation-jobs-store"
 import { TranslateBar, useRollingNumber } from "./translate-progress"
 
 type Status = "missing" | "outdated" | "draft" | "done"
+/** What the row says: the server's status, with the merchant's own outdated ones as Needs review. */
+type Shown = Status | "review"
 interface Item {
   key: string
   source: string
@@ -41,6 +47,8 @@ interface Item {
   value: string
   status: Status
   ai: boolean
+  /** The merchant's own, its original changed since (lib/markets/translate.ts needsReview). */
+  review?: boolean
 }
 interface Group {
   id: string
@@ -54,16 +62,17 @@ interface Loaded {
   progress?: { done: number; total: number }
 }
 
-const STATUS: Record<Status, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
+const STATUS: Record<Shown, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
   missing: { get label() { return tt("To translate") }, tone: "gray" },
   outdated: { get label() { return tt("Changed") }, tone: "amber" },
+  review: { get label() { return tt("Needs review") }, tone: "amber" },
   draft: { get label() { return tt("Draft") }, tone: "blue" },
   done: { get label() { return tt("Done") }, tone: "green" },
 }
 
 const DOT: Record<"gray" | "amber" | "blue" | "green", string> = { gray: "bg-[#d1d5db]", amber: "bg-[#f59e0b]", blue: "bg-[#8b5cf6]", green: "bg-[#10b981]" }
 
-type Filter = "todo" | "all"
+type Filter = "todo" | "review" | "all"
 
 /** How long one AI press is waited for: the route stops starting batches at 85s and is allowed 120s in all. */
 const DRAFT_WAIT_MS = 125_000
@@ -74,6 +83,10 @@ const DRAFT_WAIT_MS = 125_000
 */
 const loadedCache = new Map<string, Loaded>()
 
+const shownStatus = (i: Item): Shown => (i.review ? "review" : i.status)
+/** What Translate the rest can do: missing, or Storelib AI's with a changed original. Never the merchant's own. */
+const aiCanDo = (i: Item) => i.status === "missing" || (i.status === "outdated" && !i.review)
+
 /** The words of a rich text original, for reading above the field. */
 const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()
 
@@ -81,7 +94,7 @@ const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(
  * `published` and `onPublish`: the language's own switch in the footer, so
  * translating and putting it live happen in one place (round AE).
  */
-export function TranslateSheet({ locale, defaultLanguage, waiting = false, published = false, onPublish, onClose }: { locale: string | null; defaultLanguage: string; waiting?: boolean; published?: boolean; onPublish?: (v: boolean) => void; onClose: () => void }) {
+export function TranslateSheet({ locale, defaultLanguage, waiting = false, published = false, focus = null, onPublish, onClose }: { locale: string | null; defaultLanguage: string; waiting?: boolean; published?: boolean; focus?: "review" | null; onPublish?: (v: boolean) => void; onClose: () => void }) {
   const [data, setData] = React.useState<Loaded | null>(null)
   const [edits, setEdits] = React.useState<Record<string, string>>({})
   const [approve, setApprove] = React.useState<Set<string>>(new Set())
@@ -113,14 +126,17 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     setApprove(new Set())
     setError(null)
     setNote(null)
-    setFilter("todo")
+    setFilter(focus === "review" ? "review" : "todo")
     if (!waiting) void load(locale)
-  }, [locale, waiting, load])
+  }, [locale, waiting, load, focus])
 
   const items = React.useMemo(() => data?.groups.flatMap((g) => g.items) ?? [], [data])
   const byKey = React.useMemo(() => new Map(items.map((i) => [i.key, i])), [items])
   const changed = Object.keys(edits).filter((k) => edits[k] !== byKey.get(k)?.value)
   const drafts = items.filter((i) => i.status === "draft")
+  const reviews = items.filter((i) => i.review)
+  /* The last one settled while on Needs review: back to the rest of the list. */
+  const filterShown: Filter = filter === "review" && reviews.length === 0 ? "todo" : filter
   const pending = changed.length + [...approve].filter((k) => !changed.includes(k)).length
 
   const save = async (alsoApprove: string[] = []) => {
@@ -210,7 +226,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   const shown = jobRunning && job && job.total > 0 ? { done: job.done, total: job.total } : (data?.progress ?? { done: 0, total: 0 })
   const rolled = useRollingNumber(shown.done)
   const shownGroups = (data?.groups ?? [])
-    .map((g) => ({ ...g, items: g.items.filter((i) => filter === "all" || i.status !== "done" || i.key in edits) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => (filterShown === "review" ? i.review || i.key in edits : filterShown === "all" || (i.status !== "done" && !i.review) || i.key in edits)) }))
     .filter((g) => g.items.length)
 
   return (
@@ -267,23 +283,25 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
             {note && onPublish ? <p className="text-[13px] text-[#4b5563]" aria-live="polite">{note}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               {/* While a job runs the strip above says so: no second, greyed button saying it again. */}
-              {!jobRunning && items.some((i) => i.status === "missing" || i.status === "outdated") ? (
+              {!jobRunning && items.some(aiCanDo) ? (
                 <button type="button" className={cn(BTN_PRIMARY, "h-10")} onClick={() => void draftWithAi()} disabled={!!busy || jobRunning} data-translate-ai="">
                   {busy === "ai" || jobRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
                   {busy === "ai" || jobRunning ? tt("Translating") : tt("Translate the rest")}
                 </button>
               ) : null}
               <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
-                {(["todo", "all"] as Filter[]).map((f) => (
+                {/* Needs review only while there is one: the merchant's own translations whose original changed. */}
+                {(reviews.length ? (["todo", "review", "all"] as Filter[]) : (["todo", "all"] as Filter[])).map((f) => (
                   <button
                     key={f}
                     type="button"
                     role="tab"
-                    aria-selected={filter === f}
+                    aria-selected={filterShown === f}
                     onClick={() => setFilter(f)}
-                    className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filter === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                    data-translate-filter={f}
+                    className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filterShown === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
                   >
-                    {f === "todo" ? tt("To do") : tt("All")}
+                    {f === "todo" ? tt("To do") : f === "review" ? tt("Needs review ({count})", { count: reviews.length }) : tt("All")}
                   </button>
                 ))}
               </div>
@@ -317,7 +335,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
               {g.items.map((i) => {
                 /* Rich text shows its words; untouched, its own formatting is what is saved (save() sends i.value). */
                 const value = edits[i.key] ?? (i.rich && /<[a-z][\s\S]*>/i.test(i.value) ? plain(i.value) : i.value)
-                const st = STATUS[i.status]
+                const st = STATUS[shownStatus(i)]
                 return (
                   <li key={i.key} className="px-3.5 py-3" data-translation={i.key}>
                     <div className="mb-1.5 flex items-center gap-2">
@@ -325,12 +343,13 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                         {i.where !== g.title && i.where ? `${i.where} · ` : ""}
                         {i.label}
                       </span>
-                      <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6b7280]" data-status={i.status}>
+                      <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6b7280]" data-status={shownStatus(i)}>
                         <span className={cn("h-1.5 w-1.5 rounded-full", DOT[st.tone])} aria-hidden="true" />
                         {st.label}
                       </span>
-                      {i.status === "draft" ? (
-                        <label className="flex items-center gap-1.5 text-[12.5px] text-[#4b5563]">
+                      {i.status === "draft" || i.review ? (
+                        /* A draft approved as it is, or the merchant's own kept as it is for the changed original (saved with it, so it is no longer outdated). */
+                        <label className="flex items-center gap-1.5 text-[12.5px] text-[#4b5563]" data-keep-translation={i.review ? i.key : undefined}>
                           <input
                             type="checkbox"
                             className="h-4 w-4 accent-[#1a1a2e]"
@@ -344,7 +363,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                               })
                             }
                           />
-                          {tt("Approve")}
+                          {i.review ? tt("Keep as is") : tt("Approve")}
                         </label>
                       ) : null}
                     </div>

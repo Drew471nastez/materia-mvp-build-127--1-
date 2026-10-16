@@ -92,7 +92,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      belongs to this request, not to anything the creator arranged. */
   /* The filters narrow what the words found, and say how many each would
      leave. The words are matched above, description included, so not again. */
-  const { listed, filters, pagination } = catalogPage(matches, asked, "/search", { matchWords: false })
+  const { listed, filters, pagination } = catalogPage(matches, asked, "/search", { matchWords: false, words: localizer?.words })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", listed, {
     query,
     filters,

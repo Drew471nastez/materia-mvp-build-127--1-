@@ -4,7 +4,7 @@
  * ===========================================================================
  * What a community asks the people who join it, and what they answered,
  * checked the same way in the browser (the editor, the join form) and on the
- * server (supabase/sql/run-now/186_community_join_questions.sql keeps them).
+ * server (supabase/sql/run-now/189_community_join_questions.sql keeps them).
  * Pure and browser safe.
  *
  *   A QUESTION   an id the server made (q_ and eight letters or digits), its

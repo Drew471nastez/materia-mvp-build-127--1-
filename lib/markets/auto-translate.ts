@@ -2,9 +2,9 @@ import "server-only"
 
 /**
  * ===========================================================================
- *  TRANSLATE CHANGES AUTOMATICALLY: THE HOURLY JOB
+ *  TRANSLATE CHANGES AUTOMATICALLY
  * ===========================================================================
- * For a store with Settings › Markets and languages' "Translate changes
+ * For a store with Settings › Languages & Currency's "Translate changes
  * automatically" on (store_localization.auto_translate, SQL part 175): the
  * website's text that is new, or changed since it was translated, is
  * translated into each of its other languages and goes live. Only that:
@@ -13,17 +13,31 @@ import "server-only"
  * again, and a text already translated under another key is reused with
  * no call at all (draftReusing).
  *
+ * WHEN. A save that changes the website's words marks the store
+ * (./translate-queue.ts, SQL part 186). Every five minutes
+ * /api/cron/translation-jobs runs runChangedStores: the marked stores whose
+ * last change has settled for SETTLE_MS, oldest first, each held by a lease
+ * so two runs never translate the same store. A store that changed nothing
+ * is never looked at, so the work grows with the edits, not the stores.
+ * The hourly /api/cron/translations is the safety sweep: it only marks the
+ * stores nothing has marked for a day (a change made somewhere no save
+ * marks, Storelib's own words updated), a few dozen at a time. Before part
+ * 186 it works through the stores itself, as it always did.
+ *
  * NEVER THE MERCHANT'S WORDS. A translation they wrote or edited is not
  * sent and not replaced, outdated or not (aiMayWrite), and it is read again
- * just before the write in case they saved one meanwhile (keepManual).
+ * just before the write in case they saved one meanwhile (keepManual). When
+ * its original changes it stays live and is listed as Needs review
+ * (translate.ts needsReview); Storelib AI's own are written again.
  *
- * RETRIED BY THE NEXT RUN. What was not done (no time left, Storelib AI
- * unreachable, a translation that lost a placeholder or a link and was
- * refused by lib/markets/draft-check.ts) is still missing or outdated, so
- * the next hour picks it up; the original shows meanwhile. What each run
- * did is kept on the store (auto_translate_run) for the switch to say.
- *
- * Called by /api/cron/translations, behind the cron secret.
+ * RETRIED. What was not done (no time left, Storelib AI unreachable, a
+ * translation that lost a placeholder or a link and was refused by
+ * lib/markets/draft-check.ts) is still missing or outdated. A store that
+ * made progress stays marked and the next run carries on; one the
+ * translator could not be reached for is tried again RETRY_MS later; one
+ * where nothing could be written is left to the daily sweep rather than
+ * tried every five minutes. What each run did is kept on the store
+ * (auto_translate_run) for the switch to say.
  */
 import { defaultLanguageScope, writtenLanguage } from "./detect-language"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -32,14 +46,25 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { autoTranslateMissing, localizationOf, marketsMissing, saveTranslations, siteTexts, translationsOf, type AutoTranslateRun } from "./server"
 import { BUILT_IN_GROUPS, aiMayWrite, isEnglish, translationMap } from "./translate"
 import { canDraftWithAi, draftReusing } from "./translate-ai"
+import { SETTLE_MS, queueMissing } from "./translate-queue"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
 /** Texts one language takes in one run: a new website in a few hours, a day's edits at once. */
 export const PER_LANGUAGE = 150
-/** Stores one run looks at, the longest waiting first. */
+/** Stores one run looks at, the longest waiting first (before part 186). */
 export const STORES_PER_RUN = 25
+/** Changed stores one three-minute run takes, the longest waiting first. */
+export const CHANGED_PER_RUN = 20
+/** How long a run holds a store: longer than one run's window, so another never takes it midway. */
+const LEASE_MS = 6 * 60_000
+/** A store the translator could not be reached for waits this long before the next try. */
+const RETRY_MS = 10 * 60_000
+/** The sweep marks a store nothing has marked for this long... */
+export const SWEEP_AFTER_MS = 24 * 3_600_000
+/** ...this many an hour, so it never crowds out the stores that changed. */
+export const SWEEP_PER_RUN = 60
 
 /** One store: each of its other languages in turn, until `deadlineAt`. */
 export async function autoTranslateStore(db: Db, creatorId: string, deadlineAt: number): Promise<AutoTranslateRun | null> {
@@ -108,9 +133,137 @@ async function storesToRun(db: Db): Promise<string[]> {
   return ((data ?? []) as { creator_id: string }[]).map((r) => r.creator_id)
 }
 
-/** The hourly run: as many stores as fit before `deadlineAt`, each one's result kept on it. */
-export async function runAutoTranslate(deadlineAt: number, db: Db = createAdminClient()): Promise<{ stores: number; translated: number; left: number; skipped?: string }> {
+/* ── The changed stores, every five minutes ─────────────────────────── */
+
+type Marked = { creator_id: string; translate_dirty_at: string }
+
+const iso = (ms: number) => new Date(ms).toISOString()
+const settled = (r: { data: unknown; error: { code?: string; message?: string } | null }) => r
+const failedRead = (e: unknown) => ({ data: null, error: { message: String(e) } })
+
+/** The marked stores whose last change has settled and that no run holds, oldest first. Null before part 186. */
+async function changedStores(db: Db, now: number): Promise<Marked[] | null> {
+  const { data, error } = await db
+    .from("store_localization")
+    .select("creator_id, translate_dirty_at")
+    .eq("auto_translate", true)
+    .not("translate_dirty_at", "is", null)
+    .lte("translate_dirty_at", iso(now - SETTLE_MS))
+    .or(`translate_lease_until.is.null,translate_lease_until.lt."${iso(now)}"`)
+    .order("translate_dirty_at", { ascending: true })
+    .limit(CHANGED_PER_RUN)
+    .then(settled, failedRead)
+  if (error) {
+    if (queueMissing(error) || autoTranslateMissing(error) || marketsMissing(error)) return null
+    console.error("[auto-translate] could not list the changed stores")
+    return []
+  }
+  return ((data ?? []) as Marked[]).filter((r) => typeof r.creator_id === "string" && typeof r.translate_dirty_at === "string")
+}
+
+/** Holds the store for this run, while its mark is still the one read and no other run holds it. */
+async function claimStore(db: Db, s: Marked, now: number): Promise<boolean> {
+  const { data } = await db
+    .from("store_localization")
+    .update({ translate_lease_until: iso(now + LEASE_MS) })
+    .eq("creator_id", s.creator_id)
+    .eq("translate_dirty_at", s.translate_dirty_at)
+    .or(`translate_lease_until.is.null,translate_lease_until.lt."${iso(now)}"`)
+    .select("creator_id")
+    .then(settled, failedRead)
+  return Array.isArray(data) && data.length > 0
+}
+
+/**
+ * What a run leaves on the store. `done`: the mark is cleared, unless the
+ * store changed again while it ran (then the newer mark stays). `more`: it
+ * made progress and has more, so it stays marked for the next run. `retry`:
+ * the translator could not be reached, tried again RETRY_MS later. The
+ * lease is let go in every case.
+ */
+export function outcomeOf(run: AutoTranslateRun | null): "done" | "more" | "retry" {
+  if (!run) return "done"
+  if (run.error) return "retry"
+  /* Progress with more to do: go on. Nothing written though some is left: those texts came back refused, and are left to the daily sweep. */
+  return run.left > 0 && run.translated > 0 ? "more" : "done"
+}
+
+async function settleStore(db: Db, s: Marked, outcome: "done" | "more" | "retry"): Promise<void> {
+  const ignore = () => undefined
+  if (outcome === "done") await db.from("store_localization").update({ translate_dirty_at: null, translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).then(ignore, ignore)
+  if (outcome === "retry") await db.from("store_localization").update({ translate_dirty_at: iso(Date.now() + RETRY_MS - SETTLE_MS), translate_lease_until: null }).eq("creator_id", s.creator_id).eq("translate_dirty_at", s.translate_dirty_at).then(ignore, ignore)
+  await db.from("store_localization").update({ translate_lease_until: null }).eq("creator_id", s.creator_id).then(ignore, ignore)
+}
+
+/**
+ * Every five minutes: each store whose website changed a few minutes ago,
+ * translated and put live, until `deadlineAt`. `skipped` says why nothing
+ * ran (no AI key, or part 186 not run: the hourly run covers it then).
+ */
+export async function runChangedStores(deadlineAt: number, db: Db = createAdminClient()): Promise<{ stores: number; translated: number; left: number; skipped?: string }> {
+  const out = { stores: 0, translated: 0, left: 0 }
+  if (!canDraftWithAi()) return { ...out, skipped: "no AI key" }
+  const list = await changedStores(db, Date.now())
+  if (list === null) return { ...out, skipped: "no queue" }
+  for (const s of list) {
+    /* A store is started only with a minute left: it gets at least one language's call. */
+    if (Date.now() > deadlineAt - 60_000) break
+    if (!(await claimStore(db, s, Date.now()))) continue
+    let run: AutoTranslateRun | null = null
+    let outcome: "done" | "more" | "retry" = "retry"
+    try {
+      run = await autoTranslateStore(db, s.creator_id, deadlineAt)
+      if (run) await keepRun(db, s.creator_id, run)
+      outcome = outcomeOf(run)
+    } catch (err) {
+      console.error(`[auto-translate] a store failed: ${err instanceof Error ? err.name : "error"}`)
+    }
+    await settleStore(db, s, outcome)
+    if (!run) continue
+    out.stores++
+    out.translated += run.translated
+    out.left += run.left
+  }
+  return out
+}
+
+/* ── The safety sweep, hourly ─────────────────────────────────────────── */
+
+/** Marks the stores nothing has marked for a day, a few dozen at a time. Null before part 186. */
+async function queueQuietStores(db: Db, now: number): Promise<number | null> {
+  const { data, error } = await db
+    .from("store_localization")
+    .select("creator_id, auto_translate_run")
+    .eq("auto_translate", true)
+    .is("translate_dirty_at", null)
+    .order("auto_translate_run->>at", { ascending: true, nullsFirst: true })
+    .limit(SWEEP_PER_RUN)
+    .then(settled, failedRead)
+  if (error) return queueMissing(error) ? null : 0
+  const quiet = ((data ?? []) as { creator_id: string; auto_translate_run?: { at?: unknown } | null }[])
+    .filter((r) => {
+      const at = typeof r.auto_translate_run?.at === "string" ? Date.parse(r.auto_translate_run.at) : NaN
+      return !Number.isFinite(at) || at < now - SWEEP_AFTER_MS
+    })
+    .map((r) => r.creator_id)
+  if (quiet.length === 0) return 0
+  /* Marked as changed a settle ago, so the next three-minute run takes them; one marked meanwhile by a save keeps its own time. */
+  await db.from("store_localization").update({ translate_dirty_at: iso(now - SETTLE_MS) }).in("creator_id", quiet).is("translate_dirty_at", null).then(
+    () => undefined,
+    () => undefined,
+  )
+  return quiet.length
+}
+
+/**
+ * The hourly run. With part 186: the safety sweep, which only marks quiet
+ * stores for the three-minute run. Before it: as many stores as fit before
+ * `deadlineAt`, each one's result kept on it, as it always was.
+ */
+export async function runAutoTranslate(deadlineAt: number, db: Db = createAdminClient()): Promise<{ stores: number; translated: number; left: number; queued?: number; skipped?: string }> {
   if (!canDraftWithAi()) return { stores: 0, translated: 0, left: 0, skipped: "no AI key" }
+  const queued = await queueQuietStores(db, Date.now())
+  if (queued !== null) return { stores: 0, translated: 0, left: 0, queued }
   const ids = await storesToRun(db)
   const out = { stores: 0, translated: 0, left: 0 }
   for (const id of ids) {

@@ -16,7 +16,7 @@ type Params = { params: Promise<{ id: string }> }
  *
  * Settings › Access › Questions before joining (round 32). Whoever may
  * change the community's settings (manage_settings) reads and writes them;
- * `ready` is false until run-now part 186 has made the table, and a PUT
+ * `ready` is false until run-now part 189 has made the table, and a PUT
  * then answers 503 not_ready.
  */
 export async function GET(_request: Request, { params }: Params) {

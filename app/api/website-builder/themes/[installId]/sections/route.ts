@@ -9,6 +9,7 @@ import { accountPageSections } from "@/lib/website-builder/account-pages"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
@@ -337,7 +338,11 @@ export async function PUT(req: Request, { params }: Params) {
    * can see, and throwing the cache away on every keystroke would undo the
    * point of having one.
    */
-  if (mode === "publish" && creatorId) await revalidatePublishedSite(creatorId)
+  if (mode === "publish" && creatorId) {
+    await revalidatePublishedSite(creatorId)
+    /* Its words, translated in a few minutes when Translate changes automatically is on (lib/markets/translate-queue.ts). */
+    translationsChanged(creatorId)
+  }
 
   return NextResponse.json({ page: result })
 }

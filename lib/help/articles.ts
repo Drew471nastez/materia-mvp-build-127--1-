@@ -18,7 +18,7 @@
  * Text may carry links as [label](/path). Nothing else is parsed.
  */
 
-import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY } from "./physical-articles"
+import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, SITE_WIDE_ARTICLES } from "./physical-articles"
 
 export type HelpBlock =
   | { type: "p"; text: string }
@@ -766,6 +766,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "p", text: "You can also write to [support@storelib.com](mailto:support@storelib.com) directly. For a copyright claim, include the work you own and where the copy is." },
     ],
   },
+  /* Store currency, more currencies and languages (written in ./physical-articles beside the guide they grew from). */
+  ...SITE_WIDE_ARTICLES,
 ]
 
 /*
@@ -919,7 +921,14 @@ export function helpImages(a: HelpArticle): string[] {
 export const HELP_MOVED: Record<string, string> = {
   "physical-products/tax-and-units": "physical-products/units-and-packages",
   /* The currency is set in Store details › Country & Currency now, apart from the payout currency. */
-  "physical-products/store-currency": "physical-products/country-and-currency",
+  "physical-products/store-currency": "website-builder/country-and-currency",
+  /* Languages and visitor currencies were one article; now Translate your website, Edit a translation and Sell in more currencies. */
+  "physical-products/languages-and-currencies-for-visitors": "website-builder/translate-your-website",
+  /* Currency and languages are in Settings for every store: under Website builder, which every store sees. */
+  "physical-products/country-and-currency": "website-builder/country-and-currency",
+  "physical-products/sell-in-more-currencies": "website-builder/sell-in-more-currencies",
+  "physical-products/translate-your-website": "website-builder/translate-your-website",
+  "physical-products/edit-a-translation": "website-builder/edit-a-translation",
 }
 
 /** The articles most people come for, first on the Help Center's home. The physical ones show only while the guide is on. */

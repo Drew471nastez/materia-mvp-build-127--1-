@@ -3,7 +3,7 @@
  *  SCHEDULED POSTS AND DRAFTS (round 32)
  * ===========================================================================
  * A post the people who run a community write now and put up later, or keep
- * as a draft (run-now part 188). Pure and browser safe: the editor and the
+ * as a draft (run-now part 191). Pure and browser safe: the editor and the
  * server check with the same rules.
  *
  *   draft       kept, not going anywhere; may be half written

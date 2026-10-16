@@ -274,13 +274,27 @@ html[data-theme-swap]::view-transition-new(root) {
   mix-blend-mode: normal;
   animation: none;
 }
+/*
+  The control that was pressed (lib/appearance/client.ts OWN_LAYER) is live on top of the still, with no picture of
+  its old state and no fade of its own: its knob slides and its colours ease on the element's own transitions.
+*/
+html[data-theme-swap]::view-transition-group(appearance-control) {
+  animation: none;
+}
+html[data-theme-swap]::view-transition-old(appearance-control) {
+  display: none;
+}
+html[data-theme-swap]::view-transition-new(appearance-control) {
+  mix-blend-mode: normal;
+  animation: none;
+}
 @keyframes sl-theme-out {
   to {
     opacity: 0;
   }
 }
 
-/* ── Every colour class the buyer pages use, 786 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 783 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -431,7 +445,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/85:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.85); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/95:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.95); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1f2230\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#3a3a42\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#c7cbd1\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d1d5db\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d4d4d8\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
@@ -440,7 +453,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e0e7ff\]:not([data-own-look], [data-own-look] *) { background-color: hsla(226,60%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e1e3e7\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e2e4e8\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e3e5e9\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e3f5e9\]:not([data-own-look], [data-own-look] *) { background-color: hsla(140,47%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e4e5e9\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e4e6ea\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
@@ -455,7 +467,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e9ebef\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#e9f6ef\]:not([data-own-look], [data-own-look] *) { background-color: hsla(148,42%,50%,0.16); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ebecef\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ececee\]:not([data-own-look], [data-own-look] *) { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *) { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#eceef2\]:not([data-own-look], [data-own-look] *) { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#ecfdf3\]:not([data-own-look], [data-own-look] *) { background-color: hsla(145,60%,50%,0.16); }

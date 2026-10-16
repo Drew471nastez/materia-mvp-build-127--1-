@@ -28,7 +28,7 @@ import { PLATFORM_JOB_KINDS } from "@/lib/communities/types"
  * (lib/communities/server/event-tickets.ts releaseDeadHolds): one statement
  * per run, and nothing at all before run-now part 105. And it puts up the
  * scheduled posts that are due (lib/communities/server/scheduled-posts.ts,
- * run-now part 188), each once, as its author, within a few seconds' budget.
+ * run-now part 191), each once, as its author, within a few seconds' budget.
  * Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"

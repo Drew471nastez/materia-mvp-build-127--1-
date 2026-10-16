@@ -86,7 +86,7 @@ export default async function SiteShopPage({ params, searchParams }: PageProps) 
      (lib/products/catalog-filters.ts). Pickers above still name from the
      whole shop. */
   const catalogue = await siteCatalogue(site.creatorId).then((c) => (localizer ? localizer.cards(c) : c)).catch(() => products ?? [])
-  const { listed, filters, pagination } = catalogPage(catalogue.length ? catalogue : products ?? [], asked, "/products")
+  const { listed, filters, pagination } = catalogPage(catalogue.length ? catalogue : products ?? [], asked, "/products", { words: localizer?.words })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", listed, { filters, pagination }, data)
 
   return (

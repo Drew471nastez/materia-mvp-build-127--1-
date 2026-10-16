@@ -187,7 +187,9 @@ const WISHLIST_PATH = "/wishlist"
 /** Where the account control goes, and what it is called, for this visitor. */
 function useAccountLink(): { href: string; label: string } {
   const { signedIn } = useSiteWishlist()
-  return signedIn ? { href: ACCOUNT_PATH, label: "Account" } : { href: SIGN_IN_PATH, label: "Sign in" }
+  /* In the page's language (Translate › Shop words). */
+  const w = useWord()
+  return signedIn ? { href: ACCOUNT_PATH, label: w("account") } : { href: SIGN_IN_PATH, label: w("sign_in") }
 }
 
 function SavedCount({ className }: { className?: string }) {
@@ -207,7 +209,8 @@ function SavedCount({ className }: { className?: string }) {
 
 function useWishlistLabel(): string {
   const { count, ready } = useSiteWishlist()
-  return ready && count > 0 ? `Wishlist, ${count} saved` : "Wishlist"
+  const w = useWord()
+  return ready && count > 0 ? `${w("wishlist")}, ${count} ${w("saved")}` : w("wishlist")
 }
 
 
@@ -1044,6 +1047,8 @@ function MobileDrawerInner({
   cta: DrawerCta | null
   onOpenSearch: (() => void) | null
 }) {
+  /* Its words in the page's language (Translate › Shop words). */
+  const w = useWord()
   // Active submenu id — null means we're on the ROOT menu. When an item
   // with children is tapped this flips to that item's id and the drawer
   // slides to a sub-page showing just that item's children (iOS-style).
@@ -1307,7 +1312,7 @@ function MobileDrawerInner({
             /* The scheme's heading on its background, the same pairing as the panel. */
             style={{ background: scheme.bg, color: scheme.heading }}
           >
-            <span className="flex-1 text-[18px] font-semibold truncate px-2">Menu</span>
+            <span className="flex-1 text-[18px] font-semibold truncate px-2">{w("menu")}</span>
             <button
               type="button"
               onClick={onClose}
@@ -1550,7 +1555,7 @@ function MobileDrawerInner({
             style={{ background: scheme.bg, color: scheme.nav_link }}
           >
             <Search className="h-[20px] w-[20px]" strokeWidth={1.8} />
-            <span>Search</span>
+            <span>{w("search")}</span>
           </a>
         )}
 

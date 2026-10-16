@@ -131,7 +131,7 @@ export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
       ? await send<{ post: ScheduledPostView }>(`/api/app/community/${head.id}/scheduled-posts/${form.id}`, "PATCH", payload(form))
       : await send<{ post: ScheduledPostView }>(`/api/app/community/${head.id}/scheduled-posts`, "POST", payload(form))
     setBusy(null)
-    if (!res.ok) return setError({ text: res.data.error === "not_ready" ? tt("Scheduling needs the database update (run-now part 188).") : errorText(res.data.error), field: res.data.field })
+    if (!res.ok) return setError({ text: res.data.error === "not_ready" ? tt("Scheduling needs the database update (run-now part 191).") : errorText(res.data.error), field: res.data.field })
     setOpen(false)
     toast(form.mode === "draft" ? tt("Draft saved") : tt("Scheduled for {value}", { value: when(res.data.post.publishAt) }))
     void load()
@@ -235,7 +235,7 @@ export function ScheduledPostsPanel({ head }: { head: CommunityHead }) {
     >
       <div data-scheduled-panel="">
         {!data.ready ? (
-          <Notice tone="warn">{tt("Scheduling needs the database update (run-now part 188).")}</Notice>
+          <Notice tone="warn">{tt("Scheduling needs the database update (run-now part 191).")}</Notice>
         ) : !spaces.length ? (
           <p className="text-[13.5px] text-[#6b7280]">{tt("There is no space you can post in yet.")}</p>
         ) : data.rows.length === 0 ? (

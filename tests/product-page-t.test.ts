@@ -396,7 +396,7 @@ async function main() {
     check("nothing left says so, with the way back", empty.ok === true && /No products match these filters\./.test(empty.html) && /href="\/products">Clear all</.test(empty.html))
     const shop = code("app/(site)/w/[username]/products/page.tsx")
     const search = code("app/(site)/w/[username]/search/page.tsx")
-    check("the shop and the search page filter from their address", /catalogPage\(catalogue\.length \? catalogue : products \?\? \[\], asked, "\/products"\)/.test(shop) && /catalogPage\(matches, asked, "\/search", \{ matchWords: false \}\)/.test(search))
+    check("the shop and the search page filter from their address", /* Changed on purpose (translation coverage): each hands its page's shop words over, for the filters' labels. */ /catalogPage\(catalogue\.length \? catalogue : products \?\? \[\], asked, "\/products", \{ words: localizer\?\.words \}\)/.test(shop) && /catalogPage\(matches, asked, "\/search", \{ matchWords: false, words: localizer\?\.words \}\)/.test(search))
     check("the page submits the form as a box is ticked, outside the builder", /form\[data-storelib-filters\]/.test(read("components/website-builder/sections/StorelibSection.tsx")))
   }
 
