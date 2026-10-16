@@ -104,6 +104,13 @@ function report(): PerfReport {
     },
     payments: extras.payments,
     jobs: extras.jobs,
+    cronRuns: [
+      { job: "/api/cron/notify", schedule: "*/5 * * * *", state: "ok", lastRun: new Date(NOW - 3 * 60_000).toISOString(), lastOk: true, runs24h: 288, failed24h: 0 },
+      { job: "/api/cron/physical", schedule: "3,13,23,33,43,53 * * * *", state: "ok", lastRun: new Date(NOW - 7 * 60_000).toISOString(), lastOk: true, runs24h: 144, failed24h: 2 },
+      { job: "/api/cron/process-scheduled-emails", schedule: "0 * * * *", state: "late", lastRun: new Date(NOW - 4 * 3_600_000).toISOString(), lastOk: true, runs24h: 20, failed24h: 0 },
+      { job: "/api/cron/rollup-daily", schedule: "0 1 * * *", state: "failed", lastRun: new Date(NOW - 11 * 3_600_000).toISOString(), lastOk: false, runs24h: 1, failed24h: 1 },
+      { job: "/api/cron/fx-rates", schedule: "35 15 * * 1-5", state: "never", lastRun: null, lastOk: null, runs24h: 0, failed24h: 0 },
+    ],
     supabase: { configured: true, ok: true, services: ["db", "auth", "rest", "storage", "realtime"].map((name) => ({ name, healthy: true })), down: 0, requests: { rest: 412_880, auth: 18_204, storage: 61_330, realtime: 2_104 } },
     vercel: { configured: false },
     problems: rankProblems(AGGS, ERRORS),

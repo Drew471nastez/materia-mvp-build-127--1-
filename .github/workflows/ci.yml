@@ -1,5 +1,6 @@
 # Every push to main and every pull request: the whole test suite, lint, the
-# type error ratchet and a production build. docs/operations/release-safety.md
+# type error ratchet and a production build, with its memory and bundle size
+# held to a budget. docs/operations/release-safety.md
 # says how to make Vercel wait for these before a deploy goes live.
 name: CI
 
@@ -82,4 +83,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      # The build itself, with the peak memory of its whole process tree
+      # sampled from /proc. Over 7,600 MB fails: Vercel Standard builds in
+      # 8 GB. The figure is in the job summary.
+      - name: Build, peak memory measured
+        run: node scripts/ci/measure-build.mjs -- pnpm build
+      # First-load JS of the key routes and the server output, against
+      # perf-budgets.json (today's figures plus 10%).
+      - name: Performance budgets
+        run: node scripts/perf-budget.mjs

@@ -12,6 +12,7 @@ import type { Optimization } from "./optimizations"
 import type { ErrorGroupRow, Problem } from "./problems"
 import type { Aggregate, HealthResult } from "./scoring"
 import type { SupabaseInfo, VercelInfo } from "./infra-types"
+import type { CronJobHealth } from "./cron-health"
 
 export type WindowId = "24h" | "7d" | "30d"
 
@@ -59,6 +60,8 @@ export interface PerfReport {
   slow: SlowQueries | null
   payments: { failed: number; completed: number } | null
   jobs: { late: number; known: number } | null
+  /** Each scheduled job from cron_runs (part 68): last run, failures in 24 hours. Null when it could not be read. Optional for a report cached before it existed. */
+  cronRuns?: CronJobHealth[] | null
   supabase: SupabaseInfo
   vercel: VercelInfo
   problems: Problem[]

@@ -1,7 +1,10 @@
 # Release safety: nothing broken goes live quietly
 
-Two halves. Before a change is live, it is checked. After it is live, anything
-that breaks is written down and you hear about it.
+Three parts. Before a change is live, it is checked, and its build memory
+and bundle size are held to a budget. The moment a deployment is ready, it
+is opened and checked. After it is live, anything that breaks is written
+down and you hear about it. Load tests: [load-testing.md](load-testing.md).
+Undoing something: [rollback.md](rollback.md).
 
 ## Before: CI on every push
 
@@ -12,9 +15,40 @@ that breaks is written down and you hear about it.
 | Tests | `pnpm test:push`, every suite the sessions run by hand, now run every time. |
 | Lint | `pnpm lint`, clean. |
 | Type errors only go down | `scripts/ci/typecheck-ratchet.mjs`: the codebase carries type errors from before anyone checked (`.github/typescript-baseline.json`, file by file). No file may get more. Fixing is always allowed; run `node scripts/ci/typecheck-ratchet.mjs --write` after a fix so it cannot come back. When the baseline is empty, `typescript.ignoreBuildErrors` comes out of `next.config.mjs`. |
-| Production build | `pnpm build` with placeholder keys, the build Vercel does. |
+| Production build | `pnpm build` with placeholder keys, the build Vercel does, run through `scripts/ci/measure-build.mjs`: the peak memory of the whole build process tree, sampled from `/proc`, must stay under 7,600 MB (Vercel Standard builds in 8 GB). Then `scripts/perf-budget.mjs`: first-load JS of eight key routes and the server output against `perf-budgets.json`. Both figures are in the job's summary. |
 
 A red CI on GitHub is a broken commit on `main`: fix it before anything else.
+
+### Budgets
+
+`perf-budgets.json` holds, per route, the first-load JavaScript (gzipped)
+and the size of `.next/server` (without its trace lists), each set at the
+figure measured when it was added plus 10%. Measured on 15 October 2026:
+
+| Route | First load (gzip) | Budget |
+| --- | ---: | ---: |
+| `/` | 511 KB | 563 KB |
+| `/pricing` | 504 KB | 555 KB |
+| `/explore` | 527 KB | 581 KB |
+| `/p/[slug]` | 702 KB | 773 KB |
+| `/app` | 633 KB | 697 KB |
+| `/website-builder/editor/[installId]` | 1,329 KB | 1,462 KB |
+| `/w/[username]` | 641 KB | 706 KB |
+| `/checkout/site` | 493 KB | 543 KB |
+| Server output | 218 MB | 240 MB |
+
+A route's first load is every client chunk its client reference manifest
+names (root layout to page, with their error and not-found boundaries) plus
+the runtime, each counted once. Turbopack writes no size table of its own.
+
+The build's peak was 6,958 MB RSS (6,625 MB PSS) on 4 CPUs, against the
+7,600 MB ceiling. `BUILD_PEAK_LIMIT_MB` changes the ceiling for one run.
+
+A route over budget fails the build job. If the growth is deliberate, raise
+its number in `perf-budgets.json` in the same pull request and say why;
+`node scripts/perf-budget.mjs --write` resets every budget to today plus 10%,
+which should be rare. Run it locally after `pnpm build`:
+`node scripts/perf-budget.mjs`.
 
 ### Make Vercel wait for it (one time, the owner)
 
@@ -31,7 +65,69 @@ wait until CI is green:
 ### Undo a bad deploy
 
 Vercel, Deployments, the last good one, **Instant Rollback**. Seconds, no
-rebuild. Then fix forward on `main`.
+rebuild. Then fix forward on `main`. The whole runbook, including one
+creator's website, a SQL trigger and a variable, is
+[rollback.md](rollback.md).
+
+## Right after: the deployment is opened and checked
+
+`.github/workflows/post-deploy.yml` runs when Vercel reports a deployment
+ready (GitHub's `deployment_status` event, state success, which Vercel's
+GitHub integration sends for every deployment). It runs
+`scripts/smoke-deploy.mjs` against the deployment's address:
+
+- `/`, `/pricing`, `/explore`, `/features` answer 200 and are public
+  (`Cache-Control` lets the CDN hold them); `/explore` may redirect home
+  instead, as it does while the marketplace is switched off;
+- `/app` is never public, `/checkout/site` is `no-store`;
+- `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and a
+  content security policy are sent (vercel.json);
+- `/api/health` says ok and is never cached;
+- `robots.txt` and `sitemap.xml` answer with their content;
+- with the repository variable `SMOKE_SITE` set (a username, or a full
+  address such as `https://demo.storelib.com`), that website opens.
+
+It is **advisory**: it runs after the deployment exists, so it cannot stop
+it. A failure is a warning on the run with the details in its summary, and
+a post to `ALERT_WEBHOOK_URL` when set. It never turns a check red.
+
+Run it by hand against anything:
+
+```bash
+BASE_URL=https://storelib.com node scripts/smoke-deploy.mjs
+```
+
+Against a local `next start` on placeholder keys, set `SMOKE_NO_DATABASE=1`
+(health only has to answer, sitemap may be 503). The security headers are
+skipped on localhost, since `next start` does not apply vercel.json.
+
+### Set it up (one time, the owner)
+
+1. Vercel's GitHub integration must be connected (it is, if pull requests
+   show Vercel's preview links). It posts deployment statuses by default; if
+   Vercel, Settings, Git, **Deployment Status Events** is off, turn it on.
+2. If previews are behind Vercel Authentication (Settings, Deployment
+   Protection), create a **Protection Bypass for Automation** secret there and
+   add it in GitHub, Settings, Secrets and variables, Actions, as
+   `VERCEL_AUTOMATION_BYPASS_SECRET`. Without it every preview answers 401
+   and the smoke run says so.
+3. Optionally the variable `SMOKE_SITE` (above).
+
+### Make it blocking (if you want that)
+
+Two steps, both needed:
+
+1. GitHub, Settings, Secrets and variables, Actions, **Variables**: add
+   `SMOKE_BLOCKING` = `true`. A failed smoke run is then a failed check
+   instead of a warning.
+2. Have Vercel wait for it before promoting: Vercel, Settings, **Deployment
+   Checks**, add the GitHub check `Smoke the deployment`. Vercel then builds
+   production, dispatches `vercel.deployment.success` to the repository
+   (the workflow listens for it), and promotes only when the check passes.
+   A deployment that fails it stays built and unpromoted; the live site is
+   untouched.
+
+To undo either, delete the variable or remove the check.
 
 ## After: alerts when something breaks
 
@@ -51,6 +147,18 @@ or Discord incoming webhook). Each kind of error is told the first time, then
 at most once an hour while it continues. Every occurrence is counted in the
 admin: Health, Errors. Nothing personal is sent: addresses are masked and
 anything named like a secret is dropped (`lib/observability/report.ts`).
+
+### Where each figure is
+
+| Figure | Where |
+| --- | --- |
+| Speed, errors, slow statements, checkout reliability | `/admin/performance` |
+| Each scheduled job: last run, failed or late, runs and failures in 24 hours (`cron_runs`) | `/admin/performance`, Scheduled jobs; `/api/health` |
+| CDN cache hit ratio for real visitors | Vercel, Observability, Edge Requests. Vercel adds `x-vercel-cache` after the function answers, so the app cannot see it. For a test run, `scripts/load/storefront.mjs` reports it ([load-testing.md](load-testing.md)). |
+| Function memory and duration | Vercel, Observability, Vercel Functions |
+| Build memory and bundle size | the CI build job's summary |
+
+No paid service is involved in any of these.
 
 ### Set it up (one time, the owner)
 

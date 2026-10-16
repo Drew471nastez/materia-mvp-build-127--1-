@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CRON_JOBS } from "@/lib/admin/schema-expectations"
+import { lateAfterMinutes } from "@/lib/perf/cron-health"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,15 +20,8 @@ export const dynamic = "force-dynamic"
  *
  * Public by design: it names jobs and ages, never data, keys or people.
  * Before part 68 there is no record of job runs, and jobs are "unknown",
- * which is not a failure.
+ * which is not a failure. When a job is late: lib/perf/cron-health.ts.
  */
-function lateAfterMinutes(schedule: string): number {
-  if (schedule.startsWith("*/")) return Math.max(30, Number(schedule.slice(2).split(" ")[0]) * 6)
-  const [minute, hour] = schedule.split(" ")
-  if (hour === "*" && /^\d+$/.test(minute)) return 3 * 60
-  return 30 * 60
-}
-
 export async function GET() {
   const headers = { "Cache-Control": "no-store" }
   const admin = createAdminClient()

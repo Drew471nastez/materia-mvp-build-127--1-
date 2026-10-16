@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { AREA_LABEL, AREAS, CLIENT_SAMPLE_RATE, MIN_RATE_BASE, SERVER_SAMPLE_RATE, estimatedCount, MIN_SAMPLES, PROVISIONAL_SHARE, STEPS, STEP_ROUTES, type Area } from "@/lib/perf/config"
 import { WINDOWS, type PerfReport, type ScoreDay, type WindowId } from "@/lib/perf/report"
+import type { CronJobHealth } from "@/lib/perf/cron-health"
 import {
   MIN_MEASURES,
   MIN_SUB_SCORES,
@@ -787,7 +788,49 @@ function InfraPanel({ report }: { report: PerfReport }) {
             </span>
           ),
         )}
+        {line("CDN cache hits", "Vercel adds x-vercel-cache after the function answers", <span className="text-[#6b6b76]">Vercel, Observability, Edge Requests</span>)}
+        {line("Function memory", "Peak per function, from Vercel", <span className="text-[#6b6b76]">Vercel, Observability, Vercel Functions</span>)}
       </dl>
+    </Panel>
+  )
+}
+
+/* ── 4b. Scheduled jobs, one by one ──────────────────────────────────── */
+
+const JOB_STATE: Record<CronJobHealth["state"], { rating: Rating | null; text: string }> = {
+  ok: { rating: "good", text: "On time" },
+  failed: { rating: "poor", text: "Last run failed" },
+  late: { rating: "needs-improvement", text: "Late" },
+  never: { rating: null, text: "No run in 2 days" },
+}
+
+function JobsPanel({ report }: { report: PerfReport }) {
+  const jobs = report.cronRuns
+  const columns: Column<CronJobHealth>[] = [
+    { key: "job", label: "Job", width: "minmax(0,2fr)", phone: "primary", render: (j) => <span className="font-mono text-[12px]">{j.job.replace("/api/cron/", "")}</span> },
+    {
+      key: "state",
+      label: "State",
+      width: "minmax(0,1fr)",
+      phone: "secondary",
+      render: (j) => (
+        <span className="inline-flex items-center gap-1.5">
+          <Dot rating={JOB_STATE[j.state].rating} />
+          {JOB_STATE[j.state].text}
+        </span>
+      ),
+    },
+    { key: "last", label: "Last run", width: "96px", align: "right", phone: "end", render: (j) => (j.lastRun ? ago(j.lastRun) : "") },
+    { key: "runs", label: "Runs, 24h", width: "80px", align: "right", phone: "hide", render: (j) => num(j.runs24h) },
+    { key: "failed", label: "Failed", width: "64px", align: "right", phone: "hide", render: (j) => <span className={j.failed24h ? "text-[#f47067]" : undefined}>{num(j.failed24h)}</span> },
+  ]
+  return (
+    <Panel title="Scheduled jobs" meta="From each run's own record">
+      {jobs === undefined || jobs === null ? (
+        <p className="px-4 py-6 text-[13px]"><Insufficient note="Waiting for database part 68 (cron_runs)" /></p>
+      ) : (
+        <DataList columns={columns} rows={jobs} rowKey={(j) => j.job} empty="No scheduled jobs." label="Scheduled jobs" />
+      )}
     </Panel>
   )
 }
@@ -965,6 +1008,7 @@ export function PerformanceAdmin({ initial }: { initial: PerfReport }) {
             <InfraPanel report={report} />
           </div>
           <ErrorsPanel report={report} />
+          <JobsPanel report={report} />
           <DatabasePanel report={report} />
           <OptimizationsPanel report={report} />
           <RulesPanel />

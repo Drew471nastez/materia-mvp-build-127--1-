@@ -641,6 +641,8 @@ const SUITES = [
   "tests/publishing-cache.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
+  /* Safety nets that measure: build memory, bundle budgets, the post-deploy smoke, the load test, the rollback runbook, each job from cron_runs */
+  "tests/ops-safety-nets.test.ts",
 ]
 
 /**
