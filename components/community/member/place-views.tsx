@@ -34,6 +34,7 @@ import { withChunkRecovery } from "@/lib/communities/client/resume"
 import { CommunityFeed } from "./feed"
 import { PlaceLoading, PlaceSpinner } from "./place-spinner"
 import { SpaceChips } from "./space-chips"
+import { adminHref } from "./edit-hint"
 
 /**
  * A view whose code is its own chunk, drawn synchronously once that code is here. `preload` asks for it (once, with the
@@ -141,7 +142,7 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
     case "chat":
       return (
         <div className="max-w-[760px]">
-          <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} />
+          <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
           <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} />
         </div>
       )

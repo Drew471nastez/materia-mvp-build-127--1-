@@ -49,7 +49,8 @@ console.log("\nICON: one emoji, or up to two letters, counted as a person counts
 console.log("\nROWS: a row opens what it is; its menu keeps the rest")
 {
   for (const [f, open] of [
-    ["spaces", /onClick=\{rowPress\(\(\) => edit\(s\)\)\}/],
+    /* Changed on purpose (round 33): a space's row is its own sortable component now (the drag), handed edit(s) as onOpen, which its row presses. */
+    ["spaces", /onOpen=\{\(\) => edit\(s\)\}[\s\S]*onClick=\{rowPress\(onOpen\)\}/],
     ["classroom", /onClick=\{rowPress\(\(\) => settle\(c\)\)\}/],
     ["events", /onClick=\{rowPress\(\(\) => edit\(e\)\)\}/],
     ["feed", /onClick=\{rowPress\(\(\) => router\.push\(hrefOf\(r\)\)\)\}/],

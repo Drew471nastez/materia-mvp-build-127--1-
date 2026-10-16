@@ -223,9 +223,9 @@ export function fileSizeLabel(bytes?: number): string {
 }
 
 /** The one picture a post's card shows on its right: a picture, a video's poster, a GIF's still, a video by address, a link's picture. */
-export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "video" | "gif" | "link"; local: boolean; motion?: string } | null {
+export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "video" | "gif" | "link"; local: boolean; motion?: string; blur?: string; videoId?: string } | null {
   for (const m of media) if (m.type === "image") return { url: m.url, kind: "image", local: true }
-  for (const m of media) if (m.type === "video" && m.poster) return { url: m.poster, kind: "video", local: true }
+  for (const m of media) if (m.type === "video" && m.poster) return { url: m.poster, kind: "video", local: true, videoId: m.videoId, ...(m.blur ? { blur: m.blur } : {}) }
   for (const m of media) if (m.type === "embed" && m.thumb) return { url: m.thumb, kind: "video", local: false }
   for (const m of media) if (m.type === "gif") return { url: m.still, kind: "gif", local: false, motion: m.url }
   for (const m of media) if (m.type === "link" && m.image) return { url: m.image, kind: "link", local: false }
@@ -247,6 +247,10 @@ export interface CardPicture {
   h?: number
   /** A GIF's moving picture (round 12): it plays while the card is on screen, the still stands in otherwise. */
   motion?: string
+  /** A video's poster at 16px (round 33), drawn blurred under the poster from the first frame. */
+  blur?: string
+  /** An uploaded video's id, for its still (round 33). */
+  videoId?: string
 }
 
 /** Every picture a post carries, in its order (a GIF by its still, a video by its poster), else its link's picture. */
@@ -254,7 +258,7 @@ export function cardPictures(media: PostMedia[]): CardPicture[] {
   const out: CardPicture[] = []
   for (const m of media) {
     if (m.type === "image") out.push({ url: m.url, local: true, kind: "image", w: m.w, h: m.h })
-    else if (m.type === "video" && m.poster) out.push({ url: m.poster, local: true, kind: "video", w: m.w, h: m.h })
+    else if (m.type === "video" && m.poster) out.push({ url: m.poster, local: true, kind: "video", w: m.w, h: m.h, videoId: m.videoId, ...(m.blur ? { blur: m.blur } : {}) })
     else if (m.type === "embed" && m.thumb) out.push({ url: m.thumb, local: false, kind: "video" })
     else if (m.type === "gif") out.push({ url: m.still, local: false, kind: "gif", w: m.w, h: m.h, motion: m.url })
   }
@@ -275,7 +279,7 @@ export function cardPictures(media: PostMedia[]): CardPicture[] {
 export type ViewerItem =
   | { kind: "image"; url: string; w?: number; h?: number; raw?: boolean }
   | { kind: "gif"; url: string; still: string; w?: number; h?: number }
-  | { kind: "video"; videoId: string; poster?: string; w?: number; h?: number }
+  | { kind: "video"; videoId: string; poster?: string; w?: number; h?: number; blur?: string }
   | { kind: "embed"; provider: EmbedProvider; id: string; hash?: string; thumb?: string; title?: string }
   | { kind: "clip"; url: string; poster?: string }
 
@@ -284,10 +288,63 @@ export function viewerItems(media: PostMedia[]): ViewerItem[] {
   for (const m of media) {
     if (m.type === "image") out.push({ kind: "image", url: m.url, w: m.w, h: m.h })
     else if (m.type === "gif") out.push({ kind: "gif", url: m.url, still: m.still, w: m.w, h: m.h })
-    else if (m.type === "video") out.push({ kind: "video", videoId: m.videoId, poster: m.poster, w: m.w, h: m.h })
+    else if (m.type === "video") out.push({ kind: "video", videoId: m.videoId, poster: m.poster, w: m.w, h: m.h, ...(m.blur ? { blur: m.blur } : {}) })
     else if (m.type === "embed") out.push({ kind: "embed", provider: m.provider, id: m.id, hash: m.hash, thumb: m.thumb, title: m.title })
   }
   return out
+}
+
+/*
+  ===========================================================================
+   A VIDEO'S STILL, FILLED IN LATER (round 33)
+  ===========================================================================
+  The owner: posts with a video "take very long to show their preview; it shows that grey thing, then the preview appears
+  abruptly". A video whose browser could not cut a still when it was sent (an iPhone's HEVC file on a computer's Chrome, a
+  timeout) had none for good, and Storelib's own storage has no service to make one, so every card of it loaded the file to
+  find its first frame. Its still is filled in once now: the first time its author or a moderator sees it, their browser
+  sends the frame it already drew, and the server keeps it with the post (lib/communities/server/video-posters.ts). The
+  16px copy (`blur`) is the server's, made from the poster, never sent by a browser.
+*/
+
+/** A 16px still as a data address: WebP, JPEG or PNG, base64, short. Anything else is no blur at all. */
+export const VIDEO_BLUR_MAX_CHARS = 2400
+export function videoBlurOf(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > VIDEO_BLUR_MAX_CHARS) return null
+  return /^data:image\/(?:webp|jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/.test(value) ? value : null
+}
+
+/** The uploaded videos of a post that have no still yet, by id. */
+export function videosWithoutPoster(media: readonly PostMedia[]): string[] {
+  return media.filter((m): m is Extract<PostMedia, { type: "video" }> => m.type === "video" && !m.poster).map((m) => m.videoId)
+}
+
+/** The uploaded videos of a post whose still has no 16px copy yet, by id. */
+export function videosWithoutBlur(media: readonly PostMedia[]): string[] {
+  return media.filter((m): m is Extract<PostMedia, { type: "video" }> => m.type === "video" && !!m.poster && !m.blur).map((m) => m.videoId)
+}
+
+/**
+ * The post's media with this video's still filled in where it has none (a poster already there is never replaced), its
+ * shape where it was not known, and its 16px copy where it has none and `blur` was made from that poster (`blurFor`, the
+ * poster's address; the new poster's when it is not given). Null when nothing changes.
+ */
+export function withVideoStill(media: readonly PostMedia[], videoId: string, still: { poster?: string | null; w?: number | null; h?: number | null; blur?: string | null; blurFor?: string | null }): PostMedia[] | null {
+  let changed = false
+  const id = videoId.toLowerCase()
+  const out = media.map((m) => {
+    if (m.type !== "video" || m.videoId !== id) return m
+    const next: Extract<PostMedia, { type: "video" }> = { ...m }
+    if (!next.poster && still.poster) {
+      next.poster = still.poster
+      if (!next.w && still.w) next.w = Math.round(still.w)
+      if (!next.h && still.h) next.h = Math.round(still.h)
+    }
+    const blur = videoBlurOf(still.blur)
+    if (blur && !next.blur && next.poster && (still.blurFor ?? still.poster) === next.poster) next.blur = blur
+    if (next.poster !== m.poster || next.w !== m.w || next.h !== m.h || next.blur !== m.blur) changed = true
+    return next
+  })
+  return changed ? out : null
 }
 
 type EmbedMedia = Extract<PostMedia, { type: "embed" }>

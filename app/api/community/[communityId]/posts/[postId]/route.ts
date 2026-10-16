@@ -6,6 +6,7 @@ import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, deletePost, getPostView, memberSubject, readJson, sessionUserId, updatePost } from "@/lib/communities/server/feed"
 import { announcePostChange } from "@/lib/communities/server/realtime"
+import { blurPostVideos } from "@/lib/communities/server/video-posters"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -43,6 +44,8 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
   const post = result.value
   after(() => announcePostChange(communityId, { id: post.id, spaceId: post.space?.id ?? null, change: "edit" }))
+  /* Round 33: an edit's media comes back through checkMedia without the 16px copies; they are made again (video-posters.ts). */
+  if (post.media.some((m) => m.type === "video")) after(() => blurPostVideos(db, communityId, post.id))
   return NextResponse.json({ post }, { headers: NO_STORE })
 }
 

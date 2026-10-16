@@ -26,6 +26,7 @@ import { lengthInWords } from "@/lib/courses/progress"
 import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { PlaceIcon } from "@/components/community/member/place-icons"
 import { CARD_RAISED } from "@/components/community/member/ui"
+import { EDIT_GROUP, EditHint } from "@/components/community/member/edit-hint"
 import { cn } from "@/lib/utils"
 import { noteProgramOpened } from "./learn-history"
 import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
@@ -33,11 +34,15 @@ import { tt } from "@/lib/i18n/text"
 
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
-    <section data-learn aria-labelledby="learn-title">
+    <section data-learn aria-labelledby="learn-title" className={manageHref ? EDIT_GROUP : undefined}>
       <header className="mb-3 flex items-baseline justify-between gap-3 sm:mb-4">
-        <h1 id="learn-title" className="text-[19px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[21px]">
-          {tt("Learn")}
-        </h1>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <h1 id="learn-title" className="text-[19px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[21px]">
+            {tt("Learn")}
+          </h1>
+          {/* Round 33: where the people who run Learn change it (empty, the card's own button says so instead). */}
+          {manageHref && programs.length ? <EditHint href={manageHref} label={tt("Edit programs")} phone className="self-center" /> : null}
+        </span>
         {programs.length ? (
           <p className="text-[12.5px] tabular-nums text-[#6b7280]">
             {tt("{n, plural, one {# program} other {# programs}}", { n: programs.length })}

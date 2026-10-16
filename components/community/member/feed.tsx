@@ -79,6 +79,7 @@ import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
+import { adminHref } from "./edit-hint"
 import { revealMore } from "./reveal-more"
 import { LIST_AFTER_MS } from "./chip-hit"
 import { toast } from "./toast"
@@ -720,6 +721,7 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
           onPick={pick}
           onIntent={intent}
           sort={<SortMenu value={sort} onChange={onSort} saved={target.kind === "saved"} onSaved={toggleSaved} />}
+          editHref={adminHref(slug, viewer, "manage_spaces", "spaces")}
         />
       ) : null}
 

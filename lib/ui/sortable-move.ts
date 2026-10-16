@@ -1,5 +1,9 @@
 import type * as React from "react"
+import type { Modifier } from "@dnd-kit/core"
 import type { useSortable } from "@dnd-kit/sortable"
+
+/** Up and down only, for a list whose items never go sideways (the community's spaces, round 33). */
+export const verticalOnly: Modifier = ({ transform }) => ({ ...transform, x: 0 })
 
 type Sortable = Pick<ReturnType<typeof useSortable>, "transform" | "transition" | "isDragging">
 

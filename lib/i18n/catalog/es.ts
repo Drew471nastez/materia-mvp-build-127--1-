@@ -2432,6 +2432,8 @@ const words: Record<string, string> = {
  "{n, plural, one {# request declined} other {# requests declined}}": "{n, plural, one {# solicitud rechazada} other {# solicitudes rechazadas}}",
  "{price} a ticket · none sold yet": "{price} por entrada · ninguna vendida aún",
  "{shown} of {total}": "{shown} de {total}",
+ "To move a space, press Enter on its handle, then the arrow keys. Press Enter again to drop it, or Escape to put it back.": "Para mover un espacio, pulsa Intro en su asa y luego las flechas. Pulsa Intro otra vez para soltarlo, o Escape para devolverlo a su sitio.",
+ "Edit programs": "Editar programas",
  "Earlier visits": "Visitas anteriores",
  "Earnings summary (CSV)": "Resumen de ingresos (CSV)",
  "EasyPost": "EasyPost",

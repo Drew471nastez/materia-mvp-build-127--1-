@@ -167,9 +167,18 @@ const KEEPING = new Set<string>()
 export function videoFrameStill(videoId: string): { src: string; w: number; h: number } | null {
   return FRAME_STILLS.get(videoId) ?? null
 }
+/* The kept frames' own files (round 33), for a card that sends one as the video's still after another card kept it. */
+const FRAME_BLOBS = new Map<string, Blob>()
+export function videoFrameBlob(videoId: string): Blob | null {
+  return FRAME_BLOBS.get(videoId) ?? null
+}
 
-/** Keeps the frame `video` shows now as the picture for this video, once. Quietly nothing when the file may not be read back (another site's, without CORS). */
-export function keepVideoFrame(videoId: string, video: HTMLVideoElement): void {
+/**
+ * Keeps the frame `video` shows now as the picture for this video, once. Quietly nothing when the file may not be read back
+ * (another site's, without CORS). Round 33: `onKept` is handed the frame's JPEG once it is kept, for a video with no still
+ * of its own whose author or moderator is looking at it (media.tsx VideoFrame sends it as the video's still).
+ */
+export function keepVideoFrame(videoId: string, video: HTMLVideoElement, onKept?: (frame: Blob, size: { w: number; h: number }) => void): void {
   if (FRAME_STILLS.has(videoId) || KEEPING.has(videoId) || typeof document === "undefined") return
   const vw = video.videoWidth
   const vh = video.videoHeight
@@ -194,8 +203,10 @@ export function keepVideoFrame(videoId: string, video: HTMLVideoElement): void {
         /* The decoded picture held for the page, so the browser keeps it ready to draw. */
         const keep = () => {
           FRAME_STILLS.set(videoId, { src, w: vw, h: vh })
+          FRAME_BLOBS.set(videoId, blob)
           HELD_FRAMES.push(img)
           done()
+          onKept?.(blob, { w: vw, h: vh })
         }
         if (typeof img.decode === "function")
           img.decode().then(keep, () => {
