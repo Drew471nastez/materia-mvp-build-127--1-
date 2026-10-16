@@ -240,7 +240,8 @@ check("an article page has its contents, beside it and folded on a phone", /<OnT
 check("  previous and next, related articles, and the date it was checked", /data-help-prevnext/.test(page) && /data-help-related/.test(page) && /Updated <time dateTime/.test(page))
 check("the contents beside an article stay in view: no overflow-x-hidden scroll box around the page", /overflow-x-clip/.test(read("app/help/layout.tsx")) && !/overflow-x-hidden/.test(read("app/help/layout.tsx")) && /sticky top-24/.test(page))
 const parts = read("components/help/help-parts.tsx")
-check("a heading carries the id its contents link to, clear of the sticky header", /id=\{idOf\(b\.text\)\}/.test(parts) && /scroll-mt-24/.test(parts))
+/* Changed on purpose: clear of the header by the header's own measured height (--buyer-header-h), not a fixed 96px, which left a heading 28px behind the taller bar in the iOS app (scripts/check-help-mobile.mjs). */
+check("a heading carries the id its contents link to, clear of the sticky header", /id=\{idOf\(b\.text\)\} className="mt-12 scroll-mt-\[calc\(var\(--buyer-header-h,72px\)\+16px\)\]/.test(parts))
 check("a screenshot shows its phone picture on a phone", /<source media="\(max-width: 639px\)" srcSet=\{b\.phone\.src\}/.test(parts))
 check("a table becomes stacked rows on a phone instead of scrolling sideways", /content-\[attr\(data-label\)/.test(parts) && /max-sm:block/.test(parts))
 const helpUi = [home, catPage, page, parts, read("components/help/toc-spy.tsx"), read("lib/help/structured-data.ts")].join("\n")

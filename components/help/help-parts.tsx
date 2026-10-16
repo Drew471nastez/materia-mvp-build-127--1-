@@ -47,19 +47,26 @@ export function RichText({ text }: { text: string }) {
   return <>{parts}</>
 }
 
+/**
+ * WHERE YOU ARE. Each link is 44px tall for a thumb, its padding pulled back
+ * into the line so the trail still reads as one line of text. On a phone the
+ * last crumb, the page itself, is left to screen readers: the title under it
+ * says the same, and an article's long title wrapped the trail onto a second
+ * and third line above it.
+ */
 export function Breadcrumbs({ items }: { items: { label: string; href?: string }[] }) {
   return (
     <nav aria-label="Breadcrumb" className="text-[14px] text-[#4b5563]">
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {items.map((item, i) => (
-          <li key={item.label} className="flex min-w-0 items-center gap-x-2">
+          <li key={item.label} className={`flex min-w-0 items-center gap-x-2 ${item.href ? "" : "max-sm:sr-only"}`}>
             {i > 0 && (
               <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-[#9ca3af]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
                 <path d="m6 4 4 4-4 4" />
               </svg>
             )}
             {item.href ? (
-              <Link href={item.href} className="hover:text-[#1a1a2e] hover:underline hover:underline-offset-2">
+              <Link href={item.href} className="-my-3 inline-flex min-h-11 items-center hover:text-[#1a1a2e] hover:underline hover:underline-offset-2">
                 {item.label}
               </Link>
             ) : (
@@ -109,13 +116,13 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
             )
           case "h":
             return (
-              <h2 key={i} id={idOf(b.text)} className="mt-12 scroll-mt-24 text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#1a1a2e] first:mt-0 sm:text-[22px]">
+              <h2 key={i} id={idOf(b.text)} className="mt-12 scroll-mt-[calc(var(--buyer-header-h,72px)+16px)] text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#1a1a2e] first:mt-0 sm:text-[22px]">
                 {b.text}
               </h2>
             )
           case "sub":
             return (
-              <h3 key={i} id={subIdOf(b.text)} className="mt-10 scroll-mt-24 text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e]">
+              <h3 key={i} id={subIdOf(b.text)} className="mt-10 scroll-mt-[calc(var(--buyer-header-h,72px)+16px)] text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e]">
                 {b.text}
               </h3>
             )
@@ -247,7 +254,7 @@ export function OnThisPage({ items, variant }: { items: { id: string; text: stri
     <ol className="relative space-y-0.5 before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-[#e5e7eb]" data-help-toc="">
       {items.map((t) => (
         <li key={t.id}>
-          <a href={`#${t.id}`} className="relative block py-1.5 pl-4 text-[14px] leading-snug text-[#6b7280] transition-colors before:absolute before:inset-y-1 before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#1a1a2e]">
+          <a href={`#${t.id}`} className="relative flex min-h-11 items-center py-1.5 pl-4 lg:block lg:min-h-0 text-[14px] leading-snug text-[#6b7280] transition-colors before:absolute before:inset-y-1 before:left-0 before:w-[2px] before:rounded-full before:bg-transparent before:transition-colors hover:text-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e] aria-[current=true]:before:bg-[#1a1a2e]">
             {t.text}
           </a>
         </li>

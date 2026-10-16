@@ -483,7 +483,22 @@ function main() {
   check("and it folds back once the menu has gone", /open=\{headerProfileOpen\}/.test(read("components/app/sidebar.tsx")) && /open=\{mobileProfileDropdownOpen\}/.test(read("components/app/mobile-account-menu.tsx")))
   const desktopMenu = /const profileDropdownItems = \[([\s\S]*?)\]/.exec(read("components/app/sidebar.tsx"))?.[1] ?? ""
   const phoneMenu = /const items = useMemo\(\(\) => \[([\s\S]*?)\]/.exec(read("components/app/mobile-account-menu.tsx"))?.[1] ?? ""
-  check("no Help in the account menu on any size", !!desktopMenu && !!phoneMenu && !/"\/help"/.test(desktopMenu) && !/"\/help"/.test(phoneMenu))
+  /*
+    Changed on purpose: Help is back in the account menu at every size, as
+    its own row after Language and before the line above Sign out, opening
+    /help as a page in the same tab the way Library does. It is not a row of
+    the lists above (those are the rows before Language), so the lists stay
+    without it and the row is pinned where it is drawn.
+    scripts/check-help-mobile.mjs presses it in both menus.
+  */
+  const sidebarSrc = read("components/app/sidebar.tsx")
+  const phoneSrc = read("components/app/mobile-account-menu.tsx")
+  const desktopHelpRows = sidebarSrc.match(/settings\.language"\)\}<\/span>\s*<\/button>[\s\S]{0,1200}?<Link\s+href="\/help"[\s\S]{0,900}?<span>Help<\/span>\s*<\/Link>\s*<div className="my-1 h-px bg-neutral-100" \/>[\s\S]{0,800}?settings\.signOut/g) ?? []
+  check("Help in the account menu on every size, after Language, before Sign out, in the same tab",
+    !!desktopMenu && !!phoneMenu && !/"\/help"/.test(desktopMenu) && !/"\/help"/.test(phoneMenu)
+      && (sidebarSrc.match(/href="\/help"/g) ?? []).length === 2 && desktopHelpRows.length === 2
+      && /<span>\{languageLabel\}<\/span>\s*<\/button>[\s\S]{0,200}<Link\s+href="\/help"[\s\S]{0,900}<span>Help<\/span>/.test(phoneSrc)
+      && !/href="\/help"[^>]*target=/.test(sidebarSrc + phoneSrc))
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",

@@ -15,6 +15,7 @@ import type { ReactNode } from "react"
 import { Package, Rocket, Wallet, LayoutTemplate, Mail, CreditCard, ShieldCheck, Truck, LifeBuoy, type LucideIcon } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { HelpSearch } from "./help-search"
+import { HelpDashboardLink } from "./help-dashboard-link"
 import { cn } from "@/lib/utils"
 
 /** The width every Help Center page is laid out in. */
@@ -53,13 +54,12 @@ export function HelpHero({ home = false, query, children }: { home?: boolean; qu
       </svg>
       <div className={cn(HELP_WIDTH, home ? "pb-14 pt-8 sm:pb-20 sm:pt-10" : "pb-8 pt-6 sm:pb-10 sm:pt-8")}>
         <div className="flex items-center justify-between gap-4">
-          <Link href="/help" className="inline-flex items-center gap-2 rounded-lg text-[18px] font-semibold tracking-[-0.01em] text-white outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:text-[20px]">
+          {/* Both 44px tall for a thumb, their padding pulled into the row so the band keeps its height. */}
+          <Link href="/help" className="-my-2 inline-flex min-h-11 items-center gap-2 rounded-lg text-[18px] font-semibold tracking-[-0.01em] text-white outline-none focus-visible:ring-2 focus-visible:ring-white/40 sm:text-[20px]">
             Help Center
             <StorelibLogo size={22} alt="" className="rounded-[6px]" />
           </Link>
-          <a href="/app" className="text-[13.5px] font-medium text-white/80 transition-colors hover:text-white sm:text-[14px]">
-            Go to your dashboard
-          </a>
+          <HelpDashboardLink />
         </div>
         {home ? <h1 className="mt-10 text-[30px] font-bold leading-tight tracking-[-0.02em] sm:mt-14 sm:text-[40px]">How can we help you?</h1> : null}
         <div className={cn("max-w-[760px]", home ? "mt-6" : "mt-6 sm:mt-8")}>
