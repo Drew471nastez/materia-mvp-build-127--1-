@@ -34,7 +34,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
 }
 const code = (p: string) => readCode(p)
-const url = (r: ReturnType<typeof normalizeSocialLink>) => (r.ok ? r.url : `!${r.error}`)
+const url = (r: ReturnType<typeof normalizeSocialLink>) => ("url" in r ? r.url : `!${r.error}`)
 
 console.log("\nLINKS: a network and @name")
 {
