@@ -22,7 +22,7 @@ const NOT_SET_UP = "Published versions are not set up yet."
  *  AN EARLIER PUBLISH, LIVE AGAIN
  * ===========================================================================
  * The release's settings, pages and files are written back into the live
- * rows in one transaction (`rollback_site_release`, SQL part 186), with the
+ * rows in one transaction (`rollback_site_release`, SQL part 188), with the
  * drafts cleared, and kept as a new release the website points at. Moving
  * the pointer alone would leave the rows saying something else, and the
  * rows are what the website is drawn from after any edit (part 180's

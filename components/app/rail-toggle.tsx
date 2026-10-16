@@ -1,33 +1,33 @@
 "use client"
 
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { toggleAppRail, type RailState } from "@/lib/ui/app-rail"
 import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
- *  THE SIDEBAR'S COLLAPSE CONTROL (round 31)
+ *  THE SIDEBAR'S COLLAPSE CONTROL (round 32)
  * ===========================================================================
  * Round 29 put it in a band above Dashboard; round 30 made it a round handle
- * on the sidebar's border that only showed while the pointer was over the
- * sidebar. The owner, on that: "I don't like the collapsible one that
- * appears on hover. Put the collapse toggle above the 'Upgrade to Pro' card
- * in the sidebar, as a line/row. It must not be a hover thing: just an icon
- * like Shopify has, always visible, I click it to collapse and click again
- * to expand."
+ * on the sidebar's border that only showed on hover; round 31 made it a row
+ * with the word "Collapse" beside the icon. The owner, on that row: it must
+ * not look like a button row. Just the icon, clean, like Shopify's sidebar
+ * toggle: a small panel icon, no word, no background, no border, above the
+ * Upgrade card.
  *
- * So it is a row now, at the foot of the sidebar directly above the Upgrade
- * card (components/app/sidebar-desktop-nav), drawn the way every other row
- * there is drawn: the same 38px height, 14px padding, 20px icon, grey and
- * hover background, which the caller hands in so there is one palette. Its
- * icon is a panel with its left side marked off, the way Shopify draws
- * theirs, and it never moves sideways: 31px from the sidebar's left, open
- * and collapsed, like every other icon. "Collapse" beside it while the
- * sidebar is open; collapsed, the word fades with the other labels, the card
- * folds away under it, and the icon stays where it is, above Settings.
+ * So it is a bare icon, at the foot of the sidebar directly above the
+ * Upgrade card (components/app/sidebar-desktop-nav). The button is a 32px
+ * square around the 20px icon so it is easy to hit, but nothing about the
+ * square is drawn: no fill at rest and none under the pointer. The pointer
+ * only takes the icon a shade darker, from the rows' own greys, which the
+ * caller hands in so there is one palette. The icon's centre is 31px from
+ * the sidebar's left, open and collapsed, like every other icon, so it never
+ * moves sideways; collapsed, the card folds away under it and it sits above
+ * Settings.
  *
- * Under the pointer, after a short wait, a small tooltip says what it does
+ * Under the pointer, after a short wait, a small tooltip says what it does,
+ * "Collapse sidebar" or "Expand sidebar", the same words as its aria-label,
  * and its shortcut: ⌘B on a Mac, Ctrl+B elsewhere, read from the platform
  * and never from the user agent string. The shortcut works anywhere in /app
  * except while typing (lib/ui/app-rail).
@@ -60,13 +60,13 @@ function PanelIcon() {
 }
 
 export function RailToggle({
-  rowClassName,
-  paint,
+  rest,
+  hover,
 }: {
-  /** The rows' own geometry (sidebar-desktop-nav's ROW). */
-  rowClassName: string
-  /** The rows' own colours for a row that is not the page you are on, resting or hovered. */
-  paint: (hovered: boolean) => CSSProperties
+  /** The icons' resting grey (sidebar-desktop-nav's REST_TEXT). */
+  rest: string
+  /** The rows' hover text (HOVER_TEXT): the only thing the pointer changes here. */
+  hover: string
 }) {
   const [state, setState] = useState<RailState>("open")
   const [mac, setMac] = useState<boolean | null>(null)
@@ -151,14 +151,18 @@ export function RailToggle({
         aria-controls="app-rail"
         aria-keyshortcuts={mac === null ? undefined : mac ? "Meta+B" : "Control+B"}
         data-rail-toggle=""
-        className={`${rowClassName} outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]`}
-        /* Its box-shadow is the focus ring's: a row that is never the page you are on has no depth to give it. */
-        style={{ ...paint(hovered), boxShadow: undefined }}
+        /*
+          ml-[8px]: the foot's 7px gutter and 8px more put the 32px square's
+          centre, and so the icon's, 31px from the sidebar's left, in the
+          column every row's icon is in. Nothing drawn but the icon; the
+          ring is the keyboard's only.
+        */
+        className="ml-[8px] flex h-8 w-8 items-center justify-center rounded-[8px] bg-transparent outline-none transition-[color] duration-[140ms] ease-out focus-visible:ring-2 focus-visible:ring-neutral-300 [-webkit-tap-highlight-color:transparent]"
+        style={{ color: hovered ? hover : rest }}
       >
         <span data-nav-icon="outline" className="relative flex h-5 w-5 min-w-5 shrink-0 items-center justify-center">
           <PanelIcon />
         </span>
-        <span data-nav-label="" className="whitespace-nowrap">{tt("Collapse")}</span>
       </button>
       {tip && keys
         ? createPortal(

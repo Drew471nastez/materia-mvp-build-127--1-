@@ -833,7 +833,7 @@ export function DesktopSidebarContent({
       {/*
         NO BAND ABOVE DASHBOARD (round 30). The collapse control had a 40px
         strip of its own up here; the owner did not want the empty space.
-        Since round 31 it is a row at the foot, above the Upgrade card
+        Since round 31 it is at the foot, above the Upgrade card
         (components/app/rail-toggle), and Dashboard is the first thing in
         the sidebar, 12px from its top.
       */}
@@ -873,14 +873,14 @@ export function DesktopSidebarContent({
       */}
       <div className="space-y-[2px] px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
         {/*
-          THE COLLAPSE TOGGLE, A ROW ABOVE THE CARD (round 31). The owner: "Put
-          the collapse toggle above the 'Upgrade to Pro' card in the sidebar,
-          as a line/row. It must not be a hover thing: just an icon like
-          Shopify has, always visible." It is drawn as a row that is never
-          the page you are on, from the same ROW and rowStyle as Settings
-          under it, so its icon is 31px from the left like every other one.
+          THE COLLAPSE TOGGLE, A BARE ICON ABOVE THE CARD (round 32). The
+          owner, on round 31's row with "Collapse" beside it: it must not
+          look like a button row, just the icon, like Shopify's. No word, no
+          background, no border; the pointer only darkens the icon, in the
+          rows' own greys. Its icon is in the rows' icon column, 31px from
+          the left (components/app/rail-toggle).
         */}
-        <RailToggle rowClassName={ROW} paint={(hovered) => rowStyle(false, hovered)} />
+        <RailToggle rest={REST_TEXT} hover={HOVER_TEXT} />
 
         {/*
           THE CARD AS IT WAS. "Make it how it was before": the light violet

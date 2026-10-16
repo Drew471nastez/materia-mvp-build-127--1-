@@ -13,12 +13,12 @@
   <div class="s__in s__in--{{ settings.max_width }} rb__in rb__in--{{ settings.align }}">
     {% if reviews.here.summary.count > 0 %}
       <a class="rb__link" href="{{ settings.link | default: '#reviews' }}">
-        <span class="rv-stars" style="--rv: {{ reviews.here.summary.percent }}%;" role="img" aria-label="{{ reviews.here.summary.average_label }} out of 5 stars"></span>
+        <span class="rv-stars" style="--rv: {{ reviews.here.summary.percent }}%;" role="img" aria-label="{{ reviews.here.summary.average_label }} {{ words.out_of_five_stars }}"></span>
         {% if settings.show_average %}<span class="rb__avg">{{ reviews.here.summary.average_label }}</span>{% endif %}
-        {% if settings.show_count %}<span class="rb__count">({{ reviews.here.summary.count_label }})</span>{% endif %}
+        {% if settings.show_count %}<span class="rb__count">({{ reviews.here.summary.count }} {% if reviews.here.summary.count == 1 %}{{ words.review }}{% else %}{{ words.reviews }}{% endif %})</span>{% endif %}
       </a>
     {% else %}
-      <span class="rb__link rb__link--empty"><span class="rv-stars" style="--rv: 0%;"></span><span class="rb__count">No reviews yet</span></span>
+      <span class="rb__link rb__link--empty"><span class="rv-stars" style="--rv: 0%;"></span><span class="rb__count">{{ words.no_reviews_yet }}</span></span>
     {% endif %}
   </div>
 </div>

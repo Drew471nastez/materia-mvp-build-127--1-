@@ -26,7 +26,7 @@
                 {% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="soldout">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
               </div>
               <h3 class="card__title">{{ block.settings.title }}</h3>
-              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if settings.show_price and block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}

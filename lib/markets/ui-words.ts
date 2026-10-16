@@ -37,6 +37,87 @@ export const UI_WORDS = {
   sold_out: "Sold out",
   search: "Search",
   no_results: "No results",
+  /* The header: its menu on a phone, the account and the wishlist (components/website-builder/sections/renderers/HeaderSection.tsx). */
+  menu: "Menu",
+  account: "Account",
+  sign_in: "Sign in",
+  wishlist: "Wishlist",
+  saved: "saved",
+  /* The shop's lists: search, the products page and a collection (themes/default/sections, lib/products/catalog-filters.ts). */
+  results_for: "Results for",
+  no_results_for: "No results for",
+  result: "result",
+  results: "results",
+  search_for: "for",
+  product: "product",
+  products: "products",
+  price: "Price",
+  price_to: "to",
+  price_from: "From",
+  price_up_to: "Up to",
+  lowest_price: "Lowest price",
+  highest_price: "Highest price",
+  availability: "Availability",
+  in_stock: "In stock",
+  product_type: "Product type",
+  sort_featured: "Featured",
+  sort_newest: "Newest",
+  sort_price_asc: "Price, low to high",
+  sort_price_desc: "Price, high to low",
+  sort_title_asc: "Name, A to Z",
+  sort_title_desc: "Name, Z to A",
+  kind_digital: "Digital download",
+  kind_physical: "Physical product",
+  kind_course: "Course",
+  kind_membership: "Membership",
+  kind_community: "Community",
+  kind_coaching: "Coaching",
+  kind_bundle: "Bundle",
+  kind_service: "Service",
+  kind_event: "Event",
+  kind_ebook: "Ebook",
+  pages: "Pages",
+  save: "Save",
+  remove_saved: "Remove from saved items",
+  rated: "Rated",
+  out_of_five: "out of 5",
+  out_of_five_stars: "out of 5 stars",
+  email_address: "Email address",
+  verified: "Verified",
+  verified_purchase: "Verified purchase",
+  /* Storelib Reviews (sections/reviews_*.storelib). */
+  verified_buyer: "Verified buyer",
+  based_on: "Based on",
+  no_reviews_yet: "No reviews yet",
+  reviews_by_rating: "Reviews by rating",
+  show_more_reviews: "Show more reviews",
+  reply_from: "Reply from",
+  photo_from: "Photo from",
+  review_on: "On",
+  write_a_review: "Write a review",
+  your_rating: "Your rating",
+  your_review: "Your review",
+  review_title: "Title",
+  your_name: "Name",
+  email: "Email",
+  photos: "Photos",
+  optional: "(optional)",
+  optional_up_to_four: "(optional, up to 4)",
+  review_privacy: "Only your first name and last initial are shown. Your email is not.",
+  post_review: "Post review",
+  star: "star",
+  stars: "stars",
+  review_posted: "Thanks. Your review is up.",
+  review_waiting: "Thanks. Your review shows once the store has read it.",
+  review_check_email: "Thanks. Check your email and open the link in it to post your review.",
+  review_error: "That didn't go through. Check the form and try again.",
+  review: "review",
+  reviews: "reviews",
+  rating_from: "from",
+  breadcrumb: "Breadcrumb",
+  contact: "Contact",
+  email_me_news_from: "Email me news from",
+  email_me_news: "Email me news from this store",
 } as const
 
 export type UiWord = keyof typeof UI_WORDS
@@ -46,6 +127,13 @@ export const uiKey = (word: UiWord) => `ui:${word}`
 /** Every word as a line in Translate › Shop words. */
 export function uiTranslatables(): { key: string; source: string; label: string; where: string; multiline: boolean }[] {
   return (Object.keys(UI_WORDS) as UiWord[]).map((w) => ({ key: uiKey(w), source: UI_WORDS[w], label: UI_WORDS[w], where: "Shop words", multiline: false }))
+}
+
+/** Every word in the page's language, English where it has no translation: a template's `words` (lib/storelib-theme/render.ts). */
+export function shopWords(words: Partial<Record<string, string>> | undefined): Record<UiWord, string> {
+  const out = { ...UI_WORDS } as Record<UiWord, string>
+  for (const w of Object.keys(UI_WORDS) as UiWord[]) out[w] = uiWord(words, w)
+  return out
 }
 
 /** A word in the page's language: its approved translation, else the English. */

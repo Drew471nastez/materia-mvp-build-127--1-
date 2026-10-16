@@ -4,10 +4,10 @@
  * 1. The list of published versions (lib/website-builder/site-releases.ts
  *    releaseList, site-releases-server.ts listReleases): newest first, the
  *    live one marked only while the website is live, and hidden (not an
- *    error) until SQL parts 180 and 186 have run.
+ *    error) until SQL parts 180 and 188 have run.
  * 2. The rollback call (rollbackRelease): its answer read, its refusals
  *    named, never a throw.
- * 3. SQL part 186 as text: one transaction under Publish's lock, the live
+ * 3. SQL part 188 as text: one transaction under Publish's lock, the live
  *    rows written from the release, a new release pointed at, server only.
  * 4. The route: Publish's ownership check and rate limit, the draft backed
  *    up before anything is written, the caches Publish clears.
@@ -82,8 +82,8 @@ async function main() {
 
     const before180 = fakeDb({ releases: { data: null, error: { code: "42P01", message: 'relation "public.site_releases" does not exist' } }, pointer: { data: null, error: { code: "42P01", message: "does not exist" } } })
     check("before part 180: hidden, not an error", (await listReleases(before180.db, A, true)).available === false)
-    const before186 = fakeDb({ releases: { data: null, error: { code: "42703", message: "column site_releases.restored_from does not exist" } }, pointer: { data: null, error: null } })
-    check("part 180 without part 186: hidden too (no rollback function to call)", (await listReleases(before186.db, A, true)).available === false)
+    const before188 = fakeDb({ releases: { data: null, error: { code: "42703", message: "column site_releases.restored_from does not exist" } }, pointer: { data: null, error: null } })
+    check("part 180 without part 188: hidden too (no rollback function to call)", (await listReleases(before188.db, A, true)).available === false)
     check("  and the live website's release reads are not turned off by it", releasesKnownMissing() === false)
     const down = fakeDb({ releases: { data: null, error: { code: "57014", message: "statement timeout" } }, pointer: { data: null, error: null } })
     let threw = false
@@ -109,7 +109,7 @@ async function main() {
       const r = await rollbackRelease(db({ data: null, error }), { installId: A, creatorId: B, releaseId: C })
       return r.ok ? "ok" : r.reason
     }
-    check("part 186 not run: missing", (await refused({ code: "PGRST202", message: "Could not find the function public.rollback_site_release" })) === "missing")
+    check("part 188 not run: missing", (await refused({ code: "PGRST202", message: "Could not find the function public.rollback_site_release" })) === "missing")
     check("another website's or creator's release: not found", (await refused({ code: "P0002", message: "rollback: no such release of this website" })) === "not_found")
     check("a release with a file's text gone: unreadable", (await refused({ code: "22023", message: "rollback: 1 files of the release are missing" })) === "unreadable")
     check("anything else: failed", (await refused({ code: "40001", message: "serialization" })) === "failed")
@@ -121,14 +121,14 @@ async function main() {
     check("a release id is a uuid", isReleaseId(A) && !isReleaseId("../backups") && !isReleaseId(""))
   }
 
-  console.log("\n3. SQL part 186")
+  console.log("\n3. SQL part 188")
   {
     const RN = "supabase/sql/run-now"
-    const file = readdirSync(RN).find((f) => /^186_/.test(f)) ?? ""
+    const file = readdirSync(RN).find((f) => /^188_/.test(f)) ?? ""
     const sql = read(`${RN}/${file}`)
-    check("part 186 is the rollback", file === "186_site_release_rollback.sql")
+    check("part 188 is the rollback", file === "188_site_release_rollback.sql")
     check("every line one whole statement (the README's rule)", sql.trimEnd().split("\n").length === 3 && sql.split("\n")[0].startsWith("/*") && sql.split("\n")[2] === "notify pgrst, 'reload schema';")
-    check("skips itself without part 180 or the theme tables", /to_regclass\('public\.site_releases'\) IS NULL/.test(sql) && /RAISE NOTICE 'part 186/.test(sql))
+    check("skips itself without part 180 or the theme tables", /to_regclass\('public\.site_releases'\) IS NULL/.test(sql) && /RAISE NOTICE 'part 188/.test(sql))
     check("the function, made again safely", sql.includes("CREATE OR REPLACE FUNCTION public.rollback_site_release(p_install uuid, p_creator uuid, p_release uuid) RETURNS jsonb"))
     check("this creator's website and this website's release, or nothing", sql.includes("WHERE id = p_install AND creator_id = p_creator") && sql.includes("WHERE id = p_release AND install_id = p_install AND creator_id = p_creator"))
     check("under the same lock as Publish (part 130)", sql.includes("pg_advisory_xact_lock(hashtextextended('storelib-publish:' || p_creator::text, 0))") && read(`${RN}/130_theme_publish_in_one_step.sql`).includes("hashtextextended('storelib-publish:' || p_creator::text, 0)"))
@@ -143,8 +143,8 @@ async function main() {
     check("no copy, em dash or AI word in its words", !/[—]|seamless|effortless|unlock|elevate/i.test(sql))
     const migrations = readdirSync("supabase/migrations").map((f) => read(`supabase/migrations/${f}`))
     check("a byte for byte copy in migrations", migrations.includes(sql))
-    check("its README row and its column in the check after", read(`${RN}/README.md`).includes("| `186_site_release_rollback.sql` |") && /as p186_site_release_rollback[,;]/.test(read(`${RN}/99_check_after.sql`)))
-    check("in the files the owner runs, and in the admin's list of parts", read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 186_site_release_rollback.sql") && read("lib/admin/sql-parts.generated.ts").includes('part: "186"'))
+    check("its README row and its column in the check after", read(`${RN}/README.md`).includes("| `188_site_release_rollback.sql` |") && /as p188_site_release_rollback[,;]/.test(read(`${RN}/99_check_after.sql`)))
+    check("in the files the owner runs, and in the admin's list of parts", read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 188_site_release_rollback.sql") && read("lib/admin/sql-parts.generated.ts").includes('part: "188"'))
   }
 
   console.log("\n4. The route")

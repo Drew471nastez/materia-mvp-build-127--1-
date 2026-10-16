@@ -20,8 +20,19 @@ import { bucketsOf, type CommunityReport, type Line } from "@/lib/communities/an
 import type { CommunityHead } from "@/components/community/creator/view-types"
 
 const which = new URLSearchParams(location.search).get("case") || "full"
-const w = window as unknown as { __asks: string[] }
+const w = window as unknown as { __asks: string[]; __fetches: { at: number; url: string; aborted?: boolean }[]; __delay: number; __tick?: () => void; __remount: () => void }
 w.__asks = []
+/* Round 32: every request with when it was made, how long an answer takes (?delay=, or the probe sets it), and the minute's refresh handed to the probe. */
+w.__fetches = []
+w.__delay = Number(new URLSearchParams(location.search).get("delay") || 120)
+const realSetInterval = window.setInterval.bind(window)
+window.setInterval = ((fn: () => void, ms?: number, ...rest: unknown[]) => {
+  if (ms === 60_000) {
+    w.__tick = fn
+    return 0
+  }
+  return realSetInterval(fn, ms, ...(rest as []))
+}) as typeof window.setInterval
 
 const head = {
   id: "c0000000-0000-4000-8000-000000000001",
@@ -147,15 +158,25 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (!url.includes("/api/app/community/")) return realFetch(input, init)
   const q = new URL(url, "http://x").searchParams
   w.__asks.push(q.toString())
-  await new Promise((r) => setTimeout(r, 120))
+  const entry: { at: number; url: string; aborted?: boolean } = { at: performance.now(), url: q.toString() }
+  w.__fetches.push(entry)
+  await new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, w.__delay)
+    init?.signal?.addEventListener("abort", () => {
+      clearTimeout(t)
+      entry.aborted = true
+      reject(new DOMException("aborted", "AbortError"))
+    })
+  })
   if (which === "fail") return new Response(JSON.stringify({ error: "x" }), { status: 500 })
   return new Response(JSON.stringify(report(q)), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
+/* The shell's frame (components/community/creator/community-shell): its background, its width and its gutter. */
 function Page() {
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
-      <div className="mx-auto max-w-[1080px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto app-gutter max-w-[1080px] pb-12 pt-4 lg:pt-5">
         <h1 className="mb-4 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Analytics</h1>
         <AnalyticsSection head={head} />
       </div>
@@ -163,4 +184,11 @@ function Page() {
   )
 }
 
-createRoot(document.getElementById("app")!).render(<Page />)
+let root = createRoot(document.getElementById("app")!)
+root.render(<Page />)
+/* Leaving the section and coming back mounts it again. */
+w.__remount = () => {
+  root.unmount()
+  root = createRoot(document.getElementById("app")!)
+  root.render(<Page />)
+}

@@ -54,7 +54,7 @@ const SOURCE_WORD: Record<BackupRow["source"], string> = {
  * then pushes the rest of the page down from.
  */
 const lastBackups = new Map<string, BackupRow[]>()
-/** Published versions, the same way. Null: not loaded yet, or not set up (SQL part 186), and the card is not drawn. */
+/** Published versions, the same way. Null: not loaded yet, or not set up (SQL part 188), and the card is not drawn. */
 const lastReleases = new Map<string, ReleaseRow[]>()
 
 export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
@@ -223,7 +223,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
         )}
       </Card>
 
-      {/* Every publish, kept whole (SQL parts 180 and 186). Not drawn until
+      {/* Every publish, kept whole (SQL parts 180 and 188). Not drawn until
           the database has them, so nothing is offered that cannot happen. */}
       {releases && (
         <Card title={tt("Published versions")} footer={tt("The newest 20 are kept.")}>

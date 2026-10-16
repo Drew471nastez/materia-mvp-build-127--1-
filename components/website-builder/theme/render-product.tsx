@@ -215,9 +215,11 @@ export async function productMetadata(
 }
 
 /** A product's structured data on a creator's website, as a script body, or null. */
-export async function productStructuredData(slug: string, site: { url: string; seller: string; creatorId?: string }): Promise<string | null> {
-  const product = await fetchProductBySlug(slug, site.creatorId)
-  if (!product) return null
+export async function productStructuredData(slug: string, site: { url: string; seller: string; creatorId?: string; inLanguage?: <T extends Record<string, unknown>>(p: T) => T }): Promise<string | null> {
+  const found = await fetchProductBySlug(slug, site.creatorId)
+  if (!found) return null
+  /* Its name and description in the page's language, as the page itself says them. */
+  const product = site.inLanguage ? (site.inLanguage(found as unknown as Record<string, unknown>) as unknown as typeof found) : found
   const images = imagesOnly([product.thumbnail_url, ...(product.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
   /* Storelib Reviews: the rating and reviews the page shows, only while the app shows them on this website. */
   const reviews = site.creatorId
@@ -262,8 +264,8 @@ export async function renderProduct(
   const found = await fetchProductBySlug(slug, owner?.creatorId)
   if (!found || !found.creator_id) notFound()
   if (owner && found.creator_id !== owner.creatorId) notFound()
-  /* In another language: its approved title and description laid over, and the page's texts below. Never for a preview. */
-  const localizer = (owner?.locale || owner?.market) && !previewToken ? await siteLocalizer(found.creator_id, owner.locale ?? null, owner.market ?? null) : null
+  /* In the page's language, the website's default included: its approved title and description laid over, and the page's texts below. Never for a preview. */
+  const localizer = owner && !previewToken ? await siteLocalizer(found.creator_id, owner.locale ?? null, owner.market ?? null) : null
   const product = (localizer ? localizer.product(found) : found) as typeof found & { creator_id: string }
 
   const admin = createAdminClient()

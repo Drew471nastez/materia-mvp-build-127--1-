@@ -16,7 +16,7 @@
       {% if settings.content == 'email' %}
         {# Sign-ups go to Subscribers (lib/website-builder/form-intent.ts). #}
         <form class="pop__form" method="post" data-storelib-form="subscribe">
-          <label class="pop__sr" for="pop-email-{{ section.id }}">Email address</label>
+          <label class="pop__sr" for="pop-email-{{ section.id }}">{{ words.email_address }}</label>
           <input class="pop__input" id="pop-email-{{ section.id }}" type="email" name="email" placeholder="{{ settings.placeholder }}" required autocomplete="email">
           <button class="pop__btn" type="submit">{{ settings.button_text }}</button>
         </form>

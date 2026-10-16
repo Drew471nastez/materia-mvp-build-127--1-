@@ -10,8 +10,9 @@
  *   AppearanceButton    the sun and moon in a community's bar on a computer,
  *                       beside the bell: one glyph turns into the other.
  *
- * Pressed, each gives a little under the finger (the button, or the knob)
- * and springs back as the new look fades in.
+ * Pressed, the button gives a little under the finger and springs back as
+ * the new look fades in. The knob only slides: a squeeze on top of the slide
+ * read as the circle glitching.
  *
  * Both only appear on Storelib's own buyer pages (themedPath): the dashboard
  * keeps its own look.
@@ -20,35 +21,30 @@ import { Moon, Sun } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { chooseAppearance, useAppearanceChoice, usePageDefaultAppearance } from "@/lib/appearance/client"
 import { themedPath } from "@/lib/appearance/site-appearance"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { cn } from "@/lib/utils"
 
-/** The look on screen now, and the switch to the other one; null off Storelib's buyer pages. */
-export function useAppearanceSwitch(): { dark: boolean; flip: () => void } | null {
+/**
+ * The look on screen now, and the switch to the other one; null off Storelib's buyer pages. `flip` takes the control
+ * that was pressed, which then moves live through the page's fade instead of as a still (lib/appearance/client.ts).
+ */
+export function useAppearanceSwitch(): { dark: boolean; flip: (own?: HTMLElement | null) => void } | null {
   const pathname = usePathname()
   const choice = useAppearanceChoice()
   const pageDefault = usePageDefaultAppearance()
   if (!themedPath(pathname)) return null
   const dark = (choice ?? pageDefault ?? "light") === "dark"
-  return { dark, flip: () => chooseAppearance(dark ? "light" : "dark") }
+  return { dark, flip: (own) => chooseAppearance(dark ? "light" : "dark", own) }
 }
 
-/** The switch's own track and knob. */
+/**
+ * The switch's track and knob: the one switch every toggle draws (components/ui/switch-style.ts), a knob that slides
+ * on translate alone over 200ms. The dark look turns it over (app/theme-dark.css, from aria-checked on the row).
+ */
 export function Switch({ on }: { on: boolean }) {
   return (
-    <span
-      aria-hidden
-      data-appearance-switch={on ? "on" : "off"}
-      className={cn(
-        "relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full transition-colors duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-        on ? "bg-[#3a3a42]" : "bg-[#e3e5e9]",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute left-[3px] h-4 w-4 rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-[translate,background-color,scale] duration-300 ease-[cubic-bezier(0.2,0,0,1)] group-active/appearance:scale-[0.85] motion-reduce:transition-none",
-          on ? "translate-x-4 bg-[#ececee]" : "translate-x-0 bg-white",
-        )}
-      />
+    <span aria-hidden data-appearance-switch={on ? "on" : "off"} className={switchTrack(on)}>
+      <span data-appearance-knob="" className={switchKnob(on)} />
     </span>
   )
 }
@@ -63,7 +59,7 @@ export function AppearanceMenuRow({ className, iconClassName }: { className: str
       role="menuitemcheckbox"
       aria-checked={sw.dark}
       data-account-item="appearance"
-      onClick={sw.flip}
+      onClick={(e) => sw.flip(e.currentTarget.querySelector<HTMLElement>("[data-appearance-switch]"))}
       className={cn(className, "group/appearance justify-between")}
     >
       <span className="flex min-w-0 items-center gap-[inherit]">
@@ -82,7 +78,7 @@ export function AppearanceButton({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      onClick={sw.flip}
+      onClick={(e) => sw.flip(e.currentTarget)}
       aria-label={sw.dark ? "Switch to light mode" : "Switch to dark mode"}
       aria-pressed={sw.dark}
       data-appearance-button={sw.dark ? "dark" : "light"}

@@ -19,16 +19,23 @@
  *
  * What the domain then serves, and why members still sign in on
  * storelib.com, is lib/custom-domains/community.ts.
+ *
+ * Round 32: the card of /app Settings (./parts EditorCard), the panel's full
+ * width under Address and domain. The way to Settings › Domains is a link in
+ * the line under the field, not a button beside the card's line, which had
+ * squeezed that line into a strip of a few words a row.
  */
 import * as React from "react"
 import { ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 import { getMainDomain } from "@/lib/url-helpers"
 import { HOSTNAME_PROBLEM_TEXT, cleanHostname, hostnameProblem, recordsFor, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
 import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
-import { Confirm, LinkButton, Notice, Section, buttonPrimary, buttonSecondary, field, send } from "./parts"
+import Link from "next/link"
+import { Confirm, EditorCard, LinkButton, Notice, buttonPrimary, buttonSecondary, field, send } from "./parts"
 
 interface PanelDomain {
   id: string
@@ -147,38 +154,34 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
     await load()
   }
 
-  const title = tt("Domain")
+  const title = tt("Your own domain")
 
   if (!data) {
     return (
-      <Section title={title} hint={loadError ?? undefined}>
+      <EditorCard title={title} hint={loadError ?? undefined} id="domain">
         {loadError ? (
-          <button type="button" onClick={() => void load()} className={buttonSecondary}>
+          <button type="button" onClick={() => void load()} className={cn(buttonSecondary, "self-start")}>
             {tt("Try again")}
           </button>
         ) : (
-          <p className="text-[13px] text-[#6b7280]" role="status">
-            {tt("Loading")}
-          </p>
+          <div role="status" aria-label={tt("Loading")} className="h-10 max-w-[560px] animate-pulse rounded-lg bg-[#f3f4f6] motion-reduce:animate-none" data-community-domain-loading="" />
         )}
-      </Section>
+      </EditorCard>
     )
   }
 
   /* Somebody who helps run it, not its owner: the domain is the owner's to connect. */
   if (!community) {
     return (
-      <Section title={title}>
-        <p className="text-[13px] text-[#6b7280]">{tt("The community's owner connects its domain.")}</p>
-      </Section>
+      <EditorCard title={title} hint={tt("The community's owner connects its domain.")} id="domain" />
     )
   }
 
   if (!available) {
     return (
-      <Section title={title}>
+      <EditorCard title={title} id="domain">
         <Notice tone="info">{tt("Connecting a domain to a community needs a database update that has not run yet.")}</Notice>
-      </Section>
+      </EditorCard>
     )
   }
 
@@ -187,11 +190,17 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
       {tt("Settings › Domains")}
     </LinkButton>
   )
+  const settingsWords = (
+    <Link href={SETTINGS_DOMAINS} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+      {tt("Settings › Domains")}
+    </Link>
+  )
 
   if (!domain) {
     return (
-      <Section title={title} hint={tt("Open {name} at a domain you own, like club.yourname.com.", { name: community.name })} action={<span className="hidden sm:inline-flex">{settingsLink}</span>}>
-        <div className="flex gap-2" data-community-domain-add="">
+      <EditorCard title={title} hint={tt("Open {name} at a domain you own, like club.yourname.com.", { name: community.name })} id="domain">
+        <div>
+        <div className="flex max-w-[560px] gap-2" data-community-domain-add="">
           <label htmlFor="community-domain-new" className="sr-only">
             {tt("Domain")}
           </label>
@@ -218,9 +227,9 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
             placeholder="club.yourname.com"
             aria-invalid={Boolean(error)}
             aria-describedby="community-domain-hint"
-            className={cn(field, "h-11 sm:h-9")}
+            className={cn(field, "h-11 sm:h-10")}
           />
-          <button type="button" onClick={() => void connect()} disabled={!clean || busy !== null} className={cn(buttonPrimary, "h-11 shrink-0 px-4 sm:h-9")} data-community-domain-connect="">
+          <button type="button" onClick={() => void connect()} disabled={!clean || busy !== null} className={cn(buttonPrimary, "h-11 shrink-0 px-4 sm:h-10")} data-community-domain-connect="">
             {busy === "connect" ? tt("Connecting") : tt("Connect")}
           </button>
         </div>
@@ -235,11 +244,11 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
           </p>
         ) : (
           <p id="community-domain-hint" className="mt-2 text-[13px] text-[#6b7280]">
-            {tt("Already added a domain? Pick this community for it in Settings › Domains.")}
+            <Rich text={tt("Already added a domain? Pick this community for it in {settings}.")} parts={{ settings: settingsWords }} />
           </p>
         )}
-        <div className="mt-3 sm:hidden">{settingsLink}</div>
-      </Section>
+        </div>
+      </EditorCard>
     )
   }
 
@@ -248,9 +257,10 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
   const host = domain.host || servingHost(domain.domain)
 
   return (
-    <Section
+    <EditorCard
       title={title}
       hint={dnsDone ? tt("Visitors see the community at this domain. Members sign in on {main}.", { main: getMainDomain() }) : tt("Add these records where you bought the domain, then check.")}
+      id="domain"
     >
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" data-community-domain={domain.domain}>
         <div className="min-w-0">
@@ -274,14 +284,10 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
         </div>
       </div>
 
-      {error ? (
-        <div className="mt-3">
-          <Notice>{error}</Notice>
-        </div>
-      ) : null}
+      {error ? <Notice>{error}</Notice> : null}
 
       {!dnsDone ? (
-        <div className="mt-4 border-t border-[#f0f1f3] pt-4">
+        <div className="border-t border-[#f0f1f3] pt-4">
           <DnsSetup
             domain={domain.domain}
             records={domain.records?.length ? domain.records : recordsFor(domain.domain)}
@@ -296,7 +302,7 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
           />
         </div>
       ) : domain.status === "ssl_provisioning" ? (
-        <p className="mt-3 text-[13px] text-[#6b7280]">{tt("Records found. HTTPS is being set up, usually within 10 minutes.")}</p>
+        <p className="text-[13px] text-[#6b7280]">{tt("Records found. HTTPS is being set up, usually within 10 minutes.")}</p>
       ) : null}
 
       <Confirm
@@ -313,6 +319,6 @@ export function CommunityDomainPanel({ communityId }: { communityId: string }) {
         busy={busy === "remove"}
         onConfirm={() => void disconnect()}
       />
-    </Section>
+    </EditorCard>
   )
 }

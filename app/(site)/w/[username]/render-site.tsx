@@ -131,8 +131,8 @@ export async function siteMetadata(
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
   // The published site is built from published values alone (buildSite).
-  /* In another language: its title and description as translated (lib/markets/live.ts). */
-  const localizer = locale ? await siteLocalizer(creator.creatorId, locale) : null
+  /* In the page's language, the default's included: its title and description as translated (lib/markets/live.ts). */
+  const localizer = await siteLocalizer(creator.creatorId, locale)
   const settings: ThemeSettingsValues = localizer ? localizer.theme((found.site.themeSettings ?? {}) as Record<string, unknown>) as ThemeSettingsValues : (found.site.themeSettings ?? {})
   /* The store's name as the site says it: its brand name, else Store details', else the person's (lib/website-builder/tab-title.ts). */
   const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.site.profile?.storeName, displayName: creator.displayName, handle: defaultHandle })

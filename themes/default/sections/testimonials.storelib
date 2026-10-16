@@ -19,7 +19,7 @@
         {% for block in blocks %}
           <div class="tst__card" data-block-id="{{ block.id }}">
             {% if settings.show_rating %}
-              <div class="tst__rating" aria-label="{{ block.settings.rating }} out of 5">
+              <div class="tst__rating" aria-label="{{ block.settings.rating }} {{ words.out_of_five }}">
                 <span aria-hidden="true" class="{% if block.settings.rating > 0 %}is-on{% endif %}">★</span>
                 <span aria-hidden="true" class="{% if block.settings.rating > 1 %}is-on{% endif %}">★</span>
                 <span aria-hidden="true" class="{% if block.settings.rating > 2 %}is-on{% endif %}">★</span>
@@ -37,7 +37,7 @@
               <div class="tst__names">
                 <div class="tst__name">
                   <span class="tst__truncate">{{ block.settings.author }}</span>
-                  {% if block.settings.verified %}<span class="tst__check" title="Verified" aria-label="Verified">✓</span>{% endif %}
+                  {% if block.settings.verified %}<span class="tst__check" title="{{ words.verified }}" aria-label="{{ words.verified }}">✓</span>{% endif %}
                 </div>
                 <div class="tst__role tst__truncate">
                   {% if block.settings.role and block.settings.company %}{{ block.settings.role }} · {{ block.settings.company }}
@@ -57,7 +57,7 @@
                     {% elsif block.settings.source == "instagram" %}Instagram
                     {% elsif block.settings.source == "twitter" %}X
                     {% elsif block.settings.source == "yelp" %}Yelp
-                    {% elsif block.settings.source == "site" %}Verified purchase
+                    {% elsif block.settings.source == "site" %}{{ words.verified_purchase }}
                     {% else %}{{ block.settings.source }}{% endif %}
                   </span>
                 {% endif %}

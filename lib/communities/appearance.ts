@@ -1,7 +1,11 @@
 /**
- * A community's look: white (the default) or dark. Kept on the community's
- * own settings (communities.onboarding.appearance), so no new column is
- * required and a welcome-steps save does not drop it.
+ * A community's look as its creator once stored it: white (the default) or
+ * dark, on the community's own settings (communities.onboarding.appearance).
+ *
+ * Round 32: nothing reads it for a look any more. Every reader's own choice
+ * decides, else white (lib/communities/client/appearance-choice.ts), and the
+ * admin no longer offers it. It is kept, untouched, so a welcome-steps save
+ * still carries whatever was stored; no migration removes it.
  */
 
 export type CommunityAppearance = "light" | "dark"

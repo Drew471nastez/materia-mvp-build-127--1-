@@ -326,14 +326,14 @@ export async function pruneReleases(db: Db, installId: string, keep = RELEASES_K
   }
 }
 
-// ── Going back to one (SQL part 186) ────────────────────────────────────────
+// ── Going back to one (SQL part 188) ────────────────────────────────────────
 
 export type ReleaseListResult = { available: false } | { available: true; releases: ReleaseListItem[] }
 
 /**
  * A website's published versions, newest first, for Backups & Versions.
- * `available: false` until parts 180 and 186 have both run (the list reads
- * part 186's `restored_from`), so the list hides itself rather than offering
+ * `available: false` until parts 180 and 188 have both run (the list reads
+ * part 188's `restored_from`), so the list hides itself rather than offering
  * a restore that cannot happen. Not noted as missing for the live website's
  * reads (noteMissing): part 180 alone is enough for those. Throws when the
  * database did not answer.
@@ -364,7 +364,7 @@ type RpcDb = { rpc(fn: string, args: Record<string, unknown>): PromiseLike<Resul
 
 /**
  * An earlier release put live again, in one transaction
- * (`rollback_site_release`, SQL part 186): its settings, pages and files
+ * (`rollback_site_release`, SQL part 188): its settings, pages and files
  * written back into the live rows with the drafts cleared, this website
  * switched live as Publish switches it, and the same manifest kept as a new
  * release the website is pointed at. The rows and the pointer then say the

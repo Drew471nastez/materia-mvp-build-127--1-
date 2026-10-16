@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { articleText, HELP_ARTICLES, HELP_CATEGORIES, HELP_MOVED, helpArticle, helpArticlePath, helpArticlesIn, helpSectionsIn, SUPPORT_EMAIL } from "../lib/help/articles"
-import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, PHYSICAL_SECTIONS } from "../lib/help/physical-articles"
+import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, PHYSICAL_SECTIONS, SITE_WIDE_ARTICLES } from "../lib/help/physical-articles"
 import { PHYSICAL_SHOTS } from "../lib/help/physical-shots"
 import { EXPLAINERS } from "../lib/settings/explainers"
 import { DEV_PAGES, devPath } from "../lib/developers/pages"
@@ -141,7 +141,8 @@ console.log("\nThe physical products guide")
   check("every link in the guide lands on an article or a developer page", linksP.length >= 25 && brokenP.length === 0, brokenP)
 
   /* The screenshots: each one a real file, the size it says, used, and described. */
-  const images = P.flatMap((a) => a.body.filter((b): b is Extract<typeof b, { type: "image" }> => b.type === "image"))
+  /* Changed on purpose: the currency and language articles moved under Website builder and keep their screenshots in public/help/physical. */
+  const images = [...P, ...SITE_WIDE_ARTICLES].flatMap((a) => a.body.filter((b): b is Extract<typeof b, { type: "image" }> => b.type === "image"))
   check("the guide has screenshots of the real screens", images.length >= 30)
   check("each one is a WebP in public/help/physical", images.every((b) => /^\/help\/physical\/[a-z0-9-]+\.webp$/.test(b.src) && existsSync(join(process.cwd(), "public", b.src))), images.filter((b) => !existsSync(join(process.cwd(), "public", b.src))).map((b) => b.src))
   check("each says what it shows, for a screen reader", images.every((b) => b.alt.length >= 20 && !/[\u2014\u2013]/.test(b.alt)))

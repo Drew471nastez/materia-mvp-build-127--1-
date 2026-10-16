@@ -4,6 +4,7 @@ import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 import { readEditorBody } from "@/lib/website-builder/request-body"
 import { storeMenusFor, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 
@@ -84,5 +85,7 @@ export async function PUT(req: Request) {
     )
   }
   await revalidatePublishedSite(who.creatorId)
+  /* Live at once, so translated at once: a link's new name in a few minutes (lib/markets/translate-queue.ts). */
+  translationsChanged(who.creatorId)
   return NextResponse.json({ menus: saved.menus }, { headers: NO_STORE })
 }

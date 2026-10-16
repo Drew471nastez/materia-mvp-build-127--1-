@@ -11,9 +11,11 @@ export const maxDuration = 300
 const RUN_WINDOW_MS = 240_000
 
 /**
- * CRON: Translate changes automatically (lib/markets/auto-translate.ts).
- * Hourly: each store with the switch on has its website's new and changed
- * text translated into its other languages, the one waiting longest first.
+ * CRON: Translate changes automatically, the safety sweep
+ * (lib/markets/auto-translate.ts runAutoTranslate). Hourly: queues the
+ * stores nothing has queued for a day, for the three-minute run
+ * (/api/cron/translation-jobs) that translates changed stores. Before SQL
+ * part 186 it translates the stores itself, the one waiting longest first.
  * Behind the cron secret, like every cron.
  */
 async function run(request: Request) {

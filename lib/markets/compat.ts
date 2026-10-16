@@ -28,9 +28,9 @@ import { marketPricing, siteLanguages, type LiveMarket } from "./live"
 import { cachedRates } from "./fx-server"
 import { pricingFor } from "./pricing"
 import { commerceInMarket, compatPrices, compatShop, themeCountries } from "./compat-prices"
-import { isBuiltInWordKey, isEnglish, localizeCards, localizeMenus, localizeRecord, localizeSections, themeWordKey, translationMap, valueFor, type TranslationMap } from "./translate"
+import { localizeMenus, localizeSections, translationMap, valueFor, type TranslationMap } from "./translate"
 import { linkLanguageScript } from "./link-script"
-import { compatFields } from "./compat-fields"
+import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "./compat-fields"
 
 export { compatFields }
 
@@ -77,14 +77,8 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   /* In the default language, every translation into it is laid over (an English theme on a Spanish store reads Spanish): the theme's own words among them (lib/markets/detect-language.ts defaultLanguageScope). */
   const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : await cachedTranslations(site.creatorId, langs.defaultLanguage).catch(() => [])
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
-  /* THE THEME'S OWN WORDS (`| t`) as the store translated them, each only while written for the theme's word as it is now. */
-  const themeWords: Record<string, string> = {}
-  if (map.size) {
-    for (const w of site.theme.defaultWords()) {
-      const v = valueFor(map, themeWordKey(w.key), { approvedOnly: true, fresh: true }, w.value)
-      if (v) themeWords[w.key] = v
-    }
-  }
+  /* THE THEME'S OWN WORDS (`| t`) as the store translated them, each only while written for the theme's word as it is now (the builder's canvas asks the same function). */
+  const themeWords = map.size ? compatThemeWords(site.theme.defaultWords(), map) : {}
   if (Object.keys(themeWords).length) i18n.words = themeWords
   /* No "charged in USD" line put into an imported theme's cart (the owner): the website's checkout says it, where the card is charged. */
   const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}`
@@ -95,13 +89,27 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
   const pages: Record<string, StoredSection[]> = {}
   for (const [key, list] of Object.entries(site.pages)) pages[key] = map.size ? (localizeSections(list as unknown as SectionInstance[], map, fieldsOf, blockFieldsOf, opts) as unknown as StoredSection[]) : list
   const card = <T extends { id: string; settings: O; descriptionHtml?: string }>(c: T): T => {
-    /* The card's description is plain text, made plain from the translated rich text as a built website's card is (translate.ts localizeCards). */
-    let settings = map.size ? (localizeCards([{ id: c.id, settings: c.settings }], map, opts)[0].settings as O) : c.settings
+    /* Its words (title, plain description, options, search engine title, the page's rich description), as the builder's canvas lays them (compat-fields.ts compatCardIn). */
+    const worded = compatCardIn(c, map, opts)
     /* In the market's currency, as the builder's canvas previews it (lib/markets/compat-prices.ts). */
-    if (pricing) settings = compatPrices(settings, pricing)
-    const html = map.size && c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : c.descriptionHtml
-    return settings === c.settings && html === c.descriptionHtml ? c : { ...c, settings, ...(html !== undefined ? { descriptionHtml: html } : {}) }
+    return pricing ? { ...worded, settings: compatPrices(worded.settings, pricing) } : worded
   }
+  /*
+    THE PAGE'S SEARCH ENGINE TEXT (Website settings › SEO, each page's own),
+    offered in Translations (page:<key>:seo_title, :seo_description) and
+    until now laid over only on a built website. Each translation only
+    while written for the words the page says now.
+  */
+  const seoOf = site.seo
+  const seo: SiteData["seo"] = seoOf && map.size
+    ? (key) => {
+        const s = seoOf(key)
+        if (!s) return s
+        const title = s.title ? (valueFor(map, `page:${key}:seo_title`, opts, s.title) ?? s.title) : s.title
+        const description = s.description ? (valueFor(map, `page:${key}:seo_description`, opts, s.description) ?? valueFor(map, "page:home:seo_description", opts, s.description) ?? s.description) : s.description
+        return { ...s, title, description }
+      }
+    : seoOf
   const product = site.product
   return {
     ...site,
@@ -116,10 +124,11 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     pickable: site.pickable?.map((p) => card(p as never)) as SiteData["pickable"],
     /* Each collection's own title and description (collection:<id>, offered in Translations), and its products as the cards above, in a language with no currency change too. */
     collections: site.collections.map((c) => {
-      const words = map.size ? localizeRecord(c as unknown as O, `collection:${c.id}`, ["title", "description"].filter((f) => typeof (c as unknown as O)[f] === "string") as never, map, opts) : (c as unknown as O)
-      return { ...(words as unknown as typeof c), ...(c.products ? { products: c.products.map((p) => card(p as never)) } : {}) }
+      const words = compatCollectionIn(c, map, opts)
+      return { ...words, ...(c.products ? { products: c.products.map((p) => card(p as never)) } : {}) }
     }),
     menus: map.size ? (localizeMenus(site.menus as never, map, opts) as SiteData["menus"]) : site.menus,
+    seo,
     product: product ? async (handle) => { const p = await product(handle); return p ? card(p as never) : p } : undefined,
   }
 }

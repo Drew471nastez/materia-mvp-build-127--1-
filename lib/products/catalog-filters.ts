@@ -28,6 +28,10 @@
 
 import { isColorOption, swatchColor } from "./product-page-model"
 import { shopAmountIn, SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { uiWord, type UiWord } from "@/lib/markets/ui-words"
+
+/** The shop's own words in the page's language (lib/markets/ui-words.ts, the localizer's `words`); absent, English. */
+type Words = Partial<Record<string, string>> | undefined
 
 /** The fields of a product card this reads. */
 export interface FilterableCard {
@@ -169,7 +173,10 @@ function available(card: FilterableCard): boolean {
 }
 
 /** What a product kind is called in the filter. */
-export function kindLabel(kind: string): string {
+export function kindLabel(kind: string, words?: Words): string {
+  /* In the page's language when the shop translated it (Translate › Shop words, ui:kind_<kind>). */
+  const word = `kind_${kind}` as UiWord
+  if (words && words[word]) return uiWord(words, word)
   const named: Record<string, string> = {
     digital: "Digital download",
     physical: "Physical product",
@@ -299,8 +306,9 @@ export function catalogFilters(
   path: string,
   swatchOf: (value: string) => string | null = () => null,
   isColor: (name: string) => boolean = () => false,
-  opts: { matchWords?: boolean } = {},
+  opts: { matchWords?: boolean; words?: Words } = {},
 ): CatalogFilters {
+  const w = (word: UiWord) => uiWord(opts.words, word)
   const pool = opts.matchWords === false ? [...cards] : cards.filter((c) => matchesWords(c, query.q))
   const count = applyCatalogQuery(pool, query, { matchWords: false }).length
   const groups: FilterGroup[] = []
@@ -308,18 +316,18 @@ export function catalogFilters(
   /* Availability, only when something is out of stock: otherwise ticking it changes nothing. */
   if (pool.some((c) => !available(c)) && pool.some(available)) {
     const n = pool.filter((c) => available(c) && passes(c, query, "available")).length
-    groups.push({ label: "Availability", param: "available", active: query.available ? 1 : 0, values: [{ label: "In stock", value: "1", count: n, checked: query.available, swatch: "" }] })
+    groups.push({ label: w("availability"), param: "available", active: query.available ? 1 : 0, values: [{ label: w("in_stock"), value: "1", count: n, checked: query.available, swatch: "" }] })
   }
 
   /* Product type, when the shop sells more than one kind. */
   const kinds = [...new Set(pool.map(cardKind).filter(Boolean))]
   if (kinds.length > 1) {
     groups.push({
-      label: "Product type",
+      label: w("product_type"),
       param: "type",
       active: query.types.length,
       values: kinds.slice(0, MAX_VALUES).map((k) => ({
-        label: kindLabel(k),
+        label: kindLabel(k, opts.words),
         value: k,
         count: pool.filter((c) => cardKind(c) === k && passes(c, query, "type")).length,
         checked: query.types.includes(k),
@@ -367,11 +375,11 @@ export function catalogFilters(
     /* In the store's own currency, which every card carries (lib/website-builder/shop-products toCard). */
     const currency = (cards[0]?.settings as { currency?: string } | undefined)?.currency || SHOP_CURRENCY
     const shopAmount = (units: number) => shopAmountIn(units, currency)
-    const label = query.priceMin !== null && query.priceMax !== null ? `${shopAmount(query.priceMin)} to ${shopAmount(query.priceMax)}` : query.priceMin !== null ? `From ${shopAmount(query.priceMin)}` : `Up to ${shopAmount(query.priceMax!)}`
+    const label = query.priceMin !== null && query.priceMax !== null ? `${shopAmount(query.priceMin)} ${w("price_to")} ${shopAmount(query.priceMax)}` : query.priceMin !== null ? `${w("price_from")} ${shopAmount(query.priceMin)}` : `${w("price_up_to")} ${shopAmount(query.priceMax!)}`
     chips.push({ label, url: href({ ...query, priceMin: null, priceMax: null }) })
   }
-  if (query.available) chips.push({ label: "In stock", url: href({ ...query, available: false }) })
-  for (const t of query.types) chips.push({ label: kindLabel(t), url: href({ ...query, types: query.types.filter((x) => x !== t) }) })
+  if (query.available) chips.push({ label: w("in_stock"), url: href({ ...query, available: false }) })
+  for (const t of query.types) chips.push({ label: kindLabel(t, opts.words), url: href({ ...query, types: query.types.filter((x) => x !== t) }) })
   for (const [name, vals] of Object.entries(query.options)) {
     for (const v of vals) {
       const rest = vals.filter((x) => x !== v)
@@ -388,10 +396,10 @@ export function catalogFilters(
     active_count: activeCount,
     count,
     total: cards.length,
-    count_label: `${count} ${count === 1 ? "product" : "products"}`,
+    count_label: `${count} ${count === 1 ? w("product") : w("products")}`,
     q: query.q,
     sort: query.sort,
-    sort_options: SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label, selected: o.value === query.sort })),
+    sort_options: SORT_OPTIONS.map((o) => ({ value: o.value, label: w(`sort_${o.value.replace("-", "_")}` as UiWord), selected: o.value === query.sort })),
     price: {
       min: String(lo),
       max: String(hi),
@@ -416,7 +424,7 @@ export function catalogPage<T extends FilterableCard>(
   cards: readonly T[],
   params: Params,
   path: string,
-  opts: { matchWords?: boolean; perPage?: number } = {},
+  opts: { matchWords?: boolean; perPage?: number; words?: Words } = {},
 ): { query: CatalogQuery; listed: T[]; filters: CatalogFilters; pagination: CatalogPagination } {
   const query = parseCatalogQuery(params)
   const all = applyCatalogQuery(cards, query, opts)

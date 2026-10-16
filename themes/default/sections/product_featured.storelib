@@ -23,7 +23,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
-              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -46,7 +46,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
-              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -70,7 +70,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title }}</h3>
-              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
+              {% if settings.show_rating and block.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="{{ words.rated }} {{ block.rating.value }} {{ words.out_of_five }}">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.rating.percent }}%;color:{{ block.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
@@ -96,7 +96,7 @@
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
               <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
-              {% if settings.show_rating and block.settings.url.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="Rated {{ block.settings.url.rating.value }} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.settings.url.rating.percent }}%;color:{{ block.settings.url.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.settings.url.rating.count }})</p>{% endif %}
+              {% if settings.show_rating and block.settings.url.rating.count > 0 %}<p class="card__rating"><span role="img" aria-label="{{ words.rated }} {{ block.settings.url.rating.value }} {{ words.out_of_five }}">&#9733;&#9733;&#9733;&#9733;&#9733;<span aria-hidden="true" style="width:{{ block.settings.url.rating.percent }}%;color:{{ block.settings.url.rating.color }}">&#9733;&#9733;&#9733;&#9733;&#9733;</span></span>({{ block.settings.url.rating.count }})</p>{% endif %}
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price or block.settings.url.price %}
                 <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>

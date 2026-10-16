@@ -16,7 +16,8 @@
  * nothing.
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
-import { schemaFor } from "./storelib-schemas"
+import { schemaFor, themeBlockCatalog } from "./storelib-schemas"
+import type { BlockSchema, SchemaField } from "./types"
 import type { SchemaLookup } from "./sanitize-sections"
 
 type FileRow = { path: string; content?: string | null; draft_content?: string | null }
@@ -73,4 +74,23 @@ export async function customSchemaLookup(
 export function schemaLookupFrom(sources: Record<string, string> | undefined): SchemaLookup | undefined {
   if (!sources || Object.keys(sources).length === 0) return undefined
   return (type: string) => schemaFor(type, sources, SECTION_SCHEMAS)
+}
+
+/**
+ * WHICH SETTINGS HOLD WORDS, for the translations: a section's own (its
+ * saved file's schema, else the theme's), and a block's, from the section's
+ * own block types or else the theme's blocks (blocks/<type>.storelib). A
+ * heading, text or button block in a Blocks section is a theme block: read
+ * from the section's list alone, it was never listed to translate nor laid
+ * over. One lookup for what is listed (lib/markets/server.ts siteTexts), the
+ * live site (lib/markets/live.ts) and the builder's canvas.
+ */
+export function textFieldsFrom(sources: Record<string, string> | undefined): { fieldsOf: (type: string) => SchemaField[] | undefined; blockFieldsOf: (sectionType: string, blockType: string) => SchemaField[] | undefined } {
+  const lookup = schemaLookupFrom(sources) ?? ((type: string) => SECTION_SCHEMAS[type])
+  let catalog: Record<string, BlockSchema> | null = null
+  const themeBlocks = () => (catalog ??= themeBlockCatalog(sources))
+  return {
+    fieldsOf: (type) => lookup(type)?.fields,
+    blockFieldsOf: (sectionType, blockType) => lookup(sectionType)?.blocks?.find((b) => b.type === blockType)?.fields ?? themeBlocks()[blockType]?.fields,
+  }
 }

@@ -23,6 +23,7 @@ import { applySettingMarks } from "./storelib/marks"
 import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { shopWords } from "@/lib/markets/ui-words"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -190,6 +191,8 @@ export function renderSection(input: RenderInput): Rendered {
     product: data.product ?? null,
     collection: data.collection ?? null,
     reviews: data.reviews ?? null,
+    /* The words a section draws itself, in the page's language: each English unless translated (lib/markets/ui-words.ts). */
+    words: shopWords(data.words),
     request: {
       page_type: input.page.template,
       path: typeof input.page.path === "string" ? input.page.path : "",

@@ -3,6 +3,7 @@ import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/a
 import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadPhysicalProduct, savePhysicalProduct } from "@/lib/physical/catalog-server"
 import { loadLocations, loadProfiles, loadSettings } from "@/lib/physical/config-server"
+import { translationsChanged } from "@/lib/markets/translate-queue"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -33,5 +34,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const saved = await savePhysicalProduct(c.db, c.creatorId, id, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status ?? 400)
   readinessChanged(c)
+  /* Its option names and values, translated in a few minutes (lib/markets/translate-queue.ts). */
+  translationsChanged(c.creatorId)
   return physicalJson({ product: saved.data })
 }

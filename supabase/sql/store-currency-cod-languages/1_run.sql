@@ -1,7 +1,8 @@
 -- STORELIB: STORE CURRENCY, CASH ON DELIVERY AND LANGUAGES
 -- One file for the overhaul: run-now parts 174 (cash on delivery), 175 (translate
 -- changes automatically), 176 (a store's own selling currency), 177 (translating in
--- the background) and 178 (translation memory, the permanent cache), text unchanged.
+-- the background), 178 (translation memory, the permanent cache) and 186 (changes
+-- translated within minutes of a publish), text unchanged.
 -- HOW: paste into a NEW query tab in the Supabase SQL editor and press Run. The
 -- editor runs it as one transaction: an error changes nothing. Safe to run again.
 -- Cash on delivery's countries, fee and note, and the Languages list, need no
@@ -57,6 +58,10 @@ ALTER TABLE public.translation_memory DROP CONSTRAINT IF EXISTS translation_memo
 ALTER TABLE public.translation_memory ADD CONSTRAINT translation_memory_provider_check CHECK (provider IN ('gemini', 'deepl', 'libretranslate', 'huggingface', 'llm', 'mymemory', 'openai'));
 ALTER TABLE public.translation_memory ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.translation_memory FROM anon, authenticated;
+
+-- part 186_translation_queue.sql
+/* Translate changes within minutes of a publish. `store_localization.translate_dirty_at` (part 136's table): when a store with "Translate changes automatically" on publishes its website, saves a menu, a product or a collection, the server writes the time here. The translation run every three minutes (/api/cron/translation-jobs) takes the stores whose last change is a couple of minutes old, so a burst of edits is translated once, and clears it when the store is up to date; the hourly sweep (/api/cron/translations) only queues a store nothing has queued for a day. `store_localization.translate_lease_until`: while one run translates a store no other run takes it. Both empty for every store until something is saved. A translation the merchant wrote or edited is never replaced. Server only, as the table already is. No rows change. Skips itself with a notice where the table is not there (run 136 first). Until it runs, the hourly run works through the stores as before. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_localization') IS NULL THEN RAISE NOTICE 'translation queue: store_localization is not there yet, run part 136 first.'; ELSE ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translate_dirty_at timestamptz; ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translate_lease_until timestamptz; CREATE INDEX IF NOT EXISTS idx_store_localization_translate_dirty ON public.store_localization (translate_dirty_at) WHERE translate_dirty_at IS NOT NULL; END IF; END $do$;
 
 notify pgrst, 'reload schema';
 select 'Store currency, cash on delivery and languages ran. Now run 2_check.sql.' as done;

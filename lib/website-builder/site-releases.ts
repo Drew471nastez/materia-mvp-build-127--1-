@@ -151,7 +151,7 @@ export const pageRowsOf = (manifest: ReleaseManifest) => manifest.pages.map((p) 
 /** Releases kept per website. Older ones are deleted after a publish (pruneReleases). */
 export const RELEASES_KEPT = 20
 
-// ── Going back to one (SQL part 186) ────────────────────────────────────────
+// ── Going back to one (SQL part 188) ────────────────────────────────────────
 
 /** A published version as Backups & Versions lists it. */
 export interface ReleaseListItem {
@@ -194,7 +194,7 @@ export type RollbackFailure = "missing" | "not_found" | "unreadable" | "failed"
 
 /**
  * Why `rollback_site_release` refused, from its error: the function not
- * there (part 186 not run), a release that is not this website's (P0002),
+ * there (part 188 not run), a release that is not this website's (P0002),
  * one it cannot put back whole (22023: unreadable, or a file's text gone),
  * or anything else.
  */

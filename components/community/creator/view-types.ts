@@ -125,9 +125,25 @@ export interface OverviewFigures {
   pendingRequests: number
 }
 
+/** One line of the overview's Recent activity (round 32, lib/communities/server/overview-activity.ts): a post, or somebody joining. */
+export interface OverviewActivity {
+  kind: "post" | "join"
+  /** Unique across both kinds (post:<id>, join:<user id>). */
+  id: string
+  name: string
+  avatarUrl: string | null
+  /** The post's title or its first words; empty for a join. */
+  text: string
+  at: string
+  /** The post in the community, or Members. */
+  href: string
+}
+
 export interface OverviewData {
   figures: OverviewFigures
   upcoming: UpcomingEvent[]
+  /** Newest first. Missing (an older page) reads as nothing yet. */
+  recent?: OverviewActivity[]
   steps: NextStep[]
   /** Whether the community sells anything (a paid tier). Revenue figures only mean something then. */
   sells: boolean

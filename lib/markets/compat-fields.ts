@@ -6,6 +6,7 @@
  */
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { SchemaField } from "@/lib/website-builder/types"
+import { localizeCards, localizeRecord, themeWordKey, valueFor, type TranslateOpts, type TranslationMap } from "./translate"
 
 type O = Record<string, unknown>
 
@@ -26,4 +27,39 @@ export function compatFields(theme: CompatTheme): { fieldsOf: (t: string) => Sch
       return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)))
     },
   }
+}
+
+const LIVE = { approvedOnly: true, fresh: true }
+
+/**
+ * A product of an imported theme in a language, the one function the live
+ * website (lib/markets/compat.ts) and the builder's canvas both lay it over
+ * with: its card (title, plain description, options and variants' names,
+ * translate.ts localizeCards), its search engine title, and the rich
+ * description its page draws.
+ */
+export function compatCardIn<T extends { id: string; settings: unknown; descriptionHtml?: string }>(c: T, map: TranslationMap | null | undefined, opts: TranslateOpts = LIVE): T {
+  if (!map || map.size === 0) return c
+  const worded = localizeCards([{ id: c.id, settings: c.settings }], map, opts)[0].settings as O
+  const settings = typeof worded.seo_title === "string" ? localizeRecord(worded, `product:${c.id}`, ["seo_title"], map, opts) : worded
+  const html = c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : c.descriptionHtml
+  return settings === c.settings && html === c.descriptionHtml ? c : { ...c, settings, ...(html !== undefined ? { descriptionHtml: html } : {}) }
+}
+
+/** A collection's own title and description in a language (collection:<id>), live and in the canvas alike. */
+export function compatCollectionIn<T extends { id: string }>(c: T, map: TranslationMap | null | undefined, opts: TranslateOpts = LIVE): T {
+  if (!map || map.size === 0) return c
+  const record = c as unknown as O
+  return localizeRecord(record, `collection:${c.id}`, (["title", "description"] as const).filter((f) => typeof record[f] === "string"), map, opts) as unknown as T
+}
+
+/** The theme's own words (`| t`) as the store translated them (tw:<key>), each only while written for the theme's word as it is now. */
+export function compatThemeWords(defaults: { key: string; value: string }[], map: TranslationMap | null | undefined, opts: TranslateOpts = LIVE): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!map || map.size === 0) return out
+  for (const w of defaults) {
+    const v = valueFor(map, themeWordKey(w.key), opts, w.value)
+    if (v) out[w.key] = v
+  }
+  return out
 }
