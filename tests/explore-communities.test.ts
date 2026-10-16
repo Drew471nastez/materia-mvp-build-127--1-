@@ -329,13 +329,19 @@ async function main() {
     check("the daily rollup runs the purge once, on its first run", /if \(!after\) await purgeOldViewDays\(db\)/.test(code("lib/communities/server/jobs/rollup.ts")))
 
     const record = code("lib/communities/server/record-view.ts")
-    check("the page reads the request, then writes after the response", /await Promise\.all\(\[headers\(\), cookies\(\)\]\)/.test(record) && /after\(async \(\) => \{\s*await recordCommunityView\(admin\(\)/.test(record))
-    check("owners and unpublished communities are not counted", /if \(input\.status !== "published" \|\| input\.isOwner\) return/.test(record))
+    /*
+      Changed on purpose (round 33): a view is counted when a page of the community is on a screen (the layout's
+      visit beacon posting to app/api/community/<id>/visit), not while the feed or /about render: Explore's
+      "full" prefetch on a card a pointer rested on rendered the page and counted a visit nobody made, and every
+      other way in (a post, a space, an event) was never counted. tests/community-analytics-r33.test.ts holds the rest.
+    */
+    check("the route's visit is the database's once a day rule, after the owner and the browser are checked", /if \(!isPersonBrowser\(ua\)\) return "not_a_person"/.test(record) && /if \(v \? v\.isOwner \|\| v\.isCreatorAccount : await isOwnerOf\(db, community, req\.userId\)\) return "owner"/.test(record) /* Changed on purpose (round 33 merge): the route's viewerContext answers it when there is one */ && /recordCommunityView\(db, community\.id, key,/.test(record))
+    check("owners and unpublished communities are not counted", /if \(community\.status !== "published"\) return "not_published"/.test(record) && /community\.owner_user_id === userId/.test(record))
     const feed = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    /* Changed on purpose: round 15 seeds the member's home through PlacePage (components/community/member/place-page.tsx), which draws the feed inside the shell (ddcbaf919). */
-    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\) \{[\s\S]*return <PlacePage slug=\{load\.community\.slug\} place=\{place\} \/>\s*\}[\s\S]*<CommunitySalesPage/.test(feed))
-    check("the about page records a view, one call", (about.match(/scheduleCommunityView\(/g) ?? []).length === 1)
+    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    check("no page counts a view while it renders", !/scheduleCommunityView\(/.test(feed) && !/scheduleCommunityView\(/.test(about))
+    check("the community's layout carries the visit beacon in both frames", /<CommunityVisitBeacon communityId=\{c\.id\} referer=\{referer\} \/>/.test(layout) && (layout.match(/\{visit\}/g) ?? []).length === 2)
     check("the server modules say server-only", ["views", "record-view"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
   }
 

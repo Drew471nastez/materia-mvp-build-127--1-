@@ -544,6 +544,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const files = media.filter((m) => m.type === "file").length
   /* Two or more pictures: under the words on a computer too (round 12), not one thumbnail on the right. */
   const several = useMemo(() => cardPictures(media).length >= 2, [media])
+  /* Round 33: the author or a moderator fills in a video's missing still with the frame their browser draws (media.tsx VideoFrame). */
+  const fillStills = post.canEdit || post.canModerate
 
   const head = (
     <header className="flex items-start gap-3">
@@ -697,9 +699,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                 />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
-              <CardMedia media={media} priority={priority} phoneOnly={!several} communityId={post.communityId} className={several ? "mt-3" : "mt-3 sm:hidden"} />
+              <CardMedia media={media} priority={priority} phoneOnly={!several} communityId={post.communityId} fill={fillStills} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
-            {several ? null : <PostThumb media={media} communityId={post.communityId} className="max-sm:hidden" />}
+            {several ? null : <PostThumb media={media} communityId={post.communityId} fill={fillStills} className="max-sm:hidden" />}
           </div>
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">
@@ -760,7 +762,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
           {post.title ? <h1 className="pr-8 text-[19px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[21px]">{post.title}</h1> : null}
           {post.bodyText ? <BodyText text={post.bodyText} clamp={false} className={post.title ? "mt-1.5" : ""} /> : null}
-          <PostMediaGrid media={media} communityId={post.communityId} postId={post.id} priority />
+          <PostMediaGrid media={media} communityId={post.communityId} postId={post.id} priority fill={post.canEdit || post.canModerate} />
           {post.poll ? (
             <PollBlock poll={post.poll} communityId={post.communityId} canVote={!readOnly && !!viewer.can.react} onChange={(poll: PollView) => update(post.id, (p) => ({ ...p, poll }))} />
           ) : null}

@@ -36,6 +36,7 @@ import { PlaceIcon } from "./place-icons"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
+import { EDIT_GROUP, EditHint } from "./edit-hint"
 import { CARD, CARD_RAISED, DEPTH, DEPTH_PRESS, PRESS_PROPS, STACK, STACK_FACE } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
@@ -123,7 +124,9 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
   if (stats.admins !== null) cells.push(<Stat key="admins" kind="admins" value={compactCount(stats.admins)} label={stats.admins === 1 ? "Admin" : "Admins"} />)
   const moreLabel = `+${compactCount(more)}`
   return (
-    <section className={`${CARD} overflow-hidden`} data-wall-card="">
+    <section className={`${CARD} relative overflow-hidden ${card.settingsHref ? EDIT_GROUP : ""}`} data-wall-card="">
+      {/* Round 33: for whoever may change the page, the cover, name and tagline are a pencil away, under the pointer only. */}
+      {card.settingsHref ? <EditHint href={card.settingsHref.replace(/\/settings$/, "/page")} label="Edit page" className="absolute right-2.5 top-2.5 z-[1]" /> : null}
       {community.coverUrl ? (
         /*
           ROUND 27, THE COVER ARRIVES SOFTLY AND AT ITS SIZE. It sits at the top of the left column on every place, so it
@@ -132,7 +135,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
           own size (SoftImg), so nothing jumps and nothing pops.
         */
         <Link href={base} tabIndex={-1} aria-hidden className="block aspect-[16/9] w-full overflow-hidden bg-[#f1f2f4]">
-          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" className="h-full w-full object-cover" data-wall-cover="" />
+          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">

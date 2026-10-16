@@ -92,7 +92,7 @@ export function TranslationGlossary({ languages, disabled = false }: { languages
     <div className="mt-4 border-t border-[#f1f2f4] pt-4" data-translation-glossary="">
       <span className="block text-[14px] font-medium leading-5 text-[#1a1a2e]">{tt("Words not to translate")}</span>
       <p className="mt-0.5 text-[13px] leading-[18px] text-[#6b7280]">{tt("Brand and product names you list stay exactly as you write them, in every language.")}</p>
-      {!ready ? <Notice tone="amber" className="mt-3">{tt("Words not to translate needs a database update. Run SQL part 188 in Supabase, then try again.")}</Notice> : null}
+      {!ready ? <Notice tone="amber" className="mt-3">{tt("Words not to translate needs a database update. Run SQL part 203 in Supabase, then try again.")}</Notice> : null}
       {error ? <Notice className="mt-3">{error}</Notice> : null}
       <form onSubmit={add} className="mt-3 flex gap-2">
         <TextInput

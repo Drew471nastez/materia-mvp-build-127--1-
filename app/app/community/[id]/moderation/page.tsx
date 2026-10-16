@@ -1,10 +1,11 @@
-import { can } from "@/lib/communities/permissions"
-import { communityHead, listMembers, loadBadges, sectionPage } from "@/lib/communities/server/creator"
-import { auditLog, listReports } from "@/lib/communities/server/moderation"
+import { Suspense } from "react"
+import { sectionPage, type CreatorPageContext } from "@/lib/communities/server/creator"
+import { moderationReads } from "@/lib/communities/server/admin-sections"
 import { slowModeOf } from "@/lib/communities/server/safety"
 import { wordSettingsOf } from "@/lib/communities/word-filter"
 import { ModerationSection, type ModerationTab } from "@/components/community/creator/moderation-section"
 import { SectionSeed } from "@/components/community/creator/community-shell"
+import { SectionFrame } from "@/components/community/creator/section-frame"
 
 export const dynamic = "force-dynamic"
 
@@ -14,45 +15,40 @@ const TABS: readonly ModerationTab[] = ["reports", "resolved", "restricted", "ru
  * /app/community/<id>/moderation?tab=reports|resolved|restricted|rules|audit:
  * the report queue, who is muted, suspended, banned or removed (each with
  * who did it and the way back), the rules, and the audit log. What a tab
- * needs is read only when the role may use it.
+ * needs is read only when the role may use it (lib/communities/server/
+ * admin-sections.ts). The frame first, the queue as it comes (round 32).
  */
 export default async function CommunityModerationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const [{ id }, query] = await Promise.all([params, searchParams])
   const ctx = await sectionPage(id, "review_reports")
   if (!ctx) return null
-  const { db, community: c } = ctx
-  const restrict = can(ctx.role, "mute", ctx.viewer.perms) || can(ctx.role, "suspend", ctx.viewer.perms) || can(ctx.role, "ban", ctx.viewer.perms)
-  const page = (status: "muted" | "paused" | "banned" | "removed") => listMembers(db, c.id, { status, role: null, tierId: null, q: "", cursor: null }, { withEmail: can(ctx.role, "manage_members", ctx.viewer.perms) })
-  /* Removed members belong here too: Remove had no way back at all before (round 14). */
-  const canRemove = can(ctx.role, "remove_member", ctx.viewer.perms)
-  const [head, reports, audit, muted, paused, banned, removed, tiers, badges] = await Promise.all([
-    communityHead(ctx),
-    listReports(db, c.id, { status: query.tab === "resolved" ? "closed" : "open", cursor: null }),
-    can(ctx.role, "view_audit", ctx.viewer.perms) ? auditLog(db, c.id, null) : Promise.resolve(null),
-    restrict ? page("muted") : Promise.resolve(null),
-    restrict ? page("paused") : Promise.resolve(null),
-    restrict ? page("banned") : Promise.resolve(null),
-    restrict && canRemove ? page("removed") : Promise.resolve(null),
-    can(ctx.role, "manage_members", ctx.viewer.perms) ? db.from("community_tiers").select("id, name, kind").eq("community_id", c.id).is("archived_at", null).order("position", { ascending: true }).limit(50) : Promise.resolve({ data: [] }),
-    c.gamification_enabled && can(ctx.role, "award_points", ctx.viewer.perms) ? loadBadges(db, c.id) : Promise.resolve([]),
-  ])
-  const asked = TABS.find((t) => t === query.tab) ?? "reports"
-  const tab = (asked === "audit" && !audit) || (asked === "restricted" && !restrict) ? "reports" : asked
   return (
     <SectionSeed id="moderation">
-      <ModerationSection
-        head={head}
-        meId={ctx.userId}
-        initialTab={tab}
-        initialReports={reports}
-        initialAudit={audit}
-        rules={Array.isArray(c.rules) ? c.rules : []}
-        restricted={muted && paused && banned ? { muted, paused, banned, removed: removed ?? { rows: [], next: null, capped: false } } : null}
-        tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
-        badges={badges}
-        slowMode={slowModeOf(c)}
-        blockedWords={wordSettingsOf(c.onboarding)}
-      />
+      <Suspense fallback={<SectionFrame id="moderation" />}>
+        {moderationBody({ ctx, query })}
+      </Suspense>
     </SectionSeed>
+  )
+}
+
+async function moderationBody({ ctx, query }: { ctx: CreatorPageContext; query: { tab?: string } }) {
+  const c = ctx.community
+  const r = await moderationReads(ctx, query)
+  const asked = TABS.find((t) => t === query.tab) ?? "reports"
+  const tab = (asked === "audit" && !r.audit) || (asked === "restricted" && !r.restrictAllowed) ? "reports" : asked
+  return (
+    <ModerationSection
+      head={r.head}
+      meId={ctx.userId}
+      initialTab={tab}
+      initialReports={r.reports}
+      initialAudit={r.audit}
+      rules={Array.isArray(c.rules) ? c.rules : []}
+      restricted={r.restricted}
+      tiers={r.tiers}
+      badges={r.badges}
+      slowMode={slowModeOf(c)}
+      blockedWords={wordSettingsOf(c.onboarding)}
+    />
   )
 }

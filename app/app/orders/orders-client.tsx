@@ -46,7 +46,6 @@ import {
   COLUMNS_COOKIE,
   filterOrders,
   groupOrders,
-  pageOf,
   paramsFromQuery,
   queryFromParams,
   type ColumnKey,
@@ -54,8 +53,9 @@ import {
   type Order,
   type OrderRow,
 } from "@/lib/orders/order-view"
+import type { OrdersListing } from "@/lib/orders/paged"
+import { listingKey, listingParams } from "@/lib/orders/listing-params"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
-import { readMetrics } from "@/lib/orders/metrics"
 import { DEFAULT_PRESET, RANGE_COOKIE, firstDayOf, rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { OrdersList } from "./orders-list"
 import { ExportOrders } from "./export-dialog"
@@ -75,7 +75,10 @@ import { tt } from "@/lib/i18n/text"
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
 
 interface OrdersClientProps {
-  rows: OrderRow[]
+  /** One page of orders, its figures and its tabs, as the server read them for the address (lib/orders/paged.ts). */
+  listing: OrdersListing
+  /** What that page answers (lib/orders/listing-params listingKey): when the list asks for something else, it is read again. */
+  listingKey: string
   products: Array<{ id: string; title: string }>
   stripeConnected: boolean
   /** The owner refunds; a team member working in the store does not (lib/team). */
@@ -160,15 +163,40 @@ export function OrdersClient(props: OrdersClientProps) {
     if (returning) holdLanding()
   }, [returning])
 
-  /* ── Data ─────────────────────────────────────────────────────────────── */
-  const [rows, setRows] = React.useState(props.rows)
-  /* A pull waits for this: the server's new rows, drawn. */
+  /*
+    ── Data ───────────────────────────────────────────────────────────────
+    ONE PAGE AT A TIME. The server sends the page of orders the list shows,
+    the orders either side of it (previous and next on an order's page), the
+    open one, the figures and which tabs have something (lib/orders/paged.ts).
+    Each order keeps the number it was given over every order the store has:
+    `numbers`, never a count of these rows. What the list asks for (view,
+    search, filters, sort, page, period, zone) is its key; a different key
+    reads the list again, and the page on screen stays until it arrives.
+  */
+  const [listing, setListing] = React.useState(props.listing)
+  const [rows, setRows] = React.useState(props.listing.rows)
+  /* Every number seen, by order id: what names ticked orders on other pages to an export. */
+  const [numbers, setNumbers] = React.useState<Record<string, number>>(props.listing.numbers)
+  const [loading, setLoading] = React.useState(false)
+  const orders = React.useMemo(() => groupOrders(rows, numbers), [rows, numbers])
+  const openRef = React.useRef<string | null>(null)
+  /* A new page in: its rows, and the open order's, which may be on no page of it. */
+  const adopt = React.useCallback((next: OrdersListing) => {
+    /* A page asked for without its figures (the same period, another page): the figures and tabs stay as they were. */
+    setListing((prev) => (next.figures ? next : { ...next, metrics: prev.metrics, summary: { ...prev.summary, total: next.summary.total, earliest: next.summary.earliest } }))
+    setNumbers((prev) => ({ ...prev, ...next.numbers }))
+    setRows((prev) => {
+      const fresh = new Set(next.rows.map((r) => r.id))
+      const open = openRef.current ? findOrder(groupOrders(prev, {}), openRef.current) : null
+      const kept = open ? open.lines.filter((l) => !fresh.has(l.id)) : []
+      return [...next.rows, ...kept]
+    })
+  }, [])
+  /* A pull waits for this: the server's new page, drawn. */
   const rowsArrived = React.useRef<(() => void) | null>(null)
-  React.useEffect(() => {
-    setRows(props.rows)
-    rowsArrived.current?.()
-    rowsArrived.current = null
-  }, [props.rows])
+  /* Asked for again after an action, so the counts and figures follow it. */
+  const [version, setVersion] = React.useState(0)
+  const reread = React.useCallback(() => setVersion((v) => v + 1), [])
   /* Pull to refresh: the page reads its orders again, and the spinner stays until they are on the screen (or 8s). */
   const router = useRouter()
   const onPullRefresh = React.useCallback(
@@ -180,7 +208,6 @@ export function OrdersClient(props: OrdersClientProps) {
       }),
     [router],
   )
-  const orders = React.useMemo(() => groupOrders(rows), [rows])
 
   /* ── Clock and zone: the server's first, then the viewer's ─────────────── */
   const [timeZone, setTimeZone] = React.useState(props.timeZone)
@@ -209,7 +236,7 @@ export function OrdersClient(props: OrdersClientProps) {
     days. Older links (?range=30d, ?period=7d) still open what they meant.
   */
   const [remembered, setRemembered] = React.useState<string>(props.initialRange ?? "")
-  const earliest = orders.length ? Date.parse(orders[orders.length - 1].createdAt) : null
+  const earliest = listing.summary.earliest ? Date.parse(listing.summary.earliest) : null
   const firstDay = firstDayOf(earliest, timeZone)
   const today = todayIn(timeZone, now)
   const { period } = React.useMemo(
@@ -224,6 +251,7 @@ export function OrdersClient(props: OrdersClientProps) {
   */
   const compare = PREVIOUS_PERIOD
   const openId = searchParams.get("order")
+  openRef.current = openId
 
   const [searchText, setSearchText] = React.useState(query.q)
   const searchTimer = React.useRef<number | undefined>(undefined)
@@ -277,14 +305,83 @@ export function OrdersClient(props: OrdersClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [period.preset, period.start, period.end, compare.mode, compare.range?.start, compare.range?.end, now, timeZone],
   )
-  const filtered = React.useMemo(
-    () => filterOrders(orders, { ...query, q: searchText }, span),
+  /* The page the server sent, in its order, and narrowed at once by what was typed or chosen since (the server's answer follows). */
+  const byId = React.useMemo(() => new Map(orders.map((o) => [o.id, o])), [orders])
+  const pageItems = React.useMemo(
+    () => filterOrders(listing.pageIds.map((id) => byId.get(id)).filter((o): o is Order => !!o), { ...query, q: searchText }, null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders, query.view, query.source, query.product, query.fulfillment, query.sort, searchText, span],
+    [listing.pageIds, byId, query.view, query.source, query.product, query.fulfillment, query.sort, searchText],
   )
-  const page = React.useMemo(() => pageOf(filtered, query.page), [filtered, query.page])
+  const page = React.useMemo(() => ({ ...listing.range, items: pageItems }), [listing.range, pageItems])
+  /* Previous and next on an order's page walk the list: this page and the order either side of it. */
+  const before = listing.before ? byId.get(listing.before) ?? null : null
+  const after = listing.after ? byId.get(listing.after) ?? null : null
+  const filtered = React.useMemo(() => [...(before ? [before] : []), ...pageItems, ...(after ? [after] : [])], [before, pageItems, after])
   const listQuery = React.useMemo(() => ({ ...query, q: searchText }), [query, searchText])
-  const metrics = React.useMemo(() => readMetrics(orders, span, span.previous, timeZone), [orders, span, timeZone])
+  const metrics = listing.metrics
+
+  /* ── Asking the server for the page the list shows ──────────────────── */
+  const wantedKey = listingKey(query, period, timeZone)
+  const wanted = `${wantedKey}#${version}`
+  const asked = React.useRef(`${props.listingKey}#0`)
+  /*
+    THE FIGURES ONLY WHEN THEY CAN HAVE CHANGED. Another page, a search or a
+    filter leaves the five figures and the tabs as they were: they are asked
+    for again with a new period or zone, after an action, and once a minute
+    has passed (the period runs up to now).
+  */
+  const figuresKey = JSON.stringify([period.preset, period.start, period.end, timeZone, version])
+  const hadFigures = React.useRef<{ key: string; at: number } | null>(null)
+  if (hadFigures.current === null) hadFigures.current = { key: props.listingKey === wantedKey ? figuresKey : "", at: props.now }
+  const askedFor = React.useRef({ query, span, timeZone, figuresKey })
+  askedFor.current = { query, span, timeZone, figuresKey }
+  React.useEffect(() => {
+    if (asked.current === wanted) return
+    asked.current = wanted
+    const ctrl = new AbortController()
+    const { query: q, span: s, timeZone: zone, figuresKey: fk } = askedFor.current
+    const had = hadFigures.current
+    const figures = !had || had.key !== fk || Date.now() - had.at > 60_000
+    const params = listingParams({ query: q, window: { start: s.start, end: s.end }, previous: s.previous, timeZone: zone, open: openRef.current, figures })
+    setLoading(true)
+    let done = false
+    fetch(`/api/app/orders/list?${params.toString()}`, { signal: ctrl.signal, cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((next: OrdersListing) => {
+        done = true
+        if (next.figures) hadFigures.current = { key: fk, at: Date.now() }
+        adopt(next)
+        setLoading(false)
+        rowsArrived.current?.()
+        rowsArrived.current = null
+      })
+      .catch(() => {
+        /* Aborted for a newer ask, or failed: what is on screen stays. */
+        if (!ctrl.signal.aborted) {
+          done = true
+          setLoading(false)
+        }
+      })
+    return () => {
+      ctrl.abort()
+      /* Not answered: the next run asks again, even for the same thing. */
+      if (!done) asked.current = ""
+    }
+  }, [wanted, adopt])
+
+  /* The server's own page after a pull to refresh: taken when it answers what the list shows, asked for again when not. */
+  const propsListing = React.useRef(props.listing)
+  React.useEffect(() => {
+    if (propsListing.current === props.listing) return
+    propsListing.current = props.listing
+    if (props.listingKey === wantedKey) {
+      hadFigures.current = { key: figuresKey, at: Date.now() }
+      adopt(props.listing)
+      rowsArrived.current?.()
+      rowsArrived.current = null
+    } else reread()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.listing])
 
   /* ── Columns, remembered in a cookie so the server draws the same table ─ */
   const [hidden, setHidden] = React.useState(() => new Set(props.hiddenColumns))
@@ -404,10 +501,29 @@ export function OrdersClient(props: OrdersClientProps) {
     moveOrder("pop", detail, list, () => setLeavingId(null), { settle: false })
   }, [shownId])
 
-  /* An address naming an order that is not this creator's, or not there. */
+  /*
+    An order on no page the list has (a link from an email, a reload on an
+    order from another page) is asked for on its own, numbered as everywhere.
+    One that is not this creator's, or not there, takes the address back.
+  */
+  const hasShown = shown !== null
   React.useEffect(() => {
-    if (openId && !shown) writeAddress((p) => p.delete("order"), "replace")
-  }, [openId, shown])
+    if (!openId || hasShown) return
+    const ctrl = new AbortController()
+    fetch(`/api/app/orders/list?one=${encodeURIComponent(openId)}`, { signal: ctrl.signal, cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((one: { rows: OrderRow[]; numbers: Record<string, number> }) => {
+        setNumbers((prev) => ({ ...prev, ...one.numbers }))
+        setRows((prev) => {
+          const have = new Set(prev.map((r) => r.id))
+          return [...prev, ...one.rows.filter((r) => !have.has(r.id))]
+        })
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) writeAddress((p) => p.delete("order"), "replace")
+      })
+    return () => ctrl.abort()
+  }, [openId, hasShown])
   /* Closed by the browser's own back: nothing of ours pushed an entry now. */
   React.useEffect(() => {
     if (!openId) pushed.current = false
@@ -432,10 +548,15 @@ export function OrdersClient(props: OrdersClientProps) {
     else closeOver()
   }
   const at = displayed ? filtered.findIndex((o) => o.id === displayed.id) : -1
+  /* Where `filtered` starts in the whole list: the order before this page, or the page's first. */
+  const offset = Math.max(0, page.from - 1 - (before ? 1 : 0))
   const onStep = (dir: -1 | 1) => {
     /* Not from an order on its way out (its arrow keys are still listening). */
     const next = shown ? filtered[at + dir] : undefined
     if (!next) return
+    /* Onto the order either side of the page: the list behind turns to its page, so the next step has somewhere to go. */
+    if (next === before) onQuery({ page: page.page - 1 })
+    else if (next === after) onQuery({ page: page.page + 1 })
     writeAddress((p) => p.set("order", next.id), "replace")
   }
 
@@ -449,13 +570,17 @@ export function OrdersClient(props: OrdersClientProps) {
   }
 
   /* ── Actions ────────────────────────────────────────────────────────── */
-  const patchRows = (ids: string[], patch: Partial<OrderRow>) =>
+  /* A change shows at once; the page is read again behind it, so its counts, tabs and figures follow. */
+  const patchRows = (ids: string[], patch: Partial<OrderRow>) => {
     setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, ...patch } : r)))
+    reread()
+  }
 
   /* A parcel fulfilled, delivered or returned on its page: its row in the list says so at once. */
-  const onShipping = useStable((checkoutId: string, fulfillment: string, returnStatus: string, cashDue: boolean) =>
-    setRows((prev) => prev.map((r) => (r.checkout_id === checkoutId ? { ...r, physical_fulfillment: fulfillment, physical_return: returnStatus, physical_cash_due: cashDue } : r))),
-  )
+  const onShipping = useStable((checkoutId: string, fulfillment: string, returnStatus: string, cashDue: boolean) => {
+    setRows((prev) => prev.map((r) => (r.checkout_id === checkoutId ? { ...r, physical_fulfillment: fulfillment, physical_return: returnStatus, physical_cash_due: cashDue } : r)))
+    reread()
+  })
 
   /* What a send wrote to each row, straight from the server's answer: the
      page shows it at once, with no reload of every order. */
@@ -558,9 +683,10 @@ export function OrdersClient(props: OrdersClientProps) {
       >
         <PullToRefresh onRefresh={onPullRefresh}>
         <OrdersListMemo
-          allOrders={orders}
+          summary={listing.summary}
+          loading={loading}
           pageOrders={page.items}
-          matching={filtered.length}
+          matching={listing.matching}
           range={page}
           query={listQuery}
           onQuery={onQuery}
@@ -604,7 +730,7 @@ export function OrdersClient(props: OrdersClientProps) {
             onBack={onBack}
             onStep={at >= 0 ? onStep : null}
             canStep={{ previous: at > 0, next: at >= 0 && at < filtered.length - 1 }}
-            position={at >= 0 ? { index: at, count: filtered.length } : null}
+            position={at >= 0 ? { index: offset + at, count: Math.max(listing.matching, offset + filtered.length) } : null}
             onAction={onAction}
             onNotice={onNotice}
             onShipping={onShipping}
@@ -616,9 +742,13 @@ export function OrdersClient(props: OrdersClientProps) {
       <ExportOrders
         open={exporting}
         onClose={() => setExporting(false)}
-        all={orders}
+        total={listing.summary.total}
+        known={orders}
+        numbers={numbers}
         pageOrders={page.items}
-        matching={filtered}
+        matching={listing.matching}
+        query={listQuery}
+        span={span}
         period={period}
         filtering={filtering}
         selected={selected}

@@ -8,7 +8,6 @@ import { hasSellerAccess } from "@/lib/account/seller-access"
 import { welcomeGate } from "@/lib/account/welcome"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
-import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
@@ -87,8 +86,7 @@ export default async function CommunityPage({
       }
     }
   }
-  /* One view a visitor a day, the feed and the sales page alike, written after the response (lib/communities/server/views.ts). */
-  await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
+  /* One view a visitor a day is counted by the page once it is on a screen, on every page of the community alike (the layout's visit beacon, lib/communities/server/record-view.ts), not by this render: a prefetch from Explore renders it too. */
 
   /* A member's home is the member area's (components/community/member/feed-page.tsx): it draws the shell and the feed. */
   /* Pull to refresh: the member frame wraps the feed (community-pull-refresh.tsx, scope community-feed). */

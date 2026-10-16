@@ -310,32 +310,101 @@ function backoffSeconds(attempts: number): number {
   return Math.min(6 * 3600, 60 * 2 ** Math.max(0, attempts - 1))
 }
 
+/** A job claimed past its last attempt: only a lease that ran out gets here (a failure on the last attempt is marked dead in the catch). */
+export function deadAfterLease(job: { attempts: number; max_attempts: number }): boolean {
+  return Number(job.attempts) > Number(job.max_attempts)
+}
+
+/** How long a claim holds a job (commerce_claim_jobs p_lease_seconds), and how long a renewal before an email holds it again. */
+export const JOB_LEASE_SECONDS = 120
+
+/** The claim a run holds: commerce_claim_jobs adds one to attempts on every claim, so (id, running, attempts) names this claim and no other. */
+export interface JobClaim {
+  id: number
+  attempts: number
+}
+
+/** Thrown before an email when the claim is gone: another run took the job after its lease ran out, and that run owns it now. */
+export class LostJobLease extends Error {
+  constructor() {
+    super("Another run took this job after its lease ran out.")
+    this.name = "LostJobLease"
+  }
+}
+
+/**
+ * Finishes a job only while this run still holds it. A handler that ran past
+ * its lease may have been taken again by another run (attempts one higher);
+ * then nothing is written here and false comes back, and the other run's
+ * result stands.
+ */
+export async function finishClaimedJob(db: Db, claim: JobClaim, patch: Record<string, unknown>): Promise<boolean> {
+  const { data, error } = await db.from("commerce_jobs").update(patch).eq("id", claim.id).eq("status", "running").eq("attempts", claim.attempts).select("id")
+  return !error && Array.isArray(data) && data.length > 0
+}
+
+/**
+ * Renews the lease just before an email goes, and says whether this run
+ * still holds the job. A lease that already ran out is not renewed (another
+ * run may be taking it now), so the email is left to that run.
+ */
+export async function renewJobLease(db: Db, claim: JobClaim, now = Date.now()): Promise<boolean> {
+  const { data, error } = await db
+    .from("commerce_jobs")
+    .update({ locked_until: new Date(now + JOB_LEASE_SECONDS * 1000).toISOString(), updated_at: new Date(now).toISOString() })
+    .eq("id", claim.id)
+    .eq("status", "running")
+    .eq("attempts", claim.attempts)
+    .gt("locked_until", new Date(now).toISOString())
+    .select("id")
+  return !error && Array.isArray(data) && data.length > 0
+}
+
+/** Each sender calls this right before sendEmail. Without a claim (a direct call) the email goes. */
+type LeaseCheck = (() => Promise<boolean>) | undefined
+async function holdLease(lease: LeaseCheck): Promise<void> {
+  if (lease && !(await lease())) throw new LostJobLease()
+}
+
 export async function runJobs(db: Db, limit = 20): Promise<{ done: number; failed: number }> {
-  const { data, error } = await db.rpc("commerce_claim_jobs", { p_limit: limit, p_lease_seconds: 120 })
+  const { data, error } = await db.rpc("commerce_claim_jobs", { p_limit: limit, p_lease_seconds: JOB_LEASE_SECONDS })
   if (error) return { done: 0, failed: 0 }
   let done = 0
   let failed = 0
   for (const job of (data ?? []) as { id: number; kind: JobKind; payload: Record<string, any>; attempts: number; max_attempts: number; creator_id: string | null }[]) {
+    /*
+      A LEASE THAT RAN OUT ON ITS LAST ATTEMPT. commerce_claim_jobs takes back
+      a running job whose lease ran out whatever its attempts, and counts one
+      more. A job whose run is cut off every time (the function's time ran
+      out mid send) never reached the catch below, so it was never marked
+      dead and was taken again every ten minutes for ever. Past its attempts
+      it is dead now, without running again (deadAfterLease).
+    */
+    const claim: JobClaim = { id: job.id, attempts: job.attempts }
+    if (deadAfterLease(job)) {
+      failed++
+      await finishClaimedJob(db, claim, { status: "dead", last_error: "Its run was cut off on every attempt.", locked_until: null, finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      continue
+    }
     try {
-      await handle(db, job)
-      await db.from("commerce_jobs").update({ status: "done", finished_at: new Date().toISOString(), last_error: null, locked_until: null, updated_at: new Date().toISOString() }).eq("id", job.id)
-      done++
+      await handle(db, job, () => renewJobLease(db, claim))
+      /* Every finishing write is on this claim alone: a run that lost the lease writes nothing (finishClaimedJob). */
+      if (await finishClaimedJob(db, claim, { status: "done", finished_at: new Date().toISOString(), last_error: null, locked_until: null, updated_at: new Date().toISOString() })) done++
     } catch (e) {
+      /* Another run took the job before its email went: that run sends it and writes the result. */
+      if (e instanceof LostJobLease) continue
       failed++
       const message = (e instanceof Error ? e.message : "failed").slice(0, 500)
       const dead = job.attempts >= job.max_attempts
-      await db
-        .from("commerce_jobs")
-        .update({
-          status: dead ? "dead" : "failed",
-          last_error: message,
-          locked_until: null,
-          run_after: new Date(Date.now() + backoffSeconds(job.attempts) * 1000).toISOString(),
-          finished_at: dead ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", job.id)
-      if (dead && job.payload?.checkoutId) {
+      const ours = await finishClaimedJob(db, claim, {
+        status: dead ? "dead" : "failed",
+        last_error: message,
+        locked_until: null,
+        run_after: new Date(Date.now() + backoffSeconds(job.attempts) * 1000).toISOString(),
+        finished_at: dead ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      if (ours && dead && job.payload?.checkoutId) {
         await addOrderEvent(db, {
           checkoutId: job.payload.checkoutId,
           creatorId: job.creator_id,
@@ -352,12 +421,12 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
 
 /* ── what each job does ───────────────────────────────────────────────── */
 
-async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any> }): Promise<void> {
+async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any> }, lease?: LeaseCheck): Promise<void> {
   switch (job.kind) {
     case "send_email":
-      return job.payload?.template === "low_stock" ? sendLowStockEmail(db, job.payload) : job.payload?.template === "seller" ? sendSellerEmail(db, job.payload) : sendBuyerEmail(db, job.payload)
+      return job.payload?.template === "low_stock" ? sendLowStockEmail(db, job.payload, lease) : job.payload?.template === "seller" ? sendSellerEmail(db, job.payload, lease) : sendBuyerEmail(db, job.payload, lease)
     case "supplier_email":
-      return sendSupplierEmail(db, job.payload)
+      return sendSupplierEmail(db, job.payload, lease)
     case "webhook_delivery":
       return deliverWebhook(db, job.payload)
     case "forward_fulfillment":
@@ -519,7 +588,7 @@ async function overBuyerLimit(db: Db, checkoutId: string): Promise<boolean> {
   }
 }
 
-async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
+async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   if (!co.buyer_email) return
   /* A declined payment is only news while the order is still unpaid: paid since, cancelled or refunded, nothing goes. */
@@ -670,6 +739,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   } else {
     return
   }
+  await holdLease(lease)
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
     to: co.buyer_email,
@@ -720,7 +790,7 @@ async function sellerInbox(db: Db, creatorId: string): Promise<string | null> {
   return to && to.includes("@") && to !== EMAIL_REPLY_TO.trim().toLowerCase() ? to : null
 }
 
-async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> {
+async function sendLowStockEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck): Promise<void> {
   const creatorId = String(p.creatorId ?? "")
   const items = (Array.isArray(p.items) ? p.items : []).slice(0, 50) as { title: string; variantName: string | null; available: number; threshold: number }[]
   if (!creatorId || items.length === 0) return
@@ -728,6 +798,7 @@ async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> 
   if (!to) return
   const identity = await resolveCreatorIdentity(db, creatorId)
   const mail = lowStockEmail({ shopName: identity.fromName || "Storelib", items, inventoryUrl: `https://${getMainDomain()}/app/inventory?filter=low` })
+  await holdLease(lease)
   const sent = await sendEmail({ from: buildFromHeader("Storelib"), to, subject: mail.subject, html: mail.html, text: mail.text, headers: { "X-Storelib-Notification": "LOW_STOCK" } })
   if (!sent.success) throw new Error(sent.error || "Email not sent")
 }
@@ -738,7 +809,7 @@ async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> 
  * look (lib/notify/seller-commerce.ts), when they have sales emails on in
  * Settings › Notifications.
  */
-async function sendSellerEmail(db: Db, p: Record<string, any>): Promise<void> {
+async function sendSellerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck): Promise<void> {
   const kind = sellerKindForEvent(String(p.event ?? ""))
   if (!kind) return
   const co = await loadCheckout(db, p.checkoutId)
@@ -787,6 +858,7 @@ async function sendSellerEmail(db: Db, p: Record<string, any>): Promise<void> {
     },
     { baseUrl: `https://${getMainDomain()}`, unsubscribeUrl: userUnsubscribe, preferencesUrl: preferencesUrl() },
   )
+  await holdLease(lease)
   const sent = await sendEmail({
     from: buildFromHeader("Storelib"),
     to,
@@ -805,7 +877,7 @@ function partnerPageUrl(checkoutId: string, location: { id: string; email: strin
   return token ? `https://${getMainDomain()}${PARTNER_PAGE_PREFIX}${token}` : null
 }
 
-async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> {
+async function sendSupplierEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   const { data: loc } = await db.from("inventory_locations").select("id, name, email, forwarding").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
   if (!loc?.email) throw new Error("The location has no email address.")
@@ -824,6 +896,7 @@ async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> 
     note: co.buyer_note,
     trackingLink: partnerPageUrl(co.id, loc),
   })
+  await holdLease(lease)
   const sent = await sendEmail({ from: buildFromHeader(shopName), to: loc.email, replyTo: identity.replyTo || identity.sellerEmail || undefined, subject: mail.subject, html: mail.html, text: mail.text })
   if (!sent.success) throw new Error(sent.error || "Email not sent")
   await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: `Order emailed to ${loc.name}`, key: `forwarded_email:${co.id}:${loc.id}` })

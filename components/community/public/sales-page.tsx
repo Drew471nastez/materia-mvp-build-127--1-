@@ -40,6 +40,7 @@
  * No hooks: the sheet is drawn on the server; the gallery and the controls
  * are the client parts.
  */
+import type { ReactNode } from "react"
 import Link from "next/link"
 import { Star } from "lucide-react"
 import { PlaceIcon } from "@/components/community/member/place-icons"
@@ -51,8 +52,10 @@ import { FULL_ON_HOVER } from "@/components/community/member/nav"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { CheckDot } from "./check-dot"
 import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone, MembershipRow, PricingCard } from "./join-controls"
-import { aboutFacts, galleryIsCoverOnly } from "./about-facts"
+import { aboutFacts, aboutRow, galleryIsCoverOnly } from "./about-facts"
 import { FactsList } from "./facts-list"
+import { AboutRow } from "./about-row"
+import { SocialLinks } from "./social-icons"
 import type { AboutExtras, JoinOption, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
 
 const H2 = "text-[18px] font-semibold tracking-[-0.005em] text-[#1a1a2e]"
@@ -235,7 +238,16 @@ function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityVi
   )
 }
 
-export function CommunitySalesPage({ data }: { data: SalesPageData }) {
+/** What the Page editor's preview shows where a part is empty (round 33): a quiet line saying what goes there, only there. */
+function Placeholder({ block, children, className }: { block: string; children: ReactNode; className?: string }) {
+  return (
+    <p className={cn("rounded-xl border border-dashed border-[#d9dce1] px-4 py-3 text-[14.5px] text-[#8a8f98]", className)} data-page-block={block} data-page-placeholder="">
+      {children}
+    </p>
+  )
+}
+
+export function CommunitySalesPage({ data, editing = false }: { data: SalesPageData; /** Round 33: drawn in the Page editor's preview, where an empty part says what goes there. */ editing?: boolean }) {
   const { community: c, join, notice } = data
   const extras = data.extras ?? null
   const rules = c.rules.slice(0, RULES_SHOWN)
@@ -243,12 +255,17 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
   /* The other paid ways in can be chosen when the button itself would be a payment or a free join: never ahead of an approval. */
   const paidOnOffer = join.kind === "checkout" || join.kind === "join_free"
   const otherOptions = c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
-  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed"
+  /* Round 33, the owner: no Membership section while the community has fewer than two members. */
+  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed" && c.memberCount >= 2
   const hasDescription = Boolean(c.descriptionHtml || c.descriptionText)
-  const facts = aboutFacts(c, c.stats, extras)
+  /* The side card's list (from 1280px): what the row under the name does not already say (round 33). */
+  const facts = aboutFacts(c, c.stats, extras).filter((f) => f.key !== "members" && f.key !== "visibility")
   /* The cover alone, as the sheet's media: the left column's card has it from 1024px, so there it is not drawn twice. */
   const coverOnly = galleryIsCoverOnly(c.gallery, c.coverUrl)
   const member = join.kind === "open" && !join.isOwner && (join.canLeave || !!join.manageHref)
+  const row = aboutRow(c, c.stats, join.option)
+  const links = c.links ?? []
+  const cover = c.coverUrl && c.coverPosition ? { url: c.coverUrl, position: c.coverPosition } : null
 
   const others =
     otherOptions.length > 0 || c.accessProducts.length > 0 ? (
@@ -296,22 +313,36 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
           300px, 24px apart, so About lines up with every other page of the community.
         */}
         <div className="w-full pb-10 lg:pb-20" data-community-sales-columns="">
-          <div className="xl:mx-auto xl:grid xl:max-w-[1120px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7">
+          {/*
+            Round 33, the owner: the sheet with the gallery 10% wider on a large screen. It was at most 772px (1120 less the
+            320px card and the 28px gap); the columns now reach 1197px, so the sheet is 849px wherever the frame has the room.
+          */}
+          <div className="xl:mx-auto xl:grid xl:max-w-[1197px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7" data-community-sales-grid="">
             <main className="min-w-0">
               <article className="overflow-hidden border-b border-[#e5e7eb]/70 bg-white sm:rounded-2xl sm:border sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-sheet="">
                 {/* Round 27, the owner: the pictures first, the name and its line under them. */}
                 {c.gallery.length ? (
-                  <div className={cn(PAD, "pt-4 sm:pt-6", coverOnly && "lg:hidden")} data-gallery-cover-only={coverOnly ? "" : undefined}>
-                    <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} />
+                  <div className={cn(PAD, "pt-4 sm:pt-6", coverOnly && "lg:hidden")} data-gallery-cover-only={coverOnly ? "" : undefined} data-page-block={coverOnly ? "cover" : "gallery"}>
+                    <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} cover={cover} />
+                  </div>
+                ) : editing ? (
+                  <div className={cn(PAD, "pt-4 sm:pt-6")}>
+                    <Placeholder block="gallery" className="flex aspect-[16/9] items-center justify-center text-center">
+                      Add a cover picture or video
+                    </Placeholder>
                   </div>
                 ) : null}
 
                 <header className={cn(PAD, c.gallery.length ? cn("pt-5 sm:pt-6", coverOnly && "lg:pt-8") : "pt-6 sm:pt-8")}>
-                  <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]">{c.name}</h1>
+                  <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]" data-page-block="name">{c.name}</h1>
                   {c.tagline ? (
-                    <p className="mt-2 max-w-[60ch] text-[16px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-community-tagline="">
+                    <p className="mt-2 max-w-[60ch] text-[16px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-community-tagline="" data-page-block="tagline">
                       {c.tagline}
                     </p>
+                  ) : editing ? (
+                    <Placeholder block="tagline" className="mt-2 max-w-[60ch]">
+                      Add a line under the name
+                    </Placeholder>
                   ) : null}
                   {c.reviews ? (
                     <a href="#community-reviews" className="mt-2 inline-flex min-h-10 items-center gap-2 text-[14px] text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-0" data-community-rating="">
@@ -321,6 +352,17 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                       </span>
                     </a>
                   ) : null}
+                  {/* Round 33: the facts in a row (about-row.tsx), with the faces of the members here most recently; then the links as icons. */}
+                  <AboutRow facts={row} faces={extras?.faces ?? []} className="mt-4" />
+                  {links.length ? (
+                    <div data-page-block="links" className="mt-4">
+                      <SocialLinks links={links} />
+                    </div>
+                  ) : editing ? (
+                    <Placeholder block="links" className="mt-4 inline-block py-2">
+                      Add your website or social pages
+                    </Placeholder>
+                  ) : null}
                 </header>
 
                 {/* On a phone, under the media: only what happened (an error, a request waiting), when there is something. */}
@@ -328,24 +370,23 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                   <JoinSummaryPhone />
                 </div>
 
-                <div className={cn(PAD, "mt-6 pb-7 sm:mt-7 sm:pb-8 [&>*:first-child]:mt-0")}>
+                <div className={cn(PAD, "mt-6 pb-7 empty:hidden sm:mt-7 sm:pb-8 [&>*:first-child]:mt-0")}>
                   {hasDescription ? (
                     c.descriptionHtml ? (
-                      <div className="storelib-prose storelib-description break-words text-[15.5px] leading-relaxed text-[#262633]" data-community-description="" dangerouslySetInnerHTML={{ __html: c.descriptionHtml }} />
+                      /* Sanitized on the server by the product description's allow list (lib/rich-text/sanitize.ts), on save and on read. */
+                      <div className="storelib-prose storelib-description break-words text-[15.5px] leading-relaxed text-[#262633]" data-community-description="" data-page-block="description" dangerouslySetInnerHTML={{ __html: c.descriptionHtml }} />
                     ) : (
-                      <p className="whitespace-pre-wrap break-words text-[15.5px] leading-relaxed text-[#262633]" data-community-description="">
+                      <p className="whitespace-pre-wrap break-words text-[15.5px] leading-relaxed text-[#262633]" data-community-description="" data-page-block="description">
                         {c.descriptionText}
                       </p>
                     )
+                  ) : editing ? (
+                    <Placeholder block="description">Say what the community is about: who it is for, what happens in it, how often.</Placeholder>
                   ) : null}
-                  {/* Below 1280px the facts are here, after what it is about; from 1280px they are in the side card. */}
-                  <div className="mt-6 rounded-xl border border-[#eceef1] bg-[#fafbfb] px-4 py-1 xl:hidden sm:px-5" data-about-facts-sheet="">
-                    <FactsList facts={facts} />
-                  </div>
                 </div>
 
                 {c.benefits.length > 0 ? (
-                  <section className={SECTION} aria-labelledby="community-benefits">
+                  <section className={SECTION} aria-labelledby="community-benefits" data-page-block="benefits">
                     <h2 id="community-benefits" className={H2}>
                       What members get
                     </h2>
@@ -358,6 +399,10 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                       ))}
                     </ul>
                   </section>
+                ) : editing ? (
+                  <div className={SECTION}>
+                    <Placeholder block="benefits">Add what members get</Placeholder>
+                  </div>
                 ) : null}
 
                 {showMembership ? (
@@ -414,7 +459,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                 ) : null}
 
                 {c.faq.length > 0 ? (
-                  <section className={SECTION} aria-labelledby="community-faq">
+                  <section className={SECTION} aria-labelledby="community-faq" data-page-block="faq">
                     <h2 id="community-faq" className={H2}>
                       Questions
                     </h2>
@@ -432,6 +477,10 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                       ))}
                     </div>
                   </section>
+                ) : editing ? (
+                  <div className={SECTION}>
+                    <Placeholder block="faq">Add answers to what people ask before joining</Placeholder>
+                  </div>
                 ) : null}
 
                 {member ? (
@@ -445,7 +494,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
               </article>
             </main>
 
-            <JoinCard facts={<FactsList facts={facts} />} />
+            <JoinCard facts={facts.length ? <FactsList facts={facts} /> : null} />
           </div>
         </div>
         <JoinBarPhone />

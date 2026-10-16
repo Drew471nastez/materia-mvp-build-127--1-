@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic"
 
 /**
  * Settings › Languages & Currency › Words not to translate (lib/markets/
- * glossary.ts, SQL part 188), for the store's owner.
+ * glossary.ts, SQL part 203), for the store's owner.
  *
- * GET  { ready, glossary: [{ term, as? }] }   `ready` false before part 188
+ * GET  { ready, glossary: [{ term, as? }] }   `ready` false before part 203
  * PUT  { glossary }   the whole list, checked and saved. Storelib AI's
  *      translations of texts with a word whose rule changed are written
  *      again by the next run; the merchant's own are never touched.

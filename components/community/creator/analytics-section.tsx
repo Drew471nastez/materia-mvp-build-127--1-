@@ -20,34 +20,41 @@
  *   the lists      the Analytics reports' cards, rows, tabs and empty lines
  *                  (app/app/analytics/analytics-reports.tsx)
  *
- * THREE CHARTS, NOT ONE OF EVERYTHING. Growth (members, joins, leaves,
- * visits, the join rate), Activity (active members, posts, comments,
- * reactions, engagement) and, for a community that sells something, Paid
- * memberships (revenue, monthly revenue, subscribers, new, cancellations).
- * Then the lists: where visits came from, countries, devices, how people
- * joined, invite links, top posts, the busiest spaces, top contributors,
- * members who stayed, events, programs, and whether the store's Google
- * Analytics hears the community too.
+ * ROUND 33, THE OWNER: "a clear overview of the most important figures,
+ * then sections." So, from the top:
+ *
+ *   THE PERIOD     the picker alone. The Google Analytics link that stood
+ *                  beside it is gone: it said nothing about the period. A
+ *                  connected Google Analytics is one quiet line at the foot
+ *                  of Traffic; one that is not connected is not mentioned.
+ *   OVERVIEW       six figures for the period, each against the period
+ *                  before: members, active members, engagement, the join
+ *                  rate (visits to joins), monthly revenue (or member churn
+ *                  for a community that sells nothing) and churn. Each opens
+ *                  the section it belongs to, on its own figure.
+ *   SECTIONS       Analytics' own tabs (ReportTabs): Growth, Traffic,
+ *                  Engagement, Content and, for a community that sells
+ *                  something, Revenue. One section on screen at a time,
+ *                  each a chart of its figures and its lists under it, so a
+ *                  phone shows one subject, not fifteen cards. The choice is
+ *                  kept for the tab (sessionStorage) and an address ending
+ *                  in #traffic opens Traffic.
  *
  * NOTHING DRAWN THAT WAS NOT COUNTED. Every number is the server's
  * (lib/communities/server/analytics-report.ts) from rows; a figure the
  * database cannot count yet (SQL part 184) is not shown, and one whose
  * counting began inside the period says from when.
  *
- * ROUND 32, THE OWNER: "the analytics is not the same as the analytics
- * charts we have in Storelib; accurate, smooth, clean, without the loading
+ * ROUND 32, THE OWNER: "accurate, smooth, clean, without the loading
  * stuff, the reloading bar above the charts." So:
  *
  *   NO BAR, NO BLUR    no progress line over a card and nothing goes soft
- *                      while the figures are being replaced. Every minute
- *                      the section asked again with a new end instant, which
- *                      read as a new period: all three cards ran their bar
- *                      and blurred, once a minute. The minute's refresh is
- *                      the same question now, asked quietly, and an answer
- *                      that brings nothing new changes nothing on screen.
+ *                      while the figures are being replaced. The minute's
+ *                      refresh is the same question, asked quietly, and an
+ *                      answer that brings nothing new changes nothing on
+ *                      screen.
  *   ONE ANSWER SHOWN   the dates, the legend and the lines are always the
- *                      answer on screen, never the period being asked for,
- *                      so a new period never draws 30 numbers under 7 dates.
+ *                      answer on screen, never the period being asked for.
  *                      When its answer lands the lines move to it in place
  *                      (components/app/morph-lines); only a wait longer than
  *                      WAIT_DIM_MS dims the cards a little.
@@ -55,9 +62,7 @@
  *                      KEEP_MS (lib/communities/client/report-cache), drawn
  *                      on the first frame of a return, and asked again behind
  *                      it once it is older than FRESH_MS. Opening the period
- *                      picker asks for the usual periods ahead, so a choice
- *                      is usually answered already. A period left before its
- *                      answer came drops its request.
+ *                      picker asks for the usual periods ahead.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -77,9 +82,9 @@ import { bucketLabel, bucketStarts, grainFor } from "@/lib/analytics/buckets"
 import { countryName, sourceName } from "@/lib/analytics/reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { askCommunityReport, communityAsk, keptCommunityReport, sameReport, warmCommunityReport, FRESH_MS, type CommunityAsk, type ShownReport } from "@/lib/communities/client/report-cache"
-import type { ActivityMetric, CommunityReport, Figure, GrowthMetric, Line, MoneyMetric, ReportRow } from "@/lib/communities/analytics-report"
+import type { ActivityMetric, CommunityReport, ContentMetric, Figure, GrowthMetric, Line, MoneyMetric, ReportRow, TrafficMetric } from "@/lib/communities/analytics-report"
 import type { AnalyticsView, CommunityHead } from "./view-types"
-import { Notice, card } from "./parts"
+import { Notice } from "./parts"
 
 /* ── Words ───────────────────────────────────────────────────────────── */
 
@@ -108,10 +113,11 @@ export function reasonLabel(reason: string): string {
   return REASON_LABEL[reason] ?? reason.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())
 }
 
-/** A visit's source in words: Storelib's own two first, then Storelib Analytics' names (Search, Instagram, Email...). */
-function visitSourceName(key: string): string {
+/** A visit's source in words: Storelib's own three first, then Storelib Analytics' names (Search, Instagram, Email...). */
+export function visitSourceName(key: string): string {
   if (key === "explore") return tt("Explore")
   if (key === "storelib") return tt("Your Storelib pages")
+  if (key === "app") return tt("Storelib app")
   return sourceName(key)
 }
 
@@ -119,12 +125,6 @@ const DEVICE_LABEL: Record<string, string> = {
   get mobile() { return tt("Mobile") },
   get tablet() { return tt("Tablet") },
   get desktop() { return tt("Desktop") },
-}
-
-const REVENUE_FROM: Record<string, string> = {
-  get memberships() { return tt("Memberships and purchases") },
-  get programs() { return tt("Programs") },
-  get tickets() { return tt("Event tickets") },
 }
 
 /* ── Numbers ─────────────────────────────────────────────────────────── */
@@ -136,6 +136,11 @@ function compact(num: number): string {
   if (num >= 10_000) return `${Math.round(num / 1000)}k`
   if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`
   return Math.round(num).toLocaleString(appLocale())
+}
+/** Money in the overview, where six figures share a row: whole units from 100 up ("$2,680"), so the number and its change fit. */
+function wholeMoney(cents: number, currency: string): string {
+  const major = (cents || 0) / 100
+  return formatCurrency(major, currency.toUpperCase(), appLocale(), Math.abs(major) >= 100 ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {})
 }
 const pct = (v: number | null) => (v === null ? "–" : `${v > 0 && v < 10 ? v.toFixed(1).replace(/\.0$/, "") : Math.round(v)}%`)
 
@@ -258,12 +263,23 @@ export const TREND_CARD = "relative bg-white rounded-2xl border border-[#e5e7eb]
 const STRIP_TAB = "flex-shrink-0 min-w-[130px]"
 /** What /app Analytics adds to each report card (analytics-reports Grid's `soft`), so a card is the same element on both pages. */
 const REPORT_CARD = "transition-[opacity,filter] duration-300"
+/** /app Analytics' report grid: two columns from md, three from xl. */
+const REPORT_GRID = "grid gap-4 md:grid-cols-2 xl:grid-cols-3"
 
 /** The dates under a chart, for the period an answer was counted for, in the viewer's language. */
 function labelsFor(span: { start: number; end: number }, timeZone: string, buckets: number | null): string[] {
   const grain = grainFor(span)
   const l = bucketStarts(span, grain, timeZone).map((s) => bucketLabel(s, grain, timeZone))
   return buckets !== null && buckets !== l.length ? Array.from({ length: buckets }, (_, i) => l[i] ?? "") : l
+}
+
+/** What every chart of the section shares: the answer's dates, its legend, what it is compared with, money in its currency. */
+interface ChartFrame {
+  labels: string[]
+  cold: boolean
+  legend: React.ReactNode
+  compareLabel: string | null
+  formatMoney: (cents: number) => string
 }
 
 /**
@@ -280,30 +296,22 @@ function TrendCard<K extends string>({
   selected,
   onSelect,
   lines,
-  labels,
-  cold,
-  formatMoney,
-  legend,
+  frame,
   note,
   detail,
   label,
-  compareLabel,
 }: {
   name: string
   tabs: TabSpec<K>[]
   selected: K
   onSelect: (k: K) => void
   lines: Partial<Record<K, Line>> | null
-  labels: string[]
-  cold: boolean
-  formatMoney: (cents: number) => string
-  legend: React.ReactNode
+  frame: ChartFrame
   note?: React.ReactNode
   detail?: React.ReactNode
   label: string
-  /** What the dashed line is, "Sep 1–Sep 30, 2026", or null for All time. */
-  compareLabel: string | null
 }) {
+  const { labels, cold, formatMoney, legend, compareLabel } = frame
   const strip = useTabStrip<HTMLDivElement>(selected, tabs.map((t) => t.key))
   const tab = tabs.find((t) => t.key === selected) ?? tabs[0]
   const placeholder = cold || !lines
@@ -353,7 +361,44 @@ function TrendCard<K extends string>({
   )
 }
 
-/* ── The section ─────────────────────────────────────────────────────── */
+/* ── The sections ────────────────────────────────────────────────────── */
+
+export type SectionId = "growth" | "traffic" | "engagement" | "content" | "revenue"
+const SECTIONS: readonly SectionId[] = ["growth", "traffic", "engagement", "content", "revenue"]
+const SECTION_KEY = "storelib:community-analytics-section"
+
+function sectionName(id: SectionId): string {
+  if (id === "growth") return tt("Growth")
+  if (id === "traffic") return tt("Traffic")
+  if (id === "engagement") return tt("Engagement")
+  if (id === "content") return tt("Content")
+  return tt("Revenue")
+}
+
+/** The section on screen: Growth until the tab or the address says otherwise; kept for the tab, never a reason for the page to break. */
+function useSection(): [SectionId, (id: SectionId) => void] {
+  const [id, setId] = React.useState<SectionId>("growth")
+  React.useLayoutEffect(() => {
+    const fromHash = window.location.hash.replace(/^#/, "") as SectionId
+    let kept: string | null = null
+    try {
+      kept = window.sessionStorage.getItem(SECTION_KEY)
+    } catch {
+      /* Private window: Growth it is. */
+    }
+    const pick = SECTIONS.includes(fromHash) ? fromHash : SECTIONS.includes(kept as SectionId) ? (kept as SectionId) : null
+    if (pick) setId(pick)
+  }, [])
+  const choose = React.useCallback((next: SectionId) => {
+    setId(next)
+    try {
+      window.sessionStorage.setItem(SECTION_KEY, next)
+    } catch {
+      /* Kept for this visit only. */
+    }
+  }, [])
+  return [id, choose]
+}
 
 /**
  * `initial` is the earlier answer (the last 30 days from the nightly rows),
@@ -414,46 +459,66 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
 
   const currency = r?.money?.currency ?? "usd"
   const formatMoney = React.useCallback((cents: number) => formatCurrency((cents || 0) / 100, currency.toUpperCase(), appLocale()), [currency])
+  const frame: ChartFrame = { labels, cold, legend, compareLabel, formatMoney }
 
+  const [section, setSection] = useSection()
   const [growthTab, setGrowthTab] = React.useState<GrowthMetric>("members")
+  const [trafficTab, setTrafficTab] = React.useState<TrafficMetric>("visits")
   const [activityTab, setActivityTab] = React.useState<ActivityMetric>("active")
+  const [contentTab, setContentTab] = React.useState<ContentMetric>("posts")
   const [moneyTab, setMoneyTab] = React.useState<MoneyMetric>("revenue")
 
   const f = r?.figures
   const counted = r?.counted ?? { visits: true, visitsByHour: true, active: true, engagement: true, detail: true }
   const since = (day: string | null | undefined) => (day ? tt("Counted since {date}.", { date: longDate(day) }) : null)
-  const fig = (k: keyof NonNullable<typeof f>): Figure | null => (f ? f[k] : null)
+  const fig = (k: keyof NonNullable<typeof f>): Figure | null => (f ? f[k] ?? null : null)
   const count = (x: Figure | null) => (x && x.value !== null ? compact(x.value) : "–")
+  const rateOf = (x: Figure | null) => pct(x?.value ?? null)
 
   const net = f ? (f.joined.value ?? 0) - (f.left.value ?? 0) : 0
-  /** Members who left, as a share of the members there were when the period began. */
-  const leftShare = (left: number, atStart: number) => (atStart > 0 ? Math.round((left / atStart) * 1000) / 10 : null)
+  const m = r?.money ?? null
+  const sells = !!m || !!r?.eventMoney
+  const shownSection: SectionId = section === "revenue" && r && !sells ? "growth" : section
+
+  /* ── Growth ── */
   const growthTabs: TabSpec<GrowthMetric>[] = [
     { key: "members", label: tt("Members"), value: count(fig("members")), figure: fig("members"), kind: "count", foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }) },
     { key: "joined", label: tt("Joined"), value: count(fig("joined")), figure: fig("joined"), kind: "count", foot: tt("{left} left", { left: n(f?.left.value ?? 0) }) },
-    { key: "left", label: tt("Left"), value: count(fig("left")), figure: fig("left"), kind: "count", lowerIsBetter: true, foot: tt("{rate} of members", { rate: pct(f && f.members.value !== null ? leftShare(f.left.value ?? 0, f.members.value - (f.joined.value ?? 0) + (f.left.value ?? 0)) : null) }) },
-    ...(counted.visits
+    { key: "left", label: tt("Left"), value: count(fig("left")), figure: fig("left"), kind: "count", lowerIsBetter: true, foot: tt("{rate} of members", { rate: rateOf(fig("churn")) }) },
+    { key: "churn", label: tt("Member churn"), value: rateOf(fig("churn")), figure: fig("churn"), kind: "percent", lowerIsBetter: true, foot: tt("Of members at the start") },
+  ]
+
+  /* ── Traffic ── */
+  const trafficTabs: TabSpec<TrafficMetric>[] = [
+    { key: "visits", label: tt("Visits"), value: count(fig("visits")), figure: fig("visits"), kind: "count", foot: tt("One a person a day") },
+    { key: "prospects", label: tt("From non-members"), value: count(fig("prospects")), figure: fig("prospects"), kind: "count", foot: tt("Not members yet") },
+    { key: "joinRate", label: tt("Join rate"), value: rateOf(fig("joinRate")), figure: fig("joinRate"), kind: "percent", foot: tt("Of visits from non-members") },
+  ]
+
+  /* ── Engagement ── */
+  const membersEnd = f?.members.value ?? null
+  const activeShare = f && f.active.value !== null && membersEnd ? Math.round((f.active.value / membersEnd) * 1000) / 10 : null
+  const activityTabs: TabSpec<ActivityMetric>[] = [
+    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), kind: "count", foot: tt("{rate} of members", { rate: pct(activeShare) }) },
+    ...(counted.engagement
       ? [
-          { key: "visits" as const, label: tt("Visits"), value: count(fig("visits")), figure: fig("visits"), kind: "count" as const, foot: tt("One a person a day") },
-          { key: "joinRate" as const, label: tt("Join rate"), value: pct(fig("joinRate")?.value ?? null), figure: fig("joinRate"), kind: "percent" as const, foot: tt("Of visits from non-members") },
+          { key: "engagement" as const, label: tt("Engagement"), value: rateOf(fig("engagement")), figure: fig("engagement"), kind: "percent" as const, foot: tt("Posted, commented or reacted") },
+          { key: "rsvps" as const, label: tt("Event RSVPs"), value: count(fig("rsvps")), figure: fig("rsvps"), kind: "count" as const, foot: tt("In this period") },
+          { key: "lessons" as const, label: tt("Lessons completed"), value: count(fig("lessons")), figure: fig("lessons"), kind: "count" as const, foot: tt("In this period") },
         ]
       : []),
   ]
-  const shownGrowth = growthTabs.some((t) => t.key === growthTab) ? growthTab : "members"
+  const shownActivity = activityTabs.some((t) => t.key === activityTab) ? activityTab : "active"
 
-  const membersEnd = f?.members.value ?? null
-  const activeShare = f && f.active.value !== null && membersEnd ? Math.round((f.active.value / membersEnd) * 1000) / 10 : null
+  /* ── Content ── */
   const people = r?.people
-  const activityTabs: TabSpec<ActivityMetric>[] = [
-    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), kind: "count", foot: tt("{rate} of members", { rate: pct(activeShare) }) },
+  const contentTabs: TabSpec<ContentMetric>[] = [
     { key: "posts", label: tt("Posts"), value: count(fig("posts")), figure: fig("posts"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person posted} other {# people posted}}", { n: people.posters }) : tt("In this period") },
     { key: "comments", label: tt("Comments"), value: count(fig("comments")), figure: fig("comments"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person commented} other {# people commented}}", { n: people.commenters }) : tt("In this period") },
     { key: "reactions", label: tt("Reactions"), value: count(fig("reactions")), figure: fig("reactions"), kind: "count", foot: counted.engagement && people ? tt("{n, plural, one {# person reacted} other {# people reacted}}", { n: people.reactors }) : tt("In this period") },
-    ...(counted.engagement ? [{ key: "engagement" as const, label: tt("Engagement"), value: pct(fig("engagement")?.value ?? null), figure: fig("engagement"), kind: "percent" as const, foot: tt("Posted, commented or reacted") }] : []),
   ]
-  const shownActivity = activityTabs.some((t) => t.key === activityTab) ? activityTab : "active"
 
-  const m = r?.money ?? null
+  /* ── Revenue ── */
   const runsToToday = drawnPeriod.end >= today
   const moneyTabs: TabSpec<MoneyMetric>[] = m
     ? [
@@ -465,7 +530,19 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
       ]
     : []
 
-  const moneyDetail = m ? <MoneyDetail tab={moneyTab} money={m} formatMoney={formatMoney} /> : null
+  /* ── The overview: six figures, each the door to its section ── */
+  const open = (id: SectionId, tab?: () => void) => () => {
+    tab?.()
+    setSection(id)
+  }
+  const overview: OverviewFigure[] = [
+    { key: "members", label: tt("Members"), value: count(fig("members")), figure: fig("members"), foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }), onOpen: open("growth", () => setGrowthTab("members")) },
+    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), foot: tt("{rate} of members", { rate: pct(activeShare) }), onOpen: open("engagement", () => setActivityTab("active")) },
+    ...(counted.engagement ? [{ key: "engagement", label: tt("Engagement"), value: rateOf(fig("engagement")), figure: fig("engagement"), foot: tt("Members who took part"), onOpen: open("engagement", () => setActivityTab("engagement")) }] : []),
+    ...(counted.visits ? [{ key: "joinRate", label: tt("Join rate"), value: rateOf(fig("joinRate")), figure: fig("joinRate"), foot: tt("{n, plural, one {# visit} other {# visits}}", { n: fig("visits")?.value ?? 0 }), onOpen: open("traffic", () => setTrafficTab("joinRate")) }] : []),
+    ...(m ? [{ key: "mrr", label: tt("Monthly revenue"), value: wholeMoney(m.figures.mrr.value ?? 0, currency), figure: m.figures.mrr, foot: tt("{n, plural, one {# paying member} other {# paying members}}", { n: m.figures.subscribers.value ?? 0 }), onOpen: open("revenue", () => setMoneyTab("mrr")) }] : []),
+    { key: "churn", label: tt("Member churn"), value: rateOf(fig("churn")), figure: fig("churn"), lowerIsBetter: true, foot: m ? tt("Churn rate {rate}", { rate: pct(m.churnRate) }) : tt("{left} left", { left: n(f?.left.value ?? 0) }), onOpen: open("growth", () => setGrowthTab("churn")) },
+  ]
 
   /*
     A NEW PERIOD THAT TAKES A WHILE. What is on screen stays sharp and where
@@ -475,83 +552,206 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   */
   const dim = cn("transition-opacity ease-[cubic-bezier(0.32,0.72,0,1)]", report.waiting && r ? "opacity-60 duration-300" : "opacity-100 duration-200")
   const dimDelay = { transitionDelay: report.waiting && r ? `${WAIT_DIM_MS}ms` : "0ms" }
+  const sections = SECTIONS.filter((s) => s !== "revenue" || !r || sells)
 
   return (
     <CompareContext.Provider value={compareLabel}>
       <ReportComparedContext.Provider value={drawnCompared !== null}>
-        <div ref={root} className="space-y-6" data-analytics="" data-waiting={report.waiting ? "true" : "false"}>
-          <div className="flex items-center justify-between gap-3" data-analytics-controls="" onPointerDownCapture={warm} onFocusCapture={warm}>
+        <div ref={root} className="space-y-4" data-analytics="" data-section={shownSection} data-waiting={report.waiting ? "true" : "false"}>
+          <div className="flex items-center gap-3" data-analytics-controls="" onPointerDownCapture={warm} onFocusCapture={warm}>
             <DateRangePicker value={period} onChange={setPeriod} today={today} firstDay={r?.firstDay} />
-            <GaLink ga={r?.ga ?? null} />
           </div>
           {report.failed ? <Notice>{tt("The figures could not be loaded.")}</Notice> : null}
 
-          <div className={cn("space-y-4", dim)} style={dimDelay} data-analytics-trends="">
-            <TrendCard
-              name="growth"
-              label={tt("Growth")}
-              tabs={growthTabs}
-              selected={shownGrowth}
-              onSelect={setGrowthTab}
-              lines={r ? r.lines : null}
-              labels={labels}
-              cold={cold}
-              formatMoney={formatMoney}
-              legend={legend}
-              compareLabel={compareLabel}
-              note={shownGrowth === "visits" || shownGrowth === "joinRate" ? (counted.visitsByHour ? since(r?.countedSince.visits) : tt("Visits older than three days are counted by day, not by hour.")) : null}
-            />
+          <div className={dim} style={dimDelay} data-analytics-trends="">
+            <Overview figures={overview} cold={cold} />
+          </div>
 
-            <TrendCard
-              name="activity"
-              label={tt("Activity")}
-              tabs={activityTabs}
-              selected={shownActivity}
-              onSelect={setActivityTab}
-              lines={r ? r.lines : null}
-              labels={labels}
-              cold={cold}
-              formatMoney={formatMoney}
-              legend={legend}
-              compareLabel={compareLabel}
-              note={shownActivity === "active" ? (r && !r.counted.active ? tt("Active members are counted by day, not by hour.") : since(r?.countedSince.active)) : null}
-            />
+          <SectionTabs value={shownSection} onChange={setSection} options={sections} />
 
-            {m ? (
-              <div data-revenue="">
-                <TrendCard
-                  name="money"
-                  label={tt("Paid memberships")}
-                  tabs={moneyTabs}
-                  selected={moneyTab}
-                  onSelect={setMoneyTab}
-                  lines={m.lines}
-                  labels={labels}
-                  cold={cold}
-                  formatMoney={formatMoney}
-                  legend={legend}
-                  compareLabel={compareLabel}
-                  detail={moneyDetail}
-                />
-              </div>
+          <div className={cn("space-y-4", dim)} style={dimDelay} data-analytics-trends="" data-analytics-panel={shownSection}>
+            {shownSection === "growth" ? (
+              <TrendCard name="growth" label={tt("Growth")} tabs={growthTabs} selected={growthTab} onSelect={setGrowthTab} lines={r ? r.lines : null} frame={frame} />
             ) : null}
-
-            {r?.eventMoney ? <EventMoneyCard events={r.eventMoney} /> : null}
+            {shownSection === "traffic" ? (
+              counted.visits ? (
+                <TrendCard
+                  name="traffic"
+                  label={tt("Traffic")}
+                  tabs={trafficTabs}
+                  selected={trafficTab}
+                  onSelect={setTrafficTab}
+                  lines={r ? r.lines : null}
+                  frame={frame}
+                  note={counted.visitsByHour ? since(r?.countedSince.visits) : tt("Visits older than three days are counted by day, not by hour.")}
+                />
+              ) : (
+                <Notice tone="info">{tt("Run SQL part 184 in Supabase to count where visits come from.")}</Notice>
+              )
+            ) : null}
+            {shownSection === "engagement" ? (
+              <>
+                <TrendCard
+                  name="activity"
+                  label={tt("Engagement")}
+                  tabs={activityTabs}
+                  selected={shownActivity}
+                  onSelect={setActivityTab}
+                  lines={r ? r.lines : null}
+                  frame={frame}
+                  note={shownActivity === "active" ? (r && !r.counted.active ? tt("Active members are counted by day, not by hour.") : since(r?.countedSince.active)) : null}
+                />
+                {r ? <LiveCard live={r.live} /> : null}
+              </>
+            ) : null}
+            {shownSection === "content" ? (
+              <TrendCard name="content" label={tt("Content")} tabs={contentTabs} selected={contentTab} onSelect={setContentTab} lines={r ? r.lines : null} frame={frame} />
+            ) : null}
+            {shownSection === "revenue" ? (
+              <>
+                {m ? (
+                  <div data-revenue="">
+                    <TrendCard name="money" label={tt("Paid memberships")} tabs={moneyTabs} selected={moneyTab} onSelect={setMoneyTab} lines={m.lines} frame={frame} detail={<MoneyDetail tab={moneyTab} money={m} formatMoney={formatMoney} />} />
+                  </div>
+                ) : null}
+                {r?.eventMoney ? <EventMoneyCard events={r.eventMoney} /> : null}
+              </>
+            ) : null}
           </div>
 
-          {/* /app Analytics' report grid: two columns from md, three from xl. */}
-          <div className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-3", dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
-            <Lists r={r} slug={head.slug} />
-          </div>
+          {shownSection !== "revenue" ? (
+            <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
+              <Lists r={r} slug={head.slug} section={shownSection} />
+            </div>
+          ) : null}
 
-          <GaCard ga={r?.ga ?? null} loading={cold} />
+          {shownSection === "traffic" ? <GaLine ga={r?.ga ?? null} /> : null}
         </div>
       </ReportComparedContext.Provider>
     </CompareContext.Provider>
   )
 }
 
+/* ── The sections' tabs ──────────────────────────────────────────────── */
+
+/**
+ * Analytics' own tabs (analytics-reports' ReportTabs: the grey track, the
+ * white chosen tab with its hairline shadow), a finger's 40px tall on a
+ * phone, since these choose the whole page under them; ReportTabs' own
+ * height from sm. On a phone narrower than the five, the row scrolls
+ * sideways inside itself and follows the tab chosen (use-tab-strip, as the
+ * figure strips do), never the page.
+ */
+function SectionTabs({ value, onChange, options }: { value: SectionId; onChange: (v: SectionId) => void; options: SectionId[] }) {
+  const strip = useTabStrip<HTMLElement>(value, options)
+  return (
+    <nav ref={strip} aria-label={tt("Sections")} data-analytics-sections="" data-scroll-x="" className="relative -mx-1 overflow-x-auto px-1 scrollbar-hide" style={TAB_STRIP_STYLE}>
+      <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
+        {options.map((o) => (
+          <SectionTab key={o} id={o} selected={o === value} onChange={onChange} />
+        ))}
+      </div>
+    </nav>
+  )
+}
+
+function SectionTab({ id, selected, onChange }: { id: SectionId; selected: boolean; onChange: (v: SectionId) => void }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      data-tab={id}
+      data-section-tab={id}
+      onClick={() => onChange(id)}
+      className={cn(
+        "h-10 shrink-0 cursor-pointer rounded-md px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-8 sm:text-[12.5px]",
+        selected ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+      )}
+    >
+      {sectionName(id)}
+    </button>
+  )
+}
+
+/* ── The overview ────────────────────────────────────────────────────── */
+
+interface OverviewFigure {
+  key: string
+  label: string
+  value: string
+  figure: Figure | null
+  foot: React.ReactNode
+  lowerIsBetter?: boolean
+  onOpen: () => void
+}
+
+/**
+ * THE PERIOD IN SIX FIGURES, in the figure tab's own type (components/app/
+ * metric-tab: the label, the number with its change, the quiet line under
+ * it), on the figures' card. All of them at once: two to a row on a phone,
+ * three from md, six in a row from lg, so nothing hides off the side. Each
+ * opens its section on its own figure. Before the first answer the numbers
+ * are faint until it lands, and nothing is blurred.
+ */
+function Overview({ figures, cold }: { figures: OverviewFigure[]; cold: boolean }) {
+  const cols = figures.length >= 6 ? "lg:grid-cols-6" : figures.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+  return (
+    <section className={TREND_CARD} aria-label={tt("Overview")} data-overview="">
+      <div className={cn("grid grid-cols-2 gap-px bg-[#e5e7eb]/60 md:grid-cols-3", cols)}>
+        {figures.map((x) => (
+          <button
+            key={x.key}
+            type="button"
+            onClick={x.onOpen}
+            data-kpi={x.key}
+            className="min-w-0 cursor-pointer bg-white px-3 py-3 text-left transition-colors duration-200 pointer-fine:hover:bg-[#fafafa] sm:px-4 sm:py-3.5"
+          >
+            <span className="block truncate text-[11px] font-medium text-[#6b7280] sm:text-[12px]">{x.label}</span>
+            <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
+              <span className={cn("truncate text-[18px] font-semibold tabular-nums tracking-tight text-[#1a1a2e] transition-opacity duration-[700ms] sm:text-[22px]", cold ? "opacity-30" : "opacity-100")}>{x.value}</span>
+              {x.figure && !cold ? <PercentChangeIndicator current={x.figure.value} previous={x.figure.previous} lowerIsBetter={x.lowerIsBetter} /> : null}
+            </span>
+            <span className="block truncate text-[10px] text-[#9ca3af] sm:text-[11px]">{x.foot}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/* ── Engagement: who is here now ─────────────────────────────────────── */
+
+/** Distinct members here in the last day, week and month (DAU, WAU, MAU) and how many of the month's come every day. Today's, whatever the period. */
+function LiveCard({ live }: { live: CommunityReport["live"] }) {
+  const figures = [
+    { key: "dau", label: tt("Last 24 hours"), value: n(live.active1) },
+    { key: "wau", label: tt("Last 7 days"), value: n(live.active7) },
+    { key: "mau", label: tt("Last 30 days"), value: n(live.active30) },
+    { key: "stickiness", label: tt("Stickiness"), value: pct(live.stickiness) },
+  ]
+  return (
+    <section className={TREND_CARD} aria-label={tt("Active members")} data-live="">
+      <div className="grid grid-cols-2 gap-px bg-[#e5e7eb]/60 md:grid-cols-4">
+        {figures.map((x) => (
+          <div key={x.key} className="min-w-0 bg-white px-3 py-3 sm:px-4 sm:py-3.5" data-live-figure={x.key}>
+            <p className="truncate text-[11px] font-medium text-[#6b7280] sm:text-[12px]">{x.label}</p>
+            <p className="mt-0.5 truncate text-[18px] font-semibold tabular-nums tracking-tight text-[#1a1a2e] sm:text-[22px]">{x.value}</p>
+            <p className="truncate text-[10px] text-[#9ca3af] sm:text-[11px]">{x.key === "stickiness" ? tt("Daily over monthly members") : tt("Members here, counted today")}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 /* ── Under the money chart: what the chosen figure is made of ────────── */
+
+const REVENUE_FROM: Record<string, string> = {
+  get memberships() { return tt("Memberships and purchases") },
+  get programs() { return tt("Programs") },
+  get tickets() { return tt("Event tickets") },
+}
 
 function MoneyDetail({ tab, money: m, formatMoney }: { tab: MoneyMetric; money: NonNullable<CommunityReport["money"]>; formatMoney: (c: number) => string }) {
   if (tab === "revenue") {
@@ -597,119 +797,154 @@ function EventMoneyCard({ events: e }: { events: NonNullable<CommunityReport["ev
 
 /* ── The lists ───────────────────────────────────────────────────────── */
 
-type TrafficTab = "source" | "referrer"
-type PostsTab = "posts" | "spaces"
+type SourceTab = "source" | "referrer"
 
-function Lists({ r, slug }: { r: CommunityReport | null; slug: string }) {
-  const [trafficTab, setTrafficTab] = React.useState<TrafficTab>("source")
-  const [postsTab, setPostsTab] = React.useState<PostsTab>("posts")
+function Lists({ r, slug, section }: { r: CommunityReport | null; slug: string; section: SectionId }) {
+  const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const blank = !r
   const rowsOf = (xs: ReportRow[], label: (k: string) => string) => ({
     rows: xs.map((x): ReportListRow => ({ key: x.key, label: label(x.key), value: x.value, note: x.note ?? null, code: x.key })),
     previous: xs.some((x) => x.previous !== undefined) ? Object.fromEntries(xs.map((x) => [x.key, x.previous ?? 0])) : undefined,
   })
-  const notCounted = <ReportEmpty>{tt("Run SQL part 184 in Supabase to count where visits come from.")}</ReportEmpty>
-  const t = r?.traffic ?? null
-  const traffic = t ? rowsOf(t[trafficTab], trafficTab === "source" ? visitSourceName : (k) => k) : null
-  const countries = t ? rowsOf(t.country, (k) => countryName(k)) : null
-  const devices = t ? rowsOf(t.device, (k) => DEVICE_LABEL[k] ?? k) : null
   const share = (rows: ReportListRow[]) => {
     const all = rows.reduce((a, x) => a + x.value, 0)
     return rows.map((x) => ({ ...x, note: all ? `${Math.round((x.value / all) * 100)}%` : null }))
   }
   const counted = r?.counted
+
+  if (section === "growth") {
+    const split = r?.activeSplit ?? null
+    return (
+      <>
+        <ReportCard className={REPORT_CARD} card="joins" title={tt("How people joined")} help={tt("Everyone who joined in this period, by how they came in.")}>
+          <ReportBody blank={blank} wait="list">
+            {r ? <ReportList title={tt("How people joined")} rows={r.joins.bySource.map((x) => ({ key: x.key, label: SOURCE_LABEL[x.key] ?? x.key, value: x.value }))} format={n} empty={tt("Nobody joined in this period.")} /> : null}
+          </ReportBody>
+        </ReportCard>
+
+        {!r || split ? (
+          <ReportCard className={REPORT_CARD} card="new-returning" title={tt("New and returning")} help={tt("Members active in this period: those who joined in it, and those who were members before it.")}>
+            <ReportBody blank={blank} wait="list">
+              {split ? (
+                <ReportList
+                  title={tt("New and returning")}
+                  rows={share([
+                    { key: "new", label: tt("New members"), value: split.new },
+                    { key: "returning", label: tt("Returning members"), value: split.returning },
+                  ]).filter((x) => x.value > 0)}
+                  format={n}
+                  empty={tt("Nobody was active in this period.")}
+                />
+              ) : null}
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+
+        {r && counted?.detail ? (
+          <ReportCard className={REPORT_CARD} card="cohorts" title={tt("Members who stayed")} help={tt("Members who joined in each of the last six months: the share still in, with how many joined and how many were here in the last 30 days.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList
+                title={tt("Members who stayed")}
+                rows={r.cohorts.map((c) => ({ key: c.month, label: monthLabel(c.month), value: c.joined ? Math.round((c.stayed / c.joined) * 100) : 0, note: tt("{joined} joined, {active} active", { joined: n(c.joined), active: n(c.active) }) }))}
+                format={(v) => `${v}%`}
+                empty={tt("Nobody joined in the last six months.")}
+              />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+
+        {r && r.leaveReasons ? (
+          <ReportCard className={REPORT_CARD} card="leave-reasons" title={tt("Why members left")} help={tt("The reason each member gave when they left in this period.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList title={tt("Why members left")} rows={r.leaveReasons.map((x) => ({ key: x.reason, label: reasonLabel(x.reason), value: x.count }))} format={n} empty={(r.figures.left.value ?? 0) === 0 ? tt("Nobody left in this period.") : tt("Nobody said why.")} />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+
+        {r && r.joins.invites.length > 0 ? (
+          <ReportCard className={REPORT_CARD} card="invites" title={tt("Invite links")} help={tt("The links that brought the most people in during this period.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList title={tt("Invite links")} rows={r.joins.invites.map((x) => ({ key: x.key, label: x.label, value: x.value, note: x.note ? tt("Turned off") : null }))} format={n} empty="" />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+      </>
+    )
+  }
+
+  if (section === "traffic") {
+    const t = r?.traffic ?? null
+    if (r && !t) return null
+    const sources = t ? rowsOf(t[sourceTab], sourceTab === "source" ? visitSourceName : (k) => k) : null
+    const countries = t ? rowsOf(t.country, (k) => countryName(k)) : null
+    const devices = t ? rowsOf(t.device, (k) => DEVICE_LABEL[k] ?? k) : null
+    return (
+      <>
+        <ReportCard
+          className={REPORT_CARD}
+          card="traffic"
+          title={tt("Traffic sources")}
+          help={tt("How each visitor arrived, once a day: a search engine, a social app, Explore, another site, or typed in directly.")}
+          tabs={<ReportTabs value={sourceTab} onChange={setSourceTab} options={[{ value: "source", label: tt("Source") }, { value: "referrer", label: tt("Referrer") }]} />}
+        >
+          <ReportBody blank={blank} wait="list">
+            {sources ? <ReportList key={sourceTab} title={tt("Traffic sources")} rows={share(sources.rows)} previous={sources.previous} format={n} lead={{ icon: sourceTab }} empty={sourceTab === "source" ? tt("No visits in this period.") : tt("No visits from other websites in this period.")} /> : null}
+          </ReportBody>
+        </ReportCard>
+        <ReportCard className={REPORT_CARD} card="countries" title={tt("Countries")} help={tt("Where visits came from, from their connection.")}>
+          <ReportBody blank={blank} wait="list">
+            {countries ? <ReportList title={tt("Countries")} rows={share(countries.rows)} previous={countries.previous} format={n} lead={{ flag: true }} empty={tt("No locations recorded in this period.")} /> : null}
+          </ReportBody>
+        </ReportCard>
+        <ReportCard className={REPORT_CARD} card="devices" title={tt("Devices")} help={tt("The kind of device each visitor used.")}>
+          <ReportBody blank={blank} wait="list">
+            {devices ? <ReportList title={tt("Devices")} rows={share(devices.rows)} previous={devices.previous} format={n} lead={{ icon: "device" }} empty={tt("No visits in this period.")} /> : null}
+          </ReportBody>
+        </ReportCard>
+      </>
+    )
+  }
+
+  if (section === "engagement") {
+    return (
+      <>
+        {!r || counted?.detail ? (
+          <ReportCard className={REPORT_CARD} card="contributors" title={tt("Top contributors")} help={tt("Members who posted and commented most in this period. A post counts twice a comment.")}>
+            <ReportBody blank={blank} wait="list">
+              {r ? <ReportList title={tt("Top contributors")} rows={r.contributors.map((c) => ({ key: c.userId, label: c.name, value: c.posts + c.comments, note: tt("{posts} posts, {comments} comments", { posts: n(c.posts), comments: n(c.comments) }) }))} format={n} empty={tt("Nobody posted or commented in this period.")} /> : null}
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+
+        <ReportCard className={REPORT_CARD} card="events" title={tt("Events")} help={tt("Events in this period, with how many said they are going and, where tickets were sold, how many were checked in.")}>
+          <ReportBody blank={blank} wait="list">
+            {r ? <ReportList title={tt("Events")} rows={r.events.map((e) => ({ key: e.id, label: e.title, value: e.going, note: e.checkedIn === null ? shortDay(e.startsAt) : tt("{count} checked in", { count: n(e.checkedIn) }) }))} format={(v) => tt("{n} going", { n: n(v) })} empty={tt("No events in this period.")} /> : null}
+          </ReportBody>
+        </ReportCard>
+
+        {r && r.programs.length > 0 ? (
+          <ReportCard className={REPORT_CARD} card="programs" title={tt("Programs")} help={tt("Members who started each program, how many finished it, and their average progress.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList title={tt("Programs")} rows={r.programs.map((p) => ({ key: p.id, label: p.title, value: p.started, note: tt("{completed} finished, {percent}% average", { completed: n(p.completed), percent: p.percent }) }))} format={n} empty="" />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+      </>
+    )
+  }
+
+  /* Content */
   return (
     <>
-      <ReportCard className={REPORT_CARD}
-        card="traffic"
-        title={tt("Traffic sources")}
-        help={tt("How each visitor arrived, once a day: a search engine, a social app, Explore, another site, or typed in directly.")}
-        tabs={<ReportTabs value={trafficTab} onChange={setTrafficTab} options={[{ value: "source", label: tt("Source") }, { value: "referrer", label: tt("Referrer") }]} />}
-      >
+      <ReportCard className={REPORT_CARD} card="posts" title={tt("Top posts")} help={tt("Posts made in this period, by likes and comments.")}>
         <ReportBody blank={blank} wait="list">
-          {r ? (traffic ? <ReportList key={trafficTab} title={tt("Traffic sources")} rows={share(traffic.rows)} previous={traffic.previous} format={n} lead={{ icon: trafficTab }} empty={trafficTab === "source" ? tt("No visits in this period.") : tt("No visits from other websites in this period.")} /> : notCounted) : null}
+          {r ? <PostList posts={r.topPosts} slug={slug} /> : null}
         </ReportBody>
       </ReportCard>
-
-      {/* Before part 184 one card says how to count visits; countries and devices wait for it rather than say it twice more. */}
-      {!r || t ? (<>
-      <ReportCard className={REPORT_CARD} card="countries" title={tt("Countries")} help={tt("Where visits came from, from their connection.")}>
-        <ReportBody blank={blank} wait="list">
-          {r ? (countries ? <ReportList title={tt("Countries")} rows={share(countries.rows)} previous={countries.previous} format={n} lead={{ flag: true }} empty={tt("No locations recorded in this period.")} /> : notCounted) : null}
-        </ReportBody>
-      </ReportCard>
-
-      <ReportCard className={REPORT_CARD} card="devices" title={tt("Devices")} help={tt("The kind of device each visitor used.")}>
-        <ReportBody blank={blank} wait="list">
-          {r ? (devices ? <ReportList title={tt("Devices")} rows={share(devices.rows)} previous={devices.previous} format={n} lead={{ icon: "device" }} empty={tt("No visits in this period.")} /> : notCounted) : null}
-        </ReportBody>
-      </ReportCard>
-      </>) : null}
-
-      <ReportCard className={REPORT_CARD} card="joins" title={tt("How people joined")} help={tt("Everyone who joined in this period, by how they came in.")}>
-        <ReportBody blank={blank} wait="list">
-          {r ? <ReportList title={tt("How people joined")} rows={r.joins.bySource.map((x) => ({ key: x.key, label: SOURCE_LABEL[x.key] ?? x.key, value: x.value }))} format={n} empty={tt("Nobody joined in this period.")} /> : null}
-        </ReportBody>
-      </ReportCard>
-
-      <ReportCard className={REPORT_CARD}
-        card="posts"
-        title={postsTab === "posts" ? tt("Top posts") : tt("Busiest spaces")}
-        help={postsTab === "posts" ? tt("Posts made in this period, by likes and comments.") : tt("Posts and comments in each space in this period.")}
-        tabs={counted?.detail ? <ReportTabs value={postsTab} onChange={setPostsTab} options={[{ value: "posts", label: tt("Posts") }, { value: "spaces", label: tt("Spaces") }]} /> : undefined}
-      >
-        <ReportBody blank={blank} wait="list">
-          {r ? (
-            postsTab === "posts" || !counted?.detail ? (
-              <PostList posts={r.topPosts} slug={slug} />
-            ) : (
-              <ReportList key="spaces" title={tt("Busiest spaces")} rows={r.topSpaces.map((s) => ({ key: s.id, label: s.name, value: s.posts + s.comments, note: tt("{posts} posts, {comments} comments", { posts: n(s.posts), comments: n(s.comments) }) }))} format={n} empty={tt("No posts or comments in this period.")} />
-            )
-          ) : null}
-        </ReportBody>
-      </ReportCard>
-
-      {r && counted?.detail ? (
-        <ReportCard className={REPORT_CARD} card="contributors" title={tt("Top contributors")} help={tt("Members who posted and commented most in this period. A post counts twice a comment.")}>
-          <ReportBody blank={false} wait="list">
-            <ReportList title={tt("Top contributors")} rows={r.contributors.map((c) => ({ key: c.userId, label: c.name, value: c.posts + c.comments, note: tt("{posts} posts, {comments} comments", { posts: n(c.posts), comments: n(c.comments) }) }))} format={n} empty={tt("Nobody posted or commented in this period.")} />
-          </ReportBody>
-        </ReportCard>
-      ) : null}
-
-      {r && counted?.detail ? (
-        <ReportCard className={REPORT_CARD} card="cohorts" title={tt("Members who stayed")} help={tt("Members who joined in each of the last six months: the share still in, with how many joined and how many were here in the last 30 days.")}>
-          <ReportBody blank={false} wait="list">
-            <ReportList
-              title={tt("Members who stayed")}
-              rows={r.cohorts.map((c) => ({ key: c.month, label: monthLabel(c.month), value: c.joined ? Math.round((c.stayed / c.joined) * 100) : 0, note: tt("{joined} joined, {active} active", { joined: n(c.joined), active: n(c.active) }) }))}
-              format={(v) => `${v}%`}
-              empty={tt("Nobody joined in the last six months.")}
-            />
-          </ReportBody>
-        </ReportCard>
-      ) : null}
-
-      {r && r.joins.invites.length > 0 ? (
-        <ReportCard className={REPORT_CARD} card="invites" title={tt("Invite links")} help={tt("The links that brought the most people in during this period.")}>
-          <ReportBody blank={false} wait="list">
-            <ReportList title={tt("Invite links")} rows={r.joins.invites.map((x) => ({ key: x.key, label: x.label, value: x.value, note: x.note ? tt("Turned off") : null }))} format={n} empty="" />
-          </ReportBody>
-        </ReportCard>
-      ) : null}
-
-      {r && r.events.length > 0 ? (
-        <ReportCard className={REPORT_CARD} card="events" title={tt("Events")} help={tt("Events in this period, with how many said they are going and, where tickets were sold, how many were checked in.")}>
-          <ReportBody blank={false} wait="list">
-            <ReportList title={tt("Events")} rows={r.events.map((e) => ({ key: e.id, label: e.title, value: e.going, note: e.checkedIn === null ? shortDay(e.startsAt) : tt("{count} checked in", { count: n(e.checkedIn) }) }))} format={(v) => tt("{n} going", { n: n(v) })} empty="" />
-          </ReportBody>
-        </ReportCard>
-      ) : null}
-
-      {r && r.programs.length > 0 ? (
-        <ReportCard className={REPORT_CARD} card="programs" title={tt("Programs")} help={tt("Members who started each program, how many finished it, and their average progress.")}>
-          <ReportBody blank={false} wait="list">
-            <ReportList title={tt("Programs")} rows={r.programs.map((p) => ({ key: p.id, label: p.title, value: p.started, note: tt("{completed} finished, {percent}% average", { completed: n(p.completed), percent: p.percent }) }))} format={n} empty="" />
+      {!r || counted?.detail ? (
+        <ReportCard className={REPORT_CARD} card="spaces" title={tt("Busiest spaces")} help={tt("Posts and comments in each space in this period.")}>
+          <ReportBody blank={blank} wait="list">
+            {r ? <ReportList key="spaces" title={tt("Busiest spaces")} rows={r.topSpaces.map((s) => ({ key: s.id, label: s.name, value: s.posts + s.comments, note: tt("{posts} posts, {comments} comments", { posts: n(s.posts), comments: n(s.comments) }) }))} format={n} empty={tt("No posts or comments in this period.")} /> : null}
           </ReportBody>
         </ReportCard>
       ) : null}
@@ -763,40 +998,19 @@ function PostList({ posts, slug }: { posts: CommunityReport["topPosts"]; slug: s
   )
 }
 
-/* ── Google Analytics ────────────────────────────────────────────────── */
+/* ── Google Analytics: one quiet line under Traffic, only when connected ── */
 
 const GA_SETUP = "/app/integrations?integration=google-analytics"
 
-/** Beside the period: whether the store's Google Analytics hears the community, and the way to it. */
-function GaLink({ ga }: { ga: CommunityReport["ga"] | null }) {
-  if (!ga) return null
-  return (
-    <a href={GA_SETUP} className="min-w-0 truncate text-[12.5px] text-[#6b7280] hover:text-[#1a1a2e] hover:underline max-sm:hidden" data-ga-link={ga.id ? "connected" : "off"}>
-      {ga.id ? tt("Google Analytics: {id}", { id: ga.id }) : tt("Connect Google Analytics")}
-    </a>
-  )
-}
-
-function GaCard({ ga, loading }: { ga: CommunityReport["ga"] | null; loading: boolean }) {
-  if (loading || !ga) return null
+function GaLine({ ga }: { ga: CommunityReport["ga"] | null }) {
+  if (!ga?.id) return null
   const seen = ga.seenAt ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(Date.parse(ga.seenAt)) : null
   return (
-    <section className={cn(card, "flex items-center gap-3 px-4 py-3.5 sm:px-5")} data-ga={ga.id ? "connected" : "off"}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/integrations/google-analytics.svg" alt="" width={28} height={28} className="h-7 w-7 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Google Analytics")}</p>
-        <p className="text-[13px] leading-snug text-[#6b7280]">
-          {ga.id
-            ? seen
-              ? tt("This community's pages and joins go to {id}. Last data {time}.", { id: ga.id, time: seen })
-              : tt("This community's pages and joins go to {id}.", { id: ga.id })
-            : tt("Send this community's page views and joins to your own Google Analytics.")}
-        </p>
-      </div>
-      <a href={GA_SETUP} className="inline-flex h-10 shrink-0 items-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f9fafb]">
-        {ga.id ? tt("Manage") : tt("Connect")}
+    <p className="px-1 text-[12.5px] leading-snug text-[#6b7280]" data-ga="connected">
+      {seen ? tt("This community's pages and joins go to {id}. Last data {time}.", { id: ga.id, time: seen }) : tt("This community's pages and joins go to {id}.", { id: ga.id })}{" "}
+      <a href={GA_SETUP} className="inline-flex h-10 items-center text-[#1a1a2e] underline-offset-2 hover:underline sm:h-auto">
+        {tt("Manage")}
       </a>
-    </section>
+    </p>
   )
 }

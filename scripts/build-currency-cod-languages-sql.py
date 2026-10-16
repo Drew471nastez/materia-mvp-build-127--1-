@@ -1,9 +1,9 @@
-"""Builds supabase/sql/store-currency-cod-languages/1_run.sql from run-now parts 174, 175, 176, 177, 178, 186 and 188, text unchanged, with a check before and the validation after. Run: python3 scripts/build-currency-cod-languages-sql.py"""
+"""Builds supabase/sql/store-currency-cod-languages/1_run.sql from run-now parts 174, 175, 176, 177, 178, 186 and 203, text unchanged, with a check before and the validation after. Run: python3 scripts/build-currency-cod-languages-sql.py"""
 import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/"
 RN = ROOT + "supabase/sql/run-now/"
 OUT = ROOT + "supabase/sql/store-currency-cod-languages/"
-PARTS = ["174_cash_on_delivery.sql", "175_automatic_translation.sql", "176_store_currency.sql", "177_translation_jobs.sql", "178_translation_memory.sql", "186_translation_queue.sql", "188_translation_glossary.sql"]
+PARTS = ["174_cash_on_delivery.sql", "175_automatic_translation.sql", "176_store_currency.sql", "177_translation_jobs.sql", "178_translation_memory.sql", "186_translation_queue.sql", "203_translation_glossary.sql"]
 
 def body(f):
     lines = open(RN + f).read().rstrip("\n").split("\n")
@@ -14,7 +14,7 @@ out = [
     "-- One file for the overhaul: run-now parts 174 (cash on delivery), 175 (translate",
     "-- changes automatically), 176 (a store's own selling currency), 177 (translating in",
     "-- the background), 178 (translation memory, the permanent cache), 186 (changes",
-    "-- translated within minutes of a publish) and 188 (words not to translate, and a",
+    "-- translated within minutes of a publish) and 203 (words not to translate, and a",
     "-- merchant's own translation nothing automatic replaces), text unchanged.",
     "-- HOW: paste into a NEW query tab in the Supabase SQL editor and press Run. The",
     "-- editor runs it as one transaction: an error changes nothing. Safe to run again.",

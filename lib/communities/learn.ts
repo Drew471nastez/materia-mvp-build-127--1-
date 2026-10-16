@@ -14,20 +14,30 @@
  *                        no product). Made in the community, never a
  *                        Storelib product.
  *
- * WHO OPENS A PROGRAM is one of three choices the creator makes, plus the
- * older rules an attached course may still carry:
+ * WHO OPENS A PROGRAM is one of five choices the creator makes (round 33,
+ * the column access_mode of part 200), plus the older rules an attached
+ * course may still carry:
  *
- *   free     every active member
+ *   free     every active member ("Open" in the builder)
  *   level    members at a level or above (access.minLevel, the same field
- *            spaces and events use)
+ *            spaces and events use, and the levels the points system gives)
  *   paid     bought on its own: a one time price, paid in a sheet on the
  *            community page (Stripe Embedded Checkout), recorded in
  *            community_program_access
+ *   time     a number of days after the member joined (drip_days). This is
+ *            the older "Opens after joining N days", now a choice of its own.
+ *   private  only the members the creator picked (member_ids). Everybody
+ *            else does not see it at all: not on the shelf, not its page,
+ *            not a free preview.
+ *
+ * A row from before part 200 has no access_mode and is read as it always
+ * was: a price makes it paid, a level a level program, drip days a time
+ * program, otherwise free.
  *
  * Staff (owner, admins, moderators) open everything, drafts included. A
  * member who bought a program keeps it as long as they are an active member.
- * Drip days (counted from the day they joined) still apply to free and level
- * programs; a bought program opens at once.
+ * Drip days (counted from the day they joined) still apply to a level
+ * program that has them from before; a bought program opens at once.
  *
  * Everything here is plain functions over plain data, so the same rule runs
  * in the member page, the course player's lesson check, the checkout and
@@ -40,7 +50,7 @@ import type { Role } from "./types"
 export const PROGRAM_STATUSES = ["draft", "published"] as const
 export type ProgramStatus = (typeof PROGRAM_STATUSES)[number]
 
-export const PROGRAM_MODES = ["free", "level", "paid"] as const
+export const PROGRAM_MODES = ["free", "level", "paid", "time", "private"] as const
 export type ProgramMode = (typeof PROGRAM_MODES)[number]
 
 export const PROGRAM_TITLE_MAX = 120
@@ -50,6 +60,11 @@ export const PROGRAM_PRICE_MIN_CENTS = 50
 export const PROGRAM_PRICE_MAX_CENTS = 99_999_999
 export const MAX_PROGRAMS = 200
 export const MAX_LEVEL = 20
+/** The members a private program can be given to (part 200 holds member_ids to 1,000). */
+export const MAX_PROGRAM_MEMBERS = 1000
+/** The rich description, as cleaned HTML (part 200 holds description to 60,000 characters). */
+export const PROGRAM_DESCRIPTION_MAX = 60_000
+export const MAX_DRIP_DAYS = 3650
 
 const STAFF: readonly Role[] = ["owner", "admin", "moderator"]
 const DAY_MS = 86_400_000
@@ -60,6 +75,10 @@ export interface ProgramRule {
   access: unknown
   priceCents: number | null
   dripDays: number | null
+  /** The creator's choice (part 200); missing or null on an older row, read from the fields above. */
+  accessMode?: string | null
+  /** For a private program: the account ids of the members it is open to. */
+  memberIds?: readonly string[] | null
 }
 
 export interface ProgramViewer {
@@ -71,6 +90,8 @@ export interface ProgramViewer {
   joinedAt: string | null
   /** An active row in community_program_access for this program. */
   purchased: boolean
+  /** The viewer's account, for a private program's list. */
+  userId?: string | null
 }
 
 export type ProgramGate =
@@ -79,13 +100,30 @@ export type ProgramGate =
   | { open: false; reason: "level"; level: number }
   | { open: false; reason: "paid"; priceCents: number }
   | { open: false; reason: "drip"; opensAt: string }
+  | { open: false; reason: "private" }
   | { open: false; reason: "tier" | "product" | "role"; need: string | null }
 
-/** Which of the three choices a program is: a price makes it paid, a level above 1 makes it a level program, otherwise free. */
-export function programMode(p: { access: unknown; priceCents: number | null }): ProgramMode {
+/**
+ * Which of the five choices a program is. Private is only ever chosen (it
+ * needs its list); otherwise a price makes it paid, a level above 1 a level
+ * program, drip days a time program, and anything else is free. The stored
+ * choice and the fields agree because updateProgram writes them together;
+ * where an older row has only the fields, they decide.
+ */
+export function programMode(p: { access: unknown; priceCents: number | null; dripDays?: number | null; accessMode?: string | null }): ProgramMode {
+  if (p.accessMode === "private") return "private"
   if (typeof p.priceCents === "number" && p.priceCents > 0) return "paid"
   if (parseAccessRule(p.access).minLevel) return "level"
+  if (Math.floor(Number(p.dripDays) || 0) > 0) return "time"
   return "free"
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A private program's list as stored: account ids, each once, nothing else. */
+export function programMemberIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter((v): v is string => typeof v === "string" && UUID.test(v)).map((v) => v.toLowerCase()))].slice(0, MAX_PROGRAM_MEMBERS)
 }
 
 /** When a drip program opens for a member: joined_at plus drip_days, or null when it does not drip. */
@@ -101,8 +139,9 @@ export function dripOpensAt(joinedAt: string | null | undefined, dripDays: numbe
 /**
  * WHETHER THIS VIEWER MAY OPEN THIS PROGRAM, and if not, the one thing in
  * the way. In order: a member at all; staff open everything; a draft is
- * staff only; the older tier, product and role rules; the price (bought
- * opens it, and opens it now); the level; the drip day.
+ * staff only; the older tier, product and role rules; a private program's
+ * list; the price (bought opens it, and opens it now); the level; the drip
+ * day.
  */
 export function programGate(p: ProgramRule, v: ProgramViewer, now: number = Date.now()): ProgramGate {
   if (!v.active || !v.role) return { open: false, reason: "not_member" }
@@ -115,7 +154,12 @@ export function programGate(p: ProgramRule, v: ProgramViewer, now: number = Date
     if (other.reason === "not_member") return { open: false, reason: "not_member" }
     if (other.reason === "tier" || other.reason === "product" || other.reason === "role") return { open: false, reason: other.reason, need: other.need ?? null }
   }
-  if (programMode(p) === "paid") {
+  const mode = programMode(p)
+  if (mode === "private") {
+    const me = (v.userId ?? "").toLowerCase()
+    return me && programMemberIds(p.memberIds).includes(me) ? { open: true, via: "member" } : { open: false, reason: "private" }
+  }
+  if (mode === "paid") {
     if (v.purchased) return { open: true, via: "purchase" }
     return { open: false, reason: "paid", priceCents: p.priceCents as number }
   }
@@ -163,6 +207,7 @@ export interface ProgramInput {
   level?: unknown
   priceCents?: unknown
   dripDays?: unknown
+  memberIds?: unknown
 }
 
 export interface ProgramPatch {
@@ -173,6 +218,8 @@ export interface ProgramPatch {
   level?: number
   priceCents?: number | null
   dripDays?: number | null
+  /** Sent with mode private: the members picked. Any other mode clears the list. */
+  memberIds?: string[]
 }
 
 export type ProgramCheck = { ok: true; patch: ProgramPatch } | { ok: false; field: string; error: string }
@@ -191,8 +238,10 @@ export function checkProgramInput(input: ProgramInput, opts: { requireTitle?: bo
     patch.title = title
   }
   if (input.summary !== undefined) {
+    /* Rich HTML from the editor is held to the description's own limit; the server cleans it and keeps a plain copy (lib/communities/server/learn.ts). */
     const summary = typeof input.summary === "string" ? input.summary.trim() : ""
-    if (summary.length > PROGRAM_SUMMARY_MAX) return { ok: false, field: "summary", error: `Keep the description under ${PROGRAM_SUMMARY_MAX.toLocaleString("en-US")} characters.` }
+    const max = /<[a-z][\s\S]*>/i.test(summary) ? PROGRAM_DESCRIPTION_MAX : PROGRAM_SUMMARY_MAX
+    if (summary.length > max) return { ok: false, field: "summary", error: `Keep the description under ${max.toLocaleString("en-US")} characters.` }
     patch.summary = summary || null
   }
   if (input.status !== undefined) {
@@ -215,14 +264,27 @@ export function checkProgramInput(input: ProgramInput, opts: { requireTitle?: bo
     } else {
       patch.priceCents = null
     }
+    if (patch.mode === "private") {
+      if (input.memberIds !== undefined && !Array.isArray(input.memberIds)) return { ok: false, field: "members", error: "Pick the members it is for." }
+      if (Array.isArray(input.memberIds) && input.memberIds.length > MAX_PROGRAM_MEMBERS) return { ok: false, field: "members", error: `A private program is for up to ${MAX_PROGRAM_MEMBERS.toLocaleString("en-US")} members.` }
+      patch.memberIds = programMemberIds(input.memberIds)
+    } else {
+      patch.memberIds = []
+    }
   }
   if (input.dripDays !== undefined) {
     if (input.dripDays === null || input.dripDays === "" || input.dripDays === 0) patch.dripDays = null
     else {
       const days = Math.floor(Number(input.dripDays))
-      if (!Number.isFinite(days) || days < 0 || days > 3650) return { ok: false, field: "dripDays", error: "Use a number of days from 0 to 3650." }
+      if (!Number.isFinite(days) || days < 0 || days > MAX_DRIP_DAYS) return { ok: false, field: "dripDays", error: "Use a number of days from 0 to 3650." }
       patch.dripDays = days || null
     }
+  }
+  /* A time program is its days, at least one. Open, bought and private open without a wait, so their days go with the change. */
+  if (patch.mode === "time") {
+    if (!patch.dripDays) return { ok: false, field: "dripDays", error: "Say how many days after joining it opens." }
+  } else if (patch.mode === "free" || patch.mode === "paid" || patch.mode === "private") {
+    patch.dripDays = null
   }
   return { ok: true, patch }
 }

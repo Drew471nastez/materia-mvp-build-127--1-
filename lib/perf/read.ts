@@ -1,9 +1,11 @@
 import "server-only"
 
 import { cronChecks } from "@/lib/admin/views/system"
+import { CRON_JOBS } from "@/lib/admin/schema-expectations"
 import { Reader } from "@/lib/admin/platform-metrics"
 
 import { CLIENT_SAMPLE_RATE, SERVER_SAMPLE_RATE } from "./config"
+import { cronHealth, type CronJobHealth, type CronRunRow } from "./cron-health"
 import { supabaseInfo, vercelInfo } from "./infra"
 import { OPTIMIZATIONS } from "./optimizations"
 import { rankProblems, type ErrorGroupRow } from "./problems"
@@ -83,6 +85,17 @@ export async function jobsState(r: Reader): Promise<{ late: number; known: numbe
   }
 }
 
+/**
+ * Each job from its own run records (cron_runs, part 68): two days of rows,
+ * three columns, at most 6,000 (every job together runs about 1,300 times a
+ * day). Null when the table could not be read, which before part 68 it cannot.
+ */
+export async function cronRunsRead(r: Reader, now = Date.now()): Promise<CronJobHealth[] | null> {
+  const since = new Date(now - 2 * 86_400_000).toISOString()
+  const rows = await r.rows<CronRunRow>("cron runs", "cron_runs", "job, started_at, ok", (q) => q.gte("started_at", since).order("started_at", { ascending: false }).limit(6000))
+  return rows ? cronHealth(CRON_JOBS, rows, now) : null
+}
+
 export function extrasFrom(parts: {
   payments: { failed: number; completed: number } | null
   slow: SlowQueries | null
@@ -139,7 +152,7 @@ export async function readPerfReport(window: WindowId, now = Date.now()): Promis
     }
   })()
 
-  const [win, errors, slow, payments, jobs, supabase, vercel, history] = await Promise.all([
+  const [win, errors, slow, payments, jobs, supabase, vercel, history, cronRuns] = await Promise.all([
     windowRead,
     errorsRead,
     slowQueries(r),
@@ -148,6 +161,7 @@ export async function readPerfReport(window: WindowId, now = Date.now()): Promis
     supabaseInfo(),
     vercelInfo(now),
     readScoreHistory(r),
+    cronRunsRead(r, now),
   ])
 
   const extras = extrasFrom({ payments, slow, jobs, supabase, vercel })
@@ -164,6 +178,7 @@ export async function readPerfReport(window: WindowId, now = Date.now()): Promis
     slow,
     payments,
     jobs,
+    cronRuns,
     supabase,
     vercel,
     problems: rankProblems(win.aggs, errors),

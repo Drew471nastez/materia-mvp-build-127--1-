@@ -137,9 +137,10 @@ console.log("\n2. What the panel lists")
   const started = keys(navigatorModel(me({ isCreator: true, hasSellerAccess: false })))
   check("a creator who has not finished the setup is still sent to /sell", started.at(-1) === "start-creating:/sell", started)
   const guest = keys(navigatorModel(SIGNED_OUT_PLACES))
-  check("signed out with communities off: Explore, then Log in and Start creating", guest.join(" ") === "explore log-in:/login start-creating:/sell", guest)
+  /* Changed on purpose (round 33): signed out, the menu offers Log in and Sign up (/signup), not Start creating. */
+  check("signed out with communities off: Explore, then Log in and Sign up", guest.join(" ") === "explore log-in:/login sign-up:/signup", guest)
   const guestOn = keys(navigatorModel({ ...SIGNED_OUT_PLACES, communitiesOn: true, recent: [community("leak"), thing("leak2")] }))
-  check("signed out with communities on: Explore, Discover communities, Log in, Start creating, and never a recent row", guestOn.join(" ") === "explore discover-communities log-in:/login start-creating:/sell", guestOn)
+  check("signed out with communities on: Explore, Discover communities, Log in, Sign up, and never a recent row", guestOn.join(" ") === "explore discover-communities log-in:/login sign-up:/signup", guestOn)
   const off = keys(navigatorModel(me({ communitiesOn: false, recent: [thing("p1"), community("a")] })))
   check("communities switched off: no community rows and no Discover communities, my things stay", off.join(" ") === "p:p1 explore start-creating:/sell", off)
   const unsafe = keys(navigatorModel(me({ recent: [community("ok", "good-club"), community("bad", "../admin"), community("caps", "Club"), thing("ok-1"), thing("../admin"), thing("a/b")] })))
@@ -157,7 +158,8 @@ console.log("\n2. What the panel lists")
     theirs is `quiet` (drawn as a grey row), a seller's Dashboard is still
     the one primary button, and the signed out foot is untouched.
   */
-  check("only the signed out foot has two buttons; the primary is Start creating or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "start-creating" && m.actions.length === 1)
+  /* Changed on purpose (round 33): the signed out foot's primary is Sign up. */
+  check("only the signed out foot has two buttons; the primary is Sign up or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "sign-up" && m.actions.length === 1)
   check("a seller's Dashboard is the primary button; somebody who does not sell gets Start creating quietly instead",
     navigatorModel(me({ hasSellerAccess: true, isCreator: true })).actions.every((a) => a.key === "dashboard" && a.primary && !a.quiet)
       && m.actions.every((a) => a.key === "start-creating" && !a.primary && a.quiet === true)

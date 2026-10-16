@@ -5,20 +5,20 @@ query tab in the Supabase SQL editor and run on its own.
 
 | File | What it does |
 | --- | --- |
-| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency), 177 (translating in the background), 178 (translation memory), 186 (changes translated within minutes of a publish) and 188 (words not to translate, and a merchant's own translation nothing automatic replaces), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
+| `1_run.sql` | Run-now parts 174 (cash on delivery), 175 (translate changes automatically), 176 (a store's own selling currency), 177 (translating in the background), 178 (translation memory), 186 (changes translated within minutes of a publish) and 203 (words not to translate, and a merchant's own translation nothing automatic replaces), text unchanged, after a check that the tables they build on exist. One transaction; safe to run again. Built by `python3 scripts/build-currency-cod-languages-sql.py`. |
 | `2_check.sql` | Read only. One row per thing the code needs, each `true`; then what stores sell in, the background translations, the translation memory and the latest currency changes. |
 | `3_rollback.sql` | How to undo parts 176 and 177: put converted prices back first, then the code, then drop the schema. |
 
 The same parts are in `run-now/`, `run-four/` and `all-in-two/`. Run one route
 or the other; running both is harmless.
 
-## What part 188 adds
+## What part 203 adds
 
 - `store_localization.translation_glossary`: the words the owner lists in
   Settings › Languages & Currency › Words not to translate (brand and product
   names), kept exactly as written in every language or with a fixed
   translation in one. Empty for every store until the owner adds one. Without
-  it, the list says it needs part 188 and everything translates as before.
+  it, the list says it needs part 203 and everything translates as before.
 - `site_translations_keep_manual`: a trigger that skips any write turning a
   translation the merchant wrote or edited into Storelib AI's. The app checks
   just before it writes; this closes the moment between that check and the

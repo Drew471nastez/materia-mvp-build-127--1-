@@ -44,7 +44,7 @@ const SUITES = [
   /* The editor's preview language and currency from Website settings › General, and the inspector's line while another language is drawn. */
   "tests/editor-preview-controls.test.ts",
   "tests/auto-translate.test.ts",
-  /* Your edits are never replaced: every write path, a save during a run, the default language, words not to translate, Don't translate (SQL part 188) */
+  /* Your edits are never replaced: every write path, a save during a run, the default language, words not to translate, Don't translate (SQL part 203) */
   "tests/translation-safety.test.ts",
   "tests/checkout-words.test.ts",
   "tests/order-emails-language.test.ts",
@@ -143,6 +143,8 @@ const SUITES = [
   "tests/community-domains-round31.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
+  /* The Orders page a page at a time (lib/orders/paged.ts): the same orders, numbers, counts and figures as when it read every row. */
+  "tests/orders-paging.test.ts",
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
   "tests/analytics-collection.test.ts",
@@ -380,6 +382,10 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
+  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  "tests/jobs-and-isolation.test.ts",
+  /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
+  "tests/jobs-dupes.test.ts",
   "tests/backups.test.ts",
   "tests/schema-source.test.ts",
   "tests/ops-safety.test.ts",
@@ -601,9 +607,18 @@ const SUITES = [
   "tests/community-analytics-r31.test.ts",
   /* Round 32: a community's analytics counted against a seeded fixture, and read without a bar or a blur (scripts/check-community-analytics-round32.mjs measures it beside /app Analytics). */
   "tests/community-analytics-r32.test.ts",
+  /* Round 33: a community's visits counted by the page once it is on a screen (sources, devices, countries, the app), member churn, DAU to MAU, new and returning, an overview over the sections (scripts/check-community-analytics-round33.mjs measures it). */
+  "tests/community-analytics-r33.test.ts",
+  /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
+  "tests/community-features-round32.test.ts",
+  /* Round 33: who opens a program (Open, Reach a level, Buy now, Days after joining, Private) decided on the server for the shelf, the page, every lesson and the checkout; modules and lessons added at once (SQL part 200; scripts/check-learn-round33.mjs measures the screens). */
+  "tests/community-learn-access-round33.test.ts",
+  /* Round 33: the community Page editor, the links as icons, the cover's focus, the join button, the About page's row (scripts/check-page-editor-round33.mjs measures them). */
+  "tests/community-page-round33.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
+  "tests/communities-round33.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",
@@ -624,7 +639,11 @@ const SUITES = [
   /* Round 31: the community admin shell keeps its sections, the settings list, the save bar, the gallery drag (scripts/check-community-admin-round31.mjs measures them). */
   "tests/communities-admin31.test.ts",
   /* Round 32: the community admin's Overview and Settings use the width, the gallery is the product editor's, members pick their own look (scripts/check-community-admin-round32.mjs measures them). */
+  /* Round 32: moving between a community's sections (scripts/check-community-admin-round32.mjs, scripts/measure-community-admin-server.mjs measure it). */
   "tests/communities-admin32.test.ts",
+  /* Round 33: the Page section after Overview, Settings without the page, the /app badge, one save bar, covers from the logo (scripts/check-community-admin-round33.mjs measures them). */
+  "tests/communities-admin33.test.ts",
+  "tests/communities-admin-nav32.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
@@ -649,6 +668,14 @@ const SUITES = [
   "tests/publishing-cache.test.ts",
   /* Releases on Publish (SQL part 180) and an imported theme page held by the CDN for a stranger */
   "tests/site-releases.test.ts",
+  /* An earlier publish live again (SQL part 188) */
+  "tests/release-rollback.test.ts",
+  /* Safety nets that measure: build memory, bundle budgets, the post-deploy smoke, the load test, the rollback runbook, each job from cron_runs */
+  "tests/ops-safety-nets.test.ts",
+  /* Indexes for the reads that searched a whole table (SQL part 187), the wishlist's one profile read, More from seller's columns */
+  "tests/db-indexes.test.ts",
+  /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
+  "tests/mobile-perf.test.ts",
 ]
 
 /**
@@ -678,6 +705,12 @@ const STRICT_SUITES = [
     clean.
   */
   "tests/claude-integration.test.ts",
+  /*
+    Round 33: making a community, its setup list, deleting one members pay for (scripts/check-create-round33.mjs
+    measures the wizard and the pill). Here, not above: it runs lib/communities/server/creator.ts, whose results are
+    narrowed by `if (!x.ok)`, which only narrows under strict.
+  */
+  "tests/community-lifecycle-round33.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

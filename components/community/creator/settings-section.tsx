@@ -6,27 +6,37 @@
  * ===========================================================================
  * Panels named in the address (?tab=), grouped the way /app/settings groups them:
  *
- *   Page           what people see before they join: name, logo, tagline,
- *                  description, the cover and the gallery of pictures and
- *                  videos, what members get, questions, links.
+ *   COMMUNITY
+ *   Access and     who can join, approval, the questions asked first, the
+ *   prices         tiers with their prices (a recurring price is saved
+ *                  through the memberships engine: members keep what they
+ *                  joined at), the other products that let somebody in.
  *   Address and    the storelib.com address, and a domain of the creator's
  *   domain         own (round 31's panel, ./community-domain-panel).
- *   Access and     who can join, approval, the tiers with their prices (a
- *   prices         recurring price is saved through the memberships engine:
- *                  members keep what they joined at), the other products
- *                  that let somebody in.
  *   Explore and    the Explore category, being shown in Explore, and the
  *   search         title and line search engines show.
- *   Features       which sections are on, and the welcome a new member sees.
+ *   Features       which sections are on, the welcome a new member sees,
+ *                  their first steps.
  *   Publish and    publish, videos, archive, delete (the name typed back;
  *   archive        ?tab=advanced).
+ *   MEMBERS
+ *   Roles and      the owner's: what admins and moderators may do.
+ *   permissions
  *   Rules and      the rules (the same editor as Moderation's), blocked
  *   policies       words, and for the owner the refund policy and how
  *                  members reach them.
- *   Roles          the owner's: what admins and moderators may do.
  *   Points and     points, levels, badges (?tab=gamification).
  *   levels
+ *   YOU
  *   Notifications  what you hear about in this community.
+ *
+ * ROUND 33, THE OWNER: the community's page is edited separately from
+ * Settings. What people see before they join (the name, logo, tagline,
+ * description, cover, gallery, what members get, questions, links) moved to
+ * the Page section, the tab after Overview (app/app/community/[id]/page);
+ * an address that named it here (?tab=page, ?tab=general) is sent on there
+ * by the server (./logic pageTabAsked). Settings is left with what runs the
+ * community.
  *
  * ROUND 32, THE OWNER: "on desktop it looks absolutely horrible, too shrunk". Page held a second column 300px wide
  * (the address, the domain, the logo, the look, the category), so the domain's line wrapped into a strip beside its
@@ -35,8 +45,8 @@
  * The look (White or Dark) is gone: a member picks their own (lib/communities/client/appearance-choice.ts).
  *
  * A switch saves when it is flipped; a form saves with its save bar (./parts EditorFoot, the /app Settings bar).
- * Older links (?tab=general, ?tab=domain, ?tab=welcome) land on the panel that holds what they pointed at
- * (./logic settingsTabOf).
+ * Older links (?tab=domain, ?tab=welcome) land on the panel that holds what they pointed at (./logic settingsTabOf);
+ * ?tab=page and ?tab=general open the Page section.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
@@ -46,9 +56,9 @@ import { ChoicePicker } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
-import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
+import type { NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
-import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, settingsTabAsked, settingsTabOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { accessChoiceOf, settingsTabAsked, settingsTabOf, type PriceInterval, type SettingsTab } from "./logic"
 import { accessSummary, privacyTitle, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -59,12 +69,13 @@ import { RulesEditor } from "./moderation-section"
 import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
-import { CoverField, GalleryEditor } from "./gallery-editor"
 import { CommunityDomainPanel } from "./community-domain-panel"
+import { DeleteCommunity } from "./delete-community"
+import { JoinQuestionsPanel } from "./join-questions-panel"
+import { OnboardingPanel } from "./onboarding-panel"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
-import { ChoiceCards, Confirm, Dialog, EDITOR_CARD_TITLE, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, RemoveButton, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
+import { ChoiceCards, Confirm, Dialog, EDITOR_CARD_TITLE, EditorCard, EditorFoot, Notice, PriceInput, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, send, useToast } from "./parts"
 import { tt, ttx } from "@/lib/i18n/text"
-import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
 type SettingsGroup = "community" | "people" | "you"
@@ -97,15 +108,15 @@ export interface SettingsPanel {
   in the phone's list and under the panel's title.
 */
 const PANELS: SettingsPanel[] = [
-  { value: "page", get label() { return tt("Page") }, needs: "manage_settings", group: "community", get line() { return tt("Name, logo, pictures and what members get") }, render: (p) => <PageSettings head={p.head} data={p.data} /> },
-  { value: "address", get label() { return tt("Address and domain") }, needs: "manage_settings", group: "community", get line() { return tt("Your link on Storelib, and a domain of your own") }, render: (p) => <AddressSettings head={p.head} /> },
+  /* Round 33: Page is a section of its own now (the tab after Overview); Settings opens on who gets in. */
   { value: "access", get label() { return tt("Access and prices") }, needs: "manage_settings", group: "community", get line() { return tt("Who can join, approval and tiers") }, render: (p) => <Access head={p.head} data={p.data} /> },
+  { value: "address", get label() { return tt("Address and domain") }, needs: "manage_settings", group: "community", get line() { return tt("Your link on Storelib, and a domain of your own") }, render: (p) => <AddressSettings head={p.head} /> },
   { value: "discovery", get label() { return tt("Explore and search") }, needs: "manage_settings", group: "community", get line() { return tt("Category, Explore and search results") }, render: (p) => <Discovery head={p.head} data={p.data} /> },
   { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") }, render: (p) => <Features head={p.head} data={p.data} /> },
   { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") }, render: (p) => <Advanced head={p.head} videoProviders={p.videoProviders} /> },
-  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
-  { value: "roles", get label() { return tt("Roles") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
+  { value: "roles", get label() { return tt("Roles and permissions") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
+  { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
   { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") }, render: (p) => <GamificationPanel head={p.head} levels={p.data.levels} badges={p.data.badges} /> },
   { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") }, render: (p) => <Notifications head={p.head} data={p.data} /> },
   /* round32: features panels (a new panel: its entry here, its name in ./logic SETTINGS_TABS) */
@@ -184,7 +195,7 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
   const current = tabs.find((t) => t.value === tab)
   return (
     <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)] xl:gap-12">
-      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[136px] hidden lg:block">
+      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[68px] hidden lg:block">
         {GROUPS.map((g) => {
           const list = tabs.filter((t) => t.group === g.id)
           if (!list.length) return null
@@ -286,147 +297,6 @@ function useInstant(head: CommunityHead) {
 function SaveBar({ dirty, busy, onSave, onReset, error, busyText }: { dirty: boolean; busy: boolean; onSave: () => void; onReset: () => void; error: string | null; busyText?: string }) {
   /* The product editor's foot (./parts EditorFoot): always there, Cancel and Save at its right. */
   return <EditorFoot dirty={dirty} busy={busy && !busyText} busyText={busyText} error={error} onSave={onSave} onCancel={onReset} />
-}
-
-/* ── Page ───────────────────────────────────────────────────────────────── */
-
-interface PageState {
-  name: string
-  tagline: string
-  description: string
-  logoUrl: string | null
-  coverUrl: string | null
-  gallery: GalleryItem[]
-  benefits: string[]
-  faq: CommunityFaq[]
-  links: CommunityLink[]
-}
-
-/*
-  THE PAGE, ONE COLUMN (round 32). The cards in the order the community's page reads, each the panel's full width: About
-  (the logo, the name, the tagline, the description), Photos and video (the cover, then the gallery, drawn as the product
-  editor draws a product's media), what members get, questions, links. One save bar for all of it.
-*/
-function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData }) {
-  const router = useRouter()
-  const toast = useToast()
-  const start = React.useMemo<PageState>(
-    () => ({
-      name: head.name,
-      tagline: data.tagline ?? "",
-      description: data.description,
-      logoUrl: head.logoUrl,
-      coverUrl: head.coverUrl,
-      gallery: data.gallery,
-      benefits: data.benefits,
-      faq: data.faq,
-      links: data.links,
-    }),
-    [head, data],
-  )
-  const [s, setS] = React.useState(start)
-  const [saved, setSaved] = React.useState(JSON.stringify(start))
-  const [busy, setBusy] = React.useState(false)
-  const [galleryUploading, setUploading] = React.useState(false)
-  /* The cover's own upload (round 13), held apart so the gallery finishing first does not release Save. */
-  const [coverUploading, setCoverUploading] = React.useState(false)
-  const uploading = galleryUploading || coverUploading
-  const [error, setError] = React.useState<string | null>(null)
-  const dirty = JSON.stringify(s) !== saved
-  const set = <K extends keyof PageState>(k: K, v: PageState[K]) => {
-    setS((x) => ({ ...x, [k]: v }))
-    setError(null)
-  }
-
-  const save = async () => {
-    const before = JSON.parse(saved) as PageState
-    const body: Record<string, unknown> = {}
-    for (const k of Object.keys(s) as (keyof PageState)[]) if (JSON.stringify(s[k]) !== JSON.stringify(before[k])) body[k] = s[k]
-    setBusy(true)
-    const res = await send(`/api/app/community/${head.id}`, "PATCH", body)
-    setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    setSaved(JSON.stringify(s))
-    toast(tt("Saved"))
-    router.refresh()
-    /* The community open in another tab picks up the new cover, picture and name at once. */
-    announceCommunityUpdated(head.id)
-  }
-
-  return (
-    <div className="space-y-4" data-page-settings="">
-      <EditorCard title={tt("About")} id="about">
-        <div data-page-logo="">
-          <p className={label}>{tt("Logo")}</p>
-          <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
-        </div>
-        <div>
-          <label htmlFor="g-name" className={label}>
-            {tt("Name")}
-          </label>
-          <input id="g-name" value={s.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} />
-        </div>
-        <div>
-          <label htmlFor="g-tagline" className={label}>
-            {tt("Tagline")}
-          </label>
-          <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("One line on cards and in Explore")} className={cn(field, "h-11 sm:h-10")} />
-        </div>
-        <div>
-          <label htmlFor="g-desc" className={label}>
-            {tt("Description")}
-          </label>
-          <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={6} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-        </div>
-      </EditorCard>
-
-      <EditorCard title={tt("Photos and video")} hint={tt("The cover across the top of your page, then the gallery under it, in this order.")} id="gallery">
-        <div className="min-w-0">
-          <p className={label}>{tt("Cover")}</p>
-          {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
-          <CoverField
-            communityId={head.id}
-            onBusy={setCoverUploading}
-            coverUrl={s.coverUrl}
-            gallery={s.gallery}
-            onChange={(next) => {
-              setS((x) => ({ ...x, coverUrl: next.coverUrl, gallery: next.gallery }))
-              setError(null)
-            }}
-            onError={setError}
-          />
-        </div>
-        {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
-        <GalleryEditor
-          communityId={head.id}
-          value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
-          onChange={(v) => {
-            const cover = coverOf(s.gallery)
-            set("gallery", cover ? [cover, ...v] : v)
-          }}
-          max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
-          videos={data.galleryVideos}
-          ready={data.galleryReady}
-          onError={setError}
-          onBusy={setUploading}
-        />
-      </EditorCard>
-
-      <EditorCard title={tt("What members get")} hint={tt("A line each, on the community's page.")}>
-        <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder={tt("A live call every week")} addLabel={tt("Add a line")} />
-      </EditorCard>
-
-      <EditorCard title={tt("Questions")} hint={tt("Answers to what people ask before joining.")}>
-        <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder={tt("Who is it for?")} bPlaceholder={tt("The answer")} addLabel={tt("Add a question")} />
-      </EditorCard>
-
-      <EditorCard title={tt("Links")} hint={tt("Your website or social pages, on the community's page.")}>
-        <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder={tt("Website")} bPlaceholder="https://" addLabel={tt("Add a link")} singleLine />
-      </EditorCard>
-
-      <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? tt("Uploading") : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
-    </div>
-  )
 }
 
 /* ── Address and domain ─────────────────────────────────────────────────── */
@@ -546,53 +416,10 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
         </div>
       </EditorCard>
 
+      {/* Round 32: a new member's first steps and the welcome message sent to them (./onboarding-panel). */}
+      <OnboardingPanel head={head} />
+
       <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setW(JSON.parse(saved)); setError(null) }} />
-    </div>
-  )
-}
-
-function ListEditor({ items, onChange, max, placeholder, addLabel }: { items: string[]; onChange: (v: string[]) => void; max: number; placeholder: string; addLabel: string }) {
-  const rows = items.length ? items : [""]
-  return (
-    <div className="space-y-2">
-      {rows.map((b, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <input value={b} onChange={(e) => onChange(rows.map((x, j) => (j === i ? e.target.value.slice(0, 120) : x)))} placeholder={i === 0 ? placeholder : ""} aria-label={tt("Line {value}", { value: i + 1 })} className={cn(field, "h-11 sm:h-10")} />
-          <RemoveButton label={tt("Remove line {value}", { value: i + 1 })} onClick={() => onChange(rows.filter((_, j) => j !== i))} />
-        </div>
-      ))}
-      {rows.length < max ? (
-        <button type="button" onClick={() => onChange([...rows, ""])} className={cn(buttonSecondary, "mt-1")}>
-          <Plus aria-hidden className="h-4 w-4" />
-          {addLabel}
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel, singleLine }: { items: { a: string; b: string }[]; onChange: (v: { a: string; b: string }[]) => void; max: number; aPlaceholder: string; bPlaceholder: string; addLabel: string; singleLine?: boolean }) {
-  return (
-    <div className="space-y-3">
-      {items.map((it, i) => (
-        <div key={i} className="flex items-start gap-2">
-          <div className={cn("min-w-0 flex-1", singleLine ? "grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.6fr]" : "space-y-1.5")}>
-            <input value={it.a} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, a: e.target.value.slice(0, 200) } : x)))} placeholder={aPlaceholder} aria-label={`${addLabel.replace("Add a ", "")} ${i + 1}`} className={cn(field, "h-11 font-medium sm:h-10")} />
-            {singleLine ? (
-              <input value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.trim().slice(0, 1000) } : x)))} placeholder={bPlaceholder} aria-label={tt("Address {value}", { value: i + 1 })} className={cn(field, "h-11 sm:h-10")} />
-            ) : (
-              <textarea value={it.b} onChange={(e) => onChange(items.map((x, j) => (j === i ? { ...x, b: e.target.value.slice(0, 2000) } : x)))} placeholder={bPlaceholder} rows={2} aria-label={tt("Detail {value}", { value: i + 1 })} className={cn(field, "resize-y py-2 leading-relaxed")} />
-            )}
-          </div>
-          <RemoveButton label={tt("Remove {value}", { value: i + 1 })} onClick={() => onChange(items.filter((_, j) => j !== i))} className="mt-0.5 sm:mt-1" />
-        </div>
-      ))}
-      {items.length < max ? (
-        <button type="button" onClick={() => onChange([...items, { a: "", b: "" }])} className={buttonSecondary}>
-          <Plus aria-hidden className="h-4 w-4" />
-          {addLabel}
-        </button>
-      ) : null}
     </div>
   )
 }
@@ -707,6 +534,9 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
           />
         </div>
       </EditorCard>
+
+      {/* Round 32: the questions asked before joining (./join-questions-panel). */}
+      <JoinQuestionsPanel head={head} />
 
       <EditorCard
         title={tt("Tiers")}
@@ -1277,8 +1107,6 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
   const router = useRouter()
   const toast = useToast()
   const [busy, setBusy] = React.useState<string | null>(null)
-  const [deleting, setDeleting] = React.useState(false)
-  const [typed, setTyped] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
 
   const run = async (key: string, url: string, body: unknown, done: string) => {
@@ -1289,15 +1117,6 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
     if (!res.ok) return setError(errorText(res.data.error))
     toast(done)
     router.refresh()
-  }
-
-  const remove = async () => {
-    setBusy("delete")
-    setError(null)
-    const res = await send(`/api/app/community/${head.id}/delete`, "POST", { confirm: typed })
-    setBusy(null)
-    if (!res.ok) return setError(errorText(res.data.error))
-    router.push("/app/community")
   }
 
   return (
@@ -1335,42 +1154,8 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
           </button>
         }
       />
-      {head.can.delete ? (
-        <EditorCard
-          title={tt("Delete")}
-          hint={tt("It disappears for everyone. Orders and payments are kept. Not possible while members still pay for it.")}
-          action={
-            <button type="button" onClick={() => { setTyped(""); setDeleting(true) }} className="inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3.5 text-[13px] font-medium text-[#b42318] hover:bg-[#fef2f2] sm:h-8 sm:px-3">
-              {tt("Delete community")}
-            </button>
-          }
-        />
-      ) : null}
-      <Dialog
-        open={deleting}
-        onClose={() => setDeleting(false)}
-        title={tt("Delete this community?")}
-        footer={
-          <>
-            <button type="button" onClick={() => setDeleting(false)} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
-              {tt("Cancel")}
-            </button>
-            <button type="button" disabled={typed.trim() !== head.name.trim() || busy === "delete"} onClick={() => void remove()} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white hover:bg-[#9a1d14] disabled:opacity-40 sm:h-9" data-delete-confirm="">
-              {busy === "delete" ? tt("Deleting") : tt("Delete")}
-            </button>
-          </>
-        }
-      >
-        <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          <Rich text={tt("Type {name} to delete it.")} parts={{ name: <span className="font-semibold text-[#1a1a2e]">{head.name}</span> }} />
-        </p>
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label={tt("Community name")} autoComplete="off" className={cn(field, "mt-3 h-11 sm:h-10")} />
-        {error ? (
-          <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
-            {error}
-          </p>
-        ) : null}
-      </Dialog>
+      {/* Round 33: deleting, with members who pay, at the end of what they paid for or now with refunds (./delete-community). */}
+      {head.can.delete ? <DeleteCommunity head={head} /> : null}
     </div>
   )
 }

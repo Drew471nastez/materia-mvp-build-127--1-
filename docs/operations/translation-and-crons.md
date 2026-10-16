@@ -22,7 +22,7 @@ The parts it contains:
 | 177 | Translation jobs in the background |
 | 178 | Translation memory, the permanent cache |
 | 186 | Changes translated within minutes of a publish (`translate_dirty_at`, `translate_lease_until`) |
-| 188 | Words not to translate (`translation_glossary`), and the `site_translations_keep_manual` trigger: no automatic write replaces the store's own translation |
+| 203 | Words not to translate (`translation_glossary`), and the `site_translations_keep_manual` trigger: no automatic write replaces the store's own translation |
 
 ## 2. Set up the translator (one key)
 
@@ -118,7 +118,7 @@ Every write path is held to this: the Translate with AI round and the
 background job (`lib/markets/translation-press.ts`), the automatic run
 (`lib/markets/auto-translate.ts`), and any write labelled as Storelib AI's,
 even one sent from the Translate sheet. Each reads the store's own
-translations again just before it writes and leaves them out; part 188's
+translations again just before it writes and leaves them out; part 203's
 trigger skips the write in the database if the store saved one in the
 moment between. `tests/translation-safety.test.ts` proves each path,
 including a save made while a run works and a Spanish store on an English

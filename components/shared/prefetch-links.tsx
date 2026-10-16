@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { prefetchPlan } from "@/lib/nav/prefetch-policy"
 
 /**
  * Route prefetch map: for each current route, prefetch these next likely routes.
@@ -21,7 +22,9 @@ const PREFETCH_MAP: Record<string, string[]> = {
   "/app/settings/billing": ["/app/settings/billing/upgrade"],
   "/account/library": ["/account/library", "/account/library/wishlist"],
   "/signup": ["/login"],
-  "/login": ["/signup", "/app"],
+  /* Not /app: whoever is on /login is signed out, so reading /app ahead only
+     ever read the redirect back to /login and a second copy of this page. */
+  "/login": ["/signup"],
 }
 
 /**
@@ -35,8 +38,11 @@ export function PrefetchLinks() {
   const prefetchedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    const routes = PREFETCH_MAP[pathname]
-    if (!routes) return
+    /* The same plan as every other read ahead (lib/nav/prefetch-policy.ts):
+       nothing on Save-Data or 2g, only the likeliest on a slow phone or 3g,
+       and never the page already on screen. */
+    const routes = (PREFETCH_MAP[pathname] ?? []).filter((route) => route !== pathname).slice(0, prefetchPlan().idleBudget)
+    if (routes.length === 0) return
 
     const prefetch = () => {
       for (const route of routes) {

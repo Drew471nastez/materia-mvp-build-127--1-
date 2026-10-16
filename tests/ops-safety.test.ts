@@ -25,7 +25,7 @@ async function main() {
   {
     const ci = read(".github/workflows/ci.yml")
     check("CI runs on every push to main and every pull request", /push:\s*\n\s*branches: \[main\]/.test(ci) && ci.includes("pull_request:"))
-    for (const [job, cmd] of [["Tests", "pnpm test:push"], ["Lint", "pnpm lint"], ["Type errors only go down", "node scripts/ci/typecheck-ratchet.mjs"], ["Production build", "pnpm build"]]) {
+    for (const [job, cmd] of [["Tests", "pnpm test:push"], ["Lint", "pnpm lint"], ["Type errors only go down", "node scripts/ci/typecheck-ratchet.mjs"], ["Production build", "node scripts/ci/measure-build.mjs -- pnpm build"]]) {
       check(`  ${job}: ${cmd}`, ci.includes(`name: ${job}`) && ci.includes(`run: ${cmd}`))
     }
     check("  with the lockfile as it is", (ci.match(/pnpm install --frozen-lockfile/g) ?? []).length === 4)

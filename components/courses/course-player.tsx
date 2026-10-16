@@ -593,8 +593,16 @@ function Stage(props: {
       </div>
     )
   }
-  /* A lesson that is words only has no stage: its text is the lesson, and it starts right under the title. */
-  if (play.state === "text") return null
+  /* A lesson that is words only has no stage: its text is the lesson, and it starts right under the title. Round 33: its cover, when it has one, stands where a video would. */
+  if (play.state === "text") {
+    if (!lesson.coverUrl || lesson.locked) return null
+    return (
+      <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-lesson-cover="">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={lesson.coverUrl} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+      </div>
+    )
+  }
   if (play.state === "loading") {
     /*
       THE STILL (round 18): while the lesson's video is asked for, its own box, black like the video, at the 16:9 the video

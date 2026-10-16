@@ -101,11 +101,11 @@ const builder: LearnBuilderData = {
   ],
   courses: [{ id: "c9", title: "Studio photography", coverUrl: cover("Photography", "#1f2a37"), status: "published" }],
   programs: [
-    { id: "p1", kind: "program", productId: null, title: "Start here: your first 30 days", summary: "Everything a new member needs in the first month.", coverUrl: programs[0].coverUrl, status: "published", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: null, lessons: 12, buyers: 0, editHref: null },
-    { id: "p2", kind: "program", productId: null, title: "Wheel throwing, from clay to cup", summary: "Six weeks at the wheel, one form at a time.", coverUrl: programs[1].coverUrl, status: "published", mode: "paid", level: 2, priceCents: 4900, currency: "usd", dripDays: null, lessons: 18, buyers: 23, editHref: null },
-    { id: "p3", kind: "program", productId: null, title: "Glaze chemistry for the curious", summary: "", coverUrl: programs[2].coverUrl, status: "published", mode: "level", level: 3, priceCents: null, currency: "usd", dripDays: null, lessons: 9, buyers: 0, editHref: null },
-    { id: "p7", kind: "course", productId: "c7", title: "Selling at markets", summary: "", coverUrl: cover("Markets", "#d8e2dc", "#1a1a2e"), status: "published", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: 7, lessons: 7, buyers: 0, editHref: "/app/products/c7/edit" },
-    { id: "p6", kind: "program", productId: null, title: "Kiln loading, the careful way", summary: "", coverUrl: null, status: "draft", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: null, lessons: 0, buyers: 0, editHref: null },
+    { id: "p1", kind: "program", productId: null, title: "Start here: your first 30 days", summary: "Everything a new member needs in the first month.", coverUrl: programs[0].coverUrl, status: "published", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: null, members: [], lessons: 12, buyers: 0, editHref: null },
+    { id: "p2", kind: "program", productId: null, title: "Wheel throwing, from clay to cup", summary: "Six weeks at the wheel, one form at a time.", coverUrl: programs[1].coverUrl, status: "published", mode: "paid", level: 2, priceCents: 4900, currency: "usd", dripDays: null, members: [], lessons: 18, buyers: 23, editHref: null },
+    { id: "p3", kind: "program", productId: null, title: "Glaze chemistry for the curious", summary: "", coverUrl: programs[2].coverUrl, status: "published", mode: "level", level: 3, priceCents: null, currency: "usd", dripDays: null, members: [], lessons: 9, buyers: 0, editHref: null },
+    { id: "p7", kind: "course", productId: "c7", title: "Selling at markets", summary: "", coverUrl: cover("Markets", "#d8e2dc", "#1a1a2e"), status: "published", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: 7, members: [], lessons: 7, buyers: 0, editHref: "/app/products/c7/edit" },
+    { id: "p6", kind: "program", productId: null, title: "Kiln loading, the careful way", summary: "", coverUrl: null, status: "draft", mode: "free", level: 2, priceCents: null, currency: "usd", dripDays: null, members: [], lessons: 0, buyers: 0, editHref: null },
   ],
 }
 

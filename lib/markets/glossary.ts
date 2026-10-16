@@ -4,7 +4,7 @@
  * ===========================================================================
  * Settings › Languages & Currency: the brand names, product names and any
  * other words the owner lists stay exactly as written in every language
- * (store_localization.translation_glossary, SQL part 188). A word may also
+ * (store_localization.translation_glossary, SQL part 203). A word may also
  * have a fixed translation in one language ("Gift card" is always "Carte
  * cadeau" in French).
  *

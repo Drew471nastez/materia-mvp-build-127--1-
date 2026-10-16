@@ -415,11 +415,11 @@ async function main() {
 
   console.log("\nOrders: the page")
   {
-    /* The page reads its rows through lib/orders/load-rows.ts, which the
-       app's export link reads through too, so both count the same orders. */
+    /* Changed on purpose: the page reads one page of orders (lib/orders/paged.ts), which the
+       export reads through too, and both number them over every order (tests/orders-paging.test.ts). */
     const page = read("app/app/orders/sales/page.tsx")
     const loader = read("lib/orders/load-rows.ts")
-    check("the page reads its orders through the shared reader", /await readCreatorOrders\(admin, creator\.id\)/.test(page))
+    check("the page reads its orders through the shared reader, a page at a time", /await readOrdersListing\(admin, creator\.id, /.test(page) && !/readCreatorOrders/.test(page))
     check(
       "products are read with every column, so a missing one can never empty the list",
       /\.from\("products"\)\s*\.select\("\*"\)/.test(loader) && !/gallery_images"\)/.test(loader),

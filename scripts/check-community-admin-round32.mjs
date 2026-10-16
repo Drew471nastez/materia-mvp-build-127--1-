@@ -325,7 +325,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }
     }, scopeSel)
 
-  const TABS = ["page", "address", "access", "discovery", "features", "advanced", "policies", "roles", "gamification", "notifications"]
+  /* Round 33: no "page" panel; the page is a section of its own. */
+  const TABS = ["address", "access", "discovery", "features", "advanced", "policies", "roles", "gamification", "notifications"]
 
   if (want("LAYOUT")) {
     console.log("\nLAYOUT: the width used, nothing squeezed, nothing over anything, nothing off the screen")
@@ -383,7 +384,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     }
   }
 
-  if (want("GALLERY")) {
+  /* Round 33: the community's page (and its gallery) left Settings for the Page section; measured there by its own probe. */
+  if (want("GALLERY") && process.env.GALLERY_IN_SETTINGS) {
     console.log("\nGALLERY: the product editor's media grid")
     for (const [vpName, vp] of [["1440", DESK], ["1280", LAPTOP], ["390", PHONE]]) {
       for (const empty of [false, true]) {
@@ -446,7 +448,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(errors.length === 0, "390 category: no page errors", errors)
       await p.close()
     }
-    {
+    tile: {
+      if (!process.env.GALLERY_IN_SETTINGS) break tile
       const { p, errors } = await open(`${BASE}/settings?tab=page`, PHONE)
       await p.evaluate(() => { const pane = document.querySelector("[data-community-shell]"); const g = document.querySelector("[data-gallery]"); pane.scrollTop += g.getBoundingClientRect().top - pane.getBoundingClientRect().top - 160 })
       await sleep(200)
@@ -477,7 +480,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await sleep(250)
     const back = { list: (await box(p, "[data-settings-list]"))?.shown, url: await p.evaluate(() => location.search), path: await p.evaluate(() => location.pathname) }
     expect(back.list && back.url === "" && back.path === `${BASE}/settings`, "390: Back returns to the list, still in Settings", back)
-    await p.click('[data-settings-row="page"]')
+    await p.click('[data-settings-row="address"]')
     await sleep(200)
     await p.click("[data-settings-back]")
     await sleep(250)
@@ -487,8 +490,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const d = await open(`${BASE}/settings`, DESK)
     const col = await box(d.p, "[data-settings-groups]")
     const dl = await box(d.p, "[data-settings-list]")
-    const page = await box(d.p, '[data-settings-panel="page"]')
-    expect(col?.shown && !dl?.shown && page?.shown, "1440: the column of groups beside the Page panel, no list", { col, dl, page })
+    const page = await box(d.p, '[data-settings-panel="access"]')
+    expect(col?.shown && !dl?.shown && page?.shown, "1440: the column of groups beside the first panel, no list", { col, dl, page })
     await d.p.screenshot({ path: join(shots, "settings-page-1440.png") })
     await d.p.close()
   }
@@ -507,14 +510,14 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   if (want("SAVEBAR")) {
     for (const [vpName, vp] of [["390", PHONE], ["1440", DESK]]) {
       console.log(`\nSAVEBAR at ${vpName}`)
-      const { p, errors } = await open(`${BASE}/settings?tab=page`, vp)
-      const down = await p.evaluate(() => { const el = document.querySelector('[data-settings-panel="page"] [data-editor-foot]'); return { foot: el?.getAttribute("data-foot"), opacity: Number(getComputedStyle(el.firstElementChild).opacity) } })
+      const { p, errors } = await open(`${BASE}/settings?tab=address`, vp)
+      const down = await p.evaluate(() => { const el = document.querySelector('[data-settings-panel="address"] [data-editor-foot]'); return { foot: el?.getAttribute("data-foot"), opacity: Number(getComputedStyle(el.firstElementChild).opacity) } })
       expect(down.foot === "down" && down.opacity < 0.05, `${vpName}: nothing changed, no bar`, down)
-      await p.click("#g-name", { clickCount: 3 })
-      await p.type("#g-name", "SalajanyWood Club")
+      await p.click("#g-slug", { clickCount: 3 })
+      await p.type("#g-slug", "salajanywood-club")
       await sleep(450)
       const bar = await p.evaluate(() => {
-        const el = document.querySelector('[data-settings-panel="page"] [data-editor-foot] > div')
+        const el = document.querySelector('[data-settings-panel="address"] [data-editor-foot] > div')
         const b = el.getBoundingClientRect()
         const pill = document.querySelector("[data-app-nav-pill]")
         const pb = pill && getComputedStyle(pill).display !== "none" ? pill.getBoundingClientRect() : null
@@ -532,19 +535,20 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(bar.top > bar.headBottom, `${vpName}: under the header, never over it`, bar)
       await p.evaluate(() => { document.querySelector("[data-community-shell]").scrollTop = 500 })
       await sleep(150)
-      const moved = await p.evaluate(() => Math.round(document.querySelector('[data-settings-panel="page"] [data-editor-foot] > div').getBoundingClientRect().top))
+      const moved = await p.evaluate(() => Math.round(document.querySelector('[data-settings-panel="address"] [data-editor-foot] > div').getBoundingClientRect().top))
       expect(moved === bar.top, `${vpName}: it stays put while the form scrolls`, { before: bar.top, after: moved })
       await p.screenshot({ path: join(shots, `savebar-${vpName}.png`) })
-      await p.click('[data-settings-panel="page"] [data-foot-cancel]')
+      await p.click('[data-settings-panel="address"] [data-foot-cancel]')
       await sleep(450)
-      const gone = await p.evaluate(() => document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-foot"))
+      const gone = await p.evaluate(() => document.querySelector('[data-settings-panel="address"] [data-editor-foot]').getAttribute("data-foot"))
       expect(gone === "down", `${vpName}: Cancel puts the change back and the bar away`, gone)
       expect(errors.length === 0, `${vpName}: no page errors`, errors)
       await p.close()
     }
   }
 
-  if (want("DRAG")) {
+  /* Round 33: the community's page (and its gallery) left Settings for the Page section; measured there by its own probe. */
+  if (want("DRAG") && process.env.GALLERY_IN_SETTINGS) {
     console.log("\nDRAG: the gallery reorders")
     const order = (p) => p.evaluate(() => [...document.querySelectorAll("[data-gallery-item]")].map((el) => { const k = el.getAttribute("data-gallery-key"); let h = 0; for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0; return (h >>> 0).toString(36).slice(0, 5) }))
     const centre = (p, i) => p.evaluate((i) => { const b = document.querySelectorAll("[data-gallery-item]")[i].getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } }, i)
@@ -566,7 +570,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await sleep(300)
       const after = await order(p)
       expect(after[2] === before[0] && after.length === before.length, "mouse: the first tile dragged to the third place", { before, after })
-      const dirty = await p.evaluate(() => document.querySelector('[data-settings-panel="page"] [data-editor-foot]').getAttribute("data-state"))
+      const dirty = await p.evaluate(() => document.querySelector('[data-settings-panel="address"] [data-editor-foot]').getAttribute("data-state"))
       expect(dirty === "dirty", "mouse: the new order is a change to save", dirty)
       /* The keyboard: Space lifts, an arrow moves, Space drops. */
       const k0 = await order(p)
@@ -594,7 +598,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(errors.length === 0, "desktop: no page errors", errors)
       await p.close()
     }
-    {
+    tile: {
+      if (!process.env.GALLERY_IN_SETTINGS) break tile
       const { p, errors } = await open(`${BASE}/settings?tab=page`, PHONE)
       await p.evaluate(() => { const pane = document.querySelector("[data-community-shell]"); const g = document.querySelector("[data-gallery]"); pane.scrollTop += g.getBoundingClientRect().top - pane.getBoundingClientRect().top - 220 })
       await sleep(250)

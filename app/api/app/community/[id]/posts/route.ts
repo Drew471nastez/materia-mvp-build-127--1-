@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET  /api/app/community/<id>/posts?cursor=&show=all|removed -> { rows, next }
+ * GET  /api/app/community/<id>/posts?cursor=&show=all|pinned|removed&space=&q= -> { rows, next }
  * POST /api/app/community/<id>/posts { spaceId, title?, body, pin? } -> { id }
  *      A post from the creator's Feed screen, in a space they may post in;
  *      in the Announcements space it is an announcement members hear about.
@@ -24,8 +24,9 @@ export async function GET(request: Request, { params }: Params) {
   const gate = await requireCreatorCommunity(id, "moderate_content")
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
-  const show = url.searchParams.get("show") === "removed" ? "removed" : "all"
-  return NextResponse.json(await loadFeedRows(gate.ctx.admin, gate.community.id, { cursor: url.searchParams.get("cursor"), show }), { headers: noStore })
+  const asked = url.searchParams.get("show")
+  const show = asked === "removed" || asked === "pinned" ? asked : "all"
+  return NextResponse.json(await loadFeedRows(gate.ctx.admin, gate.community.id, { cursor: url.searchParams.get("cursor"), show, spaceId: url.searchParams.get("space"), q: url.searchParams.get("q") }), { headers: noStore })
 }
 
 export async function POST(request: Request, { params }: Params) {

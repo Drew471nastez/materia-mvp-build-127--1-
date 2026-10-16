@@ -49,10 +49,12 @@ console.log("\nICON: one emoji, or up to two letters, counted as a person counts
 console.log("\nROWS: a row opens what it is; its menu keeps the rest")
 {
   for (const [f, open] of [
-    ["spaces", /onClick=\{rowPress\(\(\) => edit\(s\)\)\}/],
+    /* Changed on purpose (round 33): a space's row is its own sortable component now (the drag), handed edit(s) as onOpen, which its row presses. */
+    ["spaces", /onOpen=\{\(\) => edit\(s\)\}[\s\S]*onClick=\{rowPress\(onOpen\)\}/],
     ["classroom", /onClick=\{rowPress\(\(\) => settle\(c\)\)\}/],
     ["events", /onClick=\{rowPress\(\(\) => edit\(e\)\)\}/],
-    ["feed", /onClick=\{rowPress\(\(\) => router\.push\(hrefOf\(r\)\)\)\}/],
+    /* Changed on purpose (round 33): a post row opens the post in the admin's own viewer (post-viewer.tsx), not the community feed. */
+    ["feed", /onClick=\{rowPress\(\(\) => openPost\(r\)\)\}/],
   ] as const) {
     const src = code(`components/community/creator/${f}-section.tsx`)
     check(`${f}: the row opens it, and its controls keep their presses (RowControls)`, open.test(src) && /<RowControls/.test(src))

@@ -18,15 +18,31 @@ import { bucketStarts, grainFor, type Grain, type Span } from "@/lib/analytics/b
 
 export type { Grain, Span }
 
-/** The figures above the Growth and Activity charts. */
-export type GrowthMetric = "members" | "joined" | "left" | "visits" | "joinRate"
-export type ActivityMetric = "active" | "posts" | "comments" | "reactions" | "engagement"
-export type CommunityMetric = GrowthMetric | ActivityMetric
+/**
+ * The answer's shape. Round 33 added figures and lists (churn, visits from
+ * non-members, RSVPs, lessons, DAU and stickiness, new and returning, why
+ * members left), so an answer a browser kept from before is not drawn.
+ */
+export const REPORT_VERSION = 2 as const
+
+/**
+ * The figures above each section's chart (round 33: Growth, Traffic,
+ * Engagement and Content, each its own chart; Revenue has MoneyMetric).
+ * `churn` is members who left over the members there were when the bucket
+ * began; `prospects` the visits from people who were not members yet.
+ */
+export type GrowthMetric = "members" | "joined" | "left" | "churn"
+export type TrafficMetric = "visits" | "prospects" | "joinRate"
+export type ActivityMetric = "active" | "engagement" | "rsvps" | "lessons"
+export type ContentMetric = "posts" | "comments" | "reactions"
+export type CommunityMetric = GrowthMetric | TrafficMetric | ActivityMetric | ContentMetric
 /** The figures above the paid memberships chart. */
 export type MoneyMetric = "revenue" | "mrr" | "subscribers" | "newPaid" | "cancellations"
 
-export const GROWTH_METRICS: readonly GrowthMetric[] = ["members", "joined", "left", "visits", "joinRate"]
-export const ACTIVITY_METRICS: readonly ActivityMetric[] = ["active", "posts", "comments", "reactions", "engagement"]
+export const GROWTH_METRICS: readonly GrowthMetric[] = ["members", "joined", "left", "churn"]
+export const TRAFFIC_METRICS: readonly TrafficMetric[] = ["visits", "prospects", "joinRate"]
+export const ACTIVITY_METRICS: readonly ActivityMetric[] = ["active", "engagement", "rsvps", "lessons"]
+export const CONTENT_METRICS: readonly ContentMetric[] = ["posts", "comments", "reactions"]
 export const MONEY_METRICS: readonly MoneyMetric[] = ["revenue", "mrr", "subscribers", "newPaid", "cancellations"]
 
 /** A figure and the same figure for the period before; null where there is nothing to divide by, or it was not counted. */
@@ -117,7 +133,7 @@ export interface GaLine {
 }
 
 export interface CommunityReport {
-  version: 1
+  version: typeof REPORT_VERSION
   grain: Grain
   /** How many buckets the chart has; the page labels them itself, in its own language. */
   buckets: number
@@ -129,8 +145,20 @@ export interface CommunityReport {
   counted: { visits: boolean; /** False for an hour chart of days older than three days: visits are counted by day there. */ visitsByHour: boolean; active: boolean; engagement: boolean; detail: boolean }
   /** The first day a figure was counted, when the period starts before it ("2026-10-15"); null when the whole period is counted. */
   countedSince: { visits: string | null; active: string | null }
-  /** Members now, and who was here in the last 7 and 30 days. */
-  live: { members: number; active7: number; active30: number }
+  /**
+   * Members now, and who was here in the last day, 7 and 30 days (DAU, WAU
+   * and MAU, distinct members by when each was last here); stickiness is
+   * DAU over MAU, one decimal, null with nobody here in 30 days.
+   */
+  live: { members: number; active1: number; active7: number; active30: number; stickiness: number | null }
+  /**
+   * The members active in the period, split by when they joined: inside the
+   * period (new) or before it (returning). Null before part 184 (no member
+   * days to count from).
+   */
+  activeSplit: { new: number; returning: number } | null
+  /** Why members said they left in the period (part 98), most first; null before that part. */
+  leaveReasons: { reason: string; count: number }[] | null
   /** Who posted, commented and reacted in the period: distinct members. */
   people: { posters: number; commenters: number; reactors: number }
   money: MoneyReport | null

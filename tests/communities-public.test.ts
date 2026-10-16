@@ -473,7 +473,8 @@ async function main() {
     /* Round 11: the About page's own figures (about-facts.ts aboutFigures) may add Online now, only when the heartbeat counted someone. */
     /* Changed on purpose: loadSalesPage's light read skips the live numbers for the Membership settings page and says Online is not known, online: null (520c7b9b2, wt-h18speed); that is the only mention there. */
     const salesRead = code("lib/communities/server/public.ts")
-    check("Online on the public side is drawn only from the heartbeat count, and only when it is known", drawsOnline.join() === "components/community/public/about-facts.ts,components/community/public/stats-row.tsx,components/community/public/types.ts,lib/communities/server/public.ts" && (salesRead.match(/online/gi) ?? []).length === 1 && /online: null/.test(salesRead) && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")) && /if \(out\.length < 4 && stats\.online\)/.test(code("components/community/public/about-facts.ts")), drawsOnline)
+    /* Changed on purpose (round 33): the row under the name (about-row.tsx) draws Online from the same count, only above zero (about-facts.ts aboutRow). */
+    check("Online on the public side is drawn only from the heartbeat count, and only when it is known", drawsOnline.join() === "components/community/public/about-facts.ts,components/community/public/about-row.tsx,components/community/public/stats-row.tsx,components/community/public/types.ts,lib/communities/server/public.ts" && (salesRead.match(/online/gi) ?? []).length === 1 && /online: null/.test(salesRead) && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")) && /if \(out\.length < 4 && stats\.online\)/.test(code("components/community/public/about-facts.ts")), drawsOnline)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

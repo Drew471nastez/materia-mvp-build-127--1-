@@ -11,7 +11,7 @@
  *
  * None replaces a translation the merchant wrote or edited, including when
  * they save it while a run is working (read again just before the write,
- * and SQL part 188's trigger in the database), and including the website's
+ * and SQL part 203's trigger in the database), and including the website's
  * default language when the theme is written in another (a Spanish store on
  * an English theme, the Spanish edited by hand). Also: the words not to
  * translate stay as written (or as their fixed translation) in every
@@ -188,8 +188,8 @@ async function main() {
   await draftRound(racePress.db as never, "c1", "fr", null, Date.now() + 60_000)
   check("  the same in the press and the background job", !upserted(racePress.writes).some((w) => w.key === `product:${P1}:title`))
   /* The database's own line, for a save landing between that read and the write. */
-  const p188 = read("supabase/sql/run-now/188_translation_glossary.sql")
-  check("  and in the database: an AI write over the merchant's own is skipped (SQL part 188's trigger)", /IF OLD\.source = 'manual' AND NEW\.source = 'ai' THEN RETURN NULL; END IF; RETURN NEW;/.test(p188) && /CREATE TRIGGER site_translations_keep_manual BEFORE UPDATE ON public\.site_translations FOR EACH ROW/.test(p188))
+  const p203 = read("supabase/sql/run-now/203_translation_glossary.sql")
+  check("  and in the database: an AI write over the merchant's own is skipped (SQL part 203's trigger)", /IF OLD\.source = 'manual' AND NEW\.source = 'ai' THEN RETURN NULL; END IF; RETURN NEW;/.test(p203) && /CREATE TRIGGER site_translations_keep_manual BEFORE UPDATE ON public\.site_translations FOR EACH ROW/.test(p203))
 
   console.log("\nThe Translate sheet's own save")
   const sheetDb = fakeDb({ site_translations: [dbRow("section:s1:heading", "Mon titre", "Hello", "manual")] })
@@ -245,7 +245,7 @@ async function main() {
   const reuse = fakeDb({ ...store({ translation_glossary: words }), products: [{ id: P1, title: "Bloom mug", description: "", seo_title: "", seo_description: "" }, { id: P3, title: "Plate", description: "", seo_title: "", seo_description: "" }], site_translations: [dbRow("menu:main:0", "Tasse Floraison", "Bloom mug", "ai")] })
   await autoTranslateStore(reuse.db as never, "c1", Date.now() + 60_000)
   check("one written before the word was listed is not reused for the same text elsewhere", upserted(reuse.writes).find((w) => w.key === `product:${P1}:title`)?.value === "FR Bloom mug")
-  check("before part 188 nothing changes: the list reads empty and the run goes on", (await autoTranslateStore(fakeDb(store(), { missing: "translation_glossary" }).db as never, "c1", Date.now() + 60_000)) !== null)
+  check("before part 203 nothing changes: the list reads empty and the run goes on", (await autoTranslateStore(fakeDb(store(), { missing: "translation_glossary" }).db as never, "c1", Date.now() + 60_000)) !== null)
 
   console.log("\nChanging the list")
   const before = store({ translation_glossary: [{ term: "Plate" }] })
@@ -260,7 +260,7 @@ async function main() {
   await saveGlossary(same.db as never, "c1", [{ term: "Plate" }])
   check("the same list saved again touches no translation", !same.writes.some((w) => w.table === "site_translations"))
   const old = await saveGlossary(fakeDb(store(), { missing: "translation_glossary" }).db as never, "c1", [{ term: "Bloom" }])
-  check("before part 188 it says what to run", old.ok === false && old.error === GLOSSARY_NEEDS_PART && /Run SQL part 188 in Supabase/.test(GLOSSARY_NEEDS_PART))
+  check("before part 203 it says what to run", old.ok === false && old.error === GLOSSARY_NEEDS_PART && /Run SQL part 203 in Supabase/.test(GLOSSARY_NEEDS_PART))
   const none = await saveGlossary(fakeDb({ store_localization: [] }).db as never, "c1", [{ term: "Bloom" }])
   check("a store that never saved its languages is told to add one first", none.ok === false && /Add a language first/.test(none.error))
   http.close()
@@ -278,9 +278,9 @@ async function main() {
   const copy = [panel.split("data-translation-rule")[1]?.slice(0, 300) ?? "", glossary, sheet.split("DON'T TRANSLATE, ONE TEXT")[1]?.slice(0, 1200) ?? ""].join("\n")
   check("no em dash and none of the banned words in the new copy", !/—/.test(copy) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(copy))
 
-  console.log("\nSQL part 188")
-  check("one statement a line, guarded, safe to run again, schema reloaded last", p188.trim().split("\n").length === 6 && /ADD COLUMN IF NOT EXISTS translation_glossary jsonb NOT NULL DEFAULT '\[\]'::jsonb/.test(p188) && /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'store_localization_glossary_array'\)/.test(p188) && /DROP TRIGGER IF EXISTS site_translations_keep_manual/.test(p188) && /run part 136 first/.test(p188) && /notify pgrst, 'reload schema';$/.test(p188.trim()))
-  check("  the same as its migration, checked after, and in the bundles", p188 === read("supabase/migrations/20270126_translation_glossary.sql") && /as p188_translation_glossary/.test(read("supabase/sql/run-now/99_check_after.sql")) && /188_translation_glossary\.sql/.test(read("scripts/build-currency-cod-languages-sql.py")) && read("supabase/sql/store-currency-cod-languages/1_run.sql").includes(p188.split("\n")[1]) && read("supabase/sql/all-in-two/1_of_2_everything.sql").includes(p188.split("\n")[2]) && /part: "188", file: "188_translation_glossary\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
+  console.log("\nSQL part 203")
+  check("one statement a line, guarded, safe to run again, schema reloaded last", p203.trim().split("\n").length === 6 && /ADD COLUMN IF NOT EXISTS translation_glossary jsonb NOT NULL DEFAULT '\[\]'::jsonb/.test(p203) && /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'store_localization_glossary_array'\)/.test(p203) && /DROP TRIGGER IF EXISTS site_translations_keep_manual/.test(p203) && /run part 136 first/.test(p203) && /notify pgrst, 'reload schema';$/.test(p203.trim()))
+  check("  the same as its migration, checked after, and in the bundles", p203 === read("supabase/migrations/20270129_translation_glossary.sql") && /as p203_translation_glossary/.test(read("supabase/sql/run-now/99_check_after.sql")) && /203_translation_glossary\.sql/.test(read("scripts/build-currency-cod-languages-sql.py")) && read("supabase/sql/store-currency-cod-languages/1_run.sql").includes(p203.split("\n")[1]) && read("supabase/sql/all-in-two/1_of_2_everything.sql").includes(p203.split("\n")[2]) && /part: "203", file: "203_translation_glossary\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

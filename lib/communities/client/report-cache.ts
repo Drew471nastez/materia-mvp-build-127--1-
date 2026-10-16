@@ -22,7 +22,7 @@
  */
 import { boundsOf, compareBounds, compareRange, type CompareValue, type DateRange, type RangeValue } from "@/lib/date-range/range"
 import type { Span } from "@/lib/analytics/buckets"
-import type { CommunityReport } from "@/lib/communities/analytics-report"
+import { REPORT_VERSION, type CommunityReport } from "@/lib/communities/analytics-report"
 
 /** How long a kept answer may be drawn while the section asks again. */
 export const KEEP_MS = 30 * 60_000
@@ -97,7 +97,7 @@ function kept(): Map<string, ShownReport> {
   const session = typeof sessionStorage === "undefined" ? undefined : sessionStorage
   try {
     for (const k of [...readStore(local), ...readStore(session)].sort((a, b) => (a?.at ?? 0) - (b?.at ?? 0))) {
-      if (k && typeof k.question === "string" && k.report?.version === 1 && Date.now() - k.at < KEEP_MS) memory.set(k.question, k)
+      if (k && typeof k.question === "string" && k.report?.version === REPORT_VERSION && Date.now() - k.at < KEEP_MS) memory.set(k.question, k)
     }
   } catch {
     /* storage closed: the section asks as it always did */
@@ -160,7 +160,7 @@ function fly(ask: CommunityAsk, ahead: boolean): Flight {
   flight.promise = fetch(`/api/app/community/${ask.communityId}/analytics?${ask.query}`, { signal: ctrl.signal, headers: { Accept: "application/json" } })
     .then(async (res) => {
       const body = (await res.json().catch(() => null)) as CommunityReport | null
-      if (!res.ok || !body || body.version !== 1) throw new Error("bad answer")
+      if (!res.ok || !body || body.version !== REPORT_VERSION) throw new Error("bad answer")
       const shown: ShownReport = { question: ask.question, report: body, span: ask.span, period: ask.period, compared: ask.compared, at: Date.now() }
       keep(shown)
       return shown

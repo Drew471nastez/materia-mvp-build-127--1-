@@ -292,7 +292,7 @@ async function main() {
     check("the preview starts on a resting pointer or most of the way on screen, one at a time, fades in once frames play", /PREVIEW_HOVER_MS/.test(sv) && /new IntersectionObserver/.test(sv) && /window\.dispatchEvent\(new CustomEvent\(PREVIEW, \{ detail: me \}\)\)/.test(sv) && /onPlaying=\{\(\) => want && setShown\(true\)\}/.test(sv) && /muted/.test(sv))
     check("the preview asks for the lighter file and nothing until it starts", /fetchPlayback\(communityId, videoId, \{ light: true \}\)/.test(sv))
     check("an answer is kept for the page, so a preview then a press ask once", /const KEPT = new Map<string, VideoPlayback>\(\)/.test(sv))
-    check("a post's video passes its size to keep its shape", /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} width=\{item\.w\} height=\{item\.h\} \/>/.test(code("components/community/member/media.tsx")))
+    check("a post's video passes its size to keep its shape", /* Changed on purpose (round 32): the play mark waits for the picture under it (holdMark). */ /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} width=\{item\.w\} height=\{item\.h\} holdMark=\{!seen\} \/>/.test(code("components/community/member/media.tsx")))
   }
 
   /* ── The cover ────────────────────────────────────────────────────────── */
@@ -308,7 +308,11 @@ async function main() {
     check("the page reads the mark on the first item only", (parsed[0] as { cover?: true }).cover === true && !(parsed[1] as { cover?: true }).cover)
     const editor = code("components/community/creator/gallery-editor.tsx")
     check("the cover field uploads a video, waits until it plays, keeps a still from the file as the cover picture", /* Changed on purpose (round 31): the three ways to change the cover are one menu under it. */ /label: "Upload a video", icon: <Upload/.test(editor) && /waitUntilPlayable\(\{ endpoint, video: v \}\)/.test(editor) && /videoStill\(file\)/.test(editor) && /\{ type: "video", videoId: ready\.id, cover: true \}/.test(editor))
-    check("Save waits while the cover video is on its way", /onBusy=\{setCoverUploading\}/.test(code("components/community/creator/settings-section.tsx")) && /const uploading = galleryUploading \|\| coverUploading/.test(code("components/community/creator/settings-section.tsx")))
+    /* Changed on purpose (round 33): the cover left Settings for the Page section (components/community/creator/page-editor), whose own checks pin its save waiting for the cover; Settings must not hold a cover field that does not. */
+    {
+      const settingsSrc = code("components/community/creator/settings-section.tsx")
+      check("Save waits while the cover video is on its way", !/<CoverField/.test(settingsSrc) || (/onBusy=\{setCoverUploading\}/.test(settingsSrc) && /const uploading = galleryUploading \|\| coverUploading/.test(settingsSrc)))
+    }
     const view = code("components/community/public/gallery-view.tsx")
     check("the About page loops the cover video while on screen, and plays uploads in the community player", /<PreviewLoop communityId=\{communityId\} videoId=\{g\.videoId\} mode=\{g\.cover \? "visible" : "auto"\}/.test(view) && /<VideoPlayer/.test(view) && !/<video\s/.test(view))
     check("the server passes the mark through", /\.\.\.\("cover" in g && g\.cover \? \{ cover: true as const \} : \{\}\)/.test(code("lib/communities/server/public.ts")))

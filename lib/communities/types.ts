@@ -287,8 +287,12 @@ export interface SpaceRow {
 
 export type PostMedia =
   | { type: "image"; url: string; w?: number; h?: number }
-  /** `poster`: a still from the file, kept with the post's pictures (round 7). */
-  | { type: "video"; videoId: string; poster?: string; w?: number; h?: number }
+  /**
+   * `poster`: a still from the file, kept with the post's pictures (round 7). `blur` (round 33): the same still at 16px as a
+   * WebP data address, made by the server from the poster (lib/communities/server/video-posters.ts) and drawn blurred under
+   * it, so the card has the video's own colours in its first frame. Never taken from a browser.
+   */
+  | { type: "video"; videoId: string; poster?: string; w?: number; h?: number; blur?: string }
   /** `store: "community"`: a member's file in the community's own folder (lib/communities/server/post-files.ts); none is a product file (digital_assets). */
   | { type: "file"; assetId: string; name: string; size?: number; store?: "community" }
   | { type: "link"; url: string; title?: string; image?: string }
@@ -646,6 +650,8 @@ export interface CommunityCard {
   tagline: string | null
   logoUrl: string | null
   coverUrl: string | null
+  /** Round 33: where the cover sits in the card's frame (CSS object-position), or null for the middle. */
+  coverPosition?: string | null
   category: string | null
   access: CommunityAccess
   visibility: CommunityVisibility

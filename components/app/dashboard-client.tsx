@@ -105,6 +105,9 @@ type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 /** One empty series, the same object every time, so an empty chart is not a new one on each render. */
 const NO_POINTS: ChartDataPoint[] = []
 
+/** How often the live visitor count is read while Home is on screen. */
+const LIVE_VISITORS_EVERY_MS = 30_000
+
 /** The strip's own order, which is what decides which way it scrolls. */
 const KPI_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
 
@@ -896,11 +899,27 @@ export function DashboardClient({
     }
   }
 
-  // Poll for live visitors every 30 seconds — "live" means last 5 min so 30 s cadence is plenty
+  /*
+    Live visitors every 30 seconds while the page is shown ("live" means the
+    last five minutes, so that is plenty). A hidden tab, or the app in the
+    background, asks nothing; coming back asks at once if the last answer is
+    older than that, so the number on screen is never staler than before.
+  */
   useEffect(() => {
-    fetchLiveVisitors()
-    const interval = setInterval(fetchLiveVisitors, 30000)
-    return () => clearInterval(interval)
+    let last = 0
+    const read = () => {
+      if (document.visibilityState === "hidden") return
+      if (Date.now() - last < LIVE_VISITORS_EVERY_MS - 1_000) return
+      last = Date.now()
+      void fetchLiveVisitors()
+    }
+    read()
+    const interval = setInterval(read, LIVE_VISITORS_EVERY_MS)
+    document.addEventListener("visibilitychange", read)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", read)
+    }
   }, [creatorId])
 
   /**

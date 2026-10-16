@@ -79,10 +79,12 @@ import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
+import { adminHref } from "./edit-hint"
 import { revealMore } from "./reveal-more"
 import { LIST_AFTER_MS } from "./chip-hit"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
+import { GetStarted } from "./get-started"
 import type { SpaceView } from "./view-types"
 
 export type { FeedPageData, FeedSortValue, FeedTarget } from "./feed-cache"
@@ -719,6 +721,7 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
           onPick={pick}
           onIntent={intent}
           sort={<SortMenu value={sort} onChange={onSort} saved={target.kind === "saved"} onSaved={toggleSaved} />}
+          editHref={adminHref(slug, viewer, "manage_spaces", "spaces")}
         />
       ) : null}
 
@@ -728,6 +731,7 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
         line={spaces ? (space?.description ? { kind: "space", text: space.description } : listTarget.kind === "saved" ? { kind: "saved" } : null) : null}
         saved={listTarget.kind === "saved"}
         onboarding={onboarding && listTarget.kind === "all" ? { communityId, data: onboarding } : null}
+        getStarted={listTarget.kind === "all" && !readOnly ? communityId : null}
         composerProps={composerProps}
         composerKey={listTarget.kind === "space" ? listTarget.id : listTarget.kind}
         onPosted={onPosted}
@@ -761,6 +765,8 @@ interface FeedBodyProps {
   line: { kind: "space"; text: string } | { kind: "saved" } | null
   saved: boolean
   onboarding: { communityId: string; data: OnboardingView } | null
+  /** A new member's first steps (round 32, ./get-started.tsx): the community's id on All, else null. */
+  getStarted: string | null
   composerProps: Omit<ComposerProps, "onPosted"> | null
   composerKey: string
   onPosted: (p: FeedPostView) => void
@@ -792,7 +798,7 @@ interface FeedBodyProps {
  * All, so it is compared by what is in it.
  */
 const FeedBody = memo(
-  function FeedBody({ line, saved, onboarding, composerProps, composerKey, onPosted, failed, onRetry, spinner, listRef, waiting, posts, whole, firstCards, onScreen, slug, viewer, update, readOnly, emptyTitle, empty, sentinel, cursor, more, loadMore }: FeedBodyProps) {
+  function FeedBody({ line, saved, onboarding, getStarted, composerProps, composerKey, onPosted, failed, onRetry, spinner, listRef, waiting, posts, whole, firstCards, onScreen, slug, viewer, update, readOnly, emptyTitle, empty, sentinel, cursor, more, loadMore }: FeedBodyProps) {
     return (
       <>
         {line?.kind === "space" ? (
@@ -807,6 +813,7 @@ const FeedBody = memo(
         ) : null}
         <div className="space-y-3" data-feed={saved ? "saved" : "feed"}>
           {onboarding ? <Onboarding communityId={onboarding.communityId} data={onboarding.data} /> : null}
+          {getStarted ? <GetStarted communityId={getStarted} viewer={viewer} /> : null}
           {composerProps ? <Composer key={composerKey} {...composerProps} onPosted={onPosted} /> : null}
 
           {failed ? (

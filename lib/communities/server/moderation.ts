@@ -24,7 +24,7 @@ import "server-only"
  * written to the audit log.
  */
 import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction, type RolePermissions } from "../permissions"
-import { MEMBER_COLUMNS, PAID_SOURCES, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
+import { MEMBER_COLUMNS, PAID_SOURCES, REPORT_REASONS, REPORT_STATUSES, REPORT_TARGETS, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr } from "@/components/community/creator/logic"
 import type { AuditView, ReportView } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
@@ -542,11 +542,14 @@ export async function openReportCount(db: Db, communityId: string): Promise<numb
  * The report queue, newest first, with what each report is about beside it,
  * read in one pass per kind of content (never one read per report).
  */
-export async function listReports(db: Db, communityId: string, opts: { status: "open" | "closed" | ReportStatus; cursor: string | null }): Promise<{ rows: ReportView[]; next: string | null }> {
+export async function listReports(db: Db, communityId: string, opts: { status: "open" | "closed" | ReportStatus; cursor: string | null; reason?: string | null; type?: string | null }): Promise<{ rows: ReportView[]; next: string | null }> {
   let q = db.from("community_reports").select("id, reporter_id, target_type, target_id, reason, note, status, resolution, created_at").eq("community_id", communityId)
   if (opts.status === "open") q = q.in("status", ["open", "reviewing"])
   else if (opts.status === "closed") q = q.in("status", ["resolved", "dismissed"])
   else if (isOneOf(REPORT_STATUSES, opts.status)) q = q.eq("status", opts.status)
+  /* Round 32: the queue narrowed to one reason or one kind of thing (the Moderation toolbar's two filters). */
+  if (isOneOf(REPORT_REASONS, opts.reason)) q = q.eq("reason", opts.reason)
+  if (isOneOf(REPORT_TARGETS, opts.type)) q = q.eq("target_type", opts.type)
   const c = decodeCursor(opts.cursor)
   if (c && typeof c.sort === "string") q = q.or(keysetOr("created_at", c.sort, c.id))
   const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(REPORTS_PAGE + 1)

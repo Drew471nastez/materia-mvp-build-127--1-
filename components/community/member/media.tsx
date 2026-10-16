@@ -38,10 +38,10 @@
  * once pressed.
  */
 import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Play } from "lucide-react"
 import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
-import { StorelibVideo, fetchPlayback, posterSource } from "@/components/video/storelib-video"
+import { StorelibVideo, fetchPlayback, keepVideoFrame, posterSource, videoFrameBlob, videoFrameStill, wantsLight } from "@/components/video/storelib-video"
 import { drawnStill, noteDrawnStill } from "@/lib/images/drawn-stills"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { BLUR_QUALITY, BLUR_WIDTH, FEED_PICTURE_QUALITY, NO_PICTURE, feedSlot, loadPolicy, type FeedSlotName } from "@/lib/images/slots"
@@ -49,7 +49,7 @@ import { MAX_COMMENT_EMBEDS, bodyEmbeds, cardPictures, cardThumb, fileSizeLabel,
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
 import { EmbedPlayer, EmbedPoster, Lightbox } from "./lightbox"
-import { localPicture } from "./media-upload"
+import { askVideoBlurs, localPicture, sendVideoFrame } from "./media-upload"
 import { openMediaViewer } from "./media-viewer"
 
 /**
@@ -124,6 +124,11 @@ export function warmPostMedia(media: PostMedia[], communityId: string, postId: s
       const own = items.length === 1 ? posterSource(item.poster) : null
       if (own) preloadPicture(own.src, own.srcSet, own.sizes)
       else preloadPicture(optimizedImageUrl(item.poster, fit.display), optimizedSrcSet(item.poster, fit.widths), fit.sizes)
+    }
+    /* Round 32: a video's play address too (one question however many ask), so its first frame and a press start without that wait. */
+    if (item.kind === "video" && i === 0) {
+      void fetchPlayback(communityId, item.videoId, { light: true })
+      void fetchPlayback(communityId, item.videoId, { light: wantsLight() })
     }
   })
   for (const f of media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file").slice(0, 2)) {
@@ -400,21 +405,57 @@ export function bareVideo(media: PostMedia[]): Extract<PostMedia, { type: "video
 
 /** How long a first frame (or a still that arrives late) takes to come in. */
 export const VIDEO_FRAME_IN_MS = 200
+/** Round 33: a card's first frame is asked for this far ahead of the screen, so it is there when the card is (it was 320px). */
+export const VIDEO_FRAME_AHEAD = "1200px 0px"
 
-export function VideoFrame({ communityId, videoId, className = "" }: { communityId: string; videoId: string; className?: string }) {
+/*
+  ROUND 32, THE SAME FRAME ONCE. The card's frame is kept as a picture for the page (storelib-video.tsx keepVideoFrame), so
+  an opened post, the viewer and the player draw it in their first frame (`kept`, no file loaded again, nothing faded). The
+  file is asked for anonymously (crossOrigin) so its frame may be read back; a host that refuses that is asked again as
+  before. An opened post's frame (`eager`) is asked for at once, not when it nears the screen: it is on the screen.
+
+  ROUND 33, AND IT BECOMES THE VIDEO'S STILL. `fill` (the viewer wrote the post, or moderates it): once the frame is kept
+  it is sent to the server as the video's still (media-upload.ts sendVideoFrame), so nobody loads the file for it again.
+  The first screen's cards ask at once (`eager`), the rest VIDEO_FRAME_AHEAD before they arrive. `onNone`: no frame will
+  come (the play route refused, or the browser cannot decode the file), so the box can stop waiting for one.
+*/
+export function VideoFrame({ communityId, videoId, className = "", eager = false, fill = false, onShown, onNone }: { communityId: string; videoId: string; className?: string; eager?: boolean; fill?: boolean; onShown?: () => void; onNone?: () => void }) {
   const ref = useRef<HTMLSpanElement>(null)
-  const [src, setSrc] = useState<{ kind: "img" | "video"; url: string } | null>(null)
-  const [shown, setShown] = useState(false)
+  const [kept] = useState(() => videoFrameStill(videoId))
+  const [src, setSrc] = useState<{ kind: "img" | "video"; url: string } | null>(() => (kept ? { kind: "img", url: kept.src } : null))
+  const [shown, setShown] = useState(!!kept)
+  const [none, setNone] = useState(false)
+  const [anonymous, setAnonymous] = useState(true)
+  const shownRef = useRef(onShown)
+  const noneRef = useRef(onNone)
+  useEffect(() => {
+    shownRef.current = onShown
+    noneRef.current = onNone
+  })
+  useEffect(() => {
+    if (shown) shownRef.current?.()
+  }, [shown])
+  useEffect(() => {
+    if (none) noneRef.current?.()
+  }, [none])
+  /* Kept by another card before this one came: its file goes as the still, when this viewer may fill it in. */
+  useEffect(() => {
+    if (!fill || !kept) return
+    const blob = videoFrameBlob(videoId)
+    if (blob) void sendVideoFrame(communityId, videoId, blob, { w: kept.w, h: kept.h })
+  }, [fill, kept, communityId, videoId])
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || kept) return
     let cancelled = false
     const go = () =>
       void fetchPlayback(communityId, videoId, { light: true }).then((got) => {
-        if (cancelled || !got.ok) return
+        if (cancelled) return
+        if (!got.ok) return setNone(true)
         setSrc(got.playback.poster ? { kind: "img", url: got.playback.poster } : { kind: "video", url: got.playback.url })
       })
-    if (typeof IntersectionObserver === "undefined") {
+    /* Eager only where the box is drawn: a phone's picture is display:none on a computer, and asks nothing there. */
+    if (typeof IntersectionObserver === "undefined" || (eager && el.getClientRects().length > 0)) {
       go()
       return () => void (cancelled = true)
     }
@@ -424,20 +465,28 @@ export function VideoFrame({ communityId, videoId, className = "" }: { community
         io.disconnect()
         go()
       },
-      { rootMargin: "320px" },
+      { rootMargin: VIDEO_FRAME_AHEAD },
     )
     io.observe(el)
     return () => {
       cancelled = true
       io.disconnect()
     }
-  }, [communityId, videoId])
-  const look = `absolute inset-0 h-full w-full object-cover transition-opacity ease-out motion-reduce:transition-none ${SDR} ${shown ? "opacity-100" : "opacity-0"}`
+  }, [communityId, videoId, eager, kept])
+  /* Shown at once when it was kept; otherwise it comes in once its frame is there. */
+  const look = `absolute inset-0 h-full w-full object-cover ${kept ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${SDR} ${shown ? "opacity-100" : "opacity-0"}`
+  const fade = kept ? undefined : { transitionDuration: `${VIDEO_FRAME_IN_MS}ms` }
+  const frameIn = (v: HTMLVideoElement) => {
+    setShown(true)
+    keepVideoFrame(videoId, v, fill ? (frame, size) => void sendVideoFrame(communityId, videoId, frame, size) : undefined)
+  }
   return (
-    <span ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 block ${className}`} data-video-frame={shown ? "shown" : src ? "loading" : "wait"}>
+    <span ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 block ${className}`} data-video-frame={shown ? "shown" : none ? "none" : src ? "loading" : "wait"} data-video-frame-kept={kept ? "" : undefined}>
       {src?.kind === "video" ? (
         <video
+          key={anonymous ? "anonymous" : "plain"}
           src={/#t=/.test(src.url) ? src.url : `${src.url}#t=0.1`}
+          crossOrigin={anonymous ? "anonymous" : undefined}
           muted
           playsInline
           preload="metadata"
@@ -445,18 +494,24 @@ export function VideoFrame({ communityId, videoId, className = "" }: { community
           disableRemotePlayback
           tabIndex={-1}
           className={look}
-          style={{ transitionDuration: `${VIDEO_FRAME_IN_MS}ms` }}
+          style={fade}
           /* Its size known, the frame at 0.1s is asked for: a browser that stopped at the metadata then loads just that frame (seeked). */
           onLoadedMetadata={(e) => {
             const v = e.currentTarget
             if (v.readyState < 2 && v.currentTime < 0.05) v.currentTime = 0.1
           }}
-          onLoadedData={() => setShown(true)}
-          onSeeked={() => setShown(true)}
+          onLoadedData={(e) => frameIn(e.currentTarget)}
+          onSeeked={(e) => frameIn(e.currentTarget)}
+          /* A host that will not answer an anonymous request: asked again the plain way (its frame is then not kept). Refused that way too, or a file this browser cannot decode: no frame. */
+          onError={() => {
+            if (shown) return
+            if (anonymous) setAnonymous(false)
+            else setNone(true)
+          }}
         />
       ) : src?.kind === "img" ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src.url} alt="" decoding="async" className={look} style={{ transitionDuration: `${VIDEO_FRAME_IN_MS}ms` }} onLoad={(e) => {
+        <img src={src.url} alt="" decoding={kept ? "sync" : "async"} className={look} style={fade} onError={() => !shown && setNone(true)} onLoad={(e) => {
           const el = e.currentTarget
           const show = () => setShown(true)
           if (typeof el.decode === "function") el.decode().then(show, show)
@@ -467,10 +522,40 @@ export function VideoFrame({ communityId, videoId, className = "" }: { community
   )
 }
 
-/** The round play mark over a video's picture, at a card's size. */
-function PlayMark({ size = "md" }: { size?: "sm" | "md" }) {
+/**
+ * ROUND 33, THE STILL AT 16PX, IN THE FIRST FRAME. The server keeps a few hundred bytes of the video's still in the post
+ * itself (lib/communities/server/video-posters.ts), so it is in the page's own data with nothing to fetch: drawn blurred,
+ * a little larger than its box so the blur has no pale edge, under where the still comes in. The card has the video's own
+ * colours from its first frame, never a flat grey slab.
+ */
+export function VideoBlur({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" aria-hidden draggable={false} decoding="sync" className={`pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover blur-[10px] ${SDR}`} data-video-blur="" />
+}
+
+/**
+ * ROUND 33, THE PLAY MARK COMES WITH THE PICTURE, ON THE CARD TOO. Round 32 held it in an opened post only; on a feed card
+ * a grey box with a play mark on it was what the owner saw first, then the picture popped in under the mark. The mark now
+ * waits, invisible, until something is drawn under it (the 16px still, the still, the first frame), then comes in with it
+ * over the same SOFT_ARRIVE_MS, and at once when no frame will come. On a card the whole card is the press, so the mark
+ * waits for its picture however long that takes (`wait` null); an opened post's mark is its play button and shows after
+ * PLAY_MARK_WAIT_MS whatever happens.
+ */
+export function useHeldMark(ready: boolean, wait: number | null = null): [boolean, () => void] {
+  const [seen, setSeen] = useState(ready)
+  useEffect(() => {
+    if (seen || wait === null) return
+    const t = window.setTimeout(() => setSeen(true), wait)
+    return () => window.clearTimeout(t)
+  }, [seen, wait])
+  const show = useCallback(() => setSeen(true), [])
+  return [seen || ready, show]
+}
+
+/** The round play mark over a video's picture, at a card's size; `shown` false keeps it invisible until the picture is there. */
+function PlayMark({ size = "md", shown = true }: { size?: "sm" | "md"; shown?: boolean }) {
   return (
-    <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+    <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-[160ms] ease-out motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}`} aria-hidden data-play-mark={shown ? "shown" : "held"}>
       <span className={`flex items-center justify-center rounded-full bg-black/55 text-white ${size === "sm" ? "h-7 w-7" : "h-11 w-11"}`}>
         <Play className={`ml-0.5 fill-current ${size === "sm" ? "h-3.5 w-3.5" : "h-5 w-5"}`} />
       </span>
@@ -478,17 +563,38 @@ function PlayMark({ size = "md" }: { size?: "sm" | "md" }) {
   )
 }
 
-/** The card's one thumbnail, or nothing. A video with no still shows its first frame (round 29) when the card says whose it is. */
-export function PostThumb({ media, className = "", communityId }: { media: PostMedia[]; className?: string; communityId?: string }) {
+/** A video box whose frame will not come: the player's own near black ground (as a property, so the dark look keeps it), never the waiting grey. */
+const NO_FRAME = "[background-color:#0f0f17]"
+
+/** A video with no still, in a card's box: its first frame, the mark with it, and a still sent when `fill` (round 33). */
+function BareVideoBox({ communityId, videoId, eager, fill, size }: { communityId: string; videoId: string; eager: boolean; fill: boolean; size: "sm" | "md" }) {
+  const [mark, showMark] = useHeldMark(false)
+  const [none, setNone] = useState(false)
+  return (
+    <>
+      {none ? <span aria-hidden className={`absolute inset-0 ${NO_FRAME}`} data-video-none="" /> : null}
+      <VideoFrame communityId={communityId} videoId={videoId} eager={eager} fill={fill} onShown={showMark} onNone={() => (setNone(true), showMark())} />
+      <span aria-hidden className={PICTURE_EDGE} />
+      <PlayMark size={size} shown={mark} />
+    </>
+  )
+}
+
+/**
+ * The card's one thumbnail, or nothing. A video with no still shows its first frame (round 29) when the card says whose it
+ * is. `fill` (round 33): the viewer wrote the post or moderates it, so a frame drawn here becomes the video's still, and an
+ * older still without its 16px copy gets one.
+ */
+export function PostThumb({ media, className = "", communityId, fill = false, priority = false }: { media: PostMedia[]; className?: string; communityId?: string; fill?: boolean; priority?: boolean }) {
   const thumb = cardThumb(media)
   const [failed, setFailed] = useState(false)
   const bare = bareVideo(media)
+  const isVideo = thumb?.kind === "video" && !!thumb.videoId
+  const [mark, showMark] = useHeldMark(!isVideo || !!thumb?.blur)
   if (bare && communityId && (!thumb || thumb.kind !== "image")) {
     return (
-      <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#1f2230] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb="video" data-post-thumb-frame="">
-        <VideoFrame communityId={communityId} videoId={bare.videoId} />
-        <span aria-hidden className={PICTURE_EDGE} />
-        <PlayMark size="sm" />
+      <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb="video" data-post-thumb-frame="">
+        <BareVideoBox communityId={communityId} videoId={bare.videoId} eager={priority} fill={fill} size="sm" />
       </span>
     )
   }
@@ -499,6 +605,7 @@ export function PostThumb({ media, className = "", communityId }: { media: PostM
   const srcSet = thumb.local ? optimizedSrcSet(thumb.url, slot.widths, FEED_PICTURE_QUALITY) : ""
   return (
     <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb={thumb.kind}>
+      {thumb.blur ? <VideoBlur src={thumb.blur} /> : null}
       {thumb.kind === "gif" && thumb.motion ? (
         <GifImg still={thumb.url} motion={thumb.motion} className="h-full w-full object-cover" />
       ) : (
@@ -511,11 +618,16 @@ export function PostThumb({ media, className = "", communityId }: { media: PostM
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
           remember={thumb.url}
+          eager={priority}
+          onShown={() => {
+            showMark()
+            if (fill && isVideo && !thumb.blur && communityId && thumb.videoId) void askVideoBlurs(communityId, thumb.videoId)
+          }}
         />
       )}
       <span aria-hidden className={PICTURE_EDGE} />
       {thumb.kind === "video" ? (
-        <PlayMark size="sm" />
+        <PlayMark size="sm" shown={mark} />
       ) : thumb.kind === "gif" ? (
         <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-[15px] text-white" aria-hidden>
           GIF
@@ -546,16 +658,15 @@ export function PostThumb({ media, className = "", communityId }: { media: PostM
  * the feed shows them in one step rather than a grey box, then a blur, then the picture (round 24, measured: about ten grey
  * frames on a client arrival, because the first screenful was lazy too).
  */
-export function CardMedia({ media, className = "", priority = false, phoneOnly = false, communityId }: { media: PostMedia[]; className?: string; priority?: boolean; /** Hidden from 640px (a card that shows a thumbnail there): nothing is fetched there. */ phoneOnly?: boolean; /** Whose the post is: a video with no still shows its first frame (round 29). */ communityId?: string }) {
+export function CardMedia({ media, className = "", priority = false, phoneOnly = false, communityId, fill = false }: { media: PostMedia[]; className?: string; priority?: boolean; /** Hidden from 640px (a card that shows a thumbnail there): nothing is fetched there. */ phoneOnly?: boolean; /** Whose the post is: a video with no still shows its first frame (round 29). */ communityId?: string; /** Round 33: the viewer wrote the post or moderates it (PostThumb's `fill`). */ fill?: boolean }) {
   const pics = cardPictures(media)
   const bare = bareVideo(media)
   const box = "relative overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)]"
   if (!pics.length && bare && communityId) {
+    /* The first frame only where the box is drawn: a card that shows the thumbnail from 640px asks nothing for this one there. */
     return (
-      <div className={`${box} bg-[#1f2230] ${className}`} style={{ aspectRatio: String(bare.w && bare.h ? Math.min(Math.max(bare.w / bare.h, 1), 2) : 16 / 9) }} data-card-media="single" data-card-media-frame="">
-        <VideoFrame communityId={communityId} videoId={bare.videoId} />
-        <span aria-hidden className={PICTURE_EDGE} />
-        <PlayMark />
+      <div className={`${box} ${className}`} style={{ aspectRatio: String(bare.w && bare.h ? Math.min(Math.max(bare.w / bare.h, 1), 2) : 16 / 9) }} data-card-media="single" data-card-media-frame="">
+        <BareVideoBox communityId={communityId} videoId={bare.videoId} eager={priority} fill={fill} size="md" />
       </div>
     )
   }
@@ -565,7 +676,7 @@ export function CardMedia({ media, className = "", priority = false, phoneOnly =
     const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
     return (
       <div className={`${box} ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
-        <CardPictureImg p={p} slot="cardSingle" priority={priority} hiddenFrom={phoneOnly ? "(min-width: 640px)" : undefined} />
+        <CardPictureImg p={p} slot="cardSingle" priority={priority} hiddenFrom={phoneOnly ? "(min-width: 640px)" : undefined} communityId={communityId} fill={fill} />
         <span aria-hidden className={PICTURE_EDGE} />
       </div>
     )
@@ -577,7 +688,7 @@ export function CardMedia({ media, className = "", priority = false, phoneOnly =
     <div className={`${box} grid aspect-[2/1] grid-cols-2 gap-[3px] bg-white sm:aspect-[8/3] ${three ? "grid-rows-2" : ""} ${className}`} data-card-media={three ? "grid" : "pair"}>
       {shown.map((p, i) => (
         <div key={i} className={`relative min-h-0 overflow-hidden bg-[#f1f2f4] ${three && i === 0 ? "row-span-2" : ""}`} data-card-media-tile={p.kind}>
-          <CardPictureImg p={p} slot={three && i > 0 ? "cardSmall" : "cardHalf"} priority={priority} />
+          <CardPictureImg p={p} slot={three && i > 0 ? "cardSmall" : "cardHalf"} priority={priority} communityId={communityId} fill={fill} />
           {i === shown.length - 1 && more > 0 ? (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
               +{more}
@@ -596,13 +707,17 @@ export function CardMedia({ media, className = "", priority = false, phoneOnly =
   half again wider than the tile, and a file the tile's width came out soft); the quality is the feed's (75, AVIF 55), checked
   by eye at 390px on a 3x screen. The first screen's are eager and high, everything under it lazy and low.
 */
-function CardPictureImg({ p, slot, priority = false, hiddenFrom }: { p: CardPicture; slot: FeedSlotName; priority?: boolean; hiddenFrom?: string }) {
+function CardPictureImg({ p, slot, priority = false, hiddenFrom, communityId, fill = false }: { p: CardPicture; slot: FeedSlotName; priority?: boolean; hiddenFrom?: string; communityId?: string; fill?: boolean }) {
   const [failed, setFailed] = useState(false)
   const fit = feedSlot(slot, p.w && p.h ? p.w / p.h : null)
   const srcSet = p.local ? optimizedSrcSet(p.url, fit.widths, FEED_PICTURE_QUALITY) : ""
   const policy = loadPolicy(priority)
+  /* An uploaded video's still: the mark with the picture (round 33); a video by address keeps it from the start, as before. */
+  const held = p.kind === "video" && !!p.videoId && !p.blur
+  const [mark, showMark] = useHeldMark(!held)
   return (
     <>
+      {p.blur && !failed ? <VideoBlur src={p.blur} /> : null}
       {failed ? null : p.kind === "gif" && p.motion ? (
         <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" eager={priority} />
       ) : (
@@ -618,10 +733,14 @@ function CardPictureImg({ p, slot, priority = false, hiddenFrom }: { p: CardPict
           fetchPriority={policy.fetchPriority}
           hiddenFrom={hiddenFrom}
           remember={p.url}
+          onShown={() => {
+            showMark()
+            if (fill && p.kind === "video" && p.videoId && !p.blur && communityId) void askVideoBlurs(communityId, p.videoId)
+          }}
         />
       )}
       {p.kind === "video" ? (
-        <PlayMark />
+        <PlayMark shown={mark || failed} />
       ) : p.kind === "gif" ? (
         <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 text-[11px] font-semibold leading-[18px] text-white" aria-hidden>
           GIF
@@ -643,7 +762,7 @@ const SIZES: Record<Fit, { widths: number[]; sizes: string; display: number }> =
 const isMotion = (item: ViewerItem) => item.kind === "video" || item.kind === "embed" || item.kind === "clip"
 
 /** Everything a post carries, as the opened post draws it. Pass media with the words' videos added (withBodyEmbeds). */
-export function PostMediaGrid({ media, communityId, postId, priority = false }: { media: PostMedia[]; communityId: string; postId: string; priority?: boolean }) {
+export function PostMediaGrid({ media, communityId, postId, priority = false, fill = false }: { media: PostMedia[]; communityId: string; postId: string; priority?: boolean; /** Round 33: the viewer wrote the post or moderates it (PostThumb's `fill`). */ fill?: boolean }) {
   const [open, setOpen] = useState<{ at: number; play: boolean } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   if (!media.length) return null
@@ -661,14 +780,14 @@ export function PostMediaGrid({ media, communityId, postId, priority = false }: 
     return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
   })
   const tile = (i: number, fit: Fit, shape: string, more = 0) => (
-    <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} priority={priority} communityId={communityId} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+    <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} priority={priority} communityId={communityId} fill={fill} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
   )
   const motionPair = layout.kind === "pair" && items.every(isMotion)
 
   return (
     <div ref={rootRef} className="mt-3 space-y-2.5" data-post-media="">
       {layout.kind === "single" ? (
-        <Single item={items[0]} communityId={communityId} priority={priority} onOpen={() => setOpen({ at: 0, play: false })} />
+        <Single item={items[0]} communityId={communityId} priority={priority} fill={fill} onOpen={() => setOpen({ at: 0, play: false })} />
       ) : layout.kind === "pair" ? (
         <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl" data-post-media-grid="pair">
           {tile(0, "half", motionPair ? "aspect-[4/3]" : "aspect-square")}
@@ -863,22 +982,40 @@ function ratioOf(item: ViewerItem): number {
   play button and the muted preview are the player's, over it, as before.
 */
 const POSTER_FADE_MS = 200
-function VideoPoster({ url }: { url: string }) {
+/*
+  ROUND 32: A POSTER ALREADY FETCHED IS DRAWN IN THE FIRST FRAME. One fetched and decoded ahead (warmPostMedia on a resting
+  pointer or a press, a second opening) is in `painted`: drawn decoded with the frame it is painted in, opaque, never
+  faded. With the feed's copy under it, a poster still arriving fades in over that copy; with neither, over the post's
+  quiet ground (the post's own colour for a picture's box, never a grey slab), and the play mark comes with it (Single).
+*/
+function VideoPoster({ url, blur, onShown }: { url: string; blur?: string; onShown?: () => void }) {
   const source = posterSource(url)
   const [still] = useState(() => drawnStill(url))
   const ref = useRef<HTMLImageElement>(null)
-  const [shown, setShown] = useState(false)
   /* Already decoded when it was drawn (a warm, a second opening): shown on this frame, nothing to fade. */
-  const [instant, setInstant] = useState(false)
+  const [instant, setInstant] = useState(() => painted.has(source.src))
+  const [shown, setShown] = useState(instant)
   useLayoutEffect(() => {
     const el = ref.current
     if (el && el.complete && el.naturalWidth > 0) {
+      painted.add(source.src)
       setInstant(true)
       setShown(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  const shownRef = useRef(onShown)
+  useEffect(() => {
+    shownRef.current = onShown
+  })
+  /* The feed's copy counts as shown: a picture is there. So does the 16px still (round 33). */
+  const seen = shown || !!still || !!blur
+  useEffect(() => {
+    if (seen) shownRef.current?.()
+  }, [seen])
   return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 block" data-video-poster-layer={shown ? "shown" : "wait"}>
+    <span aria-hidden className="pointer-events-none absolute inset-0 block overflow-hidden" data-video-poster-layer={shown ? "shown" : still ? "still" : blur ? "blur" : "wait"}>
+      {blur && !(shown && instant) ? <VideoBlur src={blur} /> : null}
       {still && !(shown && instant) ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={still.src} referrerPolicy={still.referrerPolicy} alt="" draggable={false} decoding="sync" className={`absolute inset-0 h-full w-full object-cover ${SDR}`} data-video-poster-still="" />
@@ -890,11 +1027,14 @@ function VideoPoster({ url }: { url: string }) {
         srcSet={source.srcSet}
         sizes={source.sizes}
         alt=""
-        decoding="async"
+        decoding={instant ? "sync" : "async"}
         fetchPriority="high"
         onLoad={(e) => {
           const el = e.currentTarget
-          const show = () => setShown(true)
+          const show = () => {
+            painted.add(source.src)
+            setShown(true)
+          }
           if (typeof el.decode === "function") el.decode().then(show, show)
           else show()
         }}
@@ -906,23 +1046,46 @@ function VideoPoster({ url }: { url: string }) {
   )
 }
 
+/** An opened post's video is never a play mark on an empty box: the mark waits for the picture, this long at most. */
+export const PLAY_MARK_WAIT_MS = 900
+
 /** One thing alone: large, at the post's full width. */
-function Single({ item, communityId, priority = false, onOpen }: { item: ViewerItem; communityId: string; priority?: boolean; onOpen: () => void }) {
-  if (item.kind === "video") {
-    return (
-      <div
-        className="relative overflow-hidden rounded-2xl bg-[#1f2230] shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none [&_[data-storelib-video]:not([data-video-state=playing])]:bg-transparent [&_[data-video-poster]]:hidden [&_[data-video-still]]:hidden"
-        data-media-tile="video"
-        data-post-media-grid="single"
-      >
-        {item.poster ? <VideoPoster url={item.poster} /> : <VideoFrame communityId={communityId} videoId={item.videoId} />}
-        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} />
-      </div>
-    )
-  }
+function Single({ item, communityId, priority = false, fill = false, onOpen }: { item: ViewerItem; communityId: string; priority?: boolean; fill?: boolean; onOpen: () => void }) {
+  if (item.kind === "video") return <SingleVideo item={item} communityId={communityId} fill={fill} />
   return (
     <div data-post-media-grid="single">
       <Tile index={0} item={item} fit="single" shape="" priority={priority} onOpen={onOpen} />
+    </div>
+  )
+}
+
+/*
+  ROUND 32, THE OWNER: "a video attachment, its cover or the video as a whole takes too much to load, always; it shows the
+  gray thing". The grey was this box's own fill: #1f2230, which the dark look turns into its graphite (#2d2d33), a flat grey
+  slab with a white play mark on it until the poster came. Now:
+    THE GROUND IS THE POST'S PICTURE GROUND (#f1f2f4, the dark look's raised charcoal), the colour a picture's box has, so a
+      poster still on its way is a quiet box in the page's own tone rather than a grey slab;
+    THE PLAY MARK COMES WITH THE PICTURE (holdMark): the poster, the feed's copy of it or the first frame, or after
+      PLAY_MARK_WAIT_MS whatever happens (it is a button all along, and shows when focused);
+    A POSTER FETCHED AHEAD IS THERE IN THE FIRST FRAME (VideoPoster, `painted`), and a video with no still shows the frame
+      the card already kept (VideoFrame `kept`), asked for at once when it was not (`eager`).
+*/
+function SingleVideo({ item, communityId, fill = false }: { item: Extract<ViewerItem, { kind: "video" }>; communityId: string; fill?: boolean }) {
+  /* Round 33: with its 16px still there is a picture from the first frame, so the mark is too. */
+  const [seen, showMark] = useHeldMark(!!item.blur, PLAY_MARK_WAIT_MS)
+  const show = () => {
+    showMark()
+    if (fill && item.poster && !item.blur) void askVideoBlurs(communityId, item.videoId)
+  }
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none [&_[data-storelib-video]:not([data-video-state=playing])]:bg-transparent [&_[data-video-poster]]:hidden [&_[data-video-still]]:hidden"
+      data-media-tile="video"
+      data-post-media-grid="single"
+      data-video-ground={seen ? "covered" : "waiting"}
+    >
+      {item.poster ? <VideoPoster url={item.poster} blur={item.blur} onShown={show} /> : <VideoFrame communityId={communityId} videoId={item.videoId} eager fill={fill} onShown={show} onNone={showMark} />}
+      <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} holdMark={!seen} />
     </div>
   )
 }
@@ -955,7 +1118,7 @@ function Single({ item, communityId, priority = false, onOpen }: { item: ViewerI
 /** The full picture's fade when it arrives after the post opened (written out in the tile's class too: Tailwind reads the class as text). */
 export const POST_PICTURE_IN_MS = 180
 
-function Tile({ index, item, fit, shape, more = 0, priority = false, communityId, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; communityId?: string; onOpen: () => void }) {
+function Tile({ index, item, fit, shape, more = 0, priority = false, communityId, fill = false, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; communityId?: string; fill?: boolean; onOpen: () => void }) {
   const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
   const local = (item.kind === "image" && !item.raw) || item.kind === "video"
   const size = SIZES[fit]
@@ -973,6 +1136,9 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, communityId
     return () => window.clearTimeout(t)
   }, [ready, still])
   const label = more ? `Open, and ${more} more` : item.kind === "image" ? "Open picture" : item.kind === "gif" ? "Open GIF" : "Play video"
+  /* Round 33: an uploaded video's mark comes with its picture (its 16px still, its still, its first frame). */
+  const blur = item.kind === "video" ? item.blur : undefined
+  const [mark, showMark] = useHeldMark(item.kind !== "video" || !!blur || !!still)
   return (
     <button
       type="button"
@@ -985,6 +1151,7 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, communityId
       } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >
+      {blur ? <VideoBlur src={blur} /> : null}
       {still && !stillGone ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -1011,14 +1178,17 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, communityId
           referrerPolicy={local ? undefined : "no-referrer"}
           eager={priority}
           fetchPriority={priority ? "high" : undefined}
-          onShown={() => setReady(true)}
+          onShown={() => {
+            setReady(true)
+            showMark()
+          }}
           /* Shown once whole: no transition when it already was (it starts opaque), a short fade when it arrives now. */
           className={`absolute inset-0 h-full w-full [transition:scale_300ms_ease-out,opacity_180ms_ease-out] group-hover/tile:scale-[1.015] motion-reduce:transition-none ${shaped}`}
         />
       ) : (
-        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden>
+        <span className="absolute inset-0 bg-[#f1f2f4]" aria-hidden>
           {/* A video with no still: its own first frame (round 29). */}
-          {item.kind === "video" && communityId ? <VideoFrame communityId={communityId} videoId={item.videoId} /> : null}
+          {item.kind === "video" && communityId ? <VideoFrame communityId={communityId} videoId={item.videoId} eager={priority} fill={fill} onShown={showMark} onNone={showMark} /> : null}
         </span>
       )}
       {more ? (
@@ -1026,7 +1196,7 @@ function Tile({ index, item, fit, shape, more = 0, priority = false, communityId
           +{more}
         </span>
       ) : isMotion(item) ? (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+        <span className={`absolute inset-0 flex items-center justify-center transition-opacity duration-[160ms] ease-out motion-reduce:transition-none ${mark ? "opacity-100" : "opacity-0"}`} aria-hidden data-play-mark={mark ? "shown" : "held"}>
           <span className={`flex items-center justify-center rounded-full bg-black/55 text-white ${fit === "third" ? "h-10 w-10" : "h-12 w-12"}`}>
             <Play className={`ml-0.5 fill-current ${fit === "third" ? "h-4 w-4" : "h-5 w-5"}`} />
           </span>

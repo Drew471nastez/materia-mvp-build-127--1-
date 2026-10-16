@@ -11,6 +11,7 @@ import { CommunityPublicShell, CommunityShell } from "@/components/community/mem
 import { communityTitle, tabIconUrl } from "@/components/community/public/seo"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { CommunityGaEvents } from "@/components/community/public/community-ga"
+import { CommunityVisitBeacon } from "@/components/community/public/visit-beacon"
 
 /**
  * EVERY PAGE INSIDE A COMMUNITY IS FOR ITS MEMBERS, so none of them is
@@ -77,12 +78,14 @@ export default async function CommunitySlugLayout({ children, params }: { childr
     permanentRedirect(movedCommunityPath(slug, page.community.slug, (await headers()).get(COMMUNITY_PATH_HEADER)))
   }
   const tracking = storeTracking(page)
+  const visit = visitBeacon(page, (await headers()).get("referer"))
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>
         {children}
         <OpenInAppPill />
         {tracking}
+        {visit}
       </CommunityShell>
     )
   }
@@ -91,6 +94,7 @@ export default async function CommunitySlugLayout({ children, params }: { childr
       <CommunityPublicShell community={page.community} viewer={page.viewer}>
         {children}
         {tracking}
+        {visit}
       </CommunityPublicShell>
     )
   }
@@ -118,4 +122,20 @@ function storeTracking(page: MemberPage): React.ReactNode {
       <CommunityGaEvents slug={c.slug} />
     </>
   )
+}
+
+/*
+ * STORELIB'S OWN COUNT OF VISITS (round 33): the beacon on every page of a
+ * published community, for everybody but its owner and the store account it
+ * belongs to (components/community/public/visit-beacon.tsx; the route checks
+ * the owner again, and on the community's own domain, where nobody is
+ * signed in, it is the only check). Here, so the first page of the community
+ * somebody opens is the visit, whichever page it is, and a page drawn ahead
+ * of a click is not. `referer` is where this request came from: the site
+ * that linked here, or the Storelib page before it.
+ */
+function visitBeacon(page: MemberPage, referer: string | null): React.ReactNode {
+  const c = page.community
+  if (!c || c.status !== "published" || page.viewer?.isOwner || page.viewer?.isCreatorAccount) return null
+  return <CommunityVisitBeacon communityId={c.id} referer={referer} />
 }

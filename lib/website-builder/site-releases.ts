@@ -150,3 +150,61 @@ export const pageRowsOf = (manifest: ReleaseManifest) => manifest.pages.map((p) 
 
 /** Releases kept per website. Older ones are deleted after a publish (pruneReleases). */
 export const RELEASES_KEPT = 20
+
+// ── Going back to one (SQL part 188) ────────────────────────────────────────
+
+/** A published version as Backups & Versions lists it. */
+export interface ReleaseListItem {
+  id: string
+  createdAt: string
+  files: number
+  /** Made by restoring an earlier version, not by Publish. */
+  restored: boolean
+  /** What the live website is drawn from now. */
+  live: boolean
+}
+
+export interface ReleaseRow {
+  id: string
+  created_at: string
+  file_count?: number | null
+  restored_from?: string | null
+}
+
+/**
+ * The list, newest first. Only the release the pointer names is "live", and
+ * only while this website is the published one: after an edit outside
+ * Publish the pointer is cleared (part 180's trigger) and no version is
+ * what the website shows exactly, so none says so.
+ */
+export function releaseList(rows: ReleaseRow[], liveReleaseId: string | null | undefined, installLive: boolean): ReleaseListItem[] {
+  return [...rows]
+    .filter((r) => r && typeof r.id === "string" && typeof r.created_at === "string")
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0))
+    .map((r) => ({
+      id: r.id,
+      createdAt: r.created_at,
+      files: Math.max(0, Number(r.file_count) || 0),
+      restored: typeof r.restored_from === "string" && r.restored_from !== "",
+      live: installLive && !!liveReleaseId && r.id === liveReleaseId,
+    }))
+}
+
+export type RollbackFailure = "missing" | "not_found" | "unreadable" | "failed"
+
+/**
+ * Why `rollback_site_release` refused, from its error: the function not
+ * there (part 188 not run), a release that is not this website's (P0002),
+ * one it cannot put back whole (22023: unreadable, or a file's text gone),
+ * or anything else.
+ */
+export function rollbackFailure(error: { code?: string; message?: string } | null | undefined): RollbackFailure {
+  const code = error?.code ?? ""
+  if (["PGRST202", "42883", "42P01", "42703", "PGRST205"].includes(code) || /could not find the function/i.test(error?.message ?? "")) return "missing"
+  if (code === "P0002") return "not_found"
+  if (code === "22023") return "unreadable"
+  return "failed"
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const isReleaseId = (value: unknown): value is string => typeof value === "string" && UUID.test(value)

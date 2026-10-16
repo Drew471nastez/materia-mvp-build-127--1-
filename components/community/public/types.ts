@@ -13,6 +13,8 @@
  */
 import type { CommunityAccess, CommunityCard, CommunityVisibility, CommunityStatus, MemberStatus, Role, TierBilling, TierKind } from "@/lib/communities/types"
 import type { GalleryItemView } from "./gallery"
+import type { SocialLinkView } from "@/lib/communities/social-links"
+import type { JoinLookView } from "@/lib/communities/page-look"
 
 export type { GalleryItemView }
 
@@ -104,6 +106,12 @@ export interface PublicCommunityView {
   /** The pictures and videos the creator chose; the cover alone before part 85 or when none were chosen. */
   gallery: GalleryItemView[]
   stats: CommunityStatsView
+  /** Round 33: the website and social pages, each with its network (lib/communities/social-links.ts), drawn as icons. */
+  links?: SocialLinkView[]
+  /** Round 33: where the cover sits in a frame that crops it (CSS object-position), or null for the middle. */
+  coverPosition?: string | null
+  /** Round 33: the join button's own words, style and line (lib/communities/page-look.ts), or null for the page's own. */
+  joinLook?: JoinLookView | null
 }
 
 /**
@@ -160,6 +168,8 @@ export interface AboutExtras {
   classroom: { total: number; courses: { productId: string; title: string; coverUrl: string | null; lessons: number }[] } | null
   /** The creator's own line (their profile's bio), for the creator card. */
   creatorBio: string | null
+  /** Round 33: the members here most recently, a picture and a name each, for the overlapping faces by the member count. */
+  faces?: { id: string; name: string; avatarUrl: string | null }[]
 }
 
 /** What /community/[slug] and /about need to draw the sales page. */

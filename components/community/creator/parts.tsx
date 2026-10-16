@@ -14,7 +14,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Check, ChevronDown, ChevronsUpDown, ImagePlus, Loader2, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { card, RowMenuButton } from "@/app/app/orders/order-parts"
+import { card, RowMenuButton, StatusBadge } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -51,6 +51,50 @@ export const selectField = cn(
 )
 
 export const label = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
+
+/* ── Where a community stands, as a badge (round 33) ────────────────────── */
+
+export type CommunityState = "published" | "draft" | "archived" | "suspended"
+
+/** The state of a community from its facts: suspended by Storelib first, then archived, then published or a draft. */
+export function communityState(c: { status: string; archived?: boolean; suspended?: boolean }): CommunityState {
+  if (c.suspended || c.status === "suspended") return "suspended"
+  if (c.archived || c.status === "archived") return "archived"
+  return c.status === "published" ? "published" : "draft"
+}
+
+export const COMMUNITY_STATE_WORD: Record<CommunityState, string> = {
+  get published() {
+    return tt("Published")
+  },
+  get draft() {
+    return tt("Draft")
+  },
+  get archived() {
+    return tt("Archived")
+  },
+  get suspended() {
+    return tt("Suspended")
+  },
+}
+
+const STATE_TONE = { published: "success", draft: "neutral", archived: "neutral", suspended: "critical" } as const
+const STATE_DOT: Record<CommunityState, string | null> = { published: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#9ca3af]", suspended: null }
+
+/**
+ * "The • Published text looks wrong" (round 33). The state is the badge /app gives a status everywhere (app/app/orders
+ * order-parts StatusBadge), with the product editor's dot inside it for Published and Draft (product-editor.tsx
+ * statusBadge): green, amber, grey for archived, the critical tone's ring for suspended.
+ */
+export function CommunityStatusBadge({ state, className }: { state: CommunityState; className?: string }) {
+  const dot = STATE_DOT[state]
+  return (
+    <StatusBadge tone={STATE_TONE[state]} className={cn("shrink-0", className)}>
+      {dot ? <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} /> : null}
+      <span data-community-state={state}>{COMMUNITY_STATE_WORD[state]}</span>
+    </StatusBadge>
+  )
+}
 
 /** A request from a screen: JSON in, JSON out, and a plain sentence when the connection drops. */
 export async function send<T = Record<string, unknown>>(url: string, method: string, body?: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string; field?: string } }> {
@@ -135,17 +179,18 @@ export const useToast = () => React.useContext(ToastContext)
 /** A card with a heading, the way the settings screens group things. */
 export function Section({ title, hint, action, children, className, id }: { title?: React.ReactNode; hint?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={cn(card, "px-4 py-4 sm:px-5 sm:py-5", className)}>
+    /* Round 33: the editor card's padding, heading and line (EditorCard below), so a panel's cards in Settings read as one set. */
+    <section id={id} className={cn(card, "app-card-x py-4 sm:py-6", className)}>
       {title || action ? (
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            {title ? <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h2> : null}
-            {hint ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{hint}</p> : null}
+            {title ? <h2 className={EDITOR_CARD_TITLE}>{title}</h2> : null}
+            {hint ? <p className={EDITOR_CARD_HINT}>{hint}</p> : null}
           </div>
           {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
         </div>
       ) : null}
-      <div className={title || action ? "mt-3.5" : undefined}>{children}</div>
+      <div className={title || action ? "mt-4" : undefined}>{children}</div>
     </section>
   )
 }
@@ -816,8 +861,20 @@ const subscribeFoot = (f: () => void) => {
     footListeners.delete(f)
   }
 }
-/** How far a bar stands above the one under it. */
+/** How far a bar stands above the one under it: its 52px and a 12px gap. */
 export const FOOT_STEP_PX = 64
+/** The bar's own height. */
+export const FOOT_BAR_PX = 52
+/** The room a page keeps under its last card for each bar that is up: a bar's place, and 24px more so the card clears it. */
+export const FOOT_ROOM_PX = FOOT_STEP_PX + 24
+
+/**
+ * How many save bars are up on screen now (round 33). The page under them keeps that much more room at its foot
+ * (FOOT_ROOM_PX each), so the last card is never under a bar: community-shell.tsx sets it on the section's body.
+ */
+export function useFootsUp(): number {
+  return React.useSyncExternalStore(subscribeFoot, () => footOrder.length, () => 0)
+}
 
 /**
  * THE SAVE BAR OF A FORM (round 31). "The floating No changes / Cancel / Save
@@ -830,6 +887,25 @@ export const FOOT_STEP_PX = 64
  * It rises in only while there is something to save, says Saved with the
  * editor's check for a moment after a save, and goes. Cancel throws the
  * changes away (nothing is saved yet, so nothing needs asking).
+ *
+ * ROUND 33, THE OWNER: the editor's foot ("Draft ... Back Save") "looks bad
+ * and gets cut off": a strip in the page's flow, sticky to the foot of the
+ * pane, under the phone's pill and clipped by the screen's edge. One bar now,
+ * this one, for a settings form and for an editor page alike:
+ *
+ *   FIXED     to the screen, over the content area only (clear of the rail),
+ *             above the pill and the home indicator on a phone, 16px off the
+ *             bottom (or the inset, if larger) on a computer; never in the
+ *             page's flow, so nothing the page does can clip it
+ *   ROOM      the page keeps FOOT_ROOM_PX more at its foot for each bar that
+ *             is up (useFootsUp; the community shell does it), so the last
+ *             card scrolls clear of it
+ *   EDITOR    with `status` the bar is always there: the page's state as a
+ *             badge (Draft, Published) while nothing has changed, Unsaved
+ *             changes once something has, and `onLeave` (Back) beside Save;
+ *             Cancel takes Back's place while there is something to throw away
+ *   COMPACT   52px, 560px wide at most, the words truncated before a button
+ *             ever wraps
  */
 export function EditorFoot({
   dirty,
@@ -838,6 +914,9 @@ export function EditorFoot({
   onSave,
   onCancel,
   busyText,
+  status,
+  onLeave,
+  leaveLabel,
 }: {
   dirty: boolean
   busy: boolean
@@ -848,6 +927,12 @@ export function EditorFoot({
   busyText?: string
   /** Kept for callers from before round 31: a bar with nothing to save is not shown, so it says nothing. */
   idleText?: string
+  /** An editor page's state (round 33): the bar stays up and says it while nothing has changed. */
+  status?: { word: string; tone: "success" | "neutral" | "attention" }
+  /** An editor page's way out, beside Save while nothing has changed (Back to programs). */
+  onLeave?: () => void
+  /** Back's word, "Back" when not given. */
+  leaveLabel?: string
 }) {
   const [phase, setPhase] = React.useState<SavePhase>("idle")
   const was = React.useRef(false)
@@ -868,16 +953,33 @@ export function EditorFoot({
     const t = window.setTimeout(() => setPhase("idle"), SAVED_CHECK_MS)
     return () => window.clearTimeout(t)
   }, [phase])
-  const up = dirty || busy || !!busyText || !!error || phase !== "idle"
+  const editor = !!status
+  const up = editor || dirty || busy || !!busyText || !!error || phase !== "idle"
   const state = error ? "error" : busyText ? "busy" : dirty ? "dirty" : phase === "saved" ? "saved" : "idle"
-  const words = error ?? (busyText || (dirty ? tt("Unsaved changes") : tt("Saved")))
+  const words = error ?? (busyText || (dirty ? tt("Unsaved changes") : phase === "saved" || !status ? tt("Saved") : status.word))
+  /* An editor with nothing to throw away offers its way out instead of a Cancel that would do nothing. */
+  const leaving = editor && !!onLeave && !dirty && !busy
 
   const id = React.useId()
   const ref = React.useRef<HTMLDivElement>(null)
   /* On screen is read after every render: a panel hidden or shown again re-renders the form inside it. */
+  const upRef = React.useRef(up)
+  upRef.current = up
   React.useLayoutEffect(() => {
     setFootUp(id, up && !!ref.current && ref.current.getClientRects().length > 0)
   })
+  /*
+    A section the shell hides keeps its form mounted and does not draw it again (community-shell.tsx), so a render alone
+    would leave its bar counted while another section is shown: its room and its place in the stack. The box going to
+    nothing (display: none above it) and coming back is what says it (round 33).
+  */
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => setFootUp(id, upRef.current && el.getClientRects().length > 0))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [id])
   React.useEffect(() => () => setFootUp(id, false), [id])
   const order = React.useSyncExternalStore(subscribeFoot, () => footOrder, () => footOrder)
   const slot = Math.max(0, order.indexOf(id))
@@ -889,24 +991,41 @@ export function EditorFoot({
       data-state={state}
       data-foot={up ? "up" : "down"}
       aria-hidden={!up || undefined}
+      data-foot-kind={editor ? "editor" : "form"}
       style={slot ? { translate: `0 -${slot * FOOT_STEP_PX}px` } : undefined}
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--app-nav-top,0px)+10px)] z-40 flex justify-center px-3 md:bottom-[max(16px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6"
+      className="pointer-events-none fixed inset-x-0 bottom-[max(calc(var(--app-nav-top,0px)+10px),calc(env(safe-area-inset-bottom)+10px))] z-40 flex justify-center px-3 md:bottom-[max(16px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6"
     >
       <div
         role="region"
-        aria-label={tt("Unsaved changes")}
+        aria-label={editor ? tt("Save") : tt("Unsaved changes")}
+        data-foot-bar=""
         className={cn(
-          "flex min-h-[52px] w-full max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[translate,opacity] motion-reduce:transition-none",
+          "flex h-[52px] w-full min-w-0 max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] transition-[translate,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] will-change-[translate,opacity] motion-reduce:transition-none",
           up ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]",
         )}
       >
-        <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[14px] leading-5">
-          <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty || busyText ? "bg-[#e8a400]" : "bg-[#22a06b]")} />
-          <span className={cn("truncate", error ? "text-[#b42318]" : "text-[#4b5563]")}>{words}</span>
+        <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[14px] leading-5" data-foot-words="">
+          {editor && !dirty && !error && !busyText && phase !== "saved" ? (
+            <StatusBadge tone={status.tone} className="max-w-full">
+              <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", status.tone === "success" ? "bg-[#22a06b]" : status.tone === "attention" ? "bg-[#e0a100]" : "bg-[#9ca3af]")} />
+              <span className="truncate">{status.word}</span>
+            </StatusBadge>
+          ) : (
+            <>
+              <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty || busyText ? "bg-[#e8a400]" : "bg-[#22a06b]")} />
+              <span className={cn("truncate", error ? "text-[#b42318]" : dirty ? "font-medium text-[#1a1a2e]" : "text-[#4b5563]")}>{words}</span>
+            </>
+          )}
         </p>
-        <button type="button" onClick={onCancel} disabled={!dirty || busy} tabIndex={up ? 0 : -1} className={cn(barButton, "disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
-          {tt("Cancel")}
-        </button>
+        {leaving ? (
+          <button type="button" onClick={onLeave} className={cn(barButton, "shrink-0")} data-foot-leave="">
+            {leaveLabel ?? tt("Back")}
+          </button>
+        ) : (
+          <button type="button" onClick={onCancel} disabled={!dirty || busy} tabIndex={up ? 0 : -1} className={cn(barButton, "shrink-0 disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
+            {tt("Cancel")}
+          </button>
+        )}
         <SaveButton phase={phase} disabled={!dirty || !!busyText} saved={phase === "saved"} onSave={onSave} />
       </div>
     </div>

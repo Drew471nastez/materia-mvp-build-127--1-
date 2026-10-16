@@ -115,7 +115,8 @@ function Arrow({ side, hidden, onPress }: { side: "left" | "right"; hidden: bool
   )
 }
 
-export function CommunityGallery({ communityId, name, items }: { communityId: string; name: string; items: GalleryItemView[] }) {
+export function CommunityGallery({ communityId, name, items, cover = null }: { communityId: string; name: string; items: GalleryItemView[]; /** Round 33: the cover picture and where it sits (object-position), applied wherever that picture is in the gallery. */ cover?: { url: string; position: string } | null }) {
+  const placed = (url: string | null | undefined): React.CSSProperties | undefined => (cover && url === cover.url ? { objectPosition: cover.position } : undefined)
   const [index, setIndex] = React.useState(0)
   /* The one thing playing: an upload with its signed address, or a linked video's player. */
   const [playing, setPlaying] = React.useState<{ key: string; playback?: Playback } | null>(null)
@@ -263,7 +264,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
               <SwiperSlide key={key} className="relative h-full w-full overflow-hidden bg-[#eceef1]" data-gallery-slide={g.type}>
                 {g.type === "image" ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img {...frameImage(g.url)} alt={i === 0 ? name : ""} draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" />
+                  <img {...frameImage(g.url)} alt={i === 0 ? name : ""} draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" style={placed(g.url)} className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" />
                 ) : live && g.type === "video" && playing?.playback ? (
                   /* The community player (round 13), in the frame's own box: Storelib's controls, never the browser's. */
                   <div className="swiper-no-swiping absolute inset-0 bg-black" data-gallery-video="">

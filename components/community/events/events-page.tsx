@@ -31,6 +31,7 @@ import { Check, ChevronLeft, ChevronRight, Clock3, Lock, MapPin, PlayCircle, Vid
 import { CARD, SECONDARY } from "@/components/library/library-ui"
 import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { Spinner } from "@/components/community/member/place-spinner"
+import { EDIT_GROUP, EditHint } from "@/components/community/member/edit-hint"
 import { eventDateBadge } from "@/lib/communities/format"
 import { eventPriceLabel } from "@/lib/communities/event-tickets"
 import { dayKey, goingLabel, isLive, monthGrid, monthKey, monthTitle, type EventCardView } from "./model"
@@ -101,13 +102,19 @@ export function EventsPage({ communityId, initial, month, fallbackZone, manageHr
 
   const listTab: "upcoming" | "past" = tab === "past" ? "past" : "upcoming"
   const list = lists[listTab]
+  /* The admin's calendar itself: manageHref opens its New event form. */
+  const editHref = manageHref ? manageHref.replace(/\?new=1$/, "") : null
 
   return (
-    <section data-events aria-labelledby="events-title">
+    <section data-events aria-labelledby="events-title" className={editHref ? EDIT_GROUP : undefined}>
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
-        <h1 id="events-title" className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">
-          Calendar
-        </h1>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <h1 id="events-title" className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">
+            Calendar
+          </h1>
+          {/* Round 33: the admin's calendar, for somebody who runs events here. */}
+          {editHref ? <EditHint href={editHref} label="Edit calendar" phone /> : null}
+        </span>
         <div className="flex items-center gap-0.5 rounded-[11px] border border-[#e6e8eb] bg-[#f1f2f4] p-0.5" role="tablist" aria-label="Which events">
           {(
             [

@@ -586,7 +586,8 @@ export interface NextStepFacts {
   pricedEventsUnsellable?: number
 }
 
-export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "event_payouts" | "customize" | "rules"
+/* Round 33: group, post, app and intro come from the setup list (lib/communities/setup-checklist.ts), which the Overview now reads. */
+export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "event_payouts" | "customize" | "rules" | "group" | "post" | "app" | "intro"
 
 export interface NextStep {
   id: NextStepId
@@ -616,7 +617,7 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
       href: "/app/settings?tab=payments",
       action: tt("Connect"),
     })
-  if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/settings?tab=page`, action: tt("Edit") })
+  if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/page`, action: tt("Edit") })
   if (f.rules === 0) steps.push({ id: "rules", title: tt("Write the rules"), detail: tt("Members see them before they join and when they post."), href: `${base}/moderation?tab=rules`, action: tt("Write") })
   return steps
 }
@@ -656,12 +657,27 @@ export type MemberStatusFilter = (typeof MEMBER_STATUS_FILTERS)[number]
 
 export const MEMBERS_PAGE = 50
 
+/**
+ * Round 32: the order of the list. Newest joined first is the default; oldest first, most recently active (members who
+ * never came back go last) and most points are the others. Kept out of the query when it is the default, so an address
+ * without one reads exactly as before.
+ */
+export const MEMBER_SORTS = ["newest", "oldest", "active", "points"] as const
+export type MemberSort = (typeof MEMBER_SORTS)[number]
+
+/** Round 32: who joined within this many days (the Joined filter). */
+export const MEMBER_JOINED_DAYS = [7, 30, 90, 365] as const
+
 export interface MemberQuery {
   status: MemberStatusFilter
   role: Role | null
   tierId: string | null
   q: string
   cursor: string | null
+  /** Absent means newest first. */
+  sort?: MemberSort
+  /** Joined in the last this many days; absent means any time. */
+  joined?: number | null
 }
 
 export function parseMemberQuery(p: URLSearchParams | Record<string, string | undefined>): MemberQuery {
@@ -675,6 +691,14 @@ export function parseMemberQuery(p: URLSearchParams | Record<string, string | un
     tierId: isUuid(tier) ? tier : null,
     q: line(get("q"), 80),
     cursor: get("cursor") || null,
+    ...(() => {
+      const sort = get("sort")
+      const joined = Number(get("joined"))
+      return {
+        ...(isOneOf(MEMBER_SORTS, sort) && sort !== "newest" ? { sort } : {}),
+        ...((MEMBER_JOINED_DAYS as readonly number[]).includes(joined) ? { joined } : {}),
+      }
+    })(),
   }
 }
 
@@ -1031,21 +1055,33 @@ export function memberConfirmText(choice: MemberChoice, name: string, person?: {
   ./settings-section.tsx PANELS. "address" (the storelib address and the creator's own domain) and "discovery" (the
   Explore category, Explore and search) were inside Page and Access; they are panels of their own now.
 */
+/*
+  ROUND 33, THE OWNER: the community's page is edited on its own, in the Page section beside Overview
+  (/app/community/<slug>/page), not in Settings. Settings keeps what runs the community: who gets in and what it costs,
+  its address, how it is found, its features, publishing, the people and rules, points, your notifications. An address
+  from before (?tab=page, ?tab=general and the page's parts) is sent on to the Page section (pageTabAsked).
+*/
 export const SETTINGS_TABS = [
-  "page",
-  "address",
   "access",
+  "address",
   "discovery",
   "features",
   "advanced",
-  "policies",
   "roles",
+  "policies",
   "gamification",
   "notifications",
   /* round32: features panels */
 ] as const
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+/** The settings tabs that held the community's page before round 33: an address naming one opens the Page section. */
+const PAGE_TABS = new Set(["page", "general", "about", "gallery", "media", "photos", "benefits", "faq", "links", "appearance", "look"])
+
+export function pageTabAsked(raw: string | undefined | null): boolean {
+  return typeof raw === "string" && PAGE_TABS.has(raw.trim().toLowerCase())
+}
 
 /** A tab asked for by name, old names included, as the tab that holds it now. */
 export function settingsTabOf(raw: string | undefined | null): SettingsTab {
@@ -1061,8 +1097,19 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "rules":
     case "contact":
       return "policies"
+    case "team":
+    case "permissions":
+      return "roles"
+    case "publish":
+    case "archive":
+    case "delete":
+      return "advanced"
+    case "pricing":
+    case "tiers":
+      return "access"
     default:
-      return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "page"
+      /* Nothing named, or a page tab (the server sends those on to the Page section first): the first panel. */
+      return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "access"
   }
 }
 
@@ -1093,7 +1140,7 @@ export function systemReportKind(note: string | null | undefined): "join_alarm" 
 */
 
 /** The sections, by the place in the address after the community's slug. */
-export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "settings"
+export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "page" | "settings"
 
 /** The section an address is on: /app/community/<slug or id>/<section>. Old addresses land on the section that holds them now. */
 export function adminSectionOf(pathname: string): AdminSection {
@@ -1110,6 +1157,7 @@ export function adminSectionOf(pathname: string): AdminSection {
     case "members":
     case "moderation":
     case "analytics":
+    case "page":
     case "settings":
       return seg
     default:

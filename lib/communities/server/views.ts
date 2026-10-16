@@ -24,11 +24,11 @@ import "server-only"
  * Only the HMAC is stored. No raw IP, account id or cookie value leaves
  * this file, and a bot's user agent is not counted at all.
  *
- * NEVER IN THE PAGE'S WAY. The pages call scheduleCommunityView in
- * ./record-view.ts, which reads the request during render and hands the
- * write to after(), so it runs once the response has gone. A failure is
- * logged and forgotten. The community's owner looking at their own page is
- * not a view.
+ * NEVER IN THE PAGE'S WAY. Round 33: a page of the community that is on a
+ * screen tells app/api/community/<id>/visit once a day (the layout's visit
+ * beacon), which calls recordVisit in ./record-view.ts after the page has
+ * drawn. A failure is logged and forgotten. The community's owner looking
+ * at their own page is not a view.
  */
 import { createHmac, randomBytes } from "node:crypto"
 import { anonVisitorId } from "@/lib/analytics/anon-visit"

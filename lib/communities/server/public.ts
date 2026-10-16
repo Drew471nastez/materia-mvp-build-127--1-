@@ -29,6 +29,8 @@ import "server-only"
 import { cache } from "react"
 import { money } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { socialLinksOf } from "@/lib/communities/social-links"
+import { coverPosition, joinLookOf, pageLookOf } from "@/lib/communities/page-look"
 import { htmlToPlainText } from "@/lib/rich-text/html"
 import { readPublishedReviews } from "@/lib/reviews/store"
 import { getProductInternalPath } from "@/lib/url-helpers"
@@ -50,12 +52,15 @@ import { storefrontsOf } from "./directory"
 import { communityStats } from "./presence"
 
 /** What a card needs, and nothing as heavy as the description. */
-export const CARD_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, category, access, visibility, status, member_count, creator_id, created_at, trending_score"
+/* Round 33: `onboarding` for the cover's focus (lib/communities/page-look.ts), so a card crops the cover where the creator set it. */
+export const CARD_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, category, access, visibility, status, member_count, creator_id, created_at, trending_score, onboarding"
 
 export type CardRow = Pick<
   CommunityRow,
   "id" | "slug" | "name" | "tagline" | "logo_url" | "cover_url" | "category" | "access" | "visibility" | "status" | "member_count" | "creator_id" | "created_at" | "trending_score"
 > & {
+  /** The community's settings, read for the cover's focus alone; a list that did not select it gets the middle. */
+  onboarding?: unknown
   /** Read with the rows by Explore once part 87 has run (lib/communities/server/explore.ts); cardsFor reads it itself for a list that did not. */
   view_count?: number | string | null
 }
@@ -329,6 +334,7 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
       tagline: c.tagline,
       logoUrl: c.logo_url,
       coverUrl: c.cover_url,
+      coverPosition: coverPosition(pageLookOf(c.onboarding)) ?? null,
       category: c.category,
       access: c.access,
       visibility: c.visibility,
@@ -611,6 +617,10 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     address: `storelib.com${communityPath(community.slug)}`,
     gallery,
     stats,
+    /* Round 33: the links as icons, the cover's focus and the join button's own words and look. */
+    links: socialLinksOf(community.links),
+    coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
+    joinLook: joinLookOf(pageLookOf(community.onboarding)),
   }
 
   const member = viewer.member

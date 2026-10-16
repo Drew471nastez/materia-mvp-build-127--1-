@@ -141,9 +141,16 @@ function NextSteps({ steps, created }: { steps: OverviewData["steps"]; created: 
                 <span className="block text-[14px] font-medium text-[#1a1a2e]">{s.title}</span>
                 <span className="block text-[13px] leading-snug text-[#6b7280]">{s.detail}</span>
               </span>
-              <Link href={s.href} className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
-                {s.action}
-              </Link>
+              {/* Round 33: the app step goes to /api/get-app (it picks the store) and the intro is a video elsewhere, so both open a new tab. */}
+              {s.href.startsWith("/api/") || /^https?:/.test(s.href) ? (
+                <a href={s.href} target="_blank" rel="noopener noreferrer" className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
+                  {s.action}
+                </a>
+              ) : (
+                <Link href={s.href} className={cn(i === 0 ? buttonPrimary : buttonSecondary, "shrink-0 self-start sm:self-auto")}>
+                  {s.action}
+                </Link>
+              )}
             </span>
           </li>
         ))}
@@ -192,6 +199,8 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
       ? [
           { label: tt("Paid members"), value: n(f.paidMembers) },
           { label: tt("Monthly revenue"), value: money(f.mrrCents, f.currency), foot: tt("From active memberships"), href: head.can.view_analytics ? `${base}/analytics` : undefined },
+          /* Round 33: the fourth cell, so the two rows share their columns; the same two counts, divided. */
+          { label: tt("Per paid member"), value: f.paidMembers > 0 ? money(Math.round(f.mrrCents / f.paidMembers), f.currency) : money(0, f.currency), foot: tt("Each month") },
           { label: tt("Cancellations, 30 days"), value: n(f.cancellations30d) },
         ]
       : []
@@ -204,7 +213,7 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
     head.can.post ? { href: `${base}/feed`, label: tt("Write a post") } : null,
     head.can.invite ? { href: `${base}/members?invite=1`, label: tt("Invite people") } : null,
     head.eventsEnabled && head.can.manage_events ? { href: `${base}/events?new=1`, label: tt("Schedule an event") } : null,
-    head.can.manage_settings ? { href: `${base}/settings?tab=page`, label: tt("Edit the page") } : null,
+    head.can.manage_settings ? { href: `${base}/page`, label: tt("Edit the page") } : null,
   ].filter((x): x is { href: string; label: string } => x !== null)
   const recent = data.recent ?? []
 
@@ -217,9 +226,9 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
           ))}
         </div>
         {moneyFigures.length ? (
-          <div className="grid grid-cols-2 gap-px border-t border-[#eef0f2] bg-[#eef0f2] sm:grid-cols-3" data-figures-money="">
-            {moneyFigures.map((x, i) => (
-              <div key={x.label} className={cn("min-w-0 bg-white", i === moneyFigures.length - 1 && "max-sm:col-span-2")}>
+          <div className="grid grid-cols-2 gap-px border-t border-[#eef0f2] bg-[#eef0f2] sm:grid-cols-4" data-figures-money="">
+            {moneyFigures.map((x) => (
+              <div key={x.label} className="min-w-0 bg-white">
                 <Figure {...x} />
               </div>
             ))}

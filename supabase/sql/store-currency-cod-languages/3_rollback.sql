@@ -44,7 +44,7 @@ notify pgrst, 'reload schema';
 -- "work through the stores hourly", as before. Only if wanted:
 --   alter table public.store_localization drop column if exists translate_dirty_at, drop column if exists translate_lease_until;
 --
--- Part 188: the trigger only refuses an automatic write over the merchant's own
+-- Part 203: the trigger only refuses an automatic write over the merchant's own
 -- translation, and the column is a list that defaults to empty. Only if wanted:
 --   drop trigger if exists site_translations_keep_manual on public.site_translations; drop function if exists public.site_translations_keep_manual();
 --   alter table public.store_localization drop column if exists translation_glossary;

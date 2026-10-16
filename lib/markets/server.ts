@@ -187,16 +187,16 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
   return { ok: true, value: v }
 }
 
-/* ── Words not to translate (lib/markets/glossary.ts, SQL part 188) ───── */
+/* ── Words not to translate (lib/markets/glossary.ts, SQL part 203) ───── */
 
-/** store_localization.translation_glossary is SQL part 188's: a database without it reads as an empty list. */
+/** store_localization.translation_glossary is SQL part 203's: a database without it reads as an empty list. */
 export function glossaryMissing(error: { code?: string; message?: string } | null | undefined): boolean {
   return !!error && /translation_glossary/.test(error.message ?? "")
 }
 
-export const GLOSSARY_NEEDS_PART = "Words not to translate needs a database update. Run SQL part 188 in Supabase, then try again."
+export const GLOSSARY_NEEDS_PART = "Words not to translate needs a database update. Run SQL part 203 in Supabase, then try again."
 
-/** The store's words not to translate. Empty, and `ready` false, before part 188; empty on any failed read, so a translation run is never stopped by it. */
+/** The store's words not to translate. Empty, and `ready` false, before part 203; empty on any failed read, so a translation run is never stopped by it. */
 export async function glossaryOf(db: Db, creatorId: string): Promise<{ ready: boolean; glossary: Glossary }> {
   const { data, error } = await db.from("store_localization").select("translation_glossary").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
@@ -307,7 +307,7 @@ export async function saveTranslations(
    * Storelib AI's (`ai`) is held to the same rule whoever sends it: an AI
    * draft approved from a Translate sheet opened before the merchant edited
    * that text in another tab never puts the AI words back over theirs. SQL
-   * part 188's trigger holds the same line in the database, for a write that
+   * part 203's trigger holds the same line in the database, for a write that
    * lands between this read and the upsert.
    */
   opts: { keepManual?: boolean } = {},

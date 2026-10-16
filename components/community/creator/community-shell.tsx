@@ -8,9 +8,12 @@
  * community's logo, name and state, the way back to the list, View page,
  * and Publish while it is a draft; under it the sections, as the
  * memberships screen draws its views (a compact row of tabs, the one you
- * are on filled grey). Both stay at the top while the section scrolls. On a
- * phone the tabs scroll sideways and the one you are on is brought into
- * view.
+ * are on filled grey). The tabs stay at the top while the section scrolls;
+ * the bar scrolls away with it (round 33). On a phone the tabs scroll
+ * sideways and the one you are on is brought into view.
+ *
+ * Round 33: Page, after Overview, is the community's page (what people see
+ * before they join), edited apart from Settings.
  *
  * Which tabs appear is the role's (lib/communities/permissions.ts, handed
  * down as `head.can`, with what the owner lets admins and moderators do):
@@ -59,16 +62,17 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { AppLink } from "@/components/app/app-link"
-import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { prefetchAppPage, sameStageFrame, useShownPath } from "@/lib/ui/app-navigation"
+import { prefetchAppPage, sameStageFrame, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { connectionFacts, readAheadAllowed } from "@/lib/communities/client/place-cache"
 import { ArrowLeft, Copy, ExternalLink, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { iconButton } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, SectionId } from "./view-types"
-import { ListLoading, SECTION_WIDTH, ToastHost, buttonPrimary, buttonSecondary, errorText, send, useToast } from "./parts"
-import { SECTION_AHEAD_MS, SECTION_WAIT_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, type AdminSection } from "./logic"
+import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, useFootsUp, useToast } from "./parts"
+import { nameCoverGradient } from "@/lib/communities/cover-gradient"
+import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, type AdminSection } from "./logic"
+import { SectionFrame, type SectionFrameFacts } from "./section-frame"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -76,7 +80,33 @@ import { appLocale } from "@/lib/i18n/format"
 export const SECTION_ARRIVE_MS = 150
 export const SECTION_ARRIVE_FROM = 0.55
 export const SECTION_ARRIVE_RISE_PX = 3
+/** A section taking its frame's place: the same 55%, quicker, and no rise (its cards are already where they will be). */
+export const SECTION_FILL_MS = 120
 const SECTION_ARRIVE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+const ARRIVE: Keyframe[] = [{ opacity: SECTION_ARRIVE_FROM, translate: `0 ${SECTION_ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }]
+
+/**
+ * THE WIDTH OF THE PAGE (round 32, the owner: "everything on desktop is too
+ * shrunk"). It was 1080px; it is now the widest /app list's column, Products'
+ * (app/app/products/products-client.tsx PAGE_WIDTH): 1200px, and 1323px from
+ * 1024px, inside the app's own gutter (32px there). Not Products' 35px
+ * gutter: up to 1320px wide the rail leaves less than the column anyway, and
+ * the wider gutter would have made a 1280px screen 6px narrower than before.
+ * Measured (scripts/check-community-admin-round32.mjs WIDTH): the section is
+ * 1136px at 1440 (was 1016) and 1259 at 1920 (was 1016). The bar, the tabs
+ * and the section share it, so the name, the first tab and the first card
+ * start on one line.
+ */
+const SHELL_WIDTH = "max-w-[1200px] lg:max-w-[1323px]"
+const SHELL_GUTTER = "app-gutter"
+
+/**
+ * What a section's frame needs beyond its name (section-frame.tsx): Posts draws the writer's card for whoever may post,
+ * and Settings opens on the list of panels on a phone when the address names none.
+ */
+export function frameFacts(head: CommunityHead, search: string): SectionFrameFacts {
+  return { composer: head.can.post === true && !head.archived && !!head.me, settingsList: !new URLSearchParams(search).get("tab")?.trim() }
+}
 
 export interface SectionTab {
   id: SectionId
@@ -91,6 +121,8 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
   const can = head.can
   const tabs: (SectionTab | null)[] = [
     { id: "overview", label: tt("Overview"), href: base },
+    /* Round 33: the community's page (name, pictures, what members get, the join button), edited apart from Settings. */
+    can.manage_settings ? { id: "page", label: tt("Page"), href: `${base}/page` } : null,
     can.moderate_content ? { id: "feed", label: tt("Posts"), href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: tt("Spaces"), href: `${base}/spaces` } : null,
     can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
@@ -161,30 +193,11 @@ export function SectionSeed({ id, stamp = "", children }: { id: AdminSection; st
 
 /* ── The bar ─────────────────────────────────────────────────────────────── */
 
-function stateOf(head: CommunityHead): { word: string; dot: string; tone: "success" | "neutral" | "critical" } {
-  if (head.suspended) return { word: tt("Suspended"), dot: "bg-[#d92d20]", tone: "critical" }
-  if (head.archived) return { word: tt("Archived"), dot: "bg-[#9ca3af]", tone: "neutral" }
-  if (head.status === "published") return { word: tt("Published"), dot: "bg-[#22a06b]", tone: "success" }
-  return { word: tt("Draft"), dot: "bg-[#9ca3af]", tone: "neutral" }
-}
-
-/**
- * THE STATE, AS A QUIET LINE UNDER THE NAME (round 31). The green pill beside
- * the name took the room the name needed on a phone ("SalajanyWood ..."); the
- * state is now a dot and a word under it, with the member count, at every
- * width, the way an order's date sits under its number.
- */
-function StateLine({ head }: { head: CommunityHead }) {
-  const s = stateOf(head)
-  return (
-    <p data-community-state={s.tone} className="flex min-w-0 items-center gap-1.5 truncate text-[12.5px] leading-5 text-[#6b7280] sm:text-[13px]">
-      <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", s.dot)} />
-      <span className="shrink-0">{s.word}</span>
-      <span aria-hidden className="text-[#c4c7cd]">·</span>
-      <span className="truncate tabular-nums">{tt("{n, plural, one {# member} other {# members}}", { n: head.memberCount })}</span>
-    </p>
-  )
-}
+/*
+  THE STATE, AS A BADGE BESIDE THE NAME (round 33, the owner: "Published must be a badge, not text"). The /app badge
+  (./parts CommunityStatusBadge, the coupon and the product editor's header), after the name, which truncates first so
+  the badge is always whole. The member count under the name is gone: the Members tab carries it.
+*/
 
 function usePublish(head: CommunityHead) {
   const router = useRouter()
@@ -221,23 +234,26 @@ function CommunityBar({ head }: { head: CommunityHead }) {
     },
   ]
   return (
-    <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1 sm:gap-x-3">
-      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" className={cn(iconButton, "-ml-1.5 h-10 w-10 text-[#1a1a2e] hover:bg-[#eceef1] active:bg-[#e4e6ea] sm:h-9 sm:w-9")}>
+    <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1.5 sm:min-h-14 sm:gap-x-3">
+      {/* The /app way back (the coupon and the order's header): the quiet 36px square, the arrow at 20px. */}
+      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
         <ArrowLeft aria-hidden className="h-5 w-5" />
       </AppLink>
       {head.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={head.logoUrl} alt="" data-community-logo="" className="h-9 w-9 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)] sm:h-10 sm:w-10" />
+        <img src={head.logoUrl} alt="" data-community-logo="" className="h-9 w-9 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)]" />
       ) : (
-        <span aria-hidden data-community-logo="" className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white sm:h-10 sm:w-10">
-          {head.name.trim().charAt(0).toUpperCase() || "C"}
+        /* No logo: the letter on the name's own gradient (lib/communities/cover-gradient.ts), as the list's cards draw it. */
+        <span aria-hidden data-community-logo="" className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[15px] font-semibold text-white shadow-[0_0_0_1px_rgba(16,24,40,0.06)] [text-shadow:0_1px_1px_rgba(0,0,0,0.18)]" style={{ backgroundImage: nameCoverGradient(head.name) }}>
+          {(Array.from(head.name.trim())[0] || "C").toUpperCase()}
         </span>
       )}
-      <div className="min-w-0" data-community-title="">
-        <h1 className="truncate text-[17px] font-bold leading-6 text-[#1a1a2e] sm:text-[20px] sm:leading-7 lg:text-[22px]" title={head.name}>
+      {/* As an order's header: the badge after the name, and under it when the row has no room for both (a phone, a long name). */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:gap-x-2.5" data-community-title="">
+        <h1 className="min-w-0 max-w-full truncate text-[18px] font-bold leading-7 text-[#1a1a2e] sm:text-[20px] lg:text-[22px]" title={head.name}>
           {head.name}
         </h1>
-        <StateLine head={head} />
+        <CommunityStatusBadge state={communityState(head)} />
       </div>
       <div className="relative flex shrink-0 items-center gap-1.5" data-community-actions="">
         {/* From 640px View page is a button of its own; on a phone it is in the menu, so the name keeps the row. */}
@@ -295,7 +311,7 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
   }, [active])
   return (
     <nav aria-label={tt("Community sections")} data-community-tabs="">
-      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] md:gap-0.5 md:[mask-image:none]">
+      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] md:gap-0.5 xl:[mask-image:none]">
         {tabs.map((t) => {
           const on = t.id === active
           return (
@@ -308,12 +324,10 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
               data-tab={t.id}
               onMouseEnter={() => onWarm?.(t)}
               onFocus={() => onWarm?.(t)}
-              onPointerDown={(e) => e.pointerType !== "mouse" && onWarm?.(t)}
-              onClick={(e) => {
-                onGo?.(t, e)
-                /* A section the shell does not hold yet goes through the router, with the app's bar if it is slow (components/app/app-link). */
-                if (!e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) startNavigationLoading(t.href)
-              }}
+              onPointerDown={(e) => (e.pointerType !== "mouse" || e.button === 0) && onWarm?.(t)}
+              onTouchStart={() => onWarm?.(t)}
+              /* A section the shell does not hold yet goes on to the router; the shell shows its frame meanwhile, and no bar (round 32: lib/ui/app-navigation sameStageFrame). */
+              onClick={(e) => onGo?.(t, e)}
               className={cn(
                 "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 text-[14px] font-medium outline-none transition-[background-color,color,box-shadow] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)] max-md:h-10",
                 on
@@ -340,7 +354,12 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* What the shell holds: every section drawn so far, as the router drew it. */
   const store = React.useRef(new Map<AdminSection, Held>())
-  const [, held] = React.useReducer((n: number) => n + 1, 0)
+  /*
+    What each kept place draws, as state (round 32): a render reads what was committed, never the store a later answer
+    has already written into, so a section drawn again in a transition stays as it is on every urgent render until its
+    new reads are in.
+  */
+  const [drawn, setDrawn] = React.useState<ReadonlyMap<AdminSection, Held>>(() => new Map())
   const [active, setActive] = React.useState<AdminSection>(() => adminSectionOf(pathname))
   const activeRef = React.useRef(active)
   activeRef.current = active
@@ -350,18 +369,32 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   const [kept, setKept] = React.useState<AdminSection[]>([])
   const keptRef = React.useRef(kept)
   keptRef.current = kept
+  /* When each section was read ahead (round 32), and a section that arrived from an old read ahead, to read again. */
+  const readAhead = React.useRef(new Map<AdminSection, number>())
+  const staleArrival = React.useRef<AdminSection | null>(null)
 
   const hold = React.useCallback((id: AdminSection, node: React.ReactNode, stamp: string) => {
     const prev = store.current.get(id)
     if (prev && prev.node === node) return
     /* Drawn again (a save refreshed it): what the others show may be behind now. */
     if (prev) for (const [k, h] of store.current) if (k !== id) h.stale = true
-    store.current.set(id, { node, stamp, at: Date.now(), stale: false, version: (prev?.version ?? 0) + (prev && sectionRestarts(prev.stamp, stamp) ? 1 : 0) })
-    /* In the commit that brought it, before it is painted: a new section gets its place, a held one is drawn again in it. */
-    if (keptRef.current.includes(id)) held()
+    /* Read ahead a while ago (round 32): it is shown as read, and read again behind it once it is looked at (FRESH). */
+    const aheadAt = prev ? 0 : (readAhead.current.get(id) ?? 0)
+    const entry: Held = { node, stamp, at: aheadAt || Date.now(), stale: false, version: (prev?.version ?? 0) + (prev && sectionRestarts(prev.stamp, stamp) ? 1 : 0) }
+    store.current.set(id, entry)
+    const draw = () => setDrawn((m) => new Map(m).set(id, entry))
+    /*
+      In the commit that brought it, before it is painted: a new section gets its place, a held one is drawn again in it.
+      Drawn again in a transition (round 32): the section's reads stream in under a Suspense boundary on the server
+      (app/app/community/[id]/<section>/page.tsx), and an urgent update would put a section already on screen back to its
+      frame until they came. In a transition React keeps what is shown until the new reads are in.
+    */
+    if (keptRef.current.includes(id)) React.startTransition(draw)
     else {
+      draw()
       keptRef.current = [...keptRef.current, id]
       setKept(keptRef.current)
+      if (aheadAt && sectionStale({ at: aheadAt, stale: false }, Date.now())) staleArrival.current = id
     }
   }, [])
   /* From the first commit on, the shell draws every section itself (SectionSeed draws only the server's first paint). */
@@ -379,13 +412,20 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 
   /* ── Showing a section ── */
   const scrolls = React.useRef(new Map<AdminSection, number>())
+  /* Where the pane was scrolled to before a switch (the scroll events come after it, from the next frame). */
+  const paneTop = React.useRef(0)
   const traversing = React.useRef(false)
   const refreshTimer = React.useRef(0)
+  /* The section on screen (the one being opened while the router brings it), for the scroll it is given and keeps. */
+  const screenRef = React.useRef<AdminSection>(active)
   /* Where each section was scrolled to, as it scrolls (read before the switch, never after: a shorter section clamps it). */
   React.useEffect(() => {
     const el = pane.current
     if (!el) return
-    const on = () => scrolls.current.set(activeRef.current, el.scrollTop)
+    const on = () => {
+      scrolls.current.set(screenRef.current, el.scrollTop)
+      paneTop.current = el.scrollTop
+    }
     el.addEventListener("scroll", on, { passive: true })
     return () => el.removeEventListener("scroll", on)
   }, [])
@@ -426,16 +466,29 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     return () => window.removeEventListener("popstate", onPop)
   }, [head.slug, show])
 
-  /* A press on a tab. */
+  /*
+    A PRESS ON A TAB. Held, or the router's own page: shown on this frame, the address moved with history (a section still
+    on its way from the router is dropped by that, as Next drops a navigation another one replaces). Never opened (round
+    32): the link goes on to the router, and the section's frame is on screen from this frame on, in its place, until the
+    section is in (usually at once: every section is read ahead as the shell mounts).
+  */
+  const fetching = React.useRef<{ id: AdminSection; at: number } | null>(null)
   const go = React.useCallback(
     (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const id = tab.id as AdminSection
       const move = sectionMove(id, { active: activeRef.current, routed: routedRef.current, held: store.current.has(id) })
-      if (move === "fetch") return
+      if (move === "fetch") {
+        fetching.current = { id, at: Date.now() }
+        show(id)
+        return
+      }
       e.preventDefault()
       if (move === "stay") return
-      window.history.pushState(null, "", tab.href)
+      fetching.current = null
+      /* Pressed again before the router's page came: the address never moved, so it is not a new entry in the history. */
+      if (window.location.pathname === tab.href) window.history.replaceState(null, "", tab.href)
+      else window.history.pushState(null, "", tab.href)
       show(id)
     },
     [show],
@@ -443,10 +496,21 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   const warm = React.useCallback(
     (tab: SectionTab) => {
       const id = tab.id as AdminSection
-      if (!store.current.has(id) && routedRef.current !== id) prefetchAppPage(router, tab.href)
+      if (store.current.has(id) || routedRef.current === id) return
+      if (!readAhead.current.has(id)) readAhead.current.set(id, Date.now())
+      prefetchAppPage(router, tab.href)
     },
     [router],
   )
+
+  /* ── The press lights the tab at once; a link inside a section going to another one shows that one's frame ── */
+  const going = useShownPath() || pathname
+  const shownSearch = useShownSearch()
+  const pendingId = sameStageFrame(pathname, going) && going !== pathname ? adminSectionOf(going) : null
+  const shown: AdminSection = pendingId ?? active
+  screenRef.current = shown
+  /* Drawn as its frame: a section asked for that the shell does not hold yet (never before the first commit, which the server drew). */
+  const framed = settled && !kept.includes(shown) ? shown : null
 
   /* A section asked for that nothing holds and the router is not bringing (Back after the shell was left): read it. */
   const asked = React.useRef<string | null>(null)
@@ -454,58 +518,64 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     const t = window.setTimeout(() => {
       const id = activeRef.current
       if (routedRef.current === id || store.current.has(id)) return
+      /* The router is bringing it: a press a moment ago, or a link inside a section. */
+      const f = fetching.current
+      if ((f && f.id === id && Date.now() - f.at < 10_000) || pendingId === id) return
       const key = `${id}:${window.location.pathname}`
       if (asked.current === key) return
       asked.current = key
       React.startTransition(() => router.refresh())
     }, 160)
     return () => window.clearTimeout(t)
-  }, [active, routed, router])
+  }, [active, routed, router, pendingId])
 
-  /* ── Reading ahead, once the first section has painted and the browser is idle ── */
+  /*
+    ── Reading ahead, as soon as the shell is on screen ──
+    Round 31 read the unopened sections once the browser was idle, two at a time, 600ms apart: on a slow phone the first
+    press often came before its section had been asked for. Now every section is asked for on the frame after the first
+    paint, in the order of the tabs. Next's prefetch queue sends four at a time (a hovered or touched tab goes to the front
+    of it, onWarm), so the server is still never asked for all of them at once. Not on Save-Data or 2G.
+  */
   const aheadAt = React.useRef(0)
   const headRef = React.useRef(head)
   headRef.current = head
-  const aheadTimers = React.useRef<number[]>([])
-  React.useEffect(() => () => aheadTimers.current.forEach((t) => window.clearTimeout(t)), [])
   React.useEffect(() => {
     if (Date.now() - aheadAt.current < SECTION_AHEAD_MS) return
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    const run = () => {
-      if (Date.now() - aheadAt.current < SECTION_AHEAD_MS || !readAheadAllowed(connectionFacts())) return
-      aheadAt.current = Date.now()
-      const due = sectionTabs(headRef.current).filter((t) => t.id !== activeRef.current && t.id !== routedRef.current && !store.current.has(t.id as AdminSection))
-      /* Two at a time, a moment apart, so the server is never asked for everything at once; a section opened meanwhile is skipped. */
-      due.forEach((t, i) =>
-        aheadTimers.current.push(
-          window.setTimeout(() => {
-            const id = t.id as AdminSection
-            if (!store.current.has(id) && routedRef.current !== id) prefetchAppPage(router, t.href)
-          }, Math.floor(i / 2) * 600),
-        ),
-      )
-    }
-    const idle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 3000 }) : window.setTimeout(run, 1200)
+    let timer = 0
+    const frame = window.requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        if (Date.now() - aheadAt.current < SECTION_AHEAD_MS || !readAheadAllowed(connectionFacts())) return
+        aheadAt.current = Date.now()
+        for (const t of sectionTabs(headRef.current)) {
+          const id = t.id as AdminSection
+          if (id === activeRef.current || id === routedRef.current || store.current.has(id)) continue
+          readAhead.current.set(id, Date.now())
+          prefetchAppPage(router, t.href)
+        }
+      }, 0)
+    })
     return () => {
-      if (w.cancelIdleCallback) w.cancelIdleCallback(idle)
-      window.clearTimeout(idle)
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
     }
     /* Again when the section shown changes, once the last read ahead is old (a save cleared the router's copies). */
   }, [active, router])
 
-  /* ── The press lights the tab at once; a section still on its way keeps the last one on screen for a moment ── */
-  const going = useShownPath() || pathname
-  const pendingId = sameStageFrame(pathname, going) && going !== pathname ? adminSectionOf(going) : null
-  const shown: AdminSection = pendingId ?? active
-  const [waiting, setWaiting] = React.useState(false)
+  /* A section that arrived from a read ahead of over a minute ago: shown as read, and read again behind it. */
   React.useEffect(() => {
-    if (!pendingId || pendingId === active) return setWaiting(false)
-    const t = window.setTimeout(() => setWaiting(true), SECTION_WAIT_MS)
+    const id = staleArrival.current
+    if (!id || id !== active || !kept.includes(id)) return
+    staleArrival.current = null
+    const t = window.setTimeout(() => {
+      if (activeRef.current === id) React.startTransition(() => router.refresh())
+    }, 350)
     return () => window.clearTimeout(t)
-  }, [pendingId, active])
+  }, [kept, active, router])
 
   /* ── Scroll and the arrival, before the frame is painted ── */
   const painted = React.useRef(false)
+  /* When the section on screen began its arrival (0 for none), for the section that takes its frame's place. */
+  const arrivedAt = React.useRef(0)
   React.useLayoutEffect(() => {
     if (!painted.current) {
       painted.current = true
@@ -513,47 +583,82 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     }
     const el = pane.current
     if (!el) return
-    el.scrollTop = scrolls.current.get(active) ?? 0
-    const screen = el.querySelector<HTMLElement>(`[data-section-screen="${active}"]`)
+    /*
+      THE ROW STAYS WHERE IT WAS (round 33). With the bar scrolled away, a section opened at its top would bring the bar
+      back and push the row of tabs, the one just pressed, 60px down. A section is shown at least as far down as the bar,
+      when the bar was out of sight, so the row stays at the top; back at the top, it is shown from the top.
+    */
+    const floor = Math.min(paneTop.current, barHeight(el))
+    el.scrollTop = Math.max(scrolls.current.get(shown) ?? 0, floor)
+    paneTop.current = el.scrollTop
+    const screen = el.querySelector<HTMLElement>(`[data-section-screen="${shown}"]`)
     const back = traversing.current
     traversing.current = false
+    arrivedAt.current = 0
     if (back || !screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    screen.animate([{ opacity: SECTION_ARRIVE_FROM, translate: `0 ${SECTION_ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }], { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
-  }, [active])
+    arrivedAt.current = performance.now()
+    screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
+  }, [shown])
+  /*
+    THE SECTION TAKING ITS FRAME'S PLACE. Its cards are where the frame's were. While the frame is still arriving the
+    section carries on that same arrival from where it had got to (so nothing jumps by what was left of the rise);
+    after it, the section comes up from 55% over 120ms with no rise.
+  */
+  const lastFramed = React.useRef<AdminSection | null>(null)
+  React.useLayoutEffect(() => {
+    const was = lastFramed.current
+    lastFramed.current = framed
+    if (!was || framed === was || was !== shown) return
+    const screen = pane.current?.querySelector<HTMLElement>(`[data-section-screen="${was}"][data-section-kept]`)
+    if (!screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const into = arrivedAt.current ? performance.now() - arrivedAt.current : Infinity
+    if (into < SECTION_ARRIVE_MS) {
+      const a = screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
+      a.currentTime = into
+      return
+    }
+    screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
+  }, [framed, shown])
 
   const hostValue = React.useMemo<HostValue>(() => ({ active, kept, settled, hold, routedHere }), [active, kept, settled, hold, routedHere])
+  const foots = useFootsUp()
 
   return (
     <ToastHost>
       <Host.Provider value={hostValue}>
-        <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={active} data-routed={routed ?? ""}>
+        <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={shown} data-routed={routed ?? ""}>
           <CommunityHeader head={head} shown={shown} onGo={go} onWarm={warm} />
-          <div className={cn("mx-auto app-gutter pb-28 pt-4 md:pb-12 lg:pt-5", SECTION_WIDTH)} data-community-body="">
+          {/*
+            ROOM FOR THE SAVE BARS (round 33): each bar that is up (./parts EditorFoot) adds FOOT_ROOM_PX under the last card,
+            so scrolled to the end nothing is under a bar; with none up the foot is as before. At least the pane's height, so
+            a short section can still be scrolled until only the row of tabs is above it (a press keeps the row in place).
+          */}
+          <div className={cn("mx-auto min-h-full pb-[calc(7rem+var(--foot-room))] pt-4 md:pb-[calc(3rem+var(--foot-room))] lg:pt-5", SHELL_GUTTER, SHELL_WIDTH)} style={{ "--foot-room": `${foots * FOOT_ROOM_PX}px` } as React.CSSProperties} data-community-body="" data-foots={foots}>
             {head.suspended ? (
               <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">{tt("Storelib suspended this community. Members cannot open it. Contact support to talk about it.")}</p>
             ) : head.archived ? (
               <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]">{tt("This community is archived. Members can read it, nobody can post. Bring it back from Settings.")}</p>
             ) : null}
-            <div data-section-screens="" className={waiting ? "hidden" : undefined}>
+            <div data-section-screens="">
               {/* The router's slot: the section's page hands its content over from here (SectionSeed). */}
               <div data-section-slot="" style={{ display: "contents" }}>
                 {children}
               </div>
               {kept.map((id) => {
-                const h = store.current.get(id)
+                const h = drawn.get(id)
                 if (!h) return null
                 return (
-                  <div key={id} data-section-screen={id} data-section-kept="" hidden={active !== id}>
+                  <div key={id} data-section-screen={id} data-section-kept="" hidden={shown !== id}>
                     <React.Fragment key={h.version}>{h.node}</React.Fragment>
                   </div>
                 )
               })}
+              {framed ? (
+                <div key={`frame:${framed}`} data-section-screen={framed} data-section-framed="">
+                  <SectionFrame id={framed} facts={frameFacts(head, shownSearch)} />
+                </div>
+              ) : null}
             </div>
-            {waiting ? (
-              <div data-section-waiting={pendingId ?? active} className="rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <ListLoading />
-              </div>
-            ) : null}
           </div>
         </div>
       </Host.Provider>
@@ -562,36 +667,50 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
 }
 
 /**
- * THE BAR AND THE ROW, held at the top of the pane while the section scrolls
- * (app/app/orders/order-parts PaneBar: a hairline and a soft shadow only once
- * something is under it).
+ * THE BAR AND THE ROW (round 33, the owner: an editor page "height narrowed"
+ * by the header, the tabs, its own back header and the save bar). The bar
+ * with the name scrolls away with the section; the row of tabs is what stays
+ * at the top of the pane (52px), with a hairline and a soft shadow only once
+ * something is under it (app/app/orders/order-parts PaneBar). Scrolled back
+ * up, the bar is there again. On a 900px screen that gives a section 60px
+ * more of the screen than round 32's header, which kept both.
  */
+/** How far the pane scrolls before the row of tabs is stuck: the height of the bar above it (it is the pane's first box). */
+function barHeight(pane: HTMLElement): number {
+  return pane.querySelector<HTMLElement>("[data-community-header]")?.offsetHeight ?? 0
+}
+
 function CommunityHeader({ head, shown, onGo, onWarm }: { head: CommunityHead; shown: AdminSection; onGo: (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => void; onWarm: (tab: SectionTab) => void }) {
   const ref = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
-    const bar = ref.current
-    const pane = bar?.closest<HTMLElement>(".orders-pane")
-    if (!bar || !pane) return
+    const row = ref.current
+    const pane = row?.closest<HTMLElement>(".orders-pane")
+    if (!row || !pane) return
     let under = false
     const read = () => {
-      const now = pane.scrollTop > 0
+      /* Stuck once the pane has scrolled past the bar above the row. */
+      const now = pane.scrollTop > Math.max(0, barHeight(pane) - 1)
       if (now === under) return
       under = now
-      bar.dataset.scrolled = now ? "true" : "false"
+      row.dataset.scrolled = now ? "true" : "false"
     }
     read()
     pane.addEventListener("scroll", read, { passive: true })
     return () => pane.removeEventListener("scroll", read)
   }, [])
   return (
-    <div ref={ref} data-orders-bar="" data-scrolled="false" data-community-header="" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
-      <div className={cn("mx-auto app-gutter pt-1.5 sm:pt-2.5 lg:pt-3.5", SECTION_WIDTH)}>
-        <CommunityBar head={head} />
-        <div className="mt-1 sm:mt-1.5">
+    <>
+      <div data-community-header="" className="bg-[#f8f9fa]">
+        <div className={cn("mx-auto pt-1.5 sm:pt-2.5 lg:pt-3", SHELL_GUTTER, SHELL_WIDTH)}>
+          <CommunityBar head={head} />
+        </div>
+      </div>
+      <div ref={ref} data-orders-bar="" data-scrolled="false" data-community-tabs-bar="" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
+        <div className={cn("mx-auto pt-1", SHELL_GUTTER, SHELL_WIDTH)}>
           <CommunityTabs head={head} active={shown} onGo={onGo} onWarm={onWarm} />
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

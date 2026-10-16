@@ -17,18 +17,52 @@
  * never a text box with a caret over the emoji. On a phone the form is the
  * New post sheet (form-sheet.tsx): Cancel and Add space in its top row, the
  * fields lifted above the keyboard.
+ *
+ * Round 32 (the owner, on a computer: "too shrunk"): from 768px the spaces
+ * are a table (./ui-kit.tsx), each fact in its own column (kind, who posts,
+ * who can see it, how many posts) instead of one long grey line, the drag
+ * handle and the arrows in the row, the menu last. Kind and Who posts are
+ * the app's own picks, never the browser's select.
+ *
+ * Round 33 (the owner: "the drag and drop arrangement must be smoother and
+ * cleaner, on phones and on a computer"). Round 27's drag was the browser's
+ * own HTML drag: nothing on a touch screen at all, on a computer a ghost
+ * picture of the row and the list reordered under the pointer on every
+ * dragover, with no motion. It is the product editor's now
+ * (app/app/products/new/hold-to-drag.ts, dnd-kit), the same as the gallery:
+ *
+ *   A MOUSE    drags a row after 4px from anywhere on it; a press without
+ *              moving still opens the row.
+ *   A FINGER   holds a row for 300ms (a short tick on the iPhone), then
+ *              drags it; a swipe before then scrolls the page as before.
+ *              Near the top or bottom of the screen the page scrolls by itself.
+ *   THE KEYS   the grip is a button: Enter lifts the row, the arrows move
+ *              it, Enter drops it, Escape puts it back, each step read out.
+ *
+ * The row under the pointer is lifted: a copy of it on a white card with a
+ * soft shadow, a touch larger, follows the pointer one to one on the
+ * compositor (DragOverlay). Where it was, a quiet slot of its height. The
+ * other rows slide out of the way on dnd-kit's own 200ms move, each cell
+ * moved rather than the row (a table row does not move in every browser).
+ * Let go, the copy settles into its slot, and the order is saved once; if
+ * the save fails, the order goes back to what it was and a line says so.
  */
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { DndContext, DragOverlay, closestCenter, useDndContext, type Announcements, type DragEndEvent, type DragStartEvent, type UniqueIdentifier } from "@dnd-kit/core"
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ArrowDown, ArrowUp, GripVertical, LayoutGrid, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
+import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "@/app/app/products/new/hold-to-drag"
+import { sortableMove, verticalOnly } from "@/lib/ui/sortable-move"
 import type { AccessRuleJson, PostRole, SpaceKind } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, RuleOptions, SpaceView } from "./view-types"
 import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
-import { Confirm, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, errorText, field, label, selectField, send, useToast } from "./parts"
+import { Confirm, Empty, ListCard, ListNote, Notice, RowMenu, SelectField, Toggle, buttonPrimary, errorText, field, label, send, useToast } from "./parts"
+import { MUTED, PHONE_LIST, TABLE, TD, TH, TR, count } from "./ui-kit"
 import { chosenEmoji } from "@/components/community/member/space-glyph"
 import { FormSheet } from "./form-sheet"
 import { IconGlyph, SpaceIconField } from "./space-icon-field"
@@ -56,6 +90,45 @@ interface Draft {
 }
 
 const blank: Draft = { id: null, name: "", description: "", icon: "", kind: "feed", postRole: "member", commentsEnabled: true, viewAccess: {} }
+
+/** After a drag, the press that ended it is not a press on the row: this long, nothing opens. */
+export const AFTER_DRAG_QUIET_MS = 350
+
+/** The lifted copy's card: white, a hairline, a soft shadow under it. */
+const LIFTED = "rounded-xl bg-white shadow-[0_16px_34px_-12px_rgba(17,24,39,0.32),0_2px_6px_rgba(17,24,39,0.08)] ring-1 ring-black/[0.06]"
+
+/** The table's column widths, once: the head, and the lifted copy's own one row table, so its cells line up with the rows under it. */
+const COLS = ["", "w-[132px]", "w-[150px]", "w-[19%]", "w-[96px]", "w-[124px]"]
+
+/** The lifted copy settles into its slot; with reduced motion it is simply there. */
+function settle(): { duration: number; easing: string } | null {
+  const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  return still ? null : { duration: 200, easing: "cubic-bezier(0.2, 0, 0, 1)" }
+}
+
+/**
+ * The space being dragged, read from the drag itself rather than from the section, so lifting a row draws the copy and the
+ * rows that move, not the whole section again (a long frame at the moment of the lift, measured).
+ */
+function LiftedCopy({ spaces, children }: { spaces: SpaceView[]; children: (space: SpaceView, index: number) => React.ReactNode }) {
+  const { active } = useDndContext()
+  const index = active ? spaces.findIndex((s) => s.id === active.id) : -1
+  return index >= 0 ? <>{children(spaces[index], index)}</> : null
+}
+
+/** The lift: the copy grows to its lifted size over 140ms once it is on the page, so it rises rather than appears. */
+function Lift({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [up, setUp] = React.useState(false)
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setUp(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  return (
+    <div className={cn(LIFTED, "cursor-grabbing transition-[scale] duration-[140ms] ease-out motion-reduce:transition-none", up ? "scale-[1.02]" : "scale-100", className)} data-space-lifted="">
+      {children}
+    </div>
+  )
+}
 
 export function SpacesSection({ head, initial, options }: { head: CommunityHead; initial: SpaceView[]; options: RuleOptions }) {
   const router = useRouter()
@@ -90,44 +163,58 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
     router.refresh()
   }
 
-  const saveOrder = async (next: SpaceView[]) => {
+  /* Saved once per move. A refusal puts the order back where it was (`was`), and says so. */
+  const saveOrder = async (next: SpaceView[], was: SpaceView[]) => {
     const res = await send(base, "PUT", { ids: next.map((x) => x.id) })
     if (!res.ok) {
+      setSpaces((now) => (now.map((x) => x.id).join() === next.map((x) => x.id).join() ? was : now))
       toast(errorText(res.data.error, tt("The order was not saved.")))
-      await reload()
     }
   }
-  const move = async (index: number, by: -1 | 1) => {
-    const next = [...spaces]
-    const [s] = next.splice(index, 1)
-    next.splice(index + by, 0, s)
+  const moveTo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= spaces.length || to >= spaces.length) return
+    const was = spaces
+    const next = arrayMove(spaces, from, to)
     setSpaces(next)
-    await saveOrder(next)
+    void saveOrder(next, was)
   }
+  const move = (index: number, by: -1 | 1) => moveTo(index, index + by)
 
-  /*
-    ROUND 27: DRAG A SPACE INTO PLACE on a computer (the arrows stay, for the keyboard and a phone). The row moves in the
-    list as it is dragged over the others, and the order is saved once, when it is let go.
-  */
-  const [dragging, setDragging] = React.useState<string | null>(null)
-  const dragStart = React.useRef<string>("")
-  const dragOver = (overId: string) => {
-    if (!dragging || overId === dragging) return
-    setSpaces((list) => {
-      const from = list.findIndex((x) => x.id === dragging)
-      const to = list.findIndex((x) => x.id === overId)
-      if (from < 0 || to < 0) return list
-      const next = [...list]
-      const [s] = next.splice(from, 1)
-      next.splice(to, 0, s)
-      return next
-    })
+  /* ── Dragging (hold-to-drag.ts, as the product editor and the gallery) ── */
+  const sensors = useHoldToDragSensors()
+  const quietUntil = React.useRef(0)
+  const ids = spaces.map((s) => s.id)
+  const place = (id: UniqueIdentifier | undefined) => (id == null ? 0 : ids.indexOf(String(id)) + 1)
+  const nameOf = (id: UniqueIdentifier) => spaces.find((s) => s.id === id)?.name ?? ""
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => tt("Picked up {name}.", { name: nameOf(active.id) }),
+    onDragOver: ({ active, over }) => (over ? tt("{name} is now at position {n} of {count}.", { name: nameOf(active.id), n: place(over.id), count: ids.length }) : undefined),
+    onDragEnd: ({ active, over }) => (over ? tt("{name} dropped at position {n} of {count}.", { name: nameOf(active.id), n: place(over.id), count: ids.length }) : tt("Dropped where it was.")),
+    onDragCancel: ({ active }) => tt("Cancelled. {name} is back where it was.", { name: nameOf(active.id) }),
   }
-  const dragEnd = () => {
-    const was = dragStart.current
-    setDragging(null)
-    const now = spaces.map((x) => x.id).join()
-    if (was && was !== now) void saveOrder(spaces)
+  const onDragStart = (e: DragStartEvent) => {
+    liftTick(e.activatorEvent)
+  }
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    quietUntil.current = Date.now() + AFTER_DRAG_QUIET_MS
+    if (!over || active.id === over.id) return
+    moveTo(ids.indexOf(String(active.id)), ids.indexOf(String(over.id)))
+  }
+  const onDragCancel = () => {
+    quietUntil.current = Date.now() + AFTER_DRAG_QUIET_MS
+  }
+  const dnd = {
+    sensors,
+    collisionDetection: closestCenter,
+    modifiers: [verticalOnly],
+    autoScroll: AUTO_SCROLL,
+    accessibility: {
+      announcements,
+      screenReaderInstructions: { draggable: tt("To move a space, press Enter on its handle, then the arrow keys. Press Enter again to drop it, or Escape to put it back.") },
+    },
+    onDragStart,
+    onDragEnd,
+    onDragCancel,
   }
 
   const setArchived = async (s: SpaceView, archived: boolean) => {
@@ -149,18 +236,67 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
   }
 
   const edit = (s: SpaceView) => {
+    /* The release that ended a drag is not a press on the row. */
+    if (Date.now() < quietUntil.current) return
     setError(null)
     setDraft({ id: s.id, name: s.name, description: s.description ?? "", icon: chosenEmoji(s.icon) ?? "", kind: s.kind, postRole: s.postRole, commentsEnabled: s.commentsEnabled, viewAccess: s.viewAccess })
   }
 
+  const postsWords = (s: SpaceView) => (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))
+
+  const glyph = (s: SpaceView) => (
+    <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6]", s.archived && "opacity-50")} data-space-glyph="">
+      <IconGlyph value={spaceGlyph(s)} size="sm" />
+    </span>
+  )
+
+  /* The arrows (a computer) and the menu: their presses stay theirs. */
+  const controls = (s: SpaceView, i: number) => (
+    <RowControls className="justify-end gap-0.5">
+      <div className="hidden items-center gap-0.5 md:flex">
+        <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => move(i, -1)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:cursor-default disabled:opacity-30">
+          <ArrowUp aria-hidden className="h-4 w-4" />
+        </button>
+        <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => move(i, 1)} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:cursor-default disabled:opacity-30">
+          <ArrowDown aria-hidden className="h-4 w-4" />
+        </button>
+      </div>
+      <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
+    </RowControls>
+  )
+
   const menu = (s: SpaceView, i: number): ActionMenuItem[] => {
     const items: ActionMenuItem[] = [{ label: tt("Edit"), onClick: () => edit(s) }]
-    if (i > 0) items.push({ label: tt("Move up"), onClick: () => void move(i, -1) })
-    if (i < spaces.length - 1) items.push({ label: tt("Move down"), onClick: () => void move(i, 1) })
+    if (i > 0) items.push({ label: tt("Move up"), onClick: () => move(i, -1) })
+    if (i < spaces.length - 1) items.push({ label: tt("Move down"), onClick: () => move(i, 1) })
     items.push(s.archived ? { label: tt("Restore"), onClick: () => void setArchived(s, false), separatorBefore: true } : { label: tt("Archive"), onClick: () => void setArchived(s, true), separatorBefore: true })
     if (s.posts === 0) items.push({ label: tt("Delete"), variant: "destructive", onClick: () => setDeleting(s) })
     return items
   }
+
+  /* What a row says, the same in its place and in the lifted copy. */
+  const words = (s: SpaceView, size: "table" | "phone") => (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className={cn("truncate font-medium", size === "table" ? "text-[14px]" : "text-[14.5px]", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
+        {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
+      </span>
+      {size === "table" ? (
+        s.description ? <span className="block truncate text-[12.5px] text-[#6b7280]">{s.description}</span> : null
+      ) : (
+        <span className="block truncate text-[12.5px] text-[#6b7280]">{[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), postsWords(s)].filter(Boolean).join(" · ")}</span>
+      )}
+    </>
+  )
+  const facts = (s: SpaceView, cell: string, style?: React.CSSProperties) => (
+    <>
+      <td className={cn(TD, cell, "truncate")} style={style}>{SPACE_KIND_LABEL[s.kind]}</td>
+      <td className={cn(TD, cell, "truncate", MUTED)} style={style}>{s.kind === "chat" ? tt("Every member") : POST_ROLE_LABEL[s.postRole]}</td>
+      <td className={cn(TD, cell, "truncate", MUTED)} style={style} title={describeRule(s.viewAccess, options)}>{describeRule(s.viewAccess, options)}</td>
+      <td className={cn(TD, cell, "text-right tabular-nums")} style={style}>{count(s.posts)}</td>
+    </>
+  )
+
 
   return (
     <div className="space-y-4" data-spaces="">
@@ -185,52 +321,106 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
             </button>
           </Empty>
         ) : (
-          <ul className="divide-y divide-[#f1f2f4]">
-            {spaces.map((s, i) => (
-              <li
-                key={s.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move"
-                  dragStart.current = spaces.map((x) => x.id).join()
-                  setDragging(s.id)
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  dragOver(s.id)
-                }}
-                onDragEnd={dragEnd}
-                onClick={rowPress(() => edit(s))}
-                className={cn("group/space flex min-h-[64px] items-center gap-3 px-4 py-2.5 transition-[background-color,opacity] duration-150 sm:px-5", ROW_PRESS, dragging === s.id && "bg-[#f6f7f8] opacity-70")}
-                data-space-row=""
-              >
-                <GripVertical aria-hidden className="-ml-1.5 hidden h-4 w-4 shrink-0 cursor-grab text-[#c4c6cc] opacity-0 transition-opacity duration-150 group-hover/space:opacity-100 sm:block" />
-                <span aria-hidden className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#f3f4f6]", s.archived && "opacity-50")} data-space-glyph="">
-                  <IconGlyph value={spaceGlyph(s)} size="sm" />
-                </span>
-                <RowOpen label={tt("Edit {name}", { name: s.name })} className="flex-1">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn("truncate text-[14.5px] font-medium", s.archived ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{s.name}</span>
-                    {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
-                  </span>
-                  <span className="block truncate text-[12.5px] text-[#6b7280]">
-                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))].filter(Boolean).join(" · ")}
-                  </span>
-                </RowOpen>
-                <RowControls className="gap-0.5">
-                  <div className="hidden items-center gap-0.5 sm:flex">
-                    <button type="button" aria-label={tt("Move {name} up", { name: s.name })} disabled={i === 0} onClick={() => void move(i, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                      <ArrowUp aria-hidden className="h-4 w-4" />
-                    </button>
-                    <button type="button" aria-label={tt("Move {name} down", { name: s.name })} disabled={i === spaces.length - 1} onClick={() => void move(i, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] disabled:opacity-30">
-                      <ArrowDown aria-hidden className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <RowMenu items={menu(s, i)} label={tt("Actions for {name}", { name: s.name })} />
-                </RowControls>
-              </li>
-            ))}
-          </ul>
+          <>
+            <DndContext {...dnd}>
+              <table className={TABLE} data-spaces-table="">
+                <thead>
+                  <tr>
+                    <th className={TH}>{tt("Space")}</th>
+                    <th className={cn(TH, COLS[1])}>{tt("Kind")}</th>
+                    <th className={cn(TH, COLS[2])}>{tt("Who posts")}</th>
+                    <th className={cn(TH, COLS[3])}>{tt("Who can see it")}</th>
+                    <th className={cn(TH, COLS[4], "text-right")}>{tt("Posts")}</th>
+                    <th className={cn(TH, COLS[5])} aria-label={tt("Actions")} />
+                  </tr>
+                </thead>
+                <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                  <tbody>
+                    {spaces.map((s, i) => (
+                      <TableRow key={s.id} space={s} onOpen={() => edit(s)}>
+                        {(cell, style, grip) => (
+                          <>
+                            <td className={cn(TD, cell, "h-[60px]")} style={style}>
+                              <div className="flex min-w-0 items-center gap-3">
+                                {grip}
+                                {glyph(s)}
+                                <RowOpen label={tt("Edit {name}", { name: s.name })} className="min-w-0 flex-1">
+                                  {words(s, "table")}
+                                </RowOpen>
+                              </div>
+                            </td>
+                            {facts(s, cell, style)}
+                            <td className={cn(TD, cell)} style={style}>{controls(s, i)}</td>
+                          </>
+                        )}
+                      </TableRow>
+                    ))}
+                  </tbody>
+                </SortableContext>
+              </table>
+              <DragOverlay dropAnimation={settle()}>
+                <LiftedCopy spaces={spaces}>
+                {(liftedSpace, liftedIndex) => (
+                  <Lift>
+                    {/* One row of the same table, so every cell is where it is under it. */}
+                    <table className="w-full table-fixed border-separate border-spacing-0">
+                      <colgroup>
+                        {COLS.map((c, k) => (
+                          <col key={k} className={c} />
+                        ))}
+                      </colgroup>
+                      <tbody>
+                        <tr>
+                          <td className={cn(TD, "h-[60px] border-t-0")}>
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span aria-hidden className="-ml-4 -mr-1.5 grid h-9 w-5 shrink-0 place-items-center text-[#9ca3af]">
+                                <GripVertical className="h-4 w-4" />
+                              </span>
+                              {glyph(liftedSpace)}
+                              <span className="block min-w-0 flex-1">{words(liftedSpace, "table")}</span>
+                            </div>
+                          </td>
+                          {facts(liftedSpace, "border-t-0")}
+                          <td className={cn(TD, "border-t-0")}>
+                            <span className="flex justify-end pr-1 text-[12.5px] tabular-nums text-[#9ca3af]">{liftedIndex + 1}</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </Lift>
+                )}
+                </LiftedCopy>
+              </DragOverlay>
+            </DndContext>
+            <DndContext {...dnd}>
+              <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                <ul className={PHONE_LIST} data-spaces-list="">
+                  {spaces.map((s, i) => (
+                    <PhoneRow key={s.id} space={s} onOpen={() => edit(s)}>
+                      {glyph(s)}
+                      <RowOpen label={tt("Edit {name}", { name: s.name })} className="flex-1">
+                        {words(s, "phone")}
+                      </RowOpen>
+                      {controls(s, i)}
+                    </PhoneRow>
+                  ))}
+                </ul>
+              </SortableContext>
+              <DragOverlay dropAnimation={settle()}>
+                <LiftedCopy spaces={spaces}>
+                {(liftedSpace) => (
+                  <Lift className="flex min-h-[64px] items-center gap-3 py-2.5 pl-1.5 pr-4">
+                    <span aria-hidden className="-mr-1.5 grid h-10 w-6 shrink-0 place-items-center text-[#9ca3af]">
+                      <GripVertical className="h-4 w-4" />
+                    </span>
+                    {glyph(liftedSpace)}
+                    <span className="block min-w-0 flex-1">{words(liftedSpace, "phone")}</span>
+                  </Lift>
+                )}
+                </LiftedCopy>
+              </DragOverlay>
+            </DndContext>
+          </>
         )}
       </ListCard>
 
@@ -271,24 +461,32 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                 <label htmlFor="sp-kind" className={label}>
                   {tt("Kind")}
                 </label>
-                <select id="sp-kind" value={draft.kind} onChange={(e) => { const kind = e.target.value as SpaceKind; setDraft({ ...draft, kind, postRole: kind === "announcements" ? "admin" : draft.postRole }) }} className={selectField}>
-                  {(["feed", "chat", "announcements", "resources"] as const).map((k) => (
-                    <option key={k} value={k}>
-                      {SPACE_KIND_LABEL[k]}
-                    </option>
-                  ))}
-                </select>
+                <SelectField
+                  id="sp-kind"
+                  name="space-kind"
+                  title={tt("Kind")}
+                  value={draft.kind}
+                  onChange={(kind) => setDraft((d) => (d ? { ...d, kind, postRole: kind === "announcements" ? "admin" : d.postRole } : d))}
+                  options={(["feed", "chat", "announcements", "resources"] as const).map((k) => ({ value: k, label: SPACE_KIND_LABEL[k] }))}
+                />
               </div>
               {draft.kind !== "chat" ? (
                 <div>
                   <label htmlFor="sp-role" className={label}>
                     {tt("Who posts")}
                   </label>
-                  <select id="sp-role" value={draft.postRole} onChange={(e) => setDraft({ ...draft, postRole: e.target.value as PostRole })} className={selectField}>
-                    <option value="member">{tt("Every member")}</option>
-                    <option value="moderator">{tt("Moderators and up")}</option>
-                    <option value="admin">{tt("Admins only")}</option>
-                  </select>
+                  <SelectField
+                    id="sp-role"
+                    name="space-role"
+                    title={tt("Who posts")}
+                    value={draft.postRole}
+                    onChange={(postRole) => setDraft((d) => (d ? { ...d, postRole } : d))}
+                    options={[
+                      { value: "member" as PostRole, label: tt("Every member") },
+                      { value: "moderator" as PostRole, label: tt("Moderators and up") },
+                      { value: "admin" as PostRole, label: tt("Admins only") },
+                    ]}
+                  />
                 </div>
               ) : null}
             </div>
@@ -299,7 +497,79 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
         ) : null}
       </FormSheet>
 
-      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action="Delete" danger busy={busy} onConfirm={() => void remove()} />
+      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete {value}?", { value: deleting?.name ?? tt("this space") })} detail={tt("Nothing was posted in it, so nothing is lost.")} action={tt("Delete")} danger busy={busy} onConfirm={() => void remove()} />
     </div>
+  )
+}
+
+/*
+  ONE ROW, SORTABLE. A mouse press or a finger's hold anywhere on the row starts it (not on its arrows or its menu, which keep
+  their presses); the keyboard starts it from the grip, which is a button of its own. The row's place is measured on the
+  row; the move is put on each cell, which every browser moves, and the cells of the row being dragged are a quiet slot.
+*/
+type Listeners = Record<string, ((e: React.SyntheticEvent) => void) | undefined>
+
+/** The pointer half of dnd-kit's listeners for the row, the keyboard half for the grip; a press inside the row's controls starts nothing. */
+function splitListeners(listeners: Listeners | undefined) {
+  const { onKeyDown, ...pointer } = listeners ?? {}
+  const row: Listeners = {}
+  for (const [name, fn] of Object.entries(pointer)) {
+    row[name] = (e: React.SyntheticEvent) => {
+      if ((e.target as Element | null)?.closest?.("[data-row-control]")) return
+      fn?.(e)
+    }
+  }
+  return { row, key: { onKeyDown } }
+}
+
+function Grip({ name, sortable, className }: { name: string; sortable: ReturnType<typeof useSortable>; className?: string }) {
+  const { key } = splitListeners(sortable.listeners as Listeners | undefined)
+  return (
+    <button
+      type="button"
+      ref={sortable.setActivatorNodeRef}
+      {...sortable.attributes}
+      {...key}
+      aria-label={tt("Move {name}", { name })}
+      /* A press on the grip is a drag or nothing: it never opens the row. */
+      onClick={(e) => e.stopPropagation()}
+      className={cn("grid shrink-0 place-items-center rounded-md text-[#c4c6cc] outline-none hover:text-[#6b7280] focus-visible:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20", HANDLE_TOUCH, className)}
+      data-space-grip=""
+    >
+      <GripVertical aria-hidden className="h-4 w-4" />
+    </button>
+  )
+}
+
+function TableRow({ space, onOpen, children }: { space: SpaceView; onOpen: () => void; children: (cell: string, style: React.CSSProperties, grip: React.ReactNode) => React.ReactNode }) {
+  const sortable = useSortable({ id: space.id })
+  const { row } = splitListeners(sortable.listeners as Listeners | undefined)
+  const style: React.CSSProperties = { ...sortableMove(sortable), position: "relative" }
+  const slot = sortable.isDragging ? "bg-[#f6f7f8] text-transparent [&>*]:invisible" : ""
+  /* At the start of the first cell, seen under the pointer or with the keyboard's focus. */
+  const grip = <Grip name={space.name} sortable={sortable} className="-ml-4 -mr-1.5 h-9 w-5 opacity-0 transition-opacity duration-150 group-hover/space:opacity-100 focus-visible:opacity-100" />
+  return (
+    <tr ref={sortable.setNodeRef} {...row} onClick={rowPress(onOpen)} className={cn(TR, "group/space select-none [-webkit-touch-callout:none]")} data-space-row="" data-lifted={sortable.isDragging ? "" : undefined}>
+      {children(slot, style, grip)}
+    </tr>
+  )
+}
+
+function PhoneRow({ space, onOpen, children }: { space: SpaceView; onOpen: () => void; children: React.ReactNode }) {
+  const sortable = useSortable({ id: space.id })
+  const { row } = splitListeners(sortable.listeners as Listeners | undefined)
+  return (
+    <li
+      ref={sortable.setNodeRef}
+      {...row}
+      onClick={rowPress(onOpen)}
+      style={sortableMove(sortable)}
+      className={cn("relative flex min-h-[64px] items-center gap-3 bg-white py-2.5 pl-1.5 pr-4", ROW_PRESS, HANDLE_TOUCH, "cursor-pointer", sortable.isDragging && "bg-[#f6f7f8] [&>*]:invisible")}
+      data-space-row=""
+      data-lifted={sortable.isDragging ? "" : undefined}
+    >
+      <Grip name={space.name} sortable={sortable} className="-mr-1.5 h-10 w-6" />
+      {children}
+    </li>
   )
 }

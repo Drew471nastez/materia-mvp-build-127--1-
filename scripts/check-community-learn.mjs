@@ -20,8 +20,8 @@
  *                and says it is theirs.
  *   BUILDER      one row per program, 72px or taller, status and access in
  *                words; the editor's cards, the lessons from the course card,
- *                and the Save bar stuck to the bottom of the screen while the
- *                page scrolls.
+ *                and the shared save bar coming up at the foot of the screen
+ *                with a change (round 33).
  *
  *   PROBE_CSS=source node scripts/check-community-learn.mjs
  */
@@ -287,17 +287,19 @@ for (const [label, vp, phone] of VIEWPORTS) {
   {
     const { p, errors } = await open(label, vp, "builder")
     const g = await p.evaluate(() => {
-      const rows = [...document.querySelectorAll("[data-program-row]")]
+      /* Changed on purpose (round 32): from 768px the programs are a table and the phone's list is hidden, so only the rows on screen count. */
+      const rows = [...document.querySelectorAll("[data-program-row]")].filter((r) => r.getBoundingClientRect().height > 0)
       return {
         n: rows.length,
         heights: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
         status: rows.map((r) => r.querySelector("[data-status]")?.getAttribute("data-status")),
-        lines: rows.map((r) => r.querySelector("[data-program-line]")?.textContent),
+        lines: rows.map((r) => r.querySelector("[data-program-line]")?.textContent ?? r.textContent),
       }
     })
-    expect(g.n === 5 && g.heights.every((h) => h >= 72), `${label} builder: one row per program, 72px or taller`, g.heights)
+    /* Changed on purpose (round 32): a table row on a computer is 64px, as every row of the admin's tables; a phone's row stays 72px or taller. */
+    expect(g.n === 5 && g.heights.every((h) => h >= (phone ? 72 : 64)), `${label} builder: one row per program, ${phone ? 72 : 64}px or taller`, g.heights)
     expect(g.status.join() === "published,published,published,published,draft", `${label} builder: Published and Draft in words`, g.status)
-    expect(/\$49 · 23 bought/.test(g.lines[1] || "") && /From level 3/.test(g.lines[2] || "") && /a course you sell/.test(g.lines[3] || ""), `${label} builder: price and buyers, the level, an attached course`, g.lines)
+    expect(/\$49 · 23 bought/.test(g.lines[1] || "") && /From level 3/.test(g.lines[2] || "") && /a course you sell/i.test(g.lines[3] || ""), `${label} builder: price and buyers, the level, an attached course`, g.lines)
     await common(p, label, "builder", phone)
     expect(errors.length === 0, `${label} builder: no page errors`, errors)
     await p.close()
@@ -308,40 +310,36 @@ for (const [label, vp, phone] of VIEWPORTS) {
     const { p, errors, calls } = await open(label, vp, "editor")
     await p.waitForSelector("[data-program-editor]")
     await sleep(500)
-    const at = async () =>
-      p.evaluate(() => {
-        const foot = document.querySelector("[data-editor-foot]").getBoundingClientRect()
-        return { footBottom: Math.round(foot.bottom), footTop: Math.round(foot.top), vh: innerHeight, scrollY: Math.round(scrollY) }
-      })
-    const top = await at()
-    await p.evaluate(() => window.scrollTo(0, 600))
-    await sleep(150)
-    const mid = await at()
+    /*
+      Changed on purpose (round 33): the editor is the product editor's two columns, its cards Details, Modules and
+      lessons, and Who can open it (five choices as cards, the Release card folded into Publish in the head), and it
+      saves with the community admin's shared save bar (creator/parts EditorFoot), which floats and comes up only with
+      something to save. scripts/check-learn-round33.mjs measures the rest.
+    */
     const g = await p.evaluate(() => ({
       cards: [...document.querySelectorAll("[data-program-editor] section h3")].map((h) => h.textContent),
       price: document.querySelector("#program-price")?.value,
       modules: document.querySelectorAll("[data-program-editor] input[value='Clay and the wheel'], [data-program-editor] input[value='Trimming']").length,
-      seg: [...document.querySelectorAll("[data-program-editor] [data-value]")].map((b) => b.textContent),
-      state: document.querySelector("[data-editor-state]")?.getAttribute("data-editor-state"),
+      choices: [...document.querySelectorAll("[data-program-editor] [data-access-card]")].map((b) => b.getAttribute("data-access-card")),
+      state: document.querySelector("[data-program-state]")?.getAttribute("data-program-state"),
+      foot: document.querySelector("[data-editor-foot]")?.getAttribute("data-foot"),
     }))
-    expect(g.cards.join() === "Details,Lessons,Who can open it,Release", `${label} editor: the product editor's cards, for a program`, g.cards)
-    expect(g.seg.join() === "Free,A level,Paid" && g.price === "49", `${label} editor: Free, A level or Paid, the price as typed`, g)
+    expect(g.cards.join() === "Details,Modules and lessons,Who can open it", `${label} editor: the product editor's cards, for a program`, g.cards)
+    expect(g.choices.join() === "free,level,paid,time,private" && g.price === "49", `${label} editor: the five choices, the price as typed`, g)
     expect(g.modules === 2 && calls.some((c) => c.includes("/api/courses/manage?productId=p2")), `${label} editor: the lessons come from the course card, by the program's id`, { modules: g.modules })
-    expect(g.state === "Published", `${label} editor: the state in words in the foot bar`, g.state)
-    expect(top.footBottom === top.vh && mid.footBottom === mid.vh && mid.scrollY > 0, `${label} editor: the Save bar stays at the bottom of the screen while the page scrolls`, { top, mid })
-    await p.evaluate(() => window.scrollTo(0, 0))
+    expect(g.state === "published" && g.foot === "down", `${label} editor: the state in words in the head, no save bar while nothing changed`, g)
     await common(p, label, "editor", phone)
-    await p.evaluate(() => {
-      const t = document.querySelector("#program-summary")
-      const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set
-      set.call(t, "Six weeks at the wheel. Changed.")
-      t.dispatchEvent(new Event("input", { bubbles: true }))
+    await p.focus("#program-title")
+    await p.keyboard.type(" again")
+    await sleep(450)
+    const dirty = await p.evaluate(() => {
+      const foot = document.querySelector("[data-editor-foot]")
+      const box = foot?.querySelector("[role=region]")?.getBoundingClientRect()
+      return { foot: foot?.getAttribute("data-foot"), state: foot?.getAttribute("data-state"), save: !document.querySelector("[data-editor-foot] [data-save-button]")?.disabled, bottom: Math.round(box?.bottom ?? 0), vh: innerHeight }
     })
-    await sleep(100)
-    const dirty = await p.evaluate(() => ({ state: document.querySelector("[data-editor-state]")?.getAttribute("data-editor-state"), save: !document.querySelector("[data-save-button]")?.disabled }))
-    expect(dirty.state === "Unsaved changes" && dirty.save, `${label} editor: a change says so and Save comes on`, dirty)
+    expect(dirty.foot === "up" && dirty.state === "dirty" && dirty.save && dirty.bottom <= dirty.vh && dirty.bottom >= dirty.vh - 80, `${label} editor: a change brings the save bar up at the foot of the screen, Save on`, dirty)
     await p.screenshot({ path: join(shots, `editor-dirty-${label}.png`) })
-    await p.evaluate(() => document.querySelector("#program-access")?.scrollIntoView({ block: "start" }))
+    await p.evaluate(() => document.querySelector("[data-editor-card='access']")?.scrollIntoView({ block: "start" }))
     await sleep(150)
     await p.screenshot({ path: join(shots, `editor-access-${label}.png`) })
     expect(errors.length === 0, `${label} editor: no page errors`, errors)

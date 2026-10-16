@@ -166,8 +166,9 @@ async function main() {
     */
     check("tabs, places and chips carry it", /if \(pressShowsAtOnce\(ev\.pointerType\)\) press\(ev\)/.test(frame) && /\{\.\.\.tabPress\}/.test(frame) && /\{\.\.\.PRESS_PROPS\}/.test(code("components/community/member/wall.tsx")) && /* Round 15: the chips' press is their own eased layer (space-chips.tsx pressChip, on the pointer landing). */ /onPointerDown: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{\s*if \(e\.button !== 0\) return\s*if \(pressShowsAtOnce\(e\.pointerType\)\) pressChip\(e\.currentTarget\)/.test(code("components/community/member/space-chips.tsx")) && /data-\[pressed\]:opacity-55/.test(code("components/community/member/ui.ts")))
     check("the chips' scroll handler only where the row switches in place (a server page hands it no function)", /\{\.\.\.\(onPick \? \{ onScroll:/.test(code("components/community/member/space-chips.tsx")))
-    /* Round 12: a place lands with a fade and a 6px rise; the join bar that a move would have held is portalled to the body. */
-    check("what arrives fades in and rises, and no fixed bar rides it", /animate-\[community-place-in_260ms/.test(frame) && /translate:0 6px/.test(frame) && /animate-\[fade-in_200ms/.test(code("components/community/public/public-frame.tsx")) && /createPortal\(bar, document\.body\)/.test(code("components/community/public/join-controls.tsx")))
+    /* Round 12: a place lands with a fade and a 6px rise; the join bar that a move would have held is portalled to the body.
+       Changed on purpose (round 33): in the Page editor's preview it goes to the preview frame's body instead (JoinSurface). */
+    check("what arrives fades in and rises, and no fixed bar rides it", /animate-\[community-place-in_260ms/.test(frame) && /translate:0 6px/.test(frame) && /animate-\[fade-in_200ms/.test(code("components/community/public/public-frame.tsx")) && /createPortal\(bar, surface \?\? document\.body\)/.test(code("components/community/public/join-controls.tsx")))
   }
 
   /* ── Invite and the social image ─────────────────────────────────────── */
