@@ -43,10 +43,15 @@ export async function checkoutLanguage(creatorId: string, back: string | null | 
   const pickedOwn = !!p && p === langs.defaultLanguage.toLowerCase()
   const asked = pickedOwn ? null : (p && langs.others.find((l) => l.toLowerCase() === p)) || pickCheckoutLanguage(langs.others, back, chosen)
   if (!asked) {
-    /* The website's own language, when it is not English: its translations of the checkout's words (translate.ts BUILT_IN_GROUPS). */
-    if (isEnglish(langs.defaultLanguage)) return { lang: langs.defaultLanguage, words: {}, map: null, available }
-    const rows = (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))
-    return { lang: langs.defaultLanguage, words: checkoutWordsFrom(translationMap(rows)), map: null, available }
+    /*
+      The website's own language: its translations of the checkout's words
+      (translate.ts BUILT_IN_GROUPS), Storelib's hand written ones included.
+      In English, only the store's own wording (Settings › Checkout ›
+      Checkout text, source "manual"): English is what the code says.
+    */
+    const english = isEnglish(langs.defaultLanguage)
+    const rows = (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => r.status === "approved" && isBuiltInWordKey(r.key) && (!english || r.source === "manual"))
+    return { lang: langs.defaultLanguage, words: rows.length ? checkoutWordsFrom(translationMap(rows)) : {}, map: null, available }
   }
   const rows = await cachedTranslations(creatorId, asked).catch(() => [])
   const map = translationMap(rows.filter((r) => r.status === "approved"))

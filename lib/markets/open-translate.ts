@@ -267,11 +267,19 @@ function languageNameEn(code: string): string {
   }
 }
 
+/** Each text's note, by its index (Storelib's own words, ./word-notes.ts); undefined when none has one. */
+type Notes = readonly (string | undefined)[] | undefined
+
+/** Said after the prompt when the texts come with notes: what a note is, and that it is never translated. */
+const NOTES_PROMPT = ` Some strings come as an object with the "text" to translate and a "note" saying what it is and where it stands (a button, a heading, a verb or a noun). Use the note to choose the right words, translate only the text, and answer with the translated text alone, never the note.`
+
 /** One batch through an OpenAI-compatible chat endpoint serving an open model. */
-async function chatBatch(url: string, key: string, model: string, texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = []): Promise<string[]> {
+async function chatBatch(url: string, key: string, model: string, texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = [], notes?: Notes): Promise<string[]> {
+  const noted = !!notes?.some(Boolean)
+  const input = noted ? JSON.stringify(texts.map((t, i) => (notes?.[i] ? { text: t, note: notes[i] } : t))) : JSON.stringify(texts)
   const json = (await post(
     `${url}/chat/completions`,
-    { model, temperature: 0.1, max_tokens: Math.min(16000, 600 + texts.join("").length * 3), messages: [{ role: "system", content: chatPrompt(from, to, keep) }, { role: "user", content: JSON.stringify(texts) }] },
+    { model, temperature: 0.1, max_tokens: Math.min(16000, 600 + texts.join("").length * 3), messages: [{ role: "system", content: chatPrompt(from, to, keep) + (noted ? NOTES_PROMPT : "") }, { role: "user", content: input }] },
     key ? { Authorization: `Bearer ${key}` } : {},
     timeoutMs,
   )) as { choices?: { message?: { content?: unknown } }[] }
@@ -284,13 +292,13 @@ async function chatBatch(url: string, key: string, model: string, texts: string[
 const HF_CHAT_MODELS = () => (env("HF_CHAT_MODEL") ? env("HF_CHAT_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : ["meta-llama/Llama-3.3-70B-Instruct", "Qwen/Qwen2.5-72B-Instruct", "meta-llama/Llama-3.1-8B-Instruct"])
 
 /** One batch through Hugging Face: an open chat model through its router, else the pair's opus-mt model, else NLLB 200. */
-async function hfBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = []): Promise<string[]> {
+async function hfBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = [], notes?: Notes): Promise<string[]> {
   const token = env("HF_TOKEN") || env("HUGGINGFACE_API_KEY")
   let last: Refused | null = null
   for (const model of HF_CHAT_MODELS()) {
     if (noChat.has(model)) continue
     try {
-      return await chatBatch(HF_ROUTER(), token, model, texts, from, to, timeoutMs, keep)
+      return await chatBatch(HF_ROUTER(), token, model, texts, from, to, timeoutMs, keep, notes)
     } catch (e) {
       last = e instanceof Refused ? e : new Refused(String(e), "failed")
       if (last.kind === "setup" || last.kind === "busy" || last.kind === "quota") throw last
@@ -323,7 +331,7 @@ async function hfBatch(texts: string[], from: string, to: string, timeoutMs: num
 }
 
 /** One batch through your own OpenAI-compatible host (TRANSLATE_LLM_URL). */
-const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = []) => chatBatch(env("TRANSLATE_LLM_URL").replace(/\/+$/, ""), env("TRANSLATE_LLM_KEY"), env("TRANSLATE_LLM_MODEL"), texts, from, to, timeoutMs, keep)
+const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = [], notes?: Notes) => chatBatch(env("TRANSLATE_LLM_URL").replace(/\/+$/, ""), env("TRANSLATE_LLM_KEY"), env("TRANSLATE_LLM_MODEL"), texts, from, to, timeoutMs, keep, notes)
 
 /* ----------------------------------------------------------------- gemini */
 
@@ -332,13 +340,13 @@ const GEMINI_MODELS = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLA
 const noGemini = new Set<string>()
 
 /** One batch through Gemini's OpenAI-compatible endpoint: the first of its models this key can use. */
-async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[]): Promise<string[]> {
+async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], notes?: Notes): Promise<string[]> {
   const key = env("GEMINI_API_KEY") || env("GOOGLE_AI_API_KEY")
   let last: Refused | null = null
   for (const model of GEMINI_MODELS()) {
     if (noGemini.has(model)) continue
     try {
-      return await chatBatch(GEMINI_URL(), key, model, texts, from, to, timeoutMs, keep)
+      return await chatBatch(GEMINI_URL(), key, model, texts, from, to, timeoutMs, keep, notes)
     } catch (e) {
       last = e instanceof Refused ? e : new Refused(String(e), "failed")
       if (last.kind !== "missing") throw last
@@ -382,12 +390,13 @@ export function deeplUnwrap(text: string, wasMarkup: boolean): string {
   return wasMarkup ? out : unescapeHtml(out)
 }
 
-async function deeplBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[]): Promise<string[]> {
+/** `context`: what the texts are (DeepL's own field: read for the meaning, never translated or billed). */
+async function deeplBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], context?: string): Promise<string[]> {
   const key = env("DEEPL_API_KEY")
   const url = env("DEEPL_URL").replace(/\/+$/, "") || (key.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com")
   const json = (await post(
     `${url}/v2/translate`,
-    { text: texts.map((t) => deeplWrap(t, keep)), target_lang: deeplTarget(to), ...(from && from !== "auto" ? { source_lang: baseLanguage(from).toUpperCase() } : {}), tag_handling: "html", ignore_tags: ["x"], preserve_formatting: true },
+    { text: texts.map((t) => deeplWrap(t, keep)), target_lang: deeplTarget(to), ...(from && from !== "auto" ? { source_lang: baseLanguage(from).toUpperCase() } : {}), ...(context ? { context } : {}), tag_handling: "html", ignore_tags: ["x"], preserve_formatting: true },
     { Authorization: `DeepL-Auth-Key ${key}` },
     timeoutMs,
   )) as { translations?: { text?: unknown }[] }
@@ -499,58 +508,99 @@ async function translateRuns(p: OpenProvider, runs: string[], from: string, to: 
 }
 
 /**
- * One batch of whole texts through one translator. Gemini, DeepL and the
- * chat models get them whole and are checked to have kept every fixed part;
- * one that did not, and every text for the others, goes as its runs of words.
+ * A text and its note as one unit: the same words with another note are
+ * another unit, translated and remembered apart ("Pay {shop}" as a verb is
+ * not the noun a bare "Pay" might be). A text with no note is itself, so
+ * translation_memory reads as it always did for the store's own texts.
  */
-async function translateBatch(p: OpenProvider, texts: string[], from: string, to: string, ms: number, keep: string[], offers: Set<string> | null): Promise<Map<string, string>> {
+const NOTE_MARK = "␟"
+export const unitOf = (text: string, note?: string) => (note ? `${text}${NOTE_MARK}${note}` : text)
+const textOf = (unit: string) => {
+  const at = unit.indexOf(NOTE_MARK)
+  return at < 0 ? unit : unit.slice(0, at)
+}
+const noteOf = (unit: string) => {
+  const at = unit.indexOf(NOTE_MARK)
+  return at < 0 ? undefined : unit.slice(at + 1)
+}
+
+/** Whole texts through a translator that reads them whole, with their notes: DeepL takes one context a call, so its texts go grouped by note. */
+async function wholeBatch(p: OpenProvider, texts: string[], notes: Notes, from: string, to: string, ms: number, keep: string[]): Promise<string[]> {
+  if (p === "gemini") return geminiBatch(texts, from, to, ms, keep, notes)
+  if (p === "llm") return llmBatch(texts, from, to, ms, keep, notes)
+  if (p !== "deepl") return hfBatch(texts, from, to, ms, keep, notes)
+  if (!notes?.some(Boolean)) return deeplBatch(texts, from, to, ms, keep)
+  const answer: string[] = new Array(texts.length).fill("")
+  const byNote = new Map<string, number[]>()
+  texts.forEach((_, i) => byNote.set(notes[i] ?? "", [...(byNote.get(notes[i] ?? "") ?? []), i]))
+  for (const [note, at] of byNote) {
+    const got = await deeplBatch(at.map((i) => texts[i]), from, to, ms, keep, note || undefined)
+    at.forEach((i, j) => (answer[i] = got[j] ?? ""))
+  }
+  return answer
+}
+
+/**
+ * One batch of whole texts through one translator. Gemini, DeepL and the
+ * chat models get them whole, with their notes, and are checked to have kept
+ * every fixed part; one that did not, and every text for the others, goes as
+ * its runs of words. Answered by unit (unitOf).
+ */
+async function translateBatch(p: OpenProvider, units: string[], from: string, to: string, ms: number, keep: string[], offers: Set<string> | null): Promise<Map<string, string>> {
   const got = new Map<string, string>()
-  let rest = texts
+  let rest = units
   if (WHOLE.has(p)) {
-    const answer = p === "gemini" ? await geminiBatch(texts, from, to, ms, keep) : p === "deepl" ? await deeplBatch(texts, from, to, ms, keep) : p === "llm" ? await llmBatch(texts, from, to, ms, keep) : await hfBatch(texts, from, to, ms, keep)
-    texts.forEach((t, i) => {
+    const texts = units.map(textOf)
+    const notes = units.some((u) => noteOf(u)) ? units.map(noteOf) : undefined
+    const answer = await wholeBatch(p, texts, notes, from, to, ms, keep)
+    units.forEach((u, i) => {
+      const t = texts[i]
       const a = answer[i]?.trim()
-      if (a && keepsFixedParts(t, a) && keep.every((k) => !t.includes(k) || a.includes(k))) got.set(t, a)
+      if (a && keepsFixedParts(t, a) && keep.every((k) => !t.includes(k) || a.includes(k))) got.set(u, a)
     })
-    rest = texts.filter((t) => !got.has(t))
+    rest = units.filter((u) => !got.has(u))
     if (rest.length === 0) return got
   }
-  const parts = new Map(rest.map((t) => [t, cut(t, keep)]))
+  const parts = new Map(rest.map((u) => [u, cut(textOf(u), keep)]))
   const runs = [...new Set([...parts.values()].flatMap(wordsOf))]
   const words = await translateRuns(p, runs, from, to, ms, keep, offers)
-  for (const [t, ps] of parts) {
+  for (const [u, ps] of parts) {
     const joined = join(ps, (w) => words.get(w))
-    if (joined !== null) got.set(t, joined)
+    if (joined !== null) got.set(u, joined)
   }
   return got
 }
 
 /**
  * Translates `texts` from `from` into `to`, keeping `keep` (the store's
- * name) as written. No batch starts after `deadlineAt`.
+ * name) as written. No batch starts after `deadlineAt`. `notes`, by index:
+ * what each text is, for the translators that read context (Storelib's own
+ * words, ./word-notes.ts); the others translate the text alone.
  */
-export async function translateOpen(texts: string[], from: string, to: string, opts: { keep?: string[]; deadlineAt?: number; concurrency?: number } = {}): Promise<OpenResult> {
+export async function translateOpen(texts: string[], from: string, to: string, opts: { keep?: string[]; deadlineAt?: number; concurrency?: number; notes?: readonly (string | undefined)[] } = {}): Promise<OpenResult> {
   const out = new Map<number, string>()
   const providers = openProviders()
   if (providers.length === 0) return { out, unavailable: OPEN_NOT_SET_UP, busy: false, remembered: 0 }
   const keep = (opts.keep ?? []).filter((k) => k && k.trim().length >= 2)
-  const unique = [...new Set(texts)]
+  const units = texts.map((t, i) => unitOf(t, opts.notes?.[i]))
+  const unique = [...new Set(units)]
   const done = await recall(from, to, unique)
   const remembered = done.size
   /* Nothing to translate in it (a price, a code, a mark): it is its own translation. */
-  for (const t of unique) if (!done.has(t) && wordsOf(cut(t, keep)).length === 0) done.set(t, t)
-  const todo = unique.filter((t) => !done.has(t))
+  for (const u of unique) if (!done.has(u) && wordsOf(cut(textOf(u), keep)).length === 0) done.set(u, textOf(u))
+  const todo = unique.filter((u) => !done.has(u))
 
   const batches: string[][] = []
   let b: string[] = []
   let size = 0
-  for (const t of todo) {
+  for (const u of todo) {
+    const t = textOf(u)
     if (b.length && (b.length >= BATCH_ITEMS || size + t.length > BATCH_CHARS)) {
       batches.push(b)
       b = []
       size = 0
     }
-    b.push(t)
+    b.push(u)
     size += t.length
   }
   if (b.length) batches.push(b)
@@ -583,8 +633,8 @@ export async function translateOpen(texts: string[], from: string, to: string, o
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.concurrency ?? 3, batches.length)) }, run))
-  texts.forEach((t, i) => {
-    const v = done.get(t)
+  units.forEach((u, i) => {
+    const v = done.get(u)
     if (v !== undefined) out.set(i, v)
   })
   /* Said only when nothing at all came through: a few refused batches among many are simply left for the next round. */

@@ -36,6 +36,7 @@ import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
 import { compatFields } from "./compat"
 import { markTranslationsChanged, queueMissing } from "./translate-queue"
+import { withCurated } from "./curated-words"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -186,7 +187,19 @@ export async function saveLocalization(db: Db, creatorId: string, input: unknown
   return { ok: true, value: v }
 }
 
+/**
+ * One language's translations as everything reads them: the saved rows with
+ * Storelib's hand written shop and checkout words laid in (./curated-words.ts),
+ * so the live site, the Translate sheet and the automatic run all see a
+ * written word as done. A word the merchant wrote stays theirs.
+ */
 export async function translationsOf(db: Db, creatorId: string, locale: string): Promise<{ ready: boolean; rows: TranslationRow[] }> {
+  const saved = await savedTranslations(db, creatorId, locale)
+  return { ready: saved.ready, rows: withCurated(saved.rows, locale) }
+}
+
+/** The rows saved for one language, and nothing else. */
+export async function savedTranslations(db: Db, creatorId: string, locale: string): Promise<{ ready: boolean; rows: TranslationRow[] }> {
   const rows: TranslationRow[] = []
   for (let from = 0; from < 20_000; from += 1000) {
     const { data, error } = await db
@@ -445,10 +458,15 @@ export function cachedLocalization(creatorId: string, baseCurrency: string): Pro
   })()
 }
 
-/** One language's values for the live website, cached until one of them is saved again. */
+/**
+ * One language's values for the live website, cached until one of them is
+ * saved again. The saved rows are what is held; the hand written words are
+ * laid in after, so a deploy that corrects one shows it at once rather than
+ * after a copy held from before it runs out.
+ */
 export function cachedTranslations(creatorId: string, locale: string): Promise<TranslationRow[]> {
-  return unstable_cache(async () => (await translationsOf(createAdminClient(), creatorId, locale)).rows, ["site-translations", creatorId, locale.toLowerCase()], {
+  return unstable_cache(async () => (await savedTranslations(createAdminClient(), creatorId, locale)).rows, ["site-translations", creatorId, locale.toLowerCase()], {
     tags: [translationsTag(creatorId, locale)],
     revalidate: 300,
-  })()
+  })().then((rows) => withCurated(rows, locale))
 }

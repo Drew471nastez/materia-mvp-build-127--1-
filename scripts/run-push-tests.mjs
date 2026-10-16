@@ -43,6 +43,8 @@ const SUITES = [
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
+  /* The shop's and the checkout's words written by hand, a note for every other language's translator, and Settings › Checkout › Checkout text (the owner: "Salariul AndrewRullz" above the total). */
+  "tests/checkout-words-curated.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
