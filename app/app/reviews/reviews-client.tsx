@@ -465,21 +465,21 @@ export function ReviewsClient({
 
       {selected.size > 0 ? (
         <div className="pointer-events-none sticky bottom-[calc(var(--app-nav-room,0px)+12px)] z-20 mt-3 flex justify-center" data-reviews-bulk="">
-          <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-[#111113] p-1.5 pl-3.5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_12px_32px_-8px_rgba(0,0,0,0.45)] orders-strip">
-            <span className="shrink-0 pr-1 text-[13px] font-medium tabular-nums">{tt("{n} selected", { n: selected.size })}</span>
+          <div className="pointer-events-auto flex w-full flex-wrap items-center gap-1 rounded-2xl bg-[#111113] p-1.5 pl-3.5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_12px_32px_-8px_rgba(0,0,0,0.45)] md:w-auto md:flex-nowrap">
+            <span className="flex-1 pr-1 text-[13px] font-medium tabular-nums max-md:basis-[calc(100%-48px)] md:flex-none">{tt("{n} selected", { n: selected.size })}</span>
             {offered.map((a) => (
               <button
                 key={a}
                 type="button"
                 onClick={() => (a === "delete" ? setDeleting(chosen.filter(planDeletes)) : void bulk(a))}
-                className={cn("h-9 shrink-0 rounded-xl px-3 text-[13px] font-medium transition-colors", a === "delete" ? "text-[#ffb4a8] hover:bg-white/10" : "hover:bg-white/10")}
+                className={cn("h-10 shrink-0 rounded-xl px-3 text-[14px] font-medium transition-colors max-md:order-2 md:h-9 md:text-[13px]", a === "delete" ? "text-[#ffb4a8] hover:bg-white/10" : "hover:bg-white/10")}
                 data-bulk-action={a}
               >
                 {BULK_LABEL[a]()}
               </button>
             ))}
-            {offered.length === 0 ? <span className="shrink-0 px-2 text-[13px] text-white/60">{tt("Nothing to change for these")}</span> : null}
-            <button type="button" onClick={() => setSelected(new Set())} aria-label={tt("Clear selection")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl hover:bg-white/10">
+            {offered.length === 0 ? <span className="shrink-0 px-2 text-[13px] text-white/60 max-md:order-2">{tt("Nothing to change for these")}</span> : null}
+            <button type="button" onClick={() => setSelected(new Set())} aria-label={tt("Clear selection")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-white/10 max-md:order-1 md:h-9 md:w-9">
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>

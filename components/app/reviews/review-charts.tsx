@@ -11,8 +11,9 @@
  * keyboard and lists every series at that point, and a table of the same
  * numbers a press away, so nothing is read from colour or hover alone.
  *
- *   VolumeChart        reviews written per day, week or month (columns),
- *                      the previous period as a line through the same slots
+ *   VolumeChart        reviews written per day, week or month (columns);
+ *                      the previous period's count in the readout and the
+ *                      table, not drawn over the columns
  *   RatingTrend        the mean rating per slot (a line, a gap where nothing
  *                      was written), on a fixed 1 to 5 scale
  *   Distribution       how many of each rating (bars, five first)
@@ -111,7 +112,7 @@ const PAD = { top: 12, right: 8, bottom: 24, left: 36 }
 export function VolumeChart({ series, previous, granularity }: { series: SeriesPoint[]; previous: SeriesPoint[] | null; granularity: Granularity }) {
   const [ref, width] = useWidth()
   const [hover, setHover] = React.useState<number | null>(null)
-  const top = niceMax(Math.max(0, ...series.map((s) => s.count), ...(previous ?? []).map((s) => s.count)))
+  const top = niceMax(Math.max(0, ...series.map((s) => s.count)))
   const innerW = width - PAD.left - PAD.right
   const innerH = H - PAD.top - PAD.bottom
   const band = innerW / Math.max(1, series.length)
@@ -120,7 +121,6 @@ export function VolumeChart({ series, previous, granularity }: { series: SeriesP
   const cx = (i: number) => PAD.left + band * i + band / 2
   const ticks = [0, top / 3, (2 * top) / 3, top]
   const labelEvery = Math.max(1, Math.ceil(series.length / Math.max(2, Math.floor(innerW / 64))))
-  const line = previous && previous.length === series.length ? previous.map((p, i) => `${i ? "L" : "M"}${cx(i)},${y(p.count)}`).join("") : null
   const readout: Readout | null =
     hover === null || !series[hover]
       ? null
@@ -147,7 +147,6 @@ export function VolumeChart({ series, previous, granularity }: { series: SeriesP
         {series.map((s, i) => (
           <path key={s.start} d={column(cx(i) - barW / 2, y(s.count), barW, y(0) - y(s.count))} fill={ACCENT} opacity={hover === null || hover === i ? 1 : 0.55} />
         ))}
-        {line ? <path d={line} fill="none" stroke={COMPARED} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" /> : null}
         {series.map((s, i) =>
           i % labelEvery === 0 ? (
             <text key={`l${s.start}`} x={cx(i)} y={H - 6} textAnchor="middle" fontSize={11} fill={AXIS_TEXT}>

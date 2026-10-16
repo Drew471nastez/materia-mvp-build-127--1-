@@ -18,7 +18,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { formatNumber, formatPercent } from "@/lib/i18n/format"
-import { RANGE_KEYS, change, distribution, granularityFor, reviewSeries, summarize, type Period, type RangeKey, type ReviewPoint, type RequestPoint } from "@/lib/reviews/analytics"
+import { RANGE_KEYS, change, distribution, granularityFor, ratingTrend, reviewSeries, summarize, type Period, type RangeKey, type ReviewPoint, type RequestPoint } from "@/lib/reviews/analytics"
 import { card } from "@/app/app/orders/order-parts"
 import { ACCENT, COMPARED, Distribution, Funnel, Legend, RatingTrend, VolumeChart, slotLabel } from "./review-charts"
 import { REVIEWS_BODY } from "./reviews-nav"
@@ -70,6 +70,8 @@ export function ReviewsAnalytics({ initial }: { initial: AnalyticsData }) {
   const before = summarize(data.reviews, data.requests, data.previous)
   const series = reviewSeries(data.reviews, data.period, g)
   const prevSeries = reviewSeries(data.reviews, data.previous, g)
+  const trend = ratingTrend(data.reviews, data.period, g)
+  const prevTrend = ratingTrend(data.reviews, data.previous, g)
   const inNow = data.reviews.filter((r) => Date.parse(r.created_at) >= data.period.from && Date.parse(r.created_at) < data.period.to)
   const inBefore = data.reviews.filter((r) => Date.parse(r.created_at) >= data.previous.from && Date.parse(r.created_at) < data.previous.to)
   const dist = distribution(inNow.map((r) => r.rating))
@@ -130,13 +132,13 @@ export function ReviewsAnalytics({ initial }: { initial: AnalyticsData }) {
           <Figure label={tt("Verified purchases")} value={now.verifiedShare === null ? tt("None") : formatPercent(now.verifiedShare, 0)} delta={change(now.verifiedShare, before.verifiedShare)} kind="share" />
           <Figure label={tt("With photos or video")} value={now.mediaShare === null ? tt("None") : formatPercent(now.mediaShare, 0)} delta={change(now.mediaShare, before.mediaShare)} kind="share" />
           <Figure label={tt("Emails delivered")} value={now.funnel.deliveryRate === null ? tt("None sent") : formatPercent(now.funnel.deliveryRate, 0)} delta={change(now.funnel.deliveryRate, before.funnel.deliveryRate)} kind="share" />
-          <Figure label={tt("Emails that led to a review")} value={now.funnel.submissionRate === null ? tt("None sent") : formatPercent(now.funnel.submissionRate, 0)} delta={change(now.funnel.submissionRate, before.funnel.submissionRate)} kind="share" />
+          <Figure label={tt("Led to a review")} value={now.funnel.submissionRate === null ? tt("None sent") : formatPercent(now.funnel.submissionRate, 0)} delta={change(now.funnel.submissionRate, before.funnel.submissionRate)} kind="share" />
         </section>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           <ChartCard
             title={tt("Reviews written")}
-            legend={<Legend items={[{ label: tt("This period"), color: ACCENT }, { label: tt("The period before"), color: COMPARED, line: true }]} />}
+            note={tt("{n} in the period before", { n: formatNumber(before.count) })}
             table={
               <Table
                 head={[tt("Period"), tt("Reviews"), tt("The period before")]}
@@ -147,16 +149,16 @@ export function ReviewsAnalytics({ initial }: { initial: AnalyticsData }) {
             <VolumeChart series={series} previous={prevSeries} granularity={g} />
           </ChartCard>
           <ChartCard
-            title={tt("Average rating")}
+            title={g === "day" ? tt("Average rating, last 7 days") : tt("Average rating")}
             legend={<Legend items={[{ label: tt("This period"), color: ACCENT, line: true }, { label: tt("The period before"), color: COMPARED, line: true }]} />}
             table={
               <Table
                 head={[tt("Period"), tt("Average"), tt("Reviews")]}
-                rows={series.map((s) => [slotLabel(s.start, g, g === "month"), s.average === null ? tt("None") : formatNumber(s.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), formatNumber(s.count)])}
+                rows={trend.map((s) => [slotLabel(s.start, g, g === "month"), s.average === null ? tt("None") : formatNumber(s.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 }), formatNumber(s.count)])}
               />
             }
           >
-            {now.count ? <RatingTrend series={series} previous={prevSeries} granularity={g} /> : <EmptyChart />}
+            {now.count ? <RatingTrend series={trend} previous={prevTrend} granularity={g} /> : <EmptyChart />}
           </ChartCard>
           <ChartCard
             title={tt("Ratings")}
@@ -221,13 +223,16 @@ function Figure({ label, value, delta, kind }: { label: string; value: string; d
   )
 }
 
-function ChartCard({ title, legend, table, children }: { title: string; legend?: React.ReactNode; table: React.ReactNode; children: React.ReactNode }) {
+function ChartCard({ title, note, legend, table, children }: { title: string; note?: string; legend?: React.ReactNode; table: React.ReactNode; children: React.ReactNode }) {
   const [asTable, setAsTable] = React.useState(false)
   return (
     <section className={cn(card, "min-w-0 p-4 sm:p-5")} aria-label={title}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h2>
-        <button type="button" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable} className="h-8 rounded-lg px-2.5 text-[12.5px] font-medium text-[#4b5563] hover:bg-[#f4f5f7]">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{title}</h2>
+          {note ? <p className="text-[12.5px] text-[#6b7280]">{note}</p> : null}
+        </div>
+        <button type="button" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable} className="h-9 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#f4f5f7] md:h-8 md:text-[12.5px]">
           {asTable ? tt("Chart") : tt("Table")}
         </button>
       </div>

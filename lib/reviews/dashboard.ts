@@ -39,6 +39,7 @@ export const PAGE_SIZE = 20
 export const MAX_BULK = 100
 
 export interface ModeratedRow {
+  featured?: unknown
   status?: unknown
   site_status?: unknown
   hidden_by?: unknown
@@ -214,9 +215,10 @@ export function planModeration(review: ReviewForModeration, action: ModerationAc
     case "hide":
       return hideChange(review, now)
     case "feature":
+      if (review.featured === true) return { kind: "noop", reason: "already_featured" }
       return review.status === "published" ? { kind: "change", change: { featured: true } } : { kind: "noop", reason: "not_published" }
     case "unfeature":
-      return { kind: "change", change: { featured: false } }
+      return review.featured === true ? { kind: "change", change: { featured: false } } : { kind: "noop", reason: "not_featured" }
     case "delete":
       if (isVerifiedReview(review)) return { kind: "refuse", status: 403, error: "A verified buyer's review can't be deleted. Hide it on your website, or report it to Storelib." }
       if (b === "reported") return { kind: "refuse", status: 409, error: REPORTED }

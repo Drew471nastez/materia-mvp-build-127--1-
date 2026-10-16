@@ -119,8 +119,8 @@ export function ReviewsOverview({ data, products, app }: { data: OverviewData; p
       </section>
 
       {data.pending > 0 ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#f3f0ff] px-4 py-3 sm:px-5" data-overview-waiting="">
-          <p className="text-[14px] text-[#3b2a7a]">{tt("{n, plural, one {# review is waiting for you to approve it.} other {# reviews are waiting for you to approve them.}}", { n: data.pending })}</p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-[0_0_0_1px_rgba(16,24,40,0.06)] sm:px-5" data-overview-waiting="">
+          <p className="text-[14px] text-[#1a1a2e]">{tt("{n, plural, one {# review is waiting for you to approve it.} other {# reviews are waiting for you to approve them.}}", { n: data.pending })}</p>
           <Link href={`${list}?tab=pending`} className={cn(buttonPrimary, "h-9 px-3.5 max-md:h-10")}>
             {tt("Review them")}
           </Link>

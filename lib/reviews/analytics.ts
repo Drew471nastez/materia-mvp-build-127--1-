@@ -9,7 +9,10 @@
  *   volume        reviews written, by day, week or month (granularity: a
  *                 day up to 31 days, a week up to 120, else a month)
  *   average       the mean rating of the reviews written in each bucket;
- *                 a bucket with none has no average (a gap, never a zero)
+ *                 a bucket with none has no average (a gap, never a zero).
+ *                 The trend line reads it over the last seven days at each
+ *                 day (ratingTrend), so one review does not swing it from
+ *                 five to one and back
  *   distribution  how many of each rating
  *   verified      the share tied to a real order
  *   media         the share with a photo or a video
@@ -129,6 +132,27 @@ export function reviewSeries(reviews: readonly ReviewPoint[], p: Period, g: Gran
     sums[lo].sum += r.rating
   }
   return buckets.map((b, i) => ({ ...b, count: sums[i].n, average: sums[i].n ? round1(sums[i].sum / sums[i].n) : null }))
+}
+
+/** The rolling window the trend reads at each day: seven days. A week or a month is read on its own. */
+export const TREND_DAYS = 7
+
+/**
+ * The mean rating at each bucket: by day, of the reviews written in the
+ * seven days up to that day's end (reviews before the period count for its
+ * first days); by week or month, of that bucket's own. Null where there
+ * are none in the window.
+ */
+export function ratingTrend(reviews: readonly ReviewPoint[], p: Period, g: Granularity = granularityFor(p)): SeriesPoint[] {
+  const own = reviewSeries(reviews, p, g)
+  if (g !== "day") return own
+  const times = reviews.map((r) => ({ t: Date.parse(r.created_at), rating: r.rating })).filter((r) => Number.isFinite(r.t))
+  return own.map((b) => {
+    const from = b.end - TREND_DAYS * DAY_MS
+    const inWindow = times.filter((r) => r.t >= from && r.t < b.end)
+    const sum = inWindow.reduce((a, r) => a + r.rating, 0)
+    return { ...b, count: inWindow.length, average: inWindow.length ? round1(sum / inWindow.length) : null }
+  })
 }
 
 /** How many of each rating, five first. */

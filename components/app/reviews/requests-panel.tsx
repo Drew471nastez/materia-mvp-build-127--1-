@@ -425,7 +425,7 @@ function EmailSettings({ settings, onSaved }: { settings: ReviewsAppSettings; on
             {request.reminder ? (
               <div className="flex rounded-lg bg-[#eceef1] p-0.5" role="tablist" aria-label={tt("Which email")}>
                 {(["first", "reminder"] as const).map((w) => (
-                  <button key={w} type="button" role="tab" aria-selected={which === w} onClick={() => setWhich(w)} className={cn("h-8 rounded-md px-2.5 text-[12.5px] font-medium", which === w ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#4b5563]")}>
+                  <button key={w} type="button" role="tab" aria-selected={which === w} onClick={() => setWhich(w)} className={cn("h-9 rounded-md px-2.5 text-[13px] font-medium md:h-8 md:text-[12.5px]", which === w ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#4b5563]")}>
                     {w === "first" ? tt("First email") : tt("Reminder")}
                   </button>
                 ))}
