@@ -181,7 +181,7 @@ function Preview({ d, compact }: { d: WizardDraft; compact?: boolean }) {
           )}
         </span>
         <p className="truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{name}</p>
-        <p className="truncate text-[12.5px] text-[#8a8f98]">storelib.com/community/{addressOf(d) || "your-community"}</p>
+        <p className="truncate text-[12.5px] text-[#8a8f98]">{"storelib.com/community/"}{addressOf(d) || "your-community"}</p>
         {d.description.trim() && !compact ? <p className="mt-2 line-clamp-3 text-[13px] leading-5 text-[#4b5563]">{d.description.trim()}</p> : null}
         <p className="mt-3 flex items-center gap-2 text-[12.5px] text-[#6b7280]">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#e0a100]" />
@@ -489,7 +489,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
                       {tt("Address")}
                     </label>
                     <div className={cn("flex h-11 min-w-0 items-center rounded-lg border border-[#e1e3e7] bg-white shadow-[0_1px_0_rgba(17,24,39,0.04)] transition-[border-color,box-shadow] focus-within:border-[#1a1a2e]/50 focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.07)] sm:h-10", err("slug") && "border-[#dc2626]")}>
-                      <span className="shrink-0 pl-3 text-[14px] text-[#8a8f98] max-[380px]:hidden">storelib.com/community/</span>
+                      <span className="shrink-0 pl-3 text-[14px] text-[#8a8f98] max-[380px]:hidden">{"storelib.com/community/"}</span>
                       <span className="shrink-0 pl-3 text-[14px] text-[#8a8f98] min-[381px]:hidden">…/</span>
                       <input id="c-slug" value={draft.slugEdited ? draft.slug : slugify(draft.name)} onChange={(e) => { const v = e.target.value.toLowerCase().replace(/\s+/g, "-").slice(0, 48); setDraft((d) => ({ ...d, slug: v, slugEdited: true })); if (errors.slug) setErrors((x) => ({ ...x, slug: undefined })) }} onBlur={() => { if (!draft.slug.trim()) setDraft((d) => ({ ...d, slug: "", slugEdited: false })) }} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="your-community" aria-invalid={!!err("slug") || undefined} aria-describedby="c-slug-state" className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] font-medium text-[#1a1a2e] outline-none placeholder:font-normal placeholder:text-[#a2a7b0] sm:text-[14px]" />
                     </div>
