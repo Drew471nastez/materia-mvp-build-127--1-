@@ -17,6 +17,7 @@ import {
   Sparkles,
   Store,
   Globe,
+  LifeBuoy,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -430,7 +431,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * from md up, where the rail beside the page already has a Settings row
    * (and the bar a gear), so a third way to the same page was a line of the
    * menu spent on nothing. The phone's sheet keeps it (mobile-account-menu).
-   * No Help either, on any size.
+   * Help is not a row of this list: it sits under Language, below.
    */
   const profileDropdownItems = [
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
@@ -539,6 +540,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
             <span>{t("settings.language")}</span>
           </button>
+          <Link
+            href="/help"
+            onClick={() => {
+              setProfileDropdownOpen(false)
+              onItemClick?.()
+            }}
+            data-account-item="help"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+          >
+            <LifeBuoy className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+            <span>{tt("Help")}</span>
+          </Link>
           <div className="my-1 h-px bg-neutral-100" />
           <button
             onClick={() => {
@@ -724,6 +737,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span>{t("settings.language")}</span>
                 </button>
+                {/*
+                  HELP, AFTER LANGUAGE. The Help Center as a page of its own, in
+                  this tab, the way Library opens: a client navigation, so in the
+                  app it is the WebView's next page (the hardware back and the
+                  iOS swipe come back here) and on the web the browser's Back
+                  does. The Help Center's band has the way back to the dashboard
+                  (components/help/help-dashboard-link).
+                */}
+                <Link
+                  href="/help"
+                  onClick={() => setHeaderProfileOpen(false)}
+                  data-account-item="help"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                >
+                  <LifeBuoy className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>{tt("Help")}</span>
+                </Link>
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {

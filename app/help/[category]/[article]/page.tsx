@@ -138,7 +138,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
                 More in {own?.title ?? category.title}
               </h2>
               <ArticleRows articles={siblings.slice(0, 6)} />
-              <Link href={`/help/${category.slug}`} className="mt-3 inline-block text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
+              <Link href={`/help/${category.slug}`} className="mt-1 inline-flex min-h-11 items-center text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
                 All {category.title.toLowerCase()} articles
               </Link>
             </section>

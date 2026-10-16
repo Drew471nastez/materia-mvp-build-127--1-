@@ -3,13 +3,14 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronDown, Compass, CreditCard, Globe, Library, LogOut, Settings } from "lucide-react"
+import { ChevronDown, Compass, CreditCard, Globe, Library, LifeBuoy, LogOut, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BottomSheet, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { openStorelibPage } from "@/lib/navigation/cross-section"
+import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 import { tt } from "@/lib/i18n/text"
@@ -108,10 +109,10 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     return () => window.clearTimeout(t)
   }, [mobileProfileDropdownOpen, router])
   /*
-   * Help left the account menu at every size. Settings stays here, on a
-   * phone, where no rail sits beside the page to hold it; the desktop
-   * dropdown leaves it to the rail (components/app/sidebar.tsx), which
-   * already has a Settings row.
+   * Settings stays here, on a phone, where no rail sits beside the page to
+   * hold it; the desktop dropdown leaves it to the rail
+   * (components/app/sidebar.tsx), which already has a Settings row. Help is
+   * its own row under Language, as on the desktop dropdown.
    */
   const items = useMemo(() => [
     { href: "/app/settings", label: settingsLabel, icon: Settings },
@@ -227,6 +228,18 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
           <Globe className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
           <span>{languageLabel}</span>
         </button>
+        {/* The Help Center as its own page, in the WebView like Library: the hardware back and the swipe return to this screen. */}
+        <Link
+          href="/help"
+          prefetch={false}
+          onPointerDown={() => prefetchHref(router, "/help", "press")}
+          onClick={() => setMobileProfileDropdownOpen(false)}
+          data-account-item="help"
+          className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-neutral-800 active:bg-neutral-100"
+        >
+          <LifeBuoy className="h-[18px] w-[18px] shrink-0 text-neutral-400" strokeWidth={1.75} />
+          <span>{tt("Help")}</span>
+        </Link>
 
         <div className="my-1.5 h-px bg-neutral-100" />
 

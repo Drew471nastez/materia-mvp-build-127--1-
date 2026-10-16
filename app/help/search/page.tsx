@@ -39,15 +39,15 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
         {results.length > 0 ? (
           <ol className="mt-6 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
             {results.map((r) => (
-              <li key={`${r.article.category}/${r.article.slug}`} className="px-5 py-4 sm:px-6">
-                <Link href={helpArticlePath(r.article)} className="text-[16px] font-medium text-[#1a1a2e] hover:underline hover:underline-offset-2">
-                  {r.article.title}
+              <li key={`${r.article.category}/${r.article.slug}`}>
+                <Link href={helpArticlePath(r.article)} className="group block px-5 py-4 transition-colors hover:bg-[#fafafb] sm:px-6">
+                  <span className="block text-[16px] font-medium leading-snug text-[#1a1a2e] group-hover:underline group-hover:underline-offset-2">{r.article.title}</span>
+                  <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">
+                    <span className="text-[#4b5563]">{helpCategory(r.article.category)?.title}</span>
+                    <span aria-hidden> · </span>
+                    {r.snippet}
+                  </span>
                 </Link>
-                <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
-                  <span className="text-[#4b5563]">{helpCategory(r.article.category)?.title}</span>
-                  <span aria-hidden> · </span>
-                  {r.snippet}
-                </p>
               </li>
             ))}
           </ol>

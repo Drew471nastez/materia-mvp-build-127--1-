@@ -1620,11 +1620,26 @@ export function PlatformHeaderClient({
   useEffect(() => {
     const el = headerRootRef.current
     if (!el) return
-    const measure = () => setHeaderH(Math.round(el.getBoundingClientRect().height))
+    /*
+      THE SAME NUMBER FOR THE PAGE UNDER IT. A page's own sticky row and the
+      headings its links jump to have to clear this bar, which is 64.6px in
+      a phone's browser, 71px on a computer and 65px plus the clock's inset
+      in the app. --buyer-header-h is this one reading, so they never guess
+      it again in CSS (the Help Center: components/help).
+    */
+    const root = document.documentElement
+    const measure = () => {
+      const h = Math.round(el.getBoundingClientRect().height)
+      setHeaderH(h)
+      root.style.setProperty("--buyer-header-h", `${h}px`)
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      root.style.removeProperty("--buyer-header-h")
+    }
   }, [])
   /*
     THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear

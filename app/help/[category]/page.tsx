@@ -76,7 +76,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
           <nav aria-label="In this topic" className="-mx-1 mt-6 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {sections.map((s) =>
               s.title ? (
-                <a key={s.title} href={`#${headingId(s.title)}`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3.5 text-[13.5px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
+                <a key={s.title} href={`#${headingId(s.title)}`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full pointer-coarse:h-11 border border-[#e5e7eb] bg-white px-3.5 text-[13.5px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
                   {s.title}
                   <span className="tabular-nums text-[#9ca3af]">{s.articles.length}</span>
                 </a>
@@ -108,7 +108,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               key={section.title ?? "all"}
               id={section.title ? headingId(section.title) : undefined}
               aria-label={section.title ?? undefined}
-              className="scroll-mt-24"
+              className="scroll-mt-[calc(var(--buyer-header-h,72px)+16px)]"
               data-help-section={section.title ?? ""}
             >
               {section.title ? <h2 className="mb-3 text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{section.title}</h2> : null}
@@ -138,7 +138,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               .filter((c) => c.slug !== category.slug)
               .map((c) => (
                 <li key={c.slug}>
-                  <Link href={`/help/${c.slug}`} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-4 text-[14px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
+                  <Link href={`/help/${c.slug}`} className="inline-flex h-10 items-center gap-2 rounded-full pointer-coarse:h-11 border border-[#e5e7eb] bg-white pl-1.5 pr-4 text-[14px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
                     <TopicIcon slug={c.slug} size={28} />
                     {c.title}
                   </Link>

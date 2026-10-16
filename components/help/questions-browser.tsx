@@ -74,9 +74,19 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
       return next
     })
 
+  /*
+    ONE COLUMN ON A PHONE, AND THE ROW OF TOPICS STICKS FOR ALL OF IT. The
+    column is minmax(0, 1fr): an auto column took the pill row's whole
+    length (1196px at 390), so the questions ran off the right of the
+    screen, hidden by the layout's clip. And the aside is display: contents
+    there, so the row's sticky box is this grid, the height of every
+    question, not the aside, which ended under the search field and let the
+    row scroll away with it. Stuck, it sits under the Storelib bar
+    (--buyer-header-h), not behind it (scripts/check-help-mobile.mjs).
+  */
   return (
-    <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14" data-questions="">
-      <aside className="lg:sticky lg:top-24 lg:self-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14" data-questions="">
+      <aside className="contents lg:sticky lg:top-24 lg:block lg:self-start">
         <label className="relative block">
           <span className="sr-only">Search the questions</span>
           <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
@@ -85,12 +95,12 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search the questions"
-            className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
+            className="h-10 w-full rounded-xl border border-[#e5e7eb] pointer-coarse:h-11 bg-white pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
             data-questions-search=""
           />
         </label>
         {/* A row of pills on a phone, a list on a computer: the same buttons. */}
-        <nav aria-label="Topics" className="sticky top-0 z-10 -mx-4 mt-3 bg-white/95 px-4 py-2 backdrop-blur lg:static lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <nav aria-label="Topics" className="sticky top-[var(--buyer-header-h,64px)] z-10 -mx-4 mt-3 bg-white/95 px-4 py-2 backdrop-blur lg:static lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div ref={pillsRef} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {shown.map((t) => {
               const on = active === t.id
@@ -102,7 +112,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
                   aria-current={on ? "true" : undefined}
                   onClick={() => goTo(t.id)}
                   className={cn(
-                    "shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors duration-200 lg:rounded-lg lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:text-[14px]",
+                    "inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 text-[13.5px] font-medium lg:h-auto transition-colors duration-200 lg:rounded-lg lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:text-[14px]",
                     on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white lg:bg-[#f3f4f6] lg:text-[#1a1a2e]" : "border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f8f9fa] lg:bg-transparent lg:hover:text-[#1a1a2e]",
                   )}
                 >
@@ -114,7 +124,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
         </nav>
       </aside>
 
-      <div className="min-w-0">
+      <div className="mt-8 min-w-0 lg:mt-0">
         {words.length ? (
           <p className="mb-6 text-[14px] text-[#6b7280]" aria-live="polite">
             {count === 0 ? "No question matches. Try another word, or write to support below." : `${count} ${count === 1 ? "question" : "questions"} match`}
@@ -122,7 +132,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
         ) : null}
         <div className="space-y-12">
           {shown.map((t) => (
-            <section key={t.id} id={`topic-${t.id}`} aria-labelledby={`h-${t.id}`} className="scroll-mt-20 lg:scroll-mt-24">
+            <section key={t.id} id={`topic-${t.id}`} aria-labelledby={`h-${t.id}`} className="scroll-mt-[calc(var(--buyer-header-h,64px)+76px)] lg:scroll-mt-[calc(var(--buyer-header-h,72px)+16px)]">
               <h2 id={`h-${t.id}`} className="text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
                 {t.title}
               </h2>
@@ -143,7 +153,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
 function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onToggle: () => void }) {
   const panel = `${q.id}-answer`
   return (
-    <li id={q.id} className="scroll-mt-24" data-question={q.id}>
+    <li id={q.id} className="scroll-mt-[calc(var(--buyer-header-h,64px)+76px)] lg:scroll-mt-[calc(var(--buyer-header-h,72px)+16px)]" data-question={q.id}>
       <h3>
         <button type="button" aria-expanded={open} aria-controls={panel} onClick={onToggle} className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left sm:px-5">
           <span className="text-[15.5px] font-medium leading-6 text-[#1a1a2e]">{q.q}</span>

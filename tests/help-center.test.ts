@@ -170,6 +170,24 @@ console.log("\nThe physical products guide")
   check("a screenshot is drawn at its own size, lazily, with its words", /case "image":/.test(read("components/help/help-parts.tsx")) && /loading="lazy"/.test(read("components/help/help-parts.tsx")) && /alt=\{b\.alt\}/.test(read("components/help/help-parts.tsx")))
 }
 
+console.log("\nOn a phone and in the app (scripts/check-help-mobile.mjs measures these)")
+{
+  const hero = read("components/help/help-hero.tsx")
+  const dash = read("components/help/help-dashboard-link.tsx")
+  const parts = read("components/help/help-parts.tsx")
+  const questions = read("components/help/questions-browser.tsx")
+  const header = read("components/platform/platform-header-client.tsx")
+  check("the band's way back to /app is 44px tall and goes back when /app is the page behind",
+    /<HelpDashboardLink \/>/.test(hero) && /href="\/app"/.test(dash) && /min-h-11/.test(dash) && /fromApp\(previousPath\(\)\)/.test(dash) && /backThen\(\(\) => window\.location\.assign\("\/app"\)\)/.test(dash))
+  check("breadcrumb links are 44px tall, pulled back into the line", /-my-3 inline-flex min-h-11 items-center/.test(parts))
+  check("the Storelib bar publishes its own height once, and the jumps and sticky rows read it",
+    /root\.style\.setProperty\("--buyer-header-h", `\$\{h\}px`\)/.test(header)
+      && /scroll-mt-\[calc\(var\(--buyer-header-h,72px\)\+16px\)\]/.test(parts) && /sticky top-\[var\(--buyer-header-h,64px\)\]/.test(questions)
+      && ![parts, questions, category, article].some((s) => /scroll-mt-24\b|scroll-mt-20\b/.test(s)))
+  check("Order problems is one column a phone wide, and its row of topics sticks for the whole list",
+    /grid grid-cols-\[minmax\(0,1fr\)\] lg:grid-cols-\[220px_minmax\(0,1fr\)\]/.test(questions) && /<aside className="contents lg:sticky/.test(questions))
+}
+
 console.log("\nThe sitemap")
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the Help Center is in the pages sitemap, from the same list",
