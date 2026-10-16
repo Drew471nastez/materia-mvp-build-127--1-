@@ -1,8 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react"
 import { Check, Loader2 } from "lucide-react"
-import { Card, ErrorNote, Lead, PageTitle, Row, buttonClass } from "./parts"
+import { Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -21,6 +21,22 @@ function backupWhen(iso: string): string {
   const date = d.toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "long", year: "numeric" }))
   const time = d.toLocaleTimeString(appLocale(), zoned({ hour: "2-digit", minute: "2-digit" }))
   return tt("{date} at {time}", { date, time })
+}
+
+/**
+ * A published version's moment in two parts, the way a restore point reads:
+ * the day as the row's name, the time in the line under it. A whole
+ * "22 September 2026 at 09:30" beside Restore wraps on a phone.
+ */
+function releaseDay(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "long", year: "numeric" }))
+}
+function releaseTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString(appLocale(), zoned({ hour: "2-digit", minute: "2-digit" }))
 }
 
 /** A published version (lib/website-builder/site-releases.ts ReleaseListItem). */
@@ -65,6 +81,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   const [confirming, setConfirming] = useState<BackupRow | null>(null)
   const [confirmingRelease, setConfirmingRelease] = useState<ReleaseRow | null>(null)
   const [restoring, setRestoring] = useState(false)
+  /* The same, read at once: two presses in one frame both see the state
+     from before either, and each would post a restore. */
+  const restoringNow = useRef(false)
+  /* Why the last restore failed, said inside the question that asked it. */
+  const [restoreError, setRestoreError] = useState<string | null>(null)
   const [copying, setCopying] = useState(false)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -92,22 +113,34 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
     void loadReleases()
   }, [loadReleases])
 
-  const restoreRelease = async (row: ReleaseRow) => {
-    if (restoring) return
+  /**
+   * One restore at a time, either kind: true when it is done. A refusal
+   * leaves the question open with the reason, so it can be tried again or
+   * cancelled where it was asked.
+   */
+  const runRestore = async (url: string, fallback: string): Promise<boolean> => {
+    if (restoringNow.current) return false
+    restoringNow.current = true
     setRestoring(true)
-    setError(null)
+    setRestoreError(null)
     try {
-      const res = await fetch(`/api/website-builder/themes/${ctx.installId}/releases/${row.id}/restore`, { method: "POST" })
+      const res = await fetch(url, { method: "POST" })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || tt("Could not restore this version"))
-      setConfirmingRelease(null)
-      ctx.onRestored?.()
+      if (!res.ok) throw new Error(json?.error || fallback)
+      return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : tt("Could not restore this version"))
-      setConfirmingRelease(null)
+      setRestoreError(e instanceof Error ? e.message : fallback)
+      return false
     } finally {
+      restoringNow.current = false
       setRestoring(false)
     }
+  }
+
+  const restoreRelease = async (row: ReleaseRow) => {
+    if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/releases/${row.id}/restore`, tt("Could not restore this version")))) return
+    setConfirmingRelease(null)
+    ctx.onRestored?.()
   }
 
   const load = useCallback(async () => {
@@ -148,21 +181,9 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   }
 
   const restore = async (row: BackupRow) => {
-    if (restoring) return
-    setRestoring(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, { method: "POST" })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || tt("Could not restore this backup"))
-      setConfirming(null)
-      ctx.onRestored?.()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tt("Could not restore this backup"))
-      setConfirming(null)
-    } finally {
-      setRestoring(false)
-    }
+    if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, tt("Could not restore this backup")))) return
+    setConfirming(null)
+    ctx.onRestored?.()
   }
 
   /* A copy is a new draft in the library, and the library's limit applies:
@@ -230,16 +251,21 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           {releases.length === 0 ? (
             <p className="px-4 py-10 text-center text-[14.5px] text-white/50 md:px-6">{tt("No published versions yet.")}</p>
           ) : (
+            /* The live one is marked where the others have Restore, the way
+               Publishing marks a live website, and the button says Restore
+               as the one above does: "Restore this version" pushed the
+               date onto two lines on a phone. */
             releases.map((r) => (
               <Row
                 key={r.id}
-                label={backupWhen(r.createdAt)}
-                hint={r.live ? tt("Live now") : r.restored ? tt("Restored from an earlier version") : tt("Published")}
+                label={releaseDay(r.createdAt)}
+                hint={`${releaseTime(r.createdAt)} · ${r.restored ? tt("Restored from an earlier version") : tt("Published")}`}
                 inline
               >
+                {r.live && <Badge tone="live">{tt("Live now")}</Badge>}
                 {!r.live && (
                   <button type="button" onClick={() => setConfirmingRelease(r)} className={buttonClass}>
-                    {tt("Restore this version")}
+                    {tt("Restore")}
                   </button>
                 )}
               </Row>
@@ -264,7 +290,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           title={tt("Restore this backup?")}
           label={tt("Restore this backup")}
           busy={restoring}
-          onCancel={() => setConfirming(null)}
+          error={restoreError}
+          onCancel={() => {
+            setConfirming(null)
+            setRestoreError(null)
+          }}
           onConfirm={() => void restore(confirming)}
           lead={
             <>
@@ -281,7 +311,11 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
           title={tt("Restore this version?")}
           label={tt("Restore this version")}
           busy={restoring}
-          onCancel={() => setConfirmingRelease(null)}
+          error={restoreError}
+          onCancel={() => {
+            setConfirmingRelease(null)
+            setRestoreError(null)
+          }}
           onConfirm={() => void restoreRelease(confirmingRelease)}
           lead={
             <>
@@ -295,13 +329,21 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   )
 }
 
-/** The sheet both restores ask in: a bottom sheet on a phone, a dialog above it. */
+/**
+ * The sheet both restores ask in: a bottom sheet on a phone, a dialog above
+ * it. It takes focus on Cancel (the answer that changes nothing), keeps Tab
+ * between its buttons, and gives focus back to the Restore that opened it.
+ * Its Escape is caught before Website Settings' own, which would otherwise
+ * close the whole page behind the question. While a restore is under way
+ * nothing closes it. A refusal is said inside it, where the eye already is.
+ */
 function ConfirmRestore({
   title,
   label,
   lead,
   points,
   busy,
+  error,
   onCancel,
   onConfirm,
 }: {
@@ -310,23 +352,65 @@ function ConfirmRestore({
   lead: ReactNode
   points: string[]
   busy: boolean
+  error: string | null
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const id = useId()
+  const panel = useRef<HTMLDivElement>(null)
+  const cancel = useRef<HTMLButtonElement>(null)
+  const latest = useRef({ busy, onCancel })
+  useEffect(() => {
+    latest.current = { busy, onCancel }
+  })
+
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    cancel.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!latest.current.busy) latest.current.onCancel()
+        return
+      }
+      const box = panel.current
+      if (e.key !== "Tab" || !box) return
+      const stops = [...box.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")]
+      const at = document.activeElement
+      if (stops.length === 0) {
+        e.preventDefault()
+      } else if (!box.contains(at) || (e.shiftKey && at === stops[0])) {
+        e.preventDefault()
+        stops[e.shiftKey ? stops.length - 1 : 0].focus()
+      } else if (!e.shiftKey && at === stops[stops.length - 1]) {
+        e.preventDefault()
+        stops[0].focus()
+      }
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => {
+      window.removeEventListener("keydown", onKey, true)
+      if (opener?.isConnected) opener.focus()
+    }
+  }, [])
+
   return (
     <div
       className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 px-3 pt-4 pb-[max(12px,env(safe-area-inset-bottom))] md:items-center md:p-4"
       onClick={() => !busy && onCancel()}
     >
       <div
+        ref={panel}
         role="alertdialog"
         aria-modal="true"
         aria-label={label}
+        aria-describedby={`${id}-lead`}
         onClick={(e) => e.stopPropagation()}
         className="wb-settings-in w-full max-w-[460px] rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 text-white shadow-[0_32px_80px_-24px_rgba(0,0,0,0.9)] md:p-6"
       >
         <h2 className="text-[20px] font-semibold">{title}</h2>
-        <p className="mt-2 text-[15px] leading-relaxed text-white/70">{lead}</p>
+        <p id={`${id}-lead`} className="mt-2 text-[15px] leading-relaxed text-white/70">{lead}</p>
         <ul className="mt-4 space-y-2 text-[14px] text-white/70">
           {points.map((point) => (
             <li key={point} className="flex gap-2.5">
@@ -335,8 +419,14 @@ function ConfirmRestore({
             </li>
           ))}
         </ul>
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[14px] leading-snug text-red-300">
+            {error}
+          </p>
+        )}
         <div className="mt-6 grid grid-cols-2 gap-2.5 md:flex md:justify-end">
           <button
+            ref={cancel}
             type="button"
             onClick={onCancel}
             disabled={busy}
