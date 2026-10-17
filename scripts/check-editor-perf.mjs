@@ -53,6 +53,35 @@
  * same stylesheet the same insertion is 0.3ms, so it is the editor's DOM
  * with those rules. Found, not fixed: the rules are app wide.
  *
+ * Round V12, the cause and the fix. Every :has() rule of the stylesheet was
+ * tried alone (the rest taken out of the compiled sheet, the same bundle):
+ * all of them but two left an insertion at 275 elements, the same as none at
+ * all. The two were `html:has([data-account-settings])` and
+ * `html:has([data-page="account"])`, a :has() whose SUBJECT is <html>; a
+ * :has() on <html> before the element it styles (the pill's rules) costs
+ * nothing here. They are classes now (app/globals.css, the account pages
+ * keep their width). Same bundle, the stylesheet before and after, two runs
+ * each at 1x, "insert one node" below:
+ *
+ *                               before            after
+ *   insert a node, body         54 / 43ms         0.4 / 0.5ms
+ *     sidebar                   45 / 46ms         15 / 7.7ms
+ *     canvas                    47 / 48ms         2.5 / 1.8ms
+ *     elements restyled         1,234 of 2,255    2 (median), 276 at most
+ *   select hero, blocking       763 / 316ms       108 / 102ms
+ *   select another              155 / 97ms        23 / 4ms
+ *   switch page                 303 / 373ms       156 / 19ms
+ *   switch back                 255 / 212ms       111 / 3ms
+ *   duplicate / delete          6, 44 / 16, 63ms  0 / 0ms
+ *   startup, first canvas       2,745 / 1,709ms   2,029 / 1,395ms (noisy: not claimed)
+ *   type 20 keys                0ms blocking both, renders unchanged
+ *
+ * The page switch that V3 measured slower is back under its old numbers:
+ * the batched preview measurements were each paying the 1,234 element pass.
+ * What is left of "select hero" is the first gesture on the page making the
+ * ask sounds' AudioContext and its room (lib/website-builder/ask-sounds.ts,
+ * about 60ms in the profile, on purpose inside a gesture for iOS), once.
+ *
  *   node scripts/check-editor-perf.mjs
  *   CPU=4 node scripts/check-editor-perf.mjs        the CPU slowed 4x
  *   EDITOR_BUNDLE=<file> node scripts/check-editor-perf.mjs   reuse a bundle (one built from another commit, to compare)

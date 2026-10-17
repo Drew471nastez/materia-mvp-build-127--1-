@@ -315,6 +315,11 @@ let ruler: HTMLDivElement | null = null
  * the first seconds after the editor opened, 2 to 4 seconds of the main
  * thread in tasks of 50 to 250ms.
  *
+ * (Round V12 found the cause: two `html:has()` rules for the account pages,
+ * now classes, see app/globals.css. The same insertion restyles a few
+ * elements now, under 1ms in the body and 2 to 8ms in the sidebar, so a
+ * batch is a small saving rather than the whole of it.)
+ *
  * So a batch goes in at once, each in its own box with the ruler's own
  * containment (the same width, the same formatting context, a fixed layer
  * held inside it), and the heights are read after all of them are in: the
