@@ -38,7 +38,7 @@
  * `<script>` and `on*=` attributes are refused at compile time. Behaviour
  * goes in the section's own <script> block, where it is checked and scoped.
  */
-import { renderReviewWidgetSection, type WidgetReviews } from "@/lib/reviews/widgets/render"
+import { renderReviewWidgetSection, reviewWidgetSectionCss, type WidgetReviews } from "@/lib/reviews/widgets/render"
 import type { RenderContext, Result, ThemeError } from "../types"
 import { Linked, formatDatetime, parseVideoUrl, plainText, safeHref } from "../values"
 import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
@@ -732,8 +732,12 @@ const FILTERS: Record<string, Filter> = {
         shopName: typeof ctx.shop?.name === "string" ? ctx.shop.name : "",
         inEditor: ctx.page?.in_editor === true,
         uid: ctx.section?.id,
+        /* A <style> inside a template is taken out (DOCUMENT_MARKUP): the section's own <style> block prints it, review_widget_css. */
+        withStyle: false,
       }),
     ),
+  /** That widget's stylesheet, for the section's <style> block: {{ settings | review_widget_css }}. Fixed text of the engine's own, scoped to the section like the rest of the block. */
+  review_widget_css: (v) => new Safe(reviewWidgetSectionCss(v && typeof v === "object" ? (v as Record<string, unknown>) : null)),
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */
   alpha: (v, [a]) => {
     const m = str(v).match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)

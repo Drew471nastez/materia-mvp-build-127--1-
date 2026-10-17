@@ -25,6 +25,7 @@ export const WidgetPreview = memo(function WidgetPreview({
   html,
   width,
   maxHeight,
+  boxHeight,
   className,
   label,
   interactive = false,
@@ -34,6 +35,8 @@ export const WidgetPreview = memo(function WidgetPreview({
   width: number
   /** Cropped to this height (in the shown size), for a card. */
   maxHeight?: number
+  /** Always this tall (a gallery card): a short widget sits in the middle, a tall one shows its top. */
+  boxHeight?: number
   className?: string
   label?: string
   /** The customizer's preview: its carousel can be used, so it is not a picture to a screen reader. */
@@ -81,9 +84,11 @@ export const WidgetPreview = memo(function WidgetPreview({
   }, [html])
 
   const shown = height * scale
+  const box = boxHeight ?? (maxHeight ? Math.min(shown, maxHeight) : shown)
+  const top = boxHeight && shown < boxHeight ? Math.round((boxHeight - shown) / 2) : 0
   return (
-    <div ref={outer} className={className} {...(interactive ? { "aria-label": label } : { role: "img", "aria-label": label })} style={{ height: maxHeight ? Math.min(shown, maxHeight) : shown, overflow: "hidden", position: "relative" }}>
-      <div ref={host} aria-hidden={interactive ? undefined : true} style={{ width, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute", left: 0, top: 0 }} />
+    <div ref={outer} className={className} {...(interactive ? { "aria-label": label } : { role: "img", "aria-label": label })} style={{ height: box, overflow: "hidden", position: "relative" }}>
+      <div ref={host} aria-hidden={interactive ? undefined : true} style={{ width, transform: `scale(${scale})`, transformOrigin: "top left", position: "absolute", left: 0, top }} />
     </div>
   )
 })

@@ -60,6 +60,8 @@ export interface WidgetRenderInput {
   uid?: string
   /** This page's own heading and supporting line (a section's settings), over the look's. */
   page?: { heading?: string; subheading?: string }
+  /** False when the stylesheet goes elsewhere: a Storelib theme's section prints it in its own <style> block (reviewWidgetSectionCss). */
+  withStyle?: boolean
 }
 
 /* ── Escaping ──────────────────────────────────────────────────────────── */
@@ -153,9 +155,9 @@ function rootStyle(s: WidgetSettings, fallbackStar: string): string {
 }
 
 /** The stylesheet: the shared part, and only the parts this widget uses. */
-const CSS_BASE = `.slw{container-type:inline-size;font-family:var(--slw-font,inherit);color:var(--slw-text,inherit);background:var(--slw-bg,transparent);--slw-m:var(--slw-muted,color-mix(in srgb,currentColor 66%,transparent));--slw-l:var(--slw-line,color-mix(in srgb,currentColor 14%,transparent));--slw-soft:color-mix(in srgb,currentColor 6%,transparent)}
+const CSS_BASE = `.slw{display:block;width:100%;min-width:0;container-type:inline-size;font-family:var(--slw-font,inherit);color:var(--slw-text,inherit);background:var(--slw-bg,transparent);--slw-m:var(--slw-muted,color-mix(in srgb,currentColor 66%,transparent));--slw-l:var(--slw-line,color-mix(in srgb,currentColor 14%,transparent));--slw-soft:color-mix(in srgb,currentColor 6%,transparent)}
 .slw *,.slw *::before,.slw *::after{box-sizing:border-box}
-.slw__in{max-width:var(--slw-mw);margin:0 auto;padding:var(--slw-pt) 20px var(--slw-pb)}
+.slw__in{display:block;width:100%;max-width:var(--slw-mw);margin:0 auto;padding:var(--slw-pt) 20px var(--slw-pb)}
 .slw__head{margin:0 0 20px}.slw--center .slw__head{text-align:center}
 .slw__h{margin:0;font-size:var(--slw-hs,var(--slw-theme-hs,28px));line-height:1.15;font-family:var(--slw-font,inherit);color:inherit;letter-spacing:-.01em}
 .slw__sub{margin:8px 0 0;font-size:var(--slw-ts);line-height:1.55;color:var(--slw-m)}
@@ -167,7 +169,7 @@ const CSS_BASE = `.slw{container-type:inline-size;font-family:var(--slw-font,inh
 .slw-sample{margin:0 0 14px;font-size:13px;color:var(--slw-m)}.slw-sample b{display:inline-block;margin-right:6px;padding:1px 7px;border-radius:99px;background:var(--slw-soft);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:inherit}
 .slw-empty{margin:0;padding:18px;border:1px dashed var(--slw-l);border-radius:var(--slw-r);font-size:14px;color:var(--slw-m);text-align:center}
 .slw-card{display:flex;flex-direction:column;min-width:0;padding:var(--slw-cp);background:var(--slw-card,transparent);border:var(--slw-bw) solid var(--slw-l);border-radius:var(--slw-r);font-size:var(--slw-ts);line-height:1.6}
-.slw-plain .slw-card{border-radius:0}
+.slw-cs-plain .slw-card{border-radius:0}
 .slw-card__top{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--slw-m)}
 .slw-card__title{margin:10px 0 0;font-size:1.05em;font-weight:600;line-height:1.35;color:inherit;overflow-wrap:anywhere}
 .slw-card__body{margin:6px 0 0;white-space:pre-line;overflow-wrap:anywhere}
@@ -199,7 +201,7 @@ const CSS_SUMMARY = `.slw-top{display:flex;flex-wrap:wrap;align-items:center;gap
 .slw-top .slw-btn{margin-left:auto}
 `
 
-const CSS_PRODUCT = `.slw-list{display:grid;gap:var(--slw-gap)}.slw-plain .slw-list{gap:0}.slw-plain .slw-list>.slw-card{padding:20px 0;border-bottom:1px solid var(--slw-l)}
+const CSS_PRODUCT = `.slw-list{display:grid;gap:var(--slw-gap)}.slw-cs-plain .slw-list{gap:0}.slw-cs-plain .slw-list>.slw-card{padding:20px 0;border-bottom:1px solid var(--slw-l)}
 .slw-note{display:none;margin:16px 0 0;padding:12px 14px;border-radius:calc(var(--slw-r) / 2);background:var(--slw-soft);font-size:14px}.slw-note:target{display:block}
 .slw-write{margin:16px 0}.slw-write[open]>summary{margin-bottom:14px}
 .slw-form{display:grid;gap:12px;max-width:620px;padding:18px;border:1px solid var(--slw-l);border-radius:var(--slw-r)}
@@ -213,7 +215,7 @@ const CSS_PRODUCT = `.slw-list{display:grid;gap:var(--slw-gap)}.slw-plain .slw-l
 .slw-more{margin-top:16px}.slw-more[open]>summary{display:none}.slw-more>.slw-list{margin-top:0}
 `
 
-const CSS_CAROUSEL = `.slw-car{position:relative}
+const CSS_CAROUSEL = `.slw-car{position:relative;min-width:0}
 .slw-track{display:grid;grid-auto-flow:column;grid-auto-columns:86%;gap:var(--slw-gap);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:2px 2px 12px;margin:0 -2px;scrollbar-width:thin;overscroll-behavior-x:contain}
 @container (min-width:640px){.slw-track{grid-auto-columns:calc((100% - var(--slw-gap)) / 2)}}
 @container (min-width:900px){.slw-track{grid-auto-columns:calc((100% - (var(--slw-cols) - 1) * var(--slw-gap)) / var(--slw-cols))}}
@@ -462,7 +464,9 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
         }
       }
       if (!tiles.length && s.hide_when_empty && !editor) return ""
-      body = head(type, s, w, page) + (tiles.length ? `<div class="slw-tiles" aria-label="${esc(w.customer_photos)}" role="list">${tiles.map((t) => t.replace("<a ", '<a role="listitem" ')).join("")}</div>` : emptyNote)
+      /* In the builder and the gallery only, so in English like the rest of their notes. */
+      const noPhotos = editor ? `<p class="slw-empty">No photo reviews yet. Photos buyers send with their reviews show here.</p>` : ""
+      body = head(type, s, w, page) + (tiles.length ? `<div class="slw-tiles" aria-label="${esc(w.customer_photos)}" role="list">${tiles.map((t) => t.replace("<a ", '<a role="listitem" ')).join("")}</div>` : noPhotos)
       break
     }
     case "marquee": {
@@ -475,8 +479,8 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
   }
 
   const sampleNote = sample && editor ? `<p class="slw-sample"><b>Sample</b>Your real reviews show here once you have some.</p>` : ""
-  const css = `<style>${widgetCss(type)}</style>`
-  const cls = ["slw", `slw--${type}`, `slw--${s.align}`, `slw-${s.card_style}`, `slw-star-${s.star_shape}`].join(" ")
+  const css = input.withStyle === false ? "" : `<style>${widgetCss(type)}</style>`
+  const cls = ["slw", `slw--${type}`, `slw--${s.align}`, `slw-cs-${s.card_style}`, `slw-star-${s.star_shape}`].join(" ")
   const anchor = type === "product_reviews" ? ` id="reviews"` : ""
   return `<div class="${esc(cls)}"${anchor} data-slw="${type}" style="${esc(rootStyle(s, reviews.star_color ?? ""))}">${css}<div class="slw__in">${sampleNote}${body}</div></div>`
 }
@@ -488,6 +492,12 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
  * saved configuration it names (`review_config`, one of the store's, of the
  * same widget), and what it changes for this page only.
  */
+/** A section's widget stylesheet: what its `<style>` block prints when the markup cannot carry its own (a Storelib theme). */
+export function reviewWidgetSectionCss(settings: Record<string, unknown> | null | undefined): string {
+  const t = settings?.widget
+  return widgetCss(isWidgetType(t) ? t : "product_reviews")
+}
+
 export function renderReviewWidgetSection(input: {
   settings: Record<string, unknown> | null | undefined
   reviews: WidgetReviews | null | undefined
@@ -495,6 +505,7 @@ export function renderReviewWidgetSection(input: {
   shopName?: string
   inEditor?: boolean
   uid?: string
+  withStyle?: boolean
 }): string {
   const settings = input.settings ?? {}
   const type = isWidgetType(settings.widget) ? settings.widget : "product_reviews"
@@ -512,5 +523,6 @@ export function renderReviewWidgetSection(input: {
     shopName: input.shopName,
     inEditor: input.inEditor,
     uid: input.uid,
+    withStyle: input.withStyle,
   })
 }

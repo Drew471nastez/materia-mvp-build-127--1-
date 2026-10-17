@@ -45,7 +45,7 @@ function failure(error: { code?: string } | null | undefined): SaveResult {
 
 export async function createWidgetConfig(db: Db, creatorId: string, body: unknown): Promise<SaveResult> {
   const clean = cleanWidgetConfigInput(body)
-  if (!clean.ok) return { ok: false, error: clean.error, status: 400 }
+  if (!clean.ok) return { ok: false, error: "error" in clean ? clean.error : "Bad request.", status: 400 }
   const { count, error: countError } = await db.from(TABLE).select("id", { count: "exact", head: true }).eq("creator_id", creatorId)
   if (countError) return failure(countError)
   if ((count ?? 0) >= MAX_CONFIGS_PER_STORE) return { ok: false, error: `You can keep up to ${MAX_CONFIGS_PER_STORE} saved widgets. Delete one first.`, status: 400 }
@@ -61,7 +61,7 @@ export async function updateWidgetConfig(db: Db, creatorId: string, id: string, 
   if (!row) return { ok: false, error: "That widget is gone.", status: 404 }
   /* The type stays what it was: a section that names this configuration draws the widget it was made for. */
   const clean = cleanWidgetConfigInput({ ...(body as object), type: (row as { type: string }).type })
-  if (!clean.ok) return { ok: false, error: clean.error, status: 400 }
+  if (!clean.ok) return { ok: false, error: "error" in clean ? clean.error : "Bad request.", status: 400 }
   const { data, error } = await db
     .from(TABLE)
     .update({ name: clean.name, settings: clean.settings, updated_at: new Date().toISOString() })
@@ -78,7 +78,7 @@ export async function deleteWidgetConfig(db: Db, creatorId: string, id: string):
   const { error } = await db.from(TABLE).delete().eq("id", id).eq("creator_id", creatorId)
   if (error) {
     const f = failure(error)
-    return f.ok ? { ok: true } : { ok: false, error: f.error, status: f.status }
+    return "error" in f ? { ok: false, error: f.error, status: f.status } : { ok: true }
   }
   return { ok: true }
 }

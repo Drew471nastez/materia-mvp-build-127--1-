@@ -81,5 +81,6 @@ export function enhanceReviewWidgets(root: ParentNode): () => void {
  * is: it sets up the widget it sits in.
  */
 export function reviewWidgetScript(): string {
-  return `<script>(function(){var s=document.currentScript;var r=s&&s.parentElement;if(!r)return;(${enhanceReviewWidgets.toString()})(r)})()</script>`
+  /* `__name`: a bundler that keeps function names (esbuild's keepNames) wraps them in a helper the inline copy would not have. */
+  return `<script>(function(){var __name=function(f){return f};var s=document.currentScript;var r=s&&s.parentElement;if(!r)return;try{(${enhanceReviewWidgets.toString()})(r)}catch(e){}})()</script>`
 }

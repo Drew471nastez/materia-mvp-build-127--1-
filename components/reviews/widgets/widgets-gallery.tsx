@@ -25,7 +25,7 @@ import { previewReviews } from "@/lib/reviews/widgets/preview-data"
 import { defaultPlacement, type WidgetPage, type WidgetPlacement } from "@/lib/reviews/widgets/placement"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
 import { Pill, usePill } from "@/app/app/coupons/coupon-parts"
-import { DESKTOP_WIDTH, WidgetPreview } from "./widget-preview"
+import { WidgetPreview } from "./widget-preview"
 import { WidgetCustomizer } from "./widget-customizer"
 
 export interface WidgetsGalleryProps {
@@ -38,6 +38,19 @@ export interface WidgetsGalleryProps {
 }
 
 type Open = { type: WidgetType; configId: string | null } | null
+
+/** The width each card's preview is laid out at: a line of stars large enough to read, a grid wide enough to be a grid. */
+const CARD_WIDTH: Record<WidgetType, number> = {
+  product_reviews: 680,
+  star_badge: 360,
+  rating_summary: 560,
+  grid: 820,
+  carousel: 820,
+  testimonials: 820,
+  media_wall: 760,
+  marquee: 760,
+  trust_badge: 420,
+}
 
 function readOpen(): Open {
   if (typeof window === "undefined") return null
@@ -189,9 +202,9 @@ export function WidgetsGallery({ initialConfigs, ready, shopName, languages, emb
               <button type="button" onClick={() => setOpen({ type: t, configId: saved[0]?.id ?? null })} className="block border-b border-[#eef0f2] bg-[#f6f7f9] p-3 text-left" aria-label={tt("Customize {name}", { name: info.name })}>
                 <div className="overflow-hidden rounded-lg bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.05)]">
                   {previews[t] ? (
-                    <WidgetPreview html={previews[t]} width={DESKTOP_WIDTH} maxHeight={210} label={info.name} />
+                    <WidgetPreview html={previews[t]} width={CARD_WIDTH[t]} boxHeight={200} label={info.name} />
                   ) : (
-                    <div className="h-[150px] animate-pulse bg-[#f3f4f6]" />
+                    <div className="h-[200px] animate-pulse bg-[#f3f4f6]" />
                   )}
                 </div>
               </button>

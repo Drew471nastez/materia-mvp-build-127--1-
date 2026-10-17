@@ -20,6 +20,7 @@
 </template>
 
 <style scoped>
+{{ settings | review_widget_css }}
 .s { background: var(--s-bg); color: var(--s-text); --slw-theme-hs: var(--section-heading-size, 32px); }
 /* The theme's heading style (Theme settings › Typography, the section's heading style), unless the saved look picks its own font or size. */
 .s .slw__h {

@@ -194,7 +194,7 @@ function nativeChecks() {
   console.log("\nThe Storelib theme's Reviews widget section, by the live engine")
   const src = DEFAULT_THEME_SOURCES["sections/reviews_widget.storelib"]
   const r = compileSection(src, { file: "sections/reviews_widget.storelib" })
-  check("compiles, is addable, one preset per widget", r.ok === true && read("themes/default/manifest.json").includes('"reviews_widget"') && (r.ok ? (r.value.schema.presets ?? []).length === WIDGET_TYPES.length : false), r.ok ? undefined : r.errors)
+  check("compiles, is addable, one preset per widget", r.ok === true && read("themes/default/manifest.json").includes('"reviews_widget"') && (r.ok ? (r.value.schema.presets ?? []).length === WIDGET_TYPES.length : false), r.ok ? undefined : (r as { errors?: unknown }).errors)
   if (r.ok !== true) return
   const draw = (settings: Record<string, unknown>, reviews: unknown, page: Record<string, unknown> = { template: "product" }) =>
     renderSection({ compiled: r.value, id: "rw1", instance: { type: "reviews_widget", settings }, theme: {}, page: page as never, data: storefrontData({ dynamic: { shop: { name: "Drew Studio" } } as never, reviews: reviews as Record<string, unknown> }) }).html
@@ -206,6 +206,8 @@ function nativeChecks() {
   check("a look of another widget is not used", !draw({ widget: "carousel", review_config: CONFIG }, withLook, { template: "index" }).includes("Loved by buyers"))
   check("a deleted look: the widget's own defaults", draw({ widget: "grid", review_config: "55555555-5555-4555-8555-555555555555" }, withLook, { template: "index" }).includes("What customers say"))
   check("review words escaped through the engine as well", !html.includes("<script>alert"))
+  const drawn = renderSection({ compiled: r.value, id: "rw2", instance: { type: "reviews_widget", settings: { widget: "marquee" } }, theme: {}, page: { template: "index" } as never, data: storefrontData({ dynamic: { shop: { name: "Drew Studio" } } as never, reviews: data() as never }) })
+  check("its stylesheet goes in the section's own <style> block, scoped to it (a <style> in markup is taken out)", !drawn.html.includes("<style>") && drawn.css.includes('[data-section-id="rw2"]') && drawn.css.includes(".slw-mq") && /@keyframes/.test(drawn.css))
   check("the app off: nothing on a live page", text(draw({ widget: "grid" }, data(false))) === "")
   check("in the builder with samples: marked Sample", draw({ widget: "carousel" }, { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), CREATOR, null), enabled: true }, { template: "index", in_editor: true }).includes("<b>Sample</b>"))
   check("the page loads reviews for it (reviews.enabled in its source) and the canvas reads them (a reviews_ type)", /reviews\.enabled/.test(src) && "reviews_widget".startsWith("reviews_"))
@@ -229,7 +231,7 @@ function compatChecks() {
   const reviews = { ...data(), widgets: { [CONFIG]: { type: "carousel", settings: { heading: "Buyers say", columns: 2 } } } }
   const page = drawPage(theme as never, { ...base, template: "product", path: "/products/linen-apron", product: withRating, reviews } as never, [{ id: "w1", type: "storelib-review-widget", settings: { widget: "carousel", review_config: CONFIG } }], { scripts: true }).html
   check("draws the widget with the saved look in the theme", page.includes("Buyers say") && page.includes('data-slw="carousel"') && page.includes("Exactly right"))
-  check("  the carousel brings its small script, inside the widget", /<script>\(function\(\)\{var s=document\.currentScript[\s\S]*?<\/script><\/div>/.test(page))
+  check("  the carousel brings its small script, inside the widget", /<script>\(function\(\)\{var __name=[^<]*?document\.currentScript[\s\S]*?<\/script><\/div>/.test(page))
   check("  review words escaped", !page.includes("<script>alert"))
   const fr = drawPage(theme as never, { ...base, template: "product", path: "/fr/products/linen-apron", product: withRating, reviews, i18n: { locale: "fr", defaultLanguage: "en", languages: ["en", "fr"], uiWords: { write_a_review: "Écrire un avis" } } } as never, [{ id: "w2", type: "storelib-review-widget", settings: { widget: "product_reviews" } }], { scripts: false }).html
   check("  in another language: Storelib's words in that language", fr.includes("Écrire un avis"))
