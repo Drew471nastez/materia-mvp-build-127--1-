@@ -45,6 +45,23 @@
  * database cannot count yet (SQL part 184) is not shown, and one whose
  * counting began inside the period says from when.
  *
+ * ROUND 27, THE OWNER: "I still don't like those buttons, Growth, Traffic,
+ * Engagement, Content, Revenue", sitting "in between" the overview's figures
+ * and the charts, the spacing wrong. They were a second grey pill track, the
+ * community frame's own tabs again a few lines lower, wedged 16px from the
+ * figures above and 16px from the chart below, so they read as a loose
+ * control rather than the start of what is under them. Now:
+ *
+ *   THE SECTIONS   a row of tabs on a hairline the width of the page, as an
+ *                  integration's page draws its tabs (integration-detail):
+ *                  plain words, the one chosen in ink with a 2px line under
+ *                  it that slides to the next one chosen (the compositor,
+ *                  200ms), 44px tall to a finger on a phone. The line is
+ *                  where the overview ends and the section begins.
+ *   THE SPACING    two groups, not one stack of equal gaps: the period and
+ *                  the overview (16px apart); 32px; the sections' row; 20px;
+ *                  the section's chart and its cards (16px apart).
+ *
  * ROUND 32, THE OWNER: "accurate, smooth, clean, without the loading
  * stuff, the reloading bar above the charts." So:
  *
@@ -557,19 +574,23 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   return (
     <CompareContext.Provider value={compareLabel}>
       <ReportComparedContext.Provider value={drawnCompared !== null}>
-        <div ref={root} className="space-y-4" data-analytics="" data-section={shownSection} data-waiting={report.waiting ? "true" : "false"}>
+        <div ref={root} data-analytics="" data-section={shownSection} data-waiting={report.waiting ? "true" : "false"}>
           <div className="flex items-center gap-3" data-analytics-controls="" onPointerDownCapture={warm} onFocusCapture={warm}>
             <DateRangePicker value={period} onChange={setPeriod} today={today} firstDay={r?.firstDay} />
           </div>
-          {report.failed ? <Notice>{tt("The figures could not be loaded.")}</Notice> : null}
+          {report.failed ? (
+            <div className="mt-4">
+              <Notice>{tt("The figures could not be loaded.")}</Notice>
+            </div>
+          ) : null}
 
-          <div className={dim} style={dimDelay} data-analytics-trends="">
+          <div className={cn("mt-4", dim)} style={dimDelay} data-analytics-trends="">
             <Overview figures={overview} cold={cold} />
           </div>
 
           <SectionTabs value={shownSection} onChange={setSection} options={sections} />
 
-          <div className={cn("space-y-4", dim)} style={dimDelay} data-analytics-trends="" data-analytics-panel={shownSection}>
+          <div className={cn("mt-5 space-y-4", dim)} style={dimDelay} data-analytics-trends="" data-analytics-panel={shownSection}>
             {shownSection === "growth" ? (
               <TrendCard name="growth" label={tt("Growth")} tabs={growthTabs} selected={growthTab} onSelect={setGrowthTab} lines={r ? r.lines : null} frame={frame} />
             ) : null}
@@ -620,7 +641,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
           </div>
 
           {shownSection !== "revenue" ? (
-            <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
+            <div className={cn("mt-4", REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
               <Lists r={r} slug={head.slug} section={shownSection} />
             </div>
           ) : null}
@@ -635,21 +656,48 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
 /* ── The sections' tabs ──────────────────────────────────────────────── */
 
 /**
- * Analytics' own tabs (analytics-reports' ReportTabs: the grey track, the
- * white chosen tab with its hairline shadow), a finger's 40px tall on a
- * phone, since these choose the whole page under them; ReportTabs' own
- * height from sm. On a phone narrower than the five, the row scrolls
- * sideways inside itself and follows the tab chosen (use-tab-strip, as the
- * figure strips do), never the page.
+ * THE SECTIONS AS A ROW OF TABS ON A HAIRLINE (round 27): plain words, the
+ * chosen one in ink with one 2px line under its word. The line is a single
+ * element that slides (translate and width, on the compositor) from the word
+ * it was under to the one chosen; it is measured from the words themselves,
+ * again whenever the row changes size (a font arriving, a narrower window),
+ * and drawn without the slide the first time. On a phone narrower than the
+ * five, the row scrolls sideways inside itself and follows the tab chosen
+ * (use-tab-strip, as the figure strips do), never the page.
  */
 function SectionTabs({ value, onChange, options }: { value: SectionId; onChange: (v: SectionId) => void; options: SectionId[] }) {
   const strip = useTabStrip<HTMLElement>(value, options)
+  const row = React.useRef<HTMLDivElement>(null)
+  const [line, setLine] = React.useState<{ x: number; w: number; moved: boolean } | null>(null)
+  const names = options.join()
+  React.useLayoutEffect(() => {
+    const el = row.current
+    if (!el) return
+    const place = () => {
+      const word = el.querySelector<HTMLElement>(`[data-section-tab="${value}"] [data-tab-word]`)
+      if (!word) return setLine(null)
+      /* The word's place in its tab, and the tab's in the row (both `position: relative`). */
+      const x = (word.parentElement?.offsetLeft ?? 0) + word.offsetLeft
+      setLine((l) => (l && l.x === x && l.w === word.offsetWidth ? l : { x, w: word.offsetWidth, moved: l !== null }))
+    }
+    place()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(place)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [value, names])
   return (
-    <nav ref={strip} aria-label={tt("Sections")} data-analytics-sections="" data-scroll-x="" className="relative -mx-1 overflow-x-auto px-1 scrollbar-hide" style={TAB_STRIP_STYLE}>
-      <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
+    <nav ref={strip} aria-label={tt("Sections")} data-analytics-sections="" data-scroll-x="" className="relative mt-8 overflow-x-auto border-b border-[#e5e7eb] scrollbar-hide" style={TAB_STRIP_STYLE}>
+      <div ref={row} role="tablist" className="relative flex w-max min-w-full items-stretch">
         {options.map((o) => (
           <SectionTab key={o} id={o} selected={o === value} onChange={onChange} />
         ))}
+        <span
+          aria-hidden
+          data-tab-line=""
+          className={cn("pointer-events-none absolute bottom-0 left-0 h-[2px] rounded-full bg-[#1a1a2e] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", line?.moved ? "transition-[translate,width] duration-200" : "transition-none", line ? "opacity-100" : "opacity-0")}
+          style={line ? { translate: `${line.x}px 0`, width: line.w } : undefined}
+        />
       </div>
     </nav>
   )
@@ -665,11 +713,11 @@ function SectionTab({ id, selected, onChange }: { id: SectionId; selected: boole
       data-section-tab={id}
       onClick={() => onChange(id)}
       className={cn(
-        "h-10 shrink-0 cursor-pointer rounded-md px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-8 sm:text-[12.5px]",
-        selected ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+        "relative flex h-11 shrink-0 cursor-pointer items-center px-3 text-[14px] font-medium outline-none transition-colors duration-150 first:pl-0 focus-visible:text-[#1a1a2e] focus-visible:underline sm:h-10 sm:px-3.5 sm:text-[13.5px] sm:first:pl-0 [-webkit-tap-highlight-color:transparent]",
+        selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
       )}
     >
-      {sectionName(id)}
+      <span data-tab-word="">{sectionName(id)}</span>
     </button>
   )
 }
@@ -1006,7 +1054,7 @@ function GaLine({ ga }: { ga: CommunityReport["ga"] | null }) {
   if (!ga?.id) return null
   const seen = ga.seenAt ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(Date.parse(ga.seenAt)) : null
   return (
-    <p className="px-1 text-[12.5px] leading-snug text-[#6b7280]" data-ga="connected">
+    <p className="mt-3 px-1 text-[12.5px] leading-snug text-[#6b7280]" data-ga="connected">
       {seen ? tt("This community's pages and joins go to {id}. Last data {time}.", { id: ga.id, time: seen }) : tt("This community's pages and joins go to {id}.", { id: ga.id })}{" "}
       <a href={GA_SETUP} className="inline-flex h-10 items-center text-[#1a1a2e] underline-offset-2 hover:underline sm:h-auto">
         {tt("Manage")}

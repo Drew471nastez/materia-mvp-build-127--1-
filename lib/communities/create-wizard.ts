@@ -13,9 +13,13 @@
  *             gradients the browser draws and uploads as the cover and,
  *             with the first letter, as the logo (create-flow.tsx)
  *   access    free, paid with a price, or private
- *   welcome   the first space's name (General until changed) and the
- *             welcome post pinned in it, written for them and editable
- *   review    everything on one card, each part a tap from its step
+ *   review    everything on one card, each part a tap from its step,
+ *             and Create
+ *   welcome   round 27: once it is made, its first post, written in the
+ *             community feed's own composer (the same component, so
+ *             pictures, video, files, polls and GIFs work as they do in
+ *             the feed), pinned; or Skip. The first space keeps its name
+ *             (General) and can be renamed in Spaces.
  *
  * The draft is kept in this browser (localStorage, a per person
  * convenience), so a refresh or a closed tab comes back where it was.
@@ -27,11 +31,13 @@ import { LENGTHS } from "./limits"
 import { slugify, validSlug, SLUG_MAX, SLUG_MIN } from "./slug"
 import { tt } from "@/lib/i18n/text"
 
-export const WIZARD_STEPS = ["name", "look", "access", "welcome", "review"] as const
+export const WIZARD_STEPS = ["name", "look", "access", "review", "welcome"] as const
 export type WizardStep = (typeof WIZARD_STEPS)[number]
 
 export const DRAFT_KEY = "storelib:new-community:v1"
 export const WELCOME_BODY_MAX = 5000
+/** How long a made community's welcome step is offered again after a reload (round 27). */
+export const MADE_KEEP_MS = 60 * 60 * 1000
 
 /** Six covers for a community with no picture yet: calm, in the app's own inks, no purple. */
 export const COVER_PALETTES = [
@@ -74,15 +80,12 @@ export interface WizardDraft {
   type: CommunityType
   price: string
   interval: PriceInterval
-  spaceName: string
-  welcomeTitle: string
-  welcomeBody: string
-  /** The welcome post was changed by hand, so a new name does not rewrite it. */
-  welcomeEdited: boolean
+  /** Round 27: Create went through; the welcome step writes in this community. `at` is when, in ms. */
+  made: { id: string; slug: string; at: number } | null
 }
 
 export function emptyDraft(): WizardDraft {
-  return { step: 0, name: "", slug: "", slugEdited: false, description: "", logoUrl: null, coverUrl: null, palette: "ink", type: "free", price: "", interval: "month", spaceName: "General", welcomeTitle: "", welcomeBody: "", welcomeEdited: false }
+  return { step: 0, name: "", slug: "", slugEdited: false, description: "", logoUrl: null, coverUrl: null, palette: "ink", type: "free", price: "", interval: "month", made: null }
 }
 
 /** The address the community will have: what was typed, else the name's. */
@@ -104,7 +107,7 @@ const https = (v: unknown): string | null => (typeof v === "string" && /^https:\
 const str = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "")
 
 /** A draft read back from this browser: anything malformed is left as a new one would have it. */
-export function readDraft(text: string | null | undefined): WizardDraft | null {
+export function readDraft(text: string | null | undefined, now: number = Date.now()): WizardDraft | null {
   if (!text) return null
   let r: Record<string, unknown>
   try {
@@ -116,8 +119,10 @@ export function readDraft(text: string | null | undefined): WizardDraft | null {
   }
   const e = emptyDraft()
   const step = Number(r.step)
+  const made = madeOf(r.made, now)
   return {
-    step: Number.isInteger(step) && step >= 0 && step < WIZARD_STEPS.length ? step : 0,
+    /* A made community is only ever on its welcome step; one not made never is. */
+    step: made ? WIZARD_STEPS.indexOf("welcome") : Number.isInteger(step) && step >= 0 && step < WIZARD_STEPS.indexOf("welcome") ? step : 0,
     name: str(r.name, LENGTHS.communityName.max),
     slug: str(r.slug, SLUG_MAX),
     slugEdited: r.slugEdited === true && !!str(r.slug, SLUG_MAX),
@@ -128,11 +133,17 @@ export function readDraft(text: string | null | undefined): WizardDraft | null {
     type: r.type === "paid" || r.type === "private" ? r.type : "free",
     price: str(r.price, 12),
     interval: r.interval === "year" || r.interval === "once" ? r.interval : "month",
-    spaceName: str(r.spaceName, LENGTHS.spaceName.max) || e.spaceName,
-    welcomeTitle: str(r.welcomeTitle, LENGTHS.postTitle.max),
-    welcomeBody: str(r.welcomeBody, WELCOME_BODY_MAX),
-    welcomeEdited: r.welcomeEdited === true,
+    made,
   }
+}
+
+/** A made community read back: its id and address, while it is recent enough for its welcome step. */
+function madeOf(v: unknown, now: number): WizardDraft["made"] {
+  if (!v || typeof v !== "object") return null
+  const m = v as Record<string, unknown>
+  const at = Number(m.at)
+  if (typeof m.id !== "string" || !/^[0-9a-f-]{36}$/i.test(m.id) || typeof m.slug !== "string" || !m.slug || !Number.isFinite(at) || now - at > MADE_KEEP_MS || at > now + 60_000) return null
+  return { id: m.id, slug: m.slug.slice(0, SLUG_MAX + 8), at }
 }
 
 /** Whether a draft has anything in it worth offering back. */
@@ -160,20 +171,15 @@ export function checkWizardStep(step: WizardStep, d: WizardDraft): StepCheck {
     const p = checkPrice(d.price, d.interval)
     if (!p.ok) return { ok: false, field: (p as { field: string }).field, error: (p as { error: string }).error }
   }
-  if (step === "welcome") {
-    if (!d.spaceName.trim()) return { ok: false, field: "spaceName", error: tt("Name the first space.") }
-    if (d.spaceName.trim().length > LENGTHS.spaceName.max) return { ok: false, field: "spaceName", error: tt("A space name is up to {max} characters.", { max: LENGTHS.spaceName.max }) }
-    if (d.welcomeTitle.length > LENGTHS.postTitle.max) return { ok: false, field: "welcomeTitle", error: tt("A title is up to {max} characters.", { max: LENGTHS.postTitle.max }) }
-    if (d.welcomeBody.length > WELCOME_BODY_MAX) return { ok: false, field: "welcomeBody", error: tt("The welcome post is up to {max} characters.", { max: WELCOME_BODY_MAX }) }
-  }
   return { ok: true }
 }
 
-/** The first step that does not pass, for Create from the review. */
+/** The first step before the review that does not pass, for Create. */
 export function firstProblem(d: WizardDraft): { step: number; check: Exclude<StepCheck, { ok: true }> } | null {
-  for (let i = 0; i < WIZARD_STEPS.length; i++) {
+  for (let i = 0; i < WIZARD_STEPS.indexOf("review"); i++) {
     const c = checkWizardStep(WIZARD_STEPS[i], d)
-    if (!c.ok) return { step: i, check: c }
+    /* Cast, not narrowed: the loose test compile (strict off) does not narrow a union on `ok`. */
+    if (!c.ok) return { step: i, check: c as Exclude<StepCheck, { ok: true }> }
   }
   return null
 }
@@ -188,9 +194,10 @@ type Checked<T> = { ok: true; value: T } | { ok: false; field: string; error: st
 
 /**
  * What POST /api/app/community reads: the create flow's fields (checkCreate)
- * and, from the wizard, the address asked for, the first space's name and the
- * welcome post. Each of the three is optional, so an older caller is read as
- * it always was.
+ * and, from the wizard, the address asked for. The first space's name and the
+ * welcome post (round 33's wizard) are still read when sent; the round 27
+ * wizard writes the welcome post after Create, in the feed's composer. Each
+ * of the three is optional, so an older caller is read as it always was.
  */
 export function checkWizard(raw: unknown): Checked<WizardInput> {
   const base = checkCreate(raw)

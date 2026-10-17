@@ -416,7 +416,8 @@ async function main() {
   /* ── The create wizard ───────────────────────────────────────────────── */
   console.log("\nthe create wizard")
   {
-    check("five steps", WIZARD_STEPS.join() === "name,look,access,welcome,review")
+    /* Round 27 (tests/wizard27.test.ts): the welcome post is written after Create, in the feed's composer, so it is the last step. */
+    check("five steps", WIZARD_STEPS.join() === "name,look,access,review,welcome")
     const d = emptyDraft()
     check("a name is asked first", checkWizardStep("name", d).ok === false && (checkWizardStep("name", d) as Any).field === "name")
     check("an address that cannot be one is said beside it", (checkWizardStep("name", { ...d, name: "Makers", slug: "a" }) as Any).field === "slug" && (checkWizardStep("name", { ...d, name: "Makers", slug: "app" }) as Any).field === "slug")

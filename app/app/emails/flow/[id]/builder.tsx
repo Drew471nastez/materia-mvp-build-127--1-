@@ -587,6 +587,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <div
         data-flow-foot=""
         data-shown={dirty ? "" : undefined}
+        data-app-foot={dirty ? "up" : "down"}
         inert={!dirty}
         className={cn(
           "sticky bottom-0 z-20 mt-auto hidden shrink-0 transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:block",
