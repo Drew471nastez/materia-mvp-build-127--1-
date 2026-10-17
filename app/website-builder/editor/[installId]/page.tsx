@@ -1161,8 +1161,8 @@ function BrandingWords({ fields, settings, skip }: { fields: SchemaField[]; sett
   if (words.length === 0) return null
   return (
     <div className="space-y-4" data-branding-words="">
-      {words.map((f) => (
-        <FieldEditor key={f.id} label={f.label} field={f} value={settings[f.id] ?? f.default} onChange={() => undefined} />
+      {words.map((field) => (
+        <FieldEditor key={field.id} label={fieldCarriesOwnLabel(field) ? undefined : field.label} field={field} value={settings[field.id] ?? field.default} onChange={() => undefined} />
       ))}
     </div>
   )
