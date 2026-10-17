@@ -1,4 +1,5 @@
 import "server-only"
+import { trialDaysOf } from "./plan"
 
 /**
  * What a membership's product page needs beyond any product's: whether its
@@ -29,7 +30,7 @@ export async function membershipForProductPage(productId: string, user: { id: st
       const access = await canReadMembership(admin, viewer, productId)
       if (access.allowed && access.membership) memberHref = `/account/library/memberships/${access.membership.id}`
     }
-    return { interval, memberHref, trialDays: plan?.trial_days ?? 0 }
+    return { interval, memberHref, trialDays: trialDaysOf(plan?.trial_days) }
   } catch {
     return { interval: "month", memberHref: null, trialDays: 0 }
   }

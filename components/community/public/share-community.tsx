@@ -94,7 +94,7 @@ function QrImage({ url, name }: { url: string; name: string }) {
   )
 }
 
-export function CommunityShareButton({ slug, name, className }: { slug: string; name: string; className?: string }) {
+export function CommunityShareButton({ slug, name, className, onCover = false }: { slug: string; name: string; className?: string; /** Round 27, the owner: on a cover picture it is quieter (smaller, softer, see through until it is pointed at). */ onCover?: boolean }) {
   const url = communityShareUrl(slug)
   const phone = usePhone()
   const [qrOpen, setQrOpen] = React.useState(false)
@@ -139,8 +139,16 @@ export function CommunityShareButton({ slug, name, className }: { slug: string; 
             /* 40px to a thumb around a 32px disc: the disc is drawn by the span, the button is the target. */
             className="group/share -m-1 flex h-10 w-10 items-center justify-center rounded-full outline-none [-webkit-tap-highlight-color:transparent]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.18),0_0_0_1px_rgba(16,24,40,0.06)] transition-[background-color] duration-150 group-hover/share:bg-[#f6f7f8] group-active/share:bg-[#eef0f2] group-focus-visible/share:ring-2 group-focus-visible/share:ring-[#1a1a2e]/30 group-data-[state=open]/share:bg-[#eef0f2] motion-reduce:transition-none">
-              <Share2 aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} />
+            <span
+              className={cn(
+                "flex items-center justify-center rounded-full transition-[background-color,color] duration-150 group-focus-visible/share:ring-2 group-focus-visible/share:ring-[#1a1a2e]/30 motion-reduce:transition-none",
+                onCover
+                  ? "h-7 w-7 bg-white/75 text-[#4b5563] shadow-[0_0_0_0.5px_rgba(16,24,40,0.10)] group-hover/share:bg-white group-hover/share:text-[#1a1a2e] group-active/share:bg-[#eef0f2] group-data-[state=open]/share:bg-white group-data-[state=open]/share:text-[#1a1a2e]"
+                  : "h-8 w-8 bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.18),0_0_0_1px_rgba(16,24,40,0.06)] group-hover/share:bg-[#f6f7f8] group-active/share:bg-[#eef0f2] group-data-[state=open]/share:bg-[#eef0f2]",
+              )}
+              data-share-quiet={onCover ? "" : undefined}
+            >
+              <Share2 aria-hidden className={onCover ? "h-[13px] w-[13px]" : "h-[15px] w-[15px]"} strokeWidth={onCover ? 2.1 : 2} />
             </span>
           </button>
         }

@@ -1,4 +1,5 @@
 import "server-only"
+import { trialDaysOf } from "@/lib/memberships/plan"
 
 /**
  * ===========================================================================
@@ -99,7 +100,7 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
       priceCents: once,
       priceLine: priceLine({ kind: t.kind, billing: t.billing, monthlyCents: monthly, yearlyCents: yearly, priceCents: once, currency: plan?.currency ?? "usd" }),
       benefits: Array.isArray(t.benefits) ? t.benefits : [],
-      trialDays: t.billing === "recurring" ? Number(plan?.trial_days ?? 0) : 0,
+      trialDays: t.billing === "recurring" ? trialDaysOf(plan?.trial_days) : 0,
       members: counts[i]?.count ?? 0,
       subscribers: t.product_id && t.billing === "recurring" ? (subsOf.get(t.product_id) ?? { paying: 0, trialing: 0, trialsEnded: 0, trialsConverted: 0 }) : null,
       accessProducts: linkRows

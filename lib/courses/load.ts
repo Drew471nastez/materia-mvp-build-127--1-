@@ -89,9 +89,15 @@ export async function playerFromTree(
     level: ProductLevel
     askedLessonId?: string | null
     meta: Pick<PlayerData, "productId" | "title" | "thumbnailUrl" | "productHref" | "creator"> & { contact?: boolean }
+    /** Round AG: modules this viewer bought on their own (lib/communities/server/module-sales.ts): their lessons open, the rest stay as the level says. */
+    openModules?: ReadonlySet<string>
   },
 ): Promise<PlayerData> {
-  const { userId, tree, level, askedLessonId, meta } = input
+  const { userId, tree, askedLessonId, meta } = input
+  const openModules = input.openModules ?? new Set<string>()
+  const partly = openModules.size > 0 && input.level === "public"
+  /* A viewer with a bought module keeps progress like an owner; each other lesson still reads its own lock below. */
+  const level: ProductLevel = partly ? "owner" : input.level
   const outline = outlineOf(tree)
   const lessonIds = outline.flatMap((m) => m.lessons.map((l) => l.id))
   const owner = level === "creator" || level === "owner"
@@ -109,7 +115,7 @@ export async function playerFromTree(
     coverUrl: httpsCover(moduleRow.get(m.id)),
     lessons: m.lessons.map((l) => {
       const row = rowOf.get(l.id) as LessonRow
-      const locked = lessonAccess(level, l.isPreview) === "none"
+      const locked = partly ? !openModules.has(m.id) && !l.isPreview : lessonAccess(level, l.isPreview) === "none"
       return {
         ...l,
         locked,
@@ -130,7 +136,7 @@ export async function playerFromTree(
     ? all.find((l) => !l.locked && (l.id === askedLessonId || slugifyHandle(l.title, 60) === askedKey || `${slugifyHandle(l.title, 60)}-${l.id.replace(/-/g, "").slice(0, 4)}` === askedKey))
     : undefined
   const resume = owner ? resumeLesson(outline, map, enrollment?.last_lesson_id) : null
-  const initial = asked ?? (resume ? all.find((l) => l.id === resume.id) : undefined) ?? all.find((l) => !l.locked) ?? null
+  const initial = asked ?? (resume ? all.find((l) => l.id === resume.id && !l.locked) : undefined) ?? all.find((l) => !l.locked) ?? null
 
   return {
     productId: meta.productId,

@@ -110,7 +110,7 @@ async function main() {
     check("switch on: the cookie when the address says nothing, else products", discoverModeFor({ communitiesOn: true, cookie: "communities" }) === "communities" && discoverModeFor({ communitiesOn: true }) === "products")
     check("the admin's headline flag adds the gray control only while communities are on", showsHeadlineSwitch({ communitiesOn: true, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: false, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: true, headlineFlag: false }))
     const page = code("app/(marketing)/explore/page.tsx")
-    check("the page decides the mode by that rule", /discoverModeFor\(\{ communitiesOn, type: params\?\.type \?\? null, cookie: cookieMode \}\)/.test(page))
+    check("the page decides the mode by that rule, products unless the address asks (round AG: no lasting cookie)", /discoverModeFor\(\{ communitiesOn, type: params\?\.type \?\? null, cookie: null \}\)/.test(page))
     check("and draws the first page of real communities in communities mode, with the subcategory from the address", /initialDiscoverMode === "communities"\s*\? exploreCommunities\(\{ q: searchQuery, category, sub, sort: communityServerSort\(params\?\.srt\) \}\)/.test(page) && /query: communitiesQuery\(\{ q: searchQuery, category, sub, srt: params\?\.srt \?\? null \}\)/.test(page) && /broadened: p\.broadened === true/.test(page) && /const sub = category !== "all" && params\?\.sub && VALID_SUBCATEGORY_IDS\.includes\(params\.sub\) \? params\.sub : null/.test(page) && /initialCommunities=\{await firstCommunitiesPromise\}/.test(page))
     const client = code("components/explore/explore-page-client.tsx")
     check("the chip's switcher and the headline control only while communities are on", /onModeChange=\{communitiesEnabled \? handleModeChange : undefined\}/.test(client) && /discoverHeadlineSegmentEnabled=\{communitiesEnabled && discoverHeadlineSegmentEnabled\}/.test(client))
@@ -429,7 +429,7 @@ async function main() {
   console.log("\nFooter")
   {
     const footer = code("components/marketing/conditional-footer.tsx")
-    check("Explore's browse pages on the web: the creator page footer from 1024px", /setExploreDesktop\(!isNativeApp\(\) && isExploreBrowsePage\(pathname\)\)/.test(footer) && /<div className="hidden lg:block" data-explore-desktop-footer="">\s*(\{\}\s*)?<SellerFooter headerWidth \/>/.test(footer))
+    check("Explore's browse pages on the web: the creator page footer from 1024px", /setExploreDesktop\(!isNativeApp\(\) && isExploreBrowsePage\(pathname\)\)/.test(footer) && /<div className="hidden lg:block" data-explore-desktop-footer="">\s*(\{\}\s*)?(\{\}\s*)?<SellerFooter headerWidth( home=\{!signedIn\})? \/>/.test(footer))
     check("below 1024px, what was there before", /\{footer \? <div className="lg:hidden">\{footer\}<\/div> : null\}/.test(footer))
   }
 

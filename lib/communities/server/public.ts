@@ -1,4 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
+import { trialDaysOf } from "@/lib/memberships/plan"
 import "server-only"
 
 /**
@@ -31,6 +32,7 @@ import { money } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { socialLinksOf } from "@/lib/communities/social-links"
 import { coverPosition, joinLookOf, pageLookOf } from "@/lib/communities/page-look"
+import { legalLinksOf } from "@/lib/communities/legal-links"
 import { htmlToPlainText } from "@/lib/rich-text/html"
 import { readPublishedReviews } from "@/lib/reviews/store"
 import { getProductInternalPath } from "@/lib/url-helpers"
@@ -191,7 +193,7 @@ export function optionsFor(slug: string, tiers: TierRow[], products: Map<string,
       currency,
       priceLine: line,
       benefits: benefitsOf(t.benefits),
-      trialDays: recurring ? Math.max(0, Number(plan?.trial_days ?? 0)) : 0,
+      trialDays: recurring ? trialDaysOf(plan?.trial_days) : 0,
       checkout,
     }
   })
@@ -565,7 +567,11 @@ export function sharePreviewable(c: Pick<CommunityRow, "status" | "suspended_at"
  * is not its staff).
  */
 /** Skip reviews, gallery and live stats: enough for the member's Membership settings page. */
-export type LoadSalesPageOpts = { light?: boolean }
+export type LoadSalesPageOpts = {
+  light?: boolean
+  /** Round AG: the join as a signed out visitor sees it, for the owner's "Preview" of the plans. The staff check still reads the real viewer. */
+  asVisitor?: boolean
+}
 
 export async function loadSalesPage(slug: string, userId: string | null, given?: Db, opts?: LoadSalesPageOpts): Promise<SalesPageLoad | null> {
   /* The page's own read is shared with its metadata (communityBySlug); a caller with its own database reads its own. */
@@ -657,6 +663,8 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     links: socialLinksOf(community.links),
     coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
     joinLook: joinLookOf(pageLookOf(community.onboarding)),
+    /* Round 27: the creator's own Privacy and Terms pages, beside the look in onboarding. */
+    legal: legalLinksOf(community.onboarding),
     /* Round 26: the short description for the info card (its fallbacks are the card's, about-facts.ts cardSummary), and the admins it counts. */
     summary,
     adminCount: Math.max(0, stats.admins ?? 0),
@@ -674,7 +682,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       archived: Boolean(community.archived_at) || community.status === "archived",
       creatorName: creator?.name ?? null,
     },
-    viewer: {
+    viewer: opts?.asVisitor
+      ? { signedIn: false, active: false, status: null, role: null, isOwner: false, banned: false, approved: false, invited: false, source: null, membershipId: null }
+      : {
       signedIn: Boolean(userId),
       active: viewer.active,
       status: viewer.status,

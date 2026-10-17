@@ -35,7 +35,8 @@ import "server-only"
  *
  * A NEW PROGRAM OR LESSON (reason "program", queued by notify.ts
  * notifyProgramPublished) rides this kind too, since the queue's kinds are
- * fixed in SQL: jobs/fanout_program.ts.
+ * fixed in SQL: jobs/fanout_program.ts. So does the owner's own email to
+ * the members (reason "broadcast", ../broadcasts.ts).
  */
 import { evaluateAccess, parseAccessRule } from "../../access"
 import { wantsNotification } from "../../permissions"
@@ -89,6 +90,11 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
   if (payload.reason === "program") {
     const { fanoutProgram } = await import("./fanout_program")
     return fanoutProgram(db, payload, ctx)
+  }
+  /* Round AG: the owner's own email to the members (../broadcasts.ts), on this kind too. */
+  if (payload.reason === "broadcast") {
+    const { fanoutBroadcast } = await import("../broadcasts")
+    return fanoutBroadcast(db, payload, ctx)
   }
   const communityId = typeof payload.communityId === "string" ? payload.communityId : ""
   const postId = typeof payload.postId === "string" ? payload.postId : ""

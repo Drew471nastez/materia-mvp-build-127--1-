@@ -27,6 +27,7 @@ import { PlaceIcon } from "@/components/community/member/place-icons"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
 import type { PlayerData } from "@/lib/courses/types"
 import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
+import { programPrice } from "@/lib/communities/learn"
 import { BuyProgram } from "./program-checkout"
 import { cameFromLearn } from "./learn-history"
 import { tt } from "@/lib/i18n/text"
@@ -53,7 +54,8 @@ export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref
 
 /** What is inside, for a program the member cannot open yet: each module with its lesson titles. */
 export interface ProgramOutline {
-  modules: { id: string; title: string; coverUrl?: string | null; lessons: string[] }[]
+  /** Round AG: priceCents set when the module is also sold on its own. */
+  modules: { id: string; title: string; coverUrl?: string | null; lessons: string[]; priceCents?: number | null }[]
 }
 
 /** The description: as written in the rich text field (cleaned on the server and again here), or the plain text from before. */
@@ -183,14 +185,14 @@ export function LockedProgram({
             </Link>
           </div>
         </div>
-        {outline && outline.modules.length ? <Outline outline={outline} /> : null}
+        {outline && outline.modules.length ? <Outline outline={outline} buy={{ communityId, communityName, programId: program.id, coverUrl: program.coverUrl, currency: null }} /> : null}
       </article>
     </div>
   )
 }
 
 /** The modules and their lesson titles: what a member would get. Titles only, nothing to open. */
-function Outline({ outline }: { outline: ProgramOutline }) {
+function Outline({ outline, buy = null }: { outline: ProgramOutline; buy?: { communityId: string; communityName: string; programId: string; coverUrl: string | null; currency: string | null } | null }) {
   return (
     <section aria-label={tt("What is inside")} className="border-t border-[#eef0f2] px-4 pb-4 pt-4 sm:px-6 sm:pb-5" data-program-outline>
       <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#6b7280]">{tt("Inside")}</h2>
@@ -211,6 +213,21 @@ function Outline({ outline }: { outline: ProgramOutline }) {
               </span>
               <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{lessonsLabel(m.lessons.length)}</span>
             </p>
+            {buy && m.priceCents ? (
+              <div className={`mt-1.5 ${m.coverUrl ? "pl-[80px]" : "pl-[22px]"}`} data-module-for-sale={m.id}>
+                <BuyProgram
+                  communityId={buy.communityId}
+                  communityName={buy.communityName}
+                  programId={buy.programId}
+                  moduleId={m.id}
+                  title={m.title}
+                  priceLabel={programPrice(m.priceCents, buy.currency)}
+                  buttonLabel={tt("Buy this module · {price}", { price: programPrice(m.priceCents, buy.currency) })}
+                  coverUrl={m.coverUrl ?? buy.coverUrl}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f8f9fa]"
+                />
+              </div>
+            ) : null}
             {m.lessons.length ? (
               <ul className={`mt-1 space-y-0.5 ${m.coverUrl ? "pl-[80px]" : "pl-[22px]"}`}>
                 {m.lessons.slice(0, 4).map((t, j) => (

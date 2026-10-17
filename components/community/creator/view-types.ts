@@ -33,6 +33,7 @@ import type {
 } from "@/lib/communities/types"
 import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
 import type { PageLook } from "@/lib/communities/page-look"
+import type { LegalLinks } from "@/lib/communities/legal-links"
 import type { MemberLink } from "@/lib/communities/member-links"
 import type { GalleryItem, NextStep } from "./logic"
 
@@ -205,6 +206,8 @@ export interface SettingsData {
   descriptionHtml?: string
   /** Round 33: the cover's focus and the join button (lib/communities/page-look.ts). */
   pageLook?: PageLook
+  /** Round 27: the community's own Privacy and Terms pages (lib/communities/legal-links.ts), null where Storelib's stand. */
+  legalLinks?: LegalLinks
   tagline: string | null
   /** Round 26: the short description on the community's card (communities.summary, run-now part 220), or null for none. */
   summary?: string | null

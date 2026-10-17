@@ -92,6 +92,8 @@ export interface EditorModule {
   title: string
   /** A picture for the module (part 200), from Storelib's storage. */
   coverUrl?: string | null
+  /** Round AG: a program's module sold on its own, in cents; null when it is not (lib/communities/server/module-sales.ts). */
+  priceCents?: number | null
   lessons: EditorLesson[]
 }
 

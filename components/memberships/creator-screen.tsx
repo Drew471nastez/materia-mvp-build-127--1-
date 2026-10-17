@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { GUTTER, PaneBar, StatusBadge, buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
-import { centsFromInput, checkPlan, LIMITS } from "@/lib/memberships/plan"
+import { centsFromInput, checkPlan, LIMITS, TRIAL_CHOICES, trialDaysOf } from "@/lib/memberships/plan"
 import { describeStatus, money, pricePer, shortDate, yearlySaving } from "@/lib/memberships/state"
 import type { CreatorMembershipScreen, FeedPost, MemberView, PostRow } from "@/lib/memberships/view-types"
 import { PostView, fileSize } from "./post-view"
@@ -640,7 +640,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
           <div>
             <label htmlFor="m-trial" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">{tt("Free trial")}</label>
             <select id="m-trial" value={s.trialDays} onChange={(e) => set("trialDays", e.target.value)} aria-invalid={bad("trial") || undefined} className={cn(field, "h-11 appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8")}>
-              {[0, 3, 7, 14, 30].map((d) => (
+              {[...new Set<number>([...TRIAL_CHOICES, trialDaysOf(s.trialDays)])].sort((a, b) => a - b).map((d) => (
                 <option key={d} value={String(d)}>
                   {d === 0 ? tt("No trial") : tt("{d} days", { d })}
                 </option>

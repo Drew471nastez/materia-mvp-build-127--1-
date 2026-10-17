@@ -5,7 +5,7 @@ import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
 import { archiveTier, moveTier, setDefaultTier, updateTier, type TierPatch } from "@/lib/communities/server/tiers"
 import { checkBenefits, checkPrice, isUuid } from "@/components/community/creator/logic"
-import { LENGTHS, TRIAL_MAX_DAYS } from "@/lib/communities/limits"
+import { LENGTHS, TRIAL_MAX_DAYS, TRIAL_MIN_DAYS } from "@/lib/communities/limits"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -70,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (body.trialDays !== undefined) {
     const days = body.trialDays === null || body.trialDays === "" ? 0 : Number(body.trialDays)
-    if (!Number.isInteger(days) || days < 0 || days > TRIAL_MAX_DAYS) return bad(`A free trial is 0 to ${TRIAL_MAX_DAYS} days.`, "trialDays")
+    if (!Number.isInteger(days) || days < 0 || days > TRIAL_MAX_DAYS || (days > 0 && days < TRIAL_MIN_DAYS)) return bad(`A free trial is ${TRIAL_MIN_DAYS} to ${TRIAL_MAX_DAYS} days, or none.`, "trialDays")
     patch.trialDays = days
   }
   if (body.price !== undefined) {

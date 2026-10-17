@@ -4,7 +4,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { loadCommunity, viewerContext } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { communityMembershipView, type PersonRef } from "@/lib/communities/server/membership-lifecycle"
-import { applyPlanChange, planChoices, previewPlanChange } from "@/lib/communities/server/plan-change"
+import { applyPlanChange, finishPlanChange, planChoices, previewPlanChange } from "@/lib/communities/server/plan-change"
 import { createClient } from "@/lib/supabase/server"
 
 export const runtime = "nodejs"
@@ -22,7 +22,10 @@ type Params = { params: Promise<{ communityId: string }> }
  *   POST  { tierId, interval, confirm?: false }  what it would cost: due
  *         now, credit, the next charge, from Stripe's invoice preview
  *   POST  { tierId, interval, confirm: true }    makes the change, then
- *         answers the Membership page's view as it now is
+ *         answers the Membership page's view as it now is; an upgrade the
+ *         bank wants to confirm answers { needsAction: { clientSecret } }
+ *   POST  { tierId, interval, finish: true }     after that confirmation:
+ *         finishes the change once Stripe shows it paid
  *
  * WHO. The person's own subscription to this community only, as the
  * membership route next door. viewerContext, not requireMember, for the same
@@ -58,7 +61,7 @@ export async function POST(request: Request, { params }: Params) {
   const who = await person()
   if (!who) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
-  const confirm = body.confirm === true
+  const confirm = body.confirm === true || body.finish === true
   const limited = await rateLimit({
     bucket: confirm ? "membership-manage" : "membership-plan-preview",
     subjects: [`user:${who.id}`],
@@ -77,8 +80,10 @@ export async function POST(request: Request, { params }: Params) {
     if (!preview.ok) return NextResponse.json({ error: preview.message, code: preview.error }, { status: preview.status, headers: NO_STORE })
     return NextResponse.json({ preview: preview.value }, { headers: NO_STORE })
   }
-  const done = await applyPlanChange(db, community, who, input)
+  /* Round AG: { finish: true } after the page confirmed an upgrade's payment with the bank; made only when Stripe shows it paid. */
+  const done = body.finish === true ? await finishPlanChange(db, community, who, input) : await applyPlanChange(db, community, who, input)
   if (!done.ok) return NextResponse.json({ error: done.message, code: done.error }, { status: done.status, headers: NO_STORE })
+  if (done.value.needsAction) return NextResponse.json({ changed: done.value, needsAction: done.value.needsAction }, { headers: NO_STORE })
   const membership = await communityMembershipView(db, community, who)
   return NextResponse.json({ changed: done.value, membership }, { headers: NO_STORE })
 }

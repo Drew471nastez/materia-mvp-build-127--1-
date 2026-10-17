@@ -142,6 +142,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "email/click/route.ts": "a link in a sent email, keyed by its own token",
   "email/track/route.ts": "the open pixel in a sent email",
   "email/unsubscribe/route.ts": "the unsubscribe link, which must work without signing in",
+  "memberships/tax-quote/route.ts": "a membership checkout's tax line before anyone pays: answers only the tax on a published membership's own price for the asker's own location (their IP and country headers), nothing about any account, never cached, rate limited",
   "memberships/unsubscribe/route.ts": "the link in a creator's update email to members: the signed token names one membership and only turns its post emails off or on",
   "notify/unsubscribe/route.ts": "Storelib's own unsubscribe link: the signed token names the person and the category, and the page never shows an address",
   "automations/t/o/route.ts": "the open pixel in an automated email, keyed by its send's random token; it only ever sets opened_at once",

@@ -1130,6 +1130,7 @@ export const SETTINGS_TABS = [
   "advanced",
   "roles",
   "policies",
+  "emails",
   "gamification",
   "notifications",
   /* round32: features panels */
@@ -1168,6 +1169,10 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "pricing":
     case "tiers":
       return "access"
+    case "email":
+    case "broadcast":
+    case "templates":
+      return "emails"
     default:
       /* Nothing named, or a page tab (the server sends those on to the Page section first): the first panel. */
       return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "access"

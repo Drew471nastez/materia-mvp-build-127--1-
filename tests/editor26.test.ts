@@ -118,7 +118,7 @@ async function main() {
     const all = PAGE_GROUPS.flatMap((g) => GROUP_BLOCKS[g])
     check("six groups hold every part of the page exactly once", PAGE_GROUPS.length === 6 && all.length === PAGE_BLOCKS.length && PAGE_BLOCKS.every((b) => all.filter((x) => x === b).length === 1))
     check("a press on a part opens its group", groupOf("summary") === "basics" && groupOf("cover") === "media" && groupOf("benefits") === "about" && groupOf("memberLinks") === "links" && groupOf("join") === "join" && groupOf("search") === "search")
-    const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: null, gallery: [], benefits: [], faq: [], links: [], look: DEFAULT_LOOK, summary: "", memberLinks: [], seoTitle: "", seoDescription: "", discoveryEnabled: true }
+    const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: null, gallery: [], benefits: [], faq: [], links: [], look: DEFAULT_LOOK, summary: "", memberLinks: [], seoTitle: "", seoDescription: "", discoveryEnabled: true, legal: { privacy: "", terms: "" } }
     const now: PageDraft = { ...start, summary: " A club for potters ", memberLinks: [{ id: "abcd1234", label: " Shop ", url: "shop.example.com", icon: null, hidden: false }], seoTitle: "Clay club", seoDescription: "Pots", discoveryEnabled: false }
     const body = changedBody(start, now)
     check("Save sends the short description trimmed, the member links with their address made whole, the search fields and Explore", body.summary === "A club for potters" && (body.memberLinks as { url: string; label: string }[])[0].url === "https://shop.example.com/" && (body.memberLinks as { label: string }[])[0].label === "Shop" && body.seoTitle === "Clay club" && body.discoveryEnabled === false, body)
@@ -224,8 +224,9 @@ async function main() {
   console.log("\nSOURCE: the editor")
   {
     const editor = code("components/community/creator/page-editor/page-editor.tsx")
-    check("the panel beside the stage from 1280px; below it the drawer", /const WIDE = "\(min-width: 1280px\)"/.test(editor) && /<BottomSheet/.test(editor) && /data-page-phone-bar/.test(editor))
-    check("the panel is in the page's own scroll (no second scroll box), the stage sticks under the tabs", /<aside id="pe-side" className=\{cn\(card, "w-\[360px\] shrink-0 overflow-hidden/.test(editor) && !/data-page-side[^>]*overflow-y-auto/.test(editor) && /sticky top-\[var\(--pe-top/.test(editor))
+    /* Round 27 (E27): side or drawer by the editor's own width, the drawer docked (tests/editor27.test.ts has the rest). */
+    check("the panel beside the stage where there is room; below it the drawer", /export const SIDE_MIN = 640/.test(code("components/community/creator/page-editor/layout.ts")) && /<EditorDrawer/.test(editor))
+    check("the panel is in the page's own scroll (no second scroll box), the stage sticks under the tabs", /<aside ref=\{side\} id="pe-side" className=\{cn\(card, "w-\[360px\]/.test(editor) && !/data-page-side[^>]*overflow-y-auto/.test(editor) && /sticky top-\[var\(--pe-top/.test(editor))
     check("the stage's height is measured once and shared as CSS numbers", /--pe-stage-h/.test(editor) && /--pe-top/.test(editor) && /function useStage/.test(editor))
     check("full screen, as a visitor, the dark look, the panel hidden", /data-page-full-toggle/.test(editor) && /data-page-visitor/.test(editor) && /data-page-look/.test(editor) && /data-page-panel-toggle/.test(editor))
     check("Publish beside Save for a draft, through the same request as the bar's", /\{ publish: true \}/.test(editor) && /canPublish/.test(editor))

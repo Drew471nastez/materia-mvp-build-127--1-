@@ -1,4 +1,7 @@
 import { NextResponse, after } from "next/server"
+import { trialDaysOf } from "@/lib/memberships/plan"
+import { headers } from "next/headers"
+import { buyerCountry, buyerIp, membershipTaxForSubscription } from "@/lib/tax/membership"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
@@ -138,7 +141,7 @@ export async function POST(request: Request) {
       const sub = await stripe.subscriptions.retrieve(pending.stripe_subscription_id, { expand: ["latest_invoice.confirmation_secret", "pending_setup_intent"] })
       const intent = sub.status === "incomplete" || sub.status === "trialing" ? intentOf(sub) : null
       if (intent) {
-        return NextResponse.json({ membershipId: pending.id, subscriptionId: sub.id, type: intent.type, clientSecret: intent.clientSecret, amountCents: amount, trialDays: intent.type === "setup" ? plan.trial_days : 0 })
+        return NextResponse.json({ membershipId: pending.id, subscriptionId: sub.id, type: intent.type, clientSecret: intent.clientSecret, amountCents: amount, trialDays: intent.type === "setup" ? trialDaysOf(plan.trial_days) : 0 })
       }
     } catch {
       /* gone or unreadable: a new one below */
@@ -157,7 +160,7 @@ export async function POST(request: Request) {
     return communityTrialUsed(admin as never, gate.community.id, { id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at })
   }
   const hadTrial = rows.some((m) => m.status !== "incomplete") || (await communityTrial())
-  const trialDays = !hadTrial && plan.trial_days > 0 ? plan.trial_days : 0
+  const trialDays = !hadTrial ? trialDaysOf(plan.trial_days) : 0
   const name = `${firstName} ${lastName}`.trim()
 
   try {
@@ -165,7 +168,20 @@ export async function POST(request: Request) {
     const fee = await membershipFee(admin, creator.id, price.amountCents)
     const customerId = await buyerCustomer(admin, { email, name, userId: user?.id ?? null })
     if (paymentMethodId) await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
+    /* Round AG: the tax this buyer pays, the same the checkout showed (lib/tax/membership.ts): Stripe Tax, the creator's rate, or none. */
+    const h = await headers()
+    const taxing = await membershipTaxForSubscription(admin, {
+      creatorId: creator.id as string,
+      productId: product.id,
+      amountCents: price.amountCents,
+      currency: plan.currency || "usd",
+      country: buyerCountry(h),
+      ip: buyerIp(h),
+      customerId,
+    })
     const created = await createSubscription({
+      automaticTax: taxing.automaticTax,
+      taxRateIds: taxing.taxRateIds,
       customerId,
       priceId: price.priceId,
       trialDays,
@@ -183,6 +199,7 @@ export async function POST(request: Request) {
         buyer_name: name.slice(0, 120),
         title: String(product.title || "Membership").slice(0, 200),
         interval,
+        tax_source: taxing.source,
         fee_cents: String(fee.cents),
         plan_used: fee.planId,
         email_opt_in: body.emailOptIn === true ? "true" : "false",

@@ -21,8 +21,8 @@ import { joinButtonLabel } from "@/lib/communities/format"
 import { MAX_ACTIVE_TIERS, MAX_TIERS, TRIAL_MAX_DAYS } from "@/lib/communities/limits"
 import { yearlySaving } from "@/lib/memberships/state"
 import { canChangePlan, changeKind, nextChargeAt, previewAmounts, prorationFor, subscriberCounts } from "@/lib/communities/plan-change"
-import { applyPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
-import { confirmLabel, previewSentence } from "@/components/community/membership/change-plan"
+import { applyPlanChange, finishPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
+import { confirmLabel, previewSentence } from "@/components/community/membership/plan-words"
 import { welcomeVideoSrc } from "@/lib/communities/post-media"
 import { fakeDb } from "./_fake-db"
 import { untt } from "./i18n-source"
@@ -108,8 +108,10 @@ async function main() {
 
   console.log("\nThe community's own checkout")
   const flow = code("components/community/public/join-flow.tsx")
-  check("card details go into Stripe's own fields (StripePay), never inputs of ours", /<StripePay/.test(flow) && !/name="(card|cardNumber|cvc|cvv)"/i.test(flow) && !/autoComplete="cc-/.test(flow))
-  check("Powered by Stripe only because the payment runs on Stripe", /PoweredByStripe/.test(flow) && /mode="subscription"/.test(flow))
+  /* Changed on purpose (round AG): the checkout is Skool's shape, Stripe's one line card field and the device's own wallet (./compact-pay.tsx), still Stripe's hosted fields. */
+  const payUi = code("components/community/public/compact-pay.tsx")
+  check("card details go into Stripe's own fields (CardElement, paymentRequest), never inputs of ours", /<CompactPay/.test(flow) && /<CardElement/.test(payUi) && /paymentRequest\(/.test(payUi) && !/name="(card|cardNumber|cvc|cvv)"/i.test(flow + payUi) && !/autoComplete="cc-/.test(flow + payUi))
+  check("Powered by Stripe only because the payment runs on Stripe; no tick box, the terms sit under the button", /PoweredByStripe/.test(flow) && !/CheckRow/.test(flow) && /By joining you agree to the/.test(read("components/community/public/join-flow.tsx")) && /agreedToTerms: true/.test(flow))
   check("the subscription is made by the memberships route, and confirmed by the server", /\/api\/memberships\/checkout/.test(flow) && /\/api\/memberships\/confirm/.test(flow))
   check("Monthly and Annual are chosen in the checkout, with the monthly equivalent and billed yearly", /data-interval/.test(flow) && /billed yearly/.test(read("components/community/public/join-flow.tsx")))
   check("the trial note says what is paid today, then what and from when", /Nothing today, then/.test(read("components/community/public/join-flow.tsx")) && /trialEnds\(/.test(flow))
@@ -173,7 +175,7 @@ async function main() {
       community_audit_log: [],
     })
   const person = { id: U, email: "a@b.c", emailConfirmed: true }
-  const calls: { update?: Record<string, unknown>; previewed: number; reconciled: number; told?: string } = { previewed: 0, reconciled: 0 }
+  const calls: { update?: Record<string, unknown>; updates: Record<string, unknown>[]; previewed: number; reconciled: number; told?: string } = { updates: [], previewed: 0, reconciled: 0 }
   const deps = (over: Partial<PlanChangeDeps> = {}): PlanChangeDeps => ({
     retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: "price_std_m" } }] } }),
     preview: async () => {
@@ -181,7 +183,8 @@ async function main() {
       return { amount_due: 150000, total: 150000 }
     },
     update: async (_id, params) => {
-      calls.update = params
+      if (!calls.update) calls.update = params
+      calls.updates.push(params)
       return {}
     },
     ensurePrice: async (plan, _product, interval) => ({ priceId: `price_${plan.product_id}_${interval}`, amountCents: (interval === "year" ? plan.yearly_price_cents : plan.monthly_price_cents) ?? 0 }),
@@ -204,10 +207,23 @@ async function main() {
     check("upgrade preview: Stripe's amount due now, nothing changed", !!pre.ok && pre.value?.kind === "upgrade" && pre.value.dueNowCents === 150000 && !calls.update && db.tables.memberships[0].product_id === STD)
     const done = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean }
     const u = calls.update as { items?: { id: string; price: string }[]; proration_behavior?: string; payment_behavior?: string; metadata?: { product_id?: string } } | undefined
-    check("upgrade: the one item moves to the new price, invoiced now, refused rather than left unpaid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "error_if_incomplete")
-    check("the subscription's metadata and the membership row now name the new plan", u?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
+    /* Changed on purpose (round AG): an upgrade is held until paid (pending_if_incomplete), so a bank's check can finish it in the browser. */
+    check("upgrade: the one item moves to the new price, invoiced now, held until paid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "pending_if_incomplete" && !u.metadata)
+    const meta = calls.updates.find((x) => (x as { metadata?: unknown }).metadata) as { metadata?: { product_id?: string } } | undefined
+    check("once paid, the subscription's metadata and the membership row name the new plan", meta?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
     check("the member is emailed that their plan changed", calls.told === "upgrade")
     check("the member's tier is brought in step, and the change audited", calls.reconciled === 1 && db.tables.community_audit_log.some((r) => (r as { action?: string }).action === "membership.upgraded"))
+  }
+  {
+    calls.update = undefined
+    calls.updates = []
+    const db = world()
+    const held = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps({ update: async () => ({ pending_update: { expires_at: 1 }, latest_invoice: { confirmation_secret: { client_secret: "pi_1_secret_x" } } }) }))) as { ok: boolean; value?: { needsAction?: { clientSecret: string } } }
+    check("an upgrade the bank wants to confirm: the secret for the page, the member not moved yet", !!held.ok && held.value?.needsAction?.clientSecret === "pi_1_secret_x" && db.tables.memberships[0].product_id === STD)
+    const early = (await finishPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean; error?: string }
+    check("finishing before Stripe shows the new price paid changes nothing", !early.ok && early.error === "not_paid" && db.tables.memberships[0].product_id === STD)
+    const paid = (await finishPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps({ retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: `price_${PRE}_month` } }] } }) }))) as { ok: boolean; value?: { kind: string } }
+    check("once Stripe shows it paid, the finish moves the member to the new plan", !!paid.ok && paid.value?.kind === "upgrade" && db.tables.memberships[0].product_id === PRE)
   }
   {
     calls.update = undefined
@@ -252,6 +268,14 @@ async function main() {
     check("creators see per plan: paying, on a trial, and ended trials now paying", JSON.stringify(counts) === JSON.stringify({ paying: 3, trialing: 1, trialsEnded: 2, trialsConverted: 1 }), counts)
     check("the plan card draws them", /data-tier-subscribers/.test(read("components/community/creator/settings-section.tsx")))
   }
+  {
+    const gate = code("lib/communities/server/join.ts")
+    check("a free member may buy a paid plan (an upgrade); somebody paying or running the community may not", /const paying = \(PAID_SOURCES as readonly string\[\]\)\.includes/.test(gate) && /if \(paying \|\| staff\)/.test(gate))
+    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /redirect\(`\/community\/\$\{load\.community\.slug\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+    const jc = code("components/community/public/join-controls.tsx")
+    check("inside, a free member's Upgrade opens the paid plans or the one checkout", /export function UpgradeButton/.test(jc) && /<UpgradeButton \/>/.test(code("components/community/member/membership.tsx")) && /o\.kind === "paid" && !!o\.checkout/.test(jc))
+    check("an upgrade the bank checks is confirmed in Stripe's own window, then finished by the server", /confirmCardPayment\(r\.data\.needsAction\.clientSecret\)/.test(code("components/community/membership/change-plan.tsx")) && /finish: true/.test(code("components/community/membership/change-plan.tsx")))
+  }
   const planRoute = code("app/api/community/[communityId]/membership/plan/route.ts")
   check("the plan route: switch first, then who is asking, rate limited, never cached", (planRoute.match(/const off = await requireCommunitiesOn\(\)\s*if \(off\) return off[\s\S]*?await person\(\)/g) ?? []).length === 2 && /viewerContext\(/.test(planRoute) && /rateLimit\(/.test(planRoute) && /no-store/.test(planRoute))
   check("Change plan sits on the member's plan card", /<ChangePlan /.test(code("components/community/membership/cancel-membership.tsx")))
@@ -271,8 +295,31 @@ async function main() {
   check("a plan change is told to the member through the notification engine, once per change", /"membership\.plan_changed": "MEMBERSHIP_PLAN_CHANGED"/.test(code("lib/notify/workflows/memberships.ts")) && /membership:\$\{membershipId\}:plan:/.test(code("lib/communities/server/plan-change.ts")))
   check("a billing notice: always sent, never budgeted away", /MEMBERSHIP_PLAN_CHANGED: "essential"/.test(code("lib/notify/email-budget.ts")) && /MEMBERSHIP_PLAN_CHANGED: E\(\{ category: "sales", priority: "normal", requirement: "required_service"/.test(code("lib/notify/registry.ts")))
 
+  console.log("\nTax on a membership (round AG)")
+  {
+    const { membershipTaxQuote, buyerCountry, buyerIp } = await import("@/lib/tax/membership")
+    const creator = "cr-tax"
+    const taxDb = (digital: boolean) =>
+      fakeDb({
+        commerce_settings: [{ creator_id: creator, tax_mode: "manual", prices_include_tax: false, tax_on_shipping: false, tax_digital: digital }],
+        commerce_tax_rates: [{ id: "r-ro", creator_id: creator, country: "RO", region: null, name: "VAT", rate_bps: 2100 }],
+        commerce_tax_overrides: [],
+      })
+    const ro = await membershipTaxQuote(taxDb(true) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "RO", ip: null })
+    check("a creator who taxes digital sales: their rate on the membership, added on top", ro?.taxCents === 2079 && ro.included === false && ro.source === "creator" && /VAT/.test(ro.label), ro)
+    check("a buyer outside the creator's regions pays no tax", (await membershipTaxQuote(taxDb(true) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "US", ip: null })) === null)
+    check("a creator who does not tax digital sales charges none: Storelib never invents a rate", (await membershipTaxQuote(taxDb(false) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "RO", ip: null })) === null)
+    const h = new Headers({ "x-vercel-ip-country": "ro", "x-forwarded-for": "203.0.113.9, 10.0.0.1" })
+    check("the buyer's country and address come from the request, no form", buyerCountry(h) === "RO" && buyerIp(h) === "203.0.113.9" && buyerCountry(new Headers({ "x-vercel-ip-country": "XX" })) === null)
+    const taxMod = code("lib/tax/membership.ts")
+    check("Stripe Tax only when Storelib turns it on, and the subscription then carries automatic tax", /STRIPE_TAX/.test(taxMod) && /automaticTax: true/.test(taxMod) && /params\.automatic_tax = \{ enabled: true \}/.test(code("lib/memberships/billing.ts")))
+    check("the creator's rate rides every renewal as a Stripe tax rate", /stripe\.taxRates\.create/.test(taxMod) && /params\.default_tax_rates = p\.taxRateIds/.test(code("lib/memberships/billing.ts")))
+    check("the checkout shows the same tax it charges", /membershipTaxQuote/.test(code("app/api/community/[communityId]/checkout/route.ts")) && /membershipTaxForSubscription/.test(code("app/api/memberships/checkout/route.ts")) && /tax-quote/.test(code("app/checkout/membership-checkout.tsx")))
+    check("never claims to file or pay tax", !/(we|Storelib) (file|files|remit|remits|pay|pays) (your|the) tax/i.test(read("lib/tax/membership.ts")))
+  }
+
   console.log("\nCopy")
-  const mine = ["components/community/public/join-flow.tsx", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
+  const mine = ["components/community/public/join-flow.tsx", "components/community/public/compact-pay.tsx", "lib/tax/membership.ts", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

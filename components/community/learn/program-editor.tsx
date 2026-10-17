@@ -448,7 +448,7 @@ export function ProgramEditor({
               <span className="text-[13px] tabular-nums text-[#6b7280]">{lessons === 1 ? tt("1 lesson") : tt("{lessons} lessons", { lessons })}</span>
             </div>
             {native ? (
-              <CourseEditor productId={program.id} ensureProductId={async () => program.id} onLessonCount={setLessons} notify={(m) => setNote(m)} />
+              <CourseEditor productId={program.id} ensureProductId={async () => program.id} onLessonCount={setLessons} notify={(m) => setNote(m)} moduleSales />
             ) : (
               <p className="text-[14px] leading-6 text-[#4b5563]">
                 {tt("This course's modules and lessons are edited in the course itself, and change here too.")}{" "}

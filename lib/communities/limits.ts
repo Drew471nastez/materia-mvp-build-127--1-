@@ -64,7 +64,8 @@ export const MAX_TIERS = 10
  * added or brought back until one is archived.
  */
 export const MAX_ACTIVE_TIERS = 3
-/** A free trial on a paid plan: none, or 1 to 90 days (lib/memberships/plan.ts). */
+/** A free trial on a paid plan: none, or 7 to 90 days (lib/memberships/plan.ts). */
+export const TRIAL_MIN_DAYS = 7
 export const TRIAL_MAX_DAYS = 90
 export const MAX_LEVELS = 20
 export const MAX_MEDIA_PER_POST = 10

@@ -46,6 +46,8 @@ const one = !!params.get("members")
 const draft = !!params.get("draft")
 const paid = !!params.get("paid")
 const notReady = !!params.get("notready")
+/* Round 27 (E27): ?legal=1, the community's own Privacy and Terms pages. */
+const legal = params.get("legal") ? { privacy: "https://salajanywood.com/privacy", terms: "https://salajanywood.com/terms" } : null
 const COVER = picture("#d9c7a7", "#8b6b47", 1600, 900)
 const LOGO = logo()
 const DESCRIPTION = params.get("plain")
@@ -98,6 +100,7 @@ const settings: SettingsData = {
         { id: "shop00002", label: "Plans shop", url: "https://salajanywood.com/plans", icon: "shopping-bag", hidden: false },
       ],
   pageFieldsReady: !notReady,
+  ...(legal ? { legalLinks: legal } : {}),
   category: "Crafts",
   rules: [],
   faq: [{ q: "Do I need tools?", a: "A saw, a chisel and a square are enough to start." }],
@@ -159,6 +162,7 @@ const sales: SalesPageData = {
     links: socialLinksOf(links),
     coverPosition: "50% 30%",
     joinLook: joinLookOf(look),
+    legal,
   },
   join: { kind: paid ? "checkout" : "join_free", signedIn: false, label: paid ? "Join $24/month" : "Join", option: freeOption, href: `/login?next=/community/${head.slug}?join=1`, note: null, isOwner: false, canLeave: false, manageHref: null, role: null, status: null },
   notice: null,

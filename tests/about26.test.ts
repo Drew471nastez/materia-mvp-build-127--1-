@@ -116,7 +116,9 @@ console.log("\nSOURCE: the page")
   check("What's inside, never What members get", /What&apos;s inside/.test(page) && !/What members get/.test(page))
   check("one h1, the name", (page.match(/<h1\b/g) || []).length === 1)
   check("the icons are not in the header any more", !/<header[\s\S]*?<SocialLinks[\s\S]*?<\/header>/.test(page))
-  check("Privacy and Terms are Storelib's legal pages", /href="https:\/\/storelib\.com\/legal\/privacy"/.test(page) && /href="https:\/\/storelib\.com\/legal\/terms"/.test(page) && /data-community-legal/.test(page))
+  /* Round 27 (E27): Storelib's legal pages unless the creator set their own (lib/communities/legal-links.ts, tests/editor27.test.ts). */
+  const legal = code("lib/communities/legal-links.ts")
+  check("Privacy and Terms are Storelib's legal pages", /legalLinksShown\(c\.legal\)/.test(page) && /"https:\/\/storelib\.com\/legal\/privacy"/.test(legal) && /"https:\/\/storelib\.com\/legal\/terms"/.test(legal) && /data-community-legal/.test(page))
   check("the full description is still the sanitized rich text", /dangerouslySetInnerHTML=\{\{ __html: c\.descriptionHtml \}\}/.test(page))
   check("the editor's markers are kept: summary, links, benefits, description, name, tagline, gallery", ["summary", "links", "benefits", "description", "name", "tagline", "gallery"].every((b) => page.includes(`block="${b}"`) || page.includes(`data-page-block="${b}"`)))
   check("a community entered by one of several products still lists them where its button points", /id="ways-to-join"/.test(page) && /join\.kind === "product" && c\.accessProducts\.length > 1/.test(page))
@@ -130,7 +132,8 @@ console.log("\nSOURCE: the page")
   check("a row of thumbnails (a horizontal listbox) does not float like a menu in the dark look", /\[role="listbox"\]:not\(\[aria-orientation="horizontal"\]\)/.test(dark) && /aria-orientation="horizontal"/.test(gallery))
   const server = code("lib/communities/server/public.ts")
   check("the summary is read softly (W6's reader), so the page keeps working before part 220", /readCommunitySummary\(db, community\.id\)/.test(server) && /summary,\s*adminCount:/.test(server))
-  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: recurring \? Math\.max\(0, Number\(plan\?\.trial_days/.test(server))
+  /* Round AG: through trialDaysOf, so a trial is none or 7 to 90 days. */
+  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: recurring \? trialDaysOf\(plan\?\.trial_days\)/.test(server))
 }
 
 console.log("\nDELETING: the line its staff see")

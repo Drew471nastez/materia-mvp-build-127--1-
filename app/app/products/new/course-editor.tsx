@@ -59,6 +59,8 @@ export interface CourseEditorProps {
   /** How many lessons there are, for the editor's publish check. */
   onLessonCount: (n: number) => void
   notify: (message: string) => void
+  /** Round AG: a community's own program: each module may carry a price and be bought on its own. */
+  moduleSales?: boolean
 }
 
 /** One change waiting for the server, and who is waiting to hear how it went. */
@@ -103,7 +105,7 @@ function useGlide(container: RefObject<HTMLElement | null>, order: string): () =
   return snap
 }
 
-export function CourseEditor({ productId, ensureProductId, onLessonCount, notify }: CourseEditorProps) {
+export function CourseEditor({ productId, ensureProductId, onLessonCount, notify, moduleSales = false }: CourseEditorProps) {
   const [tree, setTree] = useState<EditorTree | null>(productId ? null : { courseId: null, modules: [] })
   const [openId, setOpenId] = useState<string | null>(null)
   /* The row whose name takes the caret once it is drawn: a module just added, or a lesson just added. */
@@ -320,6 +322,7 @@ export function CourseEditor({ productId, ensureProductId, onLessonCount, notify
           ask={ask}
           onAddLesson={() => addLesson(m)}
           notify={notify}
+          moduleSales={moduleSales}
         />
       ))}
 
@@ -416,6 +419,7 @@ function ModuleBlock(props: {
   ask: ReturnType<typeof useConfirm>[0]
   onAddLesson: () => void
   notify: (message: string) => void
+  moduleSales?: boolean
 }) {
   const { module: m, index, modules, act } = props
   const [name, setName] = useState(m.title)
@@ -476,6 +480,7 @@ function ModuleBlock(props: {
           data-module-name=""
           className="min-h-10 min-w-0 flex-1 rounded-lg bg-transparent px-2 py-1.5 text-[16px] font-semibold sm:min-h-0 text-[#1a1a2e] outline-none focus:bg-white focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-sm"
         />
+        {props.moduleSales ? <ModulePrice cents={m.priceCents ?? null} title={m.title} onSave={(priceCents) => act({ action: "update-module", moduleId: m.id, priceCents })} /> : null}
         {modules.length > 1 ? (
           <>
             <button type="button" className={TOOL} disabled={index === 0} onClick={() => move(-1)} aria-label={tt("Move {title} up", { title: m.title })}>
@@ -939,5 +944,40 @@ function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
         <X className="h-4 w-4" />
       </button>
     </div>
+  )
+}
+
+/*
+  ROUND AG: A MODULE SOLD ON ITS OWN. In a community's program, a module may carry its own price: a member the program is
+  not open to buys that module alone and its lessons open for them (lib/communities/server/module-sales.ts). Empty, the
+  module is only part of the program. Saved when the field is left.
+*/
+function ModulePrice({ cents, title, onSave }: { cents: number | null; title: string; onSave: (priceCents: number | null) => Promise<unknown> }) {
+  const shown = cents ? (cents / 100).toFixed(cents % 100 ? 2 : 0) : ""
+  const [value, setValue] = useState(shown)
+  const focused = useRef(false)
+  useEffect(() => {
+    if (!focused.current) setValue(shown)
+  }, [shown])
+  return (
+    <label className="relative flex shrink-0 items-center" title={tt("Sell this module on its own")} data-module-price="">
+      <span className="pointer-events-none absolute left-2 text-[12.5px] text-[#9ca3af]">$</span>
+      <input
+        inputMode="decimal"
+        value={value}
+        onFocus={() => (focused.current = true)}
+        onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, "").slice(0, 8))}
+        onBlur={() => {
+          focused.current = false
+          if (value === shown) return
+          const n = value.trim() ? Math.round(Number.parseFloat(value) * 100) : null
+          void onSave(n && Number.isFinite(n) && n > 0 ? n : null)
+        }}
+        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+        placeholder={tt("Price")}
+        aria-label={tt("Price of {title} on its own", { title })}
+        className="h-8 w-[78px] rounded-lg border border-transparent bg-transparent pl-5 pr-1.5 text-[13px] tabular-nums text-[#1a1a2e] outline-none placeholder:text-[#b0b4bb] hover:border-[#e5e7eb] focus:border-[#d1d5db] focus:bg-white"
+      />
+    </label>
   )
 }

@@ -29,7 +29,7 @@ import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { COMMUNITY_MEMBERSHIP_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 import { relativeTime } from "@/lib/communities/format"
 import type { MemberSource, NotifyLevel, Role } from "@/lib/communities/types"
-import { JoinProvider, useLeave } from "@/components/community/public/join-controls"
+import { JoinProvider, useLeave, UpgradeButton } from "@/components/community/public/join-controls"
 import type { JoinStateView, PublicCommunityView } from "@/components/community/public/types"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
@@ -228,7 +228,12 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
                 Manage subscription
               </Link>
             </div>
-          ) : null}
+          ) : (
+            /* Round AG: a member on a free plan upgrades here, in the same picker and checkout as joining. */
+            <div className="mt-3.5 flex flex-wrap gap-2 empty:hidden" data-membership-upgrade-row="">
+              <UpgradeButton />
+            </div>
+          )}
         </section>
 
         <section className={SECTION} aria-labelledby="membership-notify" data-membership-notify-section="">

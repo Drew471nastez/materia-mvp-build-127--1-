@@ -39,7 +39,7 @@ export function optimistic(tree: EditorTree, body: Record<string, unknown>): Edi
         ...tree,
         modules: mods.map((m) =>
           m.id === body.moduleId
-            ? { ...m, ...(typeof body.title === "string" && body.title.trim() ? { title: body.title.replace(/\s+/g, " ").trim() } : {}), ...(body.coverUrl !== undefined ? { coverUrl: (body.coverUrl as string | null) || null } : {}) }
+            ? { ...m, ...(typeof body.title === "string" && body.title.trim() ? { title: body.title.replace(/\s+/g, " ").trim() } : {}), ...(body.coverUrl !== undefined ? { coverUrl: (body.coverUrl as string | null) || null } : {}), ...(body.priceCents !== undefined ? { priceCents: typeof body.priceCents === "number" && body.priceCents > 0 ? body.priceCents : null } : {}) }
             : m,
         ),
       }

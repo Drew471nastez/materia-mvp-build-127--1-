@@ -15,6 +15,7 @@ import type { CommunityAccess, CommunityCard, CommunityVisibility, CommunityStat
 import type { GalleryItemView } from "./gallery"
 import type { SocialLinkView } from "@/lib/communities/social-links"
 import type { JoinLookView } from "@/lib/communities/page-look"
+import type { LegalLinks } from "@/lib/communities/legal-links"
 
 export type { GalleryItemView }
 
@@ -114,6 +115,8 @@ export interface PublicCommunityView {
   coverPosition?: string | null
   /** Round 33: the join button's own words, style and line (lib/communities/page-look.ts), or null for the page's own. */
   joinLook?: JoinLookView | null
+  /** Round 27: the community's own Privacy and Terms pages, drawn instead of Storelib's (lib/communities/legal-links.ts). */
+  legal?: LegalLinks | null
   /**
    * Round 26: the short description (communities.summary, part 220), plain text up to 160 characters, or null when the
    * creator wrote none: the card then says the tagline, else the start of the description (about-facts.ts cardSummary).
@@ -196,6 +199,8 @@ export interface SalesPageData {
   extras?: AboutExtras | null
   /** Leaving asks why (round 12): true once part 98 has made community_leave_reasons, for a member who can leave. */
   askWhy?: boolean
+  /** Round AG: the owner's preview of the page and its plans as a visitor sees them. Nothing in it charges or joins. */
+  preview?: boolean
 }
 
 /** A row in /library/communities. */
