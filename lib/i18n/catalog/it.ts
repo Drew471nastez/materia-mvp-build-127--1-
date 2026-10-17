@@ -1181,6 +1181,7 @@ const words: Record<string, string> = {
  "Buy Now": "Compra ora",
  "Buy a label": "Acquista un'etichetta",
  "Buy and print labels from the order page at EasyPost's rates. The tracking number goes on the shipment.": "Acquista e stampa etichette dalla pagina dell'ordine alle tariffe EasyPost. Il numero di tracciamento va sulla spedizione.",
+ "Labels and rates from the carriers you have connected in ShippyPro, strongest in Italy, Romania and the rest of the EU. Not connected to Storelib yet: it is written against ShippyPro's API document but has not been run against a real ShippyPro account.": "Etichette e tariffe dei corrieri che hai collegato in ShippyPro, più forti in Italia, Romania e nel resto dell'UE. Non ancora collegato a Storelib: è scritto secondo la documentazione dell'API di ShippyPro ma non è ancora stato provato con un vero account ShippyPro.",
  "Buy and print labels from the order page at Shippo's rates. The tracking number goes on the shipment.": "Acquista e stampa etichette dalla pagina dell'ordine alle tariffe Shippo. Il numero di tracciamento va sulla spedizione.",
  "Buy for {priceLabel}": "Acquista per {priceLabel}",
  "Buy it together": "Compralo insieme",

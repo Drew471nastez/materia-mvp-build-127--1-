@@ -163,6 +163,7 @@ const PROVIDER_LOGO: Partial<Record<ProviderId, string>> = {
   shipstation: "/integrations/shipstation.png",
   shippo: "/integrations/shippo.png",
   easypost: "/integrations/easypost.png",
+  shippypro: "/integrations/shippypro.png",
 }
 
 /** A line a card can carry, in the store's words. */
@@ -178,6 +179,7 @@ const PROVIDER_SUMMARY: Partial<Record<ProviderId, string>> = {
   shipstation: "Your orders in ShipStation to label, tracking back to your buyer.",
   shippo: "Buy and print labels from the order page.",
   easypost: "Buy and print labels from the order page.",
+  shippypro: "The carriers you use in Italy, Romania and the rest of the EU.",
 }
 
 const PROVIDER_CATEGORY: Record<ProviderInfo["category"], IntegrationCategory> = {
@@ -357,6 +359,7 @@ function fromProvider(p: ProviderInfo): Integration {
 const LISTED: { id: string; name: string; category: IntegrationCategory; physical: boolean; summary: string; about: string; docsUrl: string; logo?: string }[] = [
   { id: "easyship", logo: "/integrations/easyship.png", name: "Easyship", category: "shipping", physical: true, summary: "Compare carriers and print discounted labels, with duties shown at checkout.", about: "Easyship would compare rates from many carriers, print labels at its discounted prices and work out duties and taxes for orders going abroad.", docsUrl: "https://developers.easyship.com/" },
   { id: "sendcloud", logo: "/integrations/sendcloud.jpg", name: "Sendcloud", category: "shipping", physical: true, summary: "Labels from European carriers, shipping rules and a returns portal.", about: "Sendcloud would print labels from European carriers in bulk, apply your shipping rules and give buyers a returns portal.", docsUrl: "https://api.sendcloud.dev/" },
+  { id: "nshift", logo: "/integrations/nshift.png", name: "nShift", category: "shipping", physical: true, summary: "Labels and tracking from Nordic and European carriers.", about: "nShift would print labels from the carriers on your nShift contract and send tracking back. Its API is open only to nShift customers under contract.", docsUrl: "https://nshift.com/" },
   { id: "bigbuy", logo: "/integrations/bigbuy.png", name: "BigBuy", category: "dropshipping", physical: true, summary: "A European wholesaler that ships from Spain, fast across the EU.", about: "BigBuy would supply products from its warehouse in Spain and ship your orders across Europe under your store's name.", docsUrl: "https://api.bigbuy.eu/" },
   { id: "dropified", logo: "/integrations/dropified.png", name: "Dropified", category: "dropshipping", physical: true, summary: "Import products from many suppliers and order them in one click.", about: "Dropified would import products from AliExpress, eBay and private label suppliers and place your orders with them in one click.", docsUrl: "https://www.dropified.com/" },
   { id: "prodigi", logo: "/integrations/prodigi.png", name: "Prodigi", category: "print_on_demand", physical: true, summary: "Gallery quality art prints, framed prints and photo books.", about: "Prodigi would print your art prints, framed prints, canvases and photo books in its labs in the UK, Europe, the US and Australia and ship them to your buyers.", docsUrl: "https://www.prodigi.com/print-api/docs/" },
@@ -491,6 +494,7 @@ const TRACKING_APPS: Integration[] = [
 
 /** The top of a page, short (round I4: "don't have that much text"). Only where the first paragraph runs long. */
 const LEAD: Record<string, string> = {
+  shippypro: "Labels and rates from the carriers on your own ShippyPro account. Coming soon: it has not been run against a real ShippyPro account yet.",
   "storelib-reviews": "Buyers get an email asking for a review. Reviews show on your website with stars.",
   "courier-tracking": "Every parcel is followed with its carrier. Your buyer sees each scan and hears when it's out for delivery and delivered.",
   aftership: "Follow your parcels with your own AfterShip account instead of Storelib's.",

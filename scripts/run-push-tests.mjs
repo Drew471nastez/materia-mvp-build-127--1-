@@ -733,6 +733,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
+  "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
