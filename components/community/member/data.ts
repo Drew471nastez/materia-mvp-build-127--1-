@@ -1,4 +1,5 @@
 import "server-only"
+import { welcomeVideoSrc } from "@/lib/communities/post-media"
 
 /**
  * WHAT EVERY MEMBER PAGE READS FIRST: the community by its address and who is
@@ -125,6 +126,11 @@ export function onboardingFor(community: CommunityRow, viewer: Viewer, spaces: S
     welcome: (o.welcome || "").trim() || null,
     rules: o.showRules && Array.isArray(community.rules) ? community.rules.slice(0, 20).filter((r) => r && typeof r.title === "string") : [],
     introHref: intro ? `/community/${community.slug}/space/${intro.slug}` : null,
+    /* Round AF: the creator's heading, intro video and button, as a popup or a card. */
+    title: (o.title || "").trim() || null,
+    videoEmbed: o.videoUrl ? welcomeVideoSrc(o.videoUrl) : null,
+    button: (o.button || "").trim() || null,
+    popup: o.style === "popup",
   }
 }
 

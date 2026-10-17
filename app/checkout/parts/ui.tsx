@@ -255,7 +255,7 @@ export function PayDock({ children, className }: { children: React.ReactNode; cl
     <div
       data-pay-dock=""
       className={cn(
-        "sticky bottom-0 z-20 -mx-5 mt-5 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-4 [background:linear-gradient(to_top,#fff_78%,rgba(255,255,255,0))] sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:p-0 lg:[background:none]",
+        "sticky bottom-0 z-20 -mx-5 mt-5 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-4 [background:linear-gradient(to_top,var(--pay-dock-ground,#fff)_78%,var(--pay-dock-clear,rgba(255,255,255,0)))] sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:p-0 lg:[background:none]",
         className,
       )}
     >

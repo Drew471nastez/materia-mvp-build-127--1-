@@ -62,6 +62,11 @@ import { JoinQuestionFields } from "./join-questions-form"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { CardSummary } from "./card-summary"
 import { CommunityShareButton } from "./share-community"
+import { CommunityCheckout, PlanPicker } from "./join-flow"
+import { cardPrice, planIntervals, plansPrice, type PlanInterval } from "./plan-words"
+
+export { plansPrice }
+import { isNativeApp } from "@/lib/platform-utils"
 import { CheckDot } from "./check-dot"
 import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
@@ -93,6 +98,8 @@ interface JoinCtx {
   invalid: string | null
   leaveOpen: boolean
   setLeaveOpen: (open: boolean) => void
+  /** Round AF: the plan chosen in the plan picker, while its questions or note are asked. */
+  picked: JoinOption | null
 }
 
 const Ctx = React.createContext<JoinCtx | null>(null)
@@ -139,12 +146,38 @@ export function priceParts(o: JoinOption | null, interval: Interval): { amount: 
 }
 
 /**
- * The button's words with the chosen interval's price in them: "Join $24/month", "Join $240/year" (round 26, the
- * owner: not "Join for"). A trial keeps "Start free trial" whatever the interval.
+ * The button's words with the chosen interval's price in them: "Join $24/month", "Join $240/year" (never "Join for").
+ * A trial keeps "Start free trial" whatever the interval; several plans keep the state's own words ("Choose plan").
  */
-export function buttonLabel(join: Pick<JoinStateView, "kind" | "option" | "label">, interval: Interval): string {
-  if (join.kind === "checkout" && join.option?.billing === "recurring" && join.label !== JOIN_TRIAL_LABEL) return `Join ${intervalPrice(join.option, interval)}`
+export function buttonLabel(join: Pick<JoinStateView, "kind" | "option" | "label" | "plans">, interval: Interval): string {
+  if ((join.plans?.length ?? 0) > 1) return join.label
+  if (join.kind === "checkout" && join.option?.billing === "recurring") return (join.option.trialDays ?? 0) > 0 ? JOIN_TRIAL_LABEL : `Join ${intervalPrice(join.option, interval)}`
   return join.label
+}
+
+/* ── Round AF: where the plan picker and the checkout are, in the address ── */
+
+type Flow = { kind: "plans" } | { kind: "pay"; planId: string; interval: PlanInterval } | null
+const FLOW_KEYS = ["join", "plan", "interval"] as const
+
+function flowFrom(search: string): Flow {
+  const q = new URLSearchParams(search)
+  if (q.get("join") === "plans") return { kind: "plans" }
+  const plan = q.get("plan")
+  if (q.get("join") === "pay" && plan) return { kind: "pay", planId: plan, interval: q.get("interval") === "year" ? "year" : "month" }
+  return null
+}
+
+function flowUrl(flow: Flow): string {
+  const url = new URL(window.location.href)
+  for (const k of FLOW_KEYS) url.searchParams.delete(k)
+  if (flow?.kind === "plans") url.searchParams.set("join", "plans")
+  if (flow?.kind === "pay") {
+    url.searchParams.set("join", "pay")
+    url.searchParams.set("plan", flow.planId)
+    url.searchParams.set("interval", flow.interval)
+  }
+  return url.pathname + url.search + url.hash
 }
 
 function checkoutHref(o: JoinOption | null, interval: Interval): string | null {
@@ -204,6 +237,37 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const api = `/api/community/${community.id}`
+  /* Round AF: the plan picker and the checkout. */
+  const [flow, setFlowState] = React.useState<Flow>(null)
+  const [pickedPlan, setPicked] = React.useState<JoinOption | null>(null)
+  const pickedRef = React.useRef<JoinOption | null>(null)
+  pickedRef.current = pickedPlan
+  const [pickPending, setPickPending] = React.useState<string | null>(null)
+  const plans = React.useMemo(() => join.plans ?? [], [join.plans])
+  /** Opens (or moves) the flow; a new step is a history entry, so Back steps out of it. */
+  const openFlow = React.useCallback((next: Flow, replace = false) => {
+    setFlowState(next)
+    try {
+      const url = flowUrl(next)
+      if (replace) window.history.replaceState({ ...(window.history.state ?? {}), joinFlow: !!next }, "", url)
+      else window.history.pushState({ ...(window.history.state ?? {}), joinFlow: true }, "", url)
+    } catch {
+      /* The address stays as it is; the flow still opens. */
+    }
+  }, [])
+  const closeFlow = React.useCallback(() => {
+    setPickPending(null)
+    if (window.history.state?.joinFlow) {
+      window.history.back()
+      return
+    }
+    openFlow(null, true)
+  }, [openFlow])
+  React.useEffect(() => {
+    const pop = () => setFlowState(flowFrom(window.location.search))
+    window.addEventListener("popstate", pop)
+    return () => window.removeEventListener("popstate", pop)
+  }, [])
   const [questions, setQuestions] = React.useState<JoinQuestion[] | null>(null)
   const [invalid, setInvalid] = React.useState<string | null>(null)
 
@@ -251,7 +315,16 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     (r: { ok: boolean; data: Record<string, unknown> }) => {
       if (r.ok) {
         const state = r.data.state
-        if (state === "checkout" && typeof r.data.url === "string") return go(r.data.url)
+        if (state === "checkout" && typeof r.data.url === "string") {
+          /* The community's own checkout for the plan, on this page (./join-flow); the app's shell keeps the store checkout. */
+          const plan = pickedRef.current ?? join.option
+          setPhase("idle")
+          if (plan?.tierId && plan.kind === "paid" && plan.billing === "recurring" && !isNativeApp()) {
+            const offers = planIntervals(plan)
+            return openFlow({ kind: "pay", planId: plan.tierId, interval: offers.includes(interval) ? interval : offers[0] ?? "month" }, !!window.history.state?.joinFlow)
+          }
+          return go(r.data.url)
+        }
         if (state === "member") {
           setPhase("joined")
           return enterCommunity(community.slug, router)
@@ -267,7 +340,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
       }
       setError(typeof r.data.message === "string" ? r.data.message : "That did not go through. Try again.")
     },
-    [community.slug, go, router],
+    [community.slug, go, router, interval, join.option, openFlow],
   )
 
   const joinNow = React.useCallback(
@@ -276,7 +349,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
       setBusy(true)
       setPhase("joining")
       setError(null)
-      const r = await post(`${api}/join`, { note: note || undefined, interval, answers })
+      const r = await post(`${api}/join`, { note: note || undefined, interval, tierId: pickedRef.current?.tierId ?? undefined, answers })
       setBusy(false)
       /* An answer the server did not accept: the questions stay open (asked again, in case they changed), pointing at it. */
       if (!r.ok && r.data.error === "answers_needed") {
@@ -296,6 +369,11 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
 
   const press = React.useCallback(async () => {
     if (busy || phase !== "idle") return
+    /* Several plans: the plan picker, signed in or not (looking costs nothing; signing in comes with the pick). */
+    if (plans.length > 1 && (join.kind === "join_free" || join.kind === "checkout" || join.kind === "request")) {
+      setError(null)
+      return openFlow({ kind: "plans" })
+    }
     if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) {
       return go(join.href)
     }
@@ -313,9 +391,100 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
       return setRequestOpen(true)
     }
     if (join.kind === "join_free") return void joinNow()
+    /* One paid plan: the community's own checkout, on this page (the app's shell keeps the store checkout). */
+    const one = join.option
+    if (one?.tierId && one.billing === "recurring" && !isNativeApp()) {
+      const offers = planIntervals(one)
+      return openFlow({ kind: "pay", planId: one.tierId, interval: offers.includes(interval) ? interval : offers[0] ?? "month" })
+    }
     const href = checkoutHref(join.option, interval)
     if (href) go(href)
-  }, [busy, phase, go, interval, join, joinNow, questions, loadQuestions])
+  }, [busy, phase, go, interval, join, joinNow, questions, loadQuestions, plans.length, openFlow])
+
+  /*
+    A PLAN PICKED in the plan picker. Signed out: sign in, then back here with the pick made again (?join=pick&plan=).
+    Then, as one plan would: the questions or the request note first when there are any (asked over the page, the picker
+    out of the way), a free plan joined, a paid one into the checkout. The server checks the plan again on every step.
+  */
+  const pick = React.useCallback(
+    async (plan: JoinOption) => {
+      if (busy || phase !== "idle" || !plan.tierId) return
+      setPicked(plan)
+      pickedRef.current = plan
+      setError(null)
+      if (!join.signedIn) {
+        const back = `${communityPath(community.slug)}?join=pick&plan=${encodeURIComponent(plan.tierId)}`
+        return go(`/login?next=${encodeURIComponent(back)}`)
+      }
+      let asked = questions
+      if (!asked) {
+        setPickPending(plan.tierId)
+        asked = await loadQuestions()
+        setPickPending(null)
+      }
+      if (join.kind === "request" || asked.length) {
+        openFlow(null, true)
+        return setRequestOpen(true)
+      }
+      if (plan.kind === "free") {
+        setPickPending(plan.tierId)
+        await joinNow()
+        setPickPending(null)
+        return
+      }
+      /* A one time price, or the app's shell: the store checkout, as before (the community's own checkout sells subscriptions). */
+      if (isNativeApp() || plan.billing !== "recurring") {
+        const href = checkoutHref(plan, interval)
+        if (href) go(href)
+        return
+      }
+      const offers = planIntervals(plan)
+      openFlow({ kind: "pay", planId: plan.tierId, interval: offers.includes(interval) ? interval : offers[0] ?? "month" })
+    },
+    [busy, phase, join.signedIn, join.kind, community.slug, go, questions, loadQuestions, openFlow, joinNow, interval],
+  )
+
+  /* The flow in the address on arrival (a refresh, a shared link, back from signing in with a pick). */
+  const arrived = React.useRef(false)
+  React.useEffect(() => {
+    if (arrived.current) return
+    arrived.current = true
+    const q = new URLSearchParams(window.location.search)
+    if (q.get("join") === "pick") {
+      const plan = plans.find((p) => p.tierId === q.get("plan")) ?? (join.option?.tierId === q.get("plan") ? join.option : null)
+      openFlow(null, true)
+      if (plan && join.signedIn) void pick(plan)
+      return
+    }
+    const at = flowFrom(window.location.search)
+    if (!at) return
+    if (at.kind === "plans" && plans.length < 2) return openFlow(null, true)
+    if (at.kind === "pay" && !join.signedIn) return openFlow(plans.length > 1 ? { kind: "plans" } : null, true)
+    if (at.kind === "pay") {
+      const plan = plans.find((p) => p.tierId === at.planId) ?? (join.option?.tierId === at.planId ? join.option : null)
+      if (plan) {
+        setPicked(plan)
+        pickedRef.current = plan
+      }
+    }
+    setFlowState(at)
+    // Once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* Paid and let in by the server (the payment's sync): into the community, the flow out of the address. */
+  const joinedByPayment = React.useCallback(() => {
+    try {
+      const url = new URL(window.location.href)
+      for (const k of [...FLOW_KEYS, "sub"]) url.searchParams.delete(k)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search)
+    } catch {
+      /* The community still opens. */
+    }
+    setFlowState(null)
+    setPhase("joined")
+    enterCommunity(community.slug, router)
+  }, [community.slug, router])
 
   const withdraw = React.useCallback(async () => {
     setBusy(true)
@@ -366,12 +535,29 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     invalid,
     leaveOpen,
     setLeaveOpen,
+    picked: pickedPlan,
   }
+  const backToPlans = plans.length > 1 ? () => openFlow({ kind: "plans" }, true) : null
   return (
     <Ctx.Provider value={value}>
       {children}
       <RequestDialog />
       <LeaveDialog />
+      {flow?.kind === "plans" && plans.length > 1 ? <PlanPicker community={community} plans={plans} onClose={closeFlow} onPick={(p) => void pick(p)} pending={pickPending} error={error} /> : null}
+      {flow?.kind === "pay" && join.signedIn ? (
+        <CommunityCheckout
+          community={community}
+          planId={flow.planId}
+          interval={flow.interval}
+          onInterval={(i) => {
+            setInterval(i)
+            openFlow({ kind: "pay", planId: flow.planId, interval: i }, true)
+          }}
+          onClose={closeFlow}
+          onBack={backToPlans}
+          onJoined={joinedByPayment}
+        />
+      ) : null}
     </Ctx.Provider>
   )
 }
@@ -504,6 +690,8 @@ const SWITCH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 export function IntervalSwitch({ className, full = false }: { className?: string; full?: boolean }) {
   const { join, interval, setInterval } = useJoin()
   const o = join.option
+  /* Several plans: each says its own price in the plan picker, and the checkout has the switch. */
+  if ((join.plans?.length ?? 0) > 1) return null
   if (join.kind !== "checkout" || !bothIntervals(o)) return null
   const saving = yearlySaving(o?.monthlyCents ?? null, o?.yearlyCents ?? null)
   const yearly = interval === "year"
@@ -548,7 +736,7 @@ export function IntervalSwitch({ className, full = false }: { className?: string
 /** The price, large, with what it is per beside it; it follows the interval. */
 function PriceLine({ className }: { className?: string }) {
   const { join, interval } = useJoin()
-  const parts = priceParts(join.option, interval)
+  const parts = plansPrice(join.plans ?? []) ?? priceParts(join.option, interval)
   if (!parts || join.kind === "open" || join.kind === "invite_only" || join.kind === "product") return null
   return (
     <p className={cn("flex items-baseline gap-1.5", className)} data-join-price="">
@@ -727,15 +915,20 @@ export function PricingCard({ others }: { others?: React.ReactNode }) {
   const { join } = useJoin()
   const o = join.option
   if (join.kind === "open" || join.kind === "banned" || join.kind === "closed") return others ? <>{others}</> : null
-  const includes = o?.benefits?.length ? o.benefits : []
-  const title = join.kind === "invite_only" ? "Invite only" : join.kind === "product" ? "Comes with a product" : o?.name || "Membership"
+  const several = (join.plans?.length ?? 0) > 1
+  const includes = several ? [] : o?.benefits?.length ? o.benefits : []
+  const title = join.kind === "invite_only" ? "Invite only" : join.kind === "product" ? "Comes with a product" : several ? "Plans" : o?.name || "Membership"
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-[#e3e5e9] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-6" data-pricing-card={join.kind}>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
             <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
-            {o?.description && join.kind !== "invite_only" ? <p className="mt-0.5 max-w-[46ch] text-[13.5px] leading-snug text-[#6b7280]">{o.description}</p> : null}
+            {several ? (
+              <p className="mt-0.5 max-w-[46ch] text-[13.5px] leading-snug text-[#6b7280]" data-pricing-plans="">
+                {(join.plans ?? []).map((p) => (p.kind === "free" ? (/free/i.test(p.name) ? p.name : `${p.name} free`) : `${p.name} ${cardPrice(p).amount}${cardPrice(p).per ?? ""}`)).join(" · ")}
+              </p>
+            ) : o?.description && join.kind !== "invite_only" ? <p className="mt-0.5 max-w-[46ch] text-[13.5px] leading-snug text-[#6b7280]">{o.description}</p> : null}
           </div>
           <IntervalSwitch />
         </div>
@@ -793,11 +986,14 @@ export function JoinBarPhone() {
   const { join, interval, community } = useJoin()
   const surface = React.useContext(JoinSurface)
   /*
-    Round 26: the button says what the side card's says ("Join $24/month", "Start free trial"), so the price is not
-    said again beside it: the community's name and its members are, or, for a trial, what comes after it.
+    Round 26: the button says what the side card's says ("Join $24/month", "Start free trial", "Choose plan"), so the
+    price is not said again beside it: the community's name and its members are, or, for a trial, what comes after it,
+    or, with several plans, what they start from.
   */
   const wide = !(join.kind === "checkout" || join.kind === "join_free" || join.kind === "request")
-  const trial = join.kind === "checkout" && join.label === JOIN_TRIAL_LABEL && join.option?.trialDays ? join.option.trialDays : 0
+  const several = (join.plans?.length ?? 0) > 1
+  const from = several ? plansPrice(join.plans ?? []) : null
+  const trial = !several && join.kind === "checkout" && join.label === JOIN_TRIAL_LABEL && join.option?.trialDays ? join.option.trialDays : 0
   const ref = React.useRef<HTMLDivElement>(null)
   /*
     ON THE BODY, NOT IN THE PAGE (round 12). A page arriving in the member's
@@ -852,7 +1048,7 @@ export function JoinBarPhone() {
         {!wide ? (
           <div className="min-w-0 flex-1" data-join-bar-about="">
             <p className="truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]">{trial ? `${trial} days free` : community.name}</p>
-            <p className="truncate text-[12.5px] tabular-nums text-[#6b7280]">{trial ? `Then ${intervalPrice(join.option, interval)}` : memberCountLabel(community.memberCount)}</p>
+            <p className="truncate text-[12.5px] tabular-nums text-[#6b7280]">{trial ? `Then ${intervalPrice(join.option, interval)}` : from ? `${from.amount}${from.per ? (from.per.startsWith("/") ? from.per : ` ${from.per}`) : ""}` : memberCountLabel(community.memberCount)}</p>
           </div>
         ) : null}
         <PrimaryAction className={wide ? "w-full" : "max-w-[62%] shrink-0 px-4"} />
@@ -888,7 +1084,9 @@ function usePhone(): boolean {
  * between the title and the buttons, so the buttons never leave the screen.
  */
 function RequestDialog() {
-  const { community, join, requestOpen, setRequestOpen, sendRequest, busy, error, questions, invalid } = useJoin()
+  const { community, join: joinState, requestOpen, setRequestOpen, sendRequest, busy, error, questions, invalid, picked } = useJoin()
+  /* A plan picked in the plan picker decides what comes next: a request stays a request, otherwise it is that plan's join or payment. */
+  const join = picked && joinState.kind !== "request" ? { ...joinState, kind: picked.kind === "free" ? ("join_free" as const) : ("checkout" as const) } : joinState
   const phone = usePhone()
   const [note, setNote] = React.useState("")
   const [draft, setDraft] = React.useState<AnswerDraft>({})

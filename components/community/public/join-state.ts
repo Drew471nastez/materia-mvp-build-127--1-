@@ -70,6 +70,11 @@ export interface JoinFacts {
   canTakePayments: boolean
 }
 
+/** The plans a visitor can actually take: free ones, and paid ones on sale with a price (and the creator able to take payments). */
+export function joinablePlans(options: JoinOption[], canTakePayments: boolean): JoinOption[] {
+  return options.filter((o) => o.kind === "free" || (o.kind === "paid" && !!o.checkout && !!o.priceLine && canTakePayments))
+}
+
 /** The tier the button is for: a free one first where the community has one, else the first paid tier on sale. */
 export function primaryOption(options: JoinOption[], access: CommunityAccess, canTakePayments: boolean): JoinOption | null {
   const free = options.find((o) => o.kind === "free")
@@ -144,8 +149,16 @@ export function decideJoin(f: JoinFacts): JoinStateView {
 
   const signIn = v.signedIn ? null : signInToJoinPath(c.slug)
 
+  /* Several plans: the press opens the plan picker (components/community/public/join-flow.tsx), whatever the first plan is. */
+  const choices = joinablePlans(f.options, f.canTakePayments)
+  const plans = choices.length > 1 ? choices : []
+  const anyFree = plans.some((p) => p.kind === "free")
+
   if (c.approvalRequired && !v.approved) {
-    return { ...base, kind: "request", option, label: joinButtonLabel({ isMember: false, approvalRequired: true }), href: signIn }
+    return { ...base, kind: "request", option, plans, label: joinButtonLabel({ isMember: false, approvalRequired: true }), href: signIn }
+  }
+  if (plans.length) {
+    return { ...base, kind: option.kind === "free" ? "join_free" : "checkout", option, plans, label: joinButtonLabel({ isMember: false, plans: plans.length, anyFree }), href: signIn, note: v.approved ? "Your request was approved." : null }
   }
   if (option.kind === "free") {
     return { ...base, kind: "join_free", option, label: joinButtonLabel({ isMember: false, priceLine: "Free" }), href: signIn }
@@ -153,17 +166,11 @@ export function decideJoin(f: JoinFacts): JoinStateView {
   if (!f.canTakePayments || !option.checkout || !option.priceLine) {
     return { ...base, kind: "unavailable", option, label: "Joining isn't open yet." }
   }
-  /*
-    A FREE TRIAL is said on the button (round 26) when the tier's plan gives one and this person has never had a
-    membership row here (a request or an invite still waiting counts as never): somebody who was a member before
-    gets no second trial at checkout, so their button says the price.
-  */
-  const trial = option.billing === "recurring" && (v.status === null || v.status === "pending") ? (option.trialDays ?? 0) : 0
   return {
     ...base,
     kind: "checkout",
     option,
-    label: joinButtonLabel({ isMember: false, priceLine: option.priceLine, trialDays: trial }),
+    label: joinButtonLabel({ isMember: false, priceLine: option.priceLine, trialDays: option.trialDays }),
     href: signIn,
     note: v.approved ? "Your request was approved." : null,
   }

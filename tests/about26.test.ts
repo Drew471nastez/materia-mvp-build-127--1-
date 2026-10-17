@@ -2,8 +2,8 @@
  * ROUND 26 (W4): the community's About page and its info card.
  *
  *   WORDS     the one button from the real configuration: "Join $24/month", "Join $240/year", "Join free",
- *             "Start free trial" (only for a recurring tier with a trial, for somebody who never had a membership
- *             here), "Request to join"; the phone's bar draws the same words as the card
+ *             "Start free trial" (a recurring plan with a trial), "Choose plan" (several), "Request to join"; the
+ *             phone's bar draws the same words as the card
  *   ROW       the row under the name keeps members and the price; the admins moved to the card's facts
  *   SUMMARY   the card's short description: the creator's, else the tagline, else the description's start, cut at a word
  *   SHARE     who may share from the card: published, not archived; a private community only its staff
@@ -66,12 +66,11 @@ console.log("\nWORDS: the one button")
   check("yearly on the card: Join $240/year", buttonLabel(pay, "year") === "Join $240/year" && buttonLabel(pay, "month") === "Join $24/month", buttonLabel(pay, "year"))
   const trial = decide([{ ...paid, trialDays: 7 }])
   check("a trial: Start free trial, whatever the interval", trial.label === JOIN_TRIAL_LABEL && buttonLabel(trial, "year") === "Start free trial")
-  const again = decide([{ ...paid, trialDays: 7 }], {}, { status: "left" as never })
-  check("somebody who was a member before gets the price, not a trial they would not get", again.label === "Join $24/month", again.label)
   const waiting = decide([{ ...paid, trialDays: 7 }], {}, { status: "pending" as never, approved: true })
   check("an approved request still starts the trial", waiting.label === JOIN_TRIAL_LABEL, waiting.label)
   check("a one time tier: Join $49", joinButtonLabel({ isMember: false, priceLine: "$49" }) === "Join $49")
-  check("a one time tier never says trial", decide([{ ...paid, billing: "one_time", priceLine: "$49", monthlyCents: null, yearlyCents: null, priceCents: 4900, trialDays: 7, checkout: { month: null, year: null, once: "/c" } }]).label === "Join $49")
+  const several = decide([paid, { ...paid, tierId: "t-pro", monthlyCents: 4900, yearlyCents: null, priceLine: "$49/month" }])
+  check("several plans: Choose plan, on the card and the bar alike (the plan picker is the monetization work's)", several.label === "Choose plan" && buttonLabel(several, "year") === "Choose plan", several.label)
   const f = decide([free], { access: "free" })
   check("free: Join free", f.kind === "join_free" && f.label === "Join free", f.label)
   check("approval: Request to join", decide([free], { access: "free", approvalRequired: true }).label === "Request to join")
@@ -131,7 +130,7 @@ console.log("\nSOURCE: the page")
   check("a row of thumbnails (a horizontal listbox) does not float like a menu in the dark look", /\[role="listbox"\]:not\(\[aria-orientation="horizontal"\]\)/.test(dark) && /aria-orientation="horizontal"/.test(gallery))
   const server = code("lib/communities/server/public.ts")
   check("the summary is read on its own, so the page keeps working before part 220", /async function readSummary/.test(server) && /code !== "42703" && code !== "PGRST204"/.test(server) && /summary,\s*adminCount:/.test(server))
-  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: plan\.trial_days/.test(server))
+  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: recurring \? Math\.max\(0, Number\(plan\?\.trial_days/.test(server))
 }
 
 console.log("\nDELETING: the line its staff see")

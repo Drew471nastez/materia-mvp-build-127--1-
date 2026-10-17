@@ -250,6 +250,13 @@ async function main() {
     check("leaving keeps the row, cancelled", left.ok && rowsOf(db)[0]?.status === "cancelled" && rowsOf(db).length === 1)
     const back = await joinCommunity(db, C, U)
     check("and joining again brings that row back", back.ok && back.state === "member" && rowsOf(db)[0]?.status === "active" && rowsOf(db).length === 1)
+    /* Round AF: the plan picker names the plan; the server takes it only when it is on sale here. */
+    const nope = A(await joinCommunity(world(), C, U, { tierId: "not-a-plan" }))
+    check("round AF: a plan that is not on sale is refused, nothing joined", !nope.ok && nope.status === 409 && nope.error === "plan_unavailable")
+    const pickedPaid = A(await joinCommunity(world(), C, U, { tierId: PAID_TIER }))
+    check("round AF: the paid plan picked goes to its checkout, not the free plan", pickedPaid.ok && pickedPaid.state === "checkout")
+    const pickedFree = A(await joinCommunity(world(), C, U, { tierId: FREE_TIER }))
+    check("round AF: the free plan picked is a member at once", pickedFree.ok && pickedFree.state === "member")
     const owner = await leaveCommunity(db, C, OWNER)
     check("the owner cannot leave", !A(owner).ok && A(owner).error === "owner")
   }

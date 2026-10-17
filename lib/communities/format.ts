@@ -55,21 +55,23 @@ export function priceLine(p: PriceFacts): string {
   return p.kind === "paid" ? "" : "Free"
 }
 
-/** The words of a join that starts a free trial (round 26). */
+/** The words of a join that starts a free trial. */
 export const JOIN_TRIAL_LABEL = "Start free trial"
 
 /**
- * The one button on a community's public page. Round 26, the owner: "Join $24/month", "Join free" or "Start free trial"
- * from what the creator actually set up, never "Join for $24/month". A trial is said only for a recurring tier whose
- * plan gives one (`trialDays`); the checkout decides on the day whether this buyer still gets it.
+ * The one button on a community's public page (round AF: "Join $24/month", never "Join for"):
+ *
+ *   one plan           "Join free", "Join $24/month", or "Start free trial" when it has one
+ *   several plans      "Join free" when one of them is free, else "Choose plan": the press opens the plan picker
  */
-export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null; trialDays?: number | null }): string {
+export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null; trialDays?: number; plans?: number; anyFree?: boolean }): string {
   if (s.isMember) return "Open community"
   if (s.pending) return "Request sent"
   if (s.approvalRequired) return "Request to join"
+  if ((s.plans ?? 0) > 1) return s.anyFree ? "Join free" : "Choose plan"
   if (s.priceLine === "Free") return "Join free"
+  if ((s.trialDays ?? 0) > 0) return JOIN_TRIAL_LABEL
   if (!s.priceLine) return "Join"
-  if (s.trialDays && s.trialDays > 0) return JOIN_TRIAL_LABEL
   return `Join ${s.priceLine}`
 }
 

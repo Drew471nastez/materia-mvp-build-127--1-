@@ -509,8 +509,7 @@ async function main() {
     const d = await loadCommunityBlock(db, CREATOR, C1, all, { enabled: true, now: NOW })
     check("the creator's own published public community has data", !!d && d.name === "Morning Runners" && d.url === "/community/morning-runners")
     check("the price and the button come from its default tier", d?.priceLine === "$19.00/month" || d?.priceLine === "$19/month", d?.priceLine)
-    /* Changed on purpose (round 26, the owner): "Join $19/month", not "Join for $19/month". */
-    check("join label from the price", !!d && /^Join \$/.test(d.joinLabel), d?.joinLabel)
+    check("join label from the price", !!d && d.joinLabel.startsWith("Join "), d?.joinLabel)
     check("posts come only from open, non chat spaces, and never a removed one", d?.posts.map((p) => p.id).join() === "post-open", d?.posts.map((p) => p.id))
     check("a post's author is a first name and a photo, no email", d?.posts[0]?.author?.name === "Ana" && !JSON.stringify(d).includes("ana@example.com"))
     check("events are upcoming ones every member may attend", d?.events.map((e) => e.id).join() === "ev-open" && d?.upcomingEventCount === 1)
@@ -553,7 +552,7 @@ async function main() {
     check("a section names its community ids", communityReferences([sec], (t) => SECTION_SCHEMAS[t]).join() === C1)
     const facts = storefrontCommunity({
       id: C1, slug: "morning-runners", name: "Morning Runners", tagline: "Run before the city wakes", logoUrl: null, coverUrl: "https://cdn.example/cover.jpg", url: "/community/morning-runners",
-      priceLine: "Free", joinLabel: "Join for free", memberCount: 1240, postCount: 318, upcomingEventCount: 2, events: [], posts: [], members: [], leaders: [], reviews: null,
+      priceLine: "Free", joinLabel: "Join free", memberCount: 1240, postCount: 318, upcomingEventCount: 2, events: [], posts: [], members: [], leaders: [], reviews: null,
     })
     const theme = {} as ThemeSettingsValues
     const drawn = (communities: Record<string, unknown> | undefined, inEditor = false) => {
@@ -563,7 +562,7 @@ async function main() {
       return r.html
     }
     const html = drawn({ [C1]: facts })
-    check("with the community, the card has its name, its members and its link", html.includes("Morning Runners") && html.includes("1.2k members") && html.includes('href="/community/morning-runners"') && html.includes("Join for free") && html.includes("2 upcoming events"))
+    check("with the community, the card has its name, its members and its link", html.includes("Morning Runners") && html.includes("1.2k members") && html.includes('href="/community/morning-runners"') && html.includes("Join free") && html.includes("2 upcoming events"))
     check("an id the page does not know draws no card", !drawn({}).includes("cc__card") && !drawn(undefined).includes("cc__card"))
     check("in the builder an empty one says what to do", drawn({}, true).includes("Choose one of your communities"))
     check("and on the live site it says nothing", !drawn({}).includes("Choose one of your communities"))

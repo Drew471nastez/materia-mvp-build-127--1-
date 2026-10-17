@@ -227,6 +227,7 @@ export async function communityMembershipView(db: Db, community: Pick<CommunityR
     communityName: community.name,
     kind,
     membershipId: membership?.id ?? null,
+    planName: membership?.title ?? null,
     status,
     access,
     amountCents: membership?.amount_cents ?? 0,

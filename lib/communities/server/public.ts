@@ -82,7 +82,6 @@ interface PlanLite {
   monthly_price_cents: number | null
   yearly_price_cents: number | null
   currency: string | null
-  /** Round 26: the free trial a first subscription gets (the checkout's own rule, app/api/memberships/checkout). */
   trial_days?: number | null
 }
 
@@ -190,8 +189,8 @@ export function optionsFor(slug: string, tiers: TierRow[], products: Map<string,
       priceCents: once,
       currency,
       priceLine: line,
-      ...(recurring && plan?.trial_days && plan.trial_days > 0 ? { trialDays: plan.trial_days } : {}),
       benefits: benefitsOf(t.benefits),
+      trialDays: recurring ? Math.max(0, Number(plan?.trial_days ?? 0)) : 0,
       checkout,
     }
   })

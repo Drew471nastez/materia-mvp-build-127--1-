@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 794 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 800 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -432,6 +432,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .before\:bg-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *)::before { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .before\:bg-\[\#f0f1f3\]:not([data-own-look], [data-own-look] *)::before { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0a0a0a\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0b0b12\]\/55:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.55); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0e0e10\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f0f14\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/25:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.25); }
@@ -601,6 +602,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#0f0f1c\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]\/\[0\.06\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.014); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]\/10:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.024); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]\/30:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.072); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]\/40:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.096); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#1a1a2e\]\/50:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.12); }
@@ -691,6 +693,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-neutral-900:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-red-100:not([data-own-look], [data-own-look] *) { border-color: hsla(0,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-red-200:not([data-own-look], [data-own-look] *) { border-color: hsla(0,50%,40%,0.45); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-t-\[\#1a1a2e\]\/50:not([data-own-look], [data-own-look] *) { border-top-color: rgba(255,255,255,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-t-black:not([data-own-look], [data-own-look] *) { border-top-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-t-neutral-800:not([data-own-look], [data-own-look] *) { border-top-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-t-neutral-900:not([data-own-look], [data-own-look] *) { border-top-color: rgba(255,255,255,0.24); }
@@ -705,6 +708,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/15:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/20:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/30:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/40:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[active\=true\]\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[data-active="true"] { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[active\=true\]\:ring-\[\#1a1a2e\]\/10:not([data-own-look], [data-own-look] *)[data-active="true"] { --tw-ring-color: rgba(255,255,255,0.024); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[highlighted\]\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *)[data-highlighted] { background-color: #25252a; }
@@ -827,11 +831,13 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#eef0f3\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/close\:bg-\[\#f6f7f9\]:not([data-own-look], [data-own-look] *):is(:where(.group\/close):active *) { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/share\:bg-\[\#eef0f2\]:not([data-own-look], [data-own-look] *):is(:where(.group\/share):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/shop\:bg-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):active *) { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/back\:outline-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):focus-visible *) { outline-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/play\:ring-white\/50:not([data-own-look], [data-own-look] *):is(:where(.group\/play):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/play\:ring-white\/70:not([data-own-look], [data-own-look] *):is(:where(.group\/play):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.049); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/rm\:ring-\[\#1a1a2e\]\/30:not([data-own-look], [data-own-look] *):is(:where(.group\/rm):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.072); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/share\:ring-\[\#1a1a2e\]\/30:not([data-own-look], [data-own-look] *):is(:where(.group\/share):focus-visible *) { --tw-ring-color: rgba(255,255,255,0.072); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-focus-visible\/shop\:outline-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):focus-visible *) { outline-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .placeholder\:text-\[\#6b7280\]:not([data-own-look], [data-own-look] *)::placeholder { color: hsla(220,9%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .placeholder\:text-gray-500:not([data-own-look], [data-own-look] *)::placeholder { color: hsla(220,9%,72%,1); }
@@ -1012,6 +1018,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/rm\:bg-\[\#0f1115\]\/75:not([data-own-look], [data-own-look] *):is(:where(.group\/rm):hover *) { background-color: rgba(53,53,60,0.75); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/row\:bg-\[\#f0eeff\]:not([data-own-look], [data-own-look] *):is(:where(.group\/row):hover *) { background-color: hsla(247,60%,50%,0.16); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/row\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/row):hover *) { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/share\:bg-\[\#f6f7f8\]:not([data-own-look], [data-own-look] *):is(:where(.group\/share):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:border-\[\#d2d5da\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/20:not([data-own-look], [data-own-look] *):is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.2); }
@@ -1090,7 +1097,6 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-white\/90:not([data-own-look], [data-own-look] *):hover { background-color: rgba(37,37,42,0.9); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9ccd2\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#c9ccd3\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d0d4da\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d1d5db\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d2d5da\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d4d7dd\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
