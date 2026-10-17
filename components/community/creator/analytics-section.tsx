@@ -618,11 +618,9 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
                 ) : null}
               </div>
 
-              {id !== "revenue" ? (
-                <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
-                  <Lists r={r} slug={head.slug} section={id} />
-                </div>
-              ) : null}
+              <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
+                <Lists r={r} slug={head.slug} section={id} />
+              </div>
 
               {id === "traffic" ? <GaLine ga={r?.ga ?? null} /> : null}
             </SectionBlock>
@@ -880,6 +878,60 @@ function Lists({ r, slug, section }: { r: CommunityReport | null; slug: string; 
             {devices ? <ReportList title={tt("Devices")} rows={share(devices.rows)} previous={devices.previous} format={n} lead={{ icon: "device" }} empty={tt("No visits in this period.")} /> : null}
           </ReportBody>
         </ReportCard>
+        {/* Only where there is something to show: before part 221 the presses are not counted at all, and a nought would say nobody pressed. */}
+        {r && r.linkPresses && r.linkPresses.length > 0 ? (
+          <ReportCard className={REPORT_CARD} card="link-presses" title={tt("Link presses")} help={tt("Presses on the links you give members, counted once a member a day.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList
+                title={tt("Link presses")}
+                rows={r.linkPresses.map((l) => ({ key: l.id, label: l.label ?? tt("A link you have since removed"), value: l.presses, note: tt("{n, plural, one {# member} other {# members}}", { n: l.members }) }))}
+                format={n}
+                empty={tt("Nobody pressed a link in this period.")}
+              />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+      </>
+    )
+  }
+
+  if (section === "revenue") {
+    const money = r?.money ?? null
+    if (!money) return null
+    const plans = money.byPlan
+    const trials = money.trials
+    const anyTrial = trials.started > 0 || trials.converted > 0 || trials.lost > 0 || trials.onTrial > 0
+    return (
+      <>
+        {plans.length > 0 ? (
+          <ReportCard className={REPORT_CARD} card="plans" title={tt("Monthly revenue by plan")} help={tt("What each plan brings in a month, at the end of the period, with the members paying for it.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList
+                title={tt("Monthly revenue by plan")}
+                rows={plans.map((x) => ({ key: x.productId, label: x.name ?? tt("Unnamed plan"), value: x.cents, note: tt("{n, plural, one {# member} other {# members}}", { n: x.members }) }))}
+                format={(v) => wholeMoney(v, money.currency)}
+                empty={tt("Nobody is paying at the end of this period.")}
+              />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
+        {anyTrial ? (
+          <ReportCard className={REPORT_CARD} card="trials" title={tt("Free trials")} help={tt("Trials that began in this period, and what happened to the ones that ended in it.")}>
+            <ReportBody blank={false} wait="list">
+              <ReportList
+                title={tt("Free trials")}
+                rows={[
+                  { key: "started", label: tt("Began"), value: trials.started },
+                  { key: "converted", label: tt("Went on to pay"), value: trials.converted },
+                  { key: "lost", label: tt("Ended without paying"), value: trials.lost },
+                  { key: "onTrial", label: tt("Still on trial"), value: trials.onTrial },
+                ].filter((x) => x.value > 0)}
+                format={n}
+                empty={tt("No trials in this period.")}
+              />
+            </ReportBody>
+          </ReportCard>
+        ) : null}
       </>
     )
   }

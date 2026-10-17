@@ -42,6 +42,7 @@ import { monthlyValue } from "@/lib/memberships/state"
 import { lineMoney } from "@/lib/analytics/reports"
 import { loadGaStatus, loadTracking } from "@/lib/store/tracking-server"
 import { MEMBER_SOURCES } from "../types"
+import { cleanMemberLinks } from "../member-links"
 import {
   REPORT_VERSION,
   alignTo,
@@ -392,7 +393,7 @@ function trafficRows(cur: Record<TrafficDimension, Counts>, prev: Record<Traffic
 
 /* ── Money ───────────────────────────────────────────────────────────── */
 
-type MembershipRow = { id: string; buyer_id: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null }
+type MembershipRow = { id: string; buyer_id: string | null; product_id: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null }
 
 async function pages<T extends { id: string | number }>(ask: (after: string | number | null) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>, what: string): Promise<T[] | null> {
   const out: T[] = []
@@ -413,16 +414,20 @@ async function pages<T extends { id: string | number }>(ask: (after: string | nu
 }
 
 /** The products that sell this community: its paid tiers (recurring or once) and the products made for it. */
-async function sellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[] }> {
+async function sellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[]; planNames: Map<string, string> }> {
   const [tiers, made] = await Promise.all([
-    db.from("community_tiers").select("product_id, billing").eq("community_id", communityId).eq("kind", "paid").limit(50),
-    db.from("products").select("id, type").eq("community_id", communityId).limit(200),
+    db.from("community_tiers").select("product_id, billing, name").eq("community_id", communityId).eq("kind", "paid").limit(50),
+    db.from("products").select("id, type, title").eq("community_id", communityId).limit(200),
   ])
-  const t = ((tiers.data as { product_id: string | null; billing: string | null }[] | null) ?? []).filter((x) => x.product_id)
-  const m = (made.error ? [] : (made.data as { id: string; type: string | null }[] | null) ?? [])
+  const t = ((tiers.data as { product_id: string | null; billing: string | null; name: string | null }[] | null) ?? []).filter((x) => x.product_id)
+  const m = (made.error ? [] : (made.data as { id: string; type: string | null; title: string | null }[] | null) ?? [])
   const all = [...new Set([...t.map((x) => x.product_id as string), ...m.map((x) => x.id)])]
   const recurring = [...new Set([...t.filter((x) => x.billing === "recurring").map((x) => x.product_id as string), ...m.filter((x) => x.type === "membership").map((x) => x.id)])]
-  return { all, recurring }
+  /* What the creator calls each plan: the tier's name, or the product's own title. A plan with neither is left unnamed and the page says so. */
+  const planNames = new Map<string, string>()
+  for (const x of m) if (x.title) planNames.set(x.id, x.title)
+  for (const x of t) if (x.name) planNames.set(x.product_id as string, x.name)
+  return { all, recurring, planNames }
 }
 
 /** Paying at a moment: started, not ended, out of any trial. */
@@ -447,11 +452,24 @@ interface MoneyWindow {
   bySource: { memberships: number; programs: number; tickets: number }
   upgradesOf: MembershipRow[]
   payingAtStart: number
+  /*
+    TRIALS. A membership with a trial_end: started in this period, ended
+    inside it with the member still paying after it (converted) or still
+    inside its trial at the end of the period (onTrial, a level like
+    subscribers). A community whose plans have no trial counts nought of
+    each, which is the truth and not a gap.
+  */
+  trialsStarted: number
+  trialsConverted: number
+  trialsLost: number
+  onTrial: number
+  /** The monthly value and the members of each plan, at the end of the period. */
+  byPlan: Map<string, { cents: number; members: number }>
 }
 
 function moneyWindow(span: Span, starts: number[], members: MembershipRow[], orders: { created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string }[], programs: { created_at: string; amount_cents: number | null }[], tickets: { paid_at: string; amount_cents: number | null; refunded_at: string | null }[]): MoneyWindow {
   const n = starts.length
-  const w: MoneyWindow = { revenue: new Array(n).fill(0), mrr: new Array(n).fill(0), subscribers: new Array(n).fill(0), newPaid: new Array(n).fill(0), cancellations: new Array(n).fill(0), bySource: { memberships: 0, programs: 0, tickets: 0 }, upgradesOf: [], payingAtStart: 0 }
+  const w: MoneyWindow = { revenue: new Array(n).fill(0), mrr: new Array(n).fill(0), subscribers: new Array(n).fill(0), newPaid: new Array(n).fill(0), cancellations: new Array(n).fill(0), bySource: { memberships: 0, programs: 0, tickets: 0 }, upgradesOf: [], payingAtStart: 0, trialsStarted: 0, trialsConverted: 0, trialsLost: 0, onTrial: 0, byPlan: new Map() }
   const inSpan = (at: number) => at >= span.start && at < span.end
   const at = (iso: string) => {
     const t = Date.parse(iso)
@@ -499,6 +517,23 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
       const c = at(m.canceled_at)
       if (c >= 0) w.cancellations[c] += 1
     }
+    if (m.trial_end) {
+      const ends_at = Date.parse(m.trial_end)
+      if (at(m.started_at ?? m.created_at) >= 0) w.trialsStarted += 1
+      if (inSpan(ends_at)) {
+        /* A moment after the trial ended: paying then is the conversion, and not paying is a trial that went no further. */
+        if (payingAt(m, ends_at + 1)) w.trialsConverted += 1
+        else w.trialsLost += 1
+      }
+      if (ends_at > span.end - 1 && Date.parse(m.started_at ?? m.created_at) < span.end && !m.ended_at) w.onTrial += 1
+    }
+    /* The plan this member is on, counted at the end of the period, so it adds up to the monthly revenue shown beside it. */
+    if (payingAt(m, span.end - 1) && m.product_id) {
+      const row = w.byPlan.get(m.product_id) ?? { cents: 0, members: 0 }
+      row.cents += monthly(m)
+      row.members += 1
+      w.byPlan.set(m.product_id, row)
+    }
   }
   return w
 }
@@ -510,7 +545,7 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
   const [members, orders, programs, tickets, refunds, why] = await Promise.all([
     products.recurring.length
       ? pages<MembershipRow>((after) => {
-          let q = db.from("memberships").select("id, buyer_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end").in("product_id", products.recurring)
+          let q = db.from("memberships").select("id, buyer_id, product_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end").in("product_id", products.recurring)
           if (after !== null) q = q.gt("id", after)
           return q.order("id", { ascending: true }).limit(PAGE)
         }, "memberships")
@@ -580,6 +615,10 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
     refunds: { count: refunds?.length ?? 0, totalCents: (refunds ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) },
     bySource: (["memberships", "programs", "tickets"] as const).map((key) => ({ key, cents: c.bySource[key] })).filter((x) => x.cents > 0),
     reasons: (why?.counts ?? []).filter((x) => x.count > 0).map((x) => ({ reason: x.reason ?? "none", count: x.count })).sort((a, b) => b.count - a.count),
+    trials: { started: c.trialsStarted, converted: c.trialsConverted, lost: c.trialsLost, onTrial: c.onTrial, startedBefore: p ? p.trialsStarted : null },
+    byPlan: [...c.byPlan.entries()]
+      .map(([productId, v]) => ({ productId, name: products.planNames.get(productId) ?? null, cents: v.cents, members: v.members }))
+      .sort((a, b) => b.cents - a.cents || b.members - a.members),
   }
 }
 
@@ -687,6 +726,50 @@ async function newActiveOf(db: Db, communityId: string, ownerId: string | null, 
 }
 
 /** Why members said they left in the period (community_leave_reasons, part 98), most first; null before that part. */
+/**
+ * PRESSES ON THE COMMUNITY'S MEMBER LINKS in the period (run-now part 221:
+ * one row per member, link and day, so a link pressed twice in a day is one
+ * row). The labels come from the community's own list (part 220); a link
+ * that has since been deleted keeps its presses under its id and the page
+ * says the link is gone rather than dropping the number.
+ *
+ * Null when either part has not run, so the card is not drawn at all: a
+ * nought would say nobody pressed, which is not what is known.
+ */
+async function linkPressesOf(db: Db, communityId: string, span: Span): Promise<{ id: string; label: string | null; presses: number; members: number }[] | null> {
+  try {
+    const { data, error } = await db
+      .from("community_member_link_clicks")
+      .select("link_id, user_id")
+      .eq("community_id", communityId)
+      .gte("day", iso(span.start).slice(0, 10))
+      .lte("day", iso(span.end - 1).slice(0, 10))
+      .limit(20_000)
+    if (error) {
+      if (!missing(error)) console.error(`[communities] report link presses: ${reasonOf(error)}`)
+      return null
+    }
+    const rows = (data as { link_id: string; user_id: string }[] | null) ?? []
+    if (!rows.length) return []
+    /* The labels only when there is something to label: the column is part 220's and reads as nothing without it. */
+    const { data: stored } = await db.from("communities").select("member_links").eq("id", communityId).maybeSingle()
+    const labels = new Map(cleanMemberLinks((stored as { member_links?: unknown } | null)?.member_links).map((l) => [l.id, l.label]))
+    const per = new Map<string, { presses: number; members: Set<string> }>()
+    for (const r of rows) {
+      const x = per.get(r.link_id) ?? { presses: 0, members: new Set<string>() }
+      x.presses += 1
+      x.members.add(r.user_id)
+      per.set(r.link_id, x)
+    }
+    return [...per.entries()]
+      .map(([id, x]) => ({ id, label: labels.get(id) ?? null, presses: x.presses, members: x.members.size }))
+      .sort((a, b) => b.presses - a.presses)
+  } catch (e) {
+    console.error(`[communities] report link presses: ${reasonOf(e)}`)
+    return null
+  }
+}
+
 async function leaveReasonsOf(db: Db, communityId: string, span: Span): Promise<{ reason: string; count: number }[] | null> {
   try {
     const { data, error } = await db.from("community_leave_reasons").select("reason").eq("community_id", communityId).gte("created_at", iso(span.start)).lt("created_at", iso(span.end)).limit(10_000)
@@ -833,7 +916,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
 
   const firstKey = cur.keys[0] ?? ""
   const activeFrom = ready && ca?.activeSince ? ca.activeSince : null
-  const [joins, topPosts, contributorsList, events, eventMoney, money, ga, newActive, leaveReasons] = await Promise.all([
+  const [joins, topPosts, contributorsList, events, eventMoney, money, ga, newActive, leaveReasons, linkPresses] = await Promise.all([
     joinStats(db, id, iso(span.start), iso(span.end)).catch(() => ({ total: 0, bySource: [], invites: [] })),
     topPostsOf(db, id, span),
     ready && ca?.topContributors ? contributorsOf(db, ca.topContributors) : Promise.resolve([]),
@@ -843,6 +926,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     gaOf(db, community.creator_id),
     ready && activeTotal !== null ? newActiveOf(db, id, owner, span, tz) : Promise.resolve(null),
     leaveReasonsOf(db, id, span),
+    linkPressesOf(db, id, span),
   ])
   const activeSplit = newActive !== null && activeTotal !== null ? { new: Math.min(newActive, activeTotal), returning: Math.max(0, activeTotal - newActive) } : null
 
@@ -862,6 +946,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     live: { members: membersNow, active1, active7, active30, stickiness: rate(active1, active30) },
     activeSplit,
     leaveReasons,
+    linkPresses,
     people: { posters: ca?.totals?.posters ?? 0, commenters: ca?.totals?.commenters ?? 0, reactors: ca?.totals?.reactors ?? 0 },
     money,
     traffic: visitsCur.counted ? trafficRows(visitsCur.traffic, prevVisits ? prevVisits.traffic : null) : null,

@@ -79,7 +79,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 
 const SECTIONS = ["growth", "traffic", "engagement", "content", "revenue"]
 const TREND = { growth: "growth", traffic: "traffic", engagement: "activity", content: "content", revenue: "money" }
-const CARDS = { growth: ["joins", "new-returning", "cohorts", "leave-reasons", "invites"], traffic: ["traffic", "countries", "devices"], engagement: ["contributors", "events", "programs"], content: ["posts", "spaces"], revenue: [] }
+const CARDS = { growth: ["joins", "new-returning", "cohorts", "leave-reasons", "invites"], traffic: ["traffic", "countries", "devices", "link-presses"], engagement: ["contributors", "events", "programs"], content: ["posts", "spaces"], revenue: ["plans", "trials"] }
 
 /* What the page shows now: the controls row, the overview, the tabs, the panel, its charts and cards, and whether the page scrolls sideways. */
 const LOOK = () => {

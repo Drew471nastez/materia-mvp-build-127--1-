@@ -78,6 +78,20 @@ export interface MoneyReport {
   /** Where the revenue came from: memberships and purchases, programs, event tickets. */
   bySource: { key: "memberships" | "programs" | "tickets"; cents: number }[]
   reasons: { reason: string; count: number }[]
+  /**
+   * FREE TRIALS in the period: how many began, how many ended with the
+   * member paying and how many ended without, and how many are still
+   * inside their trial at the end of it. A community whose plans offer no
+   * trial reads nought everywhere, which is the truth about it.
+   */
+  trials: { started: number; converted: number; lost: number; onTrial: number; startedBefore: number | null }
+  /**
+   * THE MONTHLY REVENUE OF EACH PLAN at the end of the period, most first,
+   * with the members paying for it. The sum is the monthly revenue figure
+   * beside it. A plan the creator never named reads `name: null` and the
+   * page says so rather than inventing one.
+   */
+  byPlan: { productId: string; name: string | null; cents: number; members: number }[]
 }
 
 export interface TrafficReport {
@@ -159,6 +173,13 @@ export interface CommunityReport {
   activeSplit: { new: number; returning: number } | null
   /** Why members said they left in the period (part 98), most first; null before that part. */
   leaveReasons: { reason: string; count: number }[] | null
+  /**
+   * Presses on the community's member links in the period (part 221), most
+   * first, with how many members pressed each. Null before that part: the
+   * card is not drawn at all, because a nought would say nobody pressed.
+   * A link since deleted keeps its presses with `label: null`.
+   */
+  linkPresses: { id: string; label: string | null; presses: number; members: number }[] | null
   /** Who posted, commented and reacted in the period: distinct members. */
   people: { posters: number; commenters: number; reactors: number }
   money: MoneyReport | null
