@@ -195,13 +195,14 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
   if (sub !== null && total !== null) {
     const adds = sub - (off ?? 0) + (ship ?? 0) + (facts.taxIncluded ? 0 : tax ?? 0) === total
     if (adds) {
-      /* The checkout's picture for each line (the variant's photo), else the product's from the order rows by name. */
+      /* Who fulfils each line when they differ, and a download always says so (nothing to pack); each line's picture: the checkout's (the variant's photo), else the product's from the order rows by name. */
       const before = (Array.isArray(data.lines) ? data.lines : []) as { title?: unknown; imageUrl?: unknown }[]
       const pictureOf = (title: string) => before.find((b) => b.title === title && typeof b.imageUrl === "string")?.imageUrl ?? null
-      out.lines = facts.lines.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, amountCents: l.amountCents, fulfilment: facts.fulfilment.length > 1 ? l.fulfilment : null, imageUrl: l.imageUrl ?? pictureOf(l.title) }))
+      out.lines = facts.lines.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, amountCents: l.amountCents, fulfilment: facts.fulfilment.length > 1 || l.fulfilment === "Download" ? l.fulfilment : null, imageUrl: l.imageUrl ?? pictureOf(l.title) }))
       out.subtotalCents = sub
       out.discountCents = off && off > 0 ? off : null
-      out.shippingCents = ship
+      /* Collected in person: no shipping row unless the store charged for it. */
+      out.shippingCents = facts.kind === "pickup" && !ship ? null : ship
       out.taxCents = tax && tax > 0 ? tax : null
       out.taxIncluded = facts.taxIncluded
       out.amountCents = total

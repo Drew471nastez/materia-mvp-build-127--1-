@@ -178,7 +178,7 @@ class Query {
     if (this.op === "insert") {
       const list = (Array.isArray(this.payload) ? this.payload : [this.payload]).map((r: Row) => ({ id: r.id ?? this.db.seq++, status: "pending", attempts: 0, max_attempts: 5, created_at: new Date().toISOString(), ...r }))
       const key = this.db.unique[this.table]
-      for (const r of list) if (key && r[key] && rows.some((x) => x[key] === r[key])) return { data: null, error: { code: "23505" } }
+      for (const r of list as Row[]) if (key && r[key] && rows.some((x) => x[key] === r[key])) return { data: null, error: { code: "23505" } }
       rows.push(...list)
       return { data: this.wantOne ? list[0] : list, error: null }
     }
@@ -386,7 +386,7 @@ async function transactional() {
       !!mail &&
       !/unsubscribe/i.test(mail.html) &&
       (kind === "pickup"
-        ? /Pickup order to prepare/.test(mail.html) && /Collect at/.test(mail.html) && /Prepare order/.test(mail.html) && !/Ship to/.test(mail.html)
+        ? /Pickup order to prepare/.test(mail.html) && /Collect at/.test(mail.html) && /Prepare order/.test(mail.html) && !/Ship to|Shipping/.test(mail.html)
         : kind === "local"
           ? /New order to fulfil/.test(mail.html) && /You deliver it \(local delivery\)/.test(mail.html) && /We deliver on Fridays/.test(mail.html) && /Fulfil order/.test(mail.html)
           : /New order to fulfil/.test(mail.html) && /Glaze guide/.test(mail.html) && /Download/.test(mail.html) && /You ship it/.test(mail.html))
@@ -475,6 +475,7 @@ async function perType() {
     if (kind === "local") {
       const shipped = by(/on the way/)
       check("local: the confirmation names the delivery and the store's note, no carrier estimate", !!conf && /Local delivery/.test(conf.html) && /We deliver on Fridays/.test(conf.html) && !/business days/.test(conf.html))
+      check("local: the confirmation's totals name the fee Delivery, never Shipping", !!conf && !/Shipping/.test(conf.text) && /Delivery: €5\.00/.test(conf.text), conf?.text.match(/.*€5\.00.*/g))
       check("local: on its way says the store delivers it, with no tracking box or Track button", !!shipped && /delivering it to you ourselves/.test(shipped.html) && !/Track your package|JD0146000062/.test(shipped.html))
       check("local: delivered says handed over", !!by(/was delivered/) && /handed over/.test(by(/was delivered/)!.html))
     }
@@ -500,7 +501,7 @@ async function perType() {
   check("the supplier's order shows each product's picture (a tile without one), sized", /<img class="e-thumb" src="https:\/\/storelib\.com\/api\/email\/img\?u=[^"]+" alt="Ceramic mug \(Sage\)"/.test(sup.html))
 
   /* The senders and previews read the one helper. */
-  check("every physical email sender reads lib/physical/store-link", ["lib/physical/jobs-server.ts", "lib/automations/abandoned-reminder.ts", "lib/support/cases-server.ts", "lib/reviews/requests-server.ts", "app/api/store/emails/route.ts", "app/api/store/emails/test/route.ts", "app/api/store/emails/preview/route.ts"].every((f) => /orderStoreUrl\(/.test(read(f))))
+  check("every physical email sender reads lib/physical/store-link", ["lib/physical/jobs-server.ts", "lib/automations/abandoned-reminder.ts", "lib/reviews/requests-server.ts", "app/api/store/emails/route.ts", "app/api/store/emails/test/route.ts", "app/api/store/emails/preview/route.ts"].every((f) => /orderStoreUrl\(/.test(read(f))))
   check("no physical email takes the store identity's creator page fallback any more", !/storeUrl: store\.websiteUrl|websiteUrl: store\.websiteUrl/.test(read("lib/physical/jobs-server.ts")) && !/store\?\.websiteUrl/.test(read("lib/automations/abandoned-reminder.ts")))
 }
 

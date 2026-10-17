@@ -210,12 +210,15 @@ function deliveryParts(t: EmailTotals): { fee: number; shipped: number; shipping
   return { fee, shipped, shipping: shipped - t.shippingDiscount }
 }
 
-function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = []): string {
+/** "Delivery" when the store brings it itself, "Shipping" otherwise. */
+const deliveryLabel = (local?: boolean) => (local ? et("Delivery") : et("Shipping"))
+
+function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = [], local = false): string {
   const { fee, shipped, shipping } = deliveryParts(t)
   return k.totals([
     { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
     ...(t.discount > 0 ? [{ label: et("Discount"), value: `-${formatMoney(t.discount, t.currency)}` }] : []),
-    ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: et("Shipping"), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: deliveryLabel(local), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
     ...(fee > 0 ? [{ label: et("Cash on delivery fee"), value: formatMoney(fee, t.currency) }] : []),
     ...taxRows(t),
     { label: et("Total"), value: formatMoney(t.total, t.currency), strong: true },
@@ -242,12 +245,12 @@ function taxRows(t: EmailTotals): { label: string; value: string }[] {
 }
 
 /** The money as the plain text part says it, every row the HTML has. */
-function totalsText(t: EmailTotals): string[] {
+function totalsText(t: EmailTotals, local = false): string[] {
   const { fee, shipped, shipping } = deliveryParts(t)
   return [
     `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
     ...(t.discount > 0 ? [`${et("Discount")}: -${formatMoney(t.discount, t.currency)}`] : []),
-    ...(shipped > 0 || t.shippingDiscount > 0 ? [`${et("Shipping")}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [`${deliveryLabel(local)}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
     ...(fee > 0 ? [`${et("Cash on delivery fee")}: ${formatMoney(fee, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
     `${et("Total")}: ${formatMoney(t.total, t.currency)}`,
@@ -362,7 +365,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     actions,
     sectionHeading(k, et("Order summary")),
     linesTable(k, m.lines, m.totals.currency, true),
-    totalsTable(k, m.totals, saved > 0 ? [{ label: et("You saved"), value: formatMoney(saved, m.totals.currency), tone: "good" }] : []),
+    totalsTable(k, m.totals, saved > 0 ? [{ label: et("You saved"), value: formatMoney(saved, m.totals.currency), tone: "good" }] : [], !!m.local),
     info.length ? sectionHeading(k, et("Customer information")) + infoGrid(k, info) : "",
   ].join("")
   const text = [
@@ -373,7 +376,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     et("Order summary"),
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
     "",
-    ...totalsText(m.totals),
+    ...totalsText(m.totals, !!m.local),
     ...(saved > 0 ? [et("You saved {amount}", { amount: formatMoney(saved, m.totals.currency) })] : []),
     ...(m.pickup
       ? ["", `${et("Pick up at")}:`, m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.hours ? [et("Opening hours: {hours}", { hours: m.pickup.hours })] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
