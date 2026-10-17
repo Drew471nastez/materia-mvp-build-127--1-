@@ -220,13 +220,14 @@ function FramedPage({ data, visitor }: { data: SalesPageData; visitor: boolean }
 function groupOfField(field: string | undefined): PageGroup | null {
   if (!field) return null
   const key = field.split(".")[0]
-  const map: Record<string, PageBlock> = { name: "name", tagline: "tagline", summary: "summary", logoUrl: "logo", coverUrl: "cover", gallery: "gallery", descriptionHtml: "description", description: "description", benefits: "benefits", faq: "faq", links: "links", memberLinks: "memberLinks", pageLook: "join", seoTitle: "search", seoDescription: "search", discoveryEnabled: "search" }
+  const map: Record<string, PageBlock> = { name: "name", tagline: "tagline", summary: "summary", logoUrl: "logo", coverUrl: "cover", gallery: "gallery", descriptionHtml: "description", description: "description", benefits: "benefits", faq: "faq", links: "links", memberLinks: "memberLinks", pageLook: "join", seoTitle: "search", seoDescription: "search", discoveryEnabled: "search", legalLinks: "legal" }
   return map[key] ? groupOf(map[key]) : null
 }
 
 function problemText(p: DraftProblem): string {
   if (p.block === "summary") return tt("The short description is over 160 characters.")
   if (p.block === "memberLinks") return p.code === "name" ? tt("Member link {n} needs a name.", { n: p.index + 1 }) : tt("Member link {n} needs a web address or a Storelib page.", { n: p.index + 1 })
+  if (p.block === "legal") return p.kind === "privacy" ? tt("The privacy policy needs the full address of a web page.") : tt("The terms need the full address of a web page.")
   return p.code === "money" ? tt("The join button cannot name a price, a currency or a billing period.") : tt("Joining costs money, so the button cannot say free.")
 }
 

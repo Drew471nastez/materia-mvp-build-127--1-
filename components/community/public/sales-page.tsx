@@ -62,6 +62,7 @@ import { htmlToPlainText } from "@/lib/rich-text/html"
 import { FactsList } from "./facts-list"
 import { AboutRow } from "./about-row"
 import { SocialLinks } from "./social-icons"
+import { legalLinksShown } from "@/lib/communities/legal-links"
 import type { AboutExtras, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
 
 const H2 = "text-[18px] font-semibold tracking-[-0.005em] text-[#1a1a2e]"
@@ -483,14 +484,17 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                   </section>
                 ) : null}
               </article>
-              {/* Round 26, the owner's section 9: Storelib's own legal pages, small and quiet, well away from the card. */}
-              <nav aria-label="Legal" className="mt-5 flex justify-center gap-5 px-5 text-[12.5px] text-[#9ca3af] sm:justify-start sm:px-1" data-community-legal="">
-                <a href="https://storelib.com/legal/privacy" target="_blank" rel="noopener" className="-my-2 py-2 outline-none hover:text-[#4b5563] hover:underline focus-visible:underline">
-                  Privacy
-                </a>
-                <a href="https://storelib.com/legal/terms" target="_blank" rel="noopener" className="-my-2 py-2 outline-none hover:text-[#4b5563] hover:underline focus-visible:underline">
-                  Terms
-                </a>
+              {/*
+                Round 26, the owner's section 9: the legal pages, small and quiet, well away from the card. Round 27: the
+                community's own Privacy and Terms pages where the creator set them (lib/communities/legal-links.ts), each
+                on its own; Storelib's where they did not.
+              */}
+              <nav aria-label="Legal" className="mt-5 flex justify-center gap-5 px-5 text-[12.5px] text-[#9ca3af] sm:justify-start sm:px-1" data-community-legal="" data-page-block="legal">
+                {legalLinksShown(c.legal).map((l) => (
+                  <a key={l.kind} href={l.href} target="_blank" rel={l.own ? "noopener noreferrer nofollow" : "noopener"} className="-my-2 py-2 outline-none hover:text-[#4b5563] hover:underline focus-visible:underline" data-legal-link={l.kind} data-legal-own={l.own ? "" : undefined}>
+                    {l.kind === "privacy" ? "Privacy" : "Terms"}
+                  </a>
+                ))}
               </nav>
             </main>
 

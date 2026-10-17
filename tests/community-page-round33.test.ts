@@ -89,7 +89,7 @@ console.log("\nROW: the facts under the name")
 
 console.log("\nDRAFT: the preview and Save")
 {
-  const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: "/c.jpg", gallery: [], benefits: ["A"], faq: [], links: [], look: DEFAULT_LOOK, summary: "", memberLinks: [], seoTitle: "", seoDescription: "", discoveryEnabled: true }
+  const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: "/c.jpg", gallery: [], benefits: ["A"], faq: [], links: [], look: DEFAULT_LOOK, summary: "", memberLinks: [], seoTitle: "", seoDescription: "", discoveryEnabled: true, legal: { privacy: "", terms: "" } }
   check("nothing changed sends nothing", Object.keys(changedBody(start, { ...start })).length === 0)
   const now: PageDraft = { ...start, name: "Clay Club", descriptionHtml: "<p><br></p>", look: { ...DEFAULT_LOOK, coverY: 20 }, links: [{ label: "Instagram", url: "https://www.instagram.com/clay" }] }
   const body = changedBody(start, now)
