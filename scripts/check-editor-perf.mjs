@@ -76,6 +76,13 @@
  *   startup, first canvas       2,745 / 1,709ms   2,029 / 1,395ms (noisy: not claimed)
  *   type 20 keys                0ms blocking both, renders unchanged
  *
+ * And again after merging V1, V5 and the rest (a fresh bundle, two more
+ * pairs): body insert 42 / 46ms -> 0.4 / 0.4ms, 1,234 -> 2 elements; select
+ * hero 212 / 283ms -> 135 / 66ms; select another 106 / 132ms -> 0 / 0ms;
+ * switch page 268 / 254ms -> 9 / 6ms; switch back 148 / 160ms -> 18 / 0ms;
+ * type 20 keys 306 / 205ms -> 0 / 0ms (the warm-up's passes no longer land
+ * in it); idle 12s after open 0 / 1,388ms -> 0 / 0ms.
+ *
  * The page switch that V3 measured slower is back under its old numbers:
  * the batched preview measurements were each paying the 1,234 element pass.
  * What is left of "select hero" is the first gesture on the page making the
