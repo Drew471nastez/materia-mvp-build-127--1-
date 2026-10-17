@@ -9394,7 +9394,22 @@ const words: Record<string, string> = {
  "Featuring members needs the database update (run-now part 223).": "Mettere in evidenza i membri richiede l'aggiornamento del database (run-now parte 223).",
  "A community can feature 12 members. Take one off first.": "Una community può mettere in evidenza 12 membri. Togline uno prima.",
  "Only a member who is here can be featured.": "Si può mettere in evidenza solo un membro che è qui.",
- "Featuring is for somebody else.": "Mettere in evidenza è per un'altra persona."
+ "Featuring is for somebody else.": "Mettere in evidenza è per un'altra persona.",
+ "Link presses": "Clic sui link",
+ "Presses on the links you give members, counted once a member a day.": "Clic sui link che dai ai membri, contati una volta per membro al giorno.",
+ "A link you have since removed": "Un link che hai poi rimosso",
+ "Nobody pressed a link in this period.": "Nessuno ha cliccato un link in questo periodo.",
+ "Monthly revenue by plan": "Ricavi mensili per piano",
+ "What each plan brings in a month, at the end of the period, with the members paying for it.": "Quanto porta ogni piano al mese, alla fine del periodo, con i membri che lo pagano.",
+ "Unnamed plan": "Piano senza nome",
+ "Nobody is paying at the end of this period.": "Alla fine di questo periodo non paga nessuno.",
+ "Free trials": "Prove gratuite",
+ "Trials that began in this period, and what happened to the ones that ended in it.": "Le prove iniziate in questo periodo, e com'è andata a quelle che vi si sono concluse.",
+ "Began": "Iniziate",
+ "Went on to pay": "Passate a pagamento",
+ "Ended without paying": "Finite senza pagare",
+ "Still on trial": "Ancora in prova",
+ "No trials in this period.": "Nessuna prova in questo periodo."
 }
 
 export default words

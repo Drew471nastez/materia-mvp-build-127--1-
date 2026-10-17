@@ -42,7 +42,6 @@ import { monthlyValue } from "@/lib/memberships/state"
 import { lineMoney } from "@/lib/analytics/reports"
 import { loadGaStatus, loadTracking } from "@/lib/store/tracking-server"
 import { MEMBER_SOURCES } from "../types"
-import { cleanMemberLinks } from "../member-links"
 import {
   REPORT_VERSION,
   alignTo,
@@ -67,6 +66,7 @@ import {
 } from "../analytics-report"
 import { countVisits, TRAFFIC_DIMENSIONS, type TrafficDimension, type VisitRow } from "./analytics"
 import { joinStats, loadEventMoney } from "./stats"
+import { memberLinkLabels } from "./member-shortcuts"
 import { cancellationsWithReasons } from "./membership-lifecycle"
 import { missing, reasonOf, type Db } from "./db"
 
@@ -751,9 +751,8 @@ async function linkPressesOf(db: Db, communityId: string, span: Span): Promise<{
     }
     const rows = (data as { link_id: string; user_id: string }[] | null) ?? []
     if (!rows.length) return []
-    /* The labels only when there is something to label: the column is part 220's and reads as nothing without it. */
-    const { data: stored } = await db.from("communities").select("member_links").eq("id", communityId).maybeSingle()
-    const labels = new Map(cleanMemberLinks((stored as { member_links?: unknown } | null)?.member_links).map((l) => [l.id, l.label]))
+    /* The names only when there is something to name, and read where that column is read (server/member-shortcuts). */
+    const labels = await memberLinkLabels(db, communityId)
     const per = new Map<string, { presses: number; members: Set<string> }>()
     for (const r of rows) {
       const x = per.get(r.link_id) ?? { presses: 0, members: new Set<string>() }

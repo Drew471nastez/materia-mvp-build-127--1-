@@ -9394,7 +9394,22 @@ const words: Record<string, string> = {
  "Featuring members needs the database update (run-now part 223).": "Destacar miembros necesita la actualización de la base de datos (run-now parte 223).",
  "A community can feature 12 members. Take one off first.": "Una comunidad puede destacar a 12 miembros. Quita uno primero.",
  "Only a member who is here can be featured.": "Solo se puede destacar a un miembro que esté aquí.",
- "Featuring is for somebody else.": "Destacar es para otra persona."
+ "Featuring is for somebody else.": "Destacar es para otra persona.",
+ "Link presses": "Clics en enlaces",
+ "Presses on the links you give members, counted once a member a day.": "Clics en los enlaces que das a los miembros, contados una vez por miembro y día.",
+ "A link you have since removed": "Un enlace que ya has quitado",
+ "Nobody pressed a link in this period.": "Nadie hizo clic en un enlace en este periodo.",
+ "Monthly revenue by plan": "Ingresos mensuales por plan",
+ "What each plan brings in a month, at the end of the period, with the members paying for it.": "Lo que aporta cada plan al mes, al final del periodo, con los miembros que lo pagan.",
+ "Unnamed plan": "Plan sin nombre",
+ "Nobody is paying at the end of this period.": "Nadie paga al final de este periodo.",
+ "Free trials": "Pruebas gratuitas",
+ "Trials that began in this period, and what happened to the ones that ended in it.": "Pruebas que empezaron en este periodo, y qué pasó con las que terminaron en él.",
+ "Began": "Empezaron",
+ "Went on to pay": "Pasaron a pagar",
+ "Ended without paying": "Terminaron sin pagar",
+ "Still on trial": "Siguen en prueba",
+ "No trials in this period.": "Sin pruebas en este periodo."
 }
 
 export default words

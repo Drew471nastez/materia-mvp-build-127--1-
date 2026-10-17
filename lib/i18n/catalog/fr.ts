@@ -9394,7 +9394,22 @@ const words: Record<string, string> = {
  "Featuring members needs the database update (run-now part 223).": "Mettre des membres en avant nécessite la mise à jour de la base de données (run-now partie 223).",
  "A community can feature 12 members. Take one off first.": "Une communauté peut mettre 12 membres en avant. Retirez-en un d'abord.",
  "Only a member who is here can be featured.": "Seul un membre présent peut être mis en avant.",
- "Featuring is for somebody else.": "La mise en avant concerne quelqu'un d'autre."
+ "Featuring is for somebody else.": "La mise en avant concerne quelqu'un d'autre.",
+ "Link presses": "Clics sur les liens",
+ "Presses on the links you give members, counted once a member a day.": "Clics sur les liens que vous donnez aux membres, comptés une fois par membre et par jour.",
+ "A link you have since removed": "Un lien que vous avez retiré depuis",
+ "Nobody pressed a link in this period.": "Personne n'a cliqué sur un lien sur cette période.",
+ "Monthly revenue by plan": "Revenu mensuel par offre",
+ "What each plan brings in a month, at the end of the period, with the members paying for it.": "Ce que chaque offre rapporte par mois, à la fin de la période, avec les membres qui la paient.",
+ "Unnamed plan": "Offre sans nom",
+ "Nobody is paying at the end of this period.": "Personne ne paie à la fin de cette période.",
+ "Free trials": "Essais gratuits",
+ "Trials that began in this period, and what happened to the ones that ended in it.": "Les essais commencés sur cette période, et ce que sont devenus ceux qui s'y sont terminés.",
+ "Began": "Commencés",
+ "Went on to pay": "Passés au paiement",
+ "Ended without paying": "Terminés sans paiement",
+ "Still on trial": "Encore en essai",
+ "No trials in this period.": "Aucun essai sur cette période."
 }
 
 export default words

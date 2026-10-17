@@ -9394,7 +9394,22 @@ const words: Record<string, string> = {
  "Featuring members needs the database update (run-now part 223).": "Wyróżnianie członków wymaga aktualizacji bazy danych (run-now część 223).",
  "A community can feature 12 members. Take one off first.": "Społeczność może wyróżnić 12 członków. Najpierw usuń jednego.",
  "Only a member who is here can be featured.": "Wyróżnić można tylko członka, który tu jest.",
- "Featuring is for somebody else.": "Wyróżnienie jest dla kogoś innego."
+ "Featuring is for somebody else.": "Wyróżnienie jest dla kogoś innego.",
+ "Link presses": "Kliknięcia linków",
+ "Presses on the links you give members, counted once a member a day.": "Kliknięcia linków, które dajesz członkom, liczone raz na członka dziennie.",
+ "A link you have since removed": "Link, który już usunięto",
+ "Nobody pressed a link in this period.": "W tym okresie nikt nie kliknął linku.",
+ "Monthly revenue by plan": "Przychód miesięczny według planu",
+ "What each plan brings in a month, at the end of the period, with the members paying for it.": "Ile przynosi miesięcznie każdy plan, na koniec okresu, wraz z członkami, którzy za niego płacą.",
+ "Unnamed plan": "Plan bez nazwy",
+ "Nobody is paying at the end of this period.": "Na koniec tego okresu nikt nie płaci.",
+ "Free trials": "Bezpłatne okresy próbne",
+ "Trials that began in this period, and what happened to the ones that ended in it.": "Okresy próbne rozpoczęte w tym okresie i to, co stało się z tymi, które się w nim zakończyły.",
+ "Began": "Rozpoczęte",
+ "Went on to pay": "Przeszły na płatny",
+ "Ended without paying": "Zakończone bez płatności",
+ "Still on trial": "Wciąż w okresie próbnym",
+ "No trials in this period.": "Brak okresów próbnych w tym okresie."
 }
 
 export default words

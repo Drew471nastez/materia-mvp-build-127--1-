@@ -23,6 +23,7 @@ import "server-only"
  * table (presses are not counted, nothing fails).
  */
 import { MEMBER_LINK_ID, memberLinkViews, type MemberLinkView } from "@/lib/communities/member-link-view"
+import { cleanMemberLinks } from "@/lib/communities/member-links"
 import type { CommunityRow } from "@/lib/communities/types"
 import { meetsRole } from "@/lib/communities/permissions"
 import { communityOpen, type Viewer } from "./context"
@@ -53,6 +54,18 @@ async function readStoredLinks(db: Db, communityId: string): Promise<unknown> {
     console.error(`[communities] member links read: ${reasonOf(e)}`)
     return []
   }
+}
+
+/**
+ * What each link is called, by its id, for a creator's own screens: the
+ * presses on them are a card in Analytics and a line in the Page editor, and
+ * both need the name beside the number. Here because this module is the one
+ * place that reads the column (tests/seo26 holds that); empty before part 220
+ * and on a failed read, which draws the id's own row with no name rather than
+ * dropping the presses.
+ */
+export async function memberLinkLabels(db: Db, communityId: string): Promise<Map<string, string>> {
+  return new Map(cleanMemberLinks(await readStoredLinks(db, communityId)).map((l) => [l.id, l.label]))
 }
 
 /** The links this viewer sees: the visible ones, cleaned, for a member or staff only; [] for anybody else, without reading the column. */
