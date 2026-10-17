@@ -778,23 +778,31 @@ export function MembershipRow() {
   const { community, join, setLeaveOpen } = useJoin()
   if (join.kind !== "open" || join.isOwner) return null
   const what = join.role === "admin" ? "You're an admin" : join.role === "moderator" ? "You're a moderator" : "You're a member"
+  /*
+    ROUND AH: ONE PLACE FOR THE PLAN. The community's own Membership page
+    (components/community/member/membership.tsx) shows the plan, its dates,
+    Upgrade, Cancel and Manage billing; this row goes there, and a member on
+    a free plan can upgrade from right here.
+  */
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-xl border border-[#eceef1] bg-[#fafbfb] px-4 py-3.5 sm:px-5" data-membership-row="">
       <div className="min-w-0">
         <p className="text-[15px] font-medium text-[#1a1a2e]">
           {what} of {community.name}.
         </p>
-        <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{join.manageHref ? "Change or cancel your plan from your library." : "Your posts stay if you leave."}</p>
+        <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{join.manageHref ? "Your plan, billing, upgrade or cancel." : "Your plan and notifications, or leave."}</p>
       </div>
-      {join.manageHref ? (
-        <Link href={join.manageHref} className={cn(ROW_BUTTON, "text-[#1a1a2e]")} data-membership-manage="">
+      <div className="flex flex-wrap items-center gap-2">
+        <UpgradeButton className={cn(ROW_BUTTON, "text-[#1a1a2e]")} />
+        <Link href={`${communityPath(community.slug)}/membership`} className={cn(ROW_BUTTON, "text-[#1a1a2e]")} data-membership-manage="">
           Manage membership
         </Link>
-      ) : join.canLeave ? (
-        <button type="button" onClick={() => setLeaveOpen(true)} className={cn(ROW_BUTTON, "text-[#b42318]")} data-membership-leave="">
-          Leave community
-        </button>
-      ) : null}
+        {!join.manageHref && join.canLeave ? (
+          <button type="button" onClick={() => setLeaveOpen(true)} className={cn(ROW_BUTTON, "text-[#b42318]")} data-membership-leave="">
+            Leave
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -872,7 +880,15 @@ export function JoinCard({ facts = null, summary = null, links = null, share = f
             </div>
             {summary ? <div className="mt-3.5">{summary}</div> : null}
             {join.kind === "open" ? (
-              <p className="mt-4 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
+              join.isOwner ? (
+                <p className="mt-4 text-[14px] text-[#4b5563]">You run this community.</p>
+              ) : (
+                /* Round AH: a member reaches their plan, billing, upgrade and cancel from the card. */
+                <Link href={`${communityPath(community.slug)}/membership`} className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#f6f7f8] px-3.5 py-2.5 text-[14px] text-[#1a1a2e] transition-colors hover:bg-[#eef0f2]" data-join-card-membership="">
+                  <span className="min-w-0 truncate">You&apos;re a member</span>
+                  <span className="shrink-0 text-[13px] font-medium text-[#4b5563]">Your membership &rsaquo;</span>
+                </Link>
+              )
             ) : (
               <>
                 <PriceLine className="mt-4" />
@@ -886,7 +902,7 @@ export function JoinCard({ facts = null, summary = null, links = null, share = f
             </div>
             {/* Round 27, the owner: the website and social pages under the button (Join, or Open community for a member), not above the price. */}
             {links ? (
-              <div className="mt-4 [&_[data-community-links]]:justify-center" data-join-card-links="">
+              <div className="mt-4 [&_[data-community-links]]:justify-start" data-join-card-links="">
                 {links}
               </div>
             ) : null}

@@ -5,6 +5,7 @@
  *   LANGUAGES     the builder's language switch is small, and in another language every setting still edits
  *   SECTIONS      the sidebar's insert line is grey, a right click copies and pastes, outlines stop at the header
  *   REVIEWS       a website review is sent without leaving the page, and the confirm email brings the buyer back to it
+ *   COMMUNITIES   the checkout's legal line small and folded, a shorter plan card, icons left, the membership one tap away
  *   MONEY         every store price is shown in what the store sells in: Settings, lists, pickers, offers, emails
  *
  * Run with:  npm run test:push
@@ -77,6 +78,19 @@ async function main() {
     check("an imported theme's frame is told too", /type: "reveal", id/.test(code("components/website-builder/compat/compat-canvas.tsx")) && /m\.type === "reveal"/.test(read("lib/storelib-theme/compat/canvas-bridge.ts")))
   }
 
+
+  console.log("\nCommunities")
+  {
+    const flow = read("components/community/public/join-flow.tsx")
+    check("the checkout's legal line is small, one sentence in view, the rest under Details", /<details className="group\/terms text-center text-\[11\.5px\]/.test(flow) && /data-terms-more=""/.test(flow) && /data-terms-full=""/.test(flow))
+    check("  the waiver is still said in view where it applies, since pressing is agreeing", /waive the 14 day withdrawal right once access starts/.test(flow) && /\{waiver \? ` \$\{waiver\}` : ""\}/.test(flow))
+    check("the plan card: name and trial on one line, price and yearly on the next, two lines of description", /data-plan-trial=""/.test(flow) && /flex flex-wrap items-baseline gap-x-2/.test(flow) && /line-clamp-2/.test(flow))
+    const controls = read("components/community/public/join-controls.tsx")
+    check("the About card's social icons sit on the left", /\[&_\[data-community-links\]\]:justify-start/.test(controls) && !/\[&_\[data-community-links\]\]:justify-center/.test(controls))
+    check("a member reaches their plan, billing, upgrade and cancel from the card and the About row", /data-join-card-membership=""/.test(controls) && /\$\{communityPath\(community\.slug\)\}\/membership/.test(controls) && /<UpgradeButton className=/.test(controls))
+    const page = code("app/(marketing)/community/[slug]/page.tsx")
+    check("the community page's first reads start together", /await Promise\.all\(\[communitiesEnabled\(\), params, searchParams, currentUserForRequest\(\)\]\)/.test(page) && /communityDomainOrigin\(load\.community\.id\)\]\)/.test(page))
+  }
 
   console.log("\nA review written on a store's website")
   {

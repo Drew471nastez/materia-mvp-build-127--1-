@@ -38,16 +38,18 @@ import { communityDeleting, communitySummary } from "@/lib/communities/server/co
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   await connection()
-  if (!(await communitiesEnabled())) return { robots: { index: false, follow: false } }
-  const { slug } = await params
+  /* Round AH: the switch and the address at once, not one after the other. */
+  const [on, { slug }] = await Promise.all([communitiesEnabled(), params])
+  if (!on) return { robots: { index: false, follow: false } }
   const community = await communityBySlug(slug)
   /* A draft or a suspended community says nothing about itself to a link preview either. */
   if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
   /* Its own domain, once connected, is the canonical (round 31). */
   /* The short description (round 26, part 220) is the line under the title when there is no SEO description. */
   /* Waiting to be deleted: never previewed, whatever the status (round 26). */
-  const deleting = await communityDeleting(community.id)
-  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), summary: await communitySummary(community.id), origin: await communityDomainOrigin(community.id) })
+  /* Round AH: the three reads at once. */
+  const [deleting, summary, origin] = await Promise.all([communityDeleting(community.id), communitySummary(community.id), communityDomainOrigin(community.id)])
+  return communityMetadata({ ...seoFacts(community), ...(deleting ? { indexable: false } : {}), summary, origin })
 }
 
 export default async function CommunityPage({
@@ -58,10 +60,13 @@ export default async function CommunityPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   await connection()
-  if (!(await communitiesEnabled())) notFound()
-  const { slug } = await params
-  const query = await searchParams
-  const { user } = await currentUserForRequest()
+  /*
+    ROUND AH: AT ONCE. The switch, the address, the query and who is looking
+    were four waits in a row before the page's own read could start; none of
+    them needs another's answer.
+  */
+  const [on, { slug }, query, { user }] = await Promise.all([communitiesEnabled(), params, searchParams, currentUserForRequest()])
+  if (!on) notFound()
   const load = await loadSalesPage(slug, user?.id ?? null)
   if (!load) notFound()
   /* One address per community: /community/MyClub is /community/myclub. */
@@ -146,8 +151,8 @@ export default async function CommunityPage({
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
-  const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
-  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), await communityDomainOrigin(load.community.id))
+  const [extras, askWhy, origin] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false), communityDomainOrigin(load.community.id)])
+  const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community), origin)
   return (
     <>
       {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}
