@@ -30,7 +30,7 @@
 import { createServer } from "node:http"
 import { gzipSync, brotliCompressSync } from "node:zlib"
 import { build } from "esbuild"
-import puppeteer from "puppeteer-core"
+import puppeteer, { type Browser, type Page, type Target } from "puppeteer-core"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
 import { renderWithSources } from "../lib/website-builder/storefront-render"
 import { renderStorelibSection } from "../lib/website-builder/storelib-runtime"
@@ -71,7 +71,7 @@ async function picture(): Promise<Buffer> {
   return jpeg
 }
 
-async function firstPicture(browser: puppeteer.Browser) {
+async function firstPicture(browser: Browser) {
   console.log("\nThe first picture of a page")
   const before: Record<string, { html: string; css: string }> = {}
   for (const s of sections) {
@@ -161,23 +161,23 @@ export { SiteVitals } from "@/components/website-builder/site-vitals"
   /* Before: every section renderer in the file every visitor downloads (no splitting puts every import() into the entry). */
   const whole = await build({ ...common, splitting: false })
   /* The language catalogues are fetched on their own in both, so they are left out of both counts. */
-  const one = whole.outputFiles.find((f) => /stdin\.js$/.test(f.path))!
+  const one = whole.outputFiles!.find((f) => /stdin\.js$/.test(f.path))!
   const split = await build({ ...common, splitting: true })
-  const metaKey = (p: string) => Object.keys(split.metafile.outputs).find((k) => k.split("/").pop() === p.split("/").pop())!
-  const entryFile = split.outputFiles.find((f) => /stdin\.js$/.test(f.path))!
-  const entryMeta = split.metafile.outputs[metaKey(entryFile.path)]
+  const metaKey = (p: string) => Object.keys(split.metafile!.outputs).find((k) => k.split("/").pop() === p.split("/").pop())!
+  const entryFile = split.outputFiles!.find((f) => /stdin\.js$/.test(f.path))!
+  const entryMeta = split.metafile!.outputs[metaKey(entryFile.path)]
   let raw = entryFile.contents.length
   let gz = gzipSync(entryFile.contents).length
   for (const imp of entryMeta.imports ?? []) {
     if (imp.kind !== "import-statement") continue
-    const f = split.outputFiles.find((o) => o.path.split("/").pop() === imp.path.split("/").pop())
+    const f = split.outputFiles!.find((o) => o.path.split("/").pop() === imp.path.split("/").pop())
     if (f) { raw += f.contents.length; gz += gzipSync(f.contents).length }
   }
   /* What the whole file holds of the language catalogues, which are their own files in production too. */
-  const catalogue = Object.entries(whole.metafile.outputs[Object.keys(whole.metafile.outputs).find((k) => /stdin\.js$/.test(k))!].inputs).filter(([f]) => /lib\/i18n\/catalog\/(?!index)/.test(f)).reduce((n, [, v]) => n + v.bytesInOutput, 0)
+  const catalogue = Object.entries(whole.metafile!.outputs[Object.keys(whole.metafile!.outputs).find((k) => /stdin\.js$/.test(k))!].inputs).filter(([f]) => /lib\/i18n\/catalog\/(?!index)/.test(f)).reduce((n, [, v]) => n + v.bytesInOutput, 0)
   const beforeRaw = one.contents.length - catalogue
   console.log(`        before: ${kb(beforeRaw)} minified in one file (the language catalogues left out)`)
-  console.log(`        after:  ${kb(raw)} minified, ${kb(gz)} gzipped, loaded before the page can answer a tap; the section renderers in ${split.outputFiles.filter((f) => /Section-[A-Z0-9]+\.js$/.test(f.path)).length} files of their own`)
+  console.log(`        after:  ${kb(raw)} minified, ${kb(gz)} gzipped, loaded before the page can answer a tap; the section renderers in ${split.outputFiles!.filter((f) => /Section-[A-Z0-9]+\.js$/.test(f.path)).length} files of their own`)
   check("the script a page loads first is smaller", raw < beforeRaw - 60 * 1024, { before: kb(beforeRaw), after: kb(raw) })
 }
 
@@ -211,7 +211,7 @@ async function importedPage() {
 
 /* ── 4. The opening tab ───────────────────────────────────────────────── */
 
-async function openingTab(browser: puppeteer.Browser) {
+async function openingTab(browser: Browser) {
   console.log("\nThe tab opened for a preview")
   const bundled = await build({
     entryPoints: [`${ROOT}/lib/website-builder/opening-tab.ts`], bundle: true, write: false, format: "iife", globalName: "OpeningTab", platform: "browser", logLevel: "error",
@@ -229,7 +229,7 @@ async function openingTab(browser: puppeteer.Browser) {
   try {
     const p = await browser.newPage()
     await p.goto(origin, { waitUntil: "load" })
-    const opened = new Promise<puppeteer.Page>((resolve) => browser.once("targetcreated", async (t) => resolve((await t.page())!)))
+    const opened = new Promise<Page>((resolve) => browser.once("targetcreated", async (t: Target) => resolve((await t.page())!)))
     await p.click("#ok")
     const tab = await opened
     await new Promise((r) => setTimeout(r, 150))
@@ -240,7 +240,7 @@ async function openingTab(browser: puppeteer.Browser) {
     check("then it is the website", (await tab.title()) === "Maya's shop")
     await tab.close()
 
-    const opened2 = new Promise<puppeteer.Page>((resolve) => browser.once("targetcreated", async (t) => resolve((await t.page())!)))
+    const opened2 = new Promise<Page>((resolve) => browser.once("targetcreated", async (t: Target) => resolve((await t.page())!)))
     await p.click("#bad")
     const tab2 = await opened2
     await tab2.waitForFunction(() => /Could not make a preview link/.test(document.body?.innerText ?? ""), { timeout: 5000 })

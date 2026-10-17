@@ -98,7 +98,7 @@ export function SiteLinks() {
         router.push(to)
         return
       }
-      doc.startViewTransition(
+      doc.startViewTransition!(
         () =>
           new Promise<void>((resolve) => {
             let done = false

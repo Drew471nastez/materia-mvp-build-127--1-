@@ -192,10 +192,10 @@ async function firstPicture() {
   const passed = optimizeSectionMedia(`<section><img src="https://storelib.com/media/a.jpg" alt=""><img src="https://storelib.com/media/b.jpg" alt=""></section>`)
   check("the pass makes pictures lazy, with sizes and a srcset at quality 90", /loading="lazy"/.test(passed) && /sizes="/.test(passed) && /q=90/.test(passed), passed)
   const hero = heroMedia(passed)!
-  const imgs = hero.match(/<img\b[^>]*>/g) ?? []
-  check("the first picture is eager and fetchpriority high", /loading="eager"/.test(imgs[0]) && /fetchpriority="high"/.test(imgs[0]) && !/loading="lazy"/.test(imgs[0]), imgs[0])
-  check("the rest of that section eager, without the priority", /loading="eager"/.test(imgs[1]) && !/fetchpriority/.test(imgs[1]), imgs[1])
-  check("its srcset and sizes kept", /srcset="/.test(imgs[0]) && /sizes="/.test(imgs[0]))
+  const [img0 = "", img1 = ""] = hero.match(/<img\b[^>]*>/g) ?? []
+  check("the first picture is eager and fetchpriority high", /loading="eager"/.test(img0) && /fetchpriority="high"/.test(img0) && !/loading="lazy"/.test(img0), img0)
+  check("the rest of that section eager, without the priority", /loading="eager"/.test(img1) && !/fetchpriority/.test(img1), img1)
+  check("its srcset and sizes kept", /srcset="/.test(img0) && /sizes="/.test(img0))
   check("an author's own fetchpriority is kept", /fetchpriority="low"/.test(heroMedia(`<img src="/a.png" fetchpriority="low">`) ?? ""))
   check("a section with no picture is not the hero", heroMedia("<p>text</p>") === null)
   check("eagerMedia leaves fetchpriority alone", !/fetchpriority/.test(eagerMedia(passed)) && !/loading="lazy"/.test(eagerMedia(passed)))
