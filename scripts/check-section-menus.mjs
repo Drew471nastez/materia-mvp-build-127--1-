@@ -15,9 +15,9 @@
  *   TITLE ROW     the open section's three dots: its right edge on the row's
  *                 padding, centred on the row, the Back tile's size; its
  *                 menu's rows 32px, a row with a reason under it taller
- *   APPS          Add section's Apps category on screen without scrolling,
- *                 second after All, showing only app sections, and saying
- *                 an app that is off
+ *   APPS          Add section's Apps heading right after All, each app's
+ *                 category under it on screen without scrolling, showing
+ *                 only that app's sections, and saying when it is off
  *
  *   node scripts/check-section-menus.mjs      (SHOTS_DIR=dir for pictures)
  */
@@ -202,23 +202,30 @@ console.log("\nA computer, 1280 × 800")
   await page.waitForSelector('[data-section-library="desktop"]', { visible: true })
   await sleep(500)
   const nav = await page.evaluate(() => {
-    const buttons = [...document.querySelectorAll('[data-section-library="desktop"] nav button')]
-    const apps = buttons.find((b) => b.textContent?.startsWith("Apps"))
-    const r = apps?.getBoundingClientRect()
-    return { labels: buttons.map((b) => b.querySelector("span")?.textContent), apps: r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null, count: apps?.querySelector("[data-category-count]")?.textContent }
+    const nav = document.querySelector('[data-section-library="desktop"] nav')
+    const kids = [...nav.children].map((d) => {
+      const head = d.querySelector("[data-library-group]")
+      const b = d.querySelector("button")
+      return { head: head?.getAttribute("data-library-group") ?? null, label: b?.querySelector("span")?.textContent ?? null, count: b?.querySelector("[data-category-count]")?.textContent ?? null }
+    })
+    const heading = nav.querySelector('[data-library-group="apps"]')?.getBoundingClientRect()
+    const reviews = [...nav.querySelectorAll("button")].find((b) => b.querySelector("span")?.textContent === "Reviews")?.getBoundingClientRect()
+    return { kids, heading: heading ? { top: heading.top, bottom: heading.bottom } : null, reviews: reviews ? { top: reviews.top, bottom: reviews.bottom, left: reviews.left, right: reviews.right } : null }
   })
-  check("Add section lists Apps, second after All", nav.labels[0] === "All" && nav.labels[1] === "Apps", nav.labels.slice(0, 4))
-  check("on screen without scrolling", !!nav.apps && nav.apps.top >= 0 && nav.apps.bottom <= 800 && nav.apps.left >= 0 && nav.apps.right <= 1280, nav.apps)
-  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="desktop"] nav button')].find((b) => b.textContent?.startsWith("Apps"))?.click())
+  const order = nav.kids.map((k) => (k.head ? `[${k.head}] ` : "") + k.label)
+  check("Add section: All, then the Apps heading with each app, then the theme's Sections", nav.kids[0].label === "All" && nav.kids[1].head === "apps" && nav.kids[1].label === "Reviews" && nav.kids.findIndex((k) => k.head === "sections") > 1, order.slice(0, 5))
+  check("the Apps heading and Reviews on screen without scrolling", !!nav.heading && !!nav.reviews && nav.heading.top >= 0 && nav.reviews.bottom <= 800 && nav.reviews.right <= 1280, nav.reviews)
+  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="desktop"] nav button')].find((b) => b.querySelector("span")?.textContent === "Reviews")?.click())
   await sleep(400)
   const apps = await page.evaluate(() => ({
     cards: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
-    named: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden]) [data-card-app]')].length,
+    named: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden]) [data-card-app]')].map((n) => n.textContent),
     off: [...document.querySelectorAll('[data-section-library="desktop"] [data-app-off]')].map((n) => ({ id: n.getAttribute("data-app-off"), text: n.textContent, href: n.querySelector("a")?.getAttribute("href"), h: n.getBoundingClientRect().height })),
   }))
-  check("Apps shows the app sections and only those, each with its app's name", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_|newsletter$/.test(t)) && apps.named === apps.cards.length, `${apps.cards.length} cards: ${[...new Set(apps.cards)].join(", ")}`)
+  check("Reviews shows Storelib Reviews' sections and only those, each with the app's name", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_/.test(t)) && apps.named.length === apps.cards.length && apps.named.every((n) => n === "Storelib Reviews"), `${apps.cards.length} cards: ${[...new Set(apps.cards)].join(", ")}`)
   check("and says Reviews is off, with the way to turn it on", apps.off.length === 1 && apps.off[0].id === "reviews" && /Storelib Reviews is off/.test(apps.off[0].text) && apps.off[0].href === "/app/integrations?integration=storelib-reviews", apps.off)
-  check(`count beside it matches (${nav.count})`, Number(nav.count) === apps.cards.length)
+  const reviewsCount = nav.kids.find((k) => k.label === "Reviews")?.count
+  check(`count beside it matches (${reviewsCount})`, Number(reviewsCount) === apps.cards.length)
   if (shots) await page.screenshot({ path: join(shots, "apps-1280.png") })
   await page.close()
 }
@@ -275,20 +282,23 @@ console.log("\nA phone, 390 × 844")
   const pills = await page.evaluate(() => {
     const row = document.querySelector('[data-section-library="phone"] [role="toolbar"]')
     const box = row.getBoundingClientRect()
-    const chips = [...row.querySelectorAll("button")]
-    const apps = chips.find((c) => c.textContent?.startsWith("Apps"))
-    const r = apps?.getBoundingClientRect()
-    return { labels: chips.map((c) => c.textContent), apps: r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null, row: { left: box.left, right: box.right } }
+    const kids = [...row.firstElementChild.children]
+    const reviews = kids.find((c) => c.tagName === "BUTTON" && c.textContent === "Reviews")?.getBoundingClientRect()
+    return {
+      order: kids.map((c) => (c.getAttribute("data-library-group") ? `[${c.getAttribute("data-library-group")}]` : c.textContent)),
+      reviews: reviews ? { left: reviews.left, right: reviews.right, top: reviews.top, bottom: reviews.bottom } : null,
+      row: { left: box.left, right: box.right },
+    }
   })
-  check("Add section on a phone has Apps, second after All", pills.labels[0] === "All" && pills.labels[1] === "Apps", pills.labels.slice(0, 4))
-  check("and its pill is on screen without scrolling the row", !!pills.apps && pills.apps.left >= pills.row.left && pills.apps.right <= pills.row.right && pills.apps.right <= 390 && pills.apps.bottom <= 844, pills.apps)
-  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="phone"] [role="toolbar"] button')].find((c) => c.textContent?.startsWith("Apps"))?.click())
+  check("Add section on a phone: All, then Apps with each app, then the theme's", pills.order[0] === "All" && pills.order[1] === "[apps]" && pills.order[2] === "Reviews" && pills.order.indexOf("[sections]") > 2, pills.order.slice(0, 6))
+  check("and the Reviews pill is on screen without scrolling the row", !!pills.reviews && pills.reviews.left >= pills.row.left && pills.reviews.right <= pills.row.right && pills.reviews.right <= 390 && pills.reviews.bottom <= 844, pills.reviews)
+  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="phone"] [role="toolbar"] button')].find((c) => c.textContent === "Reviews")?.click())
   await sleep(400)
   const apps = await page.evaluate(() => ({
     cards: [...document.querySelectorAll('[data-section-library="phone"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
     off: [...document.querySelectorAll('[data-section-library="phone"] [data-app-off]')].map((n) => { const r = n.getBoundingClientRect(); return { id: n.getAttribute("data-app-off"), left: r.left, right: r.right, h: r.height } }),
   }))
-  check("Apps on a phone shows the app sections only", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_|newsletter$/.test(t)), `${apps.cards.length} cards`)
+  check("Reviews on a phone shows the app's sections only", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_/.test(t)), `${apps.cards.length} cards`)
   check("and the off line fits the sheet", apps.off.length === 1 && apps.off[0].left >= 16 && apps.off[0].right <= 390 - 16 + 1 && apps.off[0].h >= 44, apps.off)
   if (shots) await page.screenshot({ path: join(shots, "apps-390.png") })
   await page.close()
