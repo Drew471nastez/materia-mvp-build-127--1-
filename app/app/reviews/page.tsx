@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation"
 import type { Metadata } from "next"
+import { currentCreatorId } from "@/lib/creators/current"
 import { getServerTt } from "@/lib/i18n/server"
-import { REVIEW_TABS } from "@/lib/reviews/manage"
+import { ReviewsClient } from "./reviews-client"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -13,27 +14,21 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-/** Where Storelib Reviews is managed now: its integration page, on the view a link asked for. */
-const REVIEWS_HOME = "/app/integrations?integration=storelib-reviews"
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
- * /app/reviews, kept for every link that names it (the sidebar, the bell's
- * new review and waiting for approval, the review emails, search): reviews
- * are managed in one place, Storelib Reviews' integration page
- * (components/reviews/manage), so this sends there, to its Reviews view.
- * ?review=<id> opens that review, ?status=pending its Pending tab; nothing
- * else is carried.
+ * /app/reviews: Storelib Reviews, managed where Products › Reviews points
+ * (round 27, the owner: Reviews is Storelib's own, so it is a page of the
+ * app, not the Integrations page). The same page Integrations opens for it
+ * (components/app/settings/integration-detail.tsx with its tabs, Overview,
+ * Reviews, Requests, Widgets, Analytics and Settings, from
+ * components/reviews/manage), drawn here on its own: no list behind it, no
+ * Back to integrations.
+ *
+ * Every link that names it keeps working: ?view= opens a tab, ?review=<id>
+ * opens Reviews on that review and ?status=pending its Pending tab
+ * (components/reviews/manage/reviews-manage.tsx reads them).
  */
-export default async function ReviewsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const q = await searchParams
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ""
-  const review = one(q.review)
-  const status = one(q.status)
-  const to = new URLSearchParams()
-  to.set("view", "reviews")
-  if (UUID.test(review)) to.set("review", review)
-  if ((REVIEW_TABS as readonly string[]).includes(status) && status !== "all") to.set("status", status)
-  redirect(`${REVIEWS_HOME}&${to.toString()}`)
+export default async function ReviewsPage() {
+  const creatorId = await currentCreatorId()
+  if (!creatorId) redirect("/sell")
+  return <ReviewsClient />
 }

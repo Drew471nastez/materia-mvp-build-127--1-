@@ -86,6 +86,8 @@ const SUITES = [
   "tests/integrations-round30.test.ts",
   /* Round K4: the marketplace (pills with live counts, Filter, the list in the address) and the integration page's shell, its actions and the plug-in API for built-in apps. */
   "tests/integrations-k4.test.ts",
+  /* Round 27: the /app page bar sticky only where it is worked from, the cards' hover and badges, an integration's page (no title, one line, the following Connect), /app/reviews and its tabs (scripts/check-integrations27.mjs measures them). */
+  "tests/integrations27.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",

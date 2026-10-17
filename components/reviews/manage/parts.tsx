@@ -93,15 +93,42 @@ export function Distribution({ rows, total }: { rows: { stars: number; count: nu
 }
 
 /**
+ * How many times the view a read is in has been opened (./reviews-manage.tsx
+ * keeps an opened view mounted and only hides it): 0 for one readied ahead
+ * of its press and not opened yet, 1 the first time, 2 when it is opened
+ * again, and so on.
+ */
+export const ViewShown = React.createContext(1)
+
+/**
  * A read from one of the page's routes. The answer stays on screen while
  * the next read runs (`loading` says one is running), so changing a filter
  * dims the list instead of emptying it.
+ *
+ * A view opened again reads again quietly (round 27): what it shows stays,
+ * undimmed, and is replaced when the answer is in. The first opening of a
+ * view readied ahead of its press does not: its read has just been made.
  */
 export function useRead<T>(path: string | null): { data: T | null; error: string | null; loading: boolean; reload: () => void; set: React.Dispatch<React.SetStateAction<T | null>> } {
   const [data, setData] = React.useState<T | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [tick, setTick] = React.useState(0)
+  const shown = React.useContext(ViewShown)
+  const shownBefore = React.useRef(shown)
+  React.useEffect(() => {
+    const before = shownBefore.current
+    shownBefore.current = shown
+    if (shown === before || before === 0 || !path) return
+    let live = true
+    void api<T>(path).then((r) => {
+      if (live && r.ok) setData(r.data)
+    })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown])
   React.useEffect(() => {
     if (!path) return
     let live = true

@@ -71,7 +71,7 @@ export function AppHelpFrame({
 }) {
   return (
     <div className="orders-pane page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter" data-help-scroll="" data-app-help="">
-      <PaneBar width={APP_HELP_WIDTH} className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 py-2 lg:min-h-[64px] lg:pt-4">
+      <PaneBar width={APP_HELP_WIDTH} sticky className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 py-2 lg:min-h-[64px] lg:pt-4">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
           <HelpBack {...back} />
         </div>

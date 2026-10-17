@@ -315,9 +315,12 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
   const dirty = !!words && !!saved && FIELDS.some((f) => words[f] !== saved[f])
   const standard = !!words && FIELDS.every((f) => words[f] === STANDARD[kind][f])
 
-  /* The preview follows the words after a pause, drawn by the code that sends the email. */
+  /* The preview follows the words after a pause, drawn by the code that sends the email. The first one is asked for at once (round 27): there is no typing to wait for, and the grey box under it stayed half a second for nothing. */
+  const firstPreview = React.useRef(true)
   React.useEffect(() => {
     if (!words) return
+    const wait = firstPreview.current ? 0 : 450
+    firstPreview.current = false
     const t = window.setTimeout(() => {
       void api<{ subject: string; html: string }>("/api/app/reviews/request-email", { method: "POST", body: { kind, copy: words } }).then((r) => {
         if (r.ok) {
@@ -325,7 +328,7 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
           setPreviewError(null)
         } else setPreviewError(errorOf(r))
       })
-    }, 450)
+    }, wait)
     return () => window.clearTimeout(t)
   }, [kind, words])
 
