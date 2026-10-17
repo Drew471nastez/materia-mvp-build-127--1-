@@ -99,6 +99,7 @@ import { ticketsReady } from "./event-tickets"
 import { eventPriceColumns, eventReadColumns, eventsTicketMoney, priceChangeRefusal, pricedEventCount } from "./event-admin"
 import { eventTicketSetup } from "./event-ticket-setup"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
+import { PAGE_FIELDS_NOT_READY, joinWordsRefusal, loadPageFields, pageFieldsPatch, writesPageFields } from "./page-fields"
 import { inviteCount } from "./invites"
 import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
@@ -600,7 +601,7 @@ export async function loadBadges(db: Db, communityId: string): Promise<BadgeView
 export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsData> {
   const { db, community: c } = ctx
   const owner = ctx.role === "owner"
-  const [tiers, products, me, levels, badges, gallery, roles, policies] = await Promise.all([
+  const [tiers, products, me, levels, badges, gallery, roles, policies, pageFields] = await Promise.all([
     loadTiers(db, c.id),
     can(ctx.role, "manage_pricing") ? pickableProducts(db, ctx.creatorId) : Promise.resolve([] as PickProduct[]),
     memberOf(db, c.id, ctx.userId),
@@ -609,6 +610,8 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
     loadGallery(db, c.id),
     owner ? rolePermissionsOf(db, c.id) : Promise.resolve(null),
     owner ? loadPolicies(db, c.id) : Promise.resolve(null),
+    /* Round 26: the short description and the member links (run-now part 220), read apart so the row reads as before without it. */
+    loadPageFields(db, c.id),
   ])
   return {
     description: htmlToText(c.description),
@@ -616,6 +619,9 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
     descriptionHtml: c.description ?? "",
     pageLook: pageLookOf(c.onboarding),
     tagline: c.tagline,
+    summary: pageFields.summary,
+    memberLinks: pageFields.memberLinks,
+    pageFieldsReady: pageFields.ready,
     category: c.category,
     rules: Array.isArray(c.rules) ? c.rules : [],
     faq: Array.isArray(c.faq) ? c.faq : [],
@@ -777,6 +783,9 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   }
   /* Round 33: the cover's focus and the join button (../page-look.ts), beside the welcome steps, everything else kept. */
   if (b.pageLook !== undefined) {
+    /* Round 26: never a price, a currency or a billing period of the creator's own on the button, nor free on a page that charges. */
+    const refused = joinWordsRefusal(b.pageLook, c.access)
+    if (refused) return no(400, refused.error, refused.field)
     patch.onboarding = withPageLook(patch.onboarding ?? c.onboarding, cleanLook(b.pageLook))
   }
   if (b.appearance !== undefined) {
@@ -793,6 +802,12 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     if (b[key] === undefined) continue
     if (typeof b[key] !== "boolean") return no(400, "On or off.", key)
     patch[column] = b[key]
+  }
+  /* Round 26: the short description and the member links (./page-fields.ts, run-now part 220). */
+  {
+    const r = pageFieldsPatch(b)
+    if (!r.ok) return no(400, r.error, r.field)
+    Object.assign(patch, r.patch)
   }
   if (b.seoTitle !== undefined) {
     const t = typeof b.seoTitle === "string" ? b.seoTitle.trim() : ""
@@ -848,6 +863,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const { data, error } = await db.from("communities").update(patch).eq("id", c.id).select(COMMUNITY_COLUMNS).single()
     if (error) {
       if (error.code === "23505") return no(409, "That address is taken.", "slug")
+      if (missing(error) && writesPageFields(patch)) return no(409, PAGE_FIELDS_NOT_READY, "summary" in patch ? "summary" : "memberLinks")
       console.error(`[communities] settings ${c.id}: ${reasonOf(error)}`)
       return no(500, "The settings could not be saved. Try again.")
     }

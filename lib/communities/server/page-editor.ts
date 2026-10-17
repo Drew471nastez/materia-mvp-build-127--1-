@@ -49,5 +49,10 @@ export async function pageEditorReads(ctx: CreatorPageContext) {
     })
     preview = { community: view, join, notice: null, extras, askWhy: false }
   }
-  return { head, data, preview, creatorId: ctx.creatorId }
+  /*
+    Round 26: how often members opened each member link. The member side counts the clicks (round 26, W6, run-now part
+    221); until its reader is wired here the editor shows the links without counts.
+  */
+  const clicks: Record<string, number> | null = null
+  return { head, data, preview, creatorId: ctx.creatorId, clicks }
 }

@@ -710,6 +710,12 @@ const STRICT_SUITES = [
     narrowed by `if (!x.ok)`, which only narrows under strict.
   */
   "tests/community-lifecycle-round33.test.ts",
+  /*
+    Round 26 (W5): the Page editor rebuilt, the short description and member links (SQL part 220), a join button that
+    never states a price, every field saved and read back through creator.ts (strict, as above); scripts/
+    check-page-editor26.mjs measures the editor.
+  */
+  "tests/editor26.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
