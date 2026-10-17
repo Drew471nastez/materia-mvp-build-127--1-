@@ -88,9 +88,11 @@ const db = createServer(async (req, res) => {
   calls.push({ method: req.method ?? "", path, body: parsed })
   res.setHeader("content-type", "application/json")
   if (path === "/rest/v1/rpc/perf_ingest") return res.end(JSON.stringify(Array.isArray((parsed as { p_rows?: unknown[] })?.p_rows) ? (parsed as { p_rows: unknown[] }).p_rows.length : 0))
-  if (path === "/rest/v1/rpc/record_site_vital") return res.end("true")
+  if (path === "/rest/v1/rpc/record_site_rum") return res.end("true")
+  /* shop.example.com is a connected domain of the creator below (the site route finds its website from the host). */
+  if (path === "/rest/v1/custom_domains") return res.end(JSON.stringify([{ creator_id: "6c2b0a51-7a43-4f7e-8d43-6e0f3c3f2a10", status: "active", purpose: "website" }]))
   if (path === "/rest/v1/store_theme_installs") {
-    const row = { creator_id: "6c2b0a51-7a43-4f7e-8d43-6e0f3c3f2a10", status: "published" }
+    const row = { id: "0f6a2c1e-5b7d-4e2a-9c3b-1d2e3f4a5b6c", creator_id: "6c2b0a51-7a43-4f7e-8d43-6e0f3c3f2a10", status: "published" }
     return res.end(JSON.stringify((req.headers.accept ?? "").includes("vnd.pgrst.object") ? row : [row]))
   }
   if (path === "/rest/v1/cron_runs") return res.end(JSON.stringify([{ id: 7 }]))
@@ -159,15 +161,14 @@ async function main() {
 
   console.log("\nAn imported theme's page measures itself")
   {
-    const id = "0f6a2c1e-5b7d-4e2a-9c3b-1d2e3f4a5b6c"
-    const js = siteVitalsScript(id)
-    check("an inline script with the site's id and the site beacon's path", js.startsWith("<script") && js.includes(JSON.stringify(id)) && js.includes(JSON.stringify(SITE_BEACON_PATH)))
-    check("never in a frame or a scripted browser, once per page", /window\.self!==window\.top/.test(js) && /navigator\.webdriver/.test(js) && /__slSV/.test(js))
-    check("anything that is not an install id is no script at all", siteVitalsScript("x\"><img>") === "")
-    check("the body is the shape the site route reads", /JSON\.stringify\(\{s:ID,lcp:/.test(js))
+    /* The site is no longer in the script: the route finds it from the host (tests/web-performance-v.test.ts). */
+    const js = siteVitalsScript()
+    check("an inline script with the site beacon's path", js.startsWith("<script") && js.includes(JSON.stringify(SITE_BEACON_PATH)))
+    check("never in a frame or a scripted browser, once per page", /W\.self!==W\.top/.test(js) && /N\.webdriver/.test(js) && /__slSV/.test(js))
+    check("the body is the shape the site route reads", /b=\{v:1,p:v\.p,k:/.test(js))
     const site = read("lib/website-builder/compat-site.ts")
-    check("added to every live page, never to a preview", /extraHead: draft \? undefined : liveNavigationMarkup\(\) \+ siteVitalsScript\(row\.id\)/.test(site))
-    check("the React collector sends to the same path", /const ENDPOINT = SITE_BEACON_PATH/.test(read("components/website-builder/site-vitals.tsx")))
+    check("added to every live page, never to a preview", /extraHead: draft \? undefined : liveNavigationMarkup\(\) \+ siteVitalsScript\(\)/.test(site))
+    check("a Storelib theme's page carries the same script", /__html: SITE_VITALS_JS/.test(read("components/website-builder/site-vitals.tsx")))
   }
 
   console.log("\nThe beacon route stores what passes, through perf_ingest (fake database)")
@@ -192,12 +193,12 @@ async function main() {
     const res = await siteVitalsPOST(
       new NextRequest(`https://shop.example.com${SITE_BEACON_PATH}`, {
         method: "POST",
-        body: JSON.stringify({ s: "0f6a2c1e-5b7d-4e2a-9c3b-1d2e3f4a5b6c", lcp: 1500.4, cls: 0.02 }),
-        headers: { "user-agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128 Mobile Safari/537.36", "x-forwarded-for": "203.0.113.10" },
+        body: JSON.stringify({ v: 1, p: "/", k: "l", lcp: 1500.4, cls: 0.02 }),
+        headers: { host: "shop.example.com", "user-agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/128 Mobile Safari/537.36", "x-forwarded-for": "203.0.113.10" },
       }),
     )
-    const rec = calls.find((c) => c.path === "/rest/v1/rpc/record_site_vital")?.body as Record<string, unknown> | undefined
-    check("answered 204 and recorded for the published site", res.status === 204 && rec?.p_lcp === 1500 && rec?.p_device === "mobile", JSON.stringify(rec))
+    const rec = calls.find((c) => c.path === "/rest/v1/rpc/record_site_rum")?.body as Record<string, unknown> | undefined
+    check("answered 204 and recorded for the published site at that host", res.status === 204 && rec?.p_lcp === 1500 && rec?.p_device === "mobile" && rec?.p_install === "0f6a2c1e-5b7d-4e2a-9c3b-1d2e3f4a5b6c", JSON.stringify(rec))
   }
 
   console.log("\nThe server: every call timed, capped per route, written after the answer")
