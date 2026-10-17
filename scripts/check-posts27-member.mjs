@@ -26,7 +26,7 @@
  * SHOTS_DIR/<LABEL>-<case>-frames.png. The keyboard is drawn into the page
  * (translucent grey keys) so what shows through it is in the frames.
  *
- *   SHOTS_DIR=/tmp/p27 LABEL=after PROBE_CSS=source node scripts/check-posts27-keys.mjs [kept done plugin android]
+ *   SHOTS_DIR=/tmp/p27 LABEL=after PROBE_CSS=source node scripts/check-posts27-member.mjs [kept done plugin android]
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -224,10 +224,13 @@ const PAGE_HOOKS = () => {
 let html = ""
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--hide-scrollbars"] })
 
-async function session(env) {
+async function session(env, { locked = [] } = {}) {
   const p = await browser.newPage()
   p.setDefaultTimeout(180000)
-  await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 })
+  if (env === "desktop") await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 })
+  else await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 })
+  /* Posts with their comments closed (the harness reads this as it loads: render-communities-post17.tsx). */
+  if (locked.length) await p.evaluateOnNewDocument((ids) => (window.__lockedPosts = ids), locked)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e.stack || e).slice(0, 400)))
   if (process.env.DEBUG) p.on("console", (m) => m.text().startsWith("[p27]") && console.log(`    ${m.text()}`))
@@ -239,7 +242,7 @@ async function session(env) {
     if (url.startsWith("data:")) return void r.continue()
     return void r.respond({ status: 204, body: "" })
   })
-  await p.setUserAgent(env === "android" ? ANDROID : env === "plugin" ? APP : SAFARI)
+  if (env !== "desktop") await p.setUserAgent(env === "android" ? ANDROID : env === "plugin" ? APP : SAFARI)
   if (env === "plugin") {
     await p.evaluateOnNewDocument(() => document.addEventListener("DOMContentLoaded", () => document.documentElement.classList.add("capacitor")))
     await p.evaluateOnNewDocument(PLUGIN_STUB)
@@ -249,7 +252,7 @@ async function session(env) {
   await p.evaluate(() => document.fonts.ready)
   await sleep(1200)
   const cdp = await p.target().createCDPSession()
-  return { p, cdp, errors }
+  return { p, cdp, errors, desk: env === "desktop" }
 }
 
 /* Every frame the compositor sends while `act` runs. */
@@ -260,7 +263,7 @@ async function record(s, act, ms) {
     void s.cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
   }
   s.cdp.on("Page.screencastFrame", onFrame)
-  await s.cdp.send("Page.startScreencast", { format: "jpeg", quality: 60, maxWidth: 390, maxHeight: 844, everyNthFrame: 1 })
+  await s.cdp.send("Page.startScreencast", { format: "jpeg", quality: 60, maxWidth: s.desk ? 720 : 390, maxHeight: s.desk ? 450 : 844, everyNthFrame: 1 })
   await sleep(200)
   const t0 = Date.now()
   await act()
@@ -309,10 +312,11 @@ async function frameSheet(s, rec, file, { cols = 8, scale = 0.42, max = 40 } = {
   reader ??= await browser.newPage()
   const picked = rec.frames.filter((f) => f.t >= rec.t0 - 50).slice(0, max)
   if (!picked.length) return
+  const [fw, fh] = s.desk ? [720, 450] : [390, 844]
   const png = await reader.evaluate(
-    async (frames, zero, cols, scale) => {
-      const w = Math.round(390 * scale)
-      const h = Math.round(844 * scale)
+    async (frames, zero, cols, scale, fw, fh) => {
+      const w = Math.round(fw * scale)
+      const h = Math.round(fh * scale)
       const rows = Math.ceil(frames.length / cols)
       const c = document.createElement("canvas")
       c.width = cols * (w + 6) + 6
@@ -337,6 +341,8 @@ async function frameSheet(s, rec, file, { cols = 8, scale = 0.42, max = 40 } = {
     rec.t0,
     cols,
     scale,
+    fw,
+    fh,
   )
   writeFileSync(join(shots, `${LABEL}-${file}.png`), Buffer.from(png, "base64"))
   await s.p.bringToFront()
@@ -463,6 +469,129 @@ async function runCase(name) {
   await s.p.close()
 }
 
+/*
+  I6: A POST WITH ITS COMMENTS CLOSED, OPENED (the owner: "when I open a post and it says comments closed, it's shrinking on
+  mobile devices, and the desktop version larger screens"). The post "Glaze tip..." with no comments is opened from the feed
+  with its comments closed, and every frame drawn after the press the box it opens in is read (its height on a computer, its
+  top edge on a phone) together with where its comments area ends. Once it has arrived nothing may get shorter.
+*/
+const CLOSED_ID = "a0000000-0000-4000-8000-000000000003"
+async function partClosed(where) {
+  const desk = where === "desktop"
+  console.log(`\nCLOSED (${where}): a post with its comments closed, opened from the feed${desk ? "" : ` (${THROTTLE}x CPU)`}`)
+  const s = await session(desk ? "desktop" : "safari", { locked: [CLOSED_ID] })
+  const at = await s.p.evaluate((id) => {
+    const el = document.querySelector(`article[data-post="${id}"] [data-post-excerpt]`) ?? document.querySelector(`article[data-post="${id}"]`)
+    if (!el) return null
+    el.scrollIntoView({ block: "center" })
+    const r = el.getBoundingClientRect()
+    return { x: Math.round(r.left + Math.min(60, r.width / 2)), y: Math.round(r.top + r.height / 2) }
+  }, CLOSED_ID)
+  expect(!!at, "the closed post is in the feed", at)
+  if (!at) return void (await s.p.close())
+  await sleep(300)
+  await s.p.evaluate(() => {
+    window.__boxes = []
+    window.__boxing = true
+    const read = () => {
+      if (!window.__boxing) return
+      const panel = document.querySelector('[data-post-overlay="panel"]')
+      const sheet = [...document.querySelectorAll("[data-mobile-bottom-sheet]")].find((x) => x.querySelector("[data-post-fullscreen]"))
+      const box = panel ?? sheet
+      const section = document.querySelector("[data-post-overlay-scroll] section#comments, [data-post-overlay-scroll] [data-comments]")
+      if (box) {
+        const r = box.getBoundingClientRect()
+        window.__boxes.push({ t: Math.round(performance.now()), top: Math.round(r.top), h: Math.round(r.height), comments: section ? Math.round(section.getBoundingClientRect().height) : null, closed: !!document.querySelector("[data-comments-closed]"), loading: !!document.querySelector("[data-comments-loading]") })
+      }
+      requestAnimationFrame(() => setTimeout(read, 0))
+    }
+    requestAnimationFrame(() => setTimeout(read, 0))
+  })
+  if (!desk) await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const t0 = await s.p.evaluate(() => performance.now())
+  const rec = await record(
+    s,
+    async () => {
+      if (desk) await s.p.mouse.click(at.x, at.y)
+      else {
+        await s.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: at.x, y: at.y, radiusX: 4, radiusY: 4, force: 1 }] })
+        await sleep(40)
+        await s.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      }
+    },
+    2200,
+  )
+  if (!desk) await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  await sleep(400)
+  const boxes = (await s.p.evaluate(() => ((window.__boxing = false), window.__boxes))).map((b) => ({ ...b, t: Math.round(b.t - t0) }))
+  await frameSheet(s, rec, `closed-${where}-frames`, desk ? { cols: 4, scale: 0.5, max: 24 } : {})
+  await s.p.screenshot({ path: join(shots, `${LABEL}-closed-${where}-rest.png`) })
+  const last = boxes.at(-1)
+  /* Once it has arrived (its top no longer moving, or on a computer its height at its first full size), the largest it was against where it ends. */
+  const settledFrom = desk ? boxes.findIndex((b) => b.h >= (last?.h ?? 0) - 1) : boxes.findIndex((b, i) => i > 0 && Math.abs(b.top - (last?.top ?? 0)) <= 1)
+  const after = settledFrom >= 0 ? boxes.slice(settledFrom) : []
+  const tallest = Math.max(0, ...after.map((b) => b.h))
+  const comments = after.map((b) => b.comments).filter((x) => x !== null)
+  const commentsShrink = comments.length ? Math.max(...comments) - comments.at(-1) : null
+  results[`closed-${where}`] = { last, tallest, commentsShrink, boxes: boxes.filter((_, i) => i % 2 === 0).slice(0, 60) }
+  console.log(`  arrived: box ${desk ? `height ${last?.h}` : `top ${last?.top}`}, its tallest after arriving ${tallest}; the comments area ranged ${comments.length ? `${Math.min(...comments)}..${Math.max(...comments)}` : "-"} and ended ${comments.at(-1) ?? "-"}; closed line shown ${last?.closed}`)
+  console.log(`  frames [ms, top, height, comments, loading] ${JSON.stringify(boxes.filter((_, i) => i % 3 === 0).slice(0, 30).map((b) => [b.t, b.top, b.h, b.comments, b.loading ? 1 : 0]))}`)
+  expect(!!last?.closed, "the post says its comments are closed", last)
+  expect(!!last && tallest - last.h <= 1, desk ? "on a computer the panel never gets shorter once it is open" : "on a phone the sheet never gets shorter once it is up", { tallest, end: last?.h })
+  expect(commentsShrink !== null && commentsShrink <= 1, "the comments area under the post does not shrink as the comments arrive", commentsShrink)
+  expect(!s.errors.length, "no page errors", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
+/*
+  I3: THE "NEW POST" PILL GOES SMOOTHLY (the owner: "the New post pill in the feed should smoothly disappear as I scroll up and
+  see the new post"). A reader scrolled down; a quiet refresh finds a new post (FRESH_POSTS_EVENT, as feed.tsx sends it); the
+  pill waits under the bar; the reader scrolls back up and the post goes in. Every drawn frame the pill's opacity is read: it
+  must fade over several frames, not vanish in one.
+*/
+async function partPill() {
+  console.log(`\nPILL: a new post while scrolled down, then back up to it (390x844, touch, ${THROTTLE}x CPU)`)
+  const s = await session("safari")
+  await s.p.evaluate(() => window.scrollTo(0, 900))
+  await sleep(500)
+  await s.p.evaluate(() => {
+    const now = new Date().toISOString()
+    const post = { id: "a0000000-0000-4000-8000-000000000099", communityId: "c0000000-0000-4000-8000-000000000001", space: { id: "s-general", slug: "general", name: "General" }, kind: "post", title: "Fresh from the kiln", body: "", bodyText: "Unloaded this morning.", media: [], pinned: false, featured: false, locked: false, status: "published", author: { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member", level: 3, hasStorefront: false }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: now, editedAt: null, lastActivityAt: now, canEdit: false, canModerate: false }
+    window.dispatchEvent(new CustomEvent("storelib:feed-fresh-posts", { detail: { key: "c0000000-0000-4000-8000-000000000001|all|default", posts: [post] } }))
+  })
+  await sleep(600)
+  const waiting = await s.p.evaluate(() => !!document.querySelector("[data-feed-new-pill]"))
+  expect(waiting, "scrolled down, the new post waits under the pill", waiting)
+  await s.p.screenshot({ path: join(shots, `${LABEL}-pill-waiting.png`) })
+  await s.p.evaluate(() => {
+    window.__pill = []
+    window.__pilling = true
+    const read = () => {
+      if (!window.__pilling) return
+      const el = document.querySelector("[data-feed-new-pill]")
+      window.__pill.push({ t: Math.round(performance.now()), on: !!el, opacity: el ? Math.round(Number(getComputedStyle(el).opacity) * 100) / 100 : 0, post: !!document.querySelector('[data-feed-list] > [data-post="a0000000-0000-4000-8000-000000000099"]') })
+      requestAnimationFrame(() => setTimeout(read, 0))
+    }
+    requestAnimationFrame(() => setTimeout(read, 0))
+  })
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const rec = await record(s, () => s.p.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" })), 1600)
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  const pill = await s.p.evaluate(() => ((window.__pilling = false), window.__pill))
+  await frameSheet(s, rec, "pill-frames")
+  const inAt = pill.findIndex((x) => x.post)
+  const fading = pill.filter((x, i) => i >= inAt && x.on && x.opacity > 0.02 && x.opacity < 0.98).length
+  const goneAt = pill.findIndex((x, i) => i >= inAt && !x.on)
+  results.pill = { fading, inAt, goneAt, pill: pill.slice(Math.max(0, inAt - 2), inAt + 14) }
+  console.log(`  the post went in at frame ${inAt}; the pill was drawn half faded on ${fading} frame(s) after that, and gone at frame ${goneAt}`)
+  console.log(`  [on, opacity, post in] ${JSON.stringify(pill.slice(Math.max(0, inAt - 2), inAt + 14).map((x) => [x.on ? 1 : 0, x.opacity, x.post ? 1 : 0]))}`)
+  expect(inAt >= 0, "back at the top, the new post goes in", inAt)
+  expect(fading >= 2, "the pill fades over several frames as the post goes in, rather than vanishing in one", fading)
+  expect(goneAt > inAt, "and then it is gone", goneAt)
+  expect(!s.errors.length, "no page errors", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -470,6 +599,11 @@ try {
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Clay Studio</title><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   })()
   for (const name of Object.keys(CASES)) if (want(name)) await runCase(name)
+  if (want("pill")) await partPill()
+  if (want("closed")) {
+    await partClosed("phone")
+    await partClosed("desktop")
+  }
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()

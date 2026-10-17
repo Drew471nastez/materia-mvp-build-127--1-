@@ -222,7 +222,7 @@ let watchingKeys = false
   for the moment between a focus and the platform's first word about the keys. It was handed out for as long as a field in
   the sheet had the focus, so when the keys went down and the field kept the caret (the keyboard's own hide, an iPad's key,
   the app's keyboardWillHide), the visible part grew back to the whole screen, which reads as "nothing reported", and the
-  sheet took the remembered keyboard instead: the toolbar stayed where the keys had been (scripts/check-posts27-keys.mjs,
+  sheet took the remembered keyboard instead: the toolbar stayed where the keys had been (scripts/check-posts27-member.mjs,
   "kept" and "plugin": the bar at 464 on an 844 screen with no keys under it). Now the platform's word that the keys have
   gone (the visible part growing back after it had reported them, or the plugin's hide) stands until the keys are asked for
   again: a new focus, a finger on the field that has the caret, or a report of the keys.

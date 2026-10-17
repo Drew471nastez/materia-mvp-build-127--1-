@@ -687,6 +687,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Round 27 (P27): scheduled posts carry their media and poll (SQL part 222), the composer's toolbar down with the keys, the New post pill, closed comments, the welcome post writer */
+  "tests/posts27.test.ts",
 ]
 
 /**
