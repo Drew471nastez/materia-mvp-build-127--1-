@@ -13,7 +13,9 @@
  *   unpublished  never published
  *   unavailable  part 210 not run
  *
- * `?lab=run` answers the lab test with the fixture in tests/fixtures/pagespeed.
+ * Mobile has Google's test on file (tests/fixtures/pagespeed), desktop a quick check, and
+ * Run test answers with a quick check, as the server does without a key.
+ * `?first=` and `?delay=` hold the first and later answers that many ms.
  * The collector's own text is put on window.__beacon for the size check.
  */
 import * as React from "react"
@@ -21,6 +23,8 @@ import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { SITE_VITALS_JS } from "@/lib/perf/site-vitals-inline"
 import { buildReport, rollupEvents, windowFor, type RumEvent } from "@/lib/website-builder/web-performance"
 import { labEvidence, parsePsi, type LabResult } from "@/lib/website-builder/pagespeed"
+import { quickFindings, type QuickCheckResult } from "@/lib/website-builder/quick-check"
+import type { PerfRange } from "@/lib/website-builder/web-performance"
 import fixture from "../tests/fixtures/pagespeed/v5-mobile-shape.json"
 
 declare global {
@@ -66,19 +70,46 @@ function events(): RumEvent[] {
   return out
 }
 
-function readyAnswer(thin = false) {
+/** What Storelib's quick check keeps, as the route would store it (lib/website-builder/quick-check.ts). */
+function quickResult(strategy: "mobile" | "desktop"): QuickCheckResult {
+  const base: Omit<QuickCheckResult, "findings"> = {
+    source: "quick",
+    strategy,
+    url: "https://astrid.storelib.com/",
+    fetchedAt: new Date(NOW - 1_800_000).toISOString(),
+    status: 200,
+    ttfb: { median: 182, samples: [412, 176, 182, 190, 171] },
+    html: { bytes: 96_400, transferBytes: 18_900, encoding: "br" },
+    edge: { cached: true, status: "HIT", cacheControl: "public, max-age=0, must-revalidate" },
+    blocking: { styles: 3, scripts: 1, bytes: 162_200, files: [] },
+    images: { count: 14, unsized: 2, notLazy: 4, largest: [{ url: "https://images.storelib.com/creators/astrid/hero-summer.jpg", bytes: 1_240_000 }] },
+    fonts: { files: 3, hosts: ["fonts.googleapis.com"] },
+    thirdParty: ["cdn.example-reviews.com", "fonts.googleapis.com", "i.pinimg.com", "www.googletagmanager.com", "www.youtube.com"],
+  }
+  return { ...base, findings: quickFindings(base) }
+}
+
+function readyAnswer(thin = false, range: PerfRange = "7d") {
   const all = events()
-  const list = thin ? all.slice(0, 19) : all
-  const w = windowFor("7d", NOW)
-  const points = w.days.map((d) => ({ t: `${d}T00:00:00.000Z`, rows: rollupEvents(list.filter((e) => e.at.startsWith(d)), ["all"]) }))
+  /* Each period a little different, so switching really changes every figure on screen. */
+  const k = range === "24h" ? 0.9 : range === "30d" ? 1.15 : range === "90d" ? 1.3 : 1
+  const list = (thin ? all.slice(0, 19) : all).map((e) => ({ ...e, lcp_ms: e.lcp_ms === null ? null : Math.round(e.lcp_ms * k), inp_ms: e.inp_ms === null ? null : Math.round(e.inp_ms * k), cls: e.cls === null ? null : Math.round(e.cls * k * 1000) / 1000, ttfb_ms: e.ttfb_ms === null ? null : Math.round(e.ttfb_ms * k) }))
+  const w = windowFor(range, NOW)
+  const points =
+    w.grain === "hour"
+      ? Array.from({ length: 24 }, (_, h) => {
+          const from = w.start + h * 3_600_000
+          return { t: new Date(from).toISOString(), rows: rollupEvents(list.filter((e) => Date.parse(e.at) >= from && Date.parse(e.at) < from + 3_600_000), ["all"]) }
+        })
+      : w.days.map((d) => ({ t: `${d}T00:00:00.000Z`, rows: rollupEvents(list.filter((e) => e.at.startsWith(d)), ["all"]) }))
   /* The previous week: a little faster on phones, so the deltas have something to say. */
   const previous = rollupEvents(list.map((e) => ({ ...e, lcp_ms: e.lcp_ms === null ? null : Math.round(e.lcp_ms * 0.82) })), ["all"])
   const lab = parsePsi(fixture)
   const result = (lab as { result: LabResult }).result
   const report = buildReport({
-    range: "7d",
+    range,
     now: NOW,
-    current: rollupEvents(list),
+    current: rollupEvents(w.grain === "hour" ? list.filter((e) => Date.parse(e.at) >= w.start) : list),
     previous,
     points,
     lastViewAt: new Date(NOW - 120_000).toISOString(),
@@ -88,7 +119,7 @@ function readyAnswer(thin = false) {
     available: true,
     live: true,
     report,
-    lab: { mobile: thin ? null : { strategy: "mobile", url: "https://astrid.storelib.com/", ranAt: new Date(NOW - 3_600_000).toISOString(), result }, desktop: null },
+    lab: { mobile: thin ? null : { strategy: "mobile", url: "https://astrid.storelib.com/", ranAt: new Date(NOW - 3_600_000).toISOString(), result }, desktop: thin ? null : { strategy: "desktop", url: "https://astrid.storelib.com/", ranAt: new Date(NOW - 1_800_000).toISOString(), result: quickResult("desktop") } },
   }
 }
 
@@ -96,7 +127,7 @@ function emptyAnswer(live: boolean) {
   return { available: true, live, report: buildReport({ range: "7d", now: NOW, current: [], previous: [], points: windowFor("7d", NOW).days.map((d) => ({ t: `${d}T00:00:00.000Z`, rows: [] })), lastViewAt: null }), lab: { mobile: null, desktop: null } }
 }
 
-function stubFetch(state: string) {
+function stubFetch(state: string, q: URLSearchParams) {
   window.__calls = []
   const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -104,15 +135,22 @@ function stubFetch(state: string) {
     const method = init?.method ?? "GET"
     window.__calls?.push(`${method} ${url}`)
     if (url.includes("/performance/lab") && method === "POST") {
-      const result = (parsePsi(fixture) as { result: LabResult }).result
-      return new Promise((r) => setTimeout(() => r(new Response(JSON.stringify({ lab: { strategy: "mobile", url: "https://astrid.storelib.com/", ranAt: new Date().toISOString(), result }, kept: true }), { status: 200 })), 300))
+      /* No key on the server, as today: the quick check answers. */
+      const strategy = JSON.parse(String(init?.body ?? "{}")).strategy === "desktop" ? "desktop" : "mobile"
+      const result = quickResult(strategy)
+      return new Promise((r) => setTimeout(() => r(new Response(JSON.stringify({ lab: { strategy, url: "https://astrid.storelib.com/", ranAt: new Date().toISOString(), result }, kept: true }), { status: 200 })), 300))
     }
     if (url.includes("/performance")) {
-      if (state === "unavailable") return json({ available: false, live: true })
-      if (state === "thin") return json(readyAnswer(true))
-      if (state === "new" || state === "quiet") return json(emptyAnswer(true))
-      if (state === "unpublished") return json(emptyAnswer(false))
-      return json(readyAnswer())
+      const range = (new URL(url, location.origin).searchParams.get("range") ?? "7d") as PerfRange
+      /* `?first=` holds the first answer that long, `?delay=` every one after it. */
+      const asks = (window.__calls ?? []).filter((c) => c.startsWith("GET") && c.includes("/performance?")).length
+      const wait = asks <= 1 ? Number(q.get("first") ?? 0) : Number(q.get("delay") ?? 0)
+      const later = (body: unknown) => (wait > 0 ? new Promise<Response>((r) => setTimeout(() => r(new Response(JSON.stringify(body), { status: 200 })), wait)) : json(body))
+      if (state === "unavailable") return later({ available: false, live: true })
+      if (state === "thin") return later(readyAnswer(true, range))
+      if (state === "new" || state === "quiet") return later(emptyAnswer(true))
+      if (state === "unpublished") return later(emptyAnswer(false))
+      return later(readyAnswer(false, range))
     }
     return json({})
   }) as typeof fetch
@@ -122,7 +160,7 @@ export function boot(mount: (el: React.ReactElement) => void) {
   const q = new URLSearchParams(location.search)
   const state = q.get("state") || "ready"
   window.__beacon = SITE_VITALS_JS
-  stubFetch(state)
+  stubFetch(state, q)
   const publishedAt = state === "new" ? new Date(Date.now() - 3_600_000).toISOString() : state === "unpublished" ? null : "2026-08-02T10:00:00Z"
   mount(
     <ProjectSettings

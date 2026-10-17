@@ -36,6 +36,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
+import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 
 export const dynamic = "force-dynamic"
@@ -259,6 +260,14 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     const tags = compatPageTags({ stored, creatorId: found.site.creatorId, productId, named, i18n: found.site.i18n, mainDomain: getMainDomain() })
     const at = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
     html = `${html.slice(0, at)}${tags}${html.slice(at)}`
+    /*
+      READY FOR ITS FIRST DRAW, when it is opened as a page: the body's CSS
+      gathered in the head in its own order, the country flags loaded when
+      seen (lib/storelib-theme/compat/first-load.ts). A theme's script that
+      fetches a page to take a section out of it (a quick view) is answered
+      with the markup as the theme wrote it, styles in their sections.
+    */
+    if (openedAsDocument(req.headers)) html = readierFirstLoad(html).html
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
   return new NextResponse(body, { status: out.status, headers })
@@ -285,7 +294,7 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
   const creator = await creatorByName(username).catch(() => null)
   if (!creator) return handle(req, ctx)
   const url = new URL(req.url)
-  const page = await heldStrangerPage(strangerKey(username, path, url.search), [creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId)], async () => {
+  const page = await heldStrangerPage(strangerKey(username, path, url.search, openedAsDocument(req.headers)),[creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId)], async () => {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()

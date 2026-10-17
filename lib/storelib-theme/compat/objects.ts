@@ -16,6 +16,7 @@
 import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
+import { FLAG_SVG_OPEN } from "./first-load"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 import { currencyWord } from "@/lib/markets/money"
@@ -1161,7 +1162,8 @@ export function currencySymbol(iso: string): string {
 export function flagImage(code: string): string {
   const cc = /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : ""
   const emoji = cc ? String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : ""
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24"><text x="16" y="19" font-size="20" text-anchor="middle">${emoji}</text></svg>`
+  /* FLAG_SVG_OPEN is how a live page finds its flags to load them when seen (./first-load.ts). */
+  const svg = `${FLAG_SVG_OPEN} x="16" y="19" font-size="20" text-anchor="middle">${emoji}</text></svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 

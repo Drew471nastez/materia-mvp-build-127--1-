@@ -39,6 +39,7 @@ const SUITES = [
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",
+  "tests/languages-checkout-w.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
@@ -357,6 +358,8 @@ const SUITES = [
   "tests/web-vitals.test.ts",
   /* Website settings › Performance: real-user speed for every published website, the lab test, run-now part 210 */
   "tests/web-performance-v.test.ts",
+  /* Website settings › Performance, round W: the quick check when Google's test cannot run, the switches, a new period without a flash */
+  "tests/performance-tab-w.test.ts",
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",
@@ -712,6 +715,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
   "tests/live-speed-v.test.ts",
+  /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
+  "tests/live-first-load-w.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */

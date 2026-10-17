@@ -14,12 +14,17 @@
  */
 
 import type { LabEvidence, PerfMetric } from "./web-performance"
+import type { QuickCheckResult } from "./quick-check"
 
 export const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 export type LabStrategy = "mobile" | "desktop"
 
-/** Google's own speed test takes 10 to 40 seconds; past this it is given up on. */
-export const PSI_TIMEOUT_MS = 55_000
+/**
+ * Google's own speed test takes 10 to 40 seconds; past this it is given up
+ * on, which leaves the quick check (lib/website-builder/quick-check.ts) its
+ * 15 seconds inside the route's minute.
+ */
+export const PSI_TIMEOUT_MS = 42_000
 /** One test per site and strategy in this long. */
 export const LAB_COOLDOWN_MS = 60_000
 
@@ -48,6 +53,8 @@ export interface LabOpportunity {
 }
 
 export interface LabResult {
+  /** Absent on results kept before the quick check existed: those are all Google's. */
+  source?: "pagespeed"
   strategy: LabStrategy
   /** The page Google loaded, after redirects. */
   url: string
@@ -62,6 +69,13 @@ export interface LabResult {
   /** The element Lighthouse named as the largest contentful paint, as it reads in the page. */
   lcpElement: string | null
   lighthouseVersion: string | null
+}
+
+/** What a lab test kept: Google's test, or Storelib's quick check when Google's could not run. */
+export type AnyLabResult = LabResult | QuickCheckResult
+
+export function isQuickCheck(r: AnyLabResult | null | undefined): r is QuickCheckResult {
+  return !!r && (r as { source?: string }).source === "quick"
 }
 
 export type LabParse = { ok: true; result: LabResult } | { ok: false; error: LabError }
@@ -126,6 +140,7 @@ export function parsePsi(json: unknown, status = 200): LabParse {
   return {
     ok: true,
     result: {
+      source: "pagespeed",
       strategy,
       url: str(lh.finalDisplayedUrl, 600) ?? str(lh.finalUrl, 600) ?? str(j.id, 600) ?? "",
       fetchedAt: str(lh.fetchTime, 40) ?? str(j.analysisUTCTimestamp, 40) ?? new Date().toISOString(),
@@ -154,10 +169,20 @@ const IMAGE_FILE = /\.(jpe?g|png|webp|avif|gif)(\?|$)/i
  * What a lab test can honestly say about a slow metric. Only what Google's
  * test reported: bytes it says images could lose, the heaviest image it
  * downloaded, the time blocking files cost, the server's answer time.
- * Nothing for INP, which a lab load has no visitor to measure.
+ * Nothing for INP, which a lab load has no visitor to measure. From a
+ * quick check: the heaviest image by its size, and the server's median
+ * answer time.
  */
-export function labEvidence(lab: LabResult | null | undefined): Partial<Record<PerfMetric, LabEvidence>> {
-  if (!lab) return {}
+export function labEvidence(any: AnyLabResult | null | undefined): Partial<Record<PerfMetric, LabEvidence>> {
+  if (!any) return {}
+  if (isQuickCheck(any)) {
+    const q: Partial<Record<PerfMetric, LabEvidence>> = {}
+    const big = any.images?.largest?.[0]
+    if (big && big.bytes !== null && big.bytes >= 500_000) q.lcp = { kind: "largest-file", url: big.url, bytes: big.bytes }
+    if ((any.ttfb?.median ?? 0) >= 600) q.ttfb = { kind: "server-response", ms: Math.round(any.ttfb.median) }
+    return q
+  }
+  const lab = any
   const out: Partial<Record<PerfMetric, LabEvidence>> = {}
   const imageBytes = lab.opportunities.filter((o) => IMAGE_AUDITS.has(o.id)).reduce((s, o) => s + (o.savingsBytes ?? 0), 0)
   const heaviestImage = lab.largestFiles.find((f) => IMAGE_FILE.test(f.url))

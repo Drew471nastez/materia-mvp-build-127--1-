@@ -167,7 +167,8 @@ export const EXPLAINERS = {
     get lines() { return [
       tt("Each language gets its own address, like yourstore.com/fr."),
       tt("Visitors switch with your theme's language selector. Turn on Show visitors their own language to open a first visit in their browser's language."),
-      tt("A translation goes live as soon as it is done. Anything not translated yet shows in your default language."),
+      tt("A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language."),
+      tt("Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed."),
     ] },
     guide: "/help/website-builder/translate-your-website",
   },
