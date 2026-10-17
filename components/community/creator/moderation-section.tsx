@@ -108,6 +108,7 @@ export function auditSentence(action: string): string {
     revoked: tt("Revoked"),
     resolved: tt("Resolved"),
     dismissed: tt("Dismissed"),
+    escalated: tt("Told Storelib about"),
     reviewing: tt("Started reviewing"),
     open: tt("Reopened"),
     attached: tt("Added"),
@@ -247,6 +248,17 @@ export function ModerationSection({
     tell(res.data.open)
   }
 
+  /** Told to Storelib as well. The report keeps its place and its status here. */
+  const escalate = async (r: ReportView) => {
+    setBusy(r.id)
+    const res = await send<{ open?: number }>(`${base}/moderation`, "PATCH", { id: r.id, status: r.status, escalate: true })
+    setBusy(null)
+    if (!res.ok) return toast(errorText(res.data.error, tt("Storelib could not be told. Try again.")))
+    setReports((x) => ({ ...x, rows: x.rows.map((y) => (y.id === r.id ? { ...y, escalated: true } : y)) }))
+    tell(res.data.open)
+    toast(tt("Storelib has it. It stays in your queue."))
+  }
+
   const removeContent = async (r: ReportView, reason: string) => {
     setBusy(r.id)
     const res = await send<{ open?: number }>(`${base}/moderation`, "POST", { action: "remove", targetType: r.targetType, targetId: r.targetId, reason: reason || `Reported: ${REASON[r.reason]}` })
@@ -323,6 +335,15 @@ export function ModerationSection({
     if (view === "open") {
       if (r.status === "open") items.push({ label: tt("Mark as reviewing"), onClick: () => void setStatus(r, "reviewing") })
       items.push({ label: tt("Resolve without removing"), onClick: () => void setStatus(r, "resolved") })
+      /*
+        SOMETHING FOR STORELIB, NOT FOR THIS COMMUNITY: a scam run across
+        several communities, a threat, material the owner of one community
+        should not be deciding about. It goes to Storelib's queue with what
+        and why, never the words, and stays here as well, so the moderators
+        still resolve or dismiss it. A report of something illegal is sent
+        on by itself (lib/communities/server/reports.ts).
+      */
+      if (!r.escalated) items.push({ label: tt("Tell Storelib"), onClick: () => void escalate(r) })
       const m = r.subject?.member
       if (r.subject && m) {
         const author: ActOnPerson = { userId: r.subject.userId, name: r.subject.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil }
@@ -407,6 +428,7 @@ export function ModerationSection({
                         <span className="tabular-nums">{relativeTime(r.createdAt)}</span>
                       </span>
                       {r.status === "reviewing" ? <StatusBadge tone="neutral">{tt("Reviewing")}</StatusBadge> : null}
+                      {r.escalated ? <StatusBadge tone="neutral">{tt("With Storelib")}</StatusBadge> : null}
                     </div>
                     <div className="mt-1.5 flex min-w-0 items-start gap-2 md:mt-0">
                       <div className="min-w-0 flex-1">

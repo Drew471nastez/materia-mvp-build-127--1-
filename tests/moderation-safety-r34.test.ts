@@ -29,7 +29,7 @@ import { join } from "node:path"
 import { fakeDb } from "./_fake-db"
 import { stripComments } from "./_source"
 import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource } from "@/lib/onepage/embed-source"
-import { actOnContent, actOnMember, openReportCount, updateReport } from "@/lib/communities/server/moderation"
+import { actOnContent, actOnMember, escalateReport, openReportCount, updateReport } from "@/lib/communities/server/moderation"
 import { MUTED_ACTIONS } from "@/lib/communities/server/context"
 import { checkReport } from "@/lib/communities/server/reports"
 import { REVIEW_LIMITS } from "@/lib/reviews/rules"
@@ -175,6 +175,23 @@ async function main() {
   check("unban clears all of it", unbanned.ok && row.status !== "banned" && !row.banned_at)
   const atOwner = await actOnMember(mdb, { community, actor: asMod, action: "ban", userId: OWNER })
   check("a moderator cannot restrict the owner", !atOwner.ok && status(atOwner) === 403)
+
+  /* ── Sending one on to Storelib ──────────────────────────────────────── */
+  console.log("\nescalation")
+  const edb = queue()
+  const sent = await updateReport(edb, { community, actor: asMod, id: UID(50), status: "reviewing", escalate: true })
+  const escalatedRow = edb.tables.community_reports.find((r: Record<string, unknown>) => r.id === UID(50)) as Record<string, unknown>
+  check("a moderator can send a report to Storelib, and it stays in their queue", sent.ok && escalatedRow.escalated === true && escalatedRow.status === "reviewing")
+  check("it is still an actionable item here", (await openReportCount(edb, CID)) === 4)
+  check("and who did it is in the audit log", edb.tables.community_audit_log.some((x: Record<string, unknown>) => x.action === "report.escalated" && x.actor_id === MOD))
+  const notStaff = await updateReport(edb, { community, actor: { userId: AUTHOR, role: "member" }, id: UID(52), status: "resolved", escalate: true })
+  check("somebody who may not work the queue cannot escalate either", !notStaff.ok && status(notStaff) === 403 && edb.tables.community_reports.find((r: Record<string, unknown>) => r.id === UID(52))?.escalated !== true)
+  const noColumn = fakeDb({ community_reports: [{ id: UID(50), community_id: CID }], community_audit_log: [] }, { failWith: { community_reports: { code: "42703", message: "column community_reports.escalated does not exist" } } })
+  check("a database without the column answers false rather than failing the request", (await escalateReport(noColumn, { community, actorId: MOD, actorKind: "member", id: UID(50), reason: null })) === false)
+  const reportsSrc = code("lib/communities/server/reports.ts")
+  check("a report of something illegal is sent on by itself", /input\.reason === "illegal"/.test(reportsSrc) && /escalateReport\(db, \{ community, actorId: null, actorKind: "system"/.test(reportsSrc))
+  check("the platform reads what and why, never the words", !/body|body_text|preview|note/.test(/REPORT_META_COLUMNS = "([^"]*)"/.exec(code("lib/communities/server/admin.ts"))?.[1] ?? "nope"))
+  check("the queue carries the flag to the screen", /escalated: r\.escalated === true/.test(code("lib/communities/server/moderation.ts")))
 
   /* ── A community's staff are not the platform ────────────────────────── */
   console.log("\nwhat a community's staff cannot do")

@@ -5,6 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Tell Storelib": "Powiadom Storelib",
+ "Storelib has it. It stays in your queue.": "Storelib już to ma. Zostaje w twojej kolejce.",
+ "Storelib could not be told. Try again.": "Nie udało się powiadomić Storelib. Spróbuj ponownie.",
+ "Told Storelib about": "Powiadomiono Storelib",
  "Deleting on {date}. Members can read it until then. Keep it from Settings.": "Zostanie usunięta {date}. Do tego czasu członkowie mogą ją czytać. Zachowaj ją w Ustawieniach.",
  "+{n} in 30 days": "+{n} w 30 dni",
  "{n, plural, one {# cancellation} other {# cancellations}} in 30 days": "{n, plural, one {# anulowanie} few {# anulowania} many {# anulowań} other {# anulowania}} w 30 dni",

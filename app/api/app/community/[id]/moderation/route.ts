@@ -14,7 +14,8 @@ type Params = { params: Promise<{ id: string }> }
 
 /**
  * GET   /api/app/community/<id>/moderation?status=open|closed|...&reason=&type=&cursor= -> { rows, next, open }: the report queue.
- * PATCH /api/app/community/<id>/moderation { id, status, resolution? }: a report reviewed, resolved or dismissed.
+ * PATCH /api/app/community/<id>/moderation { id, status, resolution?, escalate? }: a report reviewed, resolved or
+ *       dismissed, and with escalate told to Storelib as well (the report stays in this community's queue).
  * POST  /api/app/community/<id>/moderation { action, targetType, targetId, reason?, spaceId? }: act on a post,
  *       comment or message (the same rules as the member side's /api/community/<id>/moderation/act).
  *
@@ -49,7 +50,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  const done = await updateReport(gate.ctx.admin, { community: gate.community, actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null }, id: String(body.id ?? ""), status: body.status, resolution: body.resolution })
+  const done = await updateReport(gate.ctx.admin, { community: gate.community, actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null }, id: String(body.id ?? ""), status: body.status, resolution: body.resolution, escalate: body.escalate })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true, open: await openReportCount(gate.ctx.admin, gate.community.id) }, { headers: noStore })
 }
