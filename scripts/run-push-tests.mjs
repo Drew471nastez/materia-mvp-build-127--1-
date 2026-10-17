@@ -582,6 +582,8 @@ const SUITES = [
   "tests/pills17.test.ts",
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
+  /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
+  "tests/editor-perf-v.test.ts",
   "tests/communities-frame12.test.ts",
   /* Round 31: the community content sections in /app: the icon picker, rows that open, the form sheet, the member composer as the Feed writer (scripts/check-community-content-round31.mjs measures them). */
   "tests/communities-content31.test.ts",

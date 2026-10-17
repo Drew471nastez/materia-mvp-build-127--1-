@@ -205,9 +205,33 @@ declare global { interface Window { probeCalls: string[] } }
 window.probeCalls = calls
 
 /** The page reads `params` with `use()`, which needs a Suspense boundary above it. */
-createRoot(document.getElementById("app")!).render(
+const appRoot = createRoot(document.getElementById("app")!)
+appRoot.render(
   React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
     React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) }),
     /* The toasts, as app/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
     React.createElement(EditorToaster)),
 )
+
+/**
+ * PROBE_NAVIGATE_MS: a navigation away from the editor (a router push, or a
+ * Back that leaves /website-builder/) arrives this long after it starts, the
+ * way the app router replaces a page: the editor is unmounted and the
+ * destination drawn in its place (scripts/check-editor-exit.mjs).
+ */
+const navigateMs = (window as unknown as { PROBE_NAVIGATE_MS?: number }).PROBE_NAVIGATE_MS
+if (typeof navigateMs === "number") {
+  let gone = false
+  const arrive = (to: string) => {
+    if (gone) return
+    gone = true
+    window.setTimeout(() => {
+      ;(window as unknown as { probeArrivedAt?: number }).probeArrivedAt = performance.now()
+      appRoot.render(React.createElement("div", { id: "probe-destination", style: { padding: 24, background: "#f8f9fa", minHeight: "100vh" } }, `Arrived at ${to}`))
+    }, navigateMs)
+  }
+  window.addEventListener("probe:push", (e) => arrive(String((e as CustomEvent).detail)))
+  window.addEventListener("popstate", () => {
+    if (!window.location.pathname.startsWith("/website-builder/")) arrive(window.location.pathname)
+  })
+}

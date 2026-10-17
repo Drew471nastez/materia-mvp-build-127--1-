@@ -545,6 +545,8 @@ section("The bar answers a touch, and the phone scrolls")
 
 const menu = untt(readFileSync(join(root, "components/ui/responsive-action-menu.tsx"), "utf8"), "components/ui/responsive-action-menu.tsx")
 const css = untt(readFileSync(join(root, "app/globals.css"), "utf8"))
+/* The Going back screen, its own root on <body> since V3 (so it outlives the editor and holds EXIT_MIN_MS). */
+const exitScreenSrc = untt(readFileSync(join(root, "components/website-builder/exit-screen.tsx"), "utf8"), "components/website-builder/exit-screen.tsx")
 
 check(
   "Back is an arrow, and pressing it answers instantly with a leaving screen",
@@ -560,11 +562,13 @@ check(
     // lib/website-builder/navigate-ceiling.ts.
     /leaveFor\(href\)/.test(editor) &&
     /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
-    // Portalled and above every sheet, or the sheets that render into the
-    // body paint over the screen that says you are leaving.
-    /\{leaving && portalReady && createPortal\(\s*<div className="wb-leaving"/.test(editor) &&
-    /\.wb-leaving \{[\s\S]{0,300}position: fixed/.test(css) &&
-    /\.wb-leaving \{[\s\S]{0,300}z-index: 300/.test(css),
+    // On <body> and above every sheet, or the sheets that render into the
+    // body paint over the screen that says you are leaving. Its own root
+    // since V3, so it stays up after the editor is gone.
+    /exitScreen\.start\(\)/.test(editor) &&
+    /document\.body\.appendChild\(node\)/.test(exitScreenSrc) &&
+    /\.wb-exit-screen \{[\s\S]{0,300}position: fixed/.test(css) &&
+    /\.wb-exit-screen \{[\s\S]{0,300}z-index: 400/.test(css),
 )
 
 check(
@@ -2655,7 +2659,7 @@ check(
     // headed instead of what you are quitting, and it is what the overlay's
     // own aria-label already said. The rule that owns this copy is "going
     // back says so, in words you can read on the glass", below.
-    /lines=\{\["Going back", "Saving where you were", "Almost there"\]\}/.test(editor) &&
+    /lines=\{\["Going back"\]\}/.test(exitScreenSrc) &&
     /"Loading the editor", "Fetching your sections", "Just a moment"/.test(editor),
 )
 
@@ -3034,9 +3038,14 @@ check(
    * from the browser's own layout and scores them against the glass they sit
    * on: 155 points of luma now, against 15 before.
    */
-  /<BuilderLoader\s*\n\s*className="wb-leaving-content"\s*\n\s*tone="dark"/.test(editor) &&
-    // and it says where you are going, first
-    /lines=\{\["Going back", "Saving where you were", "Almost there"\]\}/.test(editor) &&
+  /*
+   * V3: the builder's own Going back screen is the canvas loader's look now
+   * (the owner: "a clean branded Going back screen"), dark ink on white, so
+   * it is readable by construction (components/website-builder/exit-screen.tsx).
+   * The glass below is still what the page editors leave through.
+   */
+  /<BuilderLoader tone="light" lines=\{\["Going back"\]\} \/>/.test(exitScreenSrc) &&
+    /\.wb-exit-screen \{[\s\S]{0,500}background: #ffffff;/.test(editorCss) &&
     // white and lit, scoped to this surface, two classes so it wins inside
     // the utilities layer where Tailwind's own colour also lives
     /\.wb-leaving \.wb-squares \{\s*color: #ffffff;\s*filter: drop-shadow\(/.test(editorCss) &&

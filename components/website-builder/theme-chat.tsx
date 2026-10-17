@@ -897,6 +897,8 @@ function ThemeChatPanel({
   /* Which models the creator's own AI answers, if they have connected one: "Your key" beside them in the menu. */
   const ownAi = useOwnAi()
   React.useEffect(() => {
+    /* Once the connections are known: asked before as well, it was two requests on every open of the editor (scripts/check-editor-perf.mjs). */
+    if (!ownAi.loaded) return
     const controller = new AbortController()
     void fetch("/api/ai-models", { cache: "no-store", signal: controller.signal })
       .then((response) => response.ok ? response.json() : null)
