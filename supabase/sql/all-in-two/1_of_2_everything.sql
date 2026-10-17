@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 202: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 221: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3635,6 +3635,15 @@ ALTER TABLE public.community_setup_progress ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_setup_progress FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_setup_progress TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('202', '202_community_deletion_and_setup.sql', 'b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 221_community_member_link_clicks.sql
+/* Presses on a community's member links (round 26), run after part 81. A community keeps up to four links for its members (its member links, part 220), shown only inside the community; this counts how often members use them, for the Page editor to show beside each link. One new server only table, `community_member_link_clicks`: one row per member, link and day (UTC), so pressing a link again the same day, a double tap or a retried request is still one row, and the count per link is the number of rows. The member's own rows go with their account and a community's with the community. No policy: nobody's browser reads or writes it; the server writes a row when a member presses a link and counts them for the creator. No existing row changes. Until it runs, links work and presses are simply not counted. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.community_member_link_clicks (community_id uuid NOT NULL REFERENCES public.communities(id) ON DELETE CASCADE, link_id text NOT NULL, user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, day date NOT NULL DEFAULT ((now() AT TIME ZONE 'utc')::date), created_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT community_member_link_clicks_pkey PRIMARY KEY (community_id, link_id, user_id, day), CONSTRAINT community_member_link_clicks_link_check CHECK (link_id ~ '^[A-Za-z0-9_-]{1,40}$'));
+CREATE INDEX IF NOT EXISTS community_member_link_clicks_user_idx ON public.community_member_link_clicks (user_id);
+ALTER TABLE public.community_member_link_clicks ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.community_member_link_clicks FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_member_link_clicks TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('221', '221_community_member_link_clicks.sql', 'b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;
