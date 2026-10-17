@@ -41,6 +41,8 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
+import { REVIEW_WIDGET_SECTION_TYPE } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
@@ -407,6 +409,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const productId = props.productId ?? null
   const pageKeys = props.pageKeys
+  /*
+    A REVIEWS WIDGET ON THE PAGE draws the store's own reviews and the saved
+    look it names (lib/reviews/widgets), as the Storelib canvas does
+    (use-canvas-reviews.ts); without one the canvas keeps its sample reviews.
+  */
+  const wantsReviews = props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE)
+  const canvasReviews = useCanvasReviews(wantsReviews, productId)
+  const reviewsRef = useRef(canvasReviews)
+  reviewsRef.current = canvasReviews
   const dataKey = JSON.stringify([products, catalog, collections, menus, shop, pageKeys])
   const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys, shop })
   dataRef.current = { products, catalog, collections, menus, shopName, pageKeys, shop }
@@ -484,12 +495,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
       /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
       product: template === "product" ? sample : null,
       collection: template === "collection" ? firstCollection ?? { id: "all", title: "Products", handle: "all", url: "/collections/all", products, products_count: products.length } : null,
+      ...(reviewsRef.current ? { reviews: reviewsRef.current } : {}),
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey, i18n])
+  const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey, i18n, canvasReviews])
   const pageRef = useRef(page)
   pageRef.current = page
 

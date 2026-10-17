@@ -9152,7 +9152,17 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} od zweryfikowanych kupujących",
  "{n} imported": "Zaimportowano: {n}",
  "{n} scheduled": "Zaplanowane: {n}",
- "{n} selected": "Zaznaczono: {n}"
+ "{n} selected": "Zaznaczono: {n}",
+ "Choose a saved look": "Wybierz zapisany wygląd",
+ "Edit this look": "Edytuj ten wygląd",
+ "Loading your saved looks": "Wczytywanie zapisanych wyglądów",
+ "Make a look in Storelib Reviews": "Utwórz wygląd w Storelib Reviews",
+ "None saved for this widget yet": "Dla tego widżetu nic jeszcze nie zapisano",
+ "Review widgets": "Widżety opinii",
+ "Saved look deleted": "Zapisany wygląd usunięty",
+ "This look was deleted, so the widget draws with its own defaults and the changes below.": "Ten wygląd został usunięty, więc widżet używa ustawień domyślnych i zmian poniżej.",
+ "{count} saved for this widget": "Zapisane dla tego widżetu: {count}",
+ "{name}, as it comes": "{name}, domyślnie"
 }
 
 export default words

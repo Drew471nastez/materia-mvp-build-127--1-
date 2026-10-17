@@ -33,6 +33,7 @@ import { ProductListControl, ProductPickerControl } from "./product-list-control
 import { VideoPickerControl } from "./video-picker-control"
 import { VideoUrlControl } from "./video-url-control"
 import { ColorSchemeControl } from "./color-scheme-control"
+import { REVIEW_CONFIG_FIELD, ReviewWidgetConfigControl } from "./review-widget-config-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
 export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerProduct } from "./context"
@@ -56,6 +57,8 @@ export function renderRegisteredControl(
 ): ReactNode | null {
   const str = typeof value === "string" ? value : ""
   const fallback = typeof field.default === "string" ? field.default : ""
+  /* A Reviews widget section's saved look: a text setting by its schema, a list of the store's saved looks here (lib/reviews/widgets). */
+  if (field.id === REVIEW_CONFIG_FIELD && kind === "text") return <ReviewWidgetConfigControl value={str} onChange={onChange} label={field.label} />
   switch (kind) {
     case "inline_richtext":
       return <InlineRichTextControl value={str} onChange={onChange} placeholder={field.placeholder} label={field.label} />

@@ -161,6 +161,8 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { isWidgetType } from "@/lib/reviews/widgets/config"
+import { REVIEW_WIDGET_SECTION_TYPE, isMainProductSectionType } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
@@ -5481,7 +5483,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
+  const addSection = (
+    type: string,
+    presetIndex = 0,
+    replaceConfirmed = false,
+    /** From Storelib Reviews › Add to website: settings laid over the preset's, and a list index to go in at (null: the end of the page). */
+    extra?: { settings?: Record<string, unknown>; at: number | null },
+  ) => {
     const schema = librarySchemas[type]
     if (!schema) return
     /**
@@ -5505,7 +5513,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       id: `${type}-${Date.now()}`,
       type,
       name: schema.name,
-      settings: newSectionSettings(type, preset?.settings, storelibSources),
+      settings: { ...newSectionSettings(type, preset?.settings, storelibSources), ...(extra?.settings ?? {}) },
       /* The preset's blocks as this section's own: new ids, so adding the same preset twice is two sets of blocks, not one shared. */
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
@@ -5518,9 +5526,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * never land above the header or below the footer.
      */
     const insertAt =
-      canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+      extra ? extra.at : canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
     const before = splitGroups(sections)
-    const requested: SectionGroup = canvasInsertAt != null ? "template" : addGroup
+    const requested: SectionGroup = extra || canvasInsertAt != null ? "template" : addGroup
     const placed = placeSection(sections, newSection, {
       groups,
       kind,
@@ -6312,6 +6320,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
   const addSectionStable = useCallback((type: string, presetIndex?: number) => addSectionRef.current(type, presetIndex), [])
   addSectionRef.current = addSection
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  STORELIB REVIEWS › WIDGETS › ADD TO WEBSITE
+   * ═════════════════════════════════════════════════════════════════════════
+   * The gallery opens the editor on the page it chose (`previewPath`) with
+   * `?addReviewWidget=<widget>&reviewConfig=<id>&placement=<where>`
+   * (app/app/reviews/widgets/add). Once that page's sections are in, the
+   * Reviews widget section goes in where it was asked (under the product,
+   * at the top or at the end of the page) naming the saved look, selected,
+   * with its settings open, unsaved like any section just added. The words
+   * are taken off the address so a reload does not add it again.
+   */
+  const widgetArrival = useRef<{ widget: string; config: string; placement: string } | null | undefined>(undefined)
+  useEffect(() => {
+    if (widgetArrival.current === undefined) {
+      const url = new URL(window.location.href)
+      const widget = url.searchParams.get("addReviewWidget")
+      widgetArrival.current = widget && isWidgetType(widget) ? { widget, config: url.searchParams.get("reviewConfig") ?? "", placement: url.searchParams.get("placement") ?? "" } : null
+      if (widget) {
+        for (const k of ["addReviewWidget", "reviewConfig", "placement"]) url.searchParams.delete(k)
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+      }
+    }
+    const want = widgetArrival.current
+    if (!want || loading || sections.length === 0) return
+    const type = compatInstall ? REVIEW_WIDGET_SECTION_TYPE : "reviews_widget"
+    const schema = librarySchemas[type]
+    if (!schema) return
+    widgetArrival.current = null
+    const presetIndex = Math.max(0, (schema.presets ?? []).findIndex((p) => (p.settings as Record<string, unknown> | undefined)?.widget === want.widget))
+    const header = splitGroups(sections).header.length
+    const main = sections.findIndex((x) => isMainProductSectionType(x.type))
+    const at = want.placement === "top" ? header : want.placement === "below_product" && main >= 0 ? main + 1 : null
+    addSection(type, presetIndex, true, { settings: { widget: want.widget, review_config: /^[0-9a-f-]{36}$/i.test(want.config) ? want.config : "" }, at })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, sections, librarySchemas, compatInstall])
 
   /**
    * Everywhere on this site a link can point, for the link fields.
