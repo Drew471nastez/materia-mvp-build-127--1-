@@ -21,7 +21,6 @@ export interface CustomizerField {
 
 const CARDS: readonly WidgetType[] = ["product_reviews", "grid", "carousel", "testimonials", "marquee"]
 const LISTS: readonly WidgetType[] = ["product_reviews", "grid", "carousel", "testimonials", "media_wall", "marquee"]
-const NOT_BADGE: readonly WidgetType[] = ["product_reviews", "rating_summary", "grid", "carousel", "testimonials", "media_wall", "marquee", "trust_badge"]
 
 const opt = <K extends keyof typeof ENUMS>(key: K, labels: Record<(typeof ENUMS)[K][number], string>) => ENUMS[key].map((v) => ({ value: v, label: labels[v as (typeof ENUMS)[K][number]] }))
 
@@ -30,8 +29,9 @@ export const CUSTOMIZER_GROUPS: { id: string; label: string; fields: CustomizerF
     id: "content",
     label: "Content",
     fields: [
-      { key: "heading", label: "Heading", kind: "text", only: NOT_BADGE },
-      { key: "subheading", label: "Supporting line", kind: "text", only: NOT_BADGE },
+      { key: "show_heading", label: "Show a heading", kind: "toggle" },
+      { key: "heading", label: "Heading", kind: "text", hint: "Empty uses the widget's own, in each language." },
+      { key: "subheading", label: "Supporting line", kind: "text" },
       { key: "align", label: "Align", kind: "select", options: opt("align", { left: "Left", center: "Centre" }) },
       { key: "badge_layout", label: "Style", kind: "select", only: ["trust_badge"], options: opt("badge_layout", { inline: "A line", banner: "A banner" }) },
     ],
@@ -102,7 +102,7 @@ export const CUSTOMIZER_GROUPS: { id: string; label: string; fields: CustomizerF
     label: "Style",
     fields: [
       { key: "font", label: "Font", kind: "select", options: opt("font", { theme: "Your theme's", sans: "Sans serif", serif: "Serif", rounded: "Rounded", mono: "Monospace" }) },
-      { key: "heading_size", label: "Heading size", kind: "range", only: NOT_BADGE, unit: "px" },
+      { key: "heading_size", label: "Heading size", kind: "range", unit: "px", hint: "0 uses your theme's." },
       { key: "text_size", label: "Text size", kind: "range", unit: "px" },
       { key: "star_shape", label: "Stars", kind: "select", options: opt("star_shape", { sharp: "Filled", rounded: "Rounded", outline: "Outline" }) },
       { key: "star_size", label: "Star size", kind: "range", unit: "px" },

@@ -182,6 +182,11 @@ function wordsChecks() {
   const html = renderReviewWidget({ type: "product_reviews", settings: resolveWidgetSettings("product_reviews", { labels: { fr: { write_a_review: "Laissez un avis" } } }), reviews: { ...data(), locale: "fr", default_locale: false }, words: dict })
   check("drawn in French: the override and the dictionary", html.includes("Laissez un avis") && html.includes("Acheteur vérifié"))
   check("the review itself stays in the words it was written in", html.includes("Exactly right"))
+  const fr = { ...data(), locale: "fr", default_locale: false }
+  check("the widget's own heading is a shop word, in the page's language", renderReviewWidget({ type: "product_reviews", settings: resolveWidgetSettings("product_reviews"), reviews: fr, words: { customer_reviews: "Avis clients" } }).includes(">Avis clients</h2>"))
+  check("  the look's heading per language, written by the store", renderReviewWidget({ type: "grid", settings: resolveWidgetSettings("grid", { heading: "Our fans", labels: { fr: { heading: "Nos fans" } } }), reviews: fr }).includes(">Nos fans</h2>") && renderReviewWidget({ type: "grid", settings: resolveWidgetSettings("grid", { heading: "Our fans", labels: { fr: { heading: "Nos fans" } } }), reviews: data() }).includes(">Our fans</h2>"))
+  check("  a page's own heading wins (the page's text, translated with the page)", renderReviewWidgetSection({ settings: { widget: "grid", heading: "Ce que disent nos clients" }, reviews: fr }).includes(">Ce que disent nos clients</h2>"))
+  check("  no heading when it is turned off", !renderReviewWidget({ type: "grid", settings: resolveWidgetSettings("grid", { show_heading: false }), reviews: fr }).includes("<h2"))
   check("the widget's new words are shop words (Translate › Shop words)", ["previous", "next", "customer_photos", "read_all_reviews"].every((k) => k in UI_WORDS))
 }
 

@@ -58,6 +58,8 @@ export interface WidgetRenderInput {
   inEditor?: boolean
   /** Unique on the page: the form's ids. */
   uid?: string
+  /** This page's own heading and supporting line (a section's settings), over the look's. */
+  page?: { heading?: string; subheading?: string }
 }
 
 /* ── Escaping ──────────────────────────────────────────────────────────── */
@@ -131,8 +133,9 @@ function rootStyle(s: WidgetSettings, fallbackStar: string): string {
   color("--slw-btn", s.button_color)
   color("--slw-btn-text", s.button_text)
   if (FONTS[s.font]) v.push(["--slw-font", FONTS[s.font]])
+  /* 0: the theme's own heading size (a Storelib theme hands it over as --slw-theme-hs). */
+  if (s.heading_size > 0) v.push(["--slw-hs", `${s.heading_size}px`])
   v.push(
-    ["--slw-hs", `${s.heading_size}px`],
     ["--slw-ts", `${s.text_size}px`],
     ["--slw-ss", `${s.star_size}px`],
     ["--slw-bw", `${s.card_style === "plain" ? 0 : s.border_width}px`],
@@ -154,7 +157,7 @@ const CSS_BASE = `.slw{container-type:inline-size;font-family:var(--slw-font,inh
 .slw *,.slw *::before,.slw *::after{box-sizing:border-box}
 .slw__in{max-width:var(--slw-mw);margin:0 auto;padding:var(--slw-pt) 20px var(--slw-pb)}
 .slw__head{margin:0 0 20px}.slw--center .slw__head{text-align:center}
-.slw__h{margin:0;font-size:var(--slw-hs);line-height:1.15;font-family:var(--slw-font,inherit);color:inherit;letter-spacing:-.01em}
+.slw__h{margin:0;font-size:var(--slw-hs,var(--slw-theme-hs,28px));line-height:1.15;font-family:var(--slw-font,inherit);color:inherit;letter-spacing:-.01em}
 .slw__sub{margin:8px 0 0;font-size:var(--slw-ts);line-height:1.55;color:var(--slw-m)}
 .slw-stars{position:relative;display:inline-block;vertical-align:middle;flex:none;width:calc(var(--slw-ss) * 5);height:var(--slw-ss)}
 .slw-stars::before,.slw-stars::after{content:"";position:absolute;top:0;bottom:0;left:0;-webkit-mask-size:var(--slw-ss) var(--slw-ss);mask-size:var(--slw-ss) var(--slw-ss);-webkit-mask-repeat:repeat-x;mask-repeat:repeat-x;-webkit-mask-position:left center;mask-position:left center}
@@ -188,7 +191,7 @@ const CSS_BASE = `.slw{container-type:inline-size;font-family:var(--slw-font,inh
 
 const CSS_SUMMARY = `.slw-top{display:flex;flex-wrap:wrap;align-items:center;gap:18px 40px;padding-bottom:20px;margin-bottom:8px;border-bottom:1px solid var(--slw-l)}
 .slw-sum{display:flex;align-items:center;gap:14px}
-.slw-big{margin:0;font-size:calc(var(--slw-hs) * 1.45);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.slw-big{margin:0;font-size:calc(var(--slw-hs,var(--slw-theme-hs,28px)) * 1.45);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .slw-based{margin:6px 0 0;font-size:14px;color:var(--slw-m)}
 .slw-bars{list-style:none;margin:0;padding:0;display:grid;gap:6px;min-width:200px;flex:0 1 320px}
 .slw-bars li{display:grid;grid-template-columns:34px 1fr 30px;align-items:center;gap:8px;font-size:13px;color:var(--slw-m);font-variant-numeric:tabular-nums}
@@ -297,7 +300,7 @@ function card(r: StorefrontReview, s: WidgetSettings, w: Words, ctx: { shopName:
     const pics = r.photos
       .map((p) => safeUrl(p, ctx.sample))
       .filter(Boolean)
-      .map((p) => `<a href="${esc(p)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt="${esc(`${UI_WORDS.photo_from} ${r.author}`)}" loading="lazy" decoding="async" width="72" height="72"></a>`)
+      .map((p) => `<a href="${esc(p)}" target="_blank" rel="noopener"><img src="${esc(p)}" alt="${esc(`${w.photo_from} ${r.author}`)}" loading="lazy" decoding="async" width="72" height="72"></a>`)
       .join("")
     if (pics) parts.push(`<div class="slw-photos">${pics}</div>`)
   }
@@ -313,9 +316,25 @@ function card(r: StorefrontReview, s: WidgetSettings, w: Words, ctx: { shopName:
   return `<article class="${cls}" data-review-id="${esc(r.id)}">${parts.join("")}</article>`
 }
 
-function head(s: WidgetSettings): string {
-  if (!s.heading && !s.subheading) return ""
-  return `<div class="slw__head">${s.heading ? `<h2 class="slw__h h2">${esc(s.heading)}</h2>` : ""}${s.subheading ? `<p class="slw__sub">${esc(s.subheading)}</p>` : ""}</div>`
+/** The widget's own heading when the look has none, in the page's language. */
+function ownHeading(type: WidgetType, w: Words): string {
+  if (type === "product_reviews" || type === "rating_summary") return w.customer_reviews
+  if (type === "grid" || type === "carousel" || type === "testimonials") return w.what_customers_say
+  if (type === "media_wall") return w.customer_photos
+  return ""
+}
+
+/**
+ * The heading: this page's own (a section setting, translated with the
+ * page), else the store's words for this language, else the look's, else
+ * the widget's own in the page's language. Off, none at all.
+ */
+function head(type: WidgetType, s: WidgetSettings, w: Words, page: { heading?: string; subheading?: string }): string {
+  if (!s.show_heading) return ""
+  const heading = page.heading || w.heading || s.heading || ownHeading(type, w)
+  const sub = page.subheading || w.subheading || s.subheading
+  if (!heading && !sub) return ""
+  return `<div class="slw__head">${heading ? `<h2 class="slw__h h2">${esc(heading)}</h2>` : ""}${sub ? `<p class="slw__sub">${esc(sub)}</p>` : ""}</div>`
 }
 
 function summaryBlock(sum: StorefrontReviewSummary, s: WidgetSettings, w: Words, locale: string | null | undefined, action = ""): string {
@@ -323,14 +342,14 @@ function summaryBlock(sum: StorefrontReviewSummary, s: WidgetSettings, w: Words,
     ? `<div class="slw-sum">${s.show_average ? `<p class="slw-big">${esc(sum.average_label)}</p>` : ""}<div>${stars(sum.average, sum.percent, w)}${s.show_count ? `<p class="slw-based">${esc(w.based_on)} ${esc(fmtCount(sum.count, locale))} ${esc(countWord(sum.count, w))}</p>` : ""}</div></div>`
     : `<div class="slw-sum"><p class="slw-based">${esc(w.no_reviews_yet)}</p></div>`
   const bars = s.show_bars && sum.count > 0
-    ? `<ul class="slw-bars" aria-label="${esc(UI_WORDS.reviews_by_rating)}">${sum.bars.map((b) => `<li><span>${b.stars} &#9733;</span><span class="slw-bar"><span style="width: ${Math.max(0, Math.min(100, Math.round(b.percent)))}%"></span></span><span>${esc(fmtCount(b.count, locale))}</span></li>`).join("")}</ul>`
+    ? `<ul class="slw-bars" aria-label="${esc(w.reviews_by_rating)}">${sum.bars.map((b) => `<li><span>${b.stars} &#9733;</span><span class="slw-bar"><span style="width: ${Math.max(0, Math.min(100, Math.round(b.percent)))}%"></span></span><span>${esc(fmtCount(b.count, locale))}</span></li>`).join("")}</ul>`
     : ""
   return `<div class="slw-top">${left}${bars}${action}</div>`
 }
 
 function writeForm(reviews: WidgetReviews, productId: string, w: Words, uid: string): string {
   const id = (n: number) => `slw-${uid}-r${n}`
-  const rate = [5, 4, 3, 2, 1].map((n) => `<input type="radio" id="${id(n)}" name="rating" value="${n}"${n === 5 ? " required" : ""}><label for="${id(n)}"><span class="slw-sr">${n} ${n === 1 ? UI_WORDS.star : UI_WORDS.stars}</span></label>`).join("")
+  const rate = [5, 4, 3, 2, 1].map((n) => `<input type="radio" id="${id(n)}" name="rating" value="${n}"${n === 5 ? " required" : ""}><label for="${id(n)}"><span class="slw-sr">${n} ${n === 1 ? w.star : w.stars}</span></label>`).join("")
   const action = safeUrl(reviews.form_action) || "/api/reviews/site"
   return `<details class="slw-write"><summary class="slw-btn">${esc(w.write_a_review)}</summary>`
     + `<form class="slw-form" method="post" action="${esc(action)}" enctype="multipart/form-data" data-storelib-form="native">`
@@ -369,6 +388,7 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
   const uid = input.uid && UID.test(input.uid) ? input.uid : "w"
   const ctx = { shopName, scope: pool.scope, sample }
   const editor = input.inEditor === true
+  const page = input.page ?? {}
   const canWrite = type === "product_reviews" && s.show_write && reviews.can_write === true && pool.scope === "product"
 
   const summaryOnly = type === "star_badge" || type === "trust_badge" || type === "rating_summary"
@@ -379,7 +399,7 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
   const emptyNote = editor ? `<p class="slw-empty">${esc(w.no_reviews_yet)}</p>` : ""
   switch (type) {
     case "product_reviews": {
-      body = head(s)
+      body = head(type, s, w, page)
         + (s.show_summary ? summaryBlock(pool.summary, s, w, locale) : "")
         + notes(w)
         + (canWrite ? writeForm(reviews, pool.productId, w, uid) : "")
@@ -406,29 +426,29 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
         ? `${stars(sum.average, sum.percent, w)}${s.show_average ? `<span class="slw-avg">${esc(sum.average_label)}</span>` : ""}${s.show_count ? `<span class="slw-count">${esc(w.rating_from)} ${esc(fmtCount(sum.count, locale))} ${esc(countWord(sum.count, w))}</span>` : ""}`
         : `${stars(0, 0, w)}<span class="slw-count">${esc(w.no_reviews_yet)}</span>`
       const line = href && sum.count > 0 ? `<a class="slw-line" href="${esc(href)}">${text}</a>` : `<span class="slw-line">${text}</span>`
-      body = head(s) + `<div class="slw-badge">${s.badge_layout === "banner" ? `<div class="slw-banner">${line}</div>` : line}</div>`
+      body = head(type, s, w, page) + `<div class="slw-badge">${s.badge_layout === "banner" ? `<div class="slw-banner">${line}</div>` : line}</div>`
       break
     }
     case "rating_summary": {
       const action = s.show_write && pool.scope === "product" && reviews.can_write ? `<a class="slw-btn" href="#reviews">${esc(w.write_a_review)}</a>` : ""
-      body = head(s) + summaryBlock(pool.summary, s, w, locale, action)
+      body = head(type, s, w, page) + summaryBlock(pool.summary, s, w, locale, action)
       break
     }
     case "grid": {
       const line = s.show_summary && pool.summary.count > 0 ? `<p class="slw-line" style="margin:0 0 18px">${stars(pool.summary.average, pool.summary.percent, w)}<span class="slw-avg">${esc(pool.summary.average_label)}</span><span class="slw-count">${esc(w.rating_from)} ${esc(fmtCount(pool.summary.count, locale))} ${esc(countWord(pool.summary.count, w))}</span></p>` : ""
-      body = head(s) + line + (pool.items.length ? `<div class="slw-grid">${pool.items.map((r) => card(r, s, w, ctx)).join("")}</div>` : emptyNote)
+      body = head(type, s, w, page) + line + (pool.items.length ? `<div class="slw-grid">${pool.items.map((r) => card(r, s, w, ctx)).join("")}</div>` : emptyNote)
       break
     }
     case "carousel": {
       const n = pool.items.length
-      const label = s.heading || WIDGET_INFO.carousel.name
-      body = head(s) + (n
+      const label = page.heading || s.heading || ownHeading(type, w) || WIDGET_INFO.carousel.name
+      body = head(type, s, w, page) + (n
         ? `<div class="slw-car" data-slw-carousel${s.autoplay ? ` data-autoplay="${s.autoplay_seconds}"` : ""}><div class="slw-track" role="region" aria-roledescription="carousel" aria-label="${esc(label)}" tabindex="0">${pool.items.map((r, i) => card(r, s, w, ctx, "slw-card").replace("<article ", `<article role="group" aria-roledescription="slide" aria-label="${i + 1} / ${n}" `)).join("")}</div><div class="slw-navs"><button type="button" class="slw-nav" data-slw-prev aria-label="${esc(w.previous)}">&#8592;</button><button type="button" class="slw-nav" data-slw-next aria-label="${esc(w.next)}">&#8594;</button></div></div>`
         : emptyNote)
       break
     }
     case "testimonials": {
-      body = head(s) + (pool.items.length ? `<div class="slw-grid">${pool.items.map((r) => card(r, s, w, ctx, "slw-card slw-quote")).join("")}</div>` : emptyNote)
+      body = head(type, s, w, page) + (pool.items.length ? `<div class="slw-grid">${pool.items.map((r) => card(r, s, w, ctx, "slw-card slw-quote")).join("")}</div>` : emptyNote)
       break
     }
     case "media_wall": {
@@ -438,18 +458,18 @@ export function renderReviewWidget(input: WidgetRenderInput): string {
           const src = safeUrl(p, sample)
           if (!src) continue
           if (tiles.length >= s.limit) break
-          tiles.push(`<a class="slw-tile" href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(`${UI_WORDS.photo_from} ${r.author}`)}" loading="lazy" decoding="async"><span class="slw-tile__meta">${stars(r.rating, r.rating * 20, w)}${s.show_name ? `<span>${esc(r.author)}</span>` : ""}</span></a>`)
+          tiles.push(`<a class="slw-tile" href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(`${w.photo_from} ${r.author}`)}" loading="lazy" decoding="async"><span class="slw-tile__meta">${stars(r.rating, r.rating * 20, w)}${s.show_name ? `<span>${esc(r.author)}</span>` : ""}</span></a>`)
         }
       }
       if (!tiles.length && s.hide_when_empty && !editor) return ""
-      body = head(s) + (tiles.length ? `<div class="slw-tiles" aria-label="${esc(w.customer_photos)}" role="list">${tiles.map((t) => t.replace("<a ", '<a role="listitem" ')).join("")}</div>` : emptyNote)
+      body = head(type, s, w, page) + (tiles.length ? `<div class="slw-tiles" aria-label="${esc(w.customer_photos)}" role="list">${tiles.map((t) => t.replace("<a ", '<a role="listitem" ')).join("")}</div>` : emptyNote)
       break
     }
     case "marquee": {
       if (pool.items.length) {
         const set = pool.items.map((r) => card({ ...r, body: r.body.length > 180 ? `${r.body.slice(0, 177).trimEnd()}...` : r.body }, s, w, ctx)).join("")
-        body = head(s) + `<div class="slw-mq" tabindex="0" aria-label="${esc(s.heading || WIDGET_INFO.marquee.name)}"><div class="slw-mq__track"><div class="slw-mq__set">${set}</div><div class="slw-mq__set" aria-hidden="true">${set.replace(/<a /g, '<a tabindex="-1" ')}</div></div></div>`
-      } else body = head(s) + emptyNote
+        body = head(type, s, w, page) + `<div class="slw-mq" tabindex="0" aria-label="${esc(page.heading || s.heading || w.customer_reviews)}"><div class="slw-mq__track"><div class="slw-mq__set">${set}</div><div class="slw-mq__set" aria-hidden="true">${set.replace(/<a /g, '<a tabindex="-1" ')}</div></div></div>`
+      } else body = head(type, s, w, page) + emptyNote
       break
     }
   }
@@ -481,9 +501,12 @@ export function renderReviewWidgetSection(input: {
   const id = typeof settings.review_config === "string" ? settings.review_config : ""
   const saved = id && input.reviews?.widgets?.[id]
   const base = saved && saved.type === type ? saved.settings : undefined
+  /* The page's own heading wins over the look's words in every language: it is the page's text, translated with the page. */
+  const { heading, subheading, ...overrides } = sectionOverrides(settings)
   return renderReviewWidget({
     type,
-    settings: resolveWidgetSettings(type, base, sectionOverrides(settings)),
+    settings: resolveWidgetSettings(type, base, overrides),
+    page: { heading, subheading },
     reviews: input.reviews,
     words: input.words,
     shopName: input.shopName,

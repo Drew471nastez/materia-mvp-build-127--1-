@@ -119,6 +119,8 @@ export const UI_WORDS = {
   next: "Next",
   customer_photos: "Customer photos",
   read_all_reviews: "Read all reviews",
+  customer_reviews: "Customer reviews",
+  what_customers_say: "What customers say",
   breadcrumb: "Breadcrumb",
   contact: "Contact",
   email_me_news_from: "Email me news from",

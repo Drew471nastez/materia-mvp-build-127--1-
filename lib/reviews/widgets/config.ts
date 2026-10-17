@@ -74,8 +74,10 @@ export type BadgeLayout = "inline" | "banner"
 
 export interface WidgetSettings {
   /* Words */
+  /** Empty: the widget's own heading in the page's language ("Customer reviews", "What customers say"). */
   heading: string
   subheading: string
+  show_heading: boolean
   align: Align
   /* Colours: a hex colour, or "" to take the theme's */
   star_color: string
@@ -141,7 +143,8 @@ export type BoolKey = { [K in keyof WidgetSettings]: WidgetSettings[K] extends b
 
 /** Each number's range, and its step for a slider. */
 export const NUMBER_RANGES: Record<NumberKey, { min: number; max: number; step: number }> = {
-  heading_size: { min: 14, max: 56, step: 1 },
+  /* 0 is the theme's own heading size. */
+  heading_size: { min: 0, max: 56, step: 1 },
   text_size: { min: 12, max: 22, step: 1 },
   star_size: { min: 10, max: 40, step: 1 },
   border_width: { min: 0, max: 4, step: 1 },
@@ -176,12 +179,15 @@ export const WIDGET_COLOR_KEYS: readonly ColorKey[] = COLOR_KEYS
 
 const TEXT_KEYS = ["heading", "subheading"] as const
 const BOOL_KEYS: readonly BoolKey[] = [
-  "autoplay", "show_name", "show_date", "show_verified", "show_product", "show_photos", "show_reply", "show_title",
+  "show_heading", "autoplay", "show_name", "show_date", "show_verified", "show_product", "show_photos", "show_reply", "show_title",
   "show_summary", "show_bars", "show_write", "show_count", "show_average", "only_with_text", "only_with_media", "hide_when_empty",
 ]
 
 /** The words a widget draws itself, which a store may say otherwise per language. Keys of lib/markets/ui-words.ts. */
 export const WIDGET_LABEL_KEYS = [
+  /* The look's heading and supporting line, in another language: the store's own only, never a dictionary word. */
+  "heading", "subheading",
+  "customer_reviews", "what_customers_say", "star", "stars", "reviews_by_rating", "photo_from",
   "write_a_review", "verified_buyer", "based_on", "reviews", "review", "no_reviews_yet", "reply_from", "show_more_reviews",
   "rating_from", "out_of_five_stars", "post_review", "your_rating", "your_review", "review_title", "your_name", "email",
   "previous", "next", "customer_photos", "read_all_reviews", "review_privacy", "review_posted", "review_waiting",
@@ -198,6 +204,7 @@ const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
 const BASE: WidgetSettings = {
   heading: "",
   subheading: "",
+  show_heading: true,
   align: "left",
   star_color: "",
   text_color: "",
@@ -208,7 +215,7 @@ const BASE: WidgetSettings = {
   button_color: "",
   button_text: "",
   font: "theme",
-  heading_size: 28,
+  heading_size: 0,
   text_size: 15,
   star_shape: "sharp",
   star_size: 16,
@@ -251,15 +258,15 @@ const BASE: WidgetSettings = {
 
 /** What each widget starts as: the base, with what suits it. */
 const TYPE_DEFAULTS: Record<WidgetType, Partial<WidgetSettings>> = {
-  product_reviews: { heading: "Customer reviews", card_style: "plain", columns: 1, limit: 24, rows_before_more: 5, max_width: 960, hide_when_empty: false, scope: "auto" },
-  star_badge: { padding_top: 4, padding_bottom: 4, star_size: 18, show_date: false, hide_when_empty: true },
-  rating_summary: { heading: "Customer reviews", padding_top: 32, padding_bottom: 32, max_width: 720, show_write: false },
-  grid: { heading: "What customers say", columns: 3, limit: 9, show_product: true, scope: "shop" },
-  carousel: { heading: "What customers say", columns: 3, limit: 10, show_product: true, scope: "shop", min_rating: 4 },
-  testimonials: { heading: "Loved by our customers", align: "center", columns: 3, limit: 3, card_style: "plain", text_size: 18, show_date: false, show_photos: false, show_reply: false, scope: "shop", min_rating: 4, only_with_text: true },
-  media_wall: { heading: "Customer photos", columns: 4, columns_mobile: 2, limit: 12, gap: 8, radius: 10, only_with_media: true, sort: "photos", scope: "shop" },
-  marquee: { padding_top: 20, padding_bottom: 20, limit: 12, card_padding: 14, show_date: false, show_photos: false, show_reply: false, show_title: false, scope: "shop", min_rating: 4, only_with_text: true },
-  trust_badge: { align: "center", padding_top: 20, padding_bottom: 20, star_size: 20, scope: "shop", badge_layout: "inline" },
+  product_reviews: { card_style: "plain", columns: 1, limit: 24, rows_before_more: 5, max_width: 960, hide_when_empty: false, scope: "auto" },
+  star_badge: { show_heading: false, padding_top: 4, padding_bottom: 4, star_size: 18, show_date: false, hide_when_empty: true },
+  rating_summary: { padding_top: 32, padding_bottom: 32, max_width: 720, show_write: false },
+  grid: { columns: 3, limit: 9, show_product: true, scope: "shop" },
+  carousel: { columns: 3, limit: 10, show_product: true, scope: "shop", min_rating: 4 },
+  testimonials: { align: "center", columns: 3, limit: 3, card_style: "plain", text_size: 18, show_date: false, show_photos: false, show_reply: false, scope: "shop", min_rating: 4, only_with_text: true },
+  media_wall: { columns: 4, columns_mobile: 2, limit: 12, gap: 8, radius: 10, only_with_media: true, sort: "photos", scope: "shop" },
+  marquee: { show_heading: false, padding_top: 20, padding_bottom: 20, limit: 12, card_padding: 14, show_date: false, show_photos: false, show_reply: false, show_title: false, scope: "shop", min_rating: 4, only_with_text: true },
+  trust_badge: { show_heading: false, align: "center", padding_top: 20, padding_bottom: 20, star_size: 20, scope: "shop", badge_layout: "inline" },
 }
 
 export function defaultWidgetSettings(type: WidgetType): WidgetSettings {
@@ -424,6 +431,10 @@ export function widgetWords(
   const out = {} as Record<WidgetLabelKey, string>
   for (const k of WIDGET_LABEL_KEYS) {
     const mine = own[k]
+    if (k === "heading" || k === "subheading") {
+      out[k] = mine?.trim() ?? ""
+      continue
+    }
     const dict = words?.[k]
     out[k] = (mine && mine.trim()) || (typeof dict === "string" && dict.trim() ? dict : "") || english[k] || k
   }

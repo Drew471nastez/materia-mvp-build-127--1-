@@ -20,7 +20,15 @@
 </template>
 
 <style scoped>
-.s { background: var(--s-bg); color: var(--s-text); }
+.s { background: var(--s-bg); color: var(--s-text); --slw-theme-hs: var(--section-heading-size, 32px); }
+/* The theme's heading style (Theme settings › Typography, the section's heading style), unless the saved look picks its own font or size. */
+.s .slw__h {
+  font-family: var(--slw-font, var(--section-heading-font, var(--theme-font-heading, inherit)));
+  font-weight: var(--section-heading-weight, 700);
+  line-height: var(--section-heading-line-height, 1.15);
+  letter-spacing: var(--section-heading-tracking, -0.01em);
+  text-transform: var(--section-heading-transform, none);
+}
 </style>
 
 <schema>
