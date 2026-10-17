@@ -69,7 +69,7 @@ async function slotHolders(db: Db, creatorId: string): Promise<{ id: string; cre
   const pending = await pendingDeletions(db, rows.filter((r) => r.status === "archived" || r.archived_at).map((r) => r.id))
   return rows
     .filter((r) => takesCommunitySlot({ deleting: pending.has(r.id) }))
-    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
 }
 
 /**

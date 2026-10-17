@@ -707,6 +707,12 @@ const STRICT_SUITES = [
     narrowed by `if (!x.ok)`, which only narrows under strict.
   */
   "tests/community-lifecycle-round33.test.ts",
+  /*
+    Round 26 (W1): a community being deleted takes no place on the plan, Keep after a replacement, two tabs, the
+    states and the cards (scripts/check-cards-round26.mjs measures the cards). Here for the same reason as the line
+    above: it runs lib/communities/server/creator.ts.
+  */
+  "tests/cards26.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
