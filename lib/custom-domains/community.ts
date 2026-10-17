@@ -97,9 +97,15 @@ export function communityRobots(host: string): string {
   return `User-agent: *\nAllow: /\n\nSitemap: https://${host}/sitemap.xml\n`
 }
 
-/** sitemap.xml for a community's domain: its two public pages. */
+/**
+ * sitemap.xml for a community's domain: its one canonical address, the
+ * root. /about is the same page and names the root as its canonical
+ * (components/community/public/seo.ts), so it is not listed (round 26: a
+ * sitemap names canonical addresses only). Whether the root may be indexed
+ * is the page's own robots tag, decided from the community's state.
+ */
 export function communitySitemap(host: string): string {
-  const urls = [`https://${host}/`, `https://${host}/about`]
+  const urls = [`https://${host}/`]
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n")}\n</urlset>\n`
 }
 
