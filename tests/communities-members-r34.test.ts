@@ -22,6 +22,9 @@
  *               the database update has run.
  *   LISTS       the filters and the search of the Members query, and the
  *               export's columns.
+ *   DETAIL      what a member opened shows: their activity, their access in
+ *               one line, and the programs only somebody who may manage
+ *               members is sent.
  *   PRIVACY     every shape the browser can ask for about another member,
  *               searched through every key and every value for an email, a
  *               payment, an order, a Stripe id and a private enrolment.
@@ -38,6 +41,8 @@ import { featuredMembers, setMemberFeatured } from "@/lib/communities/server/fea
 import { actOnMember, memberActionNeeds } from "@/lib/communities/server/moderation"
 import { listMembers as directoryMembers, memberProfile } from "@/lib/communities/server/directory"
 import { personCard } from "@/lib/communities/server/people"
+import { engagementLine, subscriptionLine } from "@/lib/communities/member-detail"
+import { memberDetail } from "@/lib/communities/server/member-detail"
 import { parseMemberQuery } from "@/components/community/creator/logic"
 import type { CommunityRow } from "@/lib/communities/types"
 
@@ -433,11 +438,55 @@ async function privacy() {
   check("DATA-SAFETY.md says what a member profile never shows", /What a member never sees about another member/.test(safety))
 }
 
+/* ── A member opened ───────────────────────────────────────────────────── */
+
+const memberRowOf = (db: ReturnType<typeof fakeDb>, userId: string) => db.tables.community_members.find((m) => m.user_id === userId) as never
+
+async function detail() {
+  console.log("\nA member opened\n")
+  check("the membership reads as one line, from the row alone", subscriptionLine({ source: "subscription", expiresAt: null, complimentary: false }, "active") === "Paying, renews on its own" && subscriptionLine({ source: "manual", expiresAt: null, complimentary: true }, "active").startsWith("Complimentary") && subscriptionLine({ source: "free", expiresAt: null, complimentary: false }, "active") === "Free" && subscriptionLine({ source: "purchase", expiresAt: null, complimentary: false }, "active") === "Bought, does not end")
+  check("an end date in the past reads as ended, one ahead as paid", subscriptionLine({ source: "subscription", expiresAt: "2026-02-01T00:00:00Z", complimentary: false }, "active", Date.parse("2026-01-01T00:00:00Z")) === "Paid, with an end date" && subscriptionLine({ source: "subscription", expiresAt: "2026-02-01T00:00:00Z", complimentary: false }, "active", Date.parse("2026-03-01T00:00:00Z")) === "Access has ended")
+  check("a status that is not active says what it is, whatever the plan", subscriptionLine({ source: "subscription", expiresAt: null, complimentary: false }, "banned") === "Banned" && subscriptionLine({ source: "subscription", expiresAt: null, complimentary: false }, "pending") === "Waiting to be let in" && subscriptionLine({ source: "subscription", expiresAt: null, complimentary: true }, "removed") === "Removed")
+  check("a figure that cannot be read is never a nought", engagementLine({ posts: null, comments: null, likes: null, lastPostAt: null }) === "Not counted yet" && engagementLine({ posts: 0, comments: 0, likes: 0, lastPostAt: null }) === "Nothing here yet" && engagementLine({ posts: 4, comments: null, likes: null, lastPostAt: null }) === "4 posts" && engagementLine({ posts: 1, comments: 2, likes: 3, lastPostAt: null }) === "1 post · 2 comments · 3 likes")
+
+  {
+    const db = fakeDb(rows())
+    const d = await memberDetail(db as never, community, memberRowOf(db, PAYING), { role: "owner", perms: null })
+    check("the owner sees their plan, how they got in and the programs they have", d.access.tierName === "Lifetime" && d.access.source === "subscription" && Array.isArray(d.learning) && d.learning.length === 1 && d.learning[0].title === SECRETS.privateProgram)
+    check("and the posts here are counted even with no activity function", d.engagement.posts === 1 && d.engagement.comments === null && d.engagement.likes === null)
+    check("nothing private is in it", privateBits(d).length === 0, privateBits(d).join(", "))
+  }
+  {
+    const db = fakeDb(rows())
+    const d = await memberDetail(db as never, community, memberRowOf(db, PAYING), { role: "moderator", perms: null })
+    check("a moderator is sent no enrolment at all", d.learning === null)
+    check("and still sees what they need to act: the activity and the access", d.engagement.posts === 1 && d.access.source === "subscription")
+    check("nothing private is in a moderator's copy either", privateBits(d).length === 0, privateBits(d).join(", "))
+  }
+  {
+    const db = fakeDb(rows())
+    const d = await memberDetail(db as never, community, memberRowOf(db, MEMBER), { role: "admin", perms: null })
+    check("somebody with no plan and no programs reads as empty, not as broken", d.access.tierName === null && Array.isArray(d.learning) && d.learning.length === 0 && d.engagement.posts === 0)
+  }
+  {
+    /* The owner took the people group from their admins: the enrolment goes with it. */
+    const db = fakeDb(rows())
+    const d = await memberDetail(db as never, community, memberRowOf(db, PAYING), { role: "admin", perms: { admin: { people: false } } })
+    check("an admin the people group was taken from is sent no enrolment", d.learning === null)
+  }
+  {
+    const db = fakeDb(rows(), { failWith: { community_feed_posts: { code: "42P01", message: "relation does not exist" }, community_courses: { code: "42P01", message: "relation does not exist" } } })
+    const d = await memberDetail(db as never, community, memberRowOf(db, PAYING), { role: "owner", perms: null })
+    check("nothing readable means null and an empty list, never a thrown page", d.engagement.posts === null && d.engagement.lastPostAt === null && Array.isArray(d.learning) && d.learning.length === 0 && engagementLine(d.engagement) === "Not counted yet")
+  }
+}
+
 async function main() {
   await actions()
   await featured()
   lists()
   await privacy()
+  await detail()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log("\nFailures:")
