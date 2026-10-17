@@ -82,6 +82,7 @@ import type { ComposerSpace as MemberComposerSpace } from "@/components/communit
 import type { CommunityHead, FeedRowView } from "./view-types"
 import { Confirm, Empty, FilterTabs, ListCard, Notice, PickButton, RowMenu, SearchField, ToolbarDivider, buttonPrimary, errorText, send, useToast } from "./parts"
 import { ListFoot } from "./ui-kit"
+import { useOpenReports } from "./community-shell"
 import { FormSheet } from "./form-sheet"
 import { ROW_PRESS, RowControls, rowPress } from "./rows"
 import { tt } from "@/lib/i18n/text"
@@ -229,6 +230,7 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
   const router = useRouter()
   const toast = useToast()
   const base = `/api/app/community/${head.id}`
+  const [, setOpenReports] = useOpenReports(head.openReports)
   const me = head.me ?? null
   const [show, setShow] = React.useState<Show>("all")
   const [q, setQ] = React.useState("")
@@ -391,8 +393,10 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
   /* `quiet`: asked from the popup, whose buttons show what happened; an error is handed back for it to say. */
   const act = async (r: FeedRowView, action: string, extra?: { reason?: string; spaceId?: string }, quiet = false): Promise<string | null> => {
     setBusy(true)
-    const res = await send<{ status?: string }>(`${base}/moderation`, "POST", { action, targetType: "post", targetId: r.id, reason: extra?.reason, spaceId: extra?.spaceId })
+    const res = await send<{ status?: string; open?: number }>(`${base}/moderation`, "POST", { action, targetType: "post", targetId: r.id, reason: extra?.reason, spaceId: extra?.spaceId })
     setBusy(false)
+    /* Removing a post here closes the reports about it, so the Moderation count in the row of tabs follows (./community-shell.tsx). */
+    if (res.ok && typeof res.data.open === "number" && res.data.open >= 0) setOpenReports(Math.round(res.data.open))
     if (!res.ok) {
       const said = errorText(res.data.error)
       if (!quiet) toast(said)

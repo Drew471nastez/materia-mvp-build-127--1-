@@ -147,6 +147,8 @@ async function main() {
   check("the section writes to the shared count", /useOpenReports\(head\.openReports\)/.test(section) && /from "\.\/community-shell"/.test(section))
   check("and never moves it by hand any more", !/setOpenCount\(\(n\) =>/.test(section), "a minus one in the browser drifts from the queue")
   check("it takes the number the server just counted", /const tell = \(open: unknown\)/.test(section) && (section.match(/\btell\(/g) ?? []).length >= 4)
+  /* Posts is the other place a removal closes reports, so the count follows from there too. */
+  check("removing a post from Posts moves the count as well", /useOpenReports\(head\.openReports\)/.test(code("components/community/creator/feed-section.tsx")) && /setOpenReports\(Math\.round\(res\.data\.open\)\)/.test(code("components/community/creator/feed-section.tsx")))
 
   /* ── What a report may be, and what it may not ───────────────────────── */
   console.log("\nreporting")
