@@ -136,6 +136,8 @@ export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back()
 export const useSearchParams = () => new URLSearchParams()
 export const redirect = () => {}
 export const notFound = () => {}
+export const permanentRedirect = () => {}
+export const RedirectType = { push: "push", replace: "replace" }
 `,
 }
 

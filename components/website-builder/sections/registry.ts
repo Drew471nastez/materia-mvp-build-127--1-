@@ -20,6 +20,8 @@
 
 import type { ComponentType } from "react"
 import type { SectionProps } from "./_shared"
+import { lazySection } from "./lazy-section"
+export { preloadSectionRenderers } from "./lazy-section"
 
 // ── Built-in section renderers (one import per section type) ──
 import { HeaderSection } from "./renderers/HeaderSection"
@@ -40,56 +42,74 @@ import { StorelibSection } from "./StorelibSection"
   names (tests/storelib-theme.test.ts) and nothing else.
 */
 import { DEFAULT_STORELIB_SECTION_TYPES as STORELIB_SECTION_TYPES } from "@/themes/default/section-types.generated"
-import { RichTextSection } from "./renderers/RichTextSection"
-import { ImageBannerSection } from "./renderers/ImageBannerSection"
-import { ImageSection } from "./renderers/ImageSection"
-import { SlideshowSection } from "./renderers/SlideshowSection"
-import { SplitContentSection } from "./renderers/SplitContentSection"
-import { ProductListSection } from "./renderers/ProductListSection"
-import { TestimonialsSection } from "./renderers/TestimonialsSection"
-import { FaqSection } from "./renderers/FaqSection"
-import { CtaSection } from "./renderers/CtaSection"
-import { StatsSection } from "./renderers/StatsSection"
-import { FeatureGridSection } from "./renderers/FeatureGridSection"
-import { PricingSection } from "./renderers/PricingSection"
-import { LogoBarSection } from "./renderers/LogoBarSection"
-import { GallerySection } from "./renderers/GallerySection"
-import { ScrollingTextSection } from "./renderers/ScrollingTextSection"
-import { CounterSection } from "./renderers/CounterSection"
-import { ImageComparisonSection } from "./renderers/ImageComparisonSection"
-import { CollectionListSection } from "./renderers/CollectionListSection"
-import { IconBoxSection } from "./renderers/IconBoxSection"
-import { PromotionBannerSection } from "./renderers/PromotionBannerSection"
-import { BannerPackerySection } from "./renderers/BannerPackerySection"
-import { ProductsCarouselSection } from "./renderers/ProductsCarouselSection"
-import { BrandLogoSection } from "./renderers/BrandLogoSection"
-import { CountdownTimerSection } from "./renderers/CountdownTimerSection"
 
 // Newly-built (Stage 2 finishers): the 22 sections whose schemas
 // shipped earlier but lacked a renderer. Each now has a compact,
 // production-ready renderer under ./renderers/*.
-import { AnnouncementBannerSection } from "./renderers/AnnouncementBannerSection"
-import { StickyBarSection } from "./renderers/StickyBarSection"
-import { CustomHtmlSection } from "./renderers/CustomHtmlSection"
-import { SocialProofBarSection } from "./renderers/SocialProofBarSection"
-import { TrustBadgesSection } from "./renderers/TrustBadgesSection"
-import { MapEmbedSection } from "./renderers/MapEmbedSection"
-import { VideoEmbedSection } from "./renderers/VideoEmbedSection"
-import { NewsletterSection } from "./renderers/NewsletterSection"
-import { VideoHeroSection } from "./renderers/VideoHeroSection"
-import { ProcessStepsSection } from "./renderers/ProcessStepsSection"
-import { TeamMembersSection } from "./renderers/TeamMembersSection"
-import { PressMentionsSection } from "./renderers/PressMentionsSection"
-import { TimelineSection } from "./renderers/TimelineSection"
-import { TabsContentSection } from "./renderers/TabsContentSection"
-import { ComparisonTableSection } from "./renderers/ComparisonTableSection"
-import { ContactFormSection } from "./renderers/ContactFormSection"
-import { EbookShowcaseSection } from "./renderers/EbookShowcaseSection"
-import { AuthorBioSection } from "./renderers/AuthorBioSection"
-import { ChapterPreviewSection } from "./renderers/ChapterPreviewSection"
-import { LookbookSection } from "./renderers/LookbookSection"
-import { SizeGuideSection } from "./renderers/SizeGuideSection"
-import { CollectionBannerSection } from "./renderers/CollectionBannerSection"
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   ONLY THE SECTIONS A PAGE DRAWS ARE DOWNLOADED
+  ═══════════════════════════════════════════════════════════════════════════
+  Every one of the renderers below was in the script every visitor of every
+  published website downloaded, whichever sections the page had: 216KB of
+  the 626KB site bundle (minified, before gzip; measured by bundling the
+  site's client entry with esbuild), for sections most new sites never use
+  because Storelib's own theme draws its sections from .storelib files.
+
+  The header, the footer and the product section are on nearly every page and
+  stay in the bundle. The rest are fetched when a page draws one
+  (./lazy-section.tsx): the server still draws them in full, so nothing is
+  missing from the page or from search, and the browser makes them
+  interactive once their file arrives. A link followed on the site fetches
+  them ahead (preloadSectionRenderers), so the next page never waits.
+*/
+const RichTextSection = lazySection(() => import("./renderers/RichTextSection").then((m) => m.RichTextSection))
+const ImageBannerSection = lazySection(() => import("./renderers/ImageBannerSection").then((m) => m.ImageBannerSection))
+const ImageSection = lazySection(() => import("./renderers/ImageSection").then((m) => m.ImageSection))
+const SlideshowSection = lazySection(() => import("./renderers/SlideshowSection").then((m) => m.SlideshowSection))
+const SplitContentSection = lazySection(() => import("./renderers/SplitContentSection").then((m) => m.SplitContentSection))
+const ProductListSection = lazySection(() => import("./renderers/ProductListSection").then((m) => m.ProductListSection))
+const TestimonialsSection = lazySection(() => import("./renderers/TestimonialsSection").then((m) => m.TestimonialsSection))
+const FaqSection = lazySection(() => import("./renderers/FaqSection").then((m) => m.FaqSection))
+const CtaSection = lazySection(() => import("./renderers/CtaSection").then((m) => m.CtaSection))
+const StatsSection = lazySection(() => import("./renderers/StatsSection").then((m) => m.StatsSection))
+const FeatureGridSection = lazySection(() => import("./renderers/FeatureGridSection").then((m) => m.FeatureGridSection))
+const PricingSection = lazySection(() => import("./renderers/PricingSection").then((m) => m.PricingSection))
+const LogoBarSection = lazySection(() => import("./renderers/LogoBarSection").then((m) => m.LogoBarSection))
+const GallerySection = lazySection(() => import("./renderers/GallerySection").then((m) => m.GallerySection))
+const ScrollingTextSection = lazySection(() => import("./renderers/ScrollingTextSection").then((m) => m.ScrollingTextSection))
+const CounterSection = lazySection(() => import("./renderers/CounterSection").then((m) => m.CounterSection))
+const ImageComparisonSection = lazySection(() => import("./renderers/ImageComparisonSection").then((m) => m.ImageComparisonSection))
+const CollectionListSection = lazySection(() => import("./renderers/CollectionListSection").then((m) => m.CollectionListSection))
+const IconBoxSection = lazySection(() => import("./renderers/IconBoxSection").then((m) => m.IconBoxSection))
+const PromotionBannerSection = lazySection(() => import("./renderers/PromotionBannerSection").then((m) => m.PromotionBannerSection))
+const BannerPackerySection = lazySection(() => import("./renderers/BannerPackerySection").then((m) => m.BannerPackerySection))
+const ProductsCarouselSection = lazySection(() => import("./renderers/ProductsCarouselSection").then((m) => m.ProductsCarouselSection))
+const BrandLogoSection = lazySection(() => import("./renderers/BrandLogoSection").then((m) => m.BrandLogoSection))
+const CountdownTimerSection = lazySection(() => import("./renderers/CountdownTimerSection").then((m) => m.CountdownTimerSection))
+const AnnouncementBannerSection = lazySection(() => import("./renderers/AnnouncementBannerSection").then((m) => m.AnnouncementBannerSection))
+const StickyBarSection = lazySection(() => import("./renderers/StickyBarSection").then((m) => m.StickyBarSection))
+const CustomHtmlSection = lazySection(() => import("./renderers/CustomHtmlSection").then((m) => m.CustomHtmlSection))
+const SocialProofBarSection = lazySection(() => import("./renderers/SocialProofBarSection").then((m) => m.SocialProofBarSection))
+const TrustBadgesSection = lazySection(() => import("./renderers/TrustBadgesSection").then((m) => m.TrustBadgesSection))
+const MapEmbedSection = lazySection(() => import("./renderers/MapEmbedSection").then((m) => m.MapEmbedSection))
+const VideoEmbedSection = lazySection(() => import("./renderers/VideoEmbedSection").then((m) => m.VideoEmbedSection))
+const NewsletterSection = lazySection(() => import("./renderers/NewsletterSection").then((m) => m.NewsletterSection))
+const VideoHeroSection = lazySection(() => import("./renderers/VideoHeroSection").then((m) => m.VideoHeroSection))
+const ProcessStepsSection = lazySection(() => import("./renderers/ProcessStepsSection").then((m) => m.ProcessStepsSection))
+const TeamMembersSection = lazySection(() => import("./renderers/TeamMembersSection").then((m) => m.TeamMembersSection))
+const PressMentionsSection = lazySection(() => import("./renderers/PressMentionsSection").then((m) => m.PressMentionsSection))
+const TimelineSection = lazySection(() => import("./renderers/TimelineSection").then((m) => m.TimelineSection))
+const TabsContentSection = lazySection(() => import("./renderers/TabsContentSection").then((m) => m.TabsContentSection))
+const ComparisonTableSection = lazySection(() => import("./renderers/ComparisonTableSection").then((m) => m.ComparisonTableSection))
+const ContactFormSection = lazySection(() => import("./renderers/ContactFormSection").then((m) => m.ContactFormSection))
+const EbookShowcaseSection = lazySection(() => import("./renderers/EbookShowcaseSection").then((m) => m.EbookShowcaseSection))
+const AuthorBioSection = lazySection(() => import("./renderers/AuthorBioSection").then((m) => m.AuthorBioSection))
+const ChapterPreviewSection = lazySection(() => import("./renderers/ChapterPreviewSection").then((m) => m.ChapterPreviewSection))
+const LookbookSection = lazySection(() => import("./renderers/LookbookSection").then((m) => m.LookbookSection))
+const SizeGuideSection = lazySection(() => import("./renderers/SizeGuideSection").then((m) => m.SizeGuideSection))
+const CollectionBannerSection = lazySection(() => import("./renderers/CollectionBannerSection").then((m) => m.CollectionBannerSection))
 
 // ── Registry ──────────────────────────────────────────────────
 // Keys MUST match the `type` field in each section's schema.

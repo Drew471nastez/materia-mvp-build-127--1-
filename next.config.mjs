@@ -128,8 +128,12 @@ const nextConfig = {
      * original at any zoom a visitor will use and still a fraction of its
      * size. 75 stays for everything else. PORTRAIT_QUALITY in
      * lib/images/optimized-url.ts is the other half of this pair.
+     *
+     * 90 is a published website's pictures (SITE_PICTURE_QUALITY there): the
+     * creator's own photographs, re-encoded once at the width the screen
+     * needs and never visibly softer than what they uploaded.
      */
-    qualities: [75, 88],
+    qualities: [75, 88, 90],
   },
   experimental: {
     /**

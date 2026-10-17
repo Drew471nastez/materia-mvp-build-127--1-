@@ -13,6 +13,7 @@ import type { SecurityIssue } from "@/lib/website-builder/security-scan"
 import { PAGE_META, type PageKey } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { openOpeningTab } from "@/lib/website-builder/opening-tab"
 
 /**
  * ===========================================================================
@@ -358,9 +359,11 @@ function Body({
     /**
      * The tab is opened now and pointed somewhere after. A window opened on
      * the far side of an await is not attributable to the press any more,
-     * and every browser blocks it.
+     * and every browser blocks it. It says "Opening your website" while it
+     * waits and why in place when the link cannot be made, never a blank
+     * about:blank tab (lib/website-builder/opening-tab.ts).
      */
-    const tab = window.open("", "_blank")
+    const tab = openOpeningTab("Getting the preview of your drafts.")
     setPreviewBusy(true)
     setPreviewNote(null)
     try {
@@ -371,15 +374,15 @@ function Body({
       })
       const j = (await r.json().catch(() => ({}))) as { token?: string; url?: string; error?: string }
       if (!r.ok || !j.url || !j.token) {
-        tab?.close()
-        setPreviewNote(j.error ?? tt("Could not make a preview link."))
+        const reason = j.error ?? tt("Could not make a preview link.")
+        tab?.fail(reason)
+        setPreviewNote(reason)
         return
       }
       setPreviewToken(j.token)
-      if (tab) tab.location.href = j.url
-      else window.open(j.url, "_blank", "noopener")
+      if (!tab?.go(j.url)) window.open(j.url, "_blank", "noopener")
     } catch {
-      tab?.close()
+      tab?.fail(tt("Could not make a preview link."))
       setPreviewNote(tt("Could not make a preview link."))
     } finally {
       setPreviewBusy(false)

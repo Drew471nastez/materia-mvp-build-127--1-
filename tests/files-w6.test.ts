@@ -91,7 +91,7 @@ async function main() {
   check("its tile shows the file's type instead", /<Placeholder file=\{file\} className="hidden peer-data-\[failed\]:flex" \/>/.test(lib) && /function typeLabel/.test(lib))
   check("a file whose address answers not found leaves the list", /async function objectGone/.test(lib) && /r\.status === 400 \|\| r\.status === 404/.test(lib) && /setFiles\(\(list\) => list\?\.filter\(\(x\) => x\.id !== f\.id\)/.test(lib))
   check("  asked only of Storelib's own addresses", /if \(!isOwnMedia\(url\)\) return false/.test(lib))
-  check("tiles are resized at quality 88, sharp for screenshots and logos", /THUMB_QUALITY = 88/.test(read("lib/files/thumb.ts")) && /qualities: \[75, 88\]/.test(read("next.config.mjs")))
+  check("tiles are resized at quality 88, sharp for screenshots and logos", /THUMB_QUALITY = 88/.test(read("lib/files/thumb.ts")) && /qualities: \[75, 88, 90\]/.test(read("next.config.mjs")))
 
   console.log("\n2. The three dots' menu at its dots")
   check("the stand in it is held against is drawn into the body, out of the transformed window", /createPortal\(\s*<DropdownMenuPrimitive\.Trigger asChild>/.test(lib) && /document\.body,\s*\)/.test(lib))

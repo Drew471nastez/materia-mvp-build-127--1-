@@ -149,7 +149,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
-import { faviconFollows } from "@/lib/website-builder/favicon-sync"
+import { faviconFollows, faviconOf } from "@/lib/website-builder/favicon-sync"
 import { themeSchemeList } from "@/lib/storelib-theme/compat/scheme-list"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
@@ -1237,10 +1237,10 @@ function BrandingTabPanel({
         </>
       )}
 
-      {/* Favicon — compact clean preview */}
+      {/* The favicon: the one value Website settings › General shows, read the same way (lib/website-builder/favicon-sync.ts). */}
       <WbImagePicker
         label="FAVICON"
-        value={typeof settingsDraft.favicon_url === "string" ? settingsDraft.favicon_url as string : undefined}
+        value={faviconOf(settingsDraft as Record<string, unknown>) || undefined}
         onChange={url => updateSetting("favicon_url", url ?? "")}
         aspectRatio="favicon"
         folder="logos"

@@ -35,6 +35,8 @@ import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
+import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -262,8 +264,41 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   return new NextResponse(body, { status: out.status, headers })
 }
 
+/**
+ * A STRANGER'S PAGE, DRAWN ONCE AND HANDED TO EVERY STRANGER SENT TO THE SAME
+ * MARKED ADDRESS (lib/storelib-theme/compat/stranger-hold.ts). Only after the
+ * same checks the draw makes: the proxy's seal for this name on this host,
+ * and a marker that names this host and the language, market and country
+ * the proxy said in its own headers. A page that sets a cookie or is not a
+ * plain 200 is never reused. Everything else goes straight to the draw.
+ */
+async function handleHeld(req: Request, ctx: Params): Promise<Response> {
+  if (req.method !== "GET") return handle(req, ctx)
+  const { username, path = [] } = await ctx.params
+  const stranger = readStrangerMarker(path[0])
+  const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("accept") ?? "").includes("application/json")
+  if (!stranger || ajax || /\.(js|json)$/.test(path[path.length - 1] ?? "")) return handle(req, ctx)
+  const host = siteHostOf(req.headers)
+  const told = (name: string) => req.headers.get(name) || null
+  if (!(await siteSealed(req.headers.get(SITE_SEAL_HEADER), username, host))) return handle(req, ctx)
+  if (stranger.host !== host || told(SITE_LOCALE_HEADER) !== stranger.locale || told(SITE_MARKET_HEADER) !== stranger.market || told(SITE_COUNTRY_HEADER) !== stranger.country) return handle(req, ctx)
+  const creator = await creatorByName(username).catch(() => null)
+  if (!creator) return handle(req, ctx)
+  const url = new URL(req.url)
+  const page = await heldStrangerPage(strangerKey(username, path, url.search), [creatorSiteTag(creator.creatorId), creatorShopTag(creator.creatorId)], async () => {
+    const res = await handle(req, ctx)
+    const headers = [...res.headers.entries()]
+    const body = await res.text()
+    return { status: res.status, headers, body, share: res.status === 200 && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
+  })
+  const headers = new Headers(page.headers)
+  /* Said for /admin/performance and for a person checking: this page came from the hold, not a new draw. */
+  headers.set("X-Storelib-Held", page.held ? "hit" : "miss")
+  return new NextResponse(page.body, { status: page.status, headers })
+}
+
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts): an imported theme's pages, cart and section calls. */
 const timedHandle = timed("sites", "/api/site-theme/site", handle)
-export const GET = timedHandle
+export const GET = timed("sites", "/api/site-theme/site", handleHeld)
 export const HEAD = handle
 export const POST = timedHandle
