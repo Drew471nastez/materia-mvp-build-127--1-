@@ -13,6 +13,7 @@
  *   membership.payment_failed     MEMBERSHIP_PAYMENT_FAILED, once per failed attempt
  *   membership.canceled           MEMBERSHIP_CANCELED, once per scheduled end date
  *   membership.ended              MEMBERSHIP_ENDED, once per membership
+ *   membership.plan_changed       MEMBERSHIP_PLAN_CHANGED, once per change (round AF)
  *
  * Each goes to payload.buyerEmail. The key's step is what makes it once: the
  * membership for a welcome, the invoice for a renewal, the period end for a
@@ -29,6 +30,7 @@ const TYPE_OF: Partial<Record<string, NotificationType>> = {
   "membership.payment_failed": "MEMBERSHIP_PAYMENT_FAILED",
   "membership.canceled": "MEMBERSHIP_CANCELED",
   "membership.ended": "MEMBERSHIP_ENDED",
+  "membership.plan_changed": "MEMBERSHIP_PLAN_CHANGED",
 }
 
 export const memberships: Workflow = (event, ctx) => {
@@ -40,7 +42,7 @@ export const memberships: Workflow = (event, ctx) => {
   const step =
     type === "MEMBERSHIP_STARTED" || type === "MEMBERSHIP_ENDED"
       ? "once"
-      : str(event.payload.invoiceId) ?? str(event.payload.periodEnd) ?? str(event.payload.endsAt) ?? null
+      : str(event.payload.changeId) ?? str(event.payload.invoiceId) ?? str(event.payload.periodEnd) ?? str(event.payload.endsAt) ?? null
   return plan([
     job(type, event, ctx, {
       recipientType: "customer",

@@ -43,7 +43,7 @@ const SALE_KEYS = [
  * the card's last four digits when a payment failed.
  */
 const MEMBERSHIP_KEYS = [
-  "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4", "withdrawalWaiver",
+  "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4", "withdrawalWaiver", "fromTitle", "changeKind",
 ] as const
 
 /**
@@ -120,6 +120,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   MEMBERSHIP_RENEWAL_REMINDER: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_PAYMENT_FAILED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_CANCELED: [...MEMBERSHIP_KEYS],
+  MEMBERSHIP_PLAN_CHANGED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_ENDED: [...MEMBERSHIP_KEYS],
   COMMUNITY_WELCOME: [...COMMUNITY_KEYS, "welcomeText"],
   COMMUNITY_JOIN_APPROVED: [...COMMUNITY_KEYS, "needsPayment", "priceLine"],
@@ -1701,6 +1702,28 @@ export const CATALOG: Record<NotificationType, Entry> = {
       facts: [["Membership", m.title], ["Access until", ends]],
       action: { label: "Open your membership", path: m.path },
       inApp: { title: "Membership cancelled", body: ends ? `Access until ${ends}.` : "You will not be charged again.", actionLabel: "Open", actionPath: m.path },
+    }
+  },
+
+  /* Round AF: what they are on now, what it costs and when it is next charged. */
+  MEMBERSHIP_PLAN_CHANGED: (d) => {
+    const m = membershipOf(d)
+    const from = d.text("fromTitle")
+    const kind = d.text("changeKind")
+    const heading = kind === "interval" ? "Your billing has changed" : m.title ? `You're now on ${m.title}` : "Your plan has changed"
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: (kind === "interval" ? fitSubject("Your ", m.title, " billing has changed") : fitSubject("You're now on ", m.title, "")) || heading,
+      preview: m.next ? `Next charge on ${m.next}.` : "Your plan has changed.",
+      heading,
+      paragraphs: [
+        join(from && from !== m.title ? `You moved from ${from} to ${m.title}.` : kind === "interval" ? `${m.title || "Your membership"} is now billed ${d.text("interval") === "year" ? "yearly" : "monthly"}.` : "Your plan has changed.", "It started straight away."),
+        "Anything you bought separately, like a course, stays yours. Change or cancel any time from your membership page.",
+      ],
+      facts: [["Plan", m.title], ["Price", m.price], ["Next charge", m.next]],
+      action: { label: "Open your membership", path: m.path },
+      inApp: { title: "Plan changed", body: m.title ? `You're now on ${m.title}.` : "Your plan has changed.", actionLabel: "Open", actionPath: m.path },
     }
   },
 

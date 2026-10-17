@@ -247,6 +247,8 @@ export interface CommunityMembershipView {
   /** How the member is in: a subscription, a one time purchase, or free. */
   kind: "subscription" | "purchase" | "free" | "none"
   membershipId: string | null
+  /** The plan's name, as the subscription was sold (round AF). */
+  planName?: string | null
   status: MembershipStateWord | null
   /** Whether the subscription still lets them in. */
   access: boolean
