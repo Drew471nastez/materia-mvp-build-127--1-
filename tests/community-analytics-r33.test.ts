@@ -259,18 +259,85 @@ async function main() {
   check("before part 184: no RSVPs, lessons or new and returning, never a zero", r2.figures.rsvps.value === null && r2.figures.lessons.value === null && r2.lines.rsvps.current.every((x) => x === null) && r2.activeSplit === null)
   check("but member churn and the live figures are still counted", r2.figures.churn.value === 11.1 && r2.live.active30 === 8)
 
+  /* ── What was asked for and was not reported: trials, the plans, the link presses (round 35) ── */
+  console.log("\nthe money the owner asked to see")
+  const paid = {
+    ...tables,
+    communities: [{ ...tables.communities[0], member_links: [{ id: "lk01", label: "Book a studio hour", url: "https://example.com/book", icon: null, hidden: false }] }],
+    community_tiers: [
+      { community_id: CID, product_id: "prodA", billing: "recurring", kind: "paid", name: "Studio" },
+      { community_id: CID, product_id: "prodB", billing: "recurring", kind: "paid", name: "Studio yearly" },
+    ],
+    products: [{ id: "prodA", community_id: CID, type: "membership", title: "Studio" }, { id: "prodB", community_id: CID, type: "membership", title: "Studio yearly" }],
+    memberships: [
+      /* Two on the monthly plan at the end of the period, one on the yearly: 2 x 2000 + 24000/12 = 6000 a month. */
+      { id: "s1", buyer_id: U(2), product_id: "prodA", status: "active", billing_interval: "month", amount_cents: 2000, currency: "usd", created_at: day("2026-09-10"), started_at: day("2026-09-10"), canceled_at: null, ended_at: null, trial_end: null },
+      { id: "s2", buyer_id: U(3), product_id: "prodA", status: "active", billing_interval: "month", amount_cents: 2000, currency: "usd", created_at: day("2026-10-02"), started_at: day("2026-10-02"), canceled_at: null, ended_at: null, trial_end: null },
+      { id: "s3", buyer_id: U(4), product_id: "prodB", status: "active", billing_interval: "year", amount_cents: 24000, currency: "usd", created_at: day("2026-09-20"), started_at: day("2026-09-20"), canceled_at: null, ended_at: null, trial_end: null },
+      /* A trial begun and converted inside the period: it ends on Oct 3 and this member goes on paying. */
+      { id: "t1", buyer_id: U(5), product_id: "prodA", status: "active", billing_interval: "month", amount_cents: 2000, currency: "usd", created_at: day("2026-10-01"), started_at: day("2026-10-01"), canceled_at: null, ended_at: null, trial_end: day("2026-10-03") },
+      /* One that ended in the period without paying. */
+      { id: "t2", buyer_id: U(6), product_id: "prodA", status: "canceled", billing_interval: "month", amount_cents: 2000, currency: "usd", created_at: day("2026-10-01"), started_at: day("2026-10-01"), canceled_at: day("2026-10-02"), ended_at: day("2026-10-02"), trial_end: day("2026-10-03") },
+      /* And one still inside its trial when the period ends. */
+      { id: "t3", buyer_id: U(7), product_id: "prodB", status: "active", billing_interval: "month", amount_cents: 2000, currency: "usd", created_at: day("2026-10-04"), started_at: day("2026-10-04"), canceled_at: null, ended_at: null, trial_end: day("2026-10-20") },
+    ],
+    orders: [],
+    community_program_access: [],
+    community_event_tickets: [],
+    community_member_link_clicks: [
+      { community_id: CID, link_id: "lk01", user_id: U(2), day: "2026-10-02" },
+      { community_id: CID, link_id: "lk01", user_id: U(3), day: "2026-10-02" },
+      { community_id: CID, link_id: "lk01", user_id: U(2), day: "2026-10-03" },
+      { community_id: CID, link_id: "goneaway", user_id: U(4), day: "2026-10-03" },
+      /* Before the period: not counted. */
+      { community_id: CID, link_id: "lk01", user_id: U(5), day: "2026-09-30" },
+    ],
+  }
+  const pdb = { from: fakeDb(paid).from, rpc: async (name: string) => (name === "community_analytics" ? { data: rpcAnswer, error: null } : { data: null, error: null }) }
+  const pr = await loadCommunityReport(pdb, paid.communities[0], q, NOW)
+  check("trials: one began and went on to pay, one ended without, one is still on trial", same(pr.money?.trials, { started: 3, converted: 1, lost: 1, onTrial: 1, startedBefore: null }), pr.money?.trials)
+  /* prodA at the end of the period: the two who were already paying and the trial that converted on Oct 3. The yearly one is its monthly share. */
+  check("the monthly revenue of each plan, most first, with the members on it", same(pr.money?.byPlan, [
+    { productId: "prodA", name: "Studio", cents: 6000, members: 3 },
+    { productId: "prodB", name: "Studio yearly", cents: 2000, members: 1 },
+  ]), pr.money?.byPlan)
+  check("and it adds up to the monthly revenue figure beside it", (pr.money?.byPlan ?? []).reduce((t, x) => t + x.cents, 0) === pr.money?.figures.mrr.value, { byPlan: pr.money?.byPlan, mrr: pr.money?.figures.mrr.value })
+  check("link presses in the period, by link, with how many members pressed", same(pr.linkPresses, [
+    { id: "lk01", label: "Book a studio hour", presses: 3, members: 2 },
+    { id: "goneaway", label: null, presses: 1, members: 1 },
+  ]), pr.linkPresses)
+  /* Before part 221 the table is not there: PostgREST answers that it does not know it, and the report must say null rather than nought. */
+  const base = fakeDb(paid).from
+  const noPart = {
+    from: (table: string) =>
+      table === "community_member_link_clicks"
+        ? ({ select: () => ({ eq: () => ({ gte: () => ({ lte: () => ({ limit: async () => ({ data: null, error: { code: "PGRST205", message: "Could not find the table" } }) }) }) }) }) } as never)
+        : base(table),
+    rpc: pdb.rpc,
+  }
+  const npr = await loadCommunityReport(noPart, paid.communities[0], q, NOW)
+  check("before part 221 the presses are null, never a nought that would say nobody pressed", npr.linkPresses === null, npr.linkPresses)
+
+  const cards = /if \(section === "revenue"\)[\s\S]*?\n  \}/.exec(code("components/community/creator/analytics-section.tsx"))?.[0] ?? ""
+  check("the page draws a plan card and a trials card, and neither when there is nothing to say", /card="plans"/.test(cards) && /card="trials"/.test(cards) && /plans\.length > 0 \?/.test(cards) && /anyTrial \?/.test(cards))
+  check("a plan the creator never named says so rather than inventing one", /x\.name \?\? tt\("Unnamed plan"\)/.test(cards))
+
   /* ── The section ─────────────────────────────────────────────────────── */
   console.log("\nthe section")
   const s = code("components/community/creator/analytics-section.tsx")
   const controls = /data-analytics-controls=""[\s\S]*?<\/div>/.exec(s)?.[0] ?? ""
   check("the period sits alone: no Google Analytics beside it", /<DateRangePicker /.test(controls) && !/Ga|google/i.test(controls))
-  check("no Connect Google Analytics anywhere; a connected one is a quiet line under Traffic", !/Connect Google Analytics/.test(s) && /\{shownSection === "traffic" \? <GaLine ga=\{r\?\.ga \?\? null\} \/> : null\}/.test(s) && /if \(!ga\?\.id\) return null/.test(s))
-  check("an overview of the period's figures before the sections", s.indexOf("<Overview figures={overview}") > 0 && s.indexOf("<Overview figures={overview}") < s.indexOf("<SectionTabs value={shownSection}"))
+  check("no Connect Google Analytics anywhere; a connected one is a quiet line under Traffic", !/Connect Google Analytics/.test(s) && /\{id === "traffic" \? <GaLine ga=\{r\?\.ga \?\? null\} \/> : null\}/.test(s) && /if \(!ga\?\.id\) return null/.test(s))
+  check("an overview of the period's figures before the sections", s.indexOf("<Overview figures={overview}") > 0 && s.indexOf("<Overview figures={overview}") < s.indexOf("{sections.map((id) => ("))
   check("its six: members, active members, engagement, join rate, monthly revenue, member churn", ['key: "members"', 'key: "active"', 'key: "engagement"', 'key: "joinRate"', 'key: "mrr"', 'key: "churn"'].every((k) => s.slice(s.indexOf("const overview"), s.indexOf("const dim")).includes(k)))
-  check("each opens its section on its own figure", /onOpen: open\("traffic", \(\) => setTrafficTab\("joinRate"\)\)/.test(s) && /onOpen: open\("growth", \(\) => setGrowthTab\("churn"\)\)/.test(s))
+  check("each takes the page to its section on its own figure", /onOpen: goTo\("traffic", \(\) => setTrafficTab\("joinRate"\)\)/.test(s) && /onOpen: goTo\("growth", \(\) => setGrowthTab\("churn"\)\)/.test(s))
+  /* Round 35: the owner does not want a second row of tabs choosing the page, so there is no row and nothing is behind a press. */
+  check("no row of section tabs, in the markup or in the module", !/data-analytics-sections/.test(s) && !/data-section-tab/.test(s) && !/function SectionTabs/.test(s) && !/sessionStorage/.test(s))
+  check("every section is drawn, each named and anchored", /\{sections\.map\(\(id\) => \(/.test(s) && /data-analytics-section=\{id\}/.test(s) && /\{sectionName\(id\)\}/.test(s))
+  check("a press scrolls rather than hides, and stands still for a reader who asked for that", /scrollIntoView\(\{ behavior: still \? "auto" : "smooth", block: "start" \}\)/.test(s) && /prefers-reduced-motion: reduce/.test(s))
   check("all of them at once on a phone: two to a row, never off the side", /"grid grid-cols-2 gap-px bg-\[#e5e7eb\]\/60 md:grid-cols-3"/.test(s))
-  check("the five sections, Analytics' own tabs, Revenue only for a community that sells", /const SECTIONS: readonly SectionId\[\] = \["growth", "traffic", "engagement", "content", "revenue"\]/.test(s) && /SECTIONS\.filter\(\(s\) => s !== "revenue" \|\| !r \|\| sells\)/.test(s))
-  check("an address ending in #traffic opens Traffic, and the choice is kept for the tab", /window\.location\.hash/.test(s) && /window\.sessionStorage\.setItem\(SECTION_KEY, next\)/.test(s))
+  check("the five sections, Revenue only for a community that sells", /const SECTIONS: readonly SectionId\[\] = \["growth", "traffic", "engagement", "content", "revenue"\]/.test(s) && /SECTIONS\.filter\(\(s\) => s !== "revenue" \|\| !r \|\| sells\)/.test(s))
+  check("an address ending in #traffic starts the page at Traffic", /window\.location\.hash/.test(s) && /SECTIONS\.includes\(id as SectionId\)/.test(s))
   check("a chart per section", ['name="growth"', 'name="traffic"', 'name="activity"', 'name="content"', 'name="money"'].every((x) => s.includes(x)))
   check("the Storelib app named as a source", /if \(key === "app"\) return tt\("Storelib app"\)/.test(raw("components/community/creator/analytics-section.tsx")))
 

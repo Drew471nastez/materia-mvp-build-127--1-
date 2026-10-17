@@ -104,6 +104,14 @@ function report(q: URLSearchParams): CommunityReport {
         refunds: { count: quiet ? 0 : 2, totalCents: quiet ? 0 : 4000 },
         bySource: quiet ? [] : [{ key: "memberships" as const, cents: 371000 }, { key: "tickets" as const, cents: 27000 }, { key: "programs" as const, cents: 14000 }],
         reasons: quiet ? [] : [{ reason: "too_busy", count: 3 }, { reason: "too_expensive", count: 2 }, { reason: "none", count: 1 }],
+        trials: quiet ? { started: 0, converted: 0, lost: 0, onTrial: 0, startedBefore: null } : { started: 24, converted: 14, lost: 7, onTrial: 3, startedBefore: compared ? 19 : null },
+        byPlan: quiet
+          ? []
+          : [
+              { productId: "pl1", name: "Studio", cents: 198000, members: 99 },
+              { productId: "pl2", name: "Studio yearly", cents: 62000, members: 31 },
+              { productId: "pl3", name: null, cents: 8000, members: 4 },
+            ],
       }
     : null
   const rows = (xs: [string, number][]) => (quiet ? [] : xs.map(([key, value]) => ({ key, label: key, value, previous: compared ? Math.round(value * 0.8) : undefined })))
@@ -144,6 +152,11 @@ function report(q: URLSearchParams): CommunityReport {
           country: rows([["RO", 420], ["US", 300], ["DE", 140], ["GB", 90], ["FR", 60], ["IT", 41]]),
         }
       : null,
+    linkPresses: quiet ? [] : [
+      { id: "lk1", label: "Book a studio hour", presses: 184, members: 96 },
+      { id: "lk2", label: "The glaze recipe sheet", presses: 71, members: 52 },
+      { id: "lk3", label: null, presses: 9, members: 7 },
+    ],
     joins: { bySource: quiet ? [] : [{ key: "free", label: "free", value: 61 }, { key: "subscription", label: "subscription", value: 19 }, { key: "invite", label: "invite", value: 8 }], invites: quiet ? [] : [{ key: "i1", label: "Link made Sep 20", value: 6, note: null }, { key: "i2", label: "Invite to ana@example.com", value: 1, note: "off" }] },
     topPosts: quiet ? [] : [
       { id: "p1", title: "My first celadon glaze came out of the kiln this morning and it is everything I hoped", reactions: 84, comments: 31 },

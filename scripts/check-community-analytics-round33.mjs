@@ -13,16 +13,19 @@
  *   OVERVIEW   six figures, every one inside the screen at once: their
  *              columns (six at 1440, two on a phone), each figure's width,
  *              the type of its number, none cut off
- *   SECTIONS   the tabs (Growth, Traffic, Engagement, Content, Revenue), how
- *              tall a tab is to a finger; choosing each draws its own chart
- *              (a line, not the placeholder) and its own cards, and nothing
- *              of another section
- *   DOORS      a figure of the overview opens its section on its figure
- *   GA         a connected Google Analytics is one line under Traffic, and
- *              before part 184 (not connected) there is no such line
- *   PAGE       no sideways scroll on either width, in any section
- *   NOT YET    before part 184: no Revenue tab for a community that sells
- *              nothing, no join rate figure, Traffic says how to count it
+ *   SECTIONS   ROUND 35, the owner: "I dont like the analytics tabs Growth
+ *              Traffic Engagement Content Revenue. I want one consolidated
+ *              dashboard." So: no row of section tabs anywhere on the page,
+ *              and all five sections drawn at once, each with its name, its
+ *              own chart with a real line, and its own cards
+ *   DOORS      a figure of the overview takes the page to its section and
+ *              chooses that figure's line; nothing is hidden by the press
+ *   GA         a connected Google Analytics is one line at the foot of
+ *              Traffic, and before part 184 (not connected) there is no line
+ *   PAGE       no sideways scroll on either width
+ *   NOT YET    before part 184: no Revenue section for a community that
+ *              sells nothing, no join rate figure, Traffic says how to
+ *              count it
  *
  *   node scripts/check-community-analytics-round33.mjs
  * Screenshots land in SHOTS_DIR (or a temp dir, printed at the end).
@@ -76,7 +79,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 
 const SECTIONS = ["growth", "traffic", "engagement", "content", "revenue"]
 const TREND = { growth: "growth", traffic: "traffic", engagement: "activity", content: "content", revenue: "money" }
-const CARDS = { growth: ["joins", "new-returning", "cohorts", "leave-reasons", "invites"], traffic: ["traffic", "countries", "devices"], engagement: ["contributors", "events", "programs"], content: ["posts", "spaces"], revenue: [] }
+const CARDS = { growth: ["joins", "new-returning", "cohorts", "leave-reasons", "invites"], traffic: ["traffic", "countries", "devices", "link-presses"], engagement: ["contributors", "events", "programs"], content: ["posts", "spaces"], revenue: ["plans", "trials"] }
 
 /* What the page shows now: the controls row, the overview, the tabs, the panel, its charts and cards, and whether the page scrolls sideways. */
 const LOOK = () => {
@@ -90,8 +93,18 @@ const LOOK = () => {
     const value = el.children[1]?.firstElementChild
     return { key: el.getAttribute("data-kpi"), ...box(el), text: el.textContent.trim().slice(0, 60), font: value ? getComputedStyle(value).fontSize : null, clipped: value ? value.scrollWidth > value.clientWidth + 1 : null }
   })
-  const tabs = [...document.querySelectorAll("[data-analytics-sections] [role=tab]")].map((el) => ({ label: el.textContent.trim(), selected: el.getAttribute("aria-selected") === "true", ...box(el) }))
-  const panel = document.querySelector("[data-analytics-panel]")
+  const sections = [...document.querySelectorAll("[data-analytics-section]")].map((el) => {
+    const name = el.querySelector("h3")
+    return {
+      id: el.getAttribute("data-analytics-section"),
+      name: name ? name.textContent.trim() : null,
+      ...box(el),
+      panel: el.querySelector("[data-analytics-panel]")?.getAttribute("data-analytics-panel") ?? null,
+      trends: [...el.querySelectorAll("[data-trend]")].map((c) => c.getAttribute("data-trend")),
+      cards: [...el.querySelectorAll("[data-analytics-lists] section[data-card]")].map((c) => c.getAttribute("data-card")),
+      ga: [...el.querySelectorAll("[data-ga]")].length,
+    }
+  })
   const trends = [...document.querySelectorAll("[data-trend]")].map((card) => {
     const d = card.querySelector("[data-trend-line]")?.getAttribute("d") || ""
     return { name: card.getAttribute("data-trend"), placeholder: card.querySelector("[data-chart-loading]")?.getAttribute("data-chart-loading") === "true", line: d.length > 10, selected: card.querySelector("[role=tab][aria-selected=true]")?.getAttribute("data-tab") ?? null }
@@ -100,18 +113,22 @@ const LOOK = () => {
   const ga = [...document.querySelectorAll("[data-ga]")].map((el) => ({ state: el.getAttribute("data-ga"), text: el.textContent.trim().slice(0, 90), ...box(el) }))
   return {
     vw,
+    vh: innerHeight,
     scrollW: document.scrollingElement.scrollWidth,
     controls: controls ? { children: controls.children.length, text: controls.textContent.trim().slice(0, 80), gaLink: !!controls.querySelector("[data-ga-link], a[href*=google-analytics]") } : null,
     connectWords: /Connect Google Analytics/.test(document.body.innerText),
     kpis,
     kpiCols: new Set(kpis.map((k) => k.x)).size,
-    tabs,
-    navScroll: (() => {
-      const nav = document.querySelector("[data-analytics-sections]")
-      return nav ? nav.scrollWidth - nav.clientWidth : 0
-    })(),
-    panel: panel?.getAttribute("data-analytics-panel") ?? null,
-    section: document.querySelector("[data-analytics]")?.getAttribute("data-section") ?? null,
+    sections,
+    /* The row of section tabs the owner asked to be rid of: it must not exist at all. */
+    sectionTabRow: !!document.querySelector("[data-analytics-sections], [data-section-tab]"),
+    /*
+      Every tablist left on the page lives inside one card and changes what that card shows: the overview's
+      figures, a chart's figures, or a list's own view (How people came, by source or by medium). None of them
+      chooses what the page shows, which is what the row of section tabs did.
+    */
+    strayTablists: [...document.querySelectorAll("[data-analytics] [role=tablist]")].filter((el) => !el.closest("[data-trend], [data-overview], section[data-card]")).length,
+    atBottom: Math.ceil(document.scrollingElement.scrollTop + innerHeight) >= document.scrollingElement.scrollHeight - 2,
     trends,
     cards,
     notice: [...document.querySelectorAll("[data-analytics] [role=status], [data-analytics] p")].some((p) => /SQL part 184/.test(p.textContent)),
@@ -176,40 +193,48 @@ try {
     expect(look.scrollW <= look.vw, "the page does not scroll sideways", { scrollW: look.scrollW, vw: look.vw })
     await p.screenshot({ path: join(shots, `${label}-overview.png`), fullPage: !phone })
 
-    console.log(`\n${label}: the sections`)
-    expect(look.tabs.map((t) => t.label).join(",") === "Growth,Traffic,Engagement,Content,Revenue", "Growth, Traffic, Engagement, Content, Revenue", look.tabs.map((t) => t.label))
-    expect(look.tabs.every((t) => t.right <= look.vw) || (look.navScroll > 0 && look.scrollW <= look.vw), "the tabs fit, or scroll inside their own row and never the page", { rights: look.tabs.map((t) => t.right), navScroll: look.navScroll })
-    expect(look.tabs.every((t) => t.h >= (phone ? 40 : 32)), `each tab ${phone ? 40 : 32}px or taller`, look.tabs.map((t) => t.h))
-    expect(look.section === "growth" && look.tabs[0].selected, "Growth first", look.section)
+    console.log(`\n${label}: the sections, all of them, on one page`)
+    expect(!look.sectionTabRow, "no row of section tabs on the page at all")
+    expect(look.strayTablists === 0, "every tablist left is inside one card and changes only that card", look.strayTablists)
+    expect(look.sections.map((x) => x.id).join(",") === SECTIONS.join(","), "Growth, Traffic, Engagement, Content, Revenue, in that order", look.sections.map((x) => x.id))
+    expect(look.sections.map((x) => x.name).join(",") === "Growth,Traffic,Engagement,Content,Revenue", "each section says its name", look.sections.map((x) => x.name))
+    expect(look.sections.every((x) => x.x >= 0 && x.right <= look.vw), "every section inside the screen", look.sections.map((x) => [x.x, x.right]))
     for (const id of SECTIONS) {
-      await p.evaluate((i) => [...document.querySelectorAll("[data-analytics-sections] [role=tab]")][i].click(), SECTIONS.indexOf(id))
-      await sleep(500)
-      const s = await p.evaluate(LOOK)
-      const own = s.trends.filter((t) => t.name === TREND[id])
-      expect(s.section === id && s.panel === id, `${id}: chosen`, s.section)
-      const tab = s.tabs[SECTIONS.indexOf(id)]
-      expect(tab.selected && tab.x >= 0 && tab.right <= s.vw, `${id}: its tab chosen and wholly on screen`, { x: tab.x, right: tab.right })
-      expect(own.length === 1 && own[0].line && !own[0].placeholder, `${id}: its chart, with a line`, s.trends)
-      expect(s.trends.length === 1, `${id}: and no other section's chart`, s.trends.map((t) => t.name))
-      expect(CARDS[id].every((c) => s.cards.includes(c)) && s.cards.every((c) => CARDS[id].includes(c)), `${id}: its cards, and only its own`, s.cards)
-      expect(s.scrollW <= s.vw, `${id}: no sideways scroll`, { scrollW: s.scrollW, vw: s.vw })
-      if (id === "engagement") expect(s.live.join() === "dau,wau,mau,stickiness", "engagement: members here in the last day, week and month, and stickiness", s.live)
-      if (id === "traffic") {
-        expect(s.ga.length === 1 && s.ga[0].state === "connected" && /G-7XK2Q9PL0D/.test(s.ga[0].text), "traffic: the connected Google Analytics, one quiet line", s.ga)
-        const lists = await p.evaluate(() => Math.max(...[...document.querySelectorAll("[data-analytics-lists] section[data-card]")].map((c) => c.getBoundingClientRect().bottom)))
-        expect(s.ga[0] && s.ga[0].y >= Math.round(lists) - 1, "under the cards, not beside the period", { line: s.ga[0]?.y, cards: Math.round(lists) })
-      } else {
-        expect(s.ga.length === 0, `${id}: no Google Analytics line`, s.ga.length)
-      }
-      await p.screenshot({ path: join(shots, `${label}-${id}.png`), fullPage: !phone })
+      const sec = look.sections.find((x) => x.id === id)
+      expect(sec.trends.join() === TREND[id], `${id}: its own chart and no other`, sec.trends)
+      expect(sec.panel === id, `${id}: its chart area is its own`, sec.panel)
+      expect(CARDS[id].every((c) => sec.cards.includes(c)) && sec.cards.every((c) => CARDS[id].includes(c)), `${id}: its cards, and only its own`, sec.cards)
     }
+    const drawn = look.trends.filter((t) => SECTIONS.some((id) => TREND[id] === t.name))
+    expect(drawn.length === 5, "five charts drawn at once", drawn.map((t) => t.name))
+    expect(drawn.every((t) => t.line && !t.placeholder), "each with a real line, none a placeholder", drawn)
+    expect(look.live.join() === "dau,wau,mau,stickiness", "engagement: members here in the last day, week and month, and stickiness", look.live)
+    expect(look.scrollW <= look.vw, "the whole page does not scroll sideways", { scrollW: look.scrollW, vw: look.vw })
+    const traffic = look.sections.find((x) => x.id === "traffic")
+    expect(traffic.ga === 1 && look.ga.length === 1 && look.ga[0].state === "connected" && /G-7XK2Q9PL0D/.test(look.ga[0].text), "the connected Google Analytics, one quiet line inside Traffic", look.ga)
+    const trafficCards = await p.evaluate(() => Math.max(...[...document.querySelector('[data-analytics-section="traffic"]').querySelectorAll("[data-analytics-lists] section[data-card]")].map((c) => c.getBoundingClientRect().bottom)))
+    expect(look.ga[0] && look.ga[0].y >= Math.round(trafficCards) - 1, "at the foot of Traffic, under its cards", { line: look.ga[0]?.y, cards: Math.round(trafficCards) })
+    expect(look.sections.filter((x) => x.ga > 0).length === 1, "and nowhere else", look.sections.filter((x) => x.ga > 0).map((x) => x.id))
+    console.log(`  note  sections: ${look.sections.map((x) => `${x.id} ${x.w}x${x.h}`).join(", ")}`)
+    await p.screenshot({ path: join(shots, `${label}-page.png`), fullPage: true })
 
-    console.log(`\n${label}: a figure opens its section`)
+    console.log(`\n${label}: a figure takes the page to its section`)
     for (const [kpi, section, tab] of [["joinRate", "traffic", "joinRate"], ["churn", "growth", "churn"], ["mrr", "revenue", "mrr"], ["active", "engagement", "active"]]) {
+      await p.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }))
+      await sleep(200)
       await p.evaluate((k) => document.querySelector(`[data-kpi="${k}"]`).click(), kpi)
-      await sleep(400)
+      await sleep(1800)
       const s = await p.evaluate(LOOK)
-      expect(s.section === section && s.trends[0]?.selected === tab, `${kpi} opens ${section} on ${tab}`, { section: s.section, tab: s.trends[0]?.selected })
+      const sec = s.sections.find((x) => x.id === section)
+      const chart = s.trends.find((t) => t.name === TREND[section])
+      /*
+        Scrolled to its own top (scroll-mt-4 leaves 16px above it), and the figure it was asked for is the line
+        drawn. The last section cannot reach the top of a page that has no more to scroll, so the page being at
+        its end counts: the section is on screen either way, which is what the press promised.
+      */
+      expect((sec.y >= -2 && sec.y <= 40) || (s.atBottom && sec.y < s.vh), `${kpi}: the page is at ${section}`, { y: sec.y, atBottom: s.atBottom })
+      expect(chart?.selected === tab, `${kpi}: and ${section} draws ${tab}`, chart?.selected)
+      expect(s.sections.length === look.sections.length, `${kpi}: nothing was hidden by the press`, s.sections.length)
     }
     await ctx.close()
 
@@ -220,14 +245,13 @@ try {
     await q.goto(`${origin}/community?case=nopart&delay=80`, { waitUntil: "load" })
     await sleep(1400)
     const n = await q.evaluate(LOOK)
-    expect(!n.tabs.some((t) => t.label === "Revenue"), "no Revenue tab", n.tabs.map((t) => t.label))
+    expect(!n.sections.some((x) => x.id === "revenue"), "no Revenue section", n.sections.map((x) => x.id))
+    expect(!n.sectionTabRow, "still no row of section tabs")
     expect(!n.kpis.some((k) => k.key === "joinRate" || k.key === "engagement" || k.key === "mrr"), "no figure that was not counted", n.kpis.map((k) => k.key))
     expect(n.kpis.every((k) => k.right <= n.vw) && n.scrollW <= n.vw, "still inside the screen", { scrollW: n.scrollW, vw: n.vw })
-    await q.evaluate(() => [...document.querySelectorAll("[data-analytics-sections] [role=tab]")][1].click())
-    await sleep(400)
-    const t = await q.evaluate(LOOK)
-    expect(t.section === "traffic" && t.notice && t.trends.length === 0 && t.cards.length === 0, "Traffic says how to count visits, with no empty chart or cards", { trends: t.trends, cards: t.cards, notice: t.notice })
-    expect(t.ga.length === 0, "and no Google Analytics line when none is connected", t.ga)
+    const nt = n.sections.find((x) => x.id === "traffic")
+    expect(n.notice && nt.trends.length === 0 && nt.cards.length === 0, "Traffic says how to count visits, with no empty chart or cards", { trends: nt.trends, cards: nt.cards, notice: n.notice })
+    expect(nt.ga === 0 && n.ga.length === 0, "and no Google Analytics line when none is connected", n.ga)
     await q.screenshot({ path: join(shots, `${label}-nopart-traffic.png`), fullPage: !phone })
     await ctx2.close()
   }
