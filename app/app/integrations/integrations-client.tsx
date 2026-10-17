@@ -16,9 +16,18 @@ import { tt } from "@/lib/i18n/text"
   on a phone too, so How it works sits in the bar there as well.
 */
 
+/*
+  AN INTEGRATION'S PAGE HAS NO PAGE TITLE (round 27, the owner): only its
+  Back to integrations. The bar goes in the same frame the page is drawn,
+  from what the directory says it shows (data-integrations-view), not a
+  render later from the address, so the page never starts under a title that
+  then leaves and pulls everything up.
+*/
+const NO_BAR_ON_A_PAGE = "[&:has([data-integrations-view=page])>[data-orders-bar]]:hidden"
+
 export function IntegrationsClient() {
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-integrations-scroll="">
+    <div className={cn("orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter", NO_BAR_ON_A_PAGE)} data-integrations-scroll="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Integrations")}</h1>
         <HowItWorks id="integrations" className="-mr-2" />

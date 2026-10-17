@@ -145,7 +145,10 @@ export interface IntegrationDetailProps {
   onStates: (s: IntegrationState[]) => void
   onApp: (appId: string, on: boolean) => void
   onMarketing: (m: MarketingState[]) => void
-  onBack: () => void
+  /** Back to the list. Left out where the page is a place of its own (/app/reviews): no back link is drawn. */
+  onBack?: () => void
+  /** The page scrolls on its own (/app/integrations, /app/reviews): its action follows in a bar at the top once the header's is scrolled away. */
+  pin?: boolean
 }
 
 function Layout({ main, aside }: { main: React.ReactNode; aside?: React.ReactNode }) {
@@ -157,7 +160,7 @@ function Layout({ main, aside }: { main: React.ReactNode; aside?: React.ReactNod
   )
 }
 
-export function IntegrationDetail({ item, status, installed, tracking, trackingReady, states, marketing, onTracking, onStates, onApp, onMarketing, onBack }: IntegrationDetailProps) {
+export function IntegrationDetail({ item, status, installed, tracking, trackingReady, states, marketing, onTracking, onStates, onApp, onMarketing, onBack, pin = false }: IntegrationDetailProps) {
   const setupRef = React.useRef<HTMLElement>(null)
   const standing = STANDING[status]
   const params = useSearchParams()
@@ -168,14 +171,74 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   React.useEffect(() => {
     if (view) setTabState(tabFor(view, wantedTab))
   }, [view, wantedTab])
+  /*
+    A TAB CHANGES IN PLACE (round 27, the owner: moving between Overview,
+    Reviews, Requests... must feel smooth). The tab is marked on the press,
+    in the same frame. The page under the tabs is held at the height it had
+    until the next one is in, then eased to its own only as far as the page
+    can go without moving: a shorter tab used to clamp the scroll and pull
+    the tabs down the screen. The room left goes as the page is scrolled
+    back up, below the screen's edge, where nothing is seen to move.
+  */
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const tabNow = React.useRef(tab)
+  tabNow.current = tab
+  const heldAt = React.useRef<number | null>(null)
+  const roomOff = React.useRef<(() => void) | null>(null)
+  React.useEffect(() => () => roomOff.current?.(), [])
   const setTab = React.useCallback(
     (id: string) => {
       if (!view) return
+      const panel = panelRef.current
+      if (id !== tabNow.current && panel) {
+        roomOff.current?.()
+        heldAt.current = panel.getBoundingClientRect().height
+        panel.style.minHeight = `${heldAt.current}px`
+      }
       setTabState(id)
       writeViewParam(id === tabFor(view, null) ? null : id)
     },
     [view],
   )
+  React.useLayoutEffect(() => {
+    const panel = panelRef.current
+    const was = heldAt.current
+    heldAt.current = null
+    if (!panel || was === null) return
+    const box = panel.closest<HTMLElement>("[data-integrations-scroll], [data-settings-sheet-scroll], .app-content-scroll")
+    /* The new tab's own height, read off what is in the panel, so the panel itself never has to be let go to measure it. */
+    const natural = () => [...panel.children].reduce((h, c) => h + c.getBoundingClientRect().height, 0)
+    /* The least the panel can be with the page staying where it is scrolled: its foot at the screen's. */
+    const fit = () => {
+      const own = natural()
+      const needed = box ? box.scrollTop + box.clientHeight - (box.scrollHeight - panel.getBoundingClientRect().height) : 0
+      const keep = Math.min(was, Math.max(own, needed))
+      if (keep <= own + 0.5) {
+        panel.style.minHeight = ""
+        return false
+      }
+      panel.style.minHeight = `${keep}px`
+      return true
+    }
+    if (!box || !fit()) {
+      panel.style.minHeight = ""
+      return
+    }
+    const onScroll = () => {
+      if (!fit()) roomOff.current?.()
+    }
+    box.addEventListener("scroll", onScroll, { passive: true })
+    roomOff.current = () => {
+      box.removeEventListener("scroll", onScroll)
+      panel.style.minHeight = ""
+      roomOff.current = null
+    }
+  }, [tab])
+  /* The tab a pointer or a finger is on, or the keyboard is at: its page is readied before the press lands. */
+  const [warmTab, setWarmTab] = React.useState<string | null>(null)
+  const warm = (id: string) => {
+    if (id !== tab && id !== warmTab) React.startTransition(() => setWarmTab(id))
+  }
 
   /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
   const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
@@ -261,6 +324,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   const verbLabel = plan ? (plan.verb === "turn_off" ? tt("Turn off") : plan.verb === "remove" ? tt("Remove") : tt("Disconnect")) : ""
   const storelibMade = hasBuiltInArt(item.id)
+  const Title = pin ? "h1" : "h2"
+  const standingNote = tracked && item.trackerId ? `${TRACKERS[item.trackerId].label}: ${tracked}` : status === "needs_attention" || status === "error" ? standing.line : null
 
   /* ---- the sections, each ready to place (an app's tabs place them too) ---- */
   const panel = notifyOnly ? (
@@ -445,23 +510,26 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   /* ---- the actions in the header ---- */
   const BTN = "h-10 flex-1 rounded-xl px-4 sm:flex-none"
+  /* The one thing to do on the page, when there is one: Connect, Install, Turn on, or Tell me when it's ready. */
+  const primaryLabel = notifyOnly ? tt("Tell me when it's ready") : !verb ? null : busy && oneTapInstall(item) ? tt("Turning on") : verb === "Turn on" ? tt("Turn on") : verb === "Connect" ? tt("Connect") : tt("Install")
+  const pressPrimary = () => {
+    if (notifyOnly) {
+      setAskTick((n) => n + 1)
+      toSetup()
+    } else if (oneTapInstall(item)) void turnOn()
+    else toSetup()
+  }
+  const primaryRef = React.useRef<HTMLButtonElement>(null)
+  const pinned = usePinned(primaryRef, pin && !!primaryLabel)
   const actions = (
     <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end" data-integration-actions="">
       {notifyOnly ? (
-        <button
-          type="button"
-          onClick={() => {
-            setAskTick((n) => n + 1)
-            toSetup()
-          }}
-          className={cn(BTN_PRIMARY, BTN)}
-          data-integration-action=""
-        >
-          {tt("Tell me when it's ready")}
+        <button ref={primaryRef} type="button" onClick={pressPrimary} className={cn(BTN_PRIMARY, BTN)} data-integration-action="">
+          {primaryLabel}
         </button>
       ) : verb ? (
-        <button type="button" disabled={busy} onClick={() => (oneTapInstall(item) ? void turnOn() : toSetup())} className={cn(BTN_PRIMARY, BTN)} data-integration-action="" data-integration-install-action={verb}>
-          {busy && oneTapInstall(item) ? tt("Turning on") : verb === "Turn on" ? tt("Turn on") : verb === "Connect" ? tt("Connect") : tt("Install")}
+        <button ref={primaryRef} type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, BTN)} data-integration-action="" data-integration-install-action={verb}>
+          {primaryLabel}
           {verb !== "Turn on" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
         </button>
       ) : (
@@ -486,107 +554,182 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   )
 
   return (
-    <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
-      <button
-        type="button"
-        onClick={onBack}
-        className="-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
-        data-integration-back=""
-      >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        {tt("Back to integrations")}
-      </button>
-
-      <header className={cn(DEPTH, "overflow-hidden")} data-integration-header="">
-        <div aria-hidden className="h-[84px] sm:h-[112px]" style={bannerStyle(bannerColor(item))} data-integration-banner="" />
-        <div className="px-4 pb-4 sm:px-7 sm:pb-6">
-          <div className="-mt-9 inline-flex rounded-[18px] bg-white p-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-6px_rgba(16,24,40,0.18)] ring-1 ring-[#e5e7eb]/70 sm:-mt-11">
-            <Mark item={item} size={60} />
-          </div>
-          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-            <div className="min-w-0 max-w-[680px]">
-              <h2 className="text-[24px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[30px]">{item.name}</h2>
-              <p className="mt-1.5 text-[14.5px] leading-[22px] text-[#4b5563]">{item.summary}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px]" data-integration-standing={status}>
-                <span className="inline-flex h-6 items-center rounded-full border border-[#e5e7eb] bg-white px-2.5 font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</span>
-                {storelibMade ? <span className="text-[#6b7280]">{tt("Made by Storelib")}</span> : null}
-                <span className="inline-flex items-center gap-1.5 font-medium text-[#1a1a2e]">
-                  <span aria-hidden className={cn("h-2 w-2 rounded-full", DOT[standing.tone])} />
-                  {standing.label}
-                </span>
-                <span className="basis-full text-[#6b7280] sm:basis-auto">{tracked && item.trackerId ? `${TRACKERS[item.trackerId].label}: ${tracked}` : standing.line}</span>
-              </div>
+    <>
+      {pin && primaryLabel ? (
+        /*
+          THE ACTION FOLLOWS (round 27). Once the header's Connect (Install,
+          Turn on...) has scrolled out of the top, the same action rides in a
+          bar at the top of the page, 8px under its edge, and leaves again as
+          soon as the header's own is back in view: never both at once. A
+          sticky box with no height, so it takes no room and nothing under it
+          moves; the bar fades and drops 6px into place.
+        */
+        <div className="sticky top-0 z-20 h-0" data-integration-pin-box="">
+          <div
+            className={cn(
+              "absolute inset-x-0 top-0 pt-2 transition-[opacity,transform] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
+              pinned ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none -translate-y-1.5 opacity-0 duration-150",
+            )}
+            inert={!pinned}
+            aria-hidden={!pinned}
+            data-integration-pin={pinned ? "shown" : "hidden"}
+          >
+            <div className="flex items-center gap-2.5 rounded-2xl border border-[#e5e7eb]/80 bg-white p-2 pl-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_28px_-14px_rgba(16,24,40,0.24)]">
+              <Mark item={item} size={32} />
+              <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-[#1a1a2e]">{item.name}</span>
+              <button type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-9 shrink-0 rounded-lg px-3.5")} data-integration-pin-action="">
+                {primaryLabel}
+                {verb && verb !== "Turn on" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+              </button>
             </div>
-            {actions}
           </div>
-          {notice ? (
-            <Notice tone={notice.tone} className="mt-4">
-              <span data-integration-notice={notice.tone}>{notice.text}</span>
-            </Notice>
-          ) : null}
         </div>
-        {tabs.length > 0 ? (
-          <div className="flex gap-1 overflow-x-auto border-t border-[#f1f2f4] px-2 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={item.name} data-integration-tabs="">
-            {tabs.map((t) => {
-              const on = t.id === tab
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setTab(t.id)}
-                  data-integration-tab={t.id}
-                  className={cn("relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3 text-[13.5px] font-medium transition-colors [-webkit-tap-highlight-color:transparent]", on ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
-                >
-                  {t.label}
-                  {t.count ? <span className="rounded-full bg-[#f3f4f6] px-1.5 text-[11.5px] tabular-nums text-[#4b5563]">{t.count}</span> : null}
-                  {on ? <span aria-hidden className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-[#1a1a2e]" /> : null}
-                </button>
-              )
-            })}
-          </div>
+      ) : null}
+      <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+            data-integration-back=""
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            {tt("Back to integrations")}
+          </button>
         ) : null}
-      </header>
 
-      {Body ? (
-        <div role="tabpanel" data-integration-tabpanel={tab}>
-          <Body tab={tab} setTab={setTab} item={item} status={status} installed={installed} sections={sections} Layout={Layout} onChanged={(on) => item.appId && onApp(item.appId, on)} />
-        </div>
-      ) : (
-        <Layout
-          main={
-            <>
-              {setup}
-              {statusSection}
-              {overview}
-              {data}
-              {danger}
-            </>
-          }
-          aside={glance}
-        />
-      )}
-
-      <Modal
-        open={confirming}
-        onClose={() => (busy ? undefined : setConfirming(false))}
-        title={plan?.verb === "turn_off" ? tt("Turn off {name}?", { name: item.name }) : plan?.verb === "remove" ? tt("Remove {name}?", { name: item.name }) : tt("Disconnect {name}?", { name: item.name })}
-        footer={
-          <div className="flex w-full justify-end gap-2">
-            <button type="button" className={BTN_SECONDARY} onClick={() => setConfirming(false)} disabled={busy}>
-              {tt("Cancel")}
-            </button>
-            <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void takeOff()} data-integration-uninstall-confirm="">
-              {busy ? tt("Working on it") : verbLabel}
-            </button>
+        <header className={cn(DEPTH, "overflow-hidden")} data-integration-header="">
+          <div aria-hidden className="h-[84px] sm:h-[112px]" style={bannerStyle(bannerColor(item))} data-integration-banner="" />
+          <div className="px-4 pb-4 sm:px-7 sm:pb-6">
+            <div className="-mt-9 inline-flex rounded-[18px] bg-white p-1.5 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-6px_rgba(16,24,40,0.18)] ring-1 ring-[#e5e7eb]/70 sm:-mt-11">
+              <Mark item={item} size={60} />
+            </div>
+            <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+              <div className="min-w-0 max-w-[680px]">
+                {/* The page's title where it is a page of its own (no Integrations title above it any more). */}
+                <Title className="text-[24px] font-bold leading-tight tracking-[-0.02em] text-[#1a1a2e] sm:text-[30px]">{item.name}</Title>
+                <p className="mt-1.5 text-[14.5px] leading-[22px] text-[#4b5563]">{item.summary}</p>
+                {/*
+                  ONE LINE (round 27, the owner: "Reviews, Made by Storelib, Connected, Working on your store" was too much
+                  text): the category, who made it and where it stands. The sentence under it only when it says something
+                  the word does not: the ID that is saved, or what is wrong.
+                */}
+                <div className="mt-3 flex min-w-0 flex-nowrap items-center gap-x-2.5 whitespace-nowrap text-[13px]" data-integration-standing={status}>
+                  <span className="inline-flex h-6 shrink-0 items-center rounded-full border border-[#e5e7eb] bg-white px-2.5 font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</span>
+                  {storelibMade ? <span className="min-w-0 truncate text-[#6b7280]">{tt("Made by Storelib")}</span> : null}
+                  <span className="inline-flex shrink-0 items-center gap-1.5 font-medium text-[#1a1a2e]">
+                    <span aria-hidden className={cn("h-2 w-2 rounded-full", DOT[standing.tone])} />
+                    {standing.label}
+                  </span>
+                </div>
+                {standingNote ? (
+                  <p className="mt-1.5 text-[13px] leading-5 text-[#6b7280]" data-integration-standing-note="">
+                    {standingNote}
+                  </p>
+                ) : null}
+              </div>
+              {actions}
+            </div>
+            {notice ? (
+              <Notice tone={notice.tone} className="mt-4">
+                <span data-integration-notice={notice.tone}>{notice.text}</span>
+              </Notice>
+            ) : null}
           </div>
-        }
-      >
-        <p className="text-[14px] leading-[21px] text-[#4b5563]">{plan?.consequence}</p>
-      </Modal>
-    </div>
+          {tabs.length > 0 ? (
+            <div className="flex gap-1 overflow-x-auto border-t border-[#f1f2f4] px-2 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={item.name} data-integration-tabs="">
+              {tabs.map((t) => {
+                const on = t.id === tab
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setTab(t.id)}
+                    onPointerEnter={() => warm(t.id)}
+                    onFocus={() => warm(t.id)}
+                    onTouchStart={() => warm(t.id)}
+                    data-integration-tab={t.id}
+                    className={cn("relative inline-flex h-11 shrink-0 items-center gap-1.5 px-3 text-[13.5px] font-medium transition-colors [-webkit-tap-highlight-color:transparent]", on ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                  >
+                    {t.label}
+                    {t.count ? <span className="rounded-full bg-[#f3f4f6] px-1.5 text-[11.5px] tabular-nums text-[#4b5563]">{t.count}</span> : null}
+                    {on ? <span aria-hidden className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-[#1a1a2e]" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+        </header>
+
+        {Body ? (
+          <div ref={panelRef} role="tabpanel" data-integration-tabpanel={tab}>
+            <Body tab={tab} warm={warmTab} setTab={setTab} item={item} status={status} installed={installed} sections={sections} Layout={Layout} onChanged={(on) => item.appId && onApp(item.appId, on)} />
+          </div>
+        ) : (
+          <Layout
+            main={
+              <>
+                {setup}
+                {statusSection}
+                {overview}
+                {data}
+                {danger}
+              </>
+            }
+            aside={glance}
+          />
+        )}
+
+        <Modal
+          open={confirming}
+          onClose={() => (busy ? undefined : setConfirming(false))}
+          title={plan?.verb === "turn_off" ? tt("Turn off {name}?", { name: item.name }) : plan?.verb === "remove" ? tt("Remove {name}?", { name: item.name }) : tt("Disconnect {name}?", { name: item.name })}
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <button type="button" className={BTN_SECONDARY} onClick={() => setConfirming(false)} disabled={busy}>
+                {tt("Cancel")}
+              </button>
+              <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void takeOff()} data-integration-uninstall-confirm="">
+                {busy ? tt("Working on it") : verbLabel}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-[14px] leading-[21px] text-[#4b5563]">{plan?.consequence}</p>
+        </Modal>
+      </div>
+    </>
   )
+}
+
+/**
+ * Whether `target` has scrolled out of the top of the page that scrolls it:
+ * true from the frame its last pixel leaves, false from the frame one is back.
+ * Seen by an IntersectionObserver on that scroller, so scrolling renders
+ * nothing between the two moments.
+ */
+function usePinned(target: React.RefObject<HTMLElement | null>, on: boolean): boolean {
+  const [out, setOut] = React.useState(false)
+  React.useEffect(() => {
+    const el = target.current
+    if (!on || !el || typeof IntersectionObserver === "undefined") {
+      setOut(false)
+      return
+    }
+    const root = el.closest<HTMLElement>("[data-integrations-scroll], [data-settings-sheet-scroll], .app-content-scroll")
+    const io = new IntersectionObserver(
+      ([e]) => {
+        const top = e.rootBounds?.top ?? 0
+        setOut(!e.isIntersecting && e.boundingClientRect.bottom <= top + 0.5)
+      },
+      { root, threshold: 0 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [target, on])
+  return on && out
 }
 
 function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; value: string | null; ready: boolean; onSaved: (t: Tracking) => void }) {

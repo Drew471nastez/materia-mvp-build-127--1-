@@ -452,7 +452,8 @@ function emailBuild() {
 function wiring() {
   realLog("\nWiring")
   const page = read("app/app/reviews/page.tsx")
-  check("/app/reviews sends to the integration's Reviews view, carrying the review and the tab a link named", /redirect\(`\$\{REVIEWS_HOME\}&\$\{to\.toString\(\)\}`\)/.test(page) && /\/app\/integrations\?integration=storelib-reviews/.test(page) && /to\.set\("review", review\)/.test(page) && /to\.set\("status", status\)/.test(page))
+  /* Changed on purpose (round 27, the owner: Products › Reviews is /app/reviews, not the Integrations page): /app/reviews draws the integration's page itself, and the page reads ?review and ?status as it did. */
+  check("/app/reviews is Storelib Reviews' page, alone, and still opens the review and the tab a link named", /<IntegrationsDirectory page only="storelib-reviews" \/>/.test(read("app/app/reviews/reviews-client.tsx")) && /<ReviewsClient \/>/.test(page) && !/redirect\(`/.test(page) && /review: p\.get\("review"\)/.test(read("components/reviews/manage/reviews-manage.tsx")) && /\(REVIEW_TABS as readonly string\[\]\)\.includes\(s \?\? ""\)/.test(read("components/reviews/manage/reviews-manage.tsx")))
   const apps = read("components/app/settings/integration-apps.tsx")
   check("the integration page draws Storelib Reviews' own tabs and body through the built in apps' plug-in API", /const reviewsView: IntegrationAppView = reviewsIntegrationView/.test(apps) && /"storelib-reviews": reviewsView/.test(apps) && /dynamic\(\(\) => import\("\.\/reviews-manage"\)/.test(read("components/reviews/manage/integration-view.tsx")))
   const shell = read("components/reviews/manage/reviews-manage.tsx")

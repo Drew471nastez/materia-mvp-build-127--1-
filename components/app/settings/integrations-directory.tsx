@@ -184,8 +184,12 @@ function takesOrders(i: Integration): boolean {
  * `page`: drawn on its own page (/app/integrations) rather than in Settings:
  * three cards across from 1024px. Installed is a pill, not a list of its own
  * above the cards (round K4).
+ *
+ * `only`: one integration's page and nothing else, as a place of its own
+ * (round 27: Products › Reviews is /app/reviews, Storelib Reviews' page, not
+ * Integrations): no list behind it and no Back to integrations.
  */
-export function IntegrationsDirectory({ page = false }: { page?: boolean } = {}) {
+export function IntegrationsDirectory({ page = false, only = null }: { page?: boolean; only?: string | null } = {}) {
   const physical = usePhysicalCommerceEnabled()
   const router = useRouter()
   /* First, so every read below finds its answer kept (or on its way) and shares it. */
@@ -231,14 +235,14 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     holdLanding), as the Emails and Orders lists do: no fade from nothing,
     no 2px rise. Only on the page; a visit from the sidebar lands as usual.
   */
-  const [returning] = React.useState(() => page && isTraversing())
+  const [returning] = React.useState(() => page && !only && isTraversing())
   React.useLayoutEffect(() => {
     if (returning) holdLanding()
   }, [returning])
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward (show() below, so Back by the browser lands where you were too).
      Read before the first paint, so a link to a page never shows the list for a frame first. */
-  const wanted = params?.get("integration") ?? null
+  const wanted = only ?? params?.get("integration") ?? null
   const [openId, setOpenId] = React.useState<string | null>(wanted)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -567,9 +571,11 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   /* The app pages already asked for (warmApp, below): a hook, so above the page's early return. */
   const warmed = React.useRef(new Set<string>())
   const current = shownAll.find((i) => i.id === openId) ?? null
+  if (only && !current) return null
   if (current) {
     return (
-      <div ref={root} data-integrations="" data-integrations-view="page" className="scroll-mt-4">
+      /* No page title above it (round 27): the page starts with Back, under a little room of its own. */
+      <div ref={root} data-integrations="" data-integrations-view="page" className={cn("scroll-mt-4", page && "pt-3 sm:pt-5")}>
         <IntegrationDetail
           item={current}
           status={statusOf(current)}
@@ -599,7 +605,8 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
             if (appId === "courier_tracking") readOwnTracking()
             window.dispatchEvent(new Event("storelib:integrations-changed"))
           }}
-          onBack={() => open(null)}
+          onBack={only ? undefined : () => open(null)}
+          pin={page}
         />
       </div>
     )
@@ -843,14 +850,21 @@ function StatusBadge({ status }: { status: IntegrationStatus }) {
 /*
   A CARD, TWO SHAPES (round K4). On a phone a row in one list: the mark, the
   name with its one line, the badge. From 640px a card in the grid, all the
-  same height: a quiet band at the top behind the mark, the badge at the top
-  right, the name, the category, and two lines of what it does. A hover lifts
-  it a pixel and deepens its shadow.
+  same height: a quiet band at the top behind the mark, the badge in that
+  band, the name, the category, and two lines of what it does.
+
+  A HOVER DOES NOT MOVE IT (round 27, the owner: "it bumps"). It used to rise
+  a pixel: the edge under the pointer moved with it, so a pointer resting on
+  the bottom edge left the card, it dropped back, came under the pointer
+  again, and the card shook. Now only its depth changes, the hairline a shade
+  darker and the soft shadow under it, eased in and out on the same curve;
+  the box stays exactly where it is (scripts/check-integrations27.mjs
+  measures 0px).
 */
 const ENTRY = cn(
-  "group relative flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-[background-color,box-shadow,border-color,transform] duration-200 ease-out hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:bg-[#f8f9fa] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
+  "group relative flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-[background-color,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:bg-[#f8f9fa] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
   "sm:h-full sm:flex-col sm:items-stretch sm:gap-3 sm:overflow-hidden sm:p-5 sm:hover:bg-white sm:active:bg-white",
-  "sm:rounded-2xl sm:border sm:border-[#e5e7eb]/70 sm:bg-white sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:hover:-translate-y-px sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0.18)] sm:focus-visible:ring-2 sm:focus-visible:ring-[#1a1a2e]/15 motion-reduce:sm:hover:translate-y-0",
+  "sm:rounded-2xl sm:border sm:border-[#e5e7eb]/70 sm:bg-white sm:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0)] sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0.18)] sm:focus-visible:ring-2 sm:focus-visible:ring-[#1a1a2e]/15",
 )
 
 function EntryBody({ mark, name, category, summary, badge }: { mark: React.ReactNode; name: string; category: string; summary: string; badge: React.ReactNode }) {
@@ -859,7 +873,10 @@ function EntryBody({ mark, name, category, summary, badge }: { mark: React.React
       <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[46px] border-b border-[#f3f4f6] bg-[#f9fafb] sm:block" />
       <span className="relative flex shrink-0 items-start justify-between gap-3">
         <span className="rounded-[12px] sm:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_4px_10px_-4px_rgba(16,24,40,0.12)]">{mark}</span>
-        <span className="hidden sm:inline-flex sm:pt-0.5">{badge}</span>
+        {/* In the band, not on its edge (round 27: it sat on the line under the band): centred in its 45px, 10.5px clear above and below. */}
+        <span className="hidden sm:-mt-[9.5px] sm:inline-flex" data-integration-card-badge="">
+          {badge}
+        </span>
       </span>
       <span className="relative min-w-0 flex-1">
         <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e] sm:text-[15px]">{name}</span>
