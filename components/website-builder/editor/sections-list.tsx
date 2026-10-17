@@ -33,6 +33,13 @@
  * Duplicate and Delete instead; a hidden section always shows its eye,
  * because that row needs a way back.
  *
+ * ONE MENU FOR THE LIST. The row's "...", a right click on the row (opened
+ * at the pointer), a row held down on a touch screen, and Shift+F10 or the
+ * context menu key on a focused row all open the same menu: Duplicate, Move
+ * up, Move down, Hide or Show, Edit code, Delete. A dropdown on a computer,
+ * the shared action sheet on a phone (components/ui/responsive-action-
+ * menu.tsx, ActionMenuAt). One for the whole list rather than one per row.
+ *
  * Controls that wait for the pointer are `hidden`, not merely transparent.
  * A button at opacity 0 still takes a tap, and an invisible bin at the end
  * of a row is how somebody deletes a section by touching its name. Hidden,
@@ -41,20 +48,15 @@
  */
 
 import * as React from "react"
-import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Code2, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useReorder } from "./controls/use-reorder"
 import { ROW_PAD, TREE_NAME, TREE_ROW, TreeAddRow, TreeSpacer, TreeTwisty } from "./tree-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup } from "@/lib/storelib-theme/section-groups"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
+import { hapticTap } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
 
 /**
@@ -96,7 +98,20 @@ export interface SectionsListProps {
   /** Which sections are open in the tree. */
   expanded?: ReadonlySet<string>
   onToggleExpand?: (id: string) => void
+  /**
+   * The menu's Edit code row for a section: open its file, edit a copy of a
+   * built-in, or say why there is no code (lib/website-builder/
+   * section-code-target.ts). Absent, the menu has no such row.
+   */
+  codeItem?: (section: SectionInstance) => { label: string; hint?: string; run?: () => void } | null
 }
+
+/** The builder is a phone below 768px: the menu is the action sheet there. */
+const PHONE_QUERY = "(max-width: 767px)"
+const isPhone = () => typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches
+/** How long a finger rests on a row before its menu opens. */
+export const LONG_PRESS_MS = 480
+const LONG_PRESS_SLOP = 8
 
 /* ── The parts ───────────────────────────────────────────────────────────── */
 
@@ -177,10 +192,7 @@ export interface SectionRowProps {
   isSelected: boolean
   onSelect: () => void
   onToggleHide: () => void
-  onDuplicate?: () => void
   onRemove?: () => void
-  onMoveUp?: () => void
-  onMoveDown?: () => void
   /** The header or the footer: an icon in place of the grip, and Delete only from its menu. */
   chrome?: "header" | "footer"
   dragHandleProps?: Record<string, unknown>
@@ -190,6 +202,10 @@ export interface SectionRowProps {
   expandable?: boolean
   expanded?: boolean
   onToggleExpand?: () => void
+  /** Open the list's menu for this row, at this place. */
+  onMenu?: (place: ActionMenuPlace) => void
+  /** This row's menu is the one open. */
+  menuOpen?: boolean
 }
 
 export function SectionRow({
@@ -198,20 +214,31 @@ export function SectionRow({
   isSelected,
   onSelect,
   onToggleHide,
-  onDuplicate,
   onRemove,
-  onMoveUp,
-  onMoveDown,
   chrome,
   dragHandleProps,
   fixed,
   expandable,
   expanded,
   onToggleExpand,
+  onMenu,
+  menuOpen = false,
 }: SectionRowProps) {
-  const [menuOpen, setMenuOpen] = React.useState(false)
   const hidden = !!section.hidden
-  const ItemClass = "cursor-pointer gap-2 text-[13px] hover:bg-neutral-100 focus:bg-neutral-100 data-[highlighted]:bg-neutral-100"
+  /**
+   * HELD DOWN ON A TOUCH SCREEN. A finger that rests on the row for a
+   * moment, and does not move, opens the menu; a finger that moves is a
+   * scroll and opens nothing. The grip and the row's buttons keep their own
+   * press. The tap that ends a long press does not also open the section.
+   */
+  const press = React.useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null)
+  const lastHeld = React.useRef(0)
+  const endPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer)
+    if (press.current && !press.current.fired) press.current = null
+  }
+  const openAt = (x: number, y: number, row: HTMLElement) =>
+    onMenu?.({ box: { left: x, top: y, width: 1, height: 1 }, phone: isPhone(), align: "start", focus: row })
 
   return (
     <div
@@ -224,17 +251,80 @@ export function SectionRow({
       className={cn(
         TREE_ROW,
         /* The builder is a light surface by decision: explicit colours, not tokens a dark root would flip. */
-        isSelected ? "bg-[#ebecef] text-[#111827]" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
+        isSelected ? "bg-[#ebecef] text-[#111827]" : menuOpen ? "bg-[#f3f4f6] text-[#1a1a2e]" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
+        /* No callout or text selection under a held finger on iOS. */
+        "[-webkit-touch-callout:none]",
       )}
+      data-section-menu-open={menuOpen ? "" : undefined}
       onClick={onSelect}
+      onClickCapture={(e) => {
+        /* The finger that held the row down lifts: that is not a tap on it. */
+        if (press.current?.fired) {
+          e.preventDefault()
+          e.stopPropagation()
+          press.current = null
+        }
+      }}
       onKeyDown={(e) => {
-        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return
+        if (e.target !== e.currentTarget) return
+        if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+          e.preventDefault()
+          const r = e.currentTarget.getBoundingClientRect()
+          onMenu?.({ box: { left: r.left, top: r.top, width: r.width, height: r.height }, phone: isPhone(), align: "end", focus: e.currentTarget })
+          return
+        }
+        if (e.key !== "Enter" && e.key !== " ") return
         e.preventDefault()
         onSelect()
       }}
+      onPointerDown={(e) => {
+        /* A new press: whatever the last hold left behind is over. */
+        if (press.current?.fired) press.current = null
+        if (e.pointerType === "mouse" || !onMenu) return
+        if ((e.target as HTMLElement).closest("button, [data-sheet-no-drag]")) return
+        endPress()
+        const row = e.currentTarget
+        const x = e.clientX
+        const y = e.clientY
+        const timer = window.setTimeout(() => {
+          if (!press.current) return
+          press.current.fired = true
+          lastHeld.current = Date.now()
+          hapticTap("medium")
+          /*
+            The click the lift sends lands where the finger was, which is now
+            the sheet's scrim: it would close the menu it just opened. That
+            one click is swallowed, wherever it lands.
+          */
+          /* A browser that sends no click after a hold: the next press is a press of its own. */
+          const done = () => {
+            document.removeEventListener("click", swallow, true)
+            document.removeEventListener("pointerdown", done, true)
+          }
+          const swallow = (ev: MouseEvent) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            done()
+          }
+          document.addEventListener("click", swallow, true)
+          document.addEventListener("pointerdown", done, true)
+          window.setTimeout(done, 1500)
+          openAt(x, y, row)
+        }, LONG_PRESS_MS)
+        press.current = { x, y, timer, fired: false }
+      }}
+      onPointerMove={(e) => {
+        const p = press.current
+        if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > LONG_PRESS_SLOP) endPress()
+      }}
+      onPointerUp={endPress}
+      onPointerCancel={endPress}
       onContextMenu={(e) => {
         e.preventDefault()
-        setMenuOpen(true)
+        /* A phone's own long press arrives as a context menu too: the one opened by the hold is the menu. */
+        if (Date.now() - lastHeld.current < 900) return
+        endPress()
+        openAt(e.clientX, e.clientY, e.currentTarget)
       }}
     >
       {/* The section's blocks, shown and hidden under it, as Shopify's tree does. */}
@@ -298,60 +388,62 @@ export function SectionRow({
           </RowAction>
         )}
 
-        {/* `modal={false}`: a modal dropdown locks touch scrolling on the whole document, canvas included,
-            and on iOS the lock was seen to outlive the menu (scripts/check-editor-scroll.mjs). */}
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={tt("More for {displayName}", { displayName })}
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
-                isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
-                "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
-              )}
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={(e) => e.stopPropagation()}>
-            {onDuplicate && (
-              <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
-                <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                {tt("Duplicate")}
-              </DropdownMenuItem>
-            )}
-            {onMoveUp && (
-              <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
-                <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                {tt("Move up")}
-              </DropdownMenuItem>
-            )}
-            {onMoveDown && (
-              <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
-                <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                {tt("Move down")}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
-              {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
-              {hidden ? tt("Show") : tt("Hide")}
-            </DropdownMenuItem>
-            {onRemove && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className={ItemClass} onClick={onRemove}>
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                  {tt("Delete")}
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* The list's one menu (ActionMenuAt, below), opened under this button. */}
+        <button
+          type="button"
+          data-section-more={section.id}
+          aria-label={tt("More for {displayName}", { displayName })}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = e.currentTarget.getBoundingClientRect()
+            onMenu?.({ box: { left: r.left, top: r.top, width: r.width, height: r.height }, phone: isPhone(), align: "end", focus: e.currentTarget })
+          }}
+          className={cn(
+            "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
+            isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
+            menuOpen ? "bg-black/[0.06] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+          )}
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </button>
       </span>
     </div>
   )
+}
+
+/* ── The menu ────────────────────────────────────────────────────────────── */
+
+const NO_ITEMS: ActionMenuItem[] = []
+
+/**
+ * A row's menu, for the section it is opened on: where the section is in its
+ * group decides Move up and Move down, and what it is decides Duplicate (a
+ * site's one header or footer is not duplicated). Edit code is the editor's
+ * to say (codeItem). Delete last, in red. Tested in
+ * tests/section-actions-v.test.ts.
+ */
+export function sectionRowMenu(
+  section: SectionInstance,
+  sections: SectionInstance[],
+  ctx: Pick<SectionsListProps, "kindOfType" | "codeItem" | "onDuplicate" | "onMove" | "onToggleHide" | "onRemove">,
+): ActionMenuItem[] {
+  const groups = splitGroups(sections)
+  const role = (["header", "footer", "overlay"] as const).find((r) => groups[r].some((s) => s.id === section.id))
+  const list = role ? groups[role] : groups.template
+  const i = list.findIndex((s) => s.id === section.id)
+  const chrome = role === "header" || role === "footer" ? isKind(section, role, ctx.kindOfType) : false
+  const icon = (Icon: typeof Copy) => <Icon strokeWidth={1.75} />
+  const items: ActionMenuItem[] = []
+  if (!chrome) items.push({ id: "duplicate", label: tt("Duplicate"), icon: icon(Copy), onClick: () => ctx.onDuplicate(section.id) })
+  if (i > 0) items.push({ id: "move-up", label: tt("Move up"), icon: icon(ArrowUp), onClick: () => ctx.onMove(section.id, -1) })
+  if (i >= 0 && i < list.length - 1) items.push({ id: "move-down", label: tt("Move down"), icon: icon(ArrowDown), onClick: () => ctx.onMove(section.id, 1) })
+  items.push({ id: "toggle-hidden", label: section.hidden ? tt("Show") : tt("Hide"), icon: section.hidden ? icon(Eye) : icon(EyeOff), onClick: () => ctx.onToggleHide(section.id) })
+  const code = ctx.codeItem?.(section)
+  if (code) items.push({ id: "edit-code", label: code.label, hint: code.hint, disabled: !code.run, icon: icon(Code2), onClick: code.run })
+  items.push({ id: "delete", label: tt("Delete"), icon: icon(Trash2), variant: "destructive", separatorBefore: true, onClick: () => ctx.onRemove(section.id) })
+  return items
 }
 
 /* ── The list ────────────────────────────────────────────────────────────── */
@@ -372,8 +464,13 @@ export function SectionsList({
   blocksOf,
   expanded,
   onToggleExpand,
+  codeItem,
 }: SectionsListProps) {
   const groups = splitGroups(sections)
+  /** The one menu, and the row it is for. */
+  const [menu, setMenu] = React.useState<{ id: string; place: ActionMenuPlace } | null>(null)
+  const closeMenu = React.useCallback(() => setMenu(null), [])
+  const menuFor = (id: string) => (place: ActionMenuPlace) => setMenu({ id, place })
   /** A section's block rows when it is open, and whether it has any to open. */
   const tree = (s: SectionInstance) => {
     const node = blocksOf?.(s) ?? null
@@ -413,7 +510,7 @@ export function SectionsList({
    */
   const groupRows = (role: "header" | "footer" | "overlay") => {
     const list = groups[role]
-    return list.map((s, i) => {
+    return list.map((s) => {
       const chrome = role !== "overlay" && isKind(s, role, kindOfType) ? role : undefined
       const t = tree(s)
       return (
@@ -424,15 +521,14 @@ export function SectionsList({
             isSelected={selectedId === s.id}
             onSelect={() => onSelect(s.id)}
             onToggleHide={() => onToggleHide(s.id)}
-            onDuplicate={chrome ? undefined : () => onDuplicate(s.id)}
             onRemove={() => onRemove(s.id)}
-            onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
-            onMoveDown={i < list.length - 1 ? () => onMove(s.id, 1) : undefined}
             chrome={chrome}
             fixed
             expandable={t.expandable}
             expanded={t.expanded}
             onToggleExpand={t.onToggleExpand}
+            onMenu={menuFor(s.id)}
+            menuOpen={menu?.id === s.id}
           />
           {t.under}
         </div>
@@ -440,8 +536,17 @@ export function SectionsList({
     })
   }
 
+  /**
+   * THE MENU'S ROWS, for the section it was opened on, worked out when it
+   * opens: where the section is in its group decides Move up and Move down,
+   * and what kind of section it is decides Duplicate.
+   */
+  const open = menu ? sections.find((s) => s.id === menu.id) ?? null : null
+  const items = open ? sectionRowMenu(open, sections, { kindOfType, codeItem, onDuplicate, onMove, onToggleHide, onRemove }) : NO_ITEMS
+
   return (
     <div data-sections-list="" className="space-y-0.5">
+      <ActionMenuAt at={menu?.place ?? null} items={items} title={open ? nameOf(open) : undefined} onClose={closeMenu} />
       <div data-section-group="header">
         <GroupLabel>{GROUP_LABELS.header}</GroupLabel>
         {groupRows("header")}
@@ -482,14 +587,13 @@ export function SectionsList({
                       isSelected={selectedId === s.id}
                       onSelect={() => onSelect(s.id)}
                       onToggleHide={() => onToggleHide(s.id)}
-                      onDuplicate={() => onDuplicate(s.id)}
                       onRemove={() => onRemove(s.id)}
-                      onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
-                      onMoveDown={i < body.length - 1 ? () => onMove(s.id, 1) : undefined}
                       dragHandleProps={gripProps(i)}
                       expandable={t.expandable}
                       expanded={t.expanded}
                       onToggleExpand={t.onToggleExpand}
+                      onMenu={menuFor(s.id)}
+                      menuOpen={menu?.id === s.id}
                     />
                     {lifted ? null : t.under}
                     <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />

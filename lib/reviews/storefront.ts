@@ -36,10 +36,24 @@ export interface StorefrontReview {
   /** "Mar 3, 2026". */
   date: string
   iso: string
+  /** A verified buyer's. An imported review never is, whatever the app it came from said (run-now part 232 keeps that for the store only). */
   verified: boolean
   featured: boolean
   photos: string[]
   has_photos: boolean
+  /** Web addresses of the review's videos, from an import (part 232). */
+  videos: string[]
+  /**
+   * Where the review stands in each order a visitor can pick, 0 first: the
+   * section sorts with CSS `order` from these, with no script, so the list
+   * the page was sent in is the store's own order and the others are one
+   * choice away.
+   */
+  rank_featured: number
+  rank_newest: number
+  rank_highest: number
+  rank_lowest: number
+  rank_photos: number
   reply: string
   product_id: string
   product_title: string
@@ -72,6 +86,10 @@ export interface StorefrontReviews {
   show_verified: boolean
   show_date: boolean
   show_photos: boolean
+  /** The store's order for its reviews (the app's display setting): the order the list is sent in, and the one the section's sort starts on. */
+  sort: ReviewsAppSettings["display"]["sort"]
+  /** Reviews a section shows before Show more, when the section leaves it to the app. */
+  per_page: number
   /** A visitor can write a review on the website (the app lets anyone). */
   can_write: boolean
   photos_allowed: boolean
@@ -109,6 +127,8 @@ export interface StorefrontReviewRow {
   featured?: boolean | null
   photos?: unknown
   seller_reply?: string | null
+  /** Run-now part 232. */
+  videos?: unknown
 }
 
 export interface StorefrontProductRow {
@@ -147,9 +167,11 @@ function buyerName(row: StorefrontReviewRow): string | null {
 }
 
 export function toStorefrontReview(row: StorefrontReviewRow, product: StorefrontProductRow | undefined, showPhotos = true): StorefrontReview {
-  const verified = row.verified !== false
-  const author = buyerName(row) ?? (verified ? "Verified buyer" : "Customer")
+  const buyer = row.verified !== false
+  const verified = buyer
+  const author = buyerName(row) ?? (buyer ? "Verified buyer" : "Customer")
   const photos = showPhotos ? shownPhotos(row.photos) : []
+  const videos = Array.isArray(row.videos) ? (row.videos as unknown[]).filter((v): v is string => typeof v === "string" && /^https:\/\/[^\s"'<>]+$/.test(v)).slice(0, 2) : []
   const rating = Math.max(1, Math.min(5, Math.round(Number(row.rating) || 0)))
   return {
     id: row.id,
@@ -164,6 +186,12 @@ export function toStorefrontReview(row: StorefrontReviewRow, product: Storefront
     featured: row.featured === true,
     photos,
     has_photos: photos.length > 0,
+    videos: showPhotos ? videos : [],
+    rank_featured: 0,
+    rank_newest: 0,
+    rank_highest: 0,
+    rank_lowest: 0,
+    rank_photos: 0,
     reply: (row.seller_reply ?? "").trim(),
     product_id: row.product_id,
     product_title: (product?.title ?? "").trim(),
@@ -199,6 +227,8 @@ export function emptyStorefrontReviews(settings: ReviewsAppSettings, creatorId: 
     show_verified: settings.display.showVerified,
     show_date: settings.display.showDate,
     show_photos: settings.display.showPhotos,
+    sort: settings.display.sort,
+    per_page: settings.display.perPage,
     can_write: settings.enabled && settings.who === "anyone",
     photos_allowed: settings.photos,
     form_action: "/api/reviews/site",
@@ -239,8 +269,20 @@ export function featuredOf(items: StorefrontReview[]): StorefrontReview[] {
   return featured.length ? featured : items.filter((r) => r.rating >= 4)
 }
 
+/** Each review's place in every order a visitor can pick (StorefrontReview rank_*). */
+export function withRanks<T extends StorefrontReview>(items: T[]): T[] {
+  for (const sort of ["featured", "newest", "highest", "lowest", "photos"] as const) {
+    sortReviews(items, sort).forEach((r, i) => {
+      r[`rank_${sort}`] = i
+    })
+  }
+  return items
+}
+
 /** Fills `here` and `all.featured_items` from what is already in it. */
 function finish(out: StorefrontReviews): StorefrontReviews {
+  withRanks(out.all.items)
+  if (out.product && out.product.items !== out.all.items) withRanks(out.product.items)
   out.all.featured_items = featuredOf(out.all.items)
   out.here = out.product ? { scope: "product", product_id: out.product.id, summary: out.product.summary, items: out.product.items } : { scope: "shop", product_id: "", summary: out.all.summary, items: out.all.items }
   return out
@@ -263,7 +305,7 @@ export function buildStorefrontReviews(input: {
   const { settings } = input
   const base = emptyStorefrontReviews(settings, input.creatorId)
   const byId = new Map(input.products.map((p) => [p.id, p]))
-  const limit = Math.max(1, Math.min(60, input.limit ?? 24))
+  const limit = Math.max(1, Math.min(100, input.limit ?? 24))
   const show = settings.display.showPhotos
   const all = sortReviews(input.rows.map((r) => toStorefrontReview(r, byId.get(r.product_id), show)), settings.display.sort).slice(0, limit)
   base.all = { summary: summaryOf(input.shopRatings ?? input.rows.map((r) => Number(r.rating))), items: all, featured_items: [] }
@@ -297,6 +339,12 @@ export function sampleStorefrontReviews(settings: ReviewsAppSettings, creatorId:
       featured: i === 0,
       photos: [],
       has_photos: false,
+      videos: [],
+      rank_featured: 0,
+      rank_newest: 0,
+      rank_highest: 0,
+      rank_lowest: 0,
+      rank_photos: 0,
       reply: "",
       product_id: product?.id ?? "sample",
       product_title: product?.title ?? "Sample product",

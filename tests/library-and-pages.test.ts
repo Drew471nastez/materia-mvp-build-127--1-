@@ -256,7 +256,7 @@ async function main() {
 
     const pump = library.slice(library.indexOf("function pump()"), library.indexOf("export function requestPreviews"))
     check("each preview is measured once, after it is drawn and its styles are in",
-      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /height = measureOne\(next\.html, next\.width\)/.test(pump))
+      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /sizes = measureMany\(batch\)/.test(pump) && /const batch = unmeasured\.splice\(0, MEASURE_BATCH\)/.test(pump))
     check("and its card is handed the preview and the height together",
       /HEIGHTS\.set\(next\.key, height\)\s*\n\s*MARKUP\.set\(next\.key, next\.html\)/.test(pump) && /unmeasured\.push\(\{ key: job\.key, html, width: job\.width \}\)/.test(pump) && !/MARKUP\.set\(job\.key/.test(pump))
     check("an idle moment measures or draws, never both, and stops at its deadline",
@@ -270,7 +270,7 @@ async function main() {
       /const subscribeWhileOpen = useCallback\(\(l: \(\) => void\) => \(open \? subscribe\(l\) : \(\) => \{\}\), \[open\]\)/.test(library) &&
         /const heightsSeen = useSyncExternalStore\(subscribeWhileOpen, \(\) => heightsVersion, \(\) => 0\)/.test(library))
     check("in a ruler out of sight, as wide as the preview is drawn, kept to itself",
-      /ruler\.style\.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"/.test(library) && /ruler\.style\.width = `\$\{width\}px`/.test(library) && /ruler\.textContent = ""/.test(library))
+      /ruler\.style\.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"/.test(library) && /box\.style\.cssText = `width:\$\{item\.width\}px;contain:layout paint`/.test(library) && /ruler\.textContent = ""/.test(library))
     const box = library.slice(library.indexOf("const PreviewBox = memo("), library.indexOf("const LibraryCard = memo("))
     check("a card takes that height, from its first frame when it is known by then",
       /const height = useSteadyHeight\(boxRef, previewCardHeight\(drawn, width, renderWidth, ratio\), width, drawn !== undefined\)/.test(box) &&

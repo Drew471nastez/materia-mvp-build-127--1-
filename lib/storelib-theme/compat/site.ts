@@ -53,6 +53,7 @@ import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
+import { withSiteIcon } from "@/lib/website-builder/site-icon"
 
 type O = Record<string, unknown>
 
@@ -80,6 +81,8 @@ export interface SiteData {
   product?: (handle: string) => Promise<(CardLike & { descriptionHtml?: string }) | null>
   /** Scripts the page carries besides the theme's: the preview's banner. */
   extraBodyEnd?: string
+  /** The website's favicon (or its logo when it has none), for a theme whose layout draws no icon (lib/website-builder/site-icon.ts). */
+  icon?: string
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
@@ -362,7 +365,17 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
   const out = route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
-  return pageHtml(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), path, route.status ?? 200)
+  return pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
+}
+
+/**
+ * A preload with no address. A theme writes `<link rel="preload" as="font"
+ * href="{{ settings.type_body_font | font_url }}">` and, with a font that is
+ * not a Shopify one, the address comes out empty: the browser warns and the
+ * line does nothing. Measured on a live imported site's front page.
+ */
+export function tidyHead(html: string): string {
+  return html.replace(/<link\b[^>]*\brel\s*=\s*["']?preload["']?[^>]*>/gi, (tag) => (/\bhref\s*=\s*(?:""|''|(?=[\s>]))/i.test(tag) || !/\bhref\s*=/i.test(tag) ? "" : tag))
 }
 
 /** The same page in every language of the website, for search engines (hreflang, x-default the website's own). */

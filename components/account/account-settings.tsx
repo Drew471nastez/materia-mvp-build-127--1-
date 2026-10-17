@@ -94,6 +94,7 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
+import { HtmlClass } from "@/components/platform/html-class"
 
 /* ── The parts ─────────────────────────────────────────────────────────── */
 
@@ -1146,6 +1147,8 @@ export function AccountSettings({
   return (
     /* One readable column on a computer (round 14): the fields, and the cover in the profile band's own shape, at a settings width rather than across the whole screen. */
     <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px] [scrollbar-gutter:stable] lg:max-w-[940px]">
+      {/* What `html:has([data-account-settings])` said, as a class (app/globals.css, the account pages keep their width). */}
+      <HtmlClass name="with-account-settings" />
       <div
         className="flex items-center gap-2.5"
         data-account-settings-top=""

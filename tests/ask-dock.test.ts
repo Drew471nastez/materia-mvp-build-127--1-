@@ -15,7 +15,7 @@
  *                the closing message not drawn twice, read back from the
  *                transcript, and the answer that was sent
  *   SUGGESTIONS  from the selected section, the empty page, what is
- *                missing, and the mode; three at most, each short
+ *                missing; two to four, each short
  *   PICTURES     what can be attached and what it becomes
  *   VOICE        words type themselves in, revisions are cut back once
  *   HISTORY      conversations filed under the day they were last used
@@ -260,35 +260,36 @@ section("Suggestions, from where the creator is")
   const all: string[][] = []
   const s = (ctx: Parameters<typeof suggestionsFor>[0]) => { const out = suggestionsFor(ctx); all.push(out); return out }
 
-  const onHero = s({ mode: "change", page: "home", sections: page, selectedId: "h" })
+  const onHero = s({ page: "home", sections: page, selectedId: "h" })
   check("a hero with a long heading: shorten it, first", onHero[0] === "Make this heading shorter", JSON.stringify(onHero))
   check("and a button under it, since it has none", onHero.includes("Add a button under the heading"))
-  const shortHero = s({ mode: "change", page: "home", sections: [{ ...hero, settings: { heading: "Ceramics", button_text: "Shop" } }], selectedId: "h" })
+  const shortHero = s({ page: "home", sections: [{ ...hero, settings: { heading: "Ceramics", button_text: "Shop" } }], selectedId: "h" })
   check("a short heading is not asked to be shorter, and a hero with a button gets a second one", !shortHero.includes("Make this heading shorter") && shortHero.includes("Add a second button"), JSON.stringify(shortHero))
-  const onFaq = s({ mode: "change", page: "home", sections: page, selectedId: "f" })
+  const onFaq = s({ page: "home", sections: page, selectedId: "f" })
   check("an FAQ: more questions, shorter answers", onFaq.includes("Add three more questions") && onFaq.includes("Make the answers shorter"))
-  const onGrid = s({ mode: "change", page: "home", sections: [{ id: "g", type: "product_grid", name: "Products" }], selectedId: "g", productCount: 7 })
+  const onGrid = s({ page: "home", sections: [{ id: "g", type: "product_grid", name: "Products" }], selectedId: "g", productCount: 7 })
   check("a product grid in a store with products: its three newest", onGrid[0] === "Show my 3 newest products", JSON.stringify(onGrid))
-  const onFooter = s({ mode: "change", page: "home", sections: page, selectedId: "ft" })
+  const onFooter = s({ page: "home", sections: page, selectedId: "ft" })
   check("the footer: an email, socials", onFooter.includes("Add my email to the footer"))
 
-  const empty = s({ mode: "change", page: "home", sections: [header, footer], storeName: "Nora Clay", productCount: 2 })
+  const empty = s({ page: "home", sections: [header, footer], storeName: "Nora Clay", productCount: 2 })
   check("an empty page starts with a hero named for the store, then its products", empty[0] === "Start with a hero for Nora Clay" && empty[1] === "Show my 2 newest products", JSON.stringify(empty))
-  const longName = s({ mode: "change", page: "home", sections: [], storeName: "The Very Long Named Pottery Studio of Somewhere" })
+  const longName = s({ page: "home", sections: [], storeName: "The Very Long Named Pottery Studio of Somewhere" })
   check("a store name too long for a chip is left out rather than cut", longName[0] === "Start with a hero section", longName[0])
-  const emptyAbout = s({ mode: "change", page: "about", sections: [] })
+  const emptyAbout = s({ page: "about", sections: [] })
   check("an empty About page starts with the story", emptyAbout[0] === "Tell my story in a short section")
 
-  const missing = s({ mode: "change", page: "home", sections: page, productCount: 12 })
+  const missing = s({ page: "home", sections: page, productCount: 12 })
   check("a home page with products on no product section offers them", missing[0] === "Show my 3 newest products", JSON.stringify(missing))
   check("and what it lacks: what buyers say, a newsletter", missing.includes("Add what buyers say") && missing.includes("Add a newsletter signup"), JSON.stringify(missing))
-  const reachable = s({ mode: "change", page: "home", sections: [hero, { id: "n", type: "promo_newsletter", name: "Newsletter" }, { id: "t", type: "proof_testimonials", name: "Quotes" }, { ...footer, settings: { email: "hi@nora.clay" } }] })
+  const reachable = s({ page: "home", sections: [hero, { id: "n", type: "promo_newsletter", name: "Newsletter" }, { id: "t", type: "proof_testimonials", name: "Quotes" }, { ...footer, settings: { email: "hi@nora.clay" } }] })
   check("with a newsletter, quotes and an email in the footer, none of those is suggested", !reachable.some((x) => /newsletter|contact me|buyers say/i.test(x)), JSON.stringify(reachable))
 
-  const code = s({ mode: "code", page: "home", sections: [{ id: "c", type: "comparison_table", name: "Compare" }] })
-  check("Code section suggests new kinds of section, not one the page has", !code.includes("A comparison table of my plans") && code.length === 3, JSON.stringify(code))
+  /* A page with everything: new kinds of section fill the list, never one the page has. */
+  const full = s({ page: "home", sections: [hero, { id: "n", type: "promo_newsletter", name: "Newsletter" }, { id: "t", type: "proof_testimonials", name: "Quotes" }, { id: "c", type: "comparison_table", name: "Compare" }, { ...footer, settings: { email: "hi@nora.clay" } }] })
+  check("a full page is offered new kinds of section, not one it has", !full.includes("A comparison table of my plans") && full.includes("A before and after slider") && full.length >= 2, JSON.stringify(full))
 
-  check("never more than three", all.every((x) => x.length <= 3), JSON.stringify(all.map((x) => x.length)))
+  check("never more than four, and two or more wherever there is a page", all.every((x) => x.length <= 4 && x.length >= 2), JSON.stringify(all.map((x) => x.length)))
   check(`each short enough for one chip on a phone (${MAX_SUGGESTION_CHARS} characters)`, all.flat().every((x) => x.length <= MAX_SUGGESTION_CHARS), all.flat().filter((x) => x.length > MAX_SUGGESTION_CHARS).join(" | "))
   check("and none of them is the old demo sentence", !all.flat().some((x) => /five questions about what/i.test(x)))
 }

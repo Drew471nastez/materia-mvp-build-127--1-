@@ -28,6 +28,7 @@
  * Pure: the route does the reading and the writing.
  */
 import { MAX_BODY_CHARS, MAX_TITLE_CHARS, cleanLine, cleanReviewText, publicName } from "./app-settings"
+import { slugify } from "./import/plan"
 
 export const MAX_IMPORT_ROWS = 2000
 export const MAX_IMPORT_BYTES = 4 * 1024 * 1024
@@ -88,13 +89,23 @@ const key = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").re
 /** A field to the column it is read from (0 based); a field with no column is left out. */
 export type ColumnMap = Partial<Record<ImportField, number>>
 
-/** The columns found by their names, the way Judge.me's and Shopify's exports name them. */
+/**
+ * The columns found by their names, the way Judge.me's and Shopify's exports
+ * name them. The name earlier in the list wins over a column earlier in the
+ * file: Judge.me's export has product_id (Shopify's number, which no Storelib
+ * product has) before product_handle, and the handle is the one that matches.
+ */
 export function guessMapping(header: readonly string[]): ColumnMap {
   const keys = header.map(key)
   const out: ColumnMap = {}
   for (const f of IMPORT_FIELDS) {
-    const at = keys.findIndex((h) => NAMES[f].includes(h))
-    if (at >= 0) out[f] = at
+    for (const name of NAMES[f]) {
+      const at = keys.indexOf(name)
+      if (at >= 0) {
+        out[f] = at
+        break
+      }
+    }
   }
   return out
 }
@@ -204,13 +215,15 @@ export function planImport(text: string, products: ImportProduct[], mapping?: Co
   const bySku = new Map<string, ImportProduct>()
   for (const p of products) for (const s of p.skus ?? []) if (s && s.trim() && !bySku.has(s.trim().toLowerCase())) bySku.set(s.trim().toLowerCase(), p)
   const byTitle = new Map(products.filter((p) => p.title).map((p) => [String(p.title).trim().toLowerCase(), p]))
+  /* A Shopify handle is the product's title as an address ("Linen Apron" is linen-apron): a product whose Storelib address differs still matches by it. */
+  const byTitleHandle = new Map(products.filter((p) => p.title).map((p) => [slugify(String(p.title)), p]))
   const match = (raw: string): { product: ImportProduct; by: MatchedBy } | null => {
     const v = raw.trim().toLowerCase()
     if (!v) return null
     const handle = v.replace(/^https?:\/\/[^/]+/, "").replace(/^\/?(products|p)\//, "").replace(/[/?#].*$/, "")
     const id = byId.get(v)
     if (id) return { product: id, by: "id" }
-    const slug = bySlug.get(v) ?? bySlug.get(handle)
+    const slug = bySlug.get(v) ?? bySlug.get(handle) ?? byTitleHandle.get(handle)
     if (slug) return { product: slug, by: "handle" }
     const sku = bySku.get(v)
     if (sku) return { product: sku, by: "sku" }

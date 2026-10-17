@@ -22,7 +22,7 @@ import { createElement } from "react"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { SECTION_COMPONENTS } from "@/components/website-builder/sections/registry"
+import { SECTION_COMPONENTS, preloadSectionRenderers } from "@/components/website-builder/sections/registry"
 import { STORELIB_SCHEMAS, STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
@@ -35,6 +35,9 @@ import {
   parseInZone,
   sectionPadding,
 } from "@/components/website-builder/sections/_shared"
+
+/* The renderers a page draws are fetched on demand on a live site (sections/lazy-section.tsx); here every one is fetched first, so each renders in full. */
+await preloadSectionRenderers()
 
 const root = process.cwd()
 const SECTIONS = join(root, "themes/default/sections")

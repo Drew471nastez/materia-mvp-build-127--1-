@@ -27,6 +27,8 @@ import {
 } from "./project"
 import type { OpResult } from "./operations"
 import type { BoundOps } from "./mcp"
+import type { MemoryDb } from "@/lib/ai-memory/store"
+import { memoryOps } from "./memory-ops"
 import type { AgentIdentity } from "./tokens"
 import { READ_ONLY_REFUSAL } from "./token-format"
 
@@ -77,6 +79,7 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
       runTests: (a) => runTests(db, who, a),
       runPreview: (a) => runPreview(db, who, a),
     },
+    memory: memoryOps(db as unknown as MemoryDb, who),
   }
   function mirror(path: string, content: string) {
     after(() => mirrorToGitHub(who.installId, { kind: "save", path, content }))

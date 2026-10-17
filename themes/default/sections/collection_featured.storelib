@@ -106,7 +106,7 @@
   "settings": [
     { "type": "collection_picker", "id": "collection", "label": "Collection" },
     { "type": "header", "id": "hdr_content", "label": "Content" },
-    { "type": "text", "id": "heading", "label": "Heading", "default": "", "placeholder": "The collection's name" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "", "placeholder": "The collection's name", "from": "collection.title" },
     { "type": "toggle", "id": "show_description", "label": "Show the collection's description", "default": false },
     {
       "type": "radio",

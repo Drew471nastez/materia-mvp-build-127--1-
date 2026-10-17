@@ -11,11 +11,11 @@
  *   2  ONE PICTURE, ONE THUMBNAIL         the same file by the picker, a
  *                                         paste and a drop is attached once
  *   3  ACCURACY OVER SPEED                plan, write, check, review, refine;
- *                                         Deep by default for code; more turns
+ *                                         medium effort, no switch; more turns
  *   4  IT SAYS WHAT IT IS WORKING ON      "Editing Pricing", "New section: …"
  *   5  A NEW SECTION IS PUT ON THE PAGE   and the canvas goes to it; no code
  *                                         window in the chat
- *   6  CODE A SECTION IS THE DEFAULT      and the words always go
+ *   6  ONE BOX, THE SERVER ROUTES IT      and the words always go
  *   7  WHAT WAS ASKED IS BUILT            SVG, keyframes, a photo slot; the
  *                                         worked example passes the gate
  *   8  VOICE                              sessions that restart, words at
@@ -54,13 +54,13 @@ import { instanceFromSchema } from "@/lib/website-builder/ai-placement"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { ThemeState } from "@/lib/website-builder/agent/operations"
 import { fileKey, newFiles, pastedFiles, pictureFingerprint } from "@/lib/website-builder/ask-attach"
-import { codeTarget, finishWrite, readWriteAnswer } from "@/lib/website-builder/ask-code-run"
+import { finishWrite, readWriteAnswer } from "@/lib/website-builder/ask-code-run"
+import { routeByRules } from "@/lib/website-builder/agent/router"
 import { EMPTY_ACTIVITY, reduceActivity, timelineRows } from "@/lib/website-builder/ask-activity"
-import { DEFAULT_CODE_STRENGTH, DEFAULT_STRENGTH, defaultStrengthFor, effortOf, strengthKeyFor } from "@/lib/website-builder/ask-engines"
+import { EFFORT } from "@/lib/website-builder/ask-engines"
 import { imageAnswer, imageOp, optionAction, readImageUrl } from "@/lib/sites/agent/questions"
 import { anchorAt, composeDictation, joinHeard, shouldRestart, spokenSince, transcriptOf } from "@/lib/website-builder/ask-dictation"
 import { typeToward } from "@/lib/website-builder/ask-typing"
-import { MODES } from "@/components/website-builder/ask-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { untt } from "./i18n-source"
 
@@ -141,7 +141,7 @@ async function main() {
       images: [picture],
       takenTypes: [],
       takenNames: [],
-      effort: "high",
+      effort: EFFORT,
       onEvent: (e) => events.push(`${e.type}:${"text" in e ? e.text : `${e.label}:${e.state}`}`),
     })
     check("the section is written", out.ok === true, out.ok === false ? out.error : "")
@@ -163,7 +163,7 @@ async function main() {
     check("the creator's words are on every call too, beside the picture", seen.every((r) => /REQUEST\na section with the president of Romania/.test(String((r.turns[0] as { content: string }).content))))
     check("the plan asks it to describe what it sees first", /STEP 1 OF 3: PLAN/.test(String((seen[0].turns[0] as { content: string }).content)) && /SEE: what the picture shows/.test(String((seen[0].turns[0] as { content: string }).content)))
     check("the review compares the file with the picture, element by element", /STEP 3 OF 3: CHECK YOUR FILE/.test(String((seen[2].turns[seen[2].turns.length - 1] as { content: string }).content)) && /the Romanian flag, blue yellow red/.test(String((seen[2].turns[seen[2].turns.length - 1] as { content: string }).content)))
-    check("Deep thinking is passed to the provider", seen.every((r) => r.effort === "high"))
+    check("medium effort is passed to the provider", seen.every((r) => r.effort === "medium"))
     check("it says what it is making: New section, then its name", events.includes("subject:New section") && events.includes("subject:New section: Romania flag"))
     check("its steps are said as they happen, the picture first", events.includes("step:Reading your picture and planning:running") && events.includes("step:Comparing it with your picture:done"))
     check("and the plan's elements are shown", events.some((e) => e.startsWith("plan:") && /the Romanian flag/.test(e)))
@@ -223,10 +223,9 @@ async function main() {
     const out = await writeSection({ provider, model: "test", prompt: "a flag section", takenTypes: [], takenNames: [] })
     check("a file the gate refuses is sent back with the reason, and the fixed one kept", out.ok === true && seen.length >= 3 && out.value.source === GOOD, out.ok ? "" : (out as { error: string }).error)
   }
-  check("Code a section thinks on Deep by default, a page change on Standard", DEFAULT_CODE_STRENGTH === "deep" && defaultStrengthFor("code") === "deep" && defaultStrengthFor("change") === DEFAULT_STRENGTH && effortOf("deep") === "high")
-  check("each mode keeps its own Strength", strengthKeyFor("code") !== strengthKeyFor("change"))
-  check("the code route asks for high when the panel sends nothing", /effort: parsed\.data\.effort \?\? "high"/.test(read("app/api/website-builder/themes/[installId]/sections/code/route.ts")))
-  check("the panel sends Code a section's own Strength with a new section", /effort: live\.current\.codeEffort,/.test(read("components/website-builder/theme-chat.tsx")))
+  check("every run thinks at medium, with no Strength switch", EFFORT === "medium" && !/STRENGTH|strengthKeyFor/.test(read("lib/website-builder/ask-engines.ts")))
+  check("the writer's route asks for medium and takes no effort from a browser", /effort: EFFORT,/.test(read("app/api/website-builder/themes/[installId]/sections/code/route.ts")) && !/parsed\.data\.effort/.test(read("app/api/website-builder/themes/[installId]/sections/code/route.ts")))
+  check("the panel sends no effort with a new section", !/effort:/.test(read("components/website-builder/theme-chat.tsx")))
   check("the page assistant may take more turns", MAX_TURNS >= 24 && classifyRequest("design a complete FAQ section").maxTurns >= 32 && classifyRequest("make the heading red").maxTurns >= 10)
   check("and the route gives it five minutes, like the writer", /export const maxDuration = 300/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
 
@@ -319,24 +318,24 @@ async function main() {
   }
 
   // ═════════════════════════════════════════════════════════════════════════
-  section("6. Code a section is the default, and the words always go")
+  section("6. One box, the server decides where it goes, and the words always go")
   // ═════════════════════════════════════════════════════════════════════════
   {
     const chat = read("components/website-builder/theme-chat.tsx")
-    check("the box starts in Code a section", /initialMode = "code",/.test(chat) && /React\.useState<AskMode>\(initialMode\)/.test(chat) && !/initialMode=/.test(read("app/website-builder/editor/[installId]/page.tsx")))
-    check("and it is the first of the two, where the eye starts", MODES[0][0] === "code" && MODES[1][0] === "change")
-    check("switching is one press, or an arrow key", /event\.key !== "ArrowLeft" && event\.key !== "ArrowRight"/.test(read("components/website-builder/ask-parts.tsx")))
-    check("with no section open, Code a section writes a new one", codeTarget("make it nicer", { selectedId: null, locked: false }) === "new")
-    check("with one open and in scope, it changes that section's code", codeTarget("make the cards slide in", { selectedId: "hero-1", locked: true }) === "edit" && codeTarget("edit this to look like this image", { selectedId: "hero-1", locked: true }) === "edit")
-    check("unless the words ask for a section of their own", ["build me a section like this image", "add a new section with a flag", "a section with the president's image and a flag", "copy this section"].every((p) => codeTarget(p, { selectedId: "hero-1", locked: true }) === "new"))
-    check("scope cleared, it is a new section", codeTarget("make the cards slide in", { selectedId: "hero-1", locked: false }) === "new")
-    check("the edit goes to the page assistant as code", /if \(target === "edit"\) void send\(prompt, images, quiet, \{ codeFocus: true \}\)/.test(chat) && /codeFocus: body\.codeFocus === true && !!selected/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
+    const hero = { sectionId: "hero-1", sectionType: "hero", sectionName: "Hero", origin: "own" as const }
+    const route = (prompt: string, selection: typeof hero | null, scoped: boolean, images = 0) => routeByRules({ prompt, images, selection, scoped, bodySections: 3 })
+    check("there are no modes: no switch, no initial mode", !/initialMode/.test(chat) && !/ModeSwitch/.test(chat) && !/ModeSwitch|MODES/.test(read("components/website-builder/ask-parts.tsx")))
+    check("a picture with nothing selected is a new section", route("", null, false, 1).agent === "writer" && route("make it like this", null, false, 1).agent === "writer")
+    check("with one open and in scope, a change to how it behaves goes into its code", route("make the cards slide in", hero, true).codeFocus === true && route("edit this to look like this image", hero, true, 1).codeFocus === true)
+    check("unless the words ask for a section of their own", ["build me a section like this image", "add a new section with a flag", "a section with the president's image and a flag", "copy this section"].every((p) => route(p, hero, true).agent === "writer"))
+    check("scope cleared, a change is the page's, not the selection's", route("make the cards slide in", hero, false).lock === false)
+    check("the edit goes to the page assistant as code", /void send\(prompt, images, quiet, \{ codeFocus: route\.codeFocus, lock: route\.lock \}\)/.test(chat) && /codeFocus: body\.codeFocus === true && !!selected/.test(read("app/api/website-builder/themes/[installId]/agent/route.ts")))
     const writeOne = chat.slice(chat.indexOf("const writeOne = React.useCallback("), chat.indexOf("const dispatch = React.useCallback("))
     check("a new section's request carries the words and the pictures", /body: JSON\.stringify\(\{\s*prompt,\s*images: images\.map/.test(writeOne))
     const send = chat.slice(chat.indexOf("const send = React.useCallback("), chat.indexOf("const writeOne = React.useCallback("))
     check("so does a page change", /JSON\.stringify\(\{\s*prompt,\s*images: images\.map/.test(send))
     const submit = chat.slice(chat.indexOf("const submit = React.useCallback("), chat.indexOf("const answerQuestion = React.useCallback("))
-    check("a message typed while a section is being written is queued, not dropped", /if \(busy \|\| writing\) \{[\s\S]{0,300}setQueued\(\{ text: prompt, mode \}\)/.test(submit) && !/if \(writing\) return/.test(submit))
+    check("a message typed while a section is being written is queued, not dropped", /if \(busy \|\| writing \|\| routingNow\) \{[\s\S]{0,300}setQueued\(\{ text: prompt \}\)/.test(submit) && !/if \(writing\) return/.test(submit))
     check("and the box is only emptied once its words have somewhere to go", submit.indexOf("setDraft(\"\")") > submit.indexOf("if (!prompt) return"))
     const { provider, seen } = recording([{ text: "REPLY: x" }])
     await writeSection({ provider, model: "test", prompt: "make it like this", images: [picture], takenTypes: [], takenNames: [] })

@@ -40,9 +40,9 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
+import { addLine, cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
-import { withDeliveryBlock, withProductBlocks } from "@/lib/website-builder/product-page"
+import { withDeliveryBlock, withOffersBlock, withProductBlocks } from "@/lib/website-builder/product-page"
 import { pricingFor } from "@/lib/markets/pricing"
 import {
   amountToCents,
@@ -101,7 +101,7 @@ const WIDTHS: Record<string, string> = { compact: "960px", standard: "1230px", w
 
 export function ProductSection({ section: raw, theme, isEditing, isSelected, onClick }: SectionProps) {
   /* A section saved before it had blocks draws the blocks its old switches describe (lib/website-builder/product-page.ts). */
-  const section = useMemo(() => withDeliveryBlock(withProductBlocks(raw)), [raw])
+  const section = useMemo(() => withOffersBlock(withDeliveryBlock(withProductBlocks(raw))), [raw])
   const s = section.settings
   const storefront = useStorefront()
   const cart = useSiteCart()
@@ -272,6 +272,24 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const ownedNow = !!owned && (owned.whole || (!!variant && owned.options.includes(variant.id)))
 
   const saved = !!product.id && wishlistStore.has(product.id)
+  /* The Bundles and upsells block (./product/offers-block.tsx): this product as the buy box has it, and the lines a bundle or an upsell adds, into the same cart Add to cart uses. */
+  const chosenLine = !sample && canBuy && !unavailable && !pwyw.error ? cartLineFor(product, variant, 1, pwyw.cents) : null
+  const addLines = useCallback(
+    (lines: CartLine[]) => {
+      if (isEditing || sample) return
+      if (!cart.live && storefront.creatorId && lines.some((l) => l.physical)) {
+        try {
+          const key = cartStorageKey(storefront.creatorId)
+          window.localStorage.setItem(key, serializeCart(lines.reduce((all, l) => addLine(all, l), parseCart(window.localStorage.getItem(key)))))
+        } catch {
+          /* Storage refused: each product can still be bought from its own page. */
+        }
+        return
+      }
+      for (const l of lines) cart.add(l)
+    },
+    [isEditing, sample, cart, storefront.creatorId],
+  )
   const ctx: ProductCtx = {
     product,
     sample,
@@ -291,6 +309,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     inert: isEditing === true,
     buy: { add, now, added, unavailable, owned: ownedNow ? "/account" : null },
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
+    offers: { chosen: chosenLine ? { variantId: chosenLine.variantId ?? "", variantName: chosenLine.variantName ?? null, priceCents: chosenLine.priceCents, imageUrl: chosenLine.thumbnailUrl ?? null, line: chosenLine } : null, addLines },
     radius,
     buttonRadius,
     /* Theme settings › Currency format › Show currency codes, as the product cards on the same page follow it. */

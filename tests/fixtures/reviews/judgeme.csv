@@ -1,0 +1,4 @@
+title,body,rating,review_date,source,curated,reviewer_name,reviewer_email,product_id,product_handle,reply,reply_date,picture_urls,ip_address,location
+Great apron,"Loved it, <b>truly</b>&amp; more",5,2024-03-03 10:00:00 UTC,web,ok,Jane Doe,jane@example.com,7712345,linen-apron,Thanks Jane!,2024-03-04 09:00:00 UTC,"https://cdn.judge.me/a.jpg,https://cdn.judge.me/b.jpg",1.2.3.4,US
+Meh,<script>alert(1)</script>Too <img src=x onerror=alert(1)>short,2,2024-03-05,web,spam,Bob Stone,bob@example.com,7712345,linen-apron,,,,,
+Waiting,Still deciding,4,2024-03-06,web,not-yet,Cara Lee,cara@example.com,7712345,linen-apron,,,,,

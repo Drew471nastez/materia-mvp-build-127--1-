@@ -1,0 +1,3 @@
+Review Type,Review ID,Product ID,Product Title,Product URL,Review Score,Review Title,Review Content,Comment Content,Display Name,Email,User Type,Date,Published,Published Image URLs,Published Video URLs
+product,yp-1,9988,Linen Apron,https://shop.example/products/linen-apron,5,Perfect,Fits well,Thank you!,Ana L.,ana@example.com,verified_buyer,2024-02-01,true,https://img.yotpo.com/1.jpg,https://video.yotpo.com/1.mp4
+product,yp-2,9988,Linen Apron,https://shop.example/products/linen-apron,3,Okay,Colour faded,,Sam,sam@example.com,anonymous_user,2024-02-02,false,,

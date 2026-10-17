@@ -57,10 +57,11 @@ import {
   type PushPayload,
 } from "./core"
 import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
-import { GENERATED, SETTINGS_SCHEMA_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
+import { GENERATED, SETTINGS_DATA_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
 import { recordEvent } from "./events"
+import { fillSchemaDefaults, readThemeSchemaText, saveSettingsData } from "@/lib/website-builder/theme-config-store"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -275,11 +276,12 @@ function lineOf(message: string): number | undefined {
  * it is not taken, and what to change instead. Said as a refusal, with the
  * commit red, because a quiet note under a green status read as "done" to
  * the agent that pushed it, and the builder's panel never changed.
+ *
+ * config/settings_schema.json is not one of them any more: it is the theme's
+ * own Theme settings (lib/storelib-theme/theme-config.ts), taken like any
+ * theme file and refused only when it does not read.
  */
 export function readOnlySchemaRefusal(path: string): string | null {
-  if (path === SETTINGS_SCHEMA_PATH) {
-    return `${path}: Storelib's theme settings are the same on every Storelib theme, so this file is for reading and a change to it is not taken. Change a theme setting's value in config/settings.json. A setting the creator should be able to change goes in a section's <schema> (sections/<type>.storelib), and shows in that section's panel in the builder`
-  }
   const m = /^sections\/([a-z0-9_-]{1,64})\.json$/.exec(path)
   if (m) {
     return `${path}: this section is drawn by Storelib itself, so its schema here is for reading and a change to it is not taken. Write sections/${m[1]}.storelib with the same setting ids instead: this site then draws that file, with the settings its <schema> declares`
@@ -287,11 +289,14 @@ export function readOnlySchemaRefusal(path: string): string | null {
   return null
 }
 
+const COVERAGE_ADVICE = /^(?:setting-unread|block-setting-unread|setting-missing)\b/
+
 /** The quality findings a built-in already has are not the edit's fault: only new ones refuse a copy of it. */
 function newQualityErrors(source: string, original: string | undefined, path: string, type: string) {
   const checked = validateSection(source, { path, expectType: type, strict: true })
   if (checked.ok !== false || checked.reason !== "quality") return null
-  const errors = checked.findings.filter((f) => f.severity === "error")
+  /* Settings coverage (lib/storelib-ai/settings-coverage.ts) is advice on a push, not a refusal: someone working in their own repository adds a setting and uses it a commit later. Storelib AI and MCP agents are still held to it. */
+  const errors = checked.findings.filter((f) => f.severity === "error" && !COVERAGE_ADVICE.test(f.id))
   if (original === undefined) return errors[0] ?? null
   const before = validateSection(original, { path, expectType: type, strict: true })
   const had = new Set(before.ok === false && before.reason === "quality" ? before.findings.filter((f) => f.severity === "error").map((f) => f.id) : [])
@@ -391,6 +396,27 @@ export async function applyFiles(
       text = Buffer.from(f.bytes).toString("utf8")
     }
 
+    /* Shopify's values file: what it sets is set, what it leaves out stays (lib/website-builder/theme-config-store.ts). */
+    if (role === "settings" && f.path === SETTINGS_DATA_PATH) {
+      const stop = await backup()
+      if (stop) {
+        out.failed.push({ path: f.path, error: `${f.path}: ${stop}`, kind: "not-saved" })
+        continue
+      }
+      const data = await saveSettingsData(db, link.install_id, text)
+      if (data.ok === false) {
+        const refused = data as { status: number; error: string; errors?: { line?: number; message: string }[] }
+        const first = refused.errors?.[0]
+        out.failed.push({ path: f.path, error: `${f.path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? publicError(refused.status, refused.error)}`, kind: refused.status === 422 ? "invalid" : "not-saved", line: first?.line })
+        continue
+      }
+      conflictNote(f.path)
+      out.saved.push(f.path)
+      out.shas[f.path] = f.sha
+      await logActivity(db, link.install_id, who, { path: "settings", action: "page", detail: { replaced: true } })
+      continue
+    }
+
     if (role === "settings") {
       const bad = jsonError(f.path, text)
       if (bad) {
@@ -433,6 +459,8 @@ export async function applyFiles(
       out.shas[f.path] = f.sha
       /* An imported theme's Theme settings list its colour schemes from these values: made again with them. */
       if (snap.compat) await refreshCompatSettingsPanel(db, link.install_id)
+      /* The defaults the theme's own settings_schema.json gives, under any value the push left out. */
+      else await fillSchemaDefaults(db, link.install_id, await readThemeSchemaText(db, link.install_id))
       await logActivity(db, link.install_id, who, { path: "settings", action: "page", detail: { replaced: true } })
       continue
     }

@@ -31,7 +31,7 @@ const SUPA = "https://abc.supabase.co/storage/v1/object/public/media/shirt.jpg"
 {
   const out = optimizeSectionMedia(`<figure><img src="${SUPA}" alt="A shirt" width="600" height="800"></figure>`)
   check("a picture is lazy and decoded off the main thread", /loading="lazy"/.test(out) && /decoding="async"/.test(out))
-  check("it is offered at the widths a screen needs, through the optimizer", /srcset="\/_next\/image\?url=[^"]*&amp;w=384&amp;q=75 384w, /.test(out) && /2048w"/.test(out), out)
+  check("it is offered at the widths a screen needs, through the optimizer", /srcset="\/_next\/image\?url=[^"]*&amp;w=384&amp;q=90 384w, /.test(out) && /2048w"/.test(out), out)
   check("sized by its own width", /sizes="\(min-width: 600px\) 600px, 100vw"/.test(out))
   check("and marked to fade in", /data-sl-media=""/.test(out))
   check("everything else about it is untouched", out.startsWith(`<figure><img src="${SUPA}" alt="A shirt" width="600" height="800"`) && out.endsWith("</figure>"))

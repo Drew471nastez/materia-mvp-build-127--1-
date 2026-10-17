@@ -53,6 +53,7 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/shipping/profiles": () => import("@/app/api/physical/shipping/profiles/route"),
   "/api/physical/shipping/zones": () => import("@/app/api/physical/shipping/zones/route"),
   "/api/physical/shipping/rates": () => import("@/app/api/physical/shipping/rates/route"),
+  "/api/physical/shipping/quick-setup": () => import("@/app/api/physical/shipping/quick-setup/route"),
   "/api/physical/tax-rates": () => import("@/app/api/physical/tax-rates/route"),
   "/api/physical/products/[id]": () => import("@/app/api/physical/products/[id]/route"),
   "/api/physical/inventory": () => import("@/app/api/physical/inventory/route"),

@@ -34,6 +34,7 @@
  *               was renamed, keeps its data.
  */
 import { controlFor, holdsValue, resolveControlType, type ControlType } from "./controls/registry"
+import { withCollectionBindings } from "./collection-binding"
 import {
   Linked,
   cleanBackground,
@@ -51,6 +52,7 @@ import {
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
 import { shopObject } from "./globals"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
@@ -173,7 +175,13 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
     case "number":
     case "range": {
       const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN
-      return Number.isFinite(n) ? n : undefined
+      if (!Number.isFinite(n)) return undefined
+      /* A slider's value from before its range moved is drawn at the nearest end, as the sidebar shows it; the stored value stays until it is moved. */
+      if (type === "range") {
+        if (typeof def.min === "number" && Number.isFinite(def.min) && n < def.min) return def.min
+        if (typeof def.max === "number" && Number.isFinite(def.max) && n > def.max) return def.max
+      }
+      return n
     }
     case "toggle":
     case "checkbox":
@@ -468,7 +476,8 @@ export function resolveSettings(
   for (const [k, v] of Object.entries(saved ?? {})) {
     if (!declared.has(k)) out[k] = v
   }
-  return out
+  /* A picture or a title that is the picked collection's until somebody sets one (./collection-binding.ts). */
+  return withCollectionBindings(defs, out)
 }
 
 /**
@@ -693,7 +702,8 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
       /* What a header prints when there is no picture: the store's name. */
       text: str("brand_name"),
     },
-    favicon: safeMediaUrl(str("favicon_url")),
+    /* The one favicon (Website settings, Branding and an imported theme's own are one value): lib/website-builder/favicon-sync.ts. */
+    favicon: safeMediaUrl(faviconOf(settings)),
     buttons: {
       style: str("button_style", "filled"),
       shape: str("button_shape", "rounded"),

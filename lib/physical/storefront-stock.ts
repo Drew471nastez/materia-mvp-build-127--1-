@@ -13,6 +13,7 @@
 export const SAY_LEFT_FROM = 10
 
 import { cappedQuantity, orderLimits } from "./order-limit"
+import { sellsWhenOut } from "./inventory-rules"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -32,6 +33,23 @@ export interface StockVariant {
   active?: boolean | null
   track_inventory?: boolean | null
   inventory_policy?: string | null
+  /** The variant's own low stock line (part 214), when the caller read it. */
+  low_stock_threshold?: number | null
+}
+
+/** Each variant's own line: what the caller read, else one small read that a database without part 214 answers with nothing. Never throws. */
+async function ownLines(db: Db, live: StockVariant[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  for (const v of live) if (typeof v.low_stock_threshold === "number") out.set(v.id, v.low_stock_threshold)
+  const unknown = live.filter((v) => v.low_stock_threshold === undefined).map((v) => v.id)
+  if (unknown.length === 0) return out
+  try {
+    const { data, error } = await db.from("product_variants").select("id, low_stock_threshold").in("id", unknown)
+    if (!error) for (const r of (data ?? []) as { id: string; low_stock_threshold: number | null }[]) if (typeof r.low_stock_threshold === "number") out.set(r.id, r.low_stock_threshold)
+  } catch {
+    /* The product's line. */
+  }
+  return out
 }
 
 export interface VariantStock {
@@ -90,12 +108,14 @@ export async function physicalStock(db: Db, product: StockProduct, variants: Sto
   } catch {
     /* Read as nothing in stock below, which is what an empty warehouse says. */
   }
-  const lowAt = lowStockLine(product.low_stock_threshold, shopLine)
+  /* A variant's own low stock line (part 214) where it has one, else the product's, else the shop's. */
+  const own = await ownLines(db, live)
   const limit = product.id ? ((await orderLimits(db, [product.id])).get(product.id) ?? null) : null
   const out = new Map<string, VariantStock>()
   for (const v of live) {
     const tracked = v.track_inventory ?? product.track_inventory ?? true
-    const keepSelling = v.inventory_policy === "continue" || product.continue_selling === true
+    const keepSelling = sellsWhenOut(v.inventory_policy, product.continue_selling)
+    const lowAt = lowStockLine(own.get(v.id) ?? product.low_stock_threshold, shopLine)
     const s = variantStock(available.get(v.id) ?? 0, { tracked, keepSelling, lowAt })
     out.set(v.id, { ...s, maxQuantity: cappedQuantity(s.maxQuantity, limit) })
   }

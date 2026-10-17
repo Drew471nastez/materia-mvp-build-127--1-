@@ -4,6 +4,7 @@ import { requireBearerSecret } from "@/lib/api/require-secret"
 import { ROLLUP } from "@/lib/analytics/events"
 import { recordCronRun } from "@/lib/observability/report"
 import { rollupAndScorePerfDay, type DailyPerfResult } from "@/lib/perf/daily"
+import { rollupPendingSiteDays } from "@/lib/website-builder/web-performance-read"
 
 /**
  * CRON: Refresh daily analytics rollups for yesterday.
@@ -156,13 +157,21 @@ export async function POST(request: Request) {
     const perf: DailyPerfResult[] = []
     for (const date of dates) perf.push(await rollupAndScorePerfDay(date).catch((e) => ({ day: date, rolledUp: null, score: null, error: String(e) })))
 
+    /*
+      Published websites' own speed (Website settings › Performance, part 210):
+      every finished day with page views and no rollup yet, then the
+      retention sweep. A minute at most; what is left is done the next night
+      or when the page is read.
+    */
+    const sites = await rollupPendingSiteDays(admin, Date.now(), 60_000).catch((e) => ({ days: 0, rows: 0, left: -1, cleaned: null, error: String(e) }))
+
     for (const date of backfill) {
       if (Date.now() - started > BACKFILL_BUDGET_MS) break
       const property = await admin.rpc(ROLLUP.refresh, { p_day: date })
       results.push({ date, rows: null, properties: property.error ? null : (property.data as number), propertiesError: property.error?.message, backfill: true })
     }
 
-    return NextResponse.json({ success: true, results, perf })
+    return NextResponse.json({ success: true, results, perf, sites })
   } catch (error) {
     console.error("[cron/rollup-daily] Error:", error)
     return NextResponse.json(

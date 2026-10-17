@@ -189,13 +189,13 @@ function main() {
     check("nothing puts it on a page", !/store_theme_pages/.test(route))
     check("and the creator's own client reads what is already there, so RLS decides", /const supabase = await createClient\(\)/.test(route) && !/createAdminClient/.test(route))
 
-    /* Two words a side now, so the row is one row on a 360px phone (components/website-builder/ask-parts.tsx). */
+    /* No modes: the server decides which agent takes a message (lib/website-builder/agent/router.ts). */
     const parts = read("components/website-builder/ask-parts.tsx")
     const suggest = read("lib/website-builder/ask-suggestions.ts")
-    check("the chat asks which of the two things is wanted", /\["change", "Change page"\]/.test(parts) && /\["code", "Code section"\]/.test(parts) && /<ModeSwitch/.test(chat))
+    check("the chat asks nothing about which agent: no mode switch, the router decides", !/Change page|Code section/.test(parts) && !/<ModeSwitch/.test(chat) && /decideRoute\(installId,/.test(chat))
     check(
-      "with suggestions the library does not already cover, and not ones the page already has",
-      /if \(ctx\.mode === "code"\) picked = toCode\(ctx\)/.test(suggest) && /A comparison table of my plans/.test(suggest) &&
+      "with suggestions of new kinds of section the page does not already have",
+      /picked = \[\.\.\.missing\(ctx, body\), \.\.\.newKinds\(ctx\)\]/.test(suggest) && /A comparison table of my plans/.test(suggest) &&
         /ideas\.filter\(\(\[, taken\]\) => !types\.some\(\(t\) => taken\.test\(t\)\)\)/.test(suggest),
     )
     /* One press: View code beside the line that says it was added (the file is not pasted into the thread). */

@@ -10,7 +10,8 @@
       "responsive": false,
       "component": "TextInput",
       "accepts": [
-        "placeholder"
+        "placeholder",
+        "from"
       ],
       "example": {
         "type": "text",
@@ -27,7 +28,8 @@
       "responsive": false,
       "component": "TextArea",
       "accepts": [
-        "placeholder"
+        "placeholder",
+        "from"
       ],
       "example": {
         "type": "textarea",
@@ -42,7 +44,9 @@
       "fallback": "",
       "responsive": false,
       "component": "RichTextEditor",
-      "accepts": [],
+      "accepts": [
+        "from"
+      ],
       "example": {
         "type": "richtext",
         "id": "content",
@@ -263,7 +267,8 @@
       "responsive": false,
       "component": "InlineRichText",
       "accepts": [
-        "placeholder"
+        "placeholder",
+        "from"
       ],
       "example": {
         "type": "inline_richtext",
@@ -326,7 +331,9 @@
       "fallback": "",
       "responsive": false,
       "component": "ImagePicker",
-      "accepts": [],
+      "accepts": [
+        "from"
+      ],
       "example": {
         "type": "image_picker",
         "id": "image",
@@ -406,7 +413,8 @@
       "responsive": false,
       "component": "LinkPicker",
       "accepts": [
-        "placeholder"
+        "placeholder",
+        "from"
       ],
       "example": {
         "type": "url",

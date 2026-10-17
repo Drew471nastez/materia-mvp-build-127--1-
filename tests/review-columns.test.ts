@@ -76,6 +76,21 @@ const REVIEW_COLUMNS = new Set([
   "source",
   "hidden_by",
   "published_at",
+  /*
+    Added by run-now part 232 (review imports from other apps): the import a review came
+    from, the app's own id for it and its content's fingerprint (the
+    duplicate check), the app, its verified purchase, and videos. Reads
+    that name them ask again without them before the part has run
+    (lib/reviews/storefront-server, app/app/reviews/load-reviews), and the
+    import's duplicate check reads them only when the import has its
+    history row, which needs the part (lib/reviews/import-server).
+  */
+  "import_id",
+  "import_key",
+  "content_hash",
+  "import_platform",
+  "import_verified",
+  "videos",
 ])
 
 const SKIP = new Set(["node_modules", ".next", ".git", "ios", "android", "public", "tests"])

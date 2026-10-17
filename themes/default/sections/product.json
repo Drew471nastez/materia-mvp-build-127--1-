@@ -1125,6 +1125,123 @@
       ]
     },
     {
+      "type": "offers",
+      "name": "Bundles and upsells",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "show_bundles",
+          "label": "Bundles",
+          "type": "toggle",
+          "default": true,
+          "info": "Bundles with this product in (Products, Upsells and bundles)."
+        },
+        {
+          "id": "show_upsells",
+          "label": "Upsells",
+          "type": "toggle",
+          "default": true,
+          "info": "Upsells this product shows, set to show on product pages."
+        },
+        {
+          "id": "add_all_label",
+          "label": "Bundle button",
+          "type": "text",
+          "default": "Add all to cart"
+        },
+        {
+          "id": "add_label",
+          "label": "Upsell button",
+          "type": "text",
+          "default": "Add"
+        },
+        {
+          "id": "button_style",
+          "label": "Button style",
+          "type": "select",
+          "default": "outline",
+          "options": [
+            {
+              "value": "outline",
+              "label": "Outline"
+            },
+            {
+              "value": "fill",
+              "label": "Filled"
+            }
+          ]
+        },
+        {
+          "id": "heading_color",
+          "label": "Heading",
+          "type": "color",
+          "default": "scheme.heading"
+        },
+        {
+          "id": "text_color",
+          "label": "Text",
+          "type": "color",
+          "default": "scheme.text"
+        },
+        {
+          "id": "price_color",
+          "label": "Price",
+          "type": "color",
+          "default": "scheme.heading"
+        },
+        {
+          "id": "border_color",
+          "label": "Border",
+          "type": "color",
+          "default": "scheme.border"
+        },
+        {
+          "id": "badge_background",
+          "label": "Saving background",
+          "type": "color",
+          "default": "#dcfce7"
+        },
+        {
+          "id": "badge_text",
+          "label": "Saving text",
+          "type": "color",
+          "default": "#166534"
+        },
+        {
+          "id": "button_background",
+          "label": "Button background",
+          "type": "color",
+          "default": "scheme.primary_button_background"
+        },
+        {
+          "id": "button_text",
+          "label": "Button text",
+          "type": "color",
+          "default": "scheme.primary_button_text"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 20
+        }
+      ]
+    },
+    {
       "type": "description",
       "name": "Description",
       "limit": 1,
