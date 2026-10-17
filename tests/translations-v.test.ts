@@ -72,7 +72,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 const raw = (p: string) => readFileSync(p, "utf8")
 /* createElement without its overloads: a component whose props name `children` is given them as the third argument. */
-const h = createElement as unknown as (type: unknown, props?: unknown, ...children: unknown[]) => ReactElement
+const el = createElement as unknown as (type: unknown, props?: unknown, ...children: unknown[]) => ReactElement
 
 /* ── A database: rows by table, filtered as Postgres would by eq and in, every write kept ── */
 type Row = Record<string, unknown>
@@ -155,12 +155,12 @@ function Probe({ field, value }: { field: SchemaField; value: unknown }) {
 }
 function probe(edit: TranslationEditing | null, scope: (child: ReactNode) => ReactNode, field: SchemaField, value: unknown): FieldTranslationState | null {
   probed = null
-  renderToStaticMarkup(h(TranslationEditProvider, { value: edit }, scope(h(Probe, { field, value }))))
+  renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, scope(el(Probe, { field, value }))))
   return probed
 }
-const sectionScope = (child: ReactNode) => h(SectionTranslationScope, { sectionId: "s1" }, child)
-const blockScope = (virtual: boolean) => (child: ReactNode) => h(BlockTranslationScope, { sectionId: "s1", blockId: "b1", virtual }, child)
-const themeScope = (child: ReactNode) => h(ThemeTranslationScope, null, child)
+const sectionScope = (child: ReactNode) => el(SectionTranslationScope, { sectionId: "s1" }, child)
+const blockScope = (virtual: boolean) => (child: ReactNode) => el(BlockTranslationScope, { sectionId: "s1", blockId: "b1", virtual }, child)
+const themeScope = (child: ReactNode) => el(ThemeTranslationScope, null, child)
 const noScope = (child: ReactNode) => child
 
 const P1 = "10000000-0000-4000-8000-000000000001"
@@ -234,23 +234,23 @@ async function main() {
     check("  the shop's name is locked", probe(edit, themeScope, { type: "text", id: "brand_name", label: "Store name", default: "" } as SchemaField, "Linen & Co")?.mode === "locked")
     check("a divider is neither", probe(edit, sectionScope, { type: "header", id: "h", label: "Layout" } as SchemaField, undefined) === null)
 
-    const lockedHtml = renderToStaticMarkup(h(TranslationEditProvider, { value: edit }, h(Locked, null, h("input", { defaultValue: "#ff0000" }))))
+    const lockedHtml = renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, el(Locked, null, el("input", { defaultValue: "#ff0000" }))))
     check("a locked control is drawn, dimmed and out of reach", /data-translation-locked/.test(lockedHtml) && /inert/.test(lockedHtml) && /opacity-45/.test(lockedHtml) && /#ff0000/.test(lockedHtml))
-    check("  and untouched in the website's own language", !/data-translation-locked/.test(renderToStaticMarkup(h(Locked, null, h("input", { defaultValue: "x" })))))
+    check("  and untouched in the website's own language", !/data-translation-locked/.test(renderToStaticMarkup(el(Locked, null, el("input", { defaultValue: "x" })))))
     if (h?.mode === "edit") {
       const html = renderToStaticMarkup(
-        h(TranslationEditProvider, { value: edit }, h(TranslatedField, { label: "Heading", field: heading, state: h, render: (f: SchemaField, v: string) => h("input", { value: v, placeholder: f.placeholder, readOnly: true }) })),
+        el(TranslationEditProvider, { value: edit }, el(TranslatedField, { label: "Heading", field: heading, state: h, render: (f: SchemaField, v: string) => el("input", { value: v, placeholder: f.placeholder, readOnly: true }) })),
       )
       check("the translated control: the language's value in the box, the original as its placeholder and under it", /value="Soldes"/.test(html) && /placeholder="Spring sale"/.test(html) && /English: Spring sale/.test(html), html.slice(0, 400))
     }
     if (b?.mode === "edit") {
-      const html = renderToStaticMarkup(h(TranslationEditProvider, { value: edit }, h(TranslatedField, { label: "Button label", field: FIELDS[8], state: b, render: () => null })))
+      const html = renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, el(TranslatedField, { label: "Button label", field: FIELDS[8], state: b, render: () => null })))
       check("  an outdated one says Outdated", /data-translation-outdated/.test(html) && />Outdated</.test(html))
     }
-    const row2 = renderToStaticMarkup(h(EditLanguageRow, { languages: ["en", "fr", "de"], published: ["fr"], defaultLanguage: "en", locale: "fr", onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined }))
+    const row2 = renderToStaticMarkup(el(EditLanguageRow, { languages: ["en", "fr", "de"], published: ["fr"], defaultLanguage: "en", locale: "fr", onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined }))
     check("the language row lists each language, the original named, one not live yet said", /English \(original\)/.test(row2) && /French/.test(row2) && /German \(not live yet\)/.test(row2) && /data-wb-edit-language="fr"/.test(row2))
     check("  and says once what changes in French", /Only text changes in French/.test(row2))
-    check("  a website in one language has no row", renderToStaticMarkup(h(EditLanguageRow, { languages: [], published: [], defaultLanguage: "en", locale: null, onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined })) === "")
+    check("  a website in one language has no row", renderToStaticMarkup(el(EditLanguageRow, { languages: [], published: [], defaultLanguage: "en", locale: null, onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined })) === "")
     const original = section()
     const snapshot = JSON.stringify(original)
     localizeSections([original], withEdit(frRows, "section:s1:image_alt", "Un tablier plié", "A folded apron"), fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
