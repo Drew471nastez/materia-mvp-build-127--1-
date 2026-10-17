@@ -153,7 +153,8 @@ const PATH_AREAS: [prefix: string, area: TeamArea][] = [
 
 export function areaOfPath(pathname: string): TeamArea | null {
   const p = pathname.replace(/\/+$/, "") || "/"
-  if (p === "/app" || p === "/app/settings" || p.startsWith("/app/settings/account") || p.startsWith("/app/auth")) return null
+  /* Help is everyone's, owner and team alike: it is opened from the account menu every member has (/app/help). */
+  if (p === "/app" || p === "/app/settings" || p.startsWith("/app/settings/account") || p.startsWith("/app/auth") || p === "/app/help" || p.startsWith("/app/help/")) return null
   for (const [prefix, area] of PATH_AREAS) if (p === prefix || p.startsWith(`${prefix}/`)) return area
   return "store"
 }

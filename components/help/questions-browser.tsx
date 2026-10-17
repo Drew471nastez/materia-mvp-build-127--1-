@@ -14,6 +14,7 @@ import { ChevronDown, Search } from "lucide-react"
 import { RichText } from "@/components/help/help-parts"
 import { HelpFigure } from "@/components/help/help-figures"
 import type { HelpQuestion, HelpTopic } from "@/lib/help/questions"
+import type { HelpBase } from "@/lib/help/paths"
 import { cn } from "@/lib/utils"
 
 const match = (q: HelpQuestion, words: string[]) => {
@@ -21,7 +22,12 @@ const match = (q: HelpQuestion, words: string[]) => {
   return words.every((w) => hay.includes(w))
 }
 
-export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
+/**
+ * `base`: the Help Center it is read in (lib/help/paths). `pillsAt`: where the
+ * phone's row of topics sticks and what it is drawn on; inside the app it
+ * sticks under the page's own bar, on the app's grey.
+ */
+export function QuestionsBrowser({ topics, base, pillsAt = "top-0 bg-white/95" }: { topics: HelpTopic[]; base?: HelpBase; pillsAt?: string }) {
   const [query, setQuery] = React.useState("")
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [active, setActive] = React.useState(topics[0]?.id ?? "")
@@ -90,7 +96,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
           />
         </label>
         {/* A row of pills on a phone, a list on a computer: the same buttons. */}
-        <nav aria-label="Topics" className="sticky top-0 z-10 -mx-4 mt-3 bg-white/95 px-4 py-2 backdrop-blur lg:static lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <nav aria-label="Topics" className={cn("sticky z-10 -mx-4 mt-3 px-4 py-2 backdrop-blur lg:static", pillsAt, " lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none")}>
           <div ref={pillsRef} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {shown.map((t) => {
               const on = active === t.id
@@ -129,7 +135,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
               <p className="mt-1 text-[14px] text-[#6b7280]">{t.line}</p>
               <ul className="mt-4 divide-y divide-[#eceef1] rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
                 {t.questions.map((q) => (
-                  <Question key={q.id} q={q} open={open.has(q.id) || words.length > 0} onToggle={() => toggle(q.id)} />
+                  <Question key={q.id} q={q} base={base} open={open.has(q.id) || words.length > 0} onToggle={() => toggle(q.id)} />
                 ))}
               </ul>
             </section>
@@ -140,7 +146,7 @@ export function QuestionsBrowser({ topics }: { topics: HelpTopic[] }) {
   )
 }
 
-function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onToggle: () => void }) {
+function Question({ q, base, open, onToggle }: { q: HelpQuestion; base?: HelpBase; open: boolean; onToggle: () => void }) {
   const panel = `${q.id}-answer`
   return (
     <li id={q.id} className="scroll-mt-24" data-question={q.id}>
@@ -155,12 +161,12 @@ function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onTog
         <div className="overflow-hidden">
           <div className="space-y-4 px-4 pb-5 sm:px-5">
             <p className="text-[15px] leading-relaxed text-[#374151]">
-              <RichText text={q.a} />
+              <RichText text={q.a} base={base} />
             </p>
             {q.store?.length || q.buyer?.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                {q.store?.length ? <Side title="If you're the store" items={q.store} /> : null}
-                {q.buyer?.length ? <Side title="If you're the buyer" items={q.buyer} /> : null}
+                {q.store?.length ? <Side title="If you're the store" items={q.store} base={base} /> : null}
+                {q.buyer?.length ? <Side title="If you're the buyer" items={q.buyer} base={base} /> : null}
               </div>
             ) : null}
             {q.figure && open ? <HelpFigure figure={q.figure.figure} caption={q.figure.caption} /> : null}
@@ -182,7 +188,7 @@ function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onTog
   )
 }
 
-function Side({ title, items }: { title: string; items: string[] }) {
+function Side({ title, items, base }: { title: string; items: string[]; base?: HelpBase }) {
   return (
     <div className="rounded-xl bg-[#f8f9fa] px-4 py-3.5">
       <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[#6b7280]">{title}</p>
@@ -191,7 +197,7 @@ function Side({ title, items }: { title: string; items: string[] }) {
           <li key={s} className="flex gap-2.5 text-[14px] leading-[21px] text-[#374151]">
             <span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
             <span>
-              <RichText text={s} />
+              <RichText text={s} base={base} />
             </span>
           </li>
         ))}
