@@ -35,7 +35,7 @@ export const STAFF_FILE_MAX_BYTES = 500 * MB
 
 /**
  * WHAT A COMMENT MAY CARRY (round 12). Pictures, one GIF and one video by
- * link (YouTube or Vimeo, played where it is), four things at most,
+ * link (YouTube, Vimeo or Loom, played where it is), four things at most,
  * through the same checks as a post's (feed.ts checkMedia) and then one more
  * on the server: every picture must be the commenter's own upload for this
  * community, in their own folder, and there (comments.ts checkCommentMedia).
@@ -152,7 +152,7 @@ export function loomFromUrl(raw: unknown): PostEmbedRef | null {
   return { provider: "loom", id, url: `https://www.loom.com/share/${id}` }
 }
 
-/** A YouTube or Vimeo address, for a post or a comment; the gallery and covers keep to embedFromUrl. */
+/** A YouTube, Vimeo or Loom address, for a post or a comment; the gallery and covers keep to embedFromUrl. */
 export function postEmbedFromUrl(raw: unknown): PostEmbedRef | null {
   return embedFromUrl(raw) ?? loomFromUrl(raw)
 }

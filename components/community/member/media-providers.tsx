@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE VIDEO SITES' OWN MARKS (round 12)
  * ===========================================================================
- * A pasted YouTube or Vimeo link is recognised as one: the link field
+ * A pasted YouTube, Vimeo or Loom link is recognised as one: the link field
  * shows the site's mark as soon as the address is theirs, and the preview
  * card and the player's poster say where the video plays. Drawn by hand
  * from the sites' own shapes at a small size: YouTube's red rounded box with

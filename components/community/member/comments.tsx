@@ -49,7 +49,7 @@
  *
  * ROUND 12. No files in comments: the paperclip is now a picture button
  * (pictures only) and the server refuses a file. Beside it a video by link
- * (YouTube or Vimeo, played inline under the comment), emoji (the
+ * (YouTube, Vimeo or Loom, played inline under the comment), emoji (the
  * app's own picker, put in where the caret is) and GIF. A like plays its
  * tiny sound (heart.tsx likeSound); Report opens the report sheet.
  * Edit and delete are the author's; report is everybody else's; a moderator
