@@ -97,6 +97,21 @@ async function main() {
   check("two presses at once: both answer, one setup stays", a.status === 200 && b.status === 200 && usZones.length === 2 && ratesOf(us.creatorId).length === 2, { a: a.json, b: b.json, zones: usZones.map((z) => [z.name, z.countries, z.rest_of_world]), rates: ratesOf(us.creatorId).length })
   check("outside the EU, abroad is the rest of the world", usZones.some((z) => z.rest_of_world === true) && usZones.some((z) => (z.countries ?? []).join() === "US"))
 
+  /*
+    Two presses at once on zones that already exist without a rate (the path a second press takes when it reads the
+    first press's zones before their rates): one rate each must stay. The in-memory database here runs the two
+    requests one after the other, so this guards the outcome; the interleaving itself is settled in the route by
+    keeping the older rate (app/api/physical/shipping/quick-setup/route.ts), the same rule the zones use.
+  */
+  const ca = await store("di@example.com", "di-ca", "CA")
+  const caProfile = j.rows("shipping_profiles").find((p) => p.creator_id === ca.creatorId)?.id
+  await j.call("POST /api/physical/shipping/zones", { as: ca.person, body: { profileId: caProfile, countries: ["CA"] } })
+  await j.call("POST /api/physical/shipping/zones", { as: ca.person, body: { profileId: caProfile, restOfWorld: true } })
+  const caBody = { country: "CA", home: { priceCents: 899, minDays: 2, maxDays: 5 }, abroad: { priceCents: 2900, minDays: 7, maxDays: 21 } }
+  const [c1, c2] = await Promise.all([j.call("POST /api/physical/shipping/quick-setup", { as: ca.person, body: caBody }), j.call("POST /api/physical/shipping/quick-setup", { as: ca.person, body: caBody })])
+  const caRates = ratesOf(ca.creatorId)
+  check("zones made a moment before, rated by two presses at once: one rate each", c1.status === 200 && c2.status === 200 && zonesOf(ca.creatorId).length === 2 && caRates.length === 2 && new Set(caRates.map((r) => r.zone_id)).size === 2, { c1: c1.json?.made, c2: c2.json?.made, rates: caRates.map((r) => [r.zone_id, r.price_cents]) })
+
   section("5. A store that set something up by hand keeps it")
   const de = await store("cy@example.com", "cy-de", "DE")
   const profileId = j.rows("shipping_profiles").find((p) => p.creator_id === de.creatorId)?.id

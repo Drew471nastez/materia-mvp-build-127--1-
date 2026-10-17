@@ -47,6 +47,7 @@ import { TRACKING_LABEL, isTrackingStatus } from "@/lib/physical/tracking/labels
 import { TrackingTimeline, estimatedDay } from "./tracking-timeline"
 import { CarrierLogo } from "./carrier-logo"
 import { CarrierPicker, carrierOfChoice } from "./carrier-picker"
+import { CarrierServices, firstCarrier, ownCarrierLink, rememberCarrier, useCarrierPrefs } from "./carrier-live"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
 import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
@@ -1093,10 +1094,12 @@ function shipFrom(carrier: string | null, number: string | null, url: string | n
 /** What the server is sent: no carrier and no number for Local delivery / no tracking. */
 function shipBody(s: Ship): { carrier: string | null; trackingNumber: string | null; trackingUrl: string | null } {
   const none = s.choice === NO_TRACKING
+  const number = s.tracking.replace(/\s/g, "") || null
   return {
     carrier: none ? null : s.choice === OTHER_CARRIER ? s.other.trim() || null : (carrierOfChoice(s.choice)?.name ?? null),
-    trackingNumber: none ? null : s.tracking.replace(/\s/g, "") || null,
-    trackingUrl: s.choice === OTHER_CARRIER ? s.url.trim() || null : null,
+    trackingNumber: none ? null : number,
+    /* An Other carrier: the link typed, else the shop's own carrier's link with this number in it (./carrier-live.tsx). */
+    trackingUrl: s.choice === OTHER_CARRIER ? s.url.trim() || ownCarrierLink(s.other, number) : null,
   }
 }
 
@@ -1130,8 +1133,22 @@ function shipLink(s: Ship, country: string | null): string | null {
  * shape (lib/physical/status guessCarrier), as Shopify does, until the seller picks one. Once both are there the
  * buyer's tracking page is named and can be opened, so a wrong number is caught here and not by the buyer.
  */
-function TrackingFields({ ship, set, country, check }: { ship: Ship; set: (patch: Partial<Ship>) => void; country: string | null; check: boolean }) {
+function TrackingFields({ ship, set, country, check, orderId = null, locationId = null }: { ship: Ship; set: (patch: Partial<Ship>) => void; country: string | null; check: boolean; orderId?: string | null; locationId?: string | null }) {
   const picked = React.useRef(ship.choice !== "")
+  /*
+    THE FIRST GUESS, once the shop's own carriers are read: its default, else the carrier it last shipped with, else
+    the shipping country's first pick (lib/physical/carrier-prefs preselectCarrier). Only for a shipment with nothing
+    chosen yet; a number typed first still names its carrier from its shape, below.
+  */
+  const { prefs, loaded } = useCarrierPrefs()
+  React.useEffect(() => {
+    if (!loaded || picked.current || ship.choice) return
+    const first = firstCarrier(prefs, { country, guessed: guessCarrier(ship.tracking) })
+    const known = carrierOf(first)
+    if (known) set({ choice: known.id })
+    else if (first) set({ choice: OTHER_CARRIER, other: first })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded])
   const problems = check ? shipProblems(ship) : {}
   const none = ship.choice === NO_TRACKING
   const link = shipLink(ship, country)
@@ -1153,6 +1170,8 @@ function TrackingFields({ ship, set, country, check }: { ship: Ship; set: (patch
           invalid={!!problems.carrier}
         />
       </Field>
+      {/* What the shop's provider has for this carrier: its services, and on an order its live rates on request. */}
+      {none ? null : <CarrierServices carrier={shipBody(ship).carrier} orderId={orderId} locationId={locationId} />}
       {ship.choice === OTHER_CARRIER ? (
         <Field label={tt("Carrier name")} error={problems.other} htmlFor={`${id}-other`}>
           <TextInput id={`${id}-other`} value={ship.other} maxLength={40} onChange={(e) => set({ other: e.target.value })} aria-invalid={!!problems.other || undefined} />
@@ -1271,6 +1290,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
   /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. */
   const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup, onBought: (o, l) => onLabel?.(o, l) })
   const labelMode = !pickup && flow.available && (flow.mode === "label" || !!flow.bought)
+  const carriers = useCarrierPrefs()
   const submit = async () => {
     if (!pickup && Object.keys(shipProblems(ship)).length) {
       setCheck(true)
@@ -1285,6 +1305,8 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
     })
     setBusy(false)
     setError(e)
+    /* The carrier it went with is where the next order starts, when the shop has no default. */
+    if (!e && !pickup) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(ship).carrier)
   }
   return (
     <Modal
@@ -1346,7 +1368,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
           ))}
         </ul>
         {pickup ? null : <ShipModeSwitch flow={flow} />}
-        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields ship={ship} set={set} country={country} check={check} />}
+        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields ship={ship} set={set} country={country} check={check} orderId={order.id} locationId={locationId} />}
         {flow.bought ? null : (
           <Toggle
             label={pickup ? tt("Tell the buyer it's ready") : tt("Send shipment details to the buyer")}
@@ -1369,6 +1391,7 @@ function TrackingDialog({ shipment, country, onClose, onSubmit }: { shipment: Ph
   const [notify, setNotify] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const carriers = useCarrierPrefs()
   return (
     <Modal
       open
@@ -1388,8 +1411,10 @@ function TrackingDialog({ shipment, country, onClose, onSubmit }: { shipment: Ph
             onClick={async () => {
               if (Object.keys(shipProblems(ship)).length) return setCheck(true)
               setBusy(true)
-              setError(await onSubmit({ ...shipBody(ship), notifyBuyer: notify }))
+              const e = await onSubmit({ ...shipBody(ship), notifyBuyer: notify })
+              setError(e)
               setBusy(false)
+              if (!e) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(ship).carrier)
             }}
           >
             {busy ? tt("Saving…") : tt("Save")}

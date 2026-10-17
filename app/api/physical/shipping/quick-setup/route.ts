@@ -140,10 +140,25 @@ export async function POST(request: Request) {
   /* ── the rates, in one insert; on failure the new zones go too ── */
   const targets = [...reuse, ...made.map((m) => ({ zoneId: m.id, key: m.key }))]
   if (targets.length) {
-    const { error } = await c.db.from("shipping_rates").insert(targets.map((t) => ({ ...rates.get(t.key), zone_id: t.zoneId, creator_id: c.creatorId, position: 0 })))
+    const { data: inserted, error } = await c.db.from("shipping_rates").insert(targets.map((t) => ({ ...rates.get(t.key), zone_id: t.zoneId, creator_id: c.creatorId, position: 0 }))).select("id, zone_id, created_at")
     if (error) {
       if (made.length) await c.db.from("shipping_zones").delete().eq("creator_id", c.creatorId).in("id", made.map((m) => m.id))
       return physicalJson({ error: "Shipping could not be set up. Nothing was saved. Try again." }, 500)
+    }
+    /*
+      Two presses at once, the other way round: this press read the zones the
+      other had just made, before their rates, and gave them a rate too. Each
+      zone this setup rated had none a moment ago, so any other rate in it came
+      from that other press: the older stays, this one goes, and a buyer never
+      sees "Standard" twice.
+    */
+    const mine = (inserted ?? []) as { id: string; zone_id: string; created_at: string }[]
+    if (mine.length) {
+      const { data: now } = await c.db.from("shipping_rates").select("id, zone_id, created_at").eq("creator_id", c.creatorId).in("zone_id", mine.map((r) => r.zone_id))
+      const all = (now ?? []) as { id: string; zone_id: string; created_at: string }[]
+      const before = (a: { id: string; created_at: string }, b: { id: string; created_at: string }) => (a.created_at === b.created_at ? a.id < b.id : a.created_at < b.created_at)
+      const extra = mine.filter((r) => all.some((o) => o.zone_id === r.zone_id && o.id !== r.id && before(o, r)))
+      if (extra.length) await c.db.from("shipping_rates").delete().eq("creator_id", c.creatorId).in("id", extra.map((r) => r.id))
     }
   }
 
