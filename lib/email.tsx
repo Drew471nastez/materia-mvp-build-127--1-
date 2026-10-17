@@ -645,11 +645,16 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   rows.sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
 
   const titles = new Map<string, string>()
+  /* Each product's picture, for its line in the email (sized for the inbox when drawn, lib/notify/templates). */
+  const pictures = new Map<string, string>()
   const productIds = [...new Set(rows.map((r) => r.product_id).filter((id): id is string => typeof id === "string" && id.length > 0))]
   if (productIds.length > 0) {
     try {
-      const { data: products } = await admin.from("products").select("id, title").in("id", productIds)
-      for (const p of (products ?? []) as Array<{ id: string; title: string | null }>) if (p.title) titles.set(p.id, p.title)
+      const { data: products } = await admin.from("products").select("id, title, thumbnail_url").in("id", productIds)
+      for (const p of (products ?? []) as Array<{ id: string; title: string | null; thumbnail_url?: string | null }>) {
+        if (p.title) titles.set(p.id, p.title)
+        if (typeof p.thumbnail_url === "string" && p.thumbnail_url) pictures.set(p.id, p.thumbnail_url)
+      }
     } catch {
       /* The caller's title stands in. */
     }
@@ -660,7 +665,7 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   const extraFor = (id: string) => sale.lines?.find((l) => l.orderId === id)
   const single = rows.length <= 1
 
-  let lines: Array<{ title: string; variantName: string | null; quantity: number | null; amountCents: number }> = []
+  let lines: Array<{ title: string; variantName: string | null; quantity: number | null; amountCents: number; imageUrl?: string | null }> = []
   let subtotal = 0
   let discount = 0
   let tip = 0
@@ -680,6 +685,7 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
         variantName: safeText(r.variant_name ?? (r.id === params.orderId ? params.variantName ?? "" : "")) || null,
         quantity: whole(extra?.quantity),
         amountCents: before,
+        imageUrl: pictures.get(r.product_id ?? "") ?? null,
       })
       subtotal += before
       discount += rowDiscount
@@ -1049,7 +1055,10 @@ async function sellerWantsSaleEmail(admin: any, creatorId: string | null | undef
  *   from        "Storelib <...>", Reply-To Storelib support (the creator
  *               replying to their own sale notice should reach a person,
  *               not themselves); the buyer is one click away in the body
- *   headers     the one-click opt-out for sales emails (RFC 8058), a new_sale tag
+ *   no opt-out  an order is transactional mail: no opt-out link in it and
+ *               no one-click opt-out header (RFC 8058); the footer links
+ *               Notification settings, where Sales by email is turned off
+ *   headers     a new_sale tag
  */
 export async function sendSellerNotificationEmail(
   admin: any,
@@ -1088,9 +1097,7 @@ export async function sendSellerNotificationEmail(
     return { success: false, error, logId: logId || undefined }
   }
 
-  const [identity, creatorZone, userId] = creatorId
-    ? await Promise.all([resolveCreatorIdentity(admin, creatorId), creatorTimeZone(admin, creatorId), creatorUserId(admin, creatorId)])
-    : [null, null, null]
+  const [identity, creatorZone] = creatorId ? await Promise.all([resolveCreatorIdentity(admin, creatorId), creatorTimeZone(admin, creatorId)]) : [null, null]
 
   // Use resolved seller email if provided email is fallback
   let finalSellerEmail = normalizeEmail(sellerEmail)
@@ -1104,23 +1111,20 @@ export async function sendSellerNotificationEmail(
   let rendered: { subject: string; html: string; text: string }
   let covered: string[] = [orderId]
   let first = false
-  let headers: Record<string, string> | undefined
   try {
     const sale = await saleEmailData(admin, params)
     covered = sale.orderIds.includes(orderId) ? sale.orderIds : [orderId, ...sale.orderIds]
     first = sale.first
     /* In the creator's own time zone, with its name, not the server's clock. */
     const { date, time } = formatForCreator(sale.occurredAt, creatorZone ?? null)
-    const [{ renderEmail }, { unsubscribeUrl, preferencesUrl }] = await Promise.all([import("@/lib/notify/templates"), import("@/lib/notify/unsubscribe")])
-    const unsubscribe = userId ? unsubscribeUrl(userId, "sales") : null
+    const [{ renderEmail }, { preferencesUrl }] = await Promise.all([import("@/lib/notify/templates"), import("@/lib/notify/unsubscribe")])
     rendered = renderEmail(first ? "FIRST_SALE" : "NEW_SALE", sale.data, {
       baseUrl: getStableBaseUrl(baseUrl),
       recipientName: identity?.fromName ?? null,
-      unsubscribeUrl: unsubscribe,
+      unsubscribeUrl: null,
       preferencesUrl: preferencesUrl(),
       when: time ? `${date} at ${time}` : date,
     })
-    if (unsubscribe) headers = { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
   } catch (err: any) {
     const errorMessage = err?.message || "The sale email could not be drawn"
     console.error("[email] Seller notification not drawn:", errorMessage)
@@ -1140,7 +1144,7 @@ export async function sendSellerNotificationEmail(
           subject: rendered.subject,
           html: rendered.html,
           text: rendered.text,
-          headers: { ...headers, "X-Storelib-Notification": first ? "FIRST_SALE" : "NEW_SALE" },
+          headers: { "X-Storelib-Notification": first ? "FIRST_SALE" : "NEW_SALE" },
           tags: first ? [{ name: "new_sale", value: "1" }, { name: "first_sale", value: "1" }] : [{ name: "new_sale", value: "1" }],
         })
 
@@ -1173,16 +1177,6 @@ export async function sendSellerNotificationEmail(
     if (logId) await updateEmailLog(admin, logId, "failed", errorMessage)
     await updateOrderEmailStatus(admin, orderId, "seller", false, errorMessage)
     return { success: false, error: errorMessage, logId: logId || undefined }
-  }
-}
-
-/** The creator's login, for the unsubscribe link; null when it cannot be read. */
-async function creatorUserId(admin: any, creatorId: string): Promise<string | null> {
-  try {
-    const { data } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
-    return typeof data?.user_id === "string" ? data.user_id : null
-  } catch {
-    return null
   }
 }
 

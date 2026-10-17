@@ -255,7 +255,7 @@ async function main() {
     check("a printed on demand item is never delivered locally", localDeliveryOptions([loc({ id: "a0000000-0000-4000-8000-000000000001", name: "Cluj", localDelivery: d })], [{ variantId: null, quantity: 1, requiresShipping: true, trackInventory: false, inventoryPolicy: "deny", fulfillmentMethod: "print_on_demand" }], () => 0, { country: "RO", postalCode: "400100" }, 3000).length === 0)
     const site = read("lib/checkout/site-quote-server.ts")
     const physicalRoute = read("app/api/physical/checkout/quote/route.ts")
-    check("both quote routes (Storelib checkout, website and imported theme checkout) pass the postal code to the same server quote", /postalCode/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode \}/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode \}/.test(physicalRoute))
+    check("both quote routes (Storelib checkout, website and imported theme checkout) pass the postal code to the same server quote", /postalCode/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode(, city)? \}/.test(site) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode(, city)? \}/.test(physicalRoute))
     check("both checkout pages send it", /postalCode: postalForQuote/.test(read("app/checkout/site/site-checkout.tsx")) && /postalCode: postalForQuote/.test(read("app/checkout/physical/physical-checkout.tsx")))
     check("imported Shopify themes check out through the website checkout (lib/storelib-theme/compat/site.ts)", /siteCheckoutHref/.test(read("lib/storelib-theme/compat/site.ts")))
     check("the order keeps it: kind local and its note on the checkout", /local_location_id: option\.local\.locationId, local_note: option\.local\.note/.test(read("lib/physical/checkout-server.ts")))
@@ -370,7 +370,8 @@ async function main() {
     check("the refund policy page says the same window, from delivery", /within 30 days of delivery/.test(returnFactsHtml({ enabled: true, windowDays: 30 })) && /don't accept returns/.test(returnFactsHtml({ enabled: false, windowDays: 30 })))
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     /* Changed on purpose: in the buyer's language (ct). */
-    check("the buyer sees until when, the reasons list labelled, and the reason on their return", /ct\("Until \{day\}", \{ day: day\(until, lang\) \}\)/.test(view) && /Why are you returning this\?/.test(view) && !/className="sr-only">\s*Why are you returning/.test(view) && /ct\("Reason: \{reason\}", \{ reason: r\.reason \}\)/.test(view))
+    /* Changed on purpose (round 27, B27): until when is the seller's own window (a date once delivered, the days before), and the reason is in the buyer's language. */
+    check("the buyer sees until when, the reasons list labelled, and the reason on their return", /ct\("Until \{day\}", \{ day: day\(policy\.endsAt, lang\) \}\)/.test(view) && /until=\{returnHint\}/.test(view) && /Why are you returning this\?/.test(view) && !/className="sr-only">\s*Why are you returning/.test(view) && /ct\("Reason: \{reason\}", \{ reason: r\.reason === "Other" \? ct\("Other reason"\) : ct\(r\.reason\) \}\)/.test(view))
 
     /* The whole flow on the real server code: request, approve with instructions, receive (restock), refund, close. */
     const CO = "5b1c0000-0000-4000-8000-0000000000d1"

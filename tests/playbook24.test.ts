@@ -167,7 +167,8 @@ const WORDS: [string, string][] = [
   ["components/physical/integrations-marketplace.tsx", "Download orders"],
   ["components/physical/partner-links.tsx", "Keep stock in step with CJ"],
   ["components/app/settings/tracking-app-panel.tsx", "Use my own account"],
-  ["components/app/settings/checkout-panel.tsx", "Let buyers ask to cancel"],
+  /* Changed on purpose (round 27, B27): the switch now lets buyers cancel, not ask. */
+  ["components/app/settings/checkout-panel.tsx", "Let buyers cancel"],
   ["components/physical/shipping-settings.tsx", "Carrier calculated"],
   ["components/physical/shipping-settings.tsx", "Local delivery"],
   ["components/physical/shipping-settings.tsx", "A partner: email each order to them"],

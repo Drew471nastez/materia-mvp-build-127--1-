@@ -212,11 +212,74 @@ export function needsKeyboardEstimate(state: {
  */
 export const KEYBOARD_CHANGE_EVENT = "storelib:keyboard"
 
+/*
+  ===========================================================================
+   ONE WRITE TO <html> A FRAME (round 27)
+  ===========================================================================
+  The keyboard's state lives on <html>: ViewportVars' --vv-h, --vv-top and
+  --kb-inset, KeyboardGuard's `keyboard-open` class and --vvh, the /app
+  shell's --keyboard-inset-height. Every element inherits the custom
+  properties of <html> (334 of them on a community page), so changing any one
+  of them restyles the whole document: measured at 390x844 with the New post
+  sheet over the feed, 20 to 28ms at 1x CPU for each write, 80 to 130ms at 4x,
+  whatever the property is called (scripts/check-posts27-member.mjs cost).
+  And they were written one after another inside the viewport's own event,
+  with a layout read between them (ViewportVars' probe, KeyboardGuard's
+  innerHeight, the sheets' probe, ViewportVars dispatching the event again
+  from inside itself), so one keyboard move restyled the whole page three
+  times: 230ms of main thread going up and 386ms going down at 4x.
+
+  Now the readings stay where they were, in the event, and the writes are
+  collected here and made together in the next animation frame, which runs
+  before that frame's own style pass: one document restyle per keyboard move,
+  and what the screen shows changes in the same frame as before. A value
+  that does not change is not written at all. What was asked for and not
+  written yet is what readPublishedKeyboardInset answers, so a reader in the
+  same event sees the new number.
+*/
+const rootVars = new Map<string, string | null>()
+const rootClasses = new Map<string, boolean>()
+const afterRootWrite: Array<() => void> = []
+let rootFrame = 0
+
+/** Ask for custom properties (null takes one off) and classes on <html>, written together in the next frame; `then` runs once they are. */
+export function writeRootLater(change: { vars?: Record<string, string | null>; classes?: Record<string, boolean> }, then?: () => void): void {
+  if (typeof document === "undefined") return
+  for (const [k, v] of Object.entries(change.vars ?? {})) rootVars.set(k, v)
+  for (const [k, on] of Object.entries(change.classes ?? {})) rootClasses.set(k, on)
+  if (then) afterRootWrite.push(then)
+  if (!rootFrame) rootFrame = requestAnimationFrame(flushRootWrites)
+}
+
+/** Writes what was asked for now (the frame does it on its own; an unmount or a test may not wait). */
+export function flushRootWrites(): void {
+  if (typeof document === "undefined") return
+  if (rootFrame) cancelAnimationFrame(rootFrame)
+  rootFrame = 0
+  const root = document.documentElement
+  for (const [k, v] of rootVars) {
+    if (v === null) root.style.removeProperty(k)
+    else if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+  }
+  for (const [k, on] of rootClasses) if (root.classList.contains(k) !== on) root.classList.toggle(k, on)
+  rootVars.clear()
+  rootClasses.clear()
+  for (const fn of afterRootWrite.splice(0)) fn()
+}
+
+/** A custom property on <html> as it is, or as it will be once the frame writes it. */
+export function rootVar(name: string): string {
+  if (typeof document === "undefined") return ""
+  const pending = rootVars.get(name)
+  if (pending !== undefined) return pending ?? ""
+  return document.documentElement.style.getPropertyValue(name)
+}
+
 /** What ViewportVars last published, in pixels. Zero when there is no keyboard. */
 export function readPublishedKeyboardInset(): number {
   if (typeof document === "undefined") return 0
-  /* An inline style on <html>, so this is a read and not a style recalculation. */
-  const n = Number.parseFloat(document.documentElement.style.getPropertyValue("--kb-inset"))
+  /* An inline style on <html> (or the write waiting for the frame), so this is a read and not a style recalculation. */
+  const n = Number.parseFloat(rootVar("--kb-inset"))
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 

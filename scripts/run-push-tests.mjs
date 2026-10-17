@@ -26,6 +26,7 @@ execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inhe
 const SUITES = [
   "tests/admin-sql-updates.test.ts",
   "tests/typecheck-ratchet-process.test.ts",
+  "tests/wizard27.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -56,6 +57,10 @@ const SUITES = [
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
+  /* Round 27 (B27): the buyer's order pages: Cancel order cancels and refunds, live status, words, logo, Visit store, returns. */
+  "tests/buyer27.test.ts",
+  /* Round 27 (H27): order help live on both sides, on the shop's website, Ask Storelib gated, Storelib's cases */
+  "tests/help27.test.ts",
   "tests/storelib-reviews.test.ts",
   "tests/reviews-manage.test.ts",
   "tests/review-widgets.test.ts",
@@ -87,6 +92,8 @@ const SUITES = [
   "tests/integrations-round30.test.ts",
   /* Round K4: the marketplace (pills with live counts, Filter, the list in the address) and the integration page's shell, its actions and the plug-in API for built-in apps. */
   "tests/integrations-k4.test.ts",
+  /* Round 27: the /app page bar sticky only where it is worked from, the cards' hover and badges, an integration's page (no title, one line, the following Connect), /app/reviews and its tabs (scripts/check-integrations27.mjs measures them). */
+  "tests/integrations27.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",
@@ -710,6 +717,12 @@ const SUITES = [
   "tests/live-speed-v.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
+  "tests/orders27.test.ts",
+  /* Round 27 (M27): physical order emails link the live website, never the creator page (lib/physical/store-link), no unsubscribe on transactional mail, product thumbnails, the creator page language banner gone */
+  "tests/emails27.test.ts",
+  /* Round 27 (P27): scheduled posts carry their media and poll (SQL part 222), the composer's toolbar down with the keys, the New post pill, closed comments, the welcome post writer */
+  "tests/posts27.test.ts",
   /* V round, the builder's AI: the theme brief cached per version, invented schema keys and unread settings refused, phone layouts checked without a browser, honest repair, follow ups scoped, one Undo step a run, calls and tokens on a budget */
   "tests/ai-quality-v.test.ts",
   /* Round V8: the website's words in each language, edited in the builder's sidebar in that language, a product's own Translations, one read per language (SQL part 211; scripts/check-translation-switch.mjs measures the sidebar) */
@@ -765,6 +778,12 @@ const STRICT_SUITES = [
     check-page-editor26.mjs measures the editor.
   */
   "tests/editor26.test.ts",
+  /*
+    Round 27 (E27): the Page editor at every width (side or drawer by its own width, the panel dragged, the drawer's
+    places), its outlines, the creator's own Privacy and Terms saved and read back through creator.ts (strict, as
+    above), the About card's icons and Share; scripts/check-page-editor27.mjs measures the editor and its frame rates.
+  */
+  "tests/editor27.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

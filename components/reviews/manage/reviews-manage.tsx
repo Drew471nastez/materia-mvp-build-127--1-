@@ -43,6 +43,7 @@ import { AnalyticsView } from "./analytics-view"
 import { SettingsView } from "./settings-view"
 import { ReviewsWidgetsTab } from "./widgets-slot"
 import { MANAGE_VIEWS, type ManageView } from "./views"
+import { ViewShown } from "./parts"
 
 export { MANAGE_VIEWS, type ManageView }
 
@@ -85,6 +86,8 @@ function writeView(view: ManageView) {
 
 export interface ReviewsManageBodyProps {
   view: ManageView
+  /** The view about to be opened (its tab is under the pointer or the finger), drawn hidden ahead of the press. */
+  warm?: ManageView | null
   onGo: (view: ManageView) => void
   /** Turned on or off from Settings: the integration page's status and badge follow. */
   onAppChanged?: (on: boolean) => void
@@ -99,7 +102,7 @@ export interface ReviewsManageBodyProps {
  * ?review=<id> and ?status= (a link from the bell or an email) are read once,
  * for the Reviews view.
  */
-export function ReviewsManageBody({ view, onGo, onAppChanged, settingsExtra }: ReviewsManageBodyProps) {
+export function ReviewsManageBody({ view, warm = null, onGo, onAppChanged, settingsExtra }: ReviewsManageBodyProps) {
   const [focus, setFocus] = React.useState<{ review: string | null; status: ReviewTab | null }>({ review: null, status: null })
   const [seen, setSeen] = React.useState(false)
   React.useEffect(() => {
@@ -118,14 +121,36 @@ export function ReviewsManageBody({ view, onGo, onAppChanged, settingsExtra }: R
     },
     [onGo],
   )
+  /*
+    EVERY VIEW OPENED STAYS (round 27, the owner: moving between the tabs
+    must feel smooth). A view used to be thrown away when another tab was
+    pressed and built again on the way back: its reads again, grey boxes,
+    its search and filters gone. Now a view, once opened (or readied while
+    its tab is under the pointer, `warm`), stays mounted and is only hidden,
+    so going back to it is the same frame, as it was left. Each opening is
+    counted (ViewShown, ./parts.tsx), and its reads run again behind what it
+    shows, without dimming, so what it shows is current.
+  */
+  const [opened, setOpened] = React.useState<{ at: ManageView; times: Partial<Record<ManageView, number>> }>(() => ({ at: view, times: { [view]: 1 } }))
+  if (opened.at !== view) setOpened((o) => ({ at: view, times: { ...o.times, [view]: (o.times[view] ?? 0) + 1 } }))
+  const [readied, setReadied] = React.useState<ReadonlySet<ManageView>>(() => new Set())
+  if (warm && warm !== view && !readied.has(warm) && !opened.times[warm]) setReadied((r) => new Set(r).add(warm))
+  const pane = (v: ManageView, node: React.ReactNode) =>
+    opened.times[v] || readied.has(v) ? (
+      <ViewShown.Provider key={v} value={opened.times[v] ?? 0}>
+        <div hidden={v !== view} data-reviews-pane={v}>
+          {node}
+        </div>
+      </ViewShown.Provider>
+    ) : null
   return (
     <div data-reviews-manage="" data-reviews-view={view}>
-      {view === "overview" ? <OverviewView onGo={go} /> : null}
-      {view === "reviews" && seen ? <ReviewsView key={`${focus.status}-${focus.review}`} initialTab={focus.status ?? "all"} highlight={focus.review} /> : null}
-      {view === "requests" ? <RequestsView /> : null}
-      {view === "widgets" ? <ReviewsWidgetsTab /> : null}
-      {view === "analytics" ? <AnalyticsView /> : null}
-      {view === "settings" ? <SettingsView onAppChanged={onAppChanged} extra={settingsExtra} /> : null}
+      {pane("overview", <OverviewView onGo={go} />)}
+      {pane("reviews", seen ? <ReviewsView key={`${focus.status}-${focus.review}`} initialTab={focus.status ?? "all"} highlight={focus.review} /> : null)}
+      {pane("requests", <RequestsView />)}
+      {pane("widgets", <ReviewsWidgetsTab />)}
+      {pane("analytics", <AnalyticsView />)}
+      {pane("settings", <SettingsView onAppChanged={onAppChanged} extra={settingsExtra} />)}
     </div>
   )
 }

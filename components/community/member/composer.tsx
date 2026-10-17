@@ -176,9 +176,11 @@ import { useComposeRequests } from "@/lib/communities/client/compose-intent"
 import { useLayer } from "@/lib/ui/layers"
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
 import { sheetKeyboardRoom } from "./visible-box"
+import { useToolbarFollowsKeys } from "./toolbar-follow"
 import { useCalmFocus } from "./calm-focus"
 import { feedRestore } from "./post-motion"
 import { useStaffSchedule, type ComposerStaff } from "@/components/community/creator/composer-schedule"
+import { checkScheduledPoll, type ScheduledPoll } from "@/lib/communities/scheduled-posts"
 
 export interface ComposerProps {
   communityId: string
@@ -204,6 +206,12 @@ export interface ComposerProps {
    * draft opened here to change. A member's composer never has it.
    */
   staff?: ComposerStaff | null
+  /**
+   * ROUND 27 (J4): open at once with these words, as if the person had just written them (the create wizard's welcome post,
+   * create-flow.tsx). No "Your draft is back" line, and on a phone the sheet rises at once instead of waiting under
+   * "Continue". This browser's kept draft is not read over it; what is typed is kept from then on as usual.
+   */
+  initial?: { title: string; body: string; spaceId?: string | null } | null
 }
 
 export interface ComposerEdit {
@@ -246,6 +254,14 @@ export function pollDraftOf(poll: FeedPostView["poll"]): PollDraft | null {
   return { question: poll.question, options: poll.options.map((o) => o.label), multiple: poll.multiple, closesIn: poll.closesAt ? "keep" : "", keepAt: poll.closesAt, votes: poll.totalVotes }
 }
 
+/** The poll a scheduled post or a draft keeps (round 27): its end as days from going up, cleaned as the server keeps it. */
+function staffPollOf(poll: PollDraft | null): ScheduledPoll | null {
+  if (!poll) return null
+  const runs = poll.closesIn === "1" || poll.closesIn === "3" || poll.closesIn === "7" ? Number(poll.closesIn) : null
+  const kept = checkScheduledPoll({ question: poll.question, options: poll.options, multiple: poll.multiple, closesInDays: runs }, false)
+  return kept.ok ? kept.value : null
+}
+
 /** The poll as it is sent: its end as a date, "keep" for an edited poll's own, null for none. */
 export function pollPayload(poll: PollDraft, now = Date.now()) {
   const closesAt = poll.closesIn === "keep" ? "keep" : poll.closesIn ? new Date(now + Number(poll.closesIn) * 86_400_000).toISOString() : null
@@ -277,8 +293,8 @@ const LEAVE_STAY = CALM
 const LEAVE_GO =
   "border border-[color:var(--sl-danger-line,#f6c3bd)] bg-[var(--sl-danger-soft,#fef3f2)] text-[color:var(--sl-danger-ink,#b42318)] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:border-[color:var(--sl-danger-line-hover,#f0a39a)] hover:bg-[var(--sl-danger-soft-hover,#fde7e5)] active:bg-[var(--sl-danger-soft-press,#fbd9d5)] active:shadow-none"
 
-/** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. */
-const TOOL =
+/** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. Shared with the wizard's welcome post (composer-welcome.tsx). */
+export const TOOL =
   "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] text-[#6b7280] outline-none transition-colors duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:opacity-70 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-[#eceef1] aria-pressed:text-[#1a1a2e] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 /** The editor in place grows over this long, and folds back a little quicker. */
@@ -307,7 +323,10 @@ const CLOSED_FALLBACK_H = 72
 /** How long the Post button shows its check before the editor closes. */
 const SENT_HOLD_MS = 260
 /** The title's own limit (its field's maxLength). */
-const TITLE_MAX = 200
+export const TITLE_MAX = 200
+/** The title and the words, as every post writer draws them (the feed's, Edit post's, the wizard's welcome post). */
+export const TITLE_FIELD = "block w-full bg-transparent text-[18px] font-semibold text-[#1a1a2e] outline-none placeholder:font-semibold placeholder:text-[#a3a8b0] sm:text-[19px]"
+export const WORDS_FIELD = "mt-2 text-[16px] leading-[1.55] text-[#262633] sm:text-[15px]"
 /** Cancel: a plain word, tinted under a pointer (round 29). */
 const CANCEL_BTN = BTN_GHOST
 /** Post: the one filled button, with no hairline round it (round 29: DEPTH_INK's ink border read as a light edge in the dark look). */
@@ -469,14 +488,14 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   }, [guarding])
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null, staff = null }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null, staff = null, initial = null }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const phone = usePhone()
   /* Edit post: the post as it was, read once, for the editor's first state and to tell whether anything changed. */
   const editing = !!edit
   const [was] = useState(() => (edit ? edit.post : null))
   const wasLink = was?.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link") ?? null
-  const [open, setOpen] = useState(editing || !!away)
+  const [open, setOpen] = useState(editing || !!away || !!initial)
   const awayRef = useRef(away)
   awayRef.current = away
   const [sheetIn, setSheetIn] = useState(false)
@@ -490,9 +509,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     time the body has come up into view it is filled.
   */
   const [filled, setFilled] = useState(editing)
-  const [title, setTitle] = useState(was?.title ?? "")
-  const [body, setBody] = useState(was?.bodyText ?? "")
-  const [spaceId, setSpaceId] = useState<string | null>(was ? (was.space?.id ?? null) : (fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null)))
+  const [title, setTitle] = useState(was?.title ?? initial?.title ?? "")
+  const [body, setBody] = useState(was?.bodyText ?? initial?.body ?? "")
+  const [spaceId, setSpaceId] = useState<string | null>(
+    was ? (was.space?.id ?? null) : (fixedSpaceId ?? (initial?.spaceId && spaces.some((x) => x.id === initial.spaceId) ? initial.spaceId : spaces.length === 1 ? spaces[0].id : null)),
+  )
   /* Round 30: Post was pressed before a space was chosen; the picker says so until one is. */
   const [spaceAsk, setSpaceAsk] = useState(false)
   const spaceOpener = useRef<(() => void) | null>(null)
@@ -556,7 +577,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. (Never into Edit post.) */
   useEffect(() => {
-    if (editing) return
+    /* Edit post, or words handed in (`initial`, round 27): the kept draft is not read over them. */
+    if (editing || initial) return
     const d = readDraft(key)
     if (restoreFrom(d) && !window.matchMedia("(max-width: 639px)").matches) setOpen(true)
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -591,7 +613,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     title,
     body,
     spaceId,
-    extras: items.length + (poll ? 1 : 0) + (linkMedia ? 1 : 0),
+    /* Round 27 (B1, part 222): what Post would send now goes with a scheduled post or a draft too. */
+    media: linkMedia ? [...media, linkMedia] : media,
+    poll: staffPollOf(poll),
+    uploading: items.some((u) => !u.media && !u.error),
+    failed: items.some((u) => !!u.error),
     open,
     load: (it) => {
       if (it) {
@@ -608,6 +634,12 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         setTitle(it.title)
         setBody(it.body)
         if (!fixedSpaceId) setSpaceId(it.spaceId && spaces.some((x) => x.id === it.spaceId) ? it.spaceId : null)
+        /* Its pictures, files, video, GIFs and videos by link in the tray, its link card and its poll, as they were saved. */
+        const kept = it.media ?? []
+        setItems(kept.filter((m) => m.type !== "link").map((m, i) => attachmentOf(m, `scheduled-${i}`)))
+        const link = kept.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link")
+        if (link) setPreview({ url: link.url, title: link.title ?? null, image: link.image ?? null, site: null })
+        setPoll(it.poll ? { question: it.poll.question, options: it.poll.options.length ? it.poll.options : ["", ""], multiple: it.poll.multiple, closesIn: it.poll.closesInDays ? (String(it.poll.closesInDays) as PollDraft["closesIn"]) : "" } : null)
         return
       }
       staffItem.current = false
@@ -1118,6 +1150,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   useCalmFocus(sheet, sheetScope)
   /* The keyboard's room on iOS, for the sheet to make in the focus itself (visible-box.ts sheetKeyboardRoom). */
   const keyboardRoom = useCallback(() => sheetKeyboardRoom(sheetRef.current), [])
+  /* Round 27 (I7): the toolbar goes down with the keys, never left up where they were (toolbar-follow.ts). */
+  const toolbarOf = useCallback(() => toolbarRef.current, [])
+  useToolbarFollowsKeys(sheet && sheetUp, toolbarOf, sheetScope)
   /* The sheet has landed: up, the caret goes in (on the frame after, so nothing is drawn under the keyboard's rise); down, shut() ends. */
   const onSheetMoved = useCallback(
     (up: boolean) => {
@@ -1521,7 +1556,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         placeholder="Title"
         aria-label="Title"
         aria-required="true"
-        className="block w-full bg-transparent text-[18px] font-semibold text-[#1a1a2e] outline-none placeholder:font-semibold placeholder:text-[#a3a8b0] sm:text-[19px]"
+        className={TITLE_FIELD}
         data-composer-title=""
       />
       <MentionTextarea
@@ -1535,7 +1570,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         caretAtEnd={editing}
         minRows={sheet ? 6 : 4}
         maxLength={20000}
-        className="mt-2 text-[16px] leading-[1.55] text-[#262633] sm:text-[15px]"
+        className={WORDS_FIELD}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
             e.preventDefault()

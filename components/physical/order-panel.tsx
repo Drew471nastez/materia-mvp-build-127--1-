@@ -31,7 +31,8 @@ import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
-import { CARRIERS, RETURN_LABEL, canMoveShipment, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
+import { RETURN_LABEL, canMoveShipment, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
+import { NO_TRACKING, OTHER_CARRIER, carrierOf } from "@/lib/physical/carriers"
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { NOTE_MAX } from "@/lib/physical/notes"
@@ -44,8 +45,10 @@ import { copyText } from "@/lib/platform/copy-text"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { TRACKING_LABEL, isTrackingStatus } from "@/lib/physical/tracking/labels"
 import { TrackingTimeline, estimatedDay } from "./tracking-timeline"
+import { CarrierLogo } from "./carrier-logo"
+import { CarrierPicker, carrierOfChoice } from "./carrier-picker"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet } from "./ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
 import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
@@ -237,6 +240,7 @@ export function PhysicalFulfillment({
 }) {
   const { order, locations, error, setError, busy, act, replace } = state
   const [dialog, setDialog] = React.useState<Dialog>(null)
+  const phone = useModalPhone()
   /* Labels bought with Shippo or EasyPost, read again whenever a shipment comes or goes: printed and voided from the shipment's card. */
   const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? order.shipments.map((x) => `${x.id}:${x.status}`).join(",") : "")
 
@@ -275,6 +279,21 @@ export function PhysicalFulfillment({
     if (!e && done) onNotice?.(done)
   }
   const live = order.shipments.filter((s) => s.status !== "cancelled")
+  /*
+    PACKING SLIP: a page the server draws (app/api/physical/orders/[id]/packing-slip). On a computer it prints from a
+    frame over this order; on a phone the menu's row is a link to it, with Back and Print, because a window opened once
+    the sheet has closed is what a phone's pop-up rule blocks (it used to do nothing there).
+  */
+  const slip = (q: { f?: string; loc?: string | null }): ActionMenuItem => {
+    const params = new URLSearchParams()
+    if (q.f) params.set("f", q.f)
+    if (q.loc) params.set("loc", q.loc)
+    const qs = params.toString()
+    const href = `/api/physical/orders/${encodeURIComponent(order.id)}/packing-slip${qs ? `?${qs}` : ""}`
+    return phone
+      ? { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, href }
+      : { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => void printSlip(href).then((e) => e && setError(e)) }
+  }
   const number = (s: PhysicalShipment) => `${shown ? `#${shown}` : orderNumber(order.id)}-F${order.shipments.indexOf(s) + 1}`
 
   return (
@@ -365,7 +384,7 @@ export function PhysicalFulfillment({
         const left = g.lines.reduce((n, l) => n + l.quantity - l.fulfilled, 0)
         const from = pickup ? tt("Pickup at {value}", { value: order.pickup?.name ?? tt("your location") }) : g.method === "self" ? (locName(g.locationId) ? tt("Ships from {name}", { name: locName(g.locationId) }) : tt("Shipped by you")) : shippedByLabel(g.method, locName(g.locationId))
         const menu: ActionMenuItem[] = [
-          { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, g.lines) },
+          slip({ loc: pickup ? null : g.locationId }),
           ...(gi === 0 && canFulfil && live.length === 0
             ? [order.processingAt
                 ? { label: tt("Back to unfulfilled"), icon: <Undo2 className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: false }) }
@@ -439,7 +458,8 @@ export function PhysicalFulfillment({
                     },
                   }]
                 : []),
-              ...(!pickup && !delivered ? [{ label: s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
+              /* A delivered parcel can still have its number corrected (a typo found later): the record is fixed, the buyer is not emailed again. */
+              ...(!pickup ? [{ label: delivered ? tt("Correct tracking") : s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
               /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: tt("Mark as in transit"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, tt("Marked as in transit")) }] : []),
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: tt("Mark as out for delivery"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, tt("Marked as out for delivery. The buyer was emailed.")) }] : []),
@@ -448,7 +468,7 @@ export function PhysicalFulfillment({
               ...(!pickup && !delivered && s.tracking?.mode === "auto" ? [{ label: tt("Pause automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: false }, tt("Automatic updates paused for this package")) }] : []),
               ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: tt("Resume automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, tt("Automatic updates on again")) }] : []),
               ...(returnable ? [{ label: tt("Start return"), icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
-              { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
+              slip({ f: s.id }),
               /* Only while the parcel is still with the shop (lib/physical/status canMoveShipment): one the carrier has comes back as a return. */
               ...(canMoveShipment(s.status, "cancelled")
                 ? [{
@@ -552,7 +572,7 @@ export function PhysicalFulfillment({
       ) : null}
       {dialog === "return" ? <ReturnDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "return", ...body }); if (!e) { setDialog(null); onNotice?.(tt("Return opened")) } return e }} /> : null}
       {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} onSubmit={async (reason) => { const e = await act({ action: "cancel", reason }); if (!e) { setDialog(null); onNotice?.(tt("Order cancelled")) } return e }} /> : null}
-      {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) { setDialog(null); onNotice?.(tt("Tracking saved")) } return e }} /> : null}
+      {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} country={typeof order.address?.country === "string" ? order.address.country : null} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) { setDialog(null); onNotice?.(tt("Tracking saved")) } return e }} /> : null}
     </div>
   )
 }
@@ -600,8 +620,9 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
     )
   }
   return (
-    <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg bg-[#f7f7f8] py-1.5 pl-3 pr-1.5" data-tracking="">
-      <Truck className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" />
+    <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1.5 pl-1.5 pr-1.5" data-tracking="">
+      {/* The carrier's own logo (lib/physical/carriers.ts), a neutral mark for one we don't know. */}
+      <CarrierLogo carrier={s.carrier} size={28} decorative={!!s.carrier} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[12px] font-medium text-[#1a1a2e]">
           {s.carrier ? `${s.carrier} ` : ""}
@@ -1056,80 +1077,174 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
   )
 }
 
+/* ─── Carrier and tracking ───────────────────────────────────────────── */
+
+/** The carrier part of Fulfill items and Edit tracking, as the seller fills it in. */
+type Ship = { choice: string; other: string; url: string; tracking: string }
+
+/** The picker's choice for what a shipment holds: a carrier we know, a name of the seller's own (Other), or none. */
+function shipFrom(carrier: string | null, number: string | null, url: string | null): Ship {
+  const known = carrierOf(carrier)
+  if (known) return { choice: known.id, other: "", url: "", tracking: number ?? "" }
+  if (carrier?.trim()) return { choice: OTHER_CARRIER, other: carrier.trim(), url: url ?? "", tracking: number ?? "" }
+  return { choice: number ? "" : NO_TRACKING, other: "", url: "", tracking: number ?? "" }
+}
+
+/** What the server is sent: no carrier and no number for Local delivery / no tracking. */
+function shipBody(s: Ship): { carrier: string | null; trackingNumber: string | null; trackingUrl: string | null } {
+  const none = s.choice === NO_TRACKING
+  return {
+    carrier: none ? null : s.choice === OTHER_CARRIER ? s.other.trim() || null : (carrierOfChoice(s.choice)?.name ?? null),
+    trackingNumber: none ? null : s.tracking.replace(/\s/g, "") || null,
+    trackingUrl: s.choice === OTHER_CARRIER ? s.url.trim() || null : null,
+  }
+}
+
 /**
- * The tracking number first, as Shopify asks for it: the carrier is filled
- * in from the number's shape while it is typed (lib/physical/status
- * guessCarrier), until the shop picks one itself. A carrier we know gets
- * its tracking link made for it; another one can be given its link.
+ * THE TRACKING NUMBER RULE, as the seller meets it (the server keeps the same one, lib/physical/carriers.ts
+ * trackingRuleProblem). Every carrier gives a parcel a number and the buyer follows the parcel with it, so it is
+ * asked for; Local delivery / no tracking is the one choice without. Each field's reason, empty when it can be sent.
  */
-function TrackingFields({
-  tracking,
-  setTracking,
-  carrier,
-  setCarrier,
-  other,
-  setOther,
-  url,
-  setUrl,
-}: {
-  tracking: string
-  setTracking: (v: string) => void
-  carrier: string
-  setCarrier: (v: string) => void
-  other: string
-  setOther: (v: string) => void
-  url: string
-  setUrl: (v: string) => void
-}) {
-  const picked = React.useRef(carrier !== "")
-  const link = carrier && carrier !== "Other" ? trackingLink(carrier, tracking) : null
+function shipProblems(s: Ship): { carrier?: string; other?: string; tracking?: string; url?: string } {
+  if (!s.choice) return { carrier: tt("Choose the carrier, or Local delivery / no tracking.") }
+  if (s.choice === NO_TRACKING) return {}
+  const out: { carrier?: string; other?: string; tracking?: string; url?: string } = {}
+  if (s.choice === OTHER_CARRIER && !s.other.trim()) out.other = tt("Name the carrier.")
+  const n = s.tracking.replace(/\s/g, "")
+  if (!n) out.tracking = tt("Add the tracking number: the buyer follows the parcel with it. Nothing to track? Choose Local delivery / no tracking.")
+  else if (!/^[A-Za-z0-9-]{4,60}$/.test(n)) out.tracking = tt("Check the number: letters, digits and dashes only.")
+  if (s.choice === OTHER_CARRIER && s.url.trim() && !/^https:\/\/[^\s"'<>]+$/.test(s.url.trim())) out.url = tt("The link must start with https://")
+  return out
+}
+
+/** The tracking page a shipment's buyer opens: the carrier's own, or the link the seller gave an Other carrier. */
+function shipLink(s: Ship, country: string | null): string | null {
+  const b = shipBody(s)
+  if (!b.trackingNumber) return null
+  return b.trackingUrl ?? trackingLink(b.carrier, b.trackingNumber, country)
+}
+
+/**
+ * The carrier first, then its number. The carrier comes from the picker (./carrier-picker.tsx): the shipping country's
+ * usual carriers first, each with its logo. A number typed before a carrier is chosen fills the carrier in from its
+ * shape (lib/physical/status guessCarrier), as Shopify does, until the seller picks one. Once both are there the
+ * buyer's tracking page is named and can be opened, so a wrong number is caught here and not by the buyer.
+ */
+function TrackingFields({ ship, set, country, check }: { ship: Ship; set: (patch: Partial<Ship>) => void; country: string | null; check: boolean }) {
+  const picked = React.useRef(ship.choice !== "")
+  const problems = check ? shipProblems(ship) : {}
+  const none = ship.choice === NO_TRACKING
+  const link = shipLink(ship, country)
+  const host = link ? new URL(link).hostname.replace(/^www\./, "") : null
+  const id = React.useId()
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Field label={tt("Tracking number")}>
-        <TextInput
-          value={tracking}
-          maxLength={60}
-          autoCapitalize="characters"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder={tt("Optional")}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\s/g, "")
-            setTracking(v)
-            if (!picked.current) setCarrier(guessCarrier(v) ?? "")
-          }}
-        />
-      </Field>
-      <Field label={tt("Carrier")}>
-        <SelectInput
-          value={carrier}
+    <div className="grid gap-3.5" data-tracking-fields="">
+      <Field label={tt("Carrier")} error={problems.carrier} htmlFor={`${id}-carrier`}>
+        <CarrierPicker
+          id={`${id}-carrier`}
+          value={ship.choice}
           onChange={(v) => {
             picked.current = true
-            setCarrier(v)
+            set({ choice: v })
           }}
-        >
-          <option value="">{tt("Choose a carrier")}</option>
-          {CARRIERS.map((c) => (
-            <option key={c} value={c}>
-              {c === "Other" ? tt("Other") : c}
-            </option>
-          ))}
-        </SelectInput>
+          country={country}
+          otherName={ship.other}
+          onOtherName={(n) => set({ other: n })}
+          invalid={!!problems.carrier}
+        />
       </Field>
-      {carrier === "Other" ? (
-        <>
-          <Field label={tt("Carrier name")}>
-            <TextInput value={other} maxLength={40} onChange={(e) => setOther(e.target.value)} />
-          </Field>
-          <Field label={tt("Tracking link")} hint={tt("Optional, https://")}>
-            <TextInput value={url} maxLength={500} inputMode="url" onChange={(e) => setUrl(e.target.value)} />
-          </Field>
-        </>
+      {ship.choice === OTHER_CARRIER ? (
+        <Field label={tt("Carrier name")} error={problems.other} htmlFor={`${id}-other`}>
+          <TextInput id={`${id}-other`} value={ship.other} maxLength={40} onChange={(e) => set({ other: e.target.value })} aria-invalid={!!problems.other || undefined} />
+        </Field>
       ) : null}
-      {link ? (
-        <p className="truncate text-[12.5px] text-[#6b7280] sm:col-span-2" data-tracking-link="">
-          {tt("The buyer can follow it at")} <span className="text-[#1a1a2e]">{new URL(link).hostname.replace(/^www\./, "")}</span>
+      {none ? (
+        <p className="rounded-lg bg-[#f6f7f8] px-3 py-2.5 text-[13px] leading-[18px] text-[#4b5563]" data-no-tracking="">
+          {tt("No tracking number. The buyer is told it's on its way, without a link to follow it.")}
         </p>
+      ) : (
+        <Field
+          label={tt("Tracking number")}
+          htmlFor={`${id}-number`}
+          error={problems.tracking}
+          hint={
+            host && link ? (
+              <span data-tracking-link="">
+                {tt("The buyer follows it on {site}.", { site: host })}{" "}
+                <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                  {tt("Check the link")}
+                  <ExternalLink className="h-3 w-3" aria-hidden />
+                </a>
+              </span>
+            ) : (
+              tt("Required: the buyer follows the parcel with it.")
+            )
+          }
+        >
+          <TextInput
+            id={`${id}-number`}
+            value={ship.tracking}
+            maxLength={60}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="text"
+            aria-invalid={!!problems.tracking || undefined}
+            data-tracking-number=""
+            className="font-mono tracking-[0.01em]"
+            onChange={(e) => {
+              const v = e.target.value.replace(/\s/g, "")
+              const guess = picked.current ? null : guessCarrier(v)
+              set({ tracking: v, ...(picked.current ? {} : { choice: guess ? (carrierOf(guess)?.id ?? "") : "" }) })
+            }}
+          />
+        </Field>
+      )}
+      {ship.choice === OTHER_CARRIER ? (
+        <Field label={tt("Tracking link")} hint={tt("Optional, the carrier's page for this parcel")} error={problems.url} htmlFor={`${id}-url`}>
+          <TextInput id={`${id}-url`} value={ship.url} maxLength={500} inputMode="url" placeholder="https://" onChange={(e) => set({ url: e.target.value })} />
+        </Field>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * WHAT THE BUYER GETS, before it is sent: the shipping email's subject, its opening line and the tracking box, as
+ * lib/physical/email-templates shipmentEmail words them (in the buyer's language when it goes; read here in the
+ * seller's). The Track button is the real link, so it can be tried.
+ */
+function EmailPreview({ order, ship, partial, country }: { order: PhysicalOrder; ship: Ship; partial: boolean; country: string | null }) {
+  const local = order.delivery?.kind === "local"
+  const first = order.buyerName?.trim().split(/\s+/)[0] || null
+  const number = orderNumber(order.id)
+  const body = shipBody(ship)
+  const link = shipLink(ship, country)
+  const subject = partial ? tt("Part of order {number} is on the way", { number }) : tt("Order {number} is on the way", { number })
+  const hello = first ? `${tt("Good news, {name}.", { name: first })} ` : ""
+  const line = local
+    ? tt("Your order is on its way. We're delivering it to you ourselves.")
+    : `${partial ? tt("Some of your items have shipped. The rest follow in another package, and we'll email you when they do.") : tt("Your order has shipped.")}${link ? ` ${tt("Track it any time with the link below.")}` : ""}`
+  return (
+    <div className="rounded-xl border border-[#eceef1] bg-[#fafafb] px-3 py-2.5" data-email-preview="">
+      <p className="text-[12px] font-medium text-[#6b7280]">{tt("What the buyer gets")}</p>
+      <p className="mt-1 text-[13.5px] font-semibold leading-5 text-[#1a1a2e]">{subject}</p>
+      <p className="mt-0.5 text-[13px] leading-[19px] text-[#4b5563]">
+        {hello}
+        {line}
+      </p>
+      {body.trackingNumber && !local ? (
+        <div className="mt-2 flex min-w-0 items-center gap-2.5 rounded-lg border border-[#eceef1] bg-white py-1.5 pl-2 pr-1.5">
+          <CarrierLogo carrier={body.carrier} size={24} decorative />
+          <p className="min-w-0 flex-1 truncate text-[12.5px] text-[#1a1a2e]">
+            <span className="font-medium">{body.carrier ?? tt("Tracking")}</span> <span className="font-mono text-[12px] text-[#4b5563]">{body.trackingNumber}</span>
+          </p>
+          {link ? (
+            <a href={link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md bg-[#1a1a2e] px-2.5 py-1 text-[12px] font-medium text-white">
+              {tt("Track your package")}
+            </a>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )
@@ -1137,25 +1252,45 @@ function TrackingFields({
 
 function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; locationId?: string | null; onLabel?: (order: PhysicalOrder, label: import("./buy-label").LabelView) => void; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
   const pickup = order.deliveryMethod === "pickup"
+  const country = typeof order.address?.country === "string" ? order.address.country : null
   const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0 && only.includes(l.orderId))
   const [qty, setQty] = React.useState<Record<string, number>>(() => Object.fromEntries(open.map((l) => [l.orderId, l.quantity - l.fulfilled])))
-  const [carrier, setCarrier] = React.useState("")
-  const [other, setOther] = React.useState("")
-  const [tracking, setTracking] = React.useState("")
-  const [url, setUrl] = React.useState("")
+  /* An order the shop delivers itself starts on Local delivery / no tracking. */
+  const [ship, setShip] = React.useState<Ship>(() => ({ choice: order.delivery?.kind === "local" ? NO_TRACKING : "", other: "", url: "", tracking: "" }))
+  const set = React.useCallback((patch: Partial<Ship>) => setShip((s) => ({ ...s, ...patch })), [])
+  const [check, setCheck] = React.useState(false)
   const [notify, setNotify] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const key = React.useRef(actionKey())
   const chosen = Object.values(qty).reduce((n, q) => n + q, 0)
+  /* Part of the order, not all of it: the buyer is told the rest follows. */
+  const left = order.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.quantity - l.fulfilled), 0)
+  const partial = chosen > 0 && chosen < left
   const verb = pickup ? tt("Mark ready") : tt("Fulfill")
   /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. */
   const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup, onBought: (o, l) => onLabel?.(o, l) })
   const labelMode = !pickup && flow.available && (flow.mode === "label" || !!flow.bought)
+  const submit = async () => {
+    if (!pickup && Object.keys(shipProblems(ship)).length) {
+      setCheck(true)
+      return
+    }
+    setBusy(true)
+    const e = await onSubmit({
+      items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })),
+      ...(pickup ? { carrier: null, trackingNumber: null, trackingUrl: null } : shipBody(ship)),
+      notifyBuyer: notify,
+      key: key.current,
+    })
+    setBusy(false)
+    setError(e)
+  }
   return (
     <Modal
       open
       onClose={onClose}
+      closeButton={false}
       title={pickup ? tt("Ready for pickup") : flow.bought ? tt("Label bought") : tt("Fulfill items")}
       footer={
         labelMode ? (
@@ -1173,44 +1308,28 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
               </button>
             </>
           )
-        ) : <>
-          <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            {tt("Cancel")}
-          </button>
-          <button
-            type="button"
-            className={BTN_PRIMARY}
-            disabled={busy || chosen === 0}
-            data-fulfil-submit=""
-            onClick={async () => {
-              setBusy(true)
-              const e = await onSubmit({
-                items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })),
-                carrier: (carrier === "Other" ? other.trim() : carrier) || null,
-                trackingNumber: tracking.trim() || null,
-                trackingUrl: carrier === "Other" ? url.trim() || null : null,
-                notifyBuyer: notify,
-                key: key.current,
-              })
-              setBusy(false)
-              setError(e)
-            }}
-          >
-            {busy ? tt("Saving…") : chosen === 0 ? verb : `${verb} ${countLabel(chosen)}`}
-          </button>
-        </>
+        ) : (
+          <>
+            <button type="button" className={BTN_SECONDARY} onClick={onClose}>
+              {tt("Cancel")}
+            </button>
+            <button type="button" className={BTN_PRIMARY} disabled={busy || chosen === 0} data-fulfil-submit="" onClick={() => void submit()}>
+              {busy ? tt("Saving…") : chosen === 0 ? verb : `${verb} ${countLabel(chosen)}`}
+            </button>
+          </>
+        )
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-4" data-fulfil-dialog="">
         {from && !flow.bought ? <p className="text-[13px] text-[#6b7280]">{pickup ? tt("Pickup at {from}", { from }) : tt("Ships from {from}", { from })}</p> : null}
-        <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")}>
+        <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")} data-fulfil-items="">
           {open.map((l) => (
             <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="flex min-w-0 items-center gap-2.5">
-                <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-[#eceef1] bg-[#f4f5f7]">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eceef1] bg-[#f4f5f7]">
                   {l.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.imageUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={l.imageUrl} alt="" width={40} height={40} decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[#9ca3af]">
                       <Package className="h-3.5 w-3.5" />
@@ -1218,7 +1337,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
+                  <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
                   {l.variantName || l.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[l.variantName, l.sku ? tt("SKU {sku}", { sku: l.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
                 </div>
               </div>
@@ -1227,27 +1346,26 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
           ))}
         </ul>
         {pickup ? null : <ShipModeSwitch flow={flow} />}
-        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />}
+        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields ship={ship} set={set} country={country} check={check} />}
         {flow.bought ? null : (
           <Toggle
             label={pickup ? tt("Tell the buyer it's ready") : tt("Send shipment details to the buyer")}
-            description={pickup ? tt("With your pickup address and instructions.") : tracking.trim() || labelMode ? tt("An email with the tracking link.") : tt("An email saying it's on the way.")}
+            description={pickup ? tt("With your pickup address and instructions.") : labelMode ? tt("An email with the tracking link.") : undefined}
             checked={notify}
             onChange={setNotify}
           />
         )}
+        {notify && !pickup && !labelMode && !flow.bought ? <EmailPreview order={order} ship={ship} partial={partial} country={country} /> : null}
         {error && !labelMode ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
   )
 }
 
-function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShipment; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
-  const known = CARRIERS.includes(shipment.carrier ?? "") ? (shipment.carrier ?? "") : shipment.carrier ? "Other" : "" // i18n-ignore: the carrier's value, shown through tt()
-  const [carrier, setCarrier] = React.useState(known)
-  const [other, setOther] = React.useState(known === "Other" ? (shipment.carrier ?? "") : "")
-  const [tracking, setTracking] = React.useState(shipment.trackingNumber ?? "")
-  const [url, setUrl] = React.useState(known === "Other" ? (shipment.trackingUrl ?? "") : "")
+function TrackingDialog({ shipment, country, onClose, onSubmit }: { shipment: PhysicalShipment; country: string | null; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
+  const [ship, setShip] = React.useState<Ship>(() => shipFrom(shipment.carrier, shipment.trackingNumber, shipment.trackingUrl))
+  const set = React.useCallback((patch: Partial<Ship>) => setShip((s) => ({ ...s, ...patch })), [])
+  const [check, setCheck] = React.useState(false)
   const [notify, setNotify] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -1255,6 +1373,7 @@ function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShi
     <Modal
       open
       onClose={onClose}
+      closeButton={false}
       title={shipment.trackingNumber ? tt("Edit tracking") : tt("Add tracking")}
       footer={
         <>
@@ -1265,9 +1384,11 @@ function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShi
             type="button"
             className={BTN_PRIMARY}
             disabled={busy}
+            data-tracking-save=""
             onClick={async () => {
+              if (Object.keys(shipProblems(ship)).length) return setCheck(true)
               setBusy(true)
-              setError(await onSubmit({ carrier: (carrier === "Other" ? other.trim() : carrier) || null, trackingNumber: tracking.trim() || null, trackingUrl: carrier === "Other" ? url.trim() || null : null, notifyBuyer: notify }))
+              setError(await onSubmit({ ...shipBody(ship), notifyBuyer: notify }))
               setBusy(false)
             }}
           >
@@ -1277,8 +1398,9 @@ function TrackingDialog({ shipment, onClose, onSubmit }: { shipment: PhysicalShi
       }
     >
       <div className="space-y-4">
-        <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />
-        <Toggle label={tt("Email the buyer the new number")} checked={notify} onChange={setNotify} />
+        <TrackingFields ship={ship} set={set} country={country} check={check} />
+        {/* Already delivered: the number is corrected for the record, and the buyer is not emailed (lib/physical/orders-server.ts). */}
+        {shipment.status === "delivered" ? <p className="text-[13px] leading-[19px] text-[#6b7280]">{tt("This package was delivered, so the buyer is not emailed about the change.")}</p> : <Toggle label={tt("Email the buyer the new number")} checked={notify} onChange={setNotify} />}
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -1541,17 +1663,30 @@ function CancelDialog({ onClose, onSubmit }: { onClose: () => void; onSubmit: (r
   )
 }
 
-/** A packing slip for the box: what to pack and where it goes. No prices. */
-function printSlip(order: PhysicalOrder, lines: PhysicalLine[]) {
-  const w = window.open("", "_blank", "width=720,height=900")
-  if (!w) return
-  const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-  const rows = lines
-    .filter((l) => l.quantity - l.fulfilled > 0)
-    .map((l) => `<tr><td>${esc(l.title)}${l.variantName ? `<br><small>${esc(l.variantName)}</small>` : ""}</td><td>${esc(l.sku ?? "")}</td><td style="text-align:right">${l.quantity - l.fulfilled}</td></tr>`)
-    .join("")
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Packing slip ${esc(orderNumber(order.id))}</title><style>body{font-family:Inter,Arial,sans-serif;color:#1a1a2e;padding:32px}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border-bottom:1px solid #e5e7eb;padding:8px 4px;text-align:left;font-size:14px}small{color:#6b7280}.addr{margin-top:16px;font-size:14px;line-height:1.5}</style></head><body><h1>Packing slip</h1><div>Order ${esc(orderNumber(order.id))}</div><div class="addr">${order.deliveryMethod === "pickup" ? tt("<strong>Pickup by</strong><br>{value}<br>at {value2}", { value: esc(order.buyerName ?? tt("The buyer")), value2: esc(order.pickup?.name ?? tt("your location")) }) : tt("<strong>Ship to</strong><br>{value}", { value: addressLines(order.address as any).map(esc).join("<br>") })}</div><table><thead><tr><th>Item</th><th>SKU</th><th style="text-align:right">Qty</th></tr></thead><tbody>${rows}</tbody></table>${order.buyerNote ? `<p class="addr"><strong>Note</strong><br>${esc(order.buyerNote)}</p>` : ""}<script>window.onload=function(){window.print()}</script></body></html>`)
-  w.document.close()
+/**
+ * Prints a packing slip on a computer without leaving the order: the page is read, put in a frame out of sight, and
+ * the frame prints itself once its pictures are in. Null when it printed, else what went wrong.
+ */
+async function printSlip(href: string): Promise<string | null> {
+  const res = await fetch(href, { credentials: "same-origin", cache: "no-store" }).catch(() => null)
+  if (!res?.ok) return tt("The packing slip could not be made. Try again.")
+  const html = await res.text()
+  document.querySelectorAll("iframe[data-packing-slip-frame]").forEach((f) => f.remove())
+  const frame = document.createElement("iframe")
+  frame.setAttribute("data-packing-slip-frame", "")
+  frame.setAttribute("aria-hidden", "true")
+  frame.tabIndex = -1
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
+  frame.onload = () => {
+    const w = frame.contentWindow
+    if (!w) return
+    w.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 0))
+    w.focus()
+    w.print()
+  }
+  frame.srcdoc = html
+  document.body.appendChild(frame)
+  return null
 }
 
 /* ─── The whole panel, on its own ────────────────────────────────────── */

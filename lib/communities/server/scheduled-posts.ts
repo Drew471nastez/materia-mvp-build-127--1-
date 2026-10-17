@@ -23,17 +23,54 @@ import "server-only"
  *              retried on its own: the post may already be up.
  *
  * Before part 194 every read answers "not ready".
+ *
+ * ROUND 27 (B1, run-now part 222): WHAT IT CARRIES. A scheduled post or a
+ * draft keeps its pictures, video, files, GIFs, videos by link, link card
+ * (`media`, the post route's own list) and its poll (`poll`, its end as days
+ * from going up). Saving checks the media as the post route does (checkMedia,
+ * then the files and videos are the uploader's: ownedMedia), so a problem is
+ * said in the writer, not found at the time; going up checks it all again, as
+ * its author, through createPost, the poll ending that many days from then.
+ * Files and videos added to somebody else's scheduled post are refused: it
+ * goes up as its author, and they are not theirs. Before part 222 the reads
+ * and writes go on without the two columns (a post with only words schedules
+ * as before), and one that carries something says the part is needed.
  */
-import { EDITABLE, checkScheduledInput, type ScheduledPanelData, type ScheduledPostView, type ScheduledStatus } from "../scheduled-posts"
+import { EDITABLE, checkScheduledInput, pollToPost, type ScheduledInput, type ScheduledPanelData, type ScheduledPoll, type ScheduledPostView, type ScheduledStatus } from "../scheduled-posts"
 import { can } from "../permissions"
-import type { CommunityRow } from "../types"
+import type { CommunityRow, PostMedia } from "../types"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
-import { canPostIn, createPost, listSpaces } from "./feed"
+import { canPostIn, checkMedia, checkPoll, createPost, listSpaces, ownedMedia } from "./feed"
 import { peopleOf } from "./moderation"
 import { audit } from "./audit"
-import { missing, nowIso, reasonOf, type Db } from "./db"
+import { missing, nowIso, reasonOf, type Db, type DbError } from "./db"
 
-const COLUMNS = "id, community_id, author_id, space_id, title, body, status, publish_at, post_id, error, attempts, claimed_at, published_at, created_at, updated_at"
+const BASE_COLUMNS = "id, community_id, author_id, space_id, title, body, status, publish_at, post_id, error, attempts, claimed_at, published_at, created_at, updated_at"
+/** With part 222's two columns (round 27). */
+const COLUMNS = `${BASE_COLUMNS}, media, poll`
+
+/*
+  BEFORE PART 222. A read or a write naming `media` or `poll` on a database without them is answered with an unknown column;
+  it is made again without them, and for a few minutes after that this server asks without them first.
+*/
+let partMissingUntil = 0
+const PART_RECHECK_MS = 5 * 60_000
+function columnMissing(error: DbError | null | undefined): boolean {
+  if (!error) return false
+  return (error.code === "42703" || error.code === "PGRST204") && /\b(media|poll)\b/.test(error.message ?? "")
+}
+/** What a read or a write answers: its rows (the client is untyped here, as everywhere in ./db.ts) and its error. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Answer = { data?: any; error: DbError | null }
+/** Run a read or a write with part 222's columns, or without them on a database that has not run it; `media` says which. */
+async function withMedia<T extends Answer>(run: (columns: string, media: boolean) => PromiseLike<T>): Promise<T & { media: boolean }> {
+  if (Date.now() >= partMissingUntil) {
+    const r = await run(COLUMNS, true)
+    if (!columnMissing(r.error)) return { ...r, media: true }
+    partMissingUntil = Date.now() + PART_RECHECK_MS
+  }
+  return { ...(await run(BASE_COLUMNS, false)), media: false }
+}
 
 interface Row {
   id: string
@@ -51,6 +88,9 @@ interface Row {
   published_at: string | null
   created_at: string
   updated_at: string
+  /** Part 222; absent before it. */
+  media?: PostMedia[] | null
+  poll?: ScheduledPoll | null
 }
 
 /** How many a community keeps waiting at once (drafts and scheduled together). */
@@ -83,6 +123,8 @@ async function views(db: Db, communityId: string, rows: Row[], actor: { userId: 
     publishedAt: r.published_at,
     postId: r.post_id,
     error: r.error,
+    media: Array.isArray(r.media) ? r.media : [],
+    poll: r.poll && typeof r.poll === "object" ? r.poll : null,
     authorId: r.author_id,
     authorName: people.get(r.author_id)?.name ?? "Member",
     mine: mayChange(r, actor),
@@ -91,19 +133,22 @@ async function views(db: Db, communityId: string, rows: Row[], actor: { userId: 
 }
 
 /** The community's drafts and scheduled posts, then what went up or failed in the last two weeks. */
-export async function listScheduled(db: Db, communityId: string, actor: { userId: string; role: Viewer["role"]; perms?: Viewer["perms"] }): Promise<{ ready: boolean; rows: ScheduledPostView[] }> {
+export async function listScheduled(db: Db, communityId: string, actor: { userId: string; role: Viewer["role"]; perms?: Viewer["perms"] }): Promise<{ ready: boolean; media: boolean; rows: ScheduledPostView[] }> {
   const since = nowIso(Date.now() - HISTORY_DAYS * 86_400_000)
-  const [waiting, history] = await Promise.all([
-    db.from("community_scheduled_posts").select(COLUMNS).eq("community_id", communityId).in("status", ["draft", "scheduled", "publishing"]).order("publish_at", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false }).limit(WAITING_MAX),
-    db.from("community_scheduled_posts").select(COLUMNS).eq("community_id", communityId).in("status", ["published", "failed"]).gte("updated_at", since).order("updated_at", { ascending: false }).limit(50),
-  ])
-  const error = waiting.error ?? history.error
+  const read = await withMedia(async (columns) => {
+    const [waiting, history] = await Promise.all([
+      db.from("community_scheduled_posts").select(columns).eq("community_id", communityId).in("status", ["draft", "scheduled", "publishing"]).order("publish_at", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false }).limit(WAITING_MAX),
+      db.from("community_scheduled_posts").select(columns).eq("community_id", communityId).in("status", ["published", "failed"]).gte("updated_at", since).order("updated_at", { ascending: false }).limit(50),
+    ])
+    return { waiting, history, error: (waiting.error ?? history.error) as DbError | null }
+  })
+  const error = read.error
   if (error) {
     if (!missing(error)) console.error(`[communities] scheduled read: ${reasonOf(error)}`)
-    return { ready: !missing(error), rows: [] }
+    return { ready: !missing(error), media: false, rows: [] }
   }
-  const rows = [...((waiting.data as Row[] | null) ?? []), ...((history.data as Row[] | null) ?? [])]
-  return { ready: true, rows: await views(db, communityId, rows, actor) }
+  const rows = [...((read.waiting.data as Row[] | null) ?? []), ...((read.history.data as Row[] | null) ?? [])]
+  return { ready: true, media: read.media, rows: await views(db, communityId, rows, actor) }
 }
 
 /**
@@ -139,6 +184,29 @@ async function oneView(db: Db, a: Actor, row: Row): Promise<ScheduledPostView> {
   return (await views(db, a.community.id, [row], actorOf(a)))[0]
 }
 
+/**
+ * What a scheduled post carries, checked as the post route checks a post's (feed.ts checkMedia), and its files and videos
+ * as the uploader's own: `author` is who it goes up as, `actor` who is saving it now, `kept` what it carried already
+ * (left as it was checked). Somebody else's scheduled post takes no new file or video from the person editing it.
+ */
+async function mediaFor(db: Db, a: Actor, input: ScheduledInput, author: string, kept: PostMedia[] = []): Promise<Done<{ media: PostMedia[] }>> {
+  if (!input.media.length) return { ok: true, media: [] }
+  const shaped = checkMedia(input.media)
+  if (shaped.ok === false) return no(400, shaped.error)
+  const had = new Set(kept.map((m) => (m.type === "file" ? `f:${m.assetId}` : m.type === "video" ? `v:${m.videoId}` : "")).filter(Boolean))
+  const fresh = shaped.value.filter((m) => (m.type === "file" && !had.has(`f:${m.assetId}`)) || (m.type === "video" && !had.has(`v:${m.videoId}`)))
+  if (fresh.length && author !== a.userId) return no(403, "author_media")
+  const owned = await ownedMedia(db, a.community, a.viewer, shaped.value, kept)
+  if (owned.ok === false) return no(400, owned.error)
+  return { ok: true, media: owned.value }
+}
+
+/** The two columns of part 222 for a write, or a refusal when the database does not have them and the post carries something. */
+function carried(media: boolean, value: { media: PostMedia[]; poll: ScheduledPoll | null }): Record<string, unknown> | null {
+  if (media) return { media: value.media, poll: value.poll }
+  return value.media.length || value.poll ? null : {}
+}
+
 export async function createScheduled(db: Db, a: Actor, raw: unknown): Promise<Done<{ post: ScheduledPostView }>> {
   if (a.community.status === "archived" || a.community.archived_at) return no(403, "archived")
   const checked = checkScheduledInput(raw)
@@ -148,11 +216,23 @@ export async function createScheduled(db: Db, a: Actor, raw: unknown): Promise<D
   const { count } = await db.from("community_scheduled_posts").select("id", { count: "exact", head: true }).eq("community_id", a.community.id).in("status", ["draft", "scheduled"])
   if (typeof count === "number" && count >= WAITING_MAX) return no(409, `A community keeps up to ${WAITING_MAX} drafts and scheduled posts. Publish or delete some first.`)
   const v = checked.value
-  const { data, error } = await db
-    .from("community_scheduled_posts")
-    .insert({ community_id: a.community.id, author_id: a.userId, space_id: v.spaceId, title: v.title, body: v.body, status: v.publishAt ? "scheduled" : "draft", publish_at: v.publishAt })
-    .select(COLUMNS)
-    .single()
+  const media = await mediaFor(db, a, v, a.userId)
+  if (media.ok === false) return media
+  const keep = { media: media.media, poll: v.poll }
+  let refused = false
+  const { data, error } = await withMedia((columns, part) => {
+    const extra = carried(part, keep)
+    if (!extra) {
+      refused = true
+      return Promise.resolve({ data: null, error: null })
+    }
+    return db
+      .from("community_scheduled_posts")
+      .insert({ community_id: a.community.id, author_id: a.userId, space_id: v.spaceId, title: v.title, body: v.body, status: v.publishAt ? "scheduled" : "draft", publish_at: v.publishAt, ...extra })
+      .select(columns)
+      .single()
+  })
+  if (refused) return no(503, "media_not_ready")
   if (error || !data) {
     if (missing(error)) return no(503, "not_ready")
     console.error(`[communities] scheduled insert: ${reasonOf(error)}`)
@@ -163,7 +243,7 @@ export async function createScheduled(db: Db, a: Actor, raw: unknown): Promise<D
 }
 
 async function rowOf(db: Db, communityId: string, id: string): Promise<Row | null> {
-  const { data } = await db.from("community_scheduled_posts").select(COLUMNS).eq("id", id).eq("community_id", communityId).maybeSingle()
+  const { data } = await withMedia((columns) => db.from("community_scheduled_posts").select(columns).eq("id", id).eq("community_id", communityId).maybeSingle())
   return (data as Row | null) ?? null
 }
 
@@ -180,21 +260,40 @@ export async function updateScheduled(db: Db, a: Actor, id: string, raw: unknown
   if (a.community.status === "archived" || a.community.archived_at) return no(403, "archived")
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const now = r.publishNow === true
-  const merged = { spaceId: "spaceId" in r ? r.spaceId : row.space_id, title: "title" in r ? r.title : row.title, body: "body" in r ? r.body : row.body, publishAt: now ? new Date(Date.now() + 120_000).toISOString() : "publishAt" in r ? r.publishAt : row.publish_at }
+  const had = Array.isArray(row.media) ? row.media : []
+  const merged = {
+    spaceId: "spaceId" in r ? r.spaceId : row.space_id,
+    title: "title" in r ? r.title : row.title,
+    body: "body" in r ? r.body : row.body,
+    publishAt: now ? new Date(Date.now() + 120_000).toISOString() : "publishAt" in r ? r.publishAt : row.publish_at,
+    media: "media" in r ? r.media : had,
+    poll: "poll" in r ? r.poll : (row.poll ?? null),
+  }
   const checked = checkScheduledInput(merged)
   if (checked.ok === false) return no(400, checked.error, checked.field)
   const v = checked.value
   const space = await spaceFor(db, a.community, a.viewer, v.spaceId)
   if (space.ok === false) return space
+  const media = await mediaFor(db, a, v, row.author_id, had)
+  if (media.ok === false) return media
   const status: ScheduledStatus = now ? "publishing" : v.publishAt ? "scheduled" : "draft"
-  const { data, error } = await db
-    .from("community_scheduled_posts")
-    .update({ space_id: v.spaceId, title: v.title, body: v.body, status, publish_at: now ? nowIso() : v.publishAt, error: null, claimed_at: now ? nowIso() : null, updated_at: nowIso() })
-    .eq("id", row.id)
-    .eq("community_id", a.community.id)
-    .in("status", EDITABLE as ScheduledStatus[])
-    .select(COLUMNS)
-    .maybeSingle()
+  let refused = false
+  const { data, error } = await withMedia((columns, part) => {
+    const extra = carried(part, { media: media.media, poll: v.poll })
+    if (!extra) {
+      refused = true
+      return Promise.resolve({ data: null, error: null })
+    }
+    return db
+      .from("community_scheduled_posts")
+      .update({ space_id: v.spaceId, title: v.title, body: v.body, status, publish_at: now ? nowIso() : v.publishAt, error: null, claimed_at: now ? nowIso() : null, updated_at: nowIso(), ...extra })
+      .eq("id", row.id)
+      .eq("community_id", a.community.id)
+      .in("status", EDITABLE as ScheduledStatus[])
+      .select(columns)
+      .maybeSingle()
+  })
+  if (refused) return no(503, "media_not_ready")
   if (error) {
     console.error(`[communities] scheduled update: ${reasonOf(error)}`)
     return no(500, "That did not save. Try again.")
@@ -236,7 +335,7 @@ type MakePost = typeof createPost
 export async function publishOne(db: Db, row: Row, given?: CommunityRow | null, make: MakePost = createPost): Promise<Row> {
   const finish = async (patch: Partial<Row>): Promise<Row> => {
     const next = { ...patch, updated_at: nowIso() }
-    const { data } = await db.from("community_scheduled_posts").update(next).eq("id", row.id).eq("status", "publishing").select(COLUMNS).maybeSingle()
+    const { data } = await withMedia((columns) => db.from("community_scheduled_posts").update(next).eq("id", row.id).eq("status", "publishing").select(columns).maybeSingle())
     return (data as Row | null) ?? { ...row, ...next }
   }
   try {
@@ -249,7 +348,12 @@ export async function publishOne(db: Db, row: Row, given?: CommunityRow | null, 
     if (viewer.isCreatorAccount && !viewer.active) viewer = { ...viewer, role: "owner", active: true }
     if (!viewer.active) return finish({ status: "failed", error: "Its author is no longer a member." })
     if (viewer.mutedUntil) return finish({ status: "failed", error: "Its author is muted." })
-    const made = await make({ db, community, viewer }, { spaceId: row.space_id, title: row.title, body: row.body, media: [], poll: null })
+    /* What it carries, checked as the post route checks a post (round 27); the poll ends that many days from now. */
+    const media = checkMedia(Array.isArray(row.media) ? row.media : [])
+    if (media.ok === false) return finish({ status: "failed", error: failWords(media.error) })
+    const poll = row.poll ? checkPoll(pollToPost(row.poll)) : ({ ok: true, value: null } as const)
+    if (poll.ok === false) return finish({ status: "failed", error: failWords(poll.error) })
+    const made = await make({ db, community, viewer }, { spaceId: row.space_id, title: row.title, body: row.body, media: media.value, poll: poll.value })
     if (made.ok === false) return finish({ status: "failed", error: failWords(made.error) })
     const done = await finish({ status: "published", post_id: made.value.id, published_at: nowIso(), error: null })
     await audit(db, { communityId: community.id, actorId: row.author_id, actorKind: "system", action: "post.schedule_published", targetType: "post", targetId: made.value.id, targetLabel: row.title.slice(0, 80) })
@@ -276,7 +380,7 @@ export async function publishDuePosts(db: Db, now: number = Date.now(), budgetMs
     if (missing(stale.error)) return { ...out, available: false }
     console.error(`[communities] scheduled stale: ${reasonOf(stale.error)}`)
   }
-  const { data, error } = await db.from("community_scheduled_posts").select(COLUMNS).eq("status", "scheduled").lte("publish_at", nowIso(now)).order("publish_at", { ascending: true }).limit(RUN_MAX)
+  const { data, error } = await withMedia((columns) => db.from("community_scheduled_posts").select(columns).eq("status", "scheduled").lte("publish_at", nowIso(now)).order("publish_at", { ascending: true }).limit(RUN_MAX))
   if (error) {
     if (missing(error)) return { ...out, available: false }
     console.error(`[communities] scheduled due: ${reasonOf(error)}`)
@@ -285,13 +389,15 @@ export async function publishDuePosts(db: Db, now: number = Date.now(), budgetMs
   const started = Date.now()
   for (const due of (data as Row[] | null) ?? []) {
     if (Date.now() - started > budgetMs) break
-    const taken = await db
-      .from("community_scheduled_posts")
-      .update({ status: "publishing", claimed_at: nowIso(), attempts: (due.attempts ?? 0) + 1, updated_at: nowIso() })
-      .eq("id", due.id)
-      .eq("status", "scheduled")
-      .select(COLUMNS)
-      .maybeSingle()
+    const taken = await withMedia((columns) =>
+      db
+        .from("community_scheduled_posts")
+        .update({ status: "publishing", claimed_at: nowIso(), attempts: (due.attempts ?? 0) + 1, updated_at: nowIso() })
+        .eq("id", due.id)
+        .eq("status", "scheduled")
+        .select(columns)
+        .maybeSingle(),
+    )
     if (taken.error || !taken.data) continue
     const row = await publishOne(db, taken.data as Row, null, make)
     if (row.status === "published") out.published++

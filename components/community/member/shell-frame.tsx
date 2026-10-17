@@ -205,7 +205,14 @@ const LAND = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_bot
 const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&_[data-community-sales]]:bg-transparent"
 
 /** The scrollbar's room kept on every page of the frame, so a short page and a long one centre the frame on the same line. */
-const GUTTER = "@media (min-width:1024px){html{scrollbar-gutter:stable}}html{overscroll-behavior-y:none}"
+/*
+  ROUND 27 (I5), THE SCROLLBAR'S ROOM AT EVERY WIDTH. The owner: "switching between the community and Learn, the header
+  glitches and bumps". It was kept from 1024px only, so a window narrower than that with a mouse (a 1440 screen zoomed to
+  150% is 960 of CSS) lost its scrollbar on a short Learn and found it again on the feed: the page 15px wider then
+  narrower, and the bar's name, search and buttons jumped sideways on every switch (scripts/check-community-header27.mjs,
+  SCROLLBARS=1). Where scrollbars are drawn over the page (a phone, the app, macOS by default) nothing is reserved.
+*/
+const GUTTER = "html{scrollbar-gutter:stable}html{overscroll-behavior-y:none}"
 
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i

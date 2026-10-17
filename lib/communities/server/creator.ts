@@ -108,6 +108,7 @@ import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncT
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
 import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "../page-look"
+import { LEGAL_KINDS, keptLegal, legalLinksOf, legalUrl, withLegalLinks } from "../legal-links"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
@@ -630,6 +631,7 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
     /* Round 33: the stored HTML, for the Page editor's rich text field. */
     descriptionHtml: c.description ?? "",
     pageLook: pageLookOf(c.onboarding),
+    legalLinks: legalLinksOf(c.onboarding),
     tagline: c.tagline,
     summary: pageFields.summary,
     memberLinks: pageFields.memberLinks,
@@ -791,7 +793,7 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
       button: typeof o.button === "string" ? o.button.trim().slice(0, 30) : "",
       style: o.style === "popup" ? ("popup" as const) : ("card" as const),
     }
-    patch.onboarding = { ...keptSafety(c.onboarding), ...keptLook(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false, ...extra }
+    patch.onboarding = { ...keptSafety(c.onboarding), ...keptLook(c.onboarding), ...keptLegal(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false, ...extra }
   }
   /* Round 33: the cover's focus and the join button (../page-look.ts), beside the welcome steps, everything else kept. */
   if (b.pageLook !== undefined) {
@@ -799,6 +801,18 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const refused = joinWordsRefusal(b.pageLook, c.access)
     if (refused) return no(400, refused.error, refused.field)
     patch.onboarding = withPageLook(patch.onboarding ?? c.onboarding, cleanLook(b.pageLook))
+  }
+  /* Round 27: the community's own Privacy and Terms pages (../legal-links.ts), beside the look; each checked, an empty one is Storelib's. */
+  if (b.legalLinks !== undefined) {
+    const raw = b.legalLinks && typeof b.legalLinks === "object" ? (b.legalLinks as Record<string, unknown>) : {}
+    const next = legalLinksOf(patch.onboarding ?? c.onboarding)
+    for (const kind of LEGAL_KINDS) {
+      if (raw[kind] === undefined) continue
+      const checked = legalUrl(raw[kind])
+      if ("problem" in checked) return no(400, checked.problem === "long" ? "That address is too long." : kind === "privacy" ? "Enter the full address of your privacy policy, starting with https://" : "Enter the full address of your terms, starting with https://", `legalLinks.${kind}`)
+      next[kind] = checked.url
+    }
+    patch.onboarding = withLegalLinks(patch.onboarding ?? c.onboarding, next)
   }
   if (b.appearance !== undefined) {
     if (b.appearance !== "light" && b.appearance !== "dark") return no(400, "Pick a look.", "appearance")

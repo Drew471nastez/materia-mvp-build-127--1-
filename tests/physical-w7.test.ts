@@ -65,11 +65,11 @@ async function main() {
     ]
     for (const [carrier, number, re] of want) check(`${carrier}`, re.test(trackingUrl(carrier, number) ?? ""), trackingUrl(carrier, number))
     check("every carrier in the list makes an https link", CARRIER_LIST.every((c) => /^https:\/\/[^\s"'<>]+$/.test(c.url("AB123456"))))
-    check("names are matched however they are typed: 'fan courier', 'Hermes UK' is Evri, 'Poșta' without the accent, 'colissimo'", carrierOf("fan courier")?.name === "FAN Courier" && carrierOf("Hermes UK")?.name === "Evri" && carrierOf("posta romana")?.name === "Posta Romana" && carrierOf("Colissimo")?.name === "La Poste / Colissimo" && carrierOf("dhl")?.name === "DHL Express")
+    check("names are matched however they are typed: 'fan courier', 'Hermes UK' is Evri, 'Poșta' without the accent, 'colissimo'", carrierOf("fan courier")?.name === "FAN Courier" && carrierOf("Hermes UK")?.name === "Evri" && carrierOf("posta romana")?.name === "Posta Romana" && carrierOf("Colissimo")?.name === "La Poste / Colissimo" && carrierOf("dhl")?.name === "DHL" && carrierOf("DHL Express")?.name === "DHL Express")
     check("an unknown carrier gets no link: the number shows alone, the seller can paste one", trackingUrl("Local courier", "ABC12345") === null && carrierTrackingUrl(null, "ABC12345") === null)
     check("a number with spaces is a number (Royal Mail prints them)", normaliseTrackingNumber(" AB 1234 5678 9GB ") === "AB123456789GB" && /AB123456789GB$/.test(trackingUrl("Royal Mail", "AB 1234 5678 9GB") ?? ""))
     check("anything that is not a number makes no link", trackingUrl("UPS", "bad number!") === null && trackingUrl("UPS", "<script>") === null && trackingUrl("UPS", "") === null)
-    check("the seller's list: every carrier, Other last, and the order panel reads it", CARRIERS === CARRIER_NAMES && CARRIERS[CARRIERS.length - 1] === "Other" && CARRIERS.length === CARRIER_LIST.length + 1 && /CARRIERS\.map/.test(read("components/physical/order-panel.tsx")))
+    check("the seller's list: every carrier, Other last, and the order panel reads it", CARRIERS === CARRIER_NAMES && CARRIERS[CARRIERS.length - 1] === "Other" && CARRIERS.length === CARRIER_LIST.length + 1 && /carrierChoices\(country\)/.test(read("components/physical/carrier-picker.tsx")) && /<CarrierPicker/.test(read("components/physical/order-panel.tsx")))
     const orders = read("lib/physical/orders-server.ts")
     check("the server takes the spaces out before checking the number", /normaliseTrackingNumber\(cleanText\(input\.trackingNumber, 80\)\)/.test(orders))
     check("a shipment saved without a link gets its carrier's when the buyer is emailed and on the order page", /trackingUrl: f\.tracking_url \?\? trackingUrl\(f\.carrier, f\.tracking_number\)/.test(read("lib/physical/jobs-server.ts")) && /trackingUrl: f\.tracking_url \?\? trackingUrl\(f\.carrier, f\.tracking_number\)/.test(orders))
@@ -82,7 +82,8 @@ async function main() {
     check("an order number however it is typed", readOrderNumber("#3f2a9c1b") === "3F2A9C1B" && readOrderNumber(" 3F2A 9C1B ") === "3F2A9C1B" && readOrderNumber("3F2A9C1") === null && readOrderNumber("ZZZZZZZZ") === null && readOrderNumber(42) === null)
     check("matched against an id the way every email numbers it", isOrderNumberOf("3f2a9c1b-0000-4000-8000-000000000000", "3F2A9C1B") && !isOrderNumberOf("3f2a9c1c-0000-4000-8000-000000000000", "3F2A9C1B"))
     const jobs = read("lib/physical/jobs-server.ts")
-    check("buyer emails link the order page on the store's website, not storelib.com", /const orderUrl = await orderPageUrl\(db, co\)/.test(jobs) && !/checkout\/physical\/order\/\$\{encodeURIComponent\(token\)\}/.test(jobs))
+    /* Changed on purpose (round 27): the order page is read beside the store's website link (lib/physical/store-link.ts). */
+    check("buyer emails link the order page on the store's website, not storelib.com", /const \[orderUrl, website\] = await Promise\.all\(\[orderPageUrl\(db, co\)/.test(jobs) && !/checkout\/physical\/order\/\$\{encodeURIComponent\(token\)\}/.test(jobs))
     const server = read("lib/physical/order-link-server.ts")
     check("  the website it was placed on first, while it still serves this creator, then the store's own, then storelib.com", /originSiteHost\(origin\)[\s\S]*servingSiteOrigin\(db, creatorId[\s\S]*firstServingSite\(db, creatorId, await siteHostsFor\(creatorId, db\)\)[\s\S]*return platform/.test(server))
   }

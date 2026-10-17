@@ -23,6 +23,7 @@ import type { CommunityFaq, CommunityLink } from "@/lib/communities/types"
 import { DEFAULT_LOOK, cleanLook, coverPosition, joinLookOf, joinWordsProblem, sameLook, type JoinWordsProblem, type PageLook } from "@/lib/communities/page-look"
 import { SUMMARY_MAX, cleanSummary, memberLinkUrl, MEMBER_LINK_LABEL_MAX, type MemberLink } from "@/lib/communities/member-links"
 import { socialLinksOf } from "@/lib/communities/social-links"
+import { legalUrl, type LegalKind, type LegalUrlProblem } from "@/lib/communities/legal-links"
 import { isBlankHtml, toEditorHtml } from "@/lib/rich-text/html"
 import type { GalleryItemView, SalesPageData } from "@/components/community/public/types"
 import type { GalleryItem } from "../logic"
@@ -47,6 +48,8 @@ export interface PageDraft {
   seoTitle: string
   seoDescription: string
   discoveryEnabled: boolean
+  /** Round 27: the community's own Privacy and Terms pages, as typed ("" for Storelib's). */
+  legal: Record<LegalKind, string>
 }
 
 /** The draft a page starts from: what is saved, as the editor's fields hold it. */
@@ -67,11 +70,12 @@ export function draftOf(head: Pick<CommunityHead, "name" | "logoUrl" | "coverUrl
     seoTitle: data.seoTitle ?? "",
     seoDescription: data.seoDescription ?? "",
     discoveryEnabled: data.discoveryEnabled,
+    legal: { privacy: data.legalLinks?.privacy ?? "", terms: data.legalLinks?.terms ?? "" },
   }
 }
 
 /** The parts of the page the editor opens, in the order the page reads. */
-export const PAGE_BLOCKS = ["cover", "gallery", "logo", "name", "tagline", "summary", "description", "links", "memberLinks", "benefits", "join", "faq", "search"] as const
+export const PAGE_BLOCKS = ["cover", "gallery", "logo", "name", "tagline", "summary", "description", "links", "memberLinks", "benefits", "join", "faq", "legal", "search"] as const
 export type PageBlock = (typeof PAGE_BLOCKS)[number]
 
 export function isPageBlock(v: unknown): v is PageBlock {
@@ -89,7 +93,7 @@ export const GROUP_BLOCKS: Record<PageGroup, readonly PageBlock[]> = {
   basics: ["name", "tagline", "summary", "logo"],
   media: ["cover", "gallery"],
   about: ["description", "benefits", "faq"],
-  links: ["links", "memberLinks"],
+  links: ["links", "memberLinks", "legal"],
   join: ["join"],
   search: ["search"],
 }
@@ -103,6 +107,7 @@ export type DraftProblem =
   | { block: "summary"; code: "long" }
   | { block: "memberLinks"; code: "name" | "address"; index: number }
   | { block: "join"; code: JoinWordsProblem; field: "joinLabel" | "joinNote" }
+  | { block: "legal"; code: LegalUrlProblem; kind: LegalKind }
 
 export function draftProblems(d: PageDraft, opts: { paid: boolean }): DraftProblem[] {
   const out: DraftProblem[] = []
@@ -115,6 +120,11 @@ export function draftProblems(d: PageDraft, opts: { paid: boolean }): DraftProbl
   for (const field of ["joinLabel", "joinNote"] as const) {
     const code = joinWordsProblem(d.look[field], opts.paid)
     if (code) out.push({ block: "join", code, field })
+  }
+  for (const kind of ["privacy", "terms"] as const) {
+    /* Read by "problem" in it, so the suites' loose compile narrows it too. */
+    const checked = legalUrl(d.legal[kind])
+    if ("problem" in checked) out.push({ block: "legal", code: checked.problem, kind })
   }
   return out
 }
@@ -158,8 +168,15 @@ export function previewData(base: SalesPageData, d: PageDraft, videos: Record<st
       gallery: galleryViews(d.gallery, d.coverUrl, videos),
       coverPosition: coverPosition(look) ?? null,
       joinLook: joinLookOf(look),
+      /* Round 27: an address that does not pass yet is drawn as Storelib's, as the page would. */
+      legal: { privacy: legalOrNull(d.legal.privacy), terms: legalOrNull(d.legal.terms) },
     },
   }
+}
+
+function legalOrNull(raw: string): string | null {
+  const c = legalUrl(raw)
+  return c.ok ? c.url : null
 }
 
 /** What Save sends: only the parts that changed, by the names the settings route reads. */
@@ -181,5 +198,7 @@ export function changedBody(start: PageDraft, now: PageDraft): Record<string, un
   if (now.seoTitle.trim() !== start.seoTitle.trim()) body.seoTitle = now.seoTitle.trim()
   if (now.seoDescription.trim() !== start.seoDescription.trim()) body.seoDescription = now.seoDescription.trim()
   if (now.discoveryEnabled !== start.discoveryEnabled) body.discoveryEnabled = now.discoveryEnabled
+  /* Round 27: both sent when either changed, each as it is stored (https added, "" for Storelib's). */
+  if (now.legal.privacy.trim() !== start.legal.privacy.trim() || now.legal.terms.trim() !== start.legal.terms.trim()) body.legalLinks = { privacy: legalOrNull(now.legal.privacy), terms: legalOrNull(now.legal.terms) }
   return body
 }

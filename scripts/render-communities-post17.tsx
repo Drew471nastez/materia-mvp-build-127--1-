@@ -155,8 +155,10 @@ const COMMENTS: CommentView[] = [
 
 /* ── The server, answered in the page ── */
 
-type W = Window & { __feedLatency?: number; __placeLatency?: number; __postLatency?: number; __asked?: string[] }
+type W = Window & { __feedLatency?: number; __placeLatency?: number; __postLatency?: number; __asked?: string[]; __lockedPosts?: string[] }
 const w = window as W
+/* Round 27: posts a probe wants with their comments closed (scripts/check-posts27-member.mjs, set before the page loads). */
+for (const p of POSTS) if (w.__lockedPosts?.includes(p.id)) p.locked = true
 w.__asked = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 const later = (ms: number) => new Promise((r) => setTimeout(r, ms))

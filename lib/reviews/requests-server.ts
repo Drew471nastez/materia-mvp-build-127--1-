@@ -51,6 +51,7 @@ import { inEmailLanguage } from "@/lib/emails/words"
 import { emailLanguageFor } from "@/lib/emails/words-server"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { cleanOrigin } from "@/lib/orders/order-source"
 import { mediaUrl } from "@/lib/storage/media-url"
@@ -185,8 +186,9 @@ interface StoreLook {
 
 async function storeLook(db: Db, creatorId: string): Promise<StoreLook | null> {
   try {
-    const [identity, brand, copy] = await Promise.all([storeIdentity(db, creatorId).catch(() => null), loadBrand(db, creatorId).catch(() => null), loadCustomerEmailCopy(db, creatorId)])
-    return { logoUrl: identity?.logoUrl ?? brand?.logoUrl ?? null, accent: brand?.accent ?? null, websiteUrl: identity?.websiteUrl ?? brand?.storeUrl ?? null, copy }
+    const [identity, brand, copy, website] = await Promise.all([storeIdentity(db, creatorId).catch(() => null), loadBrand(db, creatorId).catch(() => null), loadCustomerEmailCopy(db, creatorId), orderStoreUrl({ creator_id: creatorId }, { db })])
+    /* The logo links the store's live website (lib/physical/store-link.ts), never its creator page; no website, no link. */
+    return { logoUrl: identity?.logoUrl ?? brand?.logoUrl ?? null, accent: brand?.accent ?? null, websiteUrl: website || null, copy }
   } catch {
     return null
   }

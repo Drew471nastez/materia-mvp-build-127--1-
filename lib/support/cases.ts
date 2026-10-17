@@ -72,10 +72,38 @@ export const ESCALATE_AFTER_DAYS = 3
 export const ESCALATABLE: ReadonlySet<CaseReason> = new Set(["not_arrived", "damaged", "missing_item", "wrong_item", "refund", "access"])
 
 /**
+ * FAIR TO THE BUYER TOO (round 27): a store that answers every couple of
+ * days without ever sorting the problem would keep Storelib out for good
+ * under the three day rule alone. So a problem still open two weeks after
+ * the buyer first wrote, with the buyer having written again since, can go
+ * to Storelib whoever wrote last.
+ */
+export const ESCALATE_STALE_DAYS = 14
+
+/**
+ * GATES THE SERVER ADDS (lib/support/cases-server.ts buyerEscalationFor),
+ * so Storelib is not handed a pile of disputes from people with no real
+ * problem or from one person on every order:
+ *
+ *   one at a time per order   another case on the same order already with
+ *                             Storelib holds this one back
+ *   a few per buyer           at most ESCALATIONS_PER_BUYER cases asked in
+ *                             by the same buyer email, over all stores, in
+ *                             ESCALATION_WINDOW_DAYS
+ *
+ * plus a rate limit on the request itself (app/api/order-help/[id]) and the
+ * private link: only the order's buyer can ask.
+ */
+export const ESCALATIONS_PER_BUYER = 3
+export const ESCALATION_WINDOW_DAYS = 30
+
+/**
  * When the buyer may ask Storelib in: `from` is the moment it opens (three
- * days after the first message the store has not answered), null when it
- * never can for this case as it is (another topic, already in, resolved, or
- * the store answered last).
+ * days after the first message the store has not answered, or two weeks
+ * after the buyer first wrote once they have written again, whichever comes
+ * first), null when it never can for this case as it is (another topic,
+ * already in, resolved, or the store answered last and the problem is not
+ * two weeks old).
  */
 export function buyerEscalation(
   c: { reason: CaseReason; status: CaseStatus; escalated: boolean },
@@ -84,13 +112,20 @@ export function buyerEscalation(
 ): { can: boolean; from: string | null } {
   if (c.escalated || c.status === "resolved" || !ESCALATABLE.has(c.reason)) return { can: false, from: null }
   let waiting: number | null = null
+  let first: number | null = null
+  let written = 0
   for (const m of messages) {
     if (m.internal) continue
-    if (m.author === "buyer") waiting ??= Date.parse(m.createdAt)
-    else if (m.author === "store") waiting = null
+    if (m.author === "buyer") {
+      waiting ??= Date.parse(m.createdAt)
+      first ??= Date.parse(m.createdAt)
+      written++
+    } else if (m.author === "store") waiting = null
   }
-  if (waiting === null || !Number.isFinite(waiting)) return { can: false, from: null }
-  const from = waiting + ESCALATE_AFTER_DAYS * 86_400_000
+  const unanswered = waiting !== null && Number.isFinite(waiting) ? waiting + ESCALATE_AFTER_DAYS * 86_400_000 : null
+  const stale = first !== null && Number.isFinite(first) && written >= 2 ? first + ESCALATE_STALE_DAYS * 86_400_000 : null
+  const from = unanswered === null ? stale : stale === null ? unanswered : Math.min(unanswered, stale)
+  if (from === null) return { can: false, from: null }
   return { can: now >= from, from: new Date(from).toISOString() }
 }
 
@@ -98,6 +133,18 @@ export const CASE_STATUSES = ["store", "buyer", "storelib", "resolved"] as const
 export type CaseStatus = (typeof CASE_STATUSES)[number]
 
 export type CaseAuthor = "buyer" | "store" | "storelib"
+
+/**
+ * For the store, beside its reply box (app/app/support/buyer-cases.tsx):
+ * the day the buyer may ask Storelib in if nobody answers, so the store
+ * knows its time and nothing reaches Storelib by surprise (a moment
+ * already past means the buyer can ask now). Null when no answer from the
+ * store is due.
+ */
+export function storeAnswerBy(c: { reason: CaseReason; status: CaseStatus; escalated: boolean }, messages: { author: CaseAuthor; internal?: boolean; createdAt: string }[], now: number = Date.now()): string | null {
+  if (c.status !== "store") return null
+  return buyerEscalation(c, messages, now).from
+}
 
 /** As each side reads whose turn it is. */
 export const STATUS_FOR_BUYER: Record<CaseStatus, string> = { get store() { return tt("With the store") }, get buyer() { return tt("Your reply") }, get storelib() { return tt("With Storelib") }, get resolved() { return tt("Resolved") } }

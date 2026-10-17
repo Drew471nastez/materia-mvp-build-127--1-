@@ -273,8 +273,8 @@ function placementChecks() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("the editor adds it once the page is in, under the main product, naming the look", /widgetArrival/.test(editor) && /isMainProductSectionType\(x\.type\)/.test(editor) && /review_config:/.test(editor) && /addSection\(type, presetIndex, true, \{ settings:/.test(editor))
   check("  and takes the words off the address", /for \(const k of \["addReviewWidget", "reviewConfig", "placement"\]\) url\.searchParams\.delete\(k\)/.test(editor))
-  /* Changed on purpose (round K5): the reviews list moved into Storelib Reviews' integration page, whose Widgets view embeds the gallery; /app/reviews/widgets sends there. */
-  check("the gallery is the reviews management's Widgets view, and /app/reviews/widgets opens it", /export function WidgetsGallery/.test(read("components/reviews/widgets/widgets-gallery.tsx")) && /<ReviewWidgetsGallery embedded \/>/.test(read("components/reviews/manage/widgets-slot.tsx")) && /integration=storelib-reviews&view=widgets/.test(read("app/app/reviews/widgets/page.tsx")))
+  /* Changed on purpose (round K5): the reviews list moved into Storelib Reviews' integration page, whose Widgets view embeds the gallery; /app/reviews/widgets sends there. Round 27: that page is /app/reviews itself now. */
+  check("the gallery is the reviews management's Widgets view, and /app/reviews/widgets opens it", /export function WidgetsGallery/.test(read("components/reviews/widgets/widgets-gallery.tsx")) && /<ReviewWidgetsGallery embedded \/>/.test(read("components/reviews/manage/widgets-slot.tsx")) && /"\/app\/reviews\?view=widgets"/.test(read("app/app/reviews/widgets/page.tsx")))
 }
 
 function sqlChecks() {

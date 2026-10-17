@@ -32,6 +32,7 @@ import { money } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { socialLinksOf } from "@/lib/communities/social-links"
 import { coverPosition, joinLookOf, pageLookOf } from "@/lib/communities/page-look"
+import { legalLinksOf } from "@/lib/communities/legal-links"
 import { htmlToPlainText } from "@/lib/rich-text/html"
 import { readPublishedReviews } from "@/lib/reviews/store"
 import { getProductInternalPath } from "@/lib/url-helpers"
@@ -662,6 +663,8 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     links: socialLinksOf(community.links),
     coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
     joinLook: joinLookOf(pageLookOf(community.onboarding)),
+    /* Round 27: the creator's own Privacy and Terms pages, beside the look in onboarding. */
+    legal: legalLinksOf(community.onboarding),
     /* Round 26: the short description for the info card (its fallbacks are the card's, about-facts.ts cardSummary), and the admins it counts. */
     summary,
     adminCount: Math.max(0, stats.admins ?? 0),

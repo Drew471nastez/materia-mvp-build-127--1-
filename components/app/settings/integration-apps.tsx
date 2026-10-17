@@ -27,6 +27,9 @@
  *
  *   tab        the open tab's id, kept in the address (?view=<id>), so a
  *              link opens it and Back returns to it
+ *   warm       the tab a pointer is over, a finger is on or the keyboard
+ *              is at, or null: a view may ready that tab's page (mount it
+ *              hidden, start its reads) so the press finds it drawn
  *   setTab     open another tab (written in place, no new history entry)
  *   item       the catalog entry; status, installed: where it stands now
  *   sections   the shell's own sections, ready to place anywhere:
@@ -74,6 +77,8 @@ export interface IntegrationSections {
 
 export interface IntegrationAppBodyProps {
   tab: string
+  /** The tab about to be pressed, if any (see warm above). */
+  warm?: string | null
   setTab: (id: string) => void
   item: Integration
   status: IntegrationStatus

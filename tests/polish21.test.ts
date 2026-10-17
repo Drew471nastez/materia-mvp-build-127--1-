@@ -84,7 +84,8 @@ check("the fallback is asked only after every handler", between(intent, "export 
 check("the shell's composer says no on a computer and for one space's request", /if \(req\.spaceSlug \|\| !window\.matchMedia\?\.\("\(max-width: 639px\)"\)\.matches\) return false/.test(anywhere))
 check("it opens from the feed's data already in hand, and says no without it", /readPlace\(communityId, \{ kind: "feed" \}\)/.test(anywhere) && /if \(!open\) return false/.test(anywhere))
 check("the place host draws it for a member who may post", /\{viewer && !readOnly \? <ComposeAnywhere communityId=\{communityId\} \/> : null\}/.test(host))
-check("away from the feed the composer opens at once, with no field of its own in a list", /useState\(editing \|\| !!away\)/.test(composer) && /\) : away && phone \? null : \(/.test(composer))
+/* Changed on purpose (round 27, P27): a composer handed words (`initial`) opens at once too. */
+check("away from the feed the composer opens at once, with no field of its own in a list", /useState\(editing \|\| !!away( \|\| !!initial)?\)/.test(composer) && /\) : away && phone \? null : \(/.test(composer))
 check("its owner takes it out once the sheet is down", /if \(awayRef\.current\) \{\s*\n\s*awayRef\.current\.onClosed\(\)\s*\n\s*return\s*\n\s*\}/.test(composer))
 /* Changed on purpose (round 29): away from the feed the toast and the post handed over, in a block of its own; the feed's arrival waits for the page's glide. */
 check("posted away: a toast says so, not the feed's arrival", /if \(awayRef\.current\) \{\s*toast\("Posted"\)\s*onPosted\(post\)\s*return\s*\}/.test(composer) && /glideIntoSight\(spot, land\)/.test(composer))

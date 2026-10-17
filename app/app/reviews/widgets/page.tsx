@@ -10,15 +10,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: tt("Review widgets") }
 }
 
-const WIDGETS_HOME = "/app/integrations?integration=storelib-reviews&view=widgets"
+const WIDGETS_HOME = "/app/reviews?view=widgets"
 const TOKEN = /^[a-z0-9_-]{1,64}$/i
 
 /**
  * /app/reviews/widgets, kept for every link that names it (the theme editor's
  * widget control, Add to website coming back): the widgets gallery is the
- * Widgets view of Storelib Reviews' integration page now
- * (components/reviews/manage/widgets-slot.tsx), so this sends there with the
- * widget and the saved look it named.
+ * Widgets view of Storelib Reviews' page, /app/reviews (round 27; it was the
+ * integration's page under Integrations) (components/reviews/manage/
+ * widgets-slot.tsx), so this sends there with the widget and the saved look
+ * it named.
  */
 export default async function ReviewWidgetsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const q = await searchParams

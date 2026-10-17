@@ -208,7 +208,7 @@ export function WidgetsGallery(props: WidgetsGalleryProps) {
       {appOn === false ? (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]" data-widgets-app-off="">
           <span>{tt("Storelib Reviews is off, so widgets don't show on your website yet.")}</span>
-          <a href="/app/integrations?integration=storelib-reviews" className="font-medium underline underline-offset-4">
+          <a href="/app/reviews?view=settings" className="font-medium underline underline-offset-4">
             {tt("Turn it on")}
           </a>
         </p>

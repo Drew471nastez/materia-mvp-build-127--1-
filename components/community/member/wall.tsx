@@ -133,7 +133,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
     shared (published, not archived; a private one only by the people who run it, here those with Settings).
   */
   const share = canShareCommunity({ status: community.published === false ? "draft" : "published", archived: community.archived, visibility: community.visibility ?? null, access: community.access ?? null }, { staff: !!card.settingsHref })
-  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} /> : null
+  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} onCover={!!community.coverUrl} /> : null
   const links = community.links ?? []
   return (
     <section className={`${CARD} relative overflow-hidden ${card.settingsHref ? EDIT_GROUP : ""}`} data-wall-card="">

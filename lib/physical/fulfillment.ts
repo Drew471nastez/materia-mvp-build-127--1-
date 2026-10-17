@@ -25,10 +25,11 @@
  * product points at a partner location (Settings > Shipping > Locations):
  * when that location forwards orders by email or to a webhook, every paid
  * order is sent there automatically (lib/physical/jobs-server.ts); with no
- * forwarding set, the order is marked for the seller to pass on. Direct
- * connections to Printful, Printify, Gelato, CJ, ShipStation, Shippo and
- * EasyPost are not live yet and say so; a connector implements
- * FulfillmentConnector below and nothing about products or orders changes.
+ * forwarding set, the order is marked for the seller to pass on. Printful,
+ * Printify, Gelato and CJ connect directly and are sent orders and report
+ * tracking back (lib/integrations/fulfilment); ShipStation receives orders,
+ * and Shippo and EasyPost buy labels (lib/integrations/shipping). Those two
+ * folders hold the contracts a new service implements.
  */
 
 import type { FulfillmentMethod, LocationKind } from "./types"
@@ -129,24 +130,4 @@ export function sellerNextStep(o: { pickup?: boolean; local?: boolean; pickupAt?
     else out.push(`Pack it${g.locationName ? ` at ${g.locationName}` : ""} and ship it, then press Fulfill items in Orders and add the tracking number.`)
   }
   return out.join(" ") || "Open the order in Orders to fulfil it."
-}
-
-/**
- * What a direct connection to a fulfilment service implements. A connector
- * receives a paid order's lines that it fulfils, sends them, and later
- * reports shipments; the order, its lines and its shipments are the same
- * rows whoever ships them. No connector is live yet: lib/physical/providers.ts
- * lists them as "not available yet" and nothing is sent to them.
- */
-export interface FulfillmentConnector {
-  provider: string
-  method: Exclude<FulfillmentMethod, "self">
-  /** Sends the lines; returns the service's reference for the shipment, or a reason it could not. */
-  submit(order: {
-    checkoutId: string
-    lines: { orderId: string; sku: string | null; title: string; variantName: string | null; quantity: number }[]
-    address: Record<string, unknown> | null
-  }): Promise<{ ok: true; reference: string } | { ok: false; error: string }>
-  /** Tracking for a reference, when the service has it. */
-  tracking?(reference: string): Promise<{ carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; status: string } | null>
 }

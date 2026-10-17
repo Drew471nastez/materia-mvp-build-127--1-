@@ -50,6 +50,7 @@ const thread = [
 ]
 
 const calls: string[] = (window.__calls = [])
+let asked = false
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input)
   const method = init?.method ?? "GET"
@@ -57,6 +58,9 @@ window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   calls.push(`${method} ${url}${multipart ? ` form photos=${(init!.body as FormData).getAll("photos").length}` : ""}`)
   const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
   if (url === "/api/order-help" && method === "POST") return json({ id: CASE, link: `/order-help/${CASE}?k=demo`, existing: false, photosNotKept: false })
+  /* Escalated once the buyer has asked (a POST); until then the case as it was, since the page reads it again while it is open. */
+  if (url.startsWith(`/api/order-help/${CASE}`) && method === "POST") asked = true
+  if (url.startsWith(`/api/order-help/${CASE}`) && !asked) return json({ case: caseSummary, messages: thread, escalation: { can: true, from: ago(1) } })
   if (url.startsWith(`/api/order-help/${CASE}`)) return json({ case: { ...caseSummary, escalated: true, status: "storelib" }, messages: [...thread, { id: 3, author: "buyer", internal: false, body: "Asking Storelib to help.", createdAt: new Date().toISOString() }], escalation: { can: false, from: null } })
   if (url.startsWith("/api/store/cases?")) return json({ cases: [caseSummary] })
   if (url.startsWith(`/api/store/cases/${CASE}`)) return json({ case: { ...caseSummary, unread: false }, messages: thread })

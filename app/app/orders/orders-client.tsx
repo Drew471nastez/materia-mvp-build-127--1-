@@ -139,6 +139,9 @@ function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) 
  */
 const OrdersListMemo = React.memo(OrdersList)
 
+/** After the list has slid back from an order (./order-motion), the opened order's dot goes. */
+const SEEN_AFTER_BACK_MS = 450
+
 function findOrder(orders: Order[], id: string | null): Order | null {
   if (!id) return null
   return orders.find((o) => o.id === id) ?? orders.find((o) => o.lines.some((l) => l.id === id)) ?? null
@@ -417,6 +420,33 @@ export function OrdersClient(props: OrdersClientProps) {
   /* Opened straight onto an order (a link, a reload): the page does not fade
      in as a whole, so its bar is at full strength on the first frame. */
   const [openedOnOrder] = React.useState(() => shown !== null)
+
+  /*
+    SEEN. An order nobody on the store has opened carries a small dot on the list (SQL part 224, orders.seller_seen_at).
+    Opening it is what clears it. The server is told as it opens, once per order (app/api/app/orders/seen). The rows
+    change only once the order has closed and the list has slid back, so opening an order still draws nothing of the
+    list (THE LIST DOES NOT RENDER WHEN AN ORDER OPENS, above): the dot fades out where the seller is looking.
+  */
+  const seenSent = React.useRef(new Set<string>())
+  const seenPending = React.useRef<string[]>([])
+  const unseenShown = shown?.unseen ? shown : null
+  React.useEffect(() => {
+    if (!unseenShown || seenSent.current.has(unseenShown.id)) return
+    seenSent.current.add(unseenShown.id)
+    const ids = unseenShown.lines.map((l) => l.id)
+    seenPending.current.push(...ids)
+    void fetch("/api/app/orders/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }), keepalive: true }).catch(() => undefined)
+  }, [unseenShown])
+  const anyShown = shown !== null
+  React.useEffect(() => {
+    if (anyShown || seenPending.current.length === 0) return
+    const t = window.setTimeout(() => {
+      const ids = new Set(seenPending.current.splice(0))
+      const at = new Date().toISOString()
+      React.startTransition(() => setRows((prev) => prev.map((r) => (ids.has(r.id) && r.seller_seen_at === null ? { ...r, seller_seen_at: at } : r))))
+    }, SEEN_AFTER_BACK_MS)
+    return () => window.clearTimeout(t)
+  }, [anyShown])
 
   /*
     THE ORDER THAT IS LEAVING. When the address stops naming an order (back,

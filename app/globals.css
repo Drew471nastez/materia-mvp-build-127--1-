@@ -2903,21 +2903,12 @@ html.keyboard-open [data-payments-setup-panel="subpage"] [data-setup-scroll] {
   padding-bottom: max(24px, calc(100dvh - var(--vv-h, 100dvh)));
 }
 
-/* Zero the library layout's inner content padding-bottom while keyboard is
-   open — env(safe-area-inset-bottom) does not drop to 0 in Capacitor WKWebView
-   when the keyboard appears, so the ~34px safe-area padding becomes visible
-   as white blank space at the bottom of the settings/library pages. */
-html.keyboard-open .library-scroll-content {
-  padding-bottom: 0 !important;
-}
-
-/* When the keyboard is open on library pages (settings, etc.), collapse any
-   minimum-height constraints and extra bottom/top margin on child content
-   so the scroll container doesn't extend past the visual viewport, which would
-   leave blank space at the bottom on mobile. */
-html.keyboard-open .library-scroll-content > * {
-  min-height: 0 !important;
-}
+/* Round 27: the two rules for `.library-scroll-content` (its padding and its
+   children's min-height) are gone. No element has carried that class for a
+   long while, and the second one, `html.keyboard-open .library-scroll-content
+   > *`, ends in `*`: the browser cannot tell which elements it might reach, so
+   every keyboard-open toggle restyled the whole document for it (13 to 19ms
+   at 1x CPU on a community page, scripts/check-posts27-member.mjs cost). */
 
 /* Prevent the parent flex column from forcing min-height on mobile when
    keyboard is open — this eliminates the blank gap below the scroll area. */

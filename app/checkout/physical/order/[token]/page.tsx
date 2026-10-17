@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadOrder } from "@/lib/physical/orders-server"
@@ -16,7 +16,10 @@ import { storeIdentity } from "@/lib/store/identity-server"
 import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
 import { appUrl } from "@/lib/notify/urls"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
-import { buyerCancelState } from "@/lib/physical/buyer-cancel"
+import { buyerCancelState, cancelMode } from "@/lib/physical/buyer-cancel"
+import { checkoutBrand } from "@/lib/checkout/brand-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
+import { orderPagePath } from "@/lib/physical/order-link"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
 import { CheckoutWords } from "@/app/checkout/parts/words"
 
@@ -40,10 +43,17 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     if (order?.status === "pending") return <PendingOrder reason="unpaid" />
     notFound()
   }
+  /* Where it was bought (lib/orders/order-source.ts OrderOrigin): the website, in which language. */
+  const origin = await originOf(db, order.id)
   /* In the language an email link names, or the one the buyer bought in on the store's website (the checkout's, kept with the order), or the one they chose there; English for an order from storelib.com, or when the website has none of them published. */
-  const asked = lang ?? (await boughtIn(db, order.id)) ?? (await cookies()).get("sl_lang")?.value ?? null
-  const [store, settings, reasons, ready, open, checkout, language] = await Promise.all([
+  const asked = lang ?? (typeof origin?.lang === "string" ? origin.lang : null) ?? (await cookies()).get("sl_lang")?.value ?? null
+  const host = (await headers()).get("host")
+  const [store, brand, storeUrl, settings, reasons, ready, open, checkout, language] = await Promise.all([
     storeIdentity(db, order.creatorId),
+    /* The shop at the top, as its website and checkout draw it: the website's logo, else Store details', else the photo (lib/checkout/brand-server). */
+    checkoutBrand(db, order.creatorId),
+    /* Visit store: the live website the order was placed on, never the creator page (lib/physical/store-link.ts); empty when there is none. */
+    orderStoreUrl({ creator_id: order.creatorId, origin }, { db }),
     loadSettings(db, order.creatorId),
     reasonsFor(db, order.creatorId, "return"),
     casesReady(db),
@@ -52,6 +62,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     asked ? checkoutLanguage(order.creatorId, null, asked).catch(() => ENGLISH) : ENGLISH,
   ])
   const cancelAsked = await cancelEvents(db, order.id)
+  const path = orderPagePath(token)
+  const orderUrl = host && path ? `${/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https"}://${host}${path}` : null
   const returnable = returnableQuantities(progressOf(order))
   /* Counted from delivery, from shipping without tracking, or from when a tracked parcel never marked delivered should have arrived (lib/physical/status returnWindow), as the return route checks it. */
   const window = returnWindow({ ...order, pickup: order.deliveryMethod === "pickup" }, settings.returnWindowDays)
@@ -66,7 +78,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     <OrderStatusView
       token={token}
       justPaid={paid === "1"}
-      shop={{ name: store.name, avatar: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, legal: store.legal }}
+      shop={{ name: brand.name || store.name, avatar: brand.imageUrl ?? store.logoUrl, avatarKind: brand.imageUrl ? brand.kind : store.logoUrl ? "logo" : null, email: store.email, phone: store.phone, websiteUrl: storeUrl || null, legal: store.legal }}
+      orderUrl={orderUrl}
       help={ready ? { openCase: open ? { link: buyerCaseLink(appUrl("/").replace(/\/$/, ""), open.id), status: open.status } : null } : null}
       order={{
         id: order.id,
@@ -78,11 +91,13 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         name: order.buyerName,
         address: order.deliveryMethod === "pickup" ? null : order.address,
         delivery: order.delivery,
+        coupon: order.couponCode,
         pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready], hours: order.pickup.hours ?? null } : null,
         processing: !!order.processingAt,
         cash: order.payment === "cod_due" ? "due" : order.payment === "cod_collected" ? "paid" : null,
         totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, taxLabel: order.taxLabel, total: order.totalCents, refunded: order.refundedCents, currency: order.currency },
-        lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0 })),
+        /* Each line as bought: its option, how many, at what each, and how far it got (sent, back, refunded). */
+        lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, unitCents: l.unitCents, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0, shipped: l.requiresShipping ? l.fulfilled : 0, returned: l.returned, refunded: l.refundedCents > 0 })),
         shipments: order.shipments
           .filter((s) => s.status !== "cancelled")
           /* Its updates, oldest first, as statuses only: the seller's own notes stay on their side. */
@@ -106,6 +121,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
       reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
       cancel={buyerCancelState({ ...order, events: cancelAsked }, checkout.buyerCancel)}
+      cancelNow={cancelMode({ lines: order.lines, events: cancelAsked }) === "now" && order.payment !== "cod_collected"}
     />
     </CheckoutWords>
     </>
@@ -114,9 +130,9 @@ export default async function OrderStatusPage({ params, searchParams }: { params
 
 const ENGLISH = { lang: "en", words: {} as Record<string, string>, map: null }
 
-/** The language the order's checkout was drawn in (lib/orders/order-source.ts OrderOrigin.lang), when it was kept. */
-async function boughtIn(db: ReturnType<typeof createAdminClient>, checkoutId: string): Promise<string | null> {
+/** Where the order's checkout was opened (lib/orders/order-source.ts OrderOrigin): the website and its language, when kept. */
+async function originOf(db: ReturnType<typeof createAdminClient>, checkoutId: string): Promise<{ lang?: unknown; site?: unknown; surface?: unknown } | null> {
   const { data } = await db.from("commerce_checkouts").select("origin").eq("id", checkoutId).maybeSingle()
-  const lang = (data?.origin as { lang?: unknown } | null)?.lang
-  return typeof lang === "string" ? lang : null
+  const origin = data?.origin
+  return origin && typeof origin === "object" ? (origin as { lang?: unknown; site?: unknown; surface?: unknown }) : null
 }

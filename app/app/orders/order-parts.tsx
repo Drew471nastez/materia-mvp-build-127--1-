@@ -43,12 +43,20 @@ export const LIST_BAR = "flex min-h-[66px] items-center justify-between gap-3 pb
  * Its depth is a hairline and a very soft shadow, and only once something is
  * under it: the pane's scroll sets `data-scrolled`, written straight onto the
  * element, so scrolling never renders anything.
+ *
+ * STICKY ONLY WHERE IT HELPS (round 27, the owner: not on every /app page,
+ * not on Integrations). A list's bar is its title and the page's one action:
+ * it scrolls away with the page, flat, never with depth. `sticky` is for a
+ * bar the page is worked from while it is read: an order's or an email's
+ * (Back and the actions, OrderBarFrame), the composer's, a membership's, a
+ * Help article's, and Emails, whose views are tabs in the bar. Either way it
+ * is the same box in the same place, so nothing moves between the two.
  */
-export function PaneBar({ width, className, children }: { width: string; className?: string; children: React.ReactNode }) {
+export function PaneBar({ width, className, sticky = false, children }: { width: string; className?: string; sticky?: boolean; children: React.ReactNode }) {
   const ref = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
     const bar = ref.current
-    const pane = bar?.closest<HTMLElement>(".orders-pane")
+    const pane = sticky ? bar?.closest<HTMLElement>(".orders-pane") : null
     if (!bar || !pane) return
     let under = false
     const read = () => {
@@ -60,10 +68,15 @@ export function PaneBar({ width, className, children }: { width: string; classNa
     read()
     pane.addEventListener("scroll", read, { passive: true })
     return () => pane.removeEventListener("scroll", read)
-  }, [])
-  return (
+  }, [sticky])
+  const inner = <div className={cn("mx-auto", width, GUTTER, className)}>{children}</div>
+  return sticky ? (
     <div ref={ref} data-orders-bar="" data-scrolled="false" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
-      <div className={cn("mx-auto", width, GUTTER, className)}>{children}</div>
+      {inner}
+    </div>
+  ) : (
+    <div ref={ref} data-orders-bar="" data-bar-flat="" className="relative z-10 bg-[#f8f9fa]">
+      {inner}
     </div>
   )
 }
@@ -84,7 +97,7 @@ export function OrderBarFrame({
   subtitle: React.ReactNode
 }) {
   return (
-    <PaneBar width={ORDER_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
+    <PaneBar width={ORDER_WIDTH} sticky className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2 lg:pb-3 lg:pt-5">
       <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">{back}</div>
       <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">{title}</div>
       <div className="flex min-h-9 shrink-0 items-center gap-1">{actions}</div>

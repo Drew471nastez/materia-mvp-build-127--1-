@@ -22,7 +22,8 @@
  *            the product description's allow list), What's inside (a line
  *            each), questions
  *   links    website and social pages (./links-editor.tsx), member links
- *            (new, ./member-links-editor.tsx)
+ *            (new, ./member-links-editor.tsx), and (round 27) the
+ *            community's own privacy policy and terms pages
  *   join     the button's words (never a price: lib/communities/page-look.ts
  *            joinWordsProblem), its style and colour, a line under it
  *   search   draft or published, Explore, the search title and line with the
@@ -37,6 +38,7 @@ import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { htmlToPlainText } from "@/lib/rich-text/html"
 import { MAX_BENEFITS, MAX_FAQ } from "@/lib/communities/limits"
 import { SUMMARY_MAX } from "@/lib/communities/member-links"
+import { LEGAL_URL_MAX, type LegalKind } from "@/lib/communities/legal-links"
 import { JOIN_LABEL_MAX, JOIN_NOTE_MAX, buttonBrand, type JoinStyle, type JoinWordsProblem, type PageLook } from "@/lib/communities/page-look"
 import { CoverField, GalleryEditor } from "../gallery-editor"
 import { GALLERY_MAX, coverItem } from "../logic"
@@ -63,6 +65,7 @@ export const BLOCK_INFO: Record<PageBlock, { title: string; line: string }> = {
   benefits: { get title() { return tt("What's inside") }, get line() { return tt("What members get, a line each, with a check beside it.") } },
   join: { get title() { return tt("Join button") }, get line() { return tt("Its words, its style and a short line under it.") } },
   faq: { get title() { return tt("Questions") }, get line() { return tt("Answers to what people ask before joining.") } },
+  legal: { get title() { return tt("Privacy and terms") }, get line() { return tt("Your own privacy policy and terms, linked at the foot of the page. Empty, Storelib's are linked.") } },
   search: { get title() { return tt("Visibility and search") }, get line() { return tt("Who can open the page, Explore, and search results.") } },
 }
 
@@ -121,8 +124,10 @@ export function groupSummary(group: PageGroup, d: PageDraft): string {
       const text = htmlToPlainText(d.descriptionHtml).replace(/\s+/g, " ").trim()
       return text.slice(0, 80) || tt("None yet")
     }
-    case "links":
-      return tt("{n, plural, one {# social link} other {# social links}}, {m, plural, one {# member link} other {# member links}}", { n: d.links.length, m: d.memberLinks.length })
+    case "links": {
+      const counts = tt("{n, plural, one {# social link} other {# social links}}, {m, plural, one {# member link} other {# member links}}", { n: d.links.length, m: d.memberLinks.length })
+      return d.legal.privacy.trim() || d.legal.terms.trim() ? `${counts} · ${tt("Your own legal pages")}` : counts
+    }
     case "join":
       return d.look.joinLabel.trim() || tt("The page's own words")
     case "search":
@@ -284,6 +289,8 @@ export function BlockPanel(p: PanelProps & { block: PageBlock }) {
       )
     case "join":
       return <JoinPanel {...p} />
+    case "legal":
+      return <LegalPanel {...p} />
     case "search":
       return <SearchPanel head={p.head} draft={d} set={set} publishing={p.publishing} onPublish={p.onPublish} origin={p.origin} />
   }
@@ -303,6 +310,52 @@ function Counter({ n, max, error, note }: { n: number; max: number; error?: stri
       <span className={cn("shrink-0 tabular-nums", n > max ? "font-medium text-[#b42318]" : "text-[#9ca3af]")}>
         {n}/{max}
       </span>
+    </div>
+  )
+}
+
+/* ── The community's own legal pages (round 27) ─────────────────────── */
+
+function LegalPanel(p: PanelProps) {
+  const legal = p.draft.legal
+  const rows: { kind: LegalKind; title: string; placeholder: string }[] = [
+    { kind: "privacy", title: tt("Privacy policy"), placeholder: "https://yoursite.com/privacy" },
+    { kind: "terms", title: tt("Terms"), placeholder: "https://yoursite.com/terms" },
+  ]
+  return (
+    <div className="space-y-4" data-panel="legal">
+      {rows.map((r) => {
+        const problem = p.problems.find((x): x is Extract<DraftProblem, { block: "legal" }> => x.block === "legal" && x.kind === r.kind)
+        const id = `pe-legal-${r.kind}`
+        return (
+          <div key={r.kind}>
+            <label htmlFor={id} className={label}>
+              {r.title}
+            </label>
+            <input
+              id={id}
+              type="url"
+              inputMode="url"
+              value={legal[r.kind]}
+              onChange={(e) => p.set("legal", { ...legal, [r.kind]: e.target.value.slice(0, LEGAL_URL_MAX + 20) })}
+              placeholder={r.placeholder}
+              className={cn(field, "h-11 sm:h-10", problem && "border-[#f0b4ae]")}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              aria-invalid={problem ? true : undefined}
+              data-legal-input={r.kind}
+            />
+            {problem ? (
+              <p role="alert" className="mt-1.5 text-[12.5px] leading-snug text-[#b42318]" data-legal-problem={r.kind}>
+                {problem.code === "long" ? tt("That address is too long.") : tt("Enter the full address of a web page, like {example}.", { example: r.placeholder })}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[12.5px] leading-snug text-[#6b7280]">{legal[r.kind].trim() ? tt("Opens in a new tab from the foot of your page.") : tt("Empty, the page links to Storelib's.")}</p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

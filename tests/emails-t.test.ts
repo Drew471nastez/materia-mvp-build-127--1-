@@ -47,7 +47,8 @@ console.log("\nThe order confirmation, Shopify's way\n")
   check("the plain text says it all too", /Order summary/.test(m.text) && /Payment method: Visa ending 4242/.test(m.text) && /Visit our store: https:\/\/storelib\.com\/angus/.test(m.text))
   check("no em dashes or filler words", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(m.html + m.text))
   const job = read("lib/physical/jobs-server.ts")
-  check("the email job reads the store's page, the card and the support address", /paymentLabel: paymentLabelOf\(paidRow\)/.test(job) && /storeUrl: store\.websiteUrl/.test(job) && /supportEmail:/.test(job))
+  /* Changed on purpose (round 27, F3): the store's page is the live website the order was placed on (lib/physical/store-link.ts), never the creator page. */
+  check("the email job reads the store's page, the card and the support address", /paymentLabel: paymentLabelOf\(paidRow\)/.test(job) && /orderStoreUrl\(\{ creator_id: co\.creator_id, origin: co\.origin \}/.test(job) && /^\s+storeUrl,$/m.test(job) && /supportEmail:/.test(job))
 }
 
 console.log("\nSettings › Customer emails\n")

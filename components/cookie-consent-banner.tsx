@@ -44,6 +44,8 @@ import {
 } from "@/lib/consent/consent"
 import { OPEN_PREFERENCES_EVENT, onConsentChange, readConsent, writeConsent } from "@/lib/consent/client"
 import { useSiteConsentTheme } from "@/lib/consent/site-theme"
+import { onCreatorSite } from "@/lib/nav/creator-site"
+import { SITES_HOST } from "@/lib/sites/public-host"
 
 /** Kept for the footers that open the preferences with it. */
 export const COOKIE_PREFS_EVENT = OPEN_PREFERENCES_EVENT
@@ -240,9 +242,16 @@ export function CookieConsentBanner() {
             <p className="mt-1 text-[13px] leading-relaxed" style={{ color: branded ? fg : "#6b7280", opacity: branded ? 0.8 : 1 }}>
               {site?.text ||
                 "Necessary cookies keep this site working. With your OK we also count returning visitors, so creators can see what works."}{" "}
-              <Link href="/privacy#cookies" className="underline underline-offset-2">
-                Cookie policy
-              </Link>
+              {/* Storelib's cookie policy: on a creator's website /privacy is not a page of theirs, so it is the full address there, and a plain link that nothing reads ahead. */}
+              {typeof window !== "undefined" && onCreatorSite(window.location.hostname) ? (
+                <a href={`https://${SITES_HOST}/privacy#cookies`} target="_blank" rel="noopener" className="underline underline-offset-2">
+                  Cookie policy
+                </a>
+              ) : (
+                <Link href="/privacy#cookies" className="underline underline-offset-2">
+                  Cookie policy
+                </Link>
+              )}
             </p>
             {/* Equal buttons: saying no is as easy as saying yes. */}
             <div className="mt-4 grid grid-cols-2 gap-2">

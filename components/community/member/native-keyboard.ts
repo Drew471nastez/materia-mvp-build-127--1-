@@ -58,6 +58,8 @@ function start() {
   void Keyboard.addListener("keyboardWillShow", (info) => set(info?.keyboardHeight ?? 0)).catch(() => {})
   void Keyboard.addListener("keyboardDidShow", (info) => set(info?.keyboardHeight ?? 0)).catch(() => {})
   void Keyboard.addListener("keyboardWillHide", () => set(0)).catch(() => {})
+  /* Round 27: and once it has gone, for a hide whose first word was missed (a listener added while the keys were moving). */
+  void Keyboard.addListener("keyboardDidHide", () => set(0)).catch(() => {})
 }
 
 /** The keyboard's height as the app last said it, in CSS px; 0 when it is down or nobody says. */

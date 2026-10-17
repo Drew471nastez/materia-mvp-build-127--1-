@@ -256,18 +256,51 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
     }, reduced ? 0 : 900)
   }
 
+  /*
+    ROUND 27 (I3, the owner: "the New post pill should smoothly disappear as I scroll up and see the new post"). The pill was
+    taken out in the frame its posts went in, so it blinked away. Now it stays drawn while it leaves: it fades and rises a
+    little on the compositor (the same 200ms the posts take to slide in), and only then is it gone. Pressed again on its way
+    out it is simply not there to press (pointer-events off).
+  */
   const n = waiting.length
+  const [shown, setShown] = useState(0)
+  const pillRef = useRef<HTMLButtonElement>(null)
+  const going = useRef<Animation | null>(null)
+  useEffect(() => {
+    if (n) {
+      going.current?.cancel()
+      going.current = null
+      setShown(n)
+      return
+    }
+    const el = pillRef.current
+    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return setShown(0)
+    const a = el.animate([{ opacity: 1, translate: "0 0", scale: "1" }, { opacity: 0, translate: "0 -8px", scale: "0.96" }], { duration: 200, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" })
+    going.current = a
+    a.onfinish = () => {
+      if (going.current !== a) return
+      going.current = null
+      setShown(0)
+    }
+    return () => a.cancel()
+  }, [n])
+  const count = n || shown
   return (
     <div className="pointer-events-none sticky top-[calc(var(--community-top,65px)+12px)] z-30 flex h-0 justify-center" data-feed-live="">
-      {n ? (
+      {count ? (
         <button
+          ref={pillRef}
           type="button"
           onClick={show}
-          className="pointer-events-auto mt-1 inline-flex h-10 items-center gap-1.5 rounded-full border border-[#1a1a2e] bg-[#1a1a2e] px-4 text-[14px] font-medium text-white shadow-[0_6px_18px_-6px_rgba(17,24,39,0.35),0_1px_2px_rgba(16,24,40,0.18)] outline-none transition-[scale] duration-150 animate-in fade-in-0 slide-in-from-top-2 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 motion-reduce:animate-none motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:h-9"
-          data-feed-new-pill={n}
+          tabIndex={n ? undefined : -1}
+          aria-hidden={n ? undefined : true}
+          data-feed-new-pill-leaving={n ? undefined : ""}
+          className="mt-1 inline-flex h-10 items-center gap-1.5 rounded-full border border-[#1a1a2e] bg-[#1a1a2e] px-4 text-[14px] font-medium text-white shadow-[0_6px_18px_-6px_rgba(17,24,39,0.35),0_1px_2px_rgba(16,24,40,0.18)] outline-none transition-[scale] duration-150 animate-in fade-in-0 slide-in-from-top-2 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 motion-reduce:animate-none motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:h-9"
+          data-feed-new-pill={count}
+          style={{ pointerEvents: n ? "auto" : "none" }}
         >
           <ArrowUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-          {n === 1 ? "1 new post" : `${n} new posts`}
+          {count === 1 ? "1 new post" : `${count} new posts`}
         </button>
       ) : null}
     </div>

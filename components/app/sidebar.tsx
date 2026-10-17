@@ -48,6 +48,7 @@ import { openStorelibPage, warmStorelibPages } from "@/lib/navigation/cross-sect
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { STEP_ASIDE, STEP_ASIDE_MOTION, useFootBarUp } from "@/lib/ui/foot-bars"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { tt } from "@/lib/i18n/text"
@@ -605,6 +606,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     !inProductEditor
 
   const setupProgressPercent = setupProgress ? Math.round((setupProgress.completed / setupProgress.total) * 100) : 0
+  /* Round 27: while a page's bottom bar (Cancel, Save, Back, Next) is on screen, both setup pills step aside (lib/ui/foot-bars.ts). */
+  const footUp = useFootBarUp()
 
   /*
     SoonItem is gone with the drawer. It was a greyed-out row announcing a
@@ -1122,12 +1125,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           data-shell-chrome=""
           data-setup-pill=""
+          data-away={footUp ? "" : undefined}
           aria-label={tt("Store setup, {setupProgressPercent}% done", { setupProgressPercent })}
           className={cn(
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
             // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
             "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-3 text-[12.5px] leading-none",
-            "shadow-[0_1px_2px_rgba(15,23,42,0.05),0_2px_8px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4]",
+            "shadow-[0_1px_2px_rgba(15,23,42,0.05),0_2px_8px_rgba(15,23,42,0.06)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]",
+            STEP_ASIDE_MOTION,
+            footUp && STEP_ASIDE,
             "outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
             (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics") || COMMUNITY_SETTINGS_PATH.test(pathname)) && "!hidden"
           )}
@@ -1138,7 +1144,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </button>
       )}
 
-      {inCommunity && !mobileMenuOpen ? <CommunitySetupPill pathname={pathname} hidden={COMMUNITY_SETTINGS_PATH.test(pathname)} /> : null}
+      {inCommunity && !mobileMenuOpen ? <CommunitySetupPill pathname={pathname} hidden={COMMUNITY_SETTINGS_PATH.test(pathname)} away={footUp} /> : null}
 
       {/* Outside both account menus: each closes itself on the click that opens
           this, so it cannot be a child of either. */}

@@ -32,6 +32,7 @@
  * Run with:  pnpm test:push
  */
 import { readFileSync } from "node:fs"
+import { onCreatorSite } from "@/lib/nav/creator-site"
 import { join } from "node:path"
 import { fakeFetch, setRtt, useFixture } from "../scripts/speed18/fake-postgrest"
 import { visit } from "../scripts/speed18/context"
@@ -277,11 +278,11 @@ async function platformPrefetch() {
   console.log("\nStorelib's own pages are not read ahead on a creator's website")
   const src = read("components/shared/prefetch-links.tsx")
   /* Measured on the live site after the V round: drwew.storelib.com's home fetched /explore, /privacy, /login and /signup, four 404s on every visit. */
-  check("the root layout's read ahead stops on a creator's host", /if \(onCreatorSite\(window\.location\.hostname\)\) return/.test(src))
-  const body = src.slice(src.indexOf("export function onCreatorSite"), src.indexOf("export function PrefetchLinks"))
-  const onCreatorSite = new Function("process", `return ${body.replace(/^export /, "").replace(/: string/g, "").replace(/\): boolean/, ")")}`)({ env: {} }) as (h: string) => boolean
+  check("the root layout's read ahead stops on a creator's host", /if \(onCreatorSite\(window\.location\.hostname\)\) return/.test(src) && /from "@\/lib\/nav\/creator-site"/.test(src))
   check("  a subdomain and an own domain are creator sites", onCreatorSite("drwew.storelib.com") && onCreatorSite("shop.example.com"))
   check("  Storelib, www, a preview and localhost are not", !onCreatorSite("storelib.com") && !onCreatorSite("www.storelib.com") && !onCreatorSite("x-y.vercel.app") && !onCreatorSite("localhost"))
+  const banner = read("components/cookie-consent-banner.tsx")
+  check("the cookie banner's policy link on a creator's site is Storelib's full address, never their /privacy", /onCreatorSite\(window\.location\.hostname\) \?/.test(banner) && /href=\{`https:\/\/\$\{SITES_HOST\}\/privacy#cookies`\}/.test(banner))
 }
 
 async function openingTab() {

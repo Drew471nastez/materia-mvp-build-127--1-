@@ -168,9 +168,9 @@ export const TONE_CLASS: Record<Tone, string> = {
   gray: "bg-[#f1f2f4] text-[#4b5563]",
 }
 
-/** A tracking link for the carriers buyers see most (./carriers.ts); anything else shows the number alone. */
-export function trackingUrl(carrier: string | null | undefined, number: string | null | undefined): string | null {
-  return carrierTrackingUrl(carrier, number)
+/** A tracking link for the carriers buyers see most (./carriers.ts); anything else shows the number alone. The shipping country picks a carrier's national page where it has one. */
+export function trackingUrl(carrier: string | null | undefined, number: string | null | undefined, country?: string | null): string | null {
+  return carrierTrackingUrl(carrier, number, country)
 }
 
 /** What the seller picks from when marking an order shipped, Other last. */

@@ -103,7 +103,8 @@ export const MentionTextarea = forwardRef<MentionTextareaHandle, Props>(function
   }, [value, maxHeight])
 
   useEffect(() => {
-    if (!at) {
+    /* No community yet (the create wizard's welcome post, round 27): nobody to mention. */
+    if (!at || !communityId) {
       setPeople([])
       return
     }
