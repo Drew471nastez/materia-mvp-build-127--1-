@@ -80,8 +80,10 @@ export function MemberLinks({ communityId, links, variant, onPick, className }: 
   if (links.length === 0) return null
   const anyIcon = links.some((l) => l.icon && ICONS[l.icon])
   const menu = variant === "menu"
+  /* Inside the account menu (role="menu") the rows are menu items in a group, not a landmark of their own. */
+  const Box = menu ? "div" : "nav"
   return (
-    <nav aria-label={tt("Community links")} className={cn("min-w-0", className)} data-member-links={variant}>
+    <Box role={menu ? "group" : undefined} aria-label={tt("Community links")} className={cn("min-w-0", className)} data-member-links={variant}>
       {variant === "column" ? <p className="px-4 pb-1 text-[12px] font-medium leading-5 text-[#6b7280]">{tt("Links")}</p> : null}
       <ul className="flex flex-col" role={menu ? "none" : undefined}>
         {links.map((l) => {
@@ -121,6 +123,6 @@ export function MemberLinks({ communityId, links, variant, onPick, className }: 
           )
         })}
       </ul>
-    </nav>
+    </Box>
   )
 }
