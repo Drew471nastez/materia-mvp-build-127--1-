@@ -601,7 +601,8 @@ function faces() {
   const form = source("components/reviews/review-form.tsx")
   check("Leave a review is handed the name it has, empty when there is none, never a \"?\"",
     /name=\{\(name \?\? ""\)\.trim\(\)\} alt="" size=\{48\} markWhileLoading/.test(form) && !/\|\| "\?"/.test(code("components/reviews/review-form.tsx")))
-  const seller = source("app/app/reviews/reviews-client.tsx")
+  /* Moved on purpose (round K5): the seller's list is Storelib Reviews' Reviews view now (components/reviews/manage). */
+  const seller = source("components/reviews/manage/reviews-view.tsx")
   check("the seller's Reviews list draws the same face", /name=\{avatarName\} alt="" size=\{36\} markWhileLoading/.test(seller))
 
   /* On a dark product page the bars were darker than the track they run in. */

@@ -46,13 +46,14 @@
  * require the assistant. The tab ids are the app's own, but "settings" is the
  * one the header's Settings button opens when there is one.
  *
- * Today only a placeholder is registered: Storelib Reviews with Settings
- * (its panel exactly as before, with At a glance beside it) and About. The
- * reviews management (workstream K5) replaces `reviewsView` below.
+ * Registered today: Storelib Reviews, its managed page (workstream K5,
+ * components/reviews/manage/integration-view.tsx): Overview, Reviews,
+ * Requests, Widgets, Analytics and Settings, its settings panel and the
+ * shell's About and Your data under Settings.
  */
 import * as React from "react"
 import type { Integration, IntegrationStatus } from "@/lib/integrations/catalog"
-import { tt } from "@/lib/i18n/text"
+import { reviewsIntegrationView } from "@/components/reviews/manage/integration-view"
 
 export interface IntegrationAppTab {
   id: string
@@ -89,31 +90,8 @@ export interface IntegrationAppView {
   Body: React.ComponentType<IntegrationAppBodyProps>
 }
 
-/** The placeholder pass-through: the shell's own sections, split over two tabs. */
-function ReviewsPlaceholderBody({ tab, sections, Layout }: IntegrationAppBodyProps) {
-  if (tab === "about") return <Layout main={<>{sections.overview}{sections.data}</>} aside={sections.glance} />
-  return (
-    <Layout
-      main={
-        <>
-          {sections.setup}
-          {sections.status}
-          {sections.danger}
-        </>
-      }
-      aside={sections.glance}
-    />
-  )
-}
-
-const reviewsView: IntegrationAppView = {
-  tabs: () => [
-    { id: "settings", label: tt("Settings") },
-    { id: "about", label: tt("About") },
-  ],
-  defaultTab: "settings",
-  Body: ReviewsPlaceholderBody,
-}
+/* Storelib Reviews' managed page (workstream K5): Overview, Reviews, Requests, Widgets, Analytics, Settings. */
+const reviewsView: IntegrationAppView = reviewsIntegrationView
 
 export const INTEGRATION_APP_VIEWS: Record<string, IntegrationAppView> = {
   "storelib-reviews": reviewsView,

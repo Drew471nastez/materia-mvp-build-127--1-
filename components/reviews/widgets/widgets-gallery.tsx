@@ -262,7 +262,8 @@ export function WidgetsGallery(props: WidgetsGalleryProps) {
           </div>
         </PaneBar>
       )}
-      <div className={cn("mx-auto", LIST_WIDTH, GUTTER)}>{body}</div>
+      {/* Embedded in the reviews management (components/reviews/manage/widgets-slot.tsx): the page around it already has the width and the gutter. */}
+      <div className={embedded ? "" : cn("mx-auto", LIST_WIDTH, GUTTER)}>{body}</div>
       {adding ? <AddToWebsite type={adding.type} configId={adding.configId} configs={configs} onClose={() => setAdding(null)} /> : null}
     </div>
   )
