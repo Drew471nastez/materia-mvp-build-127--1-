@@ -1,28 +1,40 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { readinessChanged } from "@/lib/physical/readiness-server"
-import { loadLocations, loadPackages, loadProfiles, loadSettings, loadShippingProducts, loadTaxRates, saveSettings } from "@/lib/physical/config-server"
-import { loadIntegrations } from "@/lib/physical/integrations-server"
+import { loadIntegrationStates, loadLocations, loadPackages, loadProfiles, loadSettings, loadShippingProducts, loadStoreOrigin, loadTaxRates, saveSettings } from "@/lib/physical/config-server"
+import { providerInfo } from "@/lib/physical/providers"
+import { CARRIER_RATE_APPS } from "@/lib/integrations/shipping/checkout-rates-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { followNewDefault, storeFulfilmentFor } from "@/lib/physical/fulfilment-default-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-/** Everything the Shipping, Locations and Integrations settings show, in one read. */
+/**
+ * Everything Shipping and delivery and Locations show, in one read.
+ *
+ * Integrations are read as connected or not and nothing more: this used to
+ * send the whole Integrations view (loadIntegrations), opening every sealed
+ * key twice per row for a field no screen read. `carrierApps` is the one
+ * thing asked of them here: which apps can price a Carrier calculated rate
+ * and whether each is connected. `origin` is the store's country and
+ * business address, what Quick setup starts from.
+ */
 export async function GET() {
   const c = await physicalCaller()
   if (c instanceof NextResponse) return c
-  const [settings, locations, profiles, packages, taxRates, integrations, shippingProducts] = await Promise.all([
+  const [settings, locations, profiles, packages, taxRates, states, shippingProducts, origin] = await Promise.all([
     loadSettings(c.db, c.creatorId),
     loadLocations(c.db, c.creatorId),
     loadProfiles(c.db, c.creatorId),
     loadPackages(c.db, c.creatorId),
     loadTaxRates(c.db, c.creatorId),
-    loadIntegrations(c.db, c.creatorId),
+    loadIntegrationStates(c.db, c.creatorId),
     loadShippingProducts(c.db, c.creatorId),
+    loadStoreOrigin(c.db, c.creatorId),
   ])
-  return physicalJson({ settings, locations, profiles, packages, taxRates, integrations, shippingProducts })
+  const carrierApps = CARRIER_RATE_APPS.map((id) => ({ id, name: providerInfo(id)?.name ?? id, connected: states.some((s) => s.provider === id && s.connected) }))
+  return physicalJson({ settings, locations, profiles, packages, taxRates, carrierApps, shippingProducts, origin })
 }
 
 export async function PUT(request: Request) {

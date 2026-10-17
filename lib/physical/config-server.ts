@@ -544,3 +544,57 @@ export function readPackage(body: Record<string, unknown>): { ok: true; row: Rec
   if (l === null || w === null || h === null) return { ok: false, error: "Enter the package size." }
   return { ok: true, row: { name, kind, length_mm: l, width_mm: w, height_mm: h, weight_grams: int(body.weightGrams, 0, 100_000) ?? 0, updated_at: new Date().toISOString() } }
 }
+
+/* ── what Shipping and delivery starts from ───────────────────────────── */
+
+/** A ship-from address as Store details keeps the business's, for a location that has none yet. */
+export interface StoreAddress {
+  addressLine1: string
+  addressLine2: string
+  city: string
+  region: string
+  postalCode: string
+  country: string
+}
+
+/**
+ * Where the store is: its country (Store details, SQL part 109) and the
+ * business address (part 153), for Quick setup to start from. Read on its
+ * own, so a database without either part reads as nothing known.
+ */
+export async function loadStoreOrigin(db: Db, creatorId: string): Promise<{ country: string | null; address: StoreAddress | null }> {
+  const read = async (columns: string) => {
+    try {
+      const { data, error } = await db.from("store_settings").select(columns).eq("creator_id", creatorId).maybeSingle()
+      return error ? null : ((data as Record<string, any> | null) ?? {})
+    } catch {
+      return null
+    }
+  }
+  const row = (await read("default_country, legal")) ?? (await read("default_country")) ?? {}
+  const legal = row.legal && typeof row.legal === "object" ? (row.legal as Record<string, unknown>) : null
+  const s = (v: unknown) => (typeof v === "string" ? v.trim() : "")
+  const legalCountry = s(legal?.country).toUpperCase()
+  const country = [s(row.default_country).toUpperCase(), legalCountry].find((c) => COUNTRY_CODES.has(c)) ?? null
+  const address: StoreAddress | null =
+    legal && s(legal.line1) && s(legal.city)
+      ? { addressLine1: s(legal.line1), addressLine2: s(legal.line2), city: s(legal.city), region: s(legal.region), postalCode: s(legal.postalCode), country: COUNTRY_CODES.has(legalCountry) ? legalCountry : (country ?? "") }
+      : null
+  return { country, address }
+}
+
+/**
+ * Which integrations are connected, and nothing else: no key, no hint, no
+ * sealed secret opened. Shipping and delivery only asks whether a carrier
+ * app is there to price a rate (Settings › Integrations reads the rest from
+ * /api/physical/integrations).
+ */
+export async function loadIntegrationStates(db: Db, creatorId: string): Promise<{ provider: string; connected: boolean }[]> {
+  try {
+    const { data, error } = await db.from("commerce_integrations").select("provider, status").eq("creator_id", creatorId)
+    if (error) return []
+    return ((data ?? []) as { provider: string; status: string }[]).map((r) => ({ provider: r.provider, connected: r.status === "connected" }))
+  } catch {
+    return []
+  }
+}
