@@ -88,6 +88,7 @@ async function main() {
   console.log("\nPICKER")
   {
     const picker = read("components/physical/carrier-picker.tsx")
+    check("a keyboard can star the highlighted carrier (Alt+S), and the star says so", /e\.altKey && e\.code === "KeyS"/.test(picker) && /onStar\(o\.star\)/.test(picker) && /aria-keyshortcuts="Alt\+S"/.test(picker))
     const order = ["Starred", "Connected", "Your carriers", "Popular in {country}", "All carriers"].map((t) => picker.indexOf(`tt("${t}"`))
     check("groups in order: Starred, Connected, Your carriers, Popular, All carriers", order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), order)
     check("a carrier is listed once, in the first group that has it", /if \(seen\.has\(k\)\) return false/.test(picker))

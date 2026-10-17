@@ -339,6 +339,13 @@ function CarrierList({
     } else if (e.key === "End" && !query) {
       e.preventDefault()
       setActive(flat.length - 1)
+    } else if (e.altKey && e.code === "KeyS") {
+      /* Alt+S stars the highlighted carrier: the star button is out of the Tab order, so a keyboard reaches it here (on a Mac, Option+S). */
+      const o = flat[active]
+      if (o?.star && favourites) {
+        e.preventDefault()
+        onStar(o.star)
+      }
     } else if (e.key === "Enter") {
       e.preventDefault()
       const o = flat[active]
@@ -437,6 +444,7 @@ function CarrierList({
                     <button
                       type="button"
                       tabIndex={-1}
+                      aria-keyshortcuts="Alt+S"
                       aria-pressed={starred}
                       aria-label={starred ? tt("Unstar {name}", { name: o.name }) : tt("Star {name}", { name: o.name })}
                       data-carrier-star={o.star}
