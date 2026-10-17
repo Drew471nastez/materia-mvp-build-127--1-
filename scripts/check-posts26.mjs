@@ -26,7 +26,9 @@
  *             admin's actions; Pin sends the pin; Escape closes it; the address
  *             stays the admin's; at 390 the community's bottom sheet
  *
- *   node scripts/check-posts26.mjs [MOVE KEEP SCHEDULE POPUP]
+ *   TABLET    820x1180, light and dark: the writer with its day and time, the popup
+ *
+ *   node scripts/check-posts26.mjs [MOVE KEEP SCHEDULE POPUP TABLET]
  *   ROOT=<another checkout> measures that checkout's code with this probe (a "before").
  */
 import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync, readdirSync, existsSync } from "node:fs"
@@ -662,6 +664,35 @@ export const isNativePlatform = () => false
       expect(shown.sheet && !shown.side && shown.top !== null && shown.top < 200, `${tag}: the community's bottom sheet (top ${shown.top}px)`, shown)
       expect(shown.actions.length >= 4 && shown.clipped === 0 && shown.sideways <= 0, `${tag}: the actions wrap inside the screen, nothing sideways`, shown)
       await p.screenshot({ path: join(shots, `popup-${tag}.png`) })
+      expect(errors.length === 0, `${tag}: no page errors`, errors)
+      await p.close()
+    }
+  }
+
+  /* ── TABLET ───────────────────────────────────────────────────────────── */
+  if (want("TABLET")) {
+    console.log("\nTABLET: 820x1180, light and dark")
+    const TAB = { width: 820, height: 1180, isMobile: true, hasTouch: true, deviceScaleFactor: 1 }
+    for (const dark of [false, true]) {
+      const tag = `820-${dark ? "dark" : "light"}`
+      const { p, errors } = await open(TAB, { dark })
+      await p.tap("[data-composer-open]")
+      await sleep(700)
+      await p.tap("[data-composer-tool='schedule']")
+      await sleep(300)
+      const w = await p.evaluate(() => {
+        const box = document.querySelector("[data-composer-schedule]")?.getBoundingClientRect()
+        return { inPlace: document.querySelector("[data-feed-writer] [data-composer]")?.getAttribute("data-composer"), box: box ? { l: Math.round(box.left), r: Math.round(box.right) } : null, sideways: Math.round(document.documentElement.scrollWidth - innerWidth) }
+      })
+      expect(w.inPlace === "open" && w.box && w.box.r <= 820 && w.sideways <= 0, `${tag}: the writer opens in place with the day and time inside the screen`, w)
+      await p.screenshot({ path: join(shots, `tablet-writer-${tag}.png`) })
+      await p.tap("[data-feed-writer] [data-composer-cancel]")
+      await sleep(700)
+      await p.evaluate((id) => document.querySelector(`[data-feed-row='${id}'] [data-feed-open]`).click(), pid(2))
+      await sleep(1500)
+      const o = await p.evaluate(() => ({ panel: !!document.querySelector("[data-post-overlay='panel']"), actions: document.querySelectorAll("[data-viewer-action]").length, sideways: Math.round(document.documentElement.scrollWidth - innerWidth) }))
+      expect(o.panel && o.actions >= 4 && o.sideways <= 0, `${tag}: a post opens in the community's popup with the actions`, o)
+      await p.screenshot({ path: join(shots, `tablet-popup-${tag}.png`) })
       expect(errors.length === 0, `${tag}: no page errors`, errors)
       await p.close()
     }
