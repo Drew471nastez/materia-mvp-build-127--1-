@@ -72,7 +72,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "TextInput",
-    accepts: ["placeholder"],
+    accepts: ["placeholder", "from"],
     example: { type: "text", id: "heading", label: "Heading", default: "Welcome" },
   }),
   textarea: def({
@@ -84,7 +84,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "TextArea",
-    accepts: ["placeholder"],
+    accepts: ["placeholder", "from"],
     example: { type: "textarea", id: "body", label: "Body" },
   }),
   richtext: def({
@@ -96,7 +96,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "RichTextEditor",
-    accepts: [],
+    accepts: ["from"],
     example: { type: "richtext", id: "content", label: "Content" },
   }),
   number: def({
@@ -232,7 +232,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "InlineRichText",
-    accepts: ["placeholder"],
+    accepts: ["placeholder", "from"],
     example: { type: "inline_richtext", id: "heading", label: "Heading", default: "Made <em>slowly</em>, by hand" },
   }),
   html: def({
@@ -304,7 +304,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "ImagePicker",
-    accepts: [],
+    accepts: ["from"],
     example: { type: "image_picker", id: "image", label: "Image" },
   }),
   image_gallery: def({
@@ -365,7 +365,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     fallback: "",
     responsive: false,
     component: "LinkPicker",
-    accepts: ["placeholder"],
+    accepts: ["placeholder", "from"],
     example: { type: "url", id: "button_url", label: "Button link", default: "/shop" },
   }),
   video_url: def({

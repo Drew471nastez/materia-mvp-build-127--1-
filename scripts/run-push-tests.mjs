@@ -409,6 +409,8 @@ const SUITES = [
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
   "tests/schema-edits-sidebar.test.ts",
+  "tests/theme-config-files-v.test.ts",
+  "tests/collection-binding-v.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",

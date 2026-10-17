@@ -34,6 +34,7 @@
  *               was renamed, keeps its data.
  */
 import { controlFor, holdsValue, resolveControlType, type ControlType } from "./controls/registry"
+import { withCollectionBindings } from "./collection-binding"
 import {
   Linked,
   cleanBackground,
@@ -173,7 +174,13 @@ function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: Re
     case "number":
     case "range": {
       const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN
-      return Number.isFinite(n) ? n : undefined
+      if (!Number.isFinite(n)) return undefined
+      /* A slider's value from before its range moved is drawn at the nearest end, as the sidebar shows it; the stored value stays until it is moved. */
+      if (type === "range") {
+        if (typeof def.min === "number" && Number.isFinite(def.min) && n < def.min) return def.min
+        if (typeof def.max === "number" && Number.isFinite(def.max) && n > def.max) return def.max
+      }
+      return n
     }
     case "toggle":
     case "checkbox":
@@ -468,7 +475,8 @@ export function resolveSettings(
   for (const [k, v] of Object.entries(saved ?? {})) {
     if (!declared.has(k)) out[k] = v
   }
-  return out
+  /* A picture or a title that is the picked collection's until somebody sets one (./collection-binding.ts). */
+  return withCollectionBindings(defs, out)
 }
 
 /**

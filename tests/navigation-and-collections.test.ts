@@ -37,7 +37,7 @@ console.log("\nNavigation lives in the builder\n")
   check("the Website page no longer carries a Navigation card", !/data-website-navigation/.test(read("app/app/website-builder/website-builder-client.tsx")))
   const nav = read("components/website-builder/website-settings/navigation.tsx")
   check("Website Settings › Navigation lists menus, never edits their links inline", !/<MenusEditor/.test(nav) && /data-nav-menu-row/.test(nav))
-  check("General settings has no Menus group", /THEME_SETTINGS_GROUPS\.filter\(group => group\.id !== "colors" && group\.id !== "menus"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+  check("General settings has no Menus group", /themeGroups\.filter\(group => group\.id !== "colors" && group\.id !== "menus"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 }
 
 console.log("\nThe header and the Main menu\n")

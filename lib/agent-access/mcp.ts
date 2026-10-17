@@ -92,7 +92,7 @@ export const TOOLS = [
   {
     name: "storelib_list_files",
     description:
-      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: sections/<type>.storelib and blocks/<type>.storelib, never a built-in section or block. To change a built-in one, write a new one beside it.",
+      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: sections/<type>.storelib and blocks/<type>.storelib, never a built-in section or block (write a new one beside it), and the theme settings: config/settings_schema.json says what they are, Shopify's format, and config/settings_data.json holds their values as { \"current\": { ... } }.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -109,7 +109,7 @@ export const TOOLS = [
   {
     name: "storelib_write_section",
     description:
-      "Save a section or theme block file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; a new block appears in Add block for every section that accepts it. Nothing reaches visitors until the creator publishes. Only sections/<type>.storelib or blocks/<type>.storelib, lower case.",
+      "Save a section or theme block file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; a new block appears in Add block for every section that accepts it. Nothing reaches visitors until the creator publishes. Only sections/<type>.storelib or blocks/<type>.storelib, lower case, or a theme settings file: config/settings_schema.json (add, reorder or regroup theme settings, change a label, default or range; Storelib's own settings keep their id, type and group) or config/settings_data.json (their values; a value you leave out stays, null puts one back to its default). Either is checked and refused with its lines, and Theme settings in the builder follow at once.",
     inputSchema: {
       type: "object",
       properties: {

@@ -447,6 +447,8 @@ export interface SchemaField {
   content?: string
   /** When the panel shows it. See lib/storelib-theme/visible-if.ts. */
   visible_if?: string
+  /** image_picker, text, url: the picked collection's value until one is set, "collection.image". See lib/storelib-theme/collection-binding.ts. */
+  from?: string
 }
 
 export interface BlockSchema {

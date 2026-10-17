@@ -6,9 +6,9 @@ Every `type` a schema setting may use is here, and only these. A setting's `type
 
 | Type | Holds | Default when unset | Responsive | Extra keys |
 | --- | --- | --- | --- | --- |
-| [`text`](#text) | string | `""` | no | `placeholder` |
-| [`textarea`](#textarea) | string | `""` | no | `placeholder` |
-| [`richtext`](#richtext) | string | `""` | no |  |
+| [`text`](#text) | string | `""` | no | `placeholder`, `from` |
+| [`textarea`](#textarea) | string | `""` | no | `placeholder`, `from` |
+| [`richtext`](#richtext) | string | `""` | no | `from` |
 | [`number`](#number) | number | `0` | yes | `min`, `max`, `step`, `unit`, `placeholder` |
 | [`toggle`](#toggle) | boolean | `false` | no |  |
 | [`checkbox`](#checkbox) | boolean | `false` | no |  |
@@ -20,16 +20,16 @@ Every `type` a schema setting may use is here, and only these. A setting's `type
 | [`color_background`](#color_background) | background | `""` | no |  |
 | [`font_picker`](#font_picker) | string | `""` | no |  |
 | [`alignment`](#alignment) | enum | `"left"` | yes |  |
-| [`inline_richtext`](#inline_richtext) | string | `""` | no | `placeholder` |
+| [`inline_richtext`](#inline_richtext) | string | `""` | no | `placeholder`, `from` |
 | [`html`](#html) | string | `""` | no | `placeholder` |
 | [`datetime`](#datetime) | string | `""` | no |  |
 | [`focal_point`](#focal_point) | string | `"50% 50%"` | no | `image` |
-| [`image_picker`](#image_picker) | asset | `""` | no |  |
+| [`image_picker`](#image_picker) | asset | `""` | no | `from` |
 | [`image_gallery`](#image_gallery) | asset_list | `[]` | no | `max` |
 | [`video_picker`](#video_picker) | asset | `""` | no |  |
 | [`file_picker`](#file_picker) | asset | `""` | no | `accept` |
 | [`icon_picker`](#icon_picker) | string | `""` | no |  |
-| [`url`](#url) | string | `""` | no | `placeholder` |
+| [`url`](#url) | string | `""` | no | `placeholder`, `from` |
 | [`video_url`](#video_url) | string | `""` | no | `accept`, `placeholder` |
 | [`page_picker`](#page_picker) | string | `""` | no |  |
 | [`product_picker`](#product_picker) | string | `""` | no |  |
@@ -80,7 +80,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `TextInput`
-- Reads these extra keys: `placeholder`
+- Reads these extra keys: `placeholder`, `from`
 
 ```json
 {
@@ -99,7 +99,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `TextArea`
-- Reads these extra keys: `placeholder`
+- Reads these extra keys: `placeholder`, `from`
 
 ```json
 {
@@ -117,6 +117,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `RichTextEditor`
+- Reads these extra keys: `from`
 
 ```json
 {
@@ -362,7 +363,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `InlineRichText`
-- Reads these extra keys: `placeholder`
+- Reads these extra keys: `placeholder`, `from`
 
 ```json
 {
@@ -435,6 +436,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `ImagePicker`
+- Reads these extra keys: `from`
 
 ```json
 {
@@ -527,7 +529,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `LinkPicker`
-- Reads these extra keys: `placeholder`
+- Reads these extra keys: `placeholder`, `from`
 
 ```json
 {

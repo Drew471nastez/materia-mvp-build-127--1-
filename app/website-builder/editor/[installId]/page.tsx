@@ -142,6 +142,8 @@ import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { THEME_DATA_FILE, clampTo, themeSettingsGroupsFor, withThemeDefaults } from "@/lib/storelib-theme/theme-config"
+import { CollectionBoundField } from "@/components/website-builder/editor/controls/collection-bound-field"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
@@ -599,7 +601,8 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
  * says it opens. Pressing it opens the group as its own panel.
  */
 function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS)[number]; onOpen: () => void }) {
-  const Icon = THEME_GROUP_ICONS[group.id] ?? null
+  /* A group the theme's own config/settings_schema.json added has the sliders mark. */
+  const Icon = THEME_GROUP_ICONS[group.id] ?? SlidersHorizontal
   return (
     <button
       type="button"
@@ -621,7 +624,10 @@ function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS
 function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
   return (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
-      <FieldControl {...props} />
+      {/* A setting that follows the picked collection says so, with Reset to collection once it has its own value. */}
+      <CollectionBoundField field={props.field} value={props.value} onChange={props.onChange}>
+        {(shown) => <FieldControl {...props} field={shown.field} value={shown.value} />}
+      </CollectionBoundField>
     </DynamicSourceField>
   )
 }
@@ -797,7 +803,8 @@ function FieldControl({
   }
 
   if (kind === "range") {
-    const num = typeof raw === "number" ? raw : Number(field.default ?? 0)
+    /* Shown inside the range the schema has now; the stored value is left until the slider is moved (lib/storelib-theme/theme-config.ts, shownValue). */
+    const num = clampTo(typeof raw === "number" ? raw : Number(field.default ?? 0), field.min ?? 0, field.max ?? 100)
     return (
       <SliderNumberControl
         value={num}
@@ -1243,7 +1250,8 @@ function WbSlider({
   unit?: string
   defaultValue?: number
 }) {
-  const num = typeof value === "number" ? value : defaultValue
+  /* A value from before the range moved is shown at its nearest end; what is stored stays until the slider is moved. */
+  const num = clampTo(typeof value === "number" ? value : defaultValue, min, max)
   return (
     <div className="space-y-2">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
@@ -2798,14 +2806,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * one file again (CompatThemeSettings panelVersion).
    */
   const [compatPanelVersion, setCompatPanelVersion] = useState(0)
+  /**
+   * THE THEME'S OWN config/settings_schema.json, when it has one: Theme
+   * settings are its groups laid over Storelib's (lib/storelib-theme/
+   * theme-config.ts). Read with the sources, so a schema changed by the code
+   * editor, Storelib AI, an agent or a push redraws the panel in place.
+   */
+  const [themeSchemaText, setThemeSchemaText] = useState<string | null>(null)
+  const themeGroups = useMemo(() => themeSettingsGroupsFor(themeSchemaText), [themeSchemaText])
+  /** Raised when config/settings_data.json was saved in the code editor: the values are read again. */
+  const [settingsFileVersion, setSettingsFileVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
       if (!res.ok) return null
-      const d = (await res.json()) as { files?: Record<string, string> }
+      const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
       const files = d.files ?? {}
       setStorelibSources(files)
+      setThemeSchemaText(typeof d.settings_schema === "string" ? d.settings_schema : null)
       return files
     } catch {
       /* the bundled sources still render; the next save reloads */
@@ -2928,6 +2947,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (data?.type === "storelib:file-saved") {
         void loadStorelibSources()
         setUnpublished(true)
+        /* The values file is the theme settings themselves: read them again, as after a push. */
+        if (data.path === THEME_DATA_FILE) setSettingsFileVersion((n) => n + 1)
         /* An imported theme's own file (its settings_schema.json, a stylesheet): its canvas and Theme settings read them again. */
         if (typeof data.path === "string" && data.path.startsWith("shopify/")) {
           setCompatFilesVersion((n) => n + 1)
@@ -4079,6 +4100,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setLoading(false)
     }
   }, [installId, currentPage, fetchPageSections, fetchHomeHeaderFooter])
+
+  /* config/settings_data.json saved in the code editor wrote the values themselves: read in place, the way a push is, so the next autosave does not put the older copy back. */
+  useEffect(() => {
+    if (settingsFileVersion > 0) void loadData({ quiet: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsFileVersion])
 
   // `loadData` is intentionally fired exactly ONCE on mount. Re-running it
   // whenever its dep identity changes (which happens every time
@@ -5884,7 +5911,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         save sends all three again; what is said is the first that failed.
       */
       const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
         putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
         // Sync header/footer to all other pages
         syncHeaderFooterToAllPages("draft"),
@@ -5942,7 +5969,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       */
       if (isDirty) {
       const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
         putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
         syncHeaderFooterToAllPages("draft"),
       ])
@@ -6014,7 +6041,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSaving(false)
   }
 
-  const activeThemeSettings: ThemeSettingsValues = settingsDraft
+  /* With the defaults the theme's own settings_schema.json gives, under any value never set, so the canvas draws what the live site will. */
+  const activeThemeSettings: ThemeSettingsValues = useMemo(() => withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) as ThemeSettingsValues, [settingsDraft, themeGroups])
 
   /**
    * ===========================================================================
@@ -7038,7 +7066,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           still and a group replaces it, with Back to return, sliding in from
           the side. `expandedSettings` names the open group, as it did.
         */
-        const generalGroups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)
+        const generalGroups = themeGroups.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)
         const openGeneral = generalGroups.find(g => g.id === expandedSettings) ?? null
         if (openGeneral) {
           const group = openGeneral
@@ -7062,7 +7090,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       }}
                       initialActive={editSchemeKey}
                       onInitialActiveConsumed={() => setEditSchemeKey(null)}
-                      advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
+                      advanced={themeGroups.find(g => g.id === "colors")?.fields.map(field => (
                         <div key={field.id}>
                           <FieldEditor
                             label={fieldCarriesOwnLabel(field) ? undefined : field.label}
@@ -7641,7 +7669,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     if (selectedPanel.type === "theme_settings") {
       /* The same list and panels as General Settings above. */
-      const panelGroups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
+      const panelGroups = themeGroups.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
       const openPanelGroup = panelGroups.find(g => g.id === expandedSettings) ?? null
       if (openPanelGroup) {
         const group = openPanelGroup
@@ -7962,7 +7990,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       header: headerSection,
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
-      collections: builderCollections?.choices ?? null,
+      /* With each one's words and address, for a setting bound to the picked collection (lib/storelib-theme/collection-binding.ts). */
+      collections: builderCollections ? builderCollections.choices.map((c) => ({ ...c, description: builderCollections.cards[c.id]?.description ?? "", url: builderCollections.cards[c.id]?.url ?? "" })) : null,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
       themeSettings: compatInstall ? null : (settingsDraft as Record<string, unknown>),
