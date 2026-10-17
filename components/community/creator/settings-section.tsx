@@ -1145,15 +1145,18 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
           <VideoProviders providers={videoProviders} />
         </EditorCard>
       ) : null}
-      <EditorCard
-        title={head.archived ? tt("Archived") : tt("Archive")}
-        hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}
-        action={
-          <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
-            {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
-          </button>
-        }
-      />
+      {/* Round 26: one being deleted comes back only through Keep, on the Delete card below; Bring it back was refused there. */}
+      {head.deleting ? null : (
+        <EditorCard
+          title={head.archived ? tt("Archived") : tt("Archive")}
+          hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}
+          action={
+            <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
+              {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
+            </button>
+          }
+        />
+      )}
       {/* Round 33: deleting, with members who pay, at the end of what they paid for or now with refunds (./delete-community). */}
       {head.can.delete ? <DeleteCommunity head={head} /> : null}
     </div>

@@ -8972,7 +8972,9 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Einnahmenübersicht {year}",
  "{year} Tax Year": "Steuerjahr {year}",
  "“{label}” may": "„{label}“ kann",
- "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren"
+ "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren",
+ "Pending deletion": "Löschung ausstehend",
+ "Communities being deleted do not count.": "Communitys, die gelöscht werden, zählen nicht."
 }
 
 export default words

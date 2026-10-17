@@ -54,11 +54,16 @@ export const label = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
 
 /* ── Where a community stands, as a badge (round 33) ────────────────────── */
 
-export type CommunityState = "published" | "draft" | "archived" | "suspended"
+export type CommunityState = "published" | "draft" | "archived" | "deleting" | "suspended"
 
-/** The state of a community from its facts: suspended by Storelib first, then archived, then published or a draft. */
-export function communityState(c: { status: string; archived?: boolean; suspended?: boolean }): CommunityState {
+/**
+ * The state of a community from its facts: suspended by Storelib first, then on its way to being deleted (round 26:
+ * scheduling a deletion archives it, and the badge says what is really happening), then archived, then published or a
+ * draft.
+ */
+export function communityState(c: { status: string; archived?: boolean; suspended?: boolean; deleting?: unknown }): CommunityState {
   if (c.suspended || c.status === "suspended") return "suspended"
+  if (c.deleting) return "deleting"
   if (c.archived || c.status === "archived") return "archived"
   return c.status === "published" ? "published" : "draft"
 }
@@ -73,13 +78,16 @@ export const COMMUNITY_STATE_WORD: Record<CommunityState, string> = {
   get archived() {
     return tt("Archived")
   },
+  get deleting() {
+    return tt("Pending deletion")
+  },
   get suspended() {
     return tt("Suspended")
   },
 }
 
-const STATE_TONE = { published: "success", draft: "neutral", archived: "neutral", suspended: "critical" } as const
-const STATE_DOT: Record<CommunityState, string | null> = { published: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#9ca3af]", suspended: null }
+const STATE_TONE = { published: "success", draft: "neutral", archived: "neutral", deleting: "critical", suspended: "critical" } as const
+const STATE_DOT: Record<CommunityState, string | null> = { published: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#9ca3af]", deleting: null, suspended: null }
 
 /**
  * "The • Published text looks wrong" (round 33). The state is the badge /app gives a status everywhere (app/app/orders

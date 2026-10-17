@@ -9,23 +9,28 @@
  * the logo sitting on the cover's lower edge, the name and the line under
  * it, and a foot with the members and, for a paid one, the monthly revenue
  * (only for somebody who may see its analytics). The state is the /app
- * status badge (round 33: green Published, Draft, Archived). The whole
+ * status badge (round 33: green Published, Draft, Archived; round 26:
+ * Pending deletion), at the end of the name's line, so it never sits on
+ * the cover's edge and the card is no taller. The whole
  * card opens the community's editor; the more button at its foot is the
  * Products row's (quietDepth, ResponsiveActionMenu: a menu on a computer,
  * a sheet on a phone) with Open, Edit page, Share, Analytics, Duplicate
- * settings and Archive, each only when this person may.
+ * settings and Archive, each only when this person may. Share only for a
+ * published community (a draft's link is a 404 to everyone else); one being
+ * deleted offers Keep the community, which opens the card that keeps it.
  *
  * One column on a phone, two from 640px, three from 1024px. The bar keeps
  * the title and New community, as Products keeps New product.
  *
  * THE FREE PLAN'S TWO (lib/communities/plan-limit.ts). With both made, New
  * community and Duplicate settings open the upgrade sheet (./upgrade-sheet)
- * instead of a form the server would refuse.
+ * instead of a form the server would refuse. Round 26: a community being
+ * deleted takes no place, so its replacement can be made the same day.
  */
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Archive, ArchiveRestore, BarChart3, Copy, ExternalLink, Pencil, Plus, Share } from "lucide-react"
+import { Archive, ArchiveRestore, BarChart3, Copy, ExternalLink, Pencil, Plus, RotateCcw, Share } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton } from "@/app/app/orders/order-parts"
 import { quietDepth } from "@/app/app/products/new/editor-buttons"
@@ -42,6 +47,7 @@ import { nameCoverGradient } from "@/lib/communities/cover-gradient"
 import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { appLocale } from "@/lib/i18n/format"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -51,6 +57,12 @@ const MENU_LOOK = cn(quietDepth, "relative z-[1] h-8 w-8 rounded-lg text-[#4b556
 
 /* Round 33: the state is the /app badge (./parts CommunityStatusBadge), not a dot and a word. */
 const stateOf = (r: CommunityListRow): CommunityState => communityState(r)
+
+/** "Nov 5, 2026": when a community being deleted goes, in the dashboard's language. */
+function shortDate(iso: string): string {
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", year: "numeric" }).format(t) : ""
+}
 
 /**
  * The address a card shares and opens: storelib.com, always. Only a
@@ -187,6 +199,7 @@ function List({ rows, available, limit }: { rows: CommunityListRow[]; available:
         {available && limit.max !== null && rows.length > 0 ? (
           <p className="mt-4 px-1 text-[12.5px] text-[#9ca3af]" data-limit-note="">
             {Math.min(limit.owned, limit.max)} {tt("of {max} communities on the Free plan.", { max: limit.max })}{" "}
+            {rows.some((r) => r.deleting && r.role === "owner") ? <>{tt("Communities being deleted do not count.")} </> : null}
             {!room ? (
               <button type="button" onClick={() => setUpgrade(true)} className="inline-flex min-h-10 items-center font-medium text-[#1a1a2e] underline-offset-2 hover:underline md:min-h-0">
                 {tt("Upgrade for more")}
@@ -229,10 +242,13 @@ const CommunityCard = React.memo(function CommunityCard({
     const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
     /* Round 33: Edit opens the community's page in its own section; Settings is a tab beside it. */
     if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, href: `${base}/page` })
-    out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
+    /* Round 26: a draft's link is a 404 to everyone else, and an archived one or one being deleted takes nobody new. */
+    if (state === "published") out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
     if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
     if (r.can.duplicate) out.push({ label: tt("Duplicate settings"), icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
-    if (r.can.archive && state !== "suspended")
+    /* Round 26: one being deleted comes back only through Keep, on the card that says when it goes (Settings, Publish and archive). */
+    if (r.deleting?.canKeep) out.push({ label: tt("Keep the community"), icon: <RotateCcw className="h-4 w-4" />, href: `${base}/settings?tab=advanced`, separatorBefore: !r.can.duplicate })
+    else if (r.can.archive && state !== "suspended" && state !== "deleting")
       out.push(
         r.archived
           ? { label: tt("Bring back"), icon: <ArchiveRestore className="h-4 w-4" />, onClick: () => onArchive(r), separatorBefore: !r.can.duplicate }
@@ -240,7 +256,9 @@ const CommunityCard = React.memo(function CommunityCard({
       )
     return out
   }, [r, base, state, onShare, onDuplicate, onArchive])
-  const line = r.tagline?.trim() || (r.role !== "owner" ? tt("You are {value} here", { value: r.role === "admin" ? tt("an admin") : tt("a moderator") }) : r.priceLine) || ""
+  const line = r.deleting
+    ? tt("Deleting on {date}", { date: shortDate(r.deleting.deleteAt) })
+    : r.tagline?.trim() || (r.role !== "owner" ? tt("You are {value} here", { value: r.role === "admin" ? tt("an admin") : tt("a moderator") }) : r.priceLine) || ""
 
   return (
     <li
@@ -253,16 +271,25 @@ const CommunityCard = React.memo(function CommunityCard({
       <Link href={base} aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
       <Cover row={r} />
       <div className="pointer-events-none relative flex min-w-0 flex-1 flex-col px-4 pb-3">
-        <div className="-mt-6 flex items-end justify-between gap-3">
+        <div className="-mt-6 flex">
           <Logo row={r} />
-          <span data-card-state={state} className="-mb-0.5 inline-flex">
+        </div>
+        {/*
+          Round 26 ("the badges almost touch the cover"): the state ends the name's line, 34px under the cover's edge on
+          every card, instead of sitting on the logo's foot 4px under it. The line is the badge's 22px, the 2px it adds
+          taken from the gap above, so the card is as tall as before.
+        */}
+        <div className="mt-2 flex h-[22px] min-w-0 items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-card-name="">
+            {r.name}
+          </p>
+          <span data-card-state={state} className="inline-flex shrink-0">
             <CommunityStatusBadge state={state} />
           </span>
         </div>
-        <p className="mt-2.5 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-card-name="">
-          {r.name}
+        <p className="mt-0.5 h-[18px] truncate text-[13px] leading-[18px] text-[#6b7280]" data-card-line="">
+          {line}
         </p>
-        <p className="mt-0.5 h-[18px] truncate text-[13px] leading-[18px] text-[#6b7280]">{line}</p>
         <div className="mt-3 flex min-h-8 items-center gap-3 border-t border-[#f1f2f4] pt-2.5">
           <p className="flex min-w-0 flex-1 items-baseline gap-3 text-[13px] text-[#6b7280]">
             <span className="shrink-0" data-card-members="">
