@@ -151,7 +151,8 @@ const server = createServer((req, res) => {
   if (url.pathname === "/api/app/orders/seen") {
     let body = ""
     req.on("data", (c) => (body += c))
-    req.on("end", () => { seen.push(JSON.parse(body)); json({ ok: true }) })
+    /* As the real route does: the rows are seen from now on, so a list read again after an action keeps them seen. */
+    req.on("end", () => { const b = JSON.parse(body); seen.push(b); for (const r of listing.rows) if (b.ids.includes(r.id) && r.seller_seen_at === null) r.seller_seen_at = new Date().toISOString(); json({ ok: true }) })
     return
   }
   const slip = url.pathname.match(/^\/api\/physical\/orders\/([^/]+)\/packing-slip$/)
@@ -244,6 +245,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   const phone = name === "phone"
   console.log(`\n${name} ${vp.width}x${vp.height}${phone ? ", touch, CPU x4" : ""}`)
   orders = fresh()
+  for (const r of listing.rows) if (["d-2", "u-1", "u-2", "n-1"].includes(r.id)) r.seller_seen_at = null
   posts.length = 0
   seen.length = 0
   const p = await browser.newPage()
@@ -392,6 +394,8 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await p.waitForFunction(() => !document.querySelector('.orders-list tr[data-order-id="u-1"] [data-unseen]'), { timeout: 4000, polling: 50 }).catch(() => {})
   console.log(`        the dot went ${Date.now() - t0}ms after Back was pressed`)
   const after = await unseenRows(p)
+  /* Let the list finish sliding back before the next order is pressed. */
+  await sleep(1200)
   expect(after.join() === "d-2,n-1", "back on the list, the opened order has no dot", after)
 
   /* No tracking, for the order going to the UK */
