@@ -137,6 +137,8 @@ export function errorText(error: string | undefined, fallback = "That did not sa
       return tt("A community can feature 12 members. Take one off first.")
     case "not_active":
       return tt("Only a member who is here can be featured.")
+    case "self":
+      return tt("Featuring is for somebody else.")
     case "full":
       return tt("That event is full. Raise the capacity first.")
     case "no_payment":

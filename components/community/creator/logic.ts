@@ -986,11 +986,12 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
   const out: MemberChoice[] = []
   /*
     FEATURING TAKES NOTHING AWAY (round 34, lib/communities/featured-members.ts),
-    so the two rules below it do not apply: it is offered on anybody who is
-    here, whatever their rank, the owner and this person themselves included,
-    and the server applies the same rule (server/featured-members.ts).
+    so the rank rule below does not apply to it: it is offered on anybody who
+    is here, the owner and an equal included. Not on themselves, because it is
+    for recognising somebody else, and the server keeps the same two rules
+    (server/featured-members.ts).
   */
-  if (c.feature && m.status === "active") {
+  if (c.feature && m.status === "active" && m.userId !== actor.userId) {
     out.push(
       m.featured
         ? { key: "unfeature", label: tt("Stop featuring"), action: "unfeature", section: "Featured" }

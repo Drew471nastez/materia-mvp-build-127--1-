@@ -291,6 +291,7 @@ async function featured() {
   console.log("\nFeatured members\n")
   check("the rules read from the one place", FEATURED_MAX === 12 && FEATURED_WORD === "Featured" && canFeatureMembers("admin") && canFeatureMembers("owner") && !canFeatureMembers("moderator") && !canFeatureMembers("member") && !canFeatureMembers(null))
   check("only somebody who is here can be featured", featurable({ status: "active" }) && !featurable({ status: "pending" }) && !featurable({ status: "banned" }) && !featurable(null))
+  check("featuring yourself is refused before anything else is read", featureRefusal({ on: true, member: { status: "active" }, featured: 0, self: true }) === "self" && featureRefusal({ on: false, member: { status: "active" }, featured: 0, self: true }) === null && featureRefusalText("self").includes("somebody else"))
   check("the cap is counted, and a refusal says what to do", featureRefusal({ on: true, member: { status: "active" }, featured: FEATURED_MAX }) === "too_many" && featureRefusal({ on: true, member: { status: "active" }, featured: FEATURED_MAX - 1 }) === null && featureRefusal({ on: true, member: { status: "banned" }, featured: 0 }) === "not_active" && featureRefusal({ on: false, member: { status: "banned" }, featured: 99 }) === null && featureRefusalText("too_many").includes("12"))
 
   {
@@ -310,8 +311,10 @@ async function featured() {
   }
   {
     const db = fakeDb(rows())
-    const done = await setMemberFeatured(db as never, { community, actor: { userId: ADMIN, role: "admin", perms: null }, userId: ADMIN, on: true })
-    check("an admin may recognise a peer, themselves included: it takes nothing away", done.ok === true)
+    const peer = await setMemberFeatured(db as never, { community, actor: { userId: ADMIN, role: "admin", perms: null }, userId: MOD, on: true })
+    check("an admin may recognise a peer: a mark takes nothing away from anybody", peer.ok === true)
+    const self = await setMemberFeatured(db as never, { community, actor: { userId: ADMIN, role: "admin", perms: null }, userId: ADMIN, on: true })
+    check("but nobody features themselves", self.ok === false && self.error === "self" && db.tables.community_members.find((m) => m.user_id === ADMIN)?.featured_at === null)
   }
   {
     const db = fakeDb(rows({ status: { [MEMBER]: "banned" } }))

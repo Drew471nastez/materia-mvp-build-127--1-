@@ -28,7 +28,7 @@ import { staffPermissions } from "./creator-roles"
 export interface FeaturedRead {
   /** The featured members' user ids, newest mark first. Empty before part 222, and for a community with none. */
   ids: string[]
-  /** False when the columns are not there yet: the screens then offer no Feature and draw no mark. */
+  /** False when the columns are not there yet: no mark is drawn, and a press on Feature is answered 503 needs_update in words. */
   ready: boolean
 }
 
@@ -69,9 +69,10 @@ export type FeatureOutcome = { ok: true; featured: boolean } | { ok: false; stat
 
 /**
  * Feature a member, or stop featuring them. The "feature" permission, the
- * owner's own choices for the actor's role, and an active member; no rank
- * rule, because a mark takes nothing away from anybody, and nobody is
- * stopped from recognising somebody who outranks them.
+ * owner's own choices for the actor's role, and an active member who is not
+ * the person pressing. No rank rule, because a mark takes nothing away from
+ * anybody and nobody is stopped from recognising somebody who outranks them,
+ * but nobody features themselves either.
  */
 export async function setMemberFeatured(
   db: Db,
@@ -83,7 +84,7 @@ export async function setMemberFeatured(
   const [member, current] = await Promise.all([memberOf(db, a.community.id, a.userId), featuredMembers(db, a.community.id)])
   if (!current.ready) return { ok: false, status: 503, error: "needs_update" }
   const already = current.ids.includes(a.userId)
-  const refusal = featureRefusal({ on: a.on, member, featured: current.ids.filter((id) => id !== a.userId).length })
+  const refusal = featureRefusal({ on: a.on, member, featured: current.ids.filter((id) => id !== a.userId).length, self: a.userId === a.actor.userId })
   if (refusal) return { ok: false, status: refusal === "not_found" ? 404 : refusal === "too_many" ? 409 : 400, error: refusal }
   /* Already as asked: say yes without writing, so a double press is one state and not two log lines. */
   if (already === a.on) return { ok: true, featured: a.on }

@@ -51,11 +51,15 @@ export const FEATURED_WORD = "Featured"
 
 /**
  * Why a feature was refused, or null when it may go ahead. `featured` is how
- * many the community has now, not counting this member.
+ * many the community has now, not counting this member. `self` is true when
+ * the person pressing is the person they would be featuring: this is for
+ * recognising somebody else, so it is refused, by the screen and by the
+ * server alike.
  */
-export function featureRefusal(a: { on: boolean; member: { status: string | null } | null; featured: number }): "not_found" | "not_active" | "too_many" | null {
+export function featureRefusal(a: { on: boolean; member: { status: string | null } | null; featured: number; self?: boolean }): "not_found" | "not_active" | "too_many" | "self" | null {
   if (!a.member) return "not_found"
   if (!a.on) return null
+  if (a.self) return "self"
   if (!featurable(a.member)) return "not_active"
   if (a.featured >= FEATURED_MAX) return "too_many"
   return null
@@ -70,6 +74,8 @@ export function featureRefusalText(reason: Exclude<ReturnType<typeof featureRefu
       return "Only a member who is here can be featured."
     case "too_many":
       return `A community can feature ${FEATURED_MAX} members. Take one off first.`
+    case "self":
+      return "Featuring is for somebody else."
     default:
       return "Featuring members needs a database update. Run the latest SQL part and try again."
   }

@@ -302,7 +302,8 @@ async function main() {
   ]
   check("nothing that acts against an equal, a senior, the owner or themselves is offered", onPeers.every((cs) => cs.every((c) => c.action === "feature" || c.action === "unfeature")))
   check("a moderator is offered nothing at all on an admin: they may not feature either", onPeers[1].length === 0)
-  check("featuring is offered on a peer and on themselves, and reads the feature permission", onPeers[0].map((c) => c.action).join() === "feature" && onPeers[3].map((c) => c.action).join() === "feature" && memberChoices({ userId: UID(51), role: "admin", can: { ...allowedActions("admin"), feature: false }, gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0)
+  check("and nobody is offered anything on themselves, featuring included", onPeers[3].length === 0)
+  check("featuring is offered on a peer, and reads the feature permission", onPeers[0].map((c) => c.action).join() === "feature" && memberChoices({ userId: UID(51), role: "admin", can: { ...allowedActions("admin"), feature: false }, gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0)
   check("a member already featured is offered Stop featuring instead", memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, featured: true }).map((c) => c.action).includes("unfeature"))
   check("a muted member is offered Unmute, not another mute", (() => { const a = memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, mutedUntil: "2099-01-01T00:00:00Z" }).map((c) => c.action); return a.includes("unmute") && !a.includes("mute") })())
   check("a request has Approve and Decline, a suspension Bring back, a ban Unban",
