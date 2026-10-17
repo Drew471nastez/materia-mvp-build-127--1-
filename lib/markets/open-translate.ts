@@ -68,7 +68,32 @@ export function openProviders(): OpenProvider[] {
   return out
 }
 
-export const canTranslateOpen = () => openProviders().length > 0
+/**
+ * THE CHECKOUT'S OWN WORDS (`ui`) go only to a translator that reads a whole
+ * sentence and can be told where it shows. A segment translator was handed
+ * "Pay" cut out of "Pay {shop}" and answered with the noun ("Salariul",
+ * a wage, in Romanian); a free translation memory answered "Apply" with
+ * "squeeze" and "Ship" with "a boat". Those never see a checkout word.
+ */
+const UI_PROVIDERS: ReadonlySet<OpenProvider> = new Set(["gemini", "deepl", "llm"])
+export const uiProviders = () => openProviders().filter((p) => UI_PROVIDERS.has(p))
+
+export const canTranslateOpen = (o: { ui?: boolean } = {}) => (o.ui ? uiProviders() : openProviders()).length > 0
+
+/** What a checkout word is and where it shows, for the translator: the general rule, and a note per string where one helps. */
+interface UiContext {
+  notes: Map<string, string>
+}
+
+/** The extra system words for a batch of checkout words: the rule, then each note by the string's place in the array. */
+export function uiPromptFor(texts: string[], ui: UiContext): string {
+  const notes = texts.map((t, i) => (ui.notes.get(t) ? `${i}: ${ui.notes.get(t)}` : null)).filter(Boolean)
+  return (
+    ` These strings are the buttons, headings, labels and messages of the store's checkout page and order emails. Use the words large online shops use on their checkout in that language.` +
+    ` A string that starts with a verb is an action: "Pay {amount}" and "Pay {shop}" mean to pay (the verb), never a salary or a wage; "Remove" removes an item; "Apply" applies a code; "Ship" means have it delivered.` +
+    (notes.length ? ` Where each of these strings shows, by its position in the array (never translate these notes): ${notes.join("; ")}.` : "")
+  )
+}
 
 /* ------------------------------------------------------------------ codes */
 
@@ -116,14 +141,16 @@ function memory() {
 }
 
 /** Words translated before, from translation_memory; an empty map without part 178. */
-async function recall(from: string, to: string, words: string[]): Promise<Map<string, string>> {
+async function recall(from: string, to: string, words: string[], onlyFrom: OpenProvider[] | null = null): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   const db = memory()
   if (!db || words.length === 0) return out
   const byHash = new Map(words.map((w) => [hash(w), w]))
   const hashes = [...byHash.keys()]
   for (let at = 0; at < hashes.length; at += 200) {
-    const { data, error } = await db.from("translation_memory").select("source_hash, translated").eq("source_lang", from).eq("target_lang", to).in("source_hash", hashes.slice(at, at + 200)).then(
+    let query = db.from("translation_memory").select("source_hash, translated").eq("source_lang", from).eq("target_lang", to).in("source_hash", hashes.slice(at, at + 200))
+    if (onlyFrom) query = query.in("provider", onlyFrom)
+    const { data, error } = await query.then(
       (r: { data: unknown; error: unknown }) => r,
       (e: unknown) => ({ data: null, error: e }),
     )
@@ -268,10 +295,10 @@ function languageNameEn(code: string): string {
 }
 
 /** One batch through an OpenAI-compatible chat endpoint serving an open model. */
-async function chatBatch(url: string, key: string, model: string, texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = []): Promise<string[]> {
+async function chatBatch(url: string, key: string, model: string, texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = [], ui?: UiContext): Promise<string[]> {
   const json = (await post(
     `${url}/chat/completions`,
-    { model, temperature: 0.1, max_tokens: Math.min(16000, 600 + texts.join("").length * 3), messages: [{ role: "system", content: chatPrompt(from, to, keep) }, { role: "user", content: JSON.stringify(texts) }] },
+    { model, temperature: 0.1, max_tokens: Math.min(16000, 600 + texts.join("").length * 3), messages: [{ role: "system", content: chatPrompt(from, to, keep) + (ui ? uiPromptFor(texts, ui) : "") }, { role: "user", content: JSON.stringify(texts) }] },
     key ? { Authorization: `Bearer ${key}` } : {},
     timeoutMs,
   )) as { choices?: { message?: { content?: unknown } }[] }
@@ -323,7 +350,7 @@ async function hfBatch(texts: string[], from: string, to: string, timeoutMs: num
 }
 
 /** One batch through your own OpenAI-compatible host (TRANSLATE_LLM_URL). */
-const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = []) => chatBatch(env("TRANSLATE_LLM_URL").replace(/\/+$/, ""), env("TRANSLATE_LLM_KEY"), env("TRANSLATE_LLM_MODEL"), texts, from, to, timeoutMs, keep)
+const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, keep: string[] = [], ui?: UiContext) => chatBatch(env("TRANSLATE_LLM_URL").replace(/\/+$/, ""), env("TRANSLATE_LLM_KEY"), env("TRANSLATE_LLM_MODEL"), texts, from, to, timeoutMs, keep, ui)
 
 /* ----------------------------------------------------------------- gemini */
 
@@ -332,13 +359,13 @@ const GEMINI_MODELS = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLA
 const noGemini = new Set<string>()
 
 /** One batch through Gemini's OpenAI-compatible endpoint: the first of its models this key can use. */
-async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[]): Promise<string[]> {
+async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext): Promise<string[]> {
   const key = env("GEMINI_API_KEY") || env("GOOGLE_AI_API_KEY")
   let last: Refused | null = null
   for (const model of GEMINI_MODELS()) {
     if (noGemini.has(model)) continue
     try {
-      return await chatBatch(GEMINI_URL(), key, model, texts, from, to, timeoutMs, keep)
+      return await chatBatch(GEMINI_URL(), key, model, texts, from, to, timeoutMs, keep, ui)
     } catch (e) {
       last = e instanceof Refused ? e : new Refused(String(e), "failed")
       if (last.kind !== "missing") throw last
@@ -382,12 +409,12 @@ export function deeplUnwrap(text: string, wasMarkup: boolean): string {
   return wasMarkup ? out : unescapeHtml(out)
 }
 
-async function deeplBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[]): Promise<string[]> {
+async function deeplBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext): Promise<string[]> {
   const key = env("DEEPL_API_KEY")
   const url = env("DEEPL_URL").replace(/\/+$/, "") || (key.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com")
   const json = (await post(
     `${url}/v2/translate`,
-    { text: texts.map((t) => deeplWrap(t, keep)), target_lang: deeplTarget(to), ...(from && from !== "auto" ? { source_lang: baseLanguage(from).toUpperCase() } : {}), tag_handling: "html", ignore_tags: ["x"], preserve_formatting: true },
+    { text: texts.map((t) => deeplWrap(t, keep)), target_lang: deeplTarget(to), ...(from && from !== "auto" ? { source_lang: baseLanguage(from).toUpperCase() } : {}), tag_handling: "html", ignore_tags: ["x"], preserve_formatting: true, ...(ui ? { context: "Buttons, headings and labels of an online store's checkout page. Verbs are actions: Pay means to pay, Remove removes an item." } : {}) },
     { Authorization: `DeepL-Auth-Key ${key}` },
     timeoutMs,
   )) as { translations?: { text?: unknown }[] }
@@ -503,11 +530,11 @@ async function translateRuns(p: OpenProvider, runs: string[], from: string, to: 
  * chat models get them whole and are checked to have kept every fixed part;
  * one that did not, and every text for the others, goes as its runs of words.
  */
-async function translateBatch(p: OpenProvider, texts: string[], from: string, to: string, ms: number, keep: string[], offers: Set<string> | null): Promise<Map<string, string>> {
+async function translateBatch(p: OpenProvider, texts: string[], from: string, to: string, ms: number, keep: string[], offers: Set<string> | null, ui?: UiContext): Promise<Map<string, string>> {
   const got = new Map<string, string>()
   let rest = texts
   if (WHOLE.has(p)) {
-    const answer = p === "gemini" ? await geminiBatch(texts, from, to, ms, keep) : p === "deepl" ? await deeplBatch(texts, from, to, ms, keep) : p === "llm" ? await llmBatch(texts, from, to, ms, keep) : await hfBatch(texts, from, to, ms, keep)
+    const answer = p === "gemini" ? await geminiBatch(texts, from, to, ms, keep, ui) : p === "deepl" ? await deeplBatch(texts, from, to, ms, keep, ui) : p === "llm" ? await llmBatch(texts, from, to, ms, keep, ui) : await hfBatch(texts, from, to, ms, keep)
     texts.forEach((t, i) => {
       const a = answer[i]?.trim()
       if (a && keepsFixedParts(t, a) && keep.every((k) => !t.includes(k) || a.includes(k))) got.set(t, a)
@@ -515,6 +542,8 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
     rest = texts.filter((t) => !got.has(t))
     if (rest.length === 0) return got
   }
+  /* A checkout word is never cut into bare words: one that lost a placeholder is left for the next round. */
+  if (ui) return got
   const parts = new Map(rest.map((t) => [t, cut(t, keep)]))
   const runs = [...new Set([...parts.values()].flatMap(wordsOf))]
   const words = await translateRuns(p, runs, from, to, ms, keep, offers)
@@ -529,13 +558,21 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
  * Translates `texts` from `from` into `to`, keeping `keep` (the store's
  * name) as written. No batch starts after `deadlineAt`.
  */
-export async function translateOpen(texts: string[], from: string, to: string, opts: { keep?: string[]; deadlineAt?: number; concurrency?: number } = {}): Promise<OpenResult> {
+export async function translateOpen(
+  texts: string[],
+  from: string,
+  to: string,
+  /** `ui` with `notes` (one per text, by index): the checkout's own words, asked with context of a translator that reads whole sentences only (UI_PROVIDERS). */
+  opts: { keep?: string[]; deadlineAt?: number; concurrency?: number; ui?: boolean; notes?: (string | null)[] } = {},
+): Promise<OpenResult> {
   const out = new Map<number, string>()
-  const providers = openProviders()
+  const providers = opts.ui ? uiProviders() : openProviders()
   if (providers.length === 0) return { out, unavailable: OPEN_NOT_SET_UP, busy: false, remembered: 0 }
+  const ui: UiContext | undefined = opts.ui ? { notes: new Map(texts.flatMap((t, i) => (opts.notes?.[i] ? [[t, opts.notes[i]!] as [string, string]] : []))) } : undefined
   const keep = (opts.keep ?? []).filter((k) => k && k.trim().length >= 2)
   const unique = [...new Set(texts)]
-  const done = await recall(from, to, unique)
+  /* Checkout words reuse only what a context aware translator wrote: the memory also holds bare words a segment translator got wrong. */
+  const done = await recall(from, to, unique, ui ? [...UI_PROVIDERS] : null)
   /* Remembered from any store: one that translated a word this store keeps as written (its name, a glossary term) is asked again instead. */
   for (const [t, v] of done) if (!keep.every((k) => !t.includes(k) || v.includes(k))) done.delete(t)
   const remembered = done.size
@@ -569,7 +606,7 @@ export async function translateOpen(texts: string[], from: string, to: string, o
       for (const p of providers) {
         if (rest.length === 0) break
         try {
-          const got = await translateBatch(p, rest, from, to, Math.min(90_000, left - 5_000), keep, offers)
+          const got = await translateBatch(p, rest, from, to, Math.min(90_000, left - 5_000), keep, offers, ui)
           /* A translator that gave back nothing for a whole batch did not translate it: the next one is asked. */
           if (got.size === 0) throw new Refused("gave back nothing", "failed")
           for (const [t, v] of got) done.set(t, v)

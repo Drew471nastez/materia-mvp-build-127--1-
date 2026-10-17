@@ -5,13 +5,15 @@ import "server-only"
  * the visitor came from (its Back address, "/fr/cart"), else the one they
  * chose on the website (sl_lang), when it is one of the website's published
  * languages; else the website's own. With it, the approved translations the
- * checkout shows (lib/markets/checkout-words.ts) and the map the order's
+ * checkout shows (lib/markets/checkout-words.ts checkoutWordsIn: the store's
+ * own words, then curated, then machine; lib/checkout-text) and the map the order's
  * titles are translated with (checkout-quote.ts).
  */
 import { cachedTranslations } from "./server"
 import { siteLanguages } from "./live"
 import { localeFromPath } from "./locales"
-import { checkoutWordsFrom } from "./checkout-words"
+import { checkoutWordsIn } from "./checkout-words"
+import { checkoutOverrides } from "@/lib/checkout-text/server"
 import { isBuiltInWordKey, isEnglish, translationMap, type TranslationMap } from "./translate"
 
 export interface CheckoutLanguage {
@@ -42,13 +44,17 @@ export async function checkoutLanguage(creatorId: string, back: string | null | 
   const p = (picked ?? "").trim().toLowerCase()
   const pickedOwn = !!p && p === langs.defaultLanguage.toLowerCase()
   const asked = pickedOwn ? null : (p && langs.others.find((l) => l.toLowerCase() === p)) || pickCheckoutLanguage(langs.others, back, chosen)
+  /* The store's own words for the language (Settings › Checkout › Checkout text), read beside its translations. */
+  const lang = asked ?? langs.defaultLanguage
+  const overridesRead = checkoutOverrides(creatorId, lang).catch(() => ({}) as Record<string, string>)
   if (!asked) {
     /* The website's own language, when it is not English: its translations of the checkout's words (translate.ts BUILT_IN_GROUPS). */
-    if (isEnglish(langs.defaultLanguage)) return { lang: langs.defaultLanguage, words: {}, map: null, available }
-    const rows = (await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])).filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))
-    return { lang: langs.defaultLanguage, words: checkoutWordsFrom(translationMap(rows)), map: null, available }
+    if (isEnglish(langs.defaultLanguage)) return { lang, words: checkoutWordsIn(lang, null, await overridesRead), map: null, available }
+    const [all, overrides] = await Promise.all([cachedTranslations(creatorId, lang).catch(() => []), overridesRead])
+    const rows = all.filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))
+    return { lang, words: checkoutWordsIn(lang, translationMap(rows), overrides), map: null, available }
   }
-  const rows = await cachedTranslations(creatorId, asked).catch(() => [])
+  const [rows, overrides] = await Promise.all([cachedTranslations(creatorId, asked).catch(() => []), overridesRead])
   const map = translationMap(rows.filter((r) => r.status === "approved"))
-  return { lang: asked, words: checkoutWordsFrom(map), map, available }
+  return { lang: asked, words: checkoutWordsIn(asked, map, overrides), map, available }
 }

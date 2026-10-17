@@ -9042,6 +9042,24 @@ const words: Record<string, string> = {
  "Show the editor in": "Mostra l’editor in",
  "Only changes the builder. In another language, the sidebar edits that language's text.": "Cambia solo l’editor. In un’altra lingua, la barra laterale modifica il testo di quella lingua.",
  "Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.": "Stai modificando {name}. Il testo che cambi qui viene salvato solo per {name}. Colori, immagini e layout sono uguali in ogni lingua."
+ "Checkout text": "Testi del checkout",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Cambia i testi del tuo checkout, come il pulsante di pagamento o i titoli, in ognuna delle tue lingue.",
+ "Edit checkout text": "Modifica i testi del checkout",
+ "Order summary": "Riepilogo ordine",
+ "Leave without saving your changes?": "Uscire senza salvare le modifiche?",
+ "Saved. Your checkout shows it now.": "Salvato. Il tuo checkout lo mostra già.",
+ "Switch language without saving your changes?": "Cambiare lingua senza salvare le modifiche?",
+ "Your own words on your checkout, in each language.": "I tuoi testi nel checkout, in ogni lingua.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "I testi del checkout richiedono l'aggiornamento del database (parte SQL 212). Fino ad allora il checkout mostra i testi di Storelib e le modifiche qui non vengono salvate.",
+ "Your changes show in the preview at the end.": "Le modifiche si vedono nell'anteprima in fondo.",
+ "See preview": "Vedi anteprima",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Testi legali e di consenso, importi, esiti del pagamento e politiche di rimborso restano sempre come li scrive Storelib, così chi compra non viene mai tratto in inganno.",
+ "Use default": "Usa il predefinito",
+ "Keep {list} in it.": "Mantieni {list}.",
+ "Default changed since you edited.": "Il testo predefinito è cambiato dalla tua modifica.",
+ "Use the new default": "Usa il nuovo predefinito",
+ "Also shown": "Mostrato anche",
+ "Linen shirt": "Camicia di lino"
 }
 
 export default words
