@@ -113,6 +113,7 @@ export async function editorTree(db: Db, productId: string): Promise<EditorTree>
       id: m.id,
       title: m.title,
       coverUrl: coverOf(m),
+      priceCents: (m as { price_cents?: number | null }).price_cents ?? null,
       lessons: m.lessons.map((l) => ({
         id: l.id,
         title: l.title,
@@ -353,9 +354,18 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
       const patch: Record<string, unknown> = {}
       if (body.title !== undefined) patch.title = title(body.title, "Module")
       if (body.coverUrl !== undefined) patch.cover_url = coverInput(body.coverUrl)
+      /* Round AG: a price sells this module on its own, only in a community's own program (a course with no product). */
+      if (body.priceCents !== undefined) {
+        const { modulePriceInput } = await import("@/lib/communities/server/module-sales")
+        const cents = modulePriceInput(body.priceCents)
+        if (Number.isNaN(cents)) throw new ManageError("A module's price is $1 to $10,000, or none.")
+        const { data: course } = await db.from("courses").select("product_id").eq("id", mod.course_id).maybeSingle()
+        if ((course as { product_id: string | null } | null)?.product_id) throw new ManageError("Modules are sold on their own only in a community's programs.")
+        patch.price_cents = cents
+      }
       if (Object.keys(patch).length === 0) return
       const { error } = await db.from("course_modules").update(patch).eq("id", mod.id)
-      if (error) throw new ManageError(error.code === "42703" ? "Covers need the latest database update (part 200)." : "The module could not be saved. Try again.", error.code === "42703" ? 409 : 500)
+      if (error) throw new ManageError(error.code === "42703" ? (patch.price_cents !== undefined ? "Module prices need the latest database update (part 217)." : "Covers need the latest database update (part 200).") : "The module could not be saved. Try again.", error.code === "42703" ? 409 : 500)
       return
     }
     case "rename-module": {

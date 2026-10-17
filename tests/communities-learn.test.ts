@@ -468,7 +468,11 @@ async function main() {
       const writes = handlers.filter((h) => /export async function (POST|PUT|PATCH|DELETE)/.test(h))
       check(`${r}: every write is rate limited`, writes.every((h) => /rateLimit\(|manageLimit\(/.test(h)))
     }
-    check("the checkout reads nothing from the body (the price is the server's)", !/readJson|request\.json/.test(code("app/api/community/[communityId]/learn/[programId]/checkout/route.ts")))
+    {
+      /* Round AG: the body may name a module to buy on its own; the price is still the server's. */
+      const route = code("app/api/community/[communityId]/learn/[programId]/checkout/route.ts")
+      check("the checkout reads only which module from the body (the price is the server's)", !/request\.json/.test(route) && !/body\.(price|amount|currency|title)/.test(route) && /body\.moduleId/.test(route))
+    }
     const hook = code("app/api/stripe/webhook/route.ts")
     const at = hook.indexOf('session.metadata?.kind === "community_program"')
     check("the webhook grants a program from its session before the generic checkout handling", at > 0 && at < hook.indexOf('console.log("[Webhook] Checkout session:"') && /grantFromSession\(supabaseAdmin, session\)/.test(hook))

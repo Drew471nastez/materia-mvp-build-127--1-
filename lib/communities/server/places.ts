@@ -100,6 +100,16 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       const [card, row] = await Promise.all([programCard(db, community, viewer, place.id), findProgram(db, community.id, place.id)])
       if (!card || !row) return missing
       if (card.locked) {
+        /* Round AG: modules this member bought on their own open in the player; the rest stays locked there. */
+        if (!row.productId && row.courseId && viewer.userId) {
+          const { openModulesFor } = await import("./module-sales")
+          const open = await openModulesFor(db, viewer.userId, row)
+          if (open.size) {
+            const asked = typeof opts.lesson === "string" && opts.lesson ? opts.lesson : null
+            const data = await programPlayer(db, community, viewer, row, asked, open)
+            if (data) return ok({ kind: "program", mode: "player", data, learnHref: back })
+          }
+        }
         const outline = await programOutline(db, row)
         return ok({ kind: "program", mode: "locked", program: card, outline, learnHref: back, aboutHref: `/community/${community.slug}/about`, communityId: community.id, communityName: community.name, levelsHref: community.gamification_enabled ? `/community/${community.slug}/leaderboard` : null })
       }

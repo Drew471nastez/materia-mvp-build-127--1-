@@ -8,6 +8,7 @@
  *   CREATORS   no language dropdown; More from shows a community once; a failed picture never shows a broken icon
  *   TAX        Settings › Taxes opens on status, tax collected by country, a CSV, and who does what, honestly
  *   EMAILS     /admin/emails: every email Storelib and a business sends, by category, each drawn with sample data
+ *   MODULES    a module of a program sold on its own: price, checkout, grant, lessons opened on the server, refunds
  *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
@@ -156,8 +157,35 @@ async function main() {
     check("the console links to it", /href: "\/admin\/emails"/.test(read("app/admin/_console/shell.tsx")))
   }
 
+  console.log("\nModule sales")
+  {
+    const ms = await import("@/lib/communities/server/module-sales")
+    check("a price is $1 to $10,000, or none", ms.modulePriceInput("19") === 1900 && ms.modulePriceInput("") === null && ms.modulePriceInput(0) === null && Number.isNaN(ms.modulePriceInput("0.5") as number) && Number.isNaN(ms.modulePriceInput("20000") as number))
+    const params = ms.moduleCheckoutParams({
+      module: { id: "m1", title: "Mixing", priceCents: 1900 },
+      program: { id: "p1", title: "Production", coverUrl: null },
+      community: { id: "c1", name: "Makers", slug: "makers" },
+      buyer: { userId: "u1", email: null },
+      creatorId: "cr1",
+      destination: "acct_1",
+      currency: "usd",
+      fee: { platformFeeCents: 190, feePercent: 10, feeFixedCents: 0, planId: "free" },
+    })
+    check("the session is the creator's money, Storelib's fee kept, marked a module", params.payment_intent_data?.transfer_data?.destination === "acct_1" && params.payment_intent_data?.application_fee_amount === 190 && params.metadata?.kind === "community_module" && params.metadata?.community_module_id === "m1" && params.line_items?.[0]?.price_data?.unit_amount === 1900)
+    check("only its own sessions are taken for a module", ms.isModuleSession({ metadata: params.metadata as never }) && !ms.isModuleSession({ metadata: { kind: "community_program" } as never }))
+    const server = code("lib/courses/server.ts")
+    check("a bought module opens its lessons on the server", /ownedModules\(db, userId, \[mod\.id\]\)\)\.has\(mod\.id\)\) access = "owner"/.test(server))
+    const load = code("lib/courses/load.ts")
+    check("the player opens only the bought modules' lessons (and previews)", /partly \? !openModules\.has\(m\.id\) && !l\.isPreview/.test(load))
+    check("the locked page plays bought modules; the rest show their price", /openModulesFor\(db, viewer\.userId, row\)/.test(code("lib/communities/server/places.ts")) && /data-module-for-sale/.test(read("components/community/learn/program-page.tsx")))
+    check("checkout, confirm, webhook and refunds know a module", /startModuleCheckout/.test(code("app/api/community/[communityId]/learn/[programId]/checkout/route.ts")) && /confirmModuleCheckout/.test(code("app/api/community/[communityId]/learn/[programId]/checkout/confirm/route.ts")) && /kind === "community_module"/.test(code("app/api/stripe/webhook/route.ts")) && /revokeRefundedModule/.test(code("app/api/stripe/webhook/route.ts")))
+    check("the editor prices a module only in a community's program", /moduleSales \/>/.test(read("components/community/learn/program-editor.tsx")) && /Modules are sold on their own only in a community's programs/.test(code("lib/courses/manage.ts")))
+    const agSql = read("supabase/migrations/20270201_round_ag.sql")
+    check("the SQL: a price column and a server only table", /course_modules ADD COLUMN IF NOT EXISTS price_cents/.test(agSql) && /CREATE TABLE IF NOT EXISTS public\.community_module_access/.test(agSql) && /community_module_access ENABLE ROW LEVEL SECURITY/.test(agSql))
+  }
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

@@ -107,3 +107,11 @@ begin
 end;
 $$;
 
+
+-- A module of a community's program sold on its own: its price, and who bought it (server only, like community_program_access).
+DO $do$ BEGIN IF to_regclass('public.course_modules') IS NULL THEN RAISE NOTICE 'module sales: there are no course modules, run part 74 first.'; RETURN; END IF; ALTER TABLE public.course_modules ADD COLUMN IF NOT EXISTS price_cents integer; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'course_modules_price_cents_range' AND conrelid = 'public.course_modules'::regclass) THEN ALTER TABLE public.course_modules ADD CONSTRAINT course_modules_price_cents_range CHECK (price_cents IS NULL OR price_cents BETWEEN 100 AND 1000000); END IF; END $do$;
+CREATE TABLE IF NOT EXISTS public.community_module_access (module_id uuid NOT NULL REFERENCES public.course_modules(id) ON DELETE CASCADE, user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, program_id uuid, community_id uuid REFERENCES public.communities(id) ON DELETE CASCADE, source text NOT NULL DEFAULT 'purchase' CHECK (source IN ('purchase', 'grant')), checkout_session_id text, payment_intent_id text, amount_cents integer, currency text, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (module_id, user_id));
+CREATE INDEX IF NOT EXISTS community_module_access_user ON public.community_module_access (user_id) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS community_module_access_intent ON public.community_module_access (payment_intent_id) WHERE payment_intent_id IS NOT NULL;
+ALTER TABLE public.community_module_access ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.community_module_access FROM anon, authenticated;

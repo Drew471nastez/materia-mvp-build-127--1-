@@ -3,6 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { requireMember } from "@/lib/communities/server/context"
 import { confirmProgramCheckout } from "@/lib/communities/server/learn-checkout"
+import { confirmModuleCheckout } from "@/lib/communities/server/module-sales"
 import { isUuid } from "@/lib/courses/access"
 import { sessionUserId } from "@/lib/courses/route-auth"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -35,7 +36,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   if (limited) return limited
   const body = await readJson(request)
   const { stripe } = await import("@/lib/stripe")
-  const done = await confirmProgramCheckout(db, stripe, { sessionId: body.sessionId, userId })
+  /* Round AG: a module's sheet says { kind: "module" }; the session itself is still read from Stripe and must be a module's. */
+  const done = body.kind === "module" ? await confirmModuleCheckout(db, stripe, { sessionId: body.sessionId, userId }) : await confirmProgramCheckout(db, stripe, { sessionId: body.sessionId, userId })
   if (done.ok === false) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   if (done.programId !== programId) return NextResponse.json({ error: "not_found" }, { status: 404, headers: noStore })
   return NextResponse.json({ ok: true, programId: done.programId }, { headers: noStore })
