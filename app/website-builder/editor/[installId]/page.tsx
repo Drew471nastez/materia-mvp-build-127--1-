@@ -175,7 +175,7 @@ import { usePreviewLanguage } from "@/components/website-builder/use-preview-lan
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { tt } from "@/lib/i18n/text"
 import { SharedInAllLanguages, TranslatedFieldEditor, TranslationEditingProvider, TranslationScope, useTranslationEditing, useTranslationEditor, useTranslationScope } from "@/components/website-builder/editor/translation-editing"
-import { PreviewLocaleButton, PreviewLocaleSelects, hasPreviewChoices, type PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
+import { PreviewLocaleButton, SidebarLanguageBar, type PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
 import { blockKey as translationBlockKey, isWordsField, sectionKey as translationSectionKey } from "@/lib/markets/translate"
 import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
 import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme } from "@/lib/markets/translate"
@@ -1112,26 +1112,6 @@ const EMPTY_SOURCES: Record<string, string> = {}
   It is imported above. The move is so scripts/check-image-picker.mjs mounts
   the same component the editor renders rather than a copy of it.
 */
-
-/**
- * THE LANGUAGE BEING EDITED, AT THE TOP OF THE SIDEBAR (and of a phone's
- * sheet, which has no top bar switch): the language and currency selects,
- * and in another language one line saying what changes and what does not.
- * Not drawn for a website with one language and one currency.
- */
-function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleModel; editing: ReturnType<typeof useTranslationEditor> }) {
-  if (!hasPreviewChoices(model)) return null
-  return (
-    <div className={cn("shrink-0 border-b px-3 pb-2.5", editing ? "border-[#8b5cf6]/25 bg-[#f5f3ff]" : "border-border")} data-wb-language-bar={editing ? editing.locale : ""}>
-      <PreviewLocaleSelects model={model} />
-      {editing ? (
-        <p className="mt-1.5 text-[11.5px] leading-[16px] text-[#5b21b6]" data-wb-translating="">
-          {tt("Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.", { name: editing.name })}
-        </p>
-      ) : null}
-    </div>
-  )
-}
 
 /** A theme setting's text in another language, by the key the website lays over (lib/markets/translate.ts localizeTheme); the store's name is never translated. */
 const themeTextKey = (id: string) => (id === "brand_name" ? null : `theme:${id}`)

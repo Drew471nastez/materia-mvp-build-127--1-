@@ -9010,7 +9010,8 @@ const words: Record<string, string> = {
  "Only changes what you see here. Visitors choose their own.": "Cambia solo ciò che vedi qui. I visitatori scelgono le loro.",
  "Visitors open your website in your default language and store currency, and switch with your theme's own selectors.": "I visitatori aprono il tuo sito nella lingua predefinita e nella valuta del negozio, e cambiano con i selettori del tuo tema.",
  "Show the editor in": "Mostra l’editor in",
- "Only changes the builder. In another language, the sidebar edits that language's text.": "Cambia solo l’editor. In un’altra lingua, la barra laterale modifica il testo di quella lingua."
+ "Only changes the builder. In another language, the sidebar edits that language's text.": "Cambia solo l’editor. In un’altra lingua, la barra laterale modifica il testo di quella lingua.",
+ "Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.": "Stai modificando {name}. Il testo che cambi qui viene salvato solo per {name}. Colori, immagini e layout sono uguali in ogni lingua."
 }
 
 export default words

@@ -211,3 +211,23 @@ export function PreviewLocaleSelects({ model, tone = "light", className }: { mod
     </div>
   )
 }
+
+/**
+ * THE LANGUAGE BEING EDITED, AT THE TOP OF THE SIDEBAR (and of a phone's
+ * sheet, which has no top bar switch): the language and currency selects,
+ * and in another language one line saying what changes and what does not.
+ * Not drawn for a website with one language and one currency.
+ */
+export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleModel; editing: { locale: string; name: string } | null }) {
+  if (!hasPreviewChoices(model)) return null
+  return (
+    <div className={cn("shrink-0 border-b px-3 pb-2.5", editing ? "border-[#8b5cf6]/25 bg-[#f5f3ff] pt-2.5" : "border-border")} data-wb-language-bar={editing ? editing.locale : ""}>
+      <PreviewLocaleSelects model={model} />
+      {editing ? (
+        <p className="mt-1.5 text-[11.5px] leading-[16px] text-[#5b21b6]" data-wb-translating="">
+          {tt("Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.", { name: editing.name })}
+        </p>
+      ) : null}
+    </div>
+  )
+}

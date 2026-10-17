@@ -40,7 +40,9 @@ import { isWordsField, shownText, sourceHash } from "@/lib/markets/translate"
 import { fieldTranslationState, isExcluded, type FieldTranslationState, type TranslationRules } from "@/lib/markets/translation-rules"
 import type { SchemaField } from "@/lib/website-builder/types"
 import type { PreviewLanguage, Values } from "@/components/website-builder/use-preview-language"
-import { FIELD_LABEL } from "./controls/dynamic-source-field"
+
+/** The sidebar's label, as controls/dynamic-source-field.tsx FIELD_LABEL draws it (not imported, so this file stays small). */
+const FIELD_LABEL = "text-xs font-medium text-muted-foreground mb-1.5 block"
 
 export interface TranslationEditing {
   /** The language being written. Never the website's own. */
