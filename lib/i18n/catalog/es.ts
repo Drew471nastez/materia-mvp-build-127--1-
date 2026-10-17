@@ -9930,7 +9930,8 @@ const words: Record<string, string> = {
  "{verb} {items} in {n} parcels": "{verb} {items} en {n} paquetes",
  "Each order with a carrier needs its tracking number. Change the carrier on any order below.": "Cada pedido con transportista necesita su número de seguimiento. Cambia el transportista en cualquier pedido de abajo.",
  "The packing slips could not be made. Try again.": "No se pudieron crear los albaranes. Inténtalo de nuevo.",
- "{orders} still need a carrier or a tracking number.": "{orders} todavía necesitan un transportista o un número de seguimiento."
+ "{orders} still need a carrier or a tracking number.": "{orders} todavía necesitan un transportista o un número de seguimiento.",
+ "Your website did not answer. Check that the page opens in a browser, then try again.": "Tu sitio web no respondió. Comprueba que la página se abre en un navegador y vuelve a intentarlo."
 }
 
 export default words
