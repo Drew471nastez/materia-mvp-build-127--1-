@@ -134,6 +134,9 @@ const server = createServer((req, res) => {
     return json({ order, locations: [{ id: "loc-home", name: "Workshop" }] })
   }
   if (req.url.startsWith("/api/app/orders/list")) return json(LISTING)
+  /* The shop's carrier choices (components/physical/carrier-live.tsx): none saved yet. */
+  if (req.url.startsWith("/api/physical/carriers?connected=1")) return json({ carriers: [], errors: [] })
+  if (req.url.startsWith("/api/physical/carriers")) return json({ favourites: [], defaultCarrier: null, lastCarrier: null, custom: [], connected: [], ready: true })
   /* No shipping app connected: the dialog offers tracking only, as for most stores. */
   if (/^\/api\/physical\/orders\/[^/]+\/label/.test(req.url)) return json({ apps: [], packages: [], defaultPackageId: null, itemsGrams: 0, unitSystem: "metric", labels: [] })
   if (req.url.startsWith("/api/")) return json({})
@@ -162,21 +165,40 @@ const offSide = (p) => p.evaluate((sel) => {
   const clipped = (el) => { for (let a = el.parentElement; a && a !== scope; a = a.parentElement) { const o = getComputedStyle(a).overflowX; if (o !== "visible") return a.getBoundingClientRect().right <= innerWidth + 1 } return false }
   return [...scope.querySelectorAll("*")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 1 || r.left < -1) && !clipped(el) }).slice(0, 4).map((el) => `${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(el.getBoundingClientRect().right)}`)
 }, SURFACE)
-const typeInto = async (p, handle, value) => { await handle.click({ clickCount: 3 }); await handle.type(value) }
+/* By selector, found again just before typing: a field the page has just drawn again is never typed into stale. */
+const typeInto = async (p, target, value) => {
+  const handle = typeof target === "string" ? await p.waitForSelector(target, { visible: true }) : target
+  await handle.click({ clickCount: 3 })
+  await handle.type(value)
+}
 /* The carrier picker (components/physical/carrier-picker.tsx): a popover on a computer, a sheet on a phone; searched, then chosen. */
+const press = async (p, sel, phone) => {
+  /* Found again on each try: the sheet may draw a field again while it settles. */
+  for (let i = 0; ; i++) {
+    try {
+      await p.waitForSelector(sel, { visible: true, timeout: 10000 })
+      if (phone) await p.tap(sel)
+      else await p.click(sel)
+      return
+    } catch (e) {
+      if (i >= 3) throw e
+      await sleep(400)
+    }
+  }
+}
 const pickCarrier = async (p, scope, query, id, phone) => {
-  const field = await p.waitForSelector(`${scope} [data-carrier-field]`, { visible: true })
-  if (phone) await field.tap()
-  else await field.click()
-  await p.waitForSelector(phone ? '[data-carrier-list="phone"]' : "[data-carrier-popover]", { visible: true })
-  await sleep(phone ? 500 : 150)
-  const search = await p.waitForSelector("[data-carrier-search]", { visible: true })
-  if (phone) await search.tap()
-  await search.type(query)
   await sleep(300)
-  const option = await p.waitForSelector(`[data-carrier-option="${id}"]`, { visible: true })
-  if (phone) await option.tap()
-  else await p.keyboard.press("Enter")
+  await press(p, `${scope} [data-carrier-field]`, phone)
+  await p.waitForSelector(phone ? '[data-carrier-list="phone"]' : "[data-carrier-popover]", { visible: true, timeout: 15000 })
+  await sleep(phone ? 500 : 150)
+  if (phone) await press(p, "[data-carrier-search]", true)
+  await p.type("[data-carrier-search]", query)
+  await sleep(300)
+  if (phone) await press(p, `[data-carrier-option="${id}"]`, true)
+  else {
+    await p.waitForSelector(`[data-carrier-option="${id}"]`, { visible: true })
+    await p.keyboard.press("Enter")
+  }
   await sleep(phone ? 800 : 250)
 }
 
@@ -186,7 +208,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   order = freshOrder()
   const p = await browser.newPage()
   const errors = []
-  p.on("pageerror", (e) => errors.push(String(e)))
+  p.on("pageerror", (e) => { errors.push(String(e)); console.log("  page error:", String(e).slice(0, 300)) })
   await p.setViewport(vp)
   if (name === "phone") { const cdp = await p.createCDPSession(); await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 }) }
   await p.goto(`${origin}/app/orders`, { waitUntil: "load" })
@@ -234,8 +256,8 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   const left = await text(p, "[data-bulk-left]")
   expect(/#1003/.test(left) && /Already fulfilled/.test(left), "the refused one is apart, with its reason", left.replace(/\s+/g, " "))
   await pickCarrier(p, "[data-bulk-carrier]", "dhl", "dhl", name === "phone")
-  const firstTracking = await p.$('[data-bulk-order="#1005"] [data-tracking-number]')
-  await typeInto(p, firstTracking, "00340434160000000101")
+  await sleep(400)
+  await typeInto(p, '[data-bulk-order="#1005"] [data-tracking-number]', "00340434160000000101")
   await sleep(200)
   const carriers = await p.evaluate(() => [...document.querySelectorAll("[data-bulk-order] [data-carrier-field]")].map((s) => s.dataset.carrierField))
   expect(carriers.length === 2 && carriers.every((c) => c === "dhl"), "one carrier picked for every order, and a typed number keeps it", carriers)
@@ -243,7 +265,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await p.evaluate(() => document.querySelector("[data-bulk-submit]").click())
   await sleep(300)
   expect(!posts.some((x) => x.action === "fulfil") && /1 order still need/.test(await text(p, "[data-bulk-sheet]")), "a carrier without its number is not sent: the sheet says which still need one", (await text(p, "[data-bulk-sheet]")).slice(-200))
-  await typeInto(p, await p.$('[data-bulk-order="#1002"] [data-tracking-number]'), "00340434160000000102")
+  await typeInto(p, '[data-bulk-order="#1002"] [data-tracking-number]', "00340434160000000102")
   await sleep(200)
   expect((await offSide(p)).length === 0, "nothing in the sheet runs off the side", await offSide(p))
   await p.screenshot({ path: join(shots, `bf-${name}-bulk.png`) })
@@ -309,9 +331,9 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   const split = await q.evaluate(() => [...document.querySelectorAll("[data-parcel]")].map((p) => p.querySelector("p")?.innerText.replace(/\s+/g, " ")))
   expect(/3 items/.test(split[0] ?? "") === false && /2 items/.test(split[0] ?? "") && /2 items/.test(split[1] ?? ""), "units move from parcel 1 to parcel 2", split)
   await pickCarrier(q, '[data-parcel="1"]', "dhl", "dhl", name === "phone")
-  const fields = await q.$$("[data-parcel] [data-tracking-number]")
-  await typeInto(q, fields[0], "00340434161234567890")
-  await typeInto(q, fields[1], "1Z999AA10123456784")
+  await sleep(400)
+  await typeInto(q, '[data-parcel="1"] [data-tracking-number]', "00340434161234567890")
+  await typeInto(q, '[data-parcel="2"] [data-tracking-number]', "1Z999AA10123456784")
   await sleep(200)
   const pc = await q.evaluate(() => [...document.querySelectorAll("[data-parcel] [data-carrier-field]")].map((s) => s.dataset.carrierField))
   expect(pc[0] === "dhl" && pc[1] === "ups", "each parcel its own carrier: one picked, one guessed from its number", pc)
