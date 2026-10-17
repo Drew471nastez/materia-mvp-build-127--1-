@@ -295,7 +295,7 @@ async function main() {
   {
     const ro = (await import("../lib/checkout-text/dict/ro")).default as Record<string, string>
     const { CHECKOUT_SENTENCES } = await import("../lib/markets/checkout-words.generated")
-    const fromPage = ["Waiting on the shop", "Back to order {orderRef}", "Visit the shop", "Ask Storelib for help", "If {shop} hasn't answered by {date}, you can ask Storelib to look at this case here.", "Previous photo", "Storelib is already looking at another conversation about this order."]
+    const fromPage = ["Waiting on the shop", "Back to order {orderRef}", "Visit the shop", "Ask Storelib for help", "If this isn't sorted by {date}, you can ask Storelib to look at this case here.", "Previous photo", "Storelib is already looking at another conversation about this order."]
     check("the case page's sentences are listed for translation", fromPage.every((s) => CHECKOUT_SENTENCES.includes(s)), fromPage.filter((s) => !CHECKOUT_SENTENCES.includes(s)))
     check("  and every one has Romanian", CHECKOUT_SENTENCES.every((s) => !!ro[s]), CHECKOUT_SENTENCES.filter((s) => !ro[s]).slice(0, 6))
     check("  with its placeholders kept", fromPage.every((s) => (s.match(/\{\w+\}/g) ?? []).every((p) => ro[s]?.includes(p))))

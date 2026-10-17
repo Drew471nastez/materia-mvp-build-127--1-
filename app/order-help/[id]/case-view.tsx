@@ -312,7 +312,7 @@ export function CaseView({
                   {busy === "reply" ? ct("Sending") : ct("Send")}
                 </button>
               </div>
-              <p className={cn("min-h-[20px] text-[13px] leading-5 text-[#166534] transition-opacity duration-300", done ? "opacity-100" : "opacity-0")} role="status" data-case-done="">
+              <p className={cn("text-[13px] leading-5 text-[#166534]", !done && "sr-only")} role="status" data-case-done="">
                 {done ?? ""}
               </p>
             </form>
@@ -329,7 +329,7 @@ export function CaseView({
               ) : null}
               {c.status !== "resolved" ? (
                 <button type="button" disabled={busy !== null} onClick={() => void act("resolve")} className="mt-2 inline-flex h-9 w-full items-center justify-center rounded-[10px] text-[13.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] disabled:opacity-60" data-case-resolve="">
-                  {ct("It's sorted")}
+                  {ct("Mark as sorted")}
                 </button>
               ) : null}
             </div>
@@ -385,7 +385,7 @@ export function CaseView({
                     </>
                   )
                 ) : (
-                  <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{ct("If {shop} hasn't answered by {date}, you can ask Storelib to look at this case here.", { shop: store.name, date: dayOf(escalation.from!) })}</p>
+                  <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{ct("If this isn't sorted by {date}, you can ask Storelib to look at this case here.", { date: dayOf(escalation.from!) })}</p>
                 )}
               </div>
             ) : null}
