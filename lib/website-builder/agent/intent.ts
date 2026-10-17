@@ -156,6 +156,12 @@ const DIRECTION = /\b(into|look(?:s)? like|feel(?:s)? like|for (?:my|our|a|an|th
 const QUESTION_START = /^(?:what|why|how|who|where|when|which|can you|could you tell|do you|does|did|is|are|was|will|should i|hi|hello|hey|thanks|thank you)\b/i
 const IMPERATIVE = /\b(make|change|add|remove|delete|hide|show|build|create|design|redesign|set|put|move|rewrite|write|fix|update|replace|turn|give)\b/i
 const FOLLOW_UP = /^(?:no[, ]|not that|i meant|only|just|undo|revert|go back|put (?:it|that) back|the previous|the old|that one|keep (?:it|that|the)|again|more|less|bigger|smaller|perfect|ok(?:ay)?[, ]|now )/i
+/*
+  "Make it cleaner", "change the layout", "add more settings": a change to what was just made, said with a pronoun or
+  with a part of it and nothing else. A follow up (./follow-up.ts points it at the last section changed), though not a
+  correction: the kind stays what the words say.
+*/
+const REFERS_BACK = /^(?:(?:now|ok(?:ay)?|great|nice|thanks|cool)[,!.]?\s+)?(?:please\s+|can you\s+|could you\s+)?(?:make|change|add|give|use|try|swap|turn|put|tweak|tidy|clean|simplify|fix|redo|update|adjust|improve|polish)\b(?:[^.?!]{0,60}\b(?:it|this|that|them|these|those)\b|\s+(?:the\s+|more\s+|some\s+|a few\s+)?(?:layout|design|settings?|colou?rs?|spacing|fonts?|style|look|copy|text|animations?|buttons?|images?|pictures?)\b)/i
 
 /* "Completely", "from scratch", "totally different", "much more modern": the named thing is made again. */
 const REBUILD = /\b(complete(?:ly)?|total(?:ly)?|entire(?:ly)?|fully|from scratch|brand new|whole new|all new|remake|rebuild|redo|re-?do|reimagine|start (?:over|again|fresh)|(?:much|way|a lot|far) more (?:modern|premium|clean|cleaner|minimal|editorial|luxur\w*|interactive|professional|beautiful|elegant|stylish)|something (?:completely |totally )?different|(?:completely |totally )?different (?:design|layout|look|style|section|one)|new (?:design|layout|version))\b/i
@@ -183,6 +189,9 @@ export function keptPhrases(text: string): string[] {
 /* A section by what it is, and the site by any word for it: which one a "completely different" is about. */
 const NAMES_SECTION = /\b(section|hero|banner|faq|faqs|pricing|gallery|footer|header|nav(?:igation)?|navbar|menu|events?|testimonials?|reviews?|features?|newsletter|cta|call to action|about section|contact section|product grid|slider|carousel|countdown)\b/i
 const NAMES_SITE = /\b(web ?site|site|store ?front|online store|shop|everything|whole thing|entire thing|all (?:the )?pages|every page|brand)\b/i
+/* The open page, by name, and the words that still mean every page. */
+const THIS_PAGE = /\b(?:this|the|my) (?:page|home ?page|landing ?page)\b/i
+const WHOLE_SITE_WORDS = /\b(?:web ?site|whole site|entire site|every page|all (?:the )?pages|store ?front|online store|everything|rebrand|brand)\b/i
 
 function hits(list: RegExp[], text: string): boolean {
   return list.some((re) => re.test(text))
@@ -192,7 +201,9 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
   const text = prompt.replace(/\s+/g, " ").trim()
   const reasons: string[] = []
   const wantsMotion = MOTION.test(text)
-  const followUp = !!ctx.hasHistory && text.length < 120 && FOLLOW_UP.test(text)
+  /* A correction keeps the kind of what it corrects; a message that only refers back is a follow up of its own kind. */
+  const correction = !!ctx.hasHistory && text.length < 120 && FOLLOW_UP.test(text)
+  const followUp = correction || (!!ctx.hasHistory && text.length < 120 && REFERS_BACK.test(text))
   const body = ctx.bodySections ?? 0
 
   const result = (kind: IntentKind, scope: Intent["scope"], also: IntentKind[] = []): Intent => {
@@ -241,7 +252,7 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
   }
 
   /* Corrections stay what they correct: never promoted to a redesign. */
-  if (followUp && !hits(FULL_SITE, text) && !hits(NEW_SITE, text)) {
+  if (correction && !hits(FULL_SITE, text) && !hits(NEW_SITE, text)) {
     reasons.push("a follow up")
     return result(wantsMotion ? "FUNCTIONAL_CHANGE" : "LOCAL_EDIT", ctx.selected ? "section" : "element")
   }
@@ -266,6 +277,14 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
     whole site is said, and read that way it redesigned every page for a request about a FAQ. A section named, with no
     word for the site, is that section rebuilt.
   */
+  /*
+    "REDESIGN THIS PAGE AS A LANDING PAGE" NAMES THIS PAGE. A landing page is one of the words for a site, so the
+    whole-site patterns caught it and every page was planned again; the creator pointed at the page in front of them.
+  */
+  if (hits(FULL_SITE, text) && THIS_PAGE.test(text) && !WHOLE_SITE_WORDS.test(text)) {
+    reasons.push("this page rethought, by name")
+    return result(body <= 1 ? "NEW_SITE_GENERATION" : "PAGE_REDESIGN", "page")
+  }
   if (hits(FULL_SITE, text) && NAMES_SECTION.test(text) && !NAMES_SITE.test(text)) {
     reasons.push("one named section, made again")
     return result("SECTION_REDESIGN", "section", FUNCTION.test(text) ? ["FUNCTIONAL_CHANGE"] : [])

@@ -211,6 +211,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       takenNames,
       theme: {
         settings: parsed.data.settings ?? null,
+        /* The creator's own section files, read above: the brief lists them and is cached per theme version (lib/website-builder/agent/theme-brief.ts). */
+        sources,
         neighbours: (parsed.data.sectionTypes ?? []).map((type) => ({
           type,
           name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,

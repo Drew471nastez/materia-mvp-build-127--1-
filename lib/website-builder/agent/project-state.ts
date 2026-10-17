@@ -62,8 +62,11 @@ export interface ProjectBrief {
   plan?: { page: string; sections: { label: string; use: string; sectionId?: string }[] }
   /** Decisions and preferences worth keeping: "no gradients", "prices in euros". */
   decisions?: string[]
-  /** The last few changes, newest last. */
-  recent?: { request: string; kind: string; changed: string[] }[]
+  /**
+   * The last few changes, newest last. `ids`: the sections it changed, by id, so "make it cleaner" next means that
+   * section (./follow-up.ts). `decided`: the design decision it worked to, in its own words, for the next run to keep.
+   */
+  recent?: { request: string; kind: string; changed: string[]; ids?: string[]; decided?: string }[]
 }
 
 const clip = (v: unknown, max: number): string | undefined => (typeof v === "string" && v.trim() ? v.replace(/\s+/g, " ").trim().slice(0, max) : undefined)
@@ -93,7 +96,11 @@ export function readBrief(settings: Record<string, unknown> | undefined | null):
   const recent = Array.isArray(r.recent)
     ? r.recent
         .map((x) => obj(x))
-        .map((x) => ({ request: clip(x.request, 160) ?? "", kind: clip(x.kind, 32) ?? "", changed: strings(x.changed, 8, 60) ?? [] }))
+        .map((x) => {
+          const ids = Array.isArray(x.ids) ? x.ids.filter((v): v is string => typeof v === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(v)).slice(0, 8) : []
+          const decided = clip(x.decided, 160)
+          return { request: clip(x.request, 160) ?? "", kind: clip(x.kind, 32) ?? "", changed: strings(x.changed, 8, 60) ?? [], ...(ids.length ? { ids } : {}), ...(decided ? { decided } : {}) }
+        })
         .filter((x) => x.request)
         .slice(-MAX_RECENT)
     : undefined
@@ -210,6 +217,10 @@ export interface RunRecord {
   schemas?: SchemaMap
   /** Notes the model asked to keep (the remember tool). */
   notes?: string[]
+  /** The sections it changed, by id, still on the page. */
+  ids?: string[]
+  /** The design decision it worked to: its plan's first line, or the creative plan's direction. */
+  decided?: string
 }
 
 /**
@@ -244,7 +255,12 @@ export function updateBrief(before: ProjectBrief, run: RunRecord): ProjectBrief 
   next.roles = roles
   next.decisions = [...(next.decisions ?? []), ...(run.notes ?? [])].slice(-MAX_DECISIONS)
   if (run.changed.length) {
-    next.recent = [...(next.recent ?? []), { request: run.request.replace(/\s+/g, " ").slice(0, 160), kind: run.intent.kind, changed: run.changed.slice(0, 8) }].slice(-MAX_RECENT)
+    const ids = (run.ids ?? []).filter((id) => /^[A-Za-z0-9_-]{1,128}$/.test(id)).slice(0, 8)
+    const decided = clip(run.decided, 160)
+    next.recent = [
+      ...(next.recent ?? []),
+      { request: run.request.replace(/\s+/g, " ").slice(0, 160), kind: run.intent.kind, changed: run.changed.slice(0, 8), ...(ids.length ? { ids } : {}), ...(decided ? { decided } : {}) },
+    ].slice(-MAX_RECENT)
   }
   return sizedBrief(next)
 }
@@ -290,7 +306,7 @@ export function describeProject(state: ThemeState, brief: ProjectBrief, schemas?
     lines.push(`The last plan is not finished. Still to build, in order: ${pending.map((p) => `${p.label} (${p.use})`).join(", ")}. "Continue" means build these.`)
   }
   if (brief.decisions?.length) lines.push(`Decisions and preferences to keep:\n${brief.decisions.map((d) => `  - ${d}`).join("\n")}`)
-  if (brief.recent?.length) lines.push(`Recent changes, oldest first:\n${brief.recent.map((r) => `  - "${r.request}" changed ${r.changed.join(", ") || "nothing"}`).join("\n")}`)
+  if (brief.recent?.length) lines.push(`Recent changes, oldest first:\n${brief.recent.map((r) => `  - "${r.request}" changed ${r.changed.join(", ") || "nothing"}${r.ids?.length ? ` [${r.ids.join(", ")}]` : ""}${r.decided ? `; decided: ${r.decided}` : ""}`).join("\n")}`)
   if (lines.length === 0) return ""
   return ["PROJECT STATE (what was decided before; the page above is the truth about what exists now):", ...lines].join("\n")
 }
