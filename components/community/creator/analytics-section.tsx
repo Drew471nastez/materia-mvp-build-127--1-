@@ -673,6 +673,7 @@ function SectionTabs({ value, onChange, options }: { value: SectionId; onChange:
   const strip = useTabStrip<HTMLElement>(value, options)
   const row = React.useRef<HTMLDivElement>(null)
   const [line, setLine] = React.useState<{ x: number; w: number; moved: boolean } | null>(null)
+  const names = options.join()
   React.useLayoutEffect(() => {
     const el = row.current
     if (!el) return
@@ -688,7 +689,7 @@ function SectionTabs({ value, onChange, options }: { value: SectionId; onChange:
     const ro = new ResizeObserver(place)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [value, options])
+  }, [value, names])
   return (
     <nav ref={strip} aria-label={tt("Sections")} data-analytics-sections="" data-scroll-x="" className="relative mt-8 overflow-x-auto border-b border-[#e5e7eb] scrollbar-hide" style={TAB_STRIP_STYLE}>
       <div ref={row} role="tablist" className="relative flex w-max min-w-full items-stretch">
