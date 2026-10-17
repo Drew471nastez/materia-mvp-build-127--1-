@@ -28,6 +28,8 @@
  *             does; the pressed tab is brought into view, gradually
  *   OVERVIEW  at most four figures, none twice, no selector or chart; a
  *             phone stacks them as rows; free, new and busy communities
+ *   DELETING  a community being deleted: the banner says when, and that
+ *             Settings keeps it
  *   CHROME    every section at each size, light, and with the dark attribute
  *             on <html> (which /app never carries: lib/appearance), for
  *             pictures to look at
@@ -627,6 +629,19 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       })
       results.overview[`frame-${w}`] = { frame, real }
       expect(frame && real && frame.y === real.y && Math.abs(frame.h - real.h) <= 2, `${w}: the frame's figures card is where and how tall the Overview's is`, { frame, real })
+      await p.close()
+    }
+  }
+
+  /* ── DELETING: a community whose deletion is scheduled says when, not "bring it back" ── */
+  if (want("DELETING")) {
+    console.log("\nDELETING")
+    for (const [w, vp] of [["1440", DESK], ["390", PHONE]]) {
+      const { p, errors } = await open(`${BASE}?deleting=1`, vp, { cpu: 1 })
+      const { t, back } = await p.evaluate(() => ({ t: document.querySelector("[data-community-deleting]")?.textContent ?? null, back: /Bring it back/.test(document.body.innerText) }))
+      expect(!!t && /^Deleting on .+\. Members can read it until then\. Keep it from Settings\.$/.test(t) && !back, `${w}: the banner says when it goes and that Settings keeps it`, t)
+      await shot(p, `deleting-${w}`, { x: 0, y: 0, width: vp.width, height: Math.min(360, vp.height) })
+      expect(errors.length === 0, `${w}: no page errors`, errors)
       await p.close()
     }
   }

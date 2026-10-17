@@ -6,6 +6,7 @@
  *   ?sells=0          a free community (no money figures)
  *   ?fresh=1          a new community: a handful of members, setup left, nothing waiting
  *   ?quiet=1          no recent activity
+ *   ?deleting=1       its deletion is scheduled (the banner over the sections)
  *   ?dark=1           data-sl-dark on <html>, as a person who chose dark has it on Storelib's themed pages
  *
  * The router stand-in is the round 33 one (the probe's next/navigation stub, window.__probeRouter): router.push answers
@@ -67,6 +68,8 @@ const head: CommunityHead = {
   openReports: params.get("fresh") ? 0 : 3,
 }
 if (params.get("dark")) document.documentElement.setAttribute("data-sl-dark", "")
+/* ?deleting=1: a deletion scheduled 19 days out (round 26, W1's CommunityHead.deleting), archived as such a community is. */
+if (params.get("deleting")) Object.assign(head, { archived: true, deleting: { deleteAt: new Date(Date.now() + 19 * 86_400_000).toISOString(), canKeep: true } })
 
 const names = ["Ana Popescu", "Marcus Lee", "Priya Raman", "Tomás Herrera", "Elena Ionescu", "Jonah Brooks", "Sofia Rossi", "Kenji Watanabe", "Amara Okafor", "Lukas Novak", "Chloé Martin", "Daniel Avram"]
 const member = (i: number, over: Partial<MemberRowView> = {}): MemberRowView => ({

@@ -116,6 +116,10 @@ function main() {
   check("the frame draws as many figures in the same columns", /function FiguresFrame\(\{ n \}/.test(frame) && /figureColumns\(n\)/.test(frame) && /<FiguresFrame n=\{facts\.figures \?\? 4\} \/>/.test(frame) && /figures: head\.access === "paid" && head\.can\.manage_pricing === true \? 4 : 3/.test(shell) && /facts=\{\{ figures: ctx\.community\.access === "paid" \? 4 : 3 \}\}/.test(page))
   check("the setup list is still the server's", nextSteps({ paid: false, paymentsReady: true, published: true, members: 5, invites: 1, posts: 0, courses: 0, events: 0, customized: true, rules: 1, classroomEnabled: false, eventsEnabled: false }, "/b").some((s) => s.id === "welcome"))
 
+  console.log("\nFRAME AND STATE")
+  check("the Page frame draws the editor's side panel from 1280px, as the editor does", /xl:grid xl:grid-cols-\[minmax\(0,1fr\)_380px\][^"]*" data-frame-page=""/.test(frame) && /<PanelFrame rows=\{5\} className="hidden xl:block" \/>/.test(frame))
+  check("a community being deleted says when, and that Settings keeps it, before the archived line", /\) : deleting \? \(/.test(shell) && shell.indexOf(") : deleting ? (") < shell.indexOf(") : head.archived ? (") && /Deleting on [^\n]*Members can read it until then\. Keep it from Settings\.[^\n]*shortDate\(deleting\.deleteAt\)|Deleting on [^\n]*shortDate\(deleting\.deleteAt\)[^\n]*Keep it from Settings\./.test(shell))
+
   console.log("\nLOOK")
   check("/app is not one of the pages that follow the person's look", !THEMED_PREFIXES.some((p) => "/app/community/club".startsWith(p)) && /\/explore/.test(APPEARANCE_BOOT))
   check("the dark look's generator leaves the dashboard out", /"app\/app"/.test(read("scripts/gen-theme-dark.mjs")))
@@ -128,7 +132,7 @@ function main() {
   }
   for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
     const cat = read(`lib/i18n/catalog/${lang}.ts`)
-    check(`${lang}: the two new lines are translated`, cat.includes('"+{n} in 30 days":') && cat.includes('"{n, plural, one {# cancellation} other {# cancellations}} in 30 days":'))
+    check(`${lang}: the new lines are translated`, cat.includes('"+{n} in 30 days":') && cat.includes('"{n, plural, one {# cancellation} other {# cancellations}} in 30 days":') && cat.includes('"Deleting on {date}. Members can read it until then. Keep it from Settings.":'))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

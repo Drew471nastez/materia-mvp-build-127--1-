@@ -69,7 +69,7 @@ import { cn } from "@/lib/utils"
 import { iconButton } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, SectionId } from "./view-types"
-import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, useFootsUp, useToast } from "./parts"
+import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, shortDate, useFootsUp, useToast } from "./parts"
 import { nameCoverGradient } from "@/lib/communities/cover-gradient"
 import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
@@ -678,6 +678,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
   }, [framed, shown])
 
+  /* A deletion that is scheduled (round 26, W1: CommunityHead.deleting); read structurally so this compiles before and after that field. */
+  const deleting = (head as CommunityHead & { deleting?: { deleteAt: string } | null }).deleting ?? null
   const hostValue = React.useMemo<HostValue>(() => ({ active, kept, settled, hold, routedHere }), [active, kept, settled, hold, routedHere])
   const foots = useFootsUp()
 
@@ -694,6 +696,11 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
           <div className={cn("mx-auto min-h-full pb-[calc(7rem+var(--foot-room))] pt-4 md:pb-[calc(3rem+var(--foot-room))] lg:pt-5", SHELL_GUTTER, SHELL_WIDTH)} style={{ "--foot-room": `${foots * FOOT_ROOM_PX}px` } as React.CSSProperties} data-community-body="" data-foots={foots}>
             {head.suspended ? (
               <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">{tt("Storelib suspended this community. Members cannot open it. Contact support to talk about it.")}</p>
+            ) : deleting ? (
+              /* Round 26 (W1's pending deletion): not "bring it back", which reads as if nothing were scheduled. */
+              <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]" data-community-deleting="">
+                {tt("Deleting on {date}. Members can read it until then. Keep it from Settings.", { date: shortDate(deleting.deleteAt) })}
+              </p>
             ) : head.archived ? (
               <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]">{tt("This community is archived. Members can read it, nobody can post. Bring it back from Settings.")}</p>
             ) : null}
