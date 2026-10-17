@@ -126,7 +126,14 @@ function useStage(root: React.RefObject<HTMLDivElement | null>, wide: boolean, d
       const paneH = pane.clientHeight || window.innerHeight
       let h: number
       if (wide) {
-        h = paneH - tabsH - 12 - 16
+        /*
+          Stuck under the tabs, the stage may reach no lower than the end of the section's content (the shell keeps 48px
+          and the save bars' room under it): any lower, and at the end of a long panel the row it sticks in would push it
+          up under the tabs.
+        */
+        const body = el.closest<HTMLElement>("[data-community-body]")
+        const foot = body ? parseFloat(getComputedStyle(body).paddingBottom) || 0 : 16
+        h = paneH - tabsH - 12 - Math.max(16, foot)
       } else {
         const stage = el.querySelector<HTMLElement>("[data-page-stage]")
         const bar = el.querySelector<HTMLElement>("[data-page-phone-bar]")
@@ -188,13 +195,22 @@ async function logoColour(url: string): Promise<string | null> {
   }
 }
 
-/** The page inside the frame: its bar, its columns, the About page drawn from the draft. */
+/**
+ * The page inside the frame: its bar, its columns, the About page drawn from the draft.
+ *
+ * DRAWN AFRESH WHEN THE GALLERY CHANGES (round 26). The gallery's strip is Swiper
+ * (components/community/public/gallery-view.tsx, components/product/media-swiper), which a visitor's page never
+ * changes under; in the editor it changed in place, and taking a picture away (two to one) threw inside Swiper's own
+ * update ("reading 'querySelectorAll'"), which took the whole editor down: measured on round 33's editor too. The
+ * page is keyed by what the gallery holds, so a gallery that changes is a new strip, never one updated in place.
+ */
 function FramedPage({ data, visitor }: { data: SalesPageData; visitor: boolean }) {
   const doc = React.useContext(PreviewDocument)
+  const galleryKey = data.community.gallery.map((g) => (g.type === "image" ? g.url : g.type === "video" ? `v:${g.videoId}` : `e:${g.provider}:${g.id}`)).join("|")
   return (
     <JoinSurface.Provider value={doc?.body ?? null}>
       <PreviewChrome community={data.community}>
-        <CommunitySalesPage data={data} editing={!visitor} />
+        <CommunitySalesPage key={galleryKey} data={data} editing={!visitor} />
       </PreviewChrome>
     </JoinSurface.Provider>
   )
@@ -326,8 +342,10 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
   React.useEffect(() => {
     const b = scrollTo.current
     if (!b) return
-    scrollTo.current = null
+    /* Asked again after every render until it runs: a render in between (the drawer arriving) only moves it later. */
     const t = window.setTimeout(() => {
+      if (scrollTo.current !== b) return
+      scrollTo.current = null
       const el = root.current?.ownerDocument.getElementById(`pe-field-${b}`)
       if (!el || !el.getClientRects().length) return
       /*

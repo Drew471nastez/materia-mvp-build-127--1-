@@ -104,7 +104,7 @@ export const notFound = () => {}
     }
     const errors = []
     const api = []
-    p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+    p.on("pageerror", (e) => errors.push(String(e.stack || e).slice(0, 1200)))
     await p.setRequestInterception(true)
     p.on("request", (r) => {
       const url = r.url()
@@ -305,11 +305,18 @@ export const notFound = () => {}
     await p.mouse.down()
     await p.mouse.move(fb.x + fb.width / 2, fb.y + fb.height / 2 + 30, { steps: 5 })
     await p.mouse.up()
+    /* A gallery picture taken away through its tile's menu (../components/community/creator/gallery-tiles.tsx). */
+    await p.$eval("[data-panel=gallery] [data-tile-menu]", (el) => el.scrollIntoView({ block: "center" }))
+    await p.click("[data-panel=gallery] [data-tile-menu]")
+    await sleep(300)
     const removed = await p.evaluate(() => {
-      const b = document.querySelector('[data-panel=gallery] button[aria-label^="Remove"]')
-      b?.click()
-      return !!b
+      const item = [...document.querySelectorAll('[role="menuitem"], [data-action-item], button')].find((b) => b.textContent?.trim() === "Remove" && b.getClientRects().length)
+      item?.click()
+      return item ? item.outerHTML.slice(0, 160) : null
     })
+    await sleep(400)
+    const galleryNow = await f.evaluate(() => document.querySelectorAll("[data-gallery-slide], [data-page-block=gallery] img").length)
+    expect(!!removed && errors.length === 0 && !!(await p.$("[data-page-side]")), "a gallery picture taken away: the editor and the preview carry on (round 33's editor fell over here)", { removed: !!removed, errors: errors.slice(0, 1), galleryNow })
     /* about: the rich description, a line, a question */
     await openGroup(p, "about")
     await p.click("[data-panel=description] [contenteditable=true]")
@@ -367,6 +374,11 @@ export const notFound = () => {}
     await typeInto(p, "#pe-seo-title", "Oak and Ash Club: woodworking together")
     await typeInto(p, "#pe-seo-line", "Weekly build prompts, Saturday calls and a plans library.")
     await p.click("[data-page-field=explore] [role=switch]")
+    /* At the very end of the panel the stage is still under the tabs, not pushed up beneath them. */
+    await p.evaluate(() => { const pane = document.querySelector(".orders-pane"); pane.scrollTo(0, pane.scrollHeight) })
+    await sleep(300)
+    const stuck = await p.evaluate(() => ({ tabs: Math.round(document.querySelector("[data-community-tabs-bar]").getBoundingClientRect().bottom), toolbar: Math.round(document.querySelector("[data-page-toolbar]").getBoundingClientRect().top) }))
+    expect(stuck.toolbar >= stuck.tabs, "scrolled to the end of the panel, the controls and the preview stay below the tabs", stuck)
     const serp = await p.evaluate(() => ({ title: document.querySelector("[data-search-preview-title]")?.textContent, line: document.querySelector("[data-search-preview-line]")?.textContent }))
     expect(serp.title === "Oak and Ash Club: woodworking together" && /plans library/.test(serp.line), "the search result is drawn as typed", serp)
     await shot(p, "save-1440-search")
@@ -419,6 +431,8 @@ export const notFound = () => {}
     expect(!!sheet && sheet.open && sheet.top > 350 && sheet.over <= 0 && sheet.card && sheet.card.bottom <= sheet.top && sheet.card.bottom - sheet.card.top >= 200, "a tap on the tagline opens the drawer at its group, the page above it whole, nothing sideways", { ...sheet, ms: Date.now() - t0 })
     const inView = await f.evaluate(() => { const r = document.querySelector("[data-page-block=tagline]").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight })
     expect(inView, "the tagline is in the part of the page above the drawer", inView)
+    const field = await p.evaluate(() => { const box = document.querySelector("[data-page-sheet-body]").getBoundingClientRect(); const r = document.querySelector("#pe-tagline").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), box: [Math.round(box.top), Math.round(box.bottom)] } })
+    expect(field.top >= field.box[0] && field.bottom <= field.box[1], "the drawer opens on the tagline's field", field)
     await p.type("#pe-tagline", " Every Saturday.")
     await sleep(400)
     const live = await f.evaluate(() => document.querySelector("[data-page-block=tagline]")?.textContent)

@@ -68,15 +68,17 @@ export function SearchPanel({ head, draft: d, set, publishing, onPublish, origin
           <CommunityStatusBadge state={state} />
           <p className="min-w-0 flex-1 text-[13px] leading-5 text-[#6b7280]">{stateLine}</p>
         </div>
-        {onPublish ? (
-          <button type="button" onClick={onPublish} disabled={publishing} className={cn(buttonPrimary, "mt-3 h-10 px-4 text-[14px]")} data-page-publish-inline="">
-            {publishing ? tt("Publishing") : tt("Publish page")}
-          </button>
-        ) : null}
-        <a href={`/app/community/${head.slug}/settings?tab=access`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-page-access-link="">
-          {tt("Who can join, and prices")}
-          <span aria-hidden>→</span>
-        </a>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          {onPublish ? (
+            <button type="button" onClick={onPublish} disabled={publishing} className={cn(buttonPrimary, "h-10 px-4 text-[14px]")} data-page-publish-inline="">
+              {publishing ? tt("Publishing") : tt("Publish page")}
+            </button>
+          ) : null}
+          <a href={`/app/community/${head.slug}/settings?tab=access`} className="inline-flex min-h-10 items-center gap-1 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-page-access-link="">
+            {tt("Who can join, and prices")}
+            <span aria-hidden>→</span>
+          </a>
+        </div>
       </div>
 
       <div className="border-t border-[#f1f2f4] pt-4" data-page-field="explore">
