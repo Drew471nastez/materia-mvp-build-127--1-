@@ -1,0 +1,2 @@
+product_review_id,sku,product_name,rating,review,name,email,date_created,order_number,verified,images
+rio-1,LA-01,Linen Apron,5,Excellent fit,Jo Bloggs,jo@example.com,2024-05-01,1001,Yes,

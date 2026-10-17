@@ -1,0 +1,2 @@
+id,status,rating,email,nickname,full_name,review,date,productId,handle,img,variant,verified_purchase,reply,replied_at
+lx-1,Active,4,kim@example.com,Kim,Kim Park,Nice stitching,2024-01-15T10:00:00Z,555,linen-apron,https://images.loox.io/1.jpg,Natural,true,,
