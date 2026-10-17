@@ -23,34 +23,11 @@
  * (lib/communities/server/member-shortcuts.ts), for a member or staff.
  */
 import Link from "next/link"
-import { ArrowUpRight, BookOpen, Calendar, FileText, Gift, Globe, GraduationCap, Headphones, Heart, Link2, Mail, MessageCircle, Music, Package, PlayCircle, ShoppingBag, Star, Ticket, Users, Video, type LucideIcon } from "lucide-react"
+import { ArrowUpRight } from "lucide-react"
+import { MemberLinkIcon } from "@/components/community/member-link-icon"
 import { memberLinkClickPath, type MemberLinkView } from "@/lib/communities/member-link-view"
 import { tt } from "@/lib/i18n/text"
 import { cn } from "@/lib/utils"
-
-/** The icons a link may carry, by name. A name not here (or none) draws the plain link mark when another link has an icon, so the words still line up. */
-const ICONS: Record<string, LucideIcon> = {
-  link: Link2,
-  "link-2": Link2,
-  globe: Globe,
-  "shopping-bag": ShoppingBag,
-  package: Package,
-  "book-open": BookOpen,
-  "graduation-cap": GraduationCap,
-  calendar: Calendar,
-  video: Video,
-  "play-circle": PlayCircle,
-  "file-text": FileText,
-  "message-circle": MessageCircle,
-  mail: Mail,
-  music: Music,
-  headphones: Headphones,
-  users: Users,
-  heart: Heart,
-  star: Star,
-  gift: Gift,
-  ticket: Ticket,
-}
 
 /** Tell the server about a press without holding up the link: a beacon, else a keepalive fetch, never awaited. */
 export function countMemberLinkPress(communityId: string, linkId: string): void {
@@ -78,7 +55,8 @@ export type MemberLinksVariant = "column" | "menu" | "sheet"
 
 export function MemberLinks({ communityId, links, variant, onPick, className }: { communityId: string; links: MemberLinkView[]; variant: MemberLinksVariant; /** After a press (the menu or the sheet closes). */ onPick?: () => void; className?: string }) {
   if (links.length === 0) return null
-  const anyIcon = links.some((l) => l.icon && ICONS[l.icon])
+  /* A link without an icon draws the plain link mark when another has one, so the words line up; with none, no marks. */
+  const anyIcon = links.some((l) => l.icon)
   const menu = variant === "menu"
   /* Inside the account menu (role="menu") the rows are menu items in a group, not a landmark of their own. */
   const Box = menu ? "div" : "nav"
@@ -87,14 +65,13 @@ export function MemberLinks({ communityId, links, variant, onPick, className }: 
       {variant === "column" ? <p className="px-4 pb-1 text-[12px] font-medium leading-5 text-[#6b7280]">{tt("Links")}</p> : null}
       <ul className="flex flex-col" role={menu ? "none" : undefined}>
         {links.map((l) => {
-          const Icon = (l.icon && ICONS[l.icon]) || Link2
           const row = cn(
             "group/member-link flex w-full min-w-0 items-center text-[#4b5563] outline-none transition-colors duration-150 hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] focus-visible:text-[#1a1a2e] active:bg-[#f1f2f4] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
             ROW[variant],
           )
           const inner = (
             <>
-              {anyIcon ? <Icon aria-hidden className={cn("shrink-0 text-[#6b7280]", variant === "sheet" ? "h-[18px] w-[18px]" : "h-[15px] w-[15px]")} strokeWidth={1.8} /> : null}
+              {anyIcon ? <MemberLinkIcon name={l.icon} className={cn("shrink-0 text-[#6b7280]", variant === "sheet" ? "h-[18px] w-[18px]" : "h-[15px] w-[15px]")} /> : null}
               <span className="min-w-0 flex-1 truncate">{l.label}</span>
               {l.external ? (
                 <>

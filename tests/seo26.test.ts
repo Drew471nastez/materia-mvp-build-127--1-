@@ -288,17 +288,19 @@ async function main() {
   console.log("\nMember links, as shown")
   {
     const views = memberLinkViews(LINKS)
-    check("hidden and unsafe links are gone, four at most, in order", JSON.stringify(views.map((v) => v.id)) === JSON.stringify(["lk_shop", "lk_course", "lk_home", "lk_five"]) && views.length === MEMBER_LINKS_SHOWN, views)
+    /* The editor's reading (W5's cleanMemberLinks): the first four whole links, hidden ones counted, then the hidden ones left out. */
+    check("hidden and unsafe links are gone, four at most (as stored), in order", JSON.stringify(views.map((v) => v.id)) === JSON.stringify(["lk_shop", "lk_course", "lk_home"]) && MEMBER_LINKS_SHOWN === 4, views)
     check("labels are trimmed", views[0].label === "The shop")
     check("another site opens in a new tab, as it was given", views[0].external && views[0].href === "https://shop.example.com/a?x=1")
     check("a path stays here, so its own page decides who may see it", !views[1].external && views[1].href === "/ana/course-one")
     check("a storelib.com address becomes its path, here", !views[2].external && views[2].href === "/ana?ref=c")
     const bad = ["javascript:alert(1)", "JAVASCRIPT:alert(1)", "data:text/html,x", "//evil.example.com", "/\\evil.example.com", "vbscript:x", "ftp://x.example.com", "https://user:pw@x.example.com", "https://x.example.com/a b", " ", 42, null]
     check("never javascript:, data:, //host, /\\host, other schemes, credentials or spaces", bad.every((u) => memberLinkTarget(u) === null), bad.map((u) => memberLinkTarget(u)))
-    check("not a list, or junk items: no links", memberLinkViews(null).length === 0 && memberLinkViews({}).length === 0 && memberLinkViews([null, 1, "x", { id: "bad id!", label: "x", url: "/x" }, { id: "ok", label: "", url: "/x" }]).length === 0)
-    check("a duplicate id is drawn once", memberLinkViews([{ id: "a", label: "One", url: "/a" }, { id: "a", label: "Two", url: "/b" }]).length === 1)
-    check("a long label is cut to 40 characters", memberLinkViews([{ id: "a", label: "x".repeat(60), url: "/a" }])[0].label.length === 40)
-    check("an unknown icon name is kept only when it is a plain name", memberLinkViews([{ id: "a", label: "A", url: "/a", icon: "<svg>" }])[0].icon === null && memberLinkViews([{ id: "a", label: "A", url: "/a", icon: "globe" }])[0].icon === "globe")
+    check("not a list, or junk items: no links", memberLinkViews(null).length === 0 && memberLinkViews({}).length === 0 && memberLinkViews([null, 1, "x", { id: "okid", label: "", url: "/x" }, { id: "okid2", label: "x", url: "javascript:x" }]).length === 0)
+    const twins = memberLinkViews([{ id: "aaaa1111", label: "One", url: "/a" }, { id: "aaaa1111", label: "Two", url: "/b" }])
+    check("a duplicate id gets its own, so each press counts against one link", twins.length === 2 && twins[0].id !== twins[1].id)
+    check("a long label is cut to 40 characters", memberLinkViews([{ id: "aaaa1111", label: "x".repeat(60), url: "/a" }])[0].label.length === 40)
+    check("an icon is kept only when it is one of the editor's", memberLinkViews([{ id: "aaaa1111", label: "A", url: "/a", icon: "<svg>" }])[0].icon === null && memberLinkViews([{ id: "aaaa1111", label: "A", url: "/a", icon: "globe" }])[0].icon === "globe")
     check("the press goes to the community's own route", memberLinkClickPath(C, "lk_shop") === `/api/community/${C}/links/lk_shop/click`)
   }
 
@@ -319,7 +321,7 @@ async function main() {
     const none = await memberLinksForViewer(row(), viewer({ userId: STRANGER, role: null, active: false, status: null }), db as never)
     check("for anybody outside, the column is not even read", none.length === 0 && db.log.length === before)
     const mine = await memberLinksForViewer(row(), viewer(), db as never)
-    check("for a member: the visible, safe ones", JSON.stringify(mine.map((l) => l.id)) === JSON.stringify(["lk_shop", "lk_course", "lk_home", "lk_five"]))
+    check("for a member: the visible, safe ones", JSON.stringify(mine.map((l) => l.id)) === JSON.stringify(["lk_shop", "lk_course", "lk_home"]))
     check("before part 220 (no column): no links, nothing fails", (await memberLinksForViewer(row(), viewer(), fakeDb({ communities: [{ id: C }] }) as never)).length === 0)
   }
 
@@ -383,7 +385,7 @@ async function main() {
     const shared = JSON.stringify(await sitemapCommunities(0, 10, world as never))
     check("nor the sitemap", secrets.every((s) => !shared.includes(s)))
     /* Only the member area's server read and the editor's own paths may name the column. */
-    const allowed = [/^lib\/communities\/server\/member-shortcuts\.ts$/, /^lib\/communities\/member-links\.ts$/, /^lib\/communities\/server\/creator[\w-]*\.ts$/, /^lib\/communities\/server\/page-editor[\w-]*\.ts$/, /^components\/community\/creator\//, /^app\/app\//, /^app\/api\/app\//, /^lib\/communities\/(view-types|types)\.ts$/, /^components\/community\/creator\/view-types\.ts$/]
+    const allowed = [/^lib\/communities\/server\/member-shortcuts\.ts$/, /^lib\/communities\/member-links\.ts$/, /^lib\/communities\/server\/creator[\w-]*\.ts$/, /^lib\/communities\/server\/page-editor[\w-]*\.ts$/, /^lib\/communities\/server\/page-fields\.ts$/, /^lib\/admin\/sql-parts\.generated\.ts$/, /^components\/community\/creator\//, /^app\/app\//, /^app\/api\/app\//, /^lib\/communities\/(view-types|types)\.ts$/, /^components\/community\/creator\/view-types\.ts$/]
     const walk = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(f) ? [p] : [] }) : [])
     const naming = ["app", "components", "lib"].flatMap(walk).filter((p) => /member_links/.test(code(p)))
     const stray = naming.filter((p) => !allowed.some((re) => re.test(p)))
