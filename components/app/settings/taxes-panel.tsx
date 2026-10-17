@@ -542,7 +542,7 @@ function TaxOverview({ currency }: { currency: string }) {
         {top.length ? (
           <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-tax-countries="">
             {top.map((l) => (
-              <li key={l.country ?? "?"} className="flex items-center gap-3 px-3.5 py-2.5">
+              <li key={l.country ?? "none"} className="flex items-center gap-3 px-3.5 py-2.5">
                 {l.country ? <CountryFlag code={l.country} /> : <span aria-hidden className="h-4 w-5 rounded-[3px] bg-[#eceef1]" />}
                 <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{l.country ? countryName(l.country) : tt("Country not recorded")}</span>
                 <span className="text-[12.5px] text-[#6b7280]">

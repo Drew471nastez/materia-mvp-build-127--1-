@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     if (!email) return NextResponse.json({ error: "No such email." }, { status: 404 })
     return NextResponse.json(email, { headers: { "Cache-Control": "no-store" } })
   } catch (e) {
-    return NextResponse.json({ error: `It could not be drawn: ${e instanceof Error ? e.message.slice(0, 200) : "unknown"}` }, { status: 500 })
+    console.error("[admin/emails] draw:", e instanceof Error ? e.message.slice(0, 200) : "unknown")
+    return NextResponse.json({ error: "This email could not be drawn. The server log has why." }, { status: 500 })
   }
 }

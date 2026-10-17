@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
+import { manageLimit } from "@/lib/communities/server/creator"
 import { isEditableEmail, previewBroadcast, previewEmailWords, wordsInput } from "@/lib/communities/server/email-templates"
 import { BROADCAST_LIMITS } from "@/lib/communities/server/broadcasts"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -24,6 +25,8 @@ export async function POST(request: Request, { params }: Params) {
   const { id } = await params
   const gate = await requireCreatorCommunity(id, "manage_settings")
   if (gate instanceof NextResponse) return gate
+  const limited = await manageLimit(gate.ctx.userId)
+  if (limited) return limited
   const body = await readJson(request)
   const db = gate.ctx.admin
   let creatorName: string | null = null

@@ -17,7 +17,9 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const days = taxPeriod(url.searchParams.get("days"))
-  const [setup, creator] = await Promise.all([loadTaxSetup(c.db, c.creatorId), c.db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()])
+  /* c.db is the service client (shopCaller), and the caller owns or works in this store. */
+  const db = c.db
+  const [setup, creator] = await Promise.all([loadTaxSetup(db, c.creatorId), db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()])
   const currency = ((creator?.data?.payout_currency as string | null) ?? "USD").toUpperCase()
   if (url.searchParams.get("format") === "csv") {
     const rows = await taxOrders(c.db, c.creatorId, days)

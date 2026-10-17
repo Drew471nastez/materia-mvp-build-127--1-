@@ -1,4 +1,4 @@
--- Round AG: community plans and memberships. Safe to run again.
+-- Round AG (run-now part 217): plans and trials, deleted accounts, storage cleanup, module sales, member emails. Safe to run again.
 
 -- A free trial is none, or 7 to 90 days. Plans saved with a shorter trial get 7 (the app already treats them as 7).
 UPDATE public.membership_plans SET trial_days = 7, updated_at = now() WHERE trial_days BETWEEN 1 AND 6;
@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS public.community_module_access (module_id uuid NOT NU
 CREATE INDEX IF NOT EXISTS community_module_access_user ON public.community_module_access (user_id) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS community_module_access_intent ON public.community_module_access (payment_intent_id) WHERE payment_intent_id IS NOT NULL;
 ALTER TABLE public.community_module_access ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.community_module_access FROM anon, authenticated;
+REVOKE ALL ON public.community_module_access FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_module_access TO service_role;
 
 
 -- Email your members: the owner's own email, at most one a day per community (lib/communities/server/broadcasts.ts). Server only.
@@ -131,7 +132,8 @@ CREATE TABLE IF NOT EXISTS public.community_broadcasts (
 );
 CREATE INDEX IF NOT EXISTS community_broadcasts_community_created ON public.community_broadcasts (community_id, created_at DESC);
 ALTER TABLE public.community_broadcasts ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.community_broadcasts FROM anon, authenticated;
+REVOKE ALL ON public.community_broadcasts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_broadcasts TO service_role;
 
 -- A community's own subject, heading and opening line for each of its emails (lib/communities/server/email-templates.ts). Server only.
 CREATE TABLE IF NOT EXISTS public.community_email_templates (
@@ -145,4 +147,7 @@ CREATE TABLE IF NOT EXISTS public.community_email_templates (
   PRIMARY KEY (community_id, kind)
 );
 ALTER TABLE public.community_email_templates ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.community_email_templates FROM anon, authenticated;
+REVOKE ALL ON public.community_email_templates FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_email_templates TO service_role;
+
+notify pgrst, 'reload schema';

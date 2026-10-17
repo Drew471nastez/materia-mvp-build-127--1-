@@ -384,7 +384,7 @@ async function main() {
     check("an approval for a paid community says to finish joining", /Finish joining/.test(approved.text) && approved.text.includes("$19/month"))
 
     /* Round 14 adds the four a ticket for a paid event can send: the receipt, a free seat, a refund, and an event called off. */
-    check("sendCommunityEmail takes the eleven kinds (the daily report email since round 12, tickets since round 14), with or without the prefix", COMMUNITY_EMAIL_KINDS.length === 11 && COMMUNITY_EMAIL_KINDS.includes("report_digest") && COMMUNITY_EMAIL_KINDS.includes("event_ticket") && communityEmailKind("community.welcome") === "welcome" && communityEmailKind("post") === null)
+    check("sendCommunityEmail takes the twelve kinds (the daily report email since round 12, tickets since round 14, the owner's own email since round AG), with or without the prefix", COMMUNITY_EMAIL_KINDS.length === 12 && COMMUNITY_EMAIL_KINDS.includes("report_digest") && COMMUNITY_EMAIL_KINDS.includes("event_ticket") && communityEmailKind("community.welcome") === "welcome" && communityEmailKind("post") === null)
     check("its key names the kind, the community, the recipient and the caller's key", communityEmailKey("announcement", C1, `u:${U1}`, "announcement:p1") === `community.announcement:${C1}:u:${U1}:announcement:p1`)
 
     const db = fake(
