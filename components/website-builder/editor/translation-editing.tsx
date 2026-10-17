@@ -19,10 +19,10 @@
  *   typed here           the merchant's own ("Edited"). Storelib AI never
  *                        replaces it, whatever changes later.
  *   original changes     the merchant's stays on the website as written and
- *                        is badged "Original changed" until they edit it,
+ *                        is badged "Needs review" until they edit it,
  *                        press Keep mine, or press Use automatic. Storelib
  *                        AI's own is rewritten by the next automatic run,
- *                        for that text only ("Updating").
+ *                        for that text only ("Outdated" until then).
  *   Reset to automatic   a fresh translation from Storelib AI for this one
  *                        text, put in place only once it has come back.
  *   Don't translate      the original shows in every language; Storelib AI
@@ -230,10 +230,11 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
 /* ── Drawing ───────────────────────────────────────────────────────────── */
 
 const BADGE: Record<FieldTranslationState, { label: () => string; dot: string }> = {
-  auto: { label: () => tt("Auto"), dot: "bg-[#8b5cf6]" },
-  updating: { label: () => tt("Updating"), dot: "bg-[#d1d5db]" },
+  /* The same names as Settings' Translate list and a product's Translations card. */
+  auto: { label: () => tt("Automatic"), dot: "bg-[#8b5cf6]" },
+  updating: { label: () => tt("Outdated"), dot: "bg-[#d1d5db]" },
   edited: { label: () => tt("Edited"), dot: "bg-[#10b981]" },
-  outdated: { label: () => tt("Original changed"), dot: "bg-[#f59e0b]" },
+  outdated: { label: () => tt("Needs review"), dot: "bg-[#f59e0b]" },
   missing: { label: () => tt("Not translated"), dot: "bg-[#d1d5db]" },
   excluded: { label: () => tt("Kept as written"), dot: "bg-[#9ca3af]" },
 }

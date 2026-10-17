@@ -16,7 +16,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { editorLanguages } from "./model"
 import { localizationOf, saveTranslations, siteTexts, translationRulesOf, translationsOf } from "./server"
-import { isExcluded } from "./translation-rules"
+import { changedTerms, isExcluded, textsWithTerms, type TranslationRules } from "./translation-rules"
 import { BUILT_IN_GROUPS, MAX_TRANSLATION_LENGTH, aiMayWrite, isEnglish, isTranslationKey, needsReview, statusOf, translationMap } from "./translate"
 import { draftReusing } from "./translate-ai"
 import { defaultLanguageScope, writtenLanguage } from "./detect-language"
@@ -124,8 +124,11 @@ export async function translateFieldsNow(
   locale: string,
   items: unknown,
   userId: string | null,
-  /** `draft`: the translator, Storelib AI's by default (translate-ai.ts draftReusing); a test passes its own so nothing leaves the machine. */
-  opts: { replaceManual: boolean; deadlineAt: number; draft?: typeof draftReusing },
+  /**
+   * `draft`: the translator, Storelib AI's by default (translate-ai.ts draftReusing); a test passes its own so nothing leaves the machine.
+   * `fresh`: keys whose saved translations are not reused for others (a glossary change rewrites them, so their old words must not come back).
+   */
+  opts: { replaceManual: boolean; deadlineAt: number; draft?: typeof draftReusing; fresh?: Set<string> },
 ): Promise<FieldPressResult> {
   const where = await translatableLocale(db, creatorId, locale)
   if (!where.ok) return { ok: false, status: 400, error: "Add this language to your website first." }
@@ -143,7 +146,7 @@ export async function translateFieldsNow(
   const skipped = [...asked.keys()].filter((k) => !wanted.some((w) => w.key === k))
   if (wanted.length === 0) return { ok: true, values: {}, skipped }
   const keys = new Set(wanted.map((w) => w.key))
-  const memory = saved.rows.filter((r) => !keys.has(r.key) && (!opts.replaceManual || r.source === "ai"))
+  const memory = saved.rows.filter((r) => !keys.has(r.key) && !opts.fresh?.has(r.key) && (!opts.replaceManual || r.source === "ai"))
   /* From the website's own language; into the default itself, the shop's words are English. */
   const from = where.own ? "en" : where.defaultLanguage
   const { drafts, unavailable, reason, busy } = await (opts.draft ?? draftReusing)(wanted.map((w) => ({ key: w.key, source: w.source })), memory, from, locale, store?.name || "the store", { deadlineAt: opts.deadlineAt, concurrency: 2, rules })
@@ -156,4 +159,68 @@ export async function translateFieldsNow(
   const values: Record<string, { v: string; h: string; s: "ai" }> = {}
   for (const r of (data ?? []) as { key: string; value: string; source_hash: string; source: string }[]) if (r.source === "ai") values[r.key] = { v: r.value, h: r.source_hash, s: "ai" }
   return { ok: true, values, skipped: [...skipped, ...wanted.filter((w) => !values[w.key]).map((w) => w.key)] }
+}
+
+/* ── The glossary changed: Storelib AI's translations that use those words, written again ── */
+
+/** At most this many texts are written again for one glossary save, across every language. */
+export const GLOSSARY_REWRITE_MAX = 200
+
+export type GlossaryRewrite = { locale: string; items: { key: string; source: string; rich: boolean }[] }[]
+
+/**
+ * What a glossary change asks of the translations already made: in each of
+ * the store's other languages, Storelib AI's live translations whose
+ * original has a term whose rule changed there (translation-rules.ts
+ * changedTerms). Never one a person wrote, never a draft, never a text kept
+ * as written. Nothing when no term changed, so a save of the product names
+ * switch alone reads nothing more.
+ */
+export async function planGlossaryRewrite(db: Db, creatorId: string, before: TranslationRules, after: TranslationRules): Promise<GlossaryRewrite> {
+  /* The glossary as it was (a Don't translate press, the product names switch): nothing is read at all. */
+  if (JSON.stringify(before.glossary) === JSON.stringify(after.glossary)) return []
+  const loc = (await localizationOf(db, creatorId, (await readStoreCurrency(db, creatorId)).currency)).value
+  const locales = loc.languages.map((l) => l.code).filter((c) => c !== loc.defaultLanguage)
+  const terms = new Map(locales.map((code) => [code, changedTerms(before.glossary, after.glossary, code)] as const))
+  if (![...terms.values()].some((t) => t.length)) return []
+  const texts = (await siteTexts(db, creatorId)).flatMap((g) => g.items)
+  const plan: GlossaryRewrite = []
+  let left = GLOSSARY_REWRITE_MAX
+  for (const code of locales) {
+    const using = textsWithTerms(texts, terms.get(code) ?? []).filter((t) => !isExcluded(after, t.key))
+    if (using.length === 0 || left <= 0) continue
+    const map = translationMap((await translationsOf(db, creatorId, code)).rows)
+    const items = using
+      .filter((t) => {
+        const row = map.get(t.key)
+        return row?.source === "ai" && row.status === "approved" && !!row.value.trim()
+      })
+      .slice(0, left)
+      .map((t) => ({ key: t.key, source: t.source, rich: /<[a-z][\s\S]*>/i.test(t.source) }))
+    if (items.length === 0) continue
+    left -= items.length
+    plan.push({ locale: code, items })
+  }
+  return plan
+}
+
+/**
+ * The plan written, a press at a time, through the sidebar's own per-text
+ * press (translateFieldsNow): the glossary as now saved applies, a person's
+ * translation is never replaced, and each old translation stays live until
+ * its new one is in. Stops at `deadlineAt`; what is left keeps its earlier
+ * words. Answers how many were written again.
+ */
+export async function rewriteForGlossary(db: Db, creatorId: string, plan: GlossaryRewrite, userId: string | null, deadlineAt: number, opts: { draft?: typeof draftReusing } = {}): Promise<number> {
+  let written = 0
+  for (const { locale, items } of plan) {
+    const fresh = new Set(items.map((i) => i.key))
+    for (let at = 0; at < items.length; at += PER_FIELD_PRESS) {
+      if (Date.now() + 20_000 > deadlineAt) return written
+      const r = await translateFieldsNow(db, creatorId, locale, items.slice(at, at + PER_FIELD_PRESS), userId, { replaceManual: false, deadlineAt, draft: opts.draft, fresh })
+      if (r.ok === false) break
+      written += Object.keys(r.values).length
+    }
+  }
+  return written
 }

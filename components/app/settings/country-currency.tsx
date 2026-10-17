@@ -93,7 +93,23 @@ export function CountryCurrency() {
   }, [])
 
   if (!data) {
-    return loadError ? <Notice>{loadError}</Notice> : <div className="h-[132px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" aria-busy="true" />
+    if (loadError) return <Notice>{loadError}</Notice>
+    /* The card's own shape while it is read (title, its line, How it works, Selling in), so the cards under it barely move when it lands. */
+    return (
+      <Card title={tt("Store currency")} description={
+          /* Line boxes of the line's own height: three on a phone, two from 640px, as the sentence wraps. */
+          <span className="block" aria-hidden>
+            <span className="flex h-5 items-center"><span className="block h-3 w-full max-w-[420px] rounded bg-[#f1f2f4]" /></span>
+            <span className="flex h-5 items-center"><span className="block h-3 w-full max-w-[360px] rounded bg-[#f1f2f4]" /></span>
+            <span className="flex h-5 items-center sm:hidden"><span className="block h-3 w-1/2 rounded bg-[#f1f2f4]" /></span>
+          </span>
+        } help="currency" action={<span className="block h-10 w-[58px] rounded-lg bg-[#f5f6f7]" />}>
+        <div className="flex min-h-[28px] items-center justify-between gap-3" aria-busy="true">
+          <span className="text-[14px] text-[#6b7280]">{tt("Selling in")}</span>
+          <span className="block h-3.5 w-28 rounded bg-[#f1f2f4]" />
+        </div>
+      </Card>
+    )
   }
 
   return (

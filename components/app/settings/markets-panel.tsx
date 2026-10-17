@@ -119,7 +119,7 @@ function AutoTranslateStatus({ run, review, onReview }: { run: AutoRun | null; r
       ) : null}
       {review > 0 ? (
         <p className="flex flex-wrap items-center gap-x-2 text-[#b45309]" data-auto-translate-review={review}>
-          <span>{review === 1 ? tt("1 of your translations needs a look because the original changed.") : tt("{count} of your translations need a look because the original changed.", { count: review })}</span>
+          <span>{review === 1 ? tt("1 of your translations needs review because the original changed.") : tt("{count} of your translations need review because the original changed.", { count: review })}</span>
           <button type="button" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline" onClick={onReview} data-review-translations="">
             {tt("Review")}
           </button>
@@ -258,18 +258,35 @@ export function MarketsPanel() {
   if (!data || !draft) {
     return (
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
-        <CountryCurrency />
-        <Card title={tt("Languages")} description={tt("Your website in more languages.")}>
+        {/* Keyed in both shapes: the card above is the same one while the languages load and after, never drawn again from nothing (it moved the page down by its own height). */}
+        <CountryCurrency key="currency" />
+        <Card title={tt("Languages")} help="languages" description={tt("Your website in more languages, each at its own address like /fr.")}>
           {error ? (
             <Notice>{error}</Notice>
           ) : (
-            /* The list's own shape while it is read: a row for the website's language, never an empty box. */
-            <div className="overflow-hidden rounded-xl border border-[#eceef1]" data-languages-loading="">
-              <div className="flex items-center gap-3 px-3.5 py-3">
-                <span className="h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
-                <span className="flex-1 space-y-1.5">
-                  <span className="block h-3.5 w-28 rounded bg-[#f1f2f4]" />
-                  <span className="block h-3 w-40 rounded bg-[#f5f6f7]" />
+            /* The card's own shape while it is read, line for line: the website's language, the row of actions, More options. Nothing moves when it arrives. */
+            <div aria-busy="true" data-languages-loading="">
+              <div className="overflow-hidden rounded-xl border border-[#eceef1]">
+                {/* The default language's row as it wraps: its picker under the name on a phone, beside it from 640px. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-3">
+                  <span className="h-9 w-9 shrink-0 rounded-lg bg-[#f1f2f4]" />
+                  <span className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
+                    <span className="flex h-6 items-center"><span className="block h-3.5 w-28 rounded bg-[#f1f2f4]" /></span>
+                    <span className="flex h-[18px] items-center"><span className="block h-3 w-40 rounded bg-[#f5f6f7]" /></span>
+                  </span>
+                  <span className="ml-12 h-9 w-24 shrink-0 rounded-lg bg-[#f5f6f7] sm:ml-0" />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button type="button" className={BTN_SECONDARY} disabled>
+                  <Plus className="h-4 w-4" />
+                  {tt("Add language")}
+                </button>
+              </div>
+              <div className="mt-4 border-t border-[#f1f2f4] pt-3">
+                <span className="flex items-center gap-1.5 text-[13.5px] font-medium text-[#9ca3af]">
+                  <ChevronRight aria-hidden className="h-4 w-4" />
+                  {tt("More options")}
                 </span>
               </div>
             </div>
@@ -296,7 +313,7 @@ export function MarketsPanel() {
       {error ? <Notice>{error}</Notice> : null}
 
       {/* ONE CURRENCY FOR EVERYTHING: the store's prices, its website, the builder's canvas and checkout. The currencies below are extra ones a visitor can switch to. */}
-      <CountryCurrency />
+      <CountryCurrency key="currency" />
 
       <Card
         title={tt("Languages")}
@@ -402,9 +419,10 @@ export function MarketsPanel() {
                           ? [
                               `/${l.code.toLowerCase()}`,
                               tt("{done} of {total} translated", { done: p.done, total: p.total }),
-                              p.draft > 0 ? tt("{count} to review", { count: p.draft }) : null,
+                              /* The same names as the Translate sheet's: Draft, Needs review. */
+                              p.draft > 0 ? (p.draft === 1 ? tt("1 draft") : tt("{count} drafts", { count: p.draft })) : null,
                               /* The merchant's own, its original changed since: still live, theirs to look at (translate.ts needsReview). */
-                              p.review ? tt("{count} need a look", { count: p.review }) : null,
+                              p.review ? (p.review === 1 ? tt("1 needs review") : tt("{count} need review", { count: p.review })) : null,
                             ]
                               .filter(Boolean)
                               .join(" · ")
@@ -458,12 +476,20 @@ export function MarketsPanel() {
             )
           })}
         </ul>
-        <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
-          <Plus className="h-4 w-4" />
-          {tt("Add language")}
-        </button>
-        {/* Words automatic translation keeps or always translates one way (./translation-glossary.tsx). */}
-        {draft.languages.length ? <GlossaryButton languages={draft.languages.map((l) => l.code)} disabled={!data.ready} /> : null}
+        {/*
+          ONE ROW OF ACTIONS. Add language and Glossary share a flex row with a
+          gap, so they sit on one line at the same height at every width; the
+          Glossary button used to carry its own margins and moved when the row
+          wrapped. Glossary: words automatic translation keeps or always
+          translates one way (./translation-glossary.tsx).
+        */}
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-language-actions="">
+          <button type="button" className={BTN_SECONDARY} onClick={() => setPicking(true)} disabled={!data.ready} data-add-language="">
+            <Plus className="h-4 w-4" />
+            {tt("Add language")}
+          </button>
+          {draft.languages.length ? <GlossaryButton languages={draft.languages.map((l) => l.code)} disabled={!data.ready} /> : null}
+        </div>
         {/* The two switches most stores never touch, folded away (both saved as they are switched, like the rest). */}
         <details className="group mt-4 border-t border-[#f1f2f4] pt-3" data-language-options="" open={draft.visitorLanguage === true || draft.autoTranslate === true ? true : undefined}>
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
