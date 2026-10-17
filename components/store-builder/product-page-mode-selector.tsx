@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { useRouter } from "next/navigation"
 import { useStoreBuilder } from "./store-builder-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -32,9 +32,9 @@ export function ProductPageModeSelector({ open, onOpenChange, products }: Produc
 
   const filteredProducts = products.filter((p) => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
 
-  const formatPrice = (cents: number) => {
-    return shopMoney(cents, { grouping: true })
-  }
+  /* In the store's own currency (components/platform/price-currency). */
+  const sellerMoney = useSellerMoney()
+  const formatPrice = (cents: number) => sellerMoney(cents, { grouping: true })
 
   const handleSelectProduct = (productId: string) => {
     setSelectedProduct(productId)

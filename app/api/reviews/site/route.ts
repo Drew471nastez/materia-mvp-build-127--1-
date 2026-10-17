@@ -8,6 +8,7 @@ import { loadReviewsApp } from "@/lib/reviews/app-server"
 import { storeReviewPhoto } from "@/lib/reviews/photos-server"
 import { settleSiteReview } from "@/lib/reviews/site-server"
 import { later } from "@/lib/reviews/later"
+import { cleanReturnPage } from "@/lib/reviews/return-page"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -16,7 +17,12 @@ export const dynamic = "force-dynamic"
  * ===========================================================================
  *  A REVIEW WRITTEN ON THE WEBSITE (Storelib Reviews, "anyone can write")
  * ===========================================================================
- *   POST { productId, rating, title?, content, name, email, photos?, website? }
+ *   POST { productId, rating, title?, content, name, email, photos?, website?, page? }
+ *
+ * `page`: the address the form is on (or the Referer), kept when it is on
+ * this host, so the confirm email brings the buyer back to it
+ * (lib/reviews/return-page). A form sent by the page's script (Accept:
+ * application/json) is answered in JSON and the page does not reload.
  *
  * Only when the store has the app on and lets anyone write. Otherwise 403,
  * whatever the form says: the website only draws the form when it is
@@ -98,6 +104,10 @@ export async function POST(request: NextRequest) {
     if (typeof v === "string") body[k] = v
   }
   const files = data.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0)
+  const page = data.get("page")
+  if (typeof page === "string") body.page = page
+  /* Sent by the page's own script (lib/reviews/widgets/enhance.ts): answered in JSON, so the page stays where it is. */
+  if (/application\/json/i.test(request.headers.get("accept") ?? "")) return take(request, body, files, answer)
   return take(request, body, files, (out, status = 200) => {
     const st = (out as { status?: string; error?: string } | null)?.status
     if (status === 202 || st === "check_email") return backTo(request, "review-check-email")
@@ -172,6 +182,7 @@ async function take(request: NextRequest, body: Record<string, unknown>, files: 
     name: input.name,
     photoPaths: input.photoPaths,
     owner,
+    page: cleanReturnPage(body.page ?? request.headers.get("referer"), request.headers.get("x-forwarded-host") ?? request.headers.get("host")),
   }
   later(() => settleSiteReview(db, typed, settings))
   return answer(CHECK_EMAIL, 202)

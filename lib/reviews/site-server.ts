@@ -32,6 +32,8 @@ export type TypedReview = {
   name: string
   photoPaths: string[]
   owner: string
+  /** The website page it was written on, checked (lib/reviews/return-page): the confirm link comes back to it. */
+  page?: string | null
 }
 
 /**
@@ -65,7 +67,7 @@ export async function settleSiteReview(db: Db, t: TypedReview, settings: Reviews
   if (error || !draft) return drop()
   const photos = await claimUploads(db, { creatorId: t.creatorId, owner: t.owner, paths: t.photoPaths, claimAs: `draft:${draft.id}` })
   if (photos.length) await db.from("review_drafts").update({ photos }).eq("id", draft.id)
-  await sendConfirmEmail(db, { id: draft.id, email: t.email, creator_id: t.creatorId, product_title: t.product.title, store_name: t.storeName })
+  await sendConfirmEmail(db, { id: draft.id, email: t.email, creator_id: t.creatorId, product_id: t.product.id, product_title: t.product.title, store_name: t.storeName, rating: t.rating, title: t.title, content: t.content, page: t.page ?? null })
   return "confirm"
 }
 

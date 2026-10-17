@@ -93,9 +93,9 @@ export function TreeSpacer() {
 
 /**
  * ADD, ON THE SAME GRID. One line for "Add section" and for "Add block": the
- * plus in the mark column and the words on the names' edge, in Storelib's
- * violet so the one line on the list that makes something is the one line
- * that is coloured.
+ * plus in the mark column and the words on the names' edge. Dark grey, not
+ * violet (the owner, round AH): it reads as part of the list, a step
+ * stronger than a row's name, and lifts a little under the pointer.
  */
 export function TreeAddRow({
   label,
@@ -113,7 +113,7 @@ export function TreeAddRow({
       type="button"
       onClick={onClick}
       style={{ paddingLeft: rowIndent(depth) }}
-      className="flex h-8 w-full items-center rounded-md pr-1 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:text-[15px] [-webkit-tap-highlight-color:transparent]"
+      className="flex h-8 w-full items-center rounded-md pr-1 text-left text-[13px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:text-[15px] [-webkit-tap-highlight-color:transparent]"
       {...rest}
     >
       <TreeSpacer />

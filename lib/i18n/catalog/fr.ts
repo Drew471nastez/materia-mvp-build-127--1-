@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Aller aux intégrations",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "Non connecté, ce tarif n'est donc pas proposé. Connectez-le dans Réglages › Intégrations.",
  "Your connected account prices each order for the buyer's address.": "Votre compte connecté calcule le prix de chaque commande pour l'adresse de l'acheteur.",
- "{name} (not connected)": "{name} (non connecté)"
+ "{name} (not connected)": "{name} (non connecté)",
+ "All languages": "Toutes les langues",
+ "Text saves to {name}. Everything else changes in all languages.": "Le texte est enregistré pour {name}. Tout le reste change dans toutes les langues.",
+ "Paste below": "Coller en dessous",
+ "Paste here": "Coller ici",
+ "Copy a section first": "Copiez d'abord une section",
+ "Storelib adds what you set here at checkout, and nothing more.": "Storelib ajoute au paiement ce que vous réglez ici, et rien de plus.",
+ "Added at checkout for buyers in your regions.": "Ajoutée au paiement pour les acheteurs de vos régions.",
+ "Your prices": "Vos prix",
+ "Already include tax, in {currency}": "Incluent déjà la taxe, en {currency}",
+ "Tax is added on top, in {currency}": "La taxe s'ajoute au prix, en {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Téléchargements, cours et abonnements, selon le pays de l'acheteur.",
+ "Regions": "Régions",
+ "The countries or states where you charge tax, and the rate in each.": "Les pays ou États où vous facturez la taxe, et le taux dans chacun.",
+ "Add region": "Ajouter une région",
+ "No regions yet": "Aucune région pour l'instant",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "Au paiement, Storelib ajoute la taxe prévue par vos réglages ci-dessus, l'affiche à l'acheteur, l'indique sur le reçu et en garde la trace ici. Rien n'est à configurer avant de vendre."
 }
 
 export default words

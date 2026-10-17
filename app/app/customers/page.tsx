@@ -12,6 +12,7 @@ import { LOCALE_TAG } from "@/lib/i18n/text"
 import { accountTimeZone } from "@/lib/account/time-zone"
 import { orderCurrency } from "@/lib/orders/money"
 import { minorUnits } from "@/lib/markets/money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -56,13 +57,15 @@ export default async function CustomersPage() {
       .in("product_id", products?.map((p) => p.id) || [])
       .order("created_at", { ascending: false })
   }
-  const [{ data: customers }, { data: allOrders }] = await Promise.all([
+  const [{ data: customers }, { data: allOrders }, { currency: storeCurrency }] = await Promise.all([
     admin
       .from("customers")
       .select("*")
       .eq("creator_id", creator.id)
       .order("created_at", { ascending: false }),
     readOrders(),
+    /* A customer's total is in what the store sells in: a lei store's customers spent lei (lib/store/selling-currency). */
+    readStoreCurrency(admin, creator.id),
   ])
 
   /* In what the order was charged in, and a total in the platform's charge currency, every checkout's (lib/orders/money). */
@@ -147,7 +150,7 @@ export default async function CustomersPage() {
                         <span>
                           {tt("{length, plural, one {# order} other {# orders}}", { length: orders.length })}
                         </span>
-                        <span>{tt("Total: {amount}", { amount: formatPrice(customer.total_spent_cents) })}</span>
+                        <span>{tt("Total: {amount}", { amount: formatPrice(customer.total_spent_cents, storeCurrency) })}</span>
                       </div>
                     </div>
                   )
@@ -193,7 +196,7 @@ export default async function CustomersPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm">{orders.length}</td>
-                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(customer.total_spent_cents)}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(customer.total_spent_cents, storeCurrency)}</td>
                           <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                             {formatDate(customer.created_at)}
                           </td>

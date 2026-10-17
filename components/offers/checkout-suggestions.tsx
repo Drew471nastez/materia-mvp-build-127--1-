@@ -7,7 +7,6 @@
  * all. A product with options gets its choice right here.
  */
 import * as React from "react"
-import { shopMoney } from "@/lib/store/shop-money"
 import { Package, Plus } from "lucide-react"
 
 export interface Suggestion {
@@ -18,9 +17,7 @@ export interface Suggestion {
   product: { id: string; title: string; slug: string; imageUrl: string | null; type: string; priceCents: number; variants: { id: string; name: string; priceCents: number }[] }
 }
 
-const money = (cents: number) => shopMoney(cents)
-
-export function CheckoutSuggestions({ suggestions, onAdd, busy = false }: { suggestions: Suggestion[]; onAdd: (s: Suggestion, variant: { id: string; name: string; priceCents: number } | null) => void; busy?: boolean }) {
+export function CheckoutSuggestions({ suggestions, onAdd, busy = false, money }: { suggestions: Suggestion[]; onAdd: (s: Suggestion, variant: { id: string; name: string; priceCents: number } | null) => void; busy?: boolean; /** The checkout's own money: every amount in what the card is charged in (app/checkout/parts/ui useMoney). */ money: (cents: number) => string }) {
   const [picks, setPicks] = React.useState<Record<string, string>>({})
   if (suggestions.length === 0) return null
   return (

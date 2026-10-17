@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { useStoreBuilder } from "./store-builder-context"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -566,9 +566,9 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
     p.title.toLowerCase().includes(productSearchQuery.toLowerCase())
   )
 
-  const formatPrice = (cents: number) => {
-    return shopMoney(cents, { grouping: true })
-  }
+  /* In the store's own currency (components/platform/price-currency). */
+  const sellerMoney = useSellerMoney()
+  const formatPrice = (cents: number) => sellerMoney(cents, { grouping: true })
 
   const handleSelectProductForEdit = (productId: string) => {
     setCurrentPageType("product")

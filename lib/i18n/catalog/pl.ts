@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Przejdź do Integracji",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "Nie połączono, więc ta stawka nie jest oferowana. Połącz w Ustawienia › Integracje.",
  "Your connected account prices each order for the buyer's address.": "Połączone konto wycenia każde zamówienie dla adresu kupującego.",
- "{name} (not connected)": "{name} (nie połączono)"
+ "{name} (not connected)": "{name} (nie połączono)",
+ "All languages": "Wszystkie języki",
+ "Text saves to {name}. Everything else changes in all languages.": "Tekst zapisuje się dla języka {name}. Wszystko inne zmienia się we wszystkich językach.",
+ "Paste below": "Wklej poniżej",
+ "Paste here": "Wklej tutaj",
+ "Copy a section first": "Najpierw skopiuj sekcję",
+ "Storelib adds what you set here at checkout, and nothing more.": "Storelib dolicza przy płatności to, co tu ustawisz, i nic więcej.",
+ "Added at checkout for buyers in your regions.": "Doliczany przy płatności kupującym z Twoich regionów.",
+ "Your prices": "Twoje ceny",
+ "Already include tax, in {currency}": "Zawierają już podatek, w {currency}",
+ "Tax is added on top, in {currency}": "Podatek jest doliczany do ceny, w {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Pliki do pobrania, kursy i członkostwa, według kraju kupującego.",
+ "Regions": "Regiony",
+ "The countries or states where you charge tax, and the rate in each.": "Kraje lub stany, w których pobierasz podatek, i stawka w każdym z nich.",
+ "Add region": "Dodaj region",
+ "No regions yet": "Brak regionów",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "Przy płatności Storelib dolicza podatek wynikający z Twoich ustawień powyżej, pokazuje go kupującemu, umieszcza na paragonie i zapisuje tutaj. Nie musisz niczego konfigurować, zanim zaczniesz sprzedawać."
 }
 
 export default words

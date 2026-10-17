@@ -12,8 +12,8 @@
  * It never changes the live website: visitors pick their own.
  *
  * Two shapes of one model:
- *   PreviewLocaleButton    the top bar's pill beside the page switcher,
- *                          "EN · USD", opening a small list
+ *   PreviewLocaleButton    the top bar's small globe beside the page
+ *                          switcher, "EN USD", opening a small list
  *   PreviewLocaleSelects   two plain selects, for the top of the sidebar
  *                          (a phone's sheet included) and Website settings
  *
@@ -104,17 +104,17 @@ export function PreviewLocaleButton({ model }: { model: PreviewLocaleModel }) {
         data-preview-locale=""
         data-translating={translating ? "true" : "false"}
         className={cn(
-          "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium tabular-nums transition-colors",
-          translating ? "border-[#8b5cf6]/60 bg-[#8b5cf6]/20 text-white" : "border-white/10 bg-white/[0.07] text-white/85 hover:bg-white/[0.11]",
+          "relative flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] font-medium tabular-nums transition-colors",
+          open ? "bg-white/[0.12] text-white" : "text-white/70 hover:bg-white/[0.08] hover:text-white",
         )}
       >
         <Globe className="h-3.5 w-3.5 opacity-80" strokeWidth={2} />
-        <span>
-          {model.languages.length > 1 ? short(lang) : null}
-          {model.languages.length > 1 && model.markets.length > 0 ? " · " : null}
-          {model.markets.length > 0 ? currency : null}
+        <span className="leading-none">
+          {model.languages.length > 1 ? short(lang) : currency}
+          {model.languages.length > 1 && model.markets.length > 0 ? <span className="ml-1 text-white/45">{currency}</span> : null}
         </span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-white/60 transition-transform duration-200", open && "rotate-180")} strokeWidth={2} />
+        {/* Another language: a small dot, the words in the sidebar are that language's. */}
+        {translating ? <span aria-hidden className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-white/80" /> : null}
       </button>
       {open ? (
         <AnchoredPanel
@@ -173,7 +173,7 @@ export function PreviewLocaleSelects({ model, tone = "light", className }: { mod
   const select =
     tone === "dark"
       ? "h-9 w-full min-w-0 appearance-none rounded-lg border border-white/10 bg-white/[0.06] pl-3 pr-8 text-[13px] text-white outline-none focus:border-white/30"
-      : "h-8 w-full min-w-0 appearance-none rounded-md border border-border bg-background pl-2.5 pr-7 text-[12.5px] text-foreground outline-none focus:border-neutral-400 max-sm:h-10 max-sm:text-[15px]"
+      : "h-8 w-full min-w-0 cursor-pointer appearance-none rounded-lg bg-[#f3f4f6] pl-2.5 pr-7 text-[12.5px] font-medium text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)] outline-none transition-colors hover:bg-[#eceef1] focus-visible:shadow-[inset_0_0_0_1px_rgba(16,24,40,0.25)] max-sm:h-10 max-sm:text-[15px]"
   const chevron = <ChevronDown aria-hidden className={cn("pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2", tone === "dark" ? "text-white/50" : "text-muted-foreground")} />
   return (
     <div className={cn("flex items-center gap-2", className)} data-preview-locale-selects={tone}>
@@ -215,17 +215,19 @@ export function PreviewLocaleSelects({ model, tone = "light", className }: { mod
 /**
  * THE LANGUAGE BEING EDITED, AT THE TOP OF THE SIDEBAR (and of a phone's
  * sheet, which has no top bar switch): the language and currency selects,
- * and in another language one line saying what changes and what does not.
+ * and in another language one quiet line: words save to that language,
+ * everything else changes in all of them.
  * Not drawn for a website with one language and one currency.
  */
 export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleModel; editing: { locale: string; name: string } | null }) {
   if (!hasPreviewChoices(model)) return null
   return (
-    <div className={cn("shrink-0 border-b px-3 pb-2.5", editing ? "border-[#8b5cf6]/25 bg-[#f5f3ff] pt-2.5" : "border-border")} data-wb-language-bar={editing ? editing.locale : ""}>
+    <div className="shrink-0 border-b border-border px-3 py-2" data-wb-language-bar={editing ? editing.locale : ""}>
       <PreviewLocaleSelects model={model} />
       {editing ? (
-        <p className="mt-1.5 text-[11.5px] leading-[16px] text-[#5b21b6]" data-wb-translating="">
-          {tt("Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.", { name: editing.name })}
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] leading-[16px] text-[#6b7280]" data-wb-translating="">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1a1a2e]" />
+          <span className="min-w-0">{tt("Text saves to {name}. Everything else changes in all languages.", { name: editing.name })}</span>
         </p>
       ) : null}
     </div>

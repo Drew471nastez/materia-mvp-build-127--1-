@@ -151,13 +151,34 @@ export const CANVAS_BRIDGE = `
     two sides only. An edge is left off only where the element itself is
     cut there: off the screen, or under a sticky header or a drawer.
   */
+  /*
+    THE HEADER STUCK TO THE TOP, AS A LINE NOTHING CROSSES (round AH). The hit
+    tests below read what paints; a header with see-through gaps (a
+    transparent bar over the hero, a menu drawn on a pseudo element) let a
+    section's sides run up through it. A sticky or fixed header at the top
+    of the screen is measured, and no outline of anything outside it is
+    drawn above its foot.
+  */
+  var HEADER_TOPS = ".shopify-section-group-header-group, .shopify-section-group-header-group > *, .shopify-section-group-header-group sticky-header, header, [data-sl-header]";
+  var headerCover = function (el) {
+    var cover = 0, tops = document.querySelectorAll(HEADER_TOPS);
+    for (var i = 0; i < tops.length; i++) {
+      var h = tops[i];
+      if (h === el || h.contains(el) || el.contains(h)) continue;
+      var p = styleOf(h).position;
+      if (p !== "sticky" && p !== "fixed") continue;
+      var q = h.getBoundingClientRect();
+      if (q.top <= 1 && q.bottom > 0 && q.height < innerHeight * 0.6 && q.width > innerWidth * 0.5) cover = Math.max(cover, q.bottom);
+    }
+    return cover;
+  };
   var visibleRect = function (el, inset) {
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
     if (r.width < 1 || r.height < 1) { r = contentBox(el); loose = true; if (!r) return null; }
     var vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
     var left = Math.max(r.left, 0), right = Math.min(r.right, vw);
-    var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, vh);
+    var top = Math.max(r.top, 0, headerCover(el)), bottom = Math.min(r.bottom, vh);
     if (right - left < 1 || bottom - top < 1) return null;
     var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
     var seen = function (y) {

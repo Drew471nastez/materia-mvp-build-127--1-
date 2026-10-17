@@ -12,6 +12,7 @@ import { PickSheet } from "./pick-sheet"
 import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
 import { quietDepth } from "./new/editor-buttons"
 import { accentDepth } from "@/components/ui/depth-button"
@@ -459,12 +460,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   /* One field on every width, in the card's toolbar. */
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  const storeCurrency = useStoreCurrency()
   const exportPDF = () => {
-    generateProductsPDF(products, formatMoney)
+    generateProductsPDF(products, (c) => formatMoney(c, storeCurrency))
     showNotification(tt("PDF report generated"))
   }
   const exportCSV = () => {
-    generateProductsCSV(products, formatMoney)
+    generateProductsCSV(products, (c) => formatMoney(c, storeCurrency))
     showNotification(tt("CSV file downloaded"))
   }
   const exportItems = [
@@ -1554,7 +1556,7 @@ const PhoneRow = memo(function PhoneRow({
               <Sep />
             </>
           ) : null}
-          <span data-price="" className="tabular-nums">{priceOf(product.price_cents)}</span>
+          <span data-price="" className="tabular-nums"><PriceOf cents={product.price_cents} /></span>
           {product.sales_count ? (
             <>
               <Sep />
@@ -1630,7 +1632,7 @@ const TableRow = memo(function TableRow({
       <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
         {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#b6bac1]">0</span>}
       </td>
-      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
+      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]"><PriceOf cents={product.price_cents} /></td>
       <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
         <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
           {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={VIEW_TABLE} api={api} />}
@@ -1677,9 +1679,10 @@ function OpeningMark({ size }: { size: "phone" | "table" }) {
   of the app from crashing on the same thing (lib/ui/dom-guard).
 */
 
-/** A free product says Free rather than $0.00, on the list and in the table. */
-function priceOf(cents: number) {
-  return cents > 0 ? formatMoney(cents) : "Free"
+/** A free product says Free rather than $0.00, on the list and in the table. In the store's own currency: a lei store's 49 is 49 lei. */
+function PriceOf({ cents }: { cents: number }) {
+  const currency = useStoreCurrency()
+  return <>{cents > 0 ? formatMoney(cents, currency) : "Free"}</>
 }
 
 /** The middle dot between the parts of a phone row's second line, which ends in an ellipsis when it does not fit. */

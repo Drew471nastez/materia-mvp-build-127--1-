@@ -204,9 +204,16 @@ const CSS_SUMMARY = `.slw-top{display:flex;flex-wrap:wrap;align-items:center;gap
 const CSS_PRODUCT = `.slw-list{display:grid;gap:var(--slw-gap)}.slw-cs-plain .slw-list{gap:0}.slw-cs-plain .slw-list>.slw-card{padding:20px 0;border-bottom:1px solid var(--slw-l)}
 .slw-note{display:none;margin:16px 0 0;padding:12px 14px;border-radius:calc(var(--slw-r) / 2);background:var(--slw-soft);font-size:14px}.slw-note:target{display:block}
 .slw-write{margin:16px 0}.slw-write[open]>summary{margin-bottom:14px}
-.slw-form{display:grid;gap:12px;max-width:620px;padding:18px;border:1px solid var(--slw-l);border-radius:var(--slw-r)}
-.slw-form fieldset{border:0;margin:0;padding:0}.slw-form legend,.slw-form label{font-size:14px;font-weight:600}.slw-form label{display:grid;gap:6px}
-.slw-form input:not([type=radio]):not([type=file]),.slw-form textarea{width:100%;padding:10px 12px;font:inherit;font-size:16px;color:inherit;background:transparent;border:1px solid var(--slw-l);border-radius:calc(var(--slw-r) / 2)}
+.slw-form{display:grid;gap:14px;max-width:620px;padding:20px;border:1px solid var(--slw-l);border-radius:var(--slw-r);box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.slw-form fieldset{border:0;margin:0;padding:0}.slw-form legend,.slw-form label{font-size:13.5px;font-weight:500}.slw-form label{display:grid;gap:6px}
+.slw-two{display:grid;gap:14px}@media (min-width:560px){.slw-two{grid-template-columns:1fr 1fr}}
+.slw-form input:not([type=radio]):not([type=file]),.slw-form textarea{width:100%;box-sizing:border-box;min-height:46px;padding:11px 13px;font:inherit;font-size:16px;color:inherit;background:transparent;border:1px solid var(--slw-l);border-radius:min(10px,calc(var(--slw-r) / 2 + 4px));transition:border-color .15s ease,box-shadow .15s ease;outline:none}
+.slw-form textarea{min-height:110px;resize:vertical;line-height:1.5}
+.slw-form input:not([type=radio]):not([type=file]):focus-visible,.slw-form textarea:focus-visible{border-color:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 12%,transparent)}
+.slw-form input[type=file]{width:100%;box-sizing:border-box;padding:12px;font:inherit;font-size:14px;border:1px dashed var(--slw-l);border-radius:min(10px,calc(var(--slw-r) / 2 + 4px));cursor:pointer}
+.slw-form input[type=file]::file-selector-button{margin-inline-end:12px;padding:7px 12px;font:inherit;font-size:13px;font-weight:600;color:inherit;background:var(--slw-soft);border:0;border-radius:8px;cursor:pointer}
+.slw-form button[type=submit]{justify-self:start}@media (max-width:559px){.slw-form button[type=submit]{justify-self:stretch}}
+.slw-form[data-state=sending]{cursor:progress}
 .slw-rate{display:inline-flex;flex-direction:row-reverse;justify-content:flex-end}.slw-rate input{position:absolute;opacity:0;width:1px;height:1px}
 .slw-rate label{display:block;width:36px;height:36px;font-size:28px;line-height:36px;text-align:center;cursor:pointer;color:var(--slw-l)}.slw-rate label::before{content:"\\2605"}
 .slw-rate input:checked~label,.slw-rate label:hover,.slw-rate label:hover~label{color:var(--slw-star)}.slw-rate input:focus-visible+label{outline:2px solid currentColor}
@@ -359,8 +366,8 @@ function writeForm(reviews: WidgetReviews, productId: string, w: Words, uid: str
     + `<fieldset><legend>${esc(w.your_rating)}</legend><div class="slw-rate">${rate}</div></fieldset>`
     + `<label>${esc(w.review_title)} ${esc(w.optional)}<input name="title" maxlength="120"></label>`
     + `<label>${esc(w.your_review)}<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>`
-    + `<label>${esc(w.your_name)}<input name="name" required maxlength="40" autocomplete="given-name"></label>`
-    + `<label>${esc(w.email)}<input type="email" name="email" required maxlength="254" autocomplete="email"></label>`
+    + `<div class="slw-two"><label>${esc(w.your_name)}<input name="name" required maxlength="40" autocomplete="given-name"></label>`
+    + `<label>${esc(w.email)}<input type="email" name="email" required maxlength="254" autocomplete="email" inputmode="email"></label></div>`
     + (reviews.photos_allowed ? `<label>${esc(w.photos)} ${esc(w.optional_up_to_four)}<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>` : "")
     + `<div class="slw-hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>`
     + `<p class="slw-small">${esc(w.review_privacy)}</p>`

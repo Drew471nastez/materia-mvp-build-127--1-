@@ -4,17 +4,20 @@
  * ===========================================================================
  *  SETTINGS › TAXES
  * ===========================================================================
- * For every store (lib/tax/rules.ts says what each part means):
+ * For every store, in three cards, simplest first (round AH, the owner: "too
+ * many options, too complex"). lib/tax/rules.ts says what each part means.
  *
- *   Tax              charge it or not; prices including it or not, shown
- *                    with the store's own currency; tax on shipping (physical
- *                    commerce on); tax on digital products too
- *   Tax regions      a row each: the country's flag, its name (and state),
- *                    the rate's name and the rate. "Create region" asks for
+ *   Tax              where things stand in one or two short lines, then:
+ *                    charge it or not; prices including it or not; tax on
+ *                    shipping (physical commerce on); tax on digital products
+ *   Regions          a row each: the country's flag, its name (and state),
+ *                    the rate's name and the rate. "Add region" asks for
  *                    the country (the one the person is in suggested), an
  *                    optional state, and the rate. A row opens to change its
  *                    rate, remove it, and give single products their own rate
- *                    there.
+ *                    there. How regions work is folded under the list.
+ *   Tax collected    what orders collected, by country, with the CSV, and
+ *                    who does what, folded.
  *
  * Nothing here charges anybody until "Charge tax" is on and the buyer's
  * address is in a region.
@@ -70,6 +73,8 @@ export function TaxesPanel() {
   const [error, setError] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<string | null>(null)
+  /* What the overview says, read again whenever the setup changes, so the status line under Tax is never behind a switch. */
+  const overview = useTaxOverview(setup ? `${setup.enabled}:${setup.digital}:${setup.regions.length}` : "")
 
   const load = React.useCallback(async () => {
     const r = await api<Setup>("/api/store/taxes")
@@ -107,17 +112,16 @@ export function TaxesPanel() {
     <div className="space-y-4 sm:space-y-6" data-taxes="">
       {!setup.ready ? <Notice tone="amber">{tt("Taxes need their database update (SQL parts 78 and 110). Until they run, nothing here is kept.")}</Notice> : null}
 
-      <TaxOverview currency={currency} />
-
-      <Card title={tt("Tax")} description={tt("Storelib charges what you set here and nothing more. Check which rates apply to you with an accountant.")} help="taxes">
+      <Card title={tt("Tax")} description={tt("Storelib adds what you set here at checkout, and nothing more.")} help="taxes">
         <div className="space-y-4">
-          <Toggle label={tt("Charge tax")} description={tt("Off, buyers pay your prices and nothing more.")} checked={setup.enabled} onChange={(v) => void flip({ enabled: v })} />
+          <TaxStatus overview={overview.data} />
+          <Toggle label={tt("Charge tax")} description={setup.enabled ? tt("Added at checkout for buyers in your regions.") : tt("Off, buyers pay your prices and nothing more.")} checked={setup.enabled} onChange={(v) => void flip({ enabled: v })} />
           {setup.enabled ? (
             <>
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-[#eceef1] px-3.5 py-3" data-tax-inclusive="">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2" data-tax-inclusive="">
                 <div className="min-w-0">
-                  <p className="text-[14px] font-medium text-[#1a1a2e]">{currency}</p>
-                  <p className="text-[13px] text-[#6b7280]">{setup.included ? tt("Prices already include tax") : tt("Tax is added on top of prices")}</p>
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Your prices")}</p>
+                  <p className="text-[13px] text-[#6b7280]">{setup.included ? tt("Already include tax, in {currency}", { currency }) : tt("Tax is added on top, in {currency}", { currency })}</p>
                 </div>
                 <div role="radiogroup" aria-label={tt("Tax inclusivity")} className="inline-flex shrink-0 gap-1 rounded-xl bg-[#f1f2f4] p-1">
                   {[
@@ -137,31 +141,26 @@ export function TaxesPanel() {
                   ))}
                 </div>
               </div>
+              <Toggle label={tt("Charge tax on digital products")} description={tt("Downloads, courses and memberships, by the buyer's country.")} checked={setup.digital} onChange={(v) => void flip({ digital: v })} />
               {physical ? <Toggle label={tt("Charge tax on shipping")} description={tt("Delivery is taxed at the same rate as the items.")} checked={setup.onShipping} onChange={(v) => void flip({ onShipping: v })} /> : null}
-              <Toggle
-                label={tt("Charge tax on digital products")}
-                description={tt("Downloads, courses and memberships. In the EU, VAT on digital sales is charged at the rate of the buyer's country, so add a region for each country you sell to.")}
-                checked={setup.digital}
-                onChange={(v) => void flip({ digital: v })}
-              />
             </>
           ) : null}
         </div>
       </Card>
 
       <Card
-        title={tt("Tax regions")}
-        description={tt("Where you collect tax, and the rate in each.")}
+        title={tt("Regions")}
+        description={tt("The countries or states where you charge tax, and the rate in each.")}
         action={
           <button type="button" className={BTN_SECONDARY} onClick={() => setCreating(setup.detectedCountry ?? "")} data-create-region="">
             <Plus className="h-4 w-4" />
-            {tt("Create region")}
+            {tt("Add region")}
           </button>
         }
       >
         {setup.regions.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#e3e5e8] px-4 py-6 text-center" data-tax-regions-empty="">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No tax regions yet")}</p>
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("No regions yet")}</p>
             <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Add the countries where you have to charge tax.")}</p>
             {suggested ? (
               <button type="button" onClick={() => setCreating(suggested)} className="mt-3 inline-flex h-8 items-center gap-2 rounded-full bg-[#f1f2f4] px-3 text-[13px] font-medium text-[#374151] hover:bg-[#e8e9ec]" data-suggest-region={suggested}>
@@ -199,6 +198,8 @@ export function TaxesPanel() {
         <RegionsExplained physical={physical} />
       </Card>
 
+      <TaxOverview currency={currency} overview={overview} />
+
       <CreateRegion
         country={creating}
         onClose={() => setCreating(null)}
@@ -213,7 +214,7 @@ export function TaxesPanel() {
 }
 
 /**
- * HOW TAX REGIONS WORK, in plain words, always in view under the regions:
+ * HOW TAX REGIONS WORK, in plain words, folded under the regions (open it to read):
  * which address picks the region at each checkout and what a buyer
  * elsewhere pays. It says what lib/tax/rules.ts and lib/physical/totals.ts
  * do, and tests/tax-settings-wiring.test.ts holds the two to each other.
@@ -221,9 +222,12 @@ export function TaxesPanel() {
 function RegionsExplained({ physical }: { physical: boolean }) {
   const lines = [TAX_REGION_RULES.what, ...(physical ? [TAX_REGION_RULES.physical] : []), TAX_REGION_RULES.digital, TAX_REGION_RULES.elsewhere]
   return (
-    <div className="mt-4 rounded-xl bg-[#f8f9fa] px-3.5 py-3" data-tax-regions-explained="">
-      <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("How tax regions work")}</p>
-      <ul className="mt-1.5 space-y-1 text-[12.5px] leading-[18px] text-[#4b5563]">
+    <details className="group mt-3 [&_summary::-webkit-details-marker]:hidden" data-tax-regions-explained="">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
+        {tt("How tax regions work")}
+        <ChevronRight aria-hidden className="h-3.5 w-3.5 text-[#9ca3af] transition-[rotate] duration-200 group-open:rotate-90" />
+      </summary>
+      <ul className="mt-2 space-y-1 rounded-xl bg-[#f8f9fa] px-3.5 py-3 text-[12.5px] leading-[18px] text-[#4b5563]">
         {lines.map((l) => (
           <li key={l} className="flex gap-2">
             <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
@@ -237,7 +241,7 @@ function RegionsExplained({ physical }: { physical: boolean }) {
           {tt("Read the tax guide")}
         </a>
       ) : null}
-    </div>
+    </details>
   )
 }
 
@@ -469,12 +473,8 @@ interface TaxOverviewData {
   currency: string
 }
 
-/**
- * SETTINGS › TAXES OPENS ON WHERE THINGS STAND. The status of the store's tax and of its memberships, what its orders
- * collected in a period and where (lib/tax/report-model), the CSV behind it, and who does what, in plain words. Nothing
- * here asks for anything: a store that never set tax up sees "Not charging tax" and can carry on selling.
- */
-function TaxOverview({ currency }: { currency: string }) {
+/** The overview, for the period chosen; read again when `version` (the setup) changes. */
+function useTaxOverview(version: string) {
   const [days, setDays] = React.useState(30)
   const [data, setData] = React.useState<TaxOverviewData | null>(() => peekGet<TaxOverviewData>("/api/store/taxes/overview?days=30"))
   React.useEffect(() => {
@@ -485,7 +485,38 @@ function TaxOverview({ currency }: { currency: string }) {
     return () => {
       live = false
     }
-  }, [days])
+  }, [days, version])
+  return { days, setDays, data }
+}
+type TaxOverviewState = ReturnType<typeof useTaxOverview>
+
+/**
+ * WHERE THINGS STAND, in a line or two at the top of the Tax card: the store's
+ * own tax and its memberships', a dot each. The longer words are the line's
+ * title, for whoever wants them; the switches under it say the rest.
+ */
+function TaxStatus({ overview }: { overview: TaxOverviewData | null }) {
+  const rows = overview?.status ?? []
+  if (!rows.length) return null
+  return (
+    <ul className="space-y-1.5 rounded-xl bg-[#f8f9fa] px-3.5 py-2.5" data-tax-status="">
+      {rows.map((s) => (
+        <li key={s.key} title={s.detail} className="flex items-center gap-2 text-[13px] text-[#1a1a2e]">
+          <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", s.tone === "on" ? "bg-[#16a34a]" : s.tone === "auto" ? "bg-[#2563eb]" : "bg-[#c4c7cc]")} />
+          <span className="min-w-0 truncate">{s.title}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * TAX COLLECTED, at the foot of the page: what the store's orders collected in
+ * a period and where (lib/tax/report-model), the CSV behind it, and who does
+ * what, folded. Nothing here asks for anything.
+ */
+function TaxOverview({ currency, overview }: { currency: string; overview: TaxOverviewState }) {
+  const { days, setDays, data } = overview
   const cur = (data?.currency || currency || "USD").toUpperCase()
   const fmt = (cents: number) => {
     try {
@@ -497,8 +528,7 @@ function TaxOverview({ currency }: { currency: string }) {
   const top = data?.summary.byCountry.slice(0, 8) ?? []
   return (
     <Card
-      title={tt("Overview")}
-      description={tt("Your tax status and what your orders collected.")}
+      title={tt("Tax collected")}
       action={
         <div role="radiogroup" aria-label={tt("Period")} className="inline-flex gap-1 rounded-xl bg-[#f1f2f4] p-1" data-tax-period="">
           {[
@@ -514,24 +544,12 @@ function TaxOverview({ currency }: { currency: string }) {
       }
     >
       <div className="space-y-4" data-tax-overview="">
-        <ul className="grid gap-2 sm:grid-cols-2" data-tax-status="">
-          {(data?.status ?? []).map((s) => (
-            <li key={s.key} className="rounded-xl border border-[#eceef1] px-3.5 py-3">
-              <p className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", s.tone === "on" ? "bg-[#16a34a]" : s.tone === "auto" ? "bg-[#2563eb]" : "bg-[#c4c7cc]")} />
-                {s.title}
-              </p>
-              <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280]">{s.detail}</p>
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl bg-[#f8f9fa] px-4 py-3.5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[12.5px] text-[#6b7280]">{tt("Tax collected")}</p>
             <p className="text-[22px] font-semibold tabular-nums tracking-[-0.01em] text-[#1a1a2e]" data-tax-total="">
-              {data ? fmt(data.summary.totalCents) : " "}
+              {data ? fmt(data.summary.totalCents) : " "}
             </p>
-            <p className="text-[12.5px] text-[#6b7280]">{data ? tt("{n, plural, one {# order} other {# orders}} with tax", { n: data.summary.orders }) : " "}</p>
+            <p className="text-[12.5px] text-[#6b7280]">{data ? tt("{n, plural, one {# order} other {# orders}} with tax", { n: data.summary.orders }) : " "}</p>
           </div>
           {data && data.summary.orders > 0 ? (
             <a href={`/api/store/taxes/overview?days=${days}&format=csv`} className={BTN_SECONDARY} data-tax-csv="" download>
@@ -545,23 +563,19 @@ function TaxOverview({ currency }: { currency: string }) {
               <li key={l.country ?? "none"} className="flex items-center gap-3 px-3.5 py-2.5">
                 {l.country ? <CountryFlag code={l.country} /> : <span aria-hidden className="h-4 w-5 rounded-[3px] bg-[#eceef1]" />}
                 <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{l.country ? countryName(l.country) : tt("Country not recorded")}</span>
-                <span className="text-[12.5px] text-[#6b7280]">
-                  {l.label} · {tt("{n, plural, one {# order} other {# orders}}", { n: l.orders })}
-                </span>
+                <span className="hidden text-[12.5px] text-[#6b7280] sm:inline">{tt("{n, plural, one {# order} other {# orders}}", { n: l.orders })}</span>
                 <span className="w-24 text-right text-[14px] font-medium tabular-nums text-[#1a1a2e]">{fmt(l.taxCents)}</span>
               </li>
             ))}
           </ul>
-        ) : data ? (
-          <p className="text-[13px] text-[#6b7280]">{tt("No tax collected in this period.")}</p>
         ) : null}
-        <details className="group rounded-xl border border-[#eceef1] px-3.5 py-3 [&_summary::-webkit-details-marker]:hidden" data-tax-responsibility="">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[14px] font-medium text-[#1a1a2e]">
+        <details className="group [&_summary::-webkit-details-marker]:hidden" data-tax-responsibility="">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
             {tt("Who does what")}
-            <ChevronRight aria-hidden className="h-4 w-4 text-[#9ca3af] transition-[rotate] duration-200 group-open:rotate-90" />
+            <ChevronRight aria-hidden className="h-3.5 w-3.5 text-[#9ca3af] transition-[rotate] duration-200 group-open:rotate-90" />
           </summary>
-          <div className="mt-2 space-y-2 text-[13px] leading-5 text-[#4b5563]">
-            <p>{tt("At checkout Storelib adds the tax your settings below call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.")}</p>
+          <div className="mt-2 space-y-2 rounded-xl bg-[#f8f9fa] px-3.5 py-3 text-[13px] leading-5 text-[#4b5563]">
+            <p>{tt("At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.")}</p>
             <p>{tt("You are the seller of your products, so registering for tax where you need to, and filing and paying it, stays with you. Storelib does not file or pay tax for you.")}</p>
             <p>{tt("Community plans and memberships are paid through Storelib's Stripe account. When Storelib has Stripe Tax switched on, Stripe works out their rate from where the buyer is.")}</p>
             <p>{tt("Not sure what applies to you? An accountant can tell you in one conversation, and the CSV above is what they will ask for.")}</p>

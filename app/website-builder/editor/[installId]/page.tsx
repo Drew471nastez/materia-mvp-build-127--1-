@@ -638,13 +638,13 @@ function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & {
   /*
     ANOTHER LANGUAGE BEING EDITED (the language switch in the top bar or the
     sidebar): a text setting shows and writes that language's translation,
-    everything else is drawn as the same in every language and cannot be
-    changed from here (editor/translation-editing.tsx).
+    everything else is the same in every language and changes for all of
+    them from here (editor/translation-editing.tsx).
   */
   const translating = useTranslationEditing()
   const keyFor = useTranslationScope()
   if (translating) {
-    return <TranslatedFieldEditor tr={translating} keyFor={keyFor} field={props.field} label={label} value={props.value} render={(v, change, f) => <FieldControl field={f} value={v} onChange={change} />} />
+    return <TranslatedFieldEditor tr={translating} keyFor={keyFor} field={props.field} label={label} value={props.value} render={(v, change, f) => <FieldControl field={f} value={v} onChange={change} />} onSharedChange={props.onChange} />
   }
   return (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
@@ -5594,7 +5594,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** What a confirm card is asking before a copy or a paste goes ahead. */
   const [pendingAction, setPendingAction] = useState<
     | { kind: "copy-code"; sectionId: string; name: string }
-    | { kind: "paste-code"; clip: SectionClip; afterId: string | null }
+    | { kind: "paste-code"; clip: SectionClip; afterId: string | null; top?: boolean }
     | { kind: "paste-settings"; sectionId: string; next: Record<string, unknown>; changes: string[]; from: string; to: string }
     | null
   >(null)
@@ -5622,14 +5622,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   /** The copied section, in after `afterId` (in that section's group), or at the end of the page. One undo step. */
-  const placePastedSection = (c: SectionClip, afterId: string | null, schemaOverride?: SectionSchema) => {
+  const placePastedSection = (c: SectionClip, afterId: string | null, schemaOverride?: SectionSchema, top = false) => {
     const pasted = sectionFromClip(c, { section: (t) => `${t}-${Date.now()}`, block: newBlockId })
     const schema = schemaOverride ?? schemaFor(pasted.type, storelibSources, librarySchemas)
     const list = sectionsRef.current
     const target = afterId ? list.find((x) => x.id === afterId) ?? null : null
     const group: SectionGroup = target ? groupOf(target) : "template"
     const inGroup = splitGroups(list)[group]
-    const at = target ? inGroup.findIndex((x) => x.id === target.id) + 1 : null
+    const at = target ? inGroup.findIndex((x) => x.id === target.id) + 1 : top ? 0 : null
     pushUndo()
     const placed = placeSection(list, pasted, { groups: sectionGroupsFor(schema as never, { type: pasted.type, kind: null }), kind: null, group, at, kindOfType })
     setSections(placed.sections)
@@ -5640,18 +5640,32 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     showNotification(`Pasted ${sectionDisplayName(pasted, librarySchemas)}`)
   }
 
-  const pasteSectionNow = (afterId: string | null, from: Clip | null = clip) => {
+  const pasteSectionNow = (afterId: string | null, from: Clip | null = clip, top = false) => {
     const check = sectionPasteCheck(from)
     if (check.ok === false) { toast.error((check as { reason: string }).reason); return }
     const c = from as SectionClip
     if (kindOfType(c.section.type)) { toast.error("A header or footer is added from Add section"); return }
     /* A section the creator wrote, into a theme that does not have its file: asked first, since the file is written too. */
-    if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId }); return }
-    placePastedSection(c, afterId)
+    if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId, top }); return }
+    placePastedSection(c, afterId, undefined, top)
   }
 
+  /** Paste at a place among the page's own sections, as the sidebar's insert line and row menu name it: 0 is the top of the page. */
+  const pasteSectionAt = (at: number) => {
+    const body = splitGroups(sectionsRef.current).template
+    if (at > 0 && body[at - 1]) pasteSectionNow(body[at - 1].id)
+    else pasteSectionNow(null, clip, true)
+  }
+  /** The copied section, for the sidebar's Paste rows: its name and whether it fits this page. */
+  const sidebarPaste = (() => {
+    if (!clip || clip.kind !== "section") return null
+    const check = sectionPasteCheck(clip)
+    if (check.ok && kindOfType(clip.section.type)) return { name: clip.typeName, ok: false, reason: "A header or footer is added from Add section" }
+    return { name: clip.typeName, ok: check.ok, reason: check.ok ? undefined : (check as { reason: string }).reason }
+  })()
+
   /** Write the copied section's file into this theme, then paste it. */
-  const pasteWithCode = async (c: SectionClip, afterId: string | null) => {
+  const pasteWithCode = async (c: SectionClip, afterId: string | null, top = false) => {
     if (!c.code) return
     setPendingBusy(true)
     try {
@@ -5667,7 +5681,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       const files = await loadStorelibSources()
       setPendingAction(null)
-      placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined)
+      placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined, top)
     } catch {
       toast.error("Could not copy the section's file. Try again.")
     } finally {
@@ -7446,7 +7460,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 ? "Menus belong to your store, so every theme shows the same ones. Changes go live right away."
                 : "Menus are saved with this theme."}
             </p>
-            <SharedInAllLanguages note={tt("Menu links are translated in Settings, Markets and languages.")}>
+            <SharedInAllLanguages locked note={tt("Menu links are translated in Settings, Markets and languages.")}>
             <MenusEditor
               value={(settingsDraft as Record<string, unknown>).menus}
               onChange={(next) => updateSetting("menus", next)}
@@ -7774,6 +7788,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onRemove={removeSection}
                 onMove={moveSectionBy}
                 codeItem={(s) => codeMenuFor(s, "top")}
+                onCopy={(id) => { copySectionNow(id) }}
+                paste={sidebarPaste}
+                onPaste={pasteSectionAt}
                 kindOfType={kindOfType}
                 overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
@@ -10162,7 +10179,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           const a = pendingAction
           if (!a) return
           if (a.kind === "copy-code") void editCopyNow(a.sectionId)
-          else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId)
+          else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId, a.top)
           else { setPendingAction(null); applySettings(a.sectionId, a.next) }
         }}
       >

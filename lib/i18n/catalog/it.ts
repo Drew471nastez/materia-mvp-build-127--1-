@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Vai a Integrazioni",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "Non collegato, quindi questa tariffa non viene offerta. Collegalo in Impostazioni › Integrazioni.",
  "Your connected account prices each order for the buyer's address.": "Il tuo account collegato calcola il prezzo di ogni ordine per l'indirizzo dell'acquirente.",
- "{name} (not connected)": "{name} (non collegato)"
+ "{name} (not connected)": "{name} (non collegato)",
+ "All languages": "Tutte le lingue",
+ "Text saves to {name}. Everything else changes in all languages.": "Il testo viene salvato per {name}. Tutto il resto cambia in tutte le lingue.",
+ "Paste below": "Incolla sotto",
+ "Paste here": "Incolla qui",
+ "Copy a section first": "Copia prima una sezione",
+ "Storelib adds what you set here at checkout, and nothing more.": "Storelib aggiunge al checkout ciò che imposti qui, e nient'altro.",
+ "Added at checkout for buyers in your regions.": "Aggiunta al checkout per gli acquirenti delle tue regioni.",
+ "Your prices": "I tuoi prezzi",
+ "Already include tax, in {currency}": "Includono già le imposte, in {currency}",
+ "Tax is added on top, in {currency}": "Le imposte si aggiungono al prezzo, in {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Download, corsi e abbonamenti, in base al paese dell'acquirente.",
+ "Regions": "Regioni",
+ "The countries or states where you charge tax, and the rate in each.": "I paesi o gli stati in cui applichi le imposte e l'aliquota in ciascuno.",
+ "Add region": "Aggiungi regione",
+ "No regions yet": "Nessuna regione per ora",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "Al checkout Storelib aggiunge l'imposta prevista dalle tue impostazioni qui sopra, la mostra all'acquirente, la riporta sulla ricevuta e ne conserva la registrazione qui. Non devi configurare nulla prima di vendere."
 }
 
 export default words

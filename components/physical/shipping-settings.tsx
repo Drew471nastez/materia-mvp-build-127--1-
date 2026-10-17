@@ -53,7 +53,7 @@ import { ReadinessLink } from "./readiness-client"
 import { EU_COUNTRIES, hasUsableRate, isSimpleSetup, quickSetupProposal, shippingSummary } from "@/lib/physical/quick-setup"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { shopMoneyIn } from "@/lib/store/shop-money"
-import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
+import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, peekGet, useShopMoney } from "./ui"
 import { tt } from "@/lib/i18n/text"
 
 interface Settings {
@@ -179,7 +179,7 @@ function weightText(grams: number, system: UnitSystem): string {
   return `${fromGrams(grams, unit)} ${unit}`
 }
 
-function rateCondition(r: ShippingRate, system: UnitSystem): string {
+function rateCondition(r: ShippingRate, system: UnitSystem, money: (cents: number) => string): string {
   const parts: string[] = []
   const range = (fmt: (n: number) => string) => {
     if (r.minValue !== null && r.maxValue !== null) return tt("{minValue} to {maxValue}", { minValue: fmt(r.minValue), maxValue: fmt(r.maxValue) })
@@ -1175,6 +1175,7 @@ function ZoneForm({
 }
 
 function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; carrierApps: CarrierApp[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+  const money = useShopMoney()
   const [editing, setEditing] = React.useState(false)
   const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(() => (fresh && zone.rates.length === 0 ? "new" : null))
   const label = zonePlaces(zone)
@@ -1251,7 +1252,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
                 <p className="truncate text-[14px] text-[#1a1a2e]">
                   {r.name} {!r.active ? <span className="text-[12px] text-[#9ca3af]">{tt("(off)")}</span> : null}
                 </p>
-                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system)].filter(Boolean).join(" · ")}</p>
+                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system, money)].filter(Boolean).join(" · ")}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <span className="mr-1 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{r.kind === "free" ? "Free" : r.kind === "carrier" ? tt("Live") : r.tiers.length > 1 ? tt("From {amount}", { amount: money(Math.min(...r.tiers.map((t) => t.priceCents))) }) : money(r.priceCents)}</span>
@@ -1585,6 +1586,7 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
 /* ── Locations ─────────────────────────────────────────────────────────── */
 
 function Locations({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
+  const money = useShopMoney()
   const [editing, setEditing] = React.useState<Location | "new" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)

@@ -17,7 +17,7 @@
  * than the violet, as the owner asked for everything in the OnePage editor.
  */
 import * as React from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { AnalyticsChartWithTooltip, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
 import { longDate } from "@/lib/date-range/range"
@@ -51,7 +51,6 @@ function daysOf(start: string, end: string): string[] {
   return out
 }
 
-const formatPrice = (cents: number) => shopMoney(cents)
 
 export function LinkStatsChart({
   stats,
@@ -69,6 +68,7 @@ export function LinkStatsChart({
   end: string
   endIsToday: boolean
 }) {
+  const formatPrice = useSellerMoney()
   const [metric, setMetric] = React.useState<"views" | "clicks">("clicks")
   const first = loading && !stats
   const data = React.useMemo<AnalyticsChartData[]>(() => {

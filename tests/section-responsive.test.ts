@@ -1469,7 +1469,7 @@ check(
   /<GroupLabel>\{GROUP_LABELS\.header\}<\/GroupLabel>[\s\S]{0,240}?<AddSectionButton onClick=\{\(\) => onAdd\(null, "header"\)\} \/>/.test(sectionsList) &&
     /data-section-drag-list=""[\s\S]*?\n\s*\)\}\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
     /<AddSectionButton onClick=\{\(\) => onAdd\(null, "footer"\)\} \/>/.test(sectionsList) &&
-    /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(sectionsList) &&
+    /* Round AH: a right click on the line opens its own menu too. */ /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} onMenu=\{insertMenuAt\(0\)\} \/>/.test(sectionsList) &&
     /* The Overlay group, when the theme has a floating section, has the fourth. */
     (sectionsList.match(/<AddSectionButton /g) ?? []).length === 4 &&
     /\{overlayAddable && <AddSectionButton onClick=\{\(\) => onAdd\(null, "overlay"\)\} \/>\}/.test(sectionsList) &&
@@ -1895,7 +1895,7 @@ check(
   // and a hairline between Header, Template and Footer drawn at rest, so on a
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
-    /group-hover\/ins:bg-\[#8b5cf6\]\/60/.test(sectionsList) &&
+    /* Changed on purpose (round AH, the owner: dark grey with depth, not purple). */ /group-hover\/ins:bg-\[#6b7280\]/.test(sectionsList) && !/8b5cf6/.test(sectionsList) &&
     /* Header, page, Footer, and the Overlay group when it shows. */
     (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 3,
 )

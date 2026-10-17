@@ -63,10 +63,13 @@ export async function GET(request: Request) {
     locations,
     shipsItself: (p.fulfillment_method ?? "self") === "self",
   })
+  /* What every amount here is in: the store's selling currency, so a buy box prints 49.00 lei and never $49.00. */
+  const currency = await cachedStoreCurrency(p.creator_id)
   return NextResponse.json(
     {
       product: { id: p.id, creatorId: p.creator_id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url },
-      delivery: promise ? { ...promise, lines: deliveryPromiseLines(promise, await cachedStoreCurrency(p.creator_id)) } : null,
+      currency,
+      delivery: promise ? { ...promise, lines: deliveryPromiseLines(promise, currency) } : null,
       options: ((options ?? []) as { position: number; name: string; values: string[] }[]).map((o) => ({ name: o.name, values: o.values })),
       variants: live.map((v) => {
         const { soldOut, left, maxQuantity } = stock.get(v.id) ?? { soldOut: true, left: null, maxQuantity: 0 }

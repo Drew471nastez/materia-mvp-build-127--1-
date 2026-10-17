@@ -10,8 +10,9 @@
  * live website lays over (lib/markets/translate.ts sectionKey, blockKey,
  * theme:<id>). The original is under the field, for reference. Everything
  * that is not words (colours, pictures, sizes, layout) is the same in every
- * language: drawn, dimmed and not editable, so nothing typed here can change
- * the website's own language by accident.
+ * language and stays editable here, as in Shopify: a change to it is a change
+ * for every language, and its label says so. Only what has its own place to
+ * be translated (the menus' link titles) is drawn without being editable.
  *
  * WHAT HAPPENS TO A TRANSLATION:
  *
@@ -278,6 +279,7 @@ export function TranslatedFieldEditor({
   label,
   value,
   render,
+  onSharedChange,
 }: {
   tr: TranslationEditing
   keyFor: ((fieldId: string) => string | null) | null
@@ -285,12 +287,22 @@ export function TranslatedFieldEditor({
   label?: string
   value: unknown
   render: (value: unknown, onChange: (v: unknown) => void, field: SchemaField) => ReactNode
+  /** A setting that is the same in every language changes here for all of them. */
+  onSharedChange?: (v: unknown) => void
 }) {
   /* A divider or a note reads the same in every language. */
   if (field.type === "header" || field.type === "paragraph") return <>{render(value, () => undefined, field)}</>
   const key = keyFor && isWordsField(field) ? keyFor(field.id) : null
   const source = key ? shownText(field, value) : null
-  if (!key || source === null) return <SharedField label={label} imported={!!key && source === null}>{render(value ?? field.default, () => undefined, field)}</SharedField>
+  if (!key || source === null) {
+    /* Words the theme translates itself stay its own; everything else is edited for every language at once. */
+    const editable = !!onSharedChange && !(key && source === null)
+    return (
+      <SharedField label={label} imported={!!key && source === null} editable={editable}>
+        {render(value ?? field.default, editable ? onSharedChange! : () => undefined, field)}
+      </SharedField>
+    )
+  }
 
   const row = tr.raw[key]
   const rich = RICH.has(field.type) || /<[a-z][\s\S]*>/i.test(source)
@@ -355,14 +367,25 @@ export function TranslatedFieldEditor({
   )
 }
 
-/** A setting that is the same in every language, drawn as it is and not editable here. */
-function SharedField({ label, imported, children }: { label?: string; imported?: boolean; children: ReactNode }) {
+/** A setting that is the same in every language: editable, changing every language at once, or drawn as it is when it is translated elsewhere. */
+function SharedField({ label, imported, editable, children }: { label?: string; imported?: boolean; editable: boolean; children: ReactNode }) {
   return (
-    <div data-shared-setting="" title={tt("Same in all languages")}>
-      {label ? <label className={FIELD_LABEL}>{label}</label> : null}
-      <div inert className="pointer-events-none select-none opacity-50">
-        {children}
-      </div>
+    <div data-shared-setting={editable ? "editable" : ""}>
+      {label ? (
+        <div className="mb-1.5 flex min-h-[18px] items-center justify-between gap-2">
+          <label className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</label>
+          <span className="shrink-0 text-[11px] text-muted-foreground/70" data-all-languages="">
+            {tt("All languages")}
+          </span>
+        </div>
+      ) : null}
+      {editable ? (
+        <div>{children}</div>
+      ) : (
+        <div inert className="pointer-events-none select-none opacity-50">
+          {children}
+        </div>
+      )}
       {imported ? <p className="mt-1 text-[11px] text-muted-foreground">{tt("Translated with the theme's own words in Settings.")}</p> : null}
     </div>
   )
@@ -370,13 +393,15 @@ function SharedField({ label, imported, children }: { label?: string; imported?:
 
 /**
  * A panel or control that is the same in every language (colours, the
- * theme's fonts, a section's design, the menus): drawn as it is, not
- * editable while another language is edited. In the website's own
- * language it is drawn exactly as before, with nothing around it.
+ * theme's fonts, a section's design): editable while another language is
+ * shown, a change applying to every language. `locked` for what is
+ * translated in its own place (the menus' link titles, in Settings): drawn
+ * as it is, with `note` saying where. In the website's own language it is
+ * drawn exactly as before, with nothing around it.
  */
-export function SharedInAllLanguages({ children, note, when = true }: { children: ReactNode; note?: string; when?: boolean }) {
+export function SharedInAllLanguages({ children, note, when = true, locked = false }: { children: ReactNode; note?: string; when?: boolean; locked?: boolean }) {
   const tr = useTranslationEditing()
-  if (!tr || !when) return <>{children}</>
+  if (!tr || !when || !locked) return <>{children}</>
   return (
     <div data-shared-in-all-languages="">
       {note ? <p className="mb-2 text-[11.5px] leading-[16px] text-muted-foreground">{note}</p> : null}

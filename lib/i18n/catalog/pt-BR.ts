@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Ir para Integrações",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "Não conectado, então esta tarifa não é oferecida. Conecte em Configurações › Integrações.",
  "Your connected account prices each order for the buyer's address.": "Sua conta conectada calcula o preço de cada pedido para o endereço do comprador.",
- "{name} (not connected)": "{name} (não conectado)"
+ "{name} (not connected)": "{name} (não conectado)",
+ "All languages": "Todos os idiomas",
+ "Text saves to {name}. Everything else changes in all languages.": "O texto é salvo em {name}. Todo o resto muda em todos os idiomas.",
+ "Paste below": "Colar abaixo",
+ "Paste here": "Colar aqui",
+ "Copy a section first": "Copie uma seção primeiro",
+ "Storelib adds what you set here at checkout, and nothing more.": "A Storelib adiciona no checkout o que você define aqui, e nada mais.",
+ "Added at checkout for buyers in your regions.": "Adicionado no checkout para compradores das suas regiões.",
+ "Your prices": "Seus preços",
+ "Already include tax, in {currency}": "Já incluem imposto, em {currency}",
+ "Tax is added on top, in {currency}": "O imposto é somado ao preço, em {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Downloads, cursos e assinaturas, pelo país do comprador.",
+ "Regions": "Regiões",
+ "The countries or states where you charge tax, and the rate in each.": "Os países ou estados onde você cobra imposto e a alíquota em cada um.",
+ "Add region": "Adicionar região",
+ "No regions yet": "Nenhuma região ainda",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "No checkout, a Storelib adiciona o imposto que suas configurações acima pedem, mostra ao comprador, coloca no recibo e guarda o registro aqui. Nada precisa ser configurado antes de vender."
 }
 
 export default words

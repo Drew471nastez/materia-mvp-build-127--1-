@@ -21,7 +21,7 @@
  */
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import * as React from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { Package, Plus } from "lucide-react"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { bundlePrice, type DiscountType } from "@/lib/offers/offers"
@@ -72,8 +72,6 @@ export interface OfferPalette {
   buttonBorder?: string
 }
 
-const shopPrice = (cents: number) => shopMoney(cents)
-
 /** The page's offers for a product, read once per product. */
 export function useProductOffers(productId: string | null | undefined, enabled = true): ProductOffersData | null {
   const [data, setData] = React.useState<ProductOffersData | null>(null)
@@ -108,7 +106,7 @@ export function BundleOffers({
   buttonStyle = "outline",
   data: given,
   labels = {},
-  money = shopPrice,
+  money: givenMoney,
 }: {
   productId: string
   /** This product as the buy box has it: the option chosen, or null while one still has to be. */
@@ -129,6 +127,9 @@ export function BundleOffers({
   /** A price as the page prints it (the website product section passes its own, in the visitor's currency). */
   money?: (cents: number) => string
 }) {
+  /* Else in the store's own currency, on its page and in its editor alike (components/platform/price-currency). */
+  const sellerMoney = useSellerMoney()
+  const money = givenMoney ?? sellerMoney
   const fetched = useProductOffers(productId, given === undefined)
   const data = given === undefined ? fetched : given
   /* Round 31: on Storelib's own product page these follow the person's look (lib/appearance/site-paint). */

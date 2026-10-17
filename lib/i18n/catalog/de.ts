@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Zu Integrationen",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "Nicht verbunden, daher wird dieser Tarif nicht angeboten. Verbinde es unter Einstellungen › Integrationen.",
  "Your connected account prices each order for the buyer's address.": "Dein verbundenes Konto berechnet jede Bestellung für die Adresse des Käufers.",
- "{name} (not connected)": "{name} (nicht verbunden)"
+ "{name} (not connected)": "{name} (nicht verbunden)",
+ "All languages": "Alle Sprachen",
+ "Text saves to {name}. Everything else changes in all languages.": "Text wird für {name} gespeichert. Alles andere ändert sich in allen Sprachen.",
+ "Paste below": "Darunter einfügen",
+ "Paste here": "Hier einfügen",
+ "Copy a section first": "Kopiere zuerst einen Abschnitt",
+ "Storelib adds what you set here at checkout, and nothing more.": "Storelib berechnet an der Kasse genau das, was du hier festlegst, und nichts darüber hinaus.",
+ "Added at checkout for buyers in your regions.": "Wird an der Kasse für Käufer in deinen Regionen hinzugefügt.",
+ "Your prices": "Deine Preise",
+ "Already include tax, in {currency}": "Enthalten bereits die Steuer, in {currency}",
+ "Tax is added on top, in {currency}": "Steuer wird aufgeschlagen, in {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Downloads, Kurse und Mitgliedschaften, nach dem Land des Käufers.",
+ "Regions": "Regionen",
+ "The countries or states where you charge tax, and the rate in each.": "Die Länder oder Bundesstaaten, in denen du Steuern berechnest, und der jeweilige Satz.",
+ "Add region": "Region hinzufügen",
+ "No regions yet": "Noch keine Regionen",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "An der Kasse fügt Storelib die Steuer hinzu, die deine Einstellungen oben vorsehen, zeigt sie dem Käufer, setzt sie auf die Quittung und speichert den Eintrag hier. Du musst nichts einrichten, bevor du verkaufen kannst."
 }
 
 export default words

@@ -1167,7 +1167,7 @@ export function SiteCheckout({
         ))}
       </ul>
       {/* The store's checkout offers this order qualifies for (lib/offers): one press puts it in the order, and the quote prices it again on the server. */}
-      <CheckoutSuggestions suggestions={editable ? (quote.suggestions ?? []) : []} onAdd={addSuggestion} busy={quoting} />
+      <CheckoutSuggestions suggestions={editable ? (quote.suggestions ?? []) : []} onAdd={addSuggestion} busy={quoting} money={money} />
       <div className="border-t border-black/[0.07] pt-5">
         <Totals
           part="top"

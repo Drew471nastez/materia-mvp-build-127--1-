@@ -9787,7 +9787,23 @@ const words: Record<string, string> = {
  "Go to Integrations": "Ir a Integraciones",
  "Not connected, so this rate isn't offered. Connect it in Settings › Integrations.": "No está conectado, así que esta tarifa no se ofrece. Conéctalo en Ajustes › Integraciones.",
  "Your connected account prices each order for the buyer's address.": "Tu cuenta conectada calcula el precio de cada pedido para la dirección del comprador.",
- "{name} (not connected)": "{name} (no conectado)"
+ "{name} (not connected)": "{name} (no conectado)",
+ "All languages": "Todos los idiomas",
+ "Text saves to {name}. Everything else changes in all languages.": "El texto se guarda en {name}. Todo lo demás cambia en todos los idiomas.",
+ "Paste below": "Pegar debajo",
+ "Paste here": "Pegar aquí",
+ "Copy a section first": "Copia primero una sección",
+ "Storelib adds what you set here at checkout, and nothing more.": "Storelib añade en el pago lo que configures aquí, y nada más.",
+ "Added at checkout for buyers in your regions.": "Se añade en el pago a los compradores de tus regiones.",
+ "Your prices": "Tus precios",
+ "Already include tax, in {currency}": "Ya incluyen impuestos, en {currency}",
+ "Tax is added on top, in {currency}": "Los impuestos se suman al precio, en {currency}",
+ "Downloads, courses and memberships, by the buyer's country.": "Descargas, cursos y membresías, según el país del comprador.",
+ "Regions": "Regiones",
+ "The countries or states where you charge tax, and the rate in each.": "Los países o estados donde cobras impuestos y el tipo en cada uno.",
+ "Add region": "Añadir región",
+ "No regions yet": "Aún no hay regiones",
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "En el pago, Storelib añade el impuesto que indican tus ajustes de arriba, se lo muestra al comprador, lo incluye en el recibo y guarda el registro aquí. No hace falta configurar nada antes de vender."
 }
 
 export default words
