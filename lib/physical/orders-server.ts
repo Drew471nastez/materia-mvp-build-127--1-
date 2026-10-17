@@ -598,7 +598,8 @@ export async function updateShipment(
       in one place (events-server, jobs-server queueDeliveryProblem), once per
       time it fails. Unticked notify rides along on that entry's detail.
     */
-    else if (trackingChanged && !to && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
+    /* A delivered parcel whose number is corrected afterwards: the record is fixed, the buyer, who has it already, is not told it is "on the way". */
+    else if (trackingChanged && !to && f.status !== "delivered" && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
       /* A first number on a shipment sent without one reads as "on the way"; a changed one says it changed. */
       await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, f.tracking_number ? "tracking" : "shipped", `email:tracking:${fulfillmentId}:${patch.tracking_number}`)
     }

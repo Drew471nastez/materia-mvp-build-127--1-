@@ -316,9 +316,11 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
+  /* The city, once typed: carrier calculated rates in most of Europe need it (lib/integrations/shipping/checkout-rates-server.ts). */
+  const city = typeof body.city === "string" && body.city.trim() ? body.city.trim().slice(0, 120) : null
   const codFeeCents = await codFeeFor(db, creatorId, body, country)
   const [q, profiles, choices] = await Promise.all([
-    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId, { codFeeCents }),
+    quoteCheckout(db, priced, country ? { country, region, postalCode, city } : null, body.deliveryOptionId, { codFeeCents }),
     priced.requiresShipping ? loadProfiles(db, creatorId).catch(() => []) : Promise.resolve([]),
     /* Short lines too: a size that sold out is changed to one in stock right there. A line at its own price keeps it. */
     variantChoices(db, items.filter((i) => typeof (i as { customPriceCents?: unknown }).customPriceCents !== "number").map((i) => i.productId)),
