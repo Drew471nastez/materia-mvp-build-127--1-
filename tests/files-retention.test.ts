@@ -439,7 +439,8 @@ async function main() {
     const db = client({ store_settings: [{ id: "s1", creator_id: CREATOR, logo_url: LOGO_URL }] }, tree, { removedPaths, failWith: noLedger })
     const out = await removeFromLibrary(db, owner, [{ bucket: "store-builder-images", path: LOGO }])
     check("a picture in use REFUSES rather than deleting", !out.ok && "status" in out && out.status === 409 && removedPaths.length === 0, out)
-    check("  and the message names the place and the part to run", !out.ok && /Store logo/.test(out.error) && /part 222/.test(out.error), out)
+    const why = "error" in out ? String(out.error) : ""
+    check("  and the message names the place and the part to run", /Store logo/.test(why) && /part 222/.test(why), why)
     check("  the object is untouched", tree["store-builder-images"][`${USER}/files`].some((e) => e.name === "logo.png"))
   }
   {

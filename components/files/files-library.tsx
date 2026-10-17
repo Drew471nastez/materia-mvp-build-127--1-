@@ -1124,11 +1124,24 @@ export function FilesLibrary({
     return done
   }
 
+  /*
+    PUT BACK. Nothing was deleted, so the only thing to undo is the list, and
+    the toast is where it belongs: a file taken out by mistake is one press
+    from being back, without a Removed tab nobody would otherwise open.
+  */
+  const putBack = async (list: LibraryFile[]) => {
+    const r = await api("/api/files", { method: "POST", body: { restore: list.map((f) => ({ bucket: f.bucket, path: f.path })) } })
+    if ("error" in r) return toast.error(r.error)
+    setFiles((all) => (all ? [...list.filter((f) => !all.some((x) => x.id === f.id)), ...all] : all))
+    void load()
+  }
+  const undo = (list: LibraryFile[]) => ({ action: { label: tt("Undo"), onClick: () => void putBack(list) } })
+
   const remove = async (f: LibraryFile) => {
     const done = await send([f], false)
     if (done.size === 0) return
     setConfirming(null)
-    toast.success(tt("Removed from Files"))
+    toast.success(tt("Removed from Files"), undo([f]))
   }
 
   /* Several at once (Files, Select, Remove): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
@@ -1137,7 +1150,8 @@ export function FilesLibrary({
     if (done.size === 0) return
     setConfirmingMany(null)
     stopSelecting()
-    toast.success(done.size === 1 ? tt("Removed from Files") : tt("{size} files removed from Files", { size: done.size }))
+    const back = list.filter((f) => done.has(f.id))
+    toast.success(done.size === 1 ? tt("Removed from Files") : tt("{size} files removed from Files", { size: done.size }), undo(back))
   }
 
   /* The bytes go. Only from the dialog that listed where the file is used. */
