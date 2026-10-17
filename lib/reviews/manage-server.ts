@@ -111,10 +111,6 @@ export async function moderateReview(db: Db, review: ModeratedRow & { creator_id
 
 /* ── The list ──────────────────────────────────────────────────────────── */
 
-const LIST_COLUMNS =
-  "id, product_id, order_id, buyer_id, rating, title, content, created_at, edited_at, status, site_status, hidden_by, verified, source, featured, photos, reviewer_name, seller_reply, seller_reply_at, buyer:profiles!buyer_id(display_name, avatar_url), order:orders!order_id(buyer_email, buyer_first_name, created_at)"
-const LEGACY_COLUMNS = "id, product_id, order_id, buyer_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, buyer:profiles!buyer_id(display_name, avatar_url)"
-
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
 /** The store's products whose title has the search in it, for "apron" to find the Linen apron's reviews. */
@@ -134,17 +130,26 @@ export async function tabCounts(db: Db, creatorId: string, f: ReviewListQuery, m
 export async function listReviews(db: Db, creatorId: string, f: ReviewListQuery): Promise<ReviewListAnswer> {
   const matches = await productsMatching(db, creatorId, f.q)
   const [from, to] = pageRange(f.page)
-  const read = (columns: string, withTab: boolean) => {
-    let q = db.from("reviews").select(columns).eq("creator_id", creatorId)
-    if (withTab) q = applyFilters(applyTab(q, f.tab), f, matches)
-    return applySort(q, f.sort).range(from, to)
-  }
-  let res = await read(LIST_COLUMNS, true)
+  /* With Storelib Reviews' columns (part 134), the buyer's profile and the order's address; written out here so tests/review-columns.test.ts reads them. */
+  let res = await applySort(
+    applyFilters(
+      applyTab(
+        db
+          .from("reviews")
+          .select("id, product_id, order_id, buyer_id, rating, title, content, created_at, edited_at, status, site_status, hidden_by, verified, source, featured, photos, reviewer_name, seller_reply, seller_reply_at, buyer:profiles!buyer_id(display_name, avatar_url), order:orders!order_id(buyer_email, buyer_first_name, created_at)")
+          .eq("creator_id", creatorId),
+        f.tab,
+      ),
+      f,
+      matches,
+    ),
+    f.sort,
+  ).range(from, to)
   let ready = true
   if (res.error && missingColumn(res.error)) {
     /* Before part 134: the plain list, newest first, without the tabs that need its columns. */
     ready = false
-    res = await db.from("reviews").select(LEGACY_COLUMNS).eq("creator_id", creatorId).order("created_at", { ascending: false }).range(from, to)
+    res = await db.from("reviews").select("id, product_id, order_id, buyer_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, buyer:profiles!buyer_id(display_name, avatar_url)").eq("creator_id", creatorId).order("created_at", { ascending: false }).range(from, to)
   }
   const raw = (res.data ?? []) as Record<string, any>[]
   const counts = ready ? await tabCounts(db, creatorId, f, matches) : ({ all: raw.length, published: 0, pending: 0, hidden: 0, reported: 0, unanswered: 0 } as TabCounts)

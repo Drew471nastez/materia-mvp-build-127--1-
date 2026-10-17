@@ -660,8 +660,9 @@ function wiring() {
   check("the website's review sections and its JSON-LD read only what the store shows there", (shopRead.match(/q\.eq\("site_status", "shown"\)/g) ?? []).length === 2)
   const marketRead = read("lib/reviews/store.ts")
   check("  Explore, the product page and the ratings never read it", !/site_status/.test(marketRead) && !/site_status/.test(read("supabase/sql/run-now/52_reviews_replies_reports_guests.sql")))
-  const ui = read("app/app/reviews/reviews-client.tsx")
-  check("the store's list says it plainly, and offers no delete for a verified buyer's review", ui.includes("Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.") && /moderation && !reported && !review\.verified \? \[\{ label: "Delete"/.test(ui))
+  /* Moved on purpose (round K5): the store's list is Storelib Reviews' Reviews view (components/reviews/manage), the same words and the same rule. */
+  const ui = read("components/reviews/manage/reviews-view.tsx")
+  check("the store's list says it plainly, and offers no delete for a verified buyer's review", ui.includes("Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.") && /ready && !reported && !review\.verified \? \[\{ label: "Delete"/.test(ui))
 }
 
 async function main() {

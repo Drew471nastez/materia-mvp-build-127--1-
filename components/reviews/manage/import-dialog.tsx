@@ -3,7 +3,7 @@
 /**
  * STORELIB REVIEWS › REVIEWS › IMPORT, in four steps on one sheet:
  *
- *   1. FILE      a CSV from another app (Judge.me, Shopify Product Reviews)
+ *   1. FILE      a CSV from another review app (Judge.me and the like)
  *                or typed by hand
  *   2. COLUMNS   which column holds the product, the rating, the review and
  *                the rest; found by name, changed by the store
@@ -204,7 +204,7 @@ export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => voi
 
         {step === "file" ? (
           <div className="space-y-4">
-            <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("A CSV with a row per review: the product (its handle, SKU or exact title), a rating from 1 to 5 and the review. Exports from Judge.me and Shopify Product Reviews work as they are.")}</p>
+            <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("A CSV with a row per review: the product (its handle, SKU or exact title), a rating from 1 to 5 and the review. Exports from Judge.me and most review apps work as they are.")}</p>
             <p className="rounded-xl bg-[#f6f7f9] px-3.5 py-3 text-[13px] leading-[19px] text-[#4b5563]" data-import-trust="">
               {tt("Imported reviews are marked Imported. They can show on your website, but they never get the Verified purchase label and never count in your Storelib rating.")}
             </p>
