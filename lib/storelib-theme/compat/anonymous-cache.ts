@@ -19,10 +19,23 @@
  * is drawn from that address alone. It is then sent `public, s-maxage=60,
  * stale-while-revalidate=300` only if the answer is a plain page
  * (publicAnswer): a 200 page of HTML that set no cookie and changed no cart.
- * `Vary: Cookie` and the country headers ride along as well, so a CDN that
- * keys on the address the browser asked for still never hands a stranger's
- * copy to somebody carrying a cart or a session. A request typed straight
- * at a marked address is refused by the proxy before any cache is asked.
+ * A request typed straight at a marked address is refused by the proxy
+ * before any cache is asked.
+ *
+ * NOT `Vary: Cookie`. It used to ride along "in case a CDN keys on the
+ * address the browser asked for", and it is why every one of these pages
+ * came back `x-vercel-cache: MISS`: Vercel's CDN does not store an answer
+ * whose Vary names Cookie at all (docs, CDN cache, "High-cardinality
+ * headers": "Vary key denied"). Vercel keys a rewritten request on the
+ * address it was rewritten to, which is the whole design here: Routing
+ * Middleware runs before the cache, and the marker in the path is what keeps
+ * a stranger's copy apart (the same way Vercel's own guide keeps A/B variants
+ * apart). Somebody with a cart or a session is never rewritten to a marked
+ * address, so no cookie holder can reach the copy. What it varies by now is
+ * low in number: the country (already in the marker; said again for any
+ * other cache) and Sec-Fetch-Dest, because a page opened as a document is
+ * prepared for its first draw and a script's fetch of the same address is
+ * not (./first-load.ts).
  *
  * WHAT IS NEVER HELD, and why:
  *   - anything but GET or HEAD, and a script's request (JSON, section
@@ -50,8 +63,8 @@
 /** What a stranger's page is sent with. */
 /* No stale-while-revalidate: a background refresh on the CDN does not pass through the proxy again, so the handler would refuse it (its seal expired) and could replace a good copy with a 404. A minute, then drawn fresh. */
 export const PUBLIC_PAGE_CACHE = "public, s-maxage=60"
-/** And what it varies by, for a CDN that keys on the address the browser asked for. */
-export const PUBLIC_PAGE_VARY = "Cookie, X-Vercel-IP-Country, CF-IPCountry"
+/** And what it varies by: never Cookie, which Vercel's CDN refuses to store at all (see above). */
+export const PUBLIC_PAGE_VARY = "X-Vercel-IP-Country, CF-IPCountry, Sec-Fetch-Dest"
 
 /**
  * Cookies that change nothing a page draws: analytics and the CDN's own.

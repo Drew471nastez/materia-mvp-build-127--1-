@@ -1,0 +1,233 @@
+/**
+ * ===========================================================================
+ *  AN IMPORTED THEME'S LIVE PAGE, READY TO DRAW SOONER
+ * ===========================================================================
+ * Measured on two owners' live imported sites (scripts/check-live-first-load.mjs,
+ * a phone at 10 Mbps, 40ms, CPU slowed four times): the server answered in
+ * 0.4s and every asset was in by 1.6s, yet DOMContentLoaded came at 6 to 14
+ * seconds. A Chrome trace of the first load said where the time went: the
+ * main thread, busy end to end, mostly recalculating style.
+ *
+ * Two things in the page Storelib writes were feeding it, and both are put
+ * right here, on the finished markup of a live page (the route at
+ * app/api/site-theme/site, never a preview or the builder's canvas):
+ *
+ * 1. THE CSS ARRIVES IN THE HEAD, IN ITS OWN ORDER. A Shopify theme writes
+ *    a `<style>` (and often a section's `<link rel="stylesheet">`) inside
+ *    every section: 126 of them through the body of one front page. Each one
+ *    the parser meets is a new style sheet for the whole document, and every
+ *    frame drawn while the page streams in recalculates style for everything
+ *    above it. Gathered at the end of the head instead, in exactly the order
+ *    they had (so the cascade is the same rule for rule: they already came
+ *    after everything in the head, and stay after it), the page is styled
+ *    once. Measured on the saved front page: DOMContentLoaded 5.9s to 5.0s,
+ *    a second less of long tasks. The first paint waits for the section
+ *    stylesheets too, about a tenth of a second here, which is what a page
+ *    drawn without a jump costs.
+ *
+ *    Left where they are: anything inside a script, a template, a noscript,
+ *    an SVG or MathML (not page CSS, or not live), and a `<style>` or
+ *    `<link>` with an id (a theme's script may look for it by its place).
+ *    At the first of those with an id, nothing after it moves either, so no
+ *    two rules ever swap places.
+ *
+ * 2. A COUNTRY'S FLAG LOADS WHEN IT IS SEEN. The theme's country selector
+ *    draws every country Storelib knows, about 250, each flag a small SVG
+ *    picture (objects.ts flagImage), in a list that is closed. Each picture
+ *    is a document of its own to the browser: 753 of them on one page. They
+ *    are marked `loading="lazy"` here, so the closed list costs nothing and
+ *    an opened one draws its flags as it scrolls. Measured on that page:
+ *    DOMContentLoaded 11.2s to 8.1s.
+ *
+ * Text in, text out, and an answer this cannot read (no body) is returned as
+ * it came.
+ */
+
+/** How every flag picture begins (objects.ts flagImage writes it). */
+export const FLAG_SVG_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24"><text`
+/** The same, as the start of the picture's address in the page. */
+export const FLAG_SRC_PREFIX = `data:image/svg+xml,${encodeURIComponent(FLAG_SVG_OPEN)}`
+
+/** Elements whose contents are not the page's own markup: skipped whole. */
+const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "plaintext"])
+/** Elements whose markup is not live, or not HTML's: nothing inside moves or changes. */
+const INERT = new Set(["template", "noscript", "svg", "math"])
+
+interface Tag {
+  name: string
+  start: number
+  /** Index just past the tag's `>`. */
+  end: number
+  closing: boolean
+  raw: string
+}
+
+/** The tag that starts at `i` (a `<`), its quoted attributes read whole so a `>` inside one does not end it. Null when it is not a tag. */
+function readTag(html: string, i: number): Tag | null {
+  const m = /^<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)/.exec(html.slice(i, i + 64))
+  if (!m) return null
+  let j = i + m[0].length
+  let quote = ""
+  for (; j < html.length; j++) {
+    const c = html[j]
+    if (quote) {
+      if (c === quote) quote = ""
+    } else if (c === '"' || c === "'") quote = c
+    else if (c === ">") break
+  }
+  if (j >= html.length) return null
+  return { name: m[2].toLowerCase(), start: i, end: j + 1, closing: m[1] === "/", raw: html.slice(i, j + 1) }
+}
+
+/** Where `</name>` closes, case blind, from `from`; the index past it, or the end of the text. */
+function closeOf(html: string, name: string, from: number): number {
+  const re = new RegExp(`</${name}\\s*>`, "ig")
+  re.lastIndex = from
+  const m = re.exec(html)
+  return m ? m.index + m[0].length : html.length
+}
+
+/** Past the end of an inert element that may nest (a template in a template, an svg in an svg). */
+function pastInert(html: string, name: string, from: number): number {
+  const re = new RegExp(`<(/?)${name}\\b[^>]*?(/?)>`, "ig")
+  re.lastIndex = from
+  let depth = 1
+  let m: RegExpExecArray | null
+  while ((m = re.exec(html))) {
+    if (m[1]) depth--
+    else if (!m[2]) depth++
+    if (depth === 0) return m.index + m[0].length
+  }
+  return html.length
+}
+
+const attr = (raw: string, name: string): string | null => {
+  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i").exec(raw)
+  return m ? (m[1] ?? m[2] ?? m[3] ?? "") : new RegExp(`\\s${name}(?=[\\s/>])`, "i").test(raw) ? "" : null
+}
+
+/*
+  WHAT IS LEFT IN ITS PLACE: an element that draws nothing, so the section
+  keeps exactly as many elements as it had. A theme's rule that counts them
+  (`:first-child`, `:nth-child(2)`, `* + *`) still matches what it matched:
+  measured, a logo strip lost its full width at a desktop width when its
+  `<style>` and `<link>` were simply taken out. Not an empty `<style>`: the
+  browser still treats each one as a new style sheet for the whole page, and
+  that kept most of the cost (DOMContentLoaded 5.4s against 5.0s). A
+  `<template>` is inert and hidden, and a `<link>` with no rel loads nothing.
+*/
+const EMPTY_STYLE = "<template data-sl-moved></template>"
+const EMPTY_LINK = "<link data-sl-moved>"
+
+const isStylesheetLink = (raw: string): boolean => /(?:^|\s)stylesheet(?:\s|$)/i.test(attr(raw, "rel") ?? "")
+
+/** A flag picture's tag with `loading="lazy"`, when it says nothing of its own about loading. */
+function lazyFlag(raw: string): string {
+  const src = attr(raw, "src")
+  if (src === null || !src.startsWith(FLAG_SRC_PREFIX) || attr(raw, "loading") !== null) return raw
+  return raw.replace(/^<img\b/i, '<img loading="lazy"')
+}
+
+export interface FirstLoadResult {
+  html: string
+  /** Style blocks and stylesheet links gathered into the head. */
+  moved: number
+  /** Flag pictures marked to load when seen. */
+  lazyFlags: number
+}
+
+/** Whether the browser asked for the address as a page to show (a link followed, typed, or fetched ahead for one), not for a script. */
+export function openedAsDocument(headers: Headers): boolean {
+  return headers.get("sec-fetch-dest") === "document"
+}
+
+/** The live page's markup with its body's CSS gathered at the end of its head and its flags lazy. */
+export function readierFirstLoad(html: string): FirstLoadResult {
+  let headEnd = -1
+  let bodyAt = -1
+  let i = 0
+  let stop = false
+  const moved: string[] = []
+  /* What the page becomes: pieces of the original, with the moved CSS cut out and the flags rewritten. */
+  const out: string[] = []
+  let copied = 0
+  let flags = 0
+  const cut = (from: number, to: number, replacement = "") => {
+    out.push(html.slice(copied, from), replacement)
+    copied = to
+  }
+  while (i < html.length) {
+    const lt = html.indexOf("<", i)
+    if (lt < 0) break
+    if (html.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4)
+      i = end < 0 ? html.length : end + 3
+      continue
+    }
+    if (html.startsWith("<!", lt) || html.startsWith("<?", lt)) {
+      const end = html.indexOf(">", lt)
+      i = end < 0 ? html.length : end + 1
+      continue
+    }
+    const tag = readTag(html, lt)
+    if (!tag) {
+      i = lt + 1
+      continue
+    }
+    i = tag.end
+    if (tag.closing) {
+      if (tag.name === "head" && bodyAt < 0 && headEnd < 0) headEnd = tag.start
+      continue
+    }
+    const selfClosed = /\/\s*>$/.test(tag.raw)
+    if (tag.name === "body" && bodyAt < 0) {
+      bodyAt = tag.start
+      if (headEnd < 0) headEnd = tag.start
+      continue
+    }
+    if (INERT.has(tag.name)) {
+      if (!selfClosed) i = pastInert(html, tag.name, tag.end)
+      continue
+    }
+    if (tag.name === "style") {
+      const end = closeOf(html, "style", tag.end)
+      i = end
+      /* An empty one holds no rule to move (and is what a moved one leaves behind). */
+      const empty = !/\S/.test(html.slice(tag.end, end).replace(/<\/style\s*>$/i, ""))
+      if (bodyAt >= 0 && !stop && !empty) {
+        if (attr(tag.raw, "id") !== null) stop = true
+        else {
+          moved.push(html.slice(tag.start, end))
+          cut(tag.start, end, EMPTY_STYLE)
+        }
+      }
+      continue
+    }
+    if (RAW_TEXT.has(tag.name)) {
+      if (!selfClosed) i = closeOf(html, tag.name, tag.end)
+      continue
+    }
+    if (bodyAt < 0) continue
+    if (tag.name === "link" && isStylesheetLink(tag.raw) && !stop) {
+      if (attr(tag.raw, "id") !== null) stop = true
+      else {
+        moved.push(tag.raw)
+        cut(tag.start, tag.end, EMPTY_LINK)
+      }
+      continue
+    }
+    if (tag.name === "img") {
+      const lazy = lazyFlag(tag.raw)
+      if (lazy !== tag.raw) {
+        flags++
+        cut(tag.start, tag.end, lazy)
+      }
+    }
+  }
+  if (bodyAt < 0 || headEnd < 0) return { html, moved: 0, lazyFlags: 0 }
+  out.push(html.slice(copied))
+  const body = out.join("")
+  /* Nothing before the head's end was cut, so the head's end is where it was. */
+  const result = moved.length ? `${body.slice(0, headEnd)}${moved.join("")}${body.slice(headEnd)}` : body
+  return { html: result, moved: moved.length, lazyFlags: flags }
+}
