@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { recordCronRun } from "@/lib/observability/report"
 import { sweepCommunityOrphans } from "@/lib/communities/server/orphans"
 import { sweepRemovedLibraryFiles } from "@/lib/files/cleanup-removed"
+import { repairBrokenReferences } from "@/lib/files/repair"
 
 /**
  * GET /api/cron/storage-cleanup
@@ -24,6 +25,10 @@ import { sweepRemovedLibraryFiles } from "@/lib/files/cleanup-removed"
  *   ?days=365     also look at product photos up to this many days old (the
  *                 daily run looks at a two day slice, 30 to 32 days back)
  *   ?limit=500    at most this many files this run (default 300)
+ *   ?repair=<creator id>  report what in that store points at a picture
+ *                 whose object is gone, and with &apply=1 put back the ones
+ *                 whose object is in fact still there. Never substitutes a
+ *                 different picture (lib/files/repair.ts).
  *
  * Protected by CRON_SECRET, like every other job here.
  * Schedule: daily at 03:40 UTC (vercel.json).
@@ -39,6 +44,25 @@ async function runJob(request: Request) {
   const url = new URL(request.url)
   const days = Number(url.searchParams.get("days"))
   const limit = Number(url.searchParams.get("limit"))
+
+  /*
+    ?repair=<creator id>  what in that store points at a picture whose object
+    is not in storage any more, from before Files kept what it removed. Read
+    only; with &apply=1 it puts back the files whose object turned out to be
+    there after all. It never puts a different picture in a reference's place
+    (lib/files/repair.ts).
+  */
+  const repairFor = url.searchParams.get("repair")
+  if (repairFor) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(repairFor)) {
+      return NextResponse.json({ error: "Name one store by its id." }, { status: 400 })
+    }
+    const admin = createAdminClient()
+    const { data: creator } = await admin.from("creators").select("id, user_id").eq("id", repairFor).maybeSingle()
+    if (!creator?.user_id) return NextResponse.json({ error: "No such store." }, { status: 404 })
+    const report = await repairBrokenReferences(admin, { userId: creator.user_id, creatorId: creator.id }, { apply: url.searchParams.get("apply") === "1" })
+    return NextResponse.json(report, { headers: { "Cache-Control": "no-store" } })
+  }
 
   try {
     const summary = await runStorageCleanup(createAdminClient(), {

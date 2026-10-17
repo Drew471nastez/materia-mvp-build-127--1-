@@ -9351,7 +9351,32 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} da acquirenti verificati",
  "{n} imported": "{n} importate",
  "{n} scheduled": "{n} programmate",
- "{n} selected": "{n} selezionate"
+ "{n} selected": "{n} selezionate",
+ "Removed from Files": "Rimosso da File",
+ "{size} files removed from Files": "{size} file rimossi da File",
+ "Remove from Files": "Rimuovi da File",
+ "In use on": "In uso su",
+ "Nowhere yet": "Ancora in nessun posto",
+ "Delete permanently": "Elimina definitivamente",
+ "Remove from Files?": "Rimuovere da File?",
+ "{name} leaves this list. It keeps playing everywhere you have already used it.": "{name} esce da questo elenco. Continua a riprodursi ovunque lo stai già usando.",
+ "{name} leaves this list. It keeps showing everywhere you have already used it.": "{name} esce da questo elenco. Continua a vedersi ovunque lo stai già usando.",
+ "Remove {n} files from Files?": "Rimuovere {n} file da File?",
+ "They leave this list and keep showing everywhere you have already used them.": "Escono da questo elenco e continuano a vedersi ovunque li stai già usando.",
+ "Remove {n}": "Rimuovi {n}",
+ "Delete this file permanently?": "Eliminare questo file definitivamente?",
+ "Delete {n} files permanently?": "Eliminare {n} file definitivamente?",
+ "{name} is deleted for good. This cannot be undone.": "{name} viene eliminato per sempre. Non si può annullare.",
+ "They are deleted for good. This cannot be undone.": "Vengono eliminati per sempre. Non si può annullare.",
+ "Checking where it is used": "Controllo di dove viene usato",
+ "This picture is in use. Deleting it empties:": "Questa immagine è in uso. Eliminandola restano vuoti:",
+ "These files are in use. Deleting them empties:": "Questi file sono in uso. Eliminandoli restano vuoti:",
+ "{label} ({count} places)": "{label} ({count} posti)",
+ "Some places could not be checked, so there may be more.": "Alcuni posti non si sono potuti controllare, quindi potrebbero essercene altri.",
+ "Where this is used could not be checked.": "Non si è potuto controllare dove viene usato.",
+ "Nothing in your store points at it.": "Niente nel tuo negozio punta a questa.",
+ "Nothing in your store points at them.": "Niente nel tuo negozio punta a questi.",
+ "Some places could not be checked.": "Alcuni posti non si sono potuti controllare."
 }
 
 export default words

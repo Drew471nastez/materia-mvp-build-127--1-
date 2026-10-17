@@ -1676,7 +1676,8 @@ function FileDetails({
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[12px] font-medium text-[#9ca3af]">{k}</dt>
-                    <dd className="break-all text-[#1a1a2e]" data-file-detail={k === tt("In use on") ? "uses" : undefined}>
+                    {/* An address breaks anywhere; a list of places breaks between words, not inside "Product". */}
+                    <dd className={cn("text-[#1a1a2e]", k === tt("In use on") ? "break-words" : "break-all")} data-file-detail={k === tt("In use on") ? "uses" : undefined}>
                       {v}
                     </dd>
                   </div>

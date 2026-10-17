@@ -9351,7 +9351,32 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} od zweryfikowanych kupujących",
  "{n} imported": "Zaimportowano: {n}",
  "{n} scheduled": "Zaplanowane: {n}",
- "{n} selected": "Zaznaczono: {n}"
+ "{n} selected": "Zaznaczono: {n}",
+ "Removed from Files": "Usunięto z Plików",
+ "{size} files removed from Files": "Usunięto {size} plików z Plików",
+ "Remove from Files": "Usuń z Plików",
+ "In use on": "Używane w",
+ "Nowhere yet": "Jeszcze nigdzie",
+ "Delete permanently": "Usuń trwale",
+ "Remove from Files?": "Usunąć z Plików?",
+ "{name} leaves this list. It keeps playing everywhere you have already used it.": "{name} znika z tej listy. Nadal odtwarza się wszędzie tam, gdzie już go używasz.",
+ "{name} leaves this list. It keeps showing everywhere you have already used it.": "{name} znika z tej listy. Nadal wyświetla się wszędzie tam, gdzie już go używasz.",
+ "Remove {n} files from Files?": "Usunąć {n} plików z Plików?",
+ "They leave this list and keep showing everywhere you have already used them.": "Znikają z tej listy i nadal wyświetlają się wszędzie tam, gdzie już ich używasz.",
+ "Remove {n}": "Usuń {n}",
+ "Delete this file permanently?": "Usunąć ten plik trwale?",
+ "Delete {n} files permanently?": "Usunąć {n} plików trwale?",
+ "{name} is deleted for good. This cannot be undone.": "{name} zostanie usunięty na zawsze. Tego nie da się cofnąć.",
+ "They are deleted for good. This cannot be undone.": "Zostaną usunięte na zawsze. Tego nie da się cofnąć.",
+ "Checking where it is used": "Sprawdzanie, gdzie jest używany",
+ "This picture is in use. Deleting it empties:": "To zdjęcie jest używane. Po usunięciu opustoszeją:",
+ "These files are in use. Deleting them empties:": "Te pliki są używane. Po usunięciu opustoszeją:",
+ "{label} ({count} places)": "{label} ({count} miejsc)",
+ "Some places could not be checked, so there may be more.": "Niektórych miejsc nie udało się sprawdzić, więc może być ich więcej.",
+ "Where this is used could not be checked.": "Nie udało się sprawdzić, gdzie jest to używane.",
+ "Nothing in your store points at it.": "Nic w twoim sklepie nie wskazuje na to zdjęcie.",
+ "Nothing in your store points at them.": "Nic w twoim sklepie nie wskazuje na te pliki.",
+ "Some places could not be checked.": "Niektórych miejsc nie udało się sprawdzić."
 }
 
 export default words

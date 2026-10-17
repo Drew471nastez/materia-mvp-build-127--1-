@@ -9351,7 +9351,32 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} von verifizierten Käufern",
  "{n} imported": "{n} importiert",
  "{n} scheduled": "{n} geplant",
- "{n} selected": "{n} ausgewählt"
+ "{n} selected": "{n} ausgewählt",
+ "Removed from Files": "Aus Dateien entfernt",
+ "{size} files removed from Files": "{size} Dateien aus Dateien entfernt",
+ "Remove from Files": "Aus Dateien entfernen",
+ "In use on": "Verwendet bei",
+ "Nowhere yet": "Noch nirgends",
+ "Delete permanently": "Endgültig löschen",
+ "Remove from Files?": "Aus Dateien entfernen?",
+ "{name} leaves this list. It keeps playing everywhere you have already used it.": "{name} verlässt diese Liste. Das Video läuft überall weiter, wo du es bereits verwendest.",
+ "{name} leaves this list. It keeps showing everywhere you have already used it.": "{name} verlässt diese Liste. Das Bild bleibt überall sichtbar, wo du es bereits verwendest.",
+ "Remove {n} files from Files?": "{n} Dateien aus Dateien entfernen?",
+ "They leave this list and keep showing everywhere you have already used them.": "Sie verlassen diese Liste und bleiben überall sichtbar, wo du sie bereits verwendest.",
+ "Remove {n}": "{n} entfernen",
+ "Delete this file permanently?": "Diese Datei endgültig löschen?",
+ "Delete {n} files permanently?": "{n} Dateien endgültig löschen?",
+ "{name} is deleted for good. This cannot be undone.": "{name} wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
+ "They are deleted for good. This cannot be undone.": "Sie werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
+ "Checking where it is used": "Wird geprüft, wo es verwendet wird",
+ "This picture is in use. Deleting it empties:": "Dieses Bild wird verwendet. Beim Löschen bleibt leer:",
+ "These files are in use. Deleting them empties:": "Diese Dateien werden verwendet. Beim Löschen bleibt leer:",
+ "{label} ({count} places)": "{label} ({count} Stellen)",
+ "Some places could not be checked, so there may be more.": "Einige Stellen konnten nicht geprüft werden, es können also mehr sein.",
+ "Where this is used could not be checked.": "Wo dies verwendet wird, konnte nicht geprüft werden.",
+ "Nothing in your store points at it.": "Nichts in deinem Shop verweist darauf.",
+ "Nothing in your store points at them.": "Nichts in deinem Shop verweist darauf.",
+ "Some places could not be checked.": "Einige Stellen konnten nicht geprüft werden."
 }
 
 export default words
