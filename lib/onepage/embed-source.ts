@@ -109,8 +109,8 @@ export function safeFrameSrc(raw: unknown): string | null {
   if (typeof raw !== "string") return null
   const s = raw.trim()
   if (!s) return null
-  /* This site's own path. Never "//host", which is another site. */
-  if (s.startsWith("/")) return s.startsWith("//") ? null : s
+  /* This site's own path. Never "//host" or "/\host", both of which a browser reads as another site. */
+  if (s.startsWith("/")) return /^\/[/\\]/.test(s) ? null : s
   const url = parsed(s)
   if (!url) return null
   if (url.protocol !== "https:") return null

@@ -307,7 +307,8 @@ async function main() {
   check("no scheme that runs can reach a frame", runs.every((u) => safeFrameSrc(u) === null), runs.filter((u) => safeFrameSrc(u) !== null).join(", "))
   check("the control case is a scheme a browser would run", runs[0].startsWith("javascript:"))
   check("a real booking page and a real file still do", safeFrameSrc("https://calendly.com/someone/30min") === "https://calendly.com/someone/30min" && safeFrameSrc("https://x.supabase.co/storage/v1/object/public/a/b.pdf")?.endsWith("b.pdf") === true)
-  check("this site's own path does, and a protocol relative address does not", safeFrameSrc("/files/a.pdf") === "/files/a.pdf" && safeFrameSrc("//evil.example.com/x") === null)
+  /* A browser reads "/\host" as "//host", so a path that starts with a second slash or a backslash is another site. */
+  check("this site's own path does, and a protocol relative address does not", safeFrameSrc("/files/a.pdf") === "/files/a.pdf" && safeFrameSrc("//evil.example.com/x") === null && safeFrameSrc("/\\evil.example.com/x") === null && safeFrameSrc("/\\/evil.example.com") === null)
   check("plain http does not, on a page served over https", safeFrameSrc("http://calendly.com/someone/30min") === null)
   check("nor does a host hidden behind credentials", safeFrameSrc("https://calendly.com@evil.example.com/x") === null)
   const stored = embedSource("https://www.tiktok.com/embed/v2/7234567890123456789", EMBED_HOSTS.tiktok)
