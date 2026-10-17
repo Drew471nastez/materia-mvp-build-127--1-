@@ -241,6 +241,8 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       aria-label={label}
       data-page-drawer=""
       data-detent={detent}
+      /* J27's rule (round 27): every bar fixed at the foot of /app says so, and the Setup pill steps aside. The drawer is always up. */
+      data-app-foot="up"
       onKeyDown={(e) => {
         if (e.key === "Escape" && detent !== "peek") {
           e.stopPropagation()
