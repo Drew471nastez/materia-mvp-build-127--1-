@@ -81,14 +81,14 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, Copy, Download, ExternalLink, Eye, Film, ImageIcon, ImagePlus, MoreHorizontal, Play, Search, Trash2, X } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, Eye, FileText, Film, ImageIcon, ImagePlus, MoreHorizontal, Play, Search, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { isOwnMedia, mediaUrl } from "@/lib/storage/media-url"
-import { fileThumb, filePreview, rawSize, tooSmallFor } from "@/lib/files/thumb"
+import { MANAGE_SIZES, THUMB_SIZES, fileThumb, rawSize, tooSmallFor } from "@/lib/files/thumb"
 import { downloadBlob, saveFile, savedMessage, savePlatform } from "@/lib/platform/save-file"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Notice, api } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -114,6 +114,8 @@ export interface LibraryFile {
   poster?: string | null
   /** A video's length in seconds, or null. */
   duration?: number | null
+  /** A picture's alt text (part 214), when one was written. */
+  alt?: string | null
 }
 
 /**
@@ -682,7 +684,8 @@ const Tile = React.memo(function Tile({
   /** Its address answers that there is nothing there. */
   onGone: (f: LibraryFile) => void
 }) {
-  const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
+  /* The Files page's grid is two to five across; the chooser's three or four (lib/files/thumb.ts MANAGE_SIZES, THUMB_SIZES). */
+  const thumb = React.useMemo(() => fileThumb(file.url, mode === "manage" ? MANAGE_SIZES : THUMB_SIZES), [file.url, mode])
   const video = isVideo(file)
   const local = localPreview.get(file.url)
   const on = selecting ? ticked : chosen
@@ -1064,6 +1067,10 @@ export function FilesLibrary({
     else if (added.length > 1) toast.success(tt("{length} files uploaded", { length: added.length }))
   }
 
+  const closeDetails = React.useCallback(() => setOpen(null), [])
+  /* A picture's alt text saved: kept on the file, so the view and the next opening show it. */
+  const onAlt = React.useCallback((f: LibraryFile, alt: string | null) => setFiles((list) => list?.map((x) => (x.id === f.id ? { ...x, alt } : x)) ?? null), [setFiles])
+
   /* Open in Files lands on /app/files?file=<id>: that file's details, once the list is in. */
   React.useEffect(() => {
     if (!openId || !files) return
@@ -1079,9 +1086,14 @@ export function FilesLibrary({
       toast.error(r.error)
       return
     }
+    usage.delete(f.id)
+    /* Deleted from the details view: the next file in the grid opens in its place, as a photo viewer does. */
+    const at = shown.findIndex((x) => x.id === f.id)
+    const after = open?.id === f.id ? (shown[at + 1] ?? shown[at - 1] ?? null) : null
     setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
     if (tickedRef.current.includes(f.id)) setTicked(tickedRef.current.filter((id) => id !== f.id))
     setConfirming(null)
+    if (after) setOpen(after)
     setOpen((o) => (o?.id === f.id ? null : o))
     toast.success(tt("Deleted"))
   }
@@ -1499,9 +1511,12 @@ export function FilesLibrary({
 
       <FileDetails
         file={open}
+        list={shown}
         mode={mode}
         selecting={selecting}
-        onClose={() => setOpen(null)}
+        onClose={closeDetails}
+        onOpen={setOpen}
+        onAlt={onAlt}
         onUse={(f) => {
           setOpen(null)
           if (selecting) {
@@ -1551,11 +1566,409 @@ function useLastOpen<T>(value: T | null): T | null {
   return value ?? last
 }
 
-/* ── A picture's details ────────────────────────────────────────────────── */
+/* ── A file's details ───────────────────────────────────────────────────── */
 
-function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }: { file: LibraryFile | null; mode: "manage" | "pick"; selecting?: boolean; onClose: () => void; onUse: (f: LibraryFile) => void; onDelete: (f: LibraryFile) => void }) {
+/*
+  ROUND V. The owner: "when I click on a file, I don't like at all the modal
+  that opens for that image. The copy link button is shrunk. The delete
+  button is very old school."
+
+  Now one view, laid out for the screen it is on:
+
+    COMPUTER  a wide window: the picture as large as the window allows on
+              the left, on the grey every tile has, and a 340px column on
+              the right with the name, its link, its details, where it is
+              used and its alt text, Download at the foot and Delete as a
+              quiet word beside it. The arrows at the picture's sides, and
+              the keyboard's, go to the file before and after in the grid as
+              it is filtered; Escape closes.
+    PHONE     the app's sheet, the same parts one under the other, the
+              picture first.
+
+  THE LINK is one field the width of the column: the address, cut with an
+  ellipsis, and a Copy button that never gives up its width (shrink-0, its
+  own min width, no wrap). It reads Copied for a moment after.
+
+  THE PICTURE is the original, at full resolution, the same bytes Download
+  saves: nothing is resized or recompressed. Under it, from the first frame,
+  the copy the tile already decoded, so the window never opens on grey; the
+  original fades in over it once decoded. The files on either side are
+  fetched ahead, so an arrow press shows a picture at once.
+
+  WHERE IT IS USED is asked for when the view opens (app/api/files/usage),
+  and again by the delete question, which names those places.
+*/
+
+type Use = { kind: string; label: string; href: string }
+/** Where each file is used, asked once per opening of Files. Cleared for a file when it is deleted. */
+const usage = new Map<string, Promise<Use[] | null>>()
+function usageOf(f: LibraryFile): Promise<Use[] | null> {
+  const had = usage.get(f.id)
+  if (had) return had
+  const next = api<{ uses: Use[] }>(`/api/files/usage?bucket=${encodeURIComponent(f.bucket)}&path=${encodeURIComponent(f.path)}`).then((r) => ("error" in r ? null : r.data.uses))
+  usage.set(f.id, next)
+  /* An answer that could not be read is asked again next time. */
+  void next.then((u) => {
+    if (u === null) usage.delete(f.id)
+  })
+  return next
+}
+function useUsage(f: LibraryFile | null): Use[] | null | "loading" {
+  const [state, setState] = React.useState<{ id: string; uses: Use[] | null } | null>(null)
+  React.useEffect(() => {
+    if (!f) return
+    let live = true
+    void usageOf(f).then((uses) => live && setState({ id: f.id, uses }))
+    return () => {
+      live = false
+    }
+  }, [f])
+  if (!f || !state || state.id !== f.id) return "loading"
+  return state.uses
+}
+
+/** Copied to the clipboard: true when it was. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (!navigator.clipboard?.writeText) return false
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The link, the width of its column, with a Copy button that keeps its own width. */
+export function CopyLinkField({ url }: { url: string }) {
+  const [copied, setCopied] = React.useState(false)
+  const timer = React.useRef(0)
+  React.useEffect(() => () => window.clearTimeout(timer.current), [])
+  React.useEffect(() => setCopied(false), [url])
+  const copy = async () => {
+    if (!(await copyText(url))) return toast.error(tt("The link could not be copied."))
+    setCopied(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setCopied(false), 1600)
+  }
+  return (
+    <div className="flex h-10 w-full min-w-0 items-center gap-1 rounded-lg border border-[#e5e7eb] bg-white pl-3 pr-1 focus-within:border-[#9ca3af]" data-file-link="">
+      <input
+        readOnly
+        value={url}
+        aria-label={tt("Link")}
+        onFocus={(e) => e.currentTarget.select()}
+        className="h-full min-w-0 flex-1 truncate bg-transparent text-[13px] text-[#4b5563] outline-none"
+        data-file-link-url=""
+      />
+      <button
+        type="button"
+        onClick={() => void copy()}
+        className={cn(
+          "inline-flex h-8 min-w-[84px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40",
+          copied ? "bg-[#ecfdf3] text-[#166534]" : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9ebee]",
+        )}
+        aria-live="polite"
+        data-file-copy=""
+      >
+        {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+        {copied ? tt("Copied") : tt("Copy")}
+      </button>
+    </div>
+  )
+}
+
+/** The type a person reads: JPG, PNG, MP4. */
+function typeName(f: LibraryFile): string {
+  return typeLabel(f) === "FILE" ? noun(f) : typeLabel(f)
+}
+
+/** A video's length as 1:05. */
+function lengthText(seconds: number | null | undefined): string {
+  return durationText(seconds ?? null) || ""
+}
+
+function AltText({ file, onSaved }: { file: LibraryFile; onSaved: (f: LibraryFile, alt: string | null) => void }) {
+  const [value, setValue] = React.useState(file.alt ?? "")
+  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  /* Another file: its own words. The same file saved keeps Saved showing. */
+  const alt = file.alt ?? ""
+  React.useEffect(() => {
+    setValue(alt)
+    setState("idle")
+    setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.id])
+  const dirty = value.trim() !== (file.alt ?? "").trim()
+  /* A blur and a press on Save land together: one request. */
+  const sending = React.useRef(false)
+  const save = async () => {
+    if (!dirty || sending.current) return
+    sending.current = true
+    setState("saving")
+    setError(null)
+    const r = await api<{ alt: string | null }>("/api/files", { method: "PATCH", body: { bucket: file.bucket, path: file.path, alt: value.trim() || null } })
+    sending.current = false
+    if ("error" in r) {
+      setState("idle")
+      return setError(r.error)
+    }
+    setState("saved")
+    onSaved(file, r.data.alt ?? null)
+  }
+  return (
+    <div data-file-alt="">
+      <div className="flex h-6 items-center justify-between gap-2">
+        <label htmlFor={`alt-${file.id}`} className="text-[12.5px] font-medium text-[#6b7280]">
+          {tt("Alt text")}
+        </label>
+        {dirty ? (
+          <button type="button" onClick={() => void save()} disabled={state === "saving"} className="h-6 rounded-md px-2 text-[12.5px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4] disabled:opacity-50" data-file-alt-save="">
+            {state === "saving" ? tt("Saving") : tt("Save")}
+          </button>
+        ) : state === "saved" ? (
+          <span className="inline-flex items-center gap-1 text-[12.5px] text-[#166534]" data-file-alt-saved="">
+            <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+            {tt("Saved")}
+          </span>
+        ) : null}
+      </div>
+      <textarea
+        id={`alt-${file.id}`}
+        value={value}
+        maxLength={500}
+        rows={2}
+        onChange={(e) => {
+          setValue(e.target.value)
+          if (state === "saved") setState("idle")
+        }}
+        onBlur={() => void save()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault()
+            void save()
+          }
+        }}
+        placeholder={tt("What the picture shows, for screen readers and search")}
+        className="mt-1 block w-full resize-none rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-5 text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#9ca3af] sm:text-[13.5px]"
+      />
+      {error ? <p className="mt-1 text-[12.5px] text-[#b42318]">{error}</p> : null}
+    </div>
+  )
+}
+
+/** The picture, video or file, as large as its box allows: the original over the tile's copy. */
+function Preview({ file, onSize }: { file: LibraryFile; onSize: (s: { w: number; h: number } | null) => void }) {
+  const video = isVideo(file)
+  const image = !video && (TYPES.has(file.type ?? "") || /\.(jpe?g|png|gif|webp|avif|svg)$/i.test(file.name))
+  /* What the grid already decoded for this file: on screen from the first frame. */
+  const under = React.useMemo(() => {
+    if (!image) return null
+    const tile = document.querySelector<HTMLImageElement>(`[data-file-tile="${CSS.escape(file.id)}"] img[data-file-img]`)
+    return tile && tile.dataset.loaded !== undefined && tile.dataset.failed === undefined && tile.currentSrc ? tile.currentSrc : null
+  }, [file.id, image])
+  if (video) {
+    return (
+      <video
+        key={file.id}
+        src={file.url}
+        poster={file.poster ?? undefined}
+        controls
+        playsInline
+        preload="metadata"
+        onLoadedMetadata={(e) => onSize(e.currentTarget.videoWidth ? { w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight } : null)}
+        className="absolute inset-0 h-full w-full bg-black object-contain"
+        data-file-preview="video"
+      />
+    )
+  }
+  if (!image) {
+    return (
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-2" data-file-preview="file">
+        <FileText className="h-8 w-8 text-[#9ca3af]" strokeWidth={1.5} aria-hidden />
+        <span className="text-[12px] font-semibold tracking-[0.04em] text-[#6b7280]">{typeLabel(file)}</span>
+      </span>
+    )
+  }
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {under ? <img src={under} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full object-contain p-4 sm:p-8" data-file-preview-under="" /> : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        key={file.id}
+        ref={revealIfReady}
+        src={file.url}
+        alt={file.alt ?? ""}
+        decoding="async"
+        fetchPriority="high"
+        draggable={false}
+        onLoad={(e) => {
+          onSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+          reveal(e.currentTarget)
+        }}
+        onError={(e) => {
+          onSize(null)
+          e.currentTarget.dataset.failed = ""
+          e.currentTarget.dataset.loaded = ""
+        }}
+        className={cn("peer", IMG_FADE, "p-4 sm:p-8")}
+        data-file-preview="image"
+      />
+      <Placeholder file={file} className="hidden bg-[#f3f4f6] peer-data-[failed]:flex" />
+    </>
+  )
+}
+
+/** The files on either side, fetched ahead so an arrow press shows a picture at once. */
+function useNeighbours(list: LibraryFile[], at: number) {
+  React.useEffect(() => {
+    if (at < 0 || typeof Image === "undefined") return
+    const t = window.setTimeout(() => {
+      for (const f of [list[at + 1], list[at - 1]]) {
+        if (!f || isVideo(f)) continue
+        const img = new Image()
+        img.decoding = "async"
+        img.src = f.url
+      }
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [list, at])
+}
+
+const ARROW = "grid h-10 w-10 place-items-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(17,24,39,0.16),0_0_0_1px_rgba(17,24,39,0.05)] outline-none transition-[opacity,background-color] hover:bg-white focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 disabled:pointer-events-none disabled:opacity-0"
+
+function FileDetails({
+  file,
+  list,
+  mode,
+  selecting = false,
+  onClose,
+  onOpen,
+  onUse,
+  onDelete,
+  onAlt,
+}: {
+  file: LibraryFile | null
+  /** The grid as it is filtered now, for the arrows. */
+  list: LibraryFile[]
+  mode: "manage" | "pick"
+  selecting?: boolean
+  onClose: () => void
+  onOpen: (f: LibraryFile) => void
+  onUse: (f: LibraryFile) => void
+  onDelete: (f: LibraryFile) => void
+  onAlt: (f: LibraryFile, alt: string | null) => void
+}) {
   const phone = usePhoneNow()
   const f = useLastOpen(file)
+  const [size, setSize] = React.useState<{ id: string; w: number; h: number } | null>(null)
+  const uses = useUsage(file)
+  const at = f ? list.findIndex((x) => x.id === f.id) : -1
+  const prev = at > 0 ? list[at - 1] : null
+  const next = at >= 0 && at < list.length - 1 ? list[at + 1] : null
+  useNeighbours(list, at)
+  /* ← and → go through the grid; not while typing the alt text. */
+  React.useEffect(() => {
+    if (!file) return
+    const key = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return
+      if (e.key === "ArrowLeft" && prev) {
+        e.preventDefault()
+        onOpen(prev)
+      } else if (e.key === "ArrowRight" && next) {
+        e.preventDefault()
+        onOpen(next)
+      }
+    }
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [file, prev, next, onOpen])
+  if (!f) return null
+  const video = isVideo(f)
+  const dims = size && size.id === f.id ? `${size.w.toLocaleString(appLocale())} × ${size.h.toLocaleString(appLocale())}` : ""
+  const facts: [string, string][] = [
+    [tt("Type"), typeName(f)],
+    [tt("Size"), sizeText(f.bytes)],
+    ...(dims ? ([[tt("Dimensions"), dims]] as [string, string][]) : []),
+    ...(video && lengthText(f.duration) ? ([[tt("Length"), lengthText(f.duration)]] as [string, string][]) : []),
+    [tt("Uploaded"), dateText(f.createdAt)],
+    [tt("From"), tt(f.source)],
+  ]
+  const position = at >= 0 && list.length > 1 ? tt("{at} of {count}", { at: at + 1, count: list.length }) : null
+
+  const preview = (
+    <div className={cn("relative overflow-hidden bg-[#f3f4f6]", phone ? "mx-4 aspect-[4/3] max-h-[38vh] w-[calc(100%-32px)] rounded-xl" : "min-w-0 flex-1")} data-file-stage="">
+      <Preview file={f} onSize={(s) => setSize((was) => (s ? (was && was.id === f.id && was.w === s.w && was.h === s.h ? was : { id: f.id, ...s }) : null))} />
+      {list.length > 1 ? (
+        <>
+          <button type="button" className={cn(ARROW, "absolute left-3 top-1/2 -translate-y-1/2")} onClick={() => prev && onOpen(prev)} disabled={!prev} aria-label={tt("Previous file")} data-file-prev="">
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+          </button>
+          <button type="button" className={cn(ARROW, "absolute right-3 top-1/2 -translate-y-1/2")} onClick={() => next && onOpen(next)} disabled={!next} aria-label={tt("Next file")} data-file-next="">
+            <ChevronRight className="h-5 w-5" aria-hidden />
+          </button>
+        </>
+      ) : null}
+    </div>
+  )
+
+  const facts_ = (
+    <dl className="space-y-2 text-[13.5px]" data-file-facts="">
+      {facts.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-4">
+          <dt className="shrink-0 text-[#6b7280]">{k}</dt>
+          <dd className="min-w-0 truncate text-right text-[#1a1a2e] tabular-nums">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+
+  const used = (
+    <div data-file-uses="">
+      <p className="text-[12.5px] font-medium text-[#6b7280]">{tt("Used in")}</p>
+      {uses === "loading" ? (
+        <p className="mt-1 h-5 w-32 animate-pulse rounded bg-[#f1f2f4]" aria-label={tt("Checking where it's used")} />
+      ) : uses === null ? (
+        <p className="mt-1 text-[13.5px] text-[#6b7280]">{tt("Could not check right now.")}</p>
+      ) : uses.length === 0 ? (
+        <p className="mt-1 text-[13.5px] text-[#6b7280]">{tt("Not used on your products or website.")}</p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {uses.slice(0, 6).map((u) => (
+            <li key={`${u.kind}:${u.href}:${u.label}`} className="min-w-0">
+              <a href={u.href} className="block truncate text-[13.5px] text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-2 hover:decoration-[#1a1a2e]">
+                {u.label}
+              </a>
+            </li>
+          ))}
+          {uses.length > 6 ? <li className="text-[13px] text-[#6b7280]">{tt("and {count} more", { count: uses.length - 6 })}</li> : null}
+        </ul>
+      )}
+    </div>
+  )
+
+  const actions = (
+    <div className="flex items-center gap-2" data-file-actions="">
+      <button type="button" onClick={() => onDelete(f)} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[14px] font-medium text-[#b42318] outline-none transition-colors hover:bg-[#fef2f2] focus-visible:ring-2 focus-visible:ring-[#b42318]/25" data-file-delete="">
+        <Trash2 className="h-4 w-4" aria-hidden />
+        {tt("Delete")}
+      </button>
+      <span className="flex-1" />
+      <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5 px-3.5", mode === "pick" ? "" : "min-w-[120px]")} onClick={() => void downloadFile(f)} data-file-download="">
+        <Download className="h-4 w-4" aria-hidden />
+        {tt("Download")}
+      </button>
+      {mode === "pick" ? (
+        <button type="button" className={cn(BTN_PRIMARY, "shrink-0 px-4")} onClick={() => onUse(f)} data-file-use="">
+          {selecting ? tt("Select") : tt("Use")}
+        </button>
+      ) : null}
+    </div>
+  )
+
   return (
     <SheetDialog
       open={!!file}
@@ -1563,73 +1976,50 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
       phone={phone}
       label={tt("File details")}
       showCloseButton={false}
-      className="gap-0 p-0 sm:max-w-[720px] sm:rounded-2xl"
-      sheet={{ zIndex: OVER_SHEET_Z, aboveKeyboard: false, maxHeight: "calc(var(--vv-h, 100dvh) * 0.9)" }}
+      className="flex h-[min(680px,calc(100dvh-64px))] w-[min(1040px,calc(100vw-48px))] max-w-none flex-row gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.45),0_2px_8px_rgba(17,24,39,0.08)] sm:max-w-none"
+      dialog={{ overlayClassName: "bg-[rgba(17,24,39,0.42)]" }}
+      sheet={{ zIndex: OVER_SHEET_Z, aboveKeyboard: true, maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)" }}
     >
-      {f ? (
-        <div className="flex min-h-0 flex-col" data-file-details="">
-          <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-1 sm:border-b sm:border-[#f1f2f4] sm:px-5 sm:py-3">
-            <SheetDialogTitle className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e]">{f.name}</SheetDialogTitle>
-            <button type="button" onClick={onClose} aria-label={tt("Close")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:px-5 sm:py-5">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
-              {isVideo(f) ? (
-                <video key={f.id} src={f.url} poster={f.poster ?? undefined} controls muted playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-contain" />
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={f.id}
-                  ref={revealIfReady}
-                  src={filePreview(f.url)}
-                  alt=""
-                  decoding="async"
-                  onLoad={(e) => reveal(e.currentTarget)}
-                  onError={(e) => fallBack(e.currentTarget, f.url)}
-                  className={cn("peer", IMG_FADE)}
-                />
-              )}
-              {isVideo(f) ? null : <Placeholder file={f} className="hidden peer-data-[failed]:flex" />}
-            </div>
-            <div className="space-y-3">
-              <dl className="grid grid-cols-2 gap-2.5 text-[13.5px] sm:grid-cols-1">
-                {[
-                  [tt("Size"), sizeText(f.bytes)],
-                  [tt("Type"), (f.type ?? "").replace(/^(image|video)\//, "").toUpperCase() || noun(f)],
-                  [tt("Uploaded"), dateText(f.createdAt)],
-                  [tt("From"), f.source],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-[12px] font-medium text-[#9ca3af]">{k}</dt>
-                    <dd className="break-all text-[#1a1a2e]">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              <div className="flex flex-wrap gap-2">
-                {mode === "pick" ? (
-                  <button type="button" className={cn(BTN_PRIMARY, "w-full")} onClick={() => onUse(f)}>
-                    {selecting ? tt("Select") : isVideo(f) ? tt("Use this video") : tt("Use this picture")}
-                  </button>
-                ) : null}
-                <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => copyLink(f)}>
-                  <Copy className="h-4 w-4" aria-hidden />
-                  {tt("Copy link")}
-                </button>
-                <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => void downloadFile(f)}>
-                  <Download className="h-4 w-4" aria-hidden />
-                  {tt("Download")}
-                </button>
-                <button type="button" className={cn(BTN_DANGER, "w-full gap-1.5")} onClick={() => onDelete(f)}>
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                  {tt("Delete")}
-                </button>
+      {phone ? (
+        <div className="flex min-h-0 flex-1 flex-col" data-file-details="phone">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(16px,env(safe-area-inset-bottom))]">
+            {preview}
+            <div className="space-y-5 px-4 pt-3">
+              <div className="min-w-0">
+                <SheetDialogTitle className="truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{f.name}</SheetDialogTitle>
+                {position ? <p className="text-[12.5px] text-[#9ca3af]">{position}</p> : null}
               </div>
+              <CopyLinkField url={f.url} />
+              {actions}
+              {facts_}
+              {used}
+              {video ? null : <AltText file={f} onSaved={onAlt} />}
             </div>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <>
+          {preview}
+          <div className="flex w-[340px] shrink-0 flex-col border-l border-[#eef0f2]" data-file-details="desktop">
+            <div className="flex items-start justify-between gap-2 px-5 pb-3 pt-4">
+              <div className="min-w-0">
+                <SheetDialogTitle className="truncate text-[15px] font-semibold leading-6 text-[#1a1a2e]">{f.name}</SheetDialogTitle>
+                {position ? <p className="text-[12.5px] text-[#9ca3af]">{position}</p> : null}
+              </div>
+              <button type="button" onClick={onClose} aria-label={tt("Close")} className="-mr-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]" data-file-close="">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5">
+              <CopyLinkField url={f.url} />
+              {facts_}
+              {used}
+              {video ? null : <AltText file={f} onSaved={onAlt} />}
+            </div>
+            <div className="border-t border-[#eef0f2] px-4 py-3">{actions}</div>
+          </div>
+        </>
+      )}
     </SheetDialog>
   )
 }
@@ -1639,6 +2029,8 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
 function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile | null; busy: boolean; onClose: () => void; onConfirm: (f: LibraryFile) => void }) {
   const phone = usePhoneNow()
   const f = useLastOpen(file)
+  const uses = useUsage(file)
+  const inUse = Array.isArray(uses) && uses.length > 0 ? uses : null
   return (
     <SheetDialog
       open={!!file}
@@ -1652,9 +2044,17 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
       {f ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm="">
           <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{isVideo(f) ? tt("Delete this video?") : tt("Delete this picture?")}</SheetDialogTitle>
-          <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
-            {f.source === "Library" ? tt("{name} is removed from your files.", { name: f.name }) : tt("{name} is removed from your files, and anything that still shows it will show nothing.", { name: f.name })}
-          </p>
+          {inUse ? (
+            <div className="mt-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13.5px] leading-5 text-[#92400e]" data-file-confirm-in-use="">
+              <p className="font-medium">{tt("{count, plural, one {Used in # place} other {Used in # places}}", { count: inUse.length })}</p>
+              <p className="mt-0.5 break-words">{inUse.slice(0, 4).map((u) => u.label).join(", ")}{inUse.length > 4 ? tt(" and {count} more", { count: inUse.length - 4 }) : ""}</p>
+              <p className="mt-1">{tt("Those places will show nothing where it was.")}</p>
+            </div>
+          ) : (
+            <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
+              {uses === "loading" ? tt("{name} is removed from your files.", { name: f.name }) : tt("{name} is removed from your files. It is not used on your products or website.", { name: f.name })}
+            </p>
+          )}
           <div className="mt-5 flex gap-2 sm:justify-end">
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
               {tt("Cancel")}

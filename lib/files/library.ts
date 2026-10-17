@@ -41,6 +41,8 @@ export interface LibraryFile {
   poster?: string | null
   /** A video's length in seconds, from its stored name, or null. */
   duration?: number | null
+  /** A picture's alt text, from public.file_details (part 214), when one was written. */
+  alt?: string | null
 }
 
 type Entry = { name: string; id: string | null; created_at?: string | null; metadata?: { size?: number; mimetype?: string } | null }
