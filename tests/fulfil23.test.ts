@@ -371,7 +371,7 @@ async function main() {
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     /* Changed on purpose: in the buyer's language (ct). */
     /* Changed on purpose (round 27, B27): until when is the seller's own window (a date once delivered, the days before), and the reason is in the buyer's language. */
-    check("the buyer sees until when, the reasons list labelled, and the reason on their return", /ct\("Until \{day\}", \{ day: day\(policy\.endsAt, lang\) \}\)/.test(view) && /until=\{returnHint\}/.test(view) && /Why are you returning this\?/.test(view) && !/className="sr-only">\s*Why are you returning/.test(view) && /ct\("Reason: \{reason\}", \{ reason: ct\(r\.reason\) \}\)/.test(view))
+    check("the buyer sees until when, the reasons list labelled, and the reason on their return", /ct\("Until \{day\}", \{ day: day\(policy\.endsAt, lang\) \}\)/.test(view) && /until=\{returnHint\}/.test(view) && /Why are you returning this\?/.test(view) && !/className="sr-only">\s*Why are you returning/.test(view) && /ct\("Reason: \{reason\}", \{ reason: r\.reason === "Other" \? ct\("Other reason"\) : ct\(r\.reason\) \}\)/.test(view))
 
     /* The whole flow on the real server code: request, approve with instructions, receive (restock), refund, close. */
     const CO = "5b1c0000-0000-4000-8000-0000000000d1"
