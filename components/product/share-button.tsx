@@ -150,7 +150,12 @@ export function ShareButton({
 
   const triggerClass = cn(
     "inline-flex shrink-0 select-none items-center justify-center rounded-full text-current outline-none",
-    "transition-[background-color,scale] duration-150 hover:bg-current/[0.07] active:scale-[0.94] data-[state=open]:bg-current/[0.07]",
+    /*
+      Round AG, the owner: "the share modal bumps when I click it". The menu opens on pointer down, while the button was
+      shrinking under the press (active:scale), so the menu was placed against the smaller button and then slid as it grew
+      back. The press now darkens the button instead of moving it; the menu is placed once, where it stays.
+    */
+    "transition-[background-color] duration-150 hover:bg-current/[0.07] active:bg-current/[0.1] data-[state=open]:bg-current/[0.07]",
     "focus-visible:ring-2 focus-visible:ring-current/25 [-webkit-tap-highlight-color:transparent]",
     size === "icon" && "h-9 w-9",
     size === "sm" && "h-8 w-8",

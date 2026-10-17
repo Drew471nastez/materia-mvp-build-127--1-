@@ -269,6 +269,19 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   */
   if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
     const session = event.data.object as Stripe.Checkout.Session
+    /* Round AG: one module of a program, bought on its own (lib/communities/server/module-sales.ts). */
+    if (session.metadata?.kind === "community_module") {
+      const sales = await import("@/lib/communities/server/module-sales")
+      if (sales.isModuleSession(session)) {
+        if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Module not paid yet" })
+        const done = await sales.grantModuleFromSession(supabaseAdmin, session)
+        if (done.ok === false && done.status >= 500) {
+          console.error("[Webhook] module grant failed:", session.id, done.error)
+          return NextResponse.json({ error: "Module not granted yet" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
     if (session.metadata?.kind === "community_program") {
       const learn = await import("@/lib/communities/server/learn-checkout")
       if (learn.isProgramSession(session)) {
@@ -1329,6 +1342,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       ])
       await revokeRefundedProgram(supabaseAdmin, intentId)
       await revokeRefundedTicket(supabaseAdmin, intentId)
+      await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intentId)
     }
     try {
       const done = await syncChargeRefund(supabaseAdmin, stripe, charge)

@@ -51,7 +51,7 @@ const MEMBERSHIP_KEYS = [
  * the community's id, name and address, who runs it, and per kind the
  * announcement, the event, the course or the invite it is about.
  */
-const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName"] as const
+const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName", "tplSubject", "tplHeading", "tplIntro"] as const
 
 /**
  * What a ticket email reads beside the community's own facts
@@ -133,6 +133,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   COMMUNITY_EVENT_REFUND: [...COMMUNITY_KEYS, ...TICKET_KEYS, "refundedAt", "byHolder"],
   COMMUNITY_EVENT_CANCELLED: [...COMMUNITY_KEYS, ...TICKET_KEYS, "refundedAt"],
   COMMUNITY_REPORT_DIGEST: [...COMMUNITY_KEYS, "reportCount", "moreCount", "line1", "line2", "line3", "line4", "line5"],
+  COMMUNITY_BROADCAST: [...COMMUNITY_KEYS, "broadcastId", "subject", "message", "authorName"],
   COMMUNITY_WEEKLY_DIGEST: ["weekOf", "moreCount", ...[1, 2, 3, 4, 5].flatMap((i) => [`c${i}Name`, `c${i}Slug`, `c${i}Line`, `c${i}Top`])],
 }
 
@@ -257,6 +258,17 @@ export class Data {
   constructor(private readonly raw: Record<string, unknown>) {}
   text(key: string, max = 80): string {
     return cleanText(this.raw?.[key], max)
+  }
+  /** Text a person wrote, as its paragraphs (a blank line between them), each cleaned, at most `count`. */
+  paras(key: string, max = 4000, count = 20): string[] {
+    const raw = this.raw?.[key]
+    if (typeof raw !== "string") return []
+    return raw
+      .slice(0, max)
+      .split(/\r?\n\s*\r?\n/)
+      .map((p) => cleanText(p, max))
+      .filter(Boolean)
+      .slice(0, count)
   }
   /** A first name only. */
   first(key: string): string {
@@ -1746,18 +1758,19 @@ export const CATALOG: Record<NotificationType, Entry> = {
   },
 
   /* ── A member of a community ────────────────────────────────────────── */
-  COMMUNITY_WELCOME: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WELCOME(d, ctx),
-  COMMUNITY_JOIN_APPROVED: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_JOIN_APPROVED(d, ctx),
-  COMMUNITY_INVITE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_INVITE(d, ctx),
-  COMMUNITY_ANNOUNCEMENT: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx),
-  COMMUNITY_EVENT_REMINDER: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx),
-  COMMUNITY_COURSE_AVAILABLE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx),
+  COMMUNITY_WELCOME: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_WELCOME(d, ctx), d),
+  COMMUNITY_JOIN_APPROVED: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_JOIN_APPROVED(d, ctx), d),
+  COMMUNITY_INVITE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_INVITE(d, ctx), d),
+  COMMUNITY_ANNOUNCEMENT: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx), d),
+  COMMUNITY_EVENT_REMINDER: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx), d),
+  COMMUNITY_COURSE_AVAILABLE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx), d),
   COMMUNITY_EVENT_TICKET: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET(d, ctx),
   COMMUNITY_EVENT_TICKET_INVITE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET_INVITE(d, ctx),
   COMMUNITY_EVENT_REFUND: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REFUND(d, ctx),
   COMMUNITY_EVENT_CANCELLED: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_CANCELLED(d, ctx),
   COMMUNITY_REPORT_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_REPORT_DIGEST(d, ctx),
   COMMUNITY_WEEKLY_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WEEKLY_DIGEST(d, ctx),
+  COMMUNITY_BROADCAST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_BROADCAST(d, ctx),
 }
 
 /** What every community email says the same way: its name, who runs it, and its address. */
@@ -1843,7 +1856,8 @@ const COMMUNITY_ENTRIES: Record<
   | "COMMUNITY_EVENT_REFUND"
   | "COMMUNITY_EVENT_CANCELLED"
   | "COMMUNITY_REPORT_DIGEST"
-  | "COMMUNITY_WEEKLY_DIGEST",
+  | "COMMUNITY_WEEKLY_DIGEST"
+  | "COMMUNITY_BROADCAST",
   Entry
 > = {
   COMMUNITY_WELCOME: (d) => {
@@ -2166,6 +2180,57 @@ const COMMUNITY_ENTRIES: Record<
       inApp: { title: "Your week in your communities", body: first ? `${first.name}: ${first.line}` : "What happened this week.", actionLabel: "Open", actionPath: PATHS.community(first?.slug ?? "") },
     }
   },
+
+  /*
+    ROUND AG: THE OWNER'S OWN EMAIL to the members who keep community emails on (lib/communities/server/broadcasts.ts).
+    Their subject and their words, as they wrote them, paragraph by paragraph; a button to the community; why it came and
+    where to turn it off.
+  */
+  COMMUNITY_BROADCAST: (d) => {
+    const c = communityOf(d)
+    const subject = d.text("subject", 120)
+    const paragraphs = d.paras("message")
+    const author = d.text("authorName", 40) || c.creator
+    return {
+      family: "base",
+      audience: "customer",
+      subject: cleanText(subject, SUBJECT_MAX) || fitSubject("News from ", c.name, "") || "News from your community",
+      preview: paragraphs[0] ? paragraphs[0].slice(0, 120) : c.name ? `From ${c.name}.` : "From your community.",
+      heading: subject || (c.name ? `News from ${c.name}` : "News from your community"),
+      paragraphs: [...paragraphs, join(author ? `From ${author}` : "From the team", c.name ? `at ${c.name}.` : "at your community.")],
+      action: { label: "Open the community", path: c.home },
+      note: memberNote(c, "emails from this community"),
+      greet: false,
+      unsubscribeLabel: null,
+      inApp: { title: subject || "News from your community", body: c.name ? `From ${c.name}.` : "From your community.", actionLabel: "Open", actionPath: c.home },
+    }
+  },
+}
+
+/**
+ * ROUND AG: A COMMUNITY'S OWN WORDS. An owner may change the subject, the heading and add an opening line to the
+ * community emails they send (Settings, Member emails; lib/communities/server/email-templates.ts). sendCommunityEmail puts
+ * them in the event as tplSubject, tplHeading and tplIntro; {community} and {creator} become the community's name and its
+ * owner's. Everything else (the button, the facts, the note on why it came) stays Storelib's, so an email always says what
+ * it is for and how to turn it off.
+ */
+export function fillCommunityWords(text: string, c: { name: string; creator: string }): string {
+  return text.replace(/\{\s*community\s*\}/gi, c.name || "the community").replace(/\{\s*creator\s*\}/gi, c.creator || "the team")
+}
+
+function withCommunityWords(m: Message, d: Data): Message {
+  const c = communityOf(d)
+  const subject = fillCommunityWords(d.text("tplSubject", 120), c)
+  const heading = fillCommunityWords(d.text("tplHeading", 120), c)
+  const intro = fillCommunityWords(d.text("tplIntro", 600), c)
+  if (!subject && !heading && !intro) return m
+  return {
+    ...m,
+    subject: subject ? cleanText(subject, SUBJECT_MAX) : m.subject,
+    heading: heading || m.heading,
+    preview: intro ? intro.slice(0, 120) : m.preview,
+    paragraphs: intro ? [intro, ...m.paragraphs] : m.paragraphs,
+  }
 }
 
 /** What every membership notice says the same way: its name, who by, the price with its interval, the next date and its page. */

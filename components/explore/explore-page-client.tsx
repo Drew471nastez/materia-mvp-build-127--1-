@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ExploreHero, type DiscoverMode } from "./explore-hero"
-import { writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
+import { readDiscoverModeSession, writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { ProductCard } from "./product-card"
 import { ExploreCommunityGrid, GRID_SIZES } from "./community-card"
 import { ExploreCommunitiesResults, type CommunitiesFirstPage } from "./explore-communities-results"
@@ -454,6 +454,14 @@ export function ExplorePageClient({
     }
     setMode(initialDiscoverMode)
   }, [searchParams, initialDiscoverMode, communitiesEnabled])
+  /* Round AG: back on /explore in the same tab with no ?type= (a link, not Back): communities if that was the last choice here. */
+  const modeChangeRef = useRef<((next: DiscoverMode) => void) | null>(null)
+  useEffect(() => {
+    if (!communitiesEnabled || searchParams.get("type")) return
+    if (readDiscoverModeSession() === "communities") modeChangeRef.current?.("communities")
+    // On arrival only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const communities = mode === "communities"
 
   // Main category (for Recommended section)
@@ -969,6 +977,7 @@ export function ExplorePageClient({
     if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
     replaceAddress(href)
   }, [interests.enough, exploreHref, urlSearchQuery, replaceAddress])
+  modeChangeRef.current = handleModeChange
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))

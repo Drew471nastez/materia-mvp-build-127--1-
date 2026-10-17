@@ -37,7 +37,7 @@ import { primaryOption } from "@/components/community/public/join-state"
 import { LENGTHS } from "../limits"
 import { invitedIn, needsInvite } from "../access-model"
 import { meetsRole } from "../permissions"
-import { MEMBER_COLUMNS, type CommunityRow, type MemberRow } from "../types"
+import { MEMBER_COLUMNS, PAID_SOURCES, type CommunityRow, type MemberRow } from "../types"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
 import { grantMembership, reconcileAccess, revokeMembership } from "./membership"
 import { notifyMember } from "./notify"
@@ -455,7 +455,19 @@ export async function checkoutGate(
     return { community, refusal: { status: 401, code: "sign_in", error: "Sign in to join this community.", url: `/login?next=${encodeURIComponent(`${url}?join=1`)}` } }
   }
   const viewer = await viewerContext(db, community, userId)
-  if (viewer.active) return { community, refusal: { status: 409, code: "already_member", error: "You are already a member of this community.", url } }
+  /*
+    Round AG: A FREE MEMBER MAY BUY A PAID PLAN. That is an upgrade: they pay, and the payment's membership moves their row
+    to the paid plan (reconcileAccess). Somebody already paying changes plan from their Membership page instead, and the
+    owner and the team never buy their own community.
+  */
+  if (viewer.active) {
+    const paying = (PAID_SOURCES as readonly string[]).includes(viewer.member?.source ?? "")
+    const staff = viewer.isOwner || meetsRole(viewer.role, "moderator")
+    if (paying || staff) {
+      return { community, refusal: { status: 409, code: "already_member", error: paying ? "You're already on a paid plan here. Change plan from your Membership page." : "You run this community, so there is nothing to buy.", url } }
+    }
+    return { community, refusal: null }
+  }
   if (viewer.banned || viewer.status === "banned" || viewer.status === "removed") return { community, refusal: { status: 403, code: "banned", error: "You can't join this community.", url } }
   if (community.approval_required) {
     const approved = viewer.member?.status === "pending" && Boolean(viewer.member.approved_by)

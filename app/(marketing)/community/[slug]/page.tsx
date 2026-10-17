@@ -5,6 +5,7 @@ import { rememberAppOpen } from "@/lib/account/app-open"
 import { joinCommunity, joinRateLimit } from "@/lib/communities/server/join"
 import { currentUserForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
 import { hasSellerAccess } from "@/lib/account/seller-access"
+import { meetsRole } from "@/lib/communities/permissions"
 import { welcomeGate } from "@/lib/account/welcome"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
@@ -72,6 +73,16 @@ export default async function CommunityPage({
     the flag is dropped so it is not pressed again.
   */
   const wantsJoin = query.join === "1"
+  /*
+    ROUND AG: THE OWNER'S PREVIEW OF THE PLANS (?preview=plans, from the Plans settings). Their own view of the address is the
+    feed, so the page and its plan picker are drawn as a signed out visitor would see them. Staff only; nothing in it charges.
+  */
+  if (query.preview === "plans" && user && load.viewer.active && (load.viewer.isOwner || meetsRole(load.viewer.role, "moderator"))) {
+    const seen = await loadSalesPage(slug, user.id, undefined, { asVisitor: true })
+    if (seen) {
+      return <CommunitySalesPage data={{ ...seen.data, notice: "Preview: this is the page and the plans as visitors see them.", preview: true }} />
+    }
+  }
   if (wantsJoin && user) {
     const home = `/community/${load.community.slug}`
     if (load.viewer.active) redirect(query.welcome === "1" ? `${home}?welcome=1` : home)
@@ -111,6 +122,19 @@ export default async function CommunityPage({
       same, components/community/member/member-profile.tsx). Somebody else's ?profile=<handle> stays a place here.
     */
     if (typeof query.profile === "string" && query.profile.trim().toLowerCase() === "me") redirect("/account")
+    /*
+      ROUND AG: A PLAN PICKED BEFORE SIGNING IN, BY SOMEBODY ALREADY IN (a free member who chose a paid plan on the page).
+      Their upgrade goes on in the Membership page, which holds the same picker and checkout, with the pick in the address.
+    */
+    const flowAsk = typeof query.join === "string" ? query.join : null
+    if (flowAsk === "pick" || flowAsk === "plans" || flowAsk === "pay") {
+      const keep = new URLSearchParams()
+      for (const k of ["join", "plan", "interval"]) {
+        const v = query[k]
+        if (typeof v === "string") keep.set(k, v)
+      }
+      redirect(`/community/${load.community.slug}/membership?${keep.toString()}`)
+    }
     const search = new URLSearchParams()
     for (const k of ["profile", "space"]) {
       const v = query[k]

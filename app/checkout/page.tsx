@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { trialDaysOf } from "@/lib/memberships/plan"
 import { headers } from "next/headers"
 import { personName } from "@/lib/profile/display-name"
 import {
@@ -327,7 +328,7 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
       plan={{
         monthlyPriceCents: plan?.monthly_price_cents ?? null,
         yearlyPriceCents: plan?.yearly_price_cents ?? null,
-        trialDays: plan?.trial_days ?? 0,
+        trialDays: trialDaysOf(plan?.trial_days),
         benefits: Array.isArray(plan?.benefits) ? (plan!.benefits as unknown[]).filter((b): b is string => typeof b === "string") : [],
         currency: (plan?.currency || "usd").toLowerCase(),
       }}
