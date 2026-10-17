@@ -9242,7 +9242,7 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} d'acheteurs vérifiés",
  "{n} imported": "{n} importés",
  "{n} scheduled": "{n} programmées",
- "{n} selected": "{n} sélectionnés",
+ "{n} selected": "{n} sélectionnés"
 }
 
 export default words

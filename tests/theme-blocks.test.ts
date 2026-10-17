@@ -237,7 +237,8 @@ function main() {
   const shownFor = (style: string) => visibleFields(btnCatalog, { style }, { fields: [], saved: {} }).filter((f) => f.type === "color").map((f) => f.label)
   check("the sidebar shows only the chosen style's colours", shownFor("primary").join(",") === "Fill,Text,Hover fill,Hover text" && shownFor("secondary").join(",") === "Fill,Text,Border,Hover fill,Hover text", { primary: shownFor("primary"), secondary: shownFor("secondary") })
   check("and draws a block's colour with SectionColorSetting, against the section's scheme",
-    /field\.type === "color" \? \(\s*<SectionColorSetting\s+field=\{field\}\s+value=\{block\.settings\[field\.id\]\}\s+settings=\{section\.settings\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    /* Round K3 wraps it in SharedInAllLanguages (a colour is the same in every language the sidebar edits); the control and its scheme are unchanged. */
+    /field\.type === "color" \? \(\s*(?:<SharedInAllLanguages>\s*)?<SectionColorSetting\s+field=\{field\}\s+value=\{block\.settings\[field\.id\]\}\s+settings=\{section\.settings\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   for (const [type, rule] of [["heading", /\[data-block-type="heading"\] \.sl-heading \{[^}]*color: var\(--heading-color, var\(--s-heading/], ["text", /\[data-block-type="text"\] \.sl-text \{[^}]*color: var\(--text-color, var\(--s-para/], ["button", /\[data-block-type="button"\] \.sl-button--primary \{ background: var\(--b-bg, var\(--s-btn/], ["group", /\[data-block-type="group"\] \.sl-group \{[^}]*background: var\(--g-bg, transparent\); border-radius: var\(--g-radius, 0\)/]] as const) {
     check(`${type}'s one rule, scoped to its type, reads its colour from the inline property`, rule.test(library[type]?.css ?? ""), (library[type]?.css ?? "").slice(0, 300))
   }
