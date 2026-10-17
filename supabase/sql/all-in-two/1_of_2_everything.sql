@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 202: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 212: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3635,6 +3635,13 @@ ALTER TABLE public.community_setup_progress ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_setup_progress FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_setup_progress TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('202', '202_community_deletion_and_setup.sql', 'b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 212_checkout_text_overrides.sql
+/* A store's own checkout words, per language (Settings > Checkout > Checkout text; lib/checkout-text), run after part 136. One new server only table, `checkout_text_overrides`: one row per store, language and reworded text (`text_id`, a stable id from lib/checkout-text/registry.ts such as `buttons.pay_amount`, never the English sentence, so a row survives the English being reworded), the store's words (`value`, one line, up to 200 characters, checked by the server before it is written: same placeholders as the English, no HTML, no links, no amounts) and `default_text`, what the checkout showed for it when the store saved, so the editor can say "Default changed since you edited" when Storelib's own wording changes later. Only the sentences the registry lists can be stored; legal and consent text, amounts, payment status and the payment provider's words are never editable. Read and written by the server only (RLS on, no client grants), like site_translations. Until it runs, the checkout shows Storelib's words and the editor says it needs this part. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.creators') IS NULL THEN RAISE NOTICE 'checkout text: there is no creators table yet.'; RETURN; END IF; CREATE TABLE IF NOT EXISTS public.checkout_text_overrides (creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, locale text NOT NULL, text_id text NOT NULL, value text NOT NULL, default_text text NOT NULL DEFAULT '', updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL, updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT checkout_text_overrides_pkey PRIMARY KEY (creator_id, locale, text_id), CONSTRAINT checkout_text_overrides_locale_check CHECK (char_length(locale) BETWEEN 2 AND 35), CONSTRAINT checkout_text_overrides_id_check CHECK (text_id ~ '^[a-z_]+\.[a-z_]+$' AND char_length(text_id) <= 64), CONSTRAINT checkout_text_overrides_value_check CHECK (char_length(value) BETWEEN 1 AND 200 AND value !~ '[<>]'), CONSTRAINT checkout_text_overrides_default_check CHECK (char_length(default_text) <= 400)); END $do$;
+ALTER TABLE IF EXISTS public.checkout_text_overrides ENABLE ROW LEVEL SECURITY;
+DO $do$ BEGIN IF to_regclass('public.checkout_text_overrides') IS NULL THEN RETURN; END IF; REVOKE ALL ON public.checkout_text_overrides FROM PUBLIC, anon, authenticated; GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_text_overrides TO service_role; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('212', '212_checkout_text_overrides.sql', 'ba6d49d827ec612e877a4c9caa5b2ed2d486f62a6c4d7120f39146c9eba81b50') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

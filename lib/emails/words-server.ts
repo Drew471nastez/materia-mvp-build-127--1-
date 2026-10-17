@@ -11,7 +11,8 @@ import "server-only"
  */
 import { siteLanguages } from "@/lib/markets/live"
 import { cachedTranslations } from "@/lib/markets/server"
-import { emailWordsFrom } from "@/lib/markets/checkout-words"
+import { emailWordsIn } from "@/lib/markets/checkout-words"
+import { checkoutOverrides } from "@/lib/checkout-text/server"
 import { isBuiltInWordKey, isEnglish, translationMap } from "@/lib/markets/translate"
 
 export interface EmailLanguage {
@@ -26,11 +27,14 @@ export async function emailLanguageFor(creatorId: string, asked: unknown): Promi
   if (!langs) return { lang: "en", words: {}, own: true }
   const want = typeof asked === "string" ? asked.toLowerCase() : ""
   const other = want ? langs.others.find((l) => l.toLowerCase() === want) ?? null : null
+  /* The store's own checkout words (Settings › Checkout › Checkout text) where an email says the same sentence, and Storelib's curated words (lib/checkout-text/words.ts). */
+  const lang = other ?? langs.defaultLanguage
+  const overridesRead = checkoutOverrides(creatorId, lang).catch(() => ({}) as Record<string, string>)
   if (other) {
-    const rows = await cachedTranslations(creatorId, other).catch(() => [])
-    return { lang: other, words: emailWordsFrom(translationMap(rows.filter((r) => r.status === "approved"))), own: false }
+    const [rows, overrides] = await Promise.all([cachedTranslations(creatorId, other).catch(() => []), overridesRead])
+    return { lang: other, words: emailWordsIn(other, translationMap(rows.filter((r) => r.status === "approved")), overrides), own: false }
   }
-  if (isEnglish(langs.defaultLanguage)) return { lang: langs.defaultLanguage, words: {}, own: true }
-  const rows = await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])
-  return { lang: langs.defaultLanguage, words: emailWordsFrom(translationMap(rows.filter((r) => r.status === "approved" && isBuiltInWordKey(r.key)))), own: true }
+  if (isEnglish(lang)) return { lang, words: emailWordsIn(lang, null, await overridesRead), own: true }
+  const [rows, overrides] = await Promise.all([cachedTranslations(creatorId, lang).catch(() => []), overridesRead])
+  return { lang, words: emailWordsIn(lang, translationMap(rows.filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))), overrides), own: true }
 }

@@ -28,6 +28,7 @@ import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { SHIPMENT_LABEL } from "@/lib/physical/status"
 import { TRACKING_LABEL } from "@/lib/physical/tracking/labels"
 import { sourceHash, valueFor, type Translatable, type TranslateOpts, type TranslationMap } from "./translate"
+import { layeredWords } from "@/lib/checkout-text/words"
 
 /** "zip code", "ZIP code" kept: a label put inside a sentence, lowered only where that reads right. */
 export function lowerLabel(label: string): string {
@@ -94,6 +95,15 @@ export function checkoutWordsFrom(map: TranslationMap | null | undefined, opts: 
   return words
 }
 
+/**
+ * The words a checkout in `language` draws: the store's own (Settings ›
+ * Checkout › Checkout text), the merchant's translations, Storelib's curated
+ * dictionary, then an approved machine translation (lib/checkout-text/words.ts).
+ */
+export function checkoutWordsIn(language: string, map: TranslationMap | null | undefined, overrides?: Record<string, string> | null): Record<string, string> {
+  return layeredWords({ sentences: checkoutSentences(), language, rows: map, keyOf: checkoutKey, overrides })
+}
+
 export type CheckoutT = (source: string, vars?: Vars) => string
 
 /** ct for one language: the sentence's translation, or the English, with {placeholders} filled the language's way. */
@@ -129,6 +139,11 @@ export function emailWordsFrom(map: TranslationMap | null | undefined, opts: Tra
     if (v) words[s] = v
   }
   return words
+}
+
+/** A buyer's email words in `language`, laid over the same way as the checkout's (the store's own words where a sentence is the same). */
+export function emailWordsIn(language: string, map: TranslationMap | null | undefined, overrides?: Record<string, string> | null): Record<string, string> {
+  return layeredWords({ sentences: emailSentences(), language, rows: map, keyOf: emailKey, overrides })
 }
 
 /** A sentence a server route sends to the checkout, marked so it is listed and translated where it is shown. */
