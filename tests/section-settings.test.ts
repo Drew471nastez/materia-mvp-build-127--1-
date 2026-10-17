@@ -168,10 +168,20 @@ for (const type of types) {
   /* A renderer split into files of its own (ProductSection and its
      ./product/ blocks and media) is read with them: a setting read in one of
      them is read by the section. */
-  const parts = [...own.matchAll(/from "\.\/([\w/-]+)"/g)]
-    .map((m) => join(RENDERERS, `${m[1]}.tsx`))
-    .filter((p) => existsSync(p))
-    .map((p) => readFileSync(p, "utf8"))
+  /* Followed down: a part's own ./ imports (product-blocks -> offers-block) are the section's too. */
+  const parts: string[] = []
+  const seenParts = new Set<string>()
+  const walkParts = (text: string, dir: string) => {
+    for (const m of text.matchAll(/from "\.\/([\w/-]+)"/g)) {
+      const p = join(dir, `${m[1]}.tsx`)
+      if (seenParts.has(p) || !existsSync(p)) continue
+      seenParts.add(p)
+      const body = readFileSync(p, "utf8")
+      parts.push(body)
+      walkParts(body, join(p, ".."))
+    }
+  }
+  walkParts(own, RENDERERS)
   sources.set(type, stripComments([own, ...parts].join("\n")))
 }
 
