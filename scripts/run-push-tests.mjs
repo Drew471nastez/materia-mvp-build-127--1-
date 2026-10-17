@@ -618,6 +618,8 @@ const SUITES = [
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
   "tests/communities-round33.test.ts",
+  /* Round 26 (W2): the community admin's row of tabs (stuck in the middle of its row, nothing moves on a hover, fades only where there is more) and an Overview of four figures (scripts/check-community-admin-nav26.mjs measures them). */
+  "tests/nav26.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",
@@ -675,6 +677,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
+  "tests/seo26.test.ts",
 ]
 
 /**
@@ -710,6 +714,18 @@ const STRICT_SUITES = [
     narrowed by `if (!x.ok)`, which only narrows under strict.
   */
   "tests/community-lifecycle-round33.test.ts",
+  /*
+    Round 26 (W1): a community being deleted takes no place on the plan, Keep after a replacement, two tabs, the
+    states and the cards (scripts/check-cards-round26.mjs measures the cards). Here for the same reason as the line
+    above: it runs lib/communities/server/creator.ts.
+  */
+  "tests/cards26.test.ts",
+  /*
+    Round 26 (W5): the Page editor rebuilt, the short description and member links (SQL part 220), a join button that
+    never states a price, every field saved and read back through creator.ts (strict, as above); scripts/
+    check-page-editor26.mjs measures the editor.
+  */
+  "tests/editor26.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
