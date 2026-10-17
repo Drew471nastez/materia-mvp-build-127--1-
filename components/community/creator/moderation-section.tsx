@@ -50,6 +50,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
 import { checkRules, moveItem, systemReportKind, takenAwayLine, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
+import { useOpenReports } from "./community-shell"
 import { BlockedWords } from "@/components/community/creator/blocked-words"
 import { ListFoot, MUTED, PHONE_LIST, TABLE, TD, TH, count } from "./ui-kit"
 import type { WordSettings } from "@/lib/communities/word-filter"
@@ -177,7 +178,8 @@ export function ModerationSection({
   const [tab, setTab] = React.useState<ModerationTab>(initialTab)
   const view: "open" | "closed" = tab === "resolved" ? "closed" : "open"
   const [reports, setReports] = React.useState(initialReports)
-  const [openCount, setOpenCount] = React.useState(head.openReports)
+  /* Shared with the row of tabs above (./community-shell.tsx): the count in the navigation is this one. */
+  const [openCount, setOpenCount] = useOpenReports(head.openReports)
   const [audit, setAudit] = React.useState(initialAudit)
   const [restricted, setRestricted] = React.useState(initialRestricted)
   const [ruleCount, setRuleCount] = React.useState(rules.length)
@@ -196,10 +198,15 @@ export function ModerationSection({
     if (filters.reason) u.set("reason", filters.reason)
     if (filters.kind) u.set("type", filters.kind)
     if (cursor) u.set("cursor", cursor)
-    const res = await send<{ rows: ReportView[]; next: string | null }>(`${base}/moderation?${u.toString()}`, "GET")
+    const res = await send<{ rows: ReportView[]; next: string | null; open?: number }>(`${base}/moderation?${u.toString()}`, "GET")
     setLoading(false)
     if (!res.ok) return toast(errorText(res.data.error, tt("The reports could not be loaded.")))
     setReports((x) => ({ rows: cursor ? [...x.rows, ...(res.data.rows ?? [])] : (res.data.rows ?? []), next: res.data.next ?? null }))
+    tell(res.data.open)
+  }
+  /** The count the server just counted, for the tab here and the one in the navigation. */
+  const tell = (open: unknown) => {
+    if (typeof open === "number" && Number.isFinite(open) && open >= 0) setOpenCount(Math.round(open))
   }
   const loadAudit = async (cursor?: string | null) => {
     setLoading(true)
@@ -231,26 +238,23 @@ export function ModerationSection({
 
   const setStatus = async (r: ReportView, status: "reviewing" | "resolved" | "dismissed", resolution?: string) => {
     setBusy(r.id)
-    const res = await send(`${base}/moderation`, "PATCH", { id: r.id, status, resolution })
+    const res = await send<{ open?: number }>(`${base}/moderation`, "PATCH", { id: r.id, status, resolution })
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
     if (!resolution) toast(status === "dismissed" ? tt("Report dismissed") : status === "resolved" ? tt("Report resolved") : tt("Marked as reviewing"))
     if (status === "reviewing") setReports((x) => ({ ...x, rows: x.rows.map((y) => (y.id === r.id ? { ...y, status } : y)) }))
-    else {
-      setReports((x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))
-      setOpenCount((n) => Math.max(0, n - 1))
-    }
+    else setReports((x) => ({ ...x, rows: x.rows.filter((y) => y.id !== r.id) }))
+    tell(res.data.open)
   }
 
   const removeContent = async (r: ReportView, reason: string) => {
     setBusy(r.id)
-    const res = await send(`${base}/moderation`, "POST", { action: "remove", targetType: r.targetType, targetId: r.targetId, reason: reason || `Reported: ${REASON[r.reason]}` })
+    const res = await send<{ open?: number }>(`${base}/moderation`, "POST", { action: "remove", targetType: r.targetType, targetId: r.targetId, reason: reason || `Reported: ${REASON[r.reason]}` })
     setBusy(null)
     if (!res.ok) return toast(errorText(res.data.error))
     setRemoving(null)
     toast(tt("Removed, and the reports about it closed"))
-    const gone = reports.rows.filter((y) => y.targetType === r.targetType && y.targetId === r.targetId).length
-    setOpenCount((n) => Math.max(0, n - gone))
+    tell(res.data.open)
     await loadReports("open")
   }
 
@@ -270,11 +274,13 @@ export function ModerationSection({
       }
     }
     const same = reports.rows.filter((y) => y.targetType === r.targetType && y.targetId === r.targetId)
-    const done = await Promise.all(same.map((y) => send(`${base}/moderation`, "PATCH", { id: y.id, status: "resolved", resolution: approve ? tt("Approved") : tt("Kept hidden") })))
+    /* One at a time, so the count that comes back with the last one is the count after all of them. */
+    const done: { ok: boolean; data: { open?: number } }[] = []
+    for (const y of same) done.push(await send<{ open?: number }>(`${base}/moderation`, "PATCH", { id: y.id, status: "resolved", resolution: approve ? tt("Approved") : tt("Kept hidden") }))
     setBusy(null)
     const closed = same.filter((_, i) => done[i].ok).map((y) => y.id)
     setReports((x) => ({ ...x, rows: x.rows.filter((y) => !closed.includes(y.id)) }))
-    setOpenCount((n) => Math.max(0, n - closed.length))
+    tell(done[done.length - 1]?.data.open)
     toast(approve ? tt("Approved. Members can see it now.") : tt("Kept hidden"))
   }
 

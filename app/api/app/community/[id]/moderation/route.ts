@@ -3,7 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
-import { CONTENT_ACTIONS, CONTENT_TARGETS, actOnContent, contentActionNeeds, listReports, updateReport } from "@/lib/communities/server/moderation"
+import { CONTENT_ACTIONS, CONTENT_TARGETS, actOnContent, contentActionNeeds, listReports, openReportCount, updateReport } from "@/lib/communities/server/moderation"
 import { isOneOf } from "@/lib/communities/types"
 import { announceModeration } from "@/lib/communities/server/realtime"
 
@@ -13,10 +13,17 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET   /api/app/community/<id>/moderation?status=open|closed|...&reason=&type=&cursor= -> { rows, next }: the report queue.
+ * GET   /api/app/community/<id>/moderation?status=open|closed|...&reason=&type=&cursor= -> { rows, next, open }: the report queue.
  * PATCH /api/app/community/<id>/moderation { id, status, resolution? }: a report reviewed, resolved or dismissed.
  * POST  /api/app/community/<id>/moderation { action, targetType, targetId, reason?, spaceId? }: act on a post,
  *       comment or message (the same rules as the member side's /api/community/<id>/moderation/act).
+ *
+ * EVERY ANSWER CARRIES `open`: how many reports in this community still need
+ * a decision, counted in the database after the write instead of worked out
+ * in the browser. The Moderation count in the community's navigation is that
+ * number, so removing a post four people reported moves the count by four
+ * rather than by one, and a report somebody else handled meanwhile is
+ * already counted out.
  */
 export async function GET(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
@@ -26,7 +33,11 @@ export async function GET(request: Request, { params }: Params) {
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
   const status = url.searchParams.get("status") || "open"
-  return NextResponse.json(await listReports(gate.ctx.admin, gate.community.id, { status: status as "open", cursor: url.searchParams.get("cursor"), reason: url.searchParams.get("reason"), type: url.searchParams.get("type") }), { headers: noStore })
+  const [page, open] = await Promise.all([
+    listReports(gate.ctx.admin, gate.community.id, { status: status as "open", cursor: url.searchParams.get("cursor"), reason: url.searchParams.get("reason"), type: url.searchParams.get("type") }),
+    openReportCount(gate.ctx.admin, gate.community.id),
+  ])
+  return NextResponse.json({ ...page, open }, { headers: noStore })
 }
 
 export async function PATCH(request: Request, { params }: Params) {
@@ -40,7 +51,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const body = await readJson(request)
   const done = await updateReport(gate.ctx.admin, { community: gate.community, actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null }, id: String(body.id ?? ""), status: body.status, resolution: body.resolution })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
-  return NextResponse.json({ ok: true }, { headers: noStore })
+  return NextResponse.json({ ok: true, open: await openReportCount(gate.ctx.admin, gate.community.id) }, { headers: noStore })
 }
 
 export async function POST(request: Request, { params }: Params) {
@@ -64,5 +75,5 @@ export async function POST(request: Request, { params }: Params) {
   })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   after(() => announceModeration(gate.ctx.admin, gate.community.id, { type: body.targetType, id: String(body.targetId ?? ""), action: body.action }).catch(() => false))
-  return NextResponse.json({ status: done.status }, { headers: noStore })
+  return NextResponse.json({ status: done.status, open: await openReportCount(gate.ctx.admin, gate.community.id) }, { headers: noStore })
 }

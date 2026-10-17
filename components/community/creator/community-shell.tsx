@@ -120,8 +120,42 @@ export interface SectionTab {
   count?: number
 }
 
+/* ── The Moderation count, as it changes ─────────────────────────────────── */
+
+/**
+ * HOW MANY REPORTS STILL NEED A DECISION, shared between the row of tabs and
+ * the Moderation section inside it (the owner: the count in the navigation
+ * "must update dynamically and represent actionable pending items").
+ *
+ * The number is the server's: communityHead reads it for the first paint
+ * (lib/communities/server/creator.ts openReportCount, open and reviewing
+ * reports) and every answer from /api/app/community/<id>/moderation carries
+ * it again, counted in the database after the write. The section puts that
+ * number here the moment a report is dismissed, resolved or removed with its
+ * content, and the tab above reads it: no poll, and no arithmetic in the
+ * browser that could drift from what the queue holds.
+ *
+ * A section mounted on its own (a probe, a test) has no provider and keeps
+ * its own copy, so nothing depends on the shell being there.
+ */
+const OpenReports = React.createContext<{ open: number; setOpen: (n: number) => void } | null>(null)
+
+export function useOpenReports(seed: number): [number, (n: number) => void] {
+  const shared = React.useContext(OpenReports)
+  const [own, setOwn] = React.useState(seed)
+  return shared ? [shared.open, shared.setOpen] : [own, setOwn]
+}
+
+/** The count the shell holds: the server's whenever a new one arrives, the section's in between. */
+function useOpenReportsState(fromServer: number): { open: number; setOpen: (n: number) => void } {
+  const [open, setOpen] = React.useState(fromServer)
+  /* A fresh server render (router.refresh, a save) is authoritative; the same number again leaves the section's in place. */
+  React.useEffect(() => setOpen(fromServer), [fromServer])
+  return React.useMemo(() => ({ open, setOpen }), [open])
+}
+
 /** The sections this person may open, in order: the work on content, then people, then the numbers and the settings. */
-export function sectionTabs(head: CommunityHead): SectionTab[] {
+export function sectionTabs(head: CommunityHead, openReports: number = head.openReports): SectionTab[] {
   const base = `/app/community/${head.slug}`
   const can = head.can
   const tabs: (SectionTab | null)[] = [
@@ -133,7 +167,7 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
     can.manage_events && head.eventsEnabled ? { id: "events", label: tt("Calendar"), href: `${base}/events` } : null,
     can.remove_member ? { id: "members", label: tt("Members"), href: `${base}/members`, count: head.memberCount } : null,
-    can.review_reports ? { id: "moderation", label: tt("Moderation"), href: `${base}/moderation`, count: head.openReports || undefined } : null,
+    can.review_reports ? { id: "moderation", label: tt("Moderation"), href: `${base}/moderation`, count: openReports || undefined } : null,
     can.view_analytics ? { id: "analytics", label: tt("Analytics"), href: `${base}/analytics` } : null,
     can.manage_settings ? { id: "settings", label: tt("Settings"), href: `${base}/settings` } : null,
   ]
@@ -328,7 +362,8 @@ function markMore(nav: HTMLElement, s: HTMLElement) {
 }
 
 export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityHead; active: SectionId; onGo?: (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => void; onWarm?: (tab: SectionTab) => void }) {
-  const tabs = sectionTabs(head)
+  const [openReports] = useOpenReports(head.openReports)
+  const tabs = sectionTabs(head, openReports)
   const nav = React.useRef<HTMLElement>(null)
   const strip = React.useRef<HTMLDivElement>(null)
   /* The fades follow the scroll and the width (a rotated phone, the rail opening). */
@@ -682,9 +717,11 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   const deleting = (head as CommunityHead & { deleting?: { deleteAt: string } | null }).deleting ?? null
   const hostValue = React.useMemo<HostValue>(() => ({ active, kept, settled, hold, routedHere }), [active, kept, settled, hold, routedHere])
   const foots = useFootsUp()
+  const openReports = useOpenReportsState(head.openReports)
 
   return (
     <ToastHost>
+      <OpenReports.Provider value={openReports}>
       <Host.Provider value={hostValue}>
         <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={shown} data-routed={routed ?? ""}>
           <CommunityHeader head={head} shown={shown} onGo={go} onWarm={warm} />
@@ -727,6 +764,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
           </div>
         </div>
       </Host.Provider>
+      </OpenReports.Provider>
     </ToastHost>
   )
 }
