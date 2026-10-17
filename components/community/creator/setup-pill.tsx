@@ -28,6 +28,7 @@ import { ArrowRight, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_CONFIRMED, INTRO_WATCHED, PILL_HIDDEN, skipKey, type SetupChecklistView, type SetupStepView } from "@/lib/communities/setup-keys"
 import { tt } from "@/lib/i18n/text"
+import { STEP_ASIDE, STEP_ASIDE_MOTION } from "@/lib/ui/foot-bars"
 
 const SLUG = /^\/app\/community\/([^/?#]+)/
 const REFRESH_MS = 8_000
@@ -115,7 +116,8 @@ function StepRow({ s, next, onMark }: { s: SetupStepView; next: boolean; onMark:
   )
 }
 
-export function CommunitySetupPill({ pathname, hidden = false }: { pathname: string; hidden?: boolean }) {
+/** `away`: a page's bottom bar is on screen (lib/ui/foot-bars.ts), so the pill and its list step aside until it goes. */
+export function CommunitySetupPill({ pathname, hidden = false, away = false }: { pathname: string; hidden?: boolean; away?: boolean }) {
   const slug = communitySlugOf(pathname)
   const [list, setList] = React.useState<(SetupChecklistView & { slug: string }) | null>(null)
   const [open, setOpen] = React.useState(false)
@@ -164,6 +166,10 @@ export function CommunitySetupPill({ pathname, hidden = false }: { pathname: str
   }, [read])
 
   React.useEffect(() => {
+    if (away) setOpen(false)
+  }, [away])
+
+  React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false)
     const onDown = (e: PointerEvent) => {
@@ -204,7 +210,7 @@ export function CommunitySetupPill({ pathname, hidden = false }: { pathname: str
   const finished = list.steps.filter((s) => s.done || s.skipped)
 
   return (
-    <div ref={box} data-shell-chrome="" data-community-setup="" className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 z-40 hidden md:right-6 md:block">
+    <div ref={box} data-shell-chrome="" data-community-setup="" data-away={away ? "" : undefined} className={cn("fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 z-40 hidden md:right-6 md:block", STEP_ASIDE_MOTION, away && STEP_ASIDE)}>
       {open ? (
         <section
           role="dialog"

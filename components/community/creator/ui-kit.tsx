@@ -164,6 +164,7 @@ export function BulkBar({ size, onClear, children }: { size: number; onClear: ()
   return createPortal(
     <div
       data-bulk-bar={up ? "up" : "down"}
+      data-app-foot={up ? "up" : "down"}
       aria-hidden={!up || undefined}
       className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 bottom-[calc(var(--app-nav-top,0px)+10px)] md:left-[var(--app-rail-w,240px)] md:bottom-[max(16px,env(safe-area-inset-bottom))] md:px-6"
     >

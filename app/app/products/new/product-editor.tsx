@@ -3617,6 +3617,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       */}
       <div
         data-editor-foot=""
+        data-app-foot="up"
         className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block"
       >
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
