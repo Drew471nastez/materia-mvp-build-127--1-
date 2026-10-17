@@ -78,6 +78,8 @@ import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type Sectio
 import { makeCodedCopy } from "./coded-copy"
 import { kindOfSource } from "@/lib/storelib-theme/section-groups"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { themeSettingsGroupsFor } from "@/lib/storelib-theme/theme-config"
+import type { ThemeSettingsGroup } from "../types"
 import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
@@ -315,10 +317,10 @@ export function describeSchemaRules(opts: { imported: boolean; settingsSchema: b
   if (opts.imported) {
     return `SETTINGS IN THE SIDEBAR, IN THIS IMPORTED THEME. Its section and block files are <template compat="shopify"> markup in the theme's own template language, then <schema>. Inside <schema>, the "shopify" object is the theme's own schema, the one the page is drawn with: add, change or remove settings, blocks and presets THERE, in the theme's own format ({"type", "id", "label", "default"}; a "t:" label is a key in the theme's locale). The rest of <schema> is the builder's panel, made again from "shopify" whenever the file is kept, so never edit it by hand. Keep every existing setting id: the creator's content is stored under it. A new setting needs a default the page can draw with.${opts.settingsSchema ? " The theme settings (colours, type, layout for the whole site) are the theme's settings schema: read_theme_settings_schema, then edit_theme_settings_schema, written as the theme writes it; Theme settings in the builder are made from it. Their values are the creator's, under shopify in THEME SETTINGS." : ""}`
   }
-  return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept. The theme settings are Storelib's own and the same on every Storelib theme: change their values with update_theme. There is no theme settings schema to edit here, so a setting of the site's own goes in the section that uses it.`
+  return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept.${opts.settingsSchema ? ` The theme settings (the whole site's colours, type, layout) are config/settings_schema.json, Shopify's format: a list of groups { "name", "settings": [ { "type", "id", "label", "default", "min", "max", "step", "unit", "options", "info" } ] }. To add a theme setting, reorder or regroup them, or change a label, default or range, read_theme_settings_schema, then edit_theme_settings_schema. Storelib's own settings keep their id, type and group. A section reads a setting the theme added as theme.settings.<id>. Change a value with update_theme.` : " The theme settings' values change with update_theme."}`
 }
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; settingsSchema?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; settingsSchema?: boolean; themeGroups?: ThemeSettingsGroup[] } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -589,13 +591,13 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "read_theme_settings_schema",
             description:
-              "Read this imported theme's settings schema: the theme settings the whole site uses (colours, type, layout), as the theme wrote them. A list of groups, each { \"name\", \"settings\": [...] }. Read it before changing a theme setting.",
+              "Read the theme's settings schema, config/settings_schema.json: the theme settings the whole site uses (colours, type, layout), as the theme writes them. A list of groups, each { \"name\", \"settings\": [...] }. Read it before changing a theme setting.",
             parameters: { type: "object" as const, properties: {}, required: [], additionalProperties: false },
           },
           {
             name: "edit_theme_settings_schema",
             description:
-              "Change this imported theme's settings schema with exact find-and-replace edits, the way edit_section_code does: add, change or remove a theme setting or a group, written as the theme writes it. Theme settings in the builder are made from it when the edit is saved, and a setting the builder has no control for is named back to you. Keep every existing setting id: the creator's values are stored under them.",
+              "Change the theme's settings schema with exact find-and-replace edits, the way edit_section_code does: add, reorder, regroup or change a theme setting or a group, written as the theme writes it. Theme settings in the builder follow it when the edit is saved, and a problem is named back to you with its line. Keep every existing setting id: the creator's values are stored under them.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -627,7 +629,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     },
     {
       name: "update_theme",
-      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings()}\n${describeThemeExtras()}`,
+      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings(opts.themeGroups)}\n${describeThemeExtras()}`,
       parameters: {
         type: "object",
         properties: {
@@ -1054,6 +1056,9 @@ export async function* themeAgent(
   let schemas = schemaMapFor(input.sources)
   /** This install's files as this run has them: what it wrote replaces what it read. */
   const sourcesNow: Record<string, string> = { ...(input.sources ?? {}) }
+  /* A Storelib theme's Theme settings as this run has them: its config/settings_schema.json over Storelib's, read again after every edit of it. */
+  const themeGroupsNow = (): ThemeSettingsGroup[] | undefined =>
+    input.code?.readSettingsSchema && !isCompatSource(sourcesNow["layout/theme.storelib"]) ? themeSettingsGroupsFor(input.code.readSettingsSchema()) : undefined
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
   /** Whether any section's source was rewritten, so the caller can reload it. */
@@ -1384,7 +1389,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -2119,7 +2124,7 @@ export async function* themeAgent(
           if (said) yield said
         }
 
-        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
+        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas, themeGroupsNow())
         if (readKey && !refused) reads.set(readKey, output)
         if (op) {
           /* What was read of this section is no longer what it holds. */
@@ -2808,6 +2813,8 @@ function execute(
    * silently stops working the day somebody rewords the sentence — and then
    * every refused call shows a tick and the list quietly lies.
    */
+  /** The theme's own Theme settings, when its config/settings_schema.json adds to Storelib's. */
+  themeGroups?: ThemeSettingsGroup[],
 ): { output: string; op?: ThemeOp; failed?: true } {
   let args: Record<string, unknown>
   try {
@@ -3182,7 +3189,7 @@ function execute(
         delete settings.typography_styles
       }
       const checked: SettingsCheck = Object.keys(settings).length
-        ? checkSettings([...themeFieldsFor(), ...themeExtraFields(state.settings as Record<string, unknown>)], settings, "The theme")
+        ? checkSettings([...themeFieldsFor(themeGroups), ...themeExtraFields(state.settings as Record<string, unknown>)], settings, "The theme")
         : { settings: {}, notes: [] }
       if (checked.error) return { output: checked.error }
       if (typography) {

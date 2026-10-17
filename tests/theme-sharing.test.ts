@@ -58,7 +58,10 @@ function main() {
     /sections: sanitizeSections\(rewriteUrls\(page\.sections, refToUrl\) as SectionInstance\[\], own\)/.test(imp),
     "this is the shared-theme path; the zip is written by somebody else")
   check("and so is a package's settings block",
-    /const settings = sanitizeThemeSettings\(\s*\n\s*rewriteUrls\(JSON\.parse\(pkg\.files\["config\/settings\.json"\]/.test(imp))
+    /* The values are config/settings.json, with a config/settings_data.json over it, read by packageThemeConfig (lib/storelib-theme/theme-config.ts). */
+    /const config = packageThemeConfig\(pkg\.files\)/.test(imp) &&
+      /const settings = sanitizeThemeSettings\(\s*\n\s*rewriteUrls\(\(config as \{ settings: Record<string, unknown> \}\)\.settings, refToUrl\)/.test(imp) &&
+      /JSON\.parse\(files\["config\/settings\.json"\] \?\? "\{\}"\)/.test(readFileSync(join(process.cwd(), "lib/storelib-theme/theme-config.ts"), "utf8")))
   check("the older manifest export is cleaned on the same terms",
     /\.map\(p => \(\{ \.\.\.p, sections: repairChrome\(sanitizeSections\(p\.sections as SectionInstance\[\]\), /.test(imp)
       && /const importedSettings = sanitizeThemeSettings\(/.test(imp),

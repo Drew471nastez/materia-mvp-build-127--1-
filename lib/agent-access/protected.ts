@@ -9,7 +9,12 @@
  *   templates, config, layout, snippets, assets
  *                   decide what every page is. Not section or block files,
  *                   so not theirs: what an agent writes is
- *                   `sections/<type>.storelib` and `blocks/<type>.storelib`.
+ *                   `sections/<type>.storelib` and `blocks/<type>.storelib`,
+ *                   and the two theme settings files, which are Shopify's
+ *                   way of changing Theme settings and are checked on save
+ *                   (lib/storelib-theme/theme-config.ts):
+ *                   `config/settings_schema.json` and
+ *                   `config/settings_data.json`.
  *
  *   the built-in sections
  *                   the library every site is built from (hero, header,
@@ -31,6 +36,7 @@
 import { safeThemePath } from "@/lib/website-builder/save-theme-file"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 
 /** A section file an agent may write. */
 export const AGENT_WRITABLE = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
@@ -63,7 +69,15 @@ export function sectionTypeOf(path: string): string | null {
 
 export type AgentWriteCheck = { ok: true } | { ok: false; status: 403; error: string }
 
+/** The theme settings files an agent may write: what the settings are, and their values. */
+export const AGENT_CONFIG_FILES: ReadonlySet<string> = new Set([THEME_SCHEMA_FILE, THEME_DATA_FILE])
+
+export function isThemeConfigFile(path: string): boolean {
+  return AGENT_CONFIG_FILES.has(path)
+}
+
 export function agentMayWrite(path: string): AgentWriteCheck {
+  if (AGENT_CONFIG_FILES.has(path)) return { ok: true }
   /* A theme block: a new one is the agent's to write, one Storelib ships is not. */
   if (safeThemePath(path) && AGENT_WRITABLE_BLOCK.test(path)) {
     const block = path.slice("blocks/".length, -".storelib".length)
@@ -82,7 +96,7 @@ export function agentMayWrite(path: string): AgentWriteCheck {
       ok: false,
       status: 403,
       error:
-        "An agent writes section and block files only: sections/<type>.storelib or blocks/<type>.storelib, in lower case with digits, _ and -. Templates, config, layout, snippets and assets are the theme's core and stay as they are.",
+        "An agent writes section and block files: sections/<type>.storelib or blocks/<type>.storelib, in lower case with digits, _ and -, and the theme settings in config/settings_schema.json (what they are) and config/settings_data.json (their values). Templates, layout, snippets, assets and the rest of config are the theme's core and stay as they are.",
     }
   }
   if (BUILT_IN_SECTION_TYPES.has(type)) {

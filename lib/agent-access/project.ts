@@ -39,7 +39,7 @@
 import "server-only"
 
 import type { AgentIdentity } from "./tokens"
-import { agentMayWrite } from "./protected"
+import { agentMayWrite, isThemeConfigFile } from "./protected"
 import { readFile, writeSection, type OpResult } from "./operations"
 import { siteBrief } from "./site-brief"
 import { checkOps, opsScope, type PageOpInput } from "./page-ops"
@@ -357,6 +357,8 @@ export async function createPage(db: Db, who: AgentIdentity, args: { title?: unk
 
 /** The quality gate the write tools share: compile, then the checks. A file that fails is not saved. */
 function gate(path: string, source: string): OpResult<null> {
+  /* A theme settings file is checked by its own reader when it is saved (lib/storelib-theme/theme-config.ts). */
+  if (isThemeConfigFile(path)) return { ok: true, value: null }
   const type = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(path)?.[1]
   const v = validateSection(source, { path, expectType: type, strict: true })
   if (v.ok === true) return { ok: true, value: null }
@@ -415,6 +417,7 @@ export async function editSection(
   const saved = await writeSection(db, who, path, source, base)
   if (saved.ok === false) return saved
   mirror(path, source)
+  if (isThemeConfigFile(path)) return { ok: true, value: `${path} saved as a draft. Theme settings in the builder follow it. The previous version is kept.` }
   return { ok: true, value: `${path} saved as a draft. It passed compile and quality. updated_at ${saved.value.updated_at ?? "unknown"}. The previous version is kept.` }
 }
 

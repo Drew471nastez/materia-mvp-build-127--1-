@@ -22,6 +22,8 @@
  */
 
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree"
+import { THEME_SCHEMA_FILE, builtInSettingsSchemaText, readThemeSettingsSchema } from "@/lib/storelib-theme/theme-config"
+import { readThemeSchemaText } from "@/lib/website-builder/theme-config-store"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -479,6 +481,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         let settingsSchemaNow: string | null = importedTheme ? (await readCompat()).settingsSchema : null
         /* What a rollback puts back, like every section file this run may write. */
         if (settingsSchemaNow !== null) startedWith[SETTINGS_SCHEMA_FILE] = settingsSchemaNow
+        /*
+          A STORELIB THEME'S config/settings_schema.json: its own when it has
+          one, Storelib's groups to start from when it has none
+          (lib/storelib-theme/theme-config.ts). Staged like a section, checked
+          by the same reader the save uses.
+        */
+        const ownThemeSchema = importedTheme ? null : await readThemeSchemaText(supabase, installId)
+        let themeSchemaNow: string = ownThemeSchema ?? builtInSettingsSchemaText()
+        if (ownThemeSchema !== null) startedWith[THEME_SCHEMA_FILE] = ownThemeSchema
         /**
          * A RUN'S CODE CHANGES ARE KEPT TOGETHER (lib/website-builder/agent/code-journal).
          * Each write the loop has checked is staged here; nothing reaches the
@@ -551,7 +562,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             AN IMPORTED THEME'S SETTINGS SCHEMA (its Theme settings): read, and
             staged like a section, so it is saved with the run's other files or
             not at all. The save makes the builder's Theme settings from it.
-            A theme of Storelib's own has none: its settings are Storelib's.
+            A theme of Storelib's own has its config/settings_schema.json the
+            same way, laid over Storelib's groups when it is saved.
           */
           ...(importedTheme && settingsSchemaNow !== null
             ? {
@@ -566,7 +578,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                   return { ok: true, ...(built.notes.length ? { notes: built.notes } : {}) }
                 },
               }
-            : {}),
+            : !importedTheme
+              ? {
+                  readSettingsSchema: () => themeSchemaNow,
+                  async writeSettingsSchema(source: string): Promise<{ ok: true; notes?: string[] } | { ok: false; error: string }> {
+                    const read = readThemeSettingsSchema(source)
+                    if (read.ok === false) return { ok: false, error: (read as { errors: { line?: number; message: string }[] }).errors.slice(0, 5).map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.message}`).join("; ") }
+                    journal.stage(THEME_SCHEMA_FILE, source)
+                    themeSchemaNow = source
+                    return { ok: true }
+                  },
+                }
+              : {}),
         }
 
         /**

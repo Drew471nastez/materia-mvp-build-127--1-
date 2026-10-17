@@ -16,9 +16,14 @@
  *                                    made once, at import: a changed
  *                                    settings_schema.json drew on the page
  *                                    and never reached Theme settings
- *   Storelib theme, theme settings   config/settings_schema.json is Storelib's
- *                                    own; a change to it was a quiet note
- *                                    under a green commit, read as "done"
+ *   Storelib theme, theme settings   config/settings_schema.json was
+ *                                    Storelib's own; a change to it was a
+ *                                    quiet note under a green commit, then
+ *                                    a red refusal. It is the theme's own
+ *                                    now (lib/storelib-theme/theme-config.ts):
+ *                                    taken, and Theme settings follow; one
+ *                                    that does not read is refused with its
+ *                                    line
  *   Storelib AI                      an imported theme's file failed
  *                                    Storelib's compiler on its first tag, and
  *                                    the assistant had no word on where a
@@ -48,6 +53,7 @@ import { shopifySchemaOf, splitCompatFile } from "@/lib/storelib-theme/compat/th
 import { SETTINGS_PANEL_FILE, SETTINGS_SCHEMA_FILE, buildSettingsPanel, compatSchemaWords, syncCompatFile } from "@/lib/storelib-theme/compat/schema-sync"
 import { checkSectionSource } from "@/lib/website-builder/agent/compile-feedback"
 import { describeSchemaRules } from "@/lib/website-builder/agent/loop"
+import { themeSettingsGroupsFor } from "@/lib/storelib-theme/theme-config"
 import { toolStepLabel } from "@/lib/website-builder/agent/step-labels"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
 import { untt } from "./i18n-source"
@@ -251,7 +257,7 @@ async function main() {
     check("new words for the labels make Theme settings again too", words.ok === true && (JSON.parse(text(SETTINGS_PANEL_FILE)!) as { name: string }[])[0].name === "Palette")
   }
 
-  console.log("\nA Storelib theme: a section's schema from GitHub reaches the sidebar; settings_schema.json is said to be read only")
+  console.log("\nA Storelib theme: a section's schema from GitHub reaches the sidebar, and so does settings_schema.json")
   {
     const tables = {
       store_theme_installs: [{ id: INSTALL, creator_id: CREATOR, name: "Astrid" }],
@@ -289,18 +295,23 @@ async function main() {
     check("  and the page's own value is still there", (tables.store_theme_pages[0].sections[0].settings as Record<string, unknown>).heading === "Keep me")
 
     const settingsSchema = JSON.parse(gh.text(REPO, "main", "config/settings_schema.json")!) as unknown[]
-    const red = await pushAs(gh, db, { "config/settings_schema.json": JSON.stringify([...settingsSchema, { id: "mine", label: "Mine", fields: [] }], null, 2) })
-    check("a change to config/settings_schema.json is refused, not a quiet note under a green commit", red.o.failed.some((f) => f.path === "config/settings_schema.json" && f.kind === "theme-settings" && /config\/settings\.json/.test(f.error) && /<schema>/.test(f.error)) && gh.repos.get(REPO)!.statuses.find((s) => s.sha === red.after)?.state === "failure", red.o)
+    const taken = await pushAs(gh, db, { "config/settings_schema.json": JSON.stringify([{ name: "Promo strip", settings: [{ type: "toggle", id: "promo_show", label: "Show the strip", default: true }] }, ...settingsSchema], null, 2) })
+    const ownSchema = () => (tables.store_theme_custom_files as { path: string; draft_content?: string | null; content: string }[]).find((r) => r.path === "config/settings_schema.json")
+    check("a change to config/settings_schema.json is taken, and Theme settings follow it", taken.o.saved.includes("config/settings_schema.json") && themeSettingsGroupsFor(ownSchema()?.draft_content ?? null)[0]?.label === "Promo strip", taken.o)
+    check("  the default it adds is under the values nobody set", (tables.store_theme_settings[0] as unknown as { draft_settings?: Record<string, unknown> }).draft_settings?.promo_show === true && (tables.store_theme_settings[0] as unknown as { draft_settings?: Record<string, unknown> }).draft_settings?.brand_name === "Astrid")
+    const red = await pushAs(gh, db, { "config/settings_schema.json": JSON.stringify([...settingsSchema, { name: "Mine", settings: [{ type: "slider", id: "mine", label: "Mine" }] }], null, 2) })
+    check("one that does not read is refused with its line, not a quiet note under a green commit", red.o.failed.some((f) => f.path === "config/settings_schema.json" && /"slider" is not a setting type/.test(f.error) && typeof f.line === "number") && gh.repos.get(REPO)!.statuses.find((s) => s.sha === red.after)?.state === "failure", red.o)
+    check("  and the file the builder draws is still the one before it", themeSettingsGroupsFor(ownSchema()?.draft_content ?? null)[0]?.label === "Promo strip")
     const slideshow = gh.text(REPO, "main", "sections/slideshow.json")
     if (slideshow) {
       const ref = await pushAs(gh, db, { "sections/slideshow.json": slideshow.replace(/"name": "[^"]*"/, '"name": "Mine"') })
       check("a change to a built-in's reference schema says to write sections/<type>.storelib", ref.o.failed.some((f) => f.path === "sections/slideshow.json" && /sections\/slideshow\.storelib/.test(f.error)), ref.o.failed)
     }
-    check("only those two kinds of file are refused as read only", readOnlySchemaRefusal("README.md") === null && readOnlySchemaRefusal("config/settings.json") === null)
+    check("only a built-in's reference schema is refused as read only", readOnlySchemaRefusal("README.md") === null && readOnlySchemaRefusal("config/settings.json") === null && readOnlySchemaRefusal("config/settings_schema.json") === null && readOnlySchemaRefusal("sections/slideshow.json") !== null)
     /* The report is of the last sync; the settings schema's was the push before the built-in's. */
     const report = editorReport({ ...link(db), sync_state: { ...link(db).sync_state, last: { ...link(db).sync_state!.last!, failed: red.o.failed } } })
     const row = report?.files.find((f) => f.path === "config/settings_schema.json")
-    check("the builder says it in words, with what to change instead", !!row && /doesn't take changes/.test(row.title) && /config\/settings\.json/.test(row.fix) && !!row.detail, report?.files)
+    check("the builder lists the refused file with its line", !!row && !!row.title && !!row.detail, report?.files)
   }
 
   console.log("\nStorelib AI can change an imported theme's schema, and knows where a sidebar setting comes from")
@@ -321,7 +332,7 @@ async function main() {
     const imported = describeSchemaRules({ imported: true, settingsSchema: true })
     const native = describeSchemaRules({ imported: false, settingsSchema: false })
     check("the assistant is told to change the \"shopify\" part, never the panel, and keep ids", /"shopify" object/.test(imported) && /never edit it by hand/.test(imported) && /Keep every existing setting id/.test(imported) && /edit_theme_settings_schema/.test(imported))
-    check("  and in a Storelib theme that the panel is the <schema>, and theme settings are Storelib's", /panel is its <schema>/.test(native) && /update_theme/.test(native) && !/edit_theme_settings_schema/.test(native))
+    check("  and in a Storelib theme that the panel is the <schema>, and theme values change with update_theme", /panel is its <schema>/.test(native) && /update_theme/.test(native) && !/edit_theme_settings_schema/.test(native))
     check("  in plain words: no em dash, none of the banned words", ![imported, native].some((t) => /—|\b(unlock|elevate|seamless|powerful|effortless|supercharge|transform)/i.test(t)))
     const loop = read("lib/website-builder/agent/loop.ts")
     check("the theme settings tools are offered only with an imported theme's settings schema, and never while one section is locked", /settingsSchema: !!input\.code\?\.readSettingsSchema && !locked/.test(loop) && /name: "read_theme_settings_schema"/.test(loop) && /name: "edit_theme_settings_schema"/.test(loop))
@@ -350,7 +361,7 @@ async function main() {
     const imported = agentsGuide({ siteName: "Mini", branch: "main", root: "", kind: "shopify" })
     const native = agentsGuide({ siteName: "Astrid", branch: "main", root: "", kind: "storelib" })
     check("an imported theme: change the \"shopify\" object; the panel is made from it", /`"shopify"` object inside its `<schema>`/.test(imported) && /shopify\/config\/settings_schema\.json/.test(imported) && !/Shopify|Liquid/.test(imported))
-    check("a Storelib theme: the panel is the <schema>; settings_schema.json is Storelib's", /section's panel in the builder\s+follows/.test(native) && /config\/settings_schema\.json` are\s+Storelib's own/.test(native))
+    check("a Storelib theme: the panel is the <schema>; the theme settings are config/settings_schema.json, values in config/settings.json or settings_data.json", /section's panel in the builder\s+follows/.test(native) && /`config\/settings_schema\.json` says what they are/.test(native) && /theme\.settings\.<id>/.test(native) && /config\/settings_data\.json/.test(native))
     check("  with no em dash", !/—/.test(imported + native))
   }
 
