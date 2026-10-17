@@ -38,11 +38,12 @@ function pick(langs: string[], asked: unknown): string {
   return (want && langs.find((l) => l.toLowerCase() === want.toLowerCase())) || langs[0] || "en"
 }
 
-async function defaultsFor(creatorId: string, lang: string, own: boolean): Promise<Map<string, string>> {
+async function defaultsFor(creatorId: string, lang: string, own: boolean): Promise<{ byId: Map<string, string>; of: (source: string) => string }> {
   const rows = await cachedTranslations(creatorId, lang).catch(() => [])
   /* The website's own language translates only Storelib's own words (translate.ts BUILT_IN_GROUPS), as the checkout reads it. */
   const map = translationMap(rows.filter((r) => r.status === "approved" && (!own || isBuiltInWordKey(r.key))))
-  return new Map(EDITABLE_TEXTS.map((e) => [e.id, defaultFor(e.source, lang, map, checkoutKey)]))
+  const of = (source: string) => defaultFor(source, lang, map, checkoutKey)
+  return { byId: new Map(EDITABLE_TEXTS.map((e) => [e.id, of(e.source)])), of }
 }
 
 export async function GET(request: Request) {
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
     groups: TEXT_GROUPS,
     items: EDITABLE_TEXTS.map((e) => {
       const kept = byId.get(e.id)
-      const def = defaults.get(e.id) ?? e.source
+      const def = defaults.byId.get(e.id) ?? e.source
       return {
         id: e.id,
         group: e.group,
@@ -81,7 +82,8 @@ export async function GET(request: Request) {
         defaultChanged: !!kept && !!kept.defaultText && kept.defaultText !== def,
       }
     }),
-    locked: PROTECTED_TEXTS,
+    /* Shown as the checkout reads them in this language, never editable. */
+    locked: PROTECTED_TEXTS.map((p) => ({ ...p, text: defaults.of(p.source) })),
   })
 }
 
@@ -106,7 +108,7 @@ export async function PUT(request: Request) {
   }
   const defaults = await defaultsFor(c.creatorId, lang, lang === langs[0])
   for (const ch of checked) {
-    const def = defaults.get(ch.id) ?? editableById(ch.id)!.source
+    const def = defaults.byId.get(ch.id) ?? editableById(ch.id)!.source
     /* The same as the default is no change: kept as "use the default", so a later better default reaches the checkout. */
     const value = ch.text && ch.text !== def ? ch.text : null
     const saved = await writeOverride(c.db, c.creatorId, lang, ch.id, value, def, c.userId)

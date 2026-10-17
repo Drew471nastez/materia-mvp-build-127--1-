@@ -104,7 +104,7 @@ async function main() {
   const pay = editableById("buttons.pay_amount")!
   const ok = validateOverride(pay, "  Cumpără   acum {amount} ")
   check("a good override is kept, spaces tidied", ok.ok && ok.text === "Cumpără acum {amount}", ok)
-  check("dropping {amount} is refused, saying which", (() => { const v = validateOverride(pay, "Cumpără acum"); return !v.ok && /\{amount\}/.test(v.error) })())
+  check("dropping {amount} is refused, saying which", (() => { const v = validateOverride(pay, "Cumpără acum"); return !v.ok && /\{amount\}/.test((v as { error: string }).error) })())
   check("adding a placeholder the text doesn't have is refused", !validateOverride(pay, "Pay {amount} to {shop}").ok)
   check("HTML is refused", !validateOverride(pay, "<b>Pay</b> {amount}").ok)
   check("a link is refused", !validateOverride(pay, "Pay {amount} at https://evil.example").ok && !validateOverride(pay, "Pay {amount} www.x.ro").ok)
