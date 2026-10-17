@@ -616,6 +616,8 @@ const SUITES = [
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
   "tests/communities-round33.test.ts",
+  /* Round 26 (W2): the community admin's row of tabs (stuck in the middle of its row, nothing moves on a hover, fades only where there is more) and an Overview of four figures (scripts/check-community-admin-nav26.mjs measures them). */
+  "tests/nav26.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",

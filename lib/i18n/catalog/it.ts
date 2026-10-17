@@ -5,6 +5,9 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Deleting on {date}. Members can read it until then. Keep it from Settings.": "Verrà eliminata il {date}. I membri possono leggerla fino ad allora. Tienila dalle Impostazioni.",
+ "+{n} in 30 days": "+{n} in 30 giorni",
+ "{n, plural, one {# cancellation} other {# cancellations}} in 30 days": "{n, plural, one {# disdetta} other {# disdette}} in 30 giorni",
  "Could not load published versions": "Impossibile caricare le versioni pubblicate",
  "Could not restore this version": "Impossibile ripristinare questa versione",
  "Published versions": "Versioni pubblicate",
