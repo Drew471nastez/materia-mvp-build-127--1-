@@ -111,7 +111,7 @@ console.log("\nThe route: owner only, rate limited, nothing taken on trust\n")
   check("a note is an action of its own, with the composer's key", /case "comment":\s+result = await addNote\(c\.db, c\.creatorId, id, body\.text, body\.key\)/.test(route))
   const server = read("lib/physical/orders-server.ts")
   check("  written only to an order of this shop, as the shop", /select\("id"\)\.eq\("id", checkoutId\)\.eq\("creator_id", creatorId\)/.test(server) && /kind: "note"[\s\S]{0,200}actor: "creator"/.test(server))
-  check("the place a parcel ships from is one of its own lines', never the request's", /ownLocations\.has\(input\.locationId\)/.test(server) && !/typeof input\.locationId === "string" \? input\.locationId :/.test(server))
+  check("the place a parcel ships from is one of its own lines', never the request's", /ownLocations\.has\((?:input|p)\.locationId\)/.test(server) && !/typeof input\.locationId === "string" \? input\.locationId :/.test(server))
   check("a timeline entry fits its column (300), it was cut at 500 and lost", /e\.message\.length > 300/.test(read("lib/physical/events-server.ts")))
   check("the shop's activity log names the note", /"order\.note": "Added a note to order \{s\}"/.test(read("lib/activity/actions.ts")))
 }

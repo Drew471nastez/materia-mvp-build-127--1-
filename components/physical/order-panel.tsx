@@ -26,7 +26,7 @@
  */
 
 import * as React from "react"
-import { Check, ClipboardCopy, Clock, Copy, ExternalLink, MapPin, MoreHorizontal, Package, PackageCheck, Printer, Truck, Undo2, X } from "lucide-react"
+import { Check, ClipboardCopy, Clock, Copy, ExternalLink, MapPin, MoreHorizontal, Package, PackageCheck, Plus, Printer, Truck, Undo2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { countryName } from "@/lib/checkout/countries"
@@ -49,7 +49,7 @@ import { CarrierLogo } from "./carrier-logo"
 import { CarrierPicker, carrierOfChoice } from "./carrier-picker"
 import { CarrierServices, firstCarrier, ownCarrierLink, rememberCarrier, useCarrierPrefs } from "./carrier-live"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
+import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
 import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
@@ -1081,7 +1081,7 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
 /* ─── Carrier and tracking ───────────────────────────────────────────── */
 
 /** The carrier part of Fulfill items and Edit tracking, as the seller fills it in. */
-type Ship = { choice: string; other: string; url: string; tracking: string }
+export type Ship = { choice: string; other: string; url: string; tracking: string }
 
 /** The picker's choice for what a shipment holds: a carrier we know, a name of the seller's own (Other), or none. */
 function shipFrom(carrier: string | null, number: string | null, url: string | null): Ship {
@@ -1092,7 +1092,7 @@ function shipFrom(carrier: string | null, number: string | null, url: string | n
 }
 
 /** What the server is sent: no carrier and no number for Local delivery / no tracking. */
-function shipBody(s: Ship): { carrier: string | null; trackingNumber: string | null; trackingUrl: string | null } {
+export function shipBody(s: Ship): { carrier: string | null; trackingNumber: string | null; trackingUrl: string | null } {
   const none = s.choice === NO_TRACKING
   const number = s.tracking.replace(/\s/g, "") || null
   return {
@@ -1108,7 +1108,7 @@ function shipBody(s: Ship): { carrier: string | null; trackingNumber: string | n
  * trackingRuleProblem). Every carrier gives a parcel a number and the buyer follows the parcel with it, so it is
  * asked for; Local delivery / no tracking is the one choice without. Each field's reason, empty when it can be sent.
  */
-function shipProblems(s: Ship): { carrier?: string; other?: string; tracking?: string; url?: string } {
+export function shipProblems(s: Ship): { carrier?: string; other?: string; tracking?: string; url?: string } {
   if (!s.choice) return { carrier: tt("Choose the carrier, or Local delivery / no tracking.") }
   if (s.choice === NO_TRACKING) return {}
   const out: { carrier?: string; other?: string; tracking?: string; url?: string } = {}
@@ -1133,7 +1133,7 @@ function shipLink(s: Ship, country: string | null): string | null {
  * shape (lib/physical/status guessCarrier), as Shopify does, until the seller picks one. Once both are there the
  * buyer's tracking page is named and can be opened, so a wrong number is caught here and not by the buyer.
  */
-function TrackingFields({ ship, set, country, check, orderId = null, locationId = null }: { ship: Ship; set: (patch: Partial<Ship>) => void; country: string | null; check: boolean; orderId?: string | null; locationId?: string | null }) {
+export function TrackingFields({ ship, set, country, check, orderId = null, locationId = null }: { ship: Ship; set: (patch: Partial<Ship>) => void; country: string | null; check: boolean; orderId?: string | null; locationId?: string | null }) {
   const picked = React.useRef(ship.choice !== "")
   /*
     THE FIRST GUESS, once the shop's own carriers are read: its default, else the carrier it last shipped with, else
@@ -1269,50 +1269,95 @@ function EmailPreview({ order, ship, partial, country }: { order: PhysicalOrder;
   )
 }
 
+/** One parcel in the Fulfill dialog: how many of each line go in it, and how it travels (TrackingFields). */
+interface ParcelDraft {
+  id: number
+  qty: Record<string, number>
+  ship: Ship
+}
+
 function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; locationId?: string | null; onLabel?: (order: PhysicalOrder, label: import("./buy-label").LabelView) => void; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
   const pickup = order.deliveryMethod === "pickup"
   const country = typeof order.address?.country === "string" ? order.address.country : null
   const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0 && only.includes(l.orderId))
-  const [qty, setQty] = React.useState<Record<string, number>>(() => Object.fromEntries(open.map((l) => [l.orderId, l.quantity - l.fulfilled])))
+  const leftOf = (l: PhysicalLine) => l.quantity - l.fulfilled
   /* An order the shop delivers itself starts on Local delivery / no tracking. */
-  const [ship, setShip] = React.useState<Ship>(() => ({ choice: order.delivery?.kind === "local" ? NO_TRACKING : "", other: "", url: "", tracking: "" }))
-  const set = React.useCallback((patch: Partial<Ship>) => setShip((s) => ({ ...s, ...patch })), [])
+  const startShip = (): Ship => ({ choice: order.delivery?.kind === "local" ? NO_TRACKING : "", other: "", url: "", tracking: "" })
+  const nextId = React.useRef(1)
+  const blank = (qty: Record<string, number>): ParcelDraft => ({ id: nextId.current++, qty, ship: startShip() })
+  /* One parcel unless the shop splits it: then each parcel has its own items and its own carrier and number. */
+  const [parcels, setParcels] = React.useState<ParcelDraft[]>(() => [blank(Object.fromEntries(open.map((l) => [l.orderId, leftOf(l)])))])
+  const first = parcels[0]
+  const split = parcels.length > 1
+  const setShipOf = React.useCallback((id: number, patch: Partial<Ship>) => setParcels((all) => all.map((x) => (x.id === id ? { ...x, ship: { ...x.ship, ...patch } } : x))), [])
+  const set = React.useCallback((patch: Partial<Ship>) => setShipOf(first.id, patch), [setShipOf, first.id])
+  /* More of a line in one parcel is taken from the others (the first parcel first), so the parcels never add up to more than is left. */
+  const setQty = (id: number, orderId: string, n: number) =>
+    setParcels((all) => {
+      const line = open.find((l) => l.orderId === orderId)
+      if (!line) return all
+      const next = all.map((x) => ({ ...x, qty: { ...x.qty } }))
+      next.find((x) => x.id === id)!.qty[orderId] = n
+      let over = next.reduce((s, x) => s + (x.qty[orderId] ?? 0), 0) - leftOf(line)
+      for (const x of next) {
+        if (over <= 0) break
+        if (x.id === id) continue
+        const take = Math.min(over, x.qty[orderId] ?? 0)
+        x.qty[orderId] = (x.qty[orderId] ?? 0) - take
+        over -= take
+      }
+      return next
+    })
   const [check, setCheck] = React.useState(false)
   const [notify, setNotify] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const key = React.useRef(actionKey())
-  const chosen = Object.values(qty).reduce((n, q) => n + q, 0)
+  const unitsOf = (p: ParcelDraft) => Object.values(p.qty).reduce((n, q) => n + q, 0)
+  const chosen = parcels.reduce((n, p) => n + unitsOf(p), 0)
+  const openUnits = open.reduce((n, l) => n + leftOf(l), 0)
+  const emptyAt = split ? parcels.findIndex((p) => unitsOf(p) === 0) : -1
   /* Part of the order, not all of it: the buyer is told the rest follows. */
   const left = order.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.quantity - l.fulfilled), 0)
   const partial = chosen > 0 && chosen < left
   const verb = pickup ? tt("Mark ready") : tt("Fulfill")
-  /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. */
-  const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup, onBought: (o, l) => onLabel?.(o, l) })
-  const labelMode = !pickup && flow.available && (flow.mode === "label" || !!flow.bought)
+  /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. One parcel only. */
+  const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(first.qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup && !split, onBought: (o, l) => onLabel?.(o, l) })
+  const labelMode = !pickup && !split && flow.available && (flow.mode === "label" || !!flow.bought)
+  const canSplit = !pickup && !labelMode && openUnits > 1 && parcels.length < 20
   const carriers = useCarrierPrefs()
   const submit = async () => {
-    if (!pickup && Object.keys(shipProblems(ship)).length) {
+    if (!pickup && parcels.some((p) => Object.keys(shipProblems(p.ship)).length)) {
       setCheck(true)
       return
     }
     setBusy(true)
-    const e = await onSubmit({
-      items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })),
-      ...(pickup ? { carrier: null, trackingNumber: null, trackingUrl: null } : shipBody(ship)),
-      notifyBuyer: notify,
-      key: key.current,
-    })
+    const e = await onSubmit(
+      split
+        ? {
+            /* Several parcels: saved together or not at all (orders-server fulfilParcels). */
+            parcels: parcels.map((p) => ({ items: Object.entries(p.qty).filter(([, q]) => q > 0).map(([orderId, quantity]) => ({ orderId, quantity })), locationId, ...shipBody(p.ship) })),
+            notifyBuyer: notify,
+            key: key.current,
+          }
+        : {
+            items: Object.entries(first.qty).map(([orderId, quantity]) => ({ orderId, quantity })),
+            ...(pickup ? { carrier: null, trackingNumber: null, trackingUrl: null } : shipBody(first.ship)),
+            notifyBuyer: notify,
+            key: key.current,
+          },
+    )
     setBusy(false)
     setError(e)
     /* The carrier it went with is where the next order starts, when the shop has no default. */
-    if (!e && !pickup) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(ship).carrier)
+    if (!e && !pickup) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(first.ship).carrier)
   }
   return (
     <Modal
       open
       onClose={onClose}
       closeButton={false}
+      wide={split}
       title={pickup ? tt("Ready for pickup") : flow.bought ? tt("Label bought") : tt("Fulfill items")}
       footer={
         labelMode ? (
@@ -1335,8 +1380,8 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
             <button type="button" className={BTN_SECONDARY} onClick={onClose}>
               {tt("Cancel")}
             </button>
-            <button type="button" className={BTN_PRIMARY} disabled={busy || chosen === 0} data-fulfil-submit="" onClick={() => void submit()}>
-              {busy ? tt("Saving…") : chosen === 0 ? verb : `${verb} ${countLabel(chosen)}`}
+            <button type="button" className={BTN_PRIMARY} disabled={busy || chosen === 0 || emptyAt >= 0} data-fulfil-submit="" onClick={() => void submit()}>
+              {busy ? tt("Saving…") : chosen === 0 ? verb : split ? tt("{verb} {items} in {n} parcels", { verb, items: countLabel(chosen), n: parcels.length }) : `${verb} ${countLabel(chosen)}`}
             </button>
           </>
         )
@@ -1344,43 +1389,108 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
     >
       <div className="space-y-4" data-fulfil-dialog="">
         {from && !flow.bought ? <p className="text-[13px] text-[#6b7280]">{pickup ? tt("Pickup at {from}", { from }) : tt("Ships from {from}", { from })}</p> : null}
-        <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")} data-fulfil-items="">
-          {open.map((l) => (
-            <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eceef1] bg-[#f4f5f7]">
-                  {l.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.imageUrl} alt="" width={40} height={40} decoding="async" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[#9ca3af]">
-                      <Package className="h-3.5 w-3.5" />
-                    </div>
-                  )}
+        {split ? null : (
+          <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")} data-fulfil-items="">
+            {open.map((l) => (
+              <FulfilLineRow key={l.orderId} line={l}>
+                <Stepper value={first.qty[l.orderId] ?? 0} max={leftOf(l)} onChange={(n) => setQty(first.id, l.orderId, n)} label={tt("Units of {title}", { title: l.title })} />
+              </FulfilLineRow>
+            ))}
+          </ul>
+        )}
+        {pickup || split ? null : <ShipModeSwitch flow={flow} />}
+        {pickup ? null : labelMode ? (
+          <LabelFields flow={flow} />
+        ) : split ? (
+          <ol className="space-y-3" data-parcels="">
+            {parcels.map((p, i) => (
+              <li key={p.id} className="rounded-xl border border-[#eceef1] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-parcel={i + 1}>
+                <div className="flex items-center justify-between gap-3 border-b border-[#f1f2f4] px-3 py-2">
+                  <p className="text-[13px] font-semibold text-[#1a1a2e]">
+                    {tt("Parcel {n}", { n: i + 1 })} <span className="font-normal text-[#6b7280]">· {countLabel(unitsOf(p))}</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="h-8 rounded-lg px-2 text-[12.5px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
+                    data-parcel-remove=""
+                    onClick={() =>
+                      setParcels((all) => {
+                        /* Its items go back to the first parcel left, so removing a parcel drops nothing. */
+                        const rest = all.filter((x) => x.id !== p.id)
+                        return rest.map((x, j) => (j === 0 ? { ...x, qty: Object.fromEntries(open.map((l) => [l.orderId, (x.qty[l.orderId] ?? 0) + (p.qty[l.orderId] ?? 0)])) } : x))
+                      })
+                    }
+                  >
+                    {tt("Remove")}
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
-                  {l.variantName || l.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[l.variantName, l.sku ? tt("SKU {sku}", { sku: l.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
+                <ul className="divide-y divide-[#f1f2f4]">
+                  {open.map((l) => (
+                    <FulfilLineRow key={l.orderId} line={l} compact>
+                      <Stepper value={p.qty[l.orderId] ?? 0} max={leftOf(l)} onChange={(n) => setQty(p.id, l.orderId, n)} label={tt("Units of {title} in parcel {n}", { title: l.title, n: i + 1 })} />
+                    </FulfilLineRow>
+                  ))}
+                </ul>
+                <div className="border-t border-[#f1f2f4] px-3 py-3">
+                  <TrackingFields ship={p.ship} set={(patch) => setShipOf(p.id, patch)} country={country} check={check} orderId={order.id} locationId={locationId} />
                 </div>
-              </div>
-              <Stepper value={qty[l.orderId] ?? 0} max={l.quantity - l.fulfilled} onChange={(n) => setQty((q) => ({ ...q, [l.orderId]: n }))} label={tt("Units of {title}", { title: l.title })} />
-            </li>
-          ))}
-        </ul>
-        {pickup ? null : <ShipModeSwitch flow={flow} />}
-        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields ship={ship} set={set} country={country} check={check} orderId={order.id} locationId={locationId} />}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <TrackingFields ship={first.ship} set={set} country={country} check={check} orderId={order.id} locationId={locationId} />
+        )}
+        {canSplit ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" className={cn(BTN_GHOST, "-ml-3")} data-parcel-add="" onClick={() => setParcels((all) => [...all, blank(Object.fromEntries(open.map((l) => [l.orderId, 0])))])}>
+              <Plus className="h-4 w-4" />
+              {split ? tt("Add another parcel") : tt("Ship in more than one parcel")}
+            </button>
+            {split ? (
+              <p className="text-[12.5px] text-[#6b7280]" data-parcel-summary="">
+                {chosen < openUnits ? tt("{chosen} of {open} items in parcels. The rest stay unfulfilled.", { chosen, open: openUnits }) : tt("Every item is in a parcel.")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {emptyAt >= 0 ? <p className="text-[12.5px] text-[#b42318]">{tt("Parcel {n} is empty. Add an item or remove it.", { n: emptyAt + 1 })}</p> : null}
         {flow.bought ? null : (
           <Toggle
             label={pickup ? tt("Tell the buyer it's ready") : tt("Send shipment details to the buyer")}
-            description={pickup ? tt("With your pickup address and instructions.") : labelMode ? tt("An email with the tracking link.") : undefined}
+            description={pickup ? tt("With your pickup address and instructions.") : split ? tt("One email listing every parcel and its tracking link.") : labelMode ? tt("An email with the tracking link.") : undefined}
             checked={notify}
             onChange={setNotify}
           />
         )}
-        {notify && !pickup && !labelMode && !flow.bought ? <EmailPreview order={order} ship={ship} partial={partial} country={country} /> : null}
+        {notify && !pickup && !labelMode && !flow.bought && !split ? <EmailPreview order={order} ship={first.ship} partial={partial} country={country} /> : null}
         {error && !labelMode ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
+  )
+}
+
+/** An item in the Fulfill dialog: its picture, name, variant and SKU, and what is chosen of it beside. */
+function FulfilLineRow({ line: l, compact, children }: { line: PhysicalLine; compact?: boolean; children: React.ReactNode }) {
+  return (
+    <li className={cn("flex items-center justify-between gap-3 px-3", compact ? "py-2" : "py-2.5")}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className={cn("shrink-0 overflow-hidden rounded-lg border border-[#eceef1] bg-[#f4f5f7]", compact ? "h-8 w-8" : "h-10 w-10")}>
+          {l.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={l.imageUrl} alt="" width={40} height={40} decoding="async" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-[#9ca3af]">
+              <Package className="h-3.5 w-3.5" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
+          {l.variantName || l.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[l.variantName, l.sku ? tt("SKU {sku}", { sku: l.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
+        </div>
+      </div>
+      {children}
+    </li>
   )
 }
 

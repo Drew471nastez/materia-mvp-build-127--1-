@@ -754,6 +754,8 @@ const STRICT_SUITES = [
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */
   "tests/shipsetup.test.ts",
+  /* Several parcels in one Fulfill, Mark as fulfilled on many orders from the list, a tracking CSV previewed then imported (tests/_journey) */
+  "tests/e2e-bulk-fulfillment.test.ts",
   /*
     The Claude provider's suite, here and not in the list above: its imports
     (the Anthropic SDK's types) change how the loose compile reads other

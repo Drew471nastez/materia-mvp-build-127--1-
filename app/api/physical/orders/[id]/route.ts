@@ -2,12 +2,13 @@ import { NextResponse } from "next/server"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
-import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markCashCollected, markProcessing, refusedOnDelivery, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
+import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, fulfilParcels, loadOrder, markCashCollected, markProcessing, refusedOnDelivery, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { setTrackingAuto } from "@/lib/physical/tracking/accounts-server"
 import { trackingRuleProblem } from "@/lib/physical/carriers"
+import { parcelsOf } from "@/lib/physical/bulk-fulfil"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -72,6 +73,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const rule = trackingRuleProblem(typeof body.carrier === "string" ? body.carrier : null, typeof body.trackingNumber === "string" ? body.trackingNumber : null)
     if (rule) return physicalJson({ error: rule }, 400)
   }
+  /* The same rule for each parcel of a split Fulfill. */
+  if (body.action === "fulfil" && Array.isArray(body.parcels)) {
+    for (const [n, p] of parcelsOf(body.parcels).entries()) {
+      const rule = trackingRuleProblem(typeof p.carrier === "string" ? p.carrier : null, typeof p.trackingNumber === "string" ? p.trackingNumber : null)
+      if (rule) return physicalJson({ error: `Parcel ${n + 1}: ${rule}` }, 400)
+    }
+  }
 
   let result
   switch (body.action) {
@@ -79,7 +87,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       result = await markProcessing(c.db, c.creatorId, id, body.on !== false)
       break
     case "fulfil":
-      result = await fulfilItems(c.db, c.creatorId, id, { items, carrier: body.carrier, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, notifyBuyer: body.notifyBuyer !== false, key: body.key, locationId: body.locationId })
+      /* Several parcels in one press (`parcels`, each its own items, carrier and tracking), all saved or none; else the one parcel as before. */
+      result = Array.isArray(body.parcels)
+        ? await fulfilParcels(c.db, c.creatorId, id, { parcels: parcelsOf(body.parcels), notifyBuyer: body.notifyBuyer !== false, key: body.key })
+        : await fulfilItems(c.db, c.creatorId, id, { items, carrier: body.carrier, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, notifyBuyer: body.notifyBuyer !== false, key: body.key, locationId: body.locationId })
       break
     case "shipment":
       if (!isUuid(body.fulfillmentId)) return physicalJson({ error: "Not found." }, 404)
