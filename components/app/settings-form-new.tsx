@@ -31,8 +31,6 @@ import { SETTINGS_TAB_EVENT, type SettingsTabRequest } from "@/lib/settings/shee
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
-import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, type LanguageCode } from "@/lib/i18n"
 import { appLanguageChoices, appLanguageName } from "@/components/app/language-picker"
 import { rememberTimeZone } from "@/lib/orders/time-zone"
@@ -2090,17 +2088,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       {tt("Set up domain")}
                     </span>
                   </button>
-                  <a
-                    href="/help"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      if (isNativeApp()) {
-                        e.preventDefault()
-                        openExternal(`https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`)
-                      }
-                    }}
+                  {/* The Help Center inside the app (app/app/help), as the account menu opens it: a page here, not a new tab. */}
+                  <SmartLink
+                    href="/app/help"
                     className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                    data-settings-help=""
                   >
                     <div className="flex items-center gap-3">
                       <svg className="h-5 w-5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2110,10 +2102,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       </svg>
                       <span className="text-[14px] text-[#374151]">{tt("Storelib Help Center")}</span>
                     </div>
-                    <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
+                    <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       {tt("Get help")}
-                    </button>
-                  </a>
+                    </span>
+                  </SmartLink>
                   {/* A request to Storelib, answered by a person (app/app/support, lib/support). */}
                   <SmartLink href="/app/support" className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors" data-settings-support="">
                     <div className="flex items-center gap-3">

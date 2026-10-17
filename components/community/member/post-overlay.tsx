@@ -125,6 +125,12 @@ export interface PostOverlayProps {
    */
   history?: boolean
   /**
+   * The address while it is open (round 26). Left out, the post's own (/community/<slug>/post/<id>), as in the community.
+   * Null keeps the page's own: the admin's Posts opens a post over its list, and a reload there should land on the list.
+   * Either way Back closes it.
+   */
+  address?: string | null
+  /**
    * The card the post was opened from. Round 17 grew the phone's post out of it; since round 25 the post is a bottom sheet
    * and nothing reads it, kept so the card's call stays as it is.
    */
@@ -132,7 +138,7 @@ export interface PostOverlayProps {
 }
 
 const noSubscribe = () => () => {}
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true, address }: PostOverlayProps) {
   const phone = usePhone()
   /* False on the server and while hydrating, true on every client render after (no mismatch for a post opened as the page loads). */
   const client = useSyncExternalStore(noSubscribe, () => true, () => false)
@@ -178,7 +184,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   useEffect(() => {
     if (phase === "shown") setHistoryReady(true)
   }, [phase])
-  useHistoryLayer(history && historyReady, close, postPath(slug, given), open)
+  useHistoryLayer(history && historyReady, close, address === undefined ? postPath(slug, given) : address, open)
 
   /* The comments are asked for now, while the post slides in; they are drawn once it has. */
   useEffect(() => {

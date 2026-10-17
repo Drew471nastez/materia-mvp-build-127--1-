@@ -178,6 +178,7 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { sheetKeyboardRoom } from "./visible-box"
 import { useCalmFocus } from "./calm-focus"
 import { feedRestore } from "./post-motion"
+import { useStaffSchedule, type ComposerStaff } from "@/components/community/creator/composer-schedule"
 
 export interface ComposerProps {
   communityId: string
@@ -198,6 +199,11 @@ export interface ComposerProps {
    * place on screen, with no field of its own in a list; `onClosed` once it has gone down (posted or not).
    */
   away?: { onClosed: () => void } | null
+  /**
+   * The admin's Posts only (round 26, ../creator/composer-schedule.tsx): Schedule, Save draft, and a scheduled post or
+   * draft opened here to change. A member's composer never has it.
+   */
+  staff?: ComposerStaff | null
 }
 
 export interface ComposerEdit {
@@ -311,10 +317,19 @@ function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-/** What comes after the editor in its list (the posts), which slides to make room for it. */
+/**
+ * What comes after the editor in its list (the posts), which slides to make room for it.
+ *
+ * ROUND 26: A WRAPPER IS SEEN THROUGH. The admin's Posts draws the composer inside a wrapper of its own (feed-section.tsx,
+ * marked data-composer-host), so the card had nothing after it: the panel and the list under the writer did not slide,
+ * they jumped by the editor's whole height in one frame as it opened, and again as it folded. Inside a host, what comes
+ * after the host is what slides.
+ */
 function following(el: HTMLElement): HTMLElement[] {
   const out: HTMLElement[] = []
-  for (let x = el.nextElementSibling; x; x = x.nextElementSibling) if (x instanceof HTMLElement) out.push(x)
+  for (let at: HTMLElement | null = el; at; at = at.parentElement?.hasAttribute("data-composer-host") ? at.parentElement : null) {
+    for (let x = at.nextElementSibling; x; x = x.nextElementSibling) if (x instanceof HTMLElement && !(x instanceof HTMLInputElement)) out.push(x)
+  }
   return out
 }
 
@@ -454,7 +469,7 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   }, [guarding])
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null, staff = null }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const phone = usePhone()
   /* Edit post: the post as it was, read once, for the editor's first state and to tell whether anything changed. */
@@ -522,31 +537,95 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const landedDown = useRef<(() => void) | null>(null)
   /* Cancel or Leave: what was written is cleared once the card has closed, never while it is still on screen. */
   const clearAfter = useRef(false)
+  /* The editor had the caret when it closed: the field gets it back (round 26). */
+  const refocus = useRef(false)
   const openRef = useRef(false)
 
+  /* A kept draft put into the fields; true when there was one. */
+  const restoreFrom = (d: Draft | null): boolean => {
+    if (!d || !(d.title || d.body || d.poll || d.media.length)) return false
+    setTitle(d.title)
+    setBody(d.body)
+    if (!fixedSpaceId && d.spaceId && spaces.some((s) => s.id === d.spaceId)) setSpaceId(d.spaceId)
+    setPoll(d.poll)
+    setItems(d.media.filter((m) => m.type !== "link").map((m, i) => attachmentOf(m, `restored-${i}`)))
+    const link = d.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link")
+    if (link) setPreview({ url: link.url, title: link.title ?? null, image: link.image ?? null, site: null })
+    setRestored(true)
+    return true
+  }
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. (Never into Edit post.) */
   useEffect(() => {
     if (editing) return
     const d = readDraft(key)
-    if (d && (d.title || d.body || d.poll || d.media.length)) {
-      setTitle(d.title)
-      setBody(d.body)
-      if (!fixedSpaceId && d.spaceId && spaces.some((s) => s.id === d.spaceId)) setSpaceId(d.spaceId)
-      setPoll(d.poll)
-      setItems(d.media.filter((m) => m.type !== "link").map((m, i) => attachmentOf(m, `restored-${i}`)))
-      const link = d.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link")
-      if (link) setPreview({ url: link.url, title: link.title ?? null, image: link.image ?? null, site: null })
-      setRestored(true)
-      if (!window.matchMedia("(max-width: 639px)").matches) setOpen(true)
-    }
+    if (restoreFrom(d) && !window.matchMedia("(max-width: 639px)").matches) setOpen(true)
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const media = items.map((u) => u.media).filter((m): m is PostMedia => !!m)
   const linkMedia: PostMedia | null = preview && !dismissed.includes(preview.url) ? { type: "link", url: preview.url, ...(preview.title ? { title: preview.title } : {}), ...(preview.image ? { image: preview.image } : {}) } : null
 
+  /* The fields emptied (what is kept in this browser stays where it is). */
+  const resetFields = useCallback(() => {
+    setTitle("")
+    setBody("")
+    setPoll(null)
+    setItems([])
+    setPreview(null)
+    setDismissed([])
+    setLinkField(null)
+    setRestored(false)
+    setHeldCopy(false)
+    if (!fixedSpaceId && spaces.length !== 1) setSpaceId(null)
+  }, [fixedSpaceId, spaces.length])
+
+  /*
+    ROUND 26: SCHEDULE, SAVE DRAFT AND A SCHEDULED POST OPENED HERE, for the people who run the community (the admin passes
+    `staff`; ../creator/composer-schedule.tsx). What it needs of the composer is below; its close is the composer's own
+    (the check, then the fold or the sheet going down). A scheduled post or draft opened here never writes over the kept
+    draft: what was being written is put into this browser's keeping first and comes back once it is closed.
+  */
+  const staffHands = useRef<{ openEditor: () => void; finish: (then: () => void) => void; nudge: (f: "title" | "body" | "space") => void }>({ openEditor: () => {}, finish: () => {}, nudge: () => {} })
+  const staffItem = useRef(false)
+  const kit = useStaffSchedule(staff, {
+    communityId,
+    title,
+    body,
+    spaceId,
+    extras: items.length + (poll ? 1 : 0) + (linkMedia ? 1 : 0),
+    open,
+    load: (it) => {
+      if (it) {
+        if (!staffItem.current && (title.trim() || body.trim() || poll || items.length || linkMedia)) {
+          try {
+            const all = linkMedia ? [...media, linkMedia] : media
+            window.localStorage.setItem(key, JSON.stringify({ title, body, spaceId, poll, media: all } satisfies Draft))
+          } catch {
+            /* nothing kept */
+          }
+        }
+        staffItem.current = true
+        resetFields()
+        setTitle(it.title)
+        setBody(it.body)
+        if (!fixedSpaceId) setSpaceId(it.spaceId && spaces.some((x) => x.id === it.spaceId) ? it.spaceId : null)
+        return
+      }
+      staffItem.current = false
+      resetFields()
+      restoreFrom(readDraft(key))
+    },
+    openEditor: () => staffHands.current.openEditor(),
+    setBusy,
+    finish: (then) => staffHands.current.finish(then),
+    nudge: (f) => staffHands.current.nudge(f),
+    toast,
+  })
+
   /* Every change kept, a moment after typing stops (a new post only: an edit is the post's own). */
   useEffect(() => {
     if (!open || editing) return
+    /* A scheduled post or draft open here is the server's, not this browser's kept draft (round 26). */
+    if (kit.item) return
     const t = window.setTimeout(() => {
       try {
         const all = linkMedia ? [...media, linkMedia] : media
@@ -558,7 +637,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     }, 400)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, title, body, spaceId, poll, items, preview, dismissed, key])
+  }, [open, title, body, spaceId, poll, items, preview, dismissed, key, kit.item])
 
   const add = (a: Attachment) => setItems((list) => [...list, a])
   const patch = (k: string, p: Partial<Attachment>) => setItems((list) => list.map((x) => (x.key === k ? { ...x, ...p } : x)))
@@ -705,7 +784,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
 
   /* Something to lose on Cancel: anything written, or for an edit anything changed from the post. */
-  const dirty = was
+  const dirty = kit.item
+    ? !!kit.dirty
+    : was
     ? title !== (was.title ?? "") ||
       body !== was.bodyText ||
       spaceId !== (was.space?.id ?? null) ||
@@ -715,7 +796,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const uploading = items.some((u) => !u.media && !u.error)
   const pollReady = !poll || (poll.question.trim() && poll.options.filter((o) => o.trim()).length >= 2)
   const space = spaces.find((s) => s.id === spaceId) ?? null
-  const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !items.some((u) => u.error) && !!pollReady
+  const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !items.some((u) => u.error) && !!pollReady && kit.ready
   /* What Post says it is waiting for, when that is only the space (round 30). */
   const why = !ready && title.trim() && body.trim() && !spaceId ? tt("Choose a space first") : undefined
   const nudgeRing = (el: HTMLElement | null) => {
@@ -776,29 +857,32 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   */
   useLayer("composer", sheet, sheetRef)
 
-  const clear = useCallback(() => {
-    setTitle("")
-    setBody("")
-    setPoll(null)
-    setItems([])
-    setPreview(null)
-    setDismissed([])
-    setLinkField(null)
-    setRestored(false)
-    setHeldCopy(false)
-    if (!fixedSpaceId && spaces.length !== 1) setSpaceId(null)
+  /*
+    Emptied: a new post, with what this browser keeps of it. Round 26: a scheduled post or draft open here (the staff kit)
+    gives the fields back to what was being written before it instead, kept draft and all.
+  */
+  const clear = () => {
+    if (staffItem.current) {
+      staffItem.current = false
+      kit.release()
+      resetFields()
+      restoreFrom(readDraft(key))
+      return
+    }
+    resetFields()
     try {
       window.localStorage.removeItem(key)
     } catch {
       /* nothing kept */
     }
-  }, [fixedSpaceId, spaces.length, key])
+  }
 
   /* Edit post: what happens once the editor has gone (saved, or closed without saving). */
   const editDone = useRef<(() => void) | null>(null)
   /** Closing, with its move: down off the screen on a phone, folding back into the field in place. */
   const shut = useCallback(() => {
     if (leaving.current) return
+    if (!phone && !edit && cardRef.current?.contains(document.activeElement)) refocus.current = true
     const end = () => {
       leaving.current = false
       setSheetIn(false)
@@ -843,7 +927,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     holdAnchor(FOLD_DELAY_MS + FOLD_MS + 900)
     const d = Math.max(0, el.offsetHeight - (closedH.current || CLOSED_FALLBACK_H))
     const timing: KeyframeAnimationOptions = { duration: FOLD_MS, delay: FOLD_DELAY_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
-    window.setTimeout(finish, FOLD_DELAY_MS + FOLD_MS)
+    /*
+      ROUND 26: DONE WHEN THE FOLD HAS FOLDED. It ended on a timer of the fold's length, started with the press; on a busy
+      page the fold's first frame came late, the timer won, and the card shut with the slide part way (the list jumped the
+      rest of the way in one frame). It ends on the slide's own finish now, as the phone's sheet does; the timer is only
+      for a tab in the background, which draws no frames.
+    */
+    window.setTimeout(finish, FOLD_DELAY_MS + FOLD_MS + 400)
     /* The card stays, whole, its picture where it is: the content goes, the posts slide up over the card, the field comes back as they end. */
     const content = [editorRef.current, nameRef.current].filter((x): x is HTMLDivElement => !!x)
     for (const a of fieldRef.current?.getAnimations() ?? []) a.cancel()
@@ -982,6 +1072,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         clearAfter.current = false
         clear()
       }
+      /* Closed from inside the editor on a computer (Cancel, Escape, Post): the caret comes back to the field it opened from. */
+      if (refocus.current) {
+        refocus.current = false
+        if (!document.activeElement || document.activeElement === document.body) fieldRef.current?.focus({ preventScroll: true })
+      }
       /* A post just sent goes into the feed now, after the editor's move (AFTER POST). */
       const posted = afterClose.current
       afterClose.current = null
@@ -1069,6 +1164,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const submit = async () => {
     if (editing) return save()
     if (busy || sent) return
+    /* Schedule, or a scheduled post or draft open here: the staff kit checks and sends it (its own words say what is missing). */
+    if (kit.item || kit.when) {
+      await kit.primary()
+      return
+    }
     if (!ready) return nudgePost()
     setBusy(true)
     /* The chime is made ready in the press (a browser starts sound only from one) and played once the post is up. */
@@ -1154,6 +1254,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   */
   useComposeRequests((req) => {
     if (editing || leaving.current) return false
+    /* A scheduled post or draft open here is not given up for a new post (round 26). */
+    if (kit.item) return false
     const asked = req.spaceSlug ? spaces.find((s) => s.slug === req.spaceSlug) : undefined
     if (req.spaceSlug && fixedSpaceId && asked?.id !== fixedSpaceId) return false
     if (asked && !fixedSpaceId) setSpaceId(asked.id)
@@ -1165,6 +1267,39 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     openEditor()
     return true
   })
+
+  /* What the staff kit asks of the composer (round 26). */
+  staffHands.current = {
+    openEditor: () => {
+      if (open) {
+        if (!phone) requestAnimationFrame(focusFirst)
+        return
+      }
+      if (!phone) cardRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" })
+      openEditor()
+    },
+    finish: (then) => {
+      setSent(true)
+      afterClose.current = () => {
+        setSent(false)
+        clear()
+        then()
+      }
+      window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
+    },
+    nudge: (f) => {
+      if (f === "title") {
+        titleRef.current?.focus({ preventScroll: true })
+        nudgeRing(titleRef.current)
+      } else if (f === "body") textRef.current?.focus()
+      else {
+        setSpaceAsk(true)
+        const btn = (sheetRef.current ?? cardRef.current)?.querySelector<HTMLButtonElement>("button[data-composer-space]") ?? null
+        btn?.focus({ preventScroll: true })
+        if (btn) window.setTimeout(() => openRef.current && spaceOpener.current?.(), 60)
+      }
+    },
+  }
 
   const pickers = (
     <>
@@ -1192,6 +1327,20 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       <button type="button" className={`${LEAVE_BTN} ${LEAVE_STAY} ${leaveSize}`} onClick={() => answer(false)} data-leave-stay="" autoFocus>
         Keep writing
       </button>
+      {kit.draftOnLeave ? (
+        /* The people who run it may keep it as a team draft instead (round 26): the question closes, the draft is saved, the editor closes on its check. */
+        <button
+          type="button"
+          className={`${LEAVE_BTN} ${LEAVE_STAY} ${leaveSize}`}
+          onClick={() => {
+            answer(false)
+            void kit.saveDraft()
+          }}
+          data-leave-draft=""
+        >
+          {tt("Save draft")}
+        </button>
+      ) : null}
       <button type="button" className={`${LEAVE_BTN} ${LEAVE_GO} ${leaveSize}`} onClick={() => answer(true)} data-leave-go="">
         Leave
       </button>
@@ -1356,11 +1505,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         <EmojiControl className={TOOL} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={insertEmoji} />
       </span>
       <GifButton communityId={communityId} className={TOOL} onPick={addGif} />
+      {kit.tool(TOOL)}
     </div>
   )
 
   const fields = (
     <>
+      {kit.itemLine}
       <input
         ref={titleRef}
         value={title}
@@ -1427,10 +1578,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       ) : null}
 
       {poll ? <PollEditor poll={poll} onChange={setPoll} onRemove={() => setPoll(null)} /> : null}
+      {kit.panel}
     </>
   )
 
   const actionLabel = editing ? "Save" : "Post"
+  /* Schedule, Save or Post now for the staff kit (round 26); the composer's own words otherwise. */
+  const said = kit.label ?? undefined
   const editorBlock = (
     <div ref={editorRef} className={editing ? "pt-3" : "px-4 pb-4 pt-0.5 sm:px-5"} data-composer-editor="">
       {editing ? (
@@ -1444,10 +1598,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         {tools}
         {spacePicker}
         <div className="ml-auto flex items-center gap-1.5">
+          {kit.draftButton(CANCEL_BTN)}
           <button type="button" className={CANCEL_BTN} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
             Cancel
           </button>
-          <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} why={why} />
+          <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} said={said} why={why} />
         </div>
       </div>
     </div>
@@ -1465,7 +1620,19 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           </div>
         ) : null
       ) : away && phone ? null : (
-        <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
+        <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`}
+          data-composer={inPlace ? "open" : "closed"}
+          /*
+            ROUND 26: ESCAPE IS CANCEL IN PLACE TOO (it was only for Edit post): with something written it asks first, and the
+            caret goes back to the field. A picker, a mention list or the link field open inside takes its own Escape first.
+          */
+          onKeyDown={(e) => {
+            if (e.key !== "Escape" || !inPlace || e.defaultPrevented || busy || sent) return
+            if (document.querySelector("[data-lightbox], [role=alertdialog], [data-state=open][role=dialog], [data-state=open][role=menu]")) return
+            e.preventDefault()
+            void cancel()
+          }}
+        >
           {row}
           {inPlace ? editorBlock : null}
         </div>
@@ -1510,9 +1677,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                 <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${CANCEL_BTN} px-2.5 text-[15px]`} disabled={sent} data-composer-cancel="">
                   Cancel
                 </button>
-                <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
+                <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{kit.sheetTitle ?? (editing ? "Edit post" : "New post")}</span>
                 {/* Round 29: Post keeps the caret through the press too, so the keyboard goes down with the sheet, in one move. */}
-                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} keepCaret why={why} />
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} said={said} keepCaret why={why} />
               </div>
             </div>
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
@@ -1524,6 +1691,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                     <span className="flex min-w-0">{spacePicker}</span>
                   </div>
                   {fields}
+                  {/* Save draft for the people who run it (round 26): under the fields, the toolbar has no room for it beside the tools. */}
+                  {kit.on ? <div className="mt-3 flex">{kit.draftButton(`${CANCEL_BTN} -ml-2.5 px-2.5 text-[15px]`)}</div> : null}
                 </>
               ) : null}
             </div>
@@ -1548,10 +1717,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
  * is never `disabled` (it says so to assistive tech with aria-disabled and
  * ignores a press), so nothing dims or jumps while it waits.
  */
-function PostButton({ busy, sent, ready, onClick, className = "", label = "Post", keepCaret = false, why }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save"; keepCaret?: boolean; why?: string }) {
+function PostButton({ busy, sent, ready, onClick, className = "", label: given = "Post", said: words, keepCaret = false, why }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save"; /** Other words (the staff kit's Schedule, Save, Post now): its idle, pending and done faces. */ said?: { idle: string; busy: string; sent: string }; keepCaret?: boolean; why?: string }) {
   const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${on ? "opacity-100" : "opacity-0"}`
   const state = sent ? "sent" : busy ? "busy" : "idle"
-  const said = label === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
+  const label = words?.idle ?? given
+  const said = words ? { sent: words.sent, busy: words.busy } : given === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
   const keep = keepCaret ? { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() } : {}
   return (
     <button

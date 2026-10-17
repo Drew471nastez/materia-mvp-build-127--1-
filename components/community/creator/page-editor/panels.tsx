@@ -2,27 +2,31 @@
 
 /**
  * ===========================================================================
- *  ONE PART OF THE PAGE, AND WHAT CHANGES IT (round 33)
+ *  THE PARTS OF THE PAGE, AND WHAT CHANGES EACH (round 33, grouped round 26)
  * ===========================================================================
- * The editor a part opens, in the side panel on a computer and the bottom
- * sheet on a phone (./page-editor.tsx). Each writes straight into the
- * draft, so the page in the preview changes as it is typed; nothing is
- * saved until Save.
+ * Each part's editor writes straight into the draft, so the preview changes
+ * as it is typed; nothing is saved until Save.
  *
- *   cover        the picture or video across the page (Settings' cover
- *                field, ../gallery-editor.tsx CoverField), then what stays
- *                in view when it is cropped (./cover-focus.tsx)
- *   gallery      the pictures and videos after it (../gallery-editor.tsx)
- *   logo         the square picture by the name
- *   name, tagline
- *   description  the product page's own rich text editor
- *                (components/app/rich-text-editor.tsx): headings, lists,
- *                links, pictures, emoji, as HTML the server cleans with the
- *                product description's allow list
- *   links        a network and a name or an address (./links-editor.tsx)
- *   benefits     what members get, a line each
- *   join         the button's words, its style, a line under it
- *   faq          the questions people ask before joining
+ * ROUND 26, THE OWNER: "simple field groups instead of a wall". Round 33 had
+ * a list of ten parts, each opening on its own with a way back; the panel
+ * was a list or one part, never two at once. The parts are now six groups
+ * (./draft.ts PAGE_GROUPS), each a short column of labelled fields
+ * (GroupFields), opened one at a time in the side panel or the phone's
+ * drawer (./page-editor.tsx):
+ *
+ *   basics   name, tagline, short description (new, up to 160), logo
+ *   media    cover picture or intro video (then what stays in view when it
+ *            is cropped, ./cover-focus.tsx), gallery
+ *   about    the full description (the product page's rich text editor:
+ *            bold, links, lists, emoji, pictures, cleaned on the server by
+ *            the product description's allow list), What's inside (a line
+ *            each), questions
+ *   links    website and social pages (./links-editor.tsx), member links
+ *            (new, ./member-links-editor.tsx)
+ *   join     the button's words (never a price: lib/communities/page-look.ts
+ *            joinWordsProblem), its style and colour, a line under it
+ *   search   draft or published, Explore, the search title and line with the
+ *            result drawn (./search-panel.tsx)
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -30,33 +34,49 @@ import { tt } from "@/lib/i18n/text"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
+import { htmlToPlainText } from "@/lib/rich-text/html"
 import { MAX_BENEFITS, MAX_FAQ } from "@/lib/communities/limits"
-import { JOIN_LABEL_MAX, JOIN_NOTE_MAX, buttonBrand, type JoinStyle, type PageLook } from "@/lib/communities/page-look"
+import { SUMMARY_MAX } from "@/lib/communities/member-links"
+import { JOIN_LABEL_MAX, JOIN_NOTE_MAX, buttonBrand, type JoinStyle, type JoinWordsProblem, type PageLook } from "@/lib/communities/page-look"
 import { CoverField, GalleryEditor } from "../gallery-editor"
 import { GALLERY_MAX, coverItem } from "../logic"
 import { PicturePick, field, label } from "../parts"
-import type { GalleryVideoView } from "../view-types"
+import type { CommunityHead, GalleryVideoView } from "../view-types"
 import { CoverFocus } from "./cover-focus"
 import { LinksEditor } from "./links-editor"
 import { ListEditor, PairEditor } from "./list-editors"
-import type { PageBlock, PageDraft } from "./draft"
+import { MemberLinksEditor } from "./member-links-editor"
+import { SearchPanel } from "./search-panel"
+import { GROUP_BLOCKS, type DraftProblem, type PageBlock, type PageDraft, type PageGroup } from "./draft"
 
-/** Each part's name, and the line under it saying where it shows. */
+/** Each part's name (the field's label, the Edit button's), and the line under it saying where it shows. */
 export const BLOCK_INFO: Record<PageBlock, { title: string; line: string }> = {
-  cover: { get title() { return tt("Cover") }, get line() { return tt("The picture or video at the top. It also shows on your card in Explore.") } },
+  cover: { get title() { return tt("Cover") }, get line() { return tt("A picture, or an intro video, at the top. It also shows on your card in Explore.") } },
   gallery: { get title() { return tt("Gallery") }, get line() { return tt("More pictures and videos, after the cover, in this order.") } },
-  logo: { get title() { return tt("Logo") }, get line() { return tt("The square picture by the name, in the bar and on cards.") } },
+  logo: { get title() { return tt("Logo") }, get line() { return tt("The square picture by the name, in the bar, on cards and in the browser tab.") } },
   name: { get title() { return tt("Name") }, get line() { return tt("The community's name, everywhere it shows.") } },
   tagline: { get title() { return tt("Tagline") }, get line() { return tt("One line under the name, on cards and in Explore.") } },
-  description: { get title() { return tt("Description") }, get line() { return tt("What it is about, who it is for, what happens in it.") } },
-  links: { get title() { return tt("Links") }, get line() { return tt("Your website and social pages, as icons under the name.") } },
-  benefits: { get title() { return tt("What members get") }, get line() { return tt("A line each, with a check beside it.") } },
+  summary: { get title() { return tt("Short description") }, get line() { return tt("A quick introduction on the community's card, up to 160 characters.") } },
+  description: { get title() { return tt("Full description") }, get line() { return tt("What it is about, who it is for, what happens in it.") } },
+  links: { get title() { return tt("Website and social pages") }, get line() { return tt("Shown as icons on the community's card.") } },
+  memberLinks: { get title() { return tt("Member links") }, get line() { return tt("Up to 4 shortcuts members see inside the community. Never on this public page.") } },
+  benefits: { get title() { return tt("What's inside") }, get line() { return tt("What members get, a line each, with a check beside it.") } },
   join: { get title() { return tt("Join button") }, get line() { return tt("Its words, its style and a short line under it.") } },
   faq: { get title() { return tt("Questions") }, get line() { return tt("Answers to what people ask before joining.") } },
+  search: { get title() { return tt("Visibility and search") }, get line() { return tt("Who can open the page, Explore, and search results.") } },
+}
+
+export const GROUP_INFO: Record<PageGroup, { title: string }> = {
+  basics: { get title() { return tt("Name and introduction") } },
+  media: { get title() { return tt("Cover and gallery") } },
+  about: { get title() { return tt("About") } },
+  links: { get title() { return tt("Links") } },
+  join: { get title() { return tt("Join button") } },
+  search: { get title() { return tt("Visibility and search") } },
 }
 
 export interface PanelProps {
-  block: PageBlock
+  head: CommunityHead
   draft: PageDraft
   set: <K extends keyof PageDraft>(k: K, v: PageDraft[K]) => void
   setMany: (patch: Partial<PageDraft>) => void
@@ -74,9 +94,64 @@ export interface PanelProps {
   onLinks: (links: PageDraft["links"], invalid: number) => void
   brandBusy: boolean
   onPickBrand: () => void
+  /** False until run-now part 220 has run: the short description and member links wait. */
+  fieldsReady: boolean
+  /** How often members opened each member link, when it is counted. */
+  clicks: Record<string, number> | null
+  problems: DraftProblem[]
+  /** A tagline or the description's start, shown (never saved) where the short description is empty. */
+  summaryHint: string
+  publishing: boolean
+  onPublish: (() => void) | null
+  origin: string
 }
 
-export function BlockPanel(p: PanelProps) {
+/** What a group holds now, for the line under its name while it is closed. */
+export function groupSummary(group: PageGroup, d: PageDraft): string {
+  switch (group) {
+    case "basics":
+      return d.name.trim() || tt("None yet")
+    case "media": {
+      const v = coverItem(d.gallery)
+      const n = d.gallery.length - (v ? 1 : 0)
+      const cover = v ? tt("An intro video") : d.coverUrl ? tt("A cover picture") : tt("No cover yet")
+      return n ? `${cover} · ${tt("{n, plural, one {# more in the gallery} other {# more in the gallery}}", { n })}` : cover
+    }
+    case "about": {
+      const text = htmlToPlainText(d.descriptionHtml).replace(/\s+/g, " ").trim()
+      return text.slice(0, 80) || tt("None yet")
+    }
+    case "links":
+      return tt("{n, plural, one {# social link} other {# social links}}, {m, plural, one {# member link} other {# member links}}", { n: d.links.length, m: d.memberLinks.length })
+    case "join":
+      return d.look.joinLabel.trim() || tt("The page's own words")
+    case "search":
+      return d.seoTitle.trim() || tt("Search title from the name")
+  }
+}
+
+/** One group's fields, each under its label, a hairline between them. */
+export function GroupFields(p: PanelProps & { group: PageGroup }) {
+  const blocks = GROUP_BLOCKS[p.group]
+  const single = blocks.length === 1
+  return (
+    <div className="divide-y divide-[#f1f2f4]" data-page-group-fields={p.group}>
+      {blocks.map((b) => (
+        <section key={b} id={`pe-field-${b}`} data-page-field={b} className="scroll-mt-24 py-4 first:pt-1 last:pb-1">
+          {single ? null : (
+            <div className="mb-2.5">
+              <h3 className="text-[14px] font-semibold leading-5 text-[#1a1a2e]">{BLOCK_INFO[b].title}</h3>
+              <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#6b7280]">{BLOCK_INFO[b].line}</p>
+            </div>
+          )}
+          <BlockPanel {...p} block={b} />
+        </section>
+      ))}
+    </div>
+  )
+}
+
+export function BlockPanel(p: PanelProps & { block: PageBlock }) {
   const { block, draft: d, set } = p
   switch (block) {
     case "cover": {
@@ -131,8 +206,8 @@ export function BlockPanel(p: PanelProps) {
           <label htmlFor="pe-name" className="sr-only">
             {tt("Name")}
           </label>
-          <input id="pe-name" value={d.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} autoComplete="off" data-autofocus="" />
-          <p className="mt-1.5 text-right text-[12px] tabular-nums text-[#9ca3af]">{d.name.length}/80</p>
+          <input id="pe-name" value={d.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10", !d.name.trim() && "border-[#f0b4ae]")} autoComplete="off" data-autofocus="" />
+          <Counter n={d.name.length} max={80} error={!d.name.trim() ? tt("A community needs a name.") : null} />
         </div>
       )
     case "tagline":
@@ -141,21 +216,44 @@ export function BlockPanel(p: PanelProps) {
           <label htmlFor="pe-tagline" className="sr-only">
             {tt("Tagline")}
           </label>
-          <input id="pe-tagline" value={d.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("Weekly critiques for people learning to throw")} className={cn(field, "h-11 sm:h-10")} autoComplete="off" data-autofocus="" />
-          <p className="mt-1.5 text-right text-[12px] tabular-nums text-[#9ca3af]">{d.tagline.length}/160</p>
+          <input id="pe-tagline" value={d.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder={tt("Weekly critiques for people learning to throw")} className={cn(field, "h-11 sm:h-10")} autoComplete="off" />
+          <Counter n={d.tagline.length} max={160} />
         </div>
       )
+    case "summary": {
+      if (!p.fieldsReady) return <Waiting />
+      const n = Array.from(d.summary.trim()).length
+      return (
+        <div data-panel="summary">
+          <label htmlFor="pe-summary" className="sr-only">
+            {tt("Short description")}
+          </label>
+          <textarea
+            id="pe-summary"
+            value={d.summary}
+            /* One line: a return is a space. A paste longer than the limit is kept whole, so nothing is lost without the counter saying so. */
+            onChange={(e) => set("summary", e.target.value.replace(/[\r\n]+/g, " ").slice(0, SUMMARY_MAX + 200))}
+            rows={3}
+            placeholder={p.summaryHint || tt("Who it is for and what happens in it, in a sentence or two")}
+            className={cn(field, "resize-none py-2.5 leading-relaxed", n > SUMMARY_MAX && "border-[#f0b4ae]")}
+            aria-invalid={n > SUMMARY_MAX ? true : undefined}
+            data-summary-input=""
+          />
+          <Counter n={n} max={SUMMARY_MAX} error={n > SUMMARY_MAX ? tt("Up to {max} characters: {n} over.", { max: SUMMARY_MAX, n: n - SUMMARY_MAX }) : null} note={!d.summary.trim() && p.summaryHint ? tt("Empty, the card shows your tagline or the start of your description.") : null} />
+        </div>
+      )
+    }
     case "description":
       return (
         <div data-panel="description">
           <RichTextEditor
             value={d.descriptionHtml}
             onChange={(html) => set("descriptionHtml", html)}
-            label={tt("Description")}
+            label={tt("Full description")}
             placeholder={tt("Who it is for, what happens in it, and how often")}
             uploadImage={(file) => uploadDescriptionImage(file, { creatorId: p.creatorId, productId: null })}
             checkSize={descriptionTooLong}
-            minHeight={220}
+            minHeight={200}
             resizable
           />
         </div>
@@ -164,6 +262,12 @@ export function BlockPanel(p: PanelProps) {
       return (
         <div data-panel="links">
           <LinksEditor links={d.links} onChange={p.onLinks} />
+        </div>
+      )
+    case "memberLinks":
+      return (
+        <div data-panel="memberLinks">
+          <MemberLinksEditor links={d.memberLinks} onChange={(v) => set("memberLinks", v)} clicks={p.clicks} ready={p.fieldsReady} />
         </div>
       )
     case "benefits":
@@ -180,22 +284,49 @@ export function BlockPanel(p: PanelProps) {
       )
     case "join":
       return <JoinPanel {...p} />
+    case "search":
+      return <SearchPanel head={p.head} draft={d} set={set} publishing={p.publishing} onPublish={p.onPublish} origin={p.origin} />
   }
+}
+
+function Waiting() {
+  return <p className="rounded-xl bg-[#f8f9fa] px-3.5 py-3 text-[13px] leading-5 text-[#6b7280]">{tt("This field is waiting for a Storelib update. Everything else on this page saves as usual.")}</p>
+}
+
+/** The count under a field, and what is wrong with it when something is. */
+function Counter({ n, max, error, note }: { n: number; max: number; error?: string | null; note?: string | null }) {
+  return (
+    <div className="mt-1.5 flex items-start justify-between gap-3 text-[12px] leading-snug">
+      <span className={error ? "text-[#b42318]" : "text-[#6b7280]"} role={error ? "alert" : undefined}>
+        {error ?? note ?? ""}
+      </span>
+      <span className={cn("shrink-0 tabular-nums", n > max ? "font-medium text-[#b42318]" : "text-[#9ca3af]")}>
+        {n}/{max}
+      </span>
+    </div>
+  )
 }
 
 /* ── The join button ─────────────────────────────────────────────────── */
 
 const SAMPLE = "pointer-events-none inline-flex h-9 w-full items-center justify-center rounded-[10px] border px-1.5 text-[12px] font-semibold"
 
+function wordsProblem(code: JoinWordsProblem): string {
+  return code === "money" ? tt("Leave prices, currencies and billing periods out. The real price is shown on the page.") : tt("Joining costs money, so the button cannot say free.")
+}
+
 function JoinPanel(p: PanelProps) {
   const look = p.draft.look
   const setLook = (patch: Partial<PageLook>) => p.set("look", { ...look, ...patch })
   const brand = buttonBrand(look.brand)
-  const suggestions = [p.free ? tt("Join free") : null, tt("Get access"), tt("Join now"), p.requests ? tt("Request access") : null].filter((s): s is string => !!s)
-  const shownLabel = look.joinLabel.trim() || p.defaultJoinLabel
+  const paidJoin = !p.free && !p.requests
+  const suggestions = [p.free ? tt("Join free") : null, tt("Get access"), tt("Join now"), paidJoin ? tt("Become a member") : null, p.requests ? tt("Request access") : null].filter((s): s is string => !!s)
+  const labelProblem = p.problems.find((x): x is Extract<DraftProblem, { block: "join" }> => x.block === "join" && x.field === "joinLabel")
+  const noteProblem = p.problems.find((x): x is Extract<DraftProblem, { block: "join" }> => x.block === "join" && x.field === "joinNote")
+  const shownLabel = (!labelProblem && look.joinLabel.trim()) || p.defaultJoinLabel
   const styles: { value: JoinStyle; title: string; detail: string }[] = [
     { value: "ink", title: tt("Ink"), detail: tt("Storelib's dark button") },
-    { value: "brand", title: tt("Your colour"), detail: p.draft.logoUrl ? (p.brandBusy ? tt("Reading your logo") : brand ? tt("From your logo") : tt("No colour found in your logo")) : tt("Add a logo first") },
+    { value: "brand", title: tt("Your colour"), detail: p.draft.logoUrl ? (p.brandBusy ? tt("Reading your logo") : brand ? tt("From your logo") : tt("No colour found in your logo")) : look.brand ? tt("Your own colour") : tt("Add a logo first") },
     { value: "outline", title: tt("Outline"), detail: tt("White with a dark edge") },
   ]
   const picker = React.useRef<HTMLInputElement>(null)
@@ -205,7 +336,12 @@ function JoinPanel(p: PanelProps) {
         <label htmlFor="pe-join-label" className={label}>
           {tt("Words on the button")}
         </label>
-        <input id="pe-join-label" value={look.joinLabel} onChange={(e) => setLook({ joinLabel: e.target.value.slice(0, JOIN_LABEL_MAX) })} placeholder={p.defaultJoinLabel} className={cn(field, "h-11 sm:h-10")} autoComplete="off" data-autofocus="" />
+        <input id="pe-join-label" value={look.joinLabel} onChange={(e) => setLook({ joinLabel: e.target.value.slice(0, JOIN_LABEL_MAX) })} placeholder={p.defaultJoinLabel} className={cn(field, "h-11 sm:h-10", labelProblem && "border-[#f0b4ae]")} autoComplete="off" aria-invalid={labelProblem ? true : undefined} aria-describedby="pe-join-rule" data-join-label-input="" />
+        {labelProblem ? (
+          <p role="alert" className="mt-1.5 text-[12.5px] leading-snug text-[#b42318]" data-join-problem={labelProblem.code}>
+            {wordsProblem(labelProblem.code)}
+          </p>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-1.5" data-join-suggestions="">
           {suggestions.map((s) => (
             <button
@@ -222,7 +358,10 @@ function JoinPanel(p: PanelProps) {
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[12.5px] leading-snug text-[#6b7280]">{look.joinLabel.trim() ? tt("Shown on the button wherever people join.") : tt("Empty, the button says “{label}”.", { label: p.defaultJoinLabel })}</p>
+        {/* The rule, said once where it applies (lib/communities/page-look.ts). */}
+        <p id="pe-join-rule" className="mt-2 text-[12.5px] leading-snug text-[#6b7280]" data-join-rule="">
+          {look.joinLabel.trim() ? tt("Words only. The price comes from your memberships and is shown beside the button, so prices, currencies and billing periods are left out.") : tt("Empty, the button says “{label}”, with the real price from your memberships.", { label: p.defaultJoinLabel })}
+        </p>
       </div>
 
       <div>
@@ -232,7 +371,7 @@ function JoinPanel(p: PanelProps) {
         <div role="radiogroup" aria-labelledby="pe-join-style" className="grid grid-cols-3 gap-2" data-join-styles="">
           {styles.map((s) => {
             const on = look.joinStyle === s.value
-            const off = s.value === "brand" && !p.draft.logoUrl
+            const off = s.value === "brand" && !p.draft.logoUrl && !look.brand
             return (
               <button
                 key={s.value}
@@ -281,10 +420,8 @@ function JoinPanel(p: PanelProps) {
         <label htmlFor="pe-join-note" className={label}>
           {tt("Line under the button")}
         </label>
-        <input id="pe-join-note" value={look.joinNote} onChange={(e) => setLook({ joinNote: e.target.value.slice(0, JOIN_NOTE_MAX) })} placeholder={p.free ? tt("No card needed") : tt("Cancel any time")} className={cn(field, "h-11 sm:h-10")} autoComplete="off" />
-        <p className="mt-1.5 text-right text-[12px] tabular-nums text-[#9ca3af]">
-          {look.joinNote.length}/{JOIN_NOTE_MAX}
-        </p>
+        <input id="pe-join-note" value={look.joinNote} onChange={(e) => setLook({ joinNote: e.target.value.slice(0, JOIN_NOTE_MAX) })} placeholder={p.free ? tt("No card needed") : tt("Cancel any time")} className={cn(field, "h-11 sm:h-10", noteProblem && "border-[#f0b4ae]")} autoComplete="off" aria-invalid={noteProblem ? true : undefined} />
+        <Counter n={look.joinNote.length} max={JOIN_NOTE_MAX} error={noteProblem ? wordsProblem(noteProblem.code) : null} />
       </div>
     </div>
   )

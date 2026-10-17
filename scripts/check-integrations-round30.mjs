@@ -84,7 +84,8 @@ const API = {
 }
 const EXPECTED_INSTALLED = ["storelib-reviews", "courier-tracking", "storelib-email-marketing", "storelib-bundles", "google-analytics", "klaviyo", "aftership", "printful"].sort()
 const APP_IN = { "storelib-email-marketing": "email" }
-const OWNER_PILLS = ["all", "reviews", "analytics", "installed", "storelib", "advertising", "email", "automation"]
+/* Round K4: Installed beside All (it is a pill, no longer a list above the cards). */
+const OWNER_PILLS = ["all", "installed", "reviews", "analytics", "storelib", "advertising", "email", "automation"]
 
 try {
   /*
@@ -284,12 +285,13 @@ export const isNativePlatform = () => false
       const cs = getComputedStyle(col)
       const colRight = col.getBoundingClientRect().right - parseFloat(cs.paddingRight)
       const text = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim()
-      return { shown: shown.length, inBar: bar.contains(el), right: +(colRight - b.right).toFixed(1), textRight: +(colRight - b.right + 8).toFixed(1), midDy: +(b.top + b.height / 2 - (h1.top + h1.height / 2)).toFixed(1), icon: !!el.querySelector("svg"), text, size: getComputedStyle(el).fontSize, colour: getComputedStyle(el).color, lede: document.querySelector("[data-integrations-lede]").getBoundingClientRect().height, searchTop: Math.round(document.querySelector("[data-integrations-search]").getBoundingClientRect().top) }
+      return { shown: shown.length, inBar: bar.contains(el), right: +(colRight - b.right).toFixed(1), textRight: +(colRight - b.right + 8).toFixed(1), midDy: +(b.top + b.height / 2 - (h1.top + h1.height / 2)).toFixed(1), icon: !!el.querySelector("svg"), text, size: getComputedStyle(el).fontSize, colour: getComputedStyle(el).color, lede: document.querySelector("[data-integrations-lede]") ? 1 : 0, searchTop: Math.round(document.querySelector("[data-integrations-search]").getBoundingClientRect().top) }
     })
     report.howDesk = g
     expect(g.shown === 1 && g.inBar && g.icon && g.text === "How it works", "1440: one How it works, in the page's bar, an icon and its words", { shown: g.shown, inBar: g.inBar, text: g.text })
     expect(Math.abs(g.midDy) <= 1.5 && g.right >= -8.5 && g.right <= 0.5, "1440: across from the title, centred on it, its words ending at the column's right edge", { midDy: g.midDy, fromRight: g.right })
-    expect(g.lede <= 21, "1440: the line under the title is one line, with nothing after it", { lede: g.lede })
+    /* Round K4: the line under the title is gone. */
+    expect(g.lede === 0, "1440: no line under the title", { lede: g.lede })
     await p.screenshot({ path: join(shots, "desk-top.png"), clip: { x: 240, y: 58, width: 1200, height: 420 } })
     await p.screenshot({ path: join(shots, "desk-full.png") })
     expect(errors.length === 0, "no page errors", errors)
@@ -300,16 +302,13 @@ export const isNativePlatform = () => false
     const g = await p.evaluate(() => {
       const shown = [...document.querySelectorAll('[data-how-it-works="integrations"]')].filter((el) => el.getBoundingClientRect().width > 0)
       const el = shown[0]
-      const lede = document.querySelector("[data-integrations-lede]")
       const bar = document.querySelector("[data-orders-bar]")
-      const rects = [...el.getClientRects()]
       const h1 = bar.querySelector("h1").getBoundingClientRect()
-      const lb = lede.getBoundingClientRect()
-      return { shown: shown.length, inLede: lede.contains(el), inBar: bar.contains(el), lines: Math.round(lb.height / 20), ledeH: lb.height, titleToSearch: Math.round(document.querySelector("[data-integrations-search]").getBoundingClientRect().top - h1.bottom), linkH: Math.max(...rects.map((r) => r.height)), icon: !!el.querySelector("svg") && el.querySelector("svg").getBoundingClientRect().width > 0, colour: getComputedStyle(el).color, underline: getComputedStyle(el).textDecorationLine, hit: (() => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.left + 4, r.top + r.height / 2)?.closest("[data-how-it-works]") === el })() }
+      return { shown: shown.length, inBar: bar.contains(el), lede: !!document.querySelector("[data-integrations-lede]"), titleToSearch: Math.round(document.querySelector("[data-integrations-search]").getBoundingClientRect().top - h1.bottom), hit: (() => { const r = el.getBoundingClientRect(); return document.elementFromPoint(r.left + 4, r.top + r.height / 2)?.closest("[data-how-it-works]") === el })() }
     })
     report.howPhone = g
-    expect(g.shown === 1 && g.inLede && !g.inBar && !g.icon && g.underline === "underline", "390: one How it works, the last words of the line under the title, underlined, no icon, not in the bar", { shown: g.shown, inLede: g.inLede, inBar: g.inBar, icon: g.icon })
-    expect(g.lines <= 2 && g.hit, "390: the line and the link take two lines at most, and the link takes the press", { lines: g.lines, ledeH: g.ledeH })
+    /* Changed on purpose (round K4, Andrew: remove the line under the title): How it works is in the bar on a phone too. */
+    expect(g.shown === 1 && g.inBar && !g.lede && g.hit, "390: one How it works, in the bar across from the title, no line under the title, and it takes the press", g)
     await p.evaluate(() => [...document.querySelectorAll('[data-how-it-works="integrations"]')].find((el) => el.getBoundingClientRect().width > 0).click())
     await sleep(600)
     expect(await p.evaluate(() => !!document.querySelector('[data-how-it-works-panel="integrations"]')), "390: a press opens the explanation")
@@ -390,14 +389,14 @@ export const isNativePlatform = () => false
     await sleep(300)
     const addrAll = await p.evaluate(() => location.search)
     const entries = await p.evaluate(() => history.length)
-    expect(addr === "?c=analytics" && addrAll === "", "the pill is in the address (?c=analytics), All is the plain address, and no history entry is added", { addr, addrAll, entries })
+    expect(addr === "?category=analytics" && addrAll === "", "the pill is in the address (?category=analytics), All is the plain address, and no history entry is added", { addr, addrAll, entries })
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }
   {
     const { p } = await open("/app/integrations?c=email")
     const g = await p.evaluate(() => ({ pill: document.querySelector('[data-integration-pill][aria-selected="true"]').getAttribute("data-integration-pill"), cards: [...document.querySelectorAll("[data-integration-grid] > li")].filter((li) => !li.hidden).length }))
-    expect(g.pill === "email" && g.cards === report.pills.email.cards, "an address with ?c=email opens on Email marketing, its cards and no others", g)
+    expect(g.pill === "email" && g.cards === report.pills.email.cards, "an old address with ?c=email still opens on Email marketing, its cards and no others", g)
     await p.close()
     const { p: q } = await open("/app/integrations?c=nonsense")
     expect((await q.evaluate(() => document.querySelector('[data-integration-pill][aria-selected="true"]').getAttribute("data-integration-pill"))) === "all", "a ?c= that names no pill is All")
@@ -437,7 +436,7 @@ export const isNativePlatform = () => false
     expect(Math.min(...inAgain.map((f) => f.opacity)) === 1 && Math.min(...outDom.map((f) => f.opacity)) === 1, `${name}: in and out, whole on every frame: no fade, no pale frame`, { minIn: report[`page${name}`].minOpacityIn, minOut: report[`page${name}`].minOpacityOut })
     expect(!!firstPage && firstPage.t <= 70 && inAgain.every((f) => f.view === "list" || f.view === "page") && !!firstList && firstList.scroll === before.scroll && outDom.filter((f) => f.view === "list").every((f) => f.scroll === before.scroll), `${name}: the list stays until the page is drawn (within 70ms), and the list comes back at its scroll on its first frame and stays`, { pageAt: firstPage?.t, listScroll: firstList?.scroll, before: before.scroll })
     expect(outPixels.length >= 3 && blank(outPixels).length === 0, `${name}: back, every frame filmed has the list on it, none blank`, { frames: outPixels.length, minSpread: report[`page${name}`].minSpreadOut })
-    expect(after.scroll === before.scroll && after.search === before.search && after.pill === "storelib" && after.focused === "storelib-reviews", `${name}: the browser's Back: same pill (?c=storelib), same scroll, the card opened focused`, { before: before.scroll, after: after.scroll, search: after.search, pill: after.pill })
+    expect(after.scroll === before.scroll && after.search === before.search && after.pill === "storelib" && after.focused === "storelib-reviews", `${name}: the browser's Back: same pill (?category=storelib), same scroll, the card opened focused`, { before: before.scroll, after: after.scroll, search: after.search, pill: after.pill })
     expect(after2.scroll === before.scroll && after2.pill === "storelib", `${name}: Back to integrations does the same`, after2)
     expect(errors.length === 0, `${name}: no page errors`, errors)
     await p.close()
@@ -477,7 +476,7 @@ export const isNativePlatform = () => false
     expect(!!firstBack && firstBack.scroll === before.scroll && firstBack.pill === "storelib" && report[`app${name}`].scrolls.length === 1, `${name}: Back: the first frame of the list is already at its scroll and its pill, and it never moves after`, { before: before.scroll, first: firstBack, scrolls: report[`app${name}`].scrolls })
     expect(report[`app${name}`].backOpacity === 1 && backDom.every((f) => f.pulses === 0), `${name}: Back: no landing (every box at full opacity on every frame), no grey loading box`, { minOpacity: report[`app${name}`].backOpacity })
     expect(backPixels.length >= 3 && backPixels.every((f) => f.spread >= 6), `${name}: forward and Back again: no frame is blank`, { frames: backPixels.length, minSpread: report[`app${name}`].minSpreadBack })
-    expect(after.scroll === before.scroll && after.search === "?c=storelib" && after.pill === "storelib", `${name}: and it settles where it was`, after)
+    expect(after.scroll === before.scroll && after.search === "?category=storelib" && after.pill === "storelib", `${name}: and it settles where it was`, after)
     expect(errors.length === 0, `${name}: no page errors`, errors)
     await p.screenshot({ path: join(shots, `${name}-back-from-app.png`) })
     await p.close()

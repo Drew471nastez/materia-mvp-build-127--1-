@@ -14,18 +14,28 @@
  * there: a browser needs that frame for every element to load).
  */
 import { isCapacitorShell } from "@/lib/stripe-nav-guard"
-import { loadStripe } from "@stripe/stripe-js/pure"
+import type { loadStripe } from "@stripe/stripe-js/pure"
 
+/*
+  STRIPE'S MODULE ON THE FIRST ASK, NOT ON IMPORT (round 26). The community's join flow imports the card form
+  (./stripe-pay) and so this file, and every page that can show a join button imported Stripe's module with it. Now the
+  module is fetched by the first getStripePromise() (a chunk of its own, as lib/payments/identity-client.ts already
+  does), so a page that never takes a card never loads it. It also keeps Node's own loader, which the suites run on,
+  from resolving `@stripe/stripe-js/pure` at import: the package has no exports map, and Node refuses that directory
+  import. Callers already take a promise, so nothing changes for them.
+*/
 let promise: ReturnType<typeof loadStripe> | null = null
 
 export function getStripePromise(): ReturnType<typeof loadStripe> {
   if (!promise) {
-    promise = loadStripe(
-      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
-      // Documented, not yet in the published types.
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      isCapacitorShell() ? { advancedFraudSignals: false } : undefined,
+    promise = import("@stripe/stripe-js/pure").then(({ loadStripe }) =>
+      loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+        // Documented, not yet in the published types.
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        isCapacitorShell() ? { advancedFraudSignals: false } : undefined,
+      ),
     )
   }
   return promise

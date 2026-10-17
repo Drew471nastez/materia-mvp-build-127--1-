@@ -121,7 +121,7 @@ console.log("\nOne set of functions for the website and the canvas\n")
   check("the built-in switch in the canvas: no address opened, no cookie written, no link rewritten", /if \(preview\) return preview\.language\(code\)/.test(sw) && /if \(preview\) return preview\.currency\(id\)/.test(sw) && /if \(preview \|\| choice\.code === choice\.defaultLanguage\) return/.test(sw))
   const hook = read("components/website-builder/use-preview-market.ts")
   /* Changed on purpose (the owner: the editor opens on the defaults): opens on the store's own currency, read again when the builder comes back. */
-  check("the canvas opens on the store's currency, and reads the markets again when the builder comes back", !/sessionStorage/.test(hook) && /setMarketState\(null\)/.test(hook) && /visibilitychange/.test(hook) && /\/api\/store\/markets\?preview=1/.test(hook))
+  check("the canvas opens on the store's currency, and reads the markets again when the builder comes back", /* Changed on purpose (round K3, the owner: "remember the choice per session"): the currency last picked in this tab, else the store's own. */ /sessionStorage\.getItem\(`wb-preview-market:\$\{installId\}`\) \|\| null/.test(hook) && /setMarketState\(start\)/.test(hook) && /visibilitychange/.test(hook) && /\/api\/store\/markets\?preview=1/.test(hook))
   check("  only markets a visitor can be in and the day's rates convert are offered", /m\.countries\.length > 0 && pricingFor\(m, info\.base, info\.fx\) !== null/.test(hook))
   const api = read("app/api/store/markets/route.ts")
   check("the preview reads the markets as the live site does, for the website's editors, and writes nothing", /shopCaller\("website"\)/.test(api) && /siteLanguages\(c\.creatorId\)/.test(api) && /fx && fxFresh\(fx\)/.test(api))

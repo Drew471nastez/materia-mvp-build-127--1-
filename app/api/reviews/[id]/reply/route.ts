@@ -55,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (missingColumn(error)) return NextResponse.json({ error: NOT_YET }, { status: 503 })
     return NextResponse.json({ error: "The reply did not save. Try again." }, { status: 500 })
   }
-  forgetReviewPages({ productId: mine.review.product_id, productSlug: mine.product.slug })
+  forgetReviewPages({ productId: mine.review.product_id, creatorId: mine.review.creator_id, productSlug: mine.product.slug })
   return NextResponse.json({ review: data })
 }
 
@@ -69,6 +69,6 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (missingColumn(error)) return NextResponse.json({ error: NOT_YET }, { status: 503 })
     return NextResponse.json({ error: "The reply was not removed. Try again." }, { status: 500 })
   }
-  forgetReviewPages({ productId: mine.review.product_id, productSlug: mine.product.slug })
+  forgetReviewPages({ productId: mine.review.product_id, creatorId: mine.review.creator_id, productSlug: mine.product.slug })
   return NextResponse.json({ removed: true })
 }

@@ -40,7 +40,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { get label() { return tt("Payouts") }, href: "/app/payouts", group: "Pages", get words() { return tt("revenue transactions balance money") } },
   { get label() { return tt("Explore") }, href: "/explore", group: "Pages", words: "discover" },
   { get label() { return tt("Library") }, href: "/account/library", group: "Pages", words: "purchases" },
-  { get label() { return tt("Help") }, href: "/help", group: "Pages", get words() { return tt("support questions") } },
+  { get label() { return tt("Help") }, href: "/app/help", group: "Pages", get words() { return tt("support questions") } },
   { get label() { return tt("Settings") }, href: "/app/settings", group: "Settings", get words() { return tt("profile account") } },
   { get label() { return tt("Payments") }, href: "/app/settings/payments", group: "Settings", get words() { return tt("stripe paypal connect") } },
   { get label() { return tt("Billing") }, href: "/app/settings/billing", group: "Settings", get words() { return tt("plan subscription invoices payment methods") } },
