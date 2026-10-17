@@ -29,7 +29,7 @@
  * Run with:  npm run test:push
  */
 import { readCode } from "./_source"
-import { TRANSLATABLE_TYPES, blockKey, isTranslatableField, isTranslationKey, localizeSections, localizeTheme, optionKey, sectionKey, shownText, sourceHash, themeTextTranslatables, translatablesOf, translationMap, type Translatable, type TranslationRow } from "@/lib/markets/translate"
+import { TRANSLATABLE_TYPES, blockKey, isWordsField, isTranslationKey, localizeSections, localizeTheme, optionKey, sectionKey, shownText, sourceHash, themeTextTranslatables, translatablesOf, translationMap, type Translatable, type TranslationRow } from "@/lib/markets/translate"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "@/lib/markets/compat-fields"
 import { UI_WORDS } from "@/lib/markets/ui-words"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -74,8 +74,8 @@ check("imported themes: collection:<id> laid over, and its products translated w
 
 console.log("\n2. A person's translation is kept")
 const draft = readCode("app/api/store/translations/draft/route.ts")
-check("AI drafts what is missing and its own outdated drafts, never a person's approved one", /* Changed on purpose (merge): one rule for the press and the hourly job, aiMayWrite, which leaves every translation a person wrote. */ /* Changed on purpose (checkout, currency and translation overhaul): in the round the press and the background job share. */ /\.filter\(\(t\) => aiMayWrite\(map\.get\(t\.key\), t\.source\)\)/.test(readCode("lib/markets/translation-press.ts")))
-check("and what is left to draft counts the same way", /!written\.has\(t\.key\) && aiMayWrite\(map\.get\(t\.key\), t\.source\)/.test(readCode("lib/markets/translation-press.ts")))
+check("AI drafts what is missing and its own outdated drafts, never a person's approved one", /* Changed on purpose (merge): one rule for the press and the hourly job, aiMayWrite, which leaves every translation a person wrote. */ /* Changed on purpose (checkout, currency and translation overhaul): in the round the press and the background job share. */ /* Changed on purpose (round K3): a text the store keeps untranslated (Don't translate, product names kept) is skipped too. */ /\.filter\(\(t\) => !isExcluded\(rules, t\.key\) && aiMayWrite\(map\.get\(t\.key\), t\.source\)\)/.test(readCode("lib/markets/translation-press.ts")))
+check("and what is left to draft counts the same way", /* Changed on purpose (round K3): excluded texts are not left to draft. */ /!written\.has\(t\.key\) && !isExcluded\(rules, t\.key\) && aiMayWrite\(map\.get\(t\.key\), t\.source\)/.test(readCode("lib/markets/translation-press.ts")))
 const translate = readCode("lib/markets/translate.ts")
 check("an approved value stays live while its original changed (only drafts are hidden)", /if \(opts\.approvedOnly && row\.status !== "approved"\) return null/.test(translate))
 
@@ -160,8 +160,8 @@ async function coverage() {
   for (const s of sections) {
     const fieldsWithWords = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
       for (const f of fields ?? []) {
-        /* Changed on purpose (round V8): words only; a text setting that holds an address, a gradient or an embed is the same in every language (translate.ts isTranslatableField). */
-        if (!isTranslatableField(f) || !shown(f, settings[f.id])) continue
+        /* Changed on purpose (round V8): words only; a text setting that holds an address, a gradient or an embed is the same in every language (translate.ts isWordsField). */
+        if (!isWordsField(f) || !shown(f, settings[f.id])) continue
         const k = key(f.id)
         if (!listed.has(k)) unlisted.push(k)
         else if (after.get(k) !== marker.get(k)) notLaid.push(`${k}=${JSON.stringify(after.get(k))}`)

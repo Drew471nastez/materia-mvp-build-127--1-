@@ -483,7 +483,7 @@ async function main() {
     /* Round 10: the card is the decision (the price, Monthly and Yearly, the button); the figures moved into the sheet, under the facts line. */
     check("the card sticks under the community's bar, with the price, the interval switch and the button", /sticky top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(controls) && /<PriceLine className="mt-4" \/>\s*<IntervalSwitch className="mt-3" full \/>/.test(controls) && /<PrimaryAction className="mt-4 w-full" \/>/.test(controls))
     /* Changed on purpose (round 33): the row carries members and visibility, so the side card lists the other counted facts, and none when there are none. */
-    check("the side card draws the counted facts (aboutFacts) the row does not", /const facts = aboutFacts\(c, c\.stats, extras\)\.filter\(\(f\) => f\.key !== "members" && f\.key !== "visibility"\)/.test(page) && /<JoinCard facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\} \/>/.test(page))
+    check("the side card draws the counted facts (aboutFacts) the row does not", /const facts = aboutFacts\(c, c\.stats, extras\)\.filter\(\(f\) => f\.key !== "members" && f\.key !== "visibility"\)/.test(page) && /<JoinCard\s+facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\}/.test(page))
     check("the sales page calls no client function on the server", !/from "\.\/join-controls"[\s\S]*intervalPrice/.test(page))
   }
 
@@ -585,7 +585,8 @@ async function main() {
     /* Round 9, ask 21: the places back on the LEFT under the card, no Most active there; the right column is the next event and Most active. */
     /* Changed on purpose (round 27, the owner: "it should be how it was before, the card on the left with the cover and the name, but keep the navigation under the header"): round 9's three columns again, without the list of places. */
     check("the frame draws three columns from 1280px on every page: 280px left, the page, 300px right (the middle never moves between places)", /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(frame) && /data-community-columns="three"/.test(frame) && !/hasRight/.test(frame))
-    check("round 27: the left column is the community card and nothing else (the places are the tab row)", /data-community-left="">\s*\{wall \? <WallCommunityCard community=\{community\} card=\{wall\.card\} membersHref=\{membersHref\} \/> : null\}\s*<\/div>/.test(frame) && !/<WallPlaces/.test(frame))
+    /* Round 26 (W6): the creator's member links sit under the card, quiet text, still no places there. */
+    check("round 27: the left column is the community card (and, round 26, the member links under it), never the places (the places are the tab row)", /data-community-left="">\s*\{wall \? <WallCommunityCard community=\{community\} card=\{wall\.card\} membersHref=\{membersHref\} \/> : null\}[\s{}]*\{memberLinks\.length \? <MemberLinks [^>]*variant="column"[^>]*\/> : null\}\s*<\/div>/.test(frame) && !/<WallPlaces/.test(frame))
     check("round 9: the right column is the next event, then the top contributors (Most active), sticking under the bar", /data-community-right=""[\s\S]{0,400}\{upcoming \? <WallUpcoming [^\n]*\n\s*\{contributors && !onLeaderboard \? <WallContributorsCard /.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,107px\)\+24px\)\]/.test(frame))
     check("round 9: each card only when it has something, and the same on every place, so the side columns never change between places", /const upcoming = wall\?\.upcoming \?\? null/.test(frame) && /const contributors = wall\?\.contributors \?\? null/.test(frame) && !/feedish|rightColumnFor/.test(frame) && /\{upcoming \|\| contributors \? \(/.test(frame))
     check("from 1024px to 1279px everything stacks in the left column: the card, then the event and the contributors", /lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch \$\{wideCenter \? "" : "lg:block"\}/.test(frame) && /lg:grid-rows-\[auto_1fr\]/.test(frame) && /lg:row-span-2 lg:row-start-1 \$\{lessonPage \? "lg:col-span-full lg:col-start-1" : about \? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter \? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"\}/.test(frame))
@@ -696,7 +697,7 @@ async function main() {
       check("a moderator or a member: neither; events off: no Event", !settingsHrefFor(c, v({ isCreatorAccount: true, role: "moderator" })) && !eventHrefFor(c, v({ isCreatorAccount: true, role: "moderator" })) && !settingsHrefFor(c, v({})) && !eventHrefFor({ id: C, slug: "clay-studio", events_enabled: false }, v({ isOwner: true, role: "owner" })))
     }
     const shell = code("components/community/member/shell.tsx")
-    check("the shell reads the wall once per page load, with the bar", /Promise\.all\(\[shellData\(community\.id, viewer, community\), topBarData\(community, viewer\), wallData\(admin\(\), community, viewer\)\]\)/.test(shell) && /wall=\{wall\}/.test(shell))
+    check("the shell reads the wall once per page load, with the bar (and, round 26, the member links)", /Promise\.all\(\[shellData\(community\.id, viewer, community\), topBarData\(community, viewer\), wallData\(admin\(\), community, viewer\), memberLinksForViewer\(community, viewer\)\]\)/.test(shell) && /wall=\{wall\}/.test(shell))
   }
 
   /* ── Round 5: the bar, the composer, a post ──────────────────────────── */

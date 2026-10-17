@@ -37,6 +37,11 @@ export function publicEvent(f: EventFacts): boolean {
   return communityOpen && isOpenRule(f.event.access ?? {})
 }
 
+/** Whether search engines may index it (round 26): a public event in a community that is still published, never an archived one's. */
+export function indexableEvent(f: EventFacts): boolean {
+  return publicEvent(f) && f.community.status === "published"
+}
+
 export function eventPath(slug: string, eventId: string): string {
   return `/community/${slug}/events/${eventId}`
 }
@@ -66,7 +71,8 @@ function fingerprint(f: EventFacts, open: boolean): string {
 }
 
 export function eventMetadata(f: EventFacts): Metadata {
-  const open = publicEvent(f)
+  /* Previewed only while the community is published (round 26). */
+  const open = indexableEvent(f)
   const url = `${SITE}${eventPath(f.community.slug, f.event.id)}`
   const image = eventShareImageUrl(f.community.slug, f.event.id, fingerprint(f, open))
   const images = [{ url: image, width: EVENT_SHARE_WIDTH, height: EVENT_SHARE_HEIGHT, alt: open ? f.event.title : f.community.name, type: "image/png" }]

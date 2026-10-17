@@ -16,6 +16,8 @@
  *   marketing             the unticked "Email me with news and offers" box
  *   customer information  the name as one field or two, and whether company,
  *                         phone and the second address line are asked for
+ *   checkout text         the store's own words on its checkout, per language
+ *                         (./checkout-text-editor.tsx, lib/checkout-text)
  *
  * Saved as each one changes, the way Shopify's checkout settings are; a
  * line at the foot says when the last change was kept.
@@ -24,12 +26,13 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { X } from "lucide-react"
-import { Card, Field, MoneyInput, Notice, Toggle, api, centsOf, dollarsOf, peekGet } from "@/components/physical/ui"
+import { BTN_SECONDARY, Card, Field, MoneyInput, Notice, Toggle, api, centsOf, dollarsOf, peekGet } from "@/components/physical/ui"
 import { COD_INSTRUCTIONS_MAX, DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
 import { CountryFlag, CountryPicker } from "./country-picker"
 import { tt } from "@/lib/i18n/text"
+import { CheckoutTextEditor } from "./checkout-text-editor"
 
 const RULES: { id: FieldRule; label: string }[] = [
   { id: "off", get label() { return tt("Don't include") } },
@@ -235,6 +238,8 @@ export function CheckoutPanel() {
         </div>
       </Card>
 
+      <CheckoutTextCard />
+
       {error ? <Notice>{error}</Notice> : null}
       <p className="px-1 text-[12.5px] text-[#6b7280]" aria-live="polite" data-checkout-saved={saved}>
         {saved === "saving" ? tt("Saving") : saved === "saved" ? tt("Saved. Your checkout shows it within a few seconds.") : tt("Changes are saved as you make them and reach your checkout within a few seconds.")}
@@ -324,5 +329,18 @@ function CashOptions({ config, change }: { config: CheckoutConfig; change: (patc
         />
       </Field>
     </div>
+  )
+}
+
+/** Checkout text: the editor opens over the whole screen, with the checkout beside it to see each change. */
+function CheckoutTextCard() {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Card title={tt("Checkout text")} description={tt("Change the words on your checkout, like the pay button or the headings, in each of your languages.")}>
+      <button type="button" className={BTN_SECONDARY} onClick={() => setOpen(true)} data-open-checkout-text="">
+        {tt("Edit checkout text")}
+      </button>
+      {open ? <CheckoutTextEditor onClose={() => setOpen(false)} /> : null}
+    </Card>
   )
 }

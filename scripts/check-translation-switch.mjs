@@ -4,16 +4,18 @@
  *  THE SIDEBAR SWITCHED TO ANOTHER LANGUAGE, MEASURED
  * ===========================================================================
  * Round V8. The builder's sidebar for one section (scripts/render-
- * translation-switch-probe.tsx: the real hook, language row, scopes, locks,
- * translated control and rich text box) in headless Chromium, against a
+ * translation-switch-probe.tsx: the real hook, the theme editor's own
+ * editing state, scope and translated field, and the rich text box) in
+ * headless Chromium, against a
  * server that answers /api/store/translations as the real route does and
  * keeps every save it is sent. It reports what the controls show:
  *
  *   in English      the section's own words, nothing locked
  *   in French       French's values in the text controls, the English as
- *                   their placeholder and under them, Outdated where the
- *                   English changed after it was translated, the colour and
- *                   the padding locked, the canvas in French
+ *                   their placeholder and under them, Original changed where
+ *                   the English changed after it was translated, the colour
+ *                   and the padding the same in every language and out of
+ *                   reach, the canvas in French
  *   typing          the canvas shows it before anything is saved, and the
  *                   save sent holds French and that one key only
  *   back in English the originals, as they were
@@ -99,7 +101,7 @@ try {
     page.evaluate(() => {
       const box = (id) => document.querySelector(`[data-translated-field="section:s1:${id}"] input, [data-setting="${id}"] input`)
       const rich = (id) => document.querySelector(`[data-translated-field="section:s1:${id}"] [contenteditable], [data-setting="${id}"] [contenteditable]`)
-      const status = (id) => document.querySelector(`[data-translated-field="section:s1:${id}"]`)?.getAttribute("data-translation-status") ?? null
+      const status = (id) => document.querySelector(`[data-translated-field="section:s1:${id}"]`)?.getAttribute("data-translation-state") ?? null
       return {
         language: document.querySelector("#wb-edit-language").value,
         heading: box("heading")?.value ?? null,
@@ -107,14 +109,13 @@ try {
         headingStatus: status("heading"),
         text: rich("text")?.innerHTML ?? null,
         textStatus: status("text"),
-        outdatedMarks: document.querySelectorAll("[data-translation-outdated]").length,
+        outdatedMarks: document.querySelectorAll('[data-translation-badge="outdated"]').length,
         alt: box("image_alt")?.value ?? null,
         altPlaceholder: box("image_alt")?.getAttribute("placeholder") ?? null,
-        locked: [...document.querySelectorAll("[data-translation-locked]")].map((el) => el.querySelector("[data-setting]")?.getAttribute("data-setting")),
-        lockedOpacity: [...document.querySelectorAll("[data-translation-locked]")].map((el) => getComputedStyle(el).opacity),
-        lockedInert: [...document.querySelectorAll("[data-translation-locked]")].every((el) => el.inert === true),
-        originalLine: document.querySelector('[data-translated-field="section:s1:heading"] [data-translation-original]')?.textContent ?? null,
-        note: document.querySelector("[data-wb-edit-language-note]")?.textContent ?? null,
+        locked: [...document.querySelectorAll("[data-shared-setting]")].map((el) => el.querySelector("[data-probe-control]")?.getAttribute("data-probe-control") ?? el.querySelector("label")?.textContent),
+        lockedOpacity: [...document.querySelectorAll("[data-shared-setting] [inert]")].map((el) => getComputedStyle(el).opacity),
+        lockedInert: [...document.querySelectorAll("[data-shared-setting]")].every((el) => el.querySelector("[inert]")?.inert === true),
+        originalLine: document.querySelector('[data-translated-field="section:s1:heading"] [data-translation-source]')?.textContent ?? null,
         canvasHeading: document.querySelector("[data-canvas-heading]").textContent,
         canvasText: document.querySelector("[data-canvas-text]").innerHTML,
         canvasAlt: document.querySelector("[data-canvas-image]").getAttribute("alt"),
@@ -124,7 +125,7 @@ try {
 
   const en = await read()
   console.log("\nIn English (the original):", JSON.stringify(en, null, 1))
-  expect("the language row lists the original, French and German (not live yet)", en.options.join("|") === "English (original)|French|German (not live yet)", en.options)
+  expect("the switch offers the website's languages", en.options.join("|") === "en|fr|de", en.options)
   expect("English: the section's own words in the controls", en.heading === "Spring sale" && en.alt === "A folded apron", { heading: en.heading, alt: en.alt })
   expect("English: nothing locked", en.locked.length === 0, en.locked)
 
@@ -133,13 +134,12 @@ try {
   await page.waitForFunction(() => document.querySelector("[data-canvas-heading]")?.textContent === "Soldes de printemps", null, { timeout: 3000 }).catch(() => undefined)
   const fr = await read()
   console.log("\nIn French:", JSON.stringify(fr, null, 1))
-  expect("French: the heading shows French's value", fr.heading === "Soldes de printemps" && fr.headingStatus === "done", { heading: fr.heading, status: fr.headingStatus })
+  expect("French: the heading shows French's value, the merchant's own", fr.heading === "Soldes de printemps" && fr.headingStatus === "edited", { heading: fr.heading, status: fr.headingStatus })
   expect("French: the English as the placeholder and under the field", fr.headingPlaceholder === "Spring sale" && fr.originalLine === "English: Spring sale", { placeholder: fr.headingPlaceholder, line: fr.originalLine })
-  expect("French: the text written for an older English reads Outdated, its translation kept", fr.textStatus === "outdated" && fr.outdatedMarks === 1 && /Lin lavé/.test(fr.text ?? ""), { status: fr.textStatus, marks: fr.outdatedMarks, text: fr.text })
+  expect("French: the text written for an older English reads Original changed, its translation kept", fr.textStatus === "outdated" && fr.outdatedMarks === 1 && /Lin lavé/.test(fr.text ?? ""), { status: fr.textStatus, marks: fr.outdatedMarks, text: fr.text })
   expect("French: the alt text has no translation yet, so an empty box with the English as its placeholder", fr.alt === "" && fr.altPlaceholder === "A folded apron", { alt: fr.alt, placeholder: fr.altPlaceholder })
-  expect("French: the colour and the padding locked, dimmed and inert", fr.locked.join() === "accent,padding" && fr.lockedOpacity.every((o) => Number(o) < 0.6) && fr.lockedInert, { locked: fr.locked, opacity: fr.lockedOpacity })
+  expect("French: the colour and the padding the same in every language, dimmed and inert", fr.locked.join() === "accent,padding" && fr.lockedOpacity.length === 2 && fr.lockedOpacity.every((o) => Number(o) < 0.6) && fr.lockedInert, { locked: fr.locked, opacity: fr.lockedOpacity })
   expect("French: the canvas in French, the alt text falling back to English", fr.canvasHeading === "Soldes de printemps" && fr.canvasAlt === "A folded apron", { heading: fr.canvasHeading, alt: fr.canvasAlt })
-  expect("French: the row says what changes", /Only text changes in French/.test(fr.note ?? ""), fr.note)
 
   const t0 = Date.now()
   await page.fill('[data-translated-field="section:s1:image_alt"] input', "Un tablier plié")

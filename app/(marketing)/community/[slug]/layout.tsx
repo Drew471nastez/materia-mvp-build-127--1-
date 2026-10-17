@@ -2,10 +2,11 @@ import type { Metadata } from "next"
 import { OpenInAppPill } from "@/components/community/open-in-app-pill"
 import type React from "react"
 import { headers } from "next/headers"
-import { permanentRedirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { connection } from "next/server"
 import { COMMUNITY_PATH_HEADER, movedCommunityPath } from "@/lib/communities/slug-move"
 import { meetsRole } from "@/lib/communities/permissions"
+import { communityOpen } from "@/lib/communities/server/context"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
 import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
 import { communityTitle, tabIconUrl } from "@/components/community/public/seo"
@@ -56,6 +57,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 function barVisible(page: MemberPage): boolean {
   const { community, viewer } = page
   if (!community || page.state === "off" || page.state === "missing" || page.state === "closed") return false
+  /*
+    SUSPENDED IS ITS OWNER'S, SIGNED OUT INCLUDED (round 26). memberPage answers "signed_out" before it asks whether the
+    community is open, so a suspended community drew its bar, its name and its title for anybody signed out (a search
+    engine included) around the page's 404.
+  */
+  if (!communityOpen(community) && !viewer?.isOwner) return false
   if (community.status !== "draft") return true
   return !!viewer && (viewer.isOwner || viewer.isCreatorAccount || meetsRole(viewer.role, "moderator"))
 }
@@ -77,6 +84,13 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   if (page.community && page.community.slug !== slug && barVisible(page)) {
     permanentRedirect(movedCommunityPath(slug, page.community.slug, (await headers()).get(COMMUNITY_PATH_HEADER)))
   }
+  /*
+    A REAL 404 (round 26). Nothing here, or a draft or a suspended community this viewer may not see: answered here, before
+    anything is streamed, so the status is 404 rather than a 200 carrying the not found page (the page's own notFound()
+    runs inside the loading boundary, after the first bytes). A member's paused community ("closed") keeps its screen,
+    and a viewer whose session could not be read yet ("unknown") gets the page, which decides.
+  */
+  if (page.state === "off" || page.state === "missing" || (page.community && page.state !== "closed" && page.state !== "unknown" && !barVisible(page))) notFound()
   const tracking = storeTracking(page)
   const visit = visitBeacon(page, (await headers()).get("referer"))
   if (page.state === "member" && page.community && page.viewer) {

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
-  const limited = await rateLimit({ bucket: "site-translations", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 400, seconds: 600 }, { limit: 5000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
+  const limited = await rateLimit({ bucket: "site-translations-product", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 400, seconds: 600 }, { limit: 5000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
   if (limited) return limited
   const body = await readBody(request)
   if (!body || !isUuid(body.id)) return physicalJson({ error: "Bad request." }, 400)

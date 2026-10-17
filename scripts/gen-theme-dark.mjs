@@ -626,8 +626,12 @@ ${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\
   background-image: none;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.35);
 }
-/* A menu or a sheet floats: a little more lift, the same matte surface. */
-${SCOPE} :is([role="menu"], [role="listbox"], [role="dialog"], [data-account-menu])${OWN} {
+/*
+  A menu or a sheet floats: a little more lift, the same matte surface. A list laid out in a row (the About page's
+  gallery thumbnails, aria-orientation="horizontal") sits in the page and does not float: round 26, the owner saw it
+  as a dark box with an edge around the thumbnails.
+*/
+${SCOPE} :is([role="menu"], [role="listbox"]:not([aria-orientation="horizontal"]), [role="dialog"], [data-account-menu])${OWN} {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 48px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
 }
 /* Pictures sit a touch below full brightness on the dark ground, never washed. */

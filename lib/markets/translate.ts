@@ -63,19 +63,24 @@ export type TranslationMap = Map<string, TranslationRow>
 /** The setting types that hold words a visitor reads. Everything else is the same in every language. */
 export const TRANSLATABLE_TYPES = new Set(["text", "textarea", "richtext", "inline_richtext", "html_text"])
 
-export const MAX_TRANSLATION_LENGTH = 20_000
-
 /**
- * A text setting that holds an address, a number or code rather than words:
- * an email or a phone number, a link, a gradient, an embed, a date. Kept the
- * same in every language, never sent to be translated.
+ * A setting whose words a visitor reads. A text box that holds a CSS value
+ * (a gradient, which the editor draws with its own gradient control) is
+ * not words: sent to a translator it came back as "gradient-liniar(...)".
+ * The editor's sidebar asks the same question, so what it offers to
+ * translate is exactly what the website lays over.
+ *
+ * Nor is a text box that holds an address or code rather than words (round
+ * V8): an email or a phone number, a link, an embed, an anchor, a date.
+ * A picture's description (alt text) and a button's label are words.
  */
-const NOT_WORDS_ID = /(^|_)(email|phone|url|gradient)$|^(embed_code|target_id|countdown_end|release_date|anchor|anchor_id|html_id|css_class)$/i
-
-/** Does this setting hold words a visitor reads, so each language has its own? Text, long text, rich text and alt text do; colours, numbers, toggles, pictures and addresses do not. */
-export function isTranslatableField(field: { type: string; id?: string }): boolean {
-  return TRANSLATABLE_TYPES.has(field.type) && !NOT_WORDS_ID.test(field.id ?? "")
+export function isWordsField(f: Pick<SchemaField, "type"> & { id?: string; label?: string }): boolean {
+  return TRANSLATABLE_TYPES.has(f.type) && !/gradient/i.test(`${f.id ?? ""} ${f.label ?? ""}`) && !NOT_WORDS_ID.test(f.id ?? "")
 }
+
+const NOT_WORDS_ID = /(^|_)(email|phone|url)$|^(embed_code|target_id|countdown_end|release_date|anchor|anchor_id|html_id|css_class)$/i
+
+export const MAX_TRANSLATION_LENGTH = 20_000
 
 /** A short, stable fingerprint of a piece of text (FNV-1a, 32 bits, hex): equal text, equal hash, on the server and in the browser. */
 export function sourceHash(text: string): string {
@@ -126,7 +131,7 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
   const out: Translatable[] = []
   const take = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string, where: string) => {
     for (const f of fields ?? []) {
-      if (!isTranslatableField(f)) continue
+      if (!isWordsField(f)) continue
       const v = shownText(f, settings?.[f.id])
       if (v === null || !v.trim()) continue
       out.push({ key: key(f.id), source: v, label: f.label || f.id, where, multiline: f.type !== "text" })
@@ -233,7 +238,7 @@ export function localizeSections(sections: SectionInstance[], map: TranslationMa
   const over = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
     let next: Record<string, unknown> | null = null
     for (const f of fields ?? []) {
-      if (!isTranslatableField(f)) continue
+      if (!isWordsField(f)) continue
       const shown = shownText(f, settings?.[f.id])
       if (shown === null) continue
       const v = valueFor(map, key(f.id), opts, shown)
@@ -441,7 +446,7 @@ const THEME_NOT_WORDS = new Set(["brand_name"])
 export function themeTextTranslatables(theme: Record<string, unknown> | null | undefined, fields: readonly SchemaField[]): Translatable[] {
   const out: Translatable[] = []
   for (const f of fields) {
-    if (!isTranslatableField(f) || THEME_NOT_WORDS.has(f.id)) continue
+    if (!isWordsField(f) || THEME_NOT_WORDS.has(f.id)) continue
     /* Its default when never set: the cookie banner's sentence and buttons, the sale badge's word. */
     const v = shownText(f, theme?.[f.id])
     if (typeof v === "string" && v.trim()) out.push({ key: `theme:${f.id}`, source: v, label: f.label, where: "Theme settings", multiline: f.type !== "text" })
@@ -464,7 +469,7 @@ export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: 
   for (const key of map.keys()) {
     if (!key.startsWith("theme:")) continue
     const id = key.slice(6)
-    const field = fields.find((f) => f.id === id && isTranslatableField(f))
+    const field = fields.find((f) => f.id === id && isWordsField(f))
     const shown = field ? shownText(field, theme[id]) : typeof theme[id] === "string" ? (theme[id] as string) : null
     if (THEME_NOT_WORDS.has(id) || shown === null) continue
     const v = valueFor(map, key, opts, shown)
@@ -493,41 +498,9 @@ export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: 
   return next as T
 }
 
-/* ── One language, edited in the builder ──────────────────────────────── */
-
-/** A theme setting's key: Theme settings › Branding's tagline is `theme:tagline`. */
-export const themeKey = (settingId: string) => `theme:${settingId}`
-
-/** What a control shows in a language: its translation (empty when there is none and the original shows) and where it stands. */
-export interface FieldTranslation {
-  value: string
-  status: "missing" | "outdated" | "draft" | "done"
-  /** Written by Storelib AI, not by the merchant. */
-  ai: boolean
-}
-
-export function translationOf(map: TranslationMap | null | undefined, key: string, original: string): FieldTranslation {
-  const row = map?.get(key)
-  return { value: row?.value ?? "", status: statusOf(row, original), ai: row?.source === "ai" }
-}
-
-/**
- * A person's edit of one key, laid into that language's rows: a new map,
- * every other key and every other language untouched. Written for the
- * original as it is now, so it is never outdated when typed. An empty
- * value takes the translation away and the original shows again.
- */
-export function withEdit(map: TranslationMap | null | undefined, key: string, value: string, original: string): TranslationMap {
-  const next: TranslationMap = new Map(map ?? [])
-  if (!value.trim()) next.delete(key)
-  else next.set(key, { key, value, sourceHash: sourceHash(original), status: "approved", source: "manual" })
-  return next
-}
+/* ── A product's own fields (Products › Translations) ─────────────────── */
 
 /** A product's fields that have their own translation, in the order Products › Translations lists them. */
 export const PRODUCT_TRANSLATED_FIELDS = ["title", "description", "seo_title", "seo_description"] as const
 export type ProductTranslatedField = (typeof PRODUCT_TRANSLATED_FIELDS)[number]
 export const productKey = (productId: string, field: ProductTranslatedField) => `product:${productId}:${field}`
-
-/** The key a theme setting writes in another language, or null for one that is not words (the shop's own name). */
-export const themeKeyFor = (settingId: string): string | null => (THEME_NOT_WORDS.has(settingId) ? null : themeKey(settingId))

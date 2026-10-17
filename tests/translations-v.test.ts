@@ -14,8 +14,8 @@
  *                         original and every other language are untouched;
  *                         an outdated translation is found by its hash
  *   3. the sidebar        switched to a language, a text control shows and
- *                         writes that language's value; the rest is locked
- *                         with a reason; back in the original, nothing of it
+ *                         writes that language's value; the rest is the same
+ *                         in every language (the theme editor's own system)
  *   4. the website        a section, its alt text, a product and a binding
  *                         drawn in the visitor's language with each field
  *                         falling back to the original; a product set to
@@ -30,29 +30,25 @@
  * Run with:  npm run test:push
  */
 import { existsSync, readFileSync } from "node:fs"
-import { createElement, type ReactElement, type ReactNode } from "react"
+import { createElement, type ReactElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { readCode } from "./_source"
 import {
   TRANSLATABLE_TYPES,
   blockKey,
-  isTranslatableField,
+  isWordsField,
   localizeCards,
   localizeRecord,
   localizeSections,
   productKey,
   sectionKey,
-  shownText,
   sourceHash,
-  themeKeyFor,
+  statusOf,
   translatablesOf,
   translationMap,
-  translationOf,
-  withEdit,
-  type TranslationMap,
   type TranslationRow,
 } from "@/lib/markets/translate"
-import { BlockTranslationScope, EditLanguageRow, Locked, SectionTranslationScope, ThemeTranslationScope, TranslatedField, TranslationEditProvider, useFieldTranslation, type FieldTranslationState, type TranslationEditing } from "@/components/website-builder/editor/translation-edit"
+import { TranslatedFieldEditor, type TranslationEditing } from "@/components/website-builder/editor/translation-editing"
 import { dynamicContext, productFacts, withDynamicSources } from "@/lib/website-builder/storefront-data"
 import { originalProductsOf, productTranslationRows, saveTranslations, setProductShowsOriginal, translationsOf, ORIGINALS_NOT_SET_UP } from "@/lib/markets/server"
 import { productTranslationsView, saveProductField, setShowOriginal, translateProductAuto } from "@/lib/markets/product-translations"
@@ -147,35 +143,19 @@ const section = (): SectionInstance =>
     blocks: [{ id: "b1", type: "slide", settings: { title: "First slide", alt: "A mug on a table" } }],
   }) as unknown as SectionInstance
 
-/* ── Rendering the sidebar's controls the way the editor does ── */
-let probed: FieldTranslationState | null = null
-function Probe({ field, value }: { field: SchemaField; value: unknown }) {
-  probed = useFieldTranslation(field, value)
-  return null
-}
-function probe(edit: TranslationEditing | null, scope: (child: ReactNode) => ReactNode, field: SchemaField, value: unknown): FieldTranslationState | null {
-  probed = null
-  renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, scope(el(Probe, { field, value }))))
-  return probed
-}
-const sectionScope = (child: ReactNode) => el(SectionTranslationScope, { sectionId: "s1" }, child)
-const blockScope = (virtual: boolean) => (child: ReactNode) => el(BlockTranslationScope, { sectionId: "s1", blockId: "b1", virtual }, child)
-const themeScope = (child: ReactNode) => el(ThemeTranslationScope, null, child)
-const noScope = (child: ReactNode) => child
-
 const P1 = "10000000-0000-4000-8000-000000000001"
 const P2 = "20000000-0000-4000-8000-000000000002"
 
 async function main() {
   console.log("\n1. What is words")
   {
-    check("text, long text, rich text and inline rich text are", ["text", "textarea", "richtext", "inline_richtext"].every((type) => isTranslatableField({ type, id: "heading" })))
-    check("  a picture's description (alt text) is", isTranslatableField({ type: "text", id: "image_alt" }) && isTranslatableField({ type: "text", id: "alt" }) && isTranslatableField({ type: "text", id: "hero_image_alt" }))
-    check("  a button's label and a link's words are", isTranslatableField({ type: "text", id: "button_label" }) && isTranslatableField({ type: "text", id: "link_text" }))
-    check("a colour, a number, a toggle, a picture and a link are not", ["color", "range", "number", "checkbox", "image_picker", "url", "select", "font_picker"].every((type) => !isTranslatableField({ type, id: "x" })))
-    check("  nor a text setting that holds an address, a gradient or an embed", ["contact_email", "contact_phone", "embed_url", "bg_gradient", "embed_code", "target_id"].every((id) => !isTranslatableField({ type: "text", id })))
-    check("  every type the old rule took is still offered where it holds words", [...TRANSLATABLE_TYPES].every((type) => isTranslatableField({ type, id: "heading" })))
-    check("the shop's own name is not a theme word; its tagline is", themeKeyFor("brand_name") === null && themeKeyFor("tagline") === "theme:tagline")
+    check("text, long text, rich text and inline rich text are", ["text", "textarea", "richtext", "inline_richtext"].every((type) => isWordsField({ type, id: "heading" })))
+    check("  a picture's description (alt text) is", isWordsField({ type: "text", id: "image_alt" }) && isWordsField({ type: "text", id: "alt" }) && isWordsField({ type: "text", id: "hero_image_alt" }))
+    check("  a button's label and a link's words are", isWordsField({ type: "text", id: "button_label" }) && isWordsField({ type: "text", id: "link_text" }))
+    check("a colour, a number, a toggle, a picture and a link are not", ["color", "range", "number", "checkbox", "image_picker", "url", "select", "font_picker"].every((type) => !isWordsField({ type, id: "x" })))
+    check("  nor a text setting that holds an address, a gradient or an embed", ["contact_email", "contact_phone", "embed_url", "bg_gradient", "embed_code", "target_id"].every((id) => !isWordsField({ type: "text", id })))
+    check("  every type the old rule took is still offered where it holds words", [...TRANSLATABLE_TYPES].every((type) => isWordsField({ type, id: "heading" })))
+    check("  and a gradient is not words, by its id or its label", !isWordsField({ type: "text", id: "bg", label: "Background gradient" }))
     const listed = translatablesOf([section()], fieldsOf, blockFieldsOf).map((t) => t.key)
     check("listed to translate: the words, the alt text, the block's words", ["section:s1:heading", "section:s1:text", "section:s1:image_alt", "section:s1:button_label", "block:s1:b1:title", "block:s1:b1:alt"].every((k) => listed.includes(k)), listed)
     check("  never the colour, the padding, the picture or the address", !listed.some((k) => /:(accent|padding|image|contact_email|show_button)$/.test(k)), listed)
@@ -183,77 +163,80 @@ async function main() {
 
   console.log("\n2. One key, one language")
   {
-    const fr = translationMap([row("section:s1:heading", "Soldes", "Spring sale"), row("section:s1:text", "<p>Lin lavé.</p>", "<p>Linen, washed <strong>soft</strong>.</p>")])
+    const fr = translationMap([row("section:s1:heading", "Soldes", "Spring sale"), row("section:s1:text", "<p>Lin lavé.</p>", "<p>Linen.</p>")])
     const de = translationMap([row("section:s1:heading", "Ausverkauf", "Spring sale")])
-    const frBefore = JSON.stringify([...fr])
-    const deBefore = JSON.stringify([...de])
-    const next = withEdit(fr, "section:s1:button_label", "Acheter", "Shop now")
-    check("an edit lays one row into the language", next.get("section:s1:button_label")?.value === "Acheter" && next.size === 3)
-    check("  the other keys of that language are as they were", next.get("section:s1:heading")?.value === "Soldes" && next.get("section:s1:text")?.value === "<p>Lin lavé.</p>")
-    check("  the language's own map is not changed in place, and German is untouched", JSON.stringify([...fr]) === frBefore && JSON.stringify([...de]) === deBefore)
-    check("  written by a person, for the original as it is now", next.get("section:s1:button_label")?.source === "manual" && next.get("section:s1:button_label")?.sourceHash === sourceHash("Shop now") && next.get("section:s1:button_label")?.status === "approved")
-    const cleared = withEdit(next, "section:s1:heading", "  ", "Spring sale")
-    check("an empty value takes the translation away: the original shows again", !cleared.has("section:s1:heading") && next.has("section:s1:heading"))
-    check("written for this original: done", translationOf(fr, "section:s1:heading", "Spring sale").status === "done")
-    check("the original changed since (by its hash): outdated, the translation kept", translationOf(fr, "section:s1:heading", "Summer sale").status === "outdated" && translationOf(fr, "section:s1:heading", "Summer sale").value === "Soldes")
-    check("no row: missing, nothing shown in the control", translationOf(fr, "section:s1:image_alt", "A folded apron").status === "missing" && translationOf(fr, "section:s1:image_alt", "A folded apron").value === "")
-    check("Storelib AI's is marked as automatic", translationOf(translationMap([row("section:a:b", "x", "y", { source: "ai" })]), "section:a:b", "y").ai)
+    const [inFr] = localizeSections([section()], fr, fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
+    const [inDe] = localizeSections([section()], de, fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
+    check("each language lays over its own rows only", (inFr.settings as Row).heading === "Soldes" && (inDe.settings as Row).heading === "Ausverkauf" && (inDe.settings as Row).text === "<p>Linen, washed <strong>soft</strong>.</p>")
+    check("written for this original: done", statusOf(fr.get("section:s1:heading"), "Spring sale") === "done")
+    check("the original changed since (by its hash): outdated", statusOf(fr.get("section:s1:heading"), "Summer sale") === "outdated" && statusOf(fr.get("section:s1:text"), "<p>Linen, washed <strong>soft</strong>.</p>") === "outdated")
+    check("  the merchant's outdated one is still shown, never hidden for them", (inFr.settings as Row).text === "<p>Lin lavé.</p>")
+    check("no row: missing", statusOf(fr.get("section:s1:image_alt"), "A folded apron") === "missing")
+    const twice = fakeDb({})
+    await saveTranslations(twice.db, "store-a", "fr", [{ key: "section:s1:heading", value: "Soldes", source: "Spring sale", approved: true }, { key: "section:s1:heading", value: "Grandes soldes", source: "Spring sale", approved: true }, { key: "section:s1:text", value: "", source: "<p>Linen.</p>", approved: true }], "u1")
+    const up = twice.writes.filter((w) => w.kind === "upsert").flatMap((w) => w.rows as Row[])
+    const del = twice.writes.filter((w) => w.kind === "delete")
+    check("one row per key, the last edit wins, written by a person for the original it saw", up.length === 1 && up[0].value === "Grandes soldes" && up[0].source === "manual" && up[0].source_hash === sourceHash("Spring sale"))
+    check("  an emptied one is taken away in that language only: the original shows again", del.length === 1 && del[0].filters.some(([m, a]) => m === "eq" && a[0] === "locale" && a[1] === "fr"))
   }
 
-  console.log("\n3. The sidebar in another language")
+  console.log("\n3. The sidebar in another language (components/website-builder/editor/translation-editing.tsx)")
   {
-    const writes: [string, string, string, boolean | undefined][] = []
-    const frRows = translationMap([row("section:s1:heading", "Soldes", "Spring sale"), row("block:s1:b1:alt", "Une tasse", "A mug on a table"), row("theme:tagline", "Fait main", "Made by hand"), row("section:s1:button_label", "Acheter", "Buy now")])
-    const edit: TranslationEditing = { locale: "fr", defaultLanguage: "en", rows: frRows, write: (k, v, o, r) => void writes.push([k, v, o, r]) }
-    const heading = FIELDS[0]
-    check("in the website's own language every control is drawn as always", probe(null, sectionScope, heading, "Spring sale") === null && probe(null, sectionScope, FIELDS[4], "#ff0000") === null)
-    const h = probe(edit, sectionScope, heading, "Spring sale")
-    check("switched to French, a heading shows French's value", h?.mode === "edit" && h.translation.value === "Soldes" && h.key === "section:s1:heading" && h.original === "Spring sale", h)
-    if (h?.mode === "edit") h.write("Grandes soldes")
-    check("  and an edit writes only French's translation of that one setting, with the original it was written for", writes.length === 1 && writes[0][0] === "section:s1:heading" && writes[0][1] === "Grandes soldes" && writes[0][2] === "Spring sale" && writes[0][3] === false, writes)
-    const never = probe(edit, sectionScope, heading, undefined)
-    check("  a setting never written shows its default as the original", never?.mode === "edit" && never.original === "Spring sale")
-    const b = probe(edit, sectionScope, FIELDS[8], "Shop now")
-    check("  an original changed after it was translated reads Outdated, its translation still shown", b?.mode === "edit" && b.translation.status === "outdated" && b.translation.value === "Acheter")
-    const rich = probe(edit, sectionScope, FIELDS[1], "<p>Linen</p>")
-    if (rich?.mode === "edit") rich.write("<p>Lin</p>")
-    check("rich text is edited in its own language and saved as rich text", rich?.mode === "edit" && rich.rich && writes[writes.length - 1][3] === true)
-    const alt = probe(edit, blockScope(false), BLOCK_FIELDS[1], "A mug on a table")
-    check("a block's alt text shows and writes block:<section>:<block>:alt", alt?.mode === "edit" && alt.key === "block:s1:b1:alt" && alt.translation.value === "Une tasse")
-    const virtual = probe(edit, blockScope(true), BLOCK_FIELDS[0], "Placed by the section")
-    check("  a block the section places that was never changed: locked, with why", virtual?.mode === "locked" && /Change this block once in English/.test(virtual.reason))
-    for (const f of [FIELDS[2], FIELDS[4], FIELDS[5], FIELDS[6], FIELDS[7]]) {
-      const s = probe(edit, sectionScope, f, (section().settings as Record<string, unknown>)[f.id])
-      check(`  ${f.type} ${f.id}: locked, the same in every language`, s?.mode === "locked" && /same in every language/i.test(s.reason))
+    const writes: [string, string, string, boolean][] = []
+    let change: ((v: unknown) => void) | null = null
+    const raw = {
+      "section:s1:heading": { v: "Soldes", h: sourceHash("Spring sale") },
+      "section:s1:button_label": { v: "Acheter", h: sourceHash("Buy now") },
+      "block:s1:b1:alt": { v: "Une tasse", h: sourceHash("A mug on a table"), s: "ai" as const },
     }
-    check("a control with no scope is locked, so nothing writes an original by mistake", probe(edit, noScope, heading, "Spring sale")?.mode === "locked")
-    const bound = probe(edit, sectionScope, heading, "{{ product.title }}")
-    check("a setting that is one piece of shop data follows the shop's own translation", bound?.mode === "locked" && /shop/.test((bound as { reason: string }).reason))
-    const tagline = probe(edit, themeScope, { type: "text", id: "tagline", label: "Tagline", default: "" } as SchemaField, "Made by hand")
-    check("theme settings: the tagline writes theme:tagline", tagline?.mode === "edit" && tagline.key === "theme:tagline" && tagline.translation.value === "Fait main")
-    check("  the shop's name is locked", probe(edit, themeScope, { type: "text", id: "brand_name", label: "Store name", default: "" } as SchemaField, "Linen & Co")?.mode === "locked")
-    check("a divider is neither", probe(edit, sectionScope, { type: "header", id: "h", label: "Layout" } as SchemaField, undefined) === null)
-
-    const lockedHtml = renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, el(Locked, null, el("input", { defaultValue: "#ff0000" }))))
-    check("a locked control is drawn, dimmed and out of reach", /data-translation-locked/.test(lockedHtml) && /inert/.test(lockedHtml) && /opacity-45/.test(lockedHtml) && /#ff0000/.test(lockedHtml))
-    check("  and untouched in the website's own language", !/data-translation-locked/.test(renderToStaticMarkup(el(Locked, null, el("input", { defaultValue: "x" })))))
-    if (h?.mode === "edit") {
-      const html = renderToStaticMarkup(
-        el(TranslationEditProvider, { value: edit }, el(TranslatedField, { label: "Heading", field: heading, state: h, render: (f: SchemaField, v: string) => el("input", { value: v, placeholder: f.placeholder, readOnly: true }) })),
+    const tr: TranslationEditing = {
+      locale: "fr",
+      defaultLanguage: "en",
+      name: "French",
+      defaultName: "English",
+      raw,
+      excluded: () => false,
+      write: (k, v, src, rich) => void writes.push([k, v, src, rich]),
+      keepMine: () => undefined,
+      auto: () => undefined,
+      exclude: () => undefined,
+      busy: {},
+      errors: {},
+    }
+    const sectionKeys = (id: string) => sectionKey("s1", id)
+    const draw = (field: SchemaField, value: unknown, keyFor: ((id: string) => string | null) | null = sectionKeys) =>
+      renderToStaticMarkup(
+        el(TranslatedFieldEditor, {
+          tr,
+          keyFor,
+          field,
+          label: field.label,
+          value,
+          render: (v: unknown, onChange: (x: unknown) => void, f: SchemaField) => {
+            change = onChange
+            return el("input", { value: typeof v === "string" ? v : String(v ?? ""), placeholder: f.placeholder ?? "", readOnly: true, "data-probe": f.id })
+          },
+        }),
       )
-      check("the translated control: the language's value in the box, the original as its placeholder and under it", /value="Soldes"/.test(html) && /placeholder="Spring sale"/.test(html) && /English: Spring sale/.test(html), html.slice(0, 400))
+    const heading = draw(FIELDS[0], "Spring sale")
+    check("switched to French, the heading's box holds French's value, the English as its placeholder and under it", /value="Soldes"/.test(heading) && /placeholder="Spring sale"/.test(heading) && /English:/.test(heading) && /data-translated-field="section:s1:heading"/.test(heading), heading.slice(0, 300))
+    check("  the merchant's own, for the English as it is now: Edited", /data-translation-state="edited"/.test(heading))
+    change?.("Grandes soldes")
+    check("  an edit writes only French's translation of that one setting, with the English it was written for", writes.length === 1 && writes[0][0] === "section:s1:heading" && writes[0][1] === "Grandes soldes" && writes[0][2] === "Spring sale" && writes[0][3] === false, writes)
+    check("an English changed after it was translated: Original changed, the translation still shown", /data-translation-state="outdated"/.test(draw(FIELDS[8], "Shop now")) && /value="Acheter"/.test(draw(FIELDS[8], "Shop now")))
+    const alt = draw(BLOCK_FIELDS[1], "A mug on a table", (id) => blockKey("s1", "b1", id))
+    check("a block's alt text is its own translation, block:<section>:<block>:alt", /data-translated-field="block:s1:b1:alt"/.test(alt) && /value="Une tasse"/.test(alt) && /data-translation-state="auto"/.test(alt))
+    draw(FIELDS[1], "<p>Linen</p>")
+    change?.("<p>Lin</p>")
+    check("rich text is written as rich text", writes[writes.length - 1][0] === "section:s1:text" && writes[writes.length - 1][3] === true)
+    for (const f of [FIELDS[2], FIELDS[4], FIELDS[5], FIELDS[6], FIELDS[7]]) {
+      const html = draw(f, (section().settings as Record<string, unknown>)[f.id])
+      check(`  ${f.type} ${f.id}: the same in every language, drawn and out of reach`, /data-shared-setting/.test(html) && /inert/.test(html) && !/data-translated-field/.test(html))
     }
-    if (b?.mode === "edit") {
-      const html = renderToStaticMarkup(el(TranslationEditProvider, { value: edit }, el(TranslatedField, { label: "Button label", field: FIELDS[8], state: b, render: () => null })))
-      check("  an outdated one says Outdated", /data-translation-outdated/.test(html) && />Outdated</.test(html))
-    }
-    const row2 = renderToStaticMarkup(el(EditLanguageRow, { languages: ["en", "fr", "de"], published: ["fr"], defaultLanguage: "en", locale: "fr", onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined }))
-    check("the language row lists each language, the original named, one not live yet said", /English \(original\)/.test(row2) && /French/.test(row2) && /German \(not live yet\)/.test(row2) && /data-wb-edit-language="fr"/.test(row2))
-    check("  and says once what changes in French", /Only text changes in French/.test(row2))
-    check("  a website in one language has no row", renderToStaticMarkup(el(EditLanguageRow, { languages: [], published: [], defaultLanguage: "en", locale: null, onChange: () => undefined, save: { state: "idle", error: null }, onRetry: () => undefined })) === "")
+    check("a panel that names no texts writes none", /data-shared-setting/.test(draw(FIELDS[0], "Spring sale", null)))
     const original = section()
     const snapshot = JSON.stringify(original)
-    localizeSections([original], withEdit(frRows, "section:s1:image_alt", "Un tablier plié", "A folded apron"), fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
+    localizeSections([original], translationMap([row("section:s1:image_alt", "Un tablier plié", "A folded apron")]), fieldsOf, blockFieldsOf, { approvedOnly: true, fresh: true })
     check("switching back: the section's own settings were never changed by any of it", JSON.stringify(original) === snapshot)
   }
 
@@ -413,26 +396,19 @@ async function main() {
   console.log("\n6. Wiring, SQL part 211 and the copy")
   {
     const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
-    check("FieldEditor asks what a setting is in the language being edited, and draws the same control for it", /const translation = useFieldTranslation\(props\.field, props\.value\)/.test(editor) && /<TranslatedField label=\{label\} field=\{props\.field\} state=\{translation\} render=\{\(field, value, onChange\) => <FieldControl/.test(editor))
-    check("  a section's, a block's and the theme's settings name where they write", /<SectionTranslationScope sectionId=\{section\.id\}>/.test(editor) && /<BlockTranslationScope sectionId=\{section\.id\} blockId=\{block\.id\} virtual=\{!!virtual\}>/.test(editor) && (editor.match(/<ThemeTranslationScope>/g) ?? []).length === 2)
-    check("  colours, the design panel, fonts and social links are locked in another language", (editor.match(/<Locked>\s*<SectionColorSetting/g) ?? []).length === 2 && /<Locked><SectionDesignPanel/.test(editor) && /<Locked>\s*<ColorsPanel/.test(editor) && /<Locked>\s*<TypographyPanel/.test(editor) && (editor.match(/<SettingRow field=\{field\}>/g) ?? []).length === 2)
-    check("  menus: each link's label in the language, the menu editor otherwise", /translationEdit \? \(\s*<MenuTranslations menus=\{canvasMenus as never\} \/>/.test(editor))
-    check("  the language row under the sidebar's tabs, on a computer and a phone, never in the black bar", (editor.match(/\{editLanguageRow\}/g) ?? []).length === 2 && !/PreviewLanguageSwitch/.test(editor))
-    check("  the sidebar is given the language being edited, both of them", (editor.match(/<TranslationEditProvider value=\{translationEdit\}>/g) ?? []).length === 2)
+    check("one sidebar editing system: the theme editor's own (translation-editing.tsx), never a second", /from "@\/components\/website-builder\/editor\/translation-editing"/.test(editor) && !existsSync("components/website-builder/editor/translation-edit.tsx"))
+    check("the canvas: a product shown as written keeps its words in every list and on its page", (editor.match(/previewOriginals\)\)/g) ?? []).length >= 3 && /previewMap && !previewOriginals\.has\(found\.id\)/.test(editor))
     const hook = readCode("components/website-builder/use-preview-language.ts")
-    check("the hook reads the language's drafts too, keeps typing over a read, and saves through the Translate sheet's own PUT", /values=1&all=1/.test(hook) && /for \(const p of pending\.current\.get\(lang\)\?\.values\(\) \?\? \[\]\) rows = withEdit/.test(hook) && /fetch\("\/api\/store\/translations", \{ method: "PUT"/.test(hook))
-    check("  the canvas lays over approved ones only", /filter\(\(r\) => r\.status === "approved"\)/.test(hook))
-    check("  what is typed is sent when the tab is left", /pagehide/.test(hook) && /keepalive/.test(hook))
-    const route = readCode("app/api/store/translations/route.ts")
-    check("the preview route gives drafts only when asked, and the products shown as written", /searchParams\.get\("all"\) === "1"/.test(route) && /originals: originals\.ids/.test(route))
+    check("the editor reads which products are shown as written with the language's values", /originals\?: string\[\]/.test(hook) && /setOriginals\(/.test(hook) && /originals: originals\.ids/.test(readCode("app/api/store/translations/route.ts")))
     const productRoute = readCode("app/api/store/translations/product/route.ts")
     check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
+    check("  its Translate automatically goes through the sidebar's per-text press, so the glossary and Don't translate apply", /translateFieldsNow\(db, creatorId, locale/.test(readCode("lib/markets/product-translations.ts")) && /replaceManual: false/.test(readCode("lib/markets/product-translations.ts")))
     check("the product editor carries the Translations card for a saved product", /editProductId \? <ProductTranslationsCard productId=\{editProductId\}/.test(readCode("app/app/products/new/product-editor.tsx")))
     const live = readCode("lib/markets/live.ts")
     check("the website's localizer: one cached read per language, and the products shown as written", (live.match(/cachedTranslations\(/g) ?? []).length === 1 && /cachedOriginalProducts\(creatorId\)/.test(live) && /original\.has\(p\.id\)/.test(live))
     check("  an imported theme too", /original\.has\(c\.id\) \? c : compatCardIn/.test(readCode("lib/markets/compat.ts")))
     check("  Storelib AI and the Translate sheet leave a product shown as written alone", /keepOriginal\.has\(String\(p\.id\)\)/.test(readCode("lib/markets/server.ts")))
-    check("the editor's own labels stay Storelib's: the sidebar's words go through lib/i18n, the website's through site_translations", /from "@\/lib\/i18n\/text"/.test(readCode("components/website-builder/editor/translation-edit.tsx")) && !/lib\/markets\/server/.test(readCode("components/website-builder/editor/translation-edit.tsx")))
+    check("the product card's own labels are Storelib's, through lib/i18n; the product's words through site_translations", /from "@\/lib\/i18n\/text"/.test(readCode("app/app/products/new/product-translations-card.tsx")))
 
     const file = "211_product_translation_settings.sql"
     const part = raw(`supabase/sql/run-now/${file}`)

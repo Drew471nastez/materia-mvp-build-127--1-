@@ -69,6 +69,7 @@ import { FAIL_COPY, WAIT_MS, requestJson } from "@/lib/net/request"
 import { checkoutMsg, lowerLabel } from "@/lib/markets/checkout-words"
 import { estimateText, useCheckoutLang, useCountryName, useCt } from "../parts/words"
 import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 export interface SiteCheckoutProps {
@@ -1066,7 +1067,9 @@ export function SiteCheckout({
     setError(null)
     commitItems(setLineVariant(items, line, variantId), { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.storeCents ?? to.priceCents } })
   }
-  const discountCents = t?.discountCents ?? 0
+  /* The summary's rows from the server's quote, adding up to its total: the offers apart from the code's discount (lib/checkout/summary-rows). */
+  const rows = quote ? summaryRows(quote) : null
+  const discountCents = rows?.discount ?? 0
   const shippingPaid = t ? t.shippingCents - t.shippingDiscountCents : 0
   const details = quote ? (
     <div className="space-y-6">
@@ -1175,12 +1178,12 @@ export function SiteCheckout({
             />
           }
         />
-        {(quote.offers ?? []).length > 0 || ships || (t && t.taxCents > 0 && !t.taxIncluded) ? (
+        {(rows?.offers ?? []).length > 0 || ships || (t && t.taxCents > 0 && !t.taxIncluded) ? (
           <dl className="mt-3 space-y-3 text-[14px]">
-            {(quote.offers ?? []).map((o) => (
+            {(rows?.offers ?? []).map((o) => (
               <div key={o.title} className="flex justify-between gap-4" data-offer-saving="">
                 <dt className="truncate text-[#6b7280]">{o.title}</dt>
-                <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.savedCents)}</dd>
+                <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.cents)}</dd>
               </div>
             ))}
             {ships ? (

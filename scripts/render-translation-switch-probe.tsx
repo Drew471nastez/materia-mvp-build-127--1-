@@ -1,19 +1,21 @@
 /**
- * The builder's sidebar for one section, in the language the language row
- * picks, for scripts/check-translation-switch.mjs: the real hook
- * (components/website-builder/use-preview-language.ts), the real language
- * row, scopes, locks and translated control (components/website-builder/
- * editor/translation-edit.tsx) and the real text and rich text boxes, with
- * a strip of canvas drawn from the same translations by the website's own
- * localizeSections. The check's server answers /api/store/translations.
+ * The builder's sidebar for one section, in the language picked, for
+ * scripts/check-translation-switch.mjs: the real hook (components/
+ * website-builder/use-preview-language.ts), the real editing state, scope
+ * and translated field (components/website-builder/editor/
+ * translation-editing.tsx, drawn the way the editor's FieldEditor draws it)
+ * and the real rich text box, with a strip of canvas drawn from the same
+ * translations by the website's own localizeSections. The language is picked
+ * in a plain select standing in for the editor's switch, which calls the
+ * same setLocale. The check's server answers /api/store/translations.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
 
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
-import { EditLanguageRow, Locked, SectionTranslationScope, TranslatedField, TranslationEditProvider, useFieldTranslation, type TranslationEditing } from "@/components/website-builder/editor/translation-edit"
+import { TranslatedFieldEditor, TranslationEditingProvider, TranslationScope, useTranslationEditing, useTranslationEditor, useTranslationScope } from "@/components/website-builder/editor/translation-editing"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
-import { localizeSections } from "@/lib/markets/translate"
+import { localizeSections, sectionKey } from "@/lib/markets/translate"
 import type { SchemaField, SectionInstance } from "@/lib/website-builder/types"
 
 const FIELDS: SchemaField[] = [
@@ -32,40 +34,49 @@ function Control({ field, value, onChange }: { field: SchemaField; value: unknow
   return <input type="text" className={INPUT} value={typeof value === "string" ? value : ""} placeholder={field.placeholder ?? ""} onChange={(e) => onChange(e.target.value)} data-probe-control={field.id} />
 }
 
-/* As the editor's FieldEditor decides: the language's control, a lock, or the control as always. */
+/* As the editor's FieldEditor: the translated field while another language is edited, else the control as always. */
 function Field({ field, value, onChange }: { field: SchemaField; value: unknown; onChange: (v: unknown) => void }) {
-  const t = useFieldTranslation(field, value)
-  if (t?.mode === "edit") return <TranslatedField label={field.label} field={field} state={t} render={(f, v, change) => <Control field={f} value={v} onChange={change} />} />
-  const control = (
+  const tr = useTranslationEditing()
+  const keyFor = useTranslationScope()
+  if (tr) return <TranslatedFieldEditor tr={tr} keyFor={keyFor} field={field} label={field.label} value={value} render={(v, change, f) => <Control field={f} value={v} onChange={change} />} />
+  return (
     <div data-setting={field.id}>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
       <Control field={field} value={value ?? field.default} onChange={onChange} />
     </div>
   )
-  return t?.mode === "locked" ? <Locked reason={t.reason}>{control}</Locked> : control
 }
+
+const keyFor = (id: string) => sectionKey("s1", id)
 
 function App() {
   const lang = usePreviewLanguage("install-1")
+  const editing = useTranslationEditor(lang)
   const [settings, setSettings] = React.useState<Record<string, unknown>>({ heading: "Spring sale", text: "<p>Linen, washed soft.</p>", image_alt: "A folded apron", accent: "#ff0000", padding: 32 })
-  const edit = React.useMemo<TranslationEditing | null>(() => (lang.locale ? { locale: lang.locale, defaultLanguage: lang.defaultLanguage, rows: lang.rows, write: lang.write } : null), [lang.locale, lang.defaultLanguage, lang.rows, lang.write])
   const section = { id: "s1", type: "hero", name: "hero", settings, blocks: [] } as unknown as SectionInstance
   const [drawn] = lang.map ? localizeSections([section], lang.map, () => FIELDS, () => undefined, { approvedOnly: true, fresh: true }) : [section]
   const shown = drawn.settings as Record<string, unknown>
   return (
     <div className="flex">
       <aside className="w-[288px] bg-white" data-probe-sidebar="">
-        <div className="px-3 pt-3 pb-2 text-[13px] font-semibold">Sections</div>
-        <EditLanguageRow languages={lang.languages} published={lang.published} defaultLanguage={lang.defaultLanguage} locale={lang.locale} onChange={lang.setLocale} save={lang.save} onRetry={lang.retry} />
-        <TranslationEditProvider value={edit}>
-          <SectionTranslationScope sectionId="s1">
+        <div className="px-3 pt-3 pb-2">
+          <select id="wb-edit-language" value={lang.locale ?? lang.defaultLanguage} onChange={(e) => lang.setLocale(e.target.value)} className={INPUT}>
+            {lang.languages.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+        <TranslationEditingProvider value={editing}>
+          <TranslationScope keyFor={keyFor}>
             <div className="px-3.5 py-3.5 space-y-3.5">
               {FIELDS.map((f) => (
                 <Field key={f.id} field={f} value={settings[f.id]} onChange={(v) => setSettings((s) => ({ ...s, [f.id]: v }))} />
               ))}
             </div>
-          </SectionTranslationScope>
-        </TranslationEditProvider>
+          </TranslationScope>
+        </TranslationEditingProvider>
       </aside>
       <main className="flex-1 p-6" data-probe-canvas="">
         <h1 data-canvas-heading="">{String(shown.heading)}</h1>

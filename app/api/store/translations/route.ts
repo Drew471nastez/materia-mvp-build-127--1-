@@ -6,7 +6,8 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
-import { localizationOf, originalProductsOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
+import { localizationOf, originalProductsOf, saveTranslations, siteTexts, translationRulesOf, translationsOf } from "@/lib/markets/server"
+import { isExcluded } from "@/lib/markets/translation-rules"
 import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
@@ -17,8 +18,7 @@ export const dynamic = "force-dynamic"
  *      website (lib/markets/server siteTexts), each with its value in that
  *      language and where it stands: missing, outdated (the original changed
  *      since), draft or done
- * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview);
- *      &all=1 drafts too, for the builder's sidebar editing that language
+ * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview)
  * PUT  { locale, items: [{ key, value, source, approved, rich }] }   saved;
  *      an empty value takes the translation away
  *
@@ -63,16 +63,13 @@ export async function GET(request: Request) {
     /* No language asked for: the default's, which the canvas opens in (every text, when the website is written in another language). */
     const shown = locale ?? (asked ? null : loc.defaultLanguage)
     if (!shown) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
-    /* The language's rows, and the products the store shows in their own words (part 211), read side by side. */
-    const [saved, originals] = await Promise.all([translationsOf(c.db, c.creatorId, shown), originalProductsOf(c.db, c.creatorId)])
-    /*
-      With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus).
-      `all=1`, the builder's sidebar editing this language: Storelib AI's drafts too (`d`), so a control shows the language's real value; the canvas lays over the approved ones only.
-    */
-    const all = url.searchParams.get("all") === "1"
-    const values: Record<string, { v: string; h: string; s?: "ai"; d?: 1 }> = {}
-    for (const r of saved.rows) if ((all || r.status === "approved") && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}), ...(r.status !== "approved" ? { d: 1 as const } : {}) }
-    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values, originals: originals.ids })
+    /* The texts kept untranslated, so the editor's sidebar can say so (lib/markets/translation-rules.ts). */
+    /* And the products the store shows in their own words (SQL part 211), read beside them. */
+    const [saved, { rules }, originals] = await Promise.all([translationsOf(c.db, c.creatorId, shown), translationRulesOf(c.db, c.creatorId), originalProductsOf(c.db, c.creatorId)])
+    /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
+    const values: Record<string, { v: string; h: string; s?: "ai" }> = {}
+    for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}) }
+    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames === true, originals: originals.ids })
   }
   /*
     ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
@@ -84,24 +81,32 @@ export async function GET(request: Request) {
     are not "to translate" either. One read of the texts for all of them.
   */
   if (url.searchParams.get("summary") === "1") {
-    const groups = await siteTexts(c.db, c.creatorId)
+    const [groups, { rules }] = await Promise.all([siteTexts(c.db, c.creatorId), translationRulesOf(c.db, c.creatorId)])
     const items = groups.flatMap((g) => g.items)
     /* The language the website's own text is in (not the shop's built-in words, which are English): Settings says so when it is not the default. */
     const writtenIn = writtenLanguage(groups)
-    const progress: Record<string, { done: number; draft: number; todo: number; review: number; total: number }> = {}
+    /* `edited`: the merchant's own (still current); `excluded`: kept untranslated on purpose, counted as done. */
+    const progress: Record<string, { done: number; draft: number; todo: number; review: number; edited: number; excluded: number; total: number }> = {}
     /* The default language too, when every text is translated into it. */
     const counted = defaultLanguageScope(loc.defaultLanguage, writtenIn) === "all" ? [loc.defaultLanguage, ...loc.languages.map((l) => l.code)] : loc.languages.map((l) => l.code)
     await Promise.all(
       counted.map(async (code) => {
         const l = { code }
         const map = translationMap((await translationsOf(c.db, c.creatorId, l.code)).rows)
-        const row = { done: 0, draft: 0, todo: 0, review: 0, total: items.length }
+        const row = { done: 0, draft: 0, todo: 0, review: 0, edited: 0, excluded: 0, total: items.length }
         for (const t of items) {
           const s = statusOf(map.get(t.key), t.source)
+          const mine = map.get(t.key)?.source === "manual"
           if (needsReview(map.get(t.key), t.source)) {
             row.done++
             row.review++
-          } else if (s === "done") row.done++
+          } else if (!mine && isExcluded(rules, t.key)) {
+            row.done++
+            row.excluded++
+          } else if (s === "done") {
+            row.done++
+            if (mine) row.edited++
+          }
           else if (s === "draft") row.draft++
           else row.todo++
         }
@@ -111,7 +116,7 @@ export async function GET(request: Request) {
     return physicalJson({ ready, progress, writtenIn })
   }
   if (!locale) return physicalJson({ ready, locale: null, defaultLanguage: loc.defaultLanguage, languages, groups: [] })
-  const [groups, saved] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale)])
+  const [groups, saved, { rules }] = await Promise.all([textsRead ?? siteTexts(c.db, c.creatorId), translationsOf(c.db, c.creatorId, locale), translationRulesOf(c.db, c.creatorId)])
   const map = translationMap(saved.rows)
   let done = 0
   let total = 0
@@ -124,7 +129,8 @@ export async function GET(request: Request) {
       total++
       if (status === "done") done++
       /* `review`: the merchant's own, its original changed since: still live, listed under Needs review. */
-      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: row?.value ?? "", status, ai: row?.source === "ai", review: needsReview(row, t.source) }
+      /* `excluded`: kept untranslated (Don't translate, product names kept): the original shows unless the merchant writes one. */
+      return { ...t, rich: /<[a-z][\s\S]*>/i.test(t.source), value: row?.value ?? "", status, ai: row?.source === "ai", review: needsReview(row, t.source), excluded: isExcluded(rules, t.key) }
     }),
   }))
   return physicalJson({ ready: ready && saved.ready, locale, defaultLanguage: loc.defaultLanguage, languages, groups: out, progress: { done, total } })
@@ -133,7 +139,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
-  const limited = await rateLimit({ bucket: "site-translations", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 400, seconds: 600 }, { limit: 5000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
+  const limited = await rateLimit({ bucket: "site-translations", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 120, seconds: 600 }, { limit: 2000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
   if (limited) return limited
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

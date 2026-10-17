@@ -32,6 +32,10 @@
  * Pure: no Node, no DOM, the same in the canvas and on the website.
  */
 import { wrapCompatTemplate, isCompatSource } from "./theme"
+import { toOutput, type Ctx } from "./runtime"
+import { renderReviewWidgetSection, type WidgetReviews } from "@/lib/reviews/widgets/render"
+import { reviewWidgetScript } from "@/lib/reviews/widgets/enhance"
+import { WIDGET_INFO, WIDGET_TYPES } from "@/lib/reviews/widgets/config"
 
 export const REVIEWS_SECTION_TYPE = "storelib-reviews"
 export const REVIEWS_SECTION_PATH = `sections/${REVIEWS_SECTION_TYPE}.storelib`
@@ -171,14 +175,113 @@ ${JSON.stringify(
 `
 
 /**
- * An imported theme's files with the Storelib Reviews section in them: only
- * a theme drawn by the compatible engine (its layout is a compatible file),
- * and never over a file of the theme's own by that name.
+ * ===========================================================================
+ *  THE REVIEW WIDGETS IN AN IMPORTED THEME
+ * ===========================================================================
+ * "Reviews widget" (sections/storelib-review-widget), beside the Storelib
+ * Reviews section in Add section, one card per widget (its presets): the
+ * same widgets a Storelib theme has (lib/reviews/widgets), drawn by the
+ * same function through the `storelib_review_widget` filter, with the look
+ * saved in Storelib Reviews › Widgets that the section names. Its words are
+ * Storelib's in the page's language (page.i18n.uiWords) under the store's
+ * own per language. A carousel brings its few lines of script along.
+ */
+export const REVIEW_WIDGET_SECTION_TYPE = "storelib-review-widget"
+export const REVIEW_WIDGET_SECTION_PATH = `sections/${REVIEW_WIDGET_SECTION_TYPE}.storelib`
+
+/** The section types Storelib adds to every imported theme: Add section files them under Apps › Reviews. */
+export const STORELIB_APP_SECTION_TYPES: readonly string[] = [REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE]
+
+/** A value of the section's settings as plain words: a colour setting is an object to the theme. */
+function plainSettings(v: unknown): Record<string, unknown> {
+  if (!v || typeof v !== "object") return {}
+  const out: Record<string, unknown> = {}
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+    if (k.startsWith("__")) continue
+    out[k] = x !== null && typeof x === "object" ? toOutput(x) : x
+  }
+  return out
+}
+
+/** `{{ section.settings | storelib_review_widget: storelib_reviews }}` */
+export function storelibReviewWidgetFilter(input: unknown, args: unknown[], _kw: Record<string, unknown>, ctx: Ctx): string {
+  const reviews = (args[0] ?? null) as WidgetReviews | null
+  if (!reviews || typeof reviews !== "object") return ""
+  const page = (ctx.registers.page ?? {}) as { i18n?: { locale?: string; defaultLanguage?: string; uiWords?: Record<string, string> }; designMode?: boolean; shop?: { name?: string } }
+  const section = (ctx.registers.section ?? {}) as { id?: unknown }
+  const i18n = page.i18n
+  const html = renderReviewWidgetSection({
+    settings: plainSettings(input),
+    reviews: { ...reviews, locale: i18n?.locale ?? null, default_locale: !i18n || i18n.locale === i18n.defaultLanguage },
+    words: i18n?.uiWords ?? null,
+    shopName: page.shop?.name ?? "",
+    inEditor: page.designMode === true,
+    uid: typeof section.id === "string" ? section.id.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) : undefined,
+  })
+  /* The carousel's buttons and its own movement: a script that sets up the widget it sits in. */
+  return html.includes("data-slw-carousel") ? html.replace(/<\/div>$/, `${reviewWidgetScript()}</div>`) : html
+}
+
+const WIDGET_OPTIONS = WIDGET_TYPES.map((t) => ({ label: WIDGET_INFO[t].name, value: t }))
+const AS_SAVED = { label: "As saved", value: "" }
+const WIDGET_SETTINGS = [
+  { type: "select", id: "widget", label: "Widget", default: "product_reviews", options: WIDGET_OPTIONS },
+  { type: "text", id: "review_config", label: "Saved look", default: "", info: "Made in Storelib Reviews › Widgets. Empty uses the widget's own look." },
+  { type: "text", id: "heading", label: "Heading", default: "", placeholder: "As saved" },
+  { type: "text", id: "subheading", label: "Supporting line", default: "", placeholder: "As saved" },
+  { type: "select", id: "align", label: "Align", default: "", options: [AS_SAVED, { label: "Left", value: "left" }, { label: "Centre", value: "center" }] },
+  { type: "select", id: "columns", label: "Columns on a computer", default: "", options: [AS_SAVED, ...[1, 2, 3, 4, 5, 6].map((n) => ({ label: String(n), value: String(n) }))] },
+  { type: "select", id: "limit", label: "How many reviews", default: "", options: [AS_SAVED, ...[3, 4, 6, 8, 9, 10, 12, 16, 20, 24].map((n) => ({ label: String(n), value: String(n) }))] },
+  { type: "select", id: "sort", label: "Order", default: "", options: [AS_SAVED, { label: "Featured first", value: "featured" }, { label: "Newest", value: "newest" }, { label: "Highest rated", value: "highest" }, { label: "Lowest rated", value: "lowest" }, { label: "With photos first", value: "photos" }] },
+  { type: "select", id: "scope", label: "Whose reviews", default: "", options: [AS_SAVED, { label: "The product's on its page, else the shop's", value: "auto" }, { label: "The whole shop's", value: "shop" }] },
+  { type: "select", id: "hide_when_empty", label: "With no reviews", default: "", options: [AS_SAVED, { label: "Hide it", value: "true" }, { label: "Show it anyway", value: "false" }] },
+  { type: "color", id: "star_color", label: "Star colour", default: "" },
+  { type: "color", id: "background", label: "Background", default: "" },
+]
+
+let widgetSectionSource: string | null = null
+export function reviewWidgetSectionSource(): string {
+  if (widgetSectionSource === null) {
+    widgetSectionSource = `${wrapCompatTemplate(`{%- if storelib_reviews.enabled -%}{{ section.settings | storelib_review_widget: storelib_reviews }}{%- endif -%}`)}
+
+<schema>
+${JSON.stringify(
+  {
+    schema_version: 1,
+    type: REVIEW_WIDGET_SECTION_TYPE,
+    name: "Reviews widget",
+    description: "Storelib Reviews: one of your review widgets, with the look you saved in Storelib Reviews › Widgets.",
+    version: "1.0.0",
+    icon: "star",
+    settings: WIDGET_SETTINGS,
+    presets: WIDGET_TYPES.map((t) => ({ name: WIDGET_INFO[t].name, settings: { widget: t } })),
+    shopify: {
+      name: "Reviews widget",
+      settings: WIDGET_SETTINGS,
+      presets: WIDGET_TYPES.map((t) => ({ name: WIDGET_INFO[t].name, settings: { widget: t } })),
+    },
+  },
+  null,
+  2,
+)}
+</schema>
+`
+  }
+  return widgetSectionSource
+}
+
+/**
+ * An imported theme's files with the Storelib Reviews section and the
+ * Reviews widget section in them: only a theme drawn by the compatible
+ * engine (its layout is a compatible file), and never over a file of the
+ * theme's own by that name.
  */
 export function withStorelibReviewsSection(files: Record<string, string>): Record<string, string> {
-  if (files[REVIEWS_SECTION_PATH] !== undefined || files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] !== undefined) return files
   if (!isCompatSource(files["layout/theme.storelib"])) return files
-  return { ...files, [REVIEWS_SECTION_PATH]: reviewsSectionSource() }
+  const add: Record<string, string> = {}
+  if (files[REVIEWS_SECTION_PATH] === undefined && files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] === undefined) add[REVIEWS_SECTION_PATH] = reviewsSectionSource()
+  if (files[REVIEW_WIDGET_SECTION_PATH] === undefined && files[`sections/${REVIEW_WIDGET_SECTION_TYPE}.liquid`] === undefined) add[REVIEW_WIDGET_SECTION_PATH] = reviewWidgetSectionSource()
+  return Object.keys(add).length ? { ...files, ...add } : files
 }
 
 /**
@@ -225,6 +328,11 @@ interface PageBlock {
 }
 
 const MAIN_PRODUCT = /^(?:main[-_]?product(?:[-_][\w-]*)?|product[-_](?:template|information|main))$/i
+
+/** A page's main product section, in either kind of theme: an imported theme's main-product, or Storelib's own `product`. Where a product widget goes under (Add to website). */
+export function isMainProductSectionType(type: string): boolean {
+  return type === "product" || MAIN_PRODUCT.test(type)
+}
 const CHROME = new Set(["header", "footer", "overlay"])
 
 const namesReviews = (type: string) => /review/i.test(type) || isReviewsAppBlock(type)

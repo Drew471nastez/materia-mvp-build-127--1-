@@ -29,12 +29,11 @@ import "server-only"
  * finds the product inside it: another store's product id reads as not found.
  */
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
-import { storeIdentity } from "@/lib/store/identity-server"
 import { editorLanguages } from "./model"
 import { localizationOf, originalProductsOf, productTranslationRows, saveTranslations, setProductShowsOriginal } from "./server"
 import { PRODUCT_TRANSLATED_FIELDS, aiMayWrite, productKey, statusOf, translationMap, type ProductTranslatedField } from "./translate"
-import { draftReusing } from "./translate-ai"
-import { detectLanguage } from "./detect-language"
+import type { draftReusing } from "./translate-ai"
+import { translateFieldsNow } from "./translation-press"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -126,29 +125,28 @@ export async function saveProductField(db: Db, creatorId: string, productId: str
   return { ok: true, value: { status: text.trim() ? "done" : "missing" } }
 }
 
-/** Translate automatically, pressed for one language: only what has no translation, or Storelib AI's own whose original changed. */
-/** `draft`: the translator, Storelib AI's by default (translate-ai.ts draftReusing); a test passes its own so nothing leaves the machine. */
+/**
+ * Translate automatically, pressed for one language: only what has no
+ * translation, or Storelib AI's own whose original changed, sent through
+ * the sidebar's own per-text press (translation-press.ts translateFieldsNow),
+ * so the store's glossary and Don't translate apply and a person's
+ * translation is never replaced. `draft`: the translator, for a test.
+ */
 export async function translateProductAuto(db: Db, creatorId: string, productId: string, locale: unknown, userId: string | null, deadlineAt: number, opts: { draft?: typeof draftReusing } = {}): Promise<Result<{ translated: number }>> {
   const product = await productOf(db, creatorId, productId)
   if (!product) return NOT_FOUND
-  const [{ loc, others }, originals] = await Promise.all([storeLanguages(db, creatorId), originalProductsOf(db, creatorId)])
+  const [{ others }, originals] = await Promise.all([storeLanguages(db, creatorId), originalProductsOf(db, creatorId)])
   if (typeof locale !== "string" || !others.includes(locale)) return { ok: false, status: 400, error: "Add this language to your website first." }
   if (originals.ids.includes(productId)) return { ok: false, status: 409, error: "This product is set to show its original words in every language." }
   const fields = fieldsOf(product)
   const read = await productTranslationRows(db, creatorId, productId, [locale])
   const map = translationMap(read.byLocale[locale] ?? [])
+  /* The product's own words, read here: never what a request says they are. */
   const todo = fields.filter((f) => aiMayWrite(map.get(productKey(productId, f.field)), f.source))
   if (todo.length === 0) return { ok: true, value: { translated: 0 } }
-  /* From the language the product is really written in, else the website's own. */
-  const from = detectLanguage(fields.map((f) => f.source)) ?? loc.defaultLanguage
-  const store = await storeIdentity(db, creatorId).catch(() => null)
-  const { drafts, unavailable, reason } = await (opts.draft ?? draftReusing)(todo.map((f) => ({ key: productKey(productId, f.field), source: f.source })), read.byLocale[locale] ?? [], from, locale, store?.name || "the store", { deadlineAt })
-  if (drafts.size === 0) return { ok: false, status: unavailable ? 503 : 502, error: reason ?? "Automatic translation isn't available right now. You can still write each translation yourself." }
-  const items = todo.filter((f) => drafts.has(productKey(productId, f.field))).map((f) => ({ key: productKey(productId, f.field), value: drafts.get(productKey(productId, f.field))!, source: f.source, approved: true, ai: true, rich: f.rich }))
-  /* keepManual: one a person saved while this was translating is read again just before the write and left alone. */
-  const saved = await saveTranslations(db, creatorId, locale, items, userId, { keepManual: true })
-  if (saved.ok === false) return { ok: false, status: saved.status, error: saved.error }
-  return { ok: true, value: { translated: saved.saved } }
+  const r = await translateFieldsNow(db, creatorId, locale, todo.map((f) => ({ key: productKey(productId, f.field), source: f.source, rich: f.rich })), userId, { replaceManual: false, deadlineAt, draft: opts.draft })
+  if (r.ok === false) return { ok: false, status: (r as { status: number }).status, error: (r as { error: string }).error }
+  return { ok: true, value: { translated: Object.keys(r.values).length } }
 }
 
 export async function setShowOriginal(db: Db, creatorId: string, productId: string, on: unknown, userId: string | null): Promise<Result<{ showOriginal: boolean }>> {
