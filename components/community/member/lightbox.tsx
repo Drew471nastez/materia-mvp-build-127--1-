@@ -863,7 +863,7 @@ function Slide({ item, communityId, active, autoplay, zoom, zooming }: { item: V
 }
 
 /**
- * A YouTube, Vimeo or Loom video in a 16:9 box: its picture and a play
+ * A YouTube or Vimeo video in a 16:9 box: its picture and a play
  * button, and the privacy player only once pressed (or at once with
  * `autoplay`), so a post with a video loads none of the site's page until
  * somebody asks. The site's mark sits in the poster's corner (round 12).

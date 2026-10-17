@@ -196,7 +196,7 @@ export async function revokeIncluded(admin: Db, membershipId: string, productIds
 
 /* ── Telling the member ─────────────────────────────────────────────────── */
 
-type MembershipEvent = "membership.started" | "membership.renewed" | "membership.renewal_upcoming" | "membership.payment_failed" | "membership.canceled" | "membership.ended"
+type MembershipEvent = "membership.started" | "membership.renewed" | "membership.renewal_upcoming" | "membership.payment_failed" | "membership.canceled" | "membership.ended" | "membership.plan_changed"
 
 async function creatorNameOf(admin: Db, creatorId: string | null): Promise<string | null> {
   if (!creatorId) return null

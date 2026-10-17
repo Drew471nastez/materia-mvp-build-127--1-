@@ -8,7 +8,7 @@
  * nothing else (round 7). Pressing it opens the editor: in place on a
  * computer, a screen of its own sliding up on a phone. The editor is a title
  * and the words (both needed), what the post carries, and one toolbar after
- * Skool's: attach files, add a link, a video (a YouTube, Vimeo or Loom
+ * Skool's: attach files, add a link, a video (a YouTube or Vimeo
  * address, or Upload for one from the device, side by side in one row: the
  * link field, media-link.tsx, with Paste and a live preview), a poll, an
  * emoji, a GIF, the space it goes to ("Select a space", only spaces this

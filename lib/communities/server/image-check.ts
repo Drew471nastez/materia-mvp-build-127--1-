@@ -75,7 +75,7 @@ export function picturesOf(media: unknown): PictureRef[] {
   return out.slice(0, IMAGE_CHECK.maxPictures)
 }
 
-/** How many uploaded videos a write carries (a video by address plays from YouTube, Vimeo or Loom). */
+/** How many uploaded videos a write carries (a video by address plays from YouTube or Vimeo). */
 export function uploadedVideoCount(media: unknown): number {
   return (Array.isArray(media) ? (media as PostMedia[]) : []).filter((m) => m && typeof m === "object" && m.type === "video").length
 }

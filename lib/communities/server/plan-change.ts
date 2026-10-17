@@ -85,6 +85,8 @@ export interface PlanChangeDeps {
   ensurePrice: (plan: PlanRow, product: { id: string; title: string | null }, interval: PlanInterval) => Promise<{ priceId: string; amountCents: number }>
   sync: (subscriptionId: string) => Promise<unknown>
   reconcile: (communityId: string, userId: string) => Promise<unknown>
+  /** The member's email that their plan changed (MEMBERSHIP_PLAN_CHANGED), from the row as it now is. Never throws. */
+  tell: (membershipId: string, extra: { fromTitle: string; changeKind: ChangeKind; changeId: string }) => Promise<unknown>
 }
 
 export function defaultPlanChangeDeps(db: Db): PlanChangeDeps {
@@ -112,6 +114,12 @@ export function defaultPlanChangeDeps(db: Db): PlanChangeDeps {
     reconcile: async (communityId, userId) => {
       const { reconcileAccess } = await import("./membership")
       return reconcileAccess(db, communityId, userId, { automatic: false })
+    },
+    tell: async (membershipId, extra) => {
+      const row = await fullRow(db, membershipId)
+      if (!row) return
+      const { notice } = await import("@/lib/memberships/sync")
+      await notice(db as never, row, "membership.plan_changed", `membership:${membershipId}:plan:${extra.changeId}`, extra).catch(() => null)
     },
   }
 }
@@ -308,6 +316,7 @@ export async function applyPlanChange(db: Db, community: CommunityRow, person: P
     /* The webhook brings it in step; the change itself is made. */
   }
   if (v.row.buyer_id) await deps.reconcile(community.id, v.row.buyer_id).catch(() => null)
+  await deps.tell(v.row.id, { fromTitle: v.fromName, changeKind: v.kind, changeId: `${v.target.productId}:${interval}:${v.prorationDate}` }).catch(() => null)
   await audit(db, {
     communityId: community.id,
     actorId: person.id,

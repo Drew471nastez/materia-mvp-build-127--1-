@@ -45,7 +45,7 @@ export function typedUrl(raw: string): string | null {
   }
 }
 
-export const VIDEO_HINT = "Paste a YouTube, Vimeo or Loom link."
+export const VIDEO_HINT = "Paste a YouTube or Vimeo link."
 
 /** What the server read of a page, kept for this page's life so a link typed again previews at once. */
 const READ = new Map<string, LinkPreview | null>()
@@ -161,7 +161,7 @@ export function LinkField({
                 onClose()
               }
             }}
-            placeholder={mode === "video" ? "YouTube, Vimeo or Loom link" : "Paste a link"}
+            placeholder={mode === "video" ? "YouTube or Vimeo link" : "Paste a link"}
             aria-label={mode === "video" ? "Video link" : "Link"}
             aria-invalid={wrong || undefined}
             inputMode="url"

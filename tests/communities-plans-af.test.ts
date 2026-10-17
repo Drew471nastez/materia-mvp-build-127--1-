@@ -23,6 +23,7 @@ import { yearlySaving } from "@/lib/memberships/state"
 import { canChangePlan, changeKind, nextChargeAt, previewAmounts, prorationFor, subscriberCounts } from "@/lib/communities/plan-change"
 import { applyPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
 import { confirmLabel, previewSentence } from "@/components/community/membership/change-plan"
+import { welcomeVideoSrc } from "@/lib/communities/post-media"
 import { fakeDb } from "./_fake-db"
 import { untt } from "./i18n-source"
 
@@ -172,7 +173,7 @@ async function main() {
       community_audit_log: [],
     })
   const person = { id: U, email: "a@b.c", emailConfirmed: true }
-  const calls: { update?: Record<string, unknown>; previewed: number; reconciled: number } = { previewed: 0, reconciled: 0 }
+  const calls: { update?: Record<string, unknown>; previewed: number; reconciled: number; told?: string } = { previewed: 0, reconciled: 0 }
   const deps = (over: Partial<PlanChangeDeps> = {}): PlanChangeDeps => ({
     retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: "price_std_m" } }] } }),
     preview: async () => {
@@ -189,6 +190,10 @@ async function main() {
       calls.reconciled++
       return null
     },
+    tell: async (_id, extra) => {
+      calls.told = extra.changeKind
+      return null
+    },
     ...over,
   })
   {
@@ -201,6 +206,7 @@ async function main() {
     const u = calls.update as { items?: { id: string; price: string }[]; proration_behavior?: string; payment_behavior?: string; metadata?: { product_id?: string } } | undefined
     check("upgrade: the one item moves to the new price, invoiced now, refused rather than left unpaid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "error_if_incomplete")
     check("the subscription's metadata and the membership row now name the new plan", u?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
+    check("the member is emailed that their plan changed", calls.told === "upgrade")
     check("the member's tier is brought in step, and the change audited", calls.reconciled === 1 && db.tables.community_audit_log.some((r) => (r as { action?: string }).action === "membership.upgraded"))
   }
   {
@@ -249,6 +255,21 @@ async function main() {
   const planRoute = code("app/api/community/[communityId]/membership/plan/route.ts")
   check("the plan route: switch first, then who is asking, rate limited, never cached", (planRoute.match(/const off = await requireCommunitiesOn\(\)\s*if \(off\) return off[\s\S]*?await person\(\)/g) ?? []).length === 2 && /viewerContext\(/.test(planRoute) && /rateLimit\(/.test(planRoute) && /no-store/.test(planRoute))
   check("Change plan sits on the member's plan card", /<ChangePlan /.test(code("components/community/membership/cancel-membership.tsx")))
+
+  console.log("\nThe welcome popup")
+  check("a welcome video can be YouTube, Vimeo or Loom, and nothing else", !!welcomeVideoSrc("https://youtu.be/dQw4w9WgXcQ") && !!welcomeVideoSrc("https://vimeo.com/123456789") && !!welcomeVideoSrc("https://www.loom.com/share/0123456789abcdef0123456789abcdef") && !welcomeVideoSrc("https://example.com/v.mp4"))
+  check("and the player does not start on its own", !/autoplay/.test(welcomeVideoSrc("https://youtu.be/dQw4w9WgXcQ") ?? "autoplay"))
+  const save = code("lib/communities/server/creator.ts")
+  check("the creator's heading, video, button and popup are saved, and a video link we cannot play is refused", /title: typeof o\.title === "string"/.test(save) && /if \(videoUrl && !welcomeVideoSrc\(videoUrl\)\) return no\(400/.test(save) && /style: o\.style === "popup"/.test(save))
+  const member = code("components/community/member/data.ts")
+  check("the member gets them only while they have not seen the welcome", /viewer\.member\.onboarded_at\) return null/.test(member) && /popup: o\.style === "popup"/.test(member))
+  const welcome = code("components/community/member/feed.tsx")
+  check("as a popup, closing it any way marks it seen on the server, once for every device", /<MembershipSheet[\s\S]*?onClose=\{\(\) => void done\(\)\}/.test(welcome) && /body: \{ onboarded: true \}/.test(welcome))
+  check("the creator edits it with a preview", ["data-welcome-style", "data-welcome-title", "data-welcome-video", "data-welcome-button", "data-welcome-preview"].every((a) => read("components/community/creator/settings-section.tsx").includes(a)))
+
+  console.log("\nThe plan changed email")
+  check("a plan change is told to the member through the notification engine, once per change", /"membership\.plan_changed": "MEMBERSHIP_PLAN_CHANGED"/.test(code("lib/notify/workflows/memberships.ts")) && /membership:\$\{membershipId\}:plan:/.test(code("lib/communities/server/plan-change.ts")))
+  check("a billing notice: always sent, never budgeted away", /MEMBERSHIP_PLAN_CHANGED: "essential"/.test(code("lib/notify/email-budget.ts")) && /MEMBERSHIP_PLAN_CHANGED: E\(\{ category: "sales", priority: "normal", requirement: "required_service"/.test(code("lib/notify/registry.ts")))
 
   console.log("\nCopy")
   const mine = ["components/community/public/join-flow.tsx", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
