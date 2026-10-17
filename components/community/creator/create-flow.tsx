@@ -354,11 +354,12 @@ export interface WizardMe {
 
 /**
  * The member feed's composer as the admin's Posts draws it (feed-section.tsx), for the community just made: its spaces
- * read from the server, the welcome written for them handed over as the composer's own kept draft (as ?compose=welcome
- * does) in Announcements. Loaded only on this step, so the four before it never carry it.
+ * read from the server, the welcome written for them handed in as its `initial` words in Announcements (it opens on
+ * them, the phone's sheet at once, no kept draft read over them). Loaded only on this step, so the four before it
+ * never carry it.
  */
 function WelcomeWriter({ made, name, me, onPosted }: { made: NonNullable<WizardDraft["made"]>; name: string; me: WizardMe; onPosted: (post: FeedPostView) => void }) {
-  const [ready, setReady] = React.useState<{ Composer: ComposerModule["Composer"]; spaces: ComposerSpace[] } | null>(null)
+  const [ready, setReady] = React.useState<{ Composer: ComposerModule["Composer"]; spaces: ComposerSpace[]; initial: { title: string; body: string; spaceId: string } } | null>(null)
   const [failed, setFailed] = React.useState(false)
   const [tries, setTries] = React.useState(0)
   React.useEffect(() => {
@@ -369,17 +370,8 @@ function WelcomeWriter({ made, name, me, onPosted }: { made: NonNullable<WizardD
         if (!live) return
         const spaces: ComposerSpace[] = (res.ok ? (res.data.spaces ?? []) : []).filter((s) => !s.archived && (s.kind === "feed" || s.kind === "announcements")).map((s) => ({ id: s.id, name: s.name, slug: s.slug, kind: s.kind, icon: s.icon }))
         if (!spaces.length) return setFailed(true)
-        try {
-          const key = mod.draftKey(made.id)
-          if (!window.localStorage.getItem(key)) {
-            const room = spaces.find((s) => s.kind === "announcements") ?? spaces[0]
-            const w = welcomeFor(name)
-            window.localStorage.setItem(key, JSON.stringify({ title: w.title, body: w.body, spaceId: room.id, poll: null, media: [] }))
-          }
-        } catch {
-          /* No storage: the composer opens empty. */
-        }
-        setReady({ Composer: mod.Composer, spaces })
+        const room = spaces.find((s) => s.kind === "announcements") ?? spaces[0]
+        setReady({ Composer: mod.Composer, spaces, initial: { ...welcomeFor(name), spaceId: room.id } })
       })
       .catch(() => live && setFailed(true))
     return () => {
@@ -404,7 +396,7 @@ function WelcomeWriter({ made, name, me, onPosted }: { made: NonNullable<WizardD
       data-composer-host=""
       data-wizard-composer=""
     >
-      <Composer communityId={made.id} userId={me.userId} me={{ name: me.name, avatarUrl: me.avatarUrl }} spaces={ready.spaces} onPosted={onPosted} />
+      <Composer communityId={made.id} userId={me.userId} me={{ name: me.name, avatarUrl: me.avatarUrl }} spaces={ready.spaces} initial={ready.initial} onPosted={onPosted} />
     </div>
   )
 }
