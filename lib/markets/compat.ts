@@ -23,7 +23,7 @@ import "server-only"
 import type { SiteData } from "@/lib/storelib-theme/compat/site"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import { cachedTranslations } from "./server"
+import { cachedOriginalProducts, cachedTranslations } from "./server"
 import { marketPricing, siteLanguages, type LiveMarket } from "./live"
 import { cachedRates } from "./fx-server"
 import { pricingFor } from "./pricing"
@@ -86,11 +86,13 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
 
   const opts = { approvedOnly: true, fresh: true }
   const { fieldsOf, blockFieldsOf } = compatFields(site.theme)
+  const original = new Set(await cachedOriginalProducts(site.creatorId).catch(() => [] as string[]))
   const pages: Record<string, StoredSection[]> = {}
   for (const [key, list] of Object.entries(site.pages)) pages[key] = map.size ? (localizeSections(list as unknown as SectionInstance[], map, fieldsOf, blockFieldsOf, opts) as unknown as StoredSection[]) : list
   const card = <T extends { id: string; settings: O; descriptionHtml?: string }>(c: T): T => {
     /* Its words (title, plain description, options, search engine title, the page's rich description), as the builder's canvas lays them (compat-fields.ts compatCardIn). */
-    const worded = compatCardIn(c, map, opts)
+    /* A product shown in its own words in every language (Products › Translations) keeps them. */
+    const worded = original.has(c.id) ? c : compatCardIn(c, map, opts)
     /* In the market's currency, as the builder's canvas previews it (lib/markets/compat-prices.ts). */
     return pricing ? { ...worded, settings: compatPrices(worded.settings, pricing) } : worded
   }

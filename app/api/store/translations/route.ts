@@ -6,7 +6,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
-import { localizationOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
+import { localizationOf, originalProductsOf, saveTranslations, siteTexts, translationsOf } from "@/lib/markets/server"
 import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
 
 export const runtime = "nodejs"
@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic"
  *      website (lib/markets/server siteTexts), each with its value in that
  *      language and where it stands: missing, outdated (the original changed
  *      since), draft or done
- * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview)
+ * GET  ?values=1&locale=fr   the approved values only, by key (the builder's preview);
+ *      &all=1 drafts too, for the builder's sidebar editing that language
  * PUT  { locale, items: [{ key, value, source, approved, rich }] }   saved;
  *      an empty value takes the translation away
  *
@@ -62,11 +63,16 @@ export async function GET(request: Request) {
     /* No language asked for: the default's, which the canvas opens in (every text, when the website is written in another language). */
     const shown = locale ?? (asked ? null : loc.defaultLanguage)
     if (!shown) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
-    const saved = await translationsOf(c.db, c.creatorId, shown)
-    /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
-    const values: Record<string, { v: string; h: string; s?: "ai" }> = {}
-    for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}) }
-    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values })
+    /* The language's rows, and the products the store shows in their own words (part 211), read side by side. */
+    const [saved, originals] = await Promise.all([translationsOf(c.db, c.creatorId, shown), originalProductsOf(c.db, c.creatorId)])
+    /*
+      With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus).
+      `all=1`, the builder's sidebar editing this language: Storelib AI's drafts too (`d`), so a control shows the language's real value; the canvas lays over the approved ones only.
+    */
+    const all = url.searchParams.get("all") === "1"
+    const values: Record<string, { v: string; h: string; s?: "ai"; d?: 1 }> = {}
+    for (const r of saved.rows) if ((all || r.status === "approved") && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}), ...(r.status !== "approved" ? { d: 1 as const } : {}) }
+    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values, originals: originals.ids })
   }
   /*
     ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of
@@ -127,7 +133,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const c = await shopCaller("website")
   if (c instanceof NextResponse) return c
-  const limited = await rateLimit({ bucket: "site-translations", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 120, seconds: 600 }, { limit: 2000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
+  const limited = await rateLimit({ bucket: "site-translations", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 400, seconds: 600 }, { limit: 5000, seconds: 86400 }], message: "That is a lot of saves at once. Wait a minute and try again." })
   if (limited) return limited
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

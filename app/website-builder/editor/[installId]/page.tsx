@@ -172,9 +172,10 @@ import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
+import { BlockTranslationScope, EditLanguageRow, Locked, MenuTranslations, SectionTranslationScope, SettingRow, ThemeTranslationScope, TranslatedField, TranslationEditProvider, useFieldTranslation, useTranslationEdit, type TranslationEditing } from "@/components/website-builder/editor/translation-edit"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
-import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme } from "@/lib/markets/translate"
+import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme, menuTranslatables, isTranslatableField } from "@/lib/markets/translate"
 import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
 import { languageChoiceOf } from "@/lib/markets/choice"
 import { chargeCurrencyFor } from "@/lib/markets/checkout-charge"
@@ -619,11 +620,22 @@ function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS
 }
 
 function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
-  return (
+  /*
+    IN ANOTHER LANGUAGE OF THE WEBSITE (the sidebar's language row): words
+    show and write that language's translation, in the same control; the
+    rest is the same in every language and out of reach
+    (components/website-builder/editor/translation-edit.tsx).
+  */
+  const translation = useFieldTranslation(props.field, props.value)
+  if (translation?.mode === "edit") {
+    return <TranslatedField label={label} field={props.field} state={translation} render={(field, value, onChange) => <FieldControl field={field} value={value} onChange={onChange} />} />
+  }
+  const control = (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
       <FieldControl {...props} />
     </DynamicSourceField>
   )
+  return translation?.mode === "locked" ? <Locked reason={translation.reason}>{control}</Locked> : control
 }
 
 function FieldControl({
@@ -1111,6 +1123,26 @@ function BrandingTabPanel({
   const hasLogo = typeof settingsDraft.logo_url === "string" && settingsDraft.logo_url
   const hasMobileLogo = typeof settingsDraft.mobile_logo_url === "string" && !!settingsDraft.mobile_logo_url
   const useMobileLogo = !!settingsDraft.use_mobile_logo
+  /* In another language of the website: the tagline is its words (theme:tagline); the name, logos and favicon are the same in every language. */
+  const translating = !!useTranslationEdit()
+  const taglineField = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? []).find((f) => f.id === "tagline")
+  if (translating && taglineField) {
+    return (
+      <div className="space-y-5">
+        <FieldEditor label={taglineField.label} field={taglineField} value={settingsDraft.tagline} onChange={(v) => updateSetting("tagline", v)} />
+        <Locked>
+          <div className="space-y-5">
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 block">Store name</label>
+              <input type="text" readOnly className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background" value={typeof settingsDraft.brand_name === "string" ? settingsDraft.brand_name : ""} />
+            </div>
+            <WbImagePicker label="LOGO IMAGE" value={typeof settingsDraft.logo_url === "string" ? (settingsDraft.logo_url as string) : undefined} onChange={() => {}} aspectRatio="logo" folder="logos" />
+            <WbImagePicker label="FAVICON" value={typeof settingsDraft.favicon_url === "string" ? (settingsDraft.favicon_url as string) : undefined} onChange={() => {}} aspectRatio="favicon" folder="logos" />
+          </div>
+        </Locked>
+      </div>
+    )
+  }
   return (
     <div className="space-y-5">
       {/* Store name */}
@@ -2605,9 +2637,18 @@ function BlockFields({
   }
   return (
     <SiblingSettingsProvider settings={block.settings}>
+      {/*
+        In another language of the website, a block's words write
+        `block:<section>:<block>:<setting>`. A block the section places that
+        nobody has changed yet is only its defaults, kept nowhere: it is
+        written once in the website's own language before it can be
+        translated, as the live site only lays over blocks it has.
+      */}
+      <BlockTranslationScope sectionId={section.id} blockId={block.id} virtual={!!virtual}>
       {fields.map((field) => (
         <div key={field.id} data-block-field={field.id}>
           {field.type === "color" ? (
+            <Locked>
             <SectionColorSetting
               field={field}
               value={block.settings[field.id]}
@@ -2615,6 +2656,7 @@ function BlockFields({
               theme={theme}
               onChange={(val) => onUpdate(blockKey, field.id, val, virtual)}
             />
+            </Locked>
           ) : (
             <FieldEditor
               label={fieldCarriesOwnLabel(field) ? undefined : field.label}
@@ -2628,10 +2670,10 @@ function BlockFields({
           )}
         </div>
       ))}
+      </BlockTranslationScope>
     </SiblingSettingsProvider>
   )
 }
-
 /**
  * Unique for the life of the page, and unique against a block copied from
  * another section: two blocks with one id are two rows the canvas, the
@@ -6968,11 +7010,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 ? "Menus belong to your store, so every theme shows the same ones. Changes go live right away."
                 : "Menus are saved with this theme."}
             </p>
+            {/* In another language of the website: each link's label in it; the links themselves are the same in every language. */}
+            {translationEdit ? (
+              <MenuTranslations menus={canvasMenus as never} />
+            ) : (
             <MenusEditor
               value={(settingsDraft as Record<string, unknown>).menus}
               onChange={(next) => updateSetting("menus", next)}
               openHandle={selectedPanel.handle ?? null}
             />
+            )}
           </div>
         </div>
       )
@@ -7049,9 +7096,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </PanelBack>
               <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
 
+                {/* In another language of the website, the theme's words write `theme:<setting>`; colours, fonts and the rest are the same in every language. */}
+                <ThemeTranslationScope>
                 <>
                   {/* Custom Color Schemes editor */}
                   {group.id === "color_schemes" ? (
+                    <Locked>
                     <ColorsPanel
                       theme={settingsDraft}
                       updateSetting={updateSetting}
@@ -7073,7 +7123,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         </div>
                       ))}
                     />
+                    </Locked>
                   ) : group.id === "typography" ? (
+                    <Locked>
                     <TypographyPanel
                       theme={settingsDraft}
                       updateSetting={updateSetting}
@@ -7087,6 +7139,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         />
                       ))}
                     />
+                    </Locked>
                   ) : (
                     <>
                     {group.id === "branding" && (
@@ -7098,12 +7151,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
                     {/* Social links: the platforms as a list you add to (editor/social-links-editor), the two placement switches after it. */}
                     {group.id === "social" && (
-                      <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                      <Locked><SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} /></Locked>
                     )}
                     {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
                         <div key={field.id}>
+                          <SettingRow field={field}>
                           {field.type === "toggle" ? (
                             <WbToggle
                               label={field.label}
@@ -7161,6 +7215,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           ) : (
                             <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                           )}
+                          </SettingRow>
                           {field.type !== "toggle" && field.info && (
                             <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
                           )}
@@ -7170,6 +7225,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     </>
                   )}
                 </>
+                </ThemeTranslationScope>
 
               </div>
             </div>
@@ -7456,7 +7512,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
                 an imported theme reads none of them, and its scheme and any such settings of its
                 own are drawn below as the theme declares them. */}
-            {!compatInstall && <SectionDesignPanel
+            {!compatInstall && <Locked><SectionDesignPanel
               section={section}
               schema={schema}
               theme={settingsDraft}
@@ -7468,7 +7524,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setExpandedSettings("color_schemes")
                 setSelectedPanel({ type: "pages" })
               }}
-            />}
+            /></Locked>}
 
             {schema?.fields && schema.fields.length > 0 && (() => {
               /**
@@ -7505,10 +7561,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               if (clean.length === 0) return null
               return (
                 <SiblingSettingsProvider settings={section.settings}>
+                {/* In another language of the website, a section's words write `section:<id>:<setting>` (lib/markets/translate.ts). */}
+                <SectionTranslationScope sectionId={section.id}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
                     <div key={field.id} data-setting-field={field.id}>
                       {field.type === "color" ? (
+                        <Locked>
                         <SectionColorSetting
                           field={field}
                           value={section.settings[field.id]}
@@ -7516,6 +7575,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           theme={settingsDraft}
                           onChange={val => updateSectionSetting(section.id, field.id, val)}
                         />
+                        </Locked>
                       ) : (
                       <FieldEditor
                         label={fieldCarriesOwnLabel(field) ? undefined : field.label}
@@ -7530,6 +7590,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     </div>
                   ))}
                 </div>
+                </SectionTranslationScope>
                 </SiblingSettingsProvider>
               )
             })()}
@@ -7652,6 +7713,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </PanelBack>
             <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
 
+                  <ThemeTranslationScope>
                   <>
                     {group.id === "branding" ? (
                       <BrandingTabPanel
@@ -7661,12 +7723,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     ) : (
                       [
                         group.id === "social" ? (
-                          <SocialLinksEditor key="social-links" values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                          <Locked key="social-links"><SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} /></Locked>
                         ) : null,
                         ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <div key={field.id}>
+                            <SettingRow field={field}>
                             {field.type === "toggle" ? (
                               <WbToggle
                                 label={field.label}
@@ -7724,6 +7787,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             ) : (
                               <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
                             )}
+                            </SettingRow>
                             {field.type !== "toggle" && field.info && (
                               <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
                             )}
@@ -7733,6 +7797,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       ]
                     )}
                   </>
+                  </ThemeTranslationScope>
 
             </div>
           </div>
@@ -7992,21 +8057,44 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
     the page switcher): the approved translations laid over the page, its
-    menus and its products, as /fr draws them on the website. Drawn only;
-    what is edited and saved is always the website's own language. Read
-    before the page's product and shop facts below, which are drawn in it too.
+    menus and its products, as /fr draws them on the website. Read before
+    the page's product and shop facts below, which are drawn in it too.
+
+    AND EDITED IN IT (the sidebar's language row): in a language other than
+    the website's own, the sidebar's text controls show and write that
+    language's translations (translationEdit, components/website-builder/
+    editor/translation-edit.tsx), the canvas shows each change as it is
+    typed, and the website's own words are never touched. Going back to the
+    website's language shows the originals as they were.
   */
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
+  const previewOriginals = previewLang.originals
+  const translationEdit = useMemo<TranslationEditing | null>(
+    () => (previewLang.locale ? { locale: previewLang.locale, defaultLanguage: previewLang.defaultLanguage, rows: previewLang.rows, write: previewLang.write } : null),
+    [previewLang.locale, previewLang.defaultLanguage, previewLang.rows, previewLang.write],
+  )
+  /* Under the sidebar's tabs, for a website in more than one language: which language the sidebar and the canvas are in. */
+  const editLanguageRow = (
+    <EditLanguageRow
+      languages={previewLang.languages}
+      published={previewLang.published}
+      defaultLanguage={previewLang.defaultLanguage}
+      locale={previewLang.locale}
+      onChange={previewLang.setLocale}
+      save={previewLang.save}
+      onRetry={previewLang.retry}
+    />
+  )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
     const found = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
-    /* Its title and description in the language previewed, as the live product page lays them over (lib/markets/live.ts product). */
-    const p = found && previewMap ? localizeRecord(found as unknown as Record<string, unknown>, `product:${found.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof found : found
+    /* Its title and description in the language previewed, as the live product page lays them over (lib/markets/live.ts product), unless it shows its own words in every language. */
+    const p = found && previewMap && !previewOriginals.has(found.id) ? localizeRecord(found as unknown as Record<string, unknown>, `product:${found.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof found : found
     return p
       ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
-  }, [currentPage, products, selectedProductPage, selectedProductId, previewMap])
+  }, [currentPage, products, selectedProductPage, selectedProductId, previewMap, previewOriginals])
   const canvasDynamic = useMemo(
     () => dynamicContext({
       /* The brand headline, description and search engine text a placeholder fills in, in the language previewed, as the live site's theme is (localizeTheme). */
@@ -8120,7 +8208,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return previewPricing ? ({ ...localized, [DISPLAY_CURRENCY_KEY]: previewPricing.currency } as ThemeSettingsValues) : localized
   }, [canvasThemeSettings, previewMap, previewPricing])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true })), [catalogCardsForCanvas, previewMap, cardsInMarket])
+  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true }, previewOriginals)), [catalogCardsForCanvas, previewMap, cardsInMarket, previewOriginals])
   /* Each collection's name and description in the language previewed, and its products as the page's cards, as the live site's dressPage draws them. */
   const collectionCardsShown = useMemo(() => {
     const cards = builderCollections?.cards
@@ -8130,43 +8218,58 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         id,
         {
           ...(previewMap ? (localizeRecord(c as unknown as Record<string, unknown>, `collection:${c.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof c) : c),
-          products: cardsInMarket(localizeCards(c.products as unknown as ProductCard[], previewMap, { approvedOnly: true, fresh: true })) as unknown as typeof c.products,
+          products: cardsInMarket(localizeCards(c.products as unknown as ProductCard[], previewMap, { approvedOnly: true, fresh: true }, previewOriginals)) as unknown as typeof c.products,
         },
       ]),
     )
-  }, [builderCollections, previewMap, previewPricing, cardsInMarket])
+  }, [builderCollections, previewMap, previewPricing, cardsInMarket, previewOriginals])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
   )
-  /* What the canvas draws: the page with its placeholders filled. Never saved. */
-  const drawnSections = useMemo(
-    () => withThemeBreadcrumbs(
-      withDynamicSources(searchListsTheShop(canvasSections), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
-      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
-      templateForPage(currentPage),
-    ),
-    [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
-  )
-  /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
-  const drawnInLanguage = useMemo(
+  /*
+    The page in the language previewed: the text settings with an approved
+    translation, read with the same schemas the website reads, BEFORE its
+    placeholders are filled, as the website lays them over (published-site.ts:
+    localizer.sections, then dressPage). Filled first, a translation of
+    "Get {{ product.title }}" was drawn with its braces showing, and Storelib
+    AI's was compared with the filled words, read as outdated and hidden.
+  */
+  const sectionsInLanguage = useMemo(
     () =>
       previewMap
         ? localizeSections(
-            drawnSections,
+            canvasSections,
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
             /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
             (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
             { approvedOnly: true, fresh: true },
-          ).map((s) => {
-            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
+          )
+        : canvasSections,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canvasSections, previewMap, storelibSources, librarySchemas, blockCatalog],
+  )
+  /* What the canvas draws: the page with its placeholders filled, from the product and the theme in the language previewed. Never saved. */
+  const drawnSections = useMemo(
+    () => withThemeBreadcrumbs(
+      withDynamicSources(searchListsTheShop(sectionsInLanguage), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
+      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
+      templateForPage(currentPage),
+    ),
+    [sectionsInLanguage, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
+  )
+  const drawnInLanguage = useMemo(
+    () =>
+      previewMap
+        ? drawnSections.map((s) => {
+            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx), unless it shows its own words everywhere. */
             const data = (s.settings as Record<string, unknown> | undefined)?._product_data
-            return data ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+            const own = data && typeof data === "object" && previewOriginals.has(String((data as Record<string, unknown>).id))
+            return data && !own ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
           })
         : drawnSections,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnSections, previewMap, storelibSources, librarySchemas, blockCatalog],
+    [drawnSections, previewMap, previewOriginals],
   )
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
   /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */
@@ -8181,7 +8284,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
     })
   }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
-  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true })), [shopCards, previewMap, cardsInMarket])
+  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }, previewOriginals)), [shopCards, previewMap, cardsInMarket, previewOriginals])
   const compatLanguage = useMemo(
     /* The default language too: an English theme on a store whose default is Spanish is drawn in Spanish, as the live site draws it. */
     () => (previewLang.locale || previewMap ? { locale: previewLang.locale ?? previewLang.defaultLanguage, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),
@@ -9723,9 +9826,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div className="shrink-0 px-3 pt-3 pb-2" data-wb-sidebar-tabs="">
                 {renderSidebarTabs()}
               </div>
+              {editLanguageRow}
               <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
                 <EditorFieldProvider value={fieldEnv}>
+                <TranslationEditProvider value={translationEdit}>
                   <div
                     key={sidebarPanelKey}
                     ref={desktopPanelRef}
@@ -9733,6 +9838,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   >
                     {renderSidebarContent()}
                   </div>
+                </TranslationEditProvider>
                 </EditorFieldProvider>
                 </LinkTargetsProvider>
               </div>
@@ -9790,6 +9896,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
               {renderSidebarTabs(() => setMobileSidebarOpen(true))}
             </div>
+            {editLanguageRow}
 
             {/* data-sheet-scroll as well as the sidebar's own marker. It is
                 what the stylesheet hangs the room after the content on
@@ -9799,6 +9906,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div data-wb-sidebar-scroll data-sheet-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
               <EditorFieldProvider value={fieldEnv}>
+              <TranslationEditProvider value={translationEdit}>
                   <div
                     key={sidebarPanelKey}
                     className="h-full wb-sheet-panel"
@@ -9806,6 +9914,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   >
                     {renderSidebarContent()}
                   </div>
+              </TranslationEditProvider>
               </EditorFieldProvider>
                 </LinkTargetsProvider>
             </div>
