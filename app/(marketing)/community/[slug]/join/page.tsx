@@ -43,6 +43,8 @@ export default async function CommunityJoinPage({ params, searchParams }: { para
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
   const c = page.community
   if (page.state === "member") redirect(`/community/${c.slug}`)
+  /* A draft or a suspended community shows nobody outside it its name or picture, an invite included (round 26). */
+  if (!sharePreviewable(c)) notFound()
   const token = typeof invite === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(invite) ? invite : null
   /*
     AN INVITE FOR ONE PAID EVENT carries the event and a signature over it

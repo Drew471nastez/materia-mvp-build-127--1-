@@ -68,7 +68,8 @@ export function countMemberLinkPress(communityId: string, linkId: string): void 
 }
 
 const ROW: Record<MemberLinksVariant, string> = {
-  column: "h-8 gap-2.5 rounded-lg px-2.5 text-[13.5px]",
+  /* The words line up with the card's own content above (its 16px inside). */
+  column: "h-8 gap-2.5 rounded-lg px-4 text-[13.5px]",
   menu: "h-9 gap-2.5 rounded-lg px-3 text-[13.5px]",
   sheet: "min-h-[40px] gap-3 rounded-xl px-3 text-[15px]",
 }
@@ -81,7 +82,7 @@ export function MemberLinks({ communityId, links, variant, onPick, className }: 
   const menu = variant === "menu"
   return (
     <nav aria-label={tt("Community links")} className={cn("min-w-0", className)} data-member-links={variant}>
-      {variant === "column" ? <p className="px-2.5 pb-1 text-[12px] font-medium leading-5 text-[#6b7280]">{tt("Links")}</p> : null}
+      {variant === "column" ? <p className="px-4 pb-1 text-[12px] font-medium leading-5 text-[#6b7280]">{tt("Links")}</p> : null}
       <ul className="flex flex-col" role={menu ? "none" : undefined}>
         {links.map((l) => {
           const Icon = (l.icon && ICONS[l.icon]) || Link2

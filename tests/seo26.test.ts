@@ -259,6 +259,10 @@ async function main() {
     const layout = code("app/(marketing)/community/[slug]/layout.tsx")
     check("every page inside a community: noindex from the layout; its tab icon is the community's", /const robots = \{ index: false, follow: false \}/.test(layout) && /icons: \{ icon: \[\{ url: icon/.test(layout))
     check("an old slug answers with a 308 to the current one, path and query kept", /permanentRedirect\(movedCommunityPath\(slug, page\.community\.slug/.test(layout))
+    check("a suspended community draws no bar, name or title for anybody but its owner, signed out included", /if \(!communityOpen\(community\) && !viewer\?\.isOwner\) return false/.test(layout))
+    check("nothing here, or a draft or suspended community this viewer may not see: a real 404 from the layout, before anything streams", /if \(page\.state === "off" \|\| page\.state === "missing" \|\| \(page\.community && page\.state !== "closed" && page\.state !== "unknown" && !barVisible\(page\)\)\) notFound\(\)/.test(layout) && layout.indexOf("notFound()") < layout.indexOf("const tracking = storeTracking(page)"))
+    const join = code("app/(marketing)/community/[slug]/join/page.tsx")
+    check("an invite landing never shows a draft or a suspended community's name or picture", /if \(page\.state === "member"\) redirect\(`\/community\/\$\{c\.slug\}`\)\s*if \(!sharePreviewable\(c\)\) notFound\(\)/.test(join))
     const member = code("app/(marketing)/community/[slug]/(member)/layout.tsx")
     check("the member area's pages say noindex (a public post owns its own)", /return \{ robots: \{ index: false, follow: false \} \}/.test(member))
   }
