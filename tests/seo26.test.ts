@@ -267,8 +267,8 @@ async function main() {
   {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    check("the page and About: the short description in their metadata, read per request", [page, about].every((s) => /summary: await communitySummary\(community\.id\)/.test(s) && /await connection\(\)/.test(s)))
-    check("and a community waiting to be deleted is never previewed, whatever its status", [page, about].every((s) => /const deleting = await communityDeleting\(community\.id\)/.test(s) && /\.\.\.\(deleting \? \{ indexable: false \} : \{\}\)/.test(s)))
+    check("the page and About: the short description in their metadata, read per request", [page, about].every((s) => /* Changed on purpose (round AH: the reads start together). */ /(summary: await communitySummary\(community\.id\)|communitySummary\(community\.id\), communityDomainOrigin)/.test(s) && /await connection\(\)/.test(s)))
+    check("and a community waiting to be deleted is never previewed, whatever its status", [page, about].every((s) => /* Changed on purpose (round AH: the reads start together). */ /(const deleting = await communityDeleting\(community\.id\)|const \[deleting, summary, origin\] = await Promise\.all\(\[communityDeleting\(community\.id\))/.test(s) && /\.\.\.\(deleting \? \{ indexable: false \} : \{\}\)/.test(s)))
     const joinPage = code("app/(marketing)/community/[slug]/join/page.tsx")
     check("an invite's preview: never for an archived, deleting or hidden community", /if \(typeof invite === "string" && invite && \(community\.status === "archived" \|\| community\.platform_hidden \|\| deleting\)\) return plainJoin/.test(joinPage))
     check("the post and event pictures follow the same rule as their metadata", /if \(indexablePost\(facts\)\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")) && /const open = indexableEvent\(facts\)/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/share.png/route.tsx")))

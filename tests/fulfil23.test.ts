@@ -303,7 +303,7 @@ async function main() {
     check("France, no rate: says it doesn't ship there yet, promises nothing", JSON.stringify(deliveryPromiseLines(fr)) === '["Doesn\'t ship to France yet"]', deliveryPromiseLines(fr))
     const pod = deliveryPromise({ profiles, profileId: null, country: "RO", priceCents: 2500, weightGrams: 400, locations: [studio], shipsItself: false })
     check("a printed on demand product offers no pickup or local delivery", pod.pickups.length === 0 && !pod.localDelivery)
-    check("the product route sends it and the buy box draws it", /* Changed on purpose (overhaul): in the store's own currency. */ /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise, await cachedStoreCurrency\(p\.creator_id\)\) \}/.test(read("app/api/physical/storefront/product/route.ts")) && /data-delivery-promise/.test(read("components/physical/buy-box.tsx")))
+    check("the product route sends it and the buy box draws it", /* Changed on purpose (overhaul): in the store's own currency. */ /* Changed on purpose (round AH: the route says its currency once, and the lines use it). */ /const currency = await cachedStoreCurrency\(p\.creator_id\)/.test(read("app/api/physical/storefront/product/route.ts")) && /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise, currency\) \}/.test(read("app/api/physical/storefront/product/route.ts")) && /data-delivery-promise/.test(read("components/physical/buy-box.tsx")))
   }
 
   section("Stock per location and the low stock line")
