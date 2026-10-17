@@ -60,10 +60,21 @@ const TONE: Record<FillBarTone, string> = {
   warning: "bg-[#d97706]",
   light: "bg-white",
 }
+/*
+  THE TRACK. On a surface it is a class, so the dark look's own stylesheet can
+  answer for it. Over a picture it is a style instead, and deliberately: a
+  photo is not the page's background, so its wash must stay what it is in
+  either look. As a class, a wash over a picture would be turned to charcoal
+  by the dark stylesheet and all but disappear on a dark photo.
+*/
 const TRACK: Record<FillBarOn, string> = {
   surface: "bg-[#eef0f2]",
-  "dark-media": "bg-black/10",
-  "light-media": "bg-white/25",
+  "dark-media": "",
+  "light-media": "",
+}
+const TRACK_STYLE: Partial<Record<FillBarOn, React.CSSProperties>> = {
+  "dark-media": { backgroundColor: "rgba(0,0,0,0.10)" },
+  "light-media": { backgroundColor: "rgba(255,255,255,0.25)" },
 }
 
 export interface FillBarProps {
@@ -107,7 +118,7 @@ export function FillBar({ value, max = 100, label, size = "regular", tone = "ink
     ? ({ "aria-hidden": true } as const)
     : ({ role: "progressbar", "aria-valuemin": 0, "aria-valuemax": max, "aria-valuenow": Math.max(0, Math.min(max, value)), "aria-label": label } as const)
   return (
-    <div {...aria} data-fill-bar={size} className={cn("w-full overflow-hidden rounded-full", SIZE[size], TRACK[on], className)} style={trackStyle}>
+    <div {...aria} data-fill-bar={size} className={cn("w-full overflow-hidden rounded-full", SIZE[size], TRACK[on], className)} style={{ ...TRACK_STYLE[on], ...trackStyle }}>
       <div
         /* The width is a transition on this one element: drawing again with the same value moves nothing. */
         className={cn("h-full rounded-full transition-[width] ease-out motion-reduce:transition-none", TONE[tone])}
