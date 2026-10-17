@@ -111,6 +111,7 @@ async function once(url) {
     const origin = new URL(url).origin
     const href = await page.evaluate((o) => [...document.querySelectorAll("a[href]")].map((a) => a.href).find((h) => h.startsWith(o) && !h.includes("#") && new URL(h).pathname !== new URL(location.href).pathname && !/cart|checkout|account|login/.test(h)), origin)
     if (href) {
+      const before = await page.evaluate(() => performance.timeOrigin)
       const t1 = Date.now()
       await page.evaluate((h) => { const a = [...document.querySelectorAll("a")].find((x) => x.href === h); a?.click() }, href)
       await page.waitForURL((u) => u.href.replace(/\/$/, "") === href.replace(/\/$/, ""), { timeout: 60000 }).catch(() => {})
@@ -118,8 +119,11 @@ async function once(url) {
       m.nav = Date.now() - t1
       m.navTo = href.replace(origin, "")
       /* When the next page was first drawn, from the click: what the visitor waits for before they see it. */
-      const drawnAt = await page.evaluate(() => performance.timeOrigin + (performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? NaN)).catch(() => NaN)
-      m.navFcp = Number.isFinite(drawnAt) ? Math.round(drawnAt - t1) : 0
+      /* A page that moves in place (a Storelib theme) has no new document: its next page is drawn when the move is done. */
+      const after = await page.evaluate(() => ({ origin: performance.timeOrigin, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? NaN })).catch(() => null)
+      const drawnAt = after && after.origin !== before ? after.origin + after.fcp : NaN
+      m.navFcp = Number.isFinite(drawnAt) ? Math.round(drawnAt - t1) : m.nav
+      m.navInPlace = !!after && after.origin === before
     }
   }
   await ctx.close()
@@ -141,7 +145,10 @@ for (const url of urls) {
   const keys = ["ttfb", "fcp", "lcp", "dcl", "load", "long", "tbt", "htmlKB", "nodes", "requests", ...(withNav ? ["nav", "navFcp"] : [])]
   const row = Object.fromEntries(keys.map((k) => [k, median(all.map((r) => r[k] ?? 0))]))
   row.cache = all.map((r) => r.cache).join("/")
-  if (withNav) row.navTo = all[0].navTo
+  if (withNav) {
+    row.navTo = all[0].navTo
+    if (all.some((r) => r.navInPlace)) row.navTo += " (in place)"
+  }
   console.log(url)
   console.log("  " + Object.entries(row).map(([k, v]) => `${k} ${v}`).join("  "))
   if (runs > 1) console.log("  runs: " + all.map((r) => `fcp ${r.fcp} lcp ${r.lcp} dcl ${r.dcl}${withNav ? ` nav ${r.nav}` : ""}`).join(" | "))
