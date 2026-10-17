@@ -23,7 +23,7 @@ import type {
   CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { normalizeSocialUrl } from "@/lib/onepage/types"
-import { appleMusicEmbedUrl } from "@/lib/onepage/embed-source"
+import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource, safeFrameSrc } from "@/lib/onepage/embed-source"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
@@ -4120,7 +4120,8 @@ function PublicBlockRenderer({
         // TikTok embed handling
         const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
         const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
-        const tiktokEmbedUrl = data.tiktok_embed_url || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${tiktokVideoId}` : null)
+        /* The frame's address is TikTok's, by host: the stored field comes from the editor and could hold anything (lib/onepage/embed-source.ts). */
+        const tiktokEmbedUrl = embedSource(data.tiktok_embed_url, EMBED_HOSTS.tiktok)?.toString() || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${encodeURIComponent(tiktokVideoId)}` : null)
 
         // Pro layout content (shared between button and link)
         const proLayoutContent = (
@@ -5652,7 +5653,8 @@ function PublicBlockRenderer({
       const data = block.data as PDFDocumentBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const pdfUrl = data.pdf_file_url
+      /* The file this page shows in a frame and opens in a tab: this site's own path or https, never a scheme that runs (lib/onepage/embed-source.ts). */
+      const pdfUrl = safeFrameSrc(data.pdf_file_url)
 
       // Button styles for PDF block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5838,7 +5840,8 @@ function PublicBlockRenderer({
       const data = block.data as FoodMenuBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const pdfUrl = data.pdf_file_url
+      /* The file this page shows in a frame and opens in a tab: this site's own path or https, never a scheme that runs (lib/onepage/embed-source.ts). */
+      const pdfUrl = safeFrameSrc(data.pdf_file_url)
 
       // Button styles for menu block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -6024,7 +6027,14 @@ function PublicBlockRenderer({
       const data = block.data as CalendlyBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const calendlyUrl = data.calendly_url
+      /*
+        A booking page can be on Calendly's host or on a company's own, so
+        the host is the creator's business; the scheme is not. Only this
+        site's own path or https reaches the frame, because an iframe src
+        with a javascript: scheme runs in THIS page's origin
+        (lib/onepage/embed-source.ts safeFrameSrc).
+      */
+      const calendlyUrl = safeFrameSrc(data.calendly_url)
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"

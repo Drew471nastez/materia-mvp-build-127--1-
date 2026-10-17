@@ -71,6 +71,37 @@ export function embedSource(raw: unknown, hosts: readonly string[]): URL | null 
   return clean
 }
 
+/**
+ * AN ADDRESS A PAGE MAY PUT IN AN `<iframe src>` WHEN THE HOST IS NOT KNOWN
+ * IN ADVANCE (a booking page on a company's own Calendly domain, a PDF in
+ * storage). The host is the creator's business; the SCHEME is not.
+ *
+ * `<iframe src="javascript:...">` runs in the EMBEDDING page's origin, which
+ * on storelib.com is the origin the signed in app uses, so a block field
+ * saved with that scheme would be script in a visitor's session rather than
+ * a frame. `data:` and `blob:` are the same shape of problem. So: this
+ * site's own path, or https, and nothing else.
+ *
+ * It says nothing about what is at the other end. A real https address can
+ * still be a page the creator should not be showing.
+ */
+export function safeFrameSrc(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const s = raw.trim()
+  if (!s) return null
+  /* This site's own path. Never "//host", which is another site. */
+  if (s.startsWith("/") && !s.startsWith("//")) return s
+  let url: URL
+  try {
+    url = new URL(s)
+  } catch {
+    return null
+  }
+  if (url.protocol !== "https:") return null
+  if (url.username || url.password) return null
+  return url.toString()
+}
+
 /** Apple Music's player address for a link, or null when the link is not Apple Music's. */
 export function appleMusicEmbedUrl(raw: unknown): string | null {
   const url = embedSource(raw, EMBED_HOSTS.appleMusic)
