@@ -191,14 +191,38 @@ export interface UsesResult {
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
 
-async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown }>): Promise<{ rows: T[]; ok: boolean }> {
+/** A table this database does not have holds no addresses: not an answer this side has to refuse over. */
+const NO_SUCH_TABLE = new Set(["42P01", "PGRST205"])
+/** A column this table does not have: the read is tried again for every column (`*`) rather than giving up. */
+const NO_SUCH_COLUMN = new Set(["42703", "PGRST204", "PGRST100"])
+
+const codeOf = (error: unknown) => (error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code ?? "") : "")
+
+async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown }>): Promise<{ rows: T[]; ok: boolean; noColumn?: boolean }> {
   try {
     const { data, error } = await read()
-    if (error) return { rows: [], ok: false }
+    if (error) {
+      const code = codeOf(error)
+      if (NO_SUCH_TABLE.has(code)) return { rows: [], ok: true }
+      return { rows: [], ok: false, noColumn: NO_SUCH_COLUMN.has(code) }
+    }
     return { rows: (Array.isArray(data) ? data : data ? [data] : []) as T[], ok: true }
   } catch {
     return { rows: [], ok: false }
   }
+}
+
+/**
+ * One surface's rows. Named columns first, because that is a small read; a
+ * column this database spells differently (or does not have yet) falls back
+ * to every column rather than reading as "could not be checked", which would
+ * keep files for ever and tell the person nothing.
+ */
+async function readSurface(db: Db, table: string, cols: string, narrow: (q: unknown) => unknown): Promise<{ rows: Record<string, unknown>[]; ok: boolean }> {
+  const first = await soft<Record<string, unknown>>(() => narrow(db.from(table).select(cols)) as PromiseLike<{ data: unknown; error?: unknown }>)
+  if (first.ok || !first.noColumn) return { rows: first.rows, ok: first.ok }
+  const again = await soft<Record<string, unknown>>(() => narrow(db.from(table).select("*")) as PromiseLike<{ data: unknown; error?: unknown }>)
+  return { rows: again.rows, ok: again.ok }
 }
 
 /**
@@ -249,7 +273,8 @@ async function surfaceHits(db: Db, surface: Surface, owner: Owner, targets: read
     const scope = surface.scope
     const id = scope.owner === "creator" ? owner.creatorId : owner.userId
     if (!id) return { counts, ok: true }
-    const read = await soft<Record<string, unknown>>(() => db.from(surface.table).select(cols).eq(scope.column, id).limit(limit))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const read = await readSurface(db, surface.table, cols, (q: any) => q.eq(scope.column, id).limit(limit))
     if (!read.ok) return { counts, ok: false }
     rows = read.rows
   } else {
@@ -257,13 +282,18 @@ async function surfaceHits(db: Db, surface: Surface, owner: Owner, targets: read
     const { ids, ok: parentOk } = await parentIds(db, scope, owner)
     if (!parentOk) return { counts, ok: false }
     if (ids.length === 0) return { counts, ok: true }
-    const read = await soft<Record<string, unknown>>(() => db.from(surface.table).select(cols).in(scope.column, ids).limit(limit))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const read = await readSurface(db, surface.table, cols, (q: any) => q.in(scope.column, ids).limit(limit))
     if (!read.ok) return { counts, ok: false }
     rows = read.rows
   }
   for (const row of rows) {
-    /* The row's own columns joined once, not once per file asked about. */
-    const text = surface.columns.map((c) => textOf(row[c])).filter(Boolean).join("\n")
+    /* The row's own columns joined once, not once per file asked about. A
+       read that fell back to every column is searched whole, so a column
+       named differently here is still seen. */
+    const text = (surface.columns.every((c) => c in row) ? surface.columns.map((c) => textOf(row[c])) : Object.entries(row).filter(([k]) => k !== "id").map(([, v]) => textOf(v)))
+      .filter(Boolean)
+      .join("\n")
     if (!text) continue
     for (const t of targets) if (t.needles.some((n) => text.includes(n))) counts.set(t.id, (counts.get(t.id) ?? 0) + 1)
   }

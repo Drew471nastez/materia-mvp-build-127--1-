@@ -520,6 +520,48 @@ async function main() {
   check("another store's file of the same name does not", !holdsPath(`https://storelib.com/media/store-builder-images/33333333-3333-4333-8333-333333333333/files/logo.png`, needlesFor(LOGO)))
   check("the file name on its own does not", !holdsPath("logo.png", needlesFor(LOGO)))
 
+  /*
+    A DATABASE THAT DOES NOT MATCH THE LIST. Two ways the written down
+    surfaces can be out of step with the database in front of them, and
+    neither may read as "nothing points at it":
+
+      a table that is not there yet holds no addresses, so it is simply no
+      rows, not a surface that could not be read;
+
+      a column spelt differently here is read again with every column, so
+      the reference is still found.
+  */
+  {
+    const db = client({ library_assets: [] }, folderWith("logo.png"), { failWith: { review_widget_configs: { code: "42P01", message: "relation does not exist" } } })
+    const out = await findUses(db, owner, "store-builder-images", LOGO, SURFACES.filter((x) => x.key === "review-widget"))
+    check("a table this database does not have is no rows, not an unknown", out.total === 0 && out.unreadable.length === 0, out)
+  }
+  {
+    /* PostgREST answers 42703 for a column that is not there; the read is tried again with every column. */
+    let askedFor: string[] = []
+    const rows = [{ id: "s1", creator_id: CREATOR, logo_url: LOGO_URL }]
+    const picky = {
+      from: () => {
+        const q = {
+          select: (cols: string) => {
+            askedFor.push(cols)
+            const bad = cols !== "*" && cols.includes("checkout")
+            const then = (resolve: (v: unknown) => unknown) => Promise.resolve(bad ? { data: null, error: { code: "42703", message: "column does not exist" } } : { data: rows, error: null }).then(resolve)
+            return { eq: () => q2, limit: () => q2, then }
+          },
+        }
+        const q2: Record<string, unknown> = {}
+        q2.eq = () => q2
+        q2.in = () => q2
+        q2.limit = () => q2
+        q2.then = (resolve: (v: unknown) => unknown) => Promise.resolve(askedFor.at(-1) !== "*" && (askedFor.at(-1) ?? "").includes("checkout") ? { data: null, error: { code: "42703", message: "column does not exist" } } : { data: rows, error: null }).then(resolve)
+        return q
+      },
+    }
+    const out = await findUses(picky, owner, "store-builder-images", LOGO, SURFACES.filter((x) => x.key === "store-logo"))
+    check("a column named differently here is read again with every column, and the use is still found", out.total === 1 && out.unreadable.length === 0 && askedFor.includes("*"), { out, askedFor })
+  }
+
   /* The control case: the surface list has to actually fail on a surface it does not cover. */
   {
     const db = client({ store_settings: [{ id: "s1", creator_id: CREATOR, logo_url: LOGO_URL }], library_assets: [] }, folderWith("logo.png"))
