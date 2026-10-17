@@ -61,7 +61,7 @@
  *                 switch in the menu, remembered; silent when off
  *     ACTIONS     the live line changes as the run moves and folds into a
  *                 closed steps toggle and a summary; Copy; Report; a
- *                 suggestion is sent; Report before its table
+ *                 suggestion fills the box; Report before its table
  *
  *   node scripts/check-ask-ai.mjs          (PROBE_CSS=source without a build)
  *
@@ -140,6 +140,12 @@ window.__posts = [];
       if (q.get("chat") === "unsaved") return json({ error: "Chat history is not set up on this database yet.", reason: "not_set_up" }, 503);
       if (q.get("chat") === "pictures") return json(pictures);
       return json(url.indexOf(C2) >= 0 ? two : one);
+    }
+    /* The router (lib/website-builder/ask-route.ts): the page assistant, the chip as it is, unless a probe set window.__route. */
+    if (url.indexOf("/agent/decide") >= 0) {
+      var asked = JSON.parse(init.body);
+      (window.__decides = window.__decides || []).push(asked);
+      return json(window.__route || { agent: "page", target: asked.scoped ? "section" : "page", lock: !!asked.scoped, codeFocus: false });
     }
     if (url.indexOf("/agent") >= 0) {
       var body = JSON.parse(init.body);
@@ -520,7 +526,7 @@ async function phone(browser) {
   await p.tap("[data-ask-model]")
   await sleep(700)
   const menu = await p.$$eval("[data-ask-model-menu] [role=option]", (o) => o.map((x) => [x.textContent.slice(0, 13), Math.round(x.getBoundingClientRect().height), !!x.closest("[data-app-sheet]")]))
-  expect(menu.length === 3 && menu.every(([, h, inSheet]) => h >= 44 && inSheet), "the model menu is the shared bottom sheet: three choices, each 44px or more", menu)
+  expect(menu.length === 4 && menu.every(([, h, inSheet]) => h >= 44 && inSheet), "the model menu is the shared bottom sheet: the four Claude models, each 44px or more", menu)
   await p.screenshot({ path: join(shots, `${PREFIX}phone-390-models.png`) })
   await p.keyboard.press("Escape")
   await sleep(600)
@@ -1027,15 +1033,19 @@ async function actions(browser, vp) {
   expect(report.sent.length === 1 && /^4{8}-4{4}-4{4}-84{3}-4{11}\d$/.test(report.sent[0].messageId) && report.sent[0].reason === "It changed the wrong section" && report.sent[0].engine === "claude" && report.said === "Reported. Thank you." && !report.form, "Report sends this answer's id (the one the stream recorded), the reason and the model, and says it was kept", report)
   await p.screenshot({ path: join(shots, `${P2}${label}-reported.png`) })
 
-  /* A suggestion, from a new chat: it is sent. */
+  /* A suggestion, from a new chat: it fills the box, and Enter sends it. */
   await p.click("[data-ask-new]")
   await sleep(300)
   const chip = await p.evaluate(() => document.querySelector("[data-ask-suggestion]")?.textContent)
   const posts = await p.evaluate(() => window.__posts.length)
   await p.click("[data-ask-suggestion]")
-  await sleep(500)
+  await sleep(300)
+  const filled = await p.evaluate(() => ({ posts: window.__posts.length, box: document.querySelector("[data-ask-pill] textarea").value, chips: document.querySelectorAll("[data-ask-suggestion]").length }))
+  expect(!!chip && filled.posts === posts && filled.box === chip && filled.chips === 0, "a suggestion tapped fills the box, sends nothing yet, and the suggestions step aside", { chip, ...filled })
+  await p.keyboard.press("Enter")
+  await sleep(700)
   const sent = await p.evaluate(() => ({ posts: window.__posts.length, prompt: window.__posts[window.__posts.length - 1]?.prompt, shown: [...document.querySelectorAll("[data-ask-prompt]")].pop()?.textContent, box: document.querySelector("[data-ask-pill] textarea").value }))
-  expect(!!chip && sent.posts === posts + 1 && sent.prompt === chip && sent.shown === chip && sent.box === "", "a suggestion tapped is sent as the next message, not left in the box", { chip, ...sent })
+  expect(sent.posts === posts + 1 && sent.prompt === chip && sent.shown === chip && sent.box === "", "and Enter sends it as the next message", sent)
   await sleep(4000)
   await closeWith(p)
 
@@ -1067,9 +1077,9 @@ async function phoneActions(browser) {
   const chip = await p.evaluate(() => { const c = document.querySelector("[data-ask-suggestion]"); return c ? { text: c.textContent, h: Math.round(c.getBoundingClientRect().height) } : null })
   const posts = await p.evaluate(() => window.__posts.length)
   await p.tap("[data-ask-suggestion]")
-  await sleep(500)
-  const sent = await p.evaluate(() => ({ posts: window.__posts.length, prompt: window.__posts[window.__posts.length - 1]?.prompt }))
-  expect(!!chip && sent.posts === posts + 1 && sent.prompt === chip.text, "a suggestion tapped on a phone is sent", { chip, ...sent })
+  await sleep(300)
+  const sent = await p.evaluate(() => ({ posts: window.__posts.length, box: document.querySelector("[data-chat-composer] textarea").value }))
+  expect(!!chip && sent.posts === posts && sent.box === chip.text, "a suggestion tapped on a phone fills the box", { chip, ...sent })
   await sleep(1500)
   await closeWith(p)
 }

@@ -39,6 +39,7 @@ import { anthropicProvider, anthropicClientFor, createAnthropicProvider } from "
 import { claudeModels } from "./claude-models"
 import type Anthropic from "@anthropic-ai/sdk"
 import { plainFailures } from "./plain-errors"
+import { isEngineModel } from "@/lib/website-builder/ask-engines"
 import type { AgentProvider, ProviderRequest, ProviderTurn } from "./types"
 
 export type ProviderId = "anthropic" | "openai"
@@ -87,8 +88,8 @@ const MODELS: Record<ProviderId, Record<ModelTier, string>> = {
     strong: STRONG_MODEL,
   },
   anthropic: {
-    fast: process.env.ANTHROPIC_AGENT_MODEL || "claude-sonnet-5",
-    strong: process.env.ANTHROPIC_AGENT_STRONG_MODEL || "claude-opus-5",
+    fast: process.env.ANTHROPIC_AGENT_MODEL || "claude-sonnet-5-5",
+    strong: process.env.ANTHROPIC_AGENT_STRONG_MODEL || "claude-opus-5-5",
   },
 }
 
@@ -172,13 +173,23 @@ export async function resolveForCreator(
   const direct = keys[wanted]
   const claudeKey = wanted === "anthropic" ? direct || process.env.ANTHROPIC_API_KEY : undefined
   let modelInfo: Anthropic.ModelInfo | undefined
+  /*
+    ONLY THE FOUR IN THE MENU (lib/website-builder/ask-engines.ts). The id is
+    the creator's choice and is checked against that list, never passed on as
+    sent. The account's Models API then says what the model can do (its output
+    limit, whether it takes effort); a listing that cannot be read is not a
+    reason to refuse a model that is on the list, and one that reads without it
+    means this account cannot use it.
+  */
   if (input.model !== undefined && wanted === "anthropic") {
-    if (typeof input.model !== "string" || !/^claude-[a-z0-9-]{1,100}$/.test(input.model)) throw new Error("Choose a Claude model from the menu.")
+    if (!isEngineModel(input.model)) throw new Error("Choose a Claude model from the menu.")
     if (!claudeKey) throw new NoProviderConfiguredError()
-    const available = await claudeModels(claudeKey).catch(() => { throw new Error("Could not load Claude models. Try again in a moment.") })
-    modelInfo = available.find((item) => item.id === input.model)
-    if (!modelInfo) throw new Error("That Claude model is no longer available on this account. Choose another model.")
-    model = modelInfo.id
+    const available = await claudeModels(claudeKey).catch(() => null)
+    if (available) {
+      modelInfo = available.find((item) => item.id === input.model)
+      if (!modelInfo) throw new Error("That Claude model is not available on this account. Choose another model.")
+    }
+    model = input.model
   }
   if (direct) {
     return {
@@ -195,6 +206,7 @@ export async function resolveForCreator(
   }
   const resolved = resolveProvider(input)
   if (wanted === "anthropic" && resolved.id === "anthropic" && modelInfo) return { ...resolved, model, provider: plainFailures(createAnthropicProvider(once(() => anthropicClientFor(claudeKey!)), { modelInfo })) }
+  if (wanted === "anthropic" && resolved.id === "anthropic") return { ...resolved, model }
   return resolved
 }
 

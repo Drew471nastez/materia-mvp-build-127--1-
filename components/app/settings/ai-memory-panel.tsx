@@ -10,8 +10,8 @@
  * this". Each can be deleted; none can be changed in place, so what the
  * assistant was told is always something they can see.
  *
- * A website's own notes stay with that website (its brief, kept on the
- * theme), so they are not listed here.
+ * A website's own notes are listed in that website's settings, under
+ * Connections (components/website-builder/website-settings/ai-memory.tsx).
  *
  * Until SQL part 106 has run, the card says memory is not set up and offers
  * nothing that would fail.
@@ -31,7 +31,8 @@ const MAX = 500
 interface Memory {
   id: string
   content: string
-  source: "creator" | "assistant"
+  source: "creator" | "assistant" | "agent"
+  sourceName?: string | null
   createdAt: string
 }
 
@@ -267,7 +268,7 @@ export function AiMemoryPanel() {
                       <div className="min-w-0">
                         <p className="break-words text-[14px] leading-[1.45] text-[#1a1a2e]">{m.content}</p>
                         <p className="mt-0.5 text-[12px] text-[#9ca3af]">
-                          {m.source === "assistant" ? tt("Kept by Storelib AI") : tt("Added by you")} · {new Date(m.createdAt).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" }))}
+                          {m.source === "assistant" ? tt("Kept by Storelib AI") : m.source === "agent" ? tt("Kept by {name}", { name: m.sourceName || tt("a connected agent") }) : tt("Added by you")} · {new Date(m.createdAt).toLocaleDateString(appLocale(), zoned({ day: "numeric", month: "short", year: "numeric" }))}
                         </p>
                       </div>
                       <div className="-mr-2 flex shrink-0">

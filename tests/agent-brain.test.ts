@@ -39,7 +39,7 @@ import { readAsk, questionText, MAX_BUILDER_ASKS } from "@/lib/website-builder/a
 import { describeRecent, lastQuestion } from "@/lib/website-builder/agent/memory"
 import { copyProblem, reviewSections } from "@/lib/website-builder/agent/review"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { ENGINES, STRENGTHS } from "@/lib/website-builder/ask-engines"
+import { EFFORT, ENGINES } from "@/lib/website-builder/ask-engines"
 import { requestMessages, toMessages } from "@/lib/sites/agent/anthropic-provider"
 import { toInput } from "@/lib/sites/agent/openai-provider"
 import { describeImages, reviewImages, type AgentImage } from "@/lib/sites/agent/attachments"
@@ -573,13 +573,13 @@ async function main() {
   {
     const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     const provider = read("lib/sites/agent/provider.ts")
-    /* Storelib AI runs on ChatGPT only for now: two models, each with what it is best for. */
-    check("the picker offers Claude and ChatGPT models", ENGINES.some((e) => e.provider === "anthropic") && ENGINES.some((e) => e.provider === "openai"))
+    /* Four Claude models, each with what it is best for (lib/website-builder/ask-engines.ts). */
+    check("the picker offers the four Claude models and no ChatGPT model", ENGINES.length === 4 && ENGINES.every((e) => e.provider === "anthropic"))
     check("each explains its purpose in a short line", ENGINES.every((e) => e.detail.length > 0 && e.detail.length <= 60 && !/—/.test(e.detail)))
     check("each is a provider and tier the route accepts", ENGINES.every((e) => /provider: z\.enum\(\["anthropic", "openai"\]\)/.test(route) && ["anthropic", "openai"].includes(e.provider) && ["fast", "strong"].includes(e.tier)))
     check("the resolver uses both tested adapters", /openai: \{\s*fast: DEFAULT_MODEL,\s*strong: STRONG_MODEL/.test(provider) && /openAIProvider/.test(provider) && /anthropicProvider/.test(provider))
-    check("Strength is Light, Standard and Deep, which are low, medium and high", STRENGTHS.map((s) => `${s.label}:${s.effort}`).join(",") === "Light:low,Standard:medium,Deep:high")
-    check("and the route takes only those, from a browser", /effort: z\.enum\(EFFORTS as \[Effort, \.\.\.Effort\[\]\]\)\.optional\(\)/.test(route) && /effort: body\.effort \?\?/.test(route))
+    check("there is no Strength: every run asks for medium", EFFORT === "medium" && /effort: EFFORT,/.test(route))
+    check("and the route takes no effort from a browser", !/effort: z\./.test(route) && !/body\.effort/.test(route))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

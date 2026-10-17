@@ -94,24 +94,11 @@ import {
 } from "@/components/website-builder/ask-activity"
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
-import {
-  DEFAULT_ENGINE,
-  defaultStrengthFor,
-  effortOf,
-  ENGINE_KEY,
-  ENGINES,
-  engineFromSaved,
-  STRENGTHS,
-  strengthFromSaved,
-  strengthKeyFor,
-  type EngineId,
-  type Engine,
-  type StrengthId,
-} from "@/lib/website-builder/ask-engines"
+import { DEFAULT_ENGINE, ENGINE_KEY, ENGINES, engineFromSaved, engineOf, type EngineId } from "@/lib/website-builder/ask-engines"
 import { plainChatError } from "@/lib/sites/agent/plain-errors"
 import { ownFor, useOwnAi } from "@/components/website-builder/use-own-ai"
 import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
-import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
+import { ConnectAiButton, QuestionChoices, RememberedLine, ScopeChip, SuggestionChips } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
 import { cn } from "@/lib/utils"
@@ -134,7 +121,8 @@ import {
   type Activity,
 } from "@/lib/website-builder/ask-activity"
 import { attachProblem, fileKey, kindOf, newFiles, pastedFiles, pictureFingerprint, stillsRoom } from "@/lib/website-builder/ask-attach"
-import { codeTarget, finishWrite, readWriteAnswer, type WriteOutcome } from "@/lib/website-builder/ask-code-run"
+import { finishWrite, readWriteAnswer, type WriteOutcome } from "@/lib/website-builder/ask-code-run"
+import { blockAtKey, decideRoute, scopeName } from "@/lib/website-builder/ask-route"
 import { anchorAt, composeDictation, spokenSince, type DictationAnchor } from "@/lib/website-builder/ask-dictation"
 import { uploadAskImage } from "@/lib/website-builder/ask-image-upload"
 import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/questions"
@@ -204,14 +192,16 @@ interface Exchange {
   runId?: string
   undone?: boolean
   /**
-   * Which mode asked: a change to the page, or Code a section. A new
-   * section ("code") is retried through the writer; `codeFocus` is an edit
-   * to the open section's code through the page assistant.
+   * Which agent answered, as the router decided (lib/website-builder/agent/router.ts):
+   * a new section ("code") is retried through the writer; `codeFocus` is an
+   * edit to the open section's code through the page assistant.
    */
   kind?: "change" | "code"
   codeFocus?: boolean
-  /** The section Code a section wrote, for View code. */
+  /** The section the writer wrote, for View code. */
   written?: { path: string; name: string }
+  /** What the run kept in AI Memory: the "Remembered: ..." line, each with Undo until it is undone. */
+  remembered?: { id: string; content: string; scope: "website" | "everywhere"; undone?: boolean }[]
   /** How a question with no follow up message was answered: a picture put in from an offer. */
   answer?: string
 }
@@ -318,6 +308,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onAnswer,
   onImage,
   onUpload,
+  onForget,
 }: {
   exchange: Exchange
   /** The message after this one, which is the answer when this run asked a question. */
@@ -335,6 +326,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onImage: (exchange: Exchange, url: string, how: QuestionAction, option: string) => void
   /** Uploads a picture to the media library, for "Upload image". */
   onUpload: (file: File) => Promise<string>
+  /** Undo on a "Remembered: ..." line: the note is deleted from AI Memory. */
+  onForget: (exchange: Exchange, id: string) => void
 }) {
   const [stepsOpen, setStepsOpen] = React.useState(false)
   const [report, setReport] = React.useState<ReportState>({ stage: "closed" })
@@ -493,6 +486,9 @@ const ExchangeItem = React.memo(function ExchangeItem({
           phone={phone}
         />
       )}
+      {exchange.remembered?.map((note) => (
+        <RememberedLine key={note.id} content={note.content} undone={!!note.undone} onUndo={() => onForget(exchange, note.id)} phone={phone} />
+      ))}
       {detail && (
         <p data-ask-detail="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
           {detail}
@@ -606,7 +602,7 @@ function ThemeChatPanel({
   hidden = false,
   suspended = false,
   openRequest = 0,
-  initialMode = "code",
+  selectedBlockId,
 }: {
   installId: string
   /**
@@ -618,8 +614,6 @@ function ThemeChatPanel({
   hidden?: boolean
   /** Dock only: the canvas is showing something else (the code, settings). */
   suspended?: boolean
-  /** Which mode the box starts in: Code a section, unless a caller has a reason to open on Change a page. */
-  initialMode?: AskMode
   /** Dock only: each new value opens the conversation and puts the cursor in it. */
   openRequest?: number
   /**
@@ -670,8 +664,10 @@ function ThemeChatPanel({
    * nine sections, which is not a question anybody can answer.
    */
   selectedSectionId?: string
-  /** What the suggestions know about the store: how many products it has. */
-  store?: { productCount: number | null }
+  /** The block selected inside that section, by its path key: the chip says "Editing: Heading in Hero". */
+  selectedBlockId?: string
+  /** What the suggestions know about the store and the site (lib/website-builder/ask-suggestions.ts). */
+  store?: { productCount: number | null; productsWithoutImages?: number | null; pages?: string[] }
   /**
    * Called once before the first change, so one Undo takes the lot back,
    * with an id the chat's own Undo can name later.
@@ -745,21 +741,16 @@ function ThemeChatPanel({
    */
   const [wanted, setWanted] = React.useState(!dock)
   const reducedMotion = useReducedMotion()
-  /**
-   * WHICH OF THE TWO THINGS IS BEING ASKED FOR. "change" edits this page and
-   * goes to the agent; "code" writes a new section type and goes to the one
-   * endpoint that compiles a file before keeping it. They are different acts
-   * with different answers, and a single box that guessed between them would
-   * guess wrong on "add a comparison table", which could mean either.
-   */
   /*
-    CODE A SECTION FIRST. It is what the box does by default: a new section
-    written from the words (and the picture), or, with a section open and
-    in scope, a change to that section's code. Change a page is one tap
-    away, on the same row as the box.
+    ONE BOX, NO MODES. Which agent takes a message (the page assistant, or
+    the section writer for a new kind of section) and how far it reaches is
+    decided on the server for each one (lib/website-builder/ask-route.ts,
+    lib/website-builder/agent/router.ts), from the words, the selection and
+    the chip.
   */
-  const [mode, setMode] = React.useState<AskMode>(initialMode)
-  /** A section is being written (Code a section, a new one). */
+  /** The router is being asked where a message goes: a moment, and the next message waits for it. */
+  const [routingNow, setRoutingNow] = React.useState(false)
+  /** A section is being written by the writer. */
   const [writing, setWriting] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   React.useEffect(() => {
@@ -774,7 +765,8 @@ function ThemeChatPanel({
    * cannot be writing the next one, so Enter during a run queues it and it
    * goes the instant the run ends.
    */
-  const [queued, setQueued] = React.useState<{ text: string; mode: AskMode } | null>(null)
+  /* `direct`: straight to the page assistant without asking the router (an answer to its question, the next part of a long task). */
+  const [queued, setQueued] = React.useState<{ text: string; direct?: boolean } | null>(null)
   /* How many parts in a row the current long task has run (the `continue` event); a message of the creator's own starts again. */
   const continues = React.useRef(0)
   /**
@@ -788,47 +780,26 @@ function ThemeChatPanel({
    */
   const [lockOn, setLockOn] = React.useState(true)
   /**
-   * WHICH MODEL ANSWERS.
-   *
-   * ChatGPT's everyday model by default (lib/website-builder/ask-engines.ts).
-   * The stronger one is there for a change somebody already knows is hard,
-   * and it is their choice rather than the model's: a model that can promote
-   * itself to the ten times dearer tier eventually will, and the bill is
-   * theirs. Strength, how long it thinks, is the second choice in the same
-   * menu.
-   *
-   * Remembered per browser. A choice saved before the list changed (the
-   * Claude models) reads as the default.
+   * WHICH MODEL ANSWERS: one of the four Claude models in
+   * lib/website-builder/ask-engines.ts, Opus 5.5 unless the creator picked
+   * another. Remembered per browser; a choice saved before the list changed
+   * reads as the default. How hard it thinks is not a choice: every run asks
+   * for medium, on the server.
    */
   const [engine, setEngine] = React.useState<EngineId>(DEFAULT_ENGINE)
-  const [engines, setEngines] = React.useState<Engine[]>([...ENGINES])
-  /**
-   * STRENGTH, ONE PER MODE. Code a section starts on Deep: accuracy over
-   * speed, because a section is planned, written, drawn and read back
-   * against the request. Change a page starts on Standard. Each remembers
-   * its own choice (lib/website-builder/ask-engines.ts).
-   */
-  const [strengths, setStrengths] = React.useState<Record<AskMode, StrengthId>>({
-    change: defaultStrengthFor("change"),
-    code: defaultStrengthFor("code"),
-  })
-  const strength = strengths[mode]
+  const engines = ENGINES
   const [engineOpen, setEngineOpen] = React.useState(false)
 
   React.useEffect(() => {
     try {
       setEngine(engineFromSaved(window.localStorage.getItem(ENGINE_KEY)))
-      setStrengths({
-        change: strengthFromSaved(window.localStorage.getItem(strengthKeyFor("change")), defaultStrengthFor("change")),
-        code: strengthFromSaved(window.localStorage.getItem(strengthKeyFor("code")), defaultStrengthFor("code")),
-      })
     } catch {
       // A browser with site data blocked still gets the default.
     }
   }, [])
 
   const chooseEngine = React.useCallback((id: string) => {
-    if (!engines.some((e) => e.id === id)) return
+    if (!ENGINES.some((e) => e.id === id)) return
     setEngine(id as EngineId)
     setEngineOpen(false)
     try {
@@ -836,21 +807,7 @@ function ThemeChatPanel({
     } catch {
       /* per-browser convenience only */
     }
-  }, [engines])
-
-  /* The menu stays open: somebody setting how hard it thinks is often choosing the model next. */
-  const chooseStrength = React.useCallback(
-    (id: string) => {
-      if (!STRENGTHS.some((s) => s.id === id)) return
-      setStrengths((was) => ({ ...was, [mode]: id as StrengthId }))
-      try {
-        window.localStorage.setItem(strengthKeyFor(mode), id)
-      } catch {
-        /* per-browser convenience only */
-      }
-    },
-    [mode],
-  )
+  }, [])
 
   /**
    * SOUNDS: a tick as the microphone opens and closes, a soft tock as a
@@ -893,17 +850,9 @@ function ThemeChatPanel({
     setLockOn(true)
   }, [selectedSectionId])
 
-  const chosenEngine = engines.find((e) => e.id === engine) ?? engines.find((e) => e.id === DEFAULT_ENGINE) ?? engines[0]
+  const chosenEngine = engineOf(engine)
   /* Which models the creator's own AI answers, if they have connected one: "Your key" beside them in the menu. */
   const ownAi = useOwnAi()
-  React.useEffect(() => {
-    const controller = new AbortController()
-    void fetch("/api/ai-models", { cache: "no-store", signal: controller.signal })
-      .then((response) => response.ok ? response.json() : null)
-      .then((body) => { if (!controller.signal.aborted && Array.isArray(body?.engines) && body.engines.length) setEngines(body.engines) })
-      .catch(() => { /* The configured defaults remain selectable. */ })
-    return () => controller.abort()
-  }, [ownAi.loaded, ownAi.keys])
   const ownByEngine = React.useMemo(() => {
     const out: Record<string, string | null> = {}
     for (const e of engines) {
@@ -913,28 +862,37 @@ function ThemeChatPanel({
     return out
   }, [ownAi.keys, engines])
 
+  /* THE SELECTED BLOCK inside the selected section, for the chip and the router. */
+  const selectedBlock = React.useMemo(
+    () => (selectedSection && selectedBlockId ? blockAtKey(selectedSection.blocks as never, selectedBlockId) : null),
+    [selectedSection, selectedBlockId],
+  )
+  const scopeLabel = selectedSection ? scopeName(selectedSection as never, selectedBlock ? selectedBlockId : null) : ""
+
   /**
    * Read at SEND time, like everything else in here: a run started thirty
    * seconds ago must send what the page looks like NOW, including anything
    * the person changed by hand while it was open, or the model plans against
    * a page that no longer exists and addresses sections by ids that moved.
    */
-  const effort = effortOf(strength)
-  /* A new section is written on Code a section's own Strength, whichever mode the box was in when it went. */
-  const codeEffort = effortOf(strengths.code)
-  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, codeEffort, conversation })
-  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, effort, codeEffort, conversation }
+  const blockId = selectedBlock ? selectedBlockId : undefined
+  const blockType = selectedBlock?.type
+  const live = React.useRef({ sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: 0 })
+  live.current = { sections, settings, page, selectedSectionId, blockId, blockType, locked, engine: chosenEngine, conversation, exchanges: exchanges.length }
 
   /**
    * WHAT TO ASK NEXT, from where the creator is: the section they have open,
-   * what the page has and lacks, and whether the store has products. See
+   * what the page has and lacks, the site's pages, and the store's products.
+   * Computed here from what the editor already holds, never by a model. See
    * lib/website-builder/ask-suggestions.ts.
    */
   const brandName = typeof settings.brand_name === "string" ? settings.brand_name : ""
   const productCount = store?.productCount ?? null
+  const productsWithoutImages = store?.productsWithoutImages ?? null
+  const sitePages = store?.pages
   const suggestions = React.useMemo(
-    () => suggestionsFor({ mode, page, sections, selectedId: selectedSectionId, storeName: brandName, productCount }),
-    [mode, page, sections, selectedSectionId, brandName, productCount],
+    () => suggestionsFor({ page, sections, selectedId: selectedSectionId, storeName: brandName, productCount, productsWithoutImages, pages: sitePages }),
+    [page, sections, selectedSectionId, brandName, productCount, productsWithoutImages, sitePages],
   )
 
   /**
@@ -1377,12 +1335,12 @@ function ThemeChatPanel({
       images: Attachment[] = [],
       quiet = false,
       /**
-       * `codeFocus`: Code a section, editing the open section's code.
+       * `codeFocus`: the router sent it into the open section's code; `lock`: the scope it decided.
        * `display` and `shown`: what the thread shows for this message when it
        * is not the words sent, an answer that put a picture in ("Upload
        * image", with the picture), while the run reads the whole sentence.
        */
-      opts: { codeFocus?: boolean; display?: string; shown?: Attachment[] } = {},
+      opts: { codeFocus?: boolean; lock?: boolean; display?: string; shown?: Attachment[] } = {},
     ) => {
       const prompt = text.trim()
       /**
@@ -1435,7 +1393,9 @@ function ThemeChatPanel({
       /** What the run is about, which the canvas shows on the sections it marks. */
       let subject = ""
       const tell = () => onWorkingChange?.([...working], subject || undefined)
-      if (live.current.locked && live.current.selectedSectionId) {
+      /* The router may widen the chip's scope ("now do the whole page"); without a decision, the chip decides. */
+      const lockNow = opts.lock ?? live.current.locked
+      if (lockNow && live.current.selectedSectionId) {
         working.add(live.current.selectedSectionId)
         tell()
       }
@@ -1480,14 +1440,13 @@ function ThemeChatPanel({
             sections: live.current.sections,
             settings: live.current.settings,
             selectedSectionId: live.current.selectedSectionId,
-            lockToSelection: live.current.locked,
-            /* Code a section with a section open: the change goes into its code. */
+            ...(live.current.blockId && live.current.blockType ? { selectedBlockId: live.current.blockId, selectedBlockType: live.current.blockType } : {}),
+            lockToSelection: lockNow,
+            /* The router said the change goes into the selected section's code. */
             ...(opts.codeFocus ? { codeFocus: true } : {}),
             provider: live.current.engine.provider,
             model: live.current.engine.model,
             tier: live.current.engine.tier,
-            /* How hard it thinks: Light, Standard or Deep (lib/website-builder/ask-engines.ts). */
-            effort: live.current.effort,
             /* The conversation on screen; the route opens a new one for null. */
             conversationId: live.current.conversation.id,
             continueEarlier: live.current.conversation.earlier,
@@ -1519,6 +1478,15 @@ function ThemeChatPanel({
               if (type === "recorded") {
                 const messageId = typeof event.messageId === "string" ? event.messageId : null
                 if (messageId) patch((e) => ({ ...e, messageId }))
+                return
+              }
+              /* What it kept in AI Memory: "Remembered: ...", with Undo (ask-parts RememberedLine). */
+              if (type === "remembered") {
+                const items = Array.isArray(event.items) ? (event.items as { id?: unknown; content?: unknown; scope?: unknown }[]) : []
+                const notes = items
+                  .filter((n) => typeof n.id === "string" && typeof n.content === "string")
+                  .map((n) => ({ id: n.id as string, content: n.content as string, scope: n.scope === "everywhere" ? ("everywhere" as const) : ("website" as const) }))
+                if (notes.length) patch((e) => ({ ...e, remembered: [...(e.remembered ?? []), ...notes] }))
                 return
               }
               /*
@@ -1664,7 +1632,7 @@ function ThemeChatPanel({
         /* A long task, in parts: up to MAX_CONTINUES more runs, each picking up from the conversation. A stop ends it. */
         if (carryOn && !abortedByPerson && continues.current < MAX_CONTINUES) {
           continues.current += 1
-          setQueued({ text: CONTINUE_PROMPT, mode: "change" })
+          setQueued({ text: CONTINUE_PROMPT, direct: true })
         } else if (!carryOn) {
           continues.current = 0
         }
@@ -1681,19 +1649,21 @@ function ThemeChatPanel({
   /**
    * Drains the queue when the run that was in the way finishes. `send` and
    * `writeOne` refuse while either is going, so this cannot fire into the
-   * middle of one. A queued message goes the way its mode sends it.
+   * middle of one. A queued message goes where the router sends it, or
+   * straight on when it was an answer or the next part of a long task.
    */
   React.useEffect(() => {
-    if (busy || writing || !queued) return
+    if (busy || writing || routingNow || !queued) return
     const next = queued
     setQueued(null)
     /* Quiet: it had its whoosh when it was queued. */
-    dispatchRef.current(next.text, [], next.mode, true)
-  }, [busy, writing, queued])
+    if (next.direct) void sendRef.current(next.text, [], true)
+    else dispatchRef.current(next.text, [], true)
+  }, [busy, writing, routingNow, queued])
 
   /**
    * ===========================================================================
-   *  CODE A SECTION: A NEW ONE
+   *  A NEW KIND OF SECTION: THE WRITER
    * ===========================================================================
    * Not the agent loop: that edits a page, and every one of its operations
    * names something that already exists. This asks for a file, which the
@@ -1761,10 +1731,7 @@ function ThemeChatPanel({
             sectionTypes: [...new Set(live.current.sections.map((s) => s.type))].slice(0, 40),
             provider: live.current.engine.provider,
             model: live.current.engine.model,
-            /* Code uses the stronger ChatGPT (Terra) unless a non-OpenAI engine was chosen. */
-            tier: live.current.engine.provider === "openai" ? "strong" : live.current.engine.tier,
-            /* Code a section's own Strength: Deep unless the creator chose otherwise. */
-            effort: live.current.codeEffort,
+            tier: live.current.engine.tier,
             conversationId: live.current.conversation.id,
             page: startedOn,
           }),
@@ -1834,26 +1801,48 @@ function ThemeChatPanel({
   )
 
   /**
-   * WHERE A MESSAGE GOES. Change a page: the page assistant. Code a section:
-   * a new section through the writer, or, with a section open and in scope
-   * and words that are about it, that section's code through the page
-   * assistant (lib/website-builder/ask-code-run.ts, codeTarget). The words
-   * are sent either way, with or without pictures.
+   * WHERE A MESSAGE GOES, decided on the server (lib/website-builder/ask-route.ts):
+   * the section writer for a new kind of section, or the page assistant,
+   * with only the selection in scope or the whole page, and with the change
+   * going into the selected section's code or its settings. The words are
+   * sent either way, with or without pictures. `routing` holds the box for
+   * the moment the decision takes, so a second Enter is not a second run.
    */
+  const routing = React.useRef(false)
   const dispatch = React.useCallback(
-    (prompt: string, images: Attachment[], into: AskMode, quiet = false) => {
-      if (into === "code") {
-        const target = codeTarget(prompt, { selectedId: live.current.selectedSectionId, locked: live.current.locked })
-        if (target === "edit") void send(prompt, images, quiet, { codeFocus: true })
-        else void writeOne(prompt, images, quiet)
+    async (prompt: string, images: Attachment[], quiet = false) => {
+      /* A second message in the moment the first is being routed waits its turn, like one sent during a run. */
+      if (routing.current) {
+        setQueued({ text: prompt })
         return
       }
-      void send(prompt, images, quiet)
+      routing.current = true
+      setRoutingNow(true)
+      try {
+        const now = live.current
+        const route = await decideRoute(installId, {
+          prompt,
+          images: images.length,
+          sections: now.sections.map((s) => ({ id: s.id, type: s.type, name: s.name, group: (s as { group?: string }).group })),
+          selectedSectionId: now.selectedSectionId,
+          selectedBlockId: now.blockId,
+          selectedBlockType: now.blockType,
+          scoped: now.locked,
+          hasHistory: now.exchanges > 0,
+        })
+        if (route.agent === "writer") void writeOne(prompt, images, quiet)
+        else void send(prompt, images, quiet, { codeFocus: route.codeFocus, lock: route.lock })
+      } finally {
+        routing.current = false
+        setRoutingNow(false)
+      }
     },
-    [send, writeOne],
+    [installId, send, writeOne],
   )
   const dispatchRef = React.useRef(dispatch)
   dispatchRef.current = dispatch
+  const sendRef = React.useRef(send)
+  sendRef.current = send
 
   const submit = React.useCallback(
     (text: string) => {
@@ -1862,32 +1851,32 @@ function ThemeChatPanel({
       if (!prompt && images.length === 0) return
       /* A picture still being made ready is waited for: sending now would leave it behind. */
       if (attachedRef.current.some((a) => a.state === "preparing")) return
-      if (busy || writing) {
+      if (busy || writing || routingNow) {
         /* Only pictures, and a run in the way: they stay in the box for the next message, and so does nothing else. */
         if (!prompt) return
         setDraft("")
-        /* The words wait for the run in the way, in the mode they were written in; the pictures stay in the box. */
-        setQueued({ text: prompt, mode })
+        /* The words wait for the run in the way; the pictures stay in the box. */
+        setQueued({ text: prompt })
         playAskSound("sent")
         return
       }
       setDraft("")
       setAttached([])
       setAttachError(null)
-      dispatch(prompt, images, mode)
+      void dispatch(prompt, images)
     },
-    [busy, writing, mode, dispatch],
+    [busy, writing, routingNow, dispatch],
   )
 
   /**
-   * AN ANSWER TAPPED UNDER THE RUN'S QUESTION. It goes to the agent as the
-   * next message in this conversation, whichever mode the box is in, since
-   * the agent is what asked; the box keeps whatever is in it.
+   * AN ANSWER TAPPED UNDER THE RUN'S QUESTION. It goes to the page
+   * assistant as the next message in this conversation, without asking the
+   * router, since the assistant is what asked; the box keeps what is in it.
    */
   const answerQuestion = React.useCallback(
     (text: string) => {
       if (busy || writing) {
-        setQueued({ text, mode: "change" })
+        setQueued({ text, direct: true })
         playAskSound("sent")
         return
       }
@@ -1941,6 +1930,27 @@ function ThemeChatPanel({
       else void send(exchange.prompt, images, false, exchange.codeFocus ? { codeFocus: true } : {})
     },
     [busy, writing, send, writeOne],
+  )
+
+  /**
+   * UNDO ON "REMEMBERED: ...": the note is deleted from AI Memory, in its own
+   * scope (this website's, through its id, or the creator's everywhere one),
+   * and the line says it is undone. A failed delete leaves the line as it was.
+   */
+  const forgetNote = React.useCallback(
+    async (exchange: Exchange, id: string) => {
+      const note = exchange.remembered?.find((n) => n.id === id)
+      if (!note || note.undone) return
+      const scope = note.scope === "website" ? `?installId=${encodeURIComponent(installId)}` : ""
+      try {
+        const res = await fetch(`/api/ai-memory/${encodeURIComponent(id)}${scope}`, { method: "DELETE" })
+        if (!res.ok) return
+      } catch {
+        return
+      }
+      patchExchange(exchange.id, (e) => ({ ...e, remembered: e.remembered?.map((n) => (n.id === id ? { ...n, undone: true } : n)) }))
+    },
+    [installId, patchExchange],
   )
 
   /** The editor's Undo for one run: the page as it was before it started. */
@@ -2420,28 +2430,31 @@ function ThemeChatPanel({
   }, [draft, voice, dock, openDock])
 
   /*
-    A SUGGESTION IS SENT, not copied into the box to be sent again. It is a
-    whole request already ("Show my 3 newest products"), so a tap asks for
-    it, in the mode the box is in, the same as an answer tapped under a
-    question: whatever is typed in the box, and any pictures there, stay.
+    A SUGGESTION FILLS THE BOX. They are offered only while the box is empty,
+    and a tap puts the words in it, ready to send as they are or to change
+    first ("Show my 3 newest products" becomes "...in two rows"). Enter sends
+    it where the router sends any message.
   */
   const pickSuggestion = React.useCallback(
     (text: string) => {
       if (dock) openDock()
-      if (busy || writing) {
-        setQueued({ text, mode })
-        playAskSound("sent")
-        return
-      }
-      dispatch(text, [], mode)
+      setDraft(text)
+      requestAnimationFrame(() => {
+        const field = fieldRef.current
+        if (!field) return
+        field.focus({ preventScroll: true })
+        field.setSelectionRange(text.length, text.length)
+      })
     },
-    [dock, openDock, mode, writing, busy, dispatch],
+    [dock, openDock],
   )
 
   viewingRef.current = !!viewing
   const busyNow = busy || writing
   const isMax = dock && maximized
   const empty = draft.trim().length === 0 && readyPictures.length === 0
+  /* Suggestions are offered only while there is nothing in the box (ask-suggestions). */
+  const composerEmpty = empty && attached.length === 0
   /** The run going now, whose line the folded pill shows: a change, or a section being written. */
   const runningExchange = busyNow ? exchanges.find((e) => e.running) : undefined
   const runningLine = runningExchange
@@ -2481,19 +2494,15 @@ function ThemeChatPanel({
         ? `${pillLine}…`
         : foldedLine
           ? foldedLine
-          : mode === "code"
-            ? attached.length
-              ? tt("Add a note, or just send")
-              : locked
-                ? tt("Describe the change")
-                : tt("Describe a section")
-            : busy
+          : busy
                 ? tt("Ask for the next change")
                 : attached.length
                   ? tt("Add a note, or just send")
                   : openQuestion
                     ? tt("Or type your answer")
-                    : exchanges.length
+                    : locked
+                      ? tt("Describe the change")
+                      : exchanges.length
                       ? tt("Continue the conversation")
                       : tt("Ask for a change")
 
@@ -2730,7 +2739,7 @@ function ThemeChatPanel({
           ) : exchanges.length === 0 ? (
             /* Empty: nothing to read, so only what to ask, down by the box you type it in. */
             <div data-ask-empty="" className="mt-auto">
-              <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} />
+              <SuggestionChips items={composerEmpty ? suggestions : []} onPick={pickSuggestion} phone={phone} />
             </div>
           ) : (
             <>
@@ -2751,6 +2760,7 @@ function ThemeChatPanel({
                     onAnswer={answerQuestion}
                     onImage={putImage}
                     onUpload={uploadAskImage}
+                    onForget={forgetNote}
                   />
                 ))}
                 {queued && (
@@ -2764,7 +2774,7 @@ function ThemeChatPanel({
               </ul>
               {/* What to ask next, once this answer is in. Not under a question: its answers are the next thing to tap. */}
               {idle && !queued && !openQuestion && (
-                <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} className="mt-5" />
+                <SuggestionChips items={composerEmpty ? suggestions : []} onPick={pickSuggestion} phone={phone} className="mt-5" />
               )}
             </>
           )}
@@ -2835,44 +2845,29 @@ function ThemeChatPanel({
       )}
 
       {/*
-        ═════════════════════════════════════════════════════════════════════
-         THE TWO THINGS IT DOES, ALWAYS REACHABLE, ON ONE ROW
-        ═════════════════════════════════════════════════════════════════════
-        Changing this page and writing a new kind of section are different
-        acts with different answers, and "add a comparison table" is a
-        sentence that could mean either. So it asks, beside the box you type
-        into, and the scope of a change sits on the same row. Two words a
-        side, so the row is one row on a 360px phone (measured by
-        scripts/check-ask-dock.mjs).
+        THE SCOPE, AND NOTHING ELSE ON THE ROW. No modes: the server decides
+        which agent takes a message. Selecting a section or a block in the
+        canvas puts "Editing: <Name>" here by itself; its x clears it to the
+        whole page, and a message can widen it in words ("now do the whole
+        page") without a question.
       */}
-      <div data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2">
-        <ModeSwitch
-          mode={mode}
-          onChange={(key) => {
-            setMode(key)
-            /* Switching is a choice about the next message: the box keeps its words and pictures, and on a computer is ready to type in. A phone's keyboard is not raised for it. */
-            if (dock) requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
-          }}
-          phone={phone}
-          reducedMotion={reducedMotion}
-        />
-        {/* In both modes: with it, Code a section changes this section's code; cleared, it writes a new one. */}
-        {selectedSection && (
+      {selectedSection && (
+        <div data-ask-scope-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2">
           <ScopeChip
-            name={selectedSection.name}
+            name={scopeLabel}
             locked={locked}
             onLock={() => setLockOn(true)}
             onUnlock={() => setLockOn(false)}
             phone={phone}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 
   /*
     WHICH MODEL, where the message is written: it is a per-message decision
-    ("this one is hard, use Terra"), and a choice buried two screens away is
+    ("this one is hard, use Opus"), and a choice buried two screens away is
     one nobody makes. While a recording runs, its clock sits in the same
     place, over the model's button, so nothing on the row moves.
   */
@@ -2883,9 +2878,6 @@ function ThemeChatPanel({
           engines={engines}
           value={engine}
           onChange={chooseEngine}
-          strengths={STRENGTHS}
-          strength={strength}
-          onStrengthChange={chooseStrength}
           open={engineOpen}
           onOpenChange={setEngineOpen}
           phone={phone}
@@ -3322,7 +3314,7 @@ function ThemeChatPanel({
 
           Now the sheet is a "composer" sheet (mobile-editor-sheet.tsx): it
           keeps its size and its place, and says how far the keyboard
-          reaches into it as `--sheet-keys`. This row, the mode switch and
+          reaches into it as `--sheet-keys`. This row, the scope chip and
           the box, is moved up by exactly that on a transform, over the
           keyboard's own quarter second, and the thread keeps its height. At
           the end of the thread a spacer of the same height lets its newest

@@ -8991,13 +8991,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   /** Ask Storelib's Connect AI: Website settings on Connections, where Claude Code and Codex are connected. */
   const connectAiFromChat = useCallback(() => actionCalls.current.openConnections(), [])
-  /** What Ask Storelib's suggestions know about the store. Unknown while the list loads. */
+  /** What Ask Storelib's suggestions know about the store and the site's pages. Unknown while the list loads. */
   const aiStore = useMemo(
-    () => ({ productCount: productsLoading ? null : products.length }),
-    [productsLoading, products.length],
+    () => ({
+      productCount: productsLoading ? null : products.length,
+      productsWithoutImages: productsLoading ? null : products.filter((p) => !p.thumbnail_url && !(p.gallery_urls ?? []).length).length,
+      pages: customPages.flatMap((p) => [p.key, p.name]),
+    }),
+    [productsLoading, products, customPages],
   )
   const aiSettings = settingsDraft as Record<string, unknown>
   const aiSelected = selectedSectionId ?? undefined
+  /* The block selected inside it, for the chat's "Editing: Heading in Hero" and the router. */
+  const aiSelectedBlock = selectedPanel.type === "section" && selectedBlockId ? selectedBlockId : undefined
 
   // ── Main editor layout ─────────────────────────────────────
   return (
@@ -9843,6 +9849,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               sections={sections}
               settings={aiSettings}
               selectedSectionId={aiSelected}
+              selectedBlockId={aiSelectedBlock}
               store={aiStore}
               onRunStart={startAiRun}
               onRunEnd={backupAfterTask}
@@ -10509,6 +10516,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               sections={sections}
               settings={aiSettings}
               selectedSectionId={aiSelected}
+              selectedBlockId={aiSelectedBlock}
               store={aiStore}
               onRunStart={startAiRun}
               onRunEnd={backupAfterTask}

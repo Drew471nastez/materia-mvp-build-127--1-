@@ -34,8 +34,6 @@ import type { SectionInstance } from "@/lib/website-builder/types"
              so anything drawn round the pill shows against colour
 */
 const CANVAS = new URLSearchParams(location.search).get("canvas") ?? "photo"
-/* Which mode the box opens on (?mode=). Change a page here, which is what every probe in check-ask-dock.mjs was written against; the editor opens on Code a section. */
-const MODE = new URLSearchParams(location.search).get("mode") === "code" ? "code" : "change"
 
 const SECTIONS: SectionInstance[] = [
   { id: "s1", type: "header", name: "Header", settings: {} },
@@ -139,7 +137,6 @@ function Desktop() {
           />
           <ThemeChat
             variant="dock"
-            initialMode={MODE}
             hidden={!aiOpen}
             suspended={false}
             openRequest={ask}
@@ -176,7 +173,6 @@ function Phone() {
       <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
         <ThemeChat
           variant="sheet"
-          initialMode={MODE}
           installId="00000000-0000-4000-8000-000000000001"
           page="home"
           sections={SECTIONS}

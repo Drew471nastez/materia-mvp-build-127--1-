@@ -2140,7 +2140,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
     "the scope chip and the whole-page button truncate instead of pushing the row wider",
     /<span className="min-w-0 truncate">\s*<span className="text-\[#6b7280\]">Editing:<\/span> \{name\}\s*<\/span>/.test(parts) &&
       /<span className="min-w-0 truncate">Limit to \{name\}<\/span>/.test(parts) &&
-      /data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2"/.test(chat),
+      /data-ask-scope-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2"/.test(chat),
   )
   check(
     "a code block scrolls sideways inside itself, and only it",
@@ -2762,7 +2762,7 @@ section("The panel says the true thing, and does not make you wait to type")
   )
   check(
     "and a message typed during a run is queued rather than dropped",
-    /setQueued\(\{ text: prompt, mode \}\)/.test(chat) && /if \(busy \|\| writing \|\| !queued\) return/.test(chat),
+    /setQueued\(\{ text: prompt \}\)/.test(chat) && /if \(busy \|\| writing \|\| routingNow \|\| !queued\) return/.test(chat),
   )
   check("a failed exchange can be sent again without retyping it", /Try again/.test(chat))
   check("the box grows with what is in it", /field\.style\.height = `\$\{Math\.min/.test(chat))
@@ -3096,7 +3096,8 @@ check(
   const chat = untt(readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")
   check(
     "the panel shows what the edit is limited to, before you type it, in two words and a title rather than a sentence",
-    /<ScopeChip\s*\n\s*name=\{selectedSection\.name\}\s*\n\s*locked=\{locked\}/.test(chat) &&
+    /<ScopeChip\s*\n\s*name=\{scopeLabel\}\s*\n\s*locked=\{locked\}/.test(chat) &&
+      /const scopeLabel = selectedSection \? scopeName\(/.test(chat) &&
       /Editing:<\/span> \{name\}/.test(untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")) &&
       /title=\{`Only \$\{name\} will change`\}/.test(untt(readFileSync(join(root, "components/website-builder/ask-parts.tsx"), "utf8"), "components/website-builder/ask-parts.tsx")),
   )
@@ -3106,7 +3107,7 @@ check(
     /setLockOn\(true\)\n  \}, \[selectedSectionId\]\)/.test(chat),
   )
   check("and it can be cleared to edit the whole page", /setLockOn\(false\)/.test(chat))
-  check("the panel actually sends it", /lockToSelection: live\.current\.locked/.test(chat))
+  check("the panel actually sends it, or what the router widened it to", /const lockNow = opts\.lock \?\? live\.current\.locked/.test(chat) && /lockToSelection: lockNow,/.test(chat))
 }
 
 check(
@@ -3689,7 +3690,7 @@ section("Asking for something good has to get the good model")
       /wantsTier !== body\.tier/.test(route) &&
       /Using the stronger model for this one/.test(route),
   )
-  check("and hands the run its ambition and its thinking depth", /ambitious: shape\.ambitious \|\| bigIntent/.test(route) && /shape\.wholePage \|\| bigIntent \? "xhigh"/.test(route))
+  check("and hands the run its ambition, and medium thinking with no switch", /ambitious: shape\.ambitious \|\| bigIntent/.test(route) && /effort: EFFORT,/.test(route))
 }
 
 check(

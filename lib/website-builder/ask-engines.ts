@@ -1,132 +1,110 @@
 /**
  * ===========================================================================
- *  THE MODELS ASK STORELIB OFFERS, AND HOW HARD EACH THINKS
+ *  THE MODELS ASK STORELIB OFFERS
  * ===========================================================================
- * Claude and OpenAI share the same coding agent. The server lists the Claude
- * models available to the account; tier defaults remain available when that
- * list cannot be fetched. Exact IDs are checked again before generation.
+ * The owner's list, and nothing else: "for the Storelib AI coding agent I
+ * just want Opus 5.5, Sonnet 5.5, Haiku 5.5, Opus 4.8 and that's all, and
+ * the strength should be medium without the switcher".
  *
- * STRENGTH is the reasoning effort the model is asked for: Light, Standard
- * and Deep are OpenAI's low, medium and high. It is a separate choice from
- * the model because they answer different questions: Luna on Deep is a
- * careful small change, Terra on Light is a quick big one.
+ * So the picker is these four, in this order, each with one line on what it
+ * is best for. Opus 5.5 is the default for page work and code alike: the
+ * owner puts quality first. The ids are Anthropic's own, exactly, and the
+ * server accepts no other (lib/sites/agent/provider.ts, resolveForCreator).
  *
- * Both are remembered per browser. An id saved before this list changed
- * is checked before use, so removed or malformed choices have a default.
+ * HOW HARD IT THINKS is not a choice any more. Every run asks for effort
+ * "medium", and only from a model that takes the parameter (`effortSupported`
+ * below, which lib/sites/agent/anthropic-provider.ts reads). All four of
+ * these do; an older id that a deployment sets through the environment, or a
+ * Haiku before 5.5, does not and is sent without it.
+ *
+ * Remembered per browser. A choice saved before this list changed ("claude",
+ * "openai", "claude:claude-sonnet-5"...) reads as the default.
  */
 
-export const ENGINES = [
-  {
-    id: "claude",
-    label: "Claude Sonnet",
-    short: "Sonnet",
-    detail: "For building sections, pages and everyday edits",
-    provider: "anthropic",
-    tier: "fast",
-  },
-  {
-    id: "claude-opus",
-    label: "Claude Opus",
-    short: "Opus",
-    detail: "For complex code and larger changes",
-    provider: "anthropic",
-    tier: "strong",
-  },
-  {
-    id: "openai",
-    label: "GPT-5.6 Luna",
-    short: "Luna",
-    detail: "Best for quick edits, copy and colours",
-    provider: "openai",
-    tier: "fast",
-  },
-  {
-    id: "openai-strong",
-    label: "GPT-5.6 Terra",
-    short: "Terra",
-    detail: "Best for new sections, pages and code",
-    provider: "openai",
-    tier: "strong",
-  },
-] as const
-
 export interface Engine {
+  /** The engine id is the model id: one name for one thing. */
   id: string
   label: string
   short: string
+  /** One line: what it is best for. */
   detail: string
-  provider: "anthropic" | "openai"
+  provider: "anthropic"
   tier: "fast" | "strong"
-  model?: string
+  model: string
 }
 export type EngineId = string
 
-export const DEFAULT_ENGINE: EngineId = "claude"
+export const ENGINES: readonly Engine[] = [
+  {
+    id: "claude-opus-5-5",
+    label: "Claude Opus 5.5",
+    short: "Opus 5.5",
+    detail: "Best for new sections, whole pages and code",
+    provider: "anthropic",
+    tier: "strong",
+    model: "claude-opus-5-5",
+  },
+  {
+    id: "claude-sonnet-5-5",
+    label: "Claude Sonnet 5.5",
+    short: "Sonnet 5.5",
+    detail: "Best for everyday edits, a little faster",
+    provider: "anthropic",
+    tier: "fast",
+    model: "claude-sonnet-5-5",
+  },
+  {
+    id: "claude-haiku-5-5",
+    label: "Claude Haiku 5.5",
+    short: "Haiku 5.5",
+    detail: "Best for quick copy and colour changes",
+    provider: "anthropic",
+    tier: "fast",
+    model: "claude-haiku-5-5",
+  },
+  {
+    id: "claude-opus-4-8",
+    label: "Claude Opus 4.8",
+    short: "Opus 4.8",
+    detail: "Best for a second try at a hard change",
+    provider: "anthropic",
+    tier: "strong",
+    model: "claude-opus-4-8",
+  },
+]
+
+export const DEFAULT_ENGINE: EngineId = "claude-opus-5-5"
 export const ENGINE_KEY = "storelib.theme-chat.engine"
 
-/** Saved exact choices are revalidated by the account-scoped server catalog. */
+/** The model ids a browser may name. Anything else is refused by the server. */
+export const ENGINE_MODELS: readonly string[] = ENGINES.map((e) => e.model)
+
+export function isEngineModel(value: unknown): value is string {
+  return typeof value === "string" && ENGINE_MODELS.includes(value)
+}
+
+/** A saved choice that is still on the list, or the default. */
 export function engineFromSaved(saved: unknown): EngineId {
-  return typeof saved === "string" && (ENGINES.some((e) => e.id === saved) || /^claude:claude-[a-z0-9-]{1,100}$/.test(saved)) ? saved : DEFAULT_ENGINE
+  return typeof saved === "string" && ENGINES.some((e) => e.id === saved) ? saved : DEFAULT_ENGINE
 }
 
-/** Names and IDs come from the account's Models API, not browser guesses. */
-export function enginesWithClaudeModels(models: { id: string; display_name: string }[]): Engine[] {
-  const choices: Engine[] = models.filter((model) => /^claude-[a-z0-9-]{1,100}$/.test(model.id)).map((model) => ({
-    id: `claude:${model.id}`, label: model.display_name, short: model.display_name.replace(/^Claude\s+/i, ""),
-    detail: /haiku/i.test(model.id) ? "Fast edits and shorter requests" : /opus|fable|mythos/i.test(model.id) ? "Complex code and larger changes" : "Sections, pages and everyday edits",
-    provider: "anthropic", tier: /opus|fable|mythos/i.test(model.id) ? "strong" : "fast", model: model.id,
-  }))
-  if (!choices.length) return [...ENGINES]
-  const sonnet = choices.find((engine) => /sonnet/.test(engine.model!))
-  const opus = choices.find((engine) => /opus/.test(engine.model!))
-  return [
-    ...(sonnet ? [{ ...sonnet, id: "claude" }] : []),
-    ...(opus ? [{ ...opus, id: "claude-opus" }] : []),
-    ...choices.filter((engine) => engine !== sonnet && engine !== opus),
-    ...ENGINES.filter((engine) => engine.provider === "openai"),
-  ]
+export function engineOf(id: unknown): Engine {
+  return ENGINES.find((e) => e.id === id) ?? ENGINES[0]
 }
 
-export const STRENGTHS = [
-  { id: "light", label: "Light", detail: "Answers fastest. For a word, a colour, a setting", effort: "low" },
-  { id: "standard", label: "Standard", detail: "Right for most requests", effort: "medium" },
-  { id: "deep", label: "Deep", detail: "Thinks longer. For hard changes and code", effort: "high" },
-] as const
-
-export type Strength = (typeof STRENGTHS)[number]
-export type StrengthId = Strength["id"]
-export type Effort = Strength["effort"]
-
-export const DEFAULT_STRENGTH: StrengthId = "standard"
-export const STRENGTH_KEY = "storelib.theme-chat.strength"
+/** Every run thinks at this. Not shown, not stored, not chosen. */
+export const EFFORT = "medium" as const
+export type Effort = typeof EFFORT
 
 /**
- * CODE A SECTION THINKS LONGER BY DEFAULT. A section is planned, written,
- * drawn, read back against the request and refined, and every one of those
- * is better for the time: a page change is a few settings and stays on
- * Standard. Each mode remembers its own choice, so picking Light for a quick
- * colour change does not make the next section a rushed one.
+ * Whether a model takes `output_config.effort`. Opus 5.5, Sonnet 5.5, Haiku
+ * 5.5 and Opus 4.8 do, as does the rest of the 4.6+ and 5 family. Haiku 4.5,
+ * Sonnet 4.5 and anything older answer a 400 for it, so it is left out.
+ * Used only when the account's Models API did not say (the provider prefers
+ * the model's own capabilities when it has them).
  */
-export const DEFAULT_CODE_STRENGTH: StrengthId = "deep"
-export const CODE_STRENGTH_KEY = "storelib.theme-chat.strength.code"
-
-/** The Strength a mode starts on when this browser has not chosen one for it. */
-export function defaultStrengthFor(mode: "change" | "code"): StrengthId {
-  return mode === "code" ? DEFAULT_CODE_STRENGTH : DEFAULT_STRENGTH
+export function effortSupported(model: string): boolean {
+  if (ENGINE_MODELS.includes(model)) return true
+  if (/^claude-(?:3|haiku-4|sonnet-4-5|sonnet-4-0|opus-4-0|opus-4-1)/.test(model)) return false
+  return /^claude-(?:opus-(?:4-[5-9]|[5-9])|sonnet-(?:4-6|[5-9])|haiku-(?:[5-9])|fable|mythos)/.test(model)
 }
-
-/** Where a mode's Strength is remembered. */
-export function strengthKeyFor(mode: "change" | "code"): string {
-  return mode === "code" ? CODE_STRENGTH_KEY : STRENGTH_KEY
-}
-
-export function strengthFromSaved(saved: unknown, fallback: StrengthId = DEFAULT_STRENGTH): StrengthId {
-  return STRENGTHS.some((s) => s.id === saved) ? (saved as StrengthId) : fallback
-}
-
-export function effortOf(id: StrengthId): Effort {
-  return (STRENGTHS.find((s) => s.id === id) ?? STRENGTHS[1]).effort
-}
-
-/** The efforts the agent route accepts from a browser. */
-export const EFFORTS: readonly Effort[] = STRENGTHS.map((s) => s.effort)

@@ -45,7 +45,7 @@ import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
-import { EFFORTS, type Effort } from "@/lib/website-builder/ask-engines"
+import { EFFORT } from "@/lib/website-builder/ask-engines"
 import { canAnswer, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
@@ -53,7 +53,8 @@ import { completeThemeExchange, openThemeConversation, startThemeExchange } from
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { recentMessages } from "@/lib/website-builder/agent/memory"
-import { MEMORY_IN_TURN, addMemory, listMemories, type MemoryDb } from "@/lib/ai-memory/store"
+import { describeMemory, memoriesForSite, type MemoryDb } from "@/lib/ai-memory/store"
+import { keepRunMemory, type KeptNote } from "@/lib/ai-memory/keep"
 import { getWebsiteShareUrl } from "@/lib/url-helpers"
 import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
 import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
@@ -105,6 +106,8 @@ type RecordedEvent =
   | { type: "account"; own: "anthropic" | "openai" | null }
   /** The run stopped on the time limit with work left: the chat sends the next part itself (theme-chat CONTINUE_PROMPT). */
   | { type: "continue"; reason: "time" }
+  /** What it kept in AI Memory, for the chat's "Remembered: ..." line with Undo, and what it forgot. */
+  | { type: "remembered"; items: KeptNote[]; forgot: string[] }
 
 /* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
 const BlockSchema = BlockInstanceSchema
@@ -150,6 +153,9 @@ const BodySchema = z.object({
    * Honoured only with a section that resolved on this page.
    */
   codeFocus: z.boolean().optional(),
+  /** The block selected inside that section, by its path key and type: the request is about it unless it says otherwise. */
+  selectedBlockId: z.string().max(400).optional(),
+  selectedBlockType: z.string().max(64).optional(),
   /**
    * WHOSE MODEL ANSWERS, from the switch in the panel. Untrusted, and
    * Both vendors go through the same validated coding agent. Model IDs are
@@ -158,13 +164,8 @@ const BodySchema = z.object({
   provider: z.enum(["anthropic", "openai"]).optional(),
   /** How hard a model to use. "strong" is the creator asking for the bigger ChatGPT model. */
   tier: z.enum(["fast", "strong"]).optional(),
+  /** One of the four in the menu (lib/website-builder/ask-engines.ts); resolveForCreator refuses any other. */
   model: z.string().regex(/^claude-[a-z0-9-]{1,100}$/).optional(),
-  /**
-   * HOW HARD IT THINKS, the panel's Strength: Light, Standard or Deep. Only
-   * these three are accepted from a browser; absent (an older client) leaves
-   * it to the shape of the request, as before.
-   */
-  effort: z.enum(EFFORTS as [Effort, ...Effort[]]).optional(),
   /**
    * WHICH CONVERSATION THIS CONTINUES. Null or absent starts a new one. An id
    * is honoured only when it is a conversation on THIS install (see
@@ -272,13 +273,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    */
   const history = await recentMessages(supabase as never, installId, conversationId)
   /**
-   * WHAT THE CREATOR ASKED TO KEEP ON EVERY WEBSITE (lib/ai-memory/store.ts),
-   * through their own client. Not ready (part 106 not run) is undefined, so
-   * the run keeps only this website's own notes, as before.
+   * AI MEMORY (lib/ai-memory/store.ts), through the creator's own client:
+   * this website's notes and the ones for every website of theirs, shown to
+   * the run as one block, size bounded, with the ids the forget tool takes.
+   * Not ready (part 106 not run) is undefined, so the run keeps only this
+   * website's own notes in its brief, as before.
    */
   const creatorId = (creator as { id: string }).id
-  const account = await listMemories(supabase as unknown as MemoryDb, creatorId, MEMORY_IN_TURN)
-  const accountMemory = account.ready ? account.memories.map((m) => m.content) : undefined
+  const memoryDb = supabase as unknown as MemoryDb
+  const memory = await memoriesForSite(memoryDb, creatorId, installId)
+  const accountMemory = memory.ready ? memory.account.map((m) => m.content) : undefined
+  const memoryText = memory.ready ? describeMemory(memory, { ids: true }) : undefined
   const recorded = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
   const messageId = recorded.id
   /**
@@ -606,7 +611,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
            * client), from the request: a build is the case that repays it, a
            * one word change is not. The provider sends what its model takes.
            */
-          effort: body.effort ?? (shape.wholePage || bigIntent ? "xhigh" : shape.scope === "build" ? "high" : "medium"),
+          /* Medium, always: the owner's choice, with no switch (lib/website-builder/ask-engines.ts). The provider sends it where the model takes it. */
+          effort: EFFORT,
           prompt: body.prompt,
           images,
           page: body.page,
@@ -629,6 +635,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           plan: true,
           memory: true,
           accountMemory,
+          memoryText,
+          siteMemory: memory.ready,
+          focusBlock: selected && body.selectedBlockId && body.selectedBlockType ? { id: body.selectedBlockId, type: body.selectedBlockType } : null,
           projectCheck: true,
           maxReviews: bigIntent ? 3 : undefined,
           visualCheck: async (state, sources, opts) => {
@@ -757,11 +766,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         }
 
         const result = step.value
-        /* Kept on every website, as the creator asked; one that fails to keep is in the log, not in the way. */
-        for (const note of result.remembered ?? []) {
-          const kept = await addMemory(supabase as unknown as MemoryDb, creatorId, note, "assistant")
-          if (!kept.ok) console.warn("[storelib ai] memory not kept", kept.error)
-        }
+        /*
+          KEPT IN AI MEMORY, as the creator asked: for this website or every website, and what they asked to forget.
+          The chat says each one ("Remembered: ...", with Undo); one that fails to keep is in the log, not in the way.
+        */
+        const notes = await keepRunMemory(memoryDb, { creatorId, installId }, result, [...memory.site, ...memory.account])
+        if (notes.kept.length || notes.forgot.length) send({ type: "remembered", items: notes.kept, forgot: notes.forgot.map((m) => m.content) })
         console.info(
           "[storelib ai] run",
           JSON.stringify({

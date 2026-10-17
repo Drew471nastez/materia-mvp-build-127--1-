@@ -327,6 +327,9 @@ same way.
 1. **Inspect.** Read the section files here and the site at
    https://mcp.storelib.com if you are connected to it (storelib_read_project,
    storelib_search_components). If a section already does the job, use it.
+   Over MCP, storelib_memory_read says what the creator asked to be
+   remembered (brand voice, likes, things to avoid); follow it, and keep
+   anything new they tell you with storelib_memory_remember.
 2. **Plan.** Say in a few lines what will change and where.
 3. **Implement.** The smallest change that does it. Change only the lines the
    task needs, and keep every setting id so the creator's content stays.
