@@ -107,6 +107,19 @@ export default async function CommunityPage({
       same, components/community/member/member-profile.tsx). Somebody else's ?profile=<handle> stays a place here.
     */
     if (typeof query.profile === "string" && query.profile.trim().toLowerCase() === "me") redirect("/account")
+    /*
+      ROUND AG: A PLAN PICKED BEFORE SIGNING IN, BY SOMEBODY ALREADY IN (a free member who chose a paid plan on the page).
+      Their upgrade goes on in the Membership page, which holds the same picker and checkout, with the pick in the address.
+    */
+    const flowAsk = typeof query.join === "string" ? query.join : null
+    if (flowAsk === "pick" || flowAsk === "plans" || flowAsk === "pay") {
+      const keep = new URLSearchParams()
+      for (const k of ["join", "plan", "interval"]) {
+        const v = query[k]
+        if (typeof v === "string") keep.set(k, v)
+      }
+      redirect(`/community/${load.community.slug}/membership?${keep.toString()}`)
+    }
     const search = new URLSearchParams()
     for (const k of ["profile", "space"]) {
       const v = query[k]

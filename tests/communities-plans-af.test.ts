@@ -21,8 +21,8 @@ import { joinButtonLabel } from "@/lib/communities/format"
 import { MAX_ACTIVE_TIERS, MAX_TIERS, TRIAL_MAX_DAYS } from "@/lib/communities/limits"
 import { yearlySaving } from "@/lib/memberships/state"
 import { canChangePlan, changeKind, nextChargeAt, previewAmounts, prorationFor, subscriberCounts } from "@/lib/communities/plan-change"
-import { applyPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
-import { confirmLabel, previewSentence } from "@/components/community/membership/change-plan"
+import { applyPlanChange, finishPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
+import { confirmLabel, previewSentence } from "@/components/community/membership/plan-words"
 import { welcomeVideoSrc } from "@/lib/communities/post-media"
 import { fakeDb } from "./_fake-db"
 import { untt } from "./i18n-source"
@@ -175,7 +175,7 @@ async function main() {
       community_audit_log: [],
     })
   const person = { id: U, email: "a@b.c", emailConfirmed: true }
-  const calls: { update?: Record<string, unknown>; previewed: number; reconciled: number; told?: string } = { previewed: 0, reconciled: 0 }
+  const calls: { update?: Record<string, unknown>; updates: Record<string, unknown>[]; previewed: number; reconciled: number; told?: string } = { updates: [], previewed: 0, reconciled: 0 }
   const deps = (over: Partial<PlanChangeDeps> = {}): PlanChangeDeps => ({
     retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: "price_std_m" } }] } }),
     preview: async () => {
@@ -183,7 +183,8 @@ async function main() {
       return { amount_due: 150000, total: 150000 }
     },
     update: async (_id, params) => {
-      calls.update = params
+      if (!calls.update) calls.update = params
+      calls.updates.push(params)
       return {}
     },
     ensurePrice: async (plan, _product, interval) => ({ priceId: `price_${plan.product_id}_${interval}`, amountCents: (interval === "year" ? plan.yearly_price_cents : plan.monthly_price_cents) ?? 0 }),
@@ -206,10 +207,23 @@ async function main() {
     check("upgrade preview: Stripe's amount due now, nothing changed", !!pre.ok && pre.value?.kind === "upgrade" && pre.value.dueNowCents === 150000 && !calls.update && db.tables.memberships[0].product_id === STD)
     const done = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean }
     const u = calls.update as { items?: { id: string; price: string }[]; proration_behavior?: string; payment_behavior?: string; metadata?: { product_id?: string } } | undefined
-    check("upgrade: the one item moves to the new price, invoiced now, refused rather than left unpaid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "error_if_incomplete")
-    check("the subscription's metadata and the membership row now name the new plan", u?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
+    /* Changed on purpose (round AG): an upgrade is held until paid (pending_if_incomplete), so a bank's check can finish it in the browser. */
+    check("upgrade: the one item moves to the new price, invoiced now, held until paid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "pending_if_incomplete" && !u.metadata)
+    const meta = calls.updates.find((x) => (x as { metadata?: unknown }).metadata) as { metadata?: { product_id?: string } } | undefined
+    check("once paid, the subscription's metadata and the membership row name the new plan", meta?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
     check("the member is emailed that their plan changed", calls.told === "upgrade")
     check("the member's tier is brought in step, and the change audited", calls.reconciled === 1 && db.tables.community_audit_log.some((r) => (r as { action?: string }).action === "membership.upgraded"))
+  }
+  {
+    calls.update = undefined
+    calls.updates = []
+    const db = world()
+    const held = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps({ update: async () => ({ pending_update: { expires_at: 1 }, latest_invoice: { confirmation_secret: { client_secret: "pi_1_secret_x" } } }) }))) as { ok: boolean; value?: { needsAction?: { clientSecret: string } } }
+    check("an upgrade the bank wants to confirm: the secret for the page, the member not moved yet", !!held.ok && held.value?.needsAction?.clientSecret === "pi_1_secret_x" && db.tables.memberships[0].product_id === STD)
+    const early = (await finishPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean; error?: string }
+    check("finishing before Stripe shows the new price paid changes nothing", !early.ok && early.error === "not_paid" && db.tables.memberships[0].product_id === STD)
+    const paid = (await finishPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps({ retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: `price_${PRE}_month` } }] } }) }))) as { ok: boolean; value?: { kind: string } }
+    check("once Stripe shows it paid, the finish moves the member to the new plan", !!paid.ok && paid.value?.kind === "upgrade" && db.tables.memberships[0].product_id === PRE)
   }
   {
     calls.update = undefined
@@ -253,6 +267,14 @@ async function main() {
     ], now).get("p")
     check("creators see per plan: paying, on a trial, and ended trials now paying", JSON.stringify(counts) === JSON.stringify({ paying: 3, trialing: 1, trialsEnded: 2, trialsConverted: 1 }), counts)
     check("the plan card draws them", /data-tier-subscribers/.test(read("components/community/creator/settings-section.tsx")))
+  }
+  {
+    const gate = code("lib/communities/server/join.ts")
+    check("a free member may buy a paid plan (an upgrade); somebody paying or running the community may not", /const paying = \(PAID_SOURCES as readonly string\[\]\)\.includes/.test(gate) && /if \(paying \|\| staff\)/.test(gate))
+    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /redirect\(`\/community\/\$\{load\.community\.slug\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+    const jc = code("components/community/public/join-controls.tsx")
+    check("inside, a free member's Upgrade opens the paid plans or the one checkout", /export function UpgradeButton/.test(jc) && /<UpgradeButton \/>/.test(code("components/community/member/membership.tsx")) && /o\.kind === "paid" && !!o\.checkout/.test(jc))
+    check("an upgrade the bank checks is confirmed in Stripe's own window, then finished by the server", /confirmCardPayment\(r\.data\.needsAction\.clientSecret\)/.test(code("components/community/membership/change-plan.tsx")) && /finish: true/.test(code("components/community/membership/change-plan.tsx")))
   }
   const planRoute = code("app/api/community/[communityId]/membership/plan/route.ts")
   check("the plan route: switch first, then who is asking, rate limited, never cached", (planRoute.match(/const off = await requireCommunitiesOn\(\)\s*if \(off\) return off[\s\S]*?await person\(\)/g) ?? []).length === 2 && /viewerContext\(/.test(planRoute) && /rateLimit\(/.test(planRoute) && /no-store/.test(planRoute))

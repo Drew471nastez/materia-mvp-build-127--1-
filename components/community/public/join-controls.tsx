@@ -97,6 +97,9 @@ interface JoinCtx {
   setLeaveOpen: (open: boolean) => void
   /** Round AF: the plan chosen in the plan picker, while its questions or note are asked. */
   picked: JoinOption | null
+  /** Round AG: a member on a free plan moves to a paid one: the picker (several) or the checkout (one). */
+  upgrade: () => void
+  upgradePlans: JoinOption[]
 }
 
 const Ctx = React.createContext<JoinCtx | null>(null)
@@ -237,7 +240,13 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const pickedRef = React.useRef<JoinOption | null>(null)
   pickedRef.current = pickedPlan
   const [pickPending, setPickPending] = React.useState<string | null>(null)
-  const plans = React.useMemo(() => join.plans ?? [], [join.plans])
+  /*
+    Round AG: SOMEBODY ALREADY IN on a free plan picks from the paid plans (an upgrade); everybody else from the plans the
+    join offers. One list, so the picker, the checkout's "All plans" and an arrival from signing in read the same.
+  */
+  const member = join.kind === "open"
+  const upgradePlans = React.useMemo(() => (member ? community.options.filter((o) => o.kind === "paid" && !!o.checkout && !!o.tierId) : []), [member, community.options])
+  const plans = React.useMemo(() => (member ? upgradePlans : join.plans ?? []), [member, upgradePlans, join.plans])
   /** Opens (or moves) the flow; a new step is a history entry, so Back steps out of it. */
   const openFlow = React.useCallback((next: Flow, replace = false) => {
     setFlowState(next)
@@ -410,6 +419,18 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
         const back = `${communityPath(community.slug)}?join=pick&plan=${encodeURIComponent(plan.tierId)}`
         return go(`/login?next=${encodeURIComponent(back)}`)
       }
+      /* Already in: no questions or request again, straight to paying for the plan (round AG). */
+      if (join.kind === "open") {
+        if (plan.kind !== "paid") return openFlow(null, true)
+        if (isNativeApp() || plan.billing !== "recurring") {
+          const href = checkoutHref(plan, interval)
+          if (href) go(href)
+          return
+        }
+        const offers = planIntervals(plan)
+        openFlow({ kind: "pay", planId: plan.tierId, interval: offers.includes(interval) ? interval : offers[0] ?? "month" })
+        return
+      }
       let asked = questions
       if (!asked) {
         setPickPending(plan.tierId)
@@ -530,6 +551,11 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     leaveOpen,
     setLeaveOpen,
     picked: pickedPlan,
+    upgradePlans,
+    upgrade: () => {
+      if (upgradePlans.length > 1) openFlow({ kind: "plans" })
+      else if (upgradePlans[0]) void pick(upgradePlans[0])
+    },
   }
   const backToPlans = plans.length > 1 ? () => openFlow({ kind: "plans" }, true) : null
   return (
@@ -1208,5 +1234,21 @@ function LeaveDialog() {
         </div>
       </div>
     </SheetDialog>
+  )
+}
+
+/**
+ * Round AG: "Upgrade" for a member on a free plan (the Membership page): the paid plans in the picker, or straight to
+ * the one there is. Nothing when the community sells no paid plan.
+ */
+export function UpgradeButton({ className }: { className?: string }) {
+  const { join, upgrade, upgradePlans, busy } = useJoin()
+  if (join.kind !== "open" || upgradePlans.length === 0) return null
+  const one = upgradePlans.length === 1 ? upgradePlans[0] : null
+  const trial = one?.trialDays ?? 0
+  return (
+    <button type="button" onClick={upgrade} disabled={busy} className={className ?? PRIMARY} data-membership-upgrade="">
+      {one ? (trial > 0 ? `Start ${trial}-day free trial of ${one.name}` : `Upgrade to ${one.name}`) : "Upgrade your plan"}
+    </button>
   )
 }
