@@ -169,7 +169,8 @@ async function main() {
     check("membership is read ahead with the other places", /\/community\/\$\{community\.slug\}\/membership`/.test(code("components/community/member/shell-frame.tsx")) && /out\.push\(\{ kind: "membership" \}\)/.test(code("components/community/member/place-host.tsx")))
     check("the membership page pulls to refresh and loads without reviews or gallery", /RouterPullToRefresh scope=\{COMMUNITY_MEMBERSHIP_REFRESH_SCOPE\}/.test(code("components/community/member/membership.tsx")) && /loadSalesPage\(community\.slug, viewer\.userId, db, \{ light: true \}\)/.test(code("lib/communities/server/places.ts")))
     const m = code("components/community/member/membership.tsx")
-    check("the four levels, saved on the press through PATCH /me", /role="radiogroup"/.test(m) && /api\(`\$\{apiBase\(communityId\)\}\/me`, \{ method: "PATCH", body: \{ notifyLevel: next \} \}\)/.test(m) && (m.match(/\{ key: "(all|important|mentions|none)"/g) || []).length === 4)
+    /* Round 34: the same radio list draws the notification levels and the Messages choice, so the press sends whichever field it was given. */
+    check("the four levels, saved on the press through PATCH /me", /role="radiogroup"/.test(m) && /api\(`\$\{apiBase\(communityId\)\}\/me`, \{ method: "PATCH", body: \{ \[field\]: next \} \}\)/.test(m) && /field="notifyLevel"/.test(m) && (m.match(/\{ key: "(all|important|mentions|none)"/g) || []).length === 4)
     check("leaving is the About page's confirm (it asks why)", /<JoinProvider community=\{community\} join=\{join\} askWhy=\{askWhy\}>/.test(m) && /const \{ canLeave, open, busy, error \} = useLeave\(\)/.test(m))
     const withComments = readSource("components/community/member/membership.tsx")
     /* Round 13: worker M's parts are in their slots now (the coordinator's merge), not only named. */

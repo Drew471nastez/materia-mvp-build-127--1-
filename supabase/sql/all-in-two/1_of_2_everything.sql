@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 221: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 222: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3681,6 +3681,11 @@ ALTER TABLE public.community_member_link_clicks ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_member_link_clicks FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_member_link_clicks TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('221', '221_community_member_link_clicks.sql', 'b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 222_community_member_marks_and_messages.sql
+/* Featured members and who may message a member, run after part 81. Three new optional columns on `community_members`. `featured_at` (when a creator or an admin featured that member) and `featured_by` (who did): nothing is ranked and nothing is counted, the member directory and the member's profile show the word "Featured" and that is all, and a partial index reads the short list per community. `dm_from` is the member's own choice about who may start a conversation with them in that community, `everyone` (the default, and what every row means today) or `staff`, which is the owner, admins and moderators; the server applies it when a conversation is opened and on every message. No existing rows change. Until it runs, Feature answers that a database update is needed and says so, no mark is shown anywhere, and everybody may message everybody exactly as now. Where part 81 is missing it skips itself with a notice. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.community_members') IS NULL THEN RAISE NOTICE 'member marks: there is no community_members table, run part 81 first.'; RETURN; END IF; ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS featured_at timestamptz; ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS featured_by uuid REFERENCES auth.users(id) ON DELETE SET NULL; CREATE INDEX IF NOT EXISTS community_members_featured_idx ON public.community_members (community_id, featured_at DESC) WHERE featured_at IS NOT NULL; ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS dm_from text; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'community_members_dm_from_check' AND conrelid = 'public.community_members'::regclass) THEN ALTER TABLE public.community_members ADD CONSTRAINT community_members_dm_from_check CHECK (dm_from IS NULL OR dm_from IN ('everyone', 'staff')) NOT VALID; END IF; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('222', '222_community_member_marks_and_messages.sql', 'c7377fd3588466151fd9b019683abe25f8ee0e7a3f009deb36d037bcca266f5c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

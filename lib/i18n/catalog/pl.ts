@@ -9351,7 +9351,21 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} od zweryfikowanych kupujących",
  "{n} imported": "Zaimportowano: {n}",
  "{n} scheduled": "Zaplanowane: {n}",
- "{n} selected": "Zaznaczono: {n}"
+ "{n} selected": "Zaznaczono: {n}",
+ "Feature in the community": "Wyróżnij w społeczności",
+ "{name} is featured": "{name} jest wyróżniony",
+ "{name} is no longer featured": "{name} nie jest już wyróżniony",
+ "Reading what they did here": "Wczytywanie aktywności tej osoby",
+ "What they did here could not be read.": "Nie udało się wczytać aktywności tej osoby.",
+ "Here": "Tutaj",
+ "Last posted": "Ostatni post",
+ "Invited by": "Zaproszony przez",
+ "Approved by": "Zatwierdzony przez",
+ "Given": "Przyznany",
+ "Featuring members needs the database update (run-now part 222).": "Wyróżnianie członków wymaga aktualizacji bazy danych (run-now część 222).",
+ "A community can feature 12 members. Take one off first.": "Społeczność może wyróżnić 12 członków. Najpierw usuń jednego.",
+ "Only a member who is here can be featured.": "Wyróżnić można tylko członka, który tu jest.",
+ "Featuring is for somebody else.": "Wyróżnienie jest dla kogoś innego."
 }
 
 export default words
