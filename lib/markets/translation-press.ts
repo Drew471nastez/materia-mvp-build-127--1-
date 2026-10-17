@@ -177,6 +177,8 @@ export type GlossaryRewrite = { locale: string; items: { key: string; source: st
  * switch alone reads nothing more.
  */
 export async function planGlossaryRewrite(db: Db, creatorId: string, before: TranslationRules, after: TranslationRules): Promise<GlossaryRewrite> {
+  /* The glossary as it was (a Don't translate press, the product names switch): nothing is read at all. */
+  if (JSON.stringify(before.glossary) === JSON.stringify(after.glossary)) return []
   const loc = (await localizationOf(db, creatorId, (await readStoreCurrency(db, creatorId)).currency)).value
   const locales = loc.languages.map((l) => l.code).filter((c) => c !== loc.defaultLanguage)
   const terms = new Map(locales.map((code) => [code, changedTerms(before.glossary, after.glossary, code)] as const))
