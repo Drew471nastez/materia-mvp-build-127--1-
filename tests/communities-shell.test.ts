@@ -483,7 +483,7 @@ async function main() {
     /* Round 10: the card is the decision (the price, Monthly and Yearly, the button); the figures moved into the sheet, under the facts line. */
     check("the card sticks under the community's bar, with the price, the interval switch and the button", /sticky top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(controls) && /<PriceLine className="mt-4" \/>\s*<IntervalSwitch className="mt-3" full \/>/.test(controls) && /<PrimaryAction className="mt-4 w-full" \/>/.test(controls))
     /* Changed on purpose (round 33): the row carries members and visibility, so the side card lists the other counted facts, and none when there are none. */
-    check("the side card draws the counted facts (aboutFacts) the row does not", /const facts = aboutFacts\(c, c\.stats, extras\)\.filter\(\(f\) => f\.key !== "members" && f\.key !== "visibility"\)/.test(page) && /<JoinCard facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\} \/>/.test(page))
+    check("the side card draws the counted facts (aboutFacts) the row does not", /const facts = aboutFacts\(c, c\.stats, extras\)\.filter\(\(f\) => f\.key !== "members" && f\.key !== "visibility"\)/.test(page) && /<JoinCard\s+facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\}/.test(page))
     check("the sales page calls no client function on the server", !/from "\.\/join-controls"[\s\S]*intervalPrice/.test(page))
   }
 

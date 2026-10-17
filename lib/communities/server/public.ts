@@ -50,6 +50,7 @@ import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./cont
 import { admin, missing, reasonOf, type Db } from "./db"
 import { storefrontsOf } from "./directory"
 import { communityStats } from "./presence"
+import { readCommunitySummary } from "./community-summary"
 
 /** What a card needs, and nothing as heavy as the description. */
 /* Round 33: `onboarding` for the cover's focus (lib/communities/page-look.ts), so a card crops the cover where the creator set it. */
@@ -412,6 +413,33 @@ async function readReviews(db: Db, communityId: string, products: ProductLite[],
   return { average: Math.round(average * 10) / 10, total, items }
 }
 
+/**
+ * When a community's scheduled deletion happens (community_deletions, part 202, state "scheduled"), or null: none, or
+ * the table is not there yet. Asked only for the people who run it (round 26, W1's ask): its page shows them one line.
+ */
+async function scheduledDeletionAt(db: Db, communityId: string): Promise<string | null> {
+  try {
+    const { data, error } = await db.from("community_deletions").select("delete_at").eq("community_id", communityId).eq("state", "scheduled").maybeSingle()
+    if (error) {
+      if (!missing(error)) console.error(`[communities] deletion notice: ${reasonOf(error)}`)
+      return null
+    }
+    const at = (data as { delete_at?: unknown } | null)?.delete_at
+    return typeof at === "string" && at ? at : null
+  } catch (e) {
+    console.error(`[communities] deletion notice: ${reasonOf(e)}`)
+    return null
+  }
+}
+
+const DELETION_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+
+/** The line the people who run a community see on its page while its deletion is scheduled. Pure, for the tests. */
+export function deletionNotice(deleteAt: string | null): string | null {
+  const t = deleteAt ? Date.parse(deleteAt) : NaN
+  return Number.isFinite(t) ? `This community is being deleted on ${DELETION_DAY.format(t)}.` : null
+}
+
 /* ── The gallery ────────────────────────────────────────────────────────── */
 
 /** communities.gallery, or null while part 85 has not added the column (or it cannot be read). */
@@ -560,12 +588,16 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
   galleryAndStats?.catch(() => undefined)
 
-  const [tiers, links, creators] = await Promise.all([
+  const [tiers, links, creators, summary, deleteAt] = await Promise.all([
     readTiers(db, [community.id]),
     community.access === "product" || community.access === "custom"
       ? rows<{ tier_id: string; product_id: string }>("access products", () => db.from("community_access_products").select("tier_id, product_id").eq("community_id", community.id))
       : Promise.resolve([] as { tier_id: string; product_id: string }[]),
     readCreators(db, [community.creator_id ?? ""]),
+    /* Round 26: the short description for the info card, read softly before part 220 (W6's ./community-summary.ts). */
+    readCommunitySummary(db, community.id),
+    /* Only for its staff: a visitor never learns a community is on its way out from its page. */
+    staff ? scheduledDeletionAt(db, community.id) : Promise.resolve(null),
   ])
   const tierProductIds = uniq(tiers.map((t) => t.product_id))
   const accessIds = uniq(links.map((l) => l.product_id)).filter((id) => !tierProductIds.includes(id))
@@ -625,6 +657,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     links: socialLinksOf(community.links),
     coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
     joinLook: joinLookOf(pageLookOf(community.onboarding)),
+    /* Round 26: the short description for the info card (its fallbacks are the card's, about-facts.ts cardSummary), and the admins it counts. */
+    summary,
+    adminCount: Math.max(0, stats.admins ?? 0),
   }
 
   const member = viewer.member
@@ -658,7 +693,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   })
 
   let notice: string | null = null
-  if (suspended) notice = "Storelib has suspended this community. Nobody else can open it until it is restored."
+  const deleting = staff ? deletionNotice(deleteAt) : null
+  if (deleting) notice = deleting
+  else if (suspended) notice = "Storelib has suspended this community. Nobody else can open it until it is restored."
   else if (community.status === "draft") notice = "This community is a draft. Only you and your team can see it until you publish it."
   return { data: { community: view, join, notice }, community, viewer }
 }

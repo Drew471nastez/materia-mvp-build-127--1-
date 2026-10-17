@@ -19,6 +19,9 @@ export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView } from "./view-types"
 import { coverPosition, pageLookOf } from "@/lib/communities/page-look"
+import { socialLinksOf } from "@/lib/communities/social-links"
+import { htmlToPlainText } from "@/lib/rich-text/html"
+import { cardSummary } from "@/components/community/public/about-facts"
 
 export type MemberState = "off" | "missing" | "closed" | "signed_out" | "unknown" | "member" | "pending" | "banned" | "not_member"
 
@@ -67,6 +70,10 @@ export function toShellCommunity(c: CommunityRow): ShellCommunity {
     access: c.access,
     visibility: c.visibility,
     approvalRequired: c.approval_required,
+    /* Round 26: the card's short description (summary is part 220's column, on the row once it is read), its icons, and whether it may be shared. */
+    summary: cardSummary({ summary: (c as CommunityRow & { summary?: string | null }).summary ?? null, tagline: c.tagline, descriptionPlain: htmlToPlainText(c.description) }),
+    links: socialLinksOf(c.links),
+    published: c.status === "published",
   }
 }
 
