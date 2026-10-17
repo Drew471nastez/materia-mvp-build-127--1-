@@ -8972,7 +8972,25 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Resumo de ganhos de {year}",
  "{year} Tax Year": "Ano fiscal {year}",
  "“{label}” may": "“{label}” pode",
- "↻ Refresh thumbnail": "↻ Atualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Atualizar miniatura",
+ "Checkout text": "Textos do checkout",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Mude os textos do seu checkout, como o botão de pagamento ou os títulos, em cada um dos seus idiomas.",
+ "Edit checkout text": "Editar textos do checkout",
+ "Order summary": "Resumo do pedido",
+ "Leave without saving your changes?": "Sair sem salvar as alterações?",
+ "Saved. Your checkout shows it now.": "Salvo. Seu checkout já mostra.",
+ "Switch language without saving your changes?": "Trocar de idioma sem salvar as alterações?",
+ "Your own words on your checkout, in each language.": "Seus próprios textos no checkout, em cada idioma.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "Os textos do checkout precisam da atualização do banco de dados (parte SQL 212). Até lá, o checkout mostra os textos da Storelib e as alterações aqui não são salvas.",
+ "Your changes show in the preview at the end.": "Suas alterações aparecem na prévia no final.",
+ "See preview": "Ver prévia",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Textos legais e de consentimento, valores, resultados de pagamento e políticas de reembolso aparecem sempre como a Storelib escreve, para nunca confundir quem compra.",
+ "Use default": "Usar o padrão",
+ "Keep {list} in it.": "Mantenha {list}.",
+ "Default changed since you edited.": "O texto padrão mudou desde a sua edição.",
+ "Use the new default": "Usar o novo padrão",
+ "Also shown": "Também aparece",
+ "Linen shirt": "Camisa de linho"
 }
 
 export default words

@@ -8972,7 +8972,25 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Resumen de ingresos de {year}",
  "{year} Tax Year": "Año fiscal {year}",
  "“{label}” may": "“{label}” puede",
- "↻ Refresh thumbnail": "↻ Actualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Actualizar miniatura",
+ "Checkout text": "Textos del checkout",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Cambia los textos de tu checkout, como el botón de pago o los títulos, en cada uno de tus idiomas.",
+ "Edit checkout text": "Editar textos del checkout",
+ "Order summary": "Resumen del pedido",
+ "Leave without saving your changes?": "¿Salir sin guardar los cambios?",
+ "Saved. Your checkout shows it now.": "Guardado. Tu checkout ya lo muestra.",
+ "Switch language without saving your changes?": "¿Cambiar de idioma sin guardar los cambios?",
+ "Your own words on your checkout, in each language.": "Tus propios textos en el checkout, en cada idioma.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "Los textos del checkout necesitan su actualización de base de datos (parte SQL 212). Hasta entonces, el checkout muestra los textos de Storelib y los cambios aquí no se guardan.",
+ "Your changes show in the preview at the end.": "Tus cambios se ven en la vista previa del final.",
+ "See preview": "Ver vista previa",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Los textos legales y de consentimiento, los importes, los resultados del pago y las políticas de reembolso siempre se leen como los escribe Storelib, para que nadie se confunda.",
+ "Use default": "Usar el predeterminado",
+ "Keep {list} in it.": "Mantén {list}.",
+ "Default changed since you edited.": "El texto predeterminado cambió desde tu edición.",
+ "Use the new default": "Usar el nuevo predeterminado",
+ "Also shown": "También se muestra",
+ "Linen shirt": "Camisa de lino"
 }
 
 export default words

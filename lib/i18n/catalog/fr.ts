@@ -8972,7 +8972,25 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Récapitulatif des gains {year}",
  "{year} Tax Year": "Année fiscale {year}",
  "“{label}” may": "« {label} » peut",
- "↻ Refresh thumbnail": "↻ Actualiser la miniature"
+ "↻ Refresh thumbnail": "↻ Actualiser la miniature",
+ "Checkout text": "Textes du paiement",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Modifiez les textes de votre page de paiement, comme le bouton de paiement ou les titres, dans chacune de vos langues.",
+ "Edit checkout text": "Modifier les textes du paiement",
+ "Order summary": "Récapitulatif de la commande",
+ "Leave without saving your changes?": "Quitter sans enregistrer vos modifications ?",
+ "Saved. Your checkout shows it now.": "Enregistré. Votre page de paiement l'affiche déjà.",
+ "Switch language without saving your changes?": "Changer de langue sans enregistrer vos modifications ?",
+ "Your own words on your checkout, in each language.": "Vos propres textes sur la page de paiement, dans chaque langue.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "Les textes du paiement ont besoin de leur mise à jour de la base de données (partie SQL 212). D'ici là, la page de paiement affiche les textes de Storelib et les modifications ici ne sont pas enregistrées.",
+ "Your changes show in the preview at the end.": "Vos modifications apparaissent dans l'aperçu, en bas.",
+ "See preview": "Voir l'aperçu",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Les mentions légales et de consentement, les montants, les résultats de paiement et les politiques de remboursement restent tels que Storelib les écrit, pour ne jamais induire les acheteurs en erreur.",
+ "Use default": "Utiliser le texte par défaut",
+ "Keep {list} in it.": "Gardez {list}.",
+ "Default changed since you edited.": "Le texte par défaut a changé depuis votre modification.",
+ "Use the new default": "Utiliser le nouveau texte par défaut",
+ "Also shown": "Également affiché",
+ "Linen shirt": "Chemise en lin"
 }
 
 export default words

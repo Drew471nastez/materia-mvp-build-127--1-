@@ -399,7 +399,7 @@ function CheckoutPreview({ data, draft, focus }: { data: Loaded; draft: Record<s
             <span data-k="summary.enter_code" className={cn("flex h-8 flex-1 items-center rounded-md border border-[#e5e7eb] bg-white px-2 text-[12px] text-[#9ca3af]", mark("summary.enter_code"))}>{w("summary.enter_code")}</span>
             <span data-k="buttons.apply" className={cn("rounded-md bg-[#1a1a2e] px-2.5 py-1.5 text-[12px] font-medium text-white", mark("buttons.apply"))}>{w("buttons.apply")}</span>
           </div>
-          <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.discount")}>{w("summary.discount")} (SAVE10)</dt><dd className="tabular-nums">−{money(500)}</dd></div>
+          <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.discount")}>{w("summary.discount")} ({vars.code})</dt><dd className="tabular-nums">−{money(500)}</dd></div>
           <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.shipping")}>{w("summary.shipping")}</dt><dd className="tabular-nums">{money(500)}</dd></div>
           <div className="flex justify-between border-t border-black/[0.07] pt-2 font-semibold text-[#1a1a2e]"><dt {...k("summary.total")}>{w("summary.total")}</dt><dd className="tabular-nums">{money(4900)}</dd></div>
         </dl>
@@ -420,7 +420,7 @@ function CheckoutPreview({ data, draft, focus }: { data: Loaded; draft: Record<s
           <span data-k="delivery.pick_up" className={cn("py-1 text-[#6b7280]", mark("delivery.pick_up"))}>{w("delivery.pick_up")}</span>
         </div>
         <p data-k="delivery.method" className={cn("font-medium text-[#1a1a2e]", mark("delivery.method"))}>{w("delivery.method")}</p>
-        <div className="flex justify-between rounded-lg border border-[#1a1a2e] px-2.5 py-2"><span>Standard</span><span className="tabular-nums">{money(500)}</span></div>
+        <div className="flex justify-between rounded-lg border border-[#1a1a2e] px-2.5 py-2"><span>{tt("Standard")}</span><span className="tabular-nums">{money(500)}</span></div>
         <p data-k="delivery.note" className={cn("text-[12.5px] text-[#4b5563] underline", mark("delivery.note"))}>{w("delivery.note")}</p>
         <div className="rounded-lg border border-[#e5e7eb] px-2.5 py-1.5 text-[12px] text-[#9ca3af]"><span {...k("delivery.note_hint")}>{w("delivery.note_hint")}</span></div>
         <p data-k="payment.heading" className={cn("pt-1 text-[15px] font-semibold text-[#1a1a2e]", mark("payment.heading"))}>{w("payment.heading")}</p>

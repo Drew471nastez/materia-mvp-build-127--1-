@@ -8972,7 +8972,25 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Einnahmenübersicht {year}",
  "{year} Tax Year": "Steuerjahr {year}",
  "“{label}” may": "„{label}“ kann",
- "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren"
+ "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren",
+ "Checkout text": "Checkout-Texte",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Ändere die Texte in deinem Checkout, etwa den Bezahlen-Button oder die Überschriften, in jeder deiner Sprachen.",
+ "Edit checkout text": "Checkout-Texte bearbeiten",
+ "Order summary": "Bestellübersicht",
+ "Leave without saving your changes?": "Ohne Speichern verlassen?",
+ "Saved. Your checkout shows it now.": "Gespeichert. Dein Checkout zeigt es jetzt an.",
+ "Switch language without saving your changes?": "Sprache wechseln, ohne zu speichern?",
+ "Your own words on your checkout, in each language.": "Deine eigenen Texte im Checkout, in jeder Sprache.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "Checkout-Texte brauchen ihr Datenbank-Update (SQL-Teil 212). Bis dahin zeigt der Checkout die Texte von Storelib und Änderungen hier werden nicht gespeichert.",
+ "Your changes show in the preview at the end.": "Deine Änderungen siehst du in der Vorschau am Ende.",
+ "See preview": "Vorschau ansehen",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Rechtliche Texte und Einwilligungen, Beträge, Zahlungsergebnisse und Rückerstattungsrichtlinien stehen immer so da, wie Storelib sie schreibt, damit Käufer nie in die Irre geführt werden.",
+ "Use default": "Standard verwenden",
+ "Keep {list} in it.": "Behalte {list} bei.",
+ "Default changed since you edited.": "Der Standardtext hat sich seit deiner Änderung geändert.",
+ "Use the new default": "Neuen Standard verwenden",
+ "Also shown": "Wird auch angezeigt",
+ "Linen shirt": "Leinenhemd"
 }
 
 export default words

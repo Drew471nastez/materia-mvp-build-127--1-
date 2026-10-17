@@ -8972,7 +8972,25 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Podsumowanie zarobków {year}",
  "{year} Tax Year": "Rok podatkowy {year}",
  "“{label}” may": "„{label}” może",
- "↻ Refresh thumbnail": "↻ Odśwież miniaturę"
+ "↻ Refresh thumbnail": "↻ Odśwież miniaturę",
+ "Checkout text": "Teksty kasy",
+ "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Zmień teksty w kasie, na przykład przycisk płatności lub nagłówki, w każdym ze swoich języków.",
+ "Edit checkout text": "Edytuj teksty kasy",
+ "Order summary": "Podsumowanie zamówienia",
+ "Leave without saving your changes?": "Wyjść bez zapisywania zmian?",
+ "Saved. Your checkout shows it now.": "Zapisano. Kasa już to pokazuje.",
+ "Switch language without saving your changes?": "Zmienić język bez zapisywania zmian?",
+ "Your own words on your checkout, in each language.": "Twoje własne teksty w kasie, w każdym języku.",
+ "Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.": "Teksty kasy wymagają aktualizacji bazy danych (część SQL 212). Do tego czasu kasa pokazuje teksty Storelib, a zmiany tutaj nie są zapisywane.",
+ "Your changes show in the preview at the end.": "Zmiany widać w podglądzie na końcu.",
+ "See preview": "Zobacz podgląd",
+ "Legal and consent text, amounts, payment results and refund policies always read as Storelib writes them, so buyers are never misled.": "Teksty prawne i zgody, kwoty, wyniki płatności i zasady zwrotów zawsze brzmią tak, jak pisze je Storelib, żeby nie wprowadzać kupujących w błąd.",
+ "Use default": "Użyj domyślnego",
+ "Keep {list} in it.": "Zostaw {list}.",
+ "Default changed since you edited.": "Domyślny tekst zmienił się od Twojej edycji.",
+ "Use the new default": "Użyj nowego domyślnego",
+ "Also shown": "Wyświetlane też",
+ "Linen shirt": "Lniana koszula"
 }
 
 export default words
