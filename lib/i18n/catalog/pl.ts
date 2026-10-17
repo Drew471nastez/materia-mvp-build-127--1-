@@ -9351,7 +9351,15 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} od zweryfikowanych kupujących",
  "{n} imported": "Zaimportowano: {n}",
  "{n} scheduled": "Zaplanowane: {n}",
- "{n} selected": "Zaznaczono: {n}"
+ "{n} selected": "Zaznaczono: {n}",
+ "Could not save. Try again.": "Nie udało się zapisać. Spróbuj ponownie.",
+ "Could not save. Check the connection.": "Nie udało się zapisać. Sprawdź połączenie.",
+ "Everything here is already translated.": "Wszystko tutaj jest już przetłumaczone.",
+ "Translations": "Tłumaczenia",
+ "Always show in {language}": "Zawsze pokazuj w języku: {language}",
+ "{language} changed after this was translated.": "{language} zmienił się po przetłumaczeniu tego tekstu.",
+ "Outdated": "Nieaktualne",
+ "Translate automatically": "Przetłumacz automatycznie"
 }
 
 export default words
