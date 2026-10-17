@@ -6,6 +6,7 @@
  *   SECTIONS      the sidebar's insert line is grey, a right click copies and pastes, outlines stop at the header
  *   REVIEWS       a website review is sent without leaving the page, and the confirm email brings the buyer back to it
  *   COMMUNITIES   the checkout's legal line small and folded, a shorter plan card, icons left, the membership one tap away
+ *   SELL          the setup at /sell: less round, on a ground with depth, words for any seller, categories in the step
  *   MONEY         every store price is shown in what the store sells in: Settings, lists, pickers, offers, emails
  *
  * Run with:  npm run test:push
@@ -78,6 +79,14 @@ async function main() {
     check("an imported theme's frame is told too", /type: "reveal", id/.test(code("components/website-builder/compat/compat-canvas.tsx")) && /m\.type === "reveal"/.test(read("lib/storelib-theme/compat/canvas-bridge.ts")))
   }
 
+
+  console.log("\nThe setup at /sell")
+  {
+    const ob = readFileSync("components/app/creator-onboarding-modal.tsx", "utf8")
+    check("the card is less round and stands on a ground with depth", /sm:rounded-\[18px\]/.test(ob) && !/rounded-\[44px\]/.test(ob) && /overlayClassName=\{ONBOARDING_GROUND\}/.test(ob) && /radial-gradient/.test(ob))
+    check("step one is not about a store only", /Let's set up your page/.test(ob) && !/"Name your store"/.test(ob) && /Your name or brand/.test(ob))
+    check("every category opens inside the step, searchable, never in a second dialog", /data-onboarding-all-categories=""/.test(ob) && !/More Categories/.test(ob) && /setShowCategoryModal\(\(v\) => !v\)/.test(ob))
+  }
 
   console.log("\nCommunities")
   {

@@ -22,7 +22,6 @@ import {
   Minus,
   Pencil,
   Plus,
-  ShoppingBag,
   Search,
   Bell,
   User,
@@ -162,9 +161,11 @@ function SocialToggleBadge({ on }: { on: boolean }) {
     </span>
   )
 }
+/* Round AH: the ground behind the setup (see the Dialog below). */
+const ONBOARDING_GROUND = "!bg-[#eef0f3] [background-image:radial-gradient(1100px_560px_at_12%_-8%,rgba(139,92,246,0.14),transparent_62%),radial-gradient(900px_520px_at_92%_108%,rgba(26,26,46,0.14),transparent_60%),radial-gradient(rgba(16,24,40,0.05)_1px,transparent_1px)] [background-size:auto,auto,22px_22px]"
 const NEXT_ON = "bg-purple-600 text-white hover:bg-purple-700 shadow-[0_1px_2px_rgba(76,29,149,0.28),0_4px_12px_-4px_rgba(124,58,237,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
 const BACK_LOOK = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#f9fafb]"
-const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-full text-[14px] font-medium transition-[background-color,color,box-shadow]"
+const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-[10px] text-[14px] font-medium transition-[background-color,color,box-shadow]"
 const CATEGORY_OFF = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] hover:shadow-[0_0_0_1px_#d1d5db,0_1px_2px_rgba(17,24,39,0.08)]"
 const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px_-1px_rgba(26,26,46,0.35)]"
 
@@ -2106,7 +2107,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 {avatarUrl ? tt("Change") : tt("Add")}
               </button>
             </div>
-            <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[14px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[10px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">{tt("Your name")}</span>
               <input
                 type="text"
@@ -2130,7 +2131,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   {socialPanel ? (
                     <label
                       className={cn(
-                        "flex h-[52px] w-full min-w-0 items-center gap-1 rounded-[14px] px-4 transition-[opacity,translate,scale] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                        "flex h-[52px] w-full min-w-0 items-center gap-1 rounded-[10px] px-4 transition-[opacity,translate,scale] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                         FIELD_WELL,
                         socialPanelShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.985] opacity-0",
                       )}
@@ -2205,7 +2206,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">{tt("Pick a username")}</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">{tt("Claim your unique Storelib link.")}</p>
-            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1.5 rounded-[14px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1.5 rounded-[10px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">{tt("Username")}</span>
               <AtSign className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" strokeWidth={2} aria-hidden />
               <input
@@ -2231,7 +2232,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <p className={cn("mt-2 min-h-[18px] w-full text-left text-[13px] leading-[18px]", joinHandleError ? "text-red-500" : "text-[#6b7280]")} aria-live="polite">
               {joinHandleError ?? (normalizeHandle(joinHandle) ? `storelib.com/${normalizeHandle(joinHandle)}` : "storelib.com/username")}
             </p>
-            <label className={cn("mt-3 flex w-full items-start rounded-[14px] px-4 py-3 text-left", FIELD_WELL)}>
+            <label className={cn("mt-3 flex w-full items-start rounded-[10px] px-4 py-3 text-left", FIELD_WELL)}>
               <span className="sr-only">{tt("Bio, optional")}</span>
               <textarea
                 value={joinBio}
@@ -2296,10 +2297,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col items-center">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                {tt("Name your store")}
+                {tt("Let's set up your page")}
               </h1>
               <p className={SUBHEADING}>
-                {tt("You can change it later, and everything else too.")}
+                {tt("For a store, a community or digital products. You can change it any time.")}
               </p>
             </div>
 
@@ -2308,12 +2309,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               {/* Username input - with shop bag icon */}
               <div className="relative">
                 <div className={cn(
-                  "flex items-center gap-3 px-5 h-[56px] rounded-[14px] transition-[background-color,box-shadow]",
+                  "flex items-center gap-3 px-5 h-[56px] rounded-[10px] transition-[background-color,box-shadow]",
                   usernameFocused
                     ? "bg-white shadow-[0_0_0_2px_#1a1a2e]"
                     : FIELD_REST
                 )}>
-                  <ShoppingBag className="w-5 h-5 text-gray-400 shrink-0" />
+                  <User className="w-5 h-5 text-gray-400 shrink-0" />
                   <input
                     type="text"
                     value={displayName}
@@ -2323,7 +2324,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     }}
                     onFocus={() => setUsernameFocused(true)}
                     onBlur={() => setUsernameFocused(false)}
-                    placeholder={tt("Your store name")}
+                    placeholder={tt("Your name or brand")}
                     className="flex-1 text-base outline-none bg-transparent"
                     autoFocus={false}
                     autoComplete="off"
@@ -2344,7 +2345,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
 
               {/* URL preview */}
-              <div className={cn("flex items-center gap-3 px-5 h-[56px] rounded-[14px]", FIELD_REST)}>
+              <div className={cn("flex items-center gap-3 px-5 h-[56px] rounded-[10px]", FIELD_REST)}>
                 <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
@@ -2355,7 +2356,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
 
               {/* Bio input */}
-              <div className={cn("flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[14px]", FIELD_WELL)}>
+              <div className={cn("flex items-start gap-3 px-5 py-4 min-h-[56px] rounded-[10px]", FIELD_WELL)}>
                 <svg className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -2376,10 +2377,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="flex flex-col items-center">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>
-                {tt("Store category")}
+                {tt("What do you make?")}
               </h1>
               <p className={SUBHEADING}>
-                {tt("Choose what best fits your store.")}
+                {tt("Pick what fits best. It helps people find you.")}
               </p>
             </div>
 
@@ -2422,10 +2423,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <div className="flex items-center">
                 <button
                   type="button"
-                  onClick={() => setShowCategoryModal(true)}
+                  aria-expanded={showCategoryModal}
+                  data-onboarding-more=""
+                  onClick={() => setShowCategoryModal((v) => !v)}
                   className="h-11 px-3.5 text-[14px] font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e]"
                 >
-                  {tt("See more")}
+                  {showCategoryModal ? tt("See less") : tt("See more")}
                 </button>
                 <span aria-hidden="true" className="h-4 w-px bg-[#e5e7eb]" />
                 <button
@@ -2442,6 +2445,45 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
             </div>
 
+            {/*
+              ROUND AH: EVERY CATEGORY, IN THE STEP ITSELF. "See more" opened a
+              second dialog over the setup, whose list could not be scrolled on
+              a phone (the setup's own scroll lock held it). It opens here
+              instead, under the pills: a search and the rest, in the step's
+              own scroll, so a finger or a wheel moves it like the rest of the
+              page.
+            */}
+            {showCategoryModal ? (
+              <div data-onboarding-all-categories="" className="mt-5 w-full max-w-[650px] rounded-[12px] bg-[#f8f9fa] p-3 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200">
+                <div className="flex h-11 items-center gap-2.5 rounded-[10px] bg-white px-3.5 shadow-[0_0_0_1px_#e5e7eb]">
+                  <Search className="h-4 w-4 shrink-0 text-gray-400" />
+                  <input
+                    type="text"
+                    value={categorySearch}
+                    onChange={(e) => setCategorySearch(e.target.value)}
+                    placeholder={tt("Search categories...")}
+                    className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {filteredCategories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      aria-pressed={selectedCategory === category}
+                      onClick={() => {
+                        setSelectedCategory(selectedCategory === category ? null : category)
+                        setCategorySearch("")
+                      }}
+                      className={cn("h-9 rounded-[8px] px-3 text-[13.5px] font-medium transition-[background-color,color,box-shadow]", selectedCategory === category ? CATEGORY_ON : CATEGORY_OFF)}
+                    >
+                      {tt(category)}
+                    </button>
+                  ))}
+                  {filteredCategories.length === 0 ? <p className="px-1 py-2 text-[13.5px] text-[#6b7280]">{tt("No category matches. Pick Other.")}</p> : null}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -2488,7 +2530,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               {/* Social inputs */}
               <div className="flex-1 space-y-3">
                 {/* Instagram */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
                   <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
                   <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
                   <input
@@ -2501,7 +2543,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </div>
 
                 {/* TikTok */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
                   <JoinSocialBrandIcon id="tiktok" className="h-5 w-5 shrink-0 text-[#1a1a2e]" />
                   <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
                   <input
@@ -2514,7 +2556,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </div>
 
                 {/* YouTube */}
-                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
+                <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[10px]", FIELD_WELL)}>
                   <Youtube className="w-5 h-5 text-red-500 shrink-0" />
                   <input
                     type="text"
@@ -2650,7 +2692,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                         setSetupError(false)
                         startSetup()
                       }}
-                      className={cn("h-11 rounded-xl px-6 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
+                      className={cn("h-11 rounded-[10px] px-6 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
                     >
                       {tt("Try again")}
                     </button>
@@ -2693,12 +2735,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     above and below it; a short window keeps 24px).
                   */
                   isJoinStep(currentStep) && currentStep !== JOIN_DONE
-                    ? "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]"
-                    : "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
+                    ? "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[18px]"
+                    : "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[18px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
-                  // Shadow
-                  "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                  /* Round AH: a card that sits on the page with some weight, a hairline and a long soft shadow, the way Shopify's setup sits. */
+                  "shadow-[0_0_0_1px_rgba(16,24,40,0.06),0_2px_4px_rgba(16,24,40,0.04),0_32px_80px_-28px_rgba(16,24,40,0.32)]",
                 ),
             // Hide the close button
             "[&>button]:hidden",
@@ -2708,9 +2750,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           onInteractOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
+          /*
+            ROUND AH: DEPTH BEHIND IT, NOT A WHITE FADE. The setup opens on a
+            light grey ground with two soft washes of light, Storelib's violet
+            at the top left and ink at the foot, so the card has something to
+            stand on.
+          */
+          overlayClassName={ONBOARDING_GROUND}
         >
           <div data-onboarding-card="" className={cn(
-            "flex flex-col h-full bg-white",
+            "flex flex-col h-full bg-white max-sm:bg-[linear-gradient(180deg,#f5f3fb_0px,#ffffff_260px)]",
             nativeFullScreen
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
               /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
@@ -2983,7 +3032,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       disabled={backFrom(currentStep) === null || (currentStep === 4 && !!planCheckoutLoading) || joinSaving}
                       data-onboarding-back=""
                       style={fadeWith(backFrom(currentStep) !== null, `background-color 150ms, box-shadow 150ms, color 150ms`)}
-                      className={cn("px-5 sm:px-6 py-3 text-sm font-medium rounded-xl max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
+                      className={cn("px-5 sm:px-6 py-3 text-sm font-medium rounded-[10px] max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
                     >
                       {tt("Back")}
                     </button>
@@ -3055,59 +3104,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
             </div>
           ) : null}
-        </DialogContent>
-      </Dialog>
-
-      {/* Category Modal */}
-      <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <div className="p-5 border-b flex flex-row items-center gap-3">
-            <button
-              onClick={() => setShowCategoryModal(false)}
-              className="hover:bg-gray-100 p-1 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-lg font-semibold flex-1 text-center pr-8">{tt("More Categories")}</h2>
-          </div>
-
-          {/* Search */}
-          <div className="p-4 border-b">
-            <div className="flex items-center gap-3 px-4 h-[44px] rounded-xl bg-gray-100">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
-                placeholder={tt("Search categories...")}
-                className="flex-1 text-sm outline-none bg-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Categories list */}
-          <div className="p-4 max-h-[360px] overflow-y-auto">
-            <div className="flex flex-wrap gap-2">
-              {filteredCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => {
-                    setSelectedCategory(category)
-                    setShowCategoryModal(false)
-                    setCategorySearch("")
-                  }}
-                  className={cn(
-                    "px-4 py-2.5 rounded-full text-sm font-medium transition-all",
-                    selectedCategory === category
-                      ? "bg-gray-100 border-2 border-black text-black"
-                      : "bg-gray-100 border-2 border-transparent text-gray-700 hover:bg-gray-200"
-                  )}
-                >
-                  {tt(category)}
-                </button>
-              ))}
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 

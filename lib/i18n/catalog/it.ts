@@ -9803,7 +9803,13 @@ const words: Record<string, string> = {
  "The countries or states where you charge tax, and the rate in each.": "I paesi o gli stati in cui applichi le imposte e l'aliquota in ciascuno.",
  "Add region": "Aggiungi regione",
  "No regions yet": "Nessuna regione per ora",
- "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "Al checkout Storelib aggiunge l'imposta prevista dalle tue impostazioni qui sopra, la mostra all'acquirente, la riporta sulla ricevuta e ne conserva la registrazione qui. Non devi configurare nulla prima di vendere."
+ "At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.": "Al checkout Storelib aggiunge l'imposta prevista dalle tue impostazioni qui sopra, la mostra all'acquirente, la riporta sulla ricevuta e ne conserva la registrazione qui. Non devi configurare nulla prima di vendere.",
+ "Let's set up your page": "Configuriamo la tua pagina",
+ "For a store, a community or digital products. You can change it any time.": "Per un negozio, una community o prodotti digitali. Puoi cambiarlo quando vuoi.",
+ "What do you make?": "Cosa crei?",
+ "Pick what fits best. It helps people find you.": "Scegli ciò che si adatta meglio. Aiuta le persone a trovarti.",
+ "See less": "Mostra meno",
+ "No category matches. Pick Other.": "Nessuna categoria corrisponde. Scegli Altro."
 }
 
 export default words
