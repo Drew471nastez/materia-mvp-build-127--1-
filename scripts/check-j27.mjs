@@ -343,6 +343,14 @@ try {
       expect(geo.tabs.every((t) => t.h >= (view === "390" ? 44 : 40)), "each tab tall enough to press", geo.tabs.map((t) => t.h))
       expect(geo.sideways <= 0, "no sideways scroll", geo.sideways)
       await p.screenshot({ path: join(shots, `analytics-${view}-growth.png`), fullPage: view !== "390" })
+      if (view === "1440") {
+        /* The line's slide, frame by frame: Growth to Content, the tabs row only. */
+        const nav = await p.$eval("[data-analytics-sections]", (el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, width: Math.min(560, b.width), height: b.height + 2 } })
+        await p.click('[data-section-tab="content"]')
+        for (let i = 0; i < 6; i++) await p.screenshot({ path: join(shots, `analytics-slide-${i}.png`), clip: nav })
+        await p.click('[data-section-tab="growth"]')
+        await sleep(500)
+      }
       for (const s of ["traffic", "engagement", "content", "revenue"]) {
         await p.click(`[data-section-tab="${s}"]`)
         await sleep(500)
