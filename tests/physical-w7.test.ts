@@ -65,7 +65,7 @@ async function main() {
     ]
     for (const [carrier, number, re] of want) check(`${carrier}`, re.test(trackingUrl(carrier, number) ?? ""), trackingUrl(carrier, number))
     check("every carrier in the list makes an https link", CARRIER_LIST.every((c) => /^https:\/\/[^\s"'<>]+$/.test(c.url("AB123456"))))
-    check("names are matched however they are typed: 'fan courier', 'Hermes UK' is Evri, 'Poșta' without the accent, 'colissimo'", carrierOf("fan courier")?.name === "FAN Courier" && carrierOf("Hermes UK")?.name === "Evri" && carrierOf("posta romana")?.name === "Posta Romana" && carrierOf("Colissimo")?.name === "La Poste / Colissimo" && carrierOf("dhl")?.name === "DHL Express")
+    check("names are matched however they are typed: 'fan courier', 'Hermes UK' is Evri, 'Poșta' without the accent, 'colissimo'", carrierOf("fan courier")?.name === "FAN Courier" && carrierOf("Hermes UK")?.name === "Evri" && carrierOf("posta romana")?.name === "Posta Romana" && carrierOf("Colissimo")?.name === "La Poste / Colissimo" && carrierOf("dhl")?.name === "DHL" && carrierOf("DHL Express")?.name === "DHL Express")
     check("an unknown carrier gets no link: the number shows alone, the seller can paste one", trackingUrl("Local courier", "ABC12345") === null && carrierTrackingUrl(null, "ABC12345") === null)
     check("a number with spaces is a number (Royal Mail prints them)", normaliseTrackingNumber(" AB 1234 5678 9GB ") === "AB123456789GB" && /AB123456789GB$/.test(trackingUrl("Royal Mail", "AB 1234 5678 9GB") ?? ""))
     check("anything that is not a number makes no link", trackingUrl("UPS", "bad number!") === null && trackingUrl("UPS", "<script>") === null && trackingUrl("UPS", "") === null)
