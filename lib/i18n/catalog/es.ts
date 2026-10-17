@@ -9355,7 +9355,32 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} de compradores verificados",
  "{n} imported": "{n} importadas",
  "{n} scheduled": "{n} programadas",
- "{n} selected": "{n} seleccionadas"
+ "{n} selected": "{n} seleccionadas",
+ "Removed from Files": "Quitado de Archivos",
+ "{size} files removed from Files": "{size} archivos quitados de Archivos",
+ "Remove from Files": "Quitar de Archivos",
+ "In use on": "En uso en",
+ "Nowhere yet": "En ningún sitio todavía",
+ "Delete permanently": "Eliminar para siempre",
+ "Remove from Files?": "¿Quitar de Archivos?",
+ "{name} leaves this list. It keeps playing everywhere you have already used it.": "{name} sale de esta lista. Sigue reproduciéndose en todos los sitios donde ya lo usas.",
+ "{name} leaves this list. It keeps showing everywhere you have already used it.": "{name} sale de esta lista. Se sigue viendo en todos los sitios donde ya lo usas.",
+ "Remove {n} files from Files?": "¿Quitar {n} archivos de Archivos?",
+ "They leave this list and keep showing everywhere you have already used them.": "Salen de esta lista y se siguen viendo en todos los sitios donde ya los usas.",
+ "Remove {n}": "Quitar {n}",
+ "Delete this file permanently?": "¿Eliminar este archivo para siempre?",
+ "Delete {n} files permanently?": "¿Eliminar {n} archivos para siempre?",
+ "{name} is deleted for good. This cannot be undone.": "{name} se elimina para siempre. Esto no se puede deshacer.",
+ "They are deleted for good. This cannot be undone.": "Se eliminan para siempre. Esto no se puede deshacer.",
+ "Checking where it is used": "Comprobando dónde se usa",
+ "This picture is in use. Deleting it empties:": "Esta imagen está en uso. Al eliminarla se quedan vacíos:",
+ "These files are in use. Deleting them empties:": "Estos archivos están en uso. Al eliminarlos se quedan vacíos:",
+ "{label} ({count} places)": "{label} ({count} sitios)",
+ "Some places could not be checked, so there may be more.": "Algunos sitios no se pudieron comprobar, así que puede haber más.",
+ "Where this is used could not be checked.": "No se pudo comprobar dónde se usa.",
+ "Nothing in your store points at it.": "Nada de tu tienda apunta a ella.",
+ "Nothing in your store points at them.": "Nada de tu tienda apunta a ellos.",
+ "Some places could not be checked.": "Algunos sitios no se pudieron comprobar."
 }
 
 export default words

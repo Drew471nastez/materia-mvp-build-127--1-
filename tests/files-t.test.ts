@@ -142,8 +142,14 @@ async function main() {
   const del = fakeAdmin({}, removed)
   const theirs = await deleteLibraryFile(del, owner, "store-builder-images", "user-2/library/1.png")
   check("someone else's file isn't found, and nothing is removed", !theirs.ok && "status" in theirs && theirs.status === 404 && removed.length === 0)
+  /* ROUND 27: their own leaves the list and the OBJECT STAYS, so everything
+     already using it keeps drawing (lib/files/assets.ts). The hard delete is
+     only left for a database without SQL part 222, and only for a file the
+     reference gates agree nothing points at, which this fake admin (no
+     tables, no rpc) cannot establish, so it refuses rather than deleting.
+     tests/files-retention.test.ts pins the whole lifecycle. */
   const mine = await deleteLibraryFile(del, owner, "store-builder-images", "user-1/files/1.png")
-  check("their own is removed", mine.ok && removed[0] === "store-builder-images:user-1/files/1.png", removed)
+  check("their own is never hard deleted on the spot", !mine.ok && removed.length === 0, { mine, removed })
 
   console.log("\nWired in")
   const route = read("app/api/files/route.ts")
@@ -170,9 +176,9 @@ async function main() {
   check("  and a pick hands over the copy the tile decoded, for the field to show at once", /return \{ thumb: img\.currentSrc \}/.test(lib) && /onPickRef\.current\?\.\(f\.url, hintFor\(f\)\)/.test(lib))
   check("dropping files anywhere on the library uploads them, with how far each one is", /onDrop=\{\(e\) => \{/.test(lib) && /putObject\(/.test(lib) && /x\.upload\.onprogress/.test(read("lib/files/upload-video.ts")) && /data-file-pending/.test(lib))
   check("  and one file dropped while picking is the one picked", /if \(mode === "pick" && added\.length === 1 && good\.length === 1\) onPickRef\.current\?\.\(added\[0\]\.url, \{ file: good\[0\] \}\)/.test(lib))
-  check("each tile has a menu: Use, Download, Copy link, Open in Files, Delete (asked first)", ["\"Use this picture\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Delete\""].every((l) => lib.includes(`label: ${l}`)) && /href: `\/app\/files\?file=\$\{encodeURIComponent\(f\.id\)\}`/.test(lib) && /data-file-confirm/.test(lib))
+  check("each tile has a menu: Use, Download, Copy link, Open in Files, Remove from Files (asked first)", ["\"Use this picture\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Remove from Files\""].every((l) => lib.includes(`label: ${l}`)) && /href: `\/app\/files\?file=\$\{encodeURIComponent\(f\.id\)\}`/.test(lib) && /data-file-confirm/.test(lib))
   check("  shown on hover with a mouse and always on a phone", /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:opacity-0 group-hover\/tile:opacity-100/.test(lib))
-  check("Delete goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
+  check("Remove goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body \}\)/.test(lib) && /files: part\.map\(\(f\) => \(\{ bucket: f\.bucket, path: f\.path \}\)\)/.test(lib))
   check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? \(multiple \? "Choose videos" : "Choose a video"\) : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
   check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" kind="media" openId=\{openId\} \/>/.test(read("app/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")

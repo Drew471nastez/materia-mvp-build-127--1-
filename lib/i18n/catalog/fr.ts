@@ -9355,7 +9355,32 @@ const words: Record<string, string> = {
  "{n} from verified buyers": "{n} d'acheteurs vérifiés",
  "{n} imported": "{n} importés",
  "{n} scheduled": "{n} programmées",
- "{n} selected": "{n} sélectionnés"
+ "{n} selected": "{n} sélectionnés",
+ "Removed from Files": "Retiré des Fichiers",
+ "{size} files removed from Files": "{size} fichiers retirés des Fichiers",
+ "Remove from Files": "Retirer des Fichiers",
+ "In use on": "Utilisé sur",
+ "Nowhere yet": "Nulle part pour l'instant",
+ "Delete permanently": "Supprimer définitivement",
+ "Remove from Files?": "Retirer des Fichiers ?",
+ "{name} leaves this list. It keeps playing everywhere you have already used it.": "{name} quitte cette liste. La vidéo continue de se lire partout où vous l'utilisez déjà.",
+ "{name} leaves this list. It keeps showing everywhere you have already used it.": "{name} quitte cette liste. L'image reste affichée partout où vous l'utilisez déjà.",
+ "Remove {n} files from Files?": "Retirer {n} fichiers des Fichiers ?",
+ "They leave this list and keep showing everywhere you have already used them.": "Ils quittent cette liste et restent affichés partout où vous les utilisez déjà.",
+ "Remove {n}": "Retirer {n}",
+ "Delete this file permanently?": "Supprimer ce fichier définitivement ?",
+ "Delete {n} files permanently?": "Supprimer {n} fichiers définitivement ?",
+ "{name} is deleted for good. This cannot be undone.": "{name} est supprimé définitivement. Cette action est irréversible.",
+ "They are deleted for good. This cannot be undone.": "Ils sont supprimés définitivement. Cette action est irréversible.",
+ "Checking where it is used": "Vérification des endroits où il est utilisé",
+ "This picture is in use. Deleting it empties:": "Cette image est utilisée. La supprimer vide :",
+ "These files are in use. Deleting them empties:": "Ces fichiers sont utilisés. Les supprimer vide :",
+ "{label} ({count} places)": "{label} ({count} endroits)",
+ "Some places could not be checked, so there may be more.": "Certains endroits n'ont pas pu être vérifiés, il peut donc y en avoir d'autres.",
+ "Where this is used could not be checked.": "Impossible de vérifier où ceci est utilisé.",
+ "Nothing in your store points at it.": "Rien dans votre boutique ne pointe vers elle.",
+ "Nothing in your store points at them.": "Rien dans votre boutique ne pointe vers eux.",
+ "Some places could not be checked.": "Certains endroits n'ont pas pu être vérifiés."
 }
 
 export default words

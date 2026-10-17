@@ -50,11 +50,28 @@
  *
  * THE THREE DOTS. One menu for the whole grid, not one per tile: on a
  * computer a dropdown held against the dots that were pressed, on a phone
- * the shared action sheet. Preview, Copy link, Download and Delete, each the
- * real thing (app/api/files for the delete, the file's own public address for
- * the rest), and while picking, Open in Files (/app/files?file=<id>, where
- * that file's details open). There is no Rename: a file's name is its
- * address, so renaming it would empty every page that shows it.
+ * the shared action sheet. Preview, Copy link, Download and Remove from
+ * Files, each the real thing (app/api/files for the removal, the file's own
+ * public address for the rest), and while picking, Open in Files
+ * (/app/files?file=<id>, where that file's details open). There is no
+ * Rename: a file's name is its address, so renaming it would empty every
+ * page that shows it.
+ *
+ * TWO DIFFERENT THINGS, TWO SETS OF WORDS.
+ *
+ *   REMOVE FROM FILES takes the file out of this list and leaves the object
+ *   where it is, so the store logo, the receipts, the website sections, the
+ *   product photos, the course videos and the checkout icons that point at
+ *   it keep drawing (lib/files/assets.ts). The dialog says so, and names
+ *   where the file is in use.
+ *
+ *   DELETE PERMANENTLY deletes the bytes. Its own dialog, which first asks
+ *   the server where the file is used (lib/files/references.ts) and lists
+ *   every place that will empty. The button cannot be pressed until that
+ *   answer is in.
+ *
+ * A file's details panel shows where it is in use beside its size and type,
+ * so the answer is read before either button is reached.
  *
  * WHAT THE BUILDER'S FIELDS GET FROM IT
  *
@@ -928,6 +945,8 @@ export function FilesLibrary({
   const [open, setOpen] = React.useState<LibraryFile | null>(null)
   const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
   const [confirmingMany, setConfirmingMany] = React.useState<LibraryFile[] | null>(null)
+  /* "Delete permanently": its own dialog, because it makes its own promise. */
+  const [purging, setPurging] = React.useState<LibraryFile[] | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [pending, setPending] = React.useState<Pending[]>([])
   const [dragOver, setDragOver] = React.useState(false)
@@ -1071,29 +1090,27 @@ export function FilesLibrary({
     if (f) setOpen(f)
   }, [openId, files])
 
-  const remove = async (f: LibraryFile) => {
-    setDeleting(true)
-    const r = await api("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
-    setDeleting(false)
-    if ("error" in r) {
-      toast.error(r.error)
-      return
-    }
-    setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
-    if (tickedRef.current.includes(f.id)) setTicked(tickedRef.current.filter((id) => id !== f.id))
-    setConfirming(null)
-    setOpen((o) => (o?.id === f.id ? null : o))
-    toast.success(tt("Deleted"))
-  }
+  /*
+    TAKEN OUT OF THE LIST, NOT DELETED. The server marks the file removed and
+    leaves the object where it is, so the store logo, the receipts, the
+    website, the product photos and the checkout icons that point at it keep
+    drawing (lib/files/assets.ts). A permanent delete is `permanent: true`,
+    which only the dialog below sends, after it has said what will empty.
 
-  /* Several at once (Files, Select, Delete): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
-  const removeMany = async (list: LibraryFile[]) => {
+    One path for one file and for a hundred, so the two cannot drift.
+  */
+  const send = async (list: LibraryFile[], permanent: boolean): Promise<Set<string>> => {
     setDeleting(true)
     const done = new Set<string>()
     let failed: string | null = null
     for (let i = 0; i < list.length && !failed; i += 100) {
       const part = list.slice(i, i + 100)
-      const r = await api("/api/files", { method: "DELETE", body: { files: part.map((f) => ({ bucket: f.bucket, path: f.path })) } })
+      const body: Record<string, unknown> = { files: part.map((f) => ({ bucket: f.bucket, path: f.path })) }
+      if (permanent) {
+        body.permanent = true
+        body.confirm = "permanent"
+      }
+      const r = await api("/api/files", { method: "DELETE", body })
       if ("error" in r) failed = r.error
       else part.forEach((f) => done.add(f.id))
     }
@@ -1101,11 +1118,48 @@ export function FilesLibrary({
     if (done.size) {
       setFiles((all) => all?.filter((x) => !done.has(x.id)) ?? null)
       setTicked(tickedRef.current.filter((id) => !done.has(id)))
+      setOpen((o) => (o && done.has(o.id) ? null : o))
     }
-    if (failed) {
-      toast.error(failed)
-      return
-    }
+    if (failed) toast.error(failed)
+    return done
+  }
+
+  /*
+    PUT BACK. Nothing was deleted, so the only thing to undo is the list, and
+    the toast is where it belongs: a file taken out by mistake is one press
+    from being back, without a Removed tab nobody would otherwise open.
+  */
+  const putBack = async (list: LibraryFile[]) => {
+    const r = await api("/api/files", { method: "POST", body: { restore: list.map((f) => ({ bucket: f.bucket, path: f.path })) } })
+    if ("error" in r) return toast.error(r.error)
+    setFiles((all) => (all ? [...list.filter((f) => !all.some((x) => x.id === f.id)), ...all] : all))
+    void load()
+  }
+  const undo = (list: LibraryFile[]) => ({ action: { label: tt("Undo"), onClick: () => void putBack(list) } })
+
+  const remove = async (f: LibraryFile) => {
+    const done = await send([f], false)
+    if (done.size === 0) return
+    setConfirming(null)
+    toast.success(tt("Removed from Files"), undo([f]))
+  }
+
+  /* Several at once (Files, Select, Remove): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
+  const removeMany = async (list: LibraryFile[]) => {
+    const done = await send(list, false)
+    if (done.size === 0) return
+    setConfirmingMany(null)
+    stopSelecting()
+    const back = list.filter((f) => done.has(f.id))
+    toast.success(done.size === 1 ? tt("Removed from Files") : tt("{size} files removed from Files", { size: done.size }), undo(back))
+  }
+
+  /* The bytes go. Only from the dialog that listed where the file is used. */
+  const purgeNow = async (list: LibraryFile[]) => {
+    const done = await send(list, true)
+    if (done.size === 0) return
+    setPurging(null)
+    setConfirming(null)
     setConfirmingMany(null)
     stopSelecting()
     toast.success(done.size === 1 ? tt("Deleted") : tt("{size} files deleted", { size: done.size }))
@@ -1255,7 +1309,7 @@ export function FilesLibrary({
       { label: tt("Copy link"), icon: <Copy />, onClick: () => copyLink(f) },
       { label: tt("Download"), icon: <Download />, onClick: () => void downloadFile(f) },
       ...inFiles,
-      { label: tt("Delete"), icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
+      { label: tt("Remove from Files"), icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
     ]
   }, [menu, mode, pickFile, selecting, tick, tickedSet])
   const groups = React.useMemo(() => groupsOf(items), [items])
@@ -1430,7 +1484,7 @@ export function FilesLibrary({
             {ticked.length > 0 ? (
               <button type="button" className={cn(BTN_DANGER, "h-9 shrink-0 gap-1.5 px-3")} onClick={() => setConfirmingMany(tickedFiles())} data-files-bulk-delete="">
                 <Trash2 className="h-4 w-4" aria-hidden />
-                {tt("Delete")}
+                {tt("Remove")}
               </button>
             ) : null}
           </div>
@@ -1509,22 +1563,33 @@ export function FilesLibrary({
           } else pickFile(f)
         }}
         onDelete={(f) => setConfirming(f)}
+        onDeleteForever={(f) => setPurging([f])}
       />
-      <ConfirmDelete
+      <ConfirmRemove
         file={confirming}
         busy={deleting}
         onClose={() => {
           if (!deleting) setConfirming(null)
         }}
         onConfirm={(f) => void remove(f)}
+        onDeleteForever={(f) => setPurging([f])}
       />
-      <ConfirmDeleteMany
+      <ConfirmRemoveMany
         files={confirmingMany}
         busy={deleting}
         onClose={() => {
           if (!deleting) setConfirmingMany(null)
         }}
         onConfirm={(list) => void removeMany(list)}
+        onDeleteForever={(list) => setPurging(list)}
+      />
+      <ConfirmDeleteForever
+        files={purging}
+        busy={deleting}
+        onClose={() => {
+          if (!deleting) setPurging(null)
+        }}
+        onConfirm={(list) => void purgeNow(list)}
       />
     </div>
   )
@@ -1553,9 +1618,29 @@ function useLastOpen<T>(value: T | null): T | null {
 
 /* ── A picture's details ────────────────────────────────────────────────── */
 
-function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }: { file: LibraryFile | null; mode: "manage" | "pick"; selecting?: boolean; onClose: () => void; onUse: (f: LibraryFile) => void; onDelete: (f: LibraryFile) => void }) {
+function FileDetails({
+  file,
+  mode,
+  selecting = false,
+  onClose,
+  onUse,
+  onDelete,
+  onDeleteForever,
+}: {
+  file: LibraryFile | null
+  mode: "manage" | "pick"
+  selecting?: boolean
+  onClose: () => void
+  onUse: (f: LibraryFile) => void
+  onDelete: (f: LibraryFile) => void
+  onDeleteForever: (f: LibraryFile) => void
+}) {
   const phone = usePhoneNow()
   const f = useLastOpen(file)
+  /* Where this one is used, asked for when the panel opens. */
+  const one = React.useMemo(() => (file && mode !== "pick" ? [file] : null), [file, mode])
+  const found = useFileUses(one)
+  const uses = f ? found.uses[f.id] ?? [] : []
   return (
     <SheetDialog
       open={!!file}
@@ -1600,10 +1685,15 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
                   [tt("Type"), (f.type ?? "").replace(/^(image|video)\//, "").toUpperCase() || noun(f)],
                   [tt("Uploaded"), dateText(f.createdAt)],
                   [tt("From"), f.source],
+                  /* Where it is used, beside the size and the type, so it is read before the button is reached. */
+                  ...(mode === "pick" ? [] : [[tt("In use on"), found.state !== "in" ? tt("Checking") : uses.length > 0 ? usesText(uses) : tt("Nowhere yet")] as [string, string]]),
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[12px] font-medium text-[#9ca3af]">{k}</dt>
-                    <dd className="break-all text-[#1a1a2e]">{v}</dd>
+                    {/* An address breaks anywhere; a list of places breaks between words, not inside "Product". */}
+                    <dd className={cn("text-[#1a1a2e]", k === tt("In use on") ? "break-words" : "break-all")} data-file-detail={k === tt("In use on") ? "uses" : undefined}>
+                      {v}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -1623,8 +1713,13 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
                 </button>
                 <button type="button" className={cn(BTN_DANGER, "w-full gap-1.5")} onClick={() => onDelete(f)}>
                   <Trash2 className="h-4 w-4" aria-hidden />
-                  {tt("Delete")}
+                  {tt("Remove from Files")}
                 </button>
+                {mode === "pick" ? null : (
+                  <button type="button" className="w-full rounded-lg py-1.5 text-[13px] font-medium text-[#b42318] hover:bg-[#fef3f2]" onClick={() => onDeleteForever(f)} data-file-details-forever="">
+                    {tt("Delete permanently")}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1634,33 +1729,117 @@ function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }
   )
 }
 
-/* ── Asked before a delete ──────────────────────────────────────────────── */
+/* ── Where a file is used, asked for when a dialog opens ────────────────── */
 
-function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile | null; busy: boolean; onClose: () => void; onConfirm: (f: LibraryFile) => void }) {
+export interface FileUse {
+  label: string
+  count: number
+}
+
+/**
+ * WHAT WILL EMPTY IF THE BYTES GO. The server answers by name
+ * (lib/files/references.ts): "Store logo, receipts and emails",
+ * "Website sections", "Product photos". Asked for when a dialog opens, one
+ * request for the whole selection.
+ *
+ * `state` is "asking" until the answer is in, so a dialog never says
+ * "nowhere" before it knows. `unsure` means a surface could not be read:
+ * the dialog says the list may not be complete rather than inventing a
+ * clean one.
+ */
+function useFileUses(files: LibraryFile[] | null): { state: "idle" | "asking" | "in"; uses: Record<string, FileUse[]>; unsure: boolean } {
+  const [out, setOut] = React.useState<{ state: "idle" | "asking" | "in"; uses: Record<string, FileUse[]>; unsure: boolean }>({ state: "idle", uses: {}, unsure: false })
+  const key = files && files.length > 0 ? files.map((f) => f.id).join("|") : ""
+  const now = React.useRef<LibraryFile[] | null>(files)
+  now.current = files
+  React.useEffect(() => {
+    if (!key) return
+    const list = (now.current ?? []).slice(0, 100)
+    if (list.length === 0) return
+    let live = true
+    setOut({ state: "asking", uses: {}, unsure: false })
+    void api<{ uses?: Record<string, { uses?: FileUse[]; unreadable?: string[] }> }>("/api/files", {
+      method: "POST",
+      body: { uses: list.map((f) => ({ bucket: f.bucket, path: f.path })) },
+    }).then((r) => {
+      if (!live) return
+      if ("error" in r) return setOut({ state: "in", uses: {}, unsure: true })
+      const answer = r.data.uses ?? {}
+      const uses: Record<string, FileUse[]> = {}
+      let unsure = false
+      for (const [id, found] of Object.entries(answer)) {
+        const entry = found as { uses?: FileUse[]; unreadable?: string[] } | null
+        uses[id] = entry && Array.isArray(entry.uses) ? entry.uses : []
+        if ((entry?.unreadable?.length ?? 0) > 0) unsure = true
+      }
+      setOut({ state: "in", uses, unsure })
+    })
+    return () => {
+      live = false
+    }
+  }, [key])
+  return key ? out : { state: "idle", uses: {}, unsure: false }
+}
+
+/** "Store logo, receipts and emails (1), Website sections (2)". */
+function usesText(uses: FileUse[]): string {
+  return uses.map((u) => (u.count > 1 ? `${u.label} (${u.count})` : u.label)).join(", ")
+}
+
+/** Every place any file in the selection is used, counted once per place. */
+function usesAcross(list: readonly LibraryFile[], uses: Record<string, FileUse[]>): FileUse[] {
+  const byLabel = new Map<string, number>()
+  for (const f of list) for (const u of uses[f.id] ?? []) byLabel.set(u.label, (byLabel.get(u.label) ?? 0) + u.count)
+  return [...byLabel.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+}
+
+/* ── Asked before a file leaves the list ────────────────────────────────── */
+
+/**
+ * REMOVE FROM FILES. The words say what happens: the file leaves this list
+ * and stays wherever it is already used. Nothing is deleted, so there is
+ * nothing here to warn about; what the dialog does say is where the file is
+ * in use, because that is what the person wanted to know before pressing.
+ */
+function ConfirmRemove({ file, busy, onClose, onConfirm, onDeleteForever }: { file: LibraryFile | null; busy: boolean; onClose: () => void; onConfirm: (f: LibraryFile) => void; onDeleteForever: (f: LibraryFile) => void }) {
   const phone = usePhoneNow()
   const f = useLastOpen(file)
+  const one = React.useMemo(() => (file ? [file] : null), [file])
+  const found = useFileUses(one)
+  const uses = f ? found.uses[f.id] ?? [] : []
+  const title = tt("Remove from Files?")
   return (
     <SheetDialog
       open={!!file}
       onClose={onClose}
       phone={phone}
-      label={f && isVideo(f) ? tt("Delete this video?") : tt("Delete this picture?")}
+      label={title}
       showCloseButton={false}
-      className="max-w-[420px] gap-0 rounded-2xl p-6"
+      className="max-w-[440px] gap-0 rounded-2xl p-6"
       sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
     >
       {f ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm="">
-          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{isVideo(f) ? tt("Delete this video?") : tt("Delete this picture?")}</SheetDialogTitle>
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
           <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
-            {f.source === "Library" ? tt("{name} is removed from your files.", { name: f.name }) : tt("{name} is removed from your files, and anything that still shows it will show nothing.", { name: f.name })}
+            {isVideo(f) ? tt("{name} leaves this list. It keeps playing everywhere you have already used it.", { name: f.name }) : tt("{name} leaves this list. It keeps showing everywhere you have already used it.", { name: f.name })}
           </p>
-          <div className="mt-5 flex gap-2 sm:justify-end">
+          {uses.length > 0 ? <UsesNote lines={uses} unsure={found.unsure} /> : null}
+          <div className="mt-5 flex flex-wrap items-center gap-2 sm:justify-end">
+            <button
+              type="button"
+              className="mr-auto h-9 rounded-lg px-2 text-[13px] font-medium text-[#b42318] hover:bg-[#fef3f2] max-sm:order-last max-sm:mr-0 max-sm:w-full"
+              onClick={() => onDeleteForever(f)}
+              disabled={busy}
+              data-file-delete-forever=""
+            >
+              {tt("Delete permanently")}
+            </button>
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
               {tt("Cancel")}
             </button>
-            <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(f)} disabled={busy} data-file-confirm-delete="">
-              {busy ? tt("Deleting") : tt("Delete")}
+            <button type="button" className={cn(BTN_PRIMARY, "max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(f)} disabled={busy} data-file-confirm-delete="">
+              {busy ? tt("Removing") : tt("Remove")}
             </button>
           </div>
         </div>
@@ -1669,12 +1848,26 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
   )
 }
 
-/** Several at once (Files, Select): how many, and that anything still showing them will show nothing. */
-function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: LibraryFile[] | null; busy: boolean; onClose: () => void; onConfirm: (list: LibraryFile[]) => void }) {
+/** Several at once (Files, Select): how many leave the list, and where they are in use. */
+function ConfirmRemoveMany({
+  files,
+  busy,
+  onClose,
+  onConfirm,
+  onDeleteForever,
+}: {
+  files: LibraryFile[] | null
+  busy: boolean
+  onClose: () => void
+  onConfirm: (list: LibraryFile[]) => void
+  onDeleteForever: (list: LibraryFile[]) => void
+}) {
   const phone = usePhoneNow()
   const list = useLastOpen(files)
   const n = list?.length ?? 0
-  const title = n === 1 ? tt("Delete this file?") : tt("Delete {n} files?", { n })
+  const found = useFileUses(files)
+  const lines = list ? usesAcross(list, found.uses) : []
+  const title = n === 1 ? tt("Remove from Files?") : tt("Remove {n} files from Files?", { n })
   return (
     <SheetDialog
       open={!!files}
@@ -1682,24 +1875,118 @@ function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: Library
       phone={phone}
       label={title}
       showCloseButton={false}
-      className="max-w-[420px] gap-0 rounded-2xl p-6"
+      className="max-w-[440px] gap-0 rounded-2xl p-6"
       sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
     >
       {list ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm-many="">
           <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
-          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">{tt("They are removed from your files, and anything that still shows one of them will show nothing.")}</p>
-          <div className="mt-5 flex gap-2 sm:justify-end">
+          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">{tt("They leave this list and keep showing everywhere you have already used them.")}</p>
+          {lines.length > 0 ? <UsesNote lines={lines} unsure={found.unsure} /> : null}
+          <div className="mt-5 flex flex-wrap items-center gap-2 sm:justify-end">
+            <button
+              type="button"
+              className="mr-auto h-9 rounded-lg px-2 text-[13px] font-medium text-[#b42318] hover:bg-[#fef3f2] max-sm:order-last max-sm:mr-0 max-sm:w-full"
+              onClick={() => onDeleteForever(list)}
+              disabled={busy}
+              data-file-delete-forever-many=""
+            >
+              {tt("Delete permanently")}
+            </button>
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
               {tt("Cancel")}
             </button>
-            <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(list)} disabled={busy} data-file-confirm-delete-many="">
-              {busy ? tt("Deleting") : n === 1 ? tt("Delete") : tt("Delete {n}", { n })}
+            <button type="button" className={cn(BTN_PRIMARY, "max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(list)} disabled={busy} data-file-confirm-delete-many="">
+              {busy ? tt("Removing") : n === 1 ? tt("Remove") : tt("Remove {n}", { n })}
             </button>
           </div>
         </div>
       ) : null}
     </SheetDialog>
+  )
+}
+
+/**
+ * DELETE PERMANENTLY. The only button in Files that deletes anything, and it
+ * names what will empty before it does: every place that still points at the
+ * file, with how many. It waits for that answer before it can be pressed, so
+ * nobody can delete a logo in the half second before the list arrives.
+ */
+function ConfirmDeleteForever({ files, busy, onClose, onConfirm }: { files: LibraryFile[] | null; busy: boolean; onClose: () => void; onConfirm: (list: LibraryFile[]) => void }) {
+  const phone = usePhoneNow()
+  const list = useLastOpen(files)
+  const n = list?.length ?? 0
+  const found = useFileUses(files)
+  const lines = list ? usesAcross(list, found.uses) : []
+  const asking = found.state !== "in"
+  const title = n === 1 ? tt("Delete this file permanently?") : tt("Delete {n} files permanently?", { n })
+  return (
+    <SheetDialog
+      open={!!files}
+      onClose={onClose}
+      phone={phone}
+      label={title}
+      showCloseButton={false}
+      className="max-w-[440px] gap-0 rounded-2xl p-6"
+      sheet={{ zIndex: OVER_SHEET_Z + 20, fill: false, aboveKeyboard: false, dismissible: !busy }}
+    >
+      {list ? (
+        <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm-forever="">
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
+          <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
+            {n === 1 && list[0] ? tt("{name} is deleted for good. This cannot be undone.", { name: list[0].name }) : tt("They are deleted for good. This cannot be undone.")}
+          </p>
+          {asking ? (
+            <p className="mt-3 text-[13px] text-[#6b7280]" data-file-uses-asking="">
+              {tt("Checking where it is used")}
+            </p>
+          ) : lines.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-[#fecdca] bg-[#fef3f2] p-3" data-file-uses-breaks="">
+              <p className="text-[13px] font-semibold text-[#912018]">{n === 1 ? tt("This picture is in use. Deleting it empties:") : tt("These files are in use. Deleting them empties:")}</p>
+              <ul className="mt-1.5 space-y-0.5 text-[13px] leading-[18px] text-[#b42318]">
+                {lines.map((u) => (
+                  <li key={u.label}>{u.count > 1 ? tt("{label} ({count} places)", { label: u.label, count: u.count }) : u.label}</li>
+                ))}
+              </ul>
+              {found.unsure ? <p className="mt-1.5 text-[12px] text-[#b42318]">{tt("Some places could not be checked, so there may be more.")}</p> : null}
+            </div>
+          ) : found.unsure ? (
+            <p className="mt-3 text-[13px] text-[#b42318]" data-file-uses-unsure="">
+              {tt("Where this is used could not be checked.")}
+            </p>
+          ) : (
+            <p className="mt-3 text-[13px] text-[#6b7280]" data-file-uses-none="">
+              {n === 1 ? tt("Nothing in your store points at it.") : tt("Nothing in your store points at them.")}
+            </p>
+          )}
+          <div className="mt-5 flex gap-2 sm:justify-end">
+            <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
+              {tt("Cancel")}
+            </button>
+            <button
+              type="button"
+              className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")}
+              onClick={() => onConfirm(list)}
+              disabled={busy || asking}
+              data-file-confirm-forever=""
+            >
+              {busy ? tt("Deleting") : tt("Delete permanently")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </SheetDialog>
+  )
+}
+
+/** Where a file is in use, said plainly, in the dialog that is not deleting anything. */
+function UsesNote({ lines, unsure }: { lines: FileUse[]; unsure: boolean }) {
+  return (
+    <div className="mt-3 rounded-xl bg-[#f8f9fa] p-3" data-file-uses="">
+      <p className="text-[12px] font-medium text-[#9ca3af]">{tt("In use on")}</p>
+      <p className="mt-0.5 text-[13px] leading-[18px] text-[#1a1a2e]">{usesText(lines)}</p>
+      {unsure ? <p className="mt-1 text-[12px] text-[#6b7280]">{tt("Some places could not be checked.")}</p> : null}
+    </div>
   )
 }
 

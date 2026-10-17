@@ -9,7 +9,8 @@
  *
  *   PHONE    390x844, touch, the CPU slowed four times. Open, a drag that
  *            follows the finger and is let go, a pill switch, a scroll of the
- *            grid, the three dots, Delete and its confirm, a flick closed.
+ *            grid, the three dots, Remove from Files and its confirm (with
+ *            where the file is in use on it), a flick closed.
  *   COMPUTER 1440x900. Open, the three dots' dropdown, a pill switch, Escape.
  *   CHECKS   at both sizes: the window's and the sheet's size, where the
  *            dropdown opens against its dots (and that it stays in the
@@ -18,7 +19,7 @@
  *            storage leaving the grid, one that will not decode showing a
  *            clean placeholder, never the broken picture.
  *   SEVERAL  ?multi=3: ticks in order, the bar's words, the limit, Add.
- *            ?manage=1: Files, Select, Delete on two at once.
+ *            ?manage=1: Files, Select, Remove on two at once.
  *
  * For each it prints the longest gap between frames and how many were over
  * 20ms, and for the drag how far the sheet was from the finger on every
@@ -94,6 +95,25 @@ const server = createServer(async (req, res) => {
   if (u.pathname.startsWith("/src/")) { const p = SOURCES[Number(u.pathname.slice(5))]; res.setHeader("content-type", p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : "image/jpeg"); return res.end(readFileSync(join(root, p))) }
   if (u.pathname === "/api/files") {
     if (req.method === "DELETE") { let b = ""; for await (const c of req) b += c; deleted.push(JSON.parse(b)); await wait(150); res.setHeader("content-type", "application/json"); return res.end('{"ok":true}') }
+    /* Round 27: where each file is used, which the dialogs ask for before they
+       say anything (lib/files/references.ts). The one the phone run removes is
+       on the store logo and two product pages, so the note is on screen. */
+    if (req.method === "POST") {
+      let b = ""
+      for await (const c of req) b += c
+      const asking = (() => { try { return JSON.parse(b) } catch { return {} } })()
+      await wait(120)
+      res.setHeader("content-type", "application/json")
+      if (!Array.isArray(asking.uses)) return res.end('{"ok":true}')
+      const uses = {}
+      for (const f of asking.uses) {
+        const id = `${f.bucket}:${f.path}`
+        uses[id] = f.path.includes("/site/")
+          ? { uses: [{ key: "store-logo", label: "Store logo, receipts and emails", count: 1 }, { key: "product-page", label: "Product page", count: 2 }], total: 3, unreadable: [] }
+          : { uses: [], total: 0, unreadable: [] }
+      }
+      return res.end(JSON.stringify({ uses }))
+    }
     await wait(250)
     res.setHeader("content-type", "application/json")
     return res.end(JSON.stringify({ files: files.filter((f) => !deleted.some((d) => d.path === f.path || d.files?.some((x) => x.path === f.path))) }))
@@ -415,21 +435,25 @@ if (!ONLY || ONLY === "phone") {
   await page.evaluate(() => { document.querySelector("[data-files-scroll]").scrollTop = 0 })
   await wait(300)
 
-  /* The three dots, Delete, its confirm. */
+  /* The three dots, Remove from Files, its confirm. */
   const DEL = '[data-file-tile="store-builder-images:u1/site/1.jpg"]'
   const dots = await film(s, "menu", async () => { await page.tap(`${DEL} [data-file-menu]`) }, 700)
   report(dots.result)
   const rows = await page.evaluate(() => Array.from(document.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")).map((b) => b.textContent.trim()))
   console.log(`  menu rows: ${rows.join(", ")}`)
   const target = await page.evaluate((sel) => document.querySelector(sel).getAttribute("data-file-tile"), DEL)
-  await page.evaluate(() => Array.from(document.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")).find((b) => b.textContent.trim() === "Delete").click())
+  await page.evaluate(() => Array.from(document.querySelectorAll("[data-action-sheet] button, [data-action-sheet] a")).find((b) => b.textContent.trim() === "Remove from Files").click())
   await page.waitForSelector("[data-file-confirm-delete]", { timeout: 4000 })
+  await page.waitForSelector("[data-file-uses]", { timeout: 4000 })
   await wait(600)
   await page.screenshot({ path: join(OUT, "phone-confirm.png") })
+  const usesNote = await page.evaluate(() => document.querySelector("[data-file-uses]")?.textContent.trim())
+  note((usesNote ?? "").includes("Store logo, receipts and emails"), `phone: the removal dialog names where the file is in use: "${usesNote}"`)
   await page.tap("[data-file-confirm-delete]")
   await wait(900)
   const gone = await page.evaluate((id) => !document.querySelector(`[data-file-tile="${CSS.escape(id)}"]`), target)
-  console.log(`  delete: API called with ${JSON.stringify(deleted.at(-1))}, tile gone: ${gone}, toasts: ${JSON.stringify(await page.evaluate(() => window.__toasts || []))}`)
+  console.log(`  remove: API called with ${JSON.stringify(deleted.at(-1))}, tile gone: ${gone}, toasts: ${JSON.stringify(await page.evaluate(() => window.__toasts || []))}`)
+  note(deleted.at(-1)?.permanent !== true, `phone: the removal does NOT ask for a permanent delete (permanent: ${JSON.stringify(deleted.at(-1)?.permanent)})`)
 
   /* A flick down from the handle closes it. */
   const h2 = await page.evaluate(() => { const r = document.querySelector("[data-files-chooser]").closest("[data-sheet-panel]").querySelector("[data-sheet-handle]").getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
@@ -594,6 +618,34 @@ if (!ONLY) {
   const { page } = s
   await page.waitForSelector("[data-files-grid] img[data-loaded]", { timeout: 30000 })
   await wait(500)
+  /*
+    ROUND 27: the two buttons are different things and say so. A tile's
+    details name where the file is in use; "Delete permanently" opens its own
+    dialog, which cannot be pressed until the server has said what will empty.
+  */
+  const first = await page.evaluate(() => document.querySelector('[data-file-tile*="/site/"]')?.getAttribute("data-file-tile"))
+  await page.click(`[data-file-tile="${first}"] [data-file]`)
+  await page.waitForSelector("[data-file-details]", { timeout: 4000 })
+  await page.waitForFunction(() => document.querySelector('[data-file-detail="uses"]')?.textContent.trim() !== "Checking", { timeout: 6000 })
+  await wait(200)
+  await page.screenshot({ path: join(OUT, "desk-file-details.png") })
+  const detailUses = await page.evaluate(() => document.querySelector('[data-file-detail="uses"]')?.textContent.trim())
+  note((detailUses ?? "").includes("Store logo"), `computer: a file's details say where it is in use: "${detailUses}"`)
+  await page.click("[data-file-details-forever]")
+  await page.waitForSelector("[data-file-confirm-forever]", { timeout: 4000 })
+  const lockedWhileAsking = await page.evaluate(() => document.querySelector("[data-file-confirm-forever]")?.disabled === true || !!document.querySelector("[data-file-uses-asking]"))
+  await page.waitForFunction(() => !document.querySelector("[data-file-uses-asking]"), { timeout: 6000 })
+  await wait(250)
+  await page.screenshot({ path: join(OUT, "desk-delete-forever.png") })
+  const breaks = await page.evaluate(() => document.querySelector("[data-file-uses-breaks]")?.textContent.trim())
+  const beforeForever = deleted.length
+  note(lockedWhileAsking && (breaks ?? "").includes("Store logo, receipts and emails") && deleted.length === beforeForever,
+    `computer: Delete permanently waits for the answer and names what it empties: ${JSON.stringify(breaks)}`)
+  await page.evaluate(() => Array.from(document.querySelectorAll("[data-file-confirm-forever]")).length && document.querySelectorAll('[data-file-confirm-forever]')[0].closest("div").querySelector("button").click())
+  await wait(400)
+  await page.keyboard.press("Escape")
+  await wait(300)
+
   await page.click("[data-files-select]")
   const ids = await page.evaluate(() => Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])")).slice(0, 3).map((l) => l.getAttribute("data-file-tile")))
   await page.click(`[data-file-tile="${ids[0]}"] [data-file]`)
@@ -609,7 +661,7 @@ if (!ONLY) {
   await wait(900)
   const sent = deleted.slice(before)
   const gone = await page.evaluate((ids) => ids.every((id) => !document.querySelector(`[data-file-tile="${CSS.escape(id)}"]`)), [ids[0], ids[2]])
-  note(title === "Delete 2 files?" && sent.length === 1 && sent[0].files?.length === 2 && gone, `computer: Files, Select, Delete: "${title}", one request for ${sent[0]?.files?.length} files, both tiles gone: ${gone}`)
+  note(title === "Remove 2 files from Files?" && sent.length === 1 && sent[0].files?.length === 2 && sent[0].permanent !== true && gone, `computer: Files, Select, Remove: "${title}", one request for ${sent[0]?.files?.length} files, nothing deleted, both tiles gone: ${gone}`)
   console.log(`  errors: ${JSON.stringify(await page.evaluate(() => window.__err))}`)
   await page.close()
 }

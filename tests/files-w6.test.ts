@@ -113,7 +113,7 @@ async function main() {
   check("a press ticks, in order, up to the limit", /if \(limit !== undefined && now\.length >= limit\)/.test(lib) && /setTicked\(\[\.\.\.now, f\.id\]\)/.test(lib))
   check("one bar adds them all", /data-files-add=""/.test(lib) && /Add \{count\} \{count === 1 \? nouns\[0\] : nouns\[1\]\}/.test(lib))
   check("each opening starts with nothing ticked", /if \(open\) setRound\(\(r\) => r \+ 1\)/.test(lib) && /if \(resetKey !== undefined\) setTicked\(\[\]\)/.test(lib))
-  check("Files has Select, with Download (a zip) and Delete on several", /data-files-select=""/.test(lib) && /import\("jszip"\)/.test(lib) && /body: \{ files: part\.map/.test(lib))
+  check("Files has Select, with Download (a zip) and Remove on several", /data-files-select=""/.test(lib) && /import\("jszip"\)/.test(lib) && /files: part\.map\(\(f\) => \(\{ bucket: f\.bucket, path: f\.path \}\)\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("a list's add field opens the chooser for several", /multiple=\{!!onAddMany && !url\}/.test(picker) && /onPickMany=\{picks => onAddMany\?\.\(picks\.map\(p => p\.url\)\)\}/.test(picker))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
@@ -122,7 +122,10 @@ async function main() {
   /* Round H3: photos and videos, each up to its own limit (addFromFiles holds each kind to its room). */
   check("a product's photos and videos can come from your files, several at once, up to the limits", /<FilesLibraryChooser[\s\S]{0,120}multiple[\s\S]{0,40}kind="media"[\s\S]{0,40}max=\{Math\.max\(0, MAX_PHOTOS - existingImages - pendingMedia\.length\) \+ Math\.max\(0, MAX_VIDEO_FILES/.test(product) && /onPickMany=\{addFromFiles\}/.test(product))
 
-  console.log("\nDeleting several")
+  /* ROUND 27: several at once leave the LIST; no object is deleted, so a
+     product photo, a website picture or a logo among them keeps drawing
+     (lib/files/assets.ts). tests/files-retention.test.ts pins each surface. */
+  console.log("\nRemoving several")
   const removed: string[][] = []
   const del = fakeAdmin({}, removed)
   const theirs = await deleteLibraryFiles(del, owner, [{ bucket: "store-builder-images", path: "user-1/files/a.png" }, { bucket: "store-builder-images", path: "user-2/files/b.png" }])
@@ -132,10 +135,13 @@ async function main() {
     { bucket: "product-images", path: "creator-1/p/b.png" },
     { bucket: "store-builder-images", path: "user-1/hero/c.png" },
   ])
-  check("their own are removed, one storage call per bucket", mine.ok && mine.removed === 3 && removed.length === 2 && removed[0].length === 2, removed)
+  /* This fake admin is storage only: with no database to write "removed" to
+     and no reference check to ask, the request refuses and NO object goes.
+     The happy path is tests/files-retention.test.ts, with the fake database. */
+  check("their own are never hard deleted: no storage call is made", !mine.ok && removed.length === 0, { mine, removed })
   check("an empty or huge list is refused", !(await deleteLibraryFiles(del, owner, [])).ok && !(await deleteLibraryFiles(del, owner, Array.from({ length: 101 }, () => ({ bucket: "store-builder-images", path: "user-1/files/a.png" })))).ok)
   const route = read("app/api/files/route.ts")
-  check("the API takes { files } as well as one", /if \(body && Array\.isArray\(body\.files\)\)/.test(route) && /deleteLibraryFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, body\.files\)/.test(route))
+  check("the API takes { files } as well as one", /body && Array\.isArray\(body\.files\)/.test(route) && /removeFromLibrary\(c\.db, owner, list\)/.test(route))
 
   console.log("\nCopy")
   const words = [["un", "lock"], ["ele", "vate"], ["seam", "less"], ["power", "ful"], ["effort", "less"], ["super", "charge"], ["trans", "form"]].map((w) => w.join(""))
