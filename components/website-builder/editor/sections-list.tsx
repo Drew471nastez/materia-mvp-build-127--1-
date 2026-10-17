@@ -291,6 +291,24 @@ export function SectionRow({
           press.current.fired = true
           lastHeld.current = Date.now()
           hapticTap("medium")
+          /*
+            The click the lift sends lands where the finger was, which is now
+            the sheet's scrim: it would close the menu it just opened. That
+            one click is swallowed, wherever it lands.
+          */
+          /* A browser that sends no click after a hold: the next press is a press of its own. */
+          const done = () => {
+            document.removeEventListener("click", swallow, true)
+            document.removeEventListener("pointerdown", done, true)
+          }
+          const swallow = (ev: MouseEvent) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            done()
+          }
+          document.addEventListener("click", swallow, true)
+          document.addEventListener("pointerdown", done, true)
+          window.setTimeout(done, 1500)
           openAt(x, y, row)
         }, LONG_PRESS_MS)
         press.current = { x, y, timer, fired: false }

@@ -19,6 +19,11 @@ declare global {
   interface Window { __log: string[] }
 }
 window.__log = []
+/* What the pointer did, for the check to report when a press does not land. */
+;(window as unknown as { __ev: string[] }).__ev = []
+for (const type of ["pointerdown", "pointerup", "pointercancel", "contextmenu", "click"]) {
+  document.addEventListener(type, (e) => (window as unknown as { __ev: string[] }).__ev.push(`${type}:${(e as PointerEvent).pointerType ?? ""}`), true)
+}
 
 /* The apps route, answered here: Reviews is off, so Add section says so. */
 const realFetch = window.fetch.bind(window)

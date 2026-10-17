@@ -123,6 +123,7 @@ async function main() {
   check("a right click opens it at the pointer", /onContextMenu=\{\(e\) => \{[\s\S]{0,320}openAt\(e\.clientX, e\.clientY, e\.currentTarget\)/.test(list) && /box: \{ left: x, top: y, width: 1, height: 1 \}, phone: isPhone\(\), align: "start"/.test(list))
   check("a long press opens it too, and a moving finger is a scroll", /LONG_PRESS_MS = 480/.test(list) && /e\.pointerType === "mouse"/.test(list) && /> LONG_PRESS_SLOP\) endPress\(\)/.test(list))
   check("and the lift after a long press does not open the section", /onClickCapture=\{\(e\) => \{[\s\S]{0,200}press\.current\?\.fired/.test(list))
+  check("nor close the sheet it opened: that one click is swallowed, and only that one", /document\.addEventListener\("click", swallow, true\)/.test(list) && /document\.addEventListener\("pointerdown", done, true\)/.test(list))
   check("Shift+F10 and the context menu key open it from the keyboard", /e\.key === "ContextMenu" \|\| \(e\.shiftKey && e\.key === "F10"\)/.test(list))
   check("one menu for the whole list, a sheet on a phone", /<ActionMenuAt at=\{menu\?\.place \?\? null\}/.test(list) && /\(max-width: 767px\)/.test(list) && !/<DropdownMenu /.test(list))
   const html = renderToStaticMarkup(createElement(SectionsList, {

@@ -144,16 +144,18 @@ console.log("\nA computer, 1280 × 800")
   await page.keyboard.press("Escape")
   await sleep(200)
 
-  /* The dots: hover the row, press them. */
-  await page.mouse.move(x, y)
-  await sleep(100)
+  /* The dots: on the open row they always show. */
+  await page.mouse.click(x, y)
+  await sleep(150)
   const dots = await rect(page, '[data-section-more="hero-1"]')
+  console.log(`        dots at ${r1(dots.left)},${r1(dots.top)} ${dots.width}×${dots.height}`)
   await page.mouse.click(dots.left + dots.width / 2, dots.top + dots.height / 2)
-  await page.waitForSelector("[data-action-list]")
+  await page.waitForSelector("[data-action-list]", { timeout: 5000 }).catch(() => {})
   await sleep(250)
   m = await menuState(page)
-  check("the row's dots open the same menu, under them, right edges together", Math.abs(m.list.right - dots.right) <= 1 && m.list.top >= dots.bottom && m.list.top - dots.bottom <= 6 && m.listRows.length === 5, `right edges ${r1(m.list.right - dots.right)}px apart, ${r1(m.list.top - dots.bottom)}px below`)
-  await page.click('[data-action-item="duplicate"]')
+  check("the row's dots open the same menu, under them, right edges together", !!m.list && Math.abs(m.list.right - dots.right) <= 1 && m.list.top >= dots.bottom && m.list.top - dots.bottom <= 6 && m.listRows.length === 5, m.list ? `right edges ${r1(m.list.right - dots.right)}px apart, ${r1(m.list.top - dots.bottom)}px below` : "no menu")
+  if (!m.list) { await page.screenshot({ path: join(out, "dots.png") }); console.log(`        state: ${JSON.stringify(await page.evaluate(() => ({ active: document.activeElement?.outerHTML.slice(0, 160), open: document.querySelector("[data-section-menu-open]")?.getAttribute("data-section-row"), log: window.__log })))}`) }
+  await page.click('[data-action-item="duplicate"]').catch(() => {})
   await sleep(150)
   m = await menuState(page)
   check("a row of it runs its action and closes it", m.log.includes("dup:hero-1") && m.list === null, m.log)
@@ -247,6 +249,13 @@ console.log("\nA phone, 390 × 844")
   await sleep(700)
   m = await menuState(page)
   check("a finger held on a row opens the action sheet", m.sheetRows.length === 5, m.sheetRows.map((r) => r.id).join(","))
+  if (m.sheetRows.length !== 5) {
+    console.log(`        state: ${JSON.stringify(await page.evaluate(() => ({
+      ev: window.__ev.slice(-12),
+      open: document.querySelector("[data-section-menu-open]")?.getAttribute("data-section-row") ?? null,
+      sheets: [...document.querySelectorAll("[data-action-sheet]")].map((s) => ({ h: s.getBoundingClientRect().height, rows: s.querySelectorAll("[data-action-item]").length })),
+    })))}`)
+  }
   check("its rows a thumb's height", m.sheetRows.every((r) => r.h >= 52), m.sheetRows.map((r) => r.h).join(","))
   check("and the lift did not open the section", !m.log.includes("select:hero-1"), m.log)
   if (shots) await page.screenshot({ path: join(shots, "menus-long-press-390.png") })
