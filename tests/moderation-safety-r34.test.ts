@@ -202,6 +202,7 @@ async function main() {
   check("a moderator can send a report to Storelib, and it stays in their queue", sent.ok && escalatedRow.escalated === true && escalatedRow.status === "reviewing")
   check("it is still an actionable item here", (await openReportCount(edb, CID)) === 4)
   check("and who did it is in the audit log", edb.tables.community_audit_log.some((x: Record<string, unknown>) => x.action === "report.escalated" && x.actor_id === MOD))
+  check("the log does not also say the report was reopened: its status did not change", !edb.tables.community_audit_log.some((x: Record<string, unknown>) => x.action === "report.open"), edb.tables.community_audit_log.map((x: Record<string, unknown>) => x.action).join(","))
   const notStaff = await updateReport(edb, { community, actor: { userId: AUTHOR, role: "member" }, id: UID(52), status: "resolved", escalate: true })
   check("somebody who may not work the queue cannot escalate either", !notStaff.ok && status(notStaff) === 403 && edb.tables.community_reports.find((r: Record<string, unknown>) => r.id === UID(52))?.escalated !== true)
   const noColumn = fakeDb({ community_reports: [{ id: UID(50), community_id: CID }], community_audit_log: [] }, { failWith: { community_reports: { code: "42703", message: "column community_reports.escalated does not exist" } } })

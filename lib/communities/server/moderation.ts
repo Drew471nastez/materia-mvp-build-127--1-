@@ -661,7 +661,10 @@ export async function updateReport(db: Db, a: { community: CommunityRow; actor: 
     .update({ status: a.status, resolution: closing ? (resolution ?? (a.status === "dismissed" ? "Dismissed" : "Resolved")) : null, resolved_by: closing ? a.actor.userId : null, resolved_at: closing ? nowIso() : null, assigned_to: a.status === "reviewing" ? a.actor.userId : undefined })
     .eq("id", row.id)
   if (error) return no(500, "That did not save. Try again.")
-  await audit(db, { communityId: a.community.id, actorId: a.actor.userId, actorKind: "member", action: `report.${a.status}`, targetType: "report", targetId: row.id, targetLabel: `${row.target_type} report`, reason: resolution, detail: { from: row.status, target: { type: row.target_type, id: row.target_id } } })
+  /* Only a change is logged: sending a report to Storelib keeps its status, and a line saying it stayed open reads as if somebody reopened it. */
+  if (a.status !== row.status) {
+    await audit(db, { communityId: a.community.id, actorId: a.actor.userId, actorKind: "member", action: `report.${a.status}`, targetType: "report", targetId: row.id, targetLabel: `${row.target_type} report`, reason: resolution, detail: { from: row.status, target: { type: row.target_type, id: row.target_id } } })
+  }
   return { ok: true }
 }
 
