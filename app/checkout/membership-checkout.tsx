@@ -277,7 +277,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   }
 
   const perLabel = interval === "year" ? "a year" : "a month"
-  const payLabel = trial ? `Start ${plan.trialDays} day free trial` : `Join for ${moneyExact(priceCents)} ${perLabel}`
+  const payLabel = trial ? `Start ${plan.trialDays}-day free trial` : `Join ${moneyExact(priceCents)}/${interval === "year" ? "year" : "month"}`
   const renewalText = trial
     ? `Nothing is charged today. From ${trialEndsOn(plan.trialDays)} you pay ${moneyExact(priceCents)} ${perLabel} until you cancel. Cancel before then and you pay nothing.`
     : `You pay ${moneyExact(priceCents)} today and then ${perLabel === "a year" ? "every year" : "every month"} until you cancel. Cancel any time from your library.`
