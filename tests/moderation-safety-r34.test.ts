@@ -182,7 +182,10 @@ async function main() {
   check("a mute stops posting, commenting, reacting, chat and uploads", ["post", "comment", "react", "chat", "upload"].every((a) => MUTED_ACTIONS.includes(a as never)))
   check("and messages between members go through the same gate", /requireMember\(db, communityId, await sessionUserId\(\), "chat"\)/.test(code("app/api/community/[communityId]/dms/route.ts")) && /requireMember\(db, communityId, await sessionUserId\(\), "chat"\)/.test(code("app/api/community/[communityId]/dms/[conversationId]/route.ts")))
   check("the gate refuses a muted member before the role is even read", ctx.indexOf('viewer.mutedUntil && MUTED_ACTIONS.includes(action)') < ctx.indexOf("if (!can(viewer.role, action, viewer.perms))"))
-  check("a banned or removed member is refused at the same gate", /if \(!viewer\.active\) return answer\(403, viewer\.banned \? "banned"/.test(ctx))
+  /* Round 34 moved the gate's decision into one pure rule, memberRefusal; the gate still answers 403 to every refusal it returns. */
+  check("a banned or removed member is refused at the same gate",
+    /if \(!viewer\.active\) return \{ error: viewer\.banned \? "banned" : viewer\.status === "pending" \? "pending" : "not_member" \}/.test(ctx)
+      && /const refusal = memberRefusal\(viewer, community, action\)\s*\n\s*if \(refusal\) return answer\(403, refusal\.error/.test(ctx))
   const mdb = queue()
   const muted = await actOnMember(mdb, { community, actor: asMod, action: "mute", userId: AUTHOR, until: 24 })
   const row = mdb.tables.community_members.find((m: Record<string, unknown>) => m.user_id === AUTHOR) as Record<string, unknown>
