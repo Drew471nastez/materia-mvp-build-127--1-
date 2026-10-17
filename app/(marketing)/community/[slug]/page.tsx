@@ -17,6 +17,7 @@ import { placeFromUrl } from "@/lib/communities/client/places"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityJsonLd, communityMetadata } from "@/components/community/public/seo"
 import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
+import { communitySummary } from "@/lib/communities/server/community-summary"
 
 /**
  * ===========================================================================
@@ -42,7 +43,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   /* A draft or a suspended community says nothing about itself to a link preview either. */
   if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
   /* Its own domain, once connected, is the canonical (round 31). */
-  return communityMetadata({ ...seoFacts(community), origin: await communityDomainOrigin(community.id) })
+  /* The short description (round 26, part 220) is the line under the title when there is no SEO description. */
+  return communityMetadata({ ...seoFacts(community), summary: await communitySummary(community.id), origin: await communityDomainOrigin(community.id) })
 }
 
 export default async function CommunityPage({

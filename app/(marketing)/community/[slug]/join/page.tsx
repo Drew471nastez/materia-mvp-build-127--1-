@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, joinPrice, seoFacts, sharePreviewable } from "@/lib/communities/server/public"
+import { communitySummary } from "@/lib/communities/server/community-summary"
 import { admin } from "@/lib/communities/server/db"
 import { communityMetadata, inviteMetadata } from "@/components/community/public/seo"
 import { memberPage } from "@/components/community/member/data"
@@ -30,7 +31,8 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const [{ slug }, { invite }] = await Promise.all([params, searchParams])
   const community = await communityBySlug(slug)
   if (!community || !sharePreviewable(community)) return plainJoin
-  return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
+  const facts = { ...seoFacts(community), summary: await communitySummary(community.id) }
+  return typeof invite === "string" && invite ? inviteMetadata(facts) : { ...communityMetadata(facts), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
 }
 
 export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string; event?: string; et?: string }> }) {

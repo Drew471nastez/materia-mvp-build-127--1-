@@ -10,9 +10,21 @@
  * feed, a post, the members) say noindex.
  *
  * The structured data is what the page really is: a paid community is a
- * Product with its real price (an Offer per way in), and its rating only
- * when there are published reviews; a free one is an Organization led by its
- * creator. Pure, so the tests read it without a server.
+ * Product with its real price (an Offer per way in), its creator as the
+ * Brand, and its rating only when there are published reviews; a free one is
+ * an Organization led by its creator. Pure, so the tests read it without a
+ * server.
+ *
+ * ROUND 26, WHO IS TOLD WHAT. Indexed (index, follow; JSON-LD; in the
+ * sitemap) only when communityIndexable says so (lib/communities/server/
+ * public.ts): published, listed publicly (public and not invite only), not
+ * hidden, suspended or deleted. A private, unlisted or archived community
+ * (archived is also what one waiting to be deleted is) still has a link
+ * preview, as its page answers anybody who has the link, but says noindex
+ * and prints no JSON-LD. A draft, a suspended or a deleted one says nothing
+ * at all (sharePreviewable). The line under the title is the SEO
+ * description, else the short description (summary), else the tagline,
+ * else the long description (describeCommunity).
  *
  * A COVER THAT IS A VIDEO (round 11) still gives a still here: its still is
  * saved as the cover picture, so the preview, Explore and the cards draw
@@ -47,6 +59,14 @@ export interface SeoFacts {
   slug: string
   name: string
   tagline: string | null
+  /**
+   * The short description (round 26, communities.summary from part 220: one
+   * plain line of up to 160 characters). The line a search result and a
+   * shared link show when the creator wrote no SEO description of their own,
+   * before the tagline and the long description. Left out or null before
+   * part 220 has run, or when the creator has not written one.
+   */
+  summary?: string | null
   description: string | null
   seoTitle: string | null
   seoDescription: string | null
@@ -134,9 +154,18 @@ export function previewImages(f: SeoFacts, invite: boolean): { og: NonNullable<M
   return image ? { og: [{ url: image, alt: f.name }], twitter: [image] } : null
 }
 
+/**
+ * THE LINE UNDER THE TITLE, best first (round 26): the creator's own SEO
+ * description, else the short description, else the tagline, else the start
+ * of the long description. Plain text, one line.
+ */
+export function describeCommunity(f: Pick<SeoFacts, "seoDescription" | "summary" | "tagline" | "description" | "creatorName">, max = 300): string {
+  return plain(f.seoDescription || f.summary || f.tagline || f.description, max) || (f.creatorName ? `A community by ${f.creatorName} on Storelib.` : "A community on Storelib.")
+}
+
 export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): Metadata {
   const title = (f.seoTitle || f.name).slice(0, 120)
-  const description = plain(f.seoDescription || f.tagline || f.description, 300) || (f.creatorName ? `A community by ${f.creatorName} on Storelib.` : "A community on Storelib.")
+  const description = describeCommunity(f)
   const url = canonicalUrl(f.slug, f.origin)
   const images = previewImages(f, false)
   return {
@@ -159,7 +188,7 @@ export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): 
 export function inviteMetadata(f: SeoFacts): Metadata {
   const name = f.name.slice(0, 100)
   const title = `Join ${name}`
-  const line = plain(f.tagline || f.seoDescription || f.description, 220)
+  const line = plain(f.summary || f.tagline || f.seoDescription || f.description, 220)
   const description = line ? `You're invited to ${name} on Storelib. ${line}` : `You're invited to ${name}, a community on Storelib.`
   const images = previewImages(f, true)
   return {
@@ -175,7 +204,9 @@ export function inviteMetadata(f: SeoFacts): Metadata {
 export function communityJsonLd(c: PublicCommunityView, indexable: boolean, origin?: string | null): Record<string, unknown> | null {
   if (!indexable) return null
   const url = canonicalUrl(c.slug, origin)
-  const description = plain(c.tagline || c.descriptionText || c.descriptionHtml, 500) || undefined
+  /* The short description first (round 26), once the page's data carries it (W4's SalesPageData summary). */
+  const summary = (c as { summary?: string | null }).summary ?? null
+  const description = plain(summary || c.tagline || c.descriptionText || c.descriptionHtml, 500) || undefined
   const image = c.coverUrl || c.logoUrl || undefined
   const creator = c.creator ? { "@type": "Person", name: c.creator.name, ...(c.creator.href ? { url: `${SITE}${c.creator.href}` } : {}) } : undefined
   const offers = c.options
@@ -193,7 +224,8 @@ export function communityJsonLd(c: PublicCommunityView, indexable: boolean, orig
       url,
       ...(description ? { description } : {}),
       ...(image ? { image } : {}),
-      ...(creator ? { brand: creator } : {}),
+      /* A Product's brand is a Brand (or an Organization), never a Person: the creator's name as the brand, their page as its address. */
+      ...(c.creator ? { brand: { "@type": "Brand", name: c.creator.name, ...(c.creator.href ? { url: `${SITE}${c.creator.href}` } : {}) } } : {}),
       offers: offers.length === 1 ? offers[0] : offers,
       ...(c.reviews && c.reviews.total > 0 ? { aggregateRating: { "@type": "AggregateRating", ratingValue: c.reviews.average, reviewCount: c.reviews.total, bestRating: 5, worstRating: 1 } } : {}),
     }

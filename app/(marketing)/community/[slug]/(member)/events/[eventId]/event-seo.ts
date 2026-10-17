@@ -37,6 +37,11 @@ export function publicEvent(f: EventFacts): boolean {
   return communityOpen && isOpenRule(f.event.access ?? {})
 }
 
+/** Whether search engines may index it (round 26): a public event in a community that is still published, never an archived one's. */
+export function indexableEvent(f: EventFacts): boolean {
+  return publicEvent(f) && f.community.status === "published"
+}
+
 export function eventPath(slug: string, eventId: string): string {
   return `/community/${slug}/events/${eventId}`
 }
@@ -91,6 +96,6 @@ export function eventMetadata(f: EventFacts): Metadata {
     alternates: { canonical: url },
     openGraph: { type: "website", url, siteName: "Storelib", title: f.event.title, description, images },
     twitter: { card: "summary_large_image", title: f.event.title, description, images: [image] },
-    robots: { index: true, follow: true },
+    robots: indexableEvent(f) ? { index: true, follow: true } : { index: false, follow: false },
   }
 }

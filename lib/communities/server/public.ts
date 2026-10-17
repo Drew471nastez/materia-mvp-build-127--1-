@@ -41,7 +41,7 @@ import { checkoutPath, communityPath } from "@/components/community/public/paths
 import { decideJoin, primaryOption } from "@/components/community/public/join-state"
 import { shareImageVersion, type SeoFacts } from "@/components/community/public/seo"
 import type { AccessProductLink, JoinOption, LibraryCommunityRow, PublicCommunityView, PublicCreatorView, PublicReviewView, SalesPageData } from "@/components/community/public/types"
-import { accessWords, privacyOf } from "../access-model"
+import { accessWords, listedPublicly, privacyOf } from "../access-model"
 import { compactCount, priceLine } from "../format"
 import { can, meetsRole } from "../permissions"
 import { TIER_COLUMNS, type CommunityCard, type CommunityRow, type Role, type TierRow } from "../types"
@@ -506,6 +506,8 @@ export function seoFacts(c: CommunityRow): SeoFacts {
     slug: c.slug,
     name: c.name,
     tagline: c.tagline,
+    /* The short description, once a read carries it (part 220); the pages pass the one ./community-summary.ts reads. */
+    summary: (c as CommunityRow & { summary?: string | null }).summary ?? null,
     description: c.description,
     seoTitle: c.seo_title,
     seoDescription: c.seo_description,
@@ -659,9 +661,16 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   return { data: { community: view, join, notice }, community, viewer }
 }
 
-/** Whether search engines may index this community's page: published, public, open. */
-export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility" | "suspended_at" | "deleted_at" | "platform_hidden">): boolean {
-  return c.status === "published" && c.visibility === "public" && !c.suspended_at && !c.deleted_at && !c.platform_hidden
+/**
+ * Whether search engines may index this community's page: published (so not
+ * a draft, not archived, and not waiting to be deleted, which archives it:
+ * ./community-deletion.ts), listed publicly (public, and not invite only,
+ * which is private whatever the visibility column says: ../access-model.ts
+ * privacyOf), not suspended, not deleted, not hidden by Storelib. The sitemap
+ * (sitemapCommunities below) asks the database the same question.
+ */
+export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility" | "access" | "suspended_at" | "deleted_at" | "platform_hidden">): boolean {
+  return c.status === "published" && listedPublicly(c) && !c.suspended_at && !c.deleted_at && !c.platform_hidden
 }
 
 /* ── The community's own top bar ────────────────────────────────────────── */
@@ -846,20 +855,54 @@ export async function communityAddressForProduct(communityId: string, db: Db = a
 
 /* ── The sitemap ────────────────────────────────────────────────────────── */
 
-/** Indexable communities as sitemap rows, `limit` from `offset`; empty before part 81. */
+/**
+ * Indexable communities as sitemap rows, `limit` from `offset`; empty before
+ * part 81. The same rule as communityIndexable, asked of the database:
+ * published (never a draft, an archived one or one waiting to be deleted),
+ * public and not invite only, not hidden, suspended or deleted. A community
+ * served on its own domain (round 31) is left out: its canonical is that
+ * domain, whose own sitemap names it (lib/custom-domains/community.ts), and
+ * a sitemap may only name addresses on its own host.
+ */
 export async function sitemapCommunities(offset: number, limit: number, db: Db = admin()): Promise<{ slug: string; updated_at: string | null; cover_url: string | null }[]> {
-  return rows("sitemap communities", () =>
+  const found = await rows<{ id: string; creator_id: string | null; slug: string; updated_at: string | null; cover_url: string | null }>("sitemap communities", () =>
     db
       .from("communities")
-      .select("slug, updated_at, cover_url")
+      .select("id, creator_id, slug, updated_at, cover_url")
       .eq("status", "published")
       .eq("visibility", "public")
+      .neq("access", "invite_only")
       .eq("platform_hidden", false)
       .is("deleted_at", null)
       .is("suspended_at", null)
       .order("id", { ascending: true })
       .range(offset, offset + limit - 1),
   )
+  const onOwnDomain = await communitiesOnOwnDomain(db, found)
+  return found.filter((c) => !onOwnDomain.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url }))
+}
+
+/** Which of these communities answer on their own domain (an active domain of their own creator's), read softly: before part 185, none. */
+async function communitiesOnOwnDomain(db: Db, list: { id: string; creator_id: string | null }[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (list.length === 0) return out
+  try {
+    const { data, error } = await db
+      .from("custom_domains")
+      .select("target_id, creator_id")
+      .eq("purpose", "community")
+      .eq("target_type", "community")
+      .eq("status", "active")
+      .in("target_id", list.map((c) => c.id))
+    if (error || !data) return out
+    const creatorOf = new Map(list.map((c) => [c.id, c.creator_id]))
+    for (const d of data as { target_id: string; creator_id: string | null }[]) {
+      if (d.creator_id && creatorOf.get(d.target_id) === d.creator_id) out.add(d.target_id)
+    }
+  } catch {
+    /* No domains table: every community is at storelib.com. */
+  }
+  return out
 }
 
 export async function sitemapCommunityCount(db: Db = admin()): Promise<number> {
@@ -869,6 +912,7 @@ export async function sitemapCommunityCount(db: Db = admin()): Promise<number> {
       .select("id", { count: "exact", head: true })
       .eq("status", "published")
       .eq("visibility", "public")
+      .neq("access", "invite_only")
       .eq("platform_hidden", false)
       .is("deleted_at", null)
       .is("suspended_at", null)
