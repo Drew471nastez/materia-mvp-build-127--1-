@@ -380,7 +380,7 @@ export function AppHelpQuestions({ topics }: { topics: HelpTopic[] }) {
     <>
       <p className="max-w-[62ch] px-1 pt-1 text-[15px] leading-relaxed text-[#4b5563]">What happens, what the store does and what the buyer does, for the questions asked most.</p>
       <div className="mt-6">
-        <QuestionsBrowser topics={topics} base={BASE} pillsAt="top-[56px] bg-[#f8f9fa]/95" />
+        <QuestionsBrowser topics={topics} base={BASE} pillsAt="app-gutter-bleed top-[56px] bg-[#f8f9fa]/95" />
       </div>
       <Contact />
     </>

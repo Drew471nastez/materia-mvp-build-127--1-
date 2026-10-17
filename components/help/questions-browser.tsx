@@ -27,7 +27,7 @@ const match = (q: HelpQuestion, words: string[]) => {
  * phone's row of topics sticks and what it is drawn on; inside the app it
  * sticks under the page's own bar, on the app's grey.
  */
-export function QuestionsBrowser({ topics, base, pillsAt = "top-0 bg-white/95" }: { topics: HelpTopic[]; base?: HelpBase; pillsAt?: string }) {
+export function QuestionsBrowser({ topics, base, pillsAt = "-mx-4 px-4 top-0 bg-white/95" }: { topics: HelpTopic[]; base?: HelpBase; pillsAt?: string }) {
   const [query, setQuery] = React.useState("")
   const [open, setOpen] = React.useState<Set<string>>(new Set())
   const [active, setActive] = React.useState(topics[0]?.id ?? "")
@@ -81,8 +81,8 @@ export function QuestionsBrowser({ topics, base, pillsAt = "top-0 bg-white/95" }
     })
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14" data-questions="">
-      <aside className="lg:sticky lg:top-24 lg:self-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14" data-questions="">
+      <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
         <label className="relative block">
           <span className="sr-only">Search the questions</span>
           <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
@@ -96,7 +96,7 @@ export function QuestionsBrowser({ topics, base, pillsAt = "top-0 bg-white/95" }
           />
         </label>
         {/* A row of pills on a phone, a list on a computer: the same buttons. */}
-        <nav aria-label="Topics" className={cn("sticky z-10 -mx-4 mt-3 px-4 py-2 backdrop-blur lg:static", pillsAt, " lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none")}>
+        <nav aria-label="Topics" className={cn("sticky z-10 mt-3 py-2 backdrop-blur lg:static", pillsAt, " lg:mx-0 lg:mt-6 lg:bg-transparent lg:p-0 lg:backdrop-blur-none")}>
           <div ref={pillsRef} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] lg:flex-col lg:gap-0.5 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {shown.map((t) => {
               const on = active === t.id

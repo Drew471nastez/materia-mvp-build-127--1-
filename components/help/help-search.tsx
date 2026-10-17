@@ -112,7 +112,15 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
                so the results open in the part the keyboard leaves (their height follows it: --vv-h, below). */
             if (window.matchMedia("(max-width: 767px)").matches) {
               const form = box.current
-              window.setTimeout(() => form?.scrollIntoView({ block: "start", behavior: "smooth" }), 60)
+              window.setTimeout(() => {
+                if (!form) return
+                /* In the app the page scrolls in its own pane (components/help/app-help-frame): move that pane alone, so the
+                   shell around it never shifts; it keeps 64px for the pane's sticky bar. On the public pages, the window. */
+                const pane = form.closest<HTMLElement>("[data-help-scroll]")
+                if (!pane) return form.scrollIntoView({ block: "start", behavior: "smooth" })
+                const by = form.getBoundingClientRect().top - pane.getBoundingClientRect().top - 64
+                if (by > 0) pane.scrollBy({ top: by, behavior: "smooth" })
+              }, 60)
             }
           }}
           onKeyDown={onKeyDown}
@@ -131,7 +139,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
           className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_12px_32px_-12px_rgba(17,24,39,0.18)]"
         >
           {results.length > 0 ? (
-            <ul id={listId} role="listbox" aria-label="Articles" className="max-h-[min(420px,60vh,calc(var(--vv-h,100dvh)*0.45))] overflow-y-auto overscroll-contain py-1.5">
+            <ul id={listId} role="listbox" aria-label="Articles" className="max-h-[min(420px,60vh,calc(var(--vv-h,100dvh)*0.4))] overflow-y-auto overscroll-contain py-1.5">
               {results.map((r, i) => (
                 <li key={`${r.article.category}/${r.article.slug}`} id={`${id}-r${i}`} role="option" aria-selected={i === active}>
                   <a
