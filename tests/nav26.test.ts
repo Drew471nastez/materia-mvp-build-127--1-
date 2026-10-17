@@ -120,6 +120,15 @@ function main() {
   check("the Page frame draws the editor's side panel from 1280px, as the editor does", /xl:grid xl:grid-cols-\[minmax\(0,1fr\)_380px\][^"]*" data-frame-page=""/.test(frame) && /<PanelFrame rows=\{5\} className="hidden xl:block" \/>/.test(frame))
   check("a community being deleted says when, and that Settings keeps it, before the archived line", /\) : deleting \? \(/.test(shell) && shell.indexOf(") : deleting ? (") < shell.indexOf(") : head.archived ? (") && /Deleting on [^\n]*Members can read it until then\. Keep it from Settings\.[^\n]*shortDate\(deleting\.deleteAt\)|Deleting on [^\n]*shortDate\(deleting\.deleteAt\)[^\n]*Keep it from Settings\./.test(shell))
 
+  console.log("\nMEMBERS")
+  const kit = code("components/community/creator/ui-kit.tsx")
+  const members = code("components/community/creator/members-section.tsx")
+  check("the Members card is a container and chooses table or rows by its own width", /export const LIST_BOX = "@container\/list"/.test(kit) && /data-members-table=""\s*className=\{LIST_BOX\}/.test(members))
+  check("the table from an 860px card, the rows below it", /WIDE_TABLE = "hidden w-full table-fixed[^"]*@min-\[860px\]\/list:table"/.test(kit) && /WIDE_LIST = "divide-y[^"]*@min-\[860px\]\/list:hidden"/.test(kit) && /<table className=\{WIDE_TABLE\}/.test(members) && /<ul className=\{WIDE_LIST\} data-members-list="">/.test(members))
+  check("860px leaves the Member column 200px in every view (536px and 14% fixed; 364px and 34%; 264px and 44%)", 860 - 536 - 0.14 * 860 >= 200 && 860 - 364 - 0.34 * 860 >= 200 && 860 - 264 - 0.44 * 860 >= 200)
+  check("the search and the filters share a row only from a 720px card", /flex w-full min-w-0 flex-col @min-\[720px\]\/list:flex-row/.test(members) && !/md:flex-row|max-md:hidden|md:hidden/.test(members.slice(members.indexOf("const toolbar"), members.indexOf("const bulkBar"))))
+  check("the other lists keep the screen's switch", /export const TABLE = "hidden w-full table-fixed border-separate border-spacing-0 md:table"/.test(kit))
+
   console.log("\nLOOK")
   check("/app is not one of the pages that follow the person's look", !THEMED_PREFIXES.some((p) => "/app/community/club".startsWith(p)) && /\/explore/.test(APPEARANCE_BOOT))
   check("the dark look's generator leaves the dashboard out", /"app\/app"/.test(read("scripts/gen-theme-dark.mjs")))
