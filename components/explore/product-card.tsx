@@ -33,7 +33,9 @@ interface ProductCardProps {
     type: string
     /* A membership's billing interval, when its plan was read: "$9/month" or "$90/year" (lib/pricing/list-price). */
     price_interval?: "month" | "year" | null
-    /* The currency its store sells in (lib/store/store-currencies), when the list read it. */
+    /* The currency this price is in, when the list that drew the card said one
+       (lib/pricing/surface-currency): Storelib's on Explore and the creator
+       pages, a store's own on that store's website. */
     currency?: string | null
     category?: string | null // Direct category field from product
     categoryName?: string | null // Pre-computed category name for display

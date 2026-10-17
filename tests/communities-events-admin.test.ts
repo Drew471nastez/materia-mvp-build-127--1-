@@ -250,7 +250,13 @@ async function main() {
   const db2 = ticketDb()
   const columns = await eventPriceColumns(db2, { priceCents: 2500, salesCloseAt: "2026-07-14T17:00:00.000Z", refundWindowHours: 24, refundPolicy: "Ask us." }, "ron")
   check("Paid writes the price, the sales time, the window and the policy", columns.price_cents === 2500 && columns.sales_close_at === "2026-07-14T17:00:00.000Z" && columns.refund_window_hours === 24 && columns.refund_policy === "Ask us.")
-  check("and the currency is the one the card was told, never one a page sent", columns.currency === "ron" && /platformChargeCurrency\(\)/.test(code("lib/communities/server/event-ticket-setup.ts")) && /checkoutReadyForCreator\(/.test(code("lib/communities/server/event-ticket-setup.ts")))
+  /* Changed on purpose (the owner: a community's prices are Storelib's currency,
+     never a store's). The card still gets its currency from the server and the
+     write still uses exactly that one; what the server answers is now
+     STORELIB_CHARGE_CURRENCY rather than the deployment's charge currency, so a
+     creator moving their store to lei does not move a ticket's price.
+     tests/surface-currency.test.ts holds the whole boundary. */
+  check("and the currency is the one the card was told, never one a page sent", columns.currency === "ron" && /currency: STORELIB_CHARGE_CURRENCY,/.test(code("lib/communities/server/event-ticket-setup.ts")) && /checkoutReadyForCreator\(/.test(code("lib/communities/server/event-ticket-setup.ts")))
   const cleared = await eventPriceColumns(db2, { priceCents: null, salesCloseAt: "2026-07-14T17:00:00.000Z", refundWindowHours: 24, refundPolicy: "Ask us." }, "ron")
   check("Free clears every money column, leaving nothing behind", Object.keys(cleared).length === 5 && Object.values(cleared).every((v) => v === null))
   check("an edit that says nothing about money writes no money column", Object.keys(await eventPriceColumns(db2, null, "ron")).length === 0)

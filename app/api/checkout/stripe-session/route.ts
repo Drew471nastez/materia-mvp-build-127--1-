@@ -22,7 +22,7 @@ import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-serv
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
-import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { checkoutSurfaceCurrency } from "@/lib/pricing/surface-currency-server"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
@@ -150,10 +150,20 @@ async function handlePOST(request: Request) {
       )
     : null
   const chargeCents = tax ? tax.totalCents : totals.totalCents
-  /* The product's price is in its store's currency (lib/store/selling-currency): charged in it, held to Stripe's smallest charge in it. */
-  const storeCurrency = (await readStoreCurrency(admin, creator.id)).currency
-  if (totals.totalCents < minimumChargeMinor(storeCurrency)) {
-    return NextResponse.json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(storeCurrency), storeCurrency)}. Add a tip or remove the code.` }, { status: 400 })
+  /*
+    THE CURRENCY THIS CHECKOUT CHARGES, by the surface it is on
+    (lib/pricing/surface-currency): Storelib's on storelib.com, where a
+    creator page, a OnePage, an Explore card and a community tier all send
+    the buyer, and the store's own only when this same creator's published
+    website is serving the checkout on its own host. A store moving its
+    website to lei therefore moves its website's charges and nothing here.
+    The amount is the row's integer either way, never converted, and the
+    page decides the same way so the summary and the PaymentIntent agree.
+  */
+  const surface = await checkoutSurfaceCurrency(admin, { host: request.headers.get("host"), creatorId: creator.id })
+  const surfaceCurrencyCode = surface.currency
+  if (totals.totalCents < minimumChargeMinor(surfaceCurrencyCode)) {
+    return NextResponse.json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(surfaceCurrencyCode), surfaceCurrencyCode)}. Add a tip or remove the code.` }, { status: 400 })
   }
 
   /* Storelib Payments (Stripe Connect): checkout only when the creator account can accept charges. */
@@ -201,7 +211,7 @@ async function handlePOST(request: Request) {
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
-  const chargeCurrency = storeCurrency.toLowerCase()
+  const chargeCurrency = surface.charge
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(totals.totalCents, creator.id, admin, chargeCurrency)

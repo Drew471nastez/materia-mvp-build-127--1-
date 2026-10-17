@@ -6,6 +6,7 @@ import { startEventCheckout } from "@/lib/communities/server/event-checkout"
 import { isUuid } from "@/lib/courses/access"
 import { addressSubject, rateLimit, LIMITS } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
+import { STORELIB_CHARGE_CURRENCY } from "@/lib/pricing/surface-currency"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -44,11 +45,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     message: "Too many payment attempts just now. Wait a few minutes and try again.",
   })
   if (limited) return limited
-  const [{ stripe }, { checkoutReadyForCreator }, { calculatePlatformFeeForCheckout }, { platformChargeCurrency }] = await Promise.all([
+  const [{ stripe }, { checkoutReadyForCreator }, { calculatePlatformFeeForCheckout }] = await Promise.all([
     import("@/lib/stripe"),
     import("@/lib/payments/service"),
     import("@/lib/billing/platform-fee-server"),
-    import("@/lib/payments/fees/currency-rules"),
   ])
   const started = await startEventCheckout(
     db,
@@ -56,7 +56,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
       stripe,
       ready: (creatorId) => checkoutReadyForCreator(creatorId),
       fee: (cents, creatorId, currency) => calculatePlatformFeeForCheckout(cents, creatorId, db, currency),
-      chargeCurrency: platformChargeCurrency(),
+      /* A community charges Storelib's currency, never a store's: a creator
+         moving their website to lei does not move what their community's
+         tickets, programs or plans cost (lib/pricing/surface-currency). */
+      chargeCurrency: STORELIB_CHARGE_CURRENCY,
     },
     { community: gate.community, viewer: gate.viewer, eventId, email: user?.email ?? null },
   )

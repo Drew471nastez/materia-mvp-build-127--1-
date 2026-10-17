@@ -24,7 +24,8 @@
  *
  * Pure, so the tests run it directly.
  */
-import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 
 export interface ListedPrice {
   price_cents: number | null | undefined
@@ -35,7 +36,12 @@ export interface ListedPrice {
   type?: string | null
   /** A membership's billing interval, when the plan was read. */
   price_interval?: PriceInterval | null
-  /** The currency its store sells in (lib/store/store-currencies), when the list read it; else the platform's. */
+  /**
+   * The currency this price is in, when the surface drawing the card knows
+   * it (lib/pricing/surface-currency): a store's own on that store's
+   * website, Storelib's on Explore, a creator page or a community. Absent,
+   * Storelib's, because a card that was told nothing is Storelib's.
+   */
   currency?: string | null
 }
 
@@ -61,14 +67,20 @@ export interface PriceLabel {
   off: number | null
 }
 
-/** A price in the shop's currency (lib/store/shop-money.ts): "$1,250.00" on
- *  a dollar deployment, "RON 1,250.00" on a lei one. Named before that. */
+/**
+ * A price on Storelib's own surfaces: "$1,250.00". Explore, a creator page
+ * and a community quote one currency for everybody
+ * (lib/pricing/surface-currency STORELIB_CURRENCY), so a card nobody told
+ * otherwise reads as dollars however any one store prices its website.
+ */
 export function usd(cents: number): string {
-  return shopMoney(cents || 0, { grouping: true })
+  return shopMoneyIn(cents || 0, STORELIB_CURRENCY, { grouping: true })
 }
 
 export function listPrice(p: ListedPrice, given?: (cents: number) => string): PriceLabel {
-  /* In the store's own currency when the row carries it: a lei store's 49 is 49 lei. */
+  /* In the currency the surface says, when it said one: a lei store's 49 is
+     49 lei on that store's own website, and $49.00 on Storelib's pages. The
+     number is never converted between the two (lib/pricing/surface-currency). */
   const format = given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
   if (p.pay_what_you_want) {
     const min = Math.max(0, p.pwyw_min_price_cents ?? p.price_cents ?? 0)

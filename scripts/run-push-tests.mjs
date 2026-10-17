@@ -40,6 +40,8 @@ const SUITES = [
   "tests/translations-k3.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
+  /* The other half of that one: a store's currency stops at its storefront, and Storelib's own surfaces keep their own. */
+  "tests/surface-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",

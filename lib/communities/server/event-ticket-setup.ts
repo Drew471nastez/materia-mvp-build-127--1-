@@ -9,11 +9,13 @@ import "server-only"
  */
 import type { EventTicketSetup } from "@/components/community/creator/view-types"
 import { eventTicketBasics } from "./event-admin"
+import { STORELIB_CHARGE_CURRENCY } from "@/lib/pricing/surface-currency"
 import type { Db } from "./db"
 
 export async function eventTicketSetup(db: Db, communityId: string): Promise<EventTicketSetup> {
   const basics = await eventTicketBasics(db, communityId)
-  const [{ platformChargeCurrency }, { checkoutReadyForCreator }] = await Promise.all([import("@/lib/payments/fees/currency-rules"), import("@/lib/payments/service")])
+  const { checkoutReadyForCreator } = await import("@/lib/payments/service")
   const canSell = basics.creatorId ? await checkoutReadyForCreator(basics.creatorId).catch(() => false) : false
-  return { ready: basics.ready, currency: platformChargeCurrency(), canSell, communityPolicy: basics.communityPolicy }
+  /* Storelib's currency, not the creator's store currency: a community's tickets cost the same whatever a store sells in (lib/pricing/surface-currency). */
+  return { ready: basics.ready, currency: STORELIB_CHARGE_CURRENCY, canSell, communityPolicy: basics.communityPolicy }
 }

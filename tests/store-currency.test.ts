@@ -33,7 +33,8 @@ import {
 } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { exchangeRate, chargeNote } from "@/lib/markets/money"
-import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { basketDecision } from "@/lib/checkout/basket-decision"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { stripComments } from "./_source"
@@ -210,12 +211,15 @@ async function main() {
     check("Store details shows it in place of the old Based in row, linking to where it is set", /* Changed on purpose (the owner: one currency, set in Languages & Currency; free open translation). */ /<CurrencyLink \/>/.test(panel) && /href="\/app\/settings\?tab=markets"/.test(card) && !/function BasedIn/.test(panel))
   }
 
-  console.log("\nThe native platform shows and charges a product in its store's currency")
+  console.log("\nA card is drawn in the currency its surface says, and the storefront's is the store's")
   {
     const lei = listPrice({ price_cents: 4900, currency: "RON" })
     check("a lei store's card says lei, never dollars", /lei|RON/.test(lei.main) && !/\$/.test(lei.main), lei)
     const plain = listPrice({ price_cents: 4900 })
-    check("a card with no currency is the platform's, as before", plain.main === listPrice({ price_cents: 4900 }, (c) => shopMoney(c, { grouping: true })).main)
+    /* Changed on purpose (the owner: a store's currency must not reach Storelib's own
+       pages). A card nobody told is Storelib's currency, not the deployment's charge
+       currency: tests/surface-currency.test.ts holds that whole boundary. */
+    check("a card with no currency is Storelib's own, whatever any store sells in", plain.main === listPrice({ price_cents: 4900 }, (c) => shopMoneyIn(c, STORELIB_CURRENCY, { grouping: true })).main && plain.main === "$49.00", plain)
     const db = { from: () => ({ select: () => ({ in: async () => ({ data: [{ creator_id: "a", currency: "RON" }, { creator_id: "b", currency: null }], error: null }) }) }) }
     const map = await storeCurrencies(db, ["a", "b", "c", null])
     check("many stores' currencies in one read; a store that never chose or has no row sells in the platform's", map.get("a") === "RON" && map.get("b") === "USD" && map.get("c") === "USD" && map.size === 3, [...map])
@@ -224,17 +228,28 @@ async function main() {
     check("the marketplace's lei display reads a lei price as lei, not as dollars to convert", formatPlatformMoney(4900, "RON") === formatPlatformMoney(4900, "ron") && /49/.test(formatPlatformMoney(4900, "RON")), formatPlatformMoney(4900, "RON"))
     check("and a euro price through the same table", /50/.test(formatPlatformMoney(1000, "EUR")), formatPlatformMoney(1000, "EUR"))
     const session = code("app/api/checkout/stripe-session/route.ts")
-    check("the single product checkout charges the store's currency, held to its minimum", /readStoreCurrency\(admin, creator\.id\)/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session) && /minimumChargeMinor\(storeCurrency\)/.test(session) && !/platformChargeCurrency\(/.test(session))
+    /* Changed on purpose (the owner: a store's currency must not reach Storelib's own
+       checkout). The single product checkout charges the currency of the SURFACE it is
+       served on: the store's own when the store's website is serving it, Storelib's on
+       storelib.com. Still one read, still held to that currency's Stripe minimum, still
+       no platform charge currency. tests/surface-currency.test.ts drives both hosts. */
+    check("the single product checkout charges its surface's currency, held to that currency's minimum", /checkoutSurfaceCurrency\(admin, \{ host: request\.headers\.get\("host"\), creatorId: creator\.id \}\)/.test(session) && /const chargeCurrency = surface\.charge/.test(session) && /minimumChargeMinor\(surfaceCurrencyCode\)/.test(session) && !/platformChargeCurrency\(/.test(session))
     const page = code("app/checkout/page.tsx")
-    check("and its page draws the store's currency", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /readStoreCurrency\(checkoutAdmin\(\), creator\?\.id\)/.test(page))
+    check("and its page draws that same surface's currency, decided the same way", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /checkoutSurfaceCurrency\(checkoutAdmin\(\), \{ host: requestHeaders\.get\("host"\), creatorId: creator\?\.id \?\? null \}\)/.test(page))
+    const boundary = code("lib/pricing/surface-currency-server.ts")
+    check("and that decision reads the host from the database, never from the page", /siteOfHost\(db, opts\.host\)/.test(boundary) && /readStoreCurrency\(db, opts\.creatorId\)/.test(boundary))
     const client = code("app/checkout/checkout-client.tsx")
     check("its own minimum check is the store currency's", /minimumChargeMinor\(chargeCurrency\)/.test(client) && !/MIN_CHARGE_CENTS/.test(client))
-    for (const f of ["app/(marketing)/p/[slug]/layout.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {
-      check(`${f.split("/").slice(1, 3).join("/")} tells its prices the store's currency`, /<PriceCurrency currency=/.test(code(f)) && /cachedStoreCurrency\(/.test(code(f)))
+    /* Changed on purpose (the owner: a store's currency must not reach Storelib's own
+       pages). Every page of storelib.com says STORELIB_CURRENCY, and a product page
+       reads the store's only for a thing that ships, whose one checkout charges it.
+       tests/surface-currency.test.ts holds each of these and proves the leak fails them. */
+    for (const f of ["app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx", "app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
+      const src = code(f)
+      check(`${f.split("/").slice(1, 3).join("/")} tells its prices Storelib's currency, not a store's`, /STORELIB_CURRENCY/.test(src) && !/storeCurrencies|cachedStoreCurrency|readStoreCurrency/.test(src))
     }
-    for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {
-      check(`${f.split("/").slice(1, 3).join("/")} gives each card its store's currency`, /storeCurrencies\(createAdminClient\(\), products\.map/.test(code(f)) && /currency: currencies\.get\(product\.creator_id\)/.test(code(f)))
-    }
+    const product = code("app/(marketing)/p/[slug]/layout.tsx")
+    check("(marketing)/p is Storelib's too, and reads the store's currency only for a thing that ships", /<PriceCurrency currency=\{shipsIn \?\? STORELIB_CURRENCY\}>/.test(product) && /ships \? cachedStoreCurrency\(/.test(product))
     for (const f of ["components/product/product-price-card.tsx", "components/product/variant-selector.tsx", "components/checkout/purchase-status-wrapper.tsx", "components/checkout/buy-button.tsx", "components/checkout/smart-buy-button.tsx", "components/store-builder/sticky-product-bar.tsx", "components/onepage/public-onepage.tsx"]) {
       check(`${f.split("/").pop()} prices in the page's currency`, /usePageMoney\(\)/.test(code(f)) && !/(?<![\w.])shopMoney\(/.test(code(f)))
     }
