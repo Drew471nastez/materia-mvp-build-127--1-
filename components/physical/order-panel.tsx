@@ -1350,7 +1350,7 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
     setBusy(false)
     setError(e)
     /* The carrier it went with is where the next order starts, when the shop has no default. */
-    if (!e && !pickup) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(ship).carrier)
+    if (!e && !pickup) rememberCarrier(carriers.save, carriers.prefs.ready, shipBody(first.ship).carrier)
   }
   return (
     <Modal
