@@ -227,7 +227,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => setImporting(true)} className={cn(buttonSecondary, "mx-1 max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-reviews-import="">
+          <button type="button" onClick={() => setImporting(true)} className={cn(buttonSecondary, "mx-1 max-md:hidden")} data-reviews-import="">
             <Upload className="h-3.5 w-3.5" aria-hidden />
             {tt("Import")}
           </button>
@@ -250,6 +250,9 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
             <button type="button" onClick={() => setShowFilters((v) => !v)} aria-expanded={showFilters} className={cn(buttonSecondary, "max-md:h-10 max-md:px-3 md:hidden", filtered && "border-[#1a1a2e]")}>
               <SlidersHorizontal className="h-4 w-4" aria-hidden />
               <span className="sr-only md:not-sr-only">{tt("Filters")}</span>
+            </button>
+            <button type="button" onClick={() => setImporting(true)} className={cn(buttonSecondary, "h-10 px-3 md:hidden")} aria-label={tt("Import")}>
+              <Upload className="h-4 w-4" aria-hidden />
             </button>
             <ToolbarSelect label={tt("Sort")} value={query.sort} onChange={(v) => change({ sort: v as ReviewListQuery["sort"] })} className="hidden md:block">
               <option value="newest">{tt("Newest first")}</option>

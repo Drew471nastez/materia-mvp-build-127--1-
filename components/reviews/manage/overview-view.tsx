@@ -66,8 +66,8 @@ export function OverviewView({ onGo }: { onGo: (view: ManageView, opts?: { statu
           </div>
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
-          <Figure label={tt("All reviews")} value={formatCount(s.total)} sub={s.total ? tt("{n} from verified buyers", { n: formatCount(s.verifiedPublished) }) : undefined} />
-          <Figure label={tt("Published")} value={formatCount(s.published)} />
+          <Figure label={tt("All reviews")} value={formatCount(s.total)} />
+          <Figure label={tt("Published")} value={formatCount(s.published)} sub={s.published ? tt("{n} from verified buyers", { n: formatCount(s.verifiedPublished) }) : undefined} />
           <button type="button" onClick={() => onGo("reviews", { status: "pending" })} className="min-w-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-overview-pending="">
             <Figure label={tt("Waiting for approval")} value={<span className={s.pending ? "text-[#92400e]" : undefined}>{formatCount(s.pending)}</span>} sub={s.pending ? tt("Review them") : undefined} />
           </button>

@@ -109,7 +109,7 @@ export function ReviewsManage({ onAppChanged }: ReviewsManageProps) {
   return (
     <div className="space-y-4 sm:space-y-5" data-reviews-manage="" data-reviews-view={view}>
       <nav aria-label={tt("Storelib Reviews")} className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-        <div role="tablist" className="inline-flex min-w-full gap-1 border-b border-[#e5e7eb] sm:min-w-0">
+        <div role="tablist" className="flex min-w-max gap-1 border-b border-[#e5e7eb] sm:min-w-0">
           {MANAGE_VIEWS.map((v) => (
             <button
               key={v}
