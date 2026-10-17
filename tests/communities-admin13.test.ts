@@ -185,7 +185,8 @@ async function main() {
   console.log("\ngates")
   const ctx = code("lib/communities/server/context.ts")
   check("viewerContext reads the owner's choices for staff", /const perms = await staffPermissions\(db, community\.id, role\)/.test(ctx))
-  check("requireMember and requireCreatorCommunity decide with them", /can\(viewer\.role, action, viewer\.perms\)/.test(ctx) && /can\(role, action, viewer\.perms\)/.test(ctx))
+  /* Round 34: the decision each gate makes once it knows the role is memberRefusal and creatorRefusal, pure and walked by every route in tests/communities-roles-r34.test.ts. Both still ask can() with the owner's choices. */
+  check("requireMember and requireCreatorCommunity decide with them", /memberRefusal\(viewer, community, action\)/.test(ctx) && /creatorRefusal\(role, action, viewer\.perms, community\)/.test(ctx) && /can\(viewer\.role, action, viewer\.perms\)/.test(ctx) && /can\(role, action, perms\)/.test(ctx))
   check("what a client is told it may do includes them", /allowedActions\(v\.role, v\.perms\)/.test(ctx))
   const creator = code("lib/communities/server/creator.ts")
   check("the /app pages decide with them", /can\(ctx\.role, action, ctx\.viewer\.perms\)/.test(creator) && /allowedActions\(ctx\.role, ctx\.viewer\.perms\)/.test(creator))

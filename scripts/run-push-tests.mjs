@@ -728,6 +728,18 @@ const STRICT_SUITES = [
   */
   "tests/community-lifecycle-round33.test.ts",
   /*
+    Round 34: what every community route and section page demands, who gets through it, and a moderator calling an
+    admin endpoint himself (lib/communities/route-permissions.ts). Here, not above: it runs the gates themselves
+    (lib/communities/server/context.ts) and the member actions, whose results are narrowed by `if (!x.ok)`.
+  */
+  "tests/communities-roles-r34.test.ts",
+  /*
+    Round 34: every administrative member action over a real database, featured members, a member opened, and what a
+    member facing read never says (lib/communities/DATA-SAFETY.md section 3b). Strict for the same reason: it runs
+    lib/communities/server/{creator,moderation,directory,people,member-detail}.ts.
+  */
+  "tests/communities-members-r34.test.ts",
+  /*
     Round 26 (W1): a community being deleted takes no place on the plan, Keep after a replacement, two tabs, the
     states and the cards (scripts/check-cards-round26.mjs measures the cards). Here for the same reason as the line
     above: it runs lib/communities/server/creator.ts.

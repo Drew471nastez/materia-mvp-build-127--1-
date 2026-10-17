@@ -84,7 +84,7 @@ interface Props {
   badges: BadgeView[]
 }
 
-const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, points: m.points, acted: m.acted ?? null })
+const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, featured: m.featured, points: m.points, acted: m.acted ?? null })
 
 type Bulk = "approve" | "reject" | "remove"
 
@@ -280,6 +280,7 @@ export function MembersSection(p: Props) {
         <span className={cn("flex min-w-0 items-center gap-1.5 font-medium text-[#1a1a2e]", size === 32 ? "text-[13.5px]" : "text-[14.5px]")}>
           <span className="truncate">{m.name}</span>
           {m.mutedUntil ? <StatusBadge tone="attention">{tt("Muted")}</StatusBadge> : null}
+          {m.featured ? <StatusBadge tone="neutral">{tt("Featured")}</StatusBadge> : null}
           {size === 32 && m.source === "manual" ? <StatusBadge tone="neutral">{tt("Complimentary")}</StatusBadge> : null}
         </span>
         <span className="block truncate text-[12.5px] text-[#6b7280]">{size === 32 ? (m.email ?? (m.username ? `@${m.username}` : "")) : line(m)}</span>

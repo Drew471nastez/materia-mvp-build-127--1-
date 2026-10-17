@@ -106,6 +106,12 @@ export interface ProfilePerson {
   location: string | null
   /** Their role here, when it is more than a member. */
   role: "owner" | "admin" | "moderator" | null
+  /**
+   * The community features them (round 34, lib/communities/featured-members.ts):
+   * one quiet word beside their name. False before run-now part 223, and on
+   * the viewer's own profile, which is their account page.
+   */
+  featured?: boolean
   level: number | null
   /** When they joined this community. */
   joinedAt: string | null

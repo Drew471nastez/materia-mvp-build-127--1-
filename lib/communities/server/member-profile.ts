@@ -63,6 +63,7 @@ import {
 } from "../member-profile-view"
 import type { Viewer } from "./context"
 import { missing, type Db } from "./db"
+import { featuredSet } from "./featured-members"
 import { accessOf, canSeeSpace, cursorAfter, decodeCursor, keysetCondition, listSpaces } from "./feed"
 import { ownedProductIds } from "./membership"
 import { displayName } from "./directory"
@@ -463,7 +464,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
   if (!self && (!theirs || theirs.status !== "active" || theirs.banned_at)) return null
 
   const mine = self ? await myCommunities(db, viewer.userId) : null
-  const [own, place, counts, following, look, posts, activity, board] = await Promise.all([
+  const [own, place, counts, following, look, posts, activity, board, featured] = await Promise.all([
     ownCoverValue(db, person.id),
     readProfileLocation(db, person.id),
     followCounts(db, person.id),
@@ -472,6 +473,8 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
     mine ? myPostsPage(db, viewer.userId, null, mine) : communityPostsPage(db, community, viewer, person.id, null),
     mine ? myRecentActivity(db, viewer.userId, mine) : Promise.resolve(null),
     !self && theirs ? memberBoard(db, community, theirs, person.id, { now }) : Promise.resolve(null),
+    /* The community's featured members (round 34): one bounded read, empty before run-now part 223, so no mark is drawn. */
+    self ? Promise.resolve(new Set<string>()) : featuredSet(db, community.id),
   ])
   const role = theirs?.role && theirs.role !== "member" ? (theirs.role as ProfilePerson["role"]) : null
   const storefront = look.hasStorefront
@@ -490,6 +493,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
       bio: (person.bio || "").trim() || look.bio,
       location: locationLine(place),
       role,
+      featured: featured.has(person.id),
       level: typeof theirs?.level === "number" ? theirs.level : null,
       joinedAt: theirs?.joined_at ?? null,
       followers: counts.followers,

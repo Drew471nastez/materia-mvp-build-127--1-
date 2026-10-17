@@ -11,7 +11,8 @@
  *              (can() and never on somebody ranked the same or above)
  *   where      PATCH /api/app/community/<id>/members/<userId> for mute,
  *              unmute, suspend, unsuspend, ban, unban, remove, reinstate,
- *              approve, reject and role; POST .../members for complimentary access;
+ *              approve, reject, role, feature and unfeature;
+ *              POST .../members for complimentary access;
  *              POST .../gamification/points and .../badges/<id> for points
  *              and badges
  *   asking     a confirmation with an optional reason (kept in the audit
@@ -40,6 +41,8 @@ export interface ActOnPerson {
   source: string
   mutedUntil: string | null
   approved?: boolean
+  /** The community features them (round 34): the menu then offers Stop featuring. */
+  featured?: boolean
   points?: number
   /** Who took their access away, when and why: what the undo's rank rule reads. */
   acted?: MemberActionTaken | null
@@ -59,6 +62,7 @@ const SECTION_TITLE: Record<string, string> = {
   get Access() { return tt("Access") },
   get Points() { return tt("Points") },
   get Moderate() { return tt("Moderate") },
+  get Featured() { return tt("Featured") },
 }
 export const sectionTitle = (key: string): string => SECTION_TITLE[key] ?? key
 

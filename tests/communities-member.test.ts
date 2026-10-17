@@ -386,7 +386,7 @@ async function main() {
   const placePage = code("components/community/member/place-page.tsx")
   for (const p of ["space/[space]", "members", "leaderboard", "saved", "notifications"]) check(`${p} exists and 404s for anyone not an active member`, existsSync(`${G}/${p}/page.tsx`) && /<PlacePage /.test(code(`${G}/${p}/page.tsx`)) && /page\.state !== "member" \|\| !page\.viewer\) notFound\(\)/.test(placePage))
   const loader = code("lib/communities/server/places.ts")
-  check("the leaderboard page needs points on; members need the directory or staff", /if \(!community\.gamification_enabled\) return off/.test(loader) && /if \(!community\.directory_enabled && !can\(viewer\.role, "manage_members"\)\) return off/.test(loader) && /if \(!load\.ok\) notFound\(\)/.test(placePage))
+  check("the leaderboard page needs points on; members need the directory or staff", /if \(!community\.gamification_enabled\) return off/.test(loader) && /if \(!community\.directory_enabled && !can\(viewer\.role, "manage_members", viewer\.perms\)\) return off/.test(loader) && /if \(!load\.ok\) notFound\(\)/.test(placePage))
   const feedPage = read("components/community/member/feed-page.tsx")
   check("CommunityFeedPage({ slug }) is exported for /community/[slug]", /export const CommunityFeedPage = [\s\S]*\(props: \{ slug: string \}\)/.test(feedPage))
   check("CommunityShell({ community, viewer, active, children }) is exported", /export const CommunityShell = [\s\S]*active\?: ShellSection; children: React\.ReactNode/.test(read("components/community/member/shell.tsx")))

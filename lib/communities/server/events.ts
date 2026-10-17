@@ -74,7 +74,7 @@ function accessViewer(viewer: Viewer) {
 
 /** Whether this viewer may run events (sees the meeting link any time). */
 function runsEvents(viewer: Viewer): boolean {
-  return viewer.active && can(viewer.role, "manage_events")
+  return viewer.active && can(viewer.role, "manage_events", viewer.perms)
 }
 
 /* ── Money on an event (part 105) ───────────────────────────────────────── */

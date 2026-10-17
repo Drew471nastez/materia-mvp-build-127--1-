@@ -74,13 +74,14 @@ import "server-only"
 import { createHash, createHmac } from "node:crypto"
 import { callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { redirectTarget } from "@/lib/api/public-fetch"
-import { can } from "../permissions"
+import { can, meetsRole } from "../permissions"
 import { PAID_SOURCES, type CommunityRow, type PostMedia, type ReportTarget, type Role } from "../types"
 import { LINK_REASON_WORDS, checkLink, linksInText, worstOf, type LinkCheck } from "../link-check"
 import { compileList, findWords, hasPrintedWord, readText, wordSettingsOf, type CompiledEntry, type ReadText } from "../word-filter"
 import { PLATFORM_ADULT, PLATFORM_HATE_PRINTS, PLATFORM_MINORS } from "../word-blocklist"
 import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { audit } from "./audit"
+import { rolePermissionsOf } from "./creator-roles"
 import { PICTURE_REFUSED, picturesOf, screenPictures, uploadedVideoCount } from "./image-check"
 import { notifyMember } from "./notify"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
@@ -216,9 +217,14 @@ export async function addHits(db: Db, rows: { bucket: string; subject: string }[
 
 /* ── Who the rules apply to ─────────────────────────────────────────────── */
 
-/** The owner, admins and moderators run the community; only the blocklist applies to them. */
+/**
+ * The owner, admins and moderators run the community; only the blocklist
+ * applies to them. This is about the rank, not about a permission group the
+ * owner can switch off: a moderator whose owner took the content group away
+ * is still the team, so it asks meetsRole rather than can().
+ */
 export function isTeam(role: Role | null): boolean {
-  return can(role, "moderate_content")
+  return meetsRole(role, "moderator")
 }
 
 /**
@@ -668,9 +674,12 @@ export function isHeld(answer: unknown): boolean {
 /** The team members told about something waiting: whoever may review reports, at most 25. */
 async function tellTeam(db: Db, community: CommunityRow, n: { title: string; body?: string | null; key: string; actorId?: string | null; target?: { type: string; id: string }; needs?: "review_reports" | "manage_settings" }): Promise<void> {
   try {
-    const { data } = await db.from("community_members").select("user_id, role").eq("community_id", community.id).eq("status", "active").in("role", ["owner", "admin", "moderator"]).limit(25)
+    const [{ data }, perms] = await Promise.all([
+      db.from("community_members").select("user_id, role").eq("community_id", community.id).eq("status", "active").in("role", ["owner", "admin", "moderator"]).limit(25),
+      rolePermissionsOf(db, community.id),
+    ])
     for (const s of (data as { user_id: string; role: Role }[] | null) ?? []) {
-      if (!can(s.role, n.needs ?? "review_reports")) continue
+      if (!can(s.role, n.needs ?? "review_reports", perms.perms)) continue
       await notifyMember(db, {
         userId: s.user_id,
         communityId: community.id,

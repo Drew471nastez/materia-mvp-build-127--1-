@@ -29,6 +29,7 @@ import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { COMMUNITY_MEMBERSHIP_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 import { relativeTime } from "@/lib/communities/format"
 import type { MemberSource, NotifyLevel, Role } from "@/lib/communities/types"
+import { DEFAULT_DM_FROM, DM_CHOICES, type DmFrom } from "@/lib/communities/message-privacy"
 import { JoinProvider, useLeave } from "@/components/community/public/join-controls"
 import type { JoinStateView, PublicCommunityView } from "@/components/community/public/types"
 import { api, apiBase } from "./api"
@@ -46,6 +47,8 @@ export interface MembershipFacts {
   /** The tier's name when they are on one ("Studio members"). */
   planName: string | null
   notifyLevel: NotifyLevel
+  /** Who they let message them here (round 34, lib/communities/message-privacy.ts). */
+  dmFrom?: DmFrom
 }
 
 /** What they hear about, each with the line that says what it means. The inbox's four levels (notifications.tsx). */
@@ -92,16 +95,37 @@ function Row({ label, children, k }: { label: string; children: React.ReactNode;
   )
 }
 
-/** A radio list in Storelib's form style: a ring that fills, the choice in ink, its line in grey under it. Saved on the press. */
-function NotifyChoices({ communityId, initial }: { communityId: string; initial: NotifyLevel }) {
-  const [level, setLevel] = useState<NotifyLevel>(initial)
-  const [saving, setSaving] = useState<NotifyLevel | null>(null)
-  const choose = async (next: NotifyLevel) => {
+/**
+ * A radio list in Storelib's form style: a ring that fills, the choice in
+ * ink, its line in grey under it. Saved on the press, and put back on the
+ * press that did not save.
+ */
+function Choices<T extends string>({
+  communityId,
+  initial,
+  choices,
+  field,
+  label,
+  mark,
+  markChoice,
+}: {
+  communityId: string
+  initial: T
+  choices: readonly { key: T; label: string; help: string }[]
+  /** The name the /me route takes it under. */
+  field: "notifyLevel" | "dmFrom"
+  label: string
+  mark: string
+  markChoice: string
+}) {
+  const [level, setLevel] = useState<T>(initial)
+  const [saving, setSaving] = useState<T | null>(null)
+  const choose = async (next: T) => {
     if (next === level || saving) return
     const was = level
     setLevel(next)
     setSaving(next)
-    const r = await api(`${apiBase(communityId)}/me`, { method: "PATCH", body: { notifyLevel: next } })
+    const r = await api(`${apiBase(communityId)}/me`, { method: "PATCH", body: { [field]: next } })
     setSaving(null)
     if (!r.ok) {
       setLevel(was)
@@ -110,8 +134,8 @@ function NotifyChoices({ communityId, initial }: { communityId: string; initial:
     toast("Saved")
   }
   return (
-    <div role="radiogroup" aria-label="What you hear about from this community" className="mt-3 divide-y divide-[#f0f1f3]" data-membership-notify="">
-      {NOTIFY_CHOICES.map((c) => {
+    <div role="radiogroup" aria-label={label} className="mt-3 divide-y divide-[#f0f1f3]" {...{ [mark]: "" }}>
+      {choices.map((c) => {
         const on = level === c.key
         return (
           <button
@@ -120,7 +144,7 @@ function NotifyChoices({ communityId, initial }: { communityId: string; initial:
             role="radio"
             aria-checked={on}
             onClick={() => void choose(c.key)}
-            data-notify-choice={c.key}
+            {...{ [markChoice]: c.key }}
             className="flex w-full touch-manipulation items-start gap-3 py-3 text-left outline-none first:pt-1 last:pb-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
           >
             <span
@@ -236,7 +260,32 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
             Notifications
           </h2>
           <p className={LEAD}>What you hear about from {community.name}.</p>
-          <NotifyChoices communityId={community.id} initial={facts.notifyLevel} />
+          <Choices
+            communityId={community.id}
+            initial={facts.notifyLevel}
+            choices={NOTIFY_CHOICES}
+            field="notifyLevel"
+            label="What you hear about from this community"
+            mark="data-membership-notify"
+            markChoice="data-notify-choice"
+          />
+        </section>
+
+        {/* Round 34: who may start a conversation with them here. Their own choice, applied by the server on every message. */}
+        <section className={SECTION} aria-labelledby="membership-messages" data-membership-messages-section="">
+          <h2 id="membership-messages" className={H2}>
+            Messages
+          </h2>
+          <p className={LEAD}>Who can message you in {community.name}.</p>
+          <Choices
+            communityId={community.id}
+            initial={facts.dmFrom ?? DEFAULT_DM_FROM}
+            choices={DM_CHOICES}
+            field="dmFrom"
+            label="Who can message you in this community"
+            mark="data-membership-messages"
+            markChoice="data-message-choice"
+          />
         </section>
 
         {/* Worker M (round 13, ask 42): the form to the owner's inbox, and their public address when they chose to show it. */}

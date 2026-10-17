@@ -758,6 +758,12 @@ export interface MemberView {
   hasStorefront?: boolean
   /** "Lisbon, Portugal" from their profile (part 98, lib/communities/location.ts); null when they have not said. */
   location?: string | null
+  /**
+   * The community features them (round 34, lib/communities/featured-members.ts):
+   * one quiet word beside their name, nothing ranked and nothing counted.
+   * False before run-now part 223 has added the columns.
+   */
+  featured?: boolean
 }
 
 export interface EventView {

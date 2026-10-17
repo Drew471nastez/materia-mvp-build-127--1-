@@ -118,7 +118,7 @@ async function main() {
     const classroom = code("components/community/classroom/classroom-library.tsx")
     check("an empty classroom is not 'No courses yet' but the community's empty card", !/No courses yet/.test(classroom) && /<PlaceEmpty/.test(classroom) && /Nothing in the classroom yet/.test(classroom))
     /* Changed on purpose: round 13 renamed the Classroom to Learn (its page is gone, the old address answers a 308); staff get the action from the one place loader, manageLearn (ddcbaf919). */
-    check("its staff get Add a course", /action=\{manageHref \? \{ href: manageHref, label: "Add a course" \} : null\}/.test(classroom) && /const manageLearn = can\(viewer\.role, "manage_classroom"\)/.test(code("lib/communities/server/places.ts")) && /action=\{manageHref \? \{ href: manageHref, label: "Make a program" \} : null\}/.test(code("components/community/learn/learn-library.tsx")))
+    check("its staff get Add a course", /action=\{manageHref \? \{ href: manageHref, label: "Add a course" \} : null\}/.test(classroom) && /const manageLearn = can\(viewer\.role, "manage_classroom", viewer\.perms\)/.test(code("lib/communities/server/places.ts")) && /action=\{manageHref \? \{ href: manageHref, label: "Make a program" \} : null\}/.test(code("components/community/learn/learn-library.tsx")))
     const events = code("components/community/events/events-page.tsx")
     check("the calendar is called Calendar, its views Upcoming, Past and Month", />\s*Calendar\s*<\/h1>/.test(events) && /\["calendar", "Month"\]/.test(events))
     /* Changed on purpose: round 15: the Calendar is a place the shell draws from the one place loader, which gives staff the Schedule an event address (lib/communities/server/places.ts, ddcbaf919). */

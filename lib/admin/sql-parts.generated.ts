@@ -163,4 +163,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "220", file: "220_community_summary_and_member_links.sql", sha256: "cfe2288f90605cd9accfd06f3a80edb536dfdee0dda1b14f80baa15a655bbac7" },
   { part: "221", file: "221_community_member_link_clicks.sql", sha256: "b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee" },
   { part: "222", file: "222_library_asset_retention.sql", sha256: "08c6e1b3ded95b87e7699a7abe0204212753acad2c190b2822cb8b58895522aa" },
+  { part: "223", file: "223_community_member_marks_and_messages.sql", sha256: "c7377fd3588466151fd9b019683abe25f8ee0e7a3f009deb36d037bcca266f5c" },
 ]

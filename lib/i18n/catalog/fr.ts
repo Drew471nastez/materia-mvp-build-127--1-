@@ -9380,7 +9380,21 @@ const words: Record<string, string> = {
  "Where this is used could not be checked.": "Impossible de vérifier où ceci est utilisé.",
  "Nothing in your store points at it.": "Rien dans votre boutique ne pointe vers elle.",
  "Nothing in your store points at them.": "Rien dans votre boutique ne pointe vers eux.",
- "Some places could not be checked.": "Certains endroits n'ont pas pu être vérifiés."
+ "Some places could not be checked.": "Certains endroits n'ont pas pu être vérifiés.",
+ "Feature in the community": "Mettre en avant dans la communauté",
+ "{name} is featured": "{name} est mis en avant",
+ "{name} is no longer featured": "{name} n'est plus mis en avant",
+ "Reading what they did here": "Lecture de son activité ici",
+ "What they did here could not be read.": "Son activité ici n'a pas pu être lue.",
+ "Here": "Ici",
+ "Last posted": "Dernière publication",
+ "Invited by": "Invité par",
+ "Approved by": "Approuvé par",
+ "Given": "Offert",
+ "Featuring members needs the database update (run-now part 223).": "Mettre des membres en avant nécessite la mise à jour de la base de données (run-now partie 223).",
+ "A community can feature 12 members. Take one off first.": "Une communauté peut mettre 12 membres en avant. Retirez-en un d'abord.",
+ "Only a member who is here can be featured.": "Seul un membre présent peut être mis en avant.",
+ "Featuring is for somebody else.": "La mise en avant concerne quelqu'un d'autre."
 }
 
 export default words

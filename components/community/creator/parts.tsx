@@ -131,6 +131,14 @@ export function errorText(error: string | undefined, fallback = "That did not sa
       return tt("Your role in this community cannot do that.")
     case "not_set_up":
       return tt("Tickets need the database update (run-now part 105).")
+    case "needs_update":
+      return tt("Featuring members needs the database update (run-now part 223).")
+    case "too_many":
+      return tt("A community can feature 12 members. Take one off first.")
+    case "not_active":
+      return tt("Only a member who is here can be featured.")
+    case "self":
+      return tt("Featuring is for somebody else.")
     case "full":
       return tt("That event is full. Raise the capacity first.")
     case "no_payment":

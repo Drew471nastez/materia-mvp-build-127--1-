@@ -288,11 +288,23 @@ async function main() {
   check("a moderator can mute, suspend, remove and ban a member, and nothing about roles or access", ["mute", "suspend", "remove", "ban"].every((a) => asMod.includes(a as never)) && !asMod.includes("role") && !asMod.includes("complimentary"))
   const asAdmin = memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: false, badges: 0 }, target)
   check("an admin may make a moderator but not an admin", asAdmin.some((c) => c.action === "role" && c.role === "moderator") && !asAdmin.some((c) => c.action === "role" && c.role === "admin"))
-  check("nobody is offered anything on an equal, a senior, the owner or themselves",
-    memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0 &&
-      memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0 &&
-      memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "owner" }).length === 0 &&
-      memberChoices({ userId: UID(50), role: "owner", can: allowedActions("owner"), gamification: true, badges: 1 }, target).length === 0)
+  /*
+    ROUND 34: featuring a member takes nothing away, so it is the one choice
+    offered on an equal, a senior, the owner and this person themselves. Every
+    choice that acts against somebody is still offered on none of them, which
+    is what this held before.
+  */
+  const onPeers = [
+    memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "admin" }),
+    memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: true, badges: 1 }, { ...target, role: "admin" }),
+    memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, role: "owner" }),
+    memberChoices({ userId: UID(50), role: "owner", can: allowedActions("owner"), gamification: true, badges: 1 }, target),
+  ]
+  check("nothing that acts against an equal, a senior, the owner or themselves is offered", onPeers.every((cs) => cs.every((c) => c.action === "feature" || c.action === "unfeature")))
+  check("a moderator is offered nothing at all on an admin: they may not feature either", onPeers[1].length === 0)
+  check("and nobody is offered anything on themselves, featuring included", onPeers[3].length === 0)
+  check("featuring is offered on a peer, and reads the feature permission", onPeers[0].map((c) => c.action).join() === "feature" && memberChoices({ userId: UID(51), role: "admin", can: { ...allowedActions("admin"), feature: false }, gamification: true, badges: 1 }, { ...target, role: "admin" }).length === 0)
+  check("a member already featured is offered Stop featuring instead", memberChoices({ userId: UID(51), role: "admin", can: allowedActions("admin"), gamification: true, badges: 1 }, { ...target, featured: true }).map((c) => c.action).includes("unfeature"))
   check("a muted member is offered Unmute, not another mute", (() => { const a = memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, mutedUntil: "2099-01-01T00:00:00Z" }).map((c) => c.action); return a.includes("unmute") && !a.includes("mute") })())
   check("a request has Approve and Decline, a suspension Bring back, a ban Unban",
     memberChoices({ userId: UID(51), role: "moderator", can: allowedActions("moderator"), gamification: false, badges: 0 }, { ...target, status: "pending" }).map((c) => c.action).join(",") === "approve,reject" &&

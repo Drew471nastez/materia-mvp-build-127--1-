@@ -26,6 +26,7 @@ import { LENGTHS } from "../limits"
 import { can } from "../permissions"
 import { REPORT_REASONS, isOneOf, type ReportReason, type ReportTarget, type Role } from "../types"
 import { isUniqueViolation, missing, reasonOf } from "./db"
+import { rolePermissionsOf } from "./creator-roles"
 import { chatSpace } from "./chat"
 import { cleanText, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { escalateReport } from "./moderation"
@@ -121,14 +122,17 @@ export async function createReport(w: WriteContext, input: ReportInput): Promise
   }
 
   try {
-    const { data: staff } = await db
-      .from("community_members")
-      .select("user_id, role")
-      .eq("community_id", community.id)
-      .eq("status", "active")
-      .in("role", ["owner", "admin", "moderator"])
-      .limit(STAFF_MAX)
-    const reviewers = ((staff as { user_id: string; role: Role }[] | null) ?? []).filter((s) => can(s.role, "review_reports") && s.user_id !== viewer.userId)
+    const [{ data: staff }, perms] = await Promise.all([
+      db
+        .from("community_members")
+        .select("user_id, role")
+        .eq("community_id", community.id)
+        .eq("status", "active")
+        .in("role", ["owner", "admin", "moderator"])
+        .limit(STAFF_MAX),
+      rolePermissionsOf(db, community.id),
+    ])
+    const reviewers = ((staff as { user_id: string; role: Role }[] | null) ?? []).filter((s) => can(s.role, "review_reports", perms.perms) && s.user_id !== viewer.userId)
     const { data: stores } = reviewers.length ? await db.from("creators").select("user_id").in("user_id", reviewers.map((s) => s.user_id)) : { data: [] }
     const withApp = new Set(((stores as { user_id: string }[] | null) ?? []).map((r) => r.user_id))
     const queue = `/app/community/${community.id}/moderation`

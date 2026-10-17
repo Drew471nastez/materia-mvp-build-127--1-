@@ -435,6 +435,8 @@ export interface MemberRowView {
   lastActiveAt: string | null
   mutedUntil: string | null
   approved: boolean
+  /** The community features them (round 34): one quiet word on the row, nothing ranked. False before run-now part 223; absent on an older caller. */
+  featured?: boolean
   /** Only on a person who is not active, or is muted. */
   acted?: MemberActionTaken | null
 }
