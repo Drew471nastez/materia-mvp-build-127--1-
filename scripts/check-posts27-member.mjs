@@ -152,16 +152,27 @@ const PAGE_HOOKS = () => {
     st.textContent = "[data-composer-toolbar]::after{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;background:#ff00aa}"
     document.head.appendChild(st)
   })
+  /*
+    The keys are one element made once and only restyled: adding or removing an element under <html> is itself a
+    document-wide style pass where the page has html:has() rules, which a real keyboard never is (the cost part measures
+    the page's own work, not the probe's).
+  */
   window.__keys = (h) => {
     let k = document.getElementById("probe-keys")
-    if (!h) return k?.remove()
+    if (!h) {
+      if (k) {
+        k.style.height = "0px"
+        k.style.top = "844px"
+      }
+      return
+    }
     if (!k) {
       k = document.createElement("div")
       k.id = "probe-keys"
       k.style.cssText = "position:fixed;left:0;right:0;z-index:2147483647;pointer-events:none;background:rgba(190,193,200,0.72);border-top:1px solid rgba(0,0,0,0.08);font:600 14px sans-serif;color:#374151;display:flex;align-items:flex-start;justify-content:center;padding-top:14px"
       document.documentElement.appendChild(k)
     }
-    k.textContent = `keyboard ${h}px`
+    if (k.textContent !== "keyboard") k.textContent = "keyboard"
     k.style.height = `${h}px`
     k.style.top = `${844 - h}px`
   }
@@ -191,6 +202,10 @@ const PAGE_HOOKS = () => {
     delete vv.height
     vv.dispatchEvent(new Event("resize"))
   }
+  document.addEventListener("DOMContentLoaded", () => {
+    window.__keys(1)
+    window.__keys(0)
+  })
   window.__track = []
   window.__tracking = false
   /* Long tasks while it goes down (the main thread held: nothing on screen can follow the keys). */
@@ -592,6 +607,95 @@ async function partPill() {
   await s.p.close()
 }
 
+/*
+  COST: WHAT ONE KEYBOARD MOVE COSTS THE PAGE (round 27 follow-up). With the New post sheet open over the feed and the words
+  typed in, the keyboard comes up and goes down the way Safari reports it; a trace of each move counts the style recalcs
+  (and how many elements each touched) and the layouts, and the long tasks are listed. Then each root write alone
+  (KeyboardGuard's class, ViewportVars' --vv-h and --kb-inset, KeyboardGuard's --vvh) is timed forced, at 1x.
+*/
+async function partCost(throttle) {
+  console.log(`\nCOST: a keyboard up and down with the New post sheet open (390x844, touch, ${throttle}x CPU)`)
+  const s = await session("safari")
+  await s.p.evaluate(() => window.__compose?.())
+  await sleep(1600)
+  await s.p.evaluate(() => document.querySelector("[data-composer=sheet] textarea")?.focus({ preventScroll: true }))
+  await s.p.keyboard.type("Fired the big bowl today", { delay: 5 })
+  await sleep(300)
+  const each = await s.p.evaluate(() => {
+    const root = document.documentElement
+    const t = (f) => { void document.body.offsetHeight; const a = performance.now(); f(); void document.body.offsetHeight; return Math.round((performance.now() - a) * 10) / 10 }
+    const runs = (f) => { const xs = [t(f), t(f), t(f), t(f)]; return xs.sort((a, b) => a - b)[1] }
+    return {
+      nodes: document.querySelectorAll("*").length,
+      keyboardOpenClass: runs(() => root.classList.toggle("keyboard-open")),
+      vvH: runs(() => root.style.setProperty("--vv-h", `${800 + Math.round(Math.random() * 40)}px`)),
+      kbInset: runs(() => root.style.setProperty("--kb-inset", `${Math.round(Math.random() * 40)}px`)),
+      vvTop: runs(() => root.style.setProperty("--vv-top", `${Math.round(Math.random() * 4)}px`)),
+      vvh: runs(() => root.style.setProperty("--vvh", `${800 + Math.round(Math.random() * 40)}px`)),
+      dataKeyboard: runs(() => (root.dataset.keyboard = root.dataset.keyboard === "open" ? "" : "open")),
+      nothing: runs(() => {}),
+      /* How many custom properties every element inherits (each recalc after a root change copies them). */
+      unusedRootVar: runs(() => root.style.setProperty("--zz-unused", `${Math.random()}px`)),
+      unusedBodyVar: runs(() => document.body.style.setProperty("--zz-unused", `${Math.random()}px`)),
+      unusedClassOnRoot: runs(() => root.classList.toggle("zz-unused")),
+      ...((() => {
+        const st = document.createElement("style")
+        st.textContent = "html.zz-a .zz-x > * { min-height: 0 } html.zz-b [data-zz] > div { min-height: 0 } html.zz-c body { padding-bottom: 0 } html.zz-d .zz-x { padding-bottom: 0 }"
+        document.head.appendChild(st)
+        return {
+          childUniversal: runs(() => root.classList.toggle("zz-a")),
+          childTag: runs(() => root.classList.toggle("zz-b")),
+          bodyTag: runs(() => root.classList.toggle("zz-c")),
+          classOnly: runs(() => root.classList.toggle("zz-d")),
+        }
+      })()),
+      inheritedCustom: (() => { const cs = getComputedStyle(document.body); let n = 0; for (let i = 0; i < cs.length; i++) if (cs[i].startsWith("--")) n++; return n })(),
+    }
+  })
+  console.log(`  each write alone, forced style and layout, median of 4 (ms, 1x): ${JSON.stringify(each)}`)
+  await s.p.evaluate(() => {
+    delete document.documentElement.dataset.keyboard
+    document.documentElement.classList.remove("keyboard-open")
+  })
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle })
+  const out = {}
+  const REPEAT = Number(process.env.REPEAT || 3)
+  const moves = []
+  for (let i = 0; i < REPEAT; i++) moves.push([`up${i + 1}`, () => s.p.evaluate((h) => { window.__keys(h); window.__vv(0, 844 - h) }, KEYS)], [`down${i + 1}`, () => s.p.evaluate(() => { window.__keys(0); window.__vvReal() })])
+  for (const [name, act] of moves) {
+    await s.p.evaluate(() => { window.__long = []; window.__tracking = true })
+    await s.p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack"] })
+    await act()
+    await sleep(900)
+    const buf = await s.p.tracing.stop()
+    const long = await s.p.evaluate(() => ((window.__tracking = false), window.__long.slice()))
+    const ev = JSON.parse(Buffer.from(buf).toString("utf8")).traceEvents
+    const styles = ev.filter((e) => (e.name === "UpdateLayoutTree" || e.name === "RecalculateStyles") && e.ph === "X")
+    const layouts = ev.filter((e) => e.name === "Layout" && e.ph === "X")
+    const ms = (xs) => Math.round(xs.reduce((a, e) => a + (e.dur || 0), 0) / 100) / 10
+    out[name] = {
+      longTasks: long,
+      styleMs: ms(styles),
+      styleElements: styles.map((e) => e.args?.elementCount ?? e.args?.beginData?.elementCount ?? null).filter((x) => x !== null),
+      layoutMs: ms(layouts),
+      layoutObjects: layouts.map((e) => e.args?.beginData?.dirtyObjects ?? null).filter((x) => x !== null),
+    }
+    if (process.env.WHO) for (const e of styles.filter((e) => (e.args?.elementCount ?? e.args?.beginData?.elementCount ?? 0) > 100 || (e.dur || 0) > 3000)) console.log(`    recalc ${Math.round((e.dur || 0) / 1000)}ms ${e.args?.elementCount ?? e.args?.beginData?.elementCount}: ${(e.args?.beginData?.stackTrace ?? []).slice(0, 5).map((f) => `${f.functionName}:${f.lineNumber}`).join(" < ") || "(the frame)"}`)
+    console.log(`  ${name}: long tasks ${JSON.stringify(long)}; style ${out[name].styleMs}ms over ${styles.length} recalcs, elements ${JSON.stringify(out[name].styleElements)}; layout ${out[name].layoutMs}ms, dirty objects ${JSON.stringify(out[name].layoutObjects)}`)
+  }
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  /* The median move each way: the main thread's longest task, the style time, and how many whole document restyles (over 400 elements). */
+  const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+  for (const dir of ["up", "down"]) {
+    const runs = Object.entries(out).filter(([k]) => k.startsWith(dir)).map(([, v]) => v)
+    out[`${dir}-median`] = { longestTaskMs: med(runs.map((r) => Math.max(0, ...r.longTasks))), styleMs: med(runs.map((r) => r.styleMs)), wholeDocumentRestyles: med(runs.map((r) => r.styleElements.filter((n) => n > 400).length)) }
+    console.log(`  ${dir}, median of ${runs.length}: ${JSON.stringify(out[`${dir}-median`])}`)
+  }
+  results[`cost-${throttle}x`] = { each, ...out }
+  expect(!s.errors.length, "no page errors", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -600,6 +704,10 @@ try {
   })()
   for (const name of Object.keys(CASES)) if (want(name)) await runCase(name)
   if (want("pill")) await partPill()
+  if (only.has("cost")) {
+    await partCost(1)
+    await partCost(4)
+  }
   if (want("closed")) {
     await partClosed("phone")
     await partClosed("desktop")

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 
-import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { flushRootWrites, keyboardInsetOrFloor, writeRootLater } from "@/lib/ui/keyboard-safe-sheet"
 import { isSiteDocument } from "@/components/website-builder/site-document"
 
 /**
@@ -196,13 +196,18 @@ export function KeyboardGuard() {
         idempotent and cost nothing.
       */
       const opening = kbHeight > 0 && !keyboardWasOpen
+      /*
+        ROUND 27: THE CLASS AND --vvh ARE WRITTEN WITH VIEWPORTVARS' NUMBERS,
+        in the next frame (keyboard-safe-sheet.ts writeRootLater). Written
+        here, between ViewportVars' writes and the next listener's layout
+        read, each restyled the whole document on its own.
+      */
       if (kbHeight > 0) {
-        root.classList.add("keyboard-open")
         // Expose the visual viewport height (visible area above the keyboard)
         // as a CSS variable so scroll containers can be clamped to exactly that
         // height, preventing them from extending into the blank area below the
         // keyboard and eliminating the rubber-band / blank-space effect.
-        root.style.setProperty("--vvh", `${Math.round(visibleHeight)}px`)
+        writeRootLater({ classes: { "keyboard-open": true }, vars: { "--vvh": `${Math.round(visibleHeight)}px` } })
         // Clamp scroll positions immediately after the CSS variable is set so
         // no blank space is visible at the bottom while the keyboard is open.
         // Two frames: first for the browser to apply the new height via CSS,
@@ -214,10 +219,9 @@ export function KeyboardGuard() {
           scrollFocusedInputIntoView()
         }
       } else {
-        const wasOpen = root.classList.contains("keyboard-open")
+        const wasOpen = keyboardWasOpen || root.classList.contains("keyboard-open")
         keyboardWasOpen = false
-        root.classList.remove("keyboard-open")
-        root.style.removeProperty("--vvh")
+        writeRootLater({ classes: { "keyboard-open": false }, vars: { "--vvh": null } })
         if (wasOpen) {
           // Wait two frames: first for the CSS class removal to trigger a
           // layout recalculation (padding-bottom restored), second to read
@@ -261,6 +265,7 @@ export function KeyboardGuard() {
       vv.removeEventListener("scroll", onViewportChange)
       document.removeEventListener("focusin", onFocusIn)
       focusTimers.forEach(clearTimeout)
+      flushRootWrites()
       root.classList.remove("keyboard-open")
       root.style.removeProperty("--vvh")
     }

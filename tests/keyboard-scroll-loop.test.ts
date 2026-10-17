@@ -56,7 +56,7 @@ function main() {
     "the centring sits inside the transition branch",
     /if \(opening\) \{[\s\S]{0,400}?scrollFocusedInputIntoView\(\)\s*\n\s*\}/.test(guard),
   )
-  check("and the flag is cleared when the keyboard goes", /keyboardWasOpen = false\s*\n\s*root\.classList\.remove\("keyboard-open"\)/.test(guard))
+  check("and the flag is cleared when the keyboard goes", /keyboardWasOpen = false\s*\n\s*writeRootLater\(\{ classes: \{ "keyboard-open": false \}/.test(guard))
 
   /*
     THE LISTENERS STAY. Dropping the `scroll` one would stop --vvh tracking a

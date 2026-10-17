@@ -6,8 +6,10 @@ import {
   KEYBOARD_CHANGE_EVENT,
   KEYBOARD_ESTIMATE_DELAY_MS,
   estimatedKeyboardInset,
+  flushRootWrites,
   keyboardInsetFrom,
   needsKeyboardEstimate,
+  writeRootLater,
 } from "@/lib/ui/keyboard-safe-sheet"
 
 /**
@@ -89,16 +91,14 @@ export function ViewportVars() {
      * actively dragging it, which is a worse fault than the one being
      * fixed. 80px is comfortably above a toolbar and far below a keyboard.
      */
+    /* ROUND 27: no stylesheet reads `vv-settling` today, so the reflow that
+       used to be forced here, before the variable changed, was a whole
+       document style pass that drew nothing. The class still comes and goes
+       for the length of the settle, with the variables, in one write. */
     const settle = () => {
-      root.classList.add("vv-settling")
-      /* Read forced BEFORE the variable changes. A transition only runs if
-         the transition property was already in effect at the previous style
-         resolution — set both in the same frame and the browser has nothing
-         to interpolate from, so the value snaps and the class does nothing.
-         One reflow per keyboard toggle, not per scroll event. */
-      void root.offsetHeight
+      writeRootLater({ classes: { "vv-settling": true } })
       window.clearTimeout(settleTimer)
-      settleTimer = window.setTimeout(() => root.classList.remove("vv-settling"), 340)
+      settleTimer = window.setTimeout(() => writeRootLater({ classes: { "vv-settling": false } }), 340)
     }
 
     /** What the platform says, read against the fixed box, which on some of them is nothing. */
@@ -110,6 +110,8 @@ export function ViewportVars() {
         vvHeight: Math.round(vv?.height ?? window.innerHeight),
       })
 
+    /* Inside the viewport's own event every listener hears it anyway: ViewportVars does not send it again (round 27). */
+    let inViewportEvent = false
     const apply = () => {
       const layout = layoutHeight()
       const reported = Math.round(vv?.height ?? window.innerHeight)
@@ -125,15 +127,17 @@ export function ViewportVars() {
          inset leaves, because either may be the one that knows. */
       const h = inset > 0 ? Math.min(reported, Math.max(0, layout - inset)) : reported
       let changed = false
+      /* ROUND 27: asked for here, written with everything else on <html> in the next frame (keyboard-safe-sheet.ts writeRootLater). */
+      const vars: Record<string, string> = {}
       if (h !== lastH) {
         changed = true
         if (lastH >= 0 && Math.abs(h - lastH) > 80) settle()
         lastH = h
-        root.style.setProperty("--vv-h", `${h}px`)
+        vars["--vv-h"] = `${h}px`
       }
       if (top !== lastTop) {
         lastTop = top
-        root.style.setProperty("--vv-top", `${top}px`)
+        vars["--vv-top"] = `${top}px`
       }
       /*
         ═══════════════════════════════════════════════════════════════════
@@ -159,7 +163,7 @@ export function ViewportVars() {
       if (inset !== lastInset) {
         changed = true
         lastInset = inset
-        root.style.setProperty("--kb-inset", `${inset}px`)
+        vars["--kb-inset"] = `${inset}px`
       }
       // Loose on purpose: a browser toolbar collapsing is sixty-odd pixels, a
       // keyboard is never less than about a quarter of the screen. Nothing in
@@ -173,9 +177,19 @@ export function ViewportVars() {
         them this number instead. The re-entrant call this makes computes the
         same pair, changes nothing, and dispatches nothing.
       */
-      if (changed) {
-        window.dispatchEvent(new CustomEvent(KEYBOARD_CHANGE_EVENT, { detail: { inset, visibleHeight: h } }))
-        try { vv?.dispatchEvent(new Event("resize")) } catch {}
+      /*
+        ROUND 27: told once the numbers are on <html>, in the frame that wrote
+        them; and the viewport's own event is sent again only for a change it
+        did not bring (the floor on its timer, a focus leaving). Sent from
+        inside that event it ran every listener twice, each reading the layout
+        between two writes: a whole document style pass each time.
+      */
+      const wake = !inViewportEvent
+      if (Object.keys(vars).length || changed) {
+        writeRootLater({ vars }, changed ? () => {
+          window.dispatchEvent(new CustomEvent(KEYBOARD_CHANGE_EVENT, { detail: { inset, visibleHeight: h } }))
+          if (wake) try { vv?.dispatchEvent(new Event("resize")) } catch {}
+        } : undefined)
       }
       const kb = layout - h > layout * 0.2
       if (kb !== lastKb) {
@@ -237,20 +251,32 @@ export function ViewportVars() {
       window.setTimeout(clearEstimate, 180)
     }
 
+    /* The first reading is written at once: nothing is on screen yet that a later frame would be measured against. */
     apply()
+    flushRootWrites()
+    /* A trusted event of the viewport or the window: everybody listening hears it; apply only publishes. */
+    const onViewport = (e: Event) => {
+      inViewportEvent = e.isTrusted
+      try {
+        apply()
+      } finally {
+        inViewportEvent = false
+      }
+    }
     document.addEventListener("focusin", onFocusIn, { passive: true })
     document.addEventListener("focusout", onFocusOut, { passive: true })
-    vv?.addEventListener("resize", apply)
+    vv?.addEventListener("resize", onViewport)
     // Not optional on iOS: the page can be scrolled underneath an open keyboard,
     // and without following offsetTop a pinned column drifts off the top.
-    vv?.addEventListener("scroll", apply)
-    window.addEventListener("resize", apply)
-    window.addEventListener("orientationchange", apply)
+    vv?.addEventListener("scroll", onViewport)
+    window.addEventListener("resize", onViewport)
+    window.addEventListener("orientationchange", onViewport)
     return () => {
-      vv?.removeEventListener("resize", apply)
-      vv?.removeEventListener("scroll", apply)
-      window.removeEventListener("resize", apply)
-      window.removeEventListener("orientationchange", apply)
+      flushRootWrites()
+      vv?.removeEventListener("resize", onViewport)
+      vv?.removeEventListener("scroll", onViewport)
+      window.removeEventListener("resize", onViewport)
+      window.removeEventListener("orientationchange", onViewport)
       document.removeEventListener("focusin", onFocusIn)
       document.removeEventListener("focusout", onFocusOut)
       window.clearTimeout(settleTimer)

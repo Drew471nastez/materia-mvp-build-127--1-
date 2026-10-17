@@ -121,7 +121,8 @@ function main() {
   console.log("\nViewportVars publishes it, from the first frame")
 
   const vars = read("components/viewport-vars.tsx")
-  check("the effect sets it", /root\.style\.setProperty\("--kb-inset", `\$\{inset\}px`\)/.test(vars))
+  /* Round 27: asked for in the event and written with the other keyboard numbers on <html> in the next frame (writeRootLater). */
+  check("the effect sets it", /vars\["--kb-inset"\] = `\$\{inset\}px`/.test(vars) && /writeRootLater\(\{ vars \}/.test(vars))
   check(
     "from the tested function, against the fixed box",
     /const measured = measure\(layout\)/.test(vars) && /keyboardInsetFrom\(\{\s*\n\s*layoutHeight: layout,/.test(vars),
@@ -378,7 +379,7 @@ function main() {
     "and the guard's --vvh is the room left by that number, not the viewport's own height",
     (() => {
       const src = read("components/platform/keyboard-guard.tsx")
-      return /root\.style\.setProperty\("--vvh", `\$\{Math\.round\(visibleHeight\)\}px`\)/.test(src)
+      return /"--vvh": `\$\{Math\.round\(visibleHeight\)\}px`/.test(src)
         && /const visibleHeight = Math\.max\(0, window\.innerHeight - kbHeight\)/.test(src)
     })(),
   )
@@ -396,7 +397,7 @@ function main() {
   )
   check(
     "only when something actually changed, so the synthetic resize cannot loop",
-    /if \(changed\) \{/.test(vars) && (vars.match(/changed = true/g) ?? []).length === 2,
+    /changed \? \(\) => \{/.test(vars) && (vars.match(/changed = true/g) ?? []).length === 2 && /const wake = !inViewportEvent/.test(vars),
   )
 
   console.log("\nThe editor's panel ends at the keyboard too")
