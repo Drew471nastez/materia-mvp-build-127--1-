@@ -6,6 +6,7 @@
  *   PLANS UI   each plan a card with an Edit panel; a new plan takes its trial and benefits at once
  *   ACCOUNTS   admin delete asks "Are you sure?" only; a deleted email can sign up again; no "Former account" members
  *   CREATORS   no language dropdown; More from shows a community once; a failed picture never shows a broken icon
+ *   TAX        Settings › Taxes opens on status, tax collected by country, a CSV, and who does what, honestly
  *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
@@ -13,6 +14,7 @@
 import { readFileSync } from "node:fs"
 import { checkPlan, LIMITS, TRIAL_CHOICES, trialDaysOf } from "@/lib/memberships/plan"
 import { TRIAL_MIN_DAYS } from "@/lib/communities/limits"
+import { summarizeTax, taxCsv, taxPeriod } from "@/lib/tax/report-model"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -108,8 +110,28 @@ async function main() {
   check("  the script parses", (() => { try { new Function(IMAGE_FALLBACK_SCRIPT); return true } catch { return false } })())
   check("the cleanup also looks for a name with spaces as %20", /replace\(o\.name, ' ', '%20'\)/.test(read("supabase/migrations/20270201_round_ag.sql")))
 
+  console.log("\nTax overview")
+  const rows = [
+    { id: "o1", tax_cents: 2079, tax_country: "ro", tax_label: "VAT 21%", status: "completed", created_at: "2026-10-01T10:00:00Z" },
+    { id: "o2", tax_cents: 1900, tax_country: "DE", tax_label: "VAT 19%", status: "completed", created_at: "2026-10-02T10:00:00Z" },
+    { id: "o3", tax_cents: 2079, tax_country: "RO", tax_label: "VAT 21%", status: "completed", created_at: "2026-10-03T10:00:00Z" },
+    { id: "o4", tax_cents: 500, tax_country: "RO", tax_label: "VAT", status: "refunded", created_at: "2026-10-04T10:00:00Z" },
+    { id: "o5", tax_cents: 0, tax_country: "FR", tax_label: "VAT", status: "completed", created_at: "2026-10-05T10:00:00Z" },
+  ]
+  const sum = summarizeTax(rows)
+  check("collected: kept orders only, refunded and untaxed left out", sum.totalCents === 6058 && sum.orders === 3, sum)
+  check("by country, biggest first, the rate taken off the name", sum.byCountry[0].country === "RO" && sum.byCountry[0].taxCents === 4158 && sum.byCountry[0].label === "VAT" && sum.byCountry[1].country === "DE")
+  const csv = taxCsv([...rows, { id: "=cmd", tax_cents: 100, tax_country: "US", tax_label: "Sales tax", status: "completed", created_at: "2026-10-06T00:00:00Z" }], "eur")
+  check("the CSV has a line per taxed order, in the store's currency, formulas made plain", /Tax \(EUR\)/.test(csv) && csv.trim().split("\n").length === 6 && /"'=cmd"/.test(csv) && /"20\.79"/.test(csv))
+  check("periods are 30, 90 or 365 days, else 30", taxPeriod("90") === 90 && taxPeriod("7") === 30 && taxPeriod(null) === 30)
+  const report = code("lib/tax/report.ts")
+  check("the figures are read from what each order recorded, by the store", /scopedOrders\(admin, COLUMNS, scope, creatorId, null\)\.gt\("tax_cents", 0\)/.test(report))
+  const panel = read("components/app/settings/taxes-panel.tsx")
+  check("the panel opens on the overview: status, total, countries, CSV, who does what", /<TaxOverview currency=\{currency\} \/>/.test(panel) && ["data-tax-status", "data-tax-total", "data-tax-countries", "data-tax-csv", "data-tax-responsibility"].every((a) => panel.includes(a)))
+  check("never claims Storelib files or pays tax", /does not file or pay tax for you/.test(panel) && !/(we|Storelib) (file|files|remit|remits) (your|the) tax/i.test(panel + report))
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 
