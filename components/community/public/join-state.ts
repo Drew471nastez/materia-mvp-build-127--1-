@@ -153,11 +153,17 @@ export function decideJoin(f: JoinFacts): JoinStateView {
   if (!f.canTakePayments || !option.checkout || !option.priceLine) {
     return { ...base, kind: "unavailable", option, label: "Joining isn't open yet." }
   }
+  /*
+    A FREE TRIAL is said on the button (round 26) when the tier's plan gives one and this person has never had a
+    membership row here (a request or an invite still waiting counts as never): somebody who was a member before
+    gets no second trial at checkout, so their button says the price.
+  */
+  const trial = option.billing === "recurring" && (v.status === null || v.status === "pending") ? (option.trialDays ?? 0) : 0
   return {
     ...base,
     kind: "checkout",
     option,
-    label: joinButtonLabel({ isMember: false, priceLine: option.priceLine }),
+    label: joinButtonLabel({ isMember: false, priceLine: option.priceLine, trialDays: trial }),
     href: signIn,
     note: v.approved ? "Your request was approved." : null,
   }

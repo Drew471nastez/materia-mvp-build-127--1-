@@ -358,7 +358,7 @@ export function CommunityGallery({ communityId, name, items, cover = null }: { c
                 className={cn(
                   "relative aspect-[16/9] w-[92px] shrink-0 overflow-hidden rounded-lg bg-[#eceef1] shadow-[0_1px_2px_rgba(16,24,40,0.08)] outline-none transition-[opacity,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/40 [-webkit-tap-highlight-color:transparent]",
                   count <= 6 ? "sm:w-auto" : "sm:w-[112px]",
-                  on ? "ring-2 ring-[#1a1a2e] ring-offset-2 ring-offset-white" : "opacity-75 hover:opacity-100",
+                  on ? "ring-2 ring-[#1a1a2e] ring-offset-2 ring-offset-[color:var(--sl-surface,#fff)]" : "opacity-75 hover:opacity-100",
                   !src && g.type !== "image" && "bg-[#1a1a2e]",
                 )}
               >

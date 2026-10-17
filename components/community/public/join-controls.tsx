@@ -52,13 +52,16 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { Spinner } from "@/components/community/member/place-spinner"
 import { LENGTHS } from "@/lib/communities/limits"
 import { LEAVE_NOTE_MAX, LEAVE_REASONS, type LeaveReason } from "@/lib/communities/leave-reasons"
-import { memberCountLabel } from "@/lib/communities/format"
+import { JOIN_TRIAL_LABEL, memberCountLabel } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
 import { gaCommunityJoin } from "@/lib/communities/client/ga-events"
 import { draftComplete, type AnswerDraft, type JoinQuestion } from "@/lib/communities/join-questions"
 import { JoinQuestionFields } from "./join-questions-form"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { CardSummary } from "./card-summary"
+import { CommunityShareButton } from "./share-community"
 import { CheckDot } from "./check-dot"
 import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
@@ -135,9 +138,12 @@ export function priceParts(o: JoinOption | null, interval: Interval): { amount: 
   return o.priceLine ? { amount: o.priceLine, per: null } : null
 }
 
-/** The button's words with the chosen interval's price in them. */
-function buttonLabel(join: JoinStateView, interval: Interval): string {
-  if (join.kind === "checkout" && join.option?.billing === "recurring") return `Join for ${intervalPrice(join.option, interval)}`
+/**
+ * The button's words with the chosen interval's price in them: "Join $24/month", "Join $240/year" (round 26, the
+ * owner: not "Join for"). A trial keeps "Start free trial" whatever the interval.
+ */
+export function buttonLabel(join: Pick<JoinStateView, "kind" | "option" | "label">, interval: Interval): string {
+  if (join.kind === "checkout" && join.option?.billing === "recurring" && join.label !== JOIN_TRIAL_LABEL) return `Join ${intervalPrice(join.option, interval)}`
   return join.label
 }
 
@@ -411,11 +417,14 @@ function JoinNote({ className }: { className?: string }) {
   )
 }
 
-/** The button itself, or the sentence when there is nothing to press. */
-function PrimaryAction({ className, short = false }: { className?: string; /** Beside a price that already says it (the phone's bar): "Join" alone. */ short?: boolean }) {
+/**
+ * The button itself, or the sentence when there is nothing to press. Round 26: the same words wherever it is drawn
+ * (the side card, the phone's bar), the creator's own when they wrote some, else the configuration's.
+ */
+function PrimaryAction({ className }: { className?: string }) {
   const { community, join, interval, busy, phase, press } = useJoin()
   const own = ownButton(join.kind) ? community.joinLook?.label?.trim() || "" : ""
-  const label = own && (!short || own.length <= 18) ? own : short && (join.kind === "checkout" || join.kind === "join_free") ? "Join" : buttonLabel(join, interval)
+  const label = own || buttonLabel(join, interval)
   const look = lookOf(community, join.kind)
   if (join.kind === "invite_only" || join.kind === "banned" || join.kind === "closed" || join.kind === "unavailable") {
     return (
@@ -617,23 +626,49 @@ export function useLeave(): { canLeave: boolean; open: () => void; busy: boolean
 }
 
 /**
- * The sticky card, from 1280px, in the frame's right column (round 12): the
- * name, its address, the price with Monthly and Yearly, and the button. No
- * cover: the community's card in the left column has it, a column away.
- * Under the button, the page's facts as one quiet list (round 13, ask 22:
- * `facts`, sales-page.tsx draws it), where the member count line was.
+ * "POWERED BY" UNDER THE CARD (round 26, the owner's section 5): small, light grey, the Storelib mark and name, a link
+ * to storelib.com. Only where the side card is drawn (from 1280px), so never on a phone.
  */
-export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
+function PoweredBy() {
+  return (
+    <p className="mt-3.5 flex items-center justify-center gap-1.5 text-[12px] text-[#9ca3af]" data-powered-by="">
+      <span>Powered by</span>
+      <a
+        href="https://storelib.com"
+        target="_blank"
+        rel="noopener"
+        aria-label="Storelib"
+        className="-my-1.5 inline-flex items-center gap-1 rounded-md py-1.5 font-semibold text-[#8a8f98] outline-none transition-colors duration-150 hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+      >
+        <StorelibLogo size={14} alt="" className="[--storelib-logo-radius:3.5px]" />
+        Storelib
+      </a>
+    </p>
+  )
+}
+
+/**
+ * THE INFO CARD, from 1280px, sticky in the frame's right column (round 12; round 26 for the owner's section 5): the
+ * cover with Share in its corner (when the community may be shared, about-facts.ts canShareCommunity), the logo, the
+ * name and its address, the short description (clamped, with More), the social icons, the price with Monthly and
+ * Yearly and the one button, then the quiet facts (admins, since when, who runs it). "Powered by" Storelib under it.
+ * `links` and `summary` come drawn from the sheet (sales-page.tsx), which knows the Page editor's placeholders.
+ */
+export function JoinCard({ facts = null, summary = null, links = null, share = false }: { facts?: React.ReactNode; summary?: React.ReactNode; links?: React.ReactNode; share?: boolean }) {
   const { community, join } = useJoin()
+  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} /> : null
   return (
     <aside data-join-card="" className="hidden xl:block">
       <div className="sticky top-[calc(var(--community-top,65px)+24px)]" data-join-card-sticky="">
-        <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]">
+        <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]" data-join-card-box="">
           {/* The community's cover and picture, here rather than in a second card on the left (round 15). */}
           {community.coverUrl ? (
-            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-join-card-cover="" data-page-block="cover">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="absolute inset-0 h-full w-full object-cover" decoding="async" />
+            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-join-card-cover="">
+              <div className="absolute inset-0" data-page-block="cover">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="absolute inset-0 h-full w-full object-cover" decoding="async" />
+              </div>
+              {shareButton ? <div className="absolute right-3 top-3">{shareButton}</div> : null}
             </div>
           ) : null}
           <div className="p-5">
@@ -642,13 +677,17 @@ export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={optimizedImageUrl(community.logoUrl, 96)} alt="" width={44} height={44} data-page-block="logo" className="h-11 w-11 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]" decoding="async" />
               ) : null}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]" data-page-block="name">{community.name}</p>
                 <a href={community.url} className="mt-0.5 block truncate text-[13px] text-[#8a8f98] hover:text-[#4b5563]">{community.address}</a>
               </div>
+              {/* No cover to sit on: Share at the end of the name's row. */}
+              {shareButton && !community.coverUrl ? <div className="shrink-0 self-start">{shareButton}</div> : null}
             </div>
+            {summary ? <div className="mt-3.5">{summary}</div> : null}
+            {links ? <div className="mt-3.5">{links}</div> : null}
             {join.kind === "open" ? (
-              <p className="mt-3 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
+              <p className="mt-4 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
             ) : (
               <>
                 <PriceLine className="mt-4" />
@@ -671,6 +710,7 @@ export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
             )}
           </div>
         </div>
+        <PoweredBy />
       </div>
     </aside>
   )
@@ -752,8 +792,12 @@ export const JoinSurface = React.createContext<HTMLElement | null>(null)
 export function JoinBarPhone() {
   const { join, interval, community } = useJoin()
   const surface = React.useContext(JoinSurface)
-  const parts = join.kind === "open" ? null : priceParts(join.option, interval)
-  const wide = join.kind === "open" || join.kind === "pending" || !parts || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
+  /*
+    Round 26: the button says what the side card's says ("Join $24/month", "Start free trial"), so the price is not
+    said again beside it: the community's name and its members are, or, for a trial, what comes after it.
+  */
+  const wide = !(join.kind === "checkout" || join.kind === "join_free" || join.kind === "request")
+  const trial = join.kind === "checkout" && join.label === JOIN_TRIAL_LABEL && join.option?.trialDays ? join.option.trialDays : 0
   const ref = React.useRef<HTMLDivElement>(null)
   /*
     ON THE BODY, NOT IN THE PAGE (round 12). A page arriving in the member's
@@ -805,16 +849,13 @@ export function JoinBarPhone() {
       style={{ paddingBottom: "calc(12px + var(--buyer-tabs-h, env(safe-area-inset-bottom, 0px)))" }}
     >
       <div className="mx-auto flex max-w-[640px] items-center gap-3" data-join-bar-row="" data-page-block="join">
-        {!wide && parts ? (
-          <div className="min-w-0 flex-1" data-join-bar-price="">
-            <p className="flex items-baseline gap-1 truncate">
-              <span className="text-[18px] font-semibold tabular-nums tracking-[-0.01em] text-[#1a1a2e]">{parts.amount}</span>
-              {parts.per ? <span className="text-[13px] font-medium text-[#6b7280]">{parts.per}</span> : null}
-            </p>
-            <p className="truncate text-[12.5px] tabular-nums text-[#6b7280]">{memberCountLabel(community.memberCount)}</p>
+        {!wide ? (
+          <div className="min-w-0 flex-1" data-join-bar-about="">
+            <p className="truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]">{trial ? `${trial} days free` : community.name}</p>
+            <p className="truncate text-[12.5px] tabular-nums text-[#6b7280]">{trial ? `Then ${intervalPrice(join.option, interval)}` : memberCountLabel(community.memberCount)}</p>
           </div>
         ) : null}
-        <PrimaryAction className={wide ? "w-full" : "min-w-[132px] shrink-0"} short={!wide} />
+        <PrimaryAction className={wide ? "w-full" : "max-w-[62%] shrink-0 px-4"} />
       </div>
       <JoinNote className={cn("mx-auto mt-1.5 max-w-[640px] text-[12.5px]", !wide && "text-right")} />
     </div>

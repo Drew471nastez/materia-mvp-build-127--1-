@@ -509,7 +509,8 @@ async function main() {
     const d = await loadCommunityBlock(db, CREATOR, C1, all, { enabled: true, now: NOW })
     check("the creator's own published public community has data", !!d && d.name === "Morning Runners" && d.url === "/community/morning-runners")
     check("the price and the button come from its default tier", d?.priceLine === "$19.00/month" || d?.priceLine === "$19/month", d?.priceLine)
-    check("join label from the price", !!d && d.joinLabel.startsWith("Join for "), d?.joinLabel)
+    /* Changed on purpose (round 26, the owner): "Join $19/month", not "Join for $19/month". */
+    check("join label from the price", !!d && /^Join \$/.test(d.joinLabel), d?.joinLabel)
     check("posts come only from open, non chat spaces, and never a removed one", d?.posts.map((p) => p.id).join() === "post-open", d?.posts.map((p) => p.id))
     check("a post's author is a first name and a photo, no email", d?.posts[0]?.author?.name === "Ana" && !JSON.stringify(d).includes("ana@example.com"))
     check("events are upcoming ones every member may attend", d?.events.map((e) => e.id).join() === "ev-open" && d?.upcomingEventCount === 1)

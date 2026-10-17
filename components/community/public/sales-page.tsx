@@ -14,13 +14,16 @@
  *                 when, who runs it. From 1280px it is in the side card,
  *                 under the button; below that, in the sheet after the
  *                 description (facts-list.tsx, about-facts.ts aboutFacts)
- *   ABOUT         what it is about, then what members get
- *   MEMBERSHIP    the way in as a pricing card (Monthly and Yearly when the
- *                 tier is sold both ways, what the tier includes, the
- *                 button), the other paid tiers and the products that give
- *                 access under it
- *   CLASSROOM     the first few courses with their lessons, when it has any
- *   WHO RUNS IT   the creator, with their own line and their page
+ *   ABOUT         what it is about (the full rich description), then
+ *                 "What's inside" (round 26: was "What members get")
+ *   NO MEMBERSHIP BLOCK (round 26, the owner): the price and the way in are
+ *                 the card's and the button's; only a community entered by
+ *                 owning one of several products lists them (id ways-to-join,
+ *                 where its button points)
+ *   WHO RUNS IT   the creator, with their own line and their page; below
+ *                 1280px also the admins and the social icons, which the side
+ *                 card carries from 1280px (round 26)
+ *   PRIVACY, TERMS  Storelib's, small and quiet under the sheet
  *   RULES, REVIEWS, QUESTIONS
  *   YOUR MEMBERSHIP  for a member: manage it, or leave (round 11: Leave is
  *                 a row here with a confirm, not a link under the button)
@@ -51,12 +54,15 @@ import { CommunityGallery } from "./gallery-view"
 import { FULL_ON_HOVER } from "@/components/community/member/nav"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { CheckDot } from "./check-dot"
-import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone, MembershipRow, PricingCard } from "./join-controls"
-import { aboutFacts, aboutRow, galleryIsCoverOnly } from "./about-facts"
+import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone, MembershipRow } from "./join-controls"
+import { aboutFacts, aboutRow, canShareCommunity, cardSummary, galleryIsCoverOnly } from "./about-facts"
+import { CardSummary } from "./card-summary"
+import { CommunityShareButton } from "./share-community"
+import { htmlToPlainText } from "@/lib/rich-text/html"
 import { FactsList } from "./facts-list"
 import { AboutRow } from "./about-row"
 import { SocialLinks } from "./social-icons"
-import type { AboutExtras, JoinOption, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
+import type { AboutExtras, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
 
 const H2 = "text-[18px] font-semibold tracking-[-0.005em] text-[#1a1a2e]"
 const PAD = "px-5 sm:px-8"
@@ -104,41 +110,6 @@ function Review({ r }: { r: PublicReviewView }) {
           <time dateTime={r.createdAt}>{relativeTime(r.createdAt)}</time>
           {r.payingFor ? <span data-review-paying=""> · Still a paying member after {r.payingFor}</span> : null}
         </p>
-      </div>
-    </li>
-  )
-}
-
-/**
- * Where a paid way in other than the main button is bought: its own checkout
- * (the first interval it offers; the checkout lets them switch), through sign
- * in for a visitor. Only when the button itself would take them to pay: not
- * before an approval, not for a member.
- */
-function optionHref(o: JoinOption, join: SalesPageData["join"], paidOnOffer: boolean): string | null {
-  if (!paidOnOffer || o.kind !== "paid" || !o.checkout) return null
-  const target = o.checkout.month ?? o.checkout.year ?? o.checkout.once
-  if (!target) return null
-  return join.signedIn ? target : `/login?next=${encodeURIComponent(target)}`
-}
-
-function OptionRow({ o, href }: { o: JoinOption; href: string | null }) {
-  return (
-    <li className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0" data-join-option={o.tierId ?? ""}>
-      <div className="min-w-0">
-        <p className="text-[15px] font-medium text-[#1a1a2e]">{o.name}</p>
-        {o.description ? <p className="mt-0.5 text-[13.5px] leading-snug text-[#6b7280]">{o.description}</p> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <p className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{o.priceLine || "Not on sale yet"}</p>
-        {href ? (
-          <Link
-            href={href}
-            className="inline-flex h-10 items-center rounded-[10px] border border-[#e5e7eb] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] outline-none transition-[border-color,background-color] duration-150 hover:border-[#d0d4da] hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9"
-          >
-            Choose
-          </Link>
-        ) : null}
       </div>
     </li>
   )
@@ -192,7 +163,7 @@ function ClassroomPreview({ classroom }: { classroom: NonNullable<AboutExtras["c
  * beside a 48px gap), and the button sits where the eye ends the row, so
  * nothing hangs alone under the text.
  */
-function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityView["creator"]>; bio: string | null }) {
+function CreatorBlock({ creator, bio, admins = 0, links = null, linksTo = "lg" }: { creator: NonNullable<PublicCommunityView["creator"]>; bio: string | null; /** Round 26: below 1280px, where there is no side card, the admins and the social icons are said here. */ admins?: number; links?: ReactNode; /** Up to where the icons are drawn here: below 1024px, where no card in the left column carries them; below 1280px in the Page editor, which has no left column. */ linksTo?: "lg" | "xl" }) {
   return (
     <section className={SECTION} aria-labelledby="community-creator" data-community-creator-card="">
       <h2 id="community-creator" className={H2}>
@@ -216,7 +187,17 @@ function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityVi
               creator.name
             )}
           </p>
-          {creator.username ? <p className="truncate text-[13.5px] text-[#6b7280]">@{creator.username}</p> : null}
+          {creator.username || admins > 0 ? (
+            <p className="truncate text-[13.5px] text-[#6b7280]">
+              {creator.username ? `@${creator.username}` : null}
+              {admins > 0 ? (
+                <span className="xl:hidden" data-creator-admins="">
+                  {creator.username ? " · " : null}
+                  {admins} {admins === 1 ? "admin" : "admins"}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
         {creator.href ? (
           <Link
@@ -234,6 +215,7 @@ function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityVi
           </p>
         ) : null}
       </div>
+      {links ? <div className={cn("mt-4", linksTo === "lg" ? "lg:hidden" : "xl:hidden")}>{links}</div> : null}
     </section>
   )
 }
@@ -252,14 +234,18 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
   const extras = data.extras ?? null
   const rules = c.rules.slice(0, RULES_SHOWN)
   const moreRules = c.rules.length - rules.length
-  /* The other paid ways in can be chosen when the button itself would be a payment or a free join: never ahead of an approval. */
-  const paidOnOffer = join.kind === "checkout" || join.kind === "join_free"
-  const otherOptions = c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
-  /* Round 33, the owner: no Membership section while the community has fewer than two members. */
-  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed" && c.memberCount >= 2
+  /* Round 26: entered by owning one of several products, the page lists them where its button points (#ways-to-join). */
+  const productList = join.kind === "product" && c.accessProducts.length > 1
   const hasDescription = Boolean(c.descriptionHtml || c.descriptionText)
-  /* The side card's list (from 1280px): what the row under the name does not already say (round 33). */
+  /* The side card's list (from 1280px): what the row under the name does not already say (round 33), the admins first (round 26). */
   const facts = aboutFacts(c, c.stats, extras).filter((f) => f.key !== "members" && f.key !== "visibility")
+  /* The card's short description: the creator's own, else the tagline, else the start of the description (round 26). */
+  const summary = cardSummary({ summary: c.summary, tagline: c.tagline, descriptionPlain: c.descriptionText ?? htmlToPlainText(c.descriptionHtml) })
+  const admins = c.adminCount ?? c.stats.admins ?? 0
+  /* What's inside: the community's own list, else what its tier includes (the pricing card said that before round 26). */
+  const benefits = c.benefits.length ? c.benefits : (join.option?.benefits ?? [])
+  /* Share on the card's cover: its public address, while it may be shared by this viewer (about-facts.ts canShareCommunity). */
+  const share = canShareCommunity({ status: c.status, archived: join.kind === "closed", visibility: c.visibility, access: c.access }, { staff: join.isOwner || join.role === "owner" || join.role === "admin" || join.role === "moderator" })
   /* The cover alone, as the sheet's media: the left column's card has it from 1024px, so there it is not drawn twice. */
   const coverOnly = galleryIsCoverOnly(c.gallery, c.coverUrl)
   const member = join.kind === "open" && !join.isOwner && (join.canLeave || !!join.manageHref)
@@ -267,35 +253,16 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
   const links = c.links ?? []
   const cover = c.coverUrl && c.coverPosition ? { url: c.coverUrl, position: c.coverPosition } : null
 
-  const others =
-    otherOptions.length > 0 || c.accessProducts.length > 0 ? (
-      <div data-membership-others="">
-        {otherOptions.length > 0 ? (
-          <>
-            <p className="text-[13.5px] font-medium text-[#6b7280]">{join.option ? "Other ways to join" : "Ways to join"}</p>
-            <ul className="mt-1 divide-y divide-[#eef0f2]">
-              {otherOptions.map((o) => (
-                <OptionRow key={o.tierId ?? o.name} o={o} href={optionHref(o, join, paidOnOffer)} />
-              ))}
-            </ul>
-          </>
-        ) : null}
-        {c.accessProducts.length > 0 ? (
-          <>
-            <p className="mt-3 text-[14px] text-[#6b7280]">Owning any of these gives you access:</p>
-            <ul className="mt-2.5 divide-y divide-[#eef0f2]">
-              {c.accessProducts.map((p) => (
-                <li key={p.productId} className="flex items-center justify-between gap-4 py-3">
-                  <Link href={p.href} className="min-w-0 truncate text-[15px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                    {p.title}
-                  </Link>
-                  <span className="shrink-0 text-[14px] tabular-nums text-[#6b7280]">{p.priceLine}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : null}
+  /* The social icons as the card draws them, or, in the Page editor's preview, what goes there. */
+  const linkIcons = (where: "card" | "sheet") =>
+    links.length ? (
+      <div data-page-block="links">
+        <SocialLinks links={links} size={where === "card" ? "sm" : "md"} />
       </div>
+    ) : editing ? (
+      <Placeholder block="links" className="py-2">
+        Add your website or social pages
+      </Placeholder>
     ) : null
 
   return (
@@ -323,7 +290,15 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                 {/* Round 27, the owner: the pictures first, the name and its line under them. */}
                 {c.gallery.length ? (
                   <div className={cn(PAD, "pt-4 sm:pt-6", coverOnly && "lg:hidden")} data-gallery-cover-only={coverOnly ? "" : undefined} data-page-block={coverOnly ? "cover" : "gallery"}>
-                    <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} cover={cover} />
+                    {/* Round 26: below 1280px there is no side card, so Share sits on the page's own cover, in its upper right. */}
+                    <div className="relative">
+                      <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} cover={cover} />
+                      {share ? (
+                        <div className="absolute right-3 top-3 z-30 xl:hidden" data-share-on="gallery">
+                          <CommunityShareButton slug={c.slug} name={c.name} />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : editing ? (
                   <div className={cn(PAD, "pt-4 sm:pt-6")}>
@@ -334,7 +309,15 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                 ) : null}
 
                 <header className={cn(PAD, c.gallery.length ? cn("pt-5 sm:pt-6", coverOnly && "lg:pt-8") : "pt-6 sm:pt-8")}>
-                  <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]" data-page-block="name">{c.name}</h1>
+                  <div className="flex items-start gap-3">
+                    <h1 className="min-w-0 flex-1 text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]" data-page-block="name">{c.name}</h1>
+                    {/* No pictures to sit on below 1280px: Share at the end of the name. */}
+                    {share && !c.gallery.length ? (
+                      <div className="mt-0.5 shrink-0 xl:hidden" data-share-on="name">
+                        <CommunityShareButton slug={c.slug} name={c.name} />
+                      </div>
+                    ) : null}
+                  </div>
                   {c.tagline ? (
                     <p className="mt-2 max-w-[60ch] text-[16px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-community-tagline="" data-page-block="tagline">
                       {c.tagline}
@@ -352,17 +335,12 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                       </span>
                     </a>
                   ) : null}
-                  {/* Round 33: the facts in a row (about-row.tsx), with the faces of the members here most recently; then the links as icons. */}
+                  {/*
+                    Round 33: the facts in a row (about-row.tsx), with the faces of the members here most recently. Round 26, the
+                    owner: the social icons and the admins are not in it or under it any more; they are the info card's (and,
+                    below 1280px, Who runs it's).
+                  */}
                   <AboutRow facts={row} faces={extras?.faces ?? []} className="mt-4" />
-                  {links.length ? (
-                    <div data-page-block="links" className="mt-4">
-                      <SocialLinks links={links} />
-                    </div>
-                  ) : editing ? (
-                    <Placeholder block="links" className="mt-4 inline-block py-2">
-                      Add your website or social pages
-                    </Placeholder>
-                  ) : null}
                 </header>
 
                 {/* On a phone, under the media: only what happened (an error, a request waiting), when there is something. */}
@@ -385,13 +363,14 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                   ) : null}
                 </div>
 
-                {c.benefits.length > 0 ? (
+                {benefits.length > 0 ? (
                   <section className={SECTION} aria-labelledby="community-benefits" data-page-block="benefits">
+                    {/* Round 26, the owner: "What members get" read as corporate; these words fit a free community and a paid one. */}
                     <h2 id="community-benefits" className={H2}>
-                      What members get
+                      What&apos;s inside
                     </h2>
                     <ul className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                      {c.benefits.map((b, i) => (
+                      {benefits.map((b, i) => (
                         <li key={i} className="flex gap-3 text-[15px] leading-snug text-[#374151]" data-benefit="">
                           <CheckDot className="mt-px" />
                           <span className="min-w-0 break-words">{b}</span>
@@ -401,24 +380,36 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                   </section>
                 ) : editing ? (
                   <div className={SECTION}>
-                    <Placeholder block="benefits">Add what members get</Placeholder>
+                    <Placeholder block="benefits">Add what&apos;s inside: a line for each thing people get</Placeholder>
                   </div>
                 ) : null}
 
-                {showMembership ? (
-                  <section id="ways-to-join" className={cn(SECTION, "scroll-mt-24")} aria-labelledby="community-options" data-community-membership="">
-                    <h2 id="community-options" className={H2}>
-                      Membership
+                {productList ? (
+                  <section id="ways-to-join" className={cn(SECTION, "scroll-mt-24")} aria-labelledby="community-products" data-community-products="">
+                    <h2 id="community-products" className={H2}>
+                      Comes with
                     </h2>
-                    <div className="mt-4">
-                      <PricingCard others={others} />
-                    </div>
+                    <p className="mt-1.5 text-[14px] text-[#6b7280]">Owning any of these gives you access.</p>
+                    <ul className="mt-2.5 divide-y divide-[#eef0f2]">
+                      {c.accessProducts.map((p) => (
+                        <li key={p.productId} className="flex items-center justify-between gap-4 py-3">
+                          <Link href={p.href} className="min-w-0 truncate text-[15px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                            {p.title}
+                          </Link>
+                          <span className="shrink-0 text-[14px] tabular-nums text-[#6b7280]">{p.priceLine}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </section>
                 ) : null}
 
                 {null /* Learn, programs and post counts stay off the public page. */}
 
-                {c.creator ? <CreatorBlock creator={c.creator} bio={extras?.creatorBio ?? null} /> : null}
+                {c.creator ? (
+                  <CreatorBlock creator={c.creator} bio={extras?.creatorBio ?? null} admins={admins} links={linkIcons("sheet")} linksTo={editing ? "xl" : "lg"} />
+                ) : links.length || editing ? (
+                  <div className={cn(SECTION, editing ? "xl:hidden" : "lg:hidden")}>{linkIcons("sheet")}</div>
+                ) : null}
 
                 {rules.length > 0 ? (
                   <section className={SECTION} aria-labelledby="community-rules">
@@ -492,9 +483,23 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                   </section>
                 ) : null}
               </article>
+              {/* Round 26, the owner's section 9: Storelib's own legal pages, small and quiet, well away from the card. */}
+              <nav aria-label="Legal" className="mt-5 flex justify-center gap-5 px-5 text-[12.5px] text-[#9ca3af] sm:justify-start sm:px-1" data-community-legal="">
+                <a href="https://storelib.com/legal/privacy" target="_blank" rel="noopener" className="-my-2 py-2 outline-none hover:text-[#4b5563] hover:underline focus-visible:underline">
+                  Privacy
+                </a>
+                <a href="https://storelib.com/legal/terms" target="_blank" rel="noopener" className="-my-2 py-2 outline-none hover:text-[#4b5563] hover:underline focus-visible:underline">
+                  Terms
+                </a>
+              </nav>
             </main>
 
-            <JoinCard facts={facts.length ? <FactsList facts={facts} /> : null} />
+            <JoinCard
+              facts={facts.length ? <FactsList facts={facts} /> : null}
+              summary={summary ? <CardSummary text={summary} block="summary" /> : editing ? <Placeholder block="summary">Add a short description: a sentence or two for the card</Placeholder> : null}
+              links={linkIcons("card")}
+              share={share}
+            />
           </div>
         </div>
         <JoinBarPhone />

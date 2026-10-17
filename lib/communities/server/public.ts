@@ -82,6 +82,8 @@ interface PlanLite {
   monthly_price_cents: number | null
   yearly_price_cents: number | null
   currency: string | null
+  /** Round 26: the free trial a first subscription gets (the checkout's own rule, app/api/memberships/checkout). */
+  trial_days?: number | null
 }
 
 interface CreatorLite {
@@ -141,7 +143,7 @@ export async function readProducts(db: Db, productIds: string[]): Promise<Map<st
 export async function readPlans(db: Db, productIds: string[]): Promise<Map<string, PlanLite>> {
   const ids = uniq(productIds)
   if (ids.length === 0) return new Map()
-  const found = await rows<PlanLite>("membership plans", () => db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency").in("product_id", ids))
+  const found = await rows<PlanLite>("membership plans", () => db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency, trial_days").in("product_id", ids))
   return new Map(found.map((p) => [p.product_id, p]))
 }
 
@@ -188,6 +190,7 @@ export function optionsFor(slug: string, tiers: TierRow[], products: Map<string,
       priceCents: once,
       currency,
       priceLine: line,
+      ...(recurring && plan?.trial_days && plan.trial_days > 0 ? { trialDays: plan.trial_days } : {}),
       benefits: benefitsOf(t.benefits),
       checkout,
     }
@@ -410,6 +413,31 @@ async function readReviews(db: Db, communityId: string, products: ProductLite[],
   return { average: Math.round(average * 10) / 10, total, items }
 }
 
+/* ── The short description ─────────────────────────────────────────────── */
+
+/**
+ * communities.summary (part 220, round 26), or null while the column is not there yet or the creator wrote none. Read
+ * on its own, like the gallery, so the page keeps working before the part runs; a row that already carries it (once
+ * the column is in COMMUNITY_COLUMNS) is not read twice.
+ */
+async function readSummary(db: Db, community: CommunityRow): Promise<string | null> {
+  const own = (community as CommunityRow & { summary?: unknown }).summary
+  if (own !== undefined) return typeof own === "string" && own.trim() ? own.trim() : null
+  try {
+    const { data, error } = await db.from("communities").select("summary").eq("id", community.id).maybeSingle()
+    if (error) {
+      const code = (error as { code?: string }).code
+      if (code !== "42703" && code !== "PGRST204" && !missing(error)) console.error(`[communities] summary read: ${reasonOf(error)}`)
+      return null
+    }
+    const v = (data as { summary?: unknown } | null)?.summary
+    return typeof v === "string" && v.trim() ? v.trim() : null
+  } catch (e) {
+    console.error(`[communities] summary read: ${reasonOf(e)}`)
+    return null
+  }
+}
+
 /* ── The gallery ────────────────────────────────────────────────────────── */
 
 /** communities.gallery, or null while part 85 has not added the column (or it cannot be read). */
@@ -556,12 +584,13 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
   galleryAndStats?.catch(() => undefined)
 
-  const [tiers, links, creators] = await Promise.all([
+  const [tiers, links, creators, summary] = await Promise.all([
     readTiers(db, [community.id]),
     community.access === "product" || community.access === "custom"
       ? rows<{ tier_id: string; product_id: string }>("access products", () => db.from("community_access_products").select("tier_id, product_id").eq("community_id", community.id))
       : Promise.resolve([] as { tier_id: string; product_id: string }[]),
     readCreators(db, [community.creator_id ?? ""]),
+    readSummary(db, community),
   ])
   const tierProductIds = uniq(tiers.map((t) => t.product_id))
   const accessIds = uniq(links.map((l) => l.product_id)).filter((id) => !tierProductIds.includes(id))
@@ -621,6 +650,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     links: socialLinksOf(community.links),
     coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
     joinLook: joinLookOf(pageLookOf(community.onboarding)),
+    /* Round 26: the short description for the info card (its fallbacks are the card's, about-facts.ts cardSummary), and the admins it counts. */
+    summary,
+    adminCount: Math.max(0, stats.admins ?? 0),
   }
 
   const member = viewer.member

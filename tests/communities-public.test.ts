@@ -120,7 +120,7 @@ async function main() {
     check("access by product: to that product", product.kind === "product" && product.href === "/ana/the-course" && product.label === "Get The Course")
     check("access by product with nothing on sale: not open yet", decideJoin(facts({ community: { access: "product" } })).kind === "unavailable")
     const joinFree = decideJoin(facts())
-    check("free: Join for free", joinFree.kind === "join_free" && joinFree.label === "Join for free" && joinFree.href === null)
+    check("free: Join free", joinFree.kind === "join_free" && joinFree.label === "Join free" && joinFree.href === null)
     const signedOut = decideJoin(facts({ viewer: { signedIn: false } }))
     check("signed out: the same words, to sign in first and back with ?join=1", signedOut.kind === "join_free" && signedOut.href === signInToJoinPath("makers") && /join%3D1/.test(signedOut.href ?? ""))
     check(
@@ -140,9 +140,9 @@ async function main() {
     const paidRequest = decideJoin(facts({ community: { access: "paid", approvalRequired: true }, options: [paid] }))
     check("approval required on a paid tier: a request, never checkout", paidRequest.kind === "request")
     const approved = decideJoin(facts({ community: { access: "paid", approvalRequired: true }, viewer: { status: "pending", approved: true }, options: [paid] }))
-    check("approved: now the paid button, and it says why", approved.kind === "checkout" && approved.label === "Join for $19/month" && /approved/.test(approved.note ?? ""))
+    check("approved: now the paid button, and it says why", approved.kind === "checkout" && approved.label === "Join $19/month" && /approved/.test(approved.note ?? ""))
     const pay = decideJoin(facts({ community: { access: "paid" }, options: [paid] }))
-    check("paid: Join for $19/month", pay.kind === "checkout" && pay.label === "Join for $19/month" && pay.option?.tierId === "t-paid")
+    check("paid: Join $19/month", pay.kind === "checkout" && pay.label === "Join $19/month" && pay.option?.tierId === "t-paid")
     check("paid without a way to take payments: not open yet", decideJoin(facts({ community: { access: "paid" }, options: [{ ...paid, checkout: null }] })).kind === "unavailable")
     check("a free tier comes first when the community has one", primaryOption([paid, free], "free", true)?.tierId === "t-free" && primaryOption([paid, free], "paid", true)?.tierId === "t-paid")
   }

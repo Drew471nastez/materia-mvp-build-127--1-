@@ -34,6 +34,8 @@ export interface JoinOption {
   currency: string
   /** "Free", "$19/month", "$49", or "" while a paid tier has no price. */
   priceLine: string
+  /** Round 26: the free trial the tier's membership plan gives a first subscription (membership_plans.trial_days); 0 or absent for none. */
+  trialDays?: number
   benefits: string[]
   /** Checkout addresses, built on the server; null when this tier cannot be bought right now. */
   checkout: { month: string | null; year: string | null; once: string | null } | null
@@ -112,6 +114,13 @@ export interface PublicCommunityView {
   coverPosition?: string | null
   /** Round 33: the join button's own words, style and line (lib/communities/page-look.ts), or null for the page's own. */
   joinLook?: JoinLookView | null
+  /**
+   * Round 26: the short description (communities.summary, part 220), plain text up to 160 characters, or null when the
+   * creator wrote none: the card then says the tagline, else the start of the description (about-facts.ts cardSummary).
+   */
+  summary?: string | null
+  /** Round 26: the active owner and admins, counted (stats.admins); 0 when it cannot be known. Drawn in the info card. */
+  adminCount?: number
 }
 
 /**

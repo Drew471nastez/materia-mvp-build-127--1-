@@ -611,6 +611,8 @@ const SUITES = [
   "tests/community-learn-access-round33.test.ts",
   /* Round 33: the community Page editor, the links as icons, the cover's focus, the join button, the About page's row (scripts/check-page-editor-round33.mjs measures them). */
   "tests/community-page-round33.test.ts",
+  /* Round 26 (W4): the About page and the info card: the button's words, the admins and icons in the card, the short description, Share, Powered by, Privacy and Terms (scripts/check-about26.mjs measures it). */
+  "tests/about26.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",

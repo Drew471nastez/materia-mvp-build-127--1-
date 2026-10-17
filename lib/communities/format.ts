@@ -55,14 +55,22 @@ export function priceLine(p: PriceFacts): string {
   return p.kind === "paid" ? "" : "Free"
 }
 
-/** The one button on a community's public page. */
-export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null }): string {
+/** The words of a join that starts a free trial (round 26). */
+export const JOIN_TRIAL_LABEL = "Start free trial"
+
+/**
+ * The one button on a community's public page. Round 26, the owner: "Join $24/month", "Join free" or "Start free trial"
+ * from what the creator actually set up, never "Join for $24/month". A trial is said only for a recurring tier whose
+ * plan gives one (`trialDays`); the checkout decides on the day whether this buyer still gets it.
+ */
+export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null; trialDays?: number | null }): string {
   if (s.isMember) return "Open community"
   if (s.pending) return "Request sent"
   if (s.approvalRequired) return "Request to join"
-  if (s.priceLine === "Free") return "Join for free"
+  if (s.priceLine === "Free") return "Join free"
   if (!s.priceLine) return "Join"
-  return `Join for ${s.priceLine}`
+  if (s.trialDays && s.trialDays > 0) return JOIN_TRIAL_LABEL
+  return `Join ${s.priceLine}`
 }
 
 /* Newer ICU puts a narrow no break space before AM/PM; one plain space reads the same and renders the same on server and client. */
