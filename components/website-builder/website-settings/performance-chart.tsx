@@ -17,7 +17,7 @@
  * crosshair is moved without laying anything out.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -60,12 +60,17 @@ export function PerformanceChart({
   label: string
 }) {
   const box = useRef<HTMLDivElement | null>(null)
-  const [width, setWidth] = useState(640)
+  /* 0 until measured, before the first paint: the box keeps its height meanwhile, so nothing moves and nothing is drawn too wide. */
+  const [width, setWidth] = useState(0)
   const [active, setActive] = useState<number | null>(null)
+  const GLIDE = useMemo(() => (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "none" : "transform 90ms cubic-bezier(0.2, 0, 0, 1)"), [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = box.current
-    if (!el || typeof ResizeObserver === "undefined") return
+    if (!el) return
+    const w = Math.round(el.getBoundingClientRect().width)
+    if (w > 0) setWidth(w)
+    if (typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver((entries) => {
       const w = Math.round(entries[0]?.contentRect.width ?? 0)
       if (w > 0) setWidth(w)
@@ -127,7 +132,7 @@ export function PerformanceChart({
   return (
     <div
       ref={box}
-      className="relative select-none"
+      className="relative select-none rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-white/25"
       data-perf-chart=""
       role="img"
       aria-label={label}
@@ -144,8 +149,9 @@ export function PerformanceChart({
         const step = e.key === "ArrowLeft" ? -1 : 1
         setActive((a) => Math.max(0, Math.min(points.length - 1, (a ?? (step > 0 ? -1 : points.length)) + step)))
       }}
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "pan-y", height: H }}
     >
+      {width > 0 && (
       <svg width={width} height={H} className="block overflow-visible" aria-hidden>
         {ticks.map((t) => (
           <g key={t}>
@@ -182,16 +188,18 @@ export function PerformanceChart({
           ) : null,
         )}
         {at && active !== null && (
-          <g data-crosshair="">
-            <line x1={x(active)} x2={x(active)} y1={PAD_TOP} y2={PAD_TOP + plotH} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
+          /* Moved on transform, a short glide from point to point: nothing is laid out again. */
+          <g data-crosshair="" data-x={x(active).toFixed(1)} style={{ transform: `translateX(${x(active)}px)`, transition: GLIDE }}>
+            <line x1={0} x2={0} y1={PAD_TOP} y2={PAD_TOP + plotH} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
             {devices.map((d) =>
               typeof at.values[d] === "number" ? (
-                <circle key={d} cx={x(active)} cy={y(at.values[d] as number)} r={4.5} fill={DEVICE_COLOR[d]} stroke="#161616" strokeWidth={2} />
+                <circle key={d} cx={0} cy={0} r={4.5} fill={DEVICE_COLOR[d]} stroke="#161616" strokeWidth={2} style={{ transform: `translateY(${y(at.values[d] as number)}px)`, transition: GLIDE }} />
               ) : null,
             )}
           </g>
         )}
       </svg>
+      )}
       {!hasLine && (
         <p className="pointer-events-none absolute inset-x-0 top-[38%] text-center text-[13px] text-white/50">
           {grain === "hour" ? tt("Not enough visits per hour to draw a line yet.") : tt("Not enough visits per day to draw a line yet.")}
@@ -200,7 +208,7 @@ export function PerformanceChart({
       {at && (
         <div
           className="pointer-events-none absolute top-0 z-10 w-[224px] rounded-lg border border-white/10 bg-[#202020] px-3 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
-          style={{ transform: `translateX(${tipLeft}px)` }}
+          style={{ transform: `translateX(${tipLeft}px)`, transition: GLIDE }}
           data-perf-tooltip=""
         >
           <p className="text-[12px] text-white/55">{fmtTime.full(at.t)}</p>

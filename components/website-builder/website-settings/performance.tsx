@@ -5,12 +5,24 @@
  *  WEBSITE SETTINGS › PERFORMANCE
  * ===========================================================================
  * How fast the published website is for the people who visit it, in the
- * shape of Shopify's Web performance report: the three Core Web Vitals and
- * two loading measures at their 75th percentile with Google's ratings, the
- * share of page views in each band, the change from the previous period,
- * the line over time, where it is slow (page, page type, browser, country),
- * and what to fix first. Under it, apart, a lab test by Google PageSpeed
- * Insights, which is one simulated load and says so.
+ * shape of Shopify's Web performance report, read top to bottom:
+ *
+ *   1. the period and the device, one row of two switches;
+ *   2. one card: the Core Web Vitals as one rating, the three of them at
+ *      their 75th percentile with Google's ratings (FCP and TTFB under them,
+ *      smaller), and the chart of whichever one is chosen. The figures are
+ *      the chart's tabs, as on /app/analytics;
+ *   3. what to fix, only when there is something;
+ *   4. where it is slow, one dimension at a time, the five busiest rows
+ *      first;
+ *   5. the lab test, apart: Google PageSpeed Insights when the server has a
+ *      key, else Storelib's quick check (lib/website-builder/lab-run.ts),
+ *      each labelled as what it is.
+ *
+ * A new period never empties the page: the figures on screen stay, dimmed,
+ * until the new ones are in (lib/website-builder/perf-view.ts), and the
+ * app's progress line runs along the card only past 300ms. The very first
+ * load draws a placeholder card after the same 300ms.
  *
  * Every number is from the website's own visitors (lib/perf/site-vitals-
  * inline.ts → app/api/public/vitals → part 210), read by
@@ -20,11 +32,12 @@
  * insight is only made from a rating the data gave.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { activeLanguage, tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { LoadingLine } from "@/components/app/loading-line"
 import { Card, ErrorNote, PageTitle, buttonClass, primaryButtonClass, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { PerformanceChart, DEVICE_COLOR, type ChartPoint } from "./performance-chart"
@@ -32,6 +45,7 @@ import {
   CORE_METRICS,
   directionOf,
   formatPerf,
+  overallRating,
   ratePerf,
   type BreakdownRow,
   type DeviceView,
@@ -43,13 +57,15 @@ import {
   type RumMetric,
   type MetricFigure,
 } from "@/lib/website-builder/web-performance"
-import { fileNameOf, formatBytes, type LabResult, type LabStrategy } from "@/lib/website-builder/pagespeed"
+import { fileNameOf, formatBytes, isQuickCheck, type AnyLabResult, type LabResult, type LabStrategy } from "@/lib/website-builder/pagespeed"
+import type { QuickCheckResult, QuickFinding } from "@/lib/website-builder/quick-check"
+import { PERF_SKELETON_AFTER_MS, initialLoad, loadReducer, loadView, segmentKey } from "@/lib/website-builder/perf-view"
 
 interface StoredLab {
   strategy: LabStrategy
   url: string
   ranAt: string
-  result: LabResult
+  result: AnyLabResult
 }
 
 type Answer =
@@ -85,8 +101,14 @@ function ratingLabel(r: PerfRating): string {
   return r === "good" ? tt("Good") : r === "poor" ? tt("Poor") : tt("Needs improvement")
 }
 
+const RANGES: PerfRange[] = ["24h", "7d", "30d", "90d"]
+
 function rangeLabel(r: PerfRange): string {
   return r === "24h" ? tt("24 hours") : r === "7d" ? tt("7 days") : r === "30d" ? tt("30 days") : tt("90 days")
+}
+
+function rangeShort(r: PerfRange): string {
+  return r === "24h" ? tt("24h") : r === "7d" ? tt("7d") : r === "30d" ? tt("30d") : tt("90d")
 }
 
 function pageTypeLabel(key: string): string {
@@ -188,43 +210,124 @@ function percent(share: number): string {
   return new Intl.NumberFormat(appLocale(), { style: "percent", maximumFractionDigits: 0 }).format(share)
 }
 
+function count(n: number): string {
+  return new Intl.NumberFormat(appLocale(), { notation: n >= 10_000 ? "compact" : "standard" }).format(n)
+}
+
 /* ── Small parts ─────────────────────────────────────────────────────── */
 
-function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ id: T; label: string }>; onChange: (v: T) => void; label: string }) {
+/**
+ * A row of choices, every one the same width, with one plate that slides to
+ * the chosen one on transform. One stop for Tab; the arrow keys, Home and
+ * End choose inside it (perf-view segmentKey). Full width on a phone, its
+ * own width from md up. Never wider or taller when the choice changes.
+ */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  name,
+  ownWidthFrom = "md",
+}: {
+  value: T
+  options: Array<{ id: T; label: string; title?: string }>
+  onChange: (v: T) => void
+  label: string
+  name: string
+  /** Where the row stops filling its line: a row of long words needs a wider screen first. */
+  ownWidthFrom?: "md" | "lg"
+}) {
+  const row = useRef<HTMLDivElement | null>(null)
+  const index = Math.max(0, options.findIndex((o) => o.id === value))
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const next = segmentKey(options.map((o) => o.id), value, e.key)
+    if (next === null) return
+    e.preventDefault()
+    onChange(next)
+    const i = options.findIndex((o) => o.id === next)
+    row.current?.querySelectorAll<HTMLButtonElement>("[role=radio]")[i]?.focus()
+  }
   return (
-    <div role="radiogroup" aria-label={label} className="flex w-full rounded-[10px] border border-white/[0.12] bg-white/[0.03] p-[3px] md:inline-flex md:w-auto md:rounded-lg">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          role="radio"
-          aria-checked={value === o.id}
-          onClick={() => onChange(o.id)}
-          className={cn(
-            "h-[38px] min-w-0 flex-1 truncate whitespace-nowrap rounded-[7px] font-medium md:flex-none md:px-3",
-            /* Four or more on a phone's width: a little tighter, so every label fits whole. */
-            options.length >= 4 ? "px-1 text-[13px]" : "px-1.5 text-[14px]",
-            " transition-colors duration-150 md:h-8 md:rounded-md md:text-[13.5px] [-webkit-tap-highlight-color:transparent]",
-            value === o.id ? "bg-white/[0.12] text-white" : "text-white/60 hover:text-white",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div
+      ref={row}
+      role="radiogroup"
+      aria-label={label}
+      data-segmented={name}
+      onKeyDown={onKey}
+      className={cn(
+        "relative grid w-full rounded-[10px] border border-white/[0.1] bg-white/[0.03] p-[3px] md:rounded-lg",
+        ownWidthFrom === "md" ? "md:inline-grid md:w-auto md:shrink-0" : "lg:inline-grid lg:w-auto lg:shrink-0",
+      )}
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      <span
+        aria-hidden
+        data-segment-plate=""
+        className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[7px] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:rounded-md"
+        style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
+      />
+      {options.map((o) => {
+        const on = o.id === value
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            title={o.title}
+            aria-label={o.title}
+            onClick={() => onChange(o.id)}
+            className={cn(
+              "relative z-[1] h-[38px] min-w-0 whitespace-nowrap rounded-[7px] font-medium outline-none transition-colors duration-150 md:h-8 md:rounded-md md:text-[13.5px] [-webkit-tap-highlight-color:transparent]",
+              /* Four long words on a phone's width: a little tighter, so every one fits whole. */
+              options.length >= 4 ? "px-1 text-[13px] md:px-3" : "px-2 text-[14px] md:px-3.5",
+              "focus-visible:ring-2 focus-visible:ring-white/50",
+              on ? "text-white" : "text-white/55 hover:text-white/85",
+            )}
+          >
+            {o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function RatingMark({ rating }: { rating: PerfRating }) {
+function RatingMark({ rating, className }: { rating: PerfRating; className?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-white/80">
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-white/80", className)}>
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[rating] }} aria-hidden />
       {ratingLabel(rating)}
     </span>
   )
 }
 
-function Bands({ figure }: { figure: MetricFigure }) {
+/** The bands as one gradient, each band its share of the width, 2px of nothing between two that touch. */
+function bandGradient(parts: Array<[PerfRating, number]>): string {
+  const shown = parts.filter(([, s]) => s > 0)
+  const total = shown.reduce((t, [, s]) => t + s, 0) || 1
+  const stops: string[] = []
+  let at = 0
+  shown.forEach(([r, s], i) => {
+    const from = (at / total) * 100
+    at += s
+    const to = (at / total) * 100
+    const a = i === 0 ? "0%" : `calc(${from.toFixed(2)}% + 1px)`
+    const b = i === shown.length - 1 ? "100%" : `calc(${to.toFixed(2)}% - 1px)`
+    stops.push(`${RATING_DOT[r]} ${a} ${b}`)
+    if (i < shown.length - 1) stops.push(`transparent ${b} calc(${to.toFixed(2)}% + 1px)`)
+  })
+  return `linear-gradient(to right, ${stops.join(", ")})`
+}
+
+/**
+ * The share of page views in each of Google's bands, as a bar and in
+ * numbers, with the change from the previous period at the end of the same
+ * line. Spans throughout: it is drawn inside the tab's button.
+ */
+function Bands({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) {
   const b = figure.bands
   if (!b) return null
   const parts: Array<[PerfRating, number]> = [
@@ -232,30 +335,35 @@ function Bands({ figure }: { figure: MetricFigure }) {
     ["needs-improvement", b.needsImprovement],
     ["poor", b.poor],
   ]
+  const said = parts.map(([r, s]) => `${ratingLabel(r)} ${percent(s)}`).join(", ")
   return (
-    <div className="mt-3">
-      <div className="flex h-1.5 gap-[2px] overflow-hidden rounded-full" role="img" aria-label={parts.map(([r, s]) => `${ratingLabel(r)} ${percent(s)}`).join(", ")}>
-        {parts.map(([r, s]) => (s > 0 ? <span key={r} style={{ flexGrow: s, background: RATING_DOT[r] }} className="min-w-[2px]" /> : null))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tabular-nums text-white/55">
+    <span className="mt-3 block" data-bands="">
+      {/* One element painted with a gradient, a 2px gap of the card between bands: a new period repaints it and lays nothing out. */}
+      <span className="block h-1.5 overflow-hidden rounded-full" role="img" aria-label={said} title={said} style={{ background: bandGradient(parts) }} />
+      <span className="mt-1.5 flex items-center gap-3 text-[12px] tabular-nums text-white/50">
         {parts.map(([r, s]) => (
-          <span key={r} className="inline-flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[r] }} aria-hidden />
+          <span key={r} className="inline-flex min-w-[40px] items-center gap-1" aria-hidden>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[r] }} />
             {percent(s)}
           </span>
         ))}
-      </div>
-    </div>
+        <Delta metric={metric} figure={figure} />
+      </span>
+    </span>
   )
 }
 
+/** "531 ms slower", at the end of the bands' line; the whole sentence for a screen reader and on hover. */
 function Delta({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) {
   const dir = directionOf(figure.p75, figure.previous)
   if (dir === null || figure.p75 === null || figure.previous === null) return null
-  if (dir === "same") return <p className="mt-2 text-[12.5px] text-white/45">{tt("No change from the previous period")}</p>
+  if (dir === "same") {
+    const full = tt("No change from the previous period")
+    return <span className="min-w-0 truncate text-white/45" data-delta="same" title={full}>{tt("No change")}<span className="sr-only">{full}</span></span>
+  }
   const diff = formatPerf(metric, Math.abs(figure.p75 - figure.previous))
   const better = dir === "better"
-  const text =
+  const full =
     metric === "cls"
       ? better
         ? tt("{delta} less shift than the previous period", { delta: diff })
@@ -263,34 +371,96 @@ function Delta({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) 
       : better
         ? tt("{delta} faster than the previous period", { delta: diff })
         : tt("{delta} slower than the previous period", { delta: diff })
+  const short = metric === "cls" ? (better ? tt("{delta} less", { delta: diff }) : tt("{delta} more", { delta: diff })) : better ? tt("{delta} faster", { delta: diff }) : tt("{delta} slower", { delta: diff })
   const Arrow = better ? ArrowDown : ArrowUp
   return (
-    <p className={cn("mt-2 inline-flex items-center gap-1 text-[12.5px]", better ? "text-emerald-300" : "text-red-300")} data-delta={dir}>
-      <Arrow className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-      {text}
-    </p>
+    <span className={cn("inline-flex min-w-0 items-center gap-0.5 whitespace-nowrap", better ? "text-emerald-300/90" : "text-red-300/90")} data-delta={dir} title={full}>
+      <Arrow className="h-3 w-3 shrink-0" strokeWidth={2.25} aria-hidden />
+      <span aria-hidden>{short}</span>
+      <span className="sr-only">{full}</span>
+    </span>
   )
 }
 
-function MetricTile({ metric, figure, note }: { metric: RumMetric; figure: MetricFigure; note?: ReactNode }) {
+/** The line under a chosen tab, the analytics page's (components/app/metric-tab). */
+const TAB_LINE = "#8b5cf6"
+
+/**
+ * One of the three Core Web Vitals, and the tab that puts it on the chart.
+ * On a phone a row (the name on the left, the figure on the right), from md
+ * up a column.
+ */
+function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMetric; figure: MetricFigure; selected: boolean; onSelect: () => void; note?: string | null }) {
   return (
-    <div className="min-w-0 px-4 py-4 md:px-6 md:py-5" data-metric={metric}>
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[14.5px] font-semibold text-white">{metricShort(metric)}</span>
-        {metric !== "nav" && <span className="min-w-0 truncate text-[12.5px] text-white/45">{metricName(metric)}</span>}
-      </div>
-      {figure.p75 === null ? (
-        <p className="mt-2 text-[15px] text-white/55" data-not-enough="">{tt("Not enough visits yet")}</p>
-      ) : (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      tabIndex={selected ? 0 : -1}
+      data-metric={metric}
+      data-tab={metric}
+      onClick={onSelect}
+      className={cn(
+        "relative block w-full min-w-0 px-4 py-4 text-left outline-none transition-colors duration-200 md:px-6 md:py-5 [-webkit-tap-highlight-color:transparent]",
+        "focus-visible:bg-white/[0.05]",
+        selected ? "bg-white/[0.035]" : "hover:bg-white/[0.02]",
+      )}
+    >
+      {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
+      <span className="flex items-start justify-between gap-3 lg:block">
+        <span className="min-w-0">
+          <span className="block text-[14.5px] font-semibold text-white">{metricShort(metric)}</span>
+          <span className="block truncate text-[12.5px] text-white/45">{metricName(metric)}</span>
+        </span>
+        {/* On a phone a column of its own width, its words from its left edge: a new figure is written in place and nothing beside it moves. */}
+        {figure.p75 === null ? (
+          <span className="w-[136px] shrink-0 text-[14px] text-white/50 lg:mt-3 lg:block lg:w-auto" data-not-enough="">{tt("Not enough visits yet")}</span>
+        ) : (
+          <span className="w-[136px] shrink-0 lg:mt-2 lg:block lg:w-auto">
+            <span className="block text-[22px] font-semibold leading-tight tracking-[-0.01em] text-white lg:text-[28px]" data-p75="">{formatPerf(metric, figure.p75)}</span>
+            {figure.rating && <RatingMark rating={figure.rating} className="mt-0.5" />}
+          </span>
+        )}
+      </span>
+      {figure.p75 !== null && (
         <>
-          <p className="mt-1.5 text-[28px] font-semibold leading-tight tracking-[-0.01em] text-white" data-p75="">{formatPerf(metric, figure.p75)}</p>
-          {figure.rating && <div className="mt-1"><RatingMark rating={figure.rating} /></div>}
-          <Bands figure={figure} />
-          <Delta metric={metric} figure={figure} />
+          <Bands metric={metric} figure={figure} />
         </>
       )}
-      {note && <p className="mt-2 text-[12.5px] leading-snug text-white/45">{note}</p>}
-    </div>
+      {note && <span className="mt-2 block text-[12.5px] leading-snug text-white/40">{note}</span>}
+    </button>
+  )
+}
+
+/** FCP, TTFB and the page change time: the same tab, smaller. */
+function MinorTab({ metric, figure, selected, onSelect }: { metric: RumMetric; figure: MetricFigure; selected: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      tabIndex={selected ? 0 : -1}
+      data-metric={metric}
+      data-tab={metric}
+      onClick={onSelect}
+      title={metricName(metric)}
+      className={cn(
+        "relative block min-w-0 px-4 py-3 text-left outline-none transition-colors duration-200 md:px-6 [-webkit-tap-highlight-color:transparent]",
+        "focus-visible:bg-white/[0.05]",
+        selected ? "bg-white/[0.035]" : "hover:bg-white/[0.02]",
+      )}
+    >
+      {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
+      <span className="block truncate text-[12.5px] text-white/50">{metricShort(metric)}</span>
+      {figure.p75 === null ? (
+        <span className="mt-0.5 block truncate text-[13px] text-white/40" data-not-enough="">{tt("Not enough visits yet")}</span>
+      ) : (
+        <span className="mt-0.5 flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white" data-p75="">
+          {figure.rating && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[figure.rating] }} aria-label={ratingLabel(figure.rating)} />}
+          {formatPerf(metric, figure.p75)}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -298,6 +468,9 @@ function MetricTile({ metric, figure, note }: { metric: RumMetric; figure: Metri
 
 type Dim = "path" | "type" | "browser" | "country"
 type SortCol = "key" | "views" | PerfMetric
+
+/** Rows shown before "Show all". */
+const FIRST_ROWS = 5
 
 function BreakdownTable({ rows, dim }: { rows: BreakdownRow[]; dim: Dim }) {
   const [sort, setSort] = useState<{ col: SortCol; dir: "asc" | "desc" }>({ col: "views", dir: "desc" })
@@ -312,21 +485,24 @@ function BreakdownTable({ rows, dim }: { rows: BreakdownRow[]; dim: Dim }) {
       if (x === null) return 1
       if (y === null) return -1
       const c = x < y ? -1 : x > y ? 1 : 0
-      return sort.dir === "asc" ? c : -c
+      return (sort.dir === "asc" ? c : -c) || b.views - a.views
     })
   }, [rows, sort, dim])
-  const shown = all ? sorted : sorted.slice(0, 10)
+  const shown = all ? sorted : sorted.slice(0, FIRST_ROWS)
   const head = (col: SortCol, label: string, className?: string) => {
     const on = sort.col === col
+    const Arrow = on && sort.dir === "asc" ? ArrowUp : ArrowDown
     return (
       <th scope="col" aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={cn("py-2.5 pl-1 pr-1.5 font-medium first:pl-4 last:pr-4 md:px-2 md:first:pl-6 md:last:pr-6", className)}>
         <button
           type="button"
           onClick={() => setSort((s) => ({ col, dir: s.col === col ? (s.dir === "desc" ? "asc" : "desc") : col === "key" ? "asc" : "desc" }))}
-          className={cn("inline-flex items-center gap-1 whitespace-nowrap transition-colors hover:text-white", on ? "text-white" : "text-white/50")}
+          className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white/40", on ? "text-white" : "text-white/50")}
         >
+          {/* Always there, so a header never changes width when it is chosen; on the inner side of a number column, so the label stays over its numbers. */}
+          {col !== "key" && <Arrow className={cn("h-3 w-3 shrink-0 transition-opacity", on ? "opacity-100" : "opacity-0")} aria-hidden />}
           {label}
-          {on ? sort.dir === "asc" ? <ArrowUp className="h-3 w-3" aria-hidden /> : <ArrowDown className="h-3 w-3" aria-hidden /> : null}
+          {col === "key" && <Arrow className={cn("h-3 w-3 shrink-0 transition-opacity", on ? "opacity-100" : "opacity-0")} aria-hidden />}
         </button>
       </th>
     )
@@ -354,12 +530,12 @@ function BreakdownTable({ rows, dim }: { rows: BreakdownRow[]; dim: Dim }) {
       <table className="w-full table-fixed border-collapse text-[13px]" data-breakdown={dim}>
         <colgroup>
           <col />
-          <col className="w-[50px] md:w-[72px]" />
-          <col className="w-[62px] md:w-[80px]" />
-          <col className="w-[70px] md:w-[88px]" />
-          <col className="w-[56px] md:w-[70px]" />
-          <col className="hidden md:table-column md:w-[80px]" />
-          <col className="hidden md:table-column md:w-[96px]" />
+          <col className="w-[54px] lg:w-[76px]" />
+          <col className="w-[64px] lg:w-[84px]" />
+          <col className="w-[70px] lg:w-[88px]" />
+          <col className="w-[58px] lg:w-[72px]" />
+          <col className="hidden lg:table-column lg:w-[80px]" />
+          <col className="hidden lg:table-column lg:w-[96px]" />
         </colgroup>
         <thead className="border-b border-white/[0.07] text-left text-[12.5px]">
           <tr>
@@ -368,27 +544,27 @@ function BreakdownTable({ rows, dim }: { rows: BreakdownRow[]; dim: Dim }) {
             {head("lcp", "LCP", "text-right")}
             {head("inp", "INP", "text-right")}
             {head("cls", "CLS", "text-right")}
-            {head("fcp", "FCP", "hidden text-right md:table-cell")}
-            {head("ttfb", "TTFB", "hidden text-right md:table-cell")}
+            {head("fcp", "FCP", "hidden text-right lg:table-cell")}
+            {head("ttfb", "TTFB", "hidden text-right lg:table-cell")}
           </tr>
         </thead>
         <tbody className="divide-y divide-white/[0.05]">
           {shown.map((r) => (
-            <tr key={r.key}>
+            <tr key={r.key} className="h-10">
               <td className="truncate py-2.5 pl-4 pr-2 text-white/85 md:pl-6" title={keyLabel(dim, r.key)}>{keyLabel(dim, r.key)}</td>
-              <td className="whitespace-nowrap py-2.5 pl-1 pr-1.5 text-right tabular-nums text-white/70 md:px-2">{new Intl.NumberFormat(appLocale(), { notation: r.views >= 10_000 ? "compact" : "standard" }).format(r.views)}</td>
+              <td className="whitespace-nowrap py-2.5 pl-1 pr-1.5 text-right tabular-nums text-white/70 md:px-2">{count(r.views)}</td>
               {cell(r, "lcp")}
               {cell(r, "inp")}
               {cell(r, "cls")}
-              {cell(r, "fcp", "hidden md:table-cell")}
-              {cell(r, "ttfb", "hidden md:table-cell")}
+              {cell(r, "fcp", "hidden lg:table-cell")}
+              {cell(r, "ttfb", "hidden lg:table-cell")}
             </tr>
           ))}
         </tbody>
       </table>
-      {rows.length > 10 && (
-        <div className="border-t border-white/[0.07] px-4 py-2.5 md:px-6">
-          <button type="button" onClick={() => setAll((a) => !a)} className="h-10 text-[13.5px] font-medium text-white/70 hover:text-white md:h-8">
+      {rows.length > FIRST_ROWS && (
+        <div className="border-t border-white/[0.07] px-4 py-1 md:px-6">
+          <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className="h-10 text-[13.5px] font-medium text-white/65 transition-colors hover:text-white md:h-9" data-show-all="">
             {all ? tt("Show fewer") : tt("Show all {count}", { count: rows.length })}
           </button>
         </div>
@@ -433,6 +609,125 @@ function scoreRating(score: number): PerfRating {
   return score >= 90 ? "good" : score >= 50 ? "needs-improvement" : "poor"
 }
 
+function hostList(hosts: string[]): string {
+  const shown = hosts.slice(0, 3).join(", ")
+  return hosts.length > 3 ? tt("{hosts} and {count} more", { hosts: shown, count: hosts.length - 3 }) : shown
+}
+
+/** What a quick check found, one sentence each. */
+function findingText(f: QuickFinding): string {
+  switch (f.kind) {
+    case "slow-server":
+      return tt("The server takes {time} to answer. Over 0.8 s, every page starts late.", { time: formatPerf("ttfb", f.ms) })
+    case "not-cached":
+      return tt("The page was not served from Storelib's cache, so each visit waits for it to be built.")
+    case "not-compressed":
+      return tt("The page's HTML is sent uncompressed ({size}).", { size: formatBytes(f.bytes) })
+    case "heavy-html":
+      return tt("The page's HTML is {size}. Long pages with many sections take longer to arrive.", { size: formatBytes(f.bytes) })
+    case "blocking":
+      return f.scripts > 0
+        ? tt("{count, plural, one {# script in the page head loads} other {# scripts in the page head load}} before anything is drawn. Custom code is the usual cause.", { count: f.scripts })
+        : tt("{count, plural, one {# stylesheet holds} other {# stylesheets hold}} up the first paint{size}.", { count: f.styles, size: f.bytes ? ` (${formatBytes(f.bytes)})` : "" })
+    case "heavy-image":
+      return tt("The heaviest image is {file} at {size}. Use a smaller one.", { file: fileNameOf(f.url), size: formatBytes(f.bytes) })
+    case "unsized-images":
+      return tt("{count, plural, one {# image has} other {# images have}} no width and height, so the page can move as they load.", { count: f.count })
+    case "not-lazy":
+      return tt("{count, plural, one {# image} other {# images}} lower on the page load straight away instead of when they are scrolled to.", { count: f.count })
+    case "font-host":
+      return tt("Fonts load from {hosts} before the text is drawn.", { hosts: hostList(f.hosts) })
+    case "third-party":
+      return tt("The page loads files from {count} other services: {hosts}.", { count: f.hosts.length, hosts: hostList(f.hosts) })
+  }
+}
+
+function QuickResult({ r }: { r: QuickCheckResult }) {
+  const ttfbRating = ratePerf("ttfb", r.ttfb.median)
+  const cache = r.edge.cached === true ? tt("Served from cache") : r.edge.cached === false ? tt("Not cached") : tt("Not reported")
+  const facts: Array<{ label: string; value: string; rating?: PerfRating }> = [
+    { label: tt("Server response"), value: formatPerf("ttfb", r.ttfb.median), rating: ttfbRating },
+    { label: tt("Page HTML"), value: r.html.encoding ? `${formatBytes(r.html.bytes)} · ${r.html.encoding}` : `${formatBytes(r.html.bytes)} · ${tt("uncompressed")}` },
+    { label: tt("Cache"), value: cache },
+    { label: tt("Blocking files"), value: String(r.blocking.styles + r.blocking.scripts) + (r.blocking.bytes ? ` · ${formatBytes(r.blocking.bytes)}` : "") },
+    { label: tt("Images"), value: r.images.largest[0]?.bytes ? tt("{count} · largest {size}", { count: r.images.count, size: formatBytes(r.images.largest[0].bytes as number) }) : String(r.images.count) },
+    { label: tt("Other services"), value: String(r.thirdParty.length) },
+  ]
+  return (
+    <>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5 sm:grid-cols-3" data-quick-facts="">
+        {facts.map((f) => (
+          <div key={f.label} className="min-w-0">
+            <dt className="text-[12.5px] leading-snug text-white/50">{f.label}</dt>
+            <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[15px] font-medium tabular-nums text-white">
+              {f.rating && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[f.rating] }} aria-label={ratingLabel(f.rating)} />}
+              <span className="truncate">{f.value}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {r.findings.length > 0 ? (
+        <ul className="mt-5 divide-y divide-white/[0.06] border-t border-white/[0.07]" data-quick-findings="">
+          {r.findings.map((f) => (
+            <li key={f.kind} className="flex gap-3 py-2.5 text-[13.5px] leading-snug text-white/80" data-finding={f.kind}>
+              <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[f.severity] }} aria-label={ratingLabel(f.severity)} />
+              <span className="min-w-0">{findingText(f)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-5 border-t border-white/[0.07] pt-3 text-[13.5px] text-white/60" data-quick-findings="none">{tt("Nothing slow found in this check.")}</p>
+      )}
+    </>
+  )
+}
+
+function GoogleResult({ r }: { r: LabResult }) {
+  const metrics: Array<[string, string | null, PerfMetric | null, number | null]> = [
+    ["LCP", r.metrics.lcp === null ? null : formatPerf("lcp", r.metrics.lcp), "lcp", r.metrics.lcp],
+    ["FCP", r.metrics.fcp === null ? null : formatPerf("fcp", r.metrics.fcp), "fcp", r.metrics.fcp],
+    ["CLS", r.metrics.cls === null ? null : formatPerf("cls", r.metrics.cls), "cls", r.metrics.cls],
+    [tt("Total Blocking Time"), r.metrics.tbt === null ? null : formatPerf("inp", r.metrics.tbt), null, null],
+    [tt("Speed Index"), r.metrics.si === null ? null : formatPerf("fcp", r.metrics.si), null, null],
+  ]
+  return (
+    <>
+      <div className="flex flex-col gap-x-10 gap-y-4 md:flex-row md:items-start">
+        {r.score !== null && (
+          <div className="shrink-0">
+            <p className="text-[12.5px] text-white/50">{tt("Performance score")}</p>
+            <p className="mt-0.5 text-[28px] font-semibold leading-tight text-white">{r.score}</p>
+            <RatingMark rating={scoreRating(r.score)} />
+          </div>
+        )}
+        <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3.5 sm:grid-cols-3">
+          {metrics.map(([label, value, m, raw]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-[12.5px] leading-snug text-white/50">{label}</dt>
+              <dd className="mt-0.5 inline-flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white">
+                {m && raw !== null && <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[ratePerf(m, raw)] }} aria-hidden />}
+                {value ?? "–"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      {r.opportunities.length > 0 && (
+        <ul className="mt-5 divide-y divide-white/[0.06] border-t border-white/[0.07]">
+          {r.opportunities.map((o) => (
+            <li key={o.id} className="flex items-baseline justify-between gap-4 py-2.5 text-[13.5px]">
+              <span className="min-w-0 text-white/80">{o.title}</span>
+              <span className="shrink-0 tabular-nums text-white/50">
+                {o.savingsMs && o.savingsMs >= 50 ? tt("about {time}", { time: formatPerf("lcp", o.savingsMs) }) : o.savingsBytes ? formatBytes(o.savingsBytes) : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
 function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStrategy, StoredLab | null>; onRan: (l: StoredLab) => void }) {
   const [strategy, setStrategy] = useState<LabStrategy>("mobile")
   const [path, setPath] = useState("/")
@@ -454,6 +749,7 @@ function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStr
   const run = async () => {
     setBusy(true)
     setError(null)
+    const failed = tt("The test did not finish. Try again in a minute.")
     try {
       const res = await fetch(`/api/website-builder/themes/${ctx.installId}/performance/lab`, {
         method: "POST",
@@ -461,95 +757,83 @@ function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStr
         body: JSON.stringify({ strategy, path, locale: activeLanguage() }),
       })
       const d = await res.json().catch(() => ({}))
-      if (!res.ok || !d?.lab) throw new Error(d?.error || tt("Google's speed test did not finish. Try again in a minute."))
+      if (!res.ok || !d?.lab) throw new Error(typeof d?.error === "string" ? tt(d.error) : failed)
       onRan(d.lab as StoredLab)
     } catch (e) {
-      setError(e instanceof Error ? e.message : tt("Google's speed test did not finish. Try again in a minute."))
+      setError(e instanceof Error && e.message ? e.message : failed)
     } finally {
       setBusy(false)
     }
   }
 
-  const r = current?.result
-  const metrics: Array<[string, string | null, PerfMetric | null]> = r
-    ? [
-        ["LCP", r.metrics.lcp === null ? null : formatPerf("lcp", r.metrics.lcp), "lcp"],
-        ["FCP", r.metrics.fcp === null ? null : formatPerf("fcp", r.metrics.fcp), "fcp"],
-        ["CLS", r.metrics.cls === null ? null : formatPerf("cls", r.metrics.cls), "cls"],
-        [tt("Total Blocking Time"), r.metrics.tbt === null ? null : formatPerf("inp", r.metrics.tbt), null],
-        [tt("Speed Index"), r.metrics.si === null ? null : formatPerf("fcp", r.metrics.si), null],
-      ]
-    : []
-  const rawOf = (m: PerfMetric | null) => (m && r ? (m === "lcp" ? r.metrics.lcp : m === "fcp" ? r.metrics.fcp : r.metrics.cls) : null)
+  const r = current?.result ?? null
+  const quick = isQuickCheck(r)
+  const footer = r ? (quick ? tt("Quick check from Storelib's server. Not a full browser test.") : tt("One simulated visit by Google PageSpeed Insights. Not visitor data.")) : undefined
 
   return (
-    <Card title={tt("Lab test")} footer={tt("One simulated visit by Google PageSpeed Insights. Not visitor data.")}>
-      <div className="flex flex-wrap items-center gap-2.5 px-4 py-4 md:px-6" data-lab-controls="">
-        <Segmented value={strategy} onChange={setStrategy} label={tt("Device")} options={[{ id: "mobile", label: tt("Mobile") }, { id: "desktop", label: tt("Desktop") }]} />
-        <select value={path} onChange={(e) => setPath(e.target.value)} aria-label={tt("Page to test")} className={cn(inputClass, "min-w-0 flex-1 md:w-auto md:max-w-[260px] md:flex-none")}>
+    <Card title={tt("Lab test")} footer={footer}>
+      <div className="flex flex-col gap-2.5 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center md:px-6" data-lab-controls="">
+        <Segmented name="lab-device" value={strategy} onChange={setStrategy} label={tt("Device")} options={[{ id: "mobile", label: tt("Mobile") }, { id: "desktop", label: tt("Desktop") }]} />
+        <select value={path} onChange={(e) => setPath(e.target.value)} aria-label={tt("Page to test")} className={cn(inputClass, "min-w-0 sm:w-auto sm:flex-1 md:w-auto md:max-w-[240px] md:flex-1")}>
           {pages.map((p) => (
             <option key={p.path} value={p.path}>{p.name}</option>
           ))}
         </select>
-        <button type="button" onClick={() => void run()} disabled={busy || !ctx.live} className={cn(primaryButtonClass, "max-md:w-full")}>
-          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-          {busy ? tt("Testing, up to a minute") : tt("Run test")}
+        <button type="button" onClick={() => void run()} disabled={busy || !ctx.live} className={cn(primaryButtonClass, "max-sm:w-full")} data-lab-run="">
+          {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+          {busy ? tt("Testing") : tt("Run test")}
         </button>
       </div>
       {error && <p className="px-4 py-3 text-[13.5px] text-red-300 md:px-6" role="alert">{error}</p>}
-      {r ? (
-        <div className="px-4 py-4 md:px-6" data-lab-result={strategy}>
-          <div className="flex flex-col gap-x-10 gap-y-4 md:flex-row md:items-start">
-            {r.score !== null && (
-              <div>
-                <p className="text-[12.5px] text-white/50">{tt("Performance score")}</p>
-                <p className="mt-0.5 text-[28px] font-semibold leading-tight text-white">{r.score}</p>
-                <RatingMark rating={scoreRating(r.score)} />
-              </div>
-            )}
-            <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-              {metrics.map(([label, value, m]) => (
-                <div key={label} className="min-w-0">
-                  <dt className="text-[12.5px] leading-snug text-white/50">{label}</dt>
-                  <dd className="mt-0.5 inline-flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white">
-                    {m && rawOf(m) !== null && <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[ratePerf(m, rawOf(m) as number)] }} aria-hidden />}
-                    {value ?? "–"}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          {r.opportunities.length > 0 && (
-            <ul className="mt-5 divide-y divide-white/[0.06] border-t border-white/[0.07]">
-              {r.opportunities.map((o) => (
-                <li key={o.id} className="flex items-baseline justify-between gap-4 py-2.5 text-[13.5px]">
-                  <span className="min-w-0 text-white/80">{o.title}</span>
-                  <span className="shrink-0 tabular-nums text-white/50">
-                    {o.savingsMs && o.savingsMs >= 50 ? tt("about {time}", { time: formatPerf("lcp", o.savingsMs) }) : o.savingsBytes ? formatBytes(o.savingsBytes) : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-white/45">
+      {r && current ? (
+        <div className={cn("px-4 py-4 transition-opacity duration-200 md:px-6", busy && "opacity-50")} data-lab-result={strategy} data-lab-source={quick ? "quick" : "pagespeed"}>
+          {quick ? <QuickResult r={r as QuickCheckResult} /> : <GoogleResult r={r as LabResult} />}
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-white/45" data-lab-meta="">
             <span>{tt("Tested {time}", { time: when(current.ranAt, true) })}</span>
             <span aria-hidden>·</span>
-            <span className="min-w-0 truncate">{current.url}</span>
+            <span className="min-w-0 max-w-full truncate">{current.url}</span>
             <a
               href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(current.url)}&form_factor=${strategy}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-white/70 underline underline-offset-2 hover:text-white"
             >
-              {tt("Full report")}
+              {quick ? tt("Test in PageSpeed Insights") : tt("Full report")}
               <ExternalLink className="h-3 w-3" aria-hidden />
             </a>
           </p>
         </div>
       ) : (
-        <p className="px-4 py-4 text-[14px] text-white/50 md:px-6">{ctx.live ? tt("No lab test yet.") : tt("Publish your website to test it.")}</p>
+        <p className="px-4 py-4 text-[14px] text-white/50 md:px-6" data-lab-empty="">{ctx.live ? tt("Not tested yet.") : tt("Publish your website to test it.")}</p>
       )}
     </Card>
+  )
+}
+
+/* ── The first load, when it is slow ─────────────────────────────────── */
+
+/** The summary card's frame, drawn only after PERF_SKELETON_AFTER_MS, so a quick answer never shows it. */
+function Placeholder() {
+  return (
+    <section
+      data-perf-loading=""
+      aria-busy
+      aria-label={tt("Reading visitor speed")}
+      className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] opacity-0 md:mt-6"
+      style={{ animation: `skeleton-reveal 260ms ease-out ${PERF_SKELETON_AFTER_MS}ms forwards` }}
+    >
+      <div className="h-[52px] border-b border-white/[0.07]" />
+      <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="px-4 py-4 md:px-6 md:py-5">
+            <div className="h-3.5 w-10 rounded bg-white/[0.07]" />
+            <div className="mt-3 h-6 w-20 rounded bg-white/[0.07]" />
+            <div className="mt-4 h-1.5 w-full rounded-full bg-white/[0.06]" />
+          </div>
+        ))}
+      </div>
+      <div className="h-[232px] border-t border-white/[0.07]" />
+    </section>
   )
 }
 
@@ -565,55 +849,54 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
   const [device, setDevice] = useState<DeviceView>("all")
   const [metric, setMetric] = useState<RumMetric>("lcp")
   const [dim, setDim] = useState<Dim>("path")
-  const [answer, setAnswer] = useState<Answer | null>(() => lastAnswers.get(`${ctx.installId}|7d`) ?? null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const keyOf = useCallback((r: PerfRange) => `${ctx.installId}|${r}`, [ctx.installId])
+  const [state, dispatch] = useReducer(loadReducer<Answer>, null, () => initialLoad<Answer>(lastAnswers.get(`${ctx.installId}|7d`) ?? null, `${ctx.installId}|7d`))
   const asked = useRef(0)
+  const tabs = useRef<HTMLDivElement | null>(null)
 
   const load = useCallback(
     async (r: PerfRange) => {
       const id = ++asked.current
-      setLoading(true)
-      setError(null)
+      const key = keyOf(r)
+      dispatch({ type: "ask", key, id, cached: lastAnswers.get(key) ?? null })
       try {
         const res = await fetch(`/api/website-builder/themes/${ctx.installId}/performance?range=${r}`)
         const d = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(d?.error || tt("Could not load visitor speed. Try again."))
-        if (id !== asked.current) return
-        lastAnswers.set(`${ctx.installId}|${r}`, d as Answer)
-        setAnswer(d as Answer)
+        if (!res.ok) throw new Error(typeof d?.error === "string" ? tt(d.error) : tt("Could not load visitor speed. Try again."))
+        lastAnswers.set(key, d as Answer)
+        dispatch({ type: "answer", key, id, answer: d as Answer })
       } catch (e) {
-        if (id === asked.current) setError(e instanceof Error ? e.message : tt("Could not load visitor speed. Try again."))
-      } finally {
-        if (id === asked.current) setLoading(false)
+        dispatch({ type: "fail", id, error: e instanceof Error && e.message ? e.message : tt("Could not load visitor speed. Try again.") })
       }
     },
-    [ctx.installId],
+    [ctx.installId, keyOf],
   )
 
   useEffect(() => {
-    const cached = lastAnswers.get(`${ctx.installId}|${range}`)
-    if (cached) setAnswer(cached)
     void load(range)
-  }, [range, load, ctx.installId])
+  }, [range, load])
 
+  const answer = state.shown
+  const view = loadView(state)
   const report = answer && answer.available ? answer.report : null
   const live = answer?.live ?? ctx.live
 
   const filters = (
-    <div className="mt-5 flex flex-wrap items-center gap-2.5 md:mt-6" data-perf-filters="">
+    <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5 md:mt-6" data-perf-filters="">
       <Segmented
+        name="range"
         value={range}
         onChange={setRange}
         label={tt("Period")}
-        options={(["24h", "7d", "30d", "90d"] as PerfRange[]).map((r) => ({ id: r, label: rangeLabel(r) }))}
+        options={RANGES.map((r) => ({ id: r, label: rangeShort(r), title: tt("Last {period}", { period: rangeLabel(r) }) }))}
       />
       <Segmented
+        name="device"
         value={device}
         onChange={setDevice}
         label={tt("Device")}
         options={[
-          { id: "all", label: tt("All devices") },
+          { id: "all", label: tt("All") },
           { id: "mobile", label: tt("Mobile") },
           { id: "desktop", label: tt("Desktop") },
         ]}
@@ -622,20 +905,15 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
   )
 
   let body: ReactNode
-  if (error && !answer) {
+  if (state.error && !answer) {
     body = (
       <>
-        <ErrorNote>{error}</ErrorNote>
+        <ErrorNote>{state.error}</ErrorNote>
         <button type="button" className={cn(buttonClass, "mt-3")} onClick={() => void load(range)}>{tt("Try again")}</button>
       </>
     )
   } else if (!answer) {
-    body = (
-      <p className="mt-6 inline-flex items-center gap-2 text-[14px] text-white/50" data-perf-loading="">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        {tt("Reading visitor speed")}
-      </p>
-    )
+    body = <Placeholder />
   } else if (!answer.available) {
     body = (
       <Card>
@@ -649,7 +927,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
     const recent = ctx.publishedAt && Date.now() - Date.parse(ctx.publishedAt) < 2 * 86_400_000
     body = (
       <Card>
-        <div className="px-4 py-5 md:px-6" data-perf-empty={live ? (recent ? "new" : "no-visits") : "unpublished"}>
+        <div className={cn("px-4 py-5 transition-opacity duration-200 md:px-6", view.dim && "opacity-50")} data-perf-empty={live ? (recent ? "new" : "no-visits") : "unpublished"}>
           {!live ? (
             <>
               <p className="text-[15px] font-medium text-white">{tt("Publish your website to see how fast it is for visitors.")}</p>
@@ -681,23 +959,59 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
       report.noInpShare !== null && report.noInpShare >= 0.01
         ? tt("Safari does not report INP, so {share} of page views are not in it.", { share: percent(report.noInpShare) })
         : null
-    const showNav = s.metrics.nav.samples > 0
+    const minor: RumMetric[] = s.metrics.nav.samples > 0 ? ["fcp", "ttfb", "nav"] : ["fcp", "ttfb"]
+    const order: RumMetric[] = [...CORE_METRICS, ...minor]
+    const overall = overallRating(s)
+    const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+      const next = segmentKey(order, metric, e.key)
+      if (next === null) return
+      e.preventDefault()
+      setMetric(next)
+      tabs.current?.querySelector<HTMLButtonElement>(`[data-tab="${next}"]`)?.focus()
+    }
     body = (
-      <div className={cn("transition-opacity duration-150", loading && "opacity-60")}>
-        <Card title={tt("Core Web Vitals")}>
-          <div className="grid divide-y divide-white/[0.07] md:grid-cols-3 md:divide-x md:divide-y-0" data-vitals="">
-            {CORE_METRICS.map((m) => (
-              <MetricTile key={m} metric={m} figure={s.metrics[m]} note={m === "inp" ? inpNote : undefined} />
-            ))}
+      <div className={cn("transition-opacity duration-200", view.dim && "opacity-50")} aria-busy={view.busy} data-perf-body="" data-dim={view.dim ? "" : undefined}>
+        <section className="relative mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-6" data-perf-summary="">
+          <LoadingLine active={view.busy} />
+          <div className="flex min-h-[52px] items-center gap-x-4 gap-y-1 border-b border-white/[0.07] px-4 py-3 md:px-6" data-overall={overall ?? "none"}>
+            <h2 className="text-[14px] font-semibold text-white/90">{tt("Core Web Vitals")}</h2>
+            {overall ? <RatingMark rating={overall} className="text-[14px] text-white" /> : <span className="text-[13px] text-white/45">{tt("Not enough visits yet")}</span>}
           </div>
-        </Card>
-        <Card>
-          <div className={cn("grid divide-y divide-white/[0.07] md:divide-y-0 md:divide-x", showNav ? "md:grid-cols-3" : "md:grid-cols-2")}>
-            <MetricTile metric="fcp" figure={s.metrics.fcp} />
-            <MetricTile metric="ttfb" figure={s.metrics.ttfb} />
-            {showNav && <MetricTile metric="nav" figure={s.metrics.nav} note={tt("From a tap on a link to the next page, without a reload.")} />}
+          <div ref={tabs} role="tablist" aria-label={tt("Measure")} onKeyDown={onTabKey}>
+            <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0" data-vitals="">
+              {CORE_METRICS.map((m) => (
+                <CoreTab key={m} metric={m} figure={s.metrics[m]} selected={metric === m} onSelect={() => setMetric(m)} note={m === "inp" ? inpNote : undefined} />
+              ))}
+            </div>
+            <div className={cn("grid divide-x divide-white/[0.07] border-t border-white/[0.07]", minor.length === 3 ? "grid-cols-3" : "grid-cols-2")} data-minor="">
+              {minor.map((m) => (
+                <MinorTab key={m} metric={m} figure={s.metrics[m]} selected={metric === m} onSelect={() => setMetric(m)} />
+              ))}
+            </div>
           </div>
-        </Card>
+          <div role="tabpanel" aria-label={metricName(metric)} className="border-t border-white/[0.07] px-2 pb-3 pt-3 md:px-4" data-perf-panel="">
+            <div className="flex min-h-[24px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 pb-1">
+              <p className="text-[13px] text-white/60">{tt("{metric} at the 75th percentile", { metric: metricShort(metric) })}</p>
+              {devices.length > 1 && (
+                <div className="flex gap-4 text-[12.5px] text-white/60" data-legend="">
+                  {devices.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-1.5">
+                      <span className="h-[2px] w-3.5 rounded-full" style={{ background: DEVICE_COLOR[d] }} aria-hidden />
+                      {d === "mobile" ? tt("Mobile") : tt("Desktop")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <PerformanceChart
+              points={points}
+              metric={metric}
+              devices={devices}
+              grain={report.range === "24h" ? "hour" : "day"}
+              label={tt("{metric} at the 75th percentile over the last {period}", { metric: metricShort(metric), period: rangeLabel(report.range) })}
+            />
+          </div>
+        </section>
 
         {report.insights.length > 0 && (
           <Card title={tt("What to fix")}>
@@ -705,7 +1019,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
               const t = insightText(i)
               return (
                 <div key={k} className="flex gap-3 px-4 py-4 md:px-6" data-insight={i.kind}>
-                  {t.rating && <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[t.rating] }} aria-hidden />}
+                  {t.rating && <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[t.rating] }} aria-label={ratingLabel(t.rating)} />}
                   <div className="min-w-0">
                     <p className="text-[14.5px] font-medium text-white">{t.title}</p>
                     {t.evidence && <p className="mt-1 text-[13.5px] text-white/70">{t.evidence}</p>}
@@ -718,38 +1032,15 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
         )}
 
         <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 md:px-6">
-            <h2 className="text-[14px] font-semibold text-white/90">{tt("Over time")}</h2>
-            <Segmented
-              value={metric}
-              onChange={setMetric}
-              label={tt("Measure")}
-              options={(["lcp", "inp", "cls", "fcp", "ttfb"] as RumMetric[]).map((m) => ({ id: m, label: SHORT[m] }))}
-            />
-          </div>
-          <div className="px-2 pb-3 pt-3 md:px-4">
-            <PerformanceChart points={points} metric={metric} devices={devices} grain={report.range === "24h" ? "hour" : "day"} label={tt("{metric} at the 75th percentile over the last {period}", { metric: metricShort(metric), period: rangeLabel(range) })} />
-            {devices.length > 1 && (
-              <div className="flex gap-4 px-2 pb-1 pt-1 text-[12.5px] text-white/60" data-legend="">
-                {devices.map((d) => (
-                  <span key={d} className="inline-flex items-center gap-1.5">
-                    <span className="h-[2px] w-3.5 rounded-full" style={{ background: DEVICE_COLOR[d] }} aria-hidden />
-                    {d === "mobile" ? tt("Mobile") : tt("Desktop")}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 md:px-6">
+          <div className="flex flex-col gap-3 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between md:px-6">
             <h2 className="text-[14px] font-semibold text-white/90">{tt("Where it is slow")}</h2>
             <Segmented
+              name="dim"
+              ownWidthFrom="lg"
               value={dim}
               onChange={setDim}
               label={tt("Group by")}
-              options={DIMS.map((d) => ({ id: d, label: d === "path" ? tt("Pages") : d === "type" ? tt("Page types") : d === "browser" ? tt("Browsers") : tt("Countries") }))}
+              options={DIMS.map((d) => ({ id: d, label: d === "path" ? tt("Pages") : d === "type" ? tt("Types") : d === "browser" ? tt("Browsers") : tt("Countries") }))}
             />
           </div>
           <BreakdownTable key={`${dim}|${device}`} rows={report.breakdowns[dim][device]} dim={dim} />
@@ -758,21 +1049,22 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
     )
   }
 
+  const views = report && report.state === "ready" ? report.summary[device].views : null
   return (
     <>
       <PageTitle>{tt("Performance")}</PageTitle>
       {filters}
-      {report && (
-        <p className="mt-3 text-[13px] text-white/50" data-perf-updated="">
-          {tt("Real visitor data · Updated {time}", { time: when(report.updatedAt) })}
-          {report.state === "ready" ? ` · ${tt("{count, plural, one {# page view} other {# page views}}", { count: report.summary[device].views })}` : ""}
-        </p>
-      )}
+      {/* Always one line tall, so nothing under it moves when it fills in. */}
+      <p className="mt-3 min-h-[20px] text-[13px] text-white/50" data-perf-updated="">
+        {report
+          ? [tt("Real visitor data"), views !== null ? tt("{count, plural, one {# page view} other {# page views}}", { count: views }) : null, tt("Updated {time}", { time: when(report.updatedAt) })].filter(Boolean).join(" · ")
+          : null}
+      </p>
       {report && !live && report.state === "ready" && (
         <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13.5px] text-white/70">{tt("This website is offline. These are visits from when it was live.")}</p>
       )}
       {report?.partial && <p className="mt-3 text-[13px] text-amber-200/90">{tt("Part of this period is still being counted, so these numbers may be low.")}</p>}
-      {error && answer && <ErrorNote>{error}</ErrorNote>}
+      {state.error && answer && <ErrorNote>{state.error}</ErrorNote>}
       {body}
       {answer && answer.available && (
         <LabCard
@@ -780,8 +1072,8 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
           lab={answer.lab}
           onRan={(l) => {
             const next: Answer = { ...answer, lab: { ...answer.lab, [l.strategy]: l } }
-            lastAnswers.set(`${ctx.installId}|${range}`, next)
-            setAnswer(next)
+            lastAnswers.set(keyOf(range), next)
+            dispatch({ type: "patch", answer: next })
             void load(range)
           }}
         />
@@ -789,4 +1081,3 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
     </>
   )
 }
-
