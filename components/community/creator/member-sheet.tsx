@@ -15,6 +15,24 @@
  * when they were last here, how they got in; for a request, the note they
  * wrote; for somebody taken out, who did it and why.
  *
+ * ROUND 34, the owner: a member opened must also show "relevant activity and
+ * engagement", their "subscription status" and "basic member access and
+ * purchase information", without a second screen. So once the sheet is open
+ * it asks GET /api/app/community/<id>/members/<userId> for three more things
+ * (lib/communities/member-detail.ts) and puts them under the facts:
+ *
+ *   HERE      what they posted, commented and liked in this community, and
+ *             when they last posted. A figure that cannot be read says so;
+ *             it never shows a nought it does not know.
+ *   ACCESS    what their membership is doing now in one line, when it ends,
+ *             and who invited or approved them.
+ *   PROGRAMS  the programs of this community they have access to, and
+ *             whether each was bought or given. The server sends this only
+ *             to somebody the manage_members permission reaches, because an
+ *             enrolment is private; a moderator is sent null and the rows
+ *             are not drawn.
+ * Never an amount, a card or a Stripe id: the server does not send them.
+ *
  * Then the ways to reach them (a message in the community, their profile,
  * an email) and everything this person may do to that one, from the same
  * choices the row's menu offers (./member-actions memberChoices, the rules
@@ -34,6 +52,7 @@ import { ROLE_LABEL, takenAwayLine, type MemberChoice } from "./logic"
 import { Dialog, buttonSecondary, shortDate } from "./parts"
 import { Facts } from "./ui-kit"
 import { sectionTitle } from "./member-actions"
+import { engagementLine, subscriptionLine, type MemberDetail } from "@/lib/communities/member-detail"
 import { tt } from "@/lib/i18n/text"
 
 /** How somebody got in, in a word or two. */
@@ -58,6 +77,93 @@ export function sourceWords(source: MemberSource): string {
   }
 }
 
+/*
+  WHAT WAS READ, KEPT FOR THE VISIT. Opening the same row twice does not ask
+  twice, and closing a sheet mid flight does not leave a request to land on
+  nothing: the answer is filed under the member and the sheet reads it.
+*/
+const kept = new Map<string, MemberDetail>()
+
+function useMemberDetail(communityId: string, userId: string | null): { detail: MemberDetail | null; loading: boolean } {
+  const [detail, setDetail] = React.useState<MemberDetail | null>(() => (userId ? kept.get(userId) ?? null : null))
+  const [loading, setLoading] = React.useState(false)
+  React.useEffect(() => {
+    if (!userId) return
+    const have = kept.get(userId)
+    if (have) {
+      setDetail(have)
+      return
+    }
+    setDetail(null)
+    setLoading(true)
+    const stop = new AbortController()
+    void (async () => {
+      try {
+        const res = await fetch(`/api/app/community/${communityId}/members/${userId}`, { signal: stop.signal })
+        const body = (await res.json().catch(() => ({}))) as { detail?: MemberDetail }
+        if (stop.signal.aborted) return
+        if (res.ok && body.detail) {
+          kept.set(userId, body.detail)
+          setDetail(body.detail)
+        }
+      } catch {
+        /* Nothing read: the sheet says so rather than showing a figure. */
+      } finally {
+        if (!stop.signal.aborted) setLoading(false)
+      }
+    })()
+    return () => stop.abort()
+  }, [communityId, userId])
+  return { detail, loading }
+}
+
+/** The rows under the facts: what they did here, what their access is doing, and the programs they have. */
+function MemberMore({ detail, loading, status }: { detail: MemberDetail | null; loading: boolean; status: string }) {
+  const row = (label: string, value: React.ReactNode) => (
+    <div className="flex min-w-0 items-baseline justify-between gap-4 border-t border-[#f1f2f4] py-2 first:border-t-0">
+      <span className="shrink-0 text-[12.5px] text-[#6b7280]">{label}</span>
+      <span className="min-w-0 truncate text-right text-[13.5px] text-[#1a1a2e]">{value}</span>
+    </div>
+  )
+  if (!detail) {
+    return (
+      <p className="text-[13px] text-[#6b7280]" data-member-more={loading ? "reading" : "unread"}>
+        {loading ? tt("Reading what they did here") : tt("What they did here could not be read.")}
+      </p>
+    )
+  }
+  const e = detail.engagement
+  const a = detail.access
+  return (
+    <div className="space-y-4" data-member-more="read">
+      <div data-member-engagement="">
+        <p className="mb-1 px-1 text-[12px] font-medium text-[#6b7280]">{tt("Here")}</p>
+        <div className="rounded-xl border border-[#eef0f2] px-4 py-1">
+          {row(tt("Activity"), engagementLine(e))}
+          {row(tt("Last posted"), e.lastPostAt ? relativeTime(e.lastPostAt) : tt("Never"))}
+        </div>
+      </div>
+      <div data-member-access="">
+        <p className="mb-1 px-1 text-[12px] font-medium text-[#6b7280]">{tt("Access")}</p>
+        <div className="rounded-xl border border-[#eef0f2] px-4 py-1">
+          {row(tt("Membership"), subscriptionLine(a, status))}
+          {a.expiresAt ? row(tt("Ends"), shortDate(a.expiresAt) || "–") : null}
+          {a.invitedBy ? row(tt("Invited by"), a.invitedBy) : null}
+          {a.approvedBy ? row(tt("Approved by"), a.approvedBy) : null}
+        </div>
+      </div>
+      {detail.learning && detail.learning.length ? (
+        <div data-member-programs="">
+          <p className="mb-1 px-1 text-[12px] font-medium text-[#6b7280]">{tt("Programs")}</p>
+          <div className="rounded-xl border border-[#eef0f2] px-4 py-1">
+            {detail.learning.map((l) => row(l.title, l.how === "bought" ? tt("Bought") : tt("Given")))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function MemberSheet({
   head,
   member,
@@ -75,9 +181,10 @@ export function MemberSheet({
   onChoose: (choice: MemberChoice) => void
 }) {
   /* What is drawn stays while the sheet goes down. */
-  const kept = React.useRef<MemberRowView | null>(member)
-  if (member) kept.current = member
-  const m = member ?? kept.current
+  const held = React.useRef<MemberRowView | null>(member)
+  if (member) held.current = member
+  const m = member ?? held.current
+  const more = useMemberDetail(head.id, member && member.status !== "pending" ? member.userId : null)
   if (!m) return null
   const pending = m.status === "pending"
   const out = m.status !== "active" && m.status !== "pending"
@@ -128,6 +235,9 @@ export function MemberSheet({
         {(out || m.mutedUntil) && m.acted ? <p className="text-[13.5px] leading-snug text-[#4b5563]" data-member-acted="">{takenAwayLine(m)}</p> : null}
 
         <Facts items={facts} />
+
+        {/* Round 34: what they did here, what their access is doing, and the programs they have (asked for once the sheet is open). */}
+        {pending ? null : <MemberMore detail={more.detail} loading={more.loading} status={m.status} />}
 
         {active ? (
           <div className="flex gap-2" data-member-links="">

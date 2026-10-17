@@ -71,6 +71,7 @@ export interface CommunityRouteRule {
 export const MODERATOR_DOORS: readonly string[] = [
   "app/api/app/community/[id]/audit/route.ts GET",
   "app/api/app/community/[id]/join-requests/route.ts GET",
+  "app/api/app/community/[id]/members/[userId]/route.ts GET",
   "app/api/app/community/[id]/members/[userId]/route.ts PATCH",
   "app/api/app/community/[id]/members/route.ts GET",
   "app/api/app/community/[id]/moderation/route.ts GET",
@@ -138,6 +139,7 @@ export const COMMUNITY_ROUTE_RULES: readonly CommunityRouteRule[] = [
   { route: "app/api/app/community/[id]/learn/route.ts", method: "GET", gate: "creator", demands: ["manage_classroom"] },
   { route: "app/api/app/community/[id]/learn/route.ts", method: "POST", gate: "creator", demands: ["manage_classroom"] },
   { route: "app/api/app/community/[id]/learn/route.ts", method: "PUT", gate: "creator", demands: ["manage_classroom"] },
+  { route: "app/api/app/community/[id]/members/[userId]/route.ts", method: "GET", gate: "creator", demands: ["remove_member"] },
   { route: "app/api/app/community/[id]/members/[userId]/route.ts", method: "PATCH", gate: "creator", demands: ["approve_member", "ban", "change_role", "feature", "mute", "remove_member", "suspend"], via: "memberActionNeeds" },
   { route: "app/api/app/community/[id]/members/export/route.ts", method: "GET", gate: "creator", demands: ["manage_members"] },
   { route: "app/api/app/community/[id]/members/route.ts", method: "GET", gate: "creator", demands: ["remove_member"] },

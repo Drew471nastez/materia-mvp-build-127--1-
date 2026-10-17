@@ -249,7 +249,7 @@ export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView,
         <span className="flex items-center gap-2">
           <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{m.name}</span>
           <RoleBadge role={m.role as Role} />
-          <FeaturedMark on={m.featured} />
+          <FeaturedMark on={m.featured} wordFromSm={m.role !== "member"} />
         </span>
         <span className="block truncate text-[13px] text-[#6b7280]">{m.bio || (m.username ? `@${m.username}` : `Level ${m.level}${m.levelName ? ` · ${m.levelName}` : ""}`)}</span>
         {/* Where they are from, in quiet text (round 12): the country's full name, no flag. */}
