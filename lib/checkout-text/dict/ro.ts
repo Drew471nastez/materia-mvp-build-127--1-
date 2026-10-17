@@ -595,6 +595,8 @@ const ro: Record<string, string> = {
   "We're getting your order ready. We'll email you when it's ready to pick up.": "Îți pregătim comanda. Îți scriem pe e-mail când e gata de ridicare.",
   "Hi {name}, we're getting your order ready to be shipped. We'll let you know when it's on its way.": "Bună, {name}! Îți pregătim comanda pentru expediere. Îți spunem când pleacă spre tine.",
   "We're getting your order ready to be shipped. We'll let you know when it's on its way.": "Îți pregătim comanda pentru expediere. Îți spunem când pleacă spre tine.",
+  "Hi {name}, we're getting your order ready for delivery. We'll let you know when it's on its way.": "Bună, {name}! Îți pregătim comanda pentru livrare. Îți spunem când pleacă spre tine.",
+  "We're getting your order ready for delivery. We'll let you know when it's on its way.": "Îți pregătim comanda pentru livrare. Îți spunem când pleacă spre tine.",
   "Hi {name}, your order is confirmed and everything is on your order page.": "Bună, {name}! Comanda ta e confirmată și găsești totul pe pagina comenzii.",
   "Your order is confirmed and everything is on your order page.": "Comanda ta e confirmată și găsești totul pe pagina comenzii.",
   "Your downloads are on your order page.": "Descărcările sunt pe pagina comenzii.",

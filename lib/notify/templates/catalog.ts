@@ -27,7 +27,7 @@ import type { Fact, OrderSummary, SummaryRow } from "./layout"
 /**
  * The order details a sale email reads besides the basics (lib/email.tsx
  * saleEmailData fills them from the order rows). All in the smallest unit of
- * `currency`; `lines` is [{ title, variantName, quantity, amountCents }].
+ * `currency`; `lines` is [{ title, variantName, quantity, amountCents, imageUrl }].
  */
 const SALE_KEYS = [
   "lines", "variantName", "subtotalCents", "discountCents", "couponCode", "tipCents", "taxCents", "feeCents", "netCents",
@@ -582,7 +582,8 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
     const qty = l.cents("quantity")
     const detail = [l.text("variantName", 80), qty !== null && (qty > 1 || fulfil) ? `Qty ${qty}` : "", l.text("fulfilment", 60)].filter(Boolean).join(" \u00b7 ")
     const amount = l.cents("amountCents") === 0 ? "Free" : l.moneyOf("amountCents")
-    return { title: l.text("title", 120), detail: detail || null, amount: amount || (count === 1 ? total : "") }
+    /* The product's picture (lib/email.tsx saleEmailData, the checkout's line for an order that ships); index.ts sizes it. */
+    return { title: l.text("title", 120), detail: detail || null, amount: amount || (count === 1 ? total : ""), imageUrl: l.text("imageUrl", 1000) || null }
   })
   const totals: SummaryRow[] = []
   const subtotal = d.moneyOf("subtotalCents")

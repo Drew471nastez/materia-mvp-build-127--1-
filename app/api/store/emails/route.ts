@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { customerEmailCopyReady, loadCustomerEmailCopy, saveCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
@@ -23,19 +24,21 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [identity, store, { data: creator }, copy, ready, look] = await Promise.all([
+  const [identity, store, { data: creator }, copy, ready, look, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
     loadCustomerEmailCopy(db, c.creatorId),
     customerEmailCopyReady(db, c.creatorId).catch(() => false),
     loadBrand(db, c.creatorId).catch(() => null),
+    /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
+    orderStoreUrl({ creator_id: c.creatorId }),
   ])
   return physicalJson({
     shop: {
       name: store?.name || identity.fromName || "Your store",
       supportEmail: store?.email || identity.replyTo || null,
-      storeUrl: store?.websiteUrl ?? null,
+      storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
       currency: (creator?.payout_currency as string | null) || "USD",

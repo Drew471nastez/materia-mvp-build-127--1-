@@ -29,6 +29,7 @@ import { escapeHtml } from "@/lib/notify/templates/escape"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { storeIdentity, type StoreIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { sellerOrderNumber, sellerOrderNumbers } from "@/lib/orders/order-number-server"
 import { CASE_REASON_LABELS, CASE_STATUSES, ESCALATABLE, REASONS_SINCE_164, buyerEscalation, caseLink, statusAfterMessage, type CaseAuthor, type CaseMessage, type CasePhotoRef, type CaseReason, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { keepCasePhotos, refsOf, removeCasePhotos, signCasePhotos, type IncomingPhoto } from "@/lib/support/case-photos-server"
@@ -423,8 +424,9 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
  */
 type StoreCtx = StoreIdentity & { sellerNumber?: string | null }
 async function storeFor(db: Db, row: CaseRow): Promise<StoreCtx | null> {
-  const [store, number] = await Promise.all([storeIdentity(db, row.creator_id).catch(() => null), sellerOrderNumber(db, row.creator_id, { checkoutId: row.checkout_id, orderId: row.order_id }).catch(() => null)])
-  return store ? { ...store, sellerNumber: number } : null
+  const [store, number, website] = await Promise.all([storeIdentity(db, row.creator_id).catch(() => null), sellerOrderNumber(db, row.creator_id, { checkoutId: row.checkout_id, orderId: row.order_id }).catch(() => null), orderStoreUrl({ creator_id: row.creator_id }, { db })])
+  /* The store's logo links its live website (lib/physical/store-link.ts), never its creator page. */
+  return store ? { ...store, websiteUrl: website || null, sellerNumber: number } : null
 }
 /** "order #1003" (and the buyer's reference in the facts), or the buyer's reference when the number can't be counted. */
 const sellerOrderName = (row: CaseRow, store: StoreCtx | null) => `order ${store?.sellerNumber ?? `#${row.order_ref ?? ""}`}`

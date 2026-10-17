@@ -3,6 +3,7 @@ import { shopCaller } from "@/lib/physical/auth"
 import { previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 
 export const runtime = "nodejs"
@@ -19,17 +20,19 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id") ?? ""
   const db = c.db
-  const [identity, store, { data: creator }, look] = await Promise.all([
+  const [identity, store, { data: creator }, look, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
     loadBrand(db, c.creatorId).catch(() => null),
+    /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
+    orderStoreUrl({ creator_id: c.creatorId }),
   ])
   /* The same store the sent email signs with: its name, logo, contact and website (lib/store/identity-server.ts). */
   const mail = previewCustomerEmail(id, {
     name: store?.name || identity.fromName || "Your store",
     supportEmail: store?.email || identity.replyTo || null,
-    storeUrl: store?.websiteUrl ?? null,
+    storeUrl: website || null,
     logoUrl: store?.logoUrl ?? null,
     phone: store?.phone ?? null,
     currency: (creator?.payout_currency as string | null) || "USD",
