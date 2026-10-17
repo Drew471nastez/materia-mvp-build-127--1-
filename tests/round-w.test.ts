@@ -122,7 +122,8 @@ console.log("\nIntegrations")
   const markFile = read("components/app/settings/integration-mark.tsx")
   /* Changed on purpose (round I4, the owner: "I don't like the Storelib integration icons at all... they look very cheap and AI-like"): one tile set, a tint and a single line glyph, no drawing and no logo badge. Still no S tile and no violet. */
   check("Storelib's own are one tile set: a tint and one white line glyph", /function StorelibTile/.test(markFile) && /strokeWidth=\{size < 28 \? 2\.1 : 1\.75\}/.test(markFile) && !/StorelibLogo/.test(markFile) && !/>S<\/span>/.test(ui + markFile) && !/violet/.test(ui + markFile))
-  check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
+  /* Changed on purpose (round K4, Andrew: "subtle border, hover lift"): a card lifts one pixel on hover from 640px, and not at all with reduced motion. Pills still don't shrink. */
+  check("cards lift a pixel on hover, never more, and pills don't shrink", /sm:hover:-translate-y-px/.test(ui) && !/hover:-translate-y-(?!px)/.test(ui) && /motion-reduce:sm:hover:translate-y-0/.test(ui) && !/active:scale/.test(ui))
 }
 
 console.log("\nThe physical product editor")

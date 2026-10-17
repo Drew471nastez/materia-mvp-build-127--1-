@@ -21,12 +21,16 @@ import "server-only"
  * cannot both plan one order, and it moves scheduled → sent → reminded with
  * a conditional update, so two runs cannot both send one email.
  *
- * The email is the notification engine's own review request (lib/notify/
- * templates, reviewAsk), sent as the store ("<Store> via Storelib", replies
- * to its support address) with the link to the review page on the address
- * the buyer bought on: the website's own host for a website order, Storelib
- * otherwise. Its unsubscribe link turns review emails off for the address,
- * the same "review_requests" scope the engine's emails use.
+ * The email is the store's own (./request-email.ts, round K5): the layout
+ * every buyer email shares, with the store's logo, accent and the words it
+ * chose under Requests, in the language the order was placed in. Sent as the
+ * store ("<Store> via Storelib", replies to its support address) with the
+ * link to the review page on the address the buyer bought on: the website's
+ * own host for a website order, Storelib otherwise. Its unsubscribe link
+ * turns review emails off for the address, the same "review_requests" scope
+ * the engine's emails use. Should anything about the store's look fail to
+ * read, the notification engine's plain ask (lib/notify/templates reviewAsk)
+ * goes instead, so an ask is never lost to a logo.
  *
  * The reply says how many and never quotes an address.
  */
@@ -42,6 +46,14 @@ import { reminderDueAt, requestBlock, requestDueAt, type RequestFacts, type Ship
 import { signRequest } from "./request-token"
 import { sweepReviewUploads } from "./photos-server"
 import { sendReviewDigests } from "./digest-server"
+import { REQUEST_EMAIL_IDS, reviewRequestEmail } from "./request-email"
+import { inEmailLanguage } from "@/lib/emails/words"
+import { emailLanguageFor } from "@/lib/emails/words-server"
+import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
+import { storeIdentity } from "@/lib/store/identity-server"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
+import { cleanOrigin } from "@/lib/orders/order-source"
+import { mediaUrl } from "@/lib/storage/media-url"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -163,28 +175,73 @@ async function factsFor(db: Db, row: RequestRow): Promise<RequestFacts & { produ
   }
 }
 
+/** The store's look for its buyer emails: logo, accent, website, and its own words for the ask. */
+interface StoreLook {
+  logoUrl: string | null
+  accent: string | null
+  websiteUrl: string | null
+  copy: Awaited<ReturnType<typeof loadCustomerEmailCopy>>
+}
+
+async function storeLook(db: Db, creatorId: string): Promise<StoreLook | null> {
+  try {
+    const [identity, brand, copy] = await Promise.all([storeIdentity(db, creatorId).catch(() => null), loadBrand(db, creatorId).catch(() => null), loadCustomerEmailCopy(db, creatorId)])
+    return { logoUrl: identity?.logoUrl ?? brand?.logoUrl ?? null, accent: brand?.accent ?? null, websiteUrl: identity?.websiteUrl ?? brand?.storeUrl ?? null, copy }
+  } catch {
+    return null
+  }
+}
+
+/** The email as the store's own, in the order's language. Null when the store's look could not be read (the engine's plain ask goes instead). */
+async function storeAsk(db: Db, row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean, page: string, unsubscribe: string | null) {
+  const look = await storeLook(db, row.creator_id)
+  if (!look) return null
+  const language = await emailLanguageFor(row.creator_id, cleanOrigin(facts.order?.source_detail)?.lang).catch(() => ({ lang: "en", words: {}, own: true }))
+  const id = reminder ? REQUEST_EMAIL_IDS.reminder : REQUEST_EMAIL_IDS.request
+  return inEmailLanguage(language.lang, language.words, () =>
+    reviewRequestEmail({
+      reminder,
+      shopName: facts.storeName ?? "",
+      logoUrl: look.logoUrl,
+      accent: look.accent,
+      websiteUrl: look.websiteUrl,
+      productTitle: facts.product?.title ?? "",
+      productImage: mediaUrl(facts.product?.thumbnail_url ?? null) ?? null,
+      firstName: row.first_name,
+      pageUrl: page,
+      unsubscribeUrl: unsubscribe,
+      reminderOn: settings.request.reminder,
+      /* The store's words are in its website's language: a buyer who bought in another gets the standard words in theirs. */
+      copy: language.own ? look.copy[id] ?? null : null,
+    }),
+  )
+}
+
 /** The email, rendered and sent. True when the provider took it. */
-async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean): Promise<"sent" | "retry" | "failed"> {
+async function sendAsk(db: Db, row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean): Promise<"sent" | "retry" | "failed"> {
   const token = signRequest(row.id)
   if (!token) return "failed"
   const base = row.origin || storelibBase()
   const unsubscribe = reviewUnsubscribeUrl(row.order_id)
   /* The footer link on the host the email links to: /api passes through on a website's own host. */
   const unsubscribeHere = unsubscribe ? `${base}${new URL(unsubscribe).pathname}${new URL(unsubscribe).search}` : null
-  const rendered = renderEmail(
-    reminder ? "REVIEW_REMINDER" : "REVIEW_REQUEST",
-    {
-      productTitle: facts.product?.title ?? "",
-      productId: facts.product?.id ?? "",
-      productImage: facts.product?.thumbnail_url ?? "",
-      creatorName: facts.storeName ?? "",
-      creatorSupportEmail: facts.sellerSupportEmail ?? "",
-      orderId: row.order_id,
-      reviewToken: token,
-      reminderOn: settings.request.reminder,
-    },
-    { baseUrl: base, recipientName: row.first_name, unsubscribeUrl: unsubscribeHere, preferencesUrl: null, when: null },
-  )
+  const own = await storeAsk(db, row, facts, settings, reminder, `${base}/review/${token}`, unsubscribeHere).catch(() => null)
+  const rendered = own
+    ? { subject: own.subject, html: own.html, text: own.text, fromName: facts.storeName || null, replyTo: replyAddress(facts.sellerSupportEmail) }
+    : renderEmail(
+        reminder ? "REVIEW_REMINDER" : "REVIEW_REQUEST",
+        {
+          productTitle: facts.product?.title ?? "",
+          productId: facts.product?.id ?? "",
+          productImage: facts.product?.thumbnail_url ?? "",
+          creatorName: facts.storeName ?? "",
+          creatorSupportEmail: facts.sellerSupportEmail ?? "",
+          orderId: row.order_id,
+          reviewToken: token,
+          reminderOn: settings.request.reminder,
+        },
+        { baseUrl: base, recipientName: row.first_name, unsubscribeUrl: unsubscribeHere, preferencesUrl: null, when: null },
+      )
   const headers: Record<string, string> = { "X-Storelib-Notification": reminder ? "REVIEW_REMINDER" : "REVIEW_REQUEST" }
   if (unsubscribeHere) {
     headers["List-Unsubscribe"] = `<${unsubscribeHere}>`
@@ -195,10 +252,11 @@ async function sendAsk(row: RequestRow, facts: Awaited<ReturnType<typeof factsFo
     subject: rendered.subject.replace(/[\r\n]+/g, " ").slice(0, 200),
     html: rendered.html,
     text: rendered.text,
-    fromName: rendered.fromName ? `${rendered.fromName} via Storelib` : undefined,
+    fromName: rendered.fromName ? `${String(rendered.fromName).replace(/["<>\\\r\n]/g, "").slice(0, 60)} via Storelib` : undefined,
     replyTo: rendered.replyTo ?? undefined,
     headers,
     tags: ["storelib-reviews", reminder ? "REVIEW_REMINDER" : "REVIEW_REQUEST"],
+    /* The provider's webhook hands this back with delivered, opened and clicked (app/api/webhooks/mailgun), for the Requests tab. */
     variables: { review_request_id: row.id },
     messageId: `<review.${row.id}.${reminder ? 2 : 1}@storelib.com>`,
   })
@@ -227,7 +285,7 @@ async function step(db: Db, row: RequestRow, settings: ReviewsAppSettings, remin
     .eq("status", from)
     .select("id")
   if (!(claim.data ?? []).length) return
-  const sent = await sendAsk(row, facts, settings, reminder).catch(() => "retry" as const)
+  const sent = await sendAsk(db, row, facts, settings, reminder).catch(() => "retry" as const)
   if (sent === "sent") {
     if (reminder) out.reminded++
     else out.sent++
@@ -334,6 +392,9 @@ export async function sweepReviewRequests(opts: { now?: number; budgetMs?: numbe
 /** A form cannot have one order's link sent more often than this. */
 export const ASK_AGAIN_MS = 7 * 86_400_000
 
+/** Why an ask now did not go (lib/reviews/manage SKIP_WORDS says each in the store's words). */
+export type AskNowResult = { sent: true } | { sent: false; reason: string }
+
 /**
  * A buyer who typed their address into the website's review form: their own
  * link, now, whatever the schedule says (the form proved nothing, the inbox
@@ -346,10 +407,23 @@ export const ASK_AGAIN_MS = 7 * 86_400_000
  * late" rule do not. True when an email went.
  */
 export async function askNow(db: Db, creatorId: string, orderId: string, settings: ReviewsAppSettings, nowMs = Date.now()): Promise<boolean> {
-  if (!settings.enabled || !settings.request.enabled) return false
+  return (await askNowWithReason(db, creatorId, orderId, settings, nowMs)).sent
+}
+
+/**
+ * The same ask, with why it did not go. `manual` is the store pressing Send
+ * under Requests: it may send while the automatic emails are off (the app
+ * must be on), the row is marked as sent by hand, and every cap stays: one
+ * link an order a week, never to a reviewed, refunded, unsubscribed or own
+ * order, and a request that is finished (reviewed, skipped, failed) is not
+ * opened again.
+ */
+export async function askNowWithReason(db: Db, creatorId: string, orderId: string, settings: ReviewsAppSettings, nowMs = Date.now(), opts: { manual?: boolean } = {}): Promise<AskNowResult> {
+  if (!settings.enabled) return { sent: false, reason: "app_off" }
+  if (!opts.manual && !settings.request.enabled) return { sent: false, reason: "app_off" }
   const { data: order } = await db.from("orders").select(ORDER_COLUMNS).eq("id", orderId).maybeSingle()
   const o = order as Record<string, any> | null
-  if (!o || !o.product_id || typeof o.buyer_email !== "string") return false
+  if (!o || o.creator_id !== creatorId || !o.product_id || typeof o.buyer_email !== "string") return { sent: false, reason: "no_order" }
   let at: string | null = null
   if (soldOnStorelib(o) === "website") at = await originOf(db, creatorId)
   const now = nowMs
@@ -361,17 +435,21 @@ export async function askNow(db: Db, creatorId: string, orderId: string, setting
     )
   const { data: row } = await db.from("review_requests").select("*").eq("order_id", orderId).maybeSingle()
   const r = row as RequestRow | null
-  if (!r || !["scheduled", "sent", "reminded"].includes(r.status)) return false
+  if (!r) return { sent: false, reason: "no_order" }
+  if (!["scheduled", "sent", "reminded"].includes(r.status)) return { sent: false, reason: r.status === "reviewed" ? "reviewed" : "done" }
   const last = Math.max(...[r.last_sent_at, r.reminded_at, r.sent_at].map((t) => (t ? Date.parse(t) || 0 : 0)))
-  if (last > now - ASK_AGAIN_MS) return false
+  if (last > now - ASK_AGAIN_MS) return { sent: false, reason: "asked_recently" }
   const facts = await factsFor(db, r)
   const block = requestBlock(facts, { enabledAt: null }, now, now)
-  if (block) return false
-  const sent = await sendAsk(r, facts, settings, false).catch(() => "retry" as const)
-  if (sent !== "sent") return false
+  if (block) return { sent: false, reason: block }
+  const sent = await sendAsk(db, r, facts, settings, false).catch(() => "retry" as const)
+  if (sent !== "sent") return { sent: false, reason: "send_failed" }
   const stamp = new Date().toISOString()
-  await db.from("review_requests").update({ status: r.status === "scheduled" ? "sent" : r.status, sent_at: r.sent_at ?? stamp, last_sent_at: stamp, attempts: (r.attempts ?? 0) + 1, updated_at: stamp }).eq("id", r.id)
-  return true
+  const update = { status: r.status === "scheduled" ? "sent" : r.status, sent_at: r.sent_at ?? stamp, last_sent_at: stamp, attempts: (r.attempts ?? 0) + 1, updated_at: stamp }
+  const marked = opts.manual ? await db.from("review_requests").update({ ...update, manual: true }).eq("id", r.id) : null
+  /* Before part 215 there is no `manual` column: the same update without it. */
+  if (!marked || marked.error) await db.from("review_requests").update(update).eq("id", r.id)
+  return { sent: true }
 }
 
 /* ── The review page's side: a link, back to its request ─────────────── */

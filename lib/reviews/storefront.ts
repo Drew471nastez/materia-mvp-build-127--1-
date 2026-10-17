@@ -87,6 +87,12 @@ export interface StorefrontReviews {
   here: { scope: "product" | "shop"; product_id: string; summary: StorefrontReviewSummary; items: StorefrontReview[] }
   /** /reviews on this website. */
   page_url: string
+  /** The store's saved widget looks, by id: what a Reviews widget section names (lib/reviews/widgets). Type and settings only. */
+  widgets?: Record<string, { type: string; settings: Record<string, unknown> }>
+  /** The page's language, for a widget's own words (lib/reviews/widgets/config.ts widgetWords); absent, the website's own. */
+  locale?: string | null
+  /** True when that language is the website's own. */
+  default_locale?: boolean
 }
 
 /** A published review row as read for the storefront. */

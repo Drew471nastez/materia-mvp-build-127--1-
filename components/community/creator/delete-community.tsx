@@ -57,6 +57,8 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
   const [typed, setTyped] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  /* Round 26: a double tap reaches the handler twice before `busy` is drawn; the second one stops here (the server refuses it too). */
+  const inFlight = React.useRef(false)
 
   const read = React.useCallback(async () => {
     const res = await send<DeletionPlanView>(`/api/app/community/${head.id}/delete`, "GET")
@@ -77,10 +79,12 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
   }
 
   const remove = async () => {
-    if (busy) return
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     setError(null)
     const res = await send<{ deleted?: boolean; scheduled?: DeletionPlanView["scheduled"] }>(`/api/app/community/${head.id}/delete`, "POST", { confirm: typed, mode: plan && plan.paying > 0 ? mode : undefined })
+    inFlight.current = false
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error, tt("That did not go through. Nothing changed. Try again.")))
     if (res.data.deleted) {
@@ -94,10 +98,12 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
   }
 
   const keep = async () => {
-    if (busy) return
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     setError(null)
     const res = await send(`/api/app/community/${head.id}/delete`, "POST", { undo: true })
+    inFlight.current = false
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error, tt("That did not go through. Try again.")))
     setKeeping(false)

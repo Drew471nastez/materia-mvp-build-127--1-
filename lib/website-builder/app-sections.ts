@@ -27,6 +27,8 @@
 export interface SectionApp {
   id: string
   name: string
+  /** Its category in Add section, under the Apps heading. */
+  label: string
   /** A name from components/website-builder/sections/icon-map.tsx. */
   icon: string
   /**
@@ -50,10 +52,10 @@ export interface AppSectionEntry {
 }
 
 export const STORELIB_SECTION_APPS: SectionApp[] = [
-  { id: "reviews", name: "Storelib Reviews", icon: "star", stateId: "storelib-reviews", href: "/app/integrations?integration=storelib-reviews" },
-  { id: "offers", name: "Offers", icon: "gift", stateId: "storelib-bundles", href: "/app/offers" },
-  { id: "email", name: "Email", icon: "mail", stateId: null, href: "/app/emails" },
-  { id: "wishlist", name: "Wishlist", icon: "heart", stateId: null, href: "/app/customers" },
+  { id: "reviews", name: "Storelib Reviews", label: "Reviews", icon: "star", stateId: "storelib-reviews", href: "/app/integrations?integration=storelib-reviews" },
+  { id: "offers", name: "Offers", label: "Offers", icon: "gift", stateId: "storelib-bundles", href: "/app/offers" },
+  { id: "email", name: "Email", label: "Email", icon: "mail", stateId: null, href: "/app/emails" },
+  { id: "wishlist", name: "Wishlist", label: "Wishlist", icon: "heart", stateId: null, href: "/app/customers" },
 ]
 
 const ENTRIES: AppSectionEntry[] = [
@@ -61,6 +63,10 @@ const ENTRIES: AppSectionEntry[] = [
   { app: "reviews", kind: "section", type: "reviews_all", description: "Every review in the store." },
   { app: "reviews", kind: "section", type: "reviews_carousel", description: "Reviews in a row that scrolls." },
   { app: "reviews", kind: "section", type: "reviews_badge", description: "Stars and the review count." },
+  { app: "reviews", kind: "section", type: "reviews_widget", description: "A saved review widget." },
+  /* An imported theme's Storelib Reviews sections (lib/storelib-theme/compat/storelib-reviews.ts). */
+  { app: "reviews", kind: "section", type: "storelib-reviews" },
+  { app: "reviews", kind: "section", type: "storelib-review-widget" },
   { app: "reviews", kind: "block", type: "rating", in: ["product"], description: "Stars under the product's name." },
   { app: "email", kind: "section", type: "promo_newsletter", description: "Sign ups go to your contacts." },
   { app: "email", kind: "section", type: "newsletter", description: "Sign ups go to your contacts." },

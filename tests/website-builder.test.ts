@@ -1000,7 +1000,8 @@ section("Add Section is derived from the files, one card per preset")
   /* And Collection list, Featured collection (Products) and Page content (Content): Shopify's sections for collections and pages. */
   /* And Back to top, Phone tab bar and Popup, in Overlay: what floats over every page (the Overlay group). */
   /* And Storelib Reviews' four, in a Reviews category of their own: Product reviews, Star rating, Reviews carousel, All reviews. */
-  check("the library is forty seven sections across twelve categories, About with the contact form", ADDABLE_SECTIONS.length === 47 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 12 && STORELIB_SCHEMAS.contact?.category === "about" && STORELIB_SCHEMAS.reviews_product?.category === "reviews", `${ADDABLE_SECTIONS.length} sections`)
+  /* And the Reviews widget (Storelib Reviews › Widgets, round K6), in the same Reviews category: one card per widget, drawn with the look the store saved. */
+  check("the library is forty eight sections across twelve categories, About with the contact form", ADDABLE_SECTIONS.length === 48 && ADDABLE_SECTIONS.includes("reviews_widget") && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 12 && STORELIB_SCHEMAS.contact?.category === "about" && STORELIB_SCHEMAS.reviews_product?.category === "reviews", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   /* "'Created by you' should be called 'Created' only." */
@@ -1022,7 +1023,7 @@ section("Add Section is derived from the files, one card per preset")
   check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(librarySrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(librarySrc) && /words\.every\(\(w\) => e\.haystack\.includes\(w\)\)/.test(librarySrc))
   /* First, not last: what somebody made themselves is what they come back for. */
   check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{libraryOwnTypes\}/.test(editorSrc) && /const libraryOwnTypes = useMemo\(\(\) => Object\.keys\(customSchemas\)/.test(editorSrc))
-  check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0, replaceConfirmed = false\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
+  check("and the chosen preset is the one that lands on the page", /* The signature gained a fourth, optional argument (round K6: Add to website's placement), written over several lines. */ /const addSection = \(\s*type: string,\s*presetIndex = 0,\s*replaceConfirmed = false,/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
 /**

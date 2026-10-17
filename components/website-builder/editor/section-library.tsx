@@ -69,11 +69,12 @@
  *   addSection, which then slides the page open where it lands, and on a
  *   phone brings the sections sheet up on the new section's settings).
  *
- * APPS. A category of the sections Storelib's apps put on a website
- * (Reviews, Email and the others in lib/website-builder/app-sections.ts),
- * second after All, as Shopify's editor has its Apps tab. The same cards as
- * everywhere else, each with its app's name under it, and over them a line
- * for an app that is off, with the way to turn it on. Added like any other.
+ * APPS. The sections Storelib's apps put on a website, one category per app
+ * (Reviews, Email and the others in lib/website-builder/app-sections.ts)
+ * under an Apps heading right after All, as Shopify's editor has its Apps
+ * tab. The same cards as everywhere else, each with its app's name under
+ * it, and over an app's cards a line when that app is off, with the way to
+ * turn it on. Added like any other.
  *
  * scripts/check-add-section.mjs opens it, switches categories and adds a
  * section on a phone and a computer, reads every frame of a category switch
@@ -91,7 +92,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
-import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
+import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -100,8 +101,6 @@ import { appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/a
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
 import { useAppStates } from "./use-app-states"
 
-/** The Apps category's key: not a category any schema files itself under. */
-export const APPS_CATEGORY = "apps"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
 
@@ -912,7 +911,12 @@ export const SectionLibrary = memo(function SectionLibrary({
           under Created, 143 cards in one list. Each is filed by its kind
           instead, from what the theme says about it (section-categories.ts).
         */
-        const category = compatInstallId && schema.imported
+        /* Storelib's own apps' sections (Storelib Reviews and its widgets) under Apps, in either kind of theme (section-categories.ts). */
+        const appInfo = own_ ? undefined : appForSection(type)?.app
+        const app = appInfo?.id ?? null
+        const category = app
+          ? app
+          : compatInstallId && schema.imported
           ? classifyImportedSection({
               type,
               name: schema.name,
@@ -923,16 +927,15 @@ export const SectionLibrary = memo(function SectionLibrary({
               groups: schema.enabled_on?.groups,
             })
           : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
-        const label = (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
-        const app = compatInstallId ? undefined : appForSection(type)?.app
+        const label = (app ? appSectionCategories().find((c) => c.id === app)?.label : undefined) ?? (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,
           title: name,
           schema,
           category,
-          app,
-          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}${app ? ` ${app.name} apps` : ""}`.toLowerCase(),
+          app: appInfo,
+          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}${appInfo ? ` ${appInfo.name} apps` : ""}`.toLowerCase(),
           keyFor: (w) => previewKey(type, i, w, `${own.has(type) ? sourcesTag : ""}${lookTag}`),
         })
       }
@@ -949,19 +952,20 @@ export const SectionLibrary = memo(function SectionLibrary({
     for (const e of entries) counts.set(e.category, (counts.get(e.category) ?? 0) + 1)
     /* An imported theme's kinds in their own order (section-categories.ts); Storelib's in the theme's. */
     const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
-    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY)
-    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
+    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
+    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
+    const apps = appSectionCategories().filter((c) => counts.has(c.id)).map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: "apps" as const }))
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
-    const apps = entries.filter((e) => e.app).length
     return [
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
-      ...(apps > 0 ? [{ key: APPS_CATEGORY, label: tt("Apps"), count: apps }] : []),
+      /* Apps second, under their own heading, so a phone's row shows them without a scroll. */
+      ...apps,
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ]
+    ] as { key: string; label: string; count: number; group?: "apps" }[]
   }, [entries, compatInstallId])
 
   /**
@@ -975,7 +979,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     const words = needle.split(/\s+/).filter(Boolean)
     const set = new Set<LibraryEntry>()
     for (const e of entries) {
-      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || (activeCategory === APPS_CATEGORY ? !!e.app : e.category === activeCategory)
+      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || e.category === activeCategory
       if (ok) set.add(e)
     }
     return set
@@ -1192,10 +1196,10 @@ export const SectionLibrary = memo(function SectionLibrary({
   const appStates = useAppStates(open && hasApps)
   const appsOff = useMemo(() => {
     const seen = new Map<string, SectionApp>()
-    for (const e of entries) if (e.app && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
+    for (const e of entries) if (e.app && e.app.id === activeCategory && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
     return [...seen.values()]
-  }, [entries, appStates])
-  const appsNotice = activeCategory === APPS_CATEGORY && !searching && appsOff.length > 0 ? (
+  }, [entries, appStates, activeCategory])
+  const appsNotice = !searching && appsOff.length > 0 ? (
     <div data-apps-off="" className="mb-4 flex flex-col gap-2">
       {appsOff.map((app) => {
         const Icon = ICON_MAP[app.icon]
@@ -1318,7 +1322,16 @@ export const SectionLibrary = memo(function SectionLibrary({
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
-            <div className="flex w-max gap-2">{categories.map(chip)}</div>
+            <div className="flex w-max items-center gap-2">
+              {categories.map((cat, i) =>
+                cat.group === "apps" && categories[i - 1]?.group !== "apps"
+                  ? [<span key="apps-heading" data-library-group="apps" className="ml-1 shrink-0 text-[12px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</span>, chip(cat)]
+                  : /* The theme's own categories after the apps: a hairline between the two. */
+                    cat.group !== "apps" && categories[i - 1]?.group === "apps"
+                    ? [<span key="apps-end" aria-hidden data-library-group="sections" className="mx-1 h-5 w-px shrink-0 bg-[#e5e7eb]" />, chip(cat)]
+                    : chip(cat),
+              )}
+            </div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
           <div
@@ -1352,11 +1365,16 @@ export const SectionLibrary = memo(function SectionLibrary({
       </div>
       <div className="flex min-h-0 flex-1">
         <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label={tt("Categories")}>
-          {categories.map((cat) => {
+          {categories.map((cat, i) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
+            const heading = cat.group === "apps" && categories[i - 1]?.group !== "apps"
+            /* After the apps, the theme's own sections under their own heading. */
+            const sectionsHeading = cat.group !== "apps" && categories[i - 1]?.group === "apps"
             return (
+              <div key={cat.key}>
+              {heading ? <p data-library-group="apps" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</p> : null}
+              {sectionsHeading ? <p data-library-group="sections" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Sections")}</p> : null}
               <button
-                key={cat.key}
                 type="button"
                 aria-pressed={on}
                 onClick={() => {
@@ -1372,6 +1390,7 @@ export const SectionLibrary = memo(function SectionLibrary({
                 {/* How many each holds, so a long theme's list says where the most is. */}
                 <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
+              </div>
             )
           })}
         </nav>

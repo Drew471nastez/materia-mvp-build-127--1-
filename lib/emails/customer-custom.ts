@@ -79,6 +79,9 @@ export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
   return_received: { subject: "We received your return (order {{order_number}})", heading: "We received your return", body: "Your items arrived back at the store. They'll check them and send your refund.", button: "View your order" },
   return_declined: { subject: "About your return (order {{order_number}})", heading: "About your return", body: "The store couldn't accept this return. Their note says why. If you think it's a mistake, reply to this email.", button: "View your order" },
   return_completed: { subject: "Your return is complete (order {{order_number}})", heading: "Your return is complete", body: "Your return is closed.", button: "View your order" },
+  /* Storelib Reviews' ask and its reminder (lib/reviews/request-email.ts), edited under Requests on the app's own page, not in the Customer emails list. {{items}} is the product. */
+  review_request: { subject: "How is {{items}}?", heading: "How is {{items}}?", body: "If you have had a chance to use it, how was it? Your review helps other buyers decide, and tells {{shop_name}} what works.", button: "Write a review" },
+  review_reminder: { subject: "A quick review of {{items}}?", heading: "Would you review {{items}}?", body: "If you have had a chance to use it, a rating and a line or two is all it takes. Good or bad, an honest review helps the next buyer.", button: "Write a review" },
   checkout_reminder: { subject: "You left {{items}} at checkout", heading: "Still thinking it over?", body: "Hi {{customer_name}}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.", button: "Finish checkout" },
 }
 

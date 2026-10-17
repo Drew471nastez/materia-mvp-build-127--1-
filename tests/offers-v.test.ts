@@ -387,7 +387,7 @@ async function main() {
     check("the cart page too, and the code's line is the code's part", /useCartOffers\(lines, shopId, ready\)/.test(read("components/website-builder/cart-page-body.tsx")) && /applied\.discountCents - applied\.offerCents/.test(read("components/website-builder/cart-page-body.tsx")))
     const siteCheckout = read("app/checkout/site/site-checkout.tsx")
     check("the website's checkout: Add to your order, into the order and the cart", /<CheckoutSuggestions suggestions=\{editable \? \(quote\.suggestions \?\? \[\]\) : \[\]\}/.test(siteCheckout) && /commitItems\(\[\.\.\.items\.filter/.test(siteCheckout))
-    check("  and an offer isn't counted in the discount line as well as its own line", /Math\.max\(0, \(t\?\.discountCents \?\? 0\) - offersSaved\)/.test(siteCheckout))
+    check("  and an offer isn't counted in the discount line as well as its own line", /* Merged with main: lib/checkout/summary-rows.ts takes the offers out of the code's line. */ /const rows = quote \? summaryRows\(quote\) : null/.test(siteCheckout) && /const discountCents = rows\?\.discount \?\? 0/.test(siteCheckout) && /let discount = whole - offerSum/.test(read("lib/checkout/summary-rows.ts")))
     check("the physical checkout keeps its Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
     check("Storelib's product page keeps its bundles under the buy box", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
   }

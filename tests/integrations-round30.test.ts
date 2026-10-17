@@ -23,7 +23,8 @@ const read = (p: string) => untt(readFileSync(join(process.cwd(), p), "utf8"), p
 console.log("\nThe pills\n")
 {
   const order = pillOrder(() => 1)
-  check("All, Reviews, Analytics, Installed, Storelib apps, Advertising, Email marketing, Automation, then the rest in the catalog's order", order.join() === "all,reviews,analytics,installed,storelib,advertising,email,automation,shipping,print_on_demand,dropshipping,fulfillment,suppliers", order)
+  /* Changed on purpose (round K4, Andrew: "Installed/Connected becomes a pill filter"): the Connected list above the cards is gone, so Installed moves beside All; the categories keep the owner's order. */
+  check("All, Installed, Reviews, Analytics, Storelib apps, Advertising, Email marketing, Automation, then the rest in the catalog's order", order.join() === "all,installed,reviews,analytics,storelib,advertising,email,automation,shipping,print_on_demand,dropshipping,fulfillment,suppliers", order)
   const none = pillOrder(() => 0)
   check("a category with nothing in it has no pill; All, Installed and Storelib apps always do", none.join() === "all,installed,storelib", none)
   check("the lanes follow the pills", LANE_ORDER.join() === "reviews,analytics,storelib,advertising,email,automation,shipping,print_on_demand,dropshipping,fulfillment,suppliers" && PILL_HEAD[0] === "all")
@@ -59,7 +60,9 @@ console.log("\nThe directory\n")
   const ui = read("components/app/settings/integrations-directory.tsx")
   check("one woven order for every pill: working first, Coming soon after", /const entries: Entry\[\] = \[\.\.\.weave\(listed\.filter\(\(e\) => !later\(e\)\), laneOf\), \.\.\.weave\(listed\.filter\(later\), laneOf\)\]/.test(ui))
   check("  inside a lane Storelib's own first (its pages, then its apps), then the services as the catalog lists them", /const ownRank = \(e: Entry\) => \(e\.kind === "integration" \? \(hasBuiltInArt\(e\.id\) \? 0 : 2\) : 1\)/.test(ui))
-  check("the pill is read from ?c= on the first render and written in place, never a new history entry", /useState<Filter>\(\(\) => pillFrom\(params\?\.get\(PILL_PARAM\)\)\)/.test(ui) && /window\.history\.replaceState\(window\.history\.state, "", url\.toString\(\)\)/.test(ui) && /writePillParam\(f\)/.test(ui) && /if \(f === "all"\) url\.searchParams\.delete\(PILL_PARAM\)/.test(ui))
+  /* Changed on purpose (round K4): the pill, the search and the filters are one state in the address (?category=&q=&status=&by=, lib/integrations/directory-filter), read on the first render and written in place; ?c= is still read for old links. */
+  const filterLib = read("lib/integrations/directory-filter.ts")
+  check("the list is read from the address on the first render and written in place, never a new history entry", /const \[initial\] = React\.useState\(\(\) => readDirectoryState\(params\)\)/.test(ui) && /window\.history\.replaceState\(window\.history\.state, "", next\)/.test(ui) && /writeListState\(\{ category: f, q: query, status: statusFilter, by: maker \}\)/.test(ui) && /set\("category", s\.category, "all"\)/.test(filterLib) && /url\.searchParams\.delete\("c"\)/.test(filterLib))
   check("a return asks the stage for no landing", /const \[returning\] = React\.useState\(\(\) => page && isTraversing\(\)\)/.test(ui) && /if \(returning\) holdLanding\(\)/.test(ui))
   check("what the directory and its pages read is kept, so a page draws at once", /prefetchGet\(keptReads\(physical\)\)/.test(ui) && /REVIEWS_APP_PATH/.test(ui) && /TRACKING_APP_PATH/.test(ui))
   check("an app's page fetched in full on a hover, a focus or a touch, once", /prefetchAppPage\(router, href\)/.test(ui) && /onTouchStart=\{\(\) => warmApp\(hrefOf\(e\.app\)\)\}/.test(ui) && /warmed\.current\.has\(href\)/.test(ui))
@@ -72,8 +75,9 @@ console.log("\nThe directory\n")
 console.log("\nHow it works\n")
 {
   const page = read("app/app/integrations/integrations-client.tsx")
-  check("from 640px in the page's bar, across from the title", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>\s*<h1[^>]*>[^<]*<\/h1>\s*<HowItWorks id="integrations" className="-mr-2 hidden sm:inline-flex" \/>/.test(page))
-  check("on a phone the last words of the line under the title, no row of its own", /<span className="sm:hidden">\s*\{" "\}\s*<HowItWorks id="integrations" className=\{INLINE_HOW\} \/>/.test(page) && /const INLINE_HOW = "inline /.test(page))
+  /* Changed on purpose (round K4, Andrew: remove "Storelib apps and the services you already use."): with the line under the title gone, How it works sits in the bar at every width. */
+  check("in the page's bar, across from the title, at every width", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>\s*<h1[^>]*>[^<]*<\/h1>\s*<HowItWorks id="integrations" className="-mr-2" \/>/.test(page))
+  check("no line under the title", !/Storelib apps and the services you already use/.test(page) && !/data-integrations-lede/.test(page))
   check("no pill shaped button after the line any more", !/<HowItWorks id="integrations" className="-ml-2" \/>/.test(page))
 }
 

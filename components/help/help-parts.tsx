@@ -9,6 +9,7 @@ import Link from "next/link"
 import type { ReactNode } from "react"
 import { SUPPORT_EMAIL, headingId, plainText, type HelpBlock } from "@/lib/help/articles"
 import { HelpFigure } from "./help-figures"
+import { helpHref, type HelpBase } from "@/lib/help/paths"
 
 /** The page container every /app page uses, so help sits in the same frame. */
 export const HELP_CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8"
@@ -20,15 +21,16 @@ export const HELP_CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-
  */
 export const HELP_READING = "mx-auto w-full max-w-[960px] px-4 sm:px-6 lg:px-8"
 
-/** [label](/path) inside a sentence, as a link. Everything else is text. */
-export function RichText({ text }: { text: string }) {
+/** [label](/path) inside a sentence, as a link. Everything else is text. `base`: the Help Center it is read in (lib/help/paths), so a link to another article stays there. */
+export function RichText({ text, base }: { text: string; base?: HelpBase }) {
   const parts: ReactNode[] = []
   const re = /\[([^\]]+)\]\(([^)\s]+)\)/g
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index))
-    const [, label, href] = m
+    const [, label, raw] = m
+    const href = helpHref(raw, base)
     const cls = "font-medium text-[#6d28d9] underline decoration-[#6d28d9]/30 underline-offset-2 hover:decoration-[#6d28d9]"
     parts.push(
       href.startsWith("/") ? (
@@ -79,7 +81,7 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
  * characters, sixteen pixel type at a generous line height, headings with
  * room above them and little below, so each belongs to what follows it.
  */
-export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
+export function ArticleBody({ blocks, base }: { blocks: HelpBlock[]; base?: HelpBase }) {
   /* Each heading gets the id the contents list links to (lib/help/articles helpToc): the same words, the same id. */
   const seen = new Map<string, number>()
   const idOf = (text: string) => {
@@ -104,7 +106,7 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
           case "p":
             return (
               <p key={i} className={gap}>
-                <RichText text={b.text} />
+                <RichText text={b.text} base={base} />
               </p>
             )
           case "h":
@@ -127,7 +129,7 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
                   <div key={j} className="px-4 py-3 sm:grid sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-5">
                     <dt className="text-[14px] font-semibold leading-[1.6] text-[#1a1a2e]">{label}</dt>
                     <dd className="mt-0.5 text-[15px] leading-[1.6] text-[#374151] sm:mt-0">
-                      <RichText text={text} />
+                      <RichText text={text} base={base} />
                     </dd>
                   </div>
                 ))}
@@ -141,7 +143,7 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
                     <span aria-hidden className="absolute left-0 top-[3px] flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#f1f2f4] text-[13px] font-semibold tabular-nums text-[#1a1a2e]">
                       {j + 1}
                     </span>
-                    <RichText text={item} />
+                    <RichText text={item} base={base} />
                   </li>
                 ))}
               </ol>
@@ -151,7 +153,7 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
               <ul key={i} className={`${gap} list-disc space-y-2 pl-6 marker:text-[#9ca3af]`}>
                 {b.items.map((item, j) => (
                   <li key={j} className="pl-1">
-                    <RichText text={item} />
+                    <RichText text={item} base={base} />
                   </li>
                 ))}
               </ul>
@@ -180,11 +182,11 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
           case "note":
             return (
               <p key={i} className={`${gap} border-l-[3px] border-[#d1d5db] py-0.5 pl-4 text-[15.5px] leading-relaxed text-[#4b5563]`} data-help-note="">
-                <RichText text={b.text} />
+                <RichText text={b.text} base={base} />
               </p>
             )
           case "table":
-            return <HelpTable key={i} head={b.head} rows={b.rows} className={gap} />
+            return <HelpTable key={i} head={b.head} rows={b.rows} className={gap} base={base} />
         }
       })}
     </div>
@@ -197,7 +199,7 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
  * under the column's name, so nothing scrolls sideways or squeezes into one
  * word per line. One markup for both, so a search engine reads one table.
  */
-function HelpTable({ head, rows, className }: { head: string[]; rows: string[][]; className?: string }) {
+function HelpTable({ head, rows, className, base }: { head: string[]; rows: string[][]; className?: string; base?: HelpBase }) {
   return (
     <div className={`${className ?? ""} overflow-hidden rounded-xl border border-[#e5e7eb]`} data-help-table="">
       <table className="w-full border-separate border-spacing-0 text-left text-[14px] leading-normal max-sm:block">
@@ -225,7 +227,7 @@ function HelpTable({ head, rows, className }: { head: string[]; rows: string[][]
                     !cell ? "max-sm:hidden" : "",
                   ].join(" ")}
                 >
-                  <RichText text={cell} />
+                  <RichText text={cell} base={base} />
                 </td>
               ))}
             </tr>
@@ -283,7 +285,8 @@ export function OnThisPage({ items, variant }: { items: { id: string; text: stri
  * emails the address that is actually read, with what to put in the message
  * so the first reply can be an answer rather than a question.
  */
-export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { compact?: boolean; frame?: string }) {
+/* `inCard`: inside a card of the dashboard's Help (components/help/app-help-views), with no rule above it and a card's padding. */
+export function ContactSupport({ compact = false, frame = HELP_CONTAINER, inCard = false }: { compact?: boolean; frame?: string; inCard?: boolean }) {
   if (compact) {
     return (
       <p className="text-[14px] text-[#6b7280]">
@@ -292,16 +295,16 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { co
           {SUPPORT_EMAIL}
         </a>{" "}
         with your username, and for an order the buyer&apos;s email address. Selling on Storelib?{" "}
-        <a href="/app/support" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
+        <Link href="/app/support" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
           Open a request
-        </a>{" "}
+        </Link>{" "}
         from your dashboard.
       </p>
     )
   }
   return (
-    <section aria-labelledby="contact-support" className="border-t border-[#e5e7eb]">
-      <div className={`${frame} flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:py-12`}>
+    <section aria-labelledby="contact-support" className={inCard ? undefined : "border-t border-[#e5e7eb]"}>
+      <div className={`${inCard ? "px-5 py-5 sm:px-6 sm:py-6" : `${frame} py-10 sm:py-12`} flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}>
         <div>
           <h2 id="contact-support" className="text-[18px] font-semibold text-[#1a1a2e]">
             Still need help?
@@ -311,12 +314,12 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { co
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-          <a
+          <Link
             href="/app/support"
             className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a44]"
           >
             Open a request
-          </a>
+          </Link>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
             className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white px-5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa]"

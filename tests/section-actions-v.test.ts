@@ -304,7 +304,9 @@ async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   const reviews = appForSection("reviews_product")
   check("the review sections belong to Storelib Reviews", reviews?.app.name === "Storelib Reviews" && ["reviews_all", "reviews_carousel", "reviews_badge"].every((t) => appForSection(t)?.app.id === "reviews"))
-  check("every registered section exists in the theme", appSectionEntries().filter((e) => e.kind === "section").every((e) => !!SECTION_SCHEMAS[e.type]), appSectionEntries().filter((e) => e.kind === "section" && !SECTION_SCHEMAS[e.type]).map((e) => e.type))
+  /* storelib-* are an imported theme's Storelib Reviews sections, made for it on the server (compat/storelib-reviews.ts). */
+  const native = appSectionEntries().filter((e) => e.kind === "section" && !e.type.startsWith("storelib-"))
+  check("every registered section of a Storelib theme exists in it", native.every((e) => !!SECTION_SCHEMAS[e.type]), native.filter((e) => !SECTION_SCHEMAS[e.type]).map((e) => e.type))
   check("and some of them are offered in Add section", appSectionEntries().some((e) => e.kind === "section" && ADDABLE_SECTIONS.includes(e.type)))
   check("blocks are registered by the section types they go in", appForBlock("rating", "product")?.app.id === "reviews" && appForBlock("rating", "hero") === null)
   check("the product's Bundles and upsells block is the Offers app's, set up in Offers", appForBlock("offers", "product")?.app.name === "Offers" && appForBlock("offers", "product")?.app.href === "/app/offers" && (SECTION_SCHEMAS.product?.blocks ?? []).some((b) => b.type === "offers"))
@@ -315,9 +317,10 @@ async function main() {
   registerAppSections([{ app: "offers", kind: "section", type: "bundle_offer", description: "Buy together, again" }])
   check("another track registers its section once, replacing on a second call", appForSection("bundle_offer")?.app.id === "offers" && appSectionEntries().filter((e) => e.type === "bundle_offer").length === 1 && appForSection("bundle_offer")?.entry.description === "Buy together, again")
   const lib = read("components/website-builder/editor/section-library.tsx")
-  check("Add section has an Apps category, second after All", /\.\.\.\(apps > 0 \? \[\{ key: APPS_CATEGORY, label: tt\("Apps"\), count: apps \}\] : \[\]\)/.test(lib) && lib.indexOf('key: "all"') < lib.indexOf("key: APPS_CATEGORY"))
-  check("which shows the app sections, a filter like any category", /activeCategory === APPS_CATEGORY \? !!e\.app : e\.category === activeCategory/.test(lib))
-  check("and says when an app is off, with the way to turn it on", /appIsOn\(e\.app, appStates\) === false/.test(lib) && /href=\{app\.href\}/.test(lib))
+  const cats = read("lib/website-builder/section-categories.ts")
+  check("one registry: Add section's app categories read it", /return appForSection\(type\)\?\.app\.id \?\? null/.test(cats) && /STORELIB_SECTION_APPS\.map\(\(a\) => \(\{ id: a\.id, label: tt\(a\.label\) \}\)\)/.test(cats) && !/APP_SECTION_TYPES/.test(cats))
+  check("Add section files each app's sections under it, under Apps, right after All", /const appInfo = own_ \? undefined : appForSection\(type\)\?\.app/.test(lib) && /\{ key: "all", label: tt\("All"\), count: entries\.length \},\s*\n\s*\/\*[^\n]*\*\/\s*\n\s*\.\.\.apps,/.test(lib) && /data-library-group="apps"/.test(lib) && /data-library-group="sections"/.test(lib))
+  check("and says when that app is off, with the way to turn it on", /e\.app\.id === activeCategory && appIsOn\(e\.app, appStates\) === false/.test(lib) && /href=\{app\.href\}/.test(lib))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

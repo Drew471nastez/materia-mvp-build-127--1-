@@ -116,7 +116,8 @@ function main() {
   check("the column is Products': 1200px, 1323px from 1024px, in the app's gutter", /const SHELL_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(shell) && /const SHELL_GUTTER = "app-gutter"/.test(shell) &&/const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(code("app/app/products/products-client.tsx")))
   /* Changed on purpose (round 33): the bar and the row of tabs are two boxes now (the bar scrolls away, the row stays), so three share the column. */
   check("the bar, the tabs and the section share it", (shell.match(/SHELL_GUTTER, SHELL_WIDTH/g) ?? []).length === 3 && !/SECTION_WIDTH/.test(shell))
-  check("below 1280px a row of tabs that does not fit fades at its end and scrolls", /xl:\[mask-image:none\]/.test(shell))
+  /* Changed on purpose (round 26, tests/nav26.test.ts): no mask; a fade over an end only while there is more to scroll to that side, at any width. */
+  check("a row of tabs that does not fit fades at its end and scrolls", /group-data-more-right\/tabs:opacity-100/.test(shell) && !/mask-image/.test(shell.slice(shell.indexOf("export function CommunityTabs"))))
 
   console.log("\nCOPY")
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i

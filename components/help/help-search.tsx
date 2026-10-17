@@ -18,9 +18,14 @@ import { helpArticlePath, helpCategory } from "@/lib/help/articles"
 import { searchHelp } from "@/lib/help/search"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { cn } from "@/lib/utils"
+import { HELP_BASE, helpHref, type HelpBase } from "@/lib/help/paths"
 
-/** `tone="dark"`: on the Help Center's ink band, a soft glass field with white type. */
-export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = false, tone = "light" }: { size?: "large" | "compact"; defaultQuery?: string; autoFocus?: boolean; tone?: "light" | "dark" }) {
+/**
+ * `tone="dark"`: on the Help Center's ink band, a soft glass field with white type.
+ * `base`: the Help Center it searches from (lib/help/paths): /help, or /app/help
+ * inside the dashboard, where the results and the results page stay in the app.
+ */
+export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = false, tone = "light", base = HELP_BASE }: { size?: "large" | "compact"; defaultQuery?: string; autoFocus?: boolean; tone?: "light" | "dark"; base?: HelpBase }) {
   const router = useRouter()
   const id = useId()
   const listId = `${id}-results`
@@ -31,6 +36,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
   const physical = usePhysicalCommerceEnabled()
   const results = useMemo(() => searchHelp(query, 8, { physical }), [query, physical])
   const showing = open && query.trim().length > 0
+  const pathOf = (a: Parameters<typeof helpArticlePath>[0]) => helpHref(helpArticlePath(a), base)
 
   useEffect(() => {
     if (!showing) return
@@ -51,7 +57,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
       setActive((i) => (i <= 0 ? results.length - 1 : i - 1))
     } else if (e.key === "Enter" && showing && active >= 0 && results[active]) {
       e.preventDefault()
-      router.push(helpArticlePath(results[active].article))
+      router.push(pathOf(results[active].article))
     } else if (e.key === "Escape") {
       if (showing) {
         e.preventDefault()
@@ -64,7 +70,7 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
   const large = size === "large"
 
   return (
-    <form ref={box} action="/help/search" method="get" role="search" className="relative w-full">
+    <form ref={box} action={`${base}/search`} method="get" role="search" className="relative w-full scroll-mt-[72px]">
       <label htmlFor={`${id}-q`} className="sr-only">
         Search the Help Center
       </label>
@@ -100,7 +106,23 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
             setOpen(true)
             setActive(-1)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true)
+            /* ON A PHONE THE KEYBOARD TAKES THE LOWER HALF. The field goes to the top of what scrolls, under the page's bar,
+               so the results open in the part the keyboard leaves (their height follows it: --vv-h, below). */
+            if (window.matchMedia("(max-width: 767px)").matches) {
+              const form = box.current
+              window.setTimeout(() => {
+                if (!form) return
+                /* In the app the page scrolls in its own pane (components/help/app-help-frame): move that pane alone, so the
+                   shell around it never shifts; it keeps 64px for the pane's sticky bar. On the public pages, the window. */
+                const pane = form.closest<HTMLElement>("[data-help-scroll]")
+                if (!pane) return form.scrollIntoView({ block: "start", behavior: "smooth" })
+                const by = form.getBoundingClientRect().top - pane.getBoundingClientRect().top - 64
+                if (by > 0) pane.scrollBy({ top: by, behavior: "smooth" })
+              }, 60)
+            }
+          }}
           onKeyDown={onKeyDown}
           className={cn(
             tone === "dark"
@@ -117,15 +139,15 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
           className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_12px_32px_-12px_rgba(17,24,39,0.18)]"
         >
           {results.length > 0 ? (
-            <ul id={listId} role="listbox" aria-label="Articles" className="max-h-[min(420px,60vh)] overflow-y-auto py-1.5">
+            <ul id={listId} role="listbox" aria-label="Articles" className="max-h-[min(420px,60vh,calc(var(--vv-h,100dvh)*0.4))] overflow-y-auto overscroll-contain py-1.5">
               {results.map((r, i) => (
                 <li key={`${r.article.category}/${r.article.slug}`} id={`${id}-r${i}`} role="option" aria-selected={i === active}>
                   <a
-                    href={helpArticlePath(r.article)}
+                    href={pathOf(r.article)}
                     onClick={(e) => {
                       if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
                       e.preventDefault()
-                      router.push(helpArticlePath(r.article))
+                      router.push(pathOf(r.article))
                     }}
                     onMouseEnter={() => setActive(i)}
                     className={cn("block px-4 py-2.5", i === active && "bg-[#f3f4f6]")}

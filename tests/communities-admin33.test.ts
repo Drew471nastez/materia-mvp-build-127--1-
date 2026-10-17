@@ -101,7 +101,8 @@ function main() {
   check("Settings no longer edits the page: no name, logo, cover, gallery, what members get, questions or links", !/function PageSettings/.test(settings) && !/<PicturePick/.test(settings) && !/<CoverField/.test(settings) && !/<GalleryEditor/.test(settings) && !/addLabel="Add a question"/.test(settings))
   check("the setup step and the shortcut open the Page section", nextSteps({ paid: false, paymentsReady: true, published: true, members: 5, invites: 1, posts: 2, courses: 0, events: 0, customized: false, rules: 1, classroomEnabled: false, eventsEnabled: false }, "/b").find((s) => s.id === "customize")?.href === "/b/page" && /href: `\$\{base\}\/page`, label: "Edit the page"/.test(overview))
   check("groups read: Community, Members, You; Roles is Roles and permissions", /label: "Roles and permissions"/.test(settings) && /\{ id: "community", label: "Community" \}/.test(settings) && /\{ id: "people", label: "Members" \}/.test(settings))
-  check("the settings column sits under the row of tabs only", /sticky top-\[68px\] hidden lg:block/.test(settings))
+  /* Changed on purpose (round 26): the row of tabs is 52px from 768px, so the column sits at 72px. */
+  check("the settings column sits under the row of tabs only", /sticky top-\[72px\] hidden lg:block/.test(settings))
 
   console.log("\nSAVEBAR")
   check("fixed to the screen, above the pill and the home indicator, clear of the rail", /fixed inset-x-0 bottom-\[max\(calc\(var\(--app-nav-top,0px\)\+10px\),calc\(env\(safe-area-inset-bottom\)\+10px\)\)\]/.test(parts) && /md:left-\[var\(--app-rail-w,240px\)\]/.test(parts))

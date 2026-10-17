@@ -41,7 +41,7 @@ import { checkoutPath, communityPath } from "@/components/community/public/paths
 import { decideJoin, primaryOption } from "@/components/community/public/join-state"
 import { shareImageVersion, type SeoFacts } from "@/components/community/public/seo"
 import type { AccessProductLink, JoinOption, LibraryCommunityRow, PublicCommunityView, PublicCreatorView, PublicReviewView, SalesPageData } from "@/components/community/public/types"
-import { accessWords, privacyOf } from "../access-model"
+import { accessWords, listedPublicly, privacyOf } from "../access-model"
 import { compactCount, priceLine } from "../format"
 import { can, meetsRole } from "../permissions"
 import { TIER_COLUMNS, type CommunityCard, type CommunityRow, type Role, type TierRow } from "../types"
@@ -50,6 +50,7 @@ import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./cont
 import { admin, missing, reasonOf, type Db } from "./db"
 import { storefrontsOf } from "./directory"
 import { communityStats } from "./presence"
+import { readCommunitySummary } from "./community-summary"
 
 /** What a card needs, and nothing as heavy as the description. */
 /* Round 33: `onboarding` for the cover's focus (lib/communities/page-look.ts), so a card crops the cover where the creator set it. */
@@ -412,6 +413,33 @@ async function readReviews(db: Db, communityId: string, products: ProductLite[],
   return { average: Math.round(average * 10) / 10, total, items }
 }
 
+/**
+ * When a community's scheduled deletion happens (community_deletions, part 202, state "scheduled"), or null: none, or
+ * the table is not there yet. Asked only for the people who run it (round 26, W1's ask): its page shows them one line.
+ */
+async function scheduledDeletionAt(db: Db, communityId: string): Promise<string | null> {
+  try {
+    const { data, error } = await db.from("community_deletions").select("delete_at").eq("community_id", communityId).eq("state", "scheduled").maybeSingle()
+    if (error) {
+      if (!missing(error)) console.error(`[communities] deletion notice: ${reasonOf(error)}`)
+      return null
+    }
+    const at = (data as { delete_at?: unknown } | null)?.delete_at
+    return typeof at === "string" && at ? at : null
+  } catch (e) {
+    console.error(`[communities] deletion notice: ${reasonOf(e)}`)
+    return null
+  }
+}
+
+const DELETION_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+
+/** The line the people who run a community see on its page while its deletion is scheduled. Pure, for the tests. */
+export function deletionNotice(deleteAt: string | null): string | null {
+  const t = deleteAt ? Date.parse(deleteAt) : NaN
+  return Number.isFinite(t) ? `This community is being deleted on ${DELETION_DAY.format(t)}.` : null
+}
+
 /* ── The gallery ────────────────────────────────────────────────────────── */
 
 /** communities.gallery, or null while part 85 has not added the column (or it cannot be read). */
@@ -508,6 +536,8 @@ export function seoFacts(c: CommunityRow): SeoFacts {
     slug: c.slug,
     name: c.name,
     tagline: c.tagline,
+    /* The short description, once a read carries it (part 220); the pages pass the one ./community-summary.ts reads. */
+    summary: (c as CommunityRow & { summary?: string | null }).summary ?? null,
     description: c.description,
     seoTitle: c.seo_title,
     seoDescription: c.seo_description,
@@ -558,12 +588,16 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
   galleryAndStats?.catch(() => undefined)
 
-  const [tiers, links, creators] = await Promise.all([
+  const [tiers, links, creators, summary, deleteAt] = await Promise.all([
     readTiers(db, [community.id]),
     community.access === "product" || community.access === "custom"
       ? rows<{ tier_id: string; product_id: string }>("access products", () => db.from("community_access_products").select("tier_id, product_id").eq("community_id", community.id))
       : Promise.resolve([] as { tier_id: string; product_id: string }[]),
     readCreators(db, [community.creator_id ?? ""]),
+    /* Round 26: the short description for the info card, read softly before part 220 (W6's ./community-summary.ts). */
+    readCommunitySummary(db, community.id),
+    /* Only for its staff: a visitor never learns a community is on its way out from its page. */
+    staff ? scheduledDeletionAt(db, community.id) : Promise.resolve(null),
   ])
   const tierProductIds = uniq(tiers.map((t) => t.product_id))
   const accessIds = uniq(links.map((l) => l.product_id)).filter((id) => !tierProductIds.includes(id))
@@ -623,6 +657,9 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     links: socialLinksOf(community.links),
     coverPosition: coverPosition(pageLookOf(community.onboarding)) ?? null,
     joinLook: joinLookOf(pageLookOf(community.onboarding)),
+    /* Round 26: the short description for the info card (its fallbacks are the card's, about-facts.ts cardSummary), and the admins it counts. */
+    summary,
+    adminCount: Math.max(0, stats.admins ?? 0),
   }
 
   const member = viewer.member
@@ -656,14 +693,23 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   })
 
   let notice: string | null = null
-  if (suspended) notice = "Storelib has suspended this community. Nobody else can open it until it is restored."
+  const deleting = staff ? deletionNotice(deleteAt) : null
+  if (deleting) notice = deleting
+  else if (suspended) notice = "Storelib has suspended this community. Nobody else can open it until it is restored."
   else if (community.status === "draft") notice = "This community is a draft. Only you and your team can see it until you publish it."
   return { data: { community: view, join, notice }, community, viewer }
 }
 
-/** Whether search engines may index this community's page: published, public, open. */
-export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility" | "suspended_at" | "deleted_at" | "platform_hidden">): boolean {
-  return c.status === "published" && c.visibility === "public" && !c.suspended_at && !c.deleted_at && !c.platform_hidden
+/**
+ * Whether search engines may index this community's page: published (so not
+ * a draft, not archived, and not waiting to be deleted, which archives it:
+ * ./community-deletion.ts), listed publicly (public, and not invite only,
+ * which is private whatever the visibility column says: ../access-model.ts
+ * privacyOf), not suspended, not deleted, not hidden by Storelib. The sitemap
+ * (sitemapCommunities below) asks the database the same question.
+ */
+export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility" | "access" | "suspended_at" | "deleted_at" | "platform_hidden">): boolean {
+  return c.status === "published" && listedPublicly(c) && !c.suspended_at && !c.deleted_at && !c.platform_hidden
 }
 
 /* ── The community's own top bar ────────────────────────────────────────── */
@@ -848,20 +894,68 @@ export async function communityAddressForProduct(communityId: string, db: Db = a
 
 /* ── The sitemap ────────────────────────────────────────────────────────── */
 
-/** Indexable communities as sitemap rows, `limit` from `offset`; empty before part 81. */
+/**
+ * Indexable communities as sitemap rows, `limit` from `offset`; empty before
+ * part 81. The same rule as communityIndexable, asked of the database:
+ * published (never a draft, an archived one or one waiting to be deleted),
+ * public and not invite only, not hidden, suspended or deleted. A community
+ * served on its own domain (round 31) is left out: its canonical is that
+ * domain, whose own sitemap names it (lib/custom-domains/community.ts), and
+ * a sitemap may only name addresses on its own host.
+ */
 export async function sitemapCommunities(offset: number, limit: number, db: Db = admin()): Promise<{ slug: string; updated_at: string | null; cover_url: string | null }[]> {
-  return rows("sitemap communities", () =>
+  const found = await rows<{ id: string; creator_id: string | null; slug: string; updated_at: string | null; cover_url: string | null }>("sitemap communities", () =>
     db
       .from("communities")
-      .select("slug, updated_at, cover_url")
+      .select("id, creator_id, slug, updated_at, cover_url")
       .eq("status", "published")
       .eq("visibility", "public")
+      .neq("access", "invite_only")
       .eq("platform_hidden", false)
       .is("deleted_at", null)
       .is("suspended_at", null)
       .order("id", { ascending: true })
       .range(offset, offset + limit - 1),
   )
+  const [onOwnDomain, deleting] = await Promise.all([communitiesOnOwnDomain(db, found), communitiesDeleting(db, found)])
+  return found.filter((c) => !onOwnDomain.has(c.id) && !deleting.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url }))
+}
+
+/** Which of these communities wait to be deleted (part 202, W1's community_deletions), read softly: before part 202, none. A scheduled deletion archives the community already; this holds whatever the status says. */
+async function communitiesDeleting(db: Db, list: { id: string }[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (list.length === 0) return out
+  try {
+    const { data, error } = await db.from("community_deletions").select("community_id").eq("state", "scheduled").in("community_id", list.map((c) => c.id))
+    if (error || !data) return out
+    for (const d of data as { community_id: string }[]) out.add(d.community_id)
+  } catch {
+    /* No deletions table: nothing is waiting. */
+  }
+  return out
+}
+
+/** Which of these communities answer on their own domain (an active domain of their own creator's), read softly: before part 185, none. */
+async function communitiesOnOwnDomain(db: Db, list: { id: string; creator_id: string | null }[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (list.length === 0) return out
+  try {
+    const { data, error } = await db
+      .from("custom_domains")
+      .select("target_id, creator_id")
+      .eq("purpose", "community")
+      .eq("target_type", "community")
+      .eq("status", "active")
+      .in("target_id", list.map((c) => c.id))
+    if (error || !data) return out
+    const creatorOf = new Map(list.map((c) => [c.id, c.creator_id]))
+    for (const d of data as { target_id: string; creator_id: string | null }[]) {
+      if (d.creator_id && creatorOf.get(d.target_id) === d.creator_id) out.add(d.target_id)
+    }
+  } catch {
+    /* No domains table: every community is at storelib.com. */
+  }
+  return out
 }
 
 export async function sitemapCommunityCount(db: Db = admin()): Promise<number> {
@@ -871,6 +965,7 @@ export async function sitemapCommunityCount(db: Db = admin()): Promise<number> {
       .select("id", { count: "exact", head: true })
       .eq("status", "published")
       .eq("visibility", "public")
+      .neq("access", "invite_only")
       .eq("platform_hidden", false)
       .is("deleted_at", null)
       .is("suspended_at", null)

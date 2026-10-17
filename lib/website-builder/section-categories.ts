@@ -1,4 +1,5 @@
 import { tt } from "@/lib/i18n/text"
+import { appById, appForSection, STORELIB_SECTION_APPS } from "./app-sections"
 /**
  * ===========================================================================
  *  WHERE AN IMPORTED THEME'S SECTIONS GO IN ADD A SECTION
@@ -197,4 +198,31 @@ export function classifyImportedSection(facts: ImportedSectionFacts): ImportedSe
     }
   }
   return best
+}
+
+/**
+ * ===========================================================================
+ *  APPS: STORELIB'S OWN, IN EVERY THEME
+ * ===========================================================================
+ * Sections that belong to one of Storelib's apps rather than to the theme:
+ * Storelib Reviews' sections and its widgets (lib/reviews/widgets). They
+ * are filed under an Apps heading at the end of Add a section, in the
+ * app's own category, in a Storelib theme and an imported one alike, so a
+ * store finds its review widgets in the same place whichever theme it runs.
+ *
+ * Which app a section belongs to is said once, in the apps registry
+ * (lib/website-builder/app-sections.ts), which every app registers its
+ * sections and blocks in; these read it.
+ */
+export function appSectionCategories(): { id: string; label: string }[] {
+  return STORELIB_SECTION_APPS.map((a) => ({ id: a.id, label: tt(a.label) }))
+}
+
+/** The app category a section type is filed under, or null for a theme's own section. */
+export function appSectionCategory(type: string): string | null {
+  return appForSection(type)?.app.id ?? null
+}
+
+export function isAppSectionCategory(id: string): boolean {
+  return appById(id) !== null
 }
