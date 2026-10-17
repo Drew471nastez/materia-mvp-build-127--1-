@@ -28,7 +28,7 @@ import "server-only"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { isPosterName, posterPathFor, videoDuration } from "@/lib/media/video"
 import { NEEDS_PART, markPurged, removeAssets, removedAssetIds, restoreAssets } from "./assets"
-import { collectable, findUsesMany, type UsesResult } from "./references"
+import { findUsesMany, referencedInDatabase, type UsesResult } from "./references"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = any
@@ -235,17 +235,17 @@ export async function removeFromLibrary(
   if (written.ok) return { ok: true, removed: owned.files.length, retained: true }
   if (!written.needsPart) return { ok: false, error: "The file could not be removed. Try again in a moment.", status: 500 }
 
-  /* No ledger: a hard delete, and only where nothing points at the file. */
+  /* No ledger: a hard delete, and only where nothing points at the file. The
+     surfaces were read once above for the whole list; only the database's own
+     check is asked per file, since it takes one path. */
   for (const f of owned.files) {
-    const verdict = await collectable(admin, owner, f.bucket, f.path)
-    if (!verdict.ok) {
-      const where = verdict.uses.uses.map((u) => u.label).join(", ")
-      return {
-        ok: false,
-        error: where ? `${f.path.split("/").pop()} is still used on ${where}. ${NEEDS_PART}` : NEEDS_PART,
-        status: 409,
-      }
-    }
+    const found = uses.get(`${f.bucket}:${f.path}`)
+    const where = found?.uses.map((u) => u.label).join(", ") ?? ""
+    const refuse = (message: string): LibraryWriteFailure => ({ ok: false, error: message, status: 409 })
+    if (!found || found.unreadable.length > 0) return refuse(NEEDS_PART)
+    if (found.total > 0) return refuse(`${f.path.split("/").pop()} is still used on ${where}. ${NEEDS_PART}`)
+    const inDatabase = await referencedInDatabase(admin, f.bucket, f.path)
+    if (inDatabase !== false) return refuse(NEEDS_PART)
   }
   for (const [bucket, paths] of pathsByBucket(owned.files)) {
     const { error } = await admin.storage.from(bucket).remove(paths)

@@ -23,6 +23,8 @@ import { SURFACES, findUses, holdsPath, needlesFor } from "@/lib/files/reference
 import { RETENTION_DAYS } from "@/lib/files/assets"
 import { sweepRemovedLibraryFiles } from "@/lib/files/cleanup-removed"
 import { addressesIn, repairBrokenReferences } from "@/lib/files/repair"
+import { loadStoreSettings } from "@/lib/store/settings-server"
+import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -245,6 +247,39 @@ async function main() {
   await surfaceCase("one page", "One page", {
     onepages: [{ id: "op1", creator_id: CREATOR, avatar_url: LOGO_URL }],
   })
+
+  /*
+    THE OWNER'S OWN TEST, END TO END, THROUGH THE REAL READERS: upload a
+    picture, set it as the store logo, remove it from Files, and the store
+    logo still reads back, for Settings, for receipts and order emails
+    (lib/store/settings-server.ts) and for the checkout header
+    (lib/checkout/brand-server.ts).
+  */
+  console.log("\nThe store logo still shows after the picture is removed from Files")
+  {
+    const tree = folderWith("logo.png")
+    const removedPaths: string[][] = []
+    const db = client(
+      {
+        store_settings: [{ id: "s1", creator_id: CREATOR, store_name: "Nest", logo_url: LOGO_URL }],
+        creators: [{ id: CREATOR, user_id: USER, display_name: "Nest", username: "nest" }],
+        profiles: [{ id: USER, display_name: "Nest", username: "nest" }],
+        library_assets: [],
+      },
+      tree,
+      { removedPaths },
+    )
+    const before = await loadStoreSettings(db, CREATOR)
+    const brandBefore = await checkoutBrand(db, CREATOR)
+    check("before: the logo is the picture just uploaded", before.logoUrl === LOGO_URL && brandBefore.imageUrl === LOGO_URL, { before, brandBefore })
+    const out = await removeFromLibrary(db, owner, [{ bucket: "store-builder-images", path: LOGO }])
+    check("removed from Files", out.ok && removedPaths.length === 0, out)
+    const after = await loadStoreSettings(db, CREATOR)
+    const brandAfter = await checkoutBrand(db, CREATOR)
+    check("  Settings and receipts still read the same logo", after.logoUrl === LOGO_URL, after)
+    check("  the checkout header still draws it as a logo", brandAfter.imageUrl === LOGO_URL && brandAfter.kind === "logo", brandAfter)
+    check("  and the object is still in the bucket for the page to fetch", tree["store-builder-images"][`${USER}/files`].some((e) => e.name === "logo.png"))
+  }
 
   /* A product photo in the product-images bucket, removed from Files the same way. */
   console.log("\nA product photo in its own bucket")
