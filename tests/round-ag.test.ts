@@ -7,6 +7,7 @@
  *   ACCOUNTS   admin delete asks "Are you sure?" only; a deleted email can sign up again; no "Former account" members
  *   CREATORS   no language dropdown; More from shows a community once; a failed picture never shows a broken icon
  *   TAX        Settings › Taxes opens on status, tax collected by country, a CSV, and who does what, honestly
+ *   EMAILS     /admin/emails: every email Storelib and a business sends, by category, each drawn with sample data
  *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
@@ -129,6 +130,31 @@ async function main() {
   const panel = read("components/app/settings/taxes-panel.tsx")
   check("the panel opens on the overview: status, total, countries, CSV, who does what", /<TaxOverview currency=\{currency\} \/>/.test(panel) && ["data-tax-status", "data-tax-total", "data-tax-countries", "data-tax-csv", "data-tax-responsibility"].every((a) => panel.includes(a)))
   check("never claims Storelib files or pays tax", /does not file or pay tax for you/.test(panel) && !/(we|Storelib) (file|files|remit|remits) (your|the) tax/i.test(panel + report))
+
+  console.log("\nEvery email")
+  {
+    const { emailGallery, renderGalleryEmail } = await import("@/lib/admin/email-gallery")
+    const { NOTIFICATION_TYPES } = await import("@/lib/notify/types")
+    const all = emailGallery()
+    check("every notification type is in the catalog", NOTIFICATION_TYPES.every((t) => all.some((e) => e.id === `notify:${t}`)))
+    check("sign in codes, password reset and the deletion code are there", ["auth:verify", "auth:reset", "auth:new-email", "auth:delete"].every((id) => all.some((e) => e.id === id)))
+    check("business emails are their own section, with the website sign in code", all.filter((e) => e.section === "business").length >= 15 && all.some((e) => e.id === "business:site-code"))
+    check("every email has a category", all.every((e) => e.category && e.name))
+    const broken = all.filter((e) => {
+      try {
+        const m = renderGalleryEmail(e.id)
+        return !m || !m.subject || !m.html || m.html.length < 200 || /undefined|NaN|\[object/.test(m.subject)
+      } catch {
+        return true
+      }
+    }).map((e) => e.id)
+    check(`all ${all.length} are drawn with sample data`, broken.length === 0, broken)
+    check("an id it does not know draws nothing", renderGalleryEmail("notify:NOPE") === null && renderGalleryEmail("nope") === null)
+    const route = code("app/api/admin/emails/route.ts")
+    check("the admin cookie comes first; the page too", /const denied = await requireAdmin\(\)\s*if \(denied\) return denied/.test(route) && /isAdminAuthenticated\(\)/.test(code("app/admin/emails/page.tsx")))
+    check("the preview frame runs nothing", /sandbox=""/.test(read("app/admin/emails/emails-admin.tsx")))
+    check("the console links to it", /href: "\/admin\/emails"/.test(read("app/admin/_console/shell.tsx")))
+  }
 
   console.log("\nCopy")
   const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts"]
