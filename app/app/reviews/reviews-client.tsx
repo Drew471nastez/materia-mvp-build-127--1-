@@ -227,6 +227,10 @@ export function ReviewsClient({
               {tt("Import")}
             </button>
           ) : null}
+          {/* Storelib Reviews › Widgets (components/reviews/widgets): the gallery, until the reviews management has a Widgets tab of its own. */}
+          <a href="/app/reviews/widgets" className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-reviews-widgets="">
+            {tt("Widgets")}
+          </a>
           <a href={SETTINGS_HREF} className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-reviews-settings="">
             {tt("Settings")}
           </a>

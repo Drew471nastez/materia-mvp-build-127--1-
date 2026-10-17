@@ -62,7 +62,7 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
-import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock } from "./storelib-reviews"
+import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, storelibReviewWidgetFilter } from "./storelib-reviews"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
@@ -773,7 +773,8 @@ export class CompatTheme {
         const p = this.fileFor("snippets", name)
         return p ? this.tree(p) : null
       },
-      filter: (name) => compatFilter(name),
+      /* Storelib Reviews widgets (./storelib-reviews.ts): Storelib's own filter, beside the theme's. */
+      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : compatFilter(name)),
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
