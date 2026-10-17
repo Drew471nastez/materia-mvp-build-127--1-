@@ -164,7 +164,12 @@ async function main() {
   const tooDeep = JSON.parse(text)
   let node = tooDeep.section.blocks[0]
   for (let i = 0; i < MAX_BLOCK_DEPTH + 2; i++) { node.blocks = [{ id: `d${i}`, type: "group", settings: {} }]; node = node.blocks[0] }
-  check("blocks nested past the limit are refused", decodeClip(JSON.stringify(tooDeep)) === null)
+  {
+    /* Changed on purpose (round AI: one odd part never loses the whole copy). Blocks past the limit are cut off; the rest is kept. */
+    const cut = decodeClip(JSON.stringify(tooDeep))
+    const depth = (list: { blocks?: unknown[] }[] | undefined): number => (list && list.length ? 1 + Math.max(...list.map((b) => depth(b.blocks as never))) : 0)
+    check("blocks nested past the limit are cut off at the limit", cut?.kind === "section" && depth(cut.section.blocks as never) <= MAX_BLOCK_DEPTH)
+  }
   const bigCode = JSON.parse(text)
   bigCode.code = { path: "../../etc/passwd", source: "x" }
   check("a file path outside sections/ is dropped", (decodeClip(JSON.stringify(bigCode)) as SectionClip).code === undefined)

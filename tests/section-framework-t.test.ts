@@ -300,7 +300,7 @@ function main() {
       `<div class="card" style="--h: {{ settings.heading_color }}; --c: {{ settings.card_color }};">x</div>`,
       "coloured_band",
     )
-    check("with colour settings, no note", sectionAdvice(COLOURED).length === 0)
+    check("with colour settings, no note", /* Changed on purpose (round AI: a plain-text heading gets its own rich text note) */ !sectionAdvice(COLOURED).some((a) => a.id === "advice-colour-settings"))
     const c = compiled(COLOURED, "sections/coloured_band.storelib")
     const untouched = draw(c, { color_scheme: "dark" })
     const darkHeading = /--h: (#[0-9a-f]{3,8})/i.exec(untouched)?.[1]

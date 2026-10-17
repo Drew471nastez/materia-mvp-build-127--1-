@@ -22,6 +22,7 @@
  */
 
 import { BlockInstanceSchema } from "@/lib/website-builder/block-tree"
+import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/request-shape"
 import { THEME_SCHEMA_FILE, builtInSettingsSchemaText, readThemeSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { readThemeSchemaText } from "@/lib/website-builder/theme-config-store"
 import { type NextRequest, NextResponse } from "next/server"
@@ -92,7 +93,8 @@ function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
   return both.signal
 }
 
-const MAX_PROMPT = 2_000
+/* Long enough for a detailed brief: creators write a paragraph per change, and a refusal here read as "describe it". */
+const MAX_PROMPT = 8_000
 
 /**
  * The route's own lines on the stream, beside the agent's: the id the
@@ -137,11 +139,11 @@ const BodySchema = z.object({
   prompt: z.string().max(MAX_PROMPT),
   /** Validated by `reviewImages`, not here: the limits live in one place. */
   images: z.array(z.unknown()).max(16).optional(),
-  page: z.string().min(1).max(64),
+  page: z.string().min(1).max(200),
   sections: z.array(SectionSchema).max(500),
   settings: z.record(z.unknown()),
   /** Which section the creator has open, so "this section" resolves. */
-  selectedSectionId: z.string().max(128).optional(),
+  selectedSectionId: z.string().max(400).optional(),
   /**
    * Whether that section is the ONLY thing this edit may change. Sent by the
    * panel, which shows it as a chip the creator can clear — so the scope of an
@@ -228,9 +230,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const limited = await agentRateLimit((creator as { id: string }).id)
   if (limited) return NextResponse.json({ error: limited }, { status: 429 })
 
-  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
+  /* Tidied first (lib/website-builder/agent/request-shape.ts): one odd value in the page never refuses the run. */
+  const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
   if (!parsed.success) {
-    return NextResponse.json({ error: "Describe what you want changed." }, { status: 400 })
+    console.warn("[theme agent] unreadable request", parsed.error.issues.slice(0, 3))
+    return NextResponse.json({ error: unreadablePart(parsed.error.issues) }, { status: 400 })
   }
   const body = parsed.data
 

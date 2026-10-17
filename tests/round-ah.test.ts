@@ -148,7 +148,7 @@ async function main() {
     check("  the header offers no Copy", !sectionRowMenu(page[0], page, ctx as never).some((i) => i.id === "copy"))
     const list = code("components/website-builder/editor/sections-list.tsx")
     check("a right click on the insert line: Add section or Paste here, two rows", /id: "add-here"/.test(list) && /id: "paste-here"/.test(list) && /onContextMenu=\{\(e\) => \{\s*if \(!onMenu\) return/.test(list))
-    check("the line is dark grey with a raised disc, not violet", /bg-\[#3f4249\]/.test(list) && /group-hover\/ins:bg-\[#6b7280\]/.test(list) && !/8b5cf6/.test(list))
+    check("the line is dark grey with a raised disc, not violet", /bg-\[#3f4249\]/.test(list) && /* Changed on purpose (round AI: the line fades at its ends) */ /linear-gradient\(90deg,transparent_0%[^"]*#6b7280/.test(list) && !/8b5cf6/.test(list))
     check("Add section rows are grey", /text-\[#4b5563\]/.test(code("components/website-builder/editor/tree-parts.tsx")) && !/7c3aed/.test(code("components/website-builder/editor/tree-parts.tsx")))
     const editor = code("app/website-builder/editor/[installId]/page.tsx")
     check("the editor wires Copy and Paste, to the top of the page too", /onCopy=\{\(id\) => \{ copySectionNow\(id\) \}\}/.test(editor) && /onPaste=\{pasteSectionAt\}/.test(editor) && /pasteSectionNow\(null, clip, true\)/.test(editor) && /top \? 0 : null/.test(editor))

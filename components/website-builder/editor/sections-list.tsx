@@ -163,8 +163,10 @@ function InsertSectionDivider({ onClick, onMenu }: { onClick: () => void; onMenu
         onMenu(e.clientX, e.clientY)
       }}
     >
-      <div className="pointer-events-none absolute inset-x-1 h-px rounded-full bg-transparent transition-[background-color,box-shadow] duration-150 group-hover/ins:bg-[#6b7280] group-hover/ins:shadow-[0_1px_2px_rgba(16,24,40,0.18)]" />
-      <div className="pointer-events-none relative z-10 flex h-4 w-4 scale-90 items-center justify-center rounded-full bg-[#3f4249] text-white opacity-0 shadow-[0_1px_3px_rgba(16,24,40,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] ring-1 ring-black/10 transition-[opacity,scale] duration-150 group-hover/ins:scale-100 group-hover/ins:opacity-100">
+      {/* The line fades out at both ends and in from nothing, so it reads as a soft seam, not a rule. */}
+      <div className="pointer-events-none absolute inset-x-0 h-px scale-x-90 bg-[linear-gradient(90deg,transparent_0%,rgba(107,114,128,0.55)_22%,#6b7280_50%,rgba(107,114,128,0.55)_78%,transparent_100%)] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-x-100 group-hover/ins:opacity-100" />
+      <div className="pointer-events-none absolute inset-x-6 h-[3px] rounded-full bg-[radial-gradient(closest-side,rgba(16,24,40,0.10),transparent)] opacity-0 blur-[1px] transition-opacity duration-200 group-hover/ins:opacity-100" />
+      <div className="pointer-events-none relative z-10 flex h-4 w-4 scale-75 items-center justify-center rounded-full bg-[#3f4249] text-white opacity-0 shadow-[0_0_0_2px_#fff,0_1px_3px_rgba(16,24,40,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-100 group-hover/ins:opacity-100">
         <Plus className="h-2.5 w-2.5" strokeWidth={3} />
       </div>
     </div>

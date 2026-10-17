@@ -113,7 +113,7 @@ const TOPICS: Topic[] = [
     */
     id: "rich-settings",
     triggers: /setting|option|configur|customi[sz]|schema|editable|control|flexib|shopify|let (?:me|them|the creator|creators) (?:change|pick|choose|edit)/i,
-    text: `SETTINGS A CREATOR CAN USE. Pick the control that fits the value: inline_richtext for a heading with emphasis, richtext for body copy, image_picker plus focal_point (with "image": "<picture id>") for a picture that crops, image_gallery for several, video_url for YouTube or Vimeo, icon_picker for an icon, url for a button link (it takes a page, a product or any address), product_picker or product_list for real products, collection_picker or collection_list, link_list for a menu, datetime for a countdown, alignment for left, centre or right, color_background for a gradient, select or radio for a style choice (radio when there are 2 to 4 options). Group the panel with "header" settings in the order a creator works (Content, Layout, Style), give "info" one plain line where a setting needs it, and hide what only matters in one mode with "visible_if": "{{ section.settings.layout == 'split' }}". Mark sizes that differ on a phone "responsive": true. Every setting has a sensible default so the section looks finished when added, and presets show it filled in.`,
+    text: `SETTINGS A CREATOR CAN USE. A heading or title is inline_richtext (never text), printed | raw in the h2; a paragraph is richtext (never textarea), default in <p>…</p>, printed | raw in a <div>; a button label stays text. Also: image_picker plus focal_point, image_gallery, video_url, icon_picker, url for a link, product_picker/product_list, collection_picker/collection_list, link_list for a menu, datetime, alignment, color_background, select or radio. Group with "header" settings (Content, Layout, Style), "visible_if": "{{ section.settings.layout == 'split' }}" for one mode's options, "responsive": true on phone sizes.`,
   },
   {
     id: "theme-blocks",
@@ -133,7 +133,7 @@ const TOPICS: Topic[] = [
   {
     id: "typography",
     triggers: /font|type|heading|text size|typograph|weight|uppercase|letter|headline/i,
-    text: `TYPE MAY COME FROM THE THEME. The theme carries font roles (${FONT_ROLES.join(", ")}) and a type scale (${TYPE_STYLE_KEYS.join(", ")}), each with its own desktop, tablet and mobile size. A section may read them, or set its own type. Naming a font is allowed.`,
+    text: `TYPE MAY COME FROM THE THEME. The theme carries font roles (${FONT_ROLES.join(", ")}) and a type scale (${TYPE_STYLE_KEYS.join(", ")}), each with its own desktop, tablet and mobile size. A section that should match the rest of the site leaves its h1, h2, h3, p and buttons unstyled for font family, weight and size, or styles them with var(--type-h2-font), var(--type-h2-size), var(--type-h2-weight), var(--type-body-size) and the like, so a change in Theme settings, Typography reaches it. A select with the id heading_size (h1, h2, h3) lets the creator pick which theme style the heading takes. A section may still set its own type when the design asks for it; naming a font is allowed.`,
   },
   {
     id: "css-scoping",
@@ -235,6 +235,7 @@ export function topicsById(ids: string[]): string {
 /** What every new section needs, whatever it is a section of. */
 export const AUTHORING_ESSENTIALS = topicsById([
   "blocks",
+  "rich-settings",
   "color-scheme",
   "responsive",
   "css-scoping",

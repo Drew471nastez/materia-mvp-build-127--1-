@@ -18,6 +18,8 @@ import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse, after, type NextRequest } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
+
+import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/request-shape"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
@@ -52,7 +54,7 @@ const BodySchema = z.object({
    * "the assistant could not produce a section that compiles": a true
    * sentence about the wrong thing. A picture is a request.
    */
-  prompt: z.string().max(2000),
+  prompt: z.string().max(8000),
   /** Checked by reviewImages, never trusted as shaped. */
   images: z.array(z.unknown()).max(16).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
@@ -75,7 +77,7 @@ const BodySchema = z.object({
    */
   conversationId: z.string().uuid().nullable().optional(),
   /** The page it was asked on, for the transcript. */
-  page: z.string().min(1).max(64).optional(),
+  page: z.string().min(1).max(200).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -113,8 +115,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   })
   if (limited) return limited
 
-  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })
+  const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
+  if (!parsed.success) return NextResponse.json({ error: unreadablePart(parsed.error.issues), issues: parsed.error.issues }, { status: 400 })
 
   /**
    * The pictures are checked at the edge, against the limits in one module:

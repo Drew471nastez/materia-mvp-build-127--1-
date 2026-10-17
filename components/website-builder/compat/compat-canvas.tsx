@@ -1178,6 +1178,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
         setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
         if (isFront) scrollY.current = m.scrollY
+      } else if (m.type === "clip-key" && isFront) {
+        /* Cmd/Ctrl+C or V pressed inside the page: the editor copies or pastes the open section (editor page, clip keys). */
+        const key = (m as { key?: unknown }).key
+        if (key === "copy" || key === "paste") window.dispatchEvent(new CustomEvent("storelib:clip-key", { detail: key }))
       } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current && isFront) {
         onSelect.current(m.sectionId, Array.isArray(m.blockPath) ? m.blockPath.filter((x): x is string => typeof x === "string") : [])
       }

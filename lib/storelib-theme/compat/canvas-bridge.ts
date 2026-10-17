@@ -20,6 +20,23 @@
 export const CANVAS_BRIDGE = `
 (function () {
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  /*
+    COPY AND PASTE FROM INSIDE THE PAGE. A click in the canvas puts the
+    keyboard in this frame, so Cmd/Ctrl+C and V never reached the builder,
+    which copies and pastes sections. Outside a field and with no text
+    selected, the keys are handed to the builder; anything else is the page's.
+  */
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+    var k = (e.key || "").toLowerCase();
+    if (k !== "c" && k !== "v") return;
+    var t = e.target;
+    if (t && t.closest && t.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) return;
+    var sel = window.getSelection && window.getSelection();
+    if (k === "c" && sel && !sel.isCollapsed && String(sel).trim() !== "") return;
+    e.preventDefault();
+    post({ type: "clip-key", key: k === "c" ? "copy" : "paste" });
+  }, true);
   var css = document.createElement("style");
   css.setAttribute("data-sl", "");
   /*

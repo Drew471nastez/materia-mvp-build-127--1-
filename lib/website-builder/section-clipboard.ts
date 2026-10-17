@@ -39,6 +39,8 @@ export const CLIP_VERSION = 1
 export const CLIP_MAX_CHARS = 1_500_000
 
 const TYPE = /^[a-z0-9][a-z0-9_-]{0,63}$/i
+/* A block's type also starts with _ (a theme's private block) or @ (@app), or is an app block's address. */
+const BLOCK_TYPE = /^[@_a-z0-9][a-z0-9_@\-/:.]{0,255}$/i
 const CODE_PATH = /^sections\/[a-z0-9][a-z0-9_-]{0,63}\.storelib$/
 
 export interface ClipBase {
@@ -151,15 +153,19 @@ function readBlocks(list: unknown, depth: number, count: { n: number }): BlockIn
   if (!Array.isArray(list)) return null
   if (depth > MAX_BLOCK_DEPTH) return null
   const out: BlockInstance[] = []
+  /*
+    ONE ODD BLOCK NEVER LOSES THE COPY. A block this cannot read (no id, a
+    type that is not a type) is left out and the rest of the section is
+    kept; settings that are not an object arrive as none. Refusing the whole
+    copy over one block made Copy say "Copied" and Paste find nothing.
+  */
   for (const item of list) {
-    if (!isRecord(item)) return null
-    if (!isText(item.id, 128) || !item.id || !isText(item.type, 64) || !TYPE.test(item.type)) return null
-    if (item.settings !== undefined && !isRecord(item.settings)) return null
+    if (!isRecord(item)) continue
+    if (!isText(item.id, 400) || !item.id || !isText(item.type, 256) || !BLOCK_TYPE.test(item.type)) continue
     count.n += 1
-    if (count.n > LIMITS.blocksPerSection) return null
-    const kids = readBlocks(item.blocks, depth + 1, count)
-    if (kids === null) return null
-    const b: BlockInstance = { id: item.id, type: item.type, settings: (item.settings as Record<string, unknown>) ?? {} }
+    if (count.n > LIMITS.blocksPerSection) break
+    const kids = depth >= MAX_BLOCK_DEPTH ? [] : readBlocks(Array.isArray(item.blocks) ? item.blocks : undefined, depth + 1, count) ?? []
+    const b: BlockInstance = { id: item.id, type: item.type, settings: isRecord(item.settings) ? item.settings : {} }
     if (item.hidden === true) b.hidden = true
     if (item.static === true) b.static = true
     if (kids.length) b.blocks = kids
@@ -196,11 +202,10 @@ export function decodeClip(text: string | null | undefined): Clip | null {
   }
   if (raw.kind === "section") {
     const s = raw.section
-    if (!isRecord(s) || !isText(s.type, 64) || !TYPE.test(s.type) || !isRecord(s.settings)) return null
-    const blocks = readBlocks(s.blocks, 1, { n: 0 })
-    if (blocks === null) return null
-    const section: CopiedSection = { type: s.type, name: isText(s.name) ? s.name : s.type, settings: s.settings, blocks }
-    if (isText(s.label, 80) && s.label) section.label = s.label
+    if (!isRecord(s) || !isText(s.type, 64) || !TYPE.test(s.type)) return null
+    const blocks = readBlocks(Array.isArray(s.blocks) ? s.blocks : undefined, 1, { n: 0 }) ?? []
+    const section: CopiedSection = { type: s.type, name: isText(s.name, 256) ? s.name : s.type, settings: isRecord(s.settings) ? s.settings : {}, blocks }
+    if (typeof s.label === "string" && s.label.trim()) section.label = s.label.slice(0, 80)
     if (s.hidden === true) section.hidden = true
     const clip: SectionClip = { ...head, kind: "section", typeName: isText(raw.typeName) ? raw.typeName : s.type, fieldTypes: readFieldTypes(raw.fieldTypes), section }
     const code = raw.code

@@ -1895,7 +1895,7 @@ check(
   // and a hairline between Header, Template and Footer drawn at rest, so on a
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
-    /* Changed on purpose (round AH, the owner: dark grey with depth, not purple). */ /group-hover\/ins:bg-\[#6b7280\]/.test(sectionsList) && !/8b5cf6/.test(sectionsList) &&
+    /* Changed on purpose (round AH, dark grey with depth, not purple; round AI, a grey line that fades out at its ends). */ /linear-gradient\(90deg,transparent_0%[^"]*#6b7280/.test(sectionsList) && !/8b5cf6/.test(sectionsList) &&
     /* Header, page, Footer, and the Overlay group when it shows. */
     (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 3,
 )

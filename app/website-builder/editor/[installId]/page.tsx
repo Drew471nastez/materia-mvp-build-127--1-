@@ -5641,6 +5641,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const pasteSectionNow = (afterId: string | null, from: Clip | null = clip, top = false) => {
+    /* A section copied from the page goes into the page: with the header open it lands first, with the footer open last, never inside either group. */
+    const opened = afterId ? sectionsRef.current.find((x) => x.id === afterId) : null
+    if (opened && groupOf(opened) !== "template") {
+      top = groupOf(opened) === "header"
+      afterId = null
+    }
     const check = sectionPasteCheck(from)
     if (check.ok === false) { toast.error((check as { reason: string }).reason); return }
     const c = from as SectionClip
@@ -5873,7 +5879,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
   clipKeys.current.paste = (c: Clip | null) => {
     const from = c ?? clip
-    if (!from) return
+    if (!from) { toast.error("Copy a section first"); return }
     const id = selectedPanel.type === "section" ? selectedPanel.sectionId : null
     if (c) void writeClip(c)
     if (from.kind === "block") {
@@ -5920,11 +5926,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       e.preventDefault()
       clipKeys.current.paste(null)
     }
+    /* The same keys pressed inside an imported theme's canvas frame (compat-canvas, "clip-key"): the copy kept here is what pastes. */
+    const onFrameKey = (e: Event) => {
+      const key = (e as CustomEvent<unknown>).detail
+      if (key === "copy") {
+        const copied = clipKeys.current.copy()
+        if (!copied) toast.error("Open a section to copy it")
+      } else if (key === "paste") clipKeys.current.paste(null)
+    }
     document.addEventListener("copy", onCopy)
     document.addEventListener("paste", onPaste)
+    window.addEventListener("storelib:clip-key", onFrameKey)
     return () => {
       document.removeEventListener("copy", onCopy)
       document.removeEventListener("paste", onPaste)
+      window.removeEventListener("storelib:clip-key", onFrameKey)
     }
   }, [clipOwner])
 

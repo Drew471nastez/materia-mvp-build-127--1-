@@ -289,7 +289,7 @@ function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; 
     return { ok: false, feedback: drawn.feedback, final: { error: "The section did not compile.", errors: drawn.errors } }
   }
   /* Worth saying in the review, never a refusal: the drawn section's notes, and the advice the strict gate passed with. */
-  const worth = new Set(["reduced-motion", "img-alt", "advice-colour-settings", "integration-responsive", "integration-button-hover"])
+  const worth = new Set(["advice-rich-heading", "advice-rich-body", "reduced-motion", "img-alt", "advice-colour-settings", "integration-responsive", "integration-button-hover"])
   const notes = [
     ...((drawn as { notes?: { message: string }[] }).notes ?? []).map((n) => n.message),
     ...((checked as { findings?: { id: string; severity: string; message: string }[] }).findings ?? []).filter((f) => f.severity === "warning" && worth.has(f.id)).map((f) => f.message),
