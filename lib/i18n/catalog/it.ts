@@ -2925,6 +2925,8 @@ const words: Record<string, string> = {
  "Edit the website": "Modifica il sito",
  "Edit the whole page instead": "Modifica l'intera pagina",
  "Edit tracking": "Modifica tracciamento",
+ "Correct tracking": "Correggi tracciamento",
+ "This package was delivered, so the buyer is not emailed about the change.": "Questo pacco è stato consegnato, quindi l'acquirente non riceve un'email per la modifica.",
  "Edit variants": "Modifica varianti",
  "Edit website": "Modifica sito web",
  "Edit {name}": "Modifica {name}",

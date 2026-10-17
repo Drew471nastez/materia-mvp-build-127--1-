@@ -458,7 +458,8 @@ export function PhysicalFulfillment({
                     },
                   }]
                 : []),
-              ...(!pickup && !delivered ? [{ label: s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
+              /* A delivered parcel can still have its number corrected (a typo found later): the record is fixed, the buyer is not emailed again. */
+              ...(!pickup ? [{ label: delivered ? tt("Correct tracking") : s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
               /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: tt("Mark as in transit"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, tt("Marked as in transit")) }] : []),
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: tt("Mark as out for delivery"), icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, tt("Marked as out for delivery. The buyer was emailed.")) }] : []),
@@ -1398,7 +1399,8 @@ function TrackingDialog({ shipment, country, onClose, onSubmit }: { shipment: Ph
     >
       <div className="space-y-4">
         <TrackingFields ship={ship} set={set} country={country} check={check} />
-        <Toggle label={tt("Email the buyer the new number")} checked={notify} onChange={setNotify} />
+        {/* Already delivered: the number is corrected for the record, and the buyer is not emailed (lib/physical/orders-server.ts). */}
+        {shipment.status === "delivered" ? <p className="text-[13px] leading-[19px] text-[#6b7280]">{tt("This package was delivered, so the buyer is not emailed about the change.")}</p> : <Toggle label={tt("Email the buyer the new number")} checked={notify} onChange={setNotify} />}
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>

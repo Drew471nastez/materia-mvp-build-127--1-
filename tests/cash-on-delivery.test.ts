@@ -203,7 +203,7 @@ function main() {
     check("the fee is kept inside the delivery charge and named", /shipping_cents: totals\.shippingCents \+ totals\.codFeeCents/.test(server) && /cod_fee_cents: totals\.codFeeCents/.test(server))
     check("the server checks the delivery country", /countries: config\.codCountries, country: pickup \? null : \(address\?\.country \?\? null\)/.test(server))
     const quote = read("lib/checkout/site-quote-server.ts")
-    check("both quotes ask with the payment method, so the page shows the server's total", /export async function codFeeFor/.test(quote) && /quoteCheckout\(db, priced, country \? \{ country, region, postalCode \} : null, body\.deliveryOptionId, \{ codFeeCents \}\)/.test(quote) && /codFeeFor\(db, priced\.creatorId, body, country\)/.test(read("app/api/physical/checkout/quote/route.ts")))
+    check("both quotes ask with the payment method, so the page shows the server's total", /export async function codFeeFor/.test(quote) && /* The city rides along since the carrier rates fix (lib/integrations/shipping/checkout-rates-server.ts). */ /quoteCheckout\(db, priced, country \? \{ country, region, postalCode, city \} : null, body\.deliveryOptionId, \{ codFeeCents \}\)/.test(quote) && /codFeeFor\(db, priced\.creatorId, body, country\)/.test(read("app/api/physical/checkout/quote/route.ts")))
     const site = read("app/checkout/site/site-checkout.tsx")
     const shipped = read("app/checkout/physical/physical-checkout.tsx")
     check("the website checkout asks again when cash is chosen and shows the fee line", /byCash && config\.cashOnDelivery \? \{ cashOnDelivery: true \}/.test(site) && /data-cod-fee/.test(site) && /onChoose: setByCash/.test(site))

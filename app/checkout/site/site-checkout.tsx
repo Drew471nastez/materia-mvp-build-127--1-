@@ -363,7 +363,9 @@ export function SiteCheckout({
   /* Where it goes only changes the price of an order that ships. */
   /* The postal code counts once it is long enough to name an area: it only decides local delivery (lib/physical/local-delivery.ts). */
   const postalForQuote = postalKey(address.postalCode).length >= 3 ? postalKey(address.postalCode) : ""
-  const shipsKey = ships ? `${address.country}|${address.region}|${postalForQuote}` : ""
+  /* Asked with the city once it is two letters or more: carrier rates in most of Europe need it. */
+  const cityForQuote = address.city.trim().length >= 2 ? address.city.trim() : ""
+  const shipsKey = ships ? `${address.country}|${address.region}|${postalForQuote}|${cityForQuote}` : ""
 
   const asked = React.useRef(0)
   const firstAsk = React.useRef(!!initialQuote)
@@ -384,7 +386,7 @@ export function SiteCheckout({
     const t = window.setTimeout(async () => {
       try {
         /* Paying on delivery is asked with it: the total then has the shop's fee in it, as the order will. */
-        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, lang: pageLang ?? null, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) })
+        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, city: cityForQuote, deliveryOptionId: optionId, email, lang: pageLang ?? null, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) })
         if (n !== asked.current) return
         if (!res.ok) {
           setQuoteError(ct(res.data.error || "Could not load your order."))
