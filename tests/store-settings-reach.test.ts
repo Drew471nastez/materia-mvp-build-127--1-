@@ -38,7 +38,8 @@ console.log("\nStore details' country: new locations and tax start there\n")
 {
   check("Taxes offers the store's country first", /detectedCountry: store\?\.defaultCountry \?\? detectedCountry\(h\)/.test(read("app/api/store/taxes/route.ts")))
   const ship = read("components/physical/shipping-settings.tsx")
-  check("a new location starts in it", /<LocationForm startCountry=\{storeCountry\(\)\}/.test(ship) && /country: initial\?\.country \?\? startCountry/.test(ship))
+  /* Changed on purpose (shipping quick setup): the settings read now carries the store's country itself (origin), with Settings' read-ahead as the fallback. */
+  check("a new location starts in it", /<LocationForm startCountry=\{data\.origin\?\.country \|\| storeCountry\(\)\}/.test(ship) && /country: initial\?\.country \?\? startCountry/.test(ship))
 }
 
 console.log("\nCheckout\n")

@@ -730,6 +730,10 @@ const STRICT_SUITES = [
   "tests/e2e-more-currencies.test.ts",
   /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
   "tests/e2e-manual-fulfillment.test.ts",
+  /* Quick setup through the real routes: explicit prices, whole or nothing, once */
+  "tests/e2e-shipsetup.test.ts",
+  /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */
+  "tests/shipsetup.test.ts",
   /*
     The Claude provider's suite, here and not in the list above: its imports
     (the Anthropic SDK's types) change how the loose compile reads other
