@@ -1,7 +1,8 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
-import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode, type PointerEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -55,10 +56,12 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   const totalSlides = featuredProducts.length
 
   // Format price helper
-  /* In each product's own store currency, when Explore read it (lib/store/store-currencies). */
+  /* In the currency Explore quotes, which is Storelib's for every card
+     whatever any one store sells in on its own website
+     (lib/pricing/surface-currency). */
   const formatPrice = (cents?: number, currency?: string | null) => {
     if (!cents || cents === 0) return "Free"
-    return currency ? shopMoneyIn(cents, currency, { grouping: true }) : shopMoney(cents, { grouping: true })
+    return shopMoneyIn(cents, currency || STORELIB_CURRENCY, { grouping: true })
   }
 
   // Reset progress when slide changes

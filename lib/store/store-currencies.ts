@@ -1,9 +1,13 @@
 /**
- * The selling currency of several stores in one read, for the pages that list
- * products from many creators (Explore, its categories, wishlists). A product's
- * `price_cents` is in its store's currency (lib/store/selling-currency), so a
- * card that draws it needs that currency beside it: a lei store's 49 is 49 lei,
- * never $49.
+ * The selling currency of several stores in one read, for a STOREFRONT list
+ * that spans more than one store: a lei store's 49 is 49 lei on that store's
+ * own website, never $49.
+ *
+ * Not for Explore, the creator pages or a community. Those are Storelib's own
+ * surfaces and quote one currency for everybody, so they say which themselves
+ * rather than reading any store's setting (lib/pricing/surface-currency). This
+ * file used to feed them, which is how a creator changing their own store
+ * currency moved every price Storelib showed for them.
  *
  * A store that never chose, a database without SQL part 176, or a read that
  * fails: the platform's currency, as every price was before.
