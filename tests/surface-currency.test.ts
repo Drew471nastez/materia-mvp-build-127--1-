@@ -182,7 +182,7 @@ async function main() {
     check("one answer for the amount, the PaymentIntent and the wallet sheet", (session.match(/currency: chargeCurrency,/g) ?? []).length >= 2)
     check("and no second read of the store's currency beside it", !/readStoreCurrency/.test(session))
     const pageSrc = code("app/checkout/page.tsx")
-    check("the checkout page draws the same surface's currency, decided the same way", /checkoutSurfaceCurrency\(checkoutAdmin\(\), \{ host: requestHost, creatorId: creator\?\.id \?\? null \}\)/.test(pageSrc) && /<CheckoutCurrency currency=\{store\.currency\}>/.test(pageSrc))
+    check("the checkout page draws the same surface's currency, decided the same way", /checkoutSurfaceCurrency\(checkoutAdmin\(\), \{ host: requestHeaders\.get\("host"\), creatorId: creator\?\.id \?\? null \}\)/.test(pageSrc) && /<CheckoutCurrency currency=\{store\.currency\}>/.test(pageSrc))
   }
 
   console.log("\nA community's prices and checkouts are USD")

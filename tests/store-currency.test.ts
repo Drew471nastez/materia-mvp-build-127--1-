@@ -235,7 +235,7 @@ async function main() {
        no platform charge currency. tests/surface-currency.test.ts drives both hosts. */
     check("the single product checkout charges its surface's currency, held to that currency's minimum", /checkoutSurfaceCurrency\(admin, \{ host: request\.headers\.get\("host"\), creatorId: creator\.id \}\)/.test(session) && /const chargeCurrency = surface\.charge/.test(session) && /minimumChargeMinor\(surfaceCurrencyCode\)/.test(session) && !/platformChargeCurrency\(/.test(session))
     const page = code("app/checkout/page.tsx")
-    check("and its page draws that same surface's currency, decided the same way", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /checkoutSurfaceCurrency\(checkoutAdmin\(\), \{ host: requestHost, creatorId: creator\?\.id \?\? null \}\)/.test(page))
+    check("and its page draws that same surface's currency, decided the same way", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /checkoutSurfaceCurrency\(checkoutAdmin\(\), \{ host: requestHeaders\.get\("host"\), creatorId: creator\?\.id \?\? null \}\)/.test(page))
     const boundary = code("lib/pricing/surface-currency-server.ts")
     check("and that decision reads the host from the database, never from the page", /siteOfHost\(db, opts\.host\)/.test(boundary) && /readStoreCurrency\(db, opts\.creatorId\)/.test(boundary))
     const client = code("app/checkout/checkout-client.tsx")

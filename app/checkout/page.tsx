@@ -222,14 +222,13 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-  const requestHost = (await headers()).get("host")
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await Promise.all([
+  const requestHeaders = await headers()
+  const [paymentProvider, checkoutConfig, taxSetup, storeName, store] = await Promise.all([
     creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
     /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
     loadCheckoutConfig(checkoutAdmin(), creator?.id),
     /* Settings › Taxes, when the store taxes digital products (lib/tax). */
     loadTaxForCheckout(checkoutAdmin(), creator?.id),
-    headers(),
     /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
     creator?.id ? loadStoreName(checkoutAdmin(), creator.id) : Promise.resolve(null),
     /*
@@ -240,7 +239,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       website is serving the checkout on its own host. The route decides the
       same way, so the summary and the PaymentIntent cannot disagree.
     */
-    checkoutSurfaceCurrency(checkoutAdmin(), { host: requestHost, creatorId: creator?.id ?? null }),
+    checkoutSurfaceCurrency(checkoutAdmin(), { host: requestHeaders.get("host"), creatorId: creator?.id ?? null }),
   ])
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
