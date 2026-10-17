@@ -727,7 +727,8 @@ export function IntervalSwitch({ className, full = false }: { className?: string
 /** The price, large, with what it is per beside it; it follows the interval. */
 function PriceLine({ className }: { className?: string }) {
   const { join, interval } = useJoin()
-  const parts = plansPrice(join.plans ?? []) ?? priceParts(join.option, interval)
+  /* Round AG: with several plans the picker shows the prices; the card shows the button alone, never "Free or 1 paid plan". */
+  const parts = (join.plans?.length ?? 0) > 1 ? null : priceParts(join.option, interval)
   if (!parts || join.kind === "open" || join.kind === "invite_only" || join.kind === "product") return null
   return (
     <p className={cn("flex items-baseline gap-1.5", className)} data-join-price="">
@@ -945,7 +946,7 @@ export const JoinSurface = React.createContext<HTMLElement | null>(null)
 export function JoinBarPhone() {
   const { join, interval, community } = useJoin()
   const surface = React.useContext(JoinSurface)
-  const parts = join.kind === "open" ? null : plansPrice(join.plans ?? []) ?? priceParts(join.option, interval)
+  const parts = join.kind === "open" || (join.plans?.length ?? 0) > 1 ? null : priceParts(join.option, interval)
   const wide = join.kind === "open" || join.kind === "pending" || !parts || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
   const ref = React.useRef<HTMLDivElement>(null)
   /*

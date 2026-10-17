@@ -108,8 +108,10 @@ async function main() {
 
   console.log("\nThe community's own checkout")
   const flow = code("components/community/public/join-flow.tsx")
-  check("card details go into Stripe's own fields (StripePay), never inputs of ours", /<StripePay/.test(flow) && !/name="(card|cardNumber|cvc|cvv)"/i.test(flow) && !/autoComplete="cc-/.test(flow))
-  check("Powered by Stripe only because the payment runs on Stripe", /PoweredByStripe/.test(flow) && /mode="subscription"/.test(flow))
+  /* Changed on purpose (round AG): the checkout is Skool's shape, Stripe's one line card field and the device's own wallet (./compact-pay.tsx), still Stripe's hosted fields. */
+  const payUi = code("components/community/public/compact-pay.tsx")
+  check("card details go into Stripe's own fields (CardElement, paymentRequest), never inputs of ours", /<CompactPay/.test(flow) && /<CardElement/.test(payUi) && /paymentRequest\(/.test(payUi) && !/name="(card|cardNumber|cvc|cvv)"/i.test(flow + payUi) && !/autoComplete="cc-/.test(flow + payUi))
+  check("Powered by Stripe only because the payment runs on Stripe; no tick box, the terms sit under the button", /PoweredByStripe/.test(flow) && !/CheckRow/.test(flow) && /By joining you agree to the/.test(read("components/community/public/join-flow.tsx")) && /agreedToTerms: true/.test(flow))
   check("the subscription is made by the memberships route, and confirmed by the server", /\/api\/memberships\/checkout/.test(flow) && /\/api\/memberships\/confirm/.test(flow))
   check("Monthly and Annual are chosen in the checkout, with the monthly equivalent and billed yearly", /data-interval/.test(flow) && /billed yearly/.test(read("components/community/public/join-flow.tsx")))
   check("the trial note says what is paid today, then what and from when", /Nothing today, then/.test(read("components/community/public/join-flow.tsx")) && /trialEnds\(/.test(flow))
@@ -271,8 +273,31 @@ async function main() {
   check("a plan change is told to the member through the notification engine, once per change", /"membership\.plan_changed": "MEMBERSHIP_PLAN_CHANGED"/.test(code("lib/notify/workflows/memberships.ts")) && /membership:\$\{membershipId\}:plan:/.test(code("lib/communities/server/plan-change.ts")))
   check("a billing notice: always sent, never budgeted away", /MEMBERSHIP_PLAN_CHANGED: "essential"/.test(code("lib/notify/email-budget.ts")) && /MEMBERSHIP_PLAN_CHANGED: E\(\{ category: "sales", priority: "normal", requirement: "required_service"/.test(code("lib/notify/registry.ts")))
 
+  console.log("\nTax on a membership (round AG)")
+  {
+    const { membershipTaxQuote, buyerCountry, buyerIp } = await import("@/lib/tax/membership")
+    const creator = "cr-tax"
+    const taxDb = (digital: boolean) =>
+      fakeDb({
+        commerce_settings: [{ creator_id: creator, tax_mode: "manual", prices_include_tax: false, tax_on_shipping: false, tax_digital: digital }],
+        commerce_tax_rates: [{ id: "r-ro", creator_id: creator, country: "RO", region: null, name: "VAT", rate_bps: 2100 }],
+        commerce_tax_overrides: [],
+      })
+    const ro = await membershipTaxQuote(taxDb(true) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "RO", ip: null })
+    check("a creator who taxes digital sales: their rate on the membership, added on top", ro?.taxCents === 2079 && ro.included === false && ro.source === "creator" && /VAT/.test(ro.label), ro)
+    check("a buyer outside the creator's regions pays no tax", (await membershipTaxQuote(taxDb(true) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "US", ip: null })) === null)
+    check("a creator who does not tax digital sales charges none: Storelib never invents a rate", (await membershipTaxQuote(taxDb(false) as never, { creatorId: creator, productId: "p1", amountCents: 9900, currency: "usd", country: "RO", ip: null })) === null)
+    const h = new Headers({ "x-vercel-ip-country": "ro", "x-forwarded-for": "203.0.113.9, 10.0.0.1" })
+    check("the buyer's country and address come from the request, no form", buyerCountry(h) === "RO" && buyerIp(h) === "203.0.113.9" && buyerCountry(new Headers({ "x-vercel-ip-country": "XX" })) === null)
+    const taxMod = code("lib/tax/membership.ts")
+    check("Stripe Tax only when Storelib turns it on, and the subscription then carries automatic tax", /STRIPE_TAX/.test(taxMod) && /automaticTax: true/.test(taxMod) && /params\.automatic_tax = \{ enabled: true \}/.test(code("lib/memberships/billing.ts")))
+    check("the creator's rate rides every renewal as a Stripe tax rate", /stripe\.taxRates\.create/.test(taxMod) && /params\.default_tax_rates = p\.taxRateIds/.test(code("lib/memberships/billing.ts")))
+    check("the checkout shows the same tax it charges", /membershipTaxQuote/.test(code("app/api/community/[communityId]/checkout/route.ts")) && /membershipTaxForSubscription/.test(code("app/api/memberships/checkout/route.ts")) && /tax-quote/.test(code("app/checkout/membership-checkout.tsx")))
+    check("never claims to file or pay tax", !/(we|Storelib) (file|files|remit|remits|pay|pays) (your|the) tax/i.test(read("lib/tax/membership.ts")))
+  }
+
   console.log("\nCopy")
-  const mine = ["components/community/public/join-flow.tsx", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
+  const mine = ["components/community/public/join-flow.tsx", "components/community/public/compact-pay.tsx", "lib/tax/membership.ts", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

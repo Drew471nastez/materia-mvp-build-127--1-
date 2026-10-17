@@ -257,7 +257,8 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
   /* Round AF: several plans are chosen in the plan picker (./join-flow), not listed again here. */
   const otherOptions = (join.plans?.length ?? 0) > 1 ? [] : c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
   /* Round 33, the owner: no Membership section while the community has fewer than two members. */
-  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed" && c.memberCount >= 2
+  /* Round AG: with several plans the Join button opens the plan picker; the plans are not listed again in the page. */
+  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed" && c.memberCount >= 2 && (join.plans?.length ?? 0) < 2
   const hasDescription = Boolean(c.descriptionHtml || c.descriptionText)
   /* The side card's list (from 1280px): what the row under the name does not already say (round 33). */
   const facts = aboutFacts(c, c.stats, extras).filter((f) => f.key !== "members" && f.key !== "visibility")

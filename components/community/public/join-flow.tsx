@@ -38,8 +38,9 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money as moneyOf, yearlySaving } from "@/lib/memberships/state"
 import { formatMoney } from "@/lib/communities/membership-policy"
 import { WAIT_MS, requestJson } from "@/lib/net/request"
-import { StripePay, type IntentResult } from "@/app/checkout/parts/stripe-pay"
-import { CheckRow, ErrorBanner, PoweredByStripe } from "@/app/checkout/parts/ui"
+import type { IntentResult } from "@/app/checkout/parts/stripe-pay"
+import { CompactPay, type StartedPayment } from "./compact-pay"
+import { PoweredByStripe } from "@/app/checkout/parts/ui"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import type { JoinOption, PublicCommunityView } from "./types"
 
@@ -59,6 +60,27 @@ function useBodyLock(on: boolean) {
       html.style.overflow = before
     }
   }, [on])
+}
+
+/**
+ * Round AG: a close that is seen. The overlay fades and drops a few px over EXIT_MS, then goes; a second press while it
+ * leaves does nothing. Opening is just as short (150ms), so the picker feels quick rather than slow.
+ */
+const EXIT_MS = 140
+function useExit(onClose: () => void): [boolean, () => void] {
+  const [leaving, setLeaving] = React.useState(false)
+  const ref = React.useRef(onClose)
+  ref.current = onClose
+  const close = React.useCallback(() => {
+    setLeaving((was) => {
+      if (!was) {
+        const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        window.setTimeout(() => ref.current(), reduced ? 0 : EXIT_MS)
+      }
+      return true
+    })
+  }, [])
+  return [leaving, close]
 }
 
 function useEscape(onClose: () => void) {
@@ -111,21 +133,23 @@ export function PlanPicker({
   error: string | null
 }) {
   useBodyLock(true)
-  useEscape(onClose)
+  const [leaving, close] = useExit(onClose)
+  useEscape(close)
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
   if (!mounted) return null
   const cols = plans.length >= 3 ? "lg:grid-cols-3" : plans.length === 2 ? "md:grid-cols-2" : ""
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-labelledby="plan-picker-title" className="fixed inset-0 z-[120] flex flex-col bg-[#f8f9fa] animate-in fade-in duration-200" data-plan-picker="">
+    <div role="dialog" aria-modal="true" aria-labelledby="plan-picker-title" className={cn("fixed inset-0 z-[120] flex flex-col bg-[#f8f9fa] animate-in fade-in duration-150 ease-out transition-opacity motion-reduce:animate-none", leaving && "pointer-events-none opacity-0 duration-[140ms] ease-in")} data-plan-picker="" data-leaving={leaving ? "" : undefined}>
       <header className="shrink-0 border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-16 max-w-[1080px] items-center gap-3 px-4 sm:px-6">
           <CommunityMark community={community} size={36} />
           <p className="min-w-0 flex-1 truncate text-[16px] font-semibold text-[#1a1a2e]">{community.name}</p>
-          <CloseButton onClose={onClose} />
+          <CloseButton onClose={close} />
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className={cn("mx-auto w-full max-w-[1080px] animate-in slide-in-from-bottom-1.5 duration-200 ease-out transition-[translate] motion-reduce:animate-none", leaving && "translate-y-1.5 duration-[140ms]")} data-plan-picker-body="">
         <div className="mx-auto w-full max-w-[1080px] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 sm:px-6 sm:pt-12">
           <h1 id="plan-picker-title" className="text-center text-[26px] font-semibold tracking-[-0.01em] text-[#1a1a2e] sm:text-[30px]">
             Select your plan
@@ -140,6 +164,7 @@ export function PlanPicker({
               <PlanCard key={p.tierId ?? p.name} plan={p} onPick={() => onPick(p)} busy={pending === p.tierId} disabled={!!pending} />
             ))}
           </div>
+        </div>
         </div>
       </div>
     </div>,
@@ -172,8 +197,8 @@ function PlanCard({ plan, onPick, busy, disabled }: { plan: JoinOption; onPick: 
         <ul className="mt-6 space-y-3">
           {plan.benefits.map((b, i) => (
             <li key={i} className="flex gap-3 text-[14.5px] leading-snug text-[#374151]">
-              <span aria-hidden className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white">
-                <Check className="h-3 w-3" strokeWidth={3} />
+              <span aria-hidden className="mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(16,24,40,0.22),0_2px_6px_-2px_rgba(16,24,40,0.28)]" data-plan-check="">
+                <Check className="h-3 w-3 drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]" strokeWidth={3.25} />
               </span>
               <span>{b}</span>
             </li>
@@ -205,6 +230,15 @@ interface Facts {
   trialDays: number
   trialUsed: boolean
   terms: CommunityCheckoutTerms
+  /** Round AG: the tax each interval's price carries for this buyer, as the server will charge it; null where there is none. */
+  tax?: { month?: TaxQuote | null; year?: TaxQuote | null } | null
+}
+
+export interface TaxQuote {
+  taxCents: number
+  included: boolean
+  /** "VAT", "VAT 19%", "Sales tax". */
+  label: string
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string; code?: string } }> {
@@ -237,15 +271,15 @@ export function CommunityCheckout({
   React.useEffect(() => setMounted(true), [])
   const [facts, setFacts] = React.useState<Facts | null>(null)
   const [loadError, setLoadError] = React.useState<{ message: string; url?: string } | null>(null)
-  const [agreed, setAgreed] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<{ trial: boolean } | null>(null)
   const [open, setOpen] = React.useState(false)
   const started = React.useRef<{ subscriptionId: string; clientSecret: string; membershipId: string } | null>(null)
+  const [leaving, closeAnimated] = useExit(onClose)
   const closeIfIdle = React.useCallback(() => {
-    if (!busy) onClose()
-  }, [busy, onClose])
+    if (!busy) closeAnimated()
+  }, [busy, closeAnimated])
   useEscape(closeIfIdle)
 
   React.useEffect(() => {
@@ -333,16 +367,7 @@ export function CommunityCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const check = (): string | null => {
-    if (done) return "You're already in."
-    if (!agreed) {
-      document.getElementById("community-checkout-terms")?.scrollIntoView({ block: "center", behavior: "smooth" })
-      return "Tick the box to agree to the terms."
-    }
-    return null
-  }
-
-  const createIntent = async (contact?: { email?: string; name?: string }, methods?: string[]): Promise<IntentResult> => {
+  const createIntent = async (contact?: { email?: string; name?: string; paymentMethodId?: string }, methods?: string[]): Promise<IntentResult> => {
     if (!facts || !plan?.productId) throw new Error("This plan can't be joined right now.")
     const name = (contact?.name || facts.buyer.name || "").trim().split(/\s+/).filter(Boolean)
     const res = await postJson<{ membershipId?: string; subscriptionId?: string; clientSecret?: string; type?: "payment" | "setup" }>("/api/memberships/checkout", {
@@ -351,7 +376,9 @@ export function CommunityCheckout({
       firstName: name[0] || facts.buyer.email.split("@")[0],
       lastName: name.slice(1).join(" "),
       email: facts.buyer.email,
-      agreedToTerms: agreed,
+      /* The terms are on screen under the button and pressing it is the agreement (round AG: no checkbox). */
+      agreedToTerms: true,
+      paymentMethodId: contact?.paymentMethodId,
       paymentMethods: methods,
       withdrawalWaiver: !!waiver,
       previousMembershipId: started.current?.membershipId || undefined,
@@ -365,107 +392,109 @@ export function CommunityCheckout({
     return { clientSecret: res.data.clientSecret, paymentIntentId: res.data.subscriptionId, type: res.data.type ?? "payment" }
   }
 
-  const onPaid = async (_id: string, status: string) => {
-    const s = started.current
-    if (!s) return
-    if (status === "processing") return setError("Your bank is still processing the payment. You're let in as soon as it clears, and we'll email you.")
-    if (status !== "succeeded") return setError("The payment was not completed. Nothing was charged. Try again.")
-    try {
-      await confirm(s.subscriptionId, s.clientSecret)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Your membership could not be confirmed. Refresh in a moment.")
-    }
+  /** The subscription made with the payment method the card field or the wallet gave (./compact-pay.tsx). */
+  const startWith = async (paymentMethodId: string): Promise<StartedPayment> => {
+    const made = await createIntent({ paymentMethodId })
+    return { clientSecret: made.clientSecret, type: made.type === "setup" ? "setup" : "payment" }
+  }
+
+  /** Stripe has it: the server brings the membership up to date, which is what lets them in. */
+  const afterStripe = async () => {
+    const st = started.current
+    if (!st) return
+    await confirm(st.subscriptionId, st.clientSecret)
   }
 
   const payLabel = trial ? "Start free trial" : `Join ${fmt(priceCents)}/${per}`
+  /* Tax, as the server will charge it (lib/tax/membership.ts): none, added on top, or already in the price. */
+  const tax = (chosen === "year" ? facts?.tax?.year : facts?.tax?.month) ?? null
+  const taxOnTop = !!tax && tax.taxCents > 0 && !tax.included
+  const recurringCents = taxOnTop ? priceCents + tax!.taxCents : priceCents
+  const dueToday = trial ? 0 : recurringCents
   const renewal = trial
-    ? `${fmt(0)} today. From ${trialEnds(trialDays)} you pay ${fmt(priceCents)} a ${per} until you cancel. Cancel before then and you pay nothing.`
-    : `${fmt(priceCents)} today, then every ${per} until you cancel. Cancel any time from the community's Membership page.`
+    ? `Nothing today. From ${trialEnds(trialDays)} you pay ${fmt(recurringCents)} a ${per} until you cancel; cancel before then and you pay nothing.`
+    : `${fmt(recurringCents)} today, then every ${per} until you cancel. Cancel any time.`
 
   const summary = plan ? (
     <div className="rounded-xl border border-[#e5e7eb]" data-checkout-summary="">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-[14px] text-[#4b5563]">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex min-h-12 w-full items-center gap-2 px-4 text-left text-[14px] text-[#6b7280] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20" data-summary-toggle="">
         <span className="min-w-0 flex-1 truncate">
           {fmt(priceCents)}/{per} {plan.name}
-          {trial ? ` · ${trialDays}-day trial` : ""}
-        </span>
-        <span className="font-semibold tabular-nums text-[#1a1a2e]" data-due-today="">
-          {fmt(trial ? 0 : priceCents)}
+          {tax && tax.taxCents > 0 ? (tax.included ? ` · ${tax.label} included` : ` + ${tax.label}`) : ""}
         </span>
         <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 transition-[rotate] duration-200", open && "rotate-180")} />
+        <span className="font-semibold tabular-nums text-[#1a1a2e]" data-due-today="">
+          {fmt(dueToday)}
+        </span>
       </button>
-      {open ? (
-        <dl className="space-y-2 border-t border-[#e5e7eb] px-4 py-3 text-[13.5px]">
-          <div className="flex justify-between gap-3">
+      <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+        <dl className="space-y-2 overflow-hidden px-4 text-[13.5px]" aria-hidden={!open}>
+          <div className="flex justify-between gap-3 border-t border-[#f1f2f4] pt-3">
             <dt className="text-[#6b7280]">{plan.name}, billed {chosen === "year" ? "yearly" : "monthly"}</dt>
             <dd className="tabular-nums text-[#1a1a2e]">{fmt(priceCents)}</dd>
           </div>
-          {trial ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-[#6b7280]">Free trial</dt>
-              <dd className="text-[#1a1a2e]">{trialDays} days</dd>
+          {tax && tax.taxCents > 0 ? (
+            <div className="flex justify-between gap-3" data-summary-tax="">
+              <dt className="text-[#6b7280]">{tax.included ? `${tax.label} (included)` : tax.label}</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{fmt(tax.taxCents)}</dd>
             </div>
           ) : null}
-          <div className="flex justify-between gap-3 border-t border-[#f1f2f4] pt-2 font-semibold">
-            <dt className="text-[#1a1a2e]">Due today</dt>
-            <dd className="tabular-nums text-[#1a1a2e]">{fmt(trial ? 0 : priceCents)}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-[#6b7280]">{trial ? `From ${trialEnds(trialDays)}` : `Next charge, ${nextCharge(chosen)}`}</dt>
+          {trial ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#6b7280]">{trialDays}-day free trial</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{fmt(0)} today</dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-3 pb-3 font-medium">
+            <dt className="text-[#1a1a2e]">{trial ? `From ${trialEnds(trialDays)}` : `Then from ${nextCharge(chosen)}`}</dt>
             <dd className="tabular-nums text-[#1a1a2e]">
-              {fmt(priceCents)}/{per}
+              {fmt(recurringCents)}/{per}
             </dd>
           </div>
         </dl>
-      ) : null}
+      </div>
     </div>
   ) : null
 
-  const beforePay = (
-    <div className="space-y-3">
-      <p className="rounded-xl bg-[#f7f7f9] px-3.5 py-3 text-[13px] leading-relaxed text-[#4b5563]" data-renewal-terms="">
-        {renewal}
-      </p>
-      <div id="community-checkout-terms">
-        <CheckRow id="community-checkout-agree" checked={agreed} onChange={(v) => { setAgreed(v); if (v) setError(null) }} invalid={!agreed && !!error?.includes("terms")}>
-          I agree to the{" "}
-          <Link href="/terms" target="_blank" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
-            Terms
-          </Link>{" "}
-          and to be charged {trial ? "after the trial " : ""}until I cancel{waiver ? `. ${waiver}` : ""}
-        </CheckRow>
-      </div>
-      <CommunityRefundPolicy terms={facts?.terms ?? null} />
-      {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-    </div>
-  )
+  const dark = typeof document !== "undefined" && (document.documentElement.getAttribute("data-community-theme") === "dark" || document.documentElement.hasAttribute("data-sl-dark"))
 
   if (!mounted) return null
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6 [[data-community-theme=dark]_&]:[--pay-dock-clear:rgba(24,24,27,0)] [[data-community-theme=dark]_&]:[--pay-dock-ground:#18181b]" data-community-checkout="">
-      <div aria-hidden className="absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-200 sm:block" onClick={closeIfIdle} />
-      <div role="dialog" aria-modal="true" aria-labelledby="community-checkout-title" className="relative flex h-full w-full flex-col overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-2 duration-200 sm:h-auto sm:max-h-[min(92vh,880px)] sm:max-w-[540px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]">
-        <div className="flex shrink-0 items-center justify-between px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3 sm:pt-3">
-          {onBack ? (
-            <button type="button" onClick={onBack} className="inline-flex h-11 items-center rounded-full px-3 text-[14px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" data-checkout-back="">
-              All plans
-            </button>
-          ) : (
-            <span />
-          )}
-          <CloseButton onClose={closeIfIdle} />
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-7">
-          <div className="flex flex-col items-center text-center">
-            <CommunityMark community={community} size={64} />
-            <h2 id="community-checkout-title" className="mt-3 text-[22px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
+    <div className="fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6" data-community-checkout="" data-leaving={leaving ? "" : undefined}>
+      <div aria-hidden className={cn("absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-150 transition-opacity sm:block motion-reduce:animate-none", leaving && "opacity-0 duration-[140ms]")} onClick={closeIfIdle} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="community-checkout-title"
+        className={cn(
+          "relative flex h-full w-full flex-col overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out transition-[opacity,translate] motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
+          leaving && "translate-y-2 opacity-0 duration-[140ms] ease-in",
+        )}
+      >
+        <div className="relative shrink-0 border-b border-[#eef0f2] bg-[#f8f9fa] px-5 pb-5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:rounded-t-[20px] sm:px-8 sm:pt-4" data-checkout-head="">
+          <div className="flex items-center justify-between">
+            {onBack ? (
+              <button type="button" onClick={onBack} className="-ml-2 inline-flex h-10 items-center rounded-full px-2.5 text-[13.5px] font-medium text-[#4b5563] hover:bg-black/[0.04]" data-checkout-back="">
+                All plans
+              </button>
+            ) : (
+              <span />
+            )}
+            <span className="-mr-2">
+              <CloseButton onClose={closeIfIdle} />
+            </span>
+          </div>
+          <div className="-mt-3 flex flex-col items-center text-center">
+            <CommunityMark community={community} size={60} />
+            <h2 id="community-checkout-title" className="mt-2.5 text-[21px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
               {community.name}
             </h2>
-            {plan ? <p className="mt-0.5 text-[14px] text-[#6b7280]">{plan.name}</p> : null}
+            {plan ? <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{plan.name}</p> : null}
           </div>
-
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-8 sm:pb-6">
           {loadError ? (
-            <div className="mt-8 space-y-3 text-center" data-checkout-unavailable="">
+            <div className="space-y-3 py-4 text-center" data-checkout-unavailable="">
               <p className="text-[14.5px] text-[#4b5563]">{loadError.message}</p>
               {loadError.url ? (
                 <a href={loadError.url} className="inline-flex h-11 items-center rounded-xl border border-[#e5e7eb] px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]">
@@ -474,12 +503,14 @@ export function CommunityCheckout({
               ) : null}
             </div>
           ) : !facts || !plan ? (
-            <div aria-hidden className="mt-8 space-y-3">
-              <div className="h-[86px] rounded-xl bg-[#f3f4f6]" />
-              <div className="h-[260px] rounded-xl bg-[#f7f7f8]" />
+            <div aria-hidden className="space-y-3">
+              <div className="h-[92px] rounded-xl bg-[#f3f4f6]" />
+              <div className="h-12 rounded-xl bg-[#f3f4f6]" />
+              <div className="h-12 rounded-xl bg-[#f7f7f8]" />
+              <div className="h-[52px] rounded-xl bg-[#eceef1]" />
             </div>
           ) : done ? (
-            <div role="status" className="mt-8 rounded-2xl border border-[#e5e7eb] px-5 py-6 text-center" data-checkout-done="">
+            <div role="status" className="rounded-2xl border border-[#e5e7eb] px-5 py-6 text-center" data-checkout-done="">
               <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#ecfdf3] text-[#15803d]">
                 <Check aria-hidden className="h-5 w-5" />
               </span>
@@ -487,10 +518,10 @@ export function CommunityCheckout({
               <p className="mt-1 text-[14px] text-[#6b7280]">Opening {community.name}.</p>
             </div>
           ) : (
-            <div className="mt-7 space-y-6">
+            <div className="space-y-5">
               {offers.length > 1 ? (
                 <section aria-labelledby="checkout-membership">
-                  <h3 id="checkout-membership" className="mb-2.5 text-[15px] font-semibold text-[#1a1a2e]">
+                  <h3 id="checkout-membership" className="mb-2 text-[14.5px] font-semibold text-[#1a1a2e]">
                     Membership
                   </h3>
                   <div role="radiogroup" aria-labelledby="checkout-membership" className="grid grid-cols-2 gap-2.5">
@@ -508,12 +539,17 @@ export function CommunityCheckout({
                             onInterval(o)
                             setError(null)
                           }}
-                          className={cn("relative rounded-xl border bg-white px-3.5 py-3 text-left outline-none transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30", on ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e1e3e7] hover:border-[#c9ccd2]")}
+                          className={cn("relative rounded-xl border bg-white px-3.5 py-3 text-left outline-none transition-[border-color,box-shadow,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30", on ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e] [[data-community-theme=dark]_&]:border-[#e4e4e7]! [html[data-sl-dark]_&]:border-[#e4e4e7]! [[data-community-theme=dark]_&]:shadow-[0_0_0_1px_#e4e4e7]! [html[data-sl-dark]_&]:shadow-[0_0_0_1px_#e4e4e7]!" : "border-[#e1e3e7] bg-[#fbfbfc] hover:border-[#c9ccd2]")}
                           data-interval={o}
                         >
-                          {o === "year" && saving > 0 ? <span className="absolute -top-2.5 right-2.5 rounded-full bg-[#15803d] px-2 py-0.5 text-[11.5px] font-semibold text-white">save {saving}%</span> : null}
-                          <span className="block text-[14px] font-semibold text-[#1a1a2e]">{o === "year" ? "Annual" : "Monthly"}</span>
-                          <span className="mt-1 block text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{o === "year" ? `${fmt(Math.round(cents / 12))}/month` : `${fmt(cents)}/month`}</span>
+                          {o === "year" && saving > 0 ? <span className="absolute -top-2.5 right-2.5 rounded-full bg-[#15803d] px-2 py-0.5 text-[11.5px] font-semibold text-white shadow-[0_1px_2px_rgba(21,128,61,0.35)]">save {saving}%</span> : null}
+                          <span className="flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
+                            <span aria-hidden className={cn("grid h-[18px] w-[18px] place-items-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e] bg-[#1a1a2e] [[data-community-theme=dark]_&]:border-[#e4e4e7]! [html[data-sl-dark]_&]:border-[#e4e4e7]! [[data-community-theme=dark]_&]:bg-[#e4e4e7]! [html[data-sl-dark]_&]:bg-[#e4e4e7]!" : "border-[#c9ccd2] bg-white")}>
+                              {on ? <span className="h-1.5 w-1.5 rounded-full bg-white [[data-community-theme=dark]_&]:bg-[#18181b]! [html[data-sl-dark]_&]:bg-[#18181b]!" /> : null}
+                            </span>
+                            {o === "year" ? "Annual" : "Monthly"}
+                          </span>
+                          <span className="mt-1.5 block text-[15.5px] font-semibold tabular-nums text-[#1a1a2e]">{o === "year" ? `${fmt(Math.round(cents / 12))}/month` : `${fmt(cents)}/month`}</span>
                           <span className="block text-[12.5px] text-[#6b7280]">{o === "year" ? `${fmt(cents)} billed yearly` : `${fmt(cents)} billed monthly`}</span>
                         </button>
                       )
@@ -522,34 +558,49 @@ export function CommunityCheckout({
                 </section>
               ) : null}
               {trial ? (
-                <p className="rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-3.5 py-3 text-[13.5px] text-[#374151]" data-trial-note="">
-                  <span className="font-semibold text-[#1a1a2e]">{trialDays}-day free trial.</span> Nothing today, then {fmt(priceCents)}/{per} from {trialEnds(trialDays)}.
+                <p className="text-[13.5px] text-[#4b5563]" data-trial-note="">
+                  <span className="font-semibold text-[#1a1a2e]">{trialDays}-day free trial.</span> Nothing today, then {fmt(recurringCents)}/{per} from {trialEnds(trialDays)}.
                 </p>
               ) : facts.trialUsed ? (
-                <p className="rounded-xl bg-[#f7f7f9] px-3.5 py-3 text-[13px] text-[#4b5563]" data-trial-used="">
-                  You've had a free trial in this community before, so this plan starts today.
+                <p className="text-[13px] text-[#6b7280]" data-trial-used="">
+                  You've had a free trial here before, so this plan starts today.
                 </p>
               ) : null}
-              {summary}
-              <StripePay
-                key={`${chosen}:${trial}`}
-                mode="subscription"
-                amountCents={priceCents}
-                creatorName={community.creator?.name ?? community.name}
-                email={facts.buyer.email}
-                onEmail={() => undefined}
-                emailLocked
-                check={() => check()}
-                createIntent={createIntent}
-                payerName={() => facts.buyer.name}
-                onPaid={onPaid}
-                onError={setError}
-                busy={busy || !!done}
-                setBusy={setBusy}
-                payLabel={payLabel}
-                contactExtra={null}
-                beforePay={beforePay}
-              />
+              <section aria-labelledby="checkout-pay">
+                <h3 id="checkout-pay" className="mb-2 text-[14.5px] font-semibold text-[#1a1a2e]">
+                  Payment method
+                </h3>
+                <CompactPay
+                  key={`${chosen}:${trial}`}
+                  dueTodayCents={dueToday}
+                  currency={currency}
+                  label={`${community.name}, ${plan.name}`}
+                  payLabel={payLabel}
+                  dark={dark}
+                  email={facts.buyer.email}
+                  name={facts.buyer.name}
+                  start={startWith}
+                  onConfirmed={afterStripe}
+                  onError={setError}
+                  busy={busy || !!done}
+                  setBusy={setBusy}
+                >
+                  {summary}
+                </CompactPay>
+              </section>
+              {error ? (
+                <p role="alert" className="-mt-2 text-[13.5px] leading-snug text-[#b42318]" data-checkout-error="">
+                  {error}
+                </p>
+              ) : null}
+              <p className="text-center text-[12px] leading-relaxed text-[#8b919a]" data-renewal-terms="">
+                {renewal} By joining you agree to the{" "}
+                <Link href="/terms" target="_blank" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
+                  Terms
+                </Link>
+                {waiver ? `. ${waiver}` : "."}
+              </p>
+              <CommunityRefundPolicy terms={facts.terms} />
             </div>
           )}
           <PoweredByStripe />

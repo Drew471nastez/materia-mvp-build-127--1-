@@ -90,6 +90,20 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   const priceCents = (interval === "year" ? plan.yearlyPriceCents : plan.monthlyPriceCents) ?? 0
   const saving = yearlySaving(plan.monthlyPriceCents, plan.yearlyPriceCents)
   const trial = plan.trialDays > 0
+  /* Round AG: the tax this buyer pays on this interval, worked out as the subscription will charge it (lib/tax/membership.ts). */
+  const [tax, setTax] = React.useState<{ taxCents: number; included: boolean; label: string } | null>(null)
+  React.useEffect(() => {
+    let live = true
+    setTax(null)
+    fetch(`/api/memberships/tax-quote?productId=${encodeURIComponent(product.id)}&interval=${interval}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { tax: null }))
+      .then((d: { tax?: { taxCents: number; included: boolean; label: string } | null }) => live && setTax(d.tax ?? null))
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [product.id, interval])
+  const chargedCents = tax && !tax.included ? priceCents + tax.taxCents : priceCents
 
   const [email, setEmail] = React.useState(userEmail || searchParams.get("email") || "")
   const [fullName, setFullName] = React.useState("")
@@ -279,8 +293,8 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
   const perLabel = interval === "year" ? "a year" : "a month"
   const payLabel = trial ? `Start ${plan.trialDays}-day free trial` : `Join ${moneyExact(priceCents)}/${interval === "year" ? "year" : "month"}`
   const renewalText = trial
-    ? `Nothing is charged today. From ${trialEndsOn(plan.trialDays)} you pay ${moneyExact(priceCents)} ${perLabel} until you cancel. Cancel before then and you pay nothing.`
-    : `You pay ${moneyExact(priceCents)} today and then ${perLabel === "a year" ? "every year" : "every month"} until you cancel. Cancel any time from your library.`
+    ? `Nothing is charged today. From ${trialEndsOn(plan.trialDays)} you pay ${moneyExact(chargedCents)} ${perLabel} until you cancel. Cancel before then and you pay nothing.`
+    : `You pay ${moneyExact(chargedCents)} today and then ${perLabel === "a year" ? "every year" : "every month"} until you cancel. Cancel any time from your library.`
 
   const contactExtra = (
     <div className="space-y-3">
@@ -364,7 +378,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
       <StripePay
         key={interval}
         mode="subscription"
-        amountCents={priceCents}
+        amountCents={trial ? priceCents : chargedCents}
         creatorName={creator.name}
         email={email}
         onEmail={setEmail}
@@ -447,6 +461,12 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
           <dt className="text-[#4b5563]">{interval === "year" ? "Yearly" : "Monthly"}</dt>
           <dd data-summary-price="" className="tabular-nums text-[#1a1a2e]">{`${moneyExact(priceCents)}/${interval === "year" ? "year" : "month"}`}</dd>
         </div>
+        {tax && tax.taxCents > 0 ? (
+          <div className="flex justify-between" data-summary-tax="">
+            <dt className="text-[#4b5563]">{tax.included ? `${tax.label} (included)` : tax.label}</dt>
+            <dd className="tabular-nums text-[#1a1a2e]">{moneyExact(tax.taxCents)}</dd>
+          </div>
+        ) : null}
         {trial ? (
           <div className="flex justify-between">
             <dt className="text-[#4b5563]">Free trial</dt>
@@ -455,9 +475,9 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
         ) : null}
         <div className="flex justify-between border-t border-black/[0.07] pt-3 text-[15px] font-semibold">
           <dt className="text-[#1a1a2e]">Due today</dt>
-          <dd data-due-today="" className="tabular-nums text-[#1a1a2e]">{moneyExact(trial ? 0 : priceCents)}</dd>
+          <dd data-due-today="" className="tabular-nums text-[#1a1a2e]">{moneyExact(trial ? 0 : chargedCents)}</dd>
         </div>
-        {trial ? <p className="text-[13px] text-[#6b7280]">Then {pricePer(priceCents, interval)} from {trialEndsOn(plan.trialDays)}</p> : null}
+        {trial ? <p className="text-[13px] text-[#6b7280]">Then {pricePer(chargedCents, interval)} from {trialEndsOn(plan.trialDays)}</p> : null}
       </dl>
     </div>
   )

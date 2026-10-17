@@ -1,4 +1,6 @@
 import { NextResponse, after } from "next/server"
+import { headers } from "next/headers"
+import { buyerCountry, buyerIp, membershipTaxForSubscription } from "@/lib/tax/membership"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
@@ -165,7 +167,20 @@ export async function POST(request: Request) {
     const fee = await membershipFee(admin, creator.id, price.amountCents)
     const customerId = await buyerCustomer(admin, { email, name, userId: user?.id ?? null })
     if (paymentMethodId) await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
+    /* Round AG: the tax this buyer pays, the same the checkout showed (lib/tax/membership.ts): Stripe Tax, the creator's rate, or none. */
+    const h = await headers()
+    const taxing = await membershipTaxForSubscription(admin, {
+      creatorId: creator.id as string,
+      productId: product.id,
+      amountCents: price.amountCents,
+      currency: plan.currency || "usd",
+      country: buyerCountry(h),
+      ip: buyerIp(h),
+      customerId,
+    })
     const created = await createSubscription({
+      automaticTax: taxing.automaticTax,
+      taxRateIds: taxing.taxRateIds,
       customerId,
       priceId: price.priceId,
       trialDays,
@@ -183,6 +198,7 @@ export async function POST(request: Request) {
         buyer_name: name.slice(0, 120),
         title: String(product.title || "Membership").slice(0, 200),
         interval,
+        tax_source: taxing.source,
         fee_cents: String(fee.cents),
         plan_used: fee.planId,
         email_opt_in: body.emailOptIn === true ? "true" : "false",
