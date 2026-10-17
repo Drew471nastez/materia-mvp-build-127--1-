@@ -235,7 +235,7 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
     holdLanding), as the Emails and Orders lists do: no fade from nothing,
     no 2px rise. Only on the page; a visit from the sidebar lands as usual.
   */
-  const [returning] = React.useState(() => page && !only && isTraversing())
+  const [returning] = React.useState(() => page && isTraversing())
   React.useLayoutEffect(() => {
     if (returning) holdLanding()
   }, [returning])

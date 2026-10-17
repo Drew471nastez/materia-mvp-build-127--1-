@@ -247,6 +247,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const tracked = item.kind === "tracker" && item.trackerId ? (tracking?.[item.trackerId] ?? null) : null
   const plan = notifyOnly ? null : removalPlan(item, { installed, marketingConnected: !!marketingState?.connected, trackerSaved: !!tracked })
   const verb = notifyOnly || installed ? null : installVerb(item)
+  /* The page has one thing to do (Connect, Install, Turn on, Tell me when it's ready), and it follows in a bar once scrolled away. */
+  const pinnable = pin && (notifyOnly || !!verb)
   const steps = installed || notifyOnly ? [] : setupSteps(item)
   /* The header's Tell me when it's ready sends the request itself. */
   const [askTick, setAskTick] = React.useState(0)
@@ -465,7 +467,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   const glanceRows = item.glance.filter((g) => g.label !== "Status")
   const glance = (
-    <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
+    /* Stuck under the following bar when there is one, so its title is never under it. */
+    <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky", pinnable ? "lg:top-[80px]" : "lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
       <h3 id="integration-glance" className={H3}>{tt("At a glance")}</h3>
       <dl className="mt-3 divide-y divide-[#f1f2f4]">
         <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
@@ -520,7 +523,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     else toSetup()
   }
   const primaryRef = React.useRef<HTMLButtonElement>(null)
-  const pinned = usePinned(primaryRef, pin && !!primaryLabel)
+  const pinned = usePinned(primaryRef, pinnable)
   const actions = (
     <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end" data-integration-actions="">
       {notifyOnly ? (
@@ -555,7 +558,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   return (
     <>
-      {pin && primaryLabel ? (
+      {pinnable ? (
         /*
           THE ACTION FOLLOWS (round 27). Once the header's Connect (Install,
           Turn on...) has scrolled out of the top, the same action rides in a
@@ -568,7 +571,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           <div
             className={cn(
               "absolute inset-x-0 top-0 pt-2 transition-[opacity,transform] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
-              pinned ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none -translate-y-1.5 opacity-0 duration-150",
+              pinned ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none -translate-y-1.5 opacity-0 duration-[120ms]",
             )}
             inert={!pinned}
             aria-hidden={!pinned}
@@ -665,7 +668,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
         {Body ? (
           <div ref={panelRef} role="tabpanel" data-integration-tabpanel={tab}>
-            <Body tab={tab} warm={warmTab} setTab={setTab} item={item} status={status} installed={installed} sections={sections} Layout={Layout} onChanged={(on) => item.appId && onApp(item.appId, on)} />
+            <Body tab={tab} setTab={setTab} item={item} status={status} installed={installed} sections={sections} Layout={Layout} warm={warmTab} onChanged={(on) => item.appId && onApp(item.appId, on)} />
           </div>
         ) : (
           <Layout
@@ -704,11 +707,22 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   )
 }
 
+/*
+ * The room the following bar takes at the top of the page: 8 or 12px over it
+ * and the bar itself (8px around a 36px button and the hairline). The
+ * header's action counts as out of view once it is under that room, so the
+ * two hand over where they meet: the header's slides under the bar as the
+ * bar comes, and the bar leaves the moment the header's comes out from under
+ * it.
+ */
+const PIN_ROOM = 64
+
 /**
- * Whether `target` has scrolled out of the top of the page that scrolls it:
- * true from the frame its last pixel leaves, false from the frame one is back.
- * Seen by an IntersectionObserver on that scroller, so scrolling renders
- * nothing between the two moments.
+ * Whether `target` has scrolled out of the top of the page that scrolls it
+ * (out of view, or under the bar's room there): true from the frame its last
+ * pixel goes, false from the frame one is back. Seen by an
+ * IntersectionObserver on that scroller, so scrolling renders nothing
+ * between the two moments.
  */
 function usePinned(target: React.RefObject<HTMLElement | null>, on: boolean): boolean {
   const [out, setOut] = React.useState(false)
@@ -724,7 +738,7 @@ function usePinned(target: React.RefObject<HTMLElement | null>, on: boolean): bo
         const top = e.rootBounds?.top ?? 0
         setOut(!e.isIntersecting && e.boundingClientRect.bottom <= top + 0.5)
       },
-      { root, threshold: 0 },
+      { root, threshold: 0, rootMargin: `-${PIN_ROOM}px 0px 0px 0px` },
     )
     io.observe(el)
     return () => io.disconnect()
