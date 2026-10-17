@@ -608,6 +608,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     media: linkMedia ? [...media, linkMedia] : media,
     poll: staffPollOf(poll),
     uploading: items.some((u) => !u.media && !u.error),
+    failed: items.some((u) => !!u.error),
     open,
     load: (it) => {
       if (it) {

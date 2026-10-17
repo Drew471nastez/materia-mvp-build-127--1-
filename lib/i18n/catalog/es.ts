@@ -2383,6 +2383,7 @@ const words: Record<string, string> = {
  "Scheduled for {value}": "Programada para {value}",
  "Scheduling pictures, files, videos, GIFs, link cards and polls needs the database update (run-now part 222).": "Para programar imágenes, archivos, vídeos, GIF, tarjetas de enlace y encuestas hace falta la actualización de la base de datos (run-now parte 222).",
  "Wait for the uploads to finish.": "Espera a que terminen las subidas.",
+ "Take off what did not upload, then try again.": "Quita lo que no se subió y vuelve a intentarlo.",
  "{name} posting in {space}": "{name} publica en {space}",
  "Write something...": "Escribe algo...",
  "Only its author can add files and videos to this post.": "Solo la persona que escribió la publicación puede añadir archivos y vídeos.",

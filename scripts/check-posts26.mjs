@@ -20,7 +20,7 @@
  *             carries 09:30 Warsaw; the list says Scheduled; the row opens the
  *             same writer, 10:45, Schedule (reschedule); Make it a draft; Post
  *             now (the post lands in the list); a new one deleted from the
- *             writer; a picture blocks Schedule with the reason; Save draft as
+ *             writer; a picture still uploading waits and a poll goes with it (round 27); Save draft as
  *             the third answer to Leave
  *   POPUP     a row opens the community's own popup (no side sheet), with the
  *             admin's actions; Pin sends the pin; Escape closes it; the address
@@ -163,7 +163,7 @@ export const isNativePlatform = () => false
       panel: () => ({ ready: true, rows: rows.map(view), spaces: [{ id: S1, name: "General", kind: "feed", icon: "✍️" }, { id: S2, name: "Announcements", kind: "announcements", icon: null }] }),
       create(b) {
         if (b.publishAt && Date.parse(b.publishAt) < Date.now() + 60_000) return [400, { error: "Pick a time at least a minute from now, or publish it now.", field: "when" }]
-        const r = { id: uuid(++n), status: b.publishAt ? "scheduled" : "draft", spaceId: b.spaceId, title: b.title, body: b.body, publishAt: b.publishAt, publishedAt: null, postId: null, error: null, authorId: ME, authorName: "Ana Popescu", mine: true, updatedAt: new Date().toISOString() }
+        const r = { id: uuid(++n), status: b.publishAt ? "scheduled" : "draft", spaceId: b.spaceId, title: b.title, body: b.body, media: b.media ?? [], poll: b.poll ?? null, publishAt: b.publishAt, publishedAt: null, postId: null, error: null, authorId: ME, authorName: "Ana Popescu", mine: true, updatedAt: new Date().toISOString() }
         rows.push(r)
         return [201, { post: view(r) }]
       },
@@ -526,11 +526,15 @@ export const isNativePlatform = () => false
     rows = await panelRows(p)
     expect(deleted.length === 1 && !rows.some((r) => r.text.includes("Delete me")), "Delete, asked in its line: one DELETE and the row is gone", { deleted: deleted.length, rows: rows.map((r) => r.status) })
 
-    /* A picture blocks Schedule, with the reason; posting now is still there. */
+    /*
+      ROUND 27 (part 222): what a post carries goes with it. A picture still uploading waits, as Post does (the harness has
+      no storage, so it never lands); taken off, a poll is added and the post is scheduled with it: the request carries the
+      poll with its end as days, and the row is in the list.
+    */
     await p.click("[data-composer-open]")
     await sleep(400)
-    await p.type("[data-composer-title]", "With a picture")
-    await p.type("[data-composer-editor] textarea", "See below.")
+    await p.type("[data-composer-title]", "With a poll")
+    await p.type("[data-composer-editor] textarea", "Vote below.")
     await pickSpace(p, "General")
     await p.evaluate(() => {
       const input = document.querySelector("[data-composer-file-input]")
@@ -545,10 +549,42 @@ export const isNativePlatform = () => false
     const before6 = (await sent(p)).length
     await p.click("[data-feed-writer] [data-composer-post]")
     await sleep(500)
-    const blocked = await p.evaluate(() => document.querySelector("[data-composer-schedule-error]")?.textContent ?? null)
+    const waits = await p.evaluate(() => document.querySelector("[data-composer-schedule-error]")?.textContent ?? null)
     const nothing = (await sent(p)).slice(before6).filter((x) => x.short.includes("scheduled-posts") && x.method !== "GET")
-    expect(!!blocked && /Pictures/.test(blocked) && nothing.length === 0, "a picture: Schedule says why and sends nothing", { blocked, nothing: nothing.length })
-    await p.screenshot({ path: join(shots, "schedule-blocked-1440.png") })
+    /* The harness answers the upload, so the picture lands: Schedule sends it with the words (or, still uploading, waits). */
+    const pic = nothing.find((x) => x.method === "POST")
+    expect(!/can only be posted now/.test(waits ?? "") && (pic ? pic.sent?.media?.some((m) => m.type === "image") : /upload/.test(waits ?? "")), "a picture: scheduled with the post, or (still uploading, or failed in this harness) Schedule waits and says why; never refused as a picture (round 27)", { waits, media: pic?.sent?.media ?? null })
+    await p.evaluate(() => document.querySelector("[data-feed-writer] [data-tray-remove]")?.click())
+    await sleep(300)
+    await sleep(1200)
+    if (!(await p.$("[data-feed-writer] [data-composer='open']"))) {
+      await p.click("[data-composer-open]")
+      await sleep(400)
+      await p.type("[data-composer-title]", "With a poll")
+      await p.type("[data-composer-editor] textarea", "Vote below.")
+      await pickSpace(p, "General")
+      await p.click("[data-composer-tool='schedule']")
+      await sleep(200)
+    }
+    await p.click("[data-composer-tool='poll']")
+    await sleep(200)
+    await p.type("[data-poll-question]", "Which glaze next?")
+    await p.type("[data-poll-choice='0']", "Celadon")
+    await p.type("[data-poll-choice='1']", "Tenmoku")
+    await p.evaluate(() => {
+      const ends = [...document.querySelectorAll("[data-composer-poll-editor] button, [data-composer-poll-editor] [role=radio], [data-composer-poll-editor] option")].find((x) => /3 days/.test(x.textContent || ""))
+      ends?.click()
+    })
+    await sleep(200)
+    await p.screenshot({ path: join(shots, "schedule-poll-1440.png") })
+    const before7 = (await sent(p)).length
+    await p.click("[data-feed-writer] [data-composer-post]")
+    await sleep(1500)
+    const withPoll = (await sent(p)).slice(before7).find((x) => x.short.endsWith("/scheduled-posts") && x.method === "POST")
+    expect(!!withPoll && withPoll.sent?.poll?.question === "Which glaze next?" && withPoll.sent.poll.options.length === 2 && Array.isArray(withPoll.sent.media), "Schedule sends the poll (its end as days) and the media list with the words", withPoll?.sent ?? null)
+    rows = await panelRows(p)
+    expect(rows.some((r) => r.text.includes("With a poll")), "and it is in the list", rows.map((r) => r.text.slice(0, 40)))
+    await p.screenshot({ path: join(shots, "schedule-poll-listed-1440.png") })
     expect(errors.length === 0, "no page errors", errors)
     numbers["schedule-store"] = store.rows.map((r) => r.status)
     await p.close()

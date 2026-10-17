@@ -198,7 +198,7 @@ async function main() {
     const kit = code("components/community/creator/composer-schedule.tsx")
     check("round 26's line saying these can only be posted now is gone", !/can only be posted now/.test(raw("components/community/creator/composer-schedule.tsx")) && !/bridge\.extras/.test(kit))
     check("the kit sends the composer's media and poll (scheduleBody of the bridge)", /scheduleBody\(bridge, publishAt\)/.test(kit) && /media: PostMedia\[\]/.test(kit) && /poll: ScheduledPoll \| null/.test(kit))
-    check("uploads still going wait, as Post does", /bridge\.uploading/.test(kit))
+    check("uploads still going wait, as Post does, and one that failed is never dropped silently", /bridge\.uploading/.test(kit) && /if \(bridge\.failed\)/.test(kit) && /failed: items\.some\(\(u\) => !!u\.error\)/.test(code("components/community/member/composer.tsx")))
     check("before part 222 it names the part instead", /media_not_ready/.test(kit) && /run-now part 222/.test(raw("components/community/creator/composer-schedule.tsx")))
     check("a change of media or poll counts as a change", /JSON\.stringify\(bridge\.media\) !== JSON\.stringify\(item\.media/.test(kit) && /JSON\.stringify\(bridge\.poll\)/.test(kit))
     const composer = code("components/community/member/composer.tsx")

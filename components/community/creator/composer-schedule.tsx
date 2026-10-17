@@ -69,6 +69,8 @@ export interface StaffBridge {
   poll: ScheduledPoll | null
   /** Something is still uploading (Post waits for it too). */
   uploading: boolean
+  /** Something did not upload (Post waits until it is taken off too): never scheduled without it. */
+  failed: boolean
   open: boolean
   /** Fill the fields with a scheduled post (saving what was being written first), or put back what was being written (null). */
   load: (item: ScheduledPostView | null) => void
@@ -218,6 +220,10 @@ export function useStaffSchedule(staff: ComposerStaff | null | undefined, bridge
   const precheck = (publishAt: string | null): boolean => {
     if (bridge.uploading) {
       setError(tt("Wait for the uploads to finish."))
+      return false
+    }
+    if (bridge.failed) {
+      setError(tt("Take off what did not upload, then try again."))
       return false
     }
     if (staff?.media === false && (bridge.media.length || bridge.poll)) {
