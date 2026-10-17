@@ -254,7 +254,8 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
   const moreRules = c.rules.length - rules.length
   /* The other paid ways in can be chosen when the button itself would be a payment or a free join: never ahead of an approval. */
   const paidOnOffer = join.kind === "checkout" || join.kind === "join_free"
-  const otherOptions = c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
+  /* Round AF: several plans are chosen in the plan picker (./join-flow), not listed again here. */
+  const otherOptions = (join.plans?.length ?? 0) > 1 ? [] : c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
   /* Round 33, the owner: no Membership section while the community has fewer than two members. */
   const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed" && c.memberCount >= 2
   const hasDescription = Boolean(c.descriptionHtml || c.descriptionText)

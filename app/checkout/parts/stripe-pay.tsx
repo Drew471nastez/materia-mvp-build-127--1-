@@ -465,7 +465,7 @@ function StripePayInner({
                     onError(ct(paymentErrorText(confirmed.error)))
                     return
                   }
-                  const done = "setupIntent" in confirmed ? confirmed.setupIntent : confirmed.paymentIntent
+                  const done = "setupIntent" in confirmed ? confirmed.setupIntent : (confirmed as { paymentIntent?: { id: string; status: string } }).paymentIntent
                   await onPaid(done?.id ?? intent.paymentIntentId, done?.status ?? "unknown")
                 } catch (err) {
                   e.paymentFailed({ reason: "fail" })
