@@ -53,6 +53,8 @@ export interface CommunityHead {
   postCount: number
   archived: boolean
   suspended: boolean
+  /** Round 26: its deletion is scheduled; the header's badge says Pending deletion. Absent on older callers. */
+  deleting?: PendingDeletionView | null
   gamificationEnabled: boolean
   classroomEnabled: boolean
   eventsEnabled: boolean
@@ -90,15 +92,24 @@ export interface CommunityListRow {
   mrrCents: number | null
   currency: string
   archived: boolean
+  /** Round 26: its deletion is scheduled (run-now part 202): when, and whether the owner can still keep it. Null or absent: not being deleted. */
+  deleting?: PendingDeletionView | null
   /** What this person may do from the card's menu (the owner's choices for their role included). */
   can: { edit: boolean; analytics: boolean; archive: boolean; duplicate: boolean }
+}
+
+/** A scheduled deletion as a card and the header show it (lib/communities/server/creator-policies.ts pendingDeletions). */
+export interface PendingDeletionView {
+  deleteAt: string
+  /** Keep (Undo) is still possible for this person: the owner, a deletion at the end of the paid time, before its date. */
+  canKeep: boolean
 }
 
 /** The Free plan's community limit as the list sees it (lib/communities/plan-limit.ts). */
 export interface CommunityLimitView {
   /** Null: no limit on this plan. */
   max: number | null
-  /** Communities this account owns now, archived ones included. */
+  /** Communities this account owns now that take a place: archived ones included, ones being deleted not (round 26). */
   owned: number
 }
 

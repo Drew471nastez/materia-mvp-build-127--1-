@@ -109,14 +109,14 @@ import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "..
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
-import { communityRoom, loadPolicies } from "./creator-policies"
+import { communityRoom, loadPolicies, madeWithinLimit, pendingDeletions, type PendingDeletion } from "./creator-policies"
 import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
 import { factsFrom, setupExtras } from "./setup-checklist"
 import { setupChecklist, stepsLeft } from "../setup-checklist"
 import type { WizardInput } from "../create-wizard"
 import type { ScheduledDeletionView } from "../community-deletion"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
-import { communityLimitFor, PLAN_LIMIT_ERROR } from "../plan-limit"
+import { communityLimitFor, PLAN_LIMIT_ERROR, takesCommunitySlot } from "../plan-limit"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -271,10 +271,14 @@ export async function creatorPaymentsReady(db: Db, creatorId: string): Promise<b
 export const communityHead = cache(async (ctx: CreatorPageContext): Promise<CommunityHead> => {
   const c = ctx.community
   /* Round 31: who is signed in, for the Feed's writer (its picture and name), read beside the report count. */
-  const [openReports, people] = await Promise.all([
+  const archived = c.status === "archived" || Boolean(c.archived_at)
+  const [openReports, people, pending] = await Promise.all([
     can(ctx.role, "review_reports", ctx.viewer.perms) ? openReportCount(ctx.db, c.id) : Promise.resolve(0),
     peopleOf(ctx.db, [ctx.userId]).catch(() => new Map<string, { name: string; avatarUrl: string | null }>()),
+    /* Round 26: only an archived community can be on its way to being deleted (scheduling archives it). */
+    archived ? pendingDeletions(ctx.db, [c.id]) : Promise.resolve(new Map<string, PendingDeletion>()),
   ])
+  const deletion = pending.get(c.id)
   const person = people.get(ctx.userId)
   return {
     id: c.id,
@@ -288,8 +292,9 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
     visibility: c.visibility,
     memberCount: c.member_count,
     postCount: c.post_count,
-    archived: c.status === "archived" || Boolean(c.archived_at),
+    archived,
     suspended: Boolean(c.suspended_at) || c.status === "suspended",
+    deleting: deletion ? { deleteAt: deletion.deleteAt, canKeep: deletion.canKeep && ctx.role === "owner" } : null,
     gamificationEnabled: c.gamification_enabled,
     classroomEnabled: c.classroom_enabled,
     eventsEnabled: c.events_enabled,
@@ -325,7 +330,6 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null; onboarding?: unknown }
   const rows = new Map<string, Lite & { role: Role }>()
   for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
-  limit.owned = rows.size
   const staffRoles = new Map(((staff.data as { community_id: string; role: Role }[] | null) ?? []).map((m) => [m.community_id, m.role]))
   const extra = [...staffRoles.keys()].filter((id) => !rows.has(id))
   if (extra.length) {
@@ -333,7 +337,9 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
     for (const c of (data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: staffRoles.get(c.id) ?? "moderator" })
   }
   const list = [...rows.values()]
-  const perms = await staffPermissionsFor(db, list.filter((c) => c.role !== "owner").map((c) => c.id))
+  /* Round 26: a community whose deletion is scheduled says so on its card and takes no place on the plan (lib/communities/plan-limit.ts). */
+  const [perms, pending] = await Promise.all([staffPermissionsFor(db, list.filter((c) => c.role !== "owner").map((c) => c.id)), pendingDeletions(db, list.filter((c) => c.status === "archived" || c.archived_at).map((c) => c.id))])
+  limit.owned = list.filter((c) => c.role === "owner" && takesCommunitySlot({ deleting: pending.has(c.id) })).length
   const may = (c: Lite & { role: Role }, action: CommunityAction) => can(c.role, action, perms.get(c.id) ?? null)
   const paidIds = list.filter((c) => c.access === "paid").map((c) => c.id)
   const prices = new Map<string, string>()
@@ -390,6 +396,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
         priceLine: accessWords(privacyOf(c), c.access === "paid" ? (prices.get(c.id) ?? null) : "Free"),
         createdAt: c.created_at,
         archived: c.status === "archived" || Boolean(c.archived_at),
+        deleting: pending.has(c.id) ? { deleteAt: pending.get(c.id)!.deleteAt, canKeep: pending.get(c.id)!.canKeep && c.role === "owner" } : null,
         mrrCents: mrr.get(c.id)?.cents ?? null,
         currency: mrr.get(c.id)?.currency ?? "usd",
         can: { edit: may(c, "manage_settings"), analytics: may(c, "view_analytics"), archive: may(c, "archive"), duplicate: c.role === "owner" },
@@ -426,6 +433,11 @@ export async function createFromFlow(db: Db, a: { creatorId: string; userId: str
     if (made.error === "slug_taken") return no(409, "That address is taken.", "slug")
     if (made.error === "invalid_slug") return no(400, "That address cannot be used. Try another.", "slug")
     return no(500, "The community could not be made. Try again.")
+  }
+  /* Round 26: two tabs making one at the same moment both passed the room check; the later one is taken back here. */
+  if (!(await madeWithinLimit(db, a.creatorId, made.community.id))) {
+    await db.from("communities").delete().eq("id", made.community.id)
+    return no(402, PLAN_LIMIT_ERROR)
   }
   let community = made.community
   if (a.input.description) {
@@ -926,8 +938,10 @@ export async function deleteCommunity(db: Db, a: { community: CommunityRow; acto
   const paid = await paidMemberships(db, c.id)
   if (paid.length > 0) return scheduleDeletion(db, { community: c, actorId: a.actorId, mode: a.mode, paid }, deps)
   if (await deletionScheduled(db, c.id)) return no(409, "It is already being deleted. Keep it first to delete it another way.")
-  const { error } = await db.from("communities").update({ status: "archived", archived_at: c.archived_at ?? nowIso(), deleted_at: nowIso() }).eq("id", c.id)
+  /* Round 26, a double tap or two tabs: only the request that finds it not yet deleted deletes it and writes the log. */
+  const { data: gone, error } = await db.from("communities").update({ status: "archived", archived_at: c.archived_at ?? nowIso(), deleted_at: nowIso() }).eq("id", c.id).is("deleted_at", null).select("id")
   if (error) return no(500, "That did not save. Try again.")
+  if (!Array.isArray(gone) || gone.length !== 1) return no(409, "It has already been deleted.")
   await syncTierProducts(db, { ...c, status: "archived" }, false)
   await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: "community.deleted", targetType: "community", targetId: c.id, targetLabel: c.name })
   return { ok: true, deleted: true, scheduled: null }
