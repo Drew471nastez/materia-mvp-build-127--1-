@@ -570,7 +570,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
         <div className="sticky top-0 z-20 h-0" data-integration-pin-box="">
           <div
             className={cn(
-              "absolute inset-x-0 top-0 pt-2 transition-[opacity,transform] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
+              "absolute inset-x-0 top-0 pt-2 transition-[opacity,translate] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
               pinned ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none -translate-y-1.5 opacity-0 duration-[120ms]",
             )}
             inert={!pinned}
