@@ -1,0 +1,255 @@
+/**
+ * ===========================================================================
+ *  THE SECTION MENUS AND ADD SECTION'S APPS, MEASURED
+ * ===========================================================================
+ * The real sidebar rows, an open section's title row and Add section
+ * (scripts/render-section-menus.tsx), driven with a real mouse, keyboard and
+ * finger at 1280 × 800 and 390 × 844:
+ *
+ *   RIGHT CLICK   on a row opens its menu at the pointer: the menu's corner
+ *                 is where the pointer was, the row's actions are in it
+ *   DOTS          the row's "..." opens the same menu under it, right edges
+ *                 together; Shift+F10 opens it from the keyboard
+ *   LONG PRESS    a finger held on a row opens the action sheet; the lift
+ *                 does not open the section; a finger that moves opens none
+ *   TITLE ROW     the open section's three dots: its right edge on the row's
+ *                 padding, centred on the row, the Back tile's size; its
+ *                 menu's rows 32px, a row with a reason under it taller
+ *   APPS          Add section's Apps category on screen without scrolling,
+ *                 second after All, showing only app sections, and saying
+ *                 an app that is off
+ *
+ *   node scripts/check-section-menus.mjs      (SHOTS_DIR=dir for pictures)
+ */
+import { execFileSync } from "node:child_process"
+import { createServer } from "node:http"
+import { mkdtempSync, readFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import puppeteer from "puppeteer-core"
+import { probeCss } from "./probe-css.mjs"
+import { reporter, sleep } from "./anchor-motion-probe.mjs"
+
+const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
+const root = process.cwd()
+const css = await probeCss(root)
+const out = mkdtempSync(join(tmpdir(), "storelib-sectionmenus-"))
+execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-section-menus.tsx"),
+  "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(out, "probe.js")}`,
+  '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
+  '--define:process.env.NODE_ENV="production"', `--alias:@=${root}`, "--loader:.css=empty"],
+  { stdio: ["ignore", "ignore", "inherit"] })
+const js = readFileSync(join(out, "probe.js"))
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><style>body{margin:0;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="root"></div><script src="/probe.js"></script></body></html>`
+const server = createServer((req, res) => {
+  if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }
+  res.writeHead(200, { "content-type": "text/html" })
+  res.end(html)
+})
+await new Promise((r) => server.listen(0, "127.0.0.1", r))
+const origin = `http://127.0.0.1:${server.address().port}`
+const { check, finish } = reporter()
+const shots = process.env.SHOTS_DIR
+const r1 = (n) => Math.round(n * 10) / 10
+
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
+const open = async (width, height, phone, query = "") => {
+  const page = await browser.newPage()
+  await page.setViewport({ width, height, isMobile: phone, hasTouch: phone, deviceScaleFactor: 1 })
+  await page.goto(`${origin}/${query}`, { waitUntil: "load" })
+  await page.waitForSelector('[data-section-row="hero-1"]')
+  await sleep(150)
+  return page
+}
+const rect = (page, sel) => page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height } })
+const menuState = (page) => page.evaluate(() => {
+  const list = document.querySelector("[data-action-list]")
+  const sheet = document.querySelector("[data-action-sheet]")
+  const rows = (root) => [...(root?.querySelectorAll("[data-action-item]") ?? [])].map((el) => ({ id: el.getAttribute("data-action-item"), h: el.getBoundingClientRect().height, disabled: el.hasAttribute("data-disabled") || el.hasAttribute("disabled") }))
+  const box = list?.getBoundingClientRect()
+  return {
+    list: box ? { left: box.left, top: box.top, right: box.right, bottom: box.bottom } : null,
+    listRows: rows(list),
+    sheetRows: sheet && sheet.getBoundingClientRect().height > 0 ? rows(sheet) : [],
+    log: window.__log.slice(),
+  }
+})
+
+/* ── A computer ─────────────────────────────────────────────────────────── */
+console.log("\nA computer, 1280 × 800")
+{
+  const page = await open(1280, 800, false)
+  const row = await rect(page, '[data-section-row="hero-1"]')
+  const x = Math.round(row.left + 70)
+  const y = Math.round(row.top + row.height / 2)
+  await page.mouse.click(x, y, { button: "right" })
+  await page.waitForSelector("[data-action-list]")
+  await sleep(250)
+  let m = await menuState(page)
+  const dx = m.list.left - x
+  const dy = m.list.top - y
+  check("a right click opens the row's menu at the pointer", Math.abs(dx) <= 1 && dy >= 0 && dy <= 4, `menu corner ${r1(dx)}px across and ${r1(dy)}px down from the pointer`)
+  check("with the row's actions, Edit code among them", m.listRows.map((r) => r.id).join(",") === "duplicate,move-down,toggle-hidden,edit-code,delete", m.listRows.map((r) => r.id).join(","))
+  check("every row of it 32px", m.listRows.every((r) => r.h === 32), m.listRows.map((r) => r.h).join(","))
+  check("the right click did not open the section", !m.log.includes("select:hero-1"), m.log)
+  if (shots) await page.screenshot({ path: join(shots, "menus-right-click-1280.png") })
+  await page.keyboard.press("Escape")
+  await sleep(200)
+
+  /* FAQ: Edit code shown disabled, with its reason. */
+  const faq = await rect(page, '[data-section-row="faq-1"]')
+  await page.mouse.click(Math.round(faq.left + 60), Math.round(faq.top + faq.height / 2), { button: "right" })
+  await page.waitForSelector("[data-action-list]")
+  await sleep(200)
+  m = await menuState(page)
+  const code = m.listRows.find((r) => r.id === "edit-code")
+  check("a section with no code shows Edit code disabled, its reason under it", !!code && code.disabled && code.h > 32 && code.h <= 48, code ? `${code.h}px, disabled` : "missing")
+  const codeText = await page.$eval('[data-action-item="edit-code"]', (el) => el.textContent)
+  check("and the reason is in words", /Drawn by Storelib, no code to edit/.test(codeText), codeText)
+  await page.keyboard.press("Escape")
+  await sleep(200)
+
+  /* The dots: hover the row, press them. */
+  await page.mouse.move(x, y)
+  await sleep(100)
+  const dots = await rect(page, '[data-section-more="hero-1"]')
+  await page.mouse.click(dots.left + dots.width / 2, dots.top + dots.height / 2)
+  await page.waitForSelector("[data-action-list]")
+  await sleep(250)
+  m = await menuState(page)
+  check("the row's dots open the same menu, under them, right edges together", Math.abs(m.list.right - dots.right) <= 1 && m.list.top >= dots.bottom && m.list.top - dots.bottom <= 6 && m.listRows.length === 5, `right edges ${r1(m.list.right - dots.right)}px apart, ${r1(m.list.top - dots.bottom)}px below`)
+  await page.click('[data-action-item="duplicate"]')
+  await sleep(150)
+  m = await menuState(page)
+  check("a row of it runs its action and closes it", m.log.includes("dup:hero-1") && m.list === null, m.log)
+
+  /* The keyboard. */
+  await page.focus('[data-section-row="hero-1"]')
+  await page.keyboard.down("Shift")
+  await page.keyboard.press("F10")
+  await page.keyboard.up("Shift")
+  await sleep(250)
+  m = await menuState(page)
+  check("Shift+F10 on a focused row opens it", m.list !== null && m.listRows.length === 5)
+  await page.keyboard.press("Escape")
+  await sleep(200)
+  const focused = await page.evaluate(() => document.activeElement?.getAttribute("data-section-row"))
+  check("and Escape puts the focus back on the row", focused === "hero-1", focused)
+
+  /* The open section's title row. */
+  const bar = await page.$eval("[data-panel-back]", (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return { right: r.right, top: r.top, height: r.height, pad: parseFloat(cs.paddingRight) } })
+  const btn = await rect(page, "[data-section-panel-menu]")
+  const back = await rect(page, "[data-panel-back] button[aria-label='Back'] > span")
+  const gap = bar.right - bar.pad - btn.right
+  const mid = (btn.top + btn.height / 2) - (bar.top + bar.height / 2)
+  check("the title row's dots: right edge on the row's padding", Math.abs(gap) <= 0.5, `${r1(gap)}px from the ${bar.pad}px padding`)
+  check("centred on the row, the Back tile's size", Math.abs(mid) <= 0.5 && btn.width === back.width && btn.height === back.height, `${btn.width}×${btn.height} beside a ${back.width}×${back.height} tile, ${r1(mid)}px off centre`)
+  await page.click("[data-section-panel-menu]")
+  await page.waitForSelector("[data-action-list]")
+  await sleep(250)
+  m = await menuState(page)
+  const plain = m.listRows.filter((r) => !r.disabled)
+  const hinted = m.listRows.filter((r) => r.disabled)
+  check("its menu under it, right edges together", Math.abs(m.list.right - btn.right) <= 1 && m.list.top >= btn.bottom, `${r1(m.list.right - btn.right)}px`)
+  check("its rows 32px; a row with a reason under it taller, and not pressable", plain.every((r) => r.h === 32) && hinted.length === 2 && hinted.every((r) => r.h > 32 && r.h <= 48), m.listRows.map((r) => `${r.id} ${r.h}`).join(", "))
+  if (shots) await page.screenshot({ path: join(shots, "menus-title-row-1280.png") })
+  await page.click('[data-action-item="paste-section"]').catch(() => {})
+  await sleep(150)
+  m = await menuState(page)
+  check("a disabled row does nothing", !m.log.includes("paste-section"))
+  await page.keyboard.press("Escape")
+  await sleep(200)
+
+  /* Add section: Apps. */
+  await page.click('[data-section-group="template"] [data-add-section]')
+  await page.waitForSelector('[data-section-library="desktop"]', { visible: true })
+  await sleep(500)
+  const nav = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('[data-section-library="desktop"] nav button')]
+    const apps = buttons.find((b) => b.textContent?.startsWith("Apps"))
+    const r = apps?.getBoundingClientRect()
+    return { labels: buttons.map((b) => b.querySelector("span")?.textContent), apps: r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null, count: apps?.querySelector("[data-category-count]")?.textContent }
+  })
+  check("Add section lists Apps, second after All", nav.labels[0] === "All" && nav.labels[1] === "Apps", nav.labels.slice(0, 4))
+  check("on screen without scrolling", !!nav.apps && nav.apps.top >= 0 && nav.apps.bottom <= 800 && nav.apps.left >= 0 && nav.apps.right <= 1280, nav.apps)
+  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="desktop"] nav button')].find((b) => b.textContent?.startsWith("Apps"))?.click())
+  await sleep(400)
+  const apps = await page.evaluate(() => ({
+    cards: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
+    named: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden]) [data-card-app]')].length,
+    off: [...document.querySelectorAll('[data-section-library="desktop"] [data-app-off]')].map((n) => ({ id: n.getAttribute("data-app-off"), text: n.textContent, href: n.querySelector("a")?.getAttribute("href"), h: n.getBoundingClientRect().height })),
+  }))
+  check("Apps shows the app sections and only those, each with its app's name", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_|newsletter$/.test(t)) && apps.named === apps.cards.length, `${apps.cards.length} cards: ${[...new Set(apps.cards)].join(", ")}`)
+  check("and says Reviews is off, with the way to turn it on", apps.off.length === 1 && apps.off[0].id === "reviews" && /Storelib Reviews is off/.test(apps.off[0].text) && apps.off[0].href === "/app/integrations?integration=storelib-reviews", apps.off)
+  check(`count beside it matches (${nav.count})`, Number(nav.count) === apps.cards.length)
+  if (shots) await page.screenshot({ path: join(shots, "apps-1280.png") })
+  await page.close()
+}
+
+/* ── A phone ────────────────────────────────────────────────────────────── */
+console.log("\nA phone, 390 × 844")
+{
+  const page = await open(390, 844, true)
+  const row = await rect(page, '[data-section-row="hero-1"]')
+  const x = Math.round(row.left + 80)
+  const y = Math.round(row.top + row.height / 2)
+  const cdp = await page.createCDPSession()
+  const touch = (type, px, py) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: px, y: py, id: 1 }] })
+
+  /* A finger that moves is a scroll. */
+  await touch("touchStart", x, y)
+  await sleep(60)
+  await touch("touchMove", x, y + 30)
+  await sleep(650)
+  await touch("touchEnd")
+  await sleep(500)
+  let m = await menuState(page)
+  check("a finger that moves opens no menu", m.sheetRows.length === 0 && m.list === null)
+
+  await touch("touchStart", x, y)
+  await sleep(700)
+  await touch("touchEnd")
+  await sleep(700)
+  m = await menuState(page)
+  check("a finger held on a row opens the action sheet", m.sheetRows.length === 5, m.sheetRows.map((r) => r.id).join(","))
+  check("its rows a thumb's height", m.sheetRows.every((r) => r.h >= 52), m.sheetRows.map((r) => r.h).join(","))
+  check("and the lift did not open the section", !m.log.includes("select:hero-1"), m.log)
+  if (shots) await page.screenshot({ path: join(shots, "menus-long-press-390.png") })
+  await page.evaluate(() => document.querySelector('[data-action-sheet] [data-action-item="toggle-hidden"]')?.click())
+  await sleep(800)
+  m = await menuState(page)
+  check("a row of the sheet runs once the sheet has gone", m.log.includes("hide:hero-1"), m.log)
+
+  const bar = await page.$eval("[data-panel-back]", (el) => { const r = el.getBoundingClientRect(); return { right: r.right, top: r.top, height: r.height, pad: parseFloat(getComputedStyle(el).paddingRight) } })
+  const btn = await rect(page, "[data-section-panel-menu]")
+  const gap = bar.right - bar.pad - btn.right
+  check("the title row's dots: right edge on the row's padding, 36px", Math.abs(gap) <= 0.5 && btn.width === 36 && btn.height === 36, `${r1(gap)}px from the ${bar.pad}px padding, ${btn.width}×${btn.height}`)
+
+  await page.evaluate(() => document.querySelector('[data-section-group="template"] [data-add-section]')?.click())
+  await page.waitForSelector('[data-section-library="phone"]', { visible: true })
+  await sleep(900)
+  const pills = await page.evaluate(() => {
+    const row = document.querySelector('[data-section-library="phone"] [role="toolbar"]')
+    const box = row.getBoundingClientRect()
+    const chips = [...row.querySelectorAll("button")]
+    const apps = chips.find((c) => c.textContent?.startsWith("Apps"))
+    const r = apps?.getBoundingClientRect()
+    return { labels: chips.map((c) => c.textContent), apps: r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null, row: { left: box.left, right: box.right } }
+  })
+  check("Add section on a phone has Apps, second after All", pills.labels[0] === "All" && pills.labels[1] === "Apps", pills.labels.slice(0, 4))
+  check("and its pill is on screen without scrolling the row", !!pills.apps && pills.apps.left >= pills.row.left && pills.apps.right <= pills.row.right && pills.apps.right <= 390 && pills.apps.bottom <= 844, pills.apps)
+  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="phone"] [role="toolbar"] button')].find((c) => c.textContent?.startsWith("Apps"))?.click())
+  await sleep(400)
+  const apps = await page.evaluate(() => ({
+    cards: [...document.querySelectorAll('[data-section-library="phone"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
+    off: [...document.querySelectorAll('[data-section-library="phone"] [data-app-off]')].map((n) => { const r = n.getBoundingClientRect(); return { id: n.getAttribute("data-app-off"), left: r.left, right: r.right, h: r.height } }),
+  }))
+  check("Apps on a phone shows the app sections only", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_|newsletter$/.test(t)), `${apps.cards.length} cards`)
+  check("and the off line fits the sheet", apps.off.length === 1 && apps.off[0].left >= 16 && apps.off[0].right <= 390 - 16 + 1 && apps.off[0].h >= 44, apps.off)
+  if (shots) await page.screenshot({ path: join(shots, "apps-390.png") })
+  await page.close()
+}
+
+await browser.close()
+server.close()
+finish()

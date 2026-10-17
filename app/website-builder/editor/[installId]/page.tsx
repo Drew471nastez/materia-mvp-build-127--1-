@@ -17,7 +17,7 @@ import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -98,6 +98,13 @@ import {
   type SectionKind,
 } from "@/lib/storelib-theme/section-groups"
 import { ReplaceChromeConfirm } from "@/components/website-builder/editor/replace-chrome-confirm"
+import { PanelMenuButton, SectionActionConfirm } from "@/components/website-builder/editor/section-panel-menu"
+import { useSectionClipboard } from "@/components/website-builder/editor/use-section-clipboard"
+import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { blockFromClip, clipNoun, copyBlock, copySection, copySettings, decodeClip, encodeClip, pasteBlockCheck, pasteSectionCheck, pasteSettingsPlan, sectionFromClip, type Clip, type SectionClip } from "@/lib/website-builder/section-clipboard"
+import { sectionCodeTarget } from "@/lib/website-builder/section-code-target"
+import { makeCodedCopy } from "@/lib/website-builder/agent/coded-copy"
+import { blockRoom } from "@/lib/website-builder/block-room"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
@@ -121,7 +128,7 @@ import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/
 import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
-import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
+import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import {
   WRITING_SECTION_ID,
   WRITING_SECTION_TYPE,
@@ -2350,37 +2357,7 @@ function blockDefaults(def: BlockSchema | undefined): Record<string, unknown> {
   return out
 }
 
-/**
- * Room under one owner (the section, or a block that holds blocks) for one
- * more block of a type, `size` blocks counting what is inside it. Four
- * rules: the owner's `max_blocks`, the type's `limit` there, the section's
- * total at every depth, and how deep blocks may nest.
- */
-function blockRoom(
-  owner: { name: string; max_blocks?: number } | undefined,
-  siblings: readonly BlockInstance[],
-  def: BlockSchema | undefined,
-  blockType: string,
-  section: { blocks?: BlockInstance[] },
-  room: { depth: number; size: number; height: number },
-): { ok: true } | { ok: false; reason: string } {
-  const placed = siblings.filter((b) => !b.static)
-  const max = owner?.max_blocks
-  if (max && placed.length >= max) {
-    return { ok: false, reason: `${owner!.name} holds ${max} block${max === 1 ? "" : "s"}.` }
-  }
-  const limit = def?.limit
-  if (limit && placed.filter((b) => b.type === blockType).length >= limit) {
-    return { ok: false, reason: `${owner?.name ?? "This section"} holds ${limit} ${def?.name ?? blockType}${limit === 1 ? "" : "s"}.` }
-  }
-  if (countAll(section.blocks) + room.size > LIMITS.blocksPerSection) {
-    return { ok: false, reason: `A section holds ${LIMITS.blocksPerSection} blocks.` }
-  }
-  if (room.depth + room.height - 1 > MAX_BLOCK_DEPTH) {
-    return { ok: false, reason: `Blocks nest ${MAX_BLOCK_DEPTH} deep at most.` }
-  }
-  return { ok: true }
-}
+/* Room for one more block, by the four rules: lib/website-builder/block-room.ts (Add block, Duplicate and Paste block). */
 
 /**
  * ===========================================================================
@@ -3120,6 +3097,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [arrivedId, setArrivedId] = useState<string | null>(null)
   /** A file to open the code editor onto, set when the assistant writes one. */
   const [codeFilePath, setCodeFilePath] = useState<string | null>(null)
+  /** Where in it (the template's top or the schema), and a count so the same file asked for twice is opened twice. */
+  const [codeFileAt, setCodeFileAt] = useState<{ at: "top" | "schema"; n: number }>({ at: "top", n: 0 })
   /**
    * Mounted on first open and kept: the phone's AI sheet used to unmount the
    * instant it closed, which is a sheet that vanishes rather than one that
@@ -5481,6 +5460,352 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
+  /**
+   * ===========================================================================
+   *  COPY AND PASTE: A SECTION, ITS SETTINGS, A BLOCK
+   * ===========================================================================
+   * The last thing copied, kept for this creator account in this browser
+   * and on the system clipboard (lib/website-builder/section-clipboard.ts,
+   * editor/use-section-clipboard.ts): still there on another page, after a
+   * reload, and in another theme of the same account. Paste section goes in
+   * after the open section, as Shopify's does; Paste settings and Paste
+   * block are their own. Each paste is one Undo step, and the canvas draws
+   * it the moment it lands, because it is the page's own state.
+   */
+  const clipOwner = install?.creator_id ?? null
+  const { clip, write: writeClip } = useSectionClipboard(clipOwner)
+  const clipFrom = { installId, page: String(currentPage) }
+  /* An imported theme draws only its own files; a Storelib theme its own and Storelib's. */
+  const hasSectionType = (type: string) => (compatInstall ? !!customSchemas[type] : !!schemaFor(type, storelibSources, librarySchemas))
+  /** Whether the copy can be pasted here: an imported theme cannot take a Storelib file along with it. */
+  const sectionPasteCheck = (from: Clip | null) => {
+    const r = pasteSectionCheck(from, { hasType: hasSectionType })
+    if (r.ok && r.needsCode && compatInstall) return { ok: false as const, reason: `${(from as SectionClip).typeName} isn't in this theme` }
+    return r
+  }
+  /** What a confirm card is asking before a copy or a paste goes ahead. */
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: "copy-code"; sectionId: string; name: string }
+    | { kind: "paste-code"; clip: SectionClip; afterId: string | null }
+    | { kind: "paste-settings"; sectionId: string; next: Record<string, unknown>; changes: string[]; from: string; to: string }
+    | null
+  >(null)
+  const [pendingBusy, setPendingBusy] = useState(false)
+
+  const copySectionNow = (sectionId: string): Clip | null => {
+    const s = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!s) return null
+    const schema = schemaFor(s.type, storelibSources, librarySchemas)
+    /* The creator's own file comes with it, so a theme without it can take the file too. Storelib's own types are in every Storelib theme. */
+    const target = sectionCodeTarget(s.type, { sources: storelibSources, defaults: DEFAULT_THEME_SOURCES as Record<string, string> })
+    const code = !compatInstall && target.kind === "file" && !(target.path in DEFAULT_THEME_SOURCES) ? { path: target.path, source: storelibSources[target.path] } : null
+    const copied = copySection(s, { owner: clipOwner, from: clipFrom, typeName: schema?.name ?? s.type, fields: schema?.fields, code })
+    void writeClip(copied)
+    showNotification(`Copied ${sectionDisplayName(s, librarySchemas)}`)
+    return copied
+  }
+
+  const copySettingsNow = (sectionId: string) => {
+    const s = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!s) return
+    const schema = schemaFor(s.type, storelibSources, librarySchemas)
+    void writeClip(copySettings(s, { owner: clipOwner, from: clipFrom, typeName: schema?.name ?? s.type, fields: schema?.fields }))
+    showNotification(`Copied the settings of ${sectionDisplayName(s, librarySchemas)}`)
+  }
+
+  /** The copied section, in after `afterId` (in that section's group), or at the end of the page. One undo step. */
+  const placePastedSection = (c: SectionClip, afterId: string | null, schemaOverride?: SectionSchema) => {
+    const pasted = sectionFromClip(c, { section: (t) => `${t}-${Date.now()}`, block: newBlockId })
+    const schema = schemaOverride ?? schemaFor(pasted.type, storelibSources, librarySchemas)
+    const list = sectionsRef.current
+    const target = afterId ? list.find((x) => x.id === afterId) ?? null : null
+    const group: SectionGroup = target ? groupOf(target) : "template"
+    const inGroup = splitGroups(list)[group]
+    const at = target ? inGroup.findIndex((x) => x.id === target.id) + 1 : null
+    pushUndo()
+    const placed = placeSection(list, pasted, { groups: sectionGroupsFor(schema as never, { type: pasted.type, kind: null }), kind: null, group, at, kindOfType })
+    setSections(placed.sections)
+    setSelectedBlockId(null)
+    setSelectedPanel({ type: "section", sectionId: pasted.id })
+    setIsDirty(true)
+    requestAnimationFrame(() => requestAnimationFrame(() => revealSection(pasted.id)))
+    showNotification(`Pasted ${sectionDisplayName(pasted, librarySchemas)}`)
+  }
+
+  const pasteSectionNow = (afterId: string | null, from: Clip | null = clip) => {
+    const check = sectionPasteCheck(from)
+    if (check.ok === false) { toast.error((check as { reason: string }).reason); return }
+    const c = from as SectionClip
+    if (kindOfType(c.section.type)) { toast.error("A header or footer is added from Add section"); return }
+    /* A section the creator wrote, into a theme that does not have its file: asked first, since the file is written too. */
+    if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId }); return }
+    placePastedSection(c, afterId)
+  }
+
+  /** Write the copied section's file into this theme, then paste it. */
+  const pasteWithCode = async (c: SectionClip, afterId: string | null) => {
+    if (!c.code) return
+    setPendingBusy(true)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: c.code.path, content: c.code.source }),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string }
+        toast.error(d.error || "Could not copy the section's file. Try again.")
+        return
+      }
+      const files = await loadStorelibSources()
+      setPendingAction(null)
+      placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined)
+    } catch {
+      toast.error("Could not copy the section's file. Try again.")
+    } finally {
+      setPendingBusy(false)
+    }
+  }
+
+  const applySettings = (sectionId: string, next: Record<string, unknown>) => {
+    pushUndo()
+    setSections((prev) => prev.map((x) => (x.id === sectionId ? { ...x, settings: next } : x)))
+    setIsDirty(true)
+  }
+
+  const pasteSettingsNow = (sectionId: string, from: Clip | null = clip) => {
+    const s = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!s) return
+    const schema = schemaFor(s.type, storelibSources, librarySchemas)
+    const plan = pasteSettingsPlan(from, { type: s.type, settings: s.settings ?? {}, fields: schema?.fields ?? [] })
+    if (plan.ok === false) { toast.error((plan as { reason: string }).reason); return }
+    const ok = plan as Extract<typeof plan, { ok: true }>
+    if (ok.same) {
+      applySettings(sectionId, ok.next)
+      showNotification(`Pasted settings onto ${sectionDisplayName(s, librarySchemas)}`)
+      return
+    }
+    /* Another kind of section: say what changes before it does. */
+    setPendingAction({ kind: "paste-settings", sectionId, next: ok.next, changes: ok.changes.map((c) => c.label), from: clipNoun(from as Clip), to: sectionDisplayName(s, librarySchemas) })
+  }
+
+  /** Where a pasted block goes: after the open block at its level, else at the end of the section's own blocks. */
+  const blockPastePlace = (sectionId: string, afterKey: string | null, from: Clip | null = clip) => {
+    const section = sectionsRef.current.find((x) => x.id === sectionId)
+    if (!section) return null
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const afterPath = afterKey ? resolvePath(section.blocks, afterKey) : null
+    const parent = afterPath ? afterPath.slice(0, -1) : []
+    const at = ownerOf(schema, section, parent)
+    if (!at) return null
+    const holder = parent.length ? blockAt(section.blocks, parent)?.block : null
+    const holderDef = holder ? blockDefAt(schema, parent, holder.type) : undefined
+    const level = parent.length === 0 ? { blocks: schema?.blocks, accepts: schema?.accepts } : { accepts: holderDef?.accepts }
+    const type = from?.kind === "block" ? from.block.type : ""
+    const check = pasteBlockCheck(from, {
+      sectionName: holder ? holderDef?.name ?? holder.type : sectionDisplayName(section, librarySchemas),
+      section,
+      takes: (t) => addableBlocks(level, blockCatalog).some((k) => k.type === t),
+      owner: at.owner,
+      siblings: at.siblings,
+      def: type ? blockDefAt(schema, [...parent, type], type) : undefined,
+      depth: parent.length + 1,
+    })
+    const index = afterPath ? at.siblings.findIndex((b) => b.id === afterPath[afterPath.length - 1]) + 1 : undefined
+    return { section, parent, index, check }
+  }
+
+  const copyBlockNow = (sectionId: string, blockKey: string): Clip | null => {
+    const section = sectionsRef.current.find((x) => x.id === sectionId)
+    const path = section ? resolvePath(section.blocks, blockKey) : null
+    const hit = section && path ? blockAt(section.blocks, path) : null
+    if (!section || !path || !hit) return null
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const name = blockDefAt(schema, path, hit.block.type)?.name ?? hit.block.type
+    const copied = copyBlock(section.type, hit.block, { owner: clipOwner, from: clipFrom, blockName: name })
+    void writeClip(copied)
+    showNotification(`Copied ${name}`)
+    return copied
+  }
+
+  /** In, as one undo step, opened. */
+  const insertPastedBlock = (sectionId: string, place: { parent: string[]; index?: number }, from: Clip) => {
+    if (from.kind !== "block") return
+    const block = blockFromClip(from, { section: (t) => t, block: newBlockId })
+    pushUndo()
+    setSections((prev) => prev.map((x) => (x.id === sectionId ? { ...x, blocks: insertBlockAt(x.blocks, place.parent, block, place.index) } : x)))
+    setSelectedPanel({ type: "section", sectionId })
+    setSelectedBlockId(pathKey([...place.parent, block.id]))
+    setIsDirty(true)
+  }
+
+  const pasteBlockNow = (sectionId: string, afterKey: string | null) => {
+    const place = blockPastePlace(sectionId, afterKey)
+    if (!place || !clip) return
+    if (place.check.ok === false) { toast.error((place.check as { reason: string }).reason); return }
+    insertPastedBlock(sectionId, place, clip)
+  }
+
+  /**
+   * EDIT CODE: the section's own file, opened in the code editor at it; a
+   * built-in, copied first (after asking) and the section switched to the
+   * copy with every setting and block; or nothing, said in the menu
+   * (lib/website-builder/section-code-target.ts).
+   */
+  const codeTargetOf = (type: string) => sectionCodeTarget(type, { sources: storelibSources, defaults: DEFAULT_THEME_SOURCES as Record<string, string> })
+  const codeMenuFor = (s: SectionInstance, at: "top" | "schema"): { label: string; hint?: string; run?: () => void } => {
+    const target = codeTargetOf(s.type)
+    if (target.kind === "file") return { label: "Edit code", run: () => void openCode(target.path, { at, sectionId: s.id }) }
+    if (target.kind === "copy") return { label: "Edit a copy", hint: "Storelib's own section", run: () => setPendingAction({ kind: "copy-code", sectionId: s.id, name: sectionDisplayName(s, librarySchemas) }) }
+    return { label: "Edit code", hint: (target as { reason: string }).reason }
+  }
+
+  const editCopyNow = async (sectionId: string) => {
+    const s = sectionsRef.current.find((x) => x.id === sectionId)
+    const target = s ? codeTargetOf(s.type) : null
+    if (!s || !target || target.kind !== "copy") return
+    const copy = makeCodedCopy({
+      type: s.type,
+      source: target.source,
+      takenTypes: new Set([...Object.keys(librarySchemas), ...Object.keys(storelibSources).map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, ""))]),
+      takenNames: new Set(Object.values(librarySchemas).map((x) => String(x?.name ?? "").toLowerCase())),
+    })
+    if (copy.ok === false) { toast.error((copy as { error: string }).error); return }
+    const made = copy as Extract<typeof copy, { ok: true }>
+    setPendingBusy(true)
+    try {
+      const res = await fetch(`/api/website-builder/themes/${installId}/files`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: made.path, content: made.source }),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string }
+        toast.error(d.error || "Could not make the copy. Try again.")
+        return
+      }
+      await loadStorelibSources()
+      setPendingAction(null)
+      /* Same settings, same blocks: only the file it is drawn from changes. One undo step. */
+      pushUndo()
+      setSections((prev) => prev.map((x) => (x.id === sectionId ? { ...x, type: made.type } : x)))
+      setIsDirty(true)
+      void openCode(made.path, { at: "top", sectionId })
+    } catch {
+      toast.error("Could not make the copy. Try again.")
+    } finally {
+      setPendingBusy(false)
+    }
+  }
+
+  /** The open section's menu, on its title row. Worked out when it opens. */
+  const sectionPanelItems = (section: SectionInstance): ActionMenuItem[] => {
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    const chrome = section.type === "header" || section.type === "footer" || !!kindOfType(section.type)
+    const pasteS = sectionPasteCheck(clip)
+    const pasteSet = pasteSettingsPlan(clip, { type: section.type, settings: section.settings ?? {}, fields: schema?.fields ?? [] })
+    const items: ActionMenuItem[] = [
+      { id: "copy-section", label: "Copy section", icon: <Copy strokeWidth={1.75} />, disabled: chrome, hint: chrome ? `A site has one ${kindOfType(section.type) ?? section.type}` : undefined, onClick: () => copySectionNow(section.id) },
+      { id: "paste-section", label: "Paste section", icon: <ClipboardPaste strokeWidth={1.75} />, disabled: !pasteS.ok, hint: pasteS.ok ? undefined : (pasteS as { reason: string }).reason, onClick: () => pasteSectionNow(section.id) },
+      { id: "copy-settings", label: "Copy settings", icon: <SlidersHorizontal strokeWidth={1.75} />, separatorBefore: true, onClick: () => copySettingsNow(section.id) },
+      { id: "paste-settings", label: "Paste settings", icon: <ClipboardPaste strokeWidth={1.75} />, disabled: !pasteSet.ok, hint: pasteSet.ok ? undefined : (pasteSet as { reason: string }).reason, onClick: () => pasteSettingsNow(section.id) },
+    ]
+    if (clip?.kind === "block") {
+      const place = blockPastePlace(section.id, null)
+      const ok = !!place && place.check.ok
+      items.push({ id: "paste-block", label: "Paste block", icon: <ClipboardPaste strokeWidth={1.75} />, disabled: !ok, hint: ok || !place ? undefined : (place.check as { reason: string }).reason, onClick: () => pasteBlockNow(section.id, null) })
+    }
+    const code = codeMenuFor(section, "schema")
+    items.push({ id: "edit-code", label: code.label, hint: code.hint, disabled: !code.run, icon: <Code2 strokeWidth={1.75} />, separatorBefore: true, onClick: code.run })
+    if (!chrome) items.push({ id: "duplicate", label: "Duplicate", icon: <Copy strokeWidth={1.75} />, onClick: () => duplicateSection(section.id) })
+    items.push({ id: "toggle-hidden", label: section.hidden ? "Show" : "Hide", icon: section.hidden ? <Eye strokeWidth={1.75} /> : <EyeOff strokeWidth={1.75} />, onClick: () => toggleSectionHidden(section.id) })
+    items.push({ id: "delete", label: "Delete", icon: <Trash2 strokeWidth={1.75} />, variant: "destructive", separatorBefore: true, onClick: () => removeSection(section.id) })
+    return items
+  }
+
+  /** The open block's menu. */
+  const blockPanelItems = (section: SectionInstance, blockKey: string, block: BlockInstance, canHide: boolean, virtualType?: string): ActionMenuItem[] => {
+    const place = blockPastePlace(section.id, blockKey)
+    const pasteOk = !!place && place.check.ok
+    const items: ActionMenuItem[] = [
+      { id: "copy-block", label: "Copy block", icon: <Copy strokeWidth={1.75} />, disabled: !resolvePath(section.blocks, blockKey), hint: resolvePath(section.blocks, blockKey) ? undefined : "Change a setting first", onClick: () => copyBlockNow(section.id, blockKey) },
+      { id: "paste-block", label: "Paste block", icon: <ClipboardPaste strokeWidth={1.75} />, disabled: !pasteOk, hint: pasteOk ? undefined : place ? (place.check as { reason: string }).reason : undefined, onClick: () => pasteBlockNow(section.id, blockKey) },
+    ]
+    if (!block.static) items.push({ id: "duplicate", label: "Duplicate", icon: <Copy strokeWidth={1.75} />, separatorBefore: true, onClick: () => duplicateBlock(section.id, blockKey) })
+    if (canHide) items.push({ id: "toggle-hidden", label: block.hidden ? "Show" : "Hide", icon: block.hidden ? <Eye strokeWidth={1.75} /> : <EyeOff strokeWidth={1.75} />, separatorBefore: block.static, onClick: () => toggleBlockHidden(section.id, blockKey, virtualType) })
+    if (!block.static) items.push({ id: "delete", label: "Delete", icon: <Trash2 strokeWidth={1.75} />, variant: "destructive", separatorBefore: true, onClick: () => removeBlock(section.id, blockKey) })
+    return items
+  }
+
+  /**
+   * Cmd/Ctrl+C and Cmd/Ctrl+V on the sidebar or the canvas, never in a field:
+   * C copies the open block or section; V pastes what the system clipboard
+   * holds when it is a Storelib copy (and keeps it as this account's copy),
+   * else the copy kept here.
+   */
+  const clipKeys = useRef<{ copy: () => Clip | null; paste: (c: Clip | null) => void }>({ copy: () => null, paste: () => {} })
+  clipKeys.current.copy = () => {
+    const id = selectedPanel.type === "section" ? selectedPanel.sectionId : null
+    if (!id) return null
+    return selectedBlockId ? copyBlockNow(id, selectedBlockId) : copySectionNow(id)
+  }
+  clipKeys.current.paste = (c: Clip | null) => {
+    const from = c ?? clip
+    if (!from) return
+    const id = selectedPanel.type === "section" ? selectedPanel.sectionId : null
+    if (c) void writeClip(c)
+    if (from.kind === "block") {
+      if (!id) { toast.error("Open a section to paste a block into"); return }
+      const place = blockPastePlace(id, selectedBlockId, from)
+      if (!place) return
+      if (place.check.ok === false) { toast.error((place.check as { reason: string }).reason); return }
+      insertPastedBlock(id, place, from)
+      return
+    }
+    if (from.kind === "settings") {
+      if (!id) { toast.error("Open a section to paste settings onto"); return }
+      pasteSettingsNow(id, from)
+      return
+    }
+    pasteSectionNow(id, from)
+  }
+  useEffect(() => {
+    const quiet = (t: EventTarget | null) => {
+      const el = t instanceof HTMLElement ? t : null
+      return !!el && (isTypingTarget(el) || !!el.closest("[role='dialog'], [role='alertdialog']"))
+    }
+    const onCopy = (e: ClipboardEvent) => {
+      if (quiet(e.target) || quiet(document.activeElement)) return
+      const sel = window.getSelection()
+      if (sel && !sel.isCollapsed && sel.toString().trim() !== "") return
+      const copied = clipKeys.current.copy()
+      if (!copied) return
+      e.clipboardData?.setData("text/plain", encodeClip(copied))
+      e.preventDefault()
+    }
+    const onPaste = (e: ClipboardEvent) => {
+      if (quiet(e.target) || quiet(document.activeElement)) return
+      const text = e.clipboardData?.getData("text/plain") ?? ""
+      const fromSystem = decodeClip(text)
+      if (fromSystem) {
+        e.preventDefault()
+        if (fromSystem.owner !== null && fromSystem.owner !== clipOwner) { toast.error("That was copied in another account"); return }
+        clipKeys.current.paste(fromSystem)
+        return
+      }
+      /* Something else is on the clipboard: it is not ours to paste. Nothing at all: the copy kept here. */
+      if (text.trim() !== "" || (e.clipboardData?.files?.length ?? 0) > 0) return
+      e.preventDefault()
+      clipKeys.current.paste(null)
+    }
+    document.addEventListener("copy", onCopy)
+    document.addEventListener("paste", onPaste)
+    return () => {
+      document.removeEventListener("copy", onCopy)
+      document.removeEventListener("paste", onPaste)
+    }
+  }, [clipOwner])
+
   const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
     const schema = librarySchemas[type]
     if (!schema) return
@@ -7283,6 +7608,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onDuplicate={duplicateSection}
                 onRemove={removeSection}
                 onMove={moveSectionBy}
+                codeItem={(s) => codeMenuFor(s, "top")}
                 kindOfType={kindOfType}
                 overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
@@ -7346,7 +7672,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return (
           <div className="flex flex-col h-full" data-wb-section-panel={section.id} data-wb-block-panel={key}>
             {/* Back goes up one level, as a second tap on the canvas does: the block around this one, then its section. */}
-            <PanelBack onBack={() => { const up = parsePath(key).slice(0, -1); setSelectedBlockId(up.length ? pathKey(up) : null) }}>
+            <PanelBack
+              onBack={() => { const up = parsePath(key).slice(0, -1); setSelectedBlockId(up.length ? pathKey(up) : null) }}
+              action={<PanelMenuButton label={`More for ${name}`} title={name} items={() => blockPanelItems(section, key, blockHit.block, canHide, blockHit.virtual)} />}
+            >
               <p className="truncate text-[15px] font-semibold md:text-sm">{name}</p>
             </PanelBack>
             <div className="border-b border-border px-3.5 py-2">
@@ -7441,7 +7770,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             */}
           {/* Back is the whole left of the row, the name included, on a
               quiet tile: components/website-builder/panel-back.tsx. */}
-          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+          <PanelBack
+            onBack={() => setSelectedPanel({ type: "pages" })}
+            action={<PanelMenuButton label={`More for ${sectionDisplayName(section, librarySchemas)}`} title={sectionDisplayName(section, librarySchemas)} items={() => sectionPanelItems(section)} />}
+          >
             <SectionTitleRename name={sectionDisplayName(section, librarySchemas)} onRename={(next) => renameSection(section.id, next)} />
             {(schema?.name ?? section.type) !== sectionDisplayName(section, librarySchemas) && (
               <p className="text-[11px] text-muted-foreground truncate">{schema?.name ?? section.type}</p>
@@ -7880,6 +8212,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * loaded, so nothing that settles the first panel can take it back, and
    * taken off the address so a reload opens the page, not the menus again.
    */
+  /**
+   * `?section=<id>`: back from the code editor on a phone, onto the section
+   * that was open (openCode). Read once, taken off the address, and opened
+   * once the page holding it has loaded.
+   */
+  const wantedSection = useRef<string | null>(null)
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    const id = url.searchParams.get("section")
+    if (!id) return
+    wantedSection.current = id
+    url.searchParams.delete("section")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+  }, [])
+  useEffect(() => {
+    const id = wantedSection.current
+    if (!id || loading || !sections.some((s) => s.id === id)) return
+    wantedSection.current = null
+    setSidebarMode("sections")
+    setPageBrowserOpen(false)
+    setSelectedBlockId(null)
+    setSelectedPanel({ type: "section", sectionId: id })
+    revealSection(id)
+    if (isMobileView) setMobileSidebarOpen(true)
+  }, [loading, sections, isMobileView, revealSection])
   useEffect(() => {
     if (loading) return
     const url = new URL(window.location.href)
@@ -8563,8 +8920,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * save fails the person stays here with the error, rather than losing
    * their work to a page change.
    */
-  const openCode = async (path?: string | null) => {
-    if (path) setCodeFilePath(path)
+  const openCode = async (path?: string | null, opts: { at?: "top" | "schema"; sectionId?: string } = {}) => {
+    if (path) {
+      setCodeFilePath(path)
+      setCodeFileAt((prev) => ({ at: opts.at ?? "top", n: prev.n + 1 }))
+    }
     if (!isMobileView) {
       setPreviewMode("code")
       setMobileSidebarOpen(false)
@@ -8577,6 +8937,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const q = new URLSearchParams({ back: "editor" })
     if (path) q.set("path", path)
+    if (path && opts.at === "schema") q.set("at", "schema")
+    /* Back from the code comes back to this section, on this page (the editor reads `section` once it has loaded). */
+    if (opts.sectionId) q.set("section", opts.sectionId)
+    const preview = new URL(window.location.href).searchParams.get("previewPath")
+    if (preview) q.set("previewPath", preview)
     // NOT `setLeaving(true)`: that is the "Going back" screen, for leaving the
     // builder. Opening the code editor is going forward, and the code page
     // says it is loading in its own words when it arrives.
@@ -9531,6 +9896,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <CanvasHover enabled={inspectorEnabled && canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
 
       {/* A header (or footer) chosen while one is drawn: see addSection. */}
+      {/* Copy and paste that write a file, or land on another kind of section: asked first (editor/section-panel-menu.tsx). */}
+      <SectionActionConfirm
+        open={pendingAction !== null}
+        busy={pendingBusy}
+        title={
+          pendingAction?.kind === "copy-code" ? `Edit a copy of ${pendingAction.name}?`
+            : pendingAction?.kind === "paste-code" ? `Paste ${pendingAction.clip.typeName} with its code?`
+            : pendingAction?.kind === "paste-settings" ? `Paste settings onto ${pendingAction.to}?`
+            : ""
+        }
+        confirm={pendingAction?.kind === "copy-code" ? "Make a copy" : pendingAction?.kind === "paste-code" ? "Paste with code" : "Paste settings"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          const a = pendingAction
+          if (!a) return
+          if (a.kind === "copy-code") void editCopyNow(a.sectionId)
+          else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId)
+          else { setPendingAction(null); applySettings(a.sectionId, a.next) }
+        }}
+      >
+        {pendingAction?.kind === "copy-code" ? (
+          <p>{`Storelib's ${pendingAction.name} stays as it is. This section switches to your copy, with its settings and blocks, and the copy opens in the code editor.`}</p>
+        ) : pendingAction?.kind === "paste-code" ? (
+          <p>{`This theme doesn't have ${pendingAction.clip.typeName}. Its file, ${pendingAction.clip.code?.path ?? ""}, is copied into this theme too.`}</p>
+        ) : pendingAction?.kind === "paste-settings" ? (
+          <>
+            <p>{`The settings are from ${pendingAction.from}. These change:`}</p>
+            <ul data-paste-changes="" className="mt-2 max-h-40 list-disc overflow-y-auto pl-5 text-white/80">
+              {pendingAction.changes.map((c, i) => <li key={i}>{c}</li>)}
+            </ul>
+          </>
+        ) : null}
+      </SectionActionConfirm>
+
       <ReplaceChromeConfirm
         open={pendingReplace !== null}
         kind={pendingReplace?.kind ?? "header"}
@@ -9940,6 +10339,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             fullScreen={isMobileView}
             onClose={() => setPreviewMode("preview")}
             codeFilePath={codeFilePath}
+            codeFileAt={codeFileAt}
           />
           {/* ── The card's rounded corners survive its scrollbar ──
               A scrollbar is laid out and painted inside the scroll

@@ -69,6 +69,12 @@
  *   addSection, which then slides the page open where it lands, and on a
  *   phone brings the sections sheet up on the new section's settings).
  *
+ * APPS. A category of the sections Storelib's apps put on a website
+ * (Reviews, Email and the others in lib/website-builder/app-sections.ts),
+ * second after All, as Shopify's editor has its Apps tab. The same cards as
+ * everywhere else, each with its app's name under it, and over them a line
+ * for an app that is off, with the way to turn it on. Added like any other.
+ *
  * scripts/check-add-section.mjs opens it, switches categories and adds a
  * section on a phone and a computer, reads every frame of a category switch
  * and films it, and follows the add until everything has settled.
@@ -90,6 +96,12 @@ import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
+import { appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/app-sections"
+import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
+import { useAppStates } from "./use-app-states"
+
+/** The Apps category's key: not a category any schema files itself under. */
+export const APPS_CATEGORY = "apps"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
 
@@ -756,6 +768,8 @@ const LibraryCard = memo(function LibraryCard({
       </div>
       {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}
       <span className="truncate px-0.5 text-[14px] font-medium leading-tight text-[#1a1a2e] sm:text-[13px]">{entry.title}</span>
+      {/* The app it comes from, for a section an app provides. */}
+      {entry.app && <span data-card-app={entry.app.id} className="-mt-1.5 truncate px-0.5 text-[12.5px] leading-tight text-[#6b7280] sm:text-[12px]">{entry.app.name}</span>}
     </button>
   )
 })
@@ -768,6 +782,8 @@ interface LibraryEntry {
   title: string
   schema: SectionSchema
   category: string
+  /** The app that provides it, when one does: it is in the Apps category too. */
+  app?: SectionApp
   /** Everything somebody might type to find this, lower-cased once. */
   haystack: string
   keyFor: (width: number) => string
@@ -908,13 +924,15 @@ export const SectionLibrary = memo(function SectionLibrary({
             })
           : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
         const label = (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
+        const app = compatInstallId ? undefined : appForSection(type)?.app
         out.push({
           type,
           presetIndex: i,
           title: name,
           schema,
           category,
-          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
+          app,
+          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}${app ? ` ${app.name} apps` : ""}`.toLowerCase(),
           keyFor: (w) => previewKey(type, i, w, `${own.has(type) ? sourcesTag : ""}${lookTag}`),
         })
       }
@@ -937,9 +955,11 @@ export const SectionLibrary = memo(function SectionLibrary({
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
+    const apps = entries.filter((e) => e.app).length
     return [
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
+      ...(apps > 0 ? [{ key: APPS_CATEGORY, label: tt("Apps"), count: apps }] : []),
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
     ]
   }, [entries, compatInstallId])
@@ -955,7 +975,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     const words = needle.split(/\s+/).filter(Boolean)
     const set = new Set<LibraryEntry>()
     for (const e of entries) {
-      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || e.category === activeCategory
+      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || (activeCategory === APPS_CATEGORY ? !!e.app : e.category === activeCategory)
       if (ok) set.add(e)
     }
     return set
@@ -1163,6 +1183,40 @@ export const SectionLibrary = memo(function SectionLibrary({
       ? tt("Write a section in the code editor and it appears here")
       : tt("No sections in this category")
 
+  /**
+   * AN APP THAT IS OFF, said once over its cards, with the way to turn it
+   * on. Its sections can still be added: they show on the website once the
+   * app is on.
+   */
+  const hasApps = useMemo(() => entries.some((e) => e.app), [entries])
+  const appStates = useAppStates(open && hasApps)
+  const appsOff = useMemo(() => {
+    const seen = new Map<string, SectionApp>()
+    for (const e of entries) if (e.app && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
+    return [...seen.values()]
+  }, [entries, appStates])
+  const appsNotice = activeCategory === APPS_CATEGORY && !searching && appsOff.length > 0 ? (
+    <div data-apps-off="" className="mb-4 flex flex-col gap-2">
+      {appsOff.map((app) => {
+        const Icon = ICON_MAP[app.icon]
+        return (
+          <div key={app.id} data-app-off={app.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-3.5 py-2">
+            {Icon ? <Icon className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} /> : null}
+            <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] sm:text-[13px]">{tt("{name} is off", { name: app.name })}</span>
+            <a
+              href={app.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-md px-2 py-1 text-[14px] font-medium text-[#7c3aed] transition-colors hover:bg-[#8b5cf6]/10 sm:text-[13px]"
+            >
+              {tt("Turn on")}
+            </a>
+          </div>
+        )
+      })}
+    </div>
+  ) : null
+
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
     <div className="relative">
@@ -1273,6 +1327,7 @@ export const SectionLibrary = memo(function SectionLibrary({
             data-library-scroll=""
             className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-4 [scrollbar-gutter:stable]"
           >
+            {appsNotice}
             {grid}
           </div>
         </div>
@@ -1333,6 +1388,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               {shown.size === 1 ? tt("1 section") : tt("{size} sections", { size: shown.size })} {tt("matching “{value}”", { value: query.trim() })}
             </p>
           )}
+          {appsNotice}
           {grid}
         </div>
       </div>

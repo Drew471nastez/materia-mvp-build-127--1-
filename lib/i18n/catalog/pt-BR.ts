@@ -2269,6 +2269,7 @@ const words: Record<string, string> = {
  "Up to {room} more pictures or videos.": "Até mais {room} imagens ou vídeos.",
  "{name} posted": "{name} publicou",
  "{name} joined": "{name} entrou",
+ "{name} is off": "{name} está desativado",
  "{p}% of members": "{p}% dos membros",
  "Write a post": "Escrever uma publicação",
  "Invite people": "Convidar pessoas",

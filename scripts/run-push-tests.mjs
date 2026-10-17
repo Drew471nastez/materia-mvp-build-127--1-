@@ -559,6 +559,8 @@ const SUITES = [
   "tests/memberships-folded.test.ts",
   "tests/site-chrome.test.ts",
   "tests/section-groups.test.ts",
+  /* V5: the section menus, copy and paste, Edit code, the Apps category (scripts/check-section-menus.mjs measures them) */
+  "tests/section-actions-v.test.ts",
   "tests/communities-foundation.test.ts",
   "tests/user-notifications.test.ts",
   "tests/push-bridge.test.ts",
