@@ -267,6 +267,14 @@ try {
       await step("access")
       await next()
       await step("review")
+      if (view === "390") {
+        await press("[data-create-submit]")
+        await p.waitForSelector("[data-wizard-composer] [data-composer]", { timeout: 20000 }).catch(() => {})
+        await sleep(1200)
+        await step("welcome")
+        const host = await p.evaluate(() => !!document.querySelector("[data-wizard-composer] [data-composer]"))
+        expect(host, "on a phone too the welcome step is the feed's composer, its card in the column", host)
+      }
       if (view !== "1440") {
         expect(errors.length === 0, "no error on the page", errors)
         await p.close()
