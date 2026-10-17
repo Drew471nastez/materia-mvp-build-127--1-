@@ -763,7 +763,7 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-creator-membership="" data-tab={tab}>
-      <PaneBar width={WIDTH} className="flex min-h-[64px] items-center gap-2 pb-2 pt-3">
+      <PaneBar width={WIDTH} sticky className="flex min-h-[64px] items-center gap-2 pb-2 pt-3">
         <Link href="/app/memberships" aria-label={tt("Memberships")} className="-ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1a1a2e] hover:bg-[#eceef1]">
           <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
         </Link>
