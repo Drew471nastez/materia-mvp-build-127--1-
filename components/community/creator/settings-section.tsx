@@ -195,7 +195,8 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
   const current = tabs.find((t) => t.value === tab)
   return (
     <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)] xl:gap-12">
-      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[68px] hidden lg:block">
+      {/* Sticky 20px under the shell's row of tabs, which is 52px from 768px (round 26, community-shell.tsx CommunityHeader). */}
+      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[72px] hidden lg:block">
         {GROUPS.map((g) => {
           const list = tabs.filter((t) => t.group === g.id)
           if (!list.length) return null

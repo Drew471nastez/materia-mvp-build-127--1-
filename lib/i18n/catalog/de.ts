@@ -5,6 +5,8 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "+{n} in 30 days": "+{n} in 30 Tagen",
+ "{n, plural, one {# cancellation} other {# cancellations}} in 30 days": "{n, plural, one {# Kündigung} other {# Kündigungen}} in 30 Tagen",
  "Could not load published versions": "Veröffentlichte Versionen konnten nicht geladen werden",
  "Could not restore this version": "Diese Version konnte nicht wiederhergestellt werden",
  "Published versions": "Veröffentlichte Versionen",
