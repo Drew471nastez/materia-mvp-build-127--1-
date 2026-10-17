@@ -8973,7 +8973,6 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Steuerjahr {year}",
  "“{label}” may": "„{label}“ kann",
  "↻ Refresh thumbnail": "↻ Vorschaubild aktualisieren",
- "Pending deletion": "Löschung ausstehend",
  "Communities being deleted do not count.": "Communitys, die gelöscht werden, zählen nicht."
 }
 

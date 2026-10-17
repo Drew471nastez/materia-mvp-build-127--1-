@@ -10,8 +10,9 @@
  * it, and a foot with the members and, for a paid one, the monthly revenue
  * (only for somebody who may see its analytics). The state is the /app
  * status badge (round 33: green Published, Draft, Archived; round 26:
- * Pending deletion), at the end of the name's line, so it never sits on
- * the cover's edge and the card is no taller. The whole
+ * Deleting), at the end of the name's line (on a narrow card, of the line
+ * under it), so it never sits on the cover's edge and the card is no
+ * taller. The whole
  * card opens the community's editor; the more button at its foot is the
  * Products row's (quietDepth, ResponsiveActionMenu: a menu on a computer,
  * a sheet on a phone) with Open, Edit page, Share, Analytics, Duplicate
@@ -265,7 +266,7 @@ const CommunityCard = React.memo(function CommunityCard({
       data-community-card={r.id}
       data-state={state}
       aria-busy={busy || undefined}
-      className={cn(card, "group/card relative flex min-w-0 flex-col overflow-hidden transition-[box-shadow,border-color] duration-150 pointer-fine:hover:border-[#e5e7eb] pointer-fine:hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_6px_16px_-8px_rgba(16,24,40,0.12)]")}
+      className={cn(card, "group/card @container/card relative flex min-w-0 flex-col overflow-hidden transition-[box-shadow,border-color] duration-150 pointer-fine:hover:border-[#e5e7eb] pointer-fine:hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_6px_16px_-8px_rgba(16,24,40,0.12)]")}
     >
       {/* The whole card opens the editor; the menu sits above this link. */}
       <Link href={base} aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
@@ -275,21 +276,22 @@ const CommunityCard = React.memo(function CommunityCard({
           <Logo row={r} />
         </div>
         {/*
-          Round 26 ("the badges almost touch the cover"): the state ends the name's line, 34px under the cover's edge on
-          every card, instead of sitting on the logo's foot 4px under it. The line is the badge's 22px, the 2px it adds
-          taken from the gap above, so the card is as tall as before.
+          Round 26 ("the badges almost touch the cover"): the state no longer sits on the logo's foot, 4px under the cover's
+          edge. On a card of 300px and more it ends the name's line (32px under the cover); on a narrower one (two columns
+          beside the rail on a tablet, three at 1024px) the name keeps the whole width and the state ends the line under
+          it. Either way the two lines are as tall as before, so the card is too.
         */}
-        <div className="mt-2 flex h-[22px] min-w-0 items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" data-card-name="">
+        <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 @min-[300px]/card:mt-2" data-card-head="">
+          <p title={r.name} className="col-span-2 truncate text-[15px] font-semibold leading-5 text-[#1a1a2e] @min-[300px]/card:col-span-1 @min-[300px]/card:leading-[22px]" data-card-name="">
             {r.name}
           </p>
-          <span data-card-state={state} className="inline-flex shrink-0">
+          <span data-card-state={state} className="col-start-2 row-start-2 inline-flex @min-[300px]/card:row-start-1">
             <CommunityStatusBadge state={state} />
           </span>
+          <p className="col-start-1 row-start-2 truncate text-[13px] leading-[18px] text-[#6b7280] @min-[300px]/card:col-span-2" data-card-line="">
+            {line}
+          </p>
         </div>
-        <p className="mt-0.5 h-[18px] truncate text-[13px] leading-[18px] text-[#6b7280]" data-card-line="">
-          {line}
-        </p>
         <div className="mt-3 flex min-h-8 items-center gap-3 border-t border-[#f1f2f4] pt-2.5">
           <p className="flex min-w-0 flex-1 items-baseline gap-3 text-[13px] text-[#6b7280]">
             <span className="shrink-0" data-card-members="">

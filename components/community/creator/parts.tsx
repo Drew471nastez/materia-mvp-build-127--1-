@@ -79,7 +79,7 @@ export const COMMUNITY_STATE_WORD: Record<CommunityState, string> = {
     return tt("Archived")
   },
   get deleting() {
-    return tt("Pending deletion")
+    return tt("Deleting")
   },
   get suspended() {
     return tt("Suspended")

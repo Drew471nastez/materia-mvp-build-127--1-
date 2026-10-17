@@ -15,7 +15,7 @@
  *   TWO TABS   two creates at once: the later one is taken back; a double
  *              tap on Delete writes one delete; asking twice to schedule is
  *              refused (round 33 keeps that)
- *   STATES     Draft, Published, Archived, Pending deletion as badges; Share
+ *   STATES     Draft, Published, Archived, Deleting as badges; Share
  *              only for a published community; the setup pill stays away
  *              from an archived one; Settings hides Archive while deleting
  *   CARDS      the badge ends the name's line (not on the cover's edge), the
@@ -245,13 +245,13 @@ async function main() {
   console.log("\nstates")
   {
     const parts = code("components/community/creator/parts.tsx")
-    check("four states and suspended, Pending deletion its own", /export type CommunityState = "published" \| "draft" \| "archived" \| "deleting" \| "suspended"/.test(parts) && /get deleting\(\) \{\s*return tt\("Pending deletion"\)/.test(raw("components/community/creator/parts.tsx")))
+    check("four states and suspended, Deleting its own", /export type CommunityState = "published" \| "draft" \| "archived" \| "deleting" \| "suspended"/.test(parts) && /get deleting\(\) \{\s*return tt\("Deleting"\)/.test(raw("components/community/creator/parts.tsx")))
     check("suspended first, then deleting, then archived", /if \(c\.suspended \|\| c\.status === "suspended"\) return "suspended"\s*if \(c\.deleting\) return "deleting"\s*if \(c\.archived \|\| c\.status === "archived"\) return "archived"/.test(parts))
-    check("Pending deletion is the critical tone", /deleting: "critical"/.test(parts))
+    check("Deleting is the critical tone", /deleting: "critical"/.test(parts))
     const creator = code("lib/communities/server/creator.ts")
     check("the admin header carries it, read only for an archived community", /archived \? pendingDeletions\(ctx\.db, \[c\.id\]\)/.test(creator) && /deleting: deletion \? \{ deleteAt: deletion\.deleteAt, canKeep: deletion\.canKeep && ctx\.role === "owner" \} : null/.test(creator))
     const shell = code("components/community/creator/community-shell.tsx")
-    check("the header's badge reads the whole head, so it says Pending deletion", /<CommunityStatusBadge state=\{communityState\(head\)\} \/>/.test(shell))
+    check("the header's badge reads the whole head, so it says Deleting", /<CommunityStatusBadge state=\{communityState\(head\)\} \/>/.test(shell))
     const settings = plain("components/community/creator/settings-section.tsx")
     check("Settings hides Archive and Bring it back while the deletion is scheduled", /\{head\.deleting \? null : \(\s*<EditorCard\s+title=\{head\.archived \? tt\("Archived"\) : tt\("Archive"\)\}/.test(settings))
     check("Publish and Unpublish still there for a draft and a published one", /run\("unpublish", `\/api\/app\/community\/\$\{head\.id\}`, \{ publish: false \}/.test(settings) && /run\("publish", `\/api\/app\/community\/\$\{head\.id\}`, \{ publish: true \}/.test(settings))
@@ -267,8 +267,9 @@ async function main() {
   {
     const list = plain("components/community/creator/community-list.tsx")
     check("the logo's row holds only the logo", /<div className="-mt-6 flex">\s*<Logo row=\{r\} \/>\s*<\/div>/.test(list))
-    check("the badge ends the name's line, a 22px line 8px under the logo", /<div className="mt-2 flex h-\[22px\] min-w-0 items-center gap-2">\s*<p className="min-w-0 flex-1 truncate[^"]*" data-card-name="">\s*\{r\.name\}\s*<\/p>\s*<span data-card-state=\{state\} className="inline-flex shrink-0">\s*<CommunityStatusBadge state=\{state\} \/>/.test(list))
-    check("no -mb on the badge, nothing pulled onto the cover", !/-mb-0\.5 inline-flex/.test(list))
+    check("the card is a size container", /group\/card @container\/card relative/.test(list))
+    check("from 300px the badge ends the name's 22px line; narrower, the line under it, the name keeping the width", /grid grid-cols-\[minmax\(0,1fr\)_auto\] items-center gap-x-2 gap-y-0\.5 @min-\[300px\]\/card:mt-2/.test(list) && /col-span-2 truncate text-\[15px\] font-semibold leading-5 text-\[#1a1a2e\] @min-\[300px\]\/card:col-span-1 @min-\[300px\]\/card:leading-\[22px\]" data-card-name=""/.test(list) && /<span data-card-state=\{state\} className="col-start-2 row-start-2 inline-flex @min-\[300px\]\/card:row-start-1">\s*<CommunityStatusBadge state=\{state\} \/>/.test(list) && /col-start-1 row-start-2 truncate[^"]*@min-\[300px\]\/card:col-span-2" data-card-line=""/.test(list))
+    check("no -mb on the badge, nothing pulled onto the cover", !/-mb-0\.5 inline-flex/.test(list) && !/data-card-state=\{state\} className="-mb/.test(list))
     check("nothing on a card moves: no translate, scale or lift on hover, focus or press", !/(hover|focus|focus-visible|active|group-hover\/card):(-?translate|scale|-?mt|-?mb|top|bottom)/.test(list) && /transition-\[box-shadow,border-color\]/.test(list))
     check("Share only for a published community", /if \(state === "published"\) out\.push\(\{ label: tt\("Share"\)/.test(list))
     check("one being deleted offers Keep (to the card that keeps it), never Archive or Bring back", /if \(r\.deleting\?\.canKeep\) out\.push\(\{ label: tt\("Keep the community"\)[^}]*href: `\$\{base\}\/settings\?tab=advanced`/.test(list) && /else if \(r\.can\.archive && state !== "suspended" && state !== "deleting"\)/.test(list))
@@ -276,7 +277,7 @@ async function main() {
     check("the plan note says communities being deleted do not count", /rows\.some\(\(r\) => r\.deleting && r\.role === "owner"\)/.test(list) && /Communities being deleted do not count\./.test(raw("components/community/creator/community-list.tsx")))
     for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
       const cat = raw(`lib/i18n/catalog/${lang}.ts`)
-      check(`${lang}: the new words are translated`, /"Pending deletion": "[^"]+"/.test(cat) && /"Communities being deleted do not count\.": "[^"]+"/.test(cat))
+      check(`${lang}: the new words are translated`, /"Deleting": "[^"]+"/.test(cat) && /"Communities being deleted do not count\.": "[^"]+"/.test(cat))
     }
   }
 
