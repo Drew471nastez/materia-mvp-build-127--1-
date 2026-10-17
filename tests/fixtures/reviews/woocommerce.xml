@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+<item>
+<title><![CDATA[Linen Apron]]></title>
+<wp:post_id>55</wp:post_id>
+<wp:post_name><![CDATA[linen-apron]]></wp:post_name>
+<wp:post_type><![CDATA[product]]></wp:post_type>
+<wp:comment>
+<wp:comment_id>201</wp:comment_id>
+<wp:comment_author><![CDATA[Olga Petrova]]></wp:comment_author>
+<wp:comment_author_email><![CDATA[olga@example.com]]></wp:comment_author_email>
+<wp:comment_date_gmt><![CDATA[2024-08-10 10:00:00]]></wp:comment_date_gmt>
+<wp:comment_content><![CDATA[<p>Lovely &amp; soft</p>]]></wp:comment_content>
+<wp:comment_approved><![CDATA[1]]></wp:comment_approved>
+<wp:comment_type><![CDATA[review]]></wp:comment_type>
+<wp:comment_parent>0</wp:comment_parent>
+<wp:commentmeta><wp:meta_key><![CDATA[rating]]></wp:meta_key><wp:meta_value><![CDATA[5]]></wp:meta_value></wp:commentmeta>
+<wp:commentmeta><wp:meta_key><![CDATA[verified]]></wp:meta_key><wp:meta_value><![CDATA[1]]></wp:meta_value></wp:commentmeta>
+</wp:comment>
+<wp:comment>
+<wp:comment_id>202</wp:comment_id>
+<wp:comment_author><![CDATA[Shop]]></wp:comment_author>
+<wp:comment_author_email><![CDATA[shop@example.com]]></wp:comment_author_email>
+<wp:comment_date_gmt><![CDATA[2024-08-11 10:00:00]]></wp:comment_date_gmt>
+<wp:comment_content><![CDATA[Thanks Olga]]></wp:comment_content>
+<wp:comment_approved><![CDATA[1]]></wp:comment_approved>
+<wp:comment_type><![CDATA[review]]></wp:comment_type>
+<wp:comment_parent>201</wp:comment_parent>
+</wp:comment>
+</item>
+<item>
+<title>About us</title>
+<wp:post_type><![CDATA[page]]></wp:post_type>
+<wp:comment><wp:comment_id>9</wp:comment_id><wp:comment_content>Not a review</wp:comment_content></wp:comment>
+</item>
+</channel>
+</rss>

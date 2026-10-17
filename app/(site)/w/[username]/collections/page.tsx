@@ -15,11 +15,21 @@ import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 /**
- * Per request, like the shop: a collection's products are the catalogue,
- * already cached a minute on their own, and holding the page on top of that
- * would add a second minute to a corrected price.
+ * HELD A MINUTE, LIKE THE FRONT PAGE (round V1). It was drawn per request
+ * because holding the page on top of the catalogue's own minute would add a
+ * second minute to a corrected price. A product saved now purges every
+ * rendered page of the site as well as the data
+ * (revalidatePublishedPages in lib/website-builder/published-site.ts), so
+ * the minute no longer stacks, and this page reads nothing of the visitor:
+ * no query string, no cookie. The front page's reasoning applies:
+ * ../page.tsx.
  */
-export const dynamic = "force-dynamic"
+export const revalidate = 60
+
+/** Every name may be drawn on demand and then kept (see ../page.tsx). */
+export function generateStaticParams() {
+  return []
+}
 
 interface PageProps {
   params: Promise<{ username: string }>

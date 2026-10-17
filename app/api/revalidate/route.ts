@@ -33,7 +33,7 @@ import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { queueProductFanout } from "@/lib/notifications/fanout"
-import { creatorShopTag, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
+import { creatorShopTag, revalidatePublishedPages, revalidatePublishedProduct } from "@/lib/website-builder/published-site"
 import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 
@@ -106,6 +106,8 @@ export async function POST(request: NextRequest) {
       save; this is the route the editor calls after every save.
     */
     revalidateTag(creatorShopTag(owned.creator_id), "max")
+    /* And the rendered pages that drew it: the front page's Featured products, every grid (revalidatePublishedPages). */
+    await revalidatePublishedPages(owned.creator_id)
     /* The product's own page on the website, held for a minute, drawn fresh for the next visitor. */
     await revalidatePublishedProduct(owned.creator_id, slug)
     exploreCatalogueChanged()

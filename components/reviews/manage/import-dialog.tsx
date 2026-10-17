@@ -1,50 +1,65 @@
 "use client"
 
-/**
- * STORELIB REVIEWS › REVIEWS › IMPORT, in four steps on one sheet:
- *
- *   1. FILE      a CSV from another review app (Judge.me and the like)
- *                or typed by hand
- *   2. COLUMNS   which column holds the product, the rating, the review and
- *                the rest; found by name, changed by the store
- *   3. CHECK     every row read by the server, nothing written yet: which
- *                product each matched (by handle, SKU or title) and, for a
- *                row that will be skipped, one sentence saying why
- *   4. DONE      how many went in, each row that did not and why, and the
- *                report to download; an import can be undone from the list
- *
- * Imported reviews are marked Imported: they show on the website like any
- * other, but never say Verified purchase and never count in a Storelib
- * rating (lib/reviews/import-csv.ts, run-now part 134).
- */
-import * as React from "react"
-import { AlertCircle, CheckCircle2, Download, FileUp, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
-import { api } from "@/components/physical/ui"
-import { IMPORT_FIELDS, MAX_IMPORT_BYTES, REQUIRED_FIELDS, guessMapping, parseCsv, type ColumnMap, type ImportField, type RowOutcome } from "@/lib/reviews/import-csv"
+import { appLocale, zoned } from "@/lib/i18n/format"
+import { Stars } from "@/components/reviews/stars"
 import { buttonPrimary, buttonSecondary } from "@/app/app/orders/order-parts"
-import { MUTED, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead, errorOf } from "./parts"
+import { Sheet } from "./parts"
+import {
+  FIELDS,
+  IMPORT_CHUNK_ROWS,
+  IMPORT_CHUNK_ROWS_WITH_PHOTOS,
+  MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_FILE_ROWS,
+  NO_PRODUCT_KEY,
+  PLATFORMS,
+  ROW_ERRORS,
+  autoMapping,
+  detectPlatform,
+  missingFields,
+  planReviews,
+  platformLabel,
+  readImportFile,
+  type Assignments,
+  type CatalogProduct,
+  type FieldId,
+  type ImportMapping,
+  type ImportPlan,
+  type ImportTable,
+  type PlatformId,
+  type RowError,
+  type UnmatchedGroup,
+} from "@/lib/reviews/import"
 
-type Step = "file" | "map" | "check" | "done"
+/**
+ * ===========================================================================
+ *  STORELIB REVIEWS › REVIEWS › IMPORT
+ * ===========================================================================
+ * Reviews from another app in four steps, the way Shopify's own importers
+ * go: the file, its columns, the products it names, the result. Opened from
+ * the Reviews tab (reviews-view.tsx); its earlier imports and their Undo are
+ * Reviews' own (lib/reviews/manage-server listImports, undoImport).
+ *
+ *   FILE       read here in the browser (CSV, TSV, JSON, a WordPress XML),
+ *              up to 25 MB and 50,000 rows; the store's past imports below,
+ *              each with its counts and Undo
+ *   COLUMNS    the app that wrote it, detected from its header row and
+ *              changeable; each Storelib field's column, changeable; the
+ *              first rows as they will import
+ *   PRODUCTS   rows naming a product the store does not have, grouped by
+ *              what they name: pick a product for each group, or skip it
+ *   RESULT     sent in chunks (fewer rows a chunk while photos are copied),
+ *              then imported, already here, skipped and errors by row
+ *
+ * The server reads every row again (lib/reviews/import checkImportRow) and
+ * writes only to the store's own products. lib/reviews/import-server.ts
+ * says how each step is written and undone.
+ */
 
-const FIELD_LABEL: Record<ImportField, () => string> = {
-  product: () => tt("Product (handle, SKU or title)"),
-  rating: () => tt("Rating (1 to 5)"),
-  body: () => tt("Review text"),
-  title: () => tt("Review title"),
-  name: () => tt("Reviewer's name"),
-  date: () => tt("Date"),
-}
-
-interface Checked {
-  header: string[]
-  mapping: ColumnMap
-  rows: RowOutcome[]
-  counts: { ok: number; skipped: number }
-  truncated: boolean
-}
-
+/** An import as Reviews lists it (part 215), with the app and the counts apart once part 232 has run. */
 interface ImportRecord {
   id: string
   file_name: string | null
@@ -52,313 +67,592 @@ interface ImportRecord {
   skipped: number
   undone_at: string | null
   created_at: string
+  platform?: string
+  duplicates?: number
+  errors?: number
+  undone_count?: number | null
 }
 
-const MATCH_WORD: Record<string, () => string> = { id: () => tt("by id"), handle: () => tt("by handle"), sku: () => tt("by SKU"), title: () => tt("by title") }
+type Step = "file" | "map" | "products" | "run" | "done"
 
-/** A row's outcome in the dashboard's language, from its codes; the server's sentence for anything else. */
-function rowMessage(r: RowOutcome): string {
-  if (r.why === "no_product") return r.raw ? tt('No product matches "{value}". Use its handle, SKU or exact title.', { value: r.raw }) : tt("The product is empty.")
-  if (r.why === "bad_rating") return r.raw ? tt('The rating "{value}" isn\'t a whole number from 1 to 5.', { value: r.raw }) : tt("The rating is empty.")
-  if (r.why === "no_words") return tt("The review text is empty.")
-  if (r.why === "duplicate") return r.dupOf ? tt("Same review as row {row}.", { row: r.dupOf }) : tt("This review is already on your store.")
-  return r.message ?? ""
+interface Result {
+  importId: string | null
+  imported: number
+  duplicates: number
+  skipped: number
+  errors: RowError[]
+  stopped: boolean
 }
 
-function rowNote(r: RowOutcome): string {
-  return (r.notes ?? []).map((n) => (n === "bad_date" ? tt("The date couldn't be read, so today's date is used.") : tt("The text is cut to 2,000 characters."))).join(" ")
+const SELECT =
+  "h-10 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-[#e3e4e8] bg-white py-0 pl-3 pr-8 text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:h-9 md:text-[13px]"
+
+function fieldLabel(f: FieldId): string {
+  switch (f) {
+    case "product_handle":
+      return tt("Product handle")
+    case "product_url":
+      return tt("Product link")
+    case "product_sku":
+      return tt("SKU")
+    case "product_id":
+      return tt("Product ID")
+    case "product_title":
+      return tt("Product name")
+    case "rating":
+      return tt("Rating")
+    case "body":
+      return tt("Review text")
+    case "title":
+      return tt("Title")
+    case "author":
+      return tt("Name")
+    case "email":
+      return tt("Email")
+    case "date":
+      return tt("Date")
+    case "verified":
+      return tt("Verified purchase")
+    case "photos":
+      return tt("Photos")
+    case "videos":
+      return tt("Videos")
+    case "reply":
+      return tt("Reply")
+    case "reply_date":
+      return tt("Reply date")
+    case "status":
+      return tt("Status")
+    case "external_id":
+      return tt("Review ID")
+    case "parent_id":
+      return tt("Reply to")
+  }
 }
 
-/** The outcome of every row as a CSV the store can open, to fix the skipped rows and import them again. */
-function reportCsv(rows: RowOutcome[]): string {
-  const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`
-  return ["row,result,product,reason", ...rows.map((r) => [r.row, r.ok ? "imported" : "skipped", q(r.productTitle ?? ""), q(r.ok ? rowNote(r) : rowMessage(r))].join(","))].join("\n")
+function rowError(e: string): string {
+  switch (e) {
+    case ROW_ERRORS.rating:
+      return tt("No rating from 1 to 5")
+    case ROW_ERRORS.words:
+      return tt("No review text")
+    case ROW_ERRORS.product:
+      return tt("Product not found in your store")
+    default:
+      return tt("Not saved. Try again.")
+  }
+}
+
+const appName = (id: string) => (id === "other" ? tt("Other") : platformLabel(id))
+
+const shortDate = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))
+}
+
+async function api(url: string, init?: { method?: string; body?: unknown }): Promise<{ ok: boolean; data: Record<string, unknown> }> {
+  const res = await fetch(url, { method: init?.method ?? "GET", headers: init?.body ? { "Content-Type": "application/json" } : undefined, body: init?.body ? JSON.stringify(init.body) : undefined }).catch(() => null)
+  const data = res ? ((await res.json().catch(() => ({}))) as Record<string, unknown>) : {}
+  return { ok: !!res?.ok, data }
 }
 
 export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => void; onDone: (n: number) => void; onUndone: () => void }) {
-  const [step, setStep] = React.useState<Step>("file")
-  const [csv, setCsv] = React.useState("")
-  const [fileName, setFileName] = React.useState("")
-  const [header, setHeader] = React.useState<string[]>([])
-  const [sample, setSample] = React.useState<string[]>([])
-  const [mapping, setMapping] = React.useState<ColumnMap>({})
-  const [checked, setChecked] = React.useState<Checked | null>(null)
-  const [result, setResult] = React.useState<{ imported: number; rows: RowOutcome[] } | null>(null)
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [onlySkipped, setOnlySkipped] = React.useState(false)
-  const fileRef = React.useRef<HTMLInputElement>(null)
-  const history = useRead<{ ready: boolean; imports: ImportRecord[] }>(step === "file" ? "/api/app/reviews/import" : null)
+  const [step, setStep] = useState<Step>("file")
+  const [loading, setLoading] = useState(true)
+  const [ready, setReady] = useState(true)
+  const [products, setProducts] = useState<CatalogProduct[]>([])
+  const [history, setHistory] = useState<ImportRecord[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [fileName, setFileName] = useState("")
+  const [table, setTable] = useState<ImportTable | null>(null)
+  const [platform, setPlatform] = useState<PlatformId>("other")
+  const [mapping, setMapping] = useState<ImportMapping | null>(null)
+  const [assign, setAssign] = useState<Assignments>({})
+  /* The file's unmatched groups as they were before any was answered: the products step lists them all. */
+  const [groups, setGroups] = useState<UnmatchedGroup[]>([])
+  const [copyPhotos, setCopyPhotos] = useState(true)
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [result, setResult] = useState<Result | null>(null)
+  const [undoing, setUndoing] = useState<ImportRecord | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const running = step === "run"
+
+  useEffect(() => {
+    let live = true
+    void api("/api/app/reviews/import").then(({ ok, data }) => {
+      if (!live) return
+      setLoading(false)
+      if (!ok) return setError(typeof data.error === "string" ? data.error : tt("That did not load. Try again."))
+      setProducts((data.products as CatalogProduct[]) ?? [])
+      setHistory((data.imports as ImportRecord[]) ?? [])
+      setReady(data.ready !== false)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
 
   const choose = async (file: File) => {
     setError(null)
-    if (file.size > MAX_IMPORT_BYTES) return setError(tt("That file is too large. Split it into files under 4 MB."))
+    if (file.size > MAX_IMPORT_FILE_BYTES) return setError(tt("That file is over 25 MB. Split it and import the parts."))
     const text = await file.text().catch(() => "")
-    const rows = parseCsv(text.slice(0, 200_000))
-    if (rows.length < 2) return setError(tt("That file has no rows under its header row."))
-    setCsv(text)
+    const read = readImportFile(text, file.name)
+    if (!read || !read.headers.length || !read.rows.length) return setError(tt("Nothing in that file reads as reviews."))
+    const found = detectPlatform(read.headers).platform
     setFileName(file.name)
-    setHeader(rows[0])
-    setSample(rows[1] ?? [])
-    setMapping(guessMapping(rows[0]))
+    setTable(read)
+    setPlatform(found)
+    setMapping(autoMapping(read.headers, found))
+    setAssign({})
+    setGroups([])
     setStep("map")
   }
 
-  const check = async () => {
-    setBusy(true)
-    setError(null)
-    const r = await api<Checked>("/api/app/reviews/import", { method: "POST", body: { csv, mapping, preview: true }, timeoutMs: 60_000 })
-    setBusy(false)
-    if (!r.ok) return setError(errorOf(r))
-    setChecked(r.data)
-    setOnlySkipped(false)
-    setStep("check")
+  const plan: ImportPlan | null = useMemo(() => (table && mapping ? planReviews(table, mapping, { platform, products, assign }) : null), [table, mapping, platform, products, assign])
+  const preview: ImportPlan | null = useMemo(() => (table && mapping ? planReviews({ rows: table.rows.slice(0, 40) }, mapping, { platform, products }) : null), [table, mapping, platform, products])
+  const missing = mapping ? missingFields(mapping) : []
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+
+  const toProducts = () => {
+    if (!plan || !table || !mapping) return
+    /* The groups as the mapping makes them now, answered or not; each starts as skipped until the creator picks a product. */
+    const fresh = planReviews(table, mapping, { platform, products }).unmatched
+    if (!fresh.length) return void run(plan)
+    const next: Assignments = {}
+    for (const g of fresh) next[g.key] = assign[g.key] ?? "skip"
+    setGroups(fresh)
+    setAssign(next)
+    setStep("products")
   }
 
-  const run = async () => {
-    setBusy(true)
+  const run = async (p: ImportPlan) => {
+    setStep("run")
     setError(null)
-    const r = await api<{ imported: number; rows: RowOutcome[] }>("/api/app/reviews/import", { method: "POST", body: { csv, mapping, fileName }, timeoutMs: 60_000 })
-    setBusy(false)
-    if (!r.ok) return setError(errorOf(r))
-    setResult({ imported: r.data.imported ?? 0, rows: r.data.rows ?? [] })
+    const rows = p.rows
+    const total = rows.length
+    setProgress({ done: 0, total })
+    const out: Result = { importId: null, imported: 0, duplicates: p.duplicates, skipped: p.skipped, errors: [...p.errors], stopped: false }
+    const started = await api("/api/app/reviews/import", { method: "POST", body: { action: "start", platform, fileName, totalRows: (table?.rows.length ?? total) } })
+    if (!started.ok) {
+      setError(typeof started.data.error === "string" ? started.data.error : tt("The import stopped. Import the file again: what is already here is skipped."))
+      setStep("map")
+      return
+    }
+    out.importId = typeof started.data.importId === "string" ? started.data.importId : null
+    const photosOn = copyPhotos && mapping !== null && mapping.photos >= 0
+    let skippedSent = false
+    /* What the browser already set aside, counted on the import's row with the first chunk: skipped groups, rows twice in the file, rows it could not read. */
+    const first = { skipped: p.skipped, duplicates: p.duplicates, planErrors: p.errors.slice(0, 50), planErrorCount: p.errors.length }
+    for (let i = 0; i < total; ) {
+      const size = photosOn && rows.slice(i, i + IMPORT_CHUNK_ROWS).some((r) => r.photos.length) ? IMPORT_CHUNK_ROWS_WITH_PHOTOS : IMPORT_CHUNK_ROWS
+      const chunk = rows.slice(i, i + size)
+      const res = await api("/api/app/reviews/import", { method: "POST", body: { action: "rows", importId: out.importId, rows: chunk, copyPhotos: photosOn, ...(skippedSent ? {} : first) } })
+      if (!res.ok) {
+        out.stopped = true
+        break
+      }
+      skippedSent = true
+      out.imported += Number(res.data.imported) || 0
+      out.duplicates += Number(res.data.duplicates) || 0
+      out.errors.push(...(((res.data.errors as RowError[]) ?? []) as RowError[]))
+      i += chunk.length
+      setProgress({ done: i, total })
+    }
+    if (!skippedSent && out.importId && !out.stopped) await api("/api/app/reviews/import", { method: "POST", body: { action: "rows", importId: out.importId, rows: [], ...first } })
+    const finished = await api("/api/app/reviews/import", { method: "POST", body: { action: "finish", importId: out.importId, productIds: [...new Set(rows.map((r) => r.productId))] } })
+    const record = finished.data.import as ImportRecord | null | undefined
+    if (record) setHistory((h) => [record, ...h.filter((x) => x.id !== record.id)])
+    else if (out.importId) setHistory((h) => [{ id: out.importId!, file_name: fileName, imported: out.imported, skipped: 0, undone_at: null, created_at: new Date().toISOString(), platform }, ...h])
+    out.errors.sort((a, b) => a.line - b.line)
+    setResult(out)
     setStep("done")
-    if (r.data.imported) onDone(r.data.imported)
+    if (out.imported) onDone(out.imported)
   }
 
-  const undo = async (id: string) => {
-    setBusy(true)
-    const r = await api<{ removed: number }>(`/api/app/reviews/import?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-    setBusy(false)
-    if (!r.ok) return setError(errorOf(r))
-    history.reload()
+  const undo = async (record: ImportRecord): Promise<boolean> => {
+    const { ok, data } = await api(`/api/app/reviews/import?id=${encodeURIComponent(record.id)}`, { method: "DELETE" })
+    if (!ok) {
+      setError(typeof data.error === "string" ? data.error : tt("That did not save."))
+      return false
+    }
+    setHistory((h) => h.map((x) => (x.id === record.id ? { ...x, undone_at: new Date().toISOString(), undone_count: Number(data.removed) || 0 } : x)))
     onUndone()
+    return true
   }
 
-  const download = () => {
-    const rows = result?.rows ?? checked?.rows ?? []
-    const blob = new Blob([reportCsv(rows)], { type: "text/csv;charset=utf-8" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = `${(fileName || "reviews").replace(/\.csv$/i, "")}-import-report.csv`
-    a.click()
-    window.setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  const close = () => {
+    if (!running) onClose()
   }
 
-  const missing = REQUIRED_FIELDS.filter((f) => mapping[f] === undefined)
-  const list = (result?.rows ?? checked?.rows ?? []).filter((r) => !onlySkipped || !r.ok)
-
-  const footer =
-    step === "file" ? (
-      <>
-        <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:flex-none sm:text-[14px]")}>
-          {tt("Cancel")}
-        </button>
-        <button type="button" onClick={() => fileRef.current?.click()} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:ml-auto sm:h-10 sm:flex-none sm:text-[14px]")} data-import-choose="">
-          <FileUp className="h-4 w-4" aria-hidden />
-          {tt("Choose CSV")}
-        </button>
-      </>
-    ) : step === "map" ? (
-      <>
-        <button type="button" onClick={() => setStep("file")} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:flex-none sm:text-[14px]")}>
-          {tt("Back")}
-        </button>
-        <button type="button" onClick={() => void check()} disabled={busy || missing.length > 0} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:ml-auto sm:h-10 sm:flex-none sm:text-[14px]")} data-import-check="">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-          {tt("Check rows")}
-        </button>
-      </>
-    ) : step === "check" ? (
-      <>
-        <button type="button" onClick={() => setStep("map")} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:flex-none sm:text-[14px]")}>
-          {tt("Back")}
-        </button>
-        <button type="button" onClick={() => void run()} disabled={busy || !checked?.counts.ok} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:ml-auto sm:h-10 sm:flex-none sm:text-[14px]")} data-import-run="">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-          {busy ? tt("Importing") : tt("{n, plural, one {Import # review} other {Import # reviews}}", { n: checked?.counts.ok ?? 0 })}
-        </button>
-      </>
-    ) : (
-      <>
-        <button type="button" onClick={download} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:flex-none sm:text-[14px]")}>
-          <Download className="h-4 w-4" aria-hidden />
-          {tt("Download report")}
-        </button>
-        <button type="button" onClick={onClose} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:ml-auto sm:h-10 sm:flex-none sm:text-[14px]")}>
-          {tt("Done")}
-        </button>
-      </>
-    )
+  const footer = (
+        <>
+          {step === "file" ? (
+            <>
+              <button type="button" onClick={close} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+                {tt("Cancel")}
+              </button>
+              <button type="button" disabled={loading} onClick={() => fileRef.current?.click()} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")} data-import-choose="">
+                {tt("Choose file")}
+              </button>
+            </>
+          ) : step === "map" ? (
+            <>
+              <button type="button" onClick={() => setStep("file")} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+                {tt("Back")}
+              </button>
+              <button type="button" disabled={missing.length > 0 || !plan} onClick={toProducts} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")} data-import-continue="">
+                {plan && !plan.unmatched.length && !groups.length ? tt("Import {n, plural, one {# review} other {# reviews}}", { n: plan.rows.length }) : tt("Continue")}
+              </button>
+            </>
+          ) : step === "products" && plan ? (
+            <>
+              <button type="button" onClick={() => setStep("map")} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+                {tt("Back")}
+              </button>
+              <button type="button" disabled={plan.unmatched.length > 0 || plan.rows.length === 0} onClick={() => void run(plan)} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")} data-import-run="">
+                {tt("Import {n, plural, one {# review} other {# reviews}}", { n: plan.rows.length })}
+              </button>
+            </>
+          ) : step === "run" ? (
+            <button type="button" disabled className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              {tt("Importing")}
+            </button>
+          ) : (
+            <>
+              {result?.importId && result.imported > 0 && history.some((h) => h.id === result.importId && !h.undone_at) ? (
+                <button type="button" onClick={() => setUndoing(history.find((h) => h.id === result.importId) ?? null)} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+                  {tt("Undo import")}
+                </button>
+              ) : null}
+              <button type="button" onClick={onClose} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-9 sm:flex-none sm:px-4 sm:text-[14px]")}>
+                {tt("Done")}
+              </button>
+            </>
+          )}
+        </>
+  )
 
   return (
-    <Sheet labelId="reviews-import-title" title={tt("Import reviews")} onClose={onClose} busy={busy} wide={step !== "file"} footer={footer}>
+    <>
+    <Sheet labelId="reviews-import-title" title={tt("Import reviews")} onClose={close} busy={running} wide={step !== "file"} footer={footer}>
       <div data-reviews-import-dialog="" data-import-step={step}>
-        <ol className="mb-4 flex gap-1.5 text-[12px] font-medium" aria-label={tt("Steps")}>
-          {(["file", "map", "check", "done"] as Step[]).map((s, i) => (
-            <li key={s} className={cn("flex-1 border-t-2 pt-1.5", (["file", "map", "check", "done"] as Step[]).indexOf(step) >= i ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e5e7eb] text-[#9ca3af]")}>
-              {[tt("File"), tt("Columns"), tt("Check"), tt("Done")][i]}
+          {table && step !== "file" ? (
+            <p className="mb-3 truncate text-[13px] text-[#6b7280]">
+              {fileName} · {tt("{n, plural, one {# row} other {# rows}}", { n: table.rows.length })}
+            </p>
+          ) : null}
+          {error ? <p className="mb-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}
+          {table?.truncated && step === "map" ? <p className="mb-3 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]">{tt("Only the first {n} rows are read. Import the rest as a second file.", { n: MAX_IMPORT_FILE_ROWS.toLocaleString(appLocale()) })}</p> : null}
+
+          {step === "file" ? (
+            <FileStep loading={loading} ready={ready} history={history} onChoose={() => fileRef.current?.click()} onUndo={setUndoing} />
+          ) : step === "map" && table && mapping ? (
+            <MapStep
+              table={table}
+              platform={platform}
+              mapping={mapping}
+              preview={preview}
+              byId={byId}
+              copyPhotos={copyPhotos}
+              onCopyPhotos={setCopyPhotos}
+              onPlatform={(p) => {
+                setPlatform(p)
+                setMapping(autoMapping(table.headers, p))
+              }}
+              onField={(f, col) => setMapping({ ...mapping, [f]: col })}
+            />
+          ) : step === "products" && plan ? (
+            <ProductsStep groups={groups} products={products} assign={assign} onAssign={(key, v) => setAssign({ ...assign, [key]: v })} />
+          ) : step === "run" ? (
+            <div className="py-8" data-import-progress="">
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Importing {done} of {total}", { done: progress.done, total: progress.total })}</p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eef0f2]">
+                <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+              </div>
+            </div>
+          ) : step === "done" && result ? (
+            <ResultStep result={result} />
+          ) : null}
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,.tsv,.txt,.json,.jsonl,.xml,text/csv,application/json,text/xml"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ""
+            if (f) void choose(f)
+          }}
+        />
+    </Sheet>
+      {undoing ? <UndoDialog record={undoing} onClose={() => setUndoing(null)} onUndo={() => undo(undoing)} /> : null}
+    </>
+  )
+}
+
+function FileStep({ loading, ready, history, onChoose, onUndo }: { loading: boolean; ready: boolean; history: ImportRecord[]; onChoose: () => void; onUndo: (r: ImportRecord) => void }) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onChoose}
+        disabled={loading}
+        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-dashed border-[#d6d9de] bg-[#fafbfb] px-4 py-8 text-center transition-colors hover:bg-[#f4f5f7]"
+        data-import-drop=""
+      >
+        <span className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Choose file")}</span>
+        <span className="mt-1 max-w-[520px] text-[13px] leading-relaxed text-[#6b7280]">
+          {tt("An export from Judge.me, Yotpo, Loox, Stamped.io, Okendo, Reviews.io, Trustpilot, Google, Etsy, Amazon, WooCommerce, Fera, Ali Reviews or Rivyo, or any CSV or JSON file.")}
+        </span>
+      </button>
+      <p className="mt-3 rounded-xl bg-[#f6f7f9] px-3.5 py-3 text-[13px] leading-[19px] text-[#4b5563]" data-import-trust="">
+        {tt("Imported reviews are marked Imported. They can show on your website, but they never get the Verified purchase label and never count in your Storelib rating.")}
+      </p>
+      {!ready ? <p className="mt-3 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]">{tt("Undo and import history turn on after the database update (SQL part 215).")}</p> : null}
+      {history.length ? (
+        <section className="mt-5" aria-labelledby="import-history">
+          <h4 id="import-history" className="text-[13px] font-semibold text-[#1a1a2e]">
+            {tt("Past imports")}
+          </h4>
+          <ul className="mt-2 divide-y divide-[#f1f2f4] rounded-xl border border-[#eef0f2]" data-import-history="">
+            {history.map((h) => (
+              <li key={h.id} className="flex items-center gap-3 px-3.5 py-2.5" data-import-row={h.undone_at ? "undone" : "done"}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-medium text-[#1a1a2e]">
+                    {h.platform ? appName(h.platform) : h.file_name || tt("CSV import")}
+                    {h.platform && h.file_name ? <span className="font-normal text-[#6b7280]"> · {h.file_name}</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-[#6b7280]">
+                    {shortDate(h.created_at)} ·{" "}
+                    {h.undone_at
+                      ? tt("Undone, {n} removed", { n: h.undone_count ?? h.imported })
+                      : typeof h.duplicates === "number"
+                        ? tt("{imported} imported, {duplicates} already here, {skipped} skipped, {errors} with errors", { imported: h.imported, duplicates: h.duplicates, skipped: Math.max(0, h.skipped - h.duplicates - (h.errors ?? 0)), errors: h.errors ?? 0 })
+                        : tt("{n} imported", { n: h.imported })}
+                  </p>
+                </div>
+                {!h.undone_at && h.imported > 0 ? (
+                  <button type="button" onClick={() => onUndo(h)} className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-import-undo="">
+                    {tt("Undo")}
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+function Chevron() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]">
+      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function MapStep({
+  table,
+  platform,
+  mapping,
+  preview,
+  byId,
+  copyPhotos,
+  onCopyPhotos,
+  onPlatform,
+  onField,
+}: {
+  table: ImportTable
+  platform: PlatformId
+  mapping: ImportMapping
+  preview: ImportPlan | null
+  byId: Map<string, CatalogProduct>
+  copyPhotos: boolean
+  onCopyPhotos: (v: boolean) => void
+  onPlatform: (p: PlatformId) => void
+  onField: (f: FieldId, col: number) => void
+}) {
+  const missing = missingFields(mapping)
+  const rows = preview?.rows.slice(0, 5) ?? []
+  return (
+    <div data-import-map="">
+      <label className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+        <span className="text-[13px] font-semibold text-[#1a1a2e] sm:w-[140px]">{tt("Read as")}</span>
+        <span className="relative sm:w-[280px]">
+          <select value={platform} onChange={(e) => onPlatform(e.target.value as PlatformId)} className={SELECT} data-import-platform="">
+            {PLATFORMS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {appName(p.id)}
+              </option>
+            ))}
+          </select>
+          <Chevron />
+        </span>
+      </label>
+
+      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2" data-import-fields="">
+        {FIELDS.map((f) => (
+          <label key={f} className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-center gap-3">
+            <span className={cn("truncate text-[13px]", missing.includes(f) ? "font-semibold text-[#b42318]" : "text-[#374151]")}>{fieldLabel(f)}</span>
+            <span className="relative">
+              <select value={mapping[f]} onChange={(e) => onField(f, Number(e.target.value))} className={SELECT} data-import-field={f}>
+                <option value={-1}>{tt("Not in file")}</option>
+                {table.headers.map((h, i) => (
+                  <option key={i} value={i}>
+                    {h || `#${i + 1}`}
+                  </option>
+                ))}
+              </select>
+              <Chevron />
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {missing.length ? <p className="mt-3 text-[13px] text-[#b42318]">{tt("Choose a column for the rating and one for the review.")}</p> : null}
+
+      {mapping.photos >= 0 ? (
+        <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[14px] text-[#1a1a2e]">
+          <input type="checkbox" checked={copyPhotos} onChange={(e) => onCopyPhotos(e.target.checked)} className="h-4 w-4 accent-[#1a1a2e]" data-import-copy-photos="" />
+          {tt("Copy photos into Storelib")}
+        </label>
+      ) : null}
+
+      <h4 className="mt-5 text-[13px] font-semibold text-[#1a1a2e]">{tt("Preview")}</h4>
+      <div className="mt-2 overflow-x-auto rounded-xl border border-[#eef0f2]" data-import-preview="">
+        <table className="w-full min-w-[560px] text-left text-[13px]">
+          <thead className="bg-[#fafbfb] text-[12px] text-[#6b7280]">
+            <tr>
+              <th className="px-3 py-2 font-medium">{tt("Product")}</th>
+              <th className="px-3 py-2 font-medium">{tt("Rating")}</th>
+              <th className="px-3 py-2 font-medium">{tt("Review text")}</th>
+              <th className="px-3 py-2 font-medium">{tt("Name")}</th>
+              <th className="px-3 py-2 font-medium">{tt("Date")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f1f2f4] text-[#374151]">
+            {rows.map((r) => (
+              <tr key={r.line}>
+                <td className="max-w-[160px] truncate px-3 py-2">{byId.get(r.productId)?.title ?? ""}</td>
+                <td className="px-3 py-2">
+                  <Stars rating={r.rating} size={12} />
+                </td>
+                <td className="max-w-[240px] truncate px-3 py-2">{r.title ? `${r.title}. ${r.body}` : r.body}</td>
+                <td className="max-w-[120px] truncate px-3 py-2">{r.author ?? ""}</td>
+                <td className="whitespace-nowrap px-3 py-2">{r.date ? shortDate(r.date) : ""}</td>
+              </tr>
+            ))}
+            {(preview?.unmatched ?? []).slice(0, Math.max(0, 5 - rows.length)).map((g) => (
+              <tr key={g.key}>
+                <td className="max-w-[160px] truncate px-3 py-2 text-[#b42318]">{tt("No match")}</td>
+                <td className="px-3 py-2 text-[#6b7280]" colSpan={4}>
+                  {g.label || tt("No product in the file")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ProductsStep({ groups, products, assign, onAssign }: { groups: UnmatchedGroup[]; products: CatalogProduct[]; assign: Assignments; onAssign: (key: string, value: string) => void }) {
+  const waiting = groups.reduce((n, g) => n + g.count, 0)
+  return (
+    <div data-import-products="">
+      <p className="text-[14px] text-[#374151]">{tt("{n, plural, one {# review names a product that isn't in your store.} other {# reviews name a product that isn't in your store.}}", { n: waiting })}</p>
+      <ul className="mt-3 divide-y divide-[#f1f2f4] rounded-xl border border-[#eef0f2]">
+        {groups.slice(0, 200).map((g) => (
+          <li key={g.key} className="flex flex-col gap-2 px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] text-[#1a1a2e]">{g.key === NO_PRODUCT_KEY ? tt("No product in the file") : g.label}</p>
+              <p className="text-[12px] text-[#6b7280]">{tt("{n, plural, one {# review} other {# reviews}}", { n: g.count })}</p>
+            </div>
+            <span className="relative sm:w-[260px]">
+              <select value={assign[g.key] ?? "skip"} onChange={(e) => onAssign(g.key, e.target.value)} className={SELECT} data-import-assign="">
+                <option value="skip">{tt("Skip")}</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title || p.slug || p.id}
+                  </option>
+                ))}
+              </select>
+              <Chevron />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ResultStep({ result }: { result: Result }) {
+  const counts = [
+    { label: tt("Imported"), value: result.imported },
+    { label: tt("Already here"), value: result.duplicates },
+    { label: tt("Skipped"), value: result.skipped },
+    { label: tt("Errors"), value: result.errors.length },
+  ]
+  return (
+    <div data-import-result="">
+      {result.stopped ? <p className="mb-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{tt("The import stopped. Import the file again: what is already here is skipped.")}</p> : null}
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[#eef0f2] bg-[#eef0f2] sm:grid-cols-4">
+        {counts.map((c) => (
+          <div key={c.label} className="bg-white px-3.5 py-3">
+            <dt className="text-[12px] text-[#6b7280]">{c.label}</dt>
+            <dd className="mt-0.5 text-[20px] font-semibold tabular-nums text-[#1a1a2e]">{c.value.toLocaleString(appLocale())}</dd>
+          </div>
+        ))}
+      </dl>
+      {result.errors.length ? (
+        <ul className="mt-4 max-h-[240px] overflow-y-auto rounded-xl border border-[#eef0f2] text-[13px] text-[#374151]" data-import-errors="">
+          {result.errors.slice(0, 200).map((e, i) => (
+            <li key={`${e.line}-${i}`} className="border-b border-[#f1f2f4] px-3.5 py-2 last:border-0">
+              {tt("Row {line}: {error}", { line: e.line, error: rowError(e.error) })}
             </li>
           ))}
-        </ol>
+        </ul>
+      ) : null}
+    </div>
+  )
+}
 
-        {step === "file" ? (
-          <div className="space-y-4">
-            <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("A CSV with a row per review: the product (its handle, SKU or exact title), a rating from 1 to 5 and the review. Exports from Judge.me and most review apps work as they are.")}</p>
-            <p className="rounded-xl bg-[#f6f7f9] px-3.5 py-3 text-[13px] leading-[19px] text-[#4b5563]" data-import-trust="">
-              {tt("Imported reviews are marked Imported. They can show on your website, but they never get the Verified purchase label and never count in your Storelib rating.")}
-            </p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                e.target.value = ""
-                if (f) void choose(f)
-              }}
-            />
-            {history.data?.imports.length ? (
-              <div>
-                <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Earlier imports")}</p>
-                <ul className="mt-1.5 divide-y divide-[#f1f2f4] rounded-xl border border-[#eef0f2]">
-                  {history.data.imports.map((h) => (
-                    <li key={h.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-[#1a1a2e]">{h.file_name || tt("CSV import")}</span>
-                        <span className="text-[#6b7280]">
-                          {shortDate(h.created_at)} · {tt("{n} imported", { n: formatCount(h.imported) })}
-                          {h.undone_at ? ` · ${tt("undone")}` : ""}
-                        </span>
-                      </span>
-                      {!h.undone_at && h.imported > 0 ? (
-                        <button type="button" disabled={busy} onClick={() => void undo(h.id)} className="text-[13px] font-medium text-[#b42318] hover:underline" data-import-undo="">
-                          {tt("Undo")}
-                        </button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {step === "map" ? (
-          <div className="space-y-3">
-            <p className={MUTED}>{tt("{file} · {n} columns. Pick the column for each field. Product, rating and review text are needed.", { file: fileName, n: header.length })}</p>
-            <div className="divide-y divide-[#f1f2f4] rounded-xl border border-[#eef0f2]">
-              {IMPORT_FIELDS.map((f) => {
-                const at = mapping[f]
-                return (
-                  <div key={f} className="grid gap-1.5 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] sm:items-center sm:gap-3">
-                    <span className="text-[13.5px] font-medium text-[#1a1a2e]">
-                      {FIELD_LABEL[f]()}
-                      {REQUIRED_FIELDS.includes(f) ? null : <span className="font-normal text-[#9ca3af]"> {tt("(optional)")}</span>}
-                    </span>
-                    <ToolbarSelect
-                      label={FIELD_LABEL[f]()}
-                      value={at === undefined ? "" : String(at)}
-                      onChange={(v) => setMapping((m) => {
-                        const next: ColumnMap = { ...m }
-                        for (const k of IMPORT_FIELDS) if (next[k] === Number(v) && k !== f) delete next[k]
-                        if (v === "") delete next[f]
-                        else next[f] = Number(v)
-                        return next
-                      })}
-                      className="md:flex-1 [&_select]:md:max-w-none [&_select]:md:w-full"
-                      data-map-field={f}
-                    >
-                      <option value="">{tt("Not in this file")}</option>
-                      {header.map((h, i) => (
-                        <option key={i} value={i}>
-                          {h || tt("Column {n}", { n: i + 1 })}
-                        </option>
-                      ))}
-                    </ToolbarSelect>
-                    <span className="truncate text-[12.5px] text-[#6b7280]" title={at !== undefined ? sample[at] : undefined}>
-                      {at !== undefined && sample[at] ? tt("e.g. {value}", { value: sample[at].slice(0, 60) }) : ""}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-            {missing.length ? <p className="text-[13px] text-[#92400e]">{tt("Pick a column for: {fields}.", { fields: missing.map((f) => FIELD_LABEL[f]()).join(", ") })}</p> : null}
-          </div>
-        ) : null}
-
-        {(step === "check" && checked) || (step === "done" && result) ? (
-          <div className="space-y-3">
-            {step === "check" && checked ? (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px]" data-import-counts="">
-                <span className="inline-flex items-center gap-1.5 font-medium text-[#067647]">
-                  <CheckCircle2 className="h-4 w-4" aria-hidden />
-                  {tt("{n, plural, one {# row ready} other {# rows ready}}", { n: checked.counts.ok })}
-                </span>
-                {checked.counts.skipped ? (
-                  <span className="inline-flex items-center gap-1.5 font-medium text-[#b42318]">
-                    <AlertCircle className="h-4 w-4" aria-hidden />
-                    {tt("{n, plural, one {# row will be skipped} other {# rows will be skipped}}", { n: checked.counts.skipped })}
-                  </span>
-                ) : null}
-                {checked.truncated ? <span className={MUTED}>{tt("Only the first 2,000 rows are read. Import the rest as another file.")}</span> : null}
-              </div>
-            ) : result ? (
-              <div className="text-[14px]" data-import-result="">
-                <p className="inline-flex items-center gap-1.5 font-medium text-[#067647]">
-                  <CheckCircle2 className="h-4 w-4" aria-hidden />
-                  {tt("{n, plural, one {# review imported} other {# reviews imported}}", { n: result.imported })}
-                </p>
-                {result.rows.some((r) => !r.ok) ? <p className="mt-1 text-[#4b5563]">{tt("{n, plural, one {# row was skipped. Fix it in the file and import it again; rows already imported are skipped next time.} other {# rows were skipped. Fix them in the file and import them again; rows already imported are skipped next time.}}", { n: result.rows.filter((r) => !r.ok).length })}</p> : null}
-              </div>
-            ) : null}
-            <div className="flex gap-1">
-              <button type="button" onClick={() => setOnlySkipped(false)} className={SEG(!onlySkipped)}>
-                {tt("All rows")}
-              </button>
-              <button type="button" onClick={() => setOnlySkipped(true)} className={SEG(onlySkipped)} data-import-only-skipped="">
-                {tt("Skipped only")}
-              </button>
-            </div>
-            <div className="max-h-[46dvh] overflow-y-auto rounded-xl border border-[#eef0f2]">
-              <table className="w-full text-left text-[13px]">
-                <thead className="sticky top-0 bg-[#fafbfb] text-[12px] text-[#6b7280]">
-                  <tr>
-                    <th className="w-14 px-3 py-2 font-medium">{tt("Row")}</th>
-                    <th className="px-3 py-2 font-medium">{tt("Product")}</th>
-                    <th className="hidden px-3 py-2 font-medium sm:table-cell">{tt("Review")}</th>
-                    <th className="px-3 py-2 font-medium">{tt("Result")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f1f2f4]">
-                  {list.slice(0, 500).map((r) => (
-                    <tr key={r.row} data-import-row={r.ok ? "ok" : "skip"} className="align-top">
-                      <td className="px-3 py-2 tabular-nums text-[#6b7280]">{r.row}</td>
-                      <td className="px-3 py-2">
-                        <span className="block max-w-[200px] truncate text-[#1a1a2e]">{r.productTitle ?? "–"}</span>
-                        {r.matchedBy ? <span className="text-[12px] text-[#9ca3af]">{MATCH_WORD[r.matchedBy]?.()}</span> : null}
-                      </td>
-                      <td className="hidden px-3 py-2 sm:table-cell">
-                        {r.rating ? <span className="mr-1.5 tabular-nums text-[#4b5563]">{"★".repeat(r.rating)}</span> : null}
-                        <span className="text-[#374151] [overflow-wrap:anywhere]">{r.excerpt ?? ""}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.ok ? <span className="font-medium text-[#067647]">{step === "done" ? tt("Imported") : tt("Ready")}</span> : <span className="font-medium text-[#b42318]">{tt("Skipped")}</span>}
-                        {r.ok ? (r.notes?.length ? <span className="block text-[12px] text-[#6b7280]">{rowNote(r)}</span> : null) : <span className="block text-[12px] text-[#4b5563]">{rowMessage(r)}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {list.length > 500 ? <p className="px-3 py-2 text-[12px] text-[#6b7280]">{tt("The first 500 rows are listed. Download the report for all of them.")}</p> : null}
-              {list.length === 0 ? <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">{tt("Nothing skipped.")}</p> : null}
-            </div>
-          </div>
-        ) : null}
-
-        {error ? <p className="mt-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}
+function UndoDialog({ record, onClose, onUndo }: { record: ImportRecord; onClose: () => void; onUndo: () => Promise<boolean> }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <div className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center sm:p-4" role="alertdialog" aria-modal="true" aria-labelledby="undo-title">
+      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
+      <div className="relative w-full rounded-t-2xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5">
+        <h3 id="undo-title" className="text-[17px] font-semibold text-[#1a1a2e]">
+          {tt("Undo this import?")}
+        </h3>
+        <p className="mt-1 text-[14px] text-[#6b7280]">{tt("The {n} reviews it added are deleted, with their photos. Reviews that were already here stay.", { n: record.imported })}</p>
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
+            {tt("Cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              const ok = await onUndo()
+              setBusy(false)
+              if (ok) onClose()
+            }}
+            className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl bg-[#c4290c] text-[15px] font-medium text-white transition-colors hover:bg-[#a82309] disabled:cursor-default disabled:opacity-50 sm:h-10 sm:text-[14px]"
+            data-import-undo-confirm=""
+          >
+            {busy ? tt("Deleting") : tt("Undo import")}
+          </button>
+        </div>
       </div>
-    </Sheet>
+    </div>
   )
 }

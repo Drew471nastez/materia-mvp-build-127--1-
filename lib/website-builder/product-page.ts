@@ -195,6 +195,45 @@ export function withDeliveryBlock(section: SectionInstance): SectionInstance {
   return { ...section, blocks, settings: { ...settings, [DELIVERY_ADDED]: true } }
 }
 
+/**
+ * ===========================================================================
+ *  BUNDLES AND UPSELLS ON EVERY PRODUCT PAGE
+ * ===========================================================================
+ * The "Bundles and upsells" block (the store's bundles with the product in
+ * and the upsells it shows; components/website-builder/sections/renderers/
+ * product/offers-block.tsx) came after many product pages were saved. A
+ * product section with blocks and no such block draws it after the delivery
+ * line (or the low stock line, or the buy buttons, or last), as Delivery and
+ * pickup was given, so an offer made in /app/offers shows without the
+ * creator adding a block. It draws nothing on a product no offer names.
+ *
+ * The creator still decides, by the same mark: OFFERS_ADDED is kept with the
+ * section, the block can be moved or removed like any block, and a section
+ * saved with the mark and without the block was emptied of it on purpose,
+ * so it is never put back.
+ */
+export const OFFERS_ADDED = "offers_block_added"
+export const AUTO_OFFERS_ID = "auto-offers"
+
+export function withOffersBlock(section: SectionInstance): SectionInstance {
+  if (section.type !== "product" || !Array.isArray(section.blocks) || section.blocks.length === 0) return section
+  const settings = section.settings ?? {}
+  if (section.blocks.some((b) => b.type === "offers")) return settings[OFFERS_ADDED] === true ? section : { ...section, settings: { ...settings, [OFFERS_ADDED]: true } }
+  if (settings[OFFERS_ADDED] === true) return section
+  const after = ["delivery", "low_stock", "buy_buttons", "quantity", "variant_picker", "price"]
+  let at = section.blocks.length
+  for (const type of after) {
+    const i = section.blocks.map((b) => b.type).lastIndexOf(type)
+    if (i >= 0) {
+      at = i + 1
+      break
+    }
+  }
+  const block: BlockInstance = { id: AUTO_OFFERS_ID, type: "offers", settings: productBlockDefaults("offers") }
+  const blocks = [...section.blocks.slice(0, at), block, ...section.blocks.slice(at)]
+  return { ...section, blocks, settings: { ...settings, [OFFERS_ADDED]: true } }
+}
+
 export function isUntouchedPlaceholder(section: SectionInstance): boolean {
   if (section.id !== PLACEHOLDER_ID || section.type !== "split_content") return false
   const heading = typeof section.settings?.heading === "string" ? section.settings.heading.trim().toLowerCase() : ""

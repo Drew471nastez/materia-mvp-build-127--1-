@@ -4,6 +4,8 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { MAX_IMPORT_BYTES, parseCsv, planImport, readMapping, reviewFingerprint, type ImportProduct, type RowOutcome } from "@/lib/reviews/import-csv"
 import { refreshReviewStats } from "@/lib/reviews/store"
 import { forgetReviewsManage, listImports, undoImport } from "@/lib/reviews/manage-server"
+import { ROW_ERRORS } from "@/lib/reviews/import"
+import { MAX_ROWS_PER_CHUNK, addToImport, finishImport, importCatalog, importRows, readPlatform, startImport } from "@/lib/reviews/import-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -21,7 +23,19 @@ export const maxDuration = 60
  *        → { imported, skipped: [...], skippedCount, rows, importId }
  *          read and checked again here (the preview is never trusted), then
  *          written. A batch the database refuses marks its rows not imported.
- *   GET  → { imports: [...] } the last ten, to undo one
+ *   POST { action: "start", platform, fileName, totalRows } → { importId }
+ *   POST { action: "rows", importId, rows: [...], copyPhotos }
+ *                                         → { imported, duplicates, errors }
+ *   POST { action: "finish", importId, productIds } → { import }
+ *        the import screen's way (components/reviews/manage/import-dialog):
+ *        the file read in the browser by the review import engine
+ *        (lib/reviews/import: Judge.me, Yotpo, Loox, Stamped.io, Okendo,
+ *        Shopify, Reviews.io, Trustpilot, Google, Etsy, Amazon, WooCommerce,
+ *        Fera, Ali Reviews, Rivyo or any CSV, JSON or WordPress XML), sent
+ *        in chunks of at most 250 rows, each read again here
+ *        (lib/reviews/import-server.ts)
+ *   GET  → { imports: [...], products } the last ten, to undo one, and the
+ *          store's products (with their SKUs) to match rows against
  *   DELETE ?id= → that import's reviews deleted (only its own: unverified,
  *          imported, from that file)
  *
@@ -58,6 +72,7 @@ export async function POST(request: Request) {
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
+  if (typeof body.action === "string") return chunked(c, body)
   const preview = body.preview === true
   if (!preview) {
     const limited = await rateLimit({ bucket: "review-import", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 10, seconds: 3600 }] })
@@ -133,7 +148,44 @@ export async function POST(request: Request) {
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
-  return physicalJson(await listImports(c.db, c.creatorId))
+  const [history, products] = await Promise.all([listImports(c.db, c.creatorId), importCatalog(c.db, c.creatorId)])
+  return physicalJson({ ...history, products })
+}
+
+/** The import screen's chunks: start, rows, finish (lib/reviews/import-server.ts). */
+async function chunked(c: { creatorId: string; userId: string; db: any }, body: Record<string, unknown>) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const importId = typeof body.importId === "string" ? body.importId : null
+  if (body.action === "start") {
+    const limited = await rateLimit({ bucket: "review-import", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 20, seconds: 3600 }] })
+    if (limited) return limited
+    const started = await startImport(c.db, { creatorId: c.creatorId, userId: c.userId, platform: readPlatform(body.platform), fileName: typeof body.fileName === "string" ? body.fileName : "", totalRows: Number(body.totalRows) || 0 }).catch(() => null)
+    if (!started) return physicalJson({ error: "The import did not start. Try again." }, 500)
+    return physicalJson({ importId: started.id, level: started.level })
+  }
+  if (body.action === "rows") {
+    const limited = await rateLimit({ bucket: "review-import-rows", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 600, seconds: 3600 }] })
+    if (limited) return limited
+    const rows = Array.isArray(body.rows) ? body.rows : []
+    if (rows.length > MAX_ROWS_PER_CHUNK) return physicalJson({ error: `Send at most ${MAX_ROWS_PER_CHUNK} rows at a time.` }, 413)
+    const result = await importRows(c.db, { creatorId: c.creatorId, importId, rows, copyPhotos: body.copyPhotos === true, platform: readPlatform(body.platform) })
+    if ("error" in result) return physicalJson({ error: result.error }, result.status)
+    /* What the browser set aside before sending (lib/reviews/import planReviews), counted with the first chunk: only numbers and known errors. */
+    const count = (v: unknown) => Math.max(0, Math.min(1_000_000, Math.floor(Number(v) || 0)))
+    const known = new Set<string>(Object.values(ROW_ERRORS))
+    const planErrors = (Array.isArray(body.planErrors) ? body.planErrors : [])
+      .slice(0, 50)
+      .map((e) => ({ line: count((e as { line?: unknown })?.line), error: String((e as { error?: unknown })?.error ?? "") }))
+      .filter((e) => known.has(e.error))
+    await addToImport(c.db, c.creatorId, importId, { imported: result.imported, duplicates: result.duplicates + count(body.duplicates), skipped: count(body.skipped), errors: [...planErrors, ...result.errors], extraErrors: Math.max(0, count(body.planErrorCount) - planErrors.length) })
+    return physicalJson(result)
+  }
+  if (body.action === "finish") {
+    const productIds = Array.isArray(body.productIds) ? (body.productIds as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 5000) : []
+    const record = await finishImport(c.db, c.creatorId, importId, productIds)
+    forgetReviewsManage(c.creatorId)
+    return physicalJson({ import: record })
+  }
+  return physicalJson({ error: "Bad request." }, 400)
 }
 
 export async function DELETE(request: Request) {

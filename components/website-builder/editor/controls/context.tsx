@@ -49,6 +49,9 @@ export interface PickerCollection {
   /** Whether a visitor would see it. */
   published: boolean
   products_count: number
+  /** Its words and address, when the editor has them: what a setting bound to it shows (lib/storelib-theme/collection-binding.ts). */
+  description?: string
+  url?: string
 }
 
 export interface EditorFieldEnv {

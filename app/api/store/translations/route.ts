@@ -6,7 +6,7 @@ import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { normalizeLocale } from "@/lib/markets/locales"
 import { defaultLanguageScope, writtenLanguage } from "@/lib/markets/detect-language"
 import { editorLanguages } from "@/lib/markets/model"
-import { localizationOf, saveTranslations, siteTexts, translationRulesOf, translationsOf } from "@/lib/markets/server"
+import { localizationOf, originalProductsOf, saveTranslations, siteTexts, translationRulesOf, translationsOf } from "@/lib/markets/server"
 import { isExcluded } from "@/lib/markets/translation-rules"
 import { BUILT_IN_GROUPS, isBuiltInWordKey, isEnglish, needsReview, statusOf, translationMap } from "@/lib/markets/translate"
 
@@ -64,11 +64,12 @@ export async function GET(request: Request) {
     const shown = locale ?? (asked ? null : loc.defaultLanguage)
     if (!shown) return physicalJson({ locale: null, defaultLanguage: loc.defaultLanguage, languages, published, values: {} })
     /* The texts kept untranslated, so the editor's sidebar can say so (lib/markets/translation-rules.ts). */
-    const [saved, { rules }] = await Promise.all([translationsOf(c.db, c.creatorId, shown), translationRulesOf(c.db, c.creatorId)])
+    /* And the products the store shows in their own words (SQL part 211), read beside them. */
+    const [saved, { rules }, originals] = await Promise.all([translationsOf(c.db, c.creatorId, shown), translationRulesOf(c.db, c.creatorId), originalProductsOf(c.db, c.creatorId)])
     /* With the hash of the original each was written for: a menu link's is laid over only while that is still its title (localizeMenus). */
     const values: Record<string, { v: string; h: string; s?: "ai" }> = {}
     for (const r of saved.rows) if (r.status === "approved" && r.value) values[r.key] = { v: r.value, h: r.sourceHash, ...(r.source === "ai" ? { s: "ai" as const } : {}) }
-    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames === true })
+    return physicalJson({ locale: shown, defaultLanguage: loc.defaultLanguage, languages, published, values, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames === true, originals: originals.ids })
   }
   /*
     ?summary=1, SETTINGS › LANGUAGES: for each added language, how many of

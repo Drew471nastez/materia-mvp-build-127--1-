@@ -50,6 +50,8 @@ export function marketsMissing(error: { code?: string; message?: string } | null
 }
 
 export const localizationTag = (creatorId: string) => `site-localization:${creatorId}`
+/** The products the store shows in its own language in every language (Products › Translations), SQL part 211. */
+export const originalsTag = (creatorId: string) => `site-translation-originals:${creatorId}`
 export const translationsTag = (creatorId: string, locale: string) => `site-translations:${creatorId}:${locale.toLowerCase()}`
 
 /** The store's own country (Store details), the home market's first country when nothing is set. */
@@ -391,9 +393,12 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
     if (themeItems.length) groups.push({ id: "theme", title: "Theme settings", items: themeItems })
   }
 
-  const { data: products } = await productsRead
+  const [{ data: listed }, originals] = await Promise.all([productsRead, originalProductsOf(db, creatorId)])
+  /* A product shown in its own language in every language (Products › Translations) has nothing to translate: never listed, never sent to Storelib AI. */
+  const keepOriginal = new Set(originals.ids)
+  const products = ((listed ?? []) as Record<string, unknown>[]).filter((p) => !keepOriginal.has(String(p.id)))
   const productItems: Translatable[] = []
-  for (const p of (products ?? []) as Record<string, unknown>[]) {
+  for (const p of products) {
     const title = typeof p.title === "string" ? p.title : ""
     const where = title || "Product"
     if (title) productItems.push({ key: `product:${p.id}:title`, source: title, label: "Title", where, multiline: false })
@@ -403,7 +408,7 @@ export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]>
   }
   if (productItems.length) groups.push({ id: "products", title: "Products", items: productItems })
   /* Their option names and values (Size, Small), once each for the whole shop (translate.ts optionKey). */
-  const productIds = ((products ?? []) as { id?: unknown }[]).map((p) => p.id).filter((id): id is string => typeof id === "string")
+  const productIds = (products as { id?: unknown }[]).map((p) => p.id).filter((id): id is string => typeof id === "string")
   if (productIds.length) {
     const { data: optionRows } = await db.from("product_options").select("product_id, name, values, position").in("product_id", productIds).order("position", { ascending: true }).then(
       (r: { data: unknown }) => r,
@@ -452,6 +457,65 @@ export function cachedTranslations(creatorId: string, locale: string): Promise<T
     tags: [translationsTag(creatorId, locale)],
     revalidate: 300,
   })()
+}
+
+/* ── A product shown in its own language ─────────────────────────────── */
+
+export const ORIGINALS_NOT_SET_UP = "Showing a product in its own language needs a database update. Run SQL part 211 in Supabase, then try again."
+
+/** Part 211 has not run: product_translation_settings is not there. */
+export function originalsMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && (marketsMissing(error) || /product_translation_settings/.test(error.message ?? ""))
+}
+
+/** The store's products set to show their original words in every language. None, and `ready: false`, before part 211. */
+export async function originalProductsOf(db: Db, creatorId: string): Promise<{ ready: boolean; ids: string[] }> {
+  const { data, error } = await db
+    .from("product_translation_settings")
+    .select("product_id")
+    .eq("creator_id", creatorId)
+    .eq("show_original", true)
+    .limit(5000)
+    .then(
+      (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
+      (e: unknown) => ({ data: null, error: { message: String(e) } }),
+    )
+  if (error) return { ready: !originalsMissing(error), ids: [] }
+  return { ready: true, ids: ((data ?? []) as { product_id?: unknown }[]).map((r) => r.product_id).filter((id): id is string => typeof id === "string") }
+}
+
+/** For the live website: held until a product's setting is changed again. */
+export function cachedOriginalProducts(creatorId: string): Promise<string[]> {
+  return unstable_cache(async () => (await originalProductsOf(createAdminClient(), creatorId)).ids, ["site-translation-originals", creatorId], {
+    tags: [originalsTag(creatorId)],
+    revalidate: 300,
+  })()
+}
+
+/** Show this product in its own language everywhere, or let its translations show again. Its translations are kept either way. */
+export async function setProductShowsOriginal(db: Db, creatorId: string, productId: string, on: boolean, userId: string | null): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { error } = await db
+    .from("product_translation_settings")
+    .upsert({ product_id: productId, creator_id: creatorId, show_original: on, updated_by: userId, updated_at: new Date().toISOString() }, { onConflict: "product_id" })
+  if (error) return originalsMissing(error) ? { ok: false, status: 503, error: ORIGINALS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
+  revalidateTag(originalsTag(creatorId), { expire: 0 })
+  return { ok: true }
+}
+
+/**
+ * One product's translations in these languages, in one query: what
+ * Products › Translations shows. The store's own rows only.
+ */
+export async function productTranslationRows(db: Db, creatorId: string, productId: string, locales: string[]): Promise<{ ready: boolean; byLocale: Record<string, TranslationRow[]> }> {
+  const byLocale: Record<string, TranslationRow[]> = Object.fromEntries(locales.map((l) => [l, []]))
+  if (locales.length === 0) return { ready: true, byLocale }
+  const keys = ["title", "description", "seo_title", "seo_description"].map((f) => `product:${productId}:${f}`)
+  const { data, error } = await db.from("site_translations").select("locale, key, value, source_hash, status, source").eq("creator_id", creatorId).in("locale", locales).in("key", keys)
+  if (error) return { ready: !marketsMissing(error), byLocale }
+  for (const r of (data ?? []) as { locale: string; key: string; value: string; source_hash: string; status: string; source: string }[]) {
+    byLocale[r.locale]?.push({ key: r.key, value: r.value, sourceHash: r.source_hash, status: r.status === "approved" ? "approved" : "draft", source: r.source === "ai" ? "ai" : "manual" })
+  }
+  return { ready: true, byLocale }
 }
 
 /* ── The store's translation rules: glossary and Don't translate (SQL part 213) ── */

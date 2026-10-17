@@ -27,7 +27,7 @@ import "server-only"
 import { unstable_cache, revalidateTag } from "next/cache"
 import { missingColumn } from "./store"
 import { readPhotos, sellerView } from "./app-settings"
-import { photoViewUrl, syncReviewPhotos } from "./photos-server"
+import { photoViewUrl, removeReviewPhotos, syncReviewPhotos } from "./photos-server"
 import {
   PAGE_SIZE,
   REVIEW_TABS,
@@ -416,12 +416,20 @@ export interface ImportRecord {
   skipped: number
   undone_at: string | null
   created_at: string
+  /** Part 232: the app the file came from, rows already on the store, rows that could not be read, and how many Undo took back. */
+  platform?: string
+  duplicates?: number
+  errors?: number
+  undone_count?: number | null
 }
 
 export async function listImports(db: Db, creatorId: string): Promise<{ ready: boolean; imports: ImportRecord[] }> {
-  const { data, error } = await db.from("review_imports").select("id, file_name, imported, skipped, undone_at, created_at").eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(10)
-  if (error) return { ready: false, imports: [] }
-  return { ready: true, imports: (data ?? []) as ImportRecord[] }
+  /* With part 232: the app each came from, and its duplicates and errors apart from the rest skipped (lib/reviews/import-server). */
+  const read = (cols: string) => db.from("review_imports").select(cols).eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(10)
+  let res = await read("id, file_name, imported, skipped, undone_at, created_at, platform, duplicates, errors, undone_count")
+  if (res.error && ["42703", "PGRST204"].includes(String(res.error.code ?? ""))) res = await read("id, file_name, imported, skipped, undone_at, created_at")
+  if (res.error) return { ready: false, imports: [] }
+  return { ready: true, imports: (res.data ?? []) as ImportRecord[] }
 }
 
 /** An import taken back: its own rows only, which are always unverified and never in a Storelib rating. */
@@ -429,10 +437,15 @@ export async function undoImport(db: Db, creatorId: string, importId: string): P
   const { data: rec } = await db.from("review_imports").select("id, creator_id, undone_at").eq("id", importId).eq("creator_id", creatorId).maybeSingle()
   if (!rec) return { ok: false, status: 404, error: "That import is not there any more." }
   if (rec.undone_at) return { ok: false, status: 409, error: "That import was already undone." }
-  const { data: gone, error } = await db.from("reviews").delete().eq("creator_id", creatorId).eq("import_id", importId).eq("source", "import").eq("verified", false).select("id, product_id")
+  const { data: gone, error } = await db.from("reviews").delete().eq("creator_id", creatorId).eq("import_id", importId).eq("source", "import").eq("verified", false).select("id, product_id, photos")
   if (error) return { ok: false, status: 500, error: "It could not be undone. Try again." }
-  await db.from("review_imports").update({ undone_at: new Date().toISOString() }).eq("id", importId).eq("creator_id", creatorId)
+  const rows = (gone ?? []) as { product_id: string; photos?: unknown }[]
+  /* The photos the import copied into the store's folder go with their reviews; a photo kept as a link was never stored. */
+  const files = rows.flatMap((r) => (Array.isArray(r.photos) ? (r.photos as { path?: unknown }[]) : [])).map((p) => (typeof p?.path === "string" ? p.path : "")).filter((p) => p.startsWith(`${creatorId}/`))
+  if (files.length) await removeReviewPhotos(db, files)
+  const at = new Date().toISOString()
+  const marked = await db.from("review_imports").update({ undone_at: at, undone_count: rows.length }).eq("id", importId).eq("creator_id", creatorId)
+  if (marked.error) await db.from("review_imports").update({ undone_at: at }).eq("id", importId).eq("creator_id", creatorId)
   forgetReviewsManage(creatorId)
-  const rows = (gone ?? []) as { product_id: string }[]
   return { ok: true, removed: rows.length, productIds: [...new Set(rows.map((r) => r.product_id))] }
 }

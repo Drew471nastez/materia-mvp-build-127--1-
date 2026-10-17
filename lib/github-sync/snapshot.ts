@@ -11,7 +11,7 @@
  */
 import { compatOf, ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
-import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { builtInSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { ThemeSnapshot } from "./layout"
 
@@ -76,7 +76,7 @@ export async function readSnapshot(
     files,
     defaults: compat ? {} : { ...(DEFAULT_THEME_SOURCES as Record<string, string>) },
     referenceSchemas: compat ? undefined : referenceSchemas(),
-    settingsSchema: compat ? undefined : THEME_SETTINGS_GROUPS,
+    settingsSchema: compat ? undefined : builtInSettingsSchema(),
   }
 
   /* An imported theme's pictures live in storage; the repository gets their bytes, within limits. */

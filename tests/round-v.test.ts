@@ -109,7 +109,8 @@ console.log("\nPages between pages")
 const rules = JSON.stringify(SITE_PREFETCH_RULES)
 check("a link rested on is prefetched, never prerendered", /"prefetch"/.test(rules) && !/prerender/.test(rules) && /"moderate"/.test(rules))
 check("never the cart, checkout, account or the API", ["/cart", "/checkout", "/account", "/api/*"].every((x) => rules.includes(`"${x}`)))
-check("on Storelib themes' sites", /type="speculationrules"/.test(read("app/(site)/layout.tsx")))
+/* Changed on purpose (round V1, live speed): a Storelib theme's site follows its own links in place through Next's router and fetches them ahead (components/website-builder/site-links.tsx), so it no longer asks the browser to fetch whole documents it would not use. */
+check("on Storelib themes' sites, through the router instead", !/type="speculationrules"/.test(read("app/(site)/layout.tsx")) && /<SiteLinks \/>/.test(read("app/(site)/layout.tsx")) && /router\.prefetch\(key\)/.test(read("components/website-builder/site-links.tsx")))
 /* Changed on purpose (the owner: canvas animations as on the live site): EDITING, not the theme's designMode. */
 check("and imported themes' sites (not in the canvas)", /speculationrules/.test(boot) && /if\(!EDITING&&HTMLScriptElement\.supports/.test(boot))
 check("the logo is decoded with the page, no blank first frame", /decoding="sync"/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")))

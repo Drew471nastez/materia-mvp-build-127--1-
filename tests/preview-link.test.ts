@@ -154,7 +154,8 @@ function main() {
     check("opening the panel reads, and only the press creates", /const r = await fetch\(`\/api\/website-builder\/themes\/\$\{installId\}\/preview`\)/.test(panel) && /if \(!active \|\| asked\.current \|\| !installId\) return/.test(panel))
     check("a closed sheet asks nothing", /active=\{open\}/.test(panel))
     check("the tab is opened by the press, not after the await", (() => {
-      const i = panel.indexOf('const tab = window.open("", "_blank")')
+      /* Opened at the press with its holding page (lib/website-builder/opening-tab.ts), never a bare about:blank. */
+      const i = panel.indexOf('const tab = openOpeningTab(')
       const j = panel.indexOf("await fetch(`/api/website-builder/themes/${installId}/preview`, {")
       return i > 0 && j > i
     })(), "a window opened on the far side of an await is blocked as a popup")

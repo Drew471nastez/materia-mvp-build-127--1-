@@ -17,16 +17,16 @@
  *   the provider wrapper every route is handed throws those sentences, and
  *   leaves a cancel and the creator's own key refusing as they were;
  *   the page assistant's loop ends a run on that 400 with the plain sentence;
- *   the chat's model list is ChatGPT's two models with what each is for, a
- *   saved Claude choice reads as the default, and Strength is low, medium
- *   and high on the wire as OpenAI's `reasoning.effort`.
+ *   the chat's model list is the four Claude models with what each is for,
+ *   an older saved choice reads as the default, and OpenAI's provider (kept
+ *   for its other uses) still sends `reasoning.effort` as before.
  */
 import Anthropic from "@anthropic-ai/sdk"
 import OpenAI from "openai"
 
 import { failureKind, looksRaw, PLAIN_MESSAGES, PlainError, plainChatError, plainFailures, plainRunError } from "@/lib/sites/agent/plain-errors"
 import { createOpenAIProvider, reasoningEffort } from "@/lib/sites/agent/openai-provider"
-import { DEFAULT_ENGINE, DEFAULT_STRENGTH, effortOf, engineFromSaved, ENGINES, STRENGTHS, strengthFromSaved } from "@/lib/website-builder/ask-engines"
+import { DEFAULT_ENGINE, EFFORT, engineFromSaved, ENGINES } from "@/lib/website-builder/ask-engines"
 import { REPORTABLE_ENGINES } from "@/lib/website-builder/agent/chat"
 import { themeAgent } from "@/lib/website-builder/agent/loop"
 import { buildSection } from "@/lib/website-builder/agent/operations"
@@ -155,19 +155,17 @@ async function main() {
 
   out("\nThe models the chat offers")
   {
-    check("Claude and ChatGPT each offer everyday and strong models", ENGINES.length === 4 && ["anthropic", "openai"].every((provider) => ENGINES.filter((e) => e.provider === provider).map((e) => e.tier).join(",") === "fast,strong"))
+    check("four Claude models and no ChatGPT model", ENGINES.length === 4 && ENGINES.every((e) => e.provider === "anthropic"))
     check("each explains its purpose", ENGINES.every((engine) => !!engine.detail))
-    check("Claude Sonnet is the default", DEFAULT_ENGINE === "claude")
-    check("saved Claude choices remain valid and malformed choices have a default", engineFromSaved("claude") === "claude" && engineFromSaved("claude-opus") === "claude-opus" && engineFromSaved(null) === "claude" && engineFromSaved(42) === "claude")
-    check("a saved ChatGPT choice is kept", engineFromSaved("openai-strong") === "openai-strong" && engineFromSaved("openai") === "openai")
-    check("a report can name either model, and an answer from before", ENGINES.every((e) => (REPORTABLE_ENGINES as readonly string[]).includes(e.id)) && (REPORTABLE_ENGINES as readonly string[]).includes("claude"))
+    check("Claude Opus 5.5 is the default", DEFAULT_ENGINE === "claude-opus-5-5")
+    check("a saved choice on the list is kept, an older or malformed one has the default", engineFromSaved("claude-sonnet-5-5") === "claude-sonnet-5-5" && engineFromSaved("claude") === DEFAULT_ENGINE && engineFromSaved("claude-opus") === DEFAULT_ENGINE && engineFromSaved(null) === DEFAULT_ENGINE && engineFromSaved(42) === DEFAULT_ENGINE)
+    check("a saved ChatGPT choice reads as the default", engineFromSaved("openai-strong") === DEFAULT_ENGINE && engineFromSaved("openai") === DEFAULT_ENGINE)
+    check("a report can name any model on the list, and an answer from before", ENGINES.every((e) => (REPORTABLE_ENGINES as readonly string[]).includes(e.id)) && (REPORTABLE_ENGINES as readonly string[]).includes("claude") && (REPORTABLE_ENGINES as readonly string[]).includes("openai"))
   }
 
-  out("\nStrength")
+  out("\nEffort")
   {
-    check("Light, Standard and Deep", STRENGTHS.map((s) => s.label).join(",") === "Light,Standard,Deep")
-    check("are low, medium and high", effortOf("light") === "low" && effortOf("standard") === "medium" && effortOf("deep") === "high")
-    check("Standard by default, and an unknown saved value reads as it", DEFAULT_STRENGTH === "standard" && strengthFromSaved("turbo") === "standard" && strengthFromSaved("deep") === "deep")
+    check("every Ask Storelib run thinks at medium, with no switch", EFFORT === "medium")
     check("OpenAI is sent low, medium or high, and the loops' larger asks as high", reasoningEffort("low") === "low" && reasoningEffort("medium") === "medium" && reasoningEffort("high") === "high" && reasoningEffort("xhigh") === "high" && reasoningEffort("max") === "high" && reasoningEffort(undefined) === undefined)
 
     const sent: Record<string, unknown>[] = []

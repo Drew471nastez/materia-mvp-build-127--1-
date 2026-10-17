@@ -69,10 +69,16 @@ export const TRANSLATABLE_TYPES = new Set(["text", "textarea", "richtext", "inli
  * not words: sent to a translator it came back as "gradient-liniar(...)".
  * The editor's sidebar asks the same question, so what it offers to
  * translate is exactly what the website lays over.
+ *
+ * Nor is a text box that holds an address or code rather than words (round
+ * V8): an email or a phone number, a link, an embed, an anchor, a date.
+ * A picture's description (alt text) and a button's label are words.
  */
 export function isWordsField(f: Pick<SchemaField, "type"> & { id?: string; label?: string }): boolean {
-  return TRANSLATABLE_TYPES.has(f.type) && !/gradient/i.test(`${f.id ?? ""} ${f.label ?? ""}`)
+  return TRANSLATABLE_TYPES.has(f.type) && !/gradient/i.test(`${f.id ?? ""} ${f.label ?? ""}`) && !NOT_WORDS_ID.test(f.id ?? "")
 }
+
+const NOT_WORDS_ID = /(^|_)(email|phone|url)$|^(embed_code|target_id|countdown_end|release_date|anchor|anchor_id|html_id|css_class)$/i
 
 export const MAX_TRANSLATION_LENGTH = 20_000
 
@@ -275,9 +281,11 @@ export function localizeRecord<T extends Record<string, unknown>>(record: T, pre
  * description is plain text (shop-products plainDescription) and its
  * translation is the product's rich text, so it is made plain the same way.
  */
-export function localizeCards<T extends { id: string; settings: unknown }>(list: T[], map: TranslationMap | null | undefined, opts: TranslateOpts = {}): T[] {
+export function localizeCards<T extends { id: string; settings: unknown }>(list: T[], map: TranslationMap | null | undefined, opts: TranslateOpts = {}, original?: ReadonlySet<string> | null): T[] {
   if (!map || map.size === 0) return list
   return list.map((c) => {
+    /* A product the merchant shows in its own language everywhere (Products › Translations): its card stays as written. */
+    if (original?.has(c.id)) return c
     const own = c.settings as Record<string, unknown>
     const title = typeof own.title === "string" ? valueFor(map, `product:${c.id}:title`, opts, own.title) : null
     /* The card holds a plain excerpt of the description, not the text it was translated from: no freshness to compare here. */
@@ -438,7 +446,7 @@ const THEME_NOT_WORDS = new Set(["brand_name"])
 export function themeTextTranslatables(theme: Record<string, unknown> | null | undefined, fields: readonly SchemaField[]): Translatable[] {
   const out: Translatable[] = []
   for (const f of fields) {
-    if (!TRANSLATABLE_TYPES.has(f.type) || THEME_NOT_WORDS.has(f.id)) continue
+    if (!isWordsField(f) || THEME_NOT_WORDS.has(f.id)) continue
     /* Its default when never set: the cookie banner's sentence and buttons, the sale badge's word. */
     const v = shownText(f, theme?.[f.id])
     if (typeof v === "string" && v.trim()) out.push({ key: `theme:${f.id}`, source: v, label: f.label, where: "Theme settings", multiline: f.type !== "text" })
@@ -461,7 +469,7 @@ export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: 
   for (const key of map.keys()) {
     if (!key.startsWith("theme:")) continue
     const id = key.slice(6)
-    const field = fields.find((f) => f.id === id && TRANSLATABLE_TYPES.has(f.type))
+    const field = fields.find((f) => f.id === id && isWordsField(f))
     const shown = field ? shownText(field, theme[id]) : typeof theme[id] === "string" ? (theme[id] as string) : null
     if (THEME_NOT_WORDS.has(id) || shown === null) continue
     const v = valueFor(map, key, opts, shown)
@@ -489,3 +497,10 @@ export function localizeTheme<T extends Record<string, unknown>>(theme: T, map: 
   }
   return next as T
 }
+
+/* ── A product's own fields (Products › Translations) ─────────────────── */
+
+/** A product's fields that have their own translation, in the order Products › Translations lists them. */
+export const PRODUCT_TRANSLATED_FIELDS = ["title", "description", "seo_title", "seo_description"] as const
+export type ProductTranslatedField = (typeof PRODUCT_TRANSLATED_FIELDS)[number]
+export const productKey = (productId: string, field: ProductTranslatedField) => `product:${productId}:${field}`

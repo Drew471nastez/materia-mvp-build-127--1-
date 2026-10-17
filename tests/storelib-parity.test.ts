@@ -185,7 +185,9 @@ async function main() {
     const e = renderStorelibSection(instance, theme, { template: "index" }, sources)
     const l = (await prerenderStorelibSections(dbWith(sources) as never, "i", [instance], theme, "index"))[instance.id]
     check("the image arrives on both", e.ok === true && e.html.includes("cdn.example.com/a.jpg") && !!l && l.html.includes("cdn.example.com/a.jpg"))
-    check("and identically", e.ok === true && !!l && l.html === e.html)
+    /* Changed on purpose: a live page asks for its first picture first (loading="eager", fetchpriority="high", lib/website-builder/media-pass.ts); the canvas keeps it lazy. Everything else is the same markup. */
+    const fetchHints = (html: string) => html.replace(/ loading="(?:eager|lazy)"/g, "").replace(/ fetchpriority="high"/g, "")
+    check("and identically", e.ok === true && !!l && fetchHints(l.html) === fetchHints(e.html))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -30,6 +30,7 @@
 
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { createPortal } from "react-dom"
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { hapticTap } from "@/lib/native-bridge"
@@ -52,6 +53,12 @@ export interface ActionMenuItem {
   separatorBefore?: boolean
   /** Names the group this row starts. Implies `separatorBefore`. */
   section?: string
+  /** Shown, and not pressable. `hint` says why, under the label. */
+  disabled?: boolean
+  /** A short second line: why a row is disabled, say. */
+  hint?: string
+  /** A stable hook for tests and browser checks. */
+  id?: string
 }
 
 export interface Group {
@@ -255,13 +262,17 @@ export function ActionDropdownContent({
                  * hover covers the case where neither has happened yet.
                  */
                 const row = cn(
-                  "flex h-8 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium outline-none transition-colors duration-100 [&_svg]:h-4 [&_svg]:w-4",
-                  tone.row,
+                  "flex w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium outline-none transition-colors duration-100 [&_svg]:h-4 [&_svg]:w-4",
+                  item.hint ? "min-h-8 py-1.5" : "h-8",
+                  item.disabled ? "cursor-default text-[#303036] data-[disabled]:pointer-events-none" : tone.row,
                 )
                 const body = (
                   <>
-                    {item.icon && <span className={cn("inline-flex shrink-0", tone.icon)}>{item.icon}</span>}
-                    <span className="truncate">{item.label}</span>
+                    {item.icon && <span className={cn("inline-flex shrink-0", item.disabled ? "text-[#b4b8bf]" : tone.icon)}>{item.icon}</span>}
+                    <span className="flex min-w-0 flex-col">
+                      <span className={cn("truncate", item.disabled && "text-[#9ca3af]")}>{item.label}</span>
+                      {item.hint && <span className="truncate text-[12px] font-normal leading-4 text-[#6b7280]">{item.hint}</span>}
+                    </span>
                   </>
                 )
                 return item.href ? (
@@ -275,7 +286,7 @@ export function ActionDropdownContent({
                     </a>
                   </DropdownMenuPrimitive.Item>
                 ) : (
-                  <DropdownMenuPrimitive.Item key={i} onSelect={() => item.onClick?.()} className={row}>
+                  <DropdownMenuPrimitive.Item key={i} data-action-item={item.id} disabled={item.disabled} onSelect={() => item.onClick?.()} className={row}>
                     {body}
                   </DropdownMenuPrimitive.Item>
                 )
@@ -314,12 +325,15 @@ export const ActionSheetRows = React.memo(function ActionSheetRows({
             const tone = toneOf(item)
             const row = cn(
               "flex min-h-[52px] w-full items-center gap-3.5 rounded-xl px-3 text-left text-[16px] font-medium outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] [&_svg]:h-5 [&_svg]:w-5",
-              tone.tap,
+              item.disabled ? "text-[#1a1a2e]" : tone.tap,
             )
             const body = (
               <>
-                {item.icon && <span className={cn("flex shrink-0 items-center justify-center", tone.icon)}>{item.icon}</span>}
-                <span className="truncate">{item.label}</span>
+                {item.icon && <span className={cn("flex shrink-0 items-center justify-center", item.disabled ? "text-[#b4b8bf]" : tone.icon)}>{item.icon}</span>}
+                <span className="flex min-w-0 flex-col py-1">
+                  <span className={cn("truncate", item.disabled && "text-[#9ca3af]")}>{item.label}</span>
+                  {item.hint && <span className="truncate text-[13px] font-normal leading-5 text-[#6b7280]">{item.hint}</span>}
+                </span>
               </>
             )
             return item.href ? (
@@ -337,6 +351,9 @@ export const ActionSheetRows = React.memo(function ActionSheetRows({
               <button
                 key={i}
                 type="button"
+                data-action-item={item.id}
+                disabled={item.disabled}
+                aria-disabled={item.disabled || undefined}
                 onClick={() => pick.current(item.onClick ?? null)}
                 className={row}
               >
@@ -349,3 +366,104 @@ export const ActionSheetRows = React.memo(function ActionSheetRows({
     </div>
   )
 })
+
+/**
+ * ===========================================================================
+ *  THE SAME MENU, OPENED AT A PLACE RATHER THAN BY ITS OWN BUTTON
+ * ===========================================================================
+ * For a list that has one menu for all its rows: the "..." of whichever row
+ * was pressed, the pointer where a row was right clicked, a row held down
+ * on a touch screen. `at.box` is where it opens (a button's box, or a 1px
+ * box at the pointer), held against a stand in drawn into the body, the way
+ * the files library holds its menu. `at.phone` opens the shared sheet
+ * instead, and the row's action runs once the sheet has gone.
+ */
+export interface ActionMenuPlace {
+  box: { left: number; top: number; width: number; height: number }
+  phone: boolean
+  /** "start" under a pointer, "end" under a button at the end of a row. */
+  align?: "start" | "end"
+  /** Where the focus goes back to when the menu closes. */
+  focus?: HTMLElement | null
+}
+
+export function ActionMenuAt({
+  at,
+  items,
+  title,
+  onClose,
+  menuWidth = "w-52",
+}: {
+  at: ActionMenuPlace | null
+  items: ActionMenuItem[]
+  title?: string
+  onClose: () => void
+  menuWidth?: string
+}) {
+  const groups = React.useMemo(() => groupsOf(items), [items])
+  const pendingRef = React.useRef<(() => void) | null>(null)
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
+  /* The sheet keeps its rows while it slides away, after the caller has let go of the place. */
+  const [sheetGroups, setSheetGroups] = React.useState<Group[]>([])
+  const sheetOpen = !!at?.phone
+  React.useEffect(() => {
+    if (!sheetOpen) return
+    pendingRef.current = null
+    setSheetGroups(groups)
+  }, [sheetOpen, groups])
+  React.useEffect(() => {
+    if (sheetOpen) hapticTap("soft")
+  }, [sheetOpen])
+  const desktop = at && !at.phone ? at : null
+
+  return (
+    <>
+      {desktop && mounted ? (
+        <DropdownMenuPrimitive.Root open modal={false} onOpenChange={(next) => { if (!next) onClose() }}>
+          {createPortal(
+            <DropdownMenuPrimitive.Trigger asChild>
+              <span
+                aria-hidden
+                data-action-anchor=""
+                style={{ position: "fixed", left: desktop.box.left, top: desktop.box.top, width: desktop.box.width, height: desktop.box.height, pointerEvents: "none" }}
+              />
+            </DropdownMenuPrimitive.Trigger>,
+            document.body,
+          )}
+          <ActionDropdownContent
+            groups={groups}
+            align={desktop.align ?? "start"}
+            menuWidth={menuWidth}
+            sideOffset={desktop.align === "end" ? 4 : 2}
+            collisionPadding={8}
+            onCloseAutoFocus={(e) => {
+              e.preventDefault()
+              desktop.focus?.focus({ preventScroll: true })
+            }}
+          />
+        </DropdownMenuPrimitive.Root>
+      ) : null}
+      <BottomSheet
+        isOpen={sheetOpen}
+        onClose={onClose}
+        onClosed={() => {
+          const run = pendingRef.current
+          pendingRef.current = null
+          run?.()
+        }}
+        title={title}
+        label={title ?? tt("Actions")}
+        hideFrom={null}
+      >
+        <ActionSheetRows
+          groups={sheetGroups}
+          onPick={(run) => {
+            pendingRef.current = run
+            onClose()
+          }}
+        />
+      </BottomSheet>
+    </>
+  )
+}

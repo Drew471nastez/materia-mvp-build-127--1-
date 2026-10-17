@@ -1173,13 +1173,18 @@ section("Undo cannot reach a page you are not on")
    * before it, so pressing it threw away their own work instead of the
    * model's.
    */
+  /* V round: through the run's own step (undo-run.ts, aiStep), held while an assistant run lasts so the whole run is one step. */
   check(
     "an AI edit records an undo step like every other edit",
-    /const applyAiOp = useCallback[\s\S]{0,1400}pushUndoRef\.current\(\)/.test(editor),
+    /const applyAiOp = useCallback[\s\S]{0,1600}aiPushUndoRef\.current\(\)/.test(editor),
   )
   check(
     "and it is the debounced one, so one instruction is one step",
-    /pushUndoRef\.current = debouncedPushUndo/.test(editor),
+    /pushUndoRef\.current = debouncedPushUndo/.test(editor) && /aiPushUndoRef\.current = undoRun\.aiStep/.test(editor),
+  )
+  check(
+    "and a whole assistant run is one step: held from its start, released when it finishes",
+    /const startAiRun = useCallback[\s\S]{0,600}undoRun\.hold\(\)/.test(editor) && /const aiRunFinished = useCallback[\s\S]{0,300}undoRun\.release\(\)/.test(editor),
   )
 }
 
@@ -1375,8 +1380,8 @@ section("A form that says it worked, did")
   const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
   const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
-  check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
-  check("and not only in the empty state", !/<ModeSwitch/.test(empty))
+  check("the scope chip is with the box you type into, and there is no mode switch", /<ScopeChip/.test(composer) && !/<ModeSwitch/.test(chat))
+  check("and not only in the empty state", !/<ScopeChip/.test(empty))
   /*
     THE WRITER IS A RUN IN THE THREAD NOW (U round), like a change to the
     page: its steps, its line, its answer or its error are an exchange, so
@@ -1394,7 +1399,7 @@ section("A form that says it worked, did")
   check("a failed section can be asked for again in one press", /if \(exchange\.kind === "code" && !exchange\.codeFocus\) void writeOne\(exchange\.prompt, images\)/.test(chat) && /Try again/.test(chat))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
-  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
+  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{composerEmpty \? suggestions : \[\]\}/.test(empty))
 }
 
 /**
@@ -1671,7 +1676,7 @@ section("Two at once still make five, and an import that says what went wrong")
     /aria-label="Back"/.test(back) && /after:absolute after:inset-0 after:content-\[''\]/.test(back) && /flex h-11 w-11 shrink-0/.test(back) &&
       /<ArrowLeft className="h-5 w-5 md:h-4 md:w-4"/.test(back) && /group-active\/back:scale-\[0\.94\]/.test(back) &&
       /* Six panels, a block's own panel (the sidebar's tree opens it), Navigation (the store's menus), an open group of General Settings in each of its two lists, and an imported Shopify theme's own settings (compatThemePanel). */
-      (editor.match(/<PanelBack onBack=/g) ?? []).length === 11)
+      (editor.match(/<PanelBack\s+onBack=/g) ?? []).length === 11)
 
   check("Website Settings on a phone: a subject is pushed over the list and popped off it",
     /const PUSH_MS = 340/.test(settings) && /const POP_MS = 280/.test(settings) && /page\.animate\(push \? \[\{ transform: off \}, \{ transform: at \}\]/.test(settings) &&

@@ -30,7 +30,8 @@ const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
 const STUBS = {
   "navigation.js": `export const usePathname = () => "/website-builder/editor/probe-install"
-export const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {}, back() {} })
+/* Every push is kept, and told to the probe page (render-editor-probe.tsx PROBE_NAVIGATE_MS), so a probe can count navigations and play one arriving. */
+export const useRouter = () => ({ push(href) { (window.probePushes = window.probePushes || []).push(href); window.dispatchEvent(new CustomEvent("probe:push", { detail: href })) }, replace() {}, refresh() {}, prefetch(href) { (window.probePrefetches = window.probePrefetches || []).push(href) }, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({ installId: "probe-install" })
 export const redirect = () => {}

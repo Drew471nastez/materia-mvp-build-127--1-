@@ -61,7 +61,7 @@ async function main() {
   check("an edit is saved as the merchant's own (no ai flag), for the original as it is now", /items: \[\{ key, value, source, approved: true, rich \}\]/.test(sidebar) && !/items: \[\{ key, value, source, approved: true, rich, ai/.test(sidebar))
   check("it lands on the canvas at once and is saved after a short pause, one text per write", /patch\(key, value\.trim\(\) \? \{ v: value, h: sourceHash\(source\) \} : null\)/.test(sidebar) && /const SAVE_AFTER_MS = 600/.test(sidebar) && /pagehide/.test(sidebar))
   check("a control echoing what it was given is not an edit (never turns Auto into Edited by itself)", /if \(\(now\?\.v \?\? ""\) === value\) return/.test(sidebar))
-  check("a failed save puts back what was there and says why", /patch\(key, before \?\? null\)\s*mark\(key, undefined, r\.error\)/.test(sidebar))
+  check("a failed save puts back what was there and says why", /* Changed on purpose (round V8): the error read the way the loose push compile narrows it. */ /patch\(key, before \?\? null\)\s*mark\(key, undefined, (r\.error|\(r as \{ error: string \}\)\.error)\)/.test(sidebar))
   const press = read("lib/markets/translation-press.ts")
   check("Reset to automatic replaces the merchant's own only on their press, and only with a translation that came back", /keepManual: !opts\.replaceManual/.test(press) && /if \(drafts\.size === 0\) return \{ ok: false/.test(press) && /replaceManual: replace/.test(sidebar))
   check("Translate now on a text with none never touches one the merchant wrote", /opts\.replaceManual \|\| map\.get\(i\.key\)\?\.source !== "manual"/.test(press))

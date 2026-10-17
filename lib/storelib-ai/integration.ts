@@ -25,6 +25,10 @@ import { declaredKind } from "@/lib/storelib-theme/chrome"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { isImageInDisguise, numberedLinkPairs } from "@/lib/storelib-theme/schema/normalise"
 import type { QualityFinding } from "./quality"
+import { withoutEditorBranches } from "./template-text"
+import { checkSchemaKeys } from "./schema-keys"
+import { checkSettingsCoverage } from "./settings-coverage"
+import { checkResponsiveStructure } from "./structural"
 
 type SchemaSetting = { id?: string; type?: string; label?: string; default?: unknown }
 type Schema = { type?: string; name?: string; category?: string; kind?: string; settings?: SchemaSetting[]; blocks?: { type?: string; name?: string; settings?: SchemaSetting[] }[]; presets?: { settings?: Record<string, unknown>; blocks?: { settings?: Record<string, unknown> }[] }[] }
@@ -88,39 +92,6 @@ function onlyNeutrals(value: string): boolean {
     .replace(/rgba?\(\s*(?:0\s*,\s*0\s*,\s*0|255\s*,\s*255\s*,\s*255)\s*(?:,[^)]*)?\)/gi, "")
     .replace(/\b(white|black)\b/gi, "")
   return !LITERAL_COLOUR.test(v) && !NAMED_COLOUR.test(v)
-}
-
-/**
- * The template with its editor-only branches taken out. A line that asks the
- * creator to add something ({% if page.in_editor %}Add questions...) is shown
- * in the builder and never to a visitor, so it is not content to make editable.
- */
-function withoutEditorBranches(template: string): string {
-  const tags = /\{%-?\s*(if|elsif|else|endif|for|endfor|unless|endunless)\b([^%]*)%\}/g
-  let out = ""
-  let last = 0
-  let skipDepth = -1
-  let depth = 0
-  for (const m of template.matchAll(tags)) {
-    const [whole, tag, rest] = m
-    const at = m.index ?? 0
-    if (skipDepth === -1) out += template.slice(last, at)
-    last = at + whole.length
-    const editor = /page\.in_editor/.test(rest) && !/not|!=|==\s*false/.test(rest)
-    if (tag === "if" || tag === "for" || tag === "unless") {
-      depth++
-      if (skipDepth === -1 && tag === "if" && editor) skipDepth = depth
-    } else if (tag === "elsif" || tag === "else") {
-      if (skipDepth === depth) skipDepth = -1
-      if (skipDepth === -1 && tag === "elsif" && editor) skipDepth = depth
-    } else {
-      if (skipDepth === depth) skipDepth = -1
-      depth--
-    }
-    if (skipDepth === -1) out += "\u0000"
-  }
-  if (skipDepth === -1) out += template.slice(last)
-  return out
 }
 
 const COLOUR_PROPS = /^(color|background|background-color|border|border-color|border-(top|right|bottom|left)(-color)?|outline|outline-color|fill|stroke|text-decoration-color|caret-color|accent-color)$/
@@ -382,10 +353,18 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   }
 
   /* ── phones ────────────────────────────────────────────────────── */
+  /* A layout that cannot fit a phone, with no rule anywhere for one, is refused (./structural.ts); one with rules is noted. */
+  const structure = checkResponsiveStructure(parsed.value.style.text)
+  out.push(...structure)
   const wide = declarations(css).find((d) => /^(width|min-width|flex-basis|grid-template-columns)$/.test(d.prop) && [...d.value.matchAll(/(\d{3,})px/g)].some((m) => Number(m[1]) >= 420))
-  if (wide && !/@container/.test(css)) {
+  if (!structure.length && wide && !/@container/.test(css)) {
     note("integration-responsive", `"${wide.prop}: ${wide.value}" is wider than a phone and nothing changes it on one. The builder measures the section, not the window, so @container (min-width: 640px) with container-type: inline-size is how a phone layout is reliable. The layout itself is the section's.`)
   }
+
+  /* ── the schema and the sidebar ────────────────────────────────── */
+  /* Every key one Storelib reads (./schema-keys.ts); every setting drives the markup and what the creator owns is a setting (./settings-coverage.ts). */
+  out.push(...checkSchemaKeys(source))
+  out.push(...checkSettingsCoverage(source, { frame }))
 
   return out
 }

@@ -102,7 +102,9 @@ async function main() {
     ["integration-image", "a picture typed into the markup", (s) => s.replace('src="{{ settings.image | asset }}"', 'src="https://cdn.example.com/hero.jpg"')],
     ["integration-image-css", "a picture in the CSS", (s) => s.replace(".s { container-type", ".s { background-image: url(https://cdn.example.com/x.jpg); container-type")],
     ["integration-text", "a heading typed into the markup", (s) => s.replace("{{ settings.heading }}</h2>", "Our amazing story since the very first day</h2>")],
-    ["integration-responsive", "a fixed desktop width and no phone layout", (s) => s.replace(/@container[^\n]*\n/, "").replace(".s__in { padding", ".s__in { width: 1100px; padding")],
+    /* V round: a box no phone fits, with no narrow screen rule for it, is refused rather than noted (lib/storelib-ai/structural.ts). */
+    ["structure-fixed-width", "a fixed desktop width and no phone layout", (s) => s.replace(/@container[^\n]*\n/, "").replace(".s__in { padding", ".s__in { width: 1100px; padding")],
+    ["integration-responsive", "a fixed track wider than a phone, still only noted", (s) => s.replace(/@container[^\n]*\n/, "").replace(".s__in { padding", ".s__in { grid-template-columns: 600px 1fr; padding")],
   ]
   for (const [id, what, mutate] of cases) {
     const broken = mutate(NATIVE)

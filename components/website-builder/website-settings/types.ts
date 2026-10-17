@@ -23,6 +23,7 @@ export const SETTINGS_SECTIONS = [
   { id: "policies", get label() { return tt("Policies") }, group: "content" },
   { id: "apps", get label() { return tt("Apps and integrations") }, group: "content" },
   { id: "publishing", get label() { return tt("Publishing") }, group: "live" },
+  { id: "performance", get label() { return tt("Performance") }, group: "live" },
   { id: "backups", get label() { return tt("Backups & Versions") }, group: "live" },
   { id: "connections", get label() { return tt("Connections") }, group: "code" },
 ] as const

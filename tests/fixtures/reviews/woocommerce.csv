@@ -1,0 +1,4 @@
+comment_ID,comment_post_ID,product_title,product_SKU,comment_author,comment_author_email,comment_date_gmt,comment_content,comment_approved,comment_parent,rating,verified
+101,55,Linen Apron,LA-01,Nora,nora@example.com,2024-08-01 10:00:00,Really nice,1,0,5,1
+102,55,Linen Apron,LA-01,Shop Owner,owner@example.com,2024-08-02 10:00:00,Thank you Nora!,1,101,,0
+103,55,Linen Apron,LA-01,Spammer,spam@example.com,2024-08-03 10:00:00,Buy cheap watches,spam,0,1,0

@@ -5742,6 +5742,38 @@ picture {
   .wb-canvas-loader { transition: none; }
 }
 
+/* ── Going back: components/website-builder/exit-screen.tsx ──────────────
+   The canvas loader's look, over the whole window, on <body> so it outlives
+   the editor. It comes in over 220ms, stays at least EXIT_MIN_MS
+   (lib/website-builder/exit-hold.ts) and fades off the page that has
+   arrived. The entrance has no fill, so once it is over the fade-out
+   transition owns the opacity. Above the sheets (80) and the old leaving
+   glass (300). */
+.wb-exit-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: #ffffff;
+  opacity: 1;
+  animation: wb-exit-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: opacity 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.wb-exit-screen[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes wb-exit-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-exit-screen { animation: none; transition: none; }
+}
+
 /* ── The website-builder editor's geometry ───────────────────────────────
    The editor is the one screen in the app that is entirely its own chrome:
    no app header, no sidebar, a bar of its own at the top and a sheet of its
@@ -6085,15 +6117,25 @@ html[data-ghost-tap-guard] [data-buyer-tab-bar] {
  * (Safari before 18.2) keeps the bar itself instead, and only where a
  * scrollbar takes room at all (a mouse or trackpad): a phone's bar overlays
  * and keeps nothing.
+ *
+ * CLASSES, NOT `html:has([data-account-settings])` and
+ * `html:has([data-page="account"])`. Those made <html> the subject of a
+ * :has(), and Chromium answered every insertion and removal in every page
+ * of the app by restyling half the document: in the website builder 1,227
+ * of about 2,200 elements, 35 to 45ms for each node added or taken away,
+ * which nearly every commit pays (scripts/check-editor-perf.mjs, "insert
+ * one node"). Without these two rules the same insertion restyled 275. The
+ * account layout and the settings set the classes from their first paint
+ * (components/platform/html-class.tsx), so the gutter holds exactly as long.
  */
-html:has([data-account-settings]),
-html:has([data-page="account"]) {
+html.with-account-settings,
+html.with-page-account {
   scrollbar-gutter: stable;
 }
 @supports not (scrollbar-gutter: stable) {
   @media (pointer: fine) {
-    html:has([data-account-settings]),
-    html:has([data-page="account"]) {
+    html.with-account-settings,
+    html.with-page-account {
       overflow-y: scroll;
     }
   }

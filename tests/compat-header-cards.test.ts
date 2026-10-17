@@ -162,8 +162,8 @@ async function main() {
     const first = theme.renderSection(ctx, { id: "a", type: "pic", settings: { src: own }, hidden: false, blocks: [] }, 0).html
     const fifth = theme.renderSection(ctx, { id: "b", type: "pic", settings: { src: "https://abc.supabase.co/storage/v1/object/public/x/y.jpg" }, hidden: false, blocks: [] }, 4).html
     const enc = encodeURIComponent(own).replace(/%/g, "%")
-    check("Storelib's own upload is resized, at the width asked for (720: the 750 file, not 1920)", first.includes(`data-a="/_next/image?url=${enc}&amp;w=750&amp;q=75"`) || first.includes(`data-a="/_next/image?url=${enc}&w=750&q=75"`), first.slice(0, 400))
-    check("  a small one small (165: the 256 file)", /data-b="\/_next\/image\?url=[^"]*?(&amp;|&)w=256(&amp;|&)q=75"/.test(first), first.slice(0, 400))
+    check("Storelib's own upload is resized, at the width asked for (720: the 750 file, not 1920)", first.includes(`data-a="/_next/image?url=${enc}&amp;w=750&amp;q=90"`) || first.includes(`data-a="/_next/image?url=${enc}&w=750&q=90"`), first.slice(0, 400))
+    check("  a small one small (165: the 256 file)", /data-b="\/_next\/image\?url=[^"]*?(&amp;|&)w=256(&amp;|&)q=90"/.test(first), first.slice(0, 400))
     check("  a picture from a host the optimizer does not fetch goes as it is", first.includes('data-c="https://img.test/x.png"'))
     check("  a srcset's widths are those widths", /srcset="[^"]*w=384[^"]* 360w, [^"]*w=750[^"]* 720w"/.test(first), first)
     check("image_tag in the page's first section is not lazy", !/<img [^>]*loading="lazy"/.test(first), first)

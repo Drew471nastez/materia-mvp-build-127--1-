@@ -14,6 +14,7 @@
  * could do and no visitor could see.
  */
 import { siteIcons } from "@/lib/website-builder/site-icon"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
@@ -487,7 +488,7 @@ async function homeStructuredData(
       origin: await siteOrigin(site.creatorId, username),
       name: str(t.brand_name) ?? site.displayName,
       description: str(t.seo_description),
-      logo: str(t.logo_url) ?? str(t.favicon_url),
+      logo: str(t.logo_url) ?? (faviconOf(t) || undefined),
       /* Social links in Website Settings: the owner's profiles elsewhere. */
       sameAs: siteSameAs(t),
     }),

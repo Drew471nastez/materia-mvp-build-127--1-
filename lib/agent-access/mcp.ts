@@ -42,9 +42,22 @@ export interface BoundOps {
    * Each answers text for the agent. Optional so older test doubles bind.
    */
   project?: ProjectOps
+  /**
+   * AI Memory for this website (lib/ai-memory/store.ts), bound to the token's
+   * creator and website in ./bind.ts. Optional so older test doubles bind.
+   */
+  memory?: MemoryOps
 }
 
 type Args = Record<string, unknown>
+export interface MemoryOps {
+  /** This website's notes and the creator's everywhere ones, as the block every agent is shown, with ids. */
+  read: () => Promise<OpResult<string>>
+  /** Keep one note for this website, from what the creator said or confirmed. */
+  remember: (args: Args) => Promise<OpResult<string>>
+  /** Delete one of this website's notes by its id. */
+  forget: (args: Args) => Promise<OpResult<string>>
+}
 export interface ProjectOps {
   readProject: () => Promise<OpResult<string>>
   readPage: (args: Args) => Promise<OpResult<string>>
@@ -92,7 +105,7 @@ export const TOOLS = [
   {
     name: "storelib_list_files",
     description:
-      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: sections/<type>.storelib and blocks/<type>.storelib, never a built-in section or block. To change a built-in one, write a new one beside it.",
+      "Every file of this site's theme. origin is \"yours\" for files the creator (or an agent) saved and \"theme\" for the shipped ones. writable says whether you may write it: sections/<type>.storelib and blocks/<type>.storelib, never a built-in section or block (write a new one beside it), and the theme settings: config/settings_schema.json says what they are, Shopify's format, and config/settings_data.json holds their values as { \"current\": { ... } }.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -109,7 +122,7 @@ export const TOOLS = [
   {
     name: "storelib_write_section",
     description:
-      "Save a section or theme block file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; a new block appears in Add block for every section that accepts it. Nothing reaches visitors until the creator publishes. Only sections/<type>.storelib or blocks/<type>.storelib, lower case.",
+      "Save a section or theme block file as a DRAFT. It is compiled first and refused with its errors if it does not compile. A new section appears on the page the creator has open in the builder; a new block appears in Add block for every section that accepts it. Nothing reaches visitors until the creator publishes. Only sections/<type>.storelib or blocks/<type>.storelib, lower case, or a theme settings file: config/settings_schema.json (add, reorder or regroup theme settings, change a label, default or range; Storelib's own settings keep their id, type and group) or config/settings_data.json (their values; a value you leave out stays, null puts one back to its default). Either is checked and refused with its lines, and Theme settings in the builder follow at once.",
     inputSchema: {
       type: "object",
       properties: {
@@ -244,6 +257,30 @@ export const PROJECT_TOOLS = [
   },
 ] as const
 
+/**
+ * AI MEMORY, the same notes Storelib AI keeps (lib/ai-memory/store.ts):
+ * brand voice, design decisions, likes and dislikes, facts, preferences.
+ * Read is the whole block; a write is one note for THIS website only, and a
+ * forget reaches only this website's notes. Never a secret.
+ */
+export const MEMORY_TOOLS = [
+  {
+    name: "storelib_memory_read",
+    description: "What the creator told Storelib AI or a connected agent to remember: brand voice, design decisions, likes and dislikes, facts about the business, preferences. Follow it unless the creator says otherwise now. Each note has an id in square brackets.",
+    inputSchema: NONE,
+  },
+  {
+    name: "storelib_memory_remember",
+    description: "Keep one short note for this website in AI Memory, only something the creator said or confirmed (\"never use gradients\", \"we write in a warm, plain voice\"). Not what you changed, and never a password, key or personal data. The creator sees and can delete it.",
+    inputSchema: { type: "object", properties: { note: { type: "string", description: "One sentence, under 240 characters." } }, required: ["note"], additionalProperties: false },
+  },
+  {
+    name: "storelib_memory_forget",
+    description: "Delete one of this website's notes from AI Memory by its id from storelib_memory_read, only when the creator says it is wrong or asks you to forget it.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+  },
+] as const
+
 /** Prompts: the rules, and the rules with a task's skills. Clients show them as slash commands. */
 export const PROMPTS = [
   { name: "storelib-rules", title: "Storelib agent rules", description: "The rules and workflow every agent follows on a Storelib site." },
@@ -326,18 +363,21 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
     case "initialize": {
       const asked = str(msg.params, "protocolVersion")
       const version = (PROTOCOL_VERSIONS as readonly string[]).includes(asked) ? asked : PROTOCOL_VERSIONS[0]
+      /* What the creator asked to be remembered, in the context from the first message, like Storelib AI's own runs. */
+      const remembered = ops.memory ? await ops.memory.read().catch(() => null) : null
+      const memoryNote = remembered && remembered.ok === true && remembered.value ? `\n\n${remembered.value}` : ""
       return ok({
         protocolVersion: version,
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: { name: "storelib", title: "Storelib", version: "2.0.0" },
         /* Clients put this in the model's context on connect: the rules arrive without being asked for. */
-        instructions: agentRulesBrief({ siteName: ops.siteName, agentName: ops.agentName }),
+        instructions: agentRulesBrief({ siteName: ops.siteName, agentName: ops.agentName }) + memoryNote,
       })
     }
     case "ping":
       return ok({})
     case "tools/list":
-      return ok({ tools: ops.project ? [...TOOLS, ...PROJECT_TOOLS] : [...TOOLS, PROJECT_TOOLS[0]] })
+      return ok({ tools: [...(ops.project ? [...TOOLS, ...PROJECT_TOOLS] : [...TOOLS, PROJECT_TOOLS[0]]), ...(ops.memory ? MEMORY_TOOLS : [])] })
     case "prompts/list":
       return ok({ prompts: PROMPTS })
     case "prompts/get": {
@@ -414,6 +454,13 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
                 "It goes live when they publish.",
             ),
           )
+        }
+        case "storelib_memory_read":
+        case "storelib_memory_remember":
+        case "storelib_memory_forget": {
+          if (!ops.memory) return fail(-32602, `Unknown tool: ${name}`)
+          const r = name === "storelib_memory_read" ? await ops.memory.read() : name === "storelib_memory_remember" ? await ops.memory.remember(args) : await ops.memory.forget(args)
+          return ok(refusal(r) ?? text(r.ok === true ? r.value || "AI Memory has no notes for this website yet." : ""))
         }
         default: {
           const project = ops.project ? PROJECT_CALLS[name] : undefined

@@ -15,6 +15,7 @@ import { NavigationSettings } from "@/components/website-builder/website-setting
 import { PageSettings } from "@/components/website-builder/website-settings/pages"
 import { PolicySettings } from "@/components/website-builder/website-settings/policies"
 import { PublishingSettings } from "@/components/website-builder/website-settings/publishing"
+import { PerformanceSettings } from "@/components/website-builder/website-settings/performance"
 import { SeoSettings } from "@/components/website-builder/website-settings/seo"
 import {
   SETTINGS_GROUP_LABELS,
@@ -405,6 +406,7 @@ export function ProjectSettings({
           {section === "policies" && <PolicySettings ctx={ctx} />}
           {section === "apps" && <AppsSettings ctx={ctx} />}
           {section === "publishing" && <PublishingSettings ctx={ctx} />}
+          {section === "performance" && <PerformanceSettings ctx={ctx} />}
           {section === "backups" && <BackupSettings ctx={ctx} />}
           {section === "connections" && <ConnectionsSettings ctx={ctx} />}
         </div>
