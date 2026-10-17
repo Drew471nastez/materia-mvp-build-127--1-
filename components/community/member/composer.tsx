@@ -176,6 +176,7 @@ import { useComposeRequests } from "@/lib/communities/client/compose-intent"
 import { useLayer } from "@/lib/ui/layers"
 import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
 import { sheetKeyboardRoom } from "./visible-box"
+import { useToolbarFollowsKeys } from "./toolbar-follow"
 import { useCalmFocus } from "./calm-focus"
 import { feedRestore } from "./post-motion"
 import { useStaffSchedule, type ComposerStaff } from "@/components/community/creator/composer-schedule"
@@ -1118,6 +1119,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   useCalmFocus(sheet, sheetScope)
   /* The keyboard's room on iOS, for the sheet to make in the focus itself (visible-box.ts sheetKeyboardRoom). */
   const keyboardRoom = useCallback(() => sheetKeyboardRoom(sheetRef.current), [])
+  /* Round 27 (I7): the toolbar goes down with the keys, never left up where they were (toolbar-follow.ts). */
+  const toolbarOf = useCallback(() => toolbarRef.current, [])
+  useToolbarFollowsKeys(sheet && sheetUp, toolbarOf, sheetScope)
   /* The sheet has landed: up, the caret goes in (on the frame after, so nothing is drawn under the keyboard's rise); down, shut() ends. */
   const onSheetMoved = useCallback(
     (up: boolean) => {
