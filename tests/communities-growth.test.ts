@@ -168,7 +168,7 @@ async function main() {
     check(`${f}: its metadata says nothing for a community nobody may see`, /if \(!community \|\| !sharePreviewable\(community\)\) return \{ robots: \{ index: false, follow: false \} \}/.test(code(`app/(marketing)/community/[slug]/${f}`)))
   }
   const join = code("app/(marketing)/community/[slug]/join/page.tsx")
-  check("the invite landing's metadata: the invite's preview when there is one, never reading it", /export async function generateMetadata/.test(join) && /typeof invite === "string" && invite \? inviteMetadata\(seoFacts\(community\)\)/.test(join) && !/redeem|token_hash|hashInviteToken/.test(join.slice(join.indexOf("generateMetadata"), join.indexOf("export default"))))
+  check("the invite landing's metadata: the invite's preview when there is one, never reading it", /export async function generateMetadata/.test(join) && /const facts = \{ \.\.\.seoFacts\(community\), summary: await communitySummary\(community\.id\) \}/.test(join) && /typeof invite === "string" && invite \? inviteMetadata\(facts\)/.test(join) && !/redeem|token_hash|hashInviteToken/.test(join.slice(join.indexOf("generateMetadata"), join.indexOf("export default"))))
   const route = code("app/(marketing)/community/[slug]/share.png/route.tsx")
   check("share.png: next/og on node, drawn per request", /import \{ ImageResponse \} from "next\/og"/.test(route) && /export const runtime = "nodejs"/.test(route) && /export const dynamic = "force-dynamic"/.test(route))
   check("  the switch first, then 404 for nobody here, a draft or a suspended community", route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route))

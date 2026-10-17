@@ -33,4 +33,9 @@ update public.onepages set share_image_mode = 'card' where id = '00000000-0000-4
 -- Part 220: a community with a 160 character short description and four member links, one hidden.
 insert into public.communities (id, creator_id, owner_user_id, slug, name, summary, member_links) values
   ('00000000-0000-4000-f220-000000000001', '00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000001', 'harness-club', 'Harness club', repeat('x', 160), '[{"id":"a1b2c3d4","label":"Start here","url":"/learn","icon":"book-open","hidden":false},{"id":"e5f6g7h8","label":"Shop","url":"https://example.com/shop","icon":null,"hidden":false},{"id":"i9j0k1l2","label":"Calendar","url":"https://cal.example.com/x","icon":"calendar","hidden":true},{"id":"m3n4o5p6","label":"Notes","url":"/notes","icon":"file-text","hidden":false}]');
+-- Part 221 (on part 220's community above): a member pressing a community's member link twice the same day is one row; the next day is another.
+insert into public.community_member_link_clicks (community_id, link_id, user_id, day) values ('00000000-0000-4000-f220-000000000001', 'a1b2c3d4', '00000000-0000-4000-a000-000000000002', '2026-10-17') on conflict do nothing;
+insert into public.community_member_link_clicks (community_id, link_id, user_id, day) values ('00000000-0000-4000-f220-000000000001', 'a1b2c3d4', '00000000-0000-4000-a000-000000000002', '2026-10-17') on conflict do nothing;
+insert into public.community_member_link_clicks (community_id, link_id, user_id, day) values ('00000000-0000-4000-f220-000000000001', 'a1b2c3d4', '00000000-0000-4000-a000-000000000002', '2026-10-18') on conflict do nothing;
+do $$ begin if (select count(*) from public.community_member_link_clicks where link_id = 'a1b2c3d4') <> 2 then raise exception 'part 221: a second press the same day made a second row'; end if; end $$;
 reset role;

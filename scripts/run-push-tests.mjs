@@ -675,6 +675,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
+  "tests/seo26.test.ts",
 ]
 
 /**
