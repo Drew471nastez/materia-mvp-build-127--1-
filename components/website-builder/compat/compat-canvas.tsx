@@ -39,6 +39,7 @@
  *   editor. A section's still preview (compat-section-preview.tsx) keeps
  *   design mode: it is a picture, not a page.
  */
+import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
@@ -895,6 +896,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled])
+
+  /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
+  useEffect(() => {
+    const onReveal = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id
+      if (!id) return
+      const slot = slotsRef.current[0]
+      if (!slot?.ready) return
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id }, "*")
+    }
+    window.addEventListener(REVEAL_EVENT, onReveal)
+    return () => window.removeEventListener(REVEAL_EVENT, onReveal)
+  }, [])
 
   /*
     THE TOOLBAR OVER THE CANVAS finds a section by its element in the editor's

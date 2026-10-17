@@ -590,6 +590,7 @@ const SUITES = [
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",
   "tests/round-ag.test.ts",
+  "tests/round-ah.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",

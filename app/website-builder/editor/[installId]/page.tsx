@@ -112,7 +112,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { createUndoRun } from "@/lib/website-builder/undo-run"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
@@ -3678,12 +3678,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * already showing at the top. Now a section any part of which is on
    * screen stays exactly where it is.
    */
-  const revealSection = useCallback((sectionId: string) => {
+  /* Round AH: `glide` for a section just made (added, pasted, duplicated, written by the AI): brought smoothly near the top, in an imported theme's frame too. */
+  const revealSection = useCallback((sectionId: string, glide = false) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
       const scroller = document.getElementById("wb-preview-root")
-      if (el && scroller) revealWithin(scroller, el)
-    }, 80)
+      if (el && scroller) {
+        if (glide) glideWithin(scroller, el)
+        else revealWithin(scroller, el)
+      }
+      if (glide && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: sectionId } }))
+    }, glide ? 120 : 80)
   }, [])
 
   /**
@@ -5559,7 +5564,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (fromCanvas) return
     // Two frames: one for React's commit, one for the layout after it.
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => revealSection(copy.id))
+      requestAnimationFrame(() => revealSection(copy.id, true))
     })
   }
 
@@ -5631,7 +5636,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSelectedBlockId(null)
     setSelectedPanel({ type: "section", sectionId: pasted.id })
     setIsDirty(true)
-    requestAnimationFrame(() => requestAnimationFrame(() => revealSection(pasted.id)))
+    requestAnimationFrame(() => requestAnimationFrame(() => revealSection(pasted.id, true)))
     showNotification(`Pasted ${sectionDisplayName(pasted, librarySchemas)}`)
   }
 
@@ -5991,7 +5996,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setPageBrowserOpen(false)
     setSidebarMode("sections")
     setIsDirty(true)
-    if (!scroller) revealSection(newSection.id)
+    if (!scroller) revealSection(newSection.id, true)
+    /* An imported theme's canvas is a frame the arrival cannot measure: told to glide to the new section itself. */ else window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id } }))
     if (isMobileView) riseOnAdded(newSection.id)
   }
 
@@ -6933,7 +6939,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSelectedPanel({ type: "section", sectionId: id })
       setIsDirty(true)
       setArrivedId(id)
-      revealSection(id)
+      revealSection(id, true)
       return id
     },
     [loadStorelibSources, pushUndo, revealSection],
@@ -9575,7 +9581,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           return
         }
         setAiSettledIds(onPage)
-        revealSection(onPage[0])
+        revealSection(onPage[0], true)
       }
       settle(true)
     },

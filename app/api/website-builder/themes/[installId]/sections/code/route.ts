@@ -31,6 +31,7 @@ import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/websit
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
@@ -191,6 +192,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
   /* AI Memory, this website's notes and the everywhere ones, read through the creator's own client (lib/ai-memory/store.ts). */
   const memory = await memoriesForSite(supabase as unknown as MemoryDb, (creator as { id: string }).id, installId)
+  /* Round AH: an imported theme draws a Storelib section without its script (lib/storelib-theme/compat/theme.ts renderNative). */
+  const importedTheme = await isCompatInstall(installId).catch(() => false)
   const run = async (
     onStage?: (stage: WriteStage, attempt: number) => void,
     onEvent?: (event: WriteEvent) => void,
@@ -209,6 +212,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       memoryText: memory.ready ? describeMemory(memory) : undefined,
       takenTypes,
       takenNames,
+      importedTheme,
       theme: {
         settings: parsed.data.settings ?? null,
         /* The creator's own section files, read above: the brief lists them and is cached per theme version (lib/website-builder/agent/theme-brief.ts). */

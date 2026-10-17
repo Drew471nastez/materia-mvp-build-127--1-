@@ -1050,6 +1050,24 @@ export const CANVAS_BRIDGE = `
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
   };
+  var revealSection = function (id) {
+    if (!id) return;
+    var tries = 0;
+    var go = function () {
+      var el = document.getElementById("shopify-section-" + id) || document.querySelector('[data-section-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (!el) { if (++tries < 10) setTimeout(go, 120); return; }
+      var cover = 0;
+      var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
+      for (var i = 0; i < tops.length; i++) {
+        var cs = getComputedStyle(tops[i]);
+        if (cs.position === "sticky" || cs.position === "fixed") { var r = tops[i].getBoundingClientRect(); if (r.top <= 1) cover = Math.max(cover, r.bottom); }
+      }
+      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - cover - 16);
+      var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (Math.abs(scrollY - top) > 4) scrollTo({ top: top, behavior: still ? "auto" : "smooth" });
+    };
+    requestAnimationFrame(function () { requestAnimationFrame(go); });
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
@@ -1070,6 +1088,9 @@ export const CANVAS_BRIDGE = `
       if ("inspect" in m) setInspect(m.inspect);
       /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
+    } else if (m.type === "reveal") {
+      /* Round AH: a section just added, pasted or written by the AI, brought smoothly to the top, below a sticky header, once it is drawn. */
+      queue = queue.then(function () { revealSection(String(m.id || "")); }).catch(function () {});
     } else if (m.type === "inspect") {
       setInspect(m.on);
     } else if (m.type === "scroll") {
