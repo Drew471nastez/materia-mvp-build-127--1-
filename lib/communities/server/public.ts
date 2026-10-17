@@ -82,6 +82,7 @@ interface PlanLite {
   monthly_price_cents: number | null
   yearly_price_cents: number | null
   currency: string | null
+  trial_days?: number | null
 }
 
 interface CreatorLite {
@@ -141,7 +142,7 @@ export async function readProducts(db: Db, productIds: string[]): Promise<Map<st
 export async function readPlans(db: Db, productIds: string[]): Promise<Map<string, PlanLite>> {
   const ids = uniq(productIds)
   if (ids.length === 0) return new Map()
-  const found = await rows<PlanLite>("membership plans", () => db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency").in("product_id", ids))
+  const found = await rows<PlanLite>("membership plans", () => db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency, trial_days").in("product_id", ids))
   return new Map(found.map((p) => [p.product_id, p]))
 }
 
@@ -189,6 +190,7 @@ export function optionsFor(slug: string, tiers: TierRow[], products: Map<string,
       currency,
       priceLine: line,
       benefits: benefitsOf(t.benefits),
+      trialDays: recurring ? Math.max(0, Number(plan?.trial_days ?? 0)) : 0,
       checkout,
     }
   })

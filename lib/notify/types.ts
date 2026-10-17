@@ -70,6 +70,7 @@ export const DOMAIN_EVENTS = [
   "membership.payment_failed",
   "membership.canceled",
   "membership.ended",
+  "membership.plan_changed",
   /* A member of a community (lib/communities/server/email.ts sendCommunityEmail), told by email. Never one per feed post. */
   "community.welcome",
   "community.announcement",
@@ -201,6 +202,7 @@ export const NOTIFICATION_TYPES = [
   "MEMBERSHIP_PAYMENT_FAILED",
   "MEMBERSHIP_CANCELED",
   "MEMBERSHIP_ENDED",
+  "MEMBERSHIP_PLAN_CHANGED",
   /* A member of a community (lib/notify/workflows/communities.ts): the welcome, an approved request, an invite, an announcement, an event reminder, a new course in the classroom. */
   "COMMUNITY_WELCOME",
   "COMMUNITY_JOIN_APPROVED",
