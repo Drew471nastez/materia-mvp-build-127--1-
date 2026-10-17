@@ -38,6 +38,7 @@
  * `<script>` and `on*=` attributes are refused at compile time. Behaviour
  * goes in the section's own <script> block, where it is checked and scoped.
  */
+import { renderReviewWidgetSection, type WidgetReviews } from "@/lib/reviews/widgets/render"
 import type { RenderContext, Result, ThemeError } from "../types"
 import { Linked, formatDatetime, parseVideoUrl, plainText, safeHref } from "../values"
 import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
@@ -716,6 +717,23 @@ const FILTERS: Record<string, Filter> = {
    * ten thousand.
    */
   lines: (v) => str(v).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "").slice(0, 100),
+  /**
+   * A Storelib Reviews widget, drawn from the section's settings and the
+   * page's reviews: {{ settings | review_widget }} (sections/
+   * reviews_widget.storelib, lib/reviews/widgets/render.ts). Markup the
+   * engine builds itself, every value in it escaped there.
+   */
+  review_widget: (v, _a, ctx) =>
+    new Safe(
+      renderReviewWidgetSection({
+        settings: v && typeof v === "object" ? (v as Record<string, unknown>) : {},
+        reviews: (ctx.reviews ?? null) as unknown as WidgetReviews | null,
+        words: ctx.words as Record<string, string> | undefined,
+        shopName: typeof ctx.shop?.name === "string" ? ctx.shop.name : "",
+        inEditor: ctx.page?.in_editor === true,
+        uid: ctx.section?.id,
+      }),
+    ),
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */
   alpha: (v, [a]) => {
     const m = str(v).match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)

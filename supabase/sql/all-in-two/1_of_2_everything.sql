@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 202: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 216: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3635,6 +3635,18 @@ ALTER TABLE public.community_setup_progress ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_setup_progress FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_setup_progress TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('202', '202_community_deletion_and_setup.sql', 'b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 216_review_widget_configs.sql
+/* Storelib Reviews widgets (round K): `review_widget_configs`, one row per named look of a review widget a store saved in Storelib Reviews › Widgets (the product's reviews, the stars under a title, a grid, a carousel, testimonials, a photo wall, a strip that scrolls by, a trust badge, a rating summary): its type, its name and its settings, a small object of values from fixed lists and ranges that the app cleans before it writes and again when it reads. A section on the website names the look it draws with. Row level security on: the store's owner can read their own rows, nobody else can; every write goes through the server with its own key after the owner is checked, and a website reads the looks through the server only. One index for a store's list. No existing row changes. Until it runs, Storelib Reviews › Widgets says saving needs this part and every widget draws with its own defaults. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.review_widget_configs (id uuid NOT NULL DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, type text NOT NULL, name text NOT NULL, settings jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT review_widget_configs_pkey PRIMARY KEY (id), CONSTRAINT review_widget_configs_type_check CHECK (type IN ('product_reviews', 'star_badge', 'rating_summary', 'grid', 'carousel', 'testimonials', 'media_wall', 'marquee', 'trust_badge')), CONSTRAINT review_widget_configs_name_check CHECK (char_length(name) BETWEEN 1 AND 60), CONSTRAINT review_widget_configs_settings_check CHECK (jsonb_typeof(settings) = 'object' AND pg_column_size(settings) < 16384));
+CREATE INDEX IF NOT EXISTS review_widget_configs_creator_idx ON public.review_widget_configs (creator_id, updated_at DESC);
+ALTER TABLE public.review_widget_configs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.review_widget_configs FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.review_widget_configs TO authenticated;
+DROP POLICY IF EXISTS review_widget_configs_owner_read ON public.review_widget_configs;
+CREATE POLICY review_widget_configs_owner_read ON public.review_widget_configs FOR SELECT TO authenticated USING (creator_id IN (SELECT c.id FROM public.creators c WHERE c.user_id = (SELECT auth.uid())));
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_widget_configs TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('216', '216_review_widget_configs.sql', '0798f57a409af7bf17ec74d261e7e1be6de2e89d6d377319e3bc14be73afd992') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

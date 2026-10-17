@@ -114,6 +114,11 @@ export const UI_WORDS = {
   review: "review",
   reviews: "reviews",
   rating_from: "from",
+  /* Storelib Reviews widgets (lib/reviews/widgets): a carousel's buttons, the photo wall, the link to every review. */
+  previous: "Previous",
+  next: "Next",
+  customer_photos: "Customer photos",
+  read_all_reviews: "Read all reviews",
   breadcrumb: "Breadcrumb",
   contact: "Contact",
   email_me_news_from: "Email me news from",
