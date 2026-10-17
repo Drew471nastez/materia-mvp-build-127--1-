@@ -172,6 +172,15 @@ async function main() {
     check("the legal links are the creator's where set", /legalLinksShown\(c\.legal\)/.test(code("components/community/public/sales-page.tsx")))
   }
 
+  console.log("\nSOURCE: the community's header between the feed and Learn (I5)")
+  {
+    const frame = code("components/community/member/shell-frame.tsx")
+    check("the scrollbar's room is kept at every width, not only from 1024px (a zoomed window lost and found it on each switch)", /const GUTTER = "html\{scrollbar-gutter:stable\}html\{overscroll-behavior-y:none\}"/.test(frame) && !/@media \(min-width:1024px\)\{html\{scrollbar-gutter/.test(frame))
+    const fade = code("components/community/member/place-crossfade.ts")
+    check("what was stuck under the bar when the place is copied stays exactly where it stood while the copy fades", /const PIN_ATTR = "data-still-pin"/.test(fade) && /getComputedStyle\(s\)\.position !== "sticky"/.test(fade) && /c\.style\.position = "relative"/.test(fade) && /c\.style\.translate = `\$\{Math\.round\(pin\.left - at\.left\)\}px \$\{Math\.round\(pin\.top - at\.top\)\}px`/.test(fade))
+    check("the originals are never left marked", /finally \{\s*for \(const s of marked\) s\.removeAttribute\(PIN_ATTR\)/.test(fade))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
