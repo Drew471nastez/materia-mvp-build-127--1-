@@ -26,22 +26,30 @@
  *
  * ONE BACKEND. Every write is part 194's (app/api/app/community/[id]/
  * scheduled-posts, lib/communities/server/scheduled-posts.ts), checked first
- * here with the server's own rules (checkScheduledInput). Part 194 keeps a
- * title, the words and a space: a post with pictures, files, a video, a GIF,
- * a link card or a poll can be posted now but not kept for later, and the
- * line says so instead of dropping them.
+ * here with the server's own rules (checkScheduledInput).
+ *
+ * ROUND 27 (B1, part 222): EVERYTHING THE POST CARRIES. Pictures, files, a
+ * video, GIFs, videos by link, the link card and the poll go with a scheduled
+ * post or a draft, exactly as Post would send them now, and come back into
+ * the writer when one is opened to change. The poll keeps how long it runs
+ * (its end starts when the post goes up). Uploads still going wait, as Post
+ * does. Round 26's line saying these could only be posted now is gone; on a
+ * database before part 222 the line names the part instead.
  */
 import * as React from "react"
 import { CalendarClock, X } from "lucide-react"
 import { tt } from "@/lib/i18n/text"
 import { appTimeZone, formatDateTime } from "@/lib/i18n/format"
 import { requestJson } from "@/lib/net/request"
-import { checkScheduledInput, fromLocalParts, localParts, scheduleBody, suggestedPublishAt, SCHEDULE_MAX_AHEAD_MS, type ScheduledPostView } from "@/lib/communities/scheduled-posts"
+import { checkScheduledInput, fromLocalParts, localParts, scheduleBody, suggestedPublishAt, SCHEDULE_MAX_AHEAD_MS, type ScheduledPoll, type ScheduledPostView } from "@/lib/communities/scheduled-posts"
+import type { PostMedia } from "@/lib/communities/types"
 
 /** What the admin hands the composer (feed-section.tsx). */
 export interface ComposerStaff {
   /** Part 194 is in the database (false: the clock and Save draft are not offered). */
   ready: boolean
+  /** Part 222 is in the database: a scheduled post or a draft keeps what it carries (round 27). Left out: assumed. */
+  media?: boolean
   /** Open the composer for this, once per `seq`: a scheduled post or draft to change, or a new post with Schedule on. */
   open: { seq: number; item: ScheduledPostView | null } | null
   /** The server has it (after the composer has closed). */
@@ -56,8 +64,11 @@ export interface StaffBridge {
   title: string
   body: string
   spaceId: string | null
-  /** Pictures, files, videos, GIFs, a link card or a poll: part 194 cannot keep them. */
-  extras: number
+  /** What the post carries, as Post would send it now (the link card included), and its poll (round 27). */
+  media: PostMedia[]
+  poll: ScheduledPoll | null
+  /** Something is still uploading (Post waits for it too). */
+  uploading: boolean
   open: boolean
   /** Fill the fields with a scheduled post (saving what was being written first), or put back what was being written (null). */
   load: (item: ScheduledPostView | null) => void
@@ -96,8 +107,8 @@ export interface StaffKit {
   sheetTitle: string | null
 }
 
-/** The schedule's own words, the same that sit beside the day and the time. */
-const BLOCKED = () => tt("Pictures, files, videos, GIFs, link cards and polls can only be posted now. Take them off to schedule this or keep it as a draft.")
+/** Before part 222: what the post carries cannot be kept for later yet (round 27). */
+const MEDIA_NOT_READY = () => tt("Scheduling pictures, files, videos, GIFs, link cards and polls needs the database update (run-now part 222).")
 
 function fieldWords(field: string | undefined, fallback: string): string {
   switch (field) {
@@ -142,6 +153,8 @@ async function write(url: string, method: "POST" | "PATCH" | "DELETE", json?: un
 function serverWords(r: Sent): string {
   const raw = r.data?.error
   if (raw === "not_ready") return tt("Scheduling needs the database update (run-now part 194).")
+  if (raw === "media_not_ready") return MEDIA_NOT_READY()
+  if (raw === "author_media") return tt("Only its author can add files and videos to this post.")
   if (r.status === 0 && !raw) return tt("No connection. Check it and try again.")
   if (!raw || /^[a-z_]+$/.test(raw)) return tt("That did not save. Try again.")
   return fieldWords(r.data.field === "when" ? undefined : r.data.field, tt(raw))
@@ -203,8 +216,12 @@ export function useStaffSchedule(staff: ComposerStaff | null | undefined, bridge
 
   /* What would stop it, as the server would say it, said here first; the field it is about gets the caret. */
   const precheck = (publishAt: string | null): boolean => {
-    if (bridge.extras > 0) {
-      setError(BLOCKED())
+    if (bridge.uploading) {
+      setError(tt("Wait for the uploads to finish."))
+      return false
+    }
+    if (staff?.media === false && (bridge.media.length || bridge.poll)) {
+      setError(MEDIA_NOT_READY())
       return false
     }
     const checked = checkScheduledInput(payload(publishAt))
@@ -281,6 +298,8 @@ export function useStaffSchedule(staff: ComposerStaff | null | undefined, bridge
     ? bridge.title.trim() !== item.title.trim() ||
       bridge.body.trim() !== item.body.trim() ||
       (bridge.spaceId ?? null) !== (item.spaceId ?? null) ||
+      JSON.stringify(bridge.media) !== JSON.stringify(item.media ?? []) ||
+      JSON.stringify(bridge.poll) !== JSON.stringify(item.poll ?? null) ||
       (item.status === "draft" ? when !== null : when !== item.publishAt)
     : null
 
@@ -417,11 +436,11 @@ export function useStaffSchedule(staff: ComposerStaff | null | undefined, bridge
     when,
     dirty,
     label,
-    ready: !on || (!when && !item) || bridge.extras === 0,
+    ready: true,
     primary,
     saveDraft,
     release,
-    draftOnLeave: on && !item && bridge.extras === 0 && !!(bridge.title.trim() || bridge.body.trim()),
+    draftOnLeave: on && !item && !!(bridge.title.trim() || bridge.body.trim() || bridge.media.length || bridge.poll),
     sheetTitle: on && item ? (item.status === "draft" ? tt("Draft") : tt("Scheduled post")) : null,
     tool,
     panel,

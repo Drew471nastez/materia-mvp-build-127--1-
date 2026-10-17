@@ -483,7 +483,7 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     const mine = !!me && r.authorId === me.userId
     const items: ActionMenuItem[] = [
       { label: tt("Open post"), onClick: () => openPost(r) },
-      { label: tt("View in community"), href: hrefOf(r) },
+      { label: tt("View in community"), href: hrefOf(r), target: "_blank" },
     ]
     if (r.status === "published") {
       if (mine) items.push({ label: tt("Edit post"), onClick: () => void startEdit(r) })
@@ -554,7 +554,9 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     [head.slug],
   )
   const staffReady = scheduled?.ready !== false
-  const staff = React.useMemo<ComposerStaff>(() => ({ ready: staffReady, open: staffAsk, onSaved: (d) => latest.current.onStaffSaved(d) }), [staffReady, staffAsk])
+  /* Round 27: part 222 keeps what a scheduled post carries; before it, the writer names the part instead. */
+  const staffMedia = scheduled?.media !== false
+  const staff = React.useMemo<ComposerStaff>(() => ({ ready: staffReady, media: staffMedia, open: staffAsk, onSaved: (d) => latest.current.onStaffSaved(d) }), [staffReady, staffMedia, staffAsk])
   const posted = React.useCallback((post: FeedPostView) => latest.current.onPosted(post), [])
   const hands = React.useMemo<RowHands>(
     () => ({

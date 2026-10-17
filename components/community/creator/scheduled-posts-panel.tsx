@@ -57,7 +57,7 @@ import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { relativeTime } from "@/lib/communities/format"
-import { EDITABLE, type ScheduledPanelData, type ScheduledPostView, type ScheduledStatus } from "@/lib/communities/scheduled-posts"
+import { EDITABLE, scheduledThumb, type ScheduledPanelData, type ScheduledPostView, type ScheduledStatus } from "@/lib/communities/scheduled-posts"
 import { ScheduledFrame } from "./section-frame"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import type { CommunityHead } from "./view-types"
@@ -180,6 +180,7 @@ export function ScheduledPostsPanel({
               ? r.error || tt("It did not go up.")
               : tt("Edited {value}", { value: relativeTime(r.updatedAt) })
     const words = r.title || r.body.split("\n")[0] || tt("Untitled")
+    const thumb = scheduledThumb(r.media)
     const opensPost = r.status === "published" && !!r.postId && !!onOpenPost
     const go = () => {
       if (opensPost) onOpenPost(r.postId!)
@@ -203,6 +204,8 @@ export function ScheduledPostsPanel({
             {[r.spaceName, line, r.mine ? null : r.authorName].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {/* Round 27: the post's first picture, GIF or video still, so a row says what goes up with it. */}
+        {thumb ? <img src={thumb} alt="" loading="lazy" decoding="async" className="h-11 w-11 shrink-0 rounded-lg border border-[#e5e7eb]/70 object-cover" data-scheduled-thumb="" /> : null}
       </li>
     )
   }

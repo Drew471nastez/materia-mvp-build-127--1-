@@ -14,8 +14,8 @@ type Params = { params: Promise<{ id: string; postId: string }> }
 
 /**
  * PATCH  /api/app/community/<id>/scheduled-posts/<postId>
- *        { spaceId?, title?, body?, publishAt? } changes it (publishAt null:
- *        a draft); { publishNow: true } puts it up now -> { post }.
+ *        { spaceId?, title?, body?, publishAt?, media?, poll? } changes it
+ *        (publishAt null: a draft); { publishNow: true } puts it up now -> { post }.
  * DELETE /api/app/community/<id>/scheduled-posts/<postId> -> { ok }
  * Its author, or the owner and admins (round 32,
  * lib/communities/server/scheduled-posts.ts).

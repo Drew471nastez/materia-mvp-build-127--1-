@@ -753,8 +753,8 @@ export function kindFor(space: Pick<SpaceRow, "kind">, hasPoll: boolean): PostKi
   return "post"
 }
 
-/** The file and video references a post may keep: the poster's own uploads, for this community. */
-async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer, media: PostMedia[], kept: PostMedia[] = []): Promise<Checked<PostMedia[]>> {
+/** The file and video references a post may keep: the poster's own uploads, for this community. Also a scheduled post's, when it is saved (scheduled-posts.ts, round 27). */
+export async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer, media: PostMedia[], kept: PostMedia[] = []): Promise<Checked<PostMedia[]>> {
   /* What the post already had stays as it is: it was checked when it was added. */
   const had = new Set(kept.map((m) => (m.type === "file" ? `f:${m.assetId}` : m.type === "video" ? `v:${m.videoId}` : "")).filter(Boolean))
   const fresh = media.filter((m) => !((m.type === "file" && had.has(`f:${m.assetId}`)) || (m.type === "video" && had.has(`v:${m.videoId}`))))
