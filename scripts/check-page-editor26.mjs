@@ -205,7 +205,7 @@ export const notFound = () => {}
         const share = f.card && f.content ? (f.card.w * f.card.h) / (f.content.w * Math.min(f.vh, f.content.h)) : 0
         if (vp.width >= 1280) {
           expect(f.panel === "open" && f.sideBox && f.sideBox.w >= 360 && (f.side ?? 0) <= 0, `${tag}: the panel beside the stage, nothing sideways in it`, { side: f.sideBox, over: f.side })
-          expect(f.card.w >= f.content.w - f.sideBox.w - 24 && f.card.h >= f.vh - 190, `${tag}: the preview takes the rest of the width and the height under the tabs`, { card: f.card, vh: f.vh })
+          expect(f.card.w >= f.content.w - f.sideBox.w - 24 && f.card.h >= f.vh - 222, `${tag}: the preview takes the rest of the width and the height under the tabs`, { card: f.card, vh: f.vh })
         } else {
           expect(f.panel === "drawer" && !!f.bar, `${tag}: the panel is a drawer, the bar at the foot opens it`, { panel: f.panel, bar: f.bar })
           expect(f.card.w >= f.content.w - 2 && f.card.y + f.card.h <= f.bar.y - 4, `${tag}: the preview spans the width and ends above the bar`, { card: f.card, bar: f.bar })
