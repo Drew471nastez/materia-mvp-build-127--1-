@@ -71,14 +71,6 @@ export type PriceSurface =
   /** Storelib's own checkout at /checkout, and anything else on storelib.com. */
   | "platform"
 
-/** The surfaces that are Storelib's rather than one store's. */
-export const STORELIB_SURFACES: readonly PriceSurface[] = ["creator_page", "explore", "community", "platform"]
-
-/** Whether this surface is Storelib's own, and so priced in STORELIB_CURRENCY. */
-export function isStorelibSurface(surface: PriceSurface): boolean {
-  return surface !== "storefront"
-}
-
 /** "RON", or null for anything that is not a three letter code. */
 export function currencyCodeOrNull(raw: unknown): string | null {
   const code = typeof raw === "string" ? raw.trim().toUpperCase() : ""
@@ -98,11 +90,6 @@ export function currencyCodeOrNull(raw: unknown): string | null {
 export function surfaceCurrency(surface: PriceSurface, storeCurrency?: string | null): string {
   if (surface === "storefront") return currencyCodeOrNull(storeCurrency) ?? STORELIB_CURRENCY
   return STORELIB_CURRENCY
-}
-
-/** The same, lower case, as Stripe and `orders.currency` write it. */
-export function surfaceChargeCurrency(surface: PriceSurface, storeCurrency?: string | null): string {
-  return surfaceCurrency(surface, storeCurrency).toLowerCase()
 }
 
 /**

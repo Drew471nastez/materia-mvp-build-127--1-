@@ -30,14 +30,7 @@ import "./_ron"
 
 import { readFileSync } from "node:fs"
 import { listPrice, usd } from "@/lib/pricing/list-price"
-import {
-  STORELIB_CHARGE_CURRENCY,
-  STORELIB_CURRENCY,
-  isStorelibSurface,
-  surfaceChargeCurrency,
-  surfaceCurrency,
-  surfaceOfHost,
-} from "@/lib/pricing/surface-currency"
+import { STORELIB_CHARGE_CURRENCY, STORELIB_CURRENCY, surfaceCurrency, surfaceOfHost } from "@/lib/pricing/surface-currency"
 import { checkoutSurfaceCurrency } from "@/lib/pricing/surface-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
@@ -119,13 +112,11 @@ async function main() {
 
   console.log("\nThe boundary itself")
   {
-    check("a storefront is the store's currency", surfaceCurrency("storefront", "RON") === "RON" && surfaceChargeCurrency("storefront", "RON") === "ron")
+    check("a storefront is the store's currency", surfaceCurrency("storefront", "RON") === "RON")
     check("a storefront with no store currency read is Storelib's, as a store that never chose sells", surfaceCurrency("storefront", null) === "USD")
     for (const s of ["creator_page", "explore", "community", "platform"] as const) {
-      check(`${s} is Storelib's currency even when handed RON`, surfaceCurrency(s, "RON") === "USD" && surfaceChargeCurrency(s, "RON") === "usd")
-      check(`${s} is Storelib's own surface`, isStorelibSurface(s))
+      check(`${s} is Storelib's currency even when handed RON`, surfaceCurrency(s, "RON") === STORELIB_CURRENCY)
     }
-    check("a storefront is not", !isStorelibSurface("storefront"))
     check("the host decides: the creator's own website is their storefront", surfaceOfHost(LEI, LEI) === "storefront")
     check("another creator's website selling this product is not", surfaceOfHost(OTHER, LEI) === "platform")
     check("storelib.com, with no website host at all, is Storelib's", surfaceOfHost(null, LEI) === "platform")

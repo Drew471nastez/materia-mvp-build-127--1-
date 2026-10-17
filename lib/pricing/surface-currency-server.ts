@@ -26,7 +26,7 @@ import "server-only"
  */
 import { siteOfHost } from "@/lib/checkout/site-checkout-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
-import { STORELIB_CURRENCY, surfaceOfHost, type PriceSurface } from "./surface-currency"
+import { surfaceCurrency, surfaceOfHost, type PriceSurface } from "./surface-currency"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -57,7 +57,8 @@ export async function checkoutSurfaceCurrency(db: Db, opts: { host: string | nul
     siteCreatorId = null
   }
   const surface = surfaceOfHost(siteCreatorId, opts.creatorId)
-  if (surface !== "storefront") return { surface, currency: STORELIB_CURRENCY, charge: STORELIB_CURRENCY.toLowerCase() }
-  const currency = (await readStoreCurrency(db, opts.creatorId)).currency
+  /* The store's setting is read only when the surface is the one it belongs to. */
+  const store = surface === "storefront" ? (await readStoreCurrency(db, opts.creatorId)).currency : null
+  const currency = surfaceCurrency(surface, store)
   return { surface, currency, charge: currency.toLowerCase() }
 }
