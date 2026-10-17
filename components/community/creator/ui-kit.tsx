@@ -46,6 +46,18 @@ export const TD = "border-t border-[#f0f1f3] px-3 align-middle text-[13.5px] tex
 export const TR = "group/row cursor-pointer transition-colors duration-100 hover:bg-[#fafafb] data-[picked]:bg-[#f6f6f8] [-webkit-tap-highlight-color:transparent]"
 /** The phone's list under the table, hidden from 768px. */
 export const PHONE_LIST = "divide-y divide-[#f1f2f4] md:hidden"
+/*
+  A LIST THAT CHOOSES BY ITS OWN WIDTH (round 26). TABLE and PHONE_LIST switch at the screen's 768px, but the card's width
+  is the screen less the rail: at 820 with the rail open the Members card is about 550px, its fixed columns (536px and
+  14%) left the Member column nothing, and the headers ran into each other. A card with LIST_BOX is a container; inside
+  it WIDE_TABLE shows from an 860px card (the Member column keeps 200px in every view of Members) and WIDE_LIST below.
+*/
+/** The card that is the container (ListCard's className). */
+export const LIST_BOX = "@container/list"
+/** The table, from an 860px card. */
+export const WIDE_TABLE = "hidden w-full table-fixed border-separate border-spacing-0 @min-[860px]/list:table"
+/** The rows under it, below an 860px card. */
+export const WIDE_LIST = "divide-y divide-[#f1f2f4] @min-[860px]/list:hidden"
 /** Quiet words in a cell (a date, a count). */
 export const MUTED = "text-[#6b7280]"
 

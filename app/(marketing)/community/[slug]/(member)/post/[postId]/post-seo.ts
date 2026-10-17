@@ -79,6 +79,16 @@ export function publicPost(f: PostFacts): boolean {
   return communityOpen && spaceOpen && postOpen
 }
 
+/**
+ * Whether search engines may index it (round 26): a public post in a
+ * community that is still published. An archived community (read only, and
+ * what a community waiting to be deleted is) keeps its public posts readable
+ * by their links, but they say noindex and claim nothing to a search engine.
+ */
+export function indexablePost(f: PostFacts): boolean {
+  return publicPost(f) && f.community.status === "published"
+}
+
 /** Canonical path for a post (readable slug + short id). */
 export function postPath(slug: string, post: { id: string; title?: string | null; bodyText?: string | null }): string {
   return postPublicPath(slug, post)
@@ -167,7 +177,8 @@ function fingerprint(f: PostFacts, open: boolean): string {
 }
 
 export function postMetadata(f: PostFacts): Metadata {
-  const open = publicPost(f)
+  /* Previewed only while the community is published (round 26): an archived one's (or one waiting to be deleted) is the generic card. */
+  const open = indexablePost(f)
   const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const image = postShareImageUrl(f.community.slug, f.post.id, fingerprint(f, open))
   const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/jpeg" }]
@@ -221,7 +232,7 @@ export function postMetadata(f: PostFacts): Metadata {
  * its logo, and how many comments it has, which is a real count.
  */
 export function postArticleJsonLd(f: PostFacts): Record<string, unknown> | null {
-  if (!publicPost(f)) return null
+  if (!indexablePost(f)) return null
   const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const picture = firstPicture(f.post.media)
   const headline = postHeadline(f) || `A post in ${f.community.name}`

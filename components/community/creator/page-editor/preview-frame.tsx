@@ -29,6 +29,15 @@
  * drawn by the frame over the page, never inside it, so the page's own
  * layout is untouched; they are sized against the frame's scale, so they
  * read the same at 0.5 as at 1.
+ *
+ * AS A VISITOR (round 26, the owner: "preview as visitor, the signed out /
+ * non member view"). The page is the signed out visitor's already (its
+ * button decided for one, lib/communities/server/page-editor.ts); `visitor`
+ * takes the editor off it: no outlines, no Edit badges, no empty parts'
+ * placeholders (the caller draws the page without them), and what a visitor
+ * can do inside the page works (the gallery, a question opened, the
+ * description's Read more). What would leave the page or act on it never
+ * does: a link, the join button, a form.
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
@@ -40,7 +49,10 @@ export const DEVICE_WIDTH: Record<Device, number> = { desktop: 1440, phone: 390 
 export const PHONE_HEIGHT = 844
 
 const BLANK = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head><body></body></html>"
-const FRAME_CSS = "html,body{margin:0}body{background:#f8f9fa;-webkit-font-smoothing:antialiased}[data-page-block]{cursor:pointer}[data-preview-root]{min-height:100vh}"
+const FRAME_CSS = "html,body{margin:0}body{background:#f8f9fa;-webkit-font-smoothing:antialiased}body:not([data-visitor]) [data-page-block]{cursor:pointer}[data-preview-root]{min-height:100vh}"
+
+/** In the visitor's view, what still never acts: a way off the page, the join button, a form. */
+const NEVER_ACTS = 'a[href], [data-page-block="join"], [data-join-state], form, button[type="submit"], input[type="submit"]'
 
 interface FrameValue {
   scale: number
@@ -52,8 +64,12 @@ interface FrameValue {
 /** The frame's document and body, for what is drawn inside it. */
 export const PreviewDocument = React.createContext<Document | null>(null)
 
-/** Copies the editor's stylesheets and its look on <html> and <body> into the frame, and keeps them in step. */
-function mirror(doc: Document): () => void {
+/**
+ * Copies the editor's stylesheets and its look on <html> and <body> into the frame, and keeps them in step. `dark`
+ * (round 26) puts the page in the dark look or the light one whatever the dashboard is in (/app is never dark, and a
+ * visitor who chose dark sees the page dark): null follows the dashboard.
+ */
+function mirror(doc: Document, dark: () => boolean | null): { stop: () => void; refresh: () => void } {
   const copied = new WeakSet<Node>()
   const copy = (node: Node) => {
     if (copied.has(node)) return
@@ -77,6 +93,14 @@ function mirror(doc: Document): () => void {
     }
     to.style.colorScheme = from.style.colorScheme
     doc.body.className = document.body.className
+    const forced = dark()
+    if (forced === true) {
+      to.setAttribute("data-sl-dark", "")
+      to.style.colorScheme = "dark"
+    } else if (forced === false) {
+      to.removeAttribute("data-sl-dark")
+      to.style.colorScheme = "light"
+    }
   }
   look()
   const heads = new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(copy)))
@@ -84,9 +108,12 @@ function mirror(doc: Document): () => void {
   const attrs = new MutationObserver(look)
   attrs.observe(document.documentElement, { attributes: true })
   attrs.observe(document.body, { attributes: true, attributeFilter: ["class"] })
-  return () => {
-    heads.disconnect()
-    attrs.disconnect()
+  return {
+    stop: () => {
+      heads.disconnect()
+      attrs.disconnect()
+    },
+    refresh: look,
   }
 }
 
@@ -101,10 +128,16 @@ export function PreviewFrame({
   labels,
   onPick,
   focus,
+  visitor = false,
+  dark = null,
   className,
   children,
 }: {
   device: Device
+  /** The visitor's view: no outlines or Edit badges, and what a visitor can do inside the page works. */
+  visitor?: boolean
+  /** The page in the dark look (true), the light one (false), or the dashboard's (null). */
+  dark?: boolean | null
   selected: string | null
   /** The parts' names, for the Edit buttons' labels. */
   labels: Record<string, string>
@@ -121,6 +154,11 @@ export function PreviewFrame({
   const [box, setBox] = React.useState({ w: 0, h: 0 })
   const pick = React.useRef(onPick)
   pick.current = onPick
+  const asVisitor = React.useRef(visitor)
+  asVisitor.current = visitor
+  const darkRef = React.useRef(dark)
+  darkRef.current = dark
+  const refreshLook = React.useRef<(() => void) | null>(null)
   const hover = React.useSyncExternalStore(
     (f) => {
       const mq = window.matchMedia("(pointer: coarse)")
@@ -149,7 +187,9 @@ export function PreviewFrame({
     const ready = () => {
       const d = f.contentDocument
       if (!d || !d.body || d.querySelector("[data-preview-root]")) return
-      stop = mirror(d)
+      const m = mirror(d, () => darkRef.current)
+      stop = m.stop
+      refreshLook.current = m.refresh
       const r = d.createElement("div")
       r.setAttribute("data-preview-root", "")
       d.body.appendChild(r)
@@ -168,6 +208,14 @@ export function PreviewFrame({
   React.useEffect(() => {
     if (!doc) return
     const stopAll = (e: Event) => {
+      /* The visitor's view: only what would leave the page or act on it is stopped. */
+      if (asVisitor.current) {
+        if (closest(e.target, NEVER_ACTS)) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+        return
+      }
       const chip = closest(e.target, "[data-edit-chip]")
       const block = chip?.getAttribute("data-edit-chip") ?? closest(e.target, "[data-page-block]")?.getAttribute("data-page-block") ?? null
       e.preventDefault()
@@ -180,6 +228,16 @@ export function PreviewFrame({
   }, [doc])
 
   React.useEffect(() => {
+    refreshLook.current?.()
+  }, [doc, dark])
+
+  React.useEffect(() => {
+    if (!doc) return
+    if (visitor) doc.body.setAttribute("data-visitor", "")
+    else doc.body.removeAttribute("data-visitor")
+  }, [doc, visitor])
+
+  React.useEffect(() => {
     if (!doc || !focus) return
     const el = [...doc.querySelectorAll(`[data-page-block="${focus.block}"]`)].find((x) => x.getClientRects().length > 0 && (x as HTMLElement).offsetParent !== null)
     /* The frame's own scroll only: scrollIntoView would scroll the editor around the frame too. */
@@ -190,15 +248,17 @@ export function PreviewFrame({
   }, [doc, focus])
 
   const width = DEVICE_WIDTH[device]
-  const gutter = device === "phone" ? 24 : 0
+  /* Round 26: a pane about as narrow as a phone is the phone already; the page fills it edge to edge, without a phone drawn inside a phone. */
+  const bare = device === "phone" && box.w > 0 && box.w < width + 72
+  const gutter = device === "phone" && !bare ? 24 : 0
   const scale = box.w > 0 ? Math.min(1, (box.w - gutter) / width) : 1
-  const height = device === "phone" ? Math.min(PHONE_HEIGHT, Math.max(320, (box.h - gutter) / scale)) : Math.max(320, box.h / scale)
+  const height = device === "phone" && !bare ? Math.min(PHONE_HEIGHT, Math.max(320, (box.h - gutter) / scale)) : Math.max(320, box.h / scale)
   const value: FrameValue = { scale, selected, hover, labels }
 
   return (
-    <div ref={pane} className={cn("relative h-full w-full overflow-hidden", device === "phone" ? "bg-[#eceef1]" : "bg-[#f8f9fa]", className)} data-preview-pane={device} data-preview-scale={scale.toFixed(3)}>
+    <div ref={pane} className={cn("relative h-full w-full overflow-hidden", device === "phone" && !bare ? "bg-[#eceef1]" : "bg-[#f8f9fa]", className)} data-preview-pane={device} data-preview-scale={scale.toFixed(3)} data-preview-visitor={visitor ? "" : undefined} data-preview-look={dark === true ? "dark" : dark === false ? "light" : undefined}>
       <div
-        className={cn("absolute left-1/2 overflow-hidden", device === "phone" ? "top-3 rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_12px_32px_-12px_rgba(16,24,40,0.25)]" : "top-0")}
+        className={cn("absolute left-1/2 overflow-hidden", device === "phone" && !bare ? "top-3 rounded-[22px] bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_12px_32px_-12px_rgba(16,24,40,0.25)]" : "top-0")}
         style={{ width: width * scale, height: height * scale, translate: "-50% 0" }}
         data-preview-device={device}
       >
@@ -216,7 +276,7 @@ export function PreviewFrame({
             <PreviewDocument.Provider value={doc}>
               <Frame.Provider value={value}>
                 {children}
-                <Hotspots doc={doc} />
+                {visitor ? null : <Hotspots doc={doc} />}
               </Frame.Provider>
             </PreviewDocument.Provider>,
             root,

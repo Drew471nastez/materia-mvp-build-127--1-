@@ -83,9 +83,10 @@ function main() {
   const overview = code("components/community/creator/overview.tsx")
   const activity = code("lib/communities/server/overview-activity.ts")
   const creator = code("lib/communities/server/creator.ts")
-  check("figures in the Analytics row's type (12px name, 22px number)", /text-\[12px\] font-medium text-\[#6b7280\]/.test(overview) && /sm:text-\[22px\]/.test(overview))
-  check("two columns from 1280px, one ordered column below", /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/.test(overview) && /contents xl:flex/.test(overview) && /order-1/.test(overview) && /order-6/.test(overview))
-  check("setup, recent activity, shortcuts and the link", /<NextSteps/.test(overview) && /data-overview-activity/.test(overview) && /data-overview-actions/.test(overview) && /<CopyAddress/.test(overview))
+  /* Changed on purpose (round 26, tests/nav26.test.ts): the name is 12px from 640px (a phone's row has 13px), the events are the last card (order-5) and the link is a shortcut, not a card. */
+  check("figures in the Analytics row's type (12px name, 22px number)", /font-medium leading-5 text-\[#6b7280\] sm:text-\[12px\]/.test(overview) && /sm:text-\[22px\]/.test(overview))
+  check("two columns from 1280px, one ordered column below", /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/.test(overview) && /contents xl:flex/.test(overview) && /order-1/.test(overview) && /order-5/.test(overview))
+  check("setup, recent activity, shortcuts and the link", /<NextSteps/.test(overview) && /data-overview-activity/.test(overview) && /data-overview-actions/.test(overview) && /data-overview-copy/.test(overview))
   check("recent activity is read from real rows: the newest posts and members", /from\("community_feed_posts"\)/.test(activity) && /from\("community_members"\)/.test(activity) && /recent: await recentLines/.test(creator) && /overviewActivity\(db, c\)/.test(creator))
   check("a shortcut only for a role that may", /head\.can\.post \?/.test(overview) && /head\.can\.invite \?/.test(overview) && /head\.can\.manage_settings \?/.test(overview))
   check("no figure is made up: every one comes from the server's figures", !/Math\.random|sample/i.test(overview))
