@@ -182,6 +182,29 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
     }
   }
 
+  /*
+    ROUND AG: A COMMUNITY THEY WERE IN no longer lists them ("Former account @former-account" in a creator's members), and a
+    membership they pay for stops at Stripe, so a closed account is never charged again. A community they own stays theirs
+    to close (their owner row is kept); deleting the community is its own step.
+  */
+  await step("community memberships", () => admin.from("community_members").delete().eq("user_id", userId).neq("role", "owner"))
+  await step("paid memberships cancelled", async () => {
+    const { data, error } = await admin.from("memberships").select("id, stripe_subscription_id").eq("buyer_id", userId).in("status", ["active", "trialing", "past_due", "incomplete"])
+    if (error) return { error }
+    const live = ((data ?? []) as Array<{ id: string; stripe_subscription_id: string | null }>).filter((m) => !!m.stripe_subscription_id)
+    if (!live.length) return null
+    const { stripe } = await import("@/lib/stripe")
+    for (const m of live) {
+      try {
+        await stripe.subscriptions.cancel(m.stripe_subscription_id as string, { prorate: false })
+      } catch (e) {
+        const code = (e as { code?: string }).code
+        if (code !== "resource_missing") throw e
+      }
+    }
+    return null
+  })
+
   /* What they bought leaves with them; the orders stay as the sellers' records, no longer tied to the account. */
   await byUser("entitlements", "buyer_id")
   await step("orders detached from the buyer", () => admin.from("orders").update({ buyer_id: null }).eq("buyer_id", userId))
@@ -254,6 +277,30 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
   }
   for (const t of ["account_delete_codes", "email_change_codes", "password_reset_requests", "auth_recovery_requests"]) await byUser(t)
 
+  /* Closed, not deleted: its address becomes one nobody owns, so the real one is free for a new account, and it can never sign in again. */
+  const closeSignIn = async (): Promise<string | null> => {
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      email: closedAddress,
+      email_confirm: true,
+      password: randomBytes(32).toString("hex"),
+      ban_duration: "876000h",
+      user_metadata: { deleted: true },
+    })
+    return error ? error.message : null
+  }
+  /*
+    ROUND AG, THE ROOT CAUSE of "This email is already registered" after a deletion: a closed account kept its other sign in
+    methods. Its Google identity still carried the real address, and Supabase counts an identity's address as taken, so the
+    same person could not sign up again (and Google would have led back to the closed account). The identities other than
+    the closed email one go, and the email one carries the closed address (run-now part 217, a function only the server
+    may call). Without that part it is named as a failure, so the log says what is left to do.
+  */
+  const releaseIdentities = async () => {
+    if (typeof admin.rpc !== "function") return
+    const { error } = await admin.rpc("storelib_release_auth_identities", { p_user: userId })
+    if (error) failures.push(`sign in methods released: ${error.message}`)
+  }
+
   let ok = true
   if (mode === "removed") {
     let { error } = await admin.auth.admin.deleteUser(userId)
@@ -262,24 +309,21 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
       ;({ error } = await admin.auth.admin.deleteUser(userId))
     }
     if (error) {
-      ok = false
+      /* Something still points at the sign in account. Closing it frees the address all the same; the failure is logged. */
       failures.push(`sign in account: ${error.message}`)
+      const closed = await closeSignIn()
+      if (closed) {
+        ok = false
+        failures.push(`sign in account closed: ${closed}`)
+      } else await releaseIdentities()
     }
   } else {
-    /* Closed, not deleted: deleting it would take the store's records with it
-       (they hang off it). Its address becomes one nobody owns, so the real one
-       is free for a new account, and it can never sign in again. */
-    const { error } = await admin.auth.admin.updateUserById(userId, {
-      email: closedAddress,
-      email_confirm: true,
-      password: randomBytes(32).toString("hex"),
-      ban_duration: "876000h",
-      user_metadata: { deleted: true },
-    })
-    if (error) {
+    /* Deleting it would take the store's records with it (they hang off it). */
+    const closed = await closeSignIn()
+    if (closed) {
       ok = false
-      failures.push(`sign in account closed: ${error.message}`)
-    }
+      failures.push(`sign in account closed: ${closed}`)
+    } else await releaseIdentities()
   }
 
   await step("deletion log", () =>

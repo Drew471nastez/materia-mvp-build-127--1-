@@ -4,6 +4,7 @@
  *   TRIALS     a free trial is none or 7 to 90 days; a plan saved shorter gives 7 everywhere
  *   PREVIEW    the owner's Preview opens the page and the plans as a visitor sees them, buying nothing
  *   PLANS UI   each plan a card with an Edit panel; a new plan takes its trial and benefits at once
+ *   ACCOUNTS   admin delete asks "Are you sure?" only; a deleted email can sign up again; no "Former account" members
  *
  * Run with:  npm run test:push
  */
@@ -66,8 +67,19 @@ async function main() {
   check("benefits are rows with Add a benefit, not one textarea", /data-tier-benefit-add/.test(settings) && /Benefit (\{n\}|\$\{i \+ 1\})/.test(settings))
   check("a new plan takes its trial, subheading and benefits", /data-new-tier/.test(settings) && /extra\.trialDays = trial/.test(settings) && /extra\.benefits = lines/.test(settings))
 
+  console.log("\nAccounts")
+  const actions = code("app/admin/_console/actions.tsx")
+  check("admin delete needs no typed user id, just the dialog", !/confirmId/.test(actions) && /Are you sure\?/.test(read("app/admin/_console/actions.tsx")) && /confirm: action\.userId/.test(actions))
+  const del = code("lib/account/delete-account.ts")
+  check("a closed account lets go of its other sign in methods", /rpc\("storelib_release_auth_identities"/.test(del))
+  check("a full delete that fails still frees the address", /failures\.push\(`sign in account: \$\{error\.message\}`\)\s*const closed = await closeSignIn\(\)/.test(del))
+  check("its community rows go (no Former account in members) and paid memberships stop", /from\("community_members"\)\.delete\(\)\.eq\("user_id", userId\)\.neq\("role", "owner"\)/.test(del) && /stripe\.subscriptions\.cancel/.test(del))
+  const agSql = read("supabase/migrations/20270201_round_ag.sql")
+  check("the SQL makes the function for the server only and frees accounts deleted before", /SECURITY DEFINER SET search_path = ''/.test(agSql) && /GRANT EXECUTE ON FUNCTION public\.storelib_release_auth_identities\(uuid\) TO service_role/.test(agSql) && /DELETE FROM auth\.identities i USING auth\.users u/.test(agSql) && /NOT EXISTS \(SELECT 1 FROM public\.profiles p WHERE p\.id = u\.id\)/.test(agSql))
+  check("it only ever releases a closed account", /NOT LIKE 'deleted-%@deleted\.storelib\.invalid' THEN RAISE EXCEPTION/.test(agSql))
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 
