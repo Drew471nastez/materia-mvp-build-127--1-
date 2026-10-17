@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
 const noStore = { "Cache-Control": "no-store" }
 
 /**
- * POST /api/community/<communityId>/join  { note?, interval?: "month" | "year", answers?: { [questionId]: string | string[] } }
+ * POST /api/community/<communityId>/join  { note?, interval?: "month" | "year", tierId?, answers?: { [questionId]: string | string[] } }
  *
  * The sales page's button. Answers one of
  *   { state: "member", url }     in now (a free tier, or a purchase already owned)
@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   } catch {
     body = {}
   }
-  const answer = await joinCommunity(admin(), communityId, user.id, { note: body.note, interval: body.interval, answers: body.answers })
+  const answer = await joinCommunity(admin(), communityId, user.id, { note: body.note, interval: body.interval, answers: body.answers, tierId: body.tierId })
   if (!answer.ok) return NextResponse.json({ error: answer.error, message: answer.message, ...(answer.url ? { url: answer.url } : {}), ...(answer.field ? { field: answer.field } : {}) }, { status: answer.status, headers: noStore })
   return NextResponse.json(answer.state === "pending" ? { state: "pending" } : { state: answer.state, url: answer.url }, { headers: noStore })
 }
