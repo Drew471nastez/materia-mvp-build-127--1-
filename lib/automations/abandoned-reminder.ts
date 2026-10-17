@@ -25,6 +25,7 @@ import "server-only"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { unsubscribePageFor } from "@/lib/email-variables"
 import { APP_URL } from "@/lib/email-automation"
 import { decodeItems } from "@/lib/physical/cart-link"
@@ -84,10 +85,12 @@ export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribe
   if (await toldOfFailedPayment(db, s)) return false
   const left = await whatWasLeft(db, s)
   if (!left) return false
-  const [identity, store, saved] = await Promise.all([
+  const [identity, store, saved, website] = await Promise.all([
     resolveCreatorIdentity(db, s.creator_id).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, s.creator_id).catch(() => null),
     loadCustomerEmailCopy(db, s.creator_id),
+    /* The live website the cart was filled on (lib/physical/store-link.ts), never the creator page. */
+    orderStoreUrl({ creator_id: s.creator_id, site: typeof s.basket?.site === "string" ? s.basket.site : null }, { db }),
   ])
   const shopName = store?.name || identity.fromName || "Storelib"
   const unsubscribeUrl = unsubscribePageFor(unsubscribeToken)
@@ -98,7 +101,7 @@ export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribe
     lines: left.lines,
     checkoutUrl: left.checkoutUrl,
     unsubscribeUrl,
-    brand: { logoUrl: store?.logoUrl ?? null, email: store?.email ?? null, phone: store?.phone ?? null, websiteUrl: store?.websiteUrl ?? null },
+    brand: { logoUrl: store?.logoUrl ?? null, email: store?.email ?? null, phone: store?.phone ?? null, websiteUrl: website || null },
     copy,
   })
   const sent = await sendEmail({

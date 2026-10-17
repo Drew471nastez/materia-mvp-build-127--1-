@@ -639,15 +639,15 @@ export const COMMERCE_DOCS: DocSection[] = [
       },
       {
         id: "buyer-cancel",
-        name: "A buyer asks to cancel",
-        does: "While an order is Unfulfilled (paid, nothing refunded, sent or marked in progress) the buyer's order page has Cancel order. It asks the shop and cancels nothing: one order.cancel_requested entry on the timeline, by the buyer, which emails the seller (Cancel request). The order shows a Cancel requested card: Cancel and refund cancels it (stock back, the Order cancelled email) and refunds every paid line in full through the Orders page's refund (the Refund email); Keep order writes order.cancel_declined and the buyer's page says the shop is going ahead. One request per order, limited per address and per order. Settings › Checkout › Let buyers ask to cancel turns the button off.",
+        name: "A buyer cancels",
+        does: "While an order is Unfulfilled (paid, nothing refunded, sent or marked in progress) the buyer's order page has Cancel order (lib/physical/buyer-cancel-server.ts). For an order that only ships and went nowhere yet it cancels on the spot: every paid line refunded in full first (Stripe with the seller's transfer reversed and one idempotency key per line, applied by the same sync charge.refunded runs; Airwallex through its own refund), then the order's own Cancel order (stock back, cash on delivery voided, the Order cancelled email, order.cancelled by the buyer, which emails the seller), then the refund email. A refund refused before any went through changes nothing and asks the shop instead. An order already forwarded to a partner, an app or a webhook, one holding a download, or cash already collected asks the shop: one order.cancel_requested entry by the buyer (Cancel request email); the order shows Cancel requested with Cancel and refund or Keep order (order.cancel_declined). Limited per address and per order; a second press does nothing again. Settings › Checkout › Let buyers cancel turns the button off.",
         stored: "commerce_order_events (order.cancel_requested, order.cancel_declined), store_settings.checkout.buyerCancel",
         buyers: [{ label: "Cancel order on the order page, storelib.com/checkout/physical/order/<key>" }],
         creators: [{ label: "Orders › the order › Cancel requested", href: "/app/orders" }, SETTINGS("checkout", "Checkout › Cancellations")],
         check: [
-          "On a paid test order that hasn't shipped, open View your order from its email and press Cancel order, then Ask to cancel.",
-          "The seller gets the Cancel request email; the order shows Cancel requested.",
-          "Press Cancel and refund: the buyer gets Order cancelled and the Refund email, and Stripe's test dashboard shows the refund.",
+          "On a paid test order that hasn't shipped, open View your order from its email and press Cancel order, then Cancel order again to confirm.",
+          "The page reads Your order was cancelled with the refund; the buyer gets Order cancelled and the Refund email, the seller the buyer cancelled email, and Stripe's test dashboard shows the refund. The stock is back on sale.",
+          "On an order forwarded to a partner, Cancel order asks instead: the seller gets the Cancel request email and Cancel and refund works as before.",
         ],
       },
       {

@@ -18,6 +18,18 @@ import "server-only"
  * new case and every buyer message; the buyer hears every reply; Storelib's
  * inbox hears when it is asked to step in. A failed email never fails the
  * message.
+ *
+ * LIVE (round 27): every write is told to whoever has the case open
+ * (./case-live-server.ts announceCase, ids only), and each side's read takes
+ * `after`, the last message it shows, so a page that keeps up reads only
+ * what is new.
+ *
+ * WHERE THE BUYER'S LINK POINTS (round 27): a parcel's case is on the
+ * store's own website when it has a live one (lib/physical/store-link.ts
+ * orderStoreUrl, the same address "Visit store" uses), so the buyer stays
+ * on the shop they bought from; storelib.com otherwise, and for downloads.
+ * /order-help is served on every host (proxy.ts), so links already sent on
+ * storelib.com keep working.
  */
 import { createHash } from "node:crypto"
 import { orderCaseSecret } from "@/lib/checkout/cart-tokens"
@@ -30,8 +42,12 @@ import { SUPPORT_EMAIL } from "@/lib/help/articles"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { storeIdentity, type StoreIdentity } from "@/lib/store/identity-server"
 import { sellerOrderNumber, sellerOrderNumbers } from "@/lib/orders/order-number-server"
-import { CASE_REASON_LABELS, CASE_STATUSES, ESCALATABLE, REASONS_SINCE_164, buyerEscalation, caseLink, statusAfterMessage, type CaseAuthor, type CaseMessage, type CasePhotoRef, type CaseReason, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
+import { CASE_REASON_LABELS, CASE_STATUSES, ESCALATABLE, ESCALATIONS_PER_BUYER, ESCALATION_WINDOW_DAYS, REASONS_SINCE_164, buyerEscalation, caseLink, statusAfterMessage, storeAnswerBy, type CaseAuthor, type CaseMessage, type CasePhotoRef, type CaseReason, type CaseStatus, type CaseSummary } from "@/lib/support/cases"
 import { keepCasePhotos, refsOf, removeCasePhotos, signCasePhotos, type IncomingPhoto } from "@/lib/support/case-photos-server"
+import { announceCase, caseTopic } from "@/lib/support/case-live-server"
+/* Round 27, M27's helper: the live website an order was placed on, "" when there is none. */
+import { orderStoreUrl } from "@/lib/physical/store-link"
+import { orderPagePath } from "@/lib/physical/order-link"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -80,10 +96,12 @@ const missingColumn = (e: { code?: string } | null | undefined) => e?.code === "
  * last an hour. Storelib's internal notes only for Storelib. Before part
  * 164 there are no photos and the thread is read without them.
  */
-async function readThread(db: Db, caseId: string, withNotes: boolean): Promise<{ ok: true; messages: CaseMessage[] } | { ok: false; error: { code?: string } }> {
+async function readThread(db: Db, caseId: string, withNotes: boolean, after = 0): Promise<{ ok: true; messages: CaseMessage[] } | { ok: false; error: { code?: string } }> {
   const ask = (cols: string) => {
     let q = db.from("order_case_messages").select(cols).eq("case_id", caseId)
     if (!withNotes) q = q.eq("internal", false)
+    /* A page keeping up asks for what came after the last message it shows. */
+    if (after > 0) q = q.gt("id", after)
     return q.order("id", { ascending: true }).limit(500)
   }
   let { data, error } = await ask(`${MESSAGE_COLUMNS}, photos`)
@@ -117,6 +135,68 @@ async function insertMessage(db: Db, row: { case_id: string; author: CaseAuthor;
   }
   const { error } = await db.from("order_case_messages").insert(row)
   return { error: error ?? null, photosDropped: false }
+}
+
+/** The newest message id a page says it shows: a whole number, else 0 (the whole thread). */
+export function readAfter(v: unknown): number {
+  const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : 0
+  return Number.isSafeInteger(n) && n > 0 ? n : 0
+}
+
+/* ───────────────────────── the order behind a case ──────────────────────── */
+
+type CheckoutFacts = { id: string; creator_id: string | null; receipt_token: string | null; origin: unknown; status: string | null; fulfillment_status: string | null; return_status: string | null; currency: string | null; total_cents: number | null; refunded_cents: number | null; lines: unknown; paid_at: string | null; created_at: string | null; cancelled_at: string | null }
+
+async function checkoutOf(db: Db, checkoutId: string | null): Promise<CheckoutFacts | null> {
+  if (!checkoutId) return null
+  const { data, error } = await db.from("commerce_checkouts").select("id, creator_id, receipt_token, origin, status, fulfillment_status, return_status, currency, total_cents, refunded_cents, lines, paid_at, created_at, cancelled_at").eq("id", checkoutId).maybeSingle()
+  return error ? null : ((data as CheckoutFacts | null) ?? null)
+}
+
+/**
+ * Where the buyer's links to this case point: the store's live website for a
+ * parcel when it has one (the address its "Visit store" uses), else
+ * storelib.com. Never throws.
+ */
+async function buyerOrigin(db: Db, row: Pick<CaseRow, "creator_id" | "checkout_id">, platform: string, co?: CheckoutFacts | null): Promise<string> {
+  if (!row.checkout_id) return platform
+  try {
+    const checkout = co === undefined ? await checkoutOf(db, row.checkout_id) : co
+    const site = await orderStoreUrl({ creator_id: row.creator_id, origin: checkout?.origin ?? null }, { db })
+    if (site) return new URL(site).origin
+  } catch {
+    /* storelib.com below */
+  }
+  return platform
+}
+
+/**
+ * What the buyer's page shows around the conversation: the way back to the
+ * order (a path, so it stays on the host the page is on: the order page is
+ * served on every host), the store's live website for "Visit store" (a
+ * parcel's never goes to the creator page; null leaves the link out, and a
+ * download keeps the store's own address), and the language the order was
+ * placed in.
+ */
+export interface BuyerCaseOrder {
+  path: string | null
+  storeUrl: string | null
+  lang: string | null
+}
+async function buyerCaseOrder(db: Db, row: CaseRow, store: StoreIdentity): Promise<BuyerCaseOrder> {
+  if (row.checkout_id) {
+    const co = await checkoutOf(db, row.checkout_id)
+    const storeUrl = co ? await orderStoreUrl({ creator_id: row.creator_id, origin: co.origin ?? null }, { db }).catch(() => "") : ""
+    const lang = co?.origin && typeof co.origin === "object" ? (co.origin as { lang?: unknown }).lang : null
+    return { path: orderPagePath(co?.receipt_token ?? null), storeUrl: storeUrl || null, lang: typeof lang === "string" && /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(lang) ? lang : null }
+  }
+  let path: string | null = null
+  if (row.order_id) {
+    const { data } = await db.from("orders").select("receipt_token").eq("id", row.order_id).maybeSingle()
+    const token = (data as { receipt_token?: string | null } | null)?.receipt_token
+    if (typeof token === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(token)) path = `/receipt/${encodeURIComponent(token)}`
+  }
+  return { path, storeUrl: store.websiteUrl, lang: null }
 }
 
 function failed(where: string, error: { code?: string } | null | undefined, said: string): Failure {
@@ -179,7 +259,7 @@ export async function openCase(db: Db, order: FoundOrder, input: { reason: CaseR
     }
     const r = await addMessage(db, open as CaseRow, "buyer", words, { origin, photos: kept.refs })
     if (r.ok === false) return r
-    return { ok: true, id: open.id, link: caseLink(origin, open.id, orderCaseSecret(open.id)), existing: true, photosNotKept: kept.notKept || r.photosDropped }
+    return { ok: true, id: open.id, link: caseLink(await buyerOrigin(db, open as CaseRow, origin), open.id, orderCaseSecret(open.id)), existing: true, photosNotKept: kept.notKept || r.photosDropped }
   }
   /* The id is made here so the link's secret can be derived from it before the row is written. */
   const id = crypto.randomUUID()
@@ -203,10 +283,10 @@ export async function openCase(db: Db, order: FoundOrder, input: { reason: CaseR
     await db.from("order_cases").delete().eq("id", c.id)
     return failed("first message", mErr, "Your message could not be sent. Try again in a moment.")
   }
-  const link = caseLink(origin, c.id, secret)
   const store = await storeFor(db, c as CaseRow)
+  const link = caseLink(linkOrigin(store, origin), c.id, secret)
   const photoCount = photosDropped ? 0 : kept.refs.length
-  await Promise.all([emailStoreNewMessage(c as CaseRow, store, words, true, "buyer", photoCount), emailBuyerOpened(c as CaseRow, store, link)])
+  await Promise.all([emailStoreNewMessage(c as CaseRow, store, words, true, "buyer", photoCount), emailBuyerOpened(c as CaseRow, store, link), announceCase(c.id)])
   return { ok: true, id: c.id, link, existing: false, photosNotKept: kept.notKept || photosDropped }
 }
 
@@ -230,25 +310,73 @@ async function caseForBuyer(db: Db, id: string, secret: string): Promise<{ ok: t
   return { ok: true, row: data as CaseRow }
 }
 
-export async function getCaseForBuyer(db: Db, id: string, secret: string, now: number = Date.now()): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[]; store: StoreIdentity; escalation: { can: boolean; from: string | null } } | Failure> {
+export type BuyerEscalation = { can: boolean; from: string | null; held?: "order" | "limit" }
+
+export async function getCaseForBuyer(db: Db, id: string, secret: string, now: number = Date.now()): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[]; store: StoreIdentity; escalation: BuyerEscalation; live: string | null; order: BuyerCaseOrder } | Failure> {
   const found = await caseForBuyer(db, id, secret)
   if (found.ok === false) return found
   const thread = await readThread(db, id, false)
   if (thread.ok === false) return failed("buyer thread", thread.error, "This case could not be read.")
   if (found.row.buyer_unread) await db.from("order_cases").update({ buyer_unread: false }).eq("id", id)
   const c = summary(found.row, false)
-  return { ok: true, case: c, messages: thread.messages, store: await storeIdentity(db, found.row.creator_id), escalation: buyerEscalation(c, thread.messages, now) }
+  const store = await storeIdentity(db, found.row.creator_id)
+  const [escalation, order] = await Promise.all([buyerEscalationFor(db, found.row, thread.messages, now), buyerCaseOrder(db, found.row, store)])
+  return { ok: true, case: c, messages: thread.messages, store, escalation, live: caseTopic(id), order }
+}
+
+/**
+ * What changed since the buyer's page last read (`after`, the newest
+ * message id it shows): the case as it is now and the messages after that
+ * one, without the store and the order, which do not move. What a page
+ * keeping up asks every few seconds.
+ */
+export async function getCaseUpdatesForBuyer(db: Db, id: string, secret: string, after: number, now: number = Date.now()): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[]; escalation: BuyerEscalation } | Failure> {
+  const found = await caseForBuyer(db, id, secret)
+  if (found.ok === false) return found
+  const [fresh, all] = await Promise.all([readThread(db, id, false, after), ruleThread(db, id)])
+  if (fresh.ok === false) return failed("buyer updates", fresh.error, "This case could not be read.")
+  if (found.row.buyer_unread) await db.from("order_cases").update({ buyer_unread: false }).eq("id", id)
+  return { ok: true, case: summary(found.row, false), messages: fresh.messages, escalation: await buyerEscalationFor(db, found.row, all, now) }
+}
+
+/** Who wrote when, without the words or photos: all the escalation rule reads. */
+async function ruleThread(db: Db, caseId: string): Promise<{ author: CaseAuthor; internal: boolean; createdAt: string }[]> {
+  const { data } = await db.from("order_case_messages").select("author, internal, created_at").eq("case_id", caseId).eq("internal", false).order("id", { ascending: true }).limit(500)
+  return ((data ?? []) as { author: CaseAuthor; internal: boolean; created_at: string }[]).map((m) => ({ author: m.author, internal: m.internal, createdAt: m.created_at }))
+}
+
+/**
+ * The buyer may ask Storelib in when the rule says so (lib/support/cases.ts
+ * buyerEscalation) and nothing holds it back: another case on the same order
+ * already with Storelib ("order"), or this buyer having asked Storelib in
+ * ESCALATIONS_PER_BUYER times, over every store, in the last
+ * ESCALATION_WINDOW_DAYS ("limit"). A read that fails holds nothing back:
+ * the rule still stands.
+ */
+async function buyerEscalationFor(db: Db, row: CaseRow, messages: { author: CaseAuthor; internal?: boolean; createdAt: string }[], now: number): Promise<BuyerEscalation> {
+  const rule = buyerEscalation(summary(row, false), messages, now)
+  if (!rule.can) return rule
+  const col = row.checkout_id ? "checkout_id" : "order_id"
+  const ref = row.checkout_id ?? row.order_id
+  const since = new Date(now - ESCALATION_WINDOW_DAYS * 86_400_000).toISOString()
+  const [other, mine] = await Promise.all([
+    ref ? db.from("order_cases").select("id").eq(col, ref).eq("escalated", true).neq("status", "resolved").neq("id", row.id).limit(1) : Promise.resolve({ data: [] }),
+    db.from("order_cases").select("id", { count: "exact", head: true }).eq("buyer_email", row.buyer_email).eq("escalated_by", "buyer").gte("escalated_at", since),
+  ])
+  if (Array.isArray(other?.data) && other.data.length) return { can: false, from: null, held: "order" }
+  if (!mine?.error && (mine?.count ?? 0) >= ESCALATIONS_PER_BUYER) return { can: false, from: null, held: "limit" }
+  return rule
 }
 
 export async function buyerAct(db: Db, id: string, secret: string, action: { kind: "reply"; body: string; photos?: IncomingPhoto[] } | { kind: "escalate"; body: string | null } | { kind: "resolve" }, origin: string, now: number = Date.now()): Promise<{ ok: true; photosNotKept?: boolean } | Failure> {
   const found = await caseForBuyer(db, id, secret)
   if (found.ok === false) return found
-  if (action.kind === "escalate") {
-    /* Asking Storelib in, as a buyer: once the store has left a problem about money or goods unanswered for three days (lib/support/cases.ts buyerEscalation). */
-    const thread = await readThread(db, id, false)
-    if (thread.ok === false) return failed("escalate read", thread.error, "That could not be sent.")
-    const rule = buyerEscalation(summary(found.row, false), thread.messages, now)
-    if (!found.row.escalated && !rule.can) return { ok: false, error: rule.from ? `You can ask Storelib for help from ${new Date(rule.from).toUTCString().slice(0, 16)} if the store hasn't answered by then.` : "Storelib steps in on problems with what you received or a refund, once the store hasn't answered for three days.", status: 409 }
+  if (action.kind === "escalate" && !found.row.escalated) {
+    /* Asking Storelib in, as a buyer: once the store has left a problem about money or goods unanswered (lib/support/cases.ts buyerEscalation), one at a time per order, a few per buyer (buyerEscalationFor). */
+    const rule = await buyerEscalationFor(db, found.row, await ruleThread(db, id), now)
+    if (rule.held === "order") return { ok: false, error: "Storelib is already looking at another conversation about this order.", status: 409 }
+    if (rule.held === "limit") return { ok: false, error: "You've asked Storelib in on several orders lately. Storelib answers those first; write to support@storelib.com if this one can't wait.", status: 429 }
+    if (!rule.can) return { ok: false, error: rule.from ? `You can ask Storelib for help from ${new Date(rule.from).toUTCString().slice(0, 16)} if the store hasn't answered by then.` : "Storelib steps in on problems with what you received or a refund, once the store hasn't answered for three days.", status: 409 }
   }
   if (action.kind === "reply" && action.photos?.length) {
     const kept = await keepCasePhotos(db, id, action.photos)
@@ -279,15 +407,24 @@ export async function listCasesForStore(db: Db, creatorId: string, ref: { checko
   return { ok: true, cases: ((data ?? []) as CaseRow[]).map((r) => withNumber(summary(r, r.store_unread), r, numbers)) }
 }
 
-export async function getCaseForStore(db: Db, creatorId: string, id: string): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[] } | Failure> {
+/**
+ * One case for its store: the thread (or, with `after`, what came after the
+ * last message the page shows, the Orders page's number then left to the
+ * page that already has it), the day the buyer may ask Storelib in if the
+ * store doesn't answer, and the case's live channel.
+ */
+export async function getCaseForStore(db: Db, creatorId: string, id: string, opts: { after?: number; now?: number } = {}): Promise<{ ok: true; case: CaseSummary; messages: CaseMessage[]; answerBy: string | null; live: string | null } | Failure> {
   const { data, error } = await db.from("order_cases").select(COLUMNS).eq("id", id).eq("creator_id", creatorId).maybeSingle()
   if (error) return failed("store read", error, "That case could not be read.")
   if (!data) return { ok: false, error: "Not found.", status: 404 }
-  const thread = await readThread(db, id, false)
+  const row = data as CaseRow
+  const after = opts.after ?? 0
+  const [thread, all] = await Promise.all([readThread(db, id, false, after), after ? ruleThread(db, id) : null])
   if (thread.ok === false) return failed("store thread", thread.error, "That case could not be read.")
-  if ((data as CaseRow).store_unread) await db.from("order_cases").update({ store_unread: false }).eq("id", id).eq("creator_id", creatorId)
-  const number = await sellerOrderNumber(db, creatorId, { checkoutId: (data as CaseRow).checkout_id, orderId: (data as CaseRow).order_id })
-  return { ok: true, case: { ...summary(data as CaseRow, false), sellerNumber: number }, messages: thread.messages }
+  if (row.store_unread) await db.from("order_cases").update({ store_unread: false }).eq("id", id).eq("creator_id", creatorId)
+  const number = after ? undefined : await sellerOrderNumber(db, creatorId, { checkoutId: row.checkout_id, orderId: row.order_id })
+  const c = summary(row, false)
+  return { ok: true, case: number === undefined ? c : { ...c, sellerNumber: number }, messages: thread.messages, answerBy: storeAnswerBy(c, all ?? thread.messages, opts.now), live: caseTopic(id) }
 }
 
 export async function storeAct(db: Db, creatorId: string, id: string, action: { kind: "reply"; body: string } | { kind: "escalate"; body: string | null } | { kind: "resolve" }, origin: string): Promise<{ ok: true } | Failure> {
@@ -325,14 +462,59 @@ export async function adminListCases(db: Db, opts: { view?: string | null; q?: s
   return { ok: true, cases: ((data ?? []) as Joined[]).map(adminCase), counts: { storelib, escalated, all } }
 }
 
-export async function adminGetCase(db: Db, id: string): Promise<{ ok: true; case: AdminCase; messages: CaseMessage[]; store: StoreIdentity } | Failure> {
+/**
+ * The order a case is about, as Storelib needs it to judge: when it was
+ * paid, what is in it, what it cost and what was refunded, where it is
+ * (shipped, delivered, returned, cancelled) and each parcel's tracking.
+ */
+export interface AdminCaseOrder {
+  placedAt: string | null
+  status: string | null
+  fulfillment: string | null
+  returns: string | null
+  currency: string | null
+  totalCents: number | null
+  refundedCents: number | null
+  cancelledAt: string | null
+  lines: { title: string; variant: string | null; quantity: number }[]
+  shipments: { status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null }[]
+}
+
+async function adminCaseOrder(db: Db, row: CaseRow): Promise<AdminCaseOrder | null> {
+  const co = await checkoutOf(db, row.checkout_id)
+  if (!co) return null
+  const { data: ships } = await db.from("fulfillments").select("status, carrier, tracking_number, tracking_url, shipped_at, delivered_at, created_at").eq("checkout_id", co.id).order("created_at", { ascending: true }).limit(20)
+  const lines = Array.isArray(co.lines) ? (co.lines as Record<string, unknown>[]) : []
+  return {
+    placedAt: co.paid_at ?? co.created_at,
+    status: co.status,
+    fulfillment: co.fulfillment_status,
+    returns: co.return_status,
+    currency: co.currency,
+    totalCents: co.total_cents,
+    refundedCents: co.refunded_cents,
+    cancelledAt: co.cancelled_at,
+    lines: lines.slice(0, 50).map((l) => ({ title: String(l.title ?? "Item"), variant: typeof l.variant_name === "string" ? l.variant_name : null, quantity: Number(l.quantity) || 1 })),
+    shipments: ((ships ?? []) as Record<string, string | null>[]).map((f) => ({ status: String(f.status ?? ""), carrier: f.carrier, trackingNumber: f.tracking_number, trackingUrl: f.tracking_url && /^https:\/\//.test(f.tracking_url) ? f.tracking_url : null, shippedAt: f.shipped_at, deliveredAt: f.delivered_at })),
+  }
+}
+
+/**
+ * One case for Storelib: the whole thread with the notes, the store, the
+ * order, and the case's live channel; with `after`, the case and what came
+ * after the last message the page shows, nothing else.
+ */
+export async function adminGetCase(db: Db, id: string, opts: { after?: number } = {}): Promise<{ ok: true; case: AdminCase; messages: CaseMessage[]; store?: StoreIdentity; order?: AdminCaseOrder | null; live: string | null } | Failure> {
   const { data, error } = await db.from("order_cases").select(`${COLUMNS}, creator:creators(display_name, slug)`).eq("id", id).maybeSingle()
   if (error) return failed("admin get", error, "That case could not be read.")
   if (!data) return { ok: false, error: "Not found.", status: 404 }
-  const thread = await readThread(db, id, true)
+  const row = data as CaseRow
+  const after = opts.after ?? 0
+  const thread = await readThread(db, id, true, after)
   if (thread.ok === false) return failed("admin thread", thread.error, "That case could not be read.")
-  const number = await sellerOrderNumber(db, (data as CaseRow).creator_id, { checkoutId: (data as CaseRow).checkout_id, orderId: (data as CaseRow).order_id })
-  return { ok: true, case: { ...adminCase(data as Joined), sellerNumber: number }, messages: thread.messages, store: await storeIdentity(db, (data as CaseRow).creator_id) }
+  if (after) return { ok: true, case: adminCase(data as Joined), messages: thread.messages, live: caseTopic(id) }
+  const [number, store, order] = await Promise.all([sellerOrderNumber(db, row.creator_id, { checkoutId: row.checkout_id, orderId: row.order_id }), storeIdentity(db, row.creator_id), adminCaseOrder(db, row).catch(() => null)])
+  return { ok: true, case: { ...adminCase(data as Joined), sellerNumber: number }, messages: thread.messages, store, order, live: caseTopic(id) }
 }
 
 /** Storelib's message (to both, or an internal note), and whose turn it is after: the buyer's unless it says the store's. */
@@ -350,8 +532,9 @@ export async function adminCaseReply(db: Db, id: string, input: { body: string; 
   await db.from("order_cases").update(patch).eq("id", id)
   if (!input.internal) {
     const store = await storeFor(db, row)
-    await Promise.all([emailBuyerReply(row, store, "storelib", input.body, origin, status), emailStoreNewMessage(row, store, input.body, false, "storelib")])
+    await Promise.all([emailBuyerReply(row, store, "storelib", input.body, linkOrigin(store, origin), status), emailStoreNewMessage(row, store, input.body, false, "storelib")])
   }
+  await announceCase(id)
   return { ok: true }
 }
 
@@ -362,6 +545,7 @@ export async function adminCaseUpdate(db: Db, id: string, input: { status?: unkn
   const { data, error } = await db.from("order_cases").update({ status: input.status, updated_at: now, resolved_at: resolved ? now : null, resolved_by: resolved ? "storelib" : null }).eq("id", id).select("id").maybeSingle()
   if (error) return failed("admin update", error, "That could not be saved.")
   if (!data) return { ok: false, error: "Not found.", status: 404 }
+  await announceCase(id)
   return { ok: true }
 }
 
@@ -379,10 +563,12 @@ async function addMessage(db: Db, row: CaseRow, author: "buyer" | "store", body:
   const now = new Date().toISOString()
   const status = statusAfterMessage(author, row.status === "resolved" ? { ...row, status: "store" } : row)
   await db.from("order_cases").update({ status, resolved_at: null, resolved_by: null, last_message_at: now, updated_at: now, ...(author === "buyer" ? { store_unread: true } : { buyer_unread: true }) }).eq("id", row.id)
+  /* The pages with the case open hear of it first; the emails follow. */
+  await announceCase(row.id)
   const store = await storeFor(db, row)
   const photoCount = photosDropped ? 0 : (opts.photos?.length ?? 0)
   if (author === "buyer") await emailStoreNewMessage(row, store, body, false, "buyer", photoCount)
-  else await emailBuyerReply(row, store, "store", body, opts.origin, status)
+  else await emailBuyerReply(row, store, "store", body, linkOrigin(store, opts.origin), status)
   if (row.escalated) await emailStorelib(row, store, author, body)
   return { ok: true, photosDropped }
 }
@@ -397,6 +583,7 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
   if (action.kind === "resolve") {
     const { error } = await db.from("order_cases").update({ status: "resolved", resolved_at: now, resolved_by: who, updated_at: now }).eq("id", row.id)
     if (error) return failed("resolve", error, "That could not be saved.")
+    await announceCase(row.id)
     return { ok: true }
   }
   /* Asking Storelib in: once. A note with it is a message like any other. */
@@ -407,9 +594,10 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
   }
   const { error } = await db.from("order_cases").update({ escalated: true, escalated_by: who, escalated_at: now, status: "storelib", resolved_at: null, resolved_by: null, last_message_at: now, updated_at: now, ...(who === "buyer" ? { store_unread: true } : { buyer_unread: true }) }).eq("id", row.id)
   if (error) return failed("escalate", error, "That could not be sent.")
+  await announceCase(row.id)
   const store = await storeFor(db, row)
   const said = action.body ?? "(no message with it)"
-  await Promise.all([emailStorelib({ ...row, escalated: true, escalated_by: who }, store, who, said, true), who === "buyer" ? emailStoreNewMessage(row, store, `The buyer asked Storelib to step in.${action.body ? `\n\n${action.body}` : ""}`, false, "buyer", 0, "The buyer asked Storelib to help with") : emailBuyerReply(row, store, "store", `${store?.name ?? "The store"} asked Storelib to help with this case. Storelib will write to you both here.${action.body ? `\n\n${action.body}` : ""}`, origin, "storelib")])
+  await Promise.all([emailStorelib({ ...row, escalated: true, escalated_by: who }, store, who, said, true), who === "buyer" ? emailStoreNewMessage(row, store, `The buyer asked Storelib to step in.${action.body ? `\n\n${action.body}` : ""}`, false, "buyer", 0, "The buyer asked Storelib to help with") : emailBuyerReply(row, store, "store", `${store?.name ?? "The store"} asked Storelib to help with this case. Storelib will write to you both here.${action.body ? `\n\n${action.body}` : ""}`, linkOrigin(store, origin), "storelib", true)])
   return { ok: true }
 }
 
@@ -421,10 +609,36 @@ async function act(db: Db, row: CaseRow, who: "buyer" | "store", action: { kind:
  * or Storelib reads names the order by, the buyer's reference beside it.
  * The buyer's emails keep the buyer's reference alone.
  */
-type StoreCtx = StoreIdentity & { sellerNumber?: string | null }
+type StoreCtx = StoreIdentity & { sellerNumber?: string | null; site?: string | null }
+/*
+  A parcel's emails link the store's live website (lib/physical/store-link.ts),
+  never the creator page: its address is `site`, and it is the store's
+  websiteUrl in those emails (none when the store has no live website). A
+  download's keep the store's own address.
+*/
 async function storeFor(db: Db, row: CaseRow): Promise<StoreCtx | null> {
-  const [store, number] = await Promise.all([storeIdentity(db, row.creator_id).catch(() => null), sellerOrderNumber(db, row.creator_id, { checkoutId: row.checkout_id, orderId: row.order_id }).catch(() => null)])
-  return store ? { ...store, sellerNumber: number } : null
+  const siteOf = async () => {
+    const co = await checkoutOf(db, row.checkout_id)
+    return (await orderStoreUrl({ creator_id: row.creator_id, origin: co?.origin ?? null }, { db })) || null
+  }
+  const [store, number, site] = await Promise.all([
+    storeIdentity(db, row.creator_id).catch(() => null),
+    sellerOrderNumber(db, row.creator_id, { checkoutId: row.checkout_id, orderId: row.order_id }).catch(() => null),
+    row.checkout_id ? siteOf().catch(() => null) : Promise.resolve(null),
+  ])
+  if (!store) return null
+  return row.checkout_id ? { ...store, sellerNumber: number, site, websiteUrl: site } : { ...store, sellerNumber: number, site: null }
+}
+/** The origin the buyer's links use: the store's live website for a parcel, else the platform's. */
+function linkOrigin(store: StoreCtx | null, platform: string): string {
+  if (store?.site) {
+    try {
+      return new URL(store.site).origin
+    } catch {
+      /* the platform's below */
+    }
+  }
+  return platform
 }
 /** "order #1003" (and the buyer's reference in the facts), or the buyer's reference when the number can't be counted. */
 const sellerOrderName = (row: CaseRow, store: StoreCtx | null) => `order ${store?.sellerNumber ?? `#${row.order_ref ?? ""}`}`
@@ -464,12 +678,19 @@ async function emailBuyerOpened(row: CaseRow, store: StoreIdentity | null, link:
   }
 }
 
-async function emailBuyerReply(row: CaseRow, store: StoreIdentity | null, from: "store" | "storelib", body: string, origin: string, status: CaseStatus): Promise<void> {
+/*
+  Storelib's own message comes from Storelib (its name and look), never
+  dressed as the store's; the store asking Storelib in says so in its
+  subject rather than reading as an answer.
+*/
+async function emailBuyerReply(row: CaseRow, store: StoreIdentity | null, from: "store" | "storelib", body: string, origin: string, status: CaseStatus, storeAskedStorelib = false): Promise<void> {
   try {
     const who = from === "storelib" ? "Storelib" : store?.name ?? "The store"
     const intro = `<p class="e-muted" style="margin:0 0 12px;font-size:13px;line-height:20px;color:#6b7280">${escapeHtml(who)} wrote about order #${escapeHtml(row.order_ref ?? "")}.</p>`
     const link = caseLink(origin, row.id, orderCaseSecret(row.id))
-    await sendMailgunOnce({ to: row.buyer_email, subject: `${who} replied about order #${row.order_ref ?? ""}`, ...shell(store, `${who} replied`, intro + paragraphs(body), { href: link, label: status === "resolved" ? "See your case" : "Reply" }, reachStore(store)), ...(from === "store" && store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-reply"] })
+    const subject = storeAskedStorelib ? `${who} asked Storelib to help with order #${row.order_ref ?? ""}` : `${who} replied about order #${row.order_ref ?? ""}`
+    const heading = storeAskedStorelib ? "Storelib is looking at your case" : `${who} replied`
+    await sendMailgunOnce({ to: row.buyer_email, subject, ...shell(from === "storelib" ? null : store, heading, intro + paragraphs(body), { href: link, label: status === "resolved" ? "See your case" : "Reply" }, reachStore(store)), ...(from === "store" && store?.email ? { replyTo: store.email } : {}), tags: ["order-case", "order-case-reply"] })
   } catch (e) {
     console.error(`[cases] buyer reply email not sent: ${loggable(e)}`)
   }

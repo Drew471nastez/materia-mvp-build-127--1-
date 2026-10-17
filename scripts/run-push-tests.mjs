@@ -21,6 +21,7 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/wizard27.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",
   "tests/variants25.test.ts",
@@ -51,6 +52,10 @@ const SUITES = [
   "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
+  /* Round 27 (B27): the buyer's order pages: Cancel order cancels and refunds, live status, words, logo, Visit store, returns. */
+  "tests/buyer27.test.ts",
+  /* Round 27 (H27): order help live on both sides, on the shop's website, Ask Storelib gated, Storelib's cases */
+  "tests/help27.test.ts",
   "tests/storelib-reviews.test.ts",
   "tests/reviews-manage.test.ts",
   "tests/review-widgets.test.ts",
@@ -689,6 +694,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
   "tests/orders27.test.ts",
+  /* Round 27 (M27): physical order emails link the live website, never the creator page (lib/physical/store-link), no unsubscribe on transactional mail, product thumbnails, the creator page language banner gone */
+  "tests/emails27.test.ts",
 ]
 
 /**

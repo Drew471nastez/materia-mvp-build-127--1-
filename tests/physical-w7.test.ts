@@ -82,7 +82,8 @@ async function main() {
     check("an order number however it is typed", readOrderNumber("#3f2a9c1b") === "3F2A9C1B" && readOrderNumber(" 3F2A 9C1B ") === "3F2A9C1B" && readOrderNumber("3F2A9C1") === null && readOrderNumber("ZZZZZZZZ") === null && readOrderNumber(42) === null)
     check("matched against an id the way every email numbers it", isOrderNumberOf("3f2a9c1b-0000-4000-8000-000000000000", "3F2A9C1B") && !isOrderNumberOf("3f2a9c1c-0000-4000-8000-000000000000", "3F2A9C1B"))
     const jobs = read("lib/physical/jobs-server.ts")
-    check("buyer emails link the order page on the store's website, not storelib.com", /const orderUrl = await orderPageUrl\(db, co\)/.test(jobs) && !/checkout\/physical\/order\/\$\{encodeURIComponent\(token\)\}/.test(jobs))
+    /* Changed on purpose (round 27): the order page is read beside the store's website link (lib/physical/store-link.ts). */
+    check("buyer emails link the order page on the store's website, not storelib.com", /const \[orderUrl, website\] = await Promise\.all\(\[orderPageUrl\(db, co\)/.test(jobs) && !/checkout\/physical\/order\/\$\{encodeURIComponent\(token\)\}/.test(jobs))
     const server = read("lib/physical/order-link-server.ts")
     check("  the website it was placed on first, while it still serves this creator, then the store's own, then storelib.com", /originSiteHost\(origin\)[\s\S]*servingSiteOrigin\(db, creatorId[\s\S]*firstServingSite\(db, creatorId, await siteHostsFor\(creatorId, db\)\)[\s\S]*return platform/.test(server))
   }

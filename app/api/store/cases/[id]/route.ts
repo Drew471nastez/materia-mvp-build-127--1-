@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { isUuid, physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { appUrl } from "@/lib/notify/urls"
 import { readCaseReply } from "@/lib/support/cases"
-import { getCaseForStore, storeAct } from "@/lib/support/cases-server"
+import { getCaseForStore, readAfter, storeAct } from "@/lib/support/cases-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -10,19 +10,20 @@ export const dynamic = "force-dynamic"
 /**
  * One of the store's buyer cases.
  *
- *   GET                                  the case and its thread
+ *   GET                                  the case and its thread, the day the buyer may ask Storelib in, the live channel
+ *   GET ?after=<message id>              the case and the messages after that one (a page keeping up)
  *   POST { action: "reply", body }       a reply to the buyer (emailed)
  *   POST { action: "escalate", body? }   ask Storelib to step in
  *   POST { action: "resolve" }           it's sorted
  */
-export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const { id } = await ctx.params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
-  const out = await getCaseForStore(c.db, c.creatorId, id)
+  const out = await getCaseForStore(c.db, c.creatorId, id, { after: readAfter(new URL(request.url).searchParams.get("after")) })
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
-  return physicalJson({ case: out.case, messages: out.messages })
+  return physicalJson({ case: out.case, messages: out.messages, answerBy: out.answerBy, live: out.live })
 }
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -44,5 +45,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   } else return physicalJson({ error: "Bad request." }, 400)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
   const again = await getCaseForStore(c.db, c.creatorId, id)
-  return again.ok ? physicalJson({ case: again.case, messages: again.messages }) : physicalJson({ ok: true })
+  return again.ok ? physicalJson({ case: again.case, messages: again.messages, answerBy: again.answerBy, live: again.live }) : physicalJson({ ok: true })
 }

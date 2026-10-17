@@ -42,6 +42,7 @@ import { deliveryEstimate } from "./rates"
 import { orderNumber, trackingUrl } from "./status"
 import { openSecret } from "./secrets"
 import { orderPageUrl, storeOriginFor } from "./order-link-server"
+import { orderStoreUrl } from "./store-link"
 import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { physicalCheckoutHref } from "./cart-link"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
@@ -606,9 +607,11 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
   const number = orderNumber(co.id)
   /* On the store's own website when it has one (the one the order was placed on first), else storelib.com: ./order-link.ts. */
-  const orderUrl = await orderPageUrl(db, co)
+  const [orderUrl, website] = await Promise.all([orderPageUrl(db, co), orderStoreUrl({ creator_id: co.creator_id, origin: co.origin }, { db })])
+  /* The live website the order was placed on (./store-link.ts), for the logo, the footer and Visit our store; never the creator page. None, no link. */
+  const storeUrl = website || null
   /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
-  const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help`, legal: legalOf(store), accent: look?.accent ?? null }
+  const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: storeUrl, helpUrl: `${orderUrl}#get-help`, legal: legalOf(store), accent: look?.accent ?? null }
   let mail: { subject: string; html: string; text: string }
   /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
   const saved = await loadCustomerEmailCopy(db, co.creator_id)
@@ -623,7 +626,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
     const cashNote = co.provider === COD_PROVIDER && !co.cod_collected_at ? (await loadCheckoutConfig(db, co.creator_id)).codInstructions || null : null
     mail = say(() =>
       orderConfirmationEmail({
-      storeUrl: store.websiteUrl,
+      storeUrl,
       paymentLabel: paymentLabelOf(paidRow),
       supportEmail: store.email || identity.replyTo || null,
       brand: { ...brand, websiteUrl: null },
@@ -652,6 +655,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
       statusUrl: orderUrl,
       hasDownloads: co.lines.some((l) => l.type !== "physical"),
       pickup: pickupOf(co),
+      local: co.shipping_rate?.kind === "local",
       copy: copyFor("order_confirmation", co.lines),
       orderDate,
       cashDue: co.provider === COD_PROVIDER && !co.cod_collected_at,
@@ -815,13 +819,13 @@ async function sendSellerEmail(db: Db, p: Record<string, any>, lease?: LeaseChec
   const co = await loadCheckout(db, p.checkoutId)
   const { data: creator } = await db.from("creators").select("user_id").eq("id", co.creator_id).maybeSingle()
   const userId: string | null = creator?.user_id ?? null
-  const [{ allowed }, { entryFor }, { unsubscribeUrl, preferencesUrl }] = await Promise.all([import("@/lib/notify/preferences"), import("@/lib/notify/registry"), import("@/lib/notify/unsubscribe")])
+  const [{ allowed }, { entryFor }, { preferencesUrl }] = await Promise.all([import("@/lib/notify/preferences"), import("@/lib/notify/registry"), import("@/lib/notify/unsubscribe")])
   if (userId && !(await allowed(db, userId, entryFor("NEW_SALE"), "email"))) return
   const to = await sellerInbox(db, co.creator_id)
   if (!to) return
   const detail = (p.detail && typeof p.detail === "object" ? p.detail : {}) as Record<string, unknown>
   const { data: firstOrder } = await db.from("orders").select("id").eq("checkout_id", co.id).order("created_at", { ascending: true }).limit(1).maybeSingle()
-  let lines: { title: string; variantName: string | null; quantity: number }[] = emailLines(co.lines).map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity }))
+  let lines: { title: string; variantName: string | null; quantity: number; imageUrl: string | null }[] = emailLines(co.lines).map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, imageUrl: l.imageUrl }))
   let reason: string | null = typeof detail.reason === "string" ? detail.reason : null
   let note: string | null = null
   if (kind === "return_requested") {
@@ -830,14 +834,14 @@ async function sendSellerEmail(db: Db, p: Record<string, any>, lease?: LeaseChec
     if (r) {
       const { data: items } = await db.from("commerce_return_items").select("order_id, quantity").eq("return_id", r.id)
       const returned = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
-      if (returned.length) lines = returned.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity }))
+      if (returned.length) lines = returned.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, imageUrl: l.imageUrl }))
       reason = r.reason_label ?? r.reason ?? null
       note = r.customer_note ?? null
     }
   }
   if (kind === "order_cancelled" && !reason) reason = co.cancel_reason ?? null
   if (kind === "delivery_exception" && !reason) reason = p.message ?? null
-  const userUnsubscribe = userId ? unsubscribeUrl(userId, "sales") : null
+  /* About one order: transactional, so no Unsubscribe and no List-Unsubscribe header; the footer links Notification settings. */
   const mail = sellerCommerceEmail(
     kind,
     {
@@ -856,7 +860,7 @@ async function sendSellerEmail(db: Db, p: Record<string, any>, lease?: LeaseChec
       carrier: typeof detail.carrier === "string" ? detail.carrier : null,
       trackingNumber: typeof detail.trackingNumber === "string" ? detail.trackingNumber : typeof detail.tracking_number === "string" ? detail.tracking_number : null,
     },
-    { baseUrl: `https://${getMainDomain()}`, unsubscribeUrl: userUnsubscribe, preferencesUrl: preferencesUrl() },
+    { baseUrl: `https://${getMainDomain()}`, preferencesUrl: preferencesUrl() },
   )
   await holdLease(lease)
   const sent = await sendEmail({
@@ -866,7 +870,7 @@ async function sendSellerEmail(db: Db, p: Record<string, any>, lease?: LeaseChec
     subject: mail.subject,
     html: mail.html,
     text: mail.text,
-    headers: { "X-Storelib-Notification": `SELLER_${kind.toUpperCase()}`, ...(userUnsubscribe ? { "List-Unsubscribe": `<${userUnsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}) },
+    headers: { "X-Storelib-Notification": `SELLER_${kind.toUpperCase()}` },
   })
   if (!sent.success) throw new Error(sent.error || "Email not sent")
 }

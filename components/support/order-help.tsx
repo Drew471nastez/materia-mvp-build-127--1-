@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils"
 import { useCt } from "@/app/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
-/* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). */
-function reasonLabel(r: CaseReason, ct: CheckoutT): string {
+/* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). Also the conversation page's title (app/order-help). */
+export function reasonLabel(r: CaseReason, ct: CheckoutT): string {
   switch (r) {
     case "question": return ct("A question")
     case "change_address": return ct("Change the address")
@@ -36,6 +36,17 @@ function reasonLabel(r: CaseReason, ct: CheckoutT): string {
     case "refund": return ct("I want a refund")
     case "access": return ct("I can't open what I bought")
     case "other": return ct("Something else")
+  }
+}
+
+/** A case link as a path on this host (an address that isn't one is left as it is). */
+function samePage(link: string | null): string | null {
+  if (!link) return null
+  try {
+    const u = new URL(link, "https://x.invalid")
+    return u.pathname.startsWith("/order-help/") ? `${u.pathname}${u.search}` : link
+  } catch {
+    return link
   }
 }
 
@@ -64,8 +75,8 @@ export function OrderHelp({
   storeName: string
   openCase?: { link: string; status: string } | null
   className?: string
-  /** Settings › Store details: how else to reach the shop. */
-  contact?: { email: string | null; phone: string | null } | null
+  /** Settings › Store details: how else to reach the shop. `emailHref`: a mailto with the letter already started (lib/physical/seller-mailto.ts). */
+  contact?: { email: string | null; phone: string | null; emailHref?: string | null } | null
   cancel?: HelpShortcut | null
   returns?: HelpShortcut | null
 }) {
@@ -106,7 +117,8 @@ export function OrderHelp({
     }
   }
 
-  const link = sent?.link || openCase?.link || null
+  /* The conversation on the host this page is on: /order-help is served on the store's website and on storelib.com alike, so the buyer stays where they are. */
+  const link = samePage(sent?.link || openCase?.link || null)
   const shortcut = reason === "cancel" ? cancel : reason === "return" ? returns : null
   const others = [cancel, returns].filter((x): x is HelpShortcut => !!x)
 
@@ -193,7 +205,7 @@ export function OrderHelp({
       {contact && (contact.email || contact.phone) ? (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-[#eef0f2] pt-3 text-[13.5px]" data-help-contact="">
           {contact.email ? (
-            <a href={`mailto:${contact.email}`} className="inline-flex min-w-0 items-center gap-1.5 text-[#1a1a2e] [overflow-wrap:anywhere] hover:underline">
+            <a href={contact.emailHref || `mailto:${contact.email}`} className="inline-flex min-w-0 items-center gap-1.5 text-[#1a1a2e] [overflow-wrap:anywhere] hover:underline">
               <Mail className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
               {contact.email}
             </a>

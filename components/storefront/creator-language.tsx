@@ -2,15 +2,15 @@
 
 /**
  * The creator page's languages (lib/markets/creator-page-language.ts): a
- * small selector at the foot of the page, each language in its own words,
- * and the offer card at the top when Show visitors their own language found
- * a near match. Choosing is remembered (sl_lang) and opens the page with
- * ?lang=, its one address per language; the store's own language has none.
+ * small selector at the foot of the page, each language in its own words.
+ * No floating "View this site in ...?" card on the creator page: Show
+ * visitors their own language picks silently on the server. Choosing is
+ * remembered (sl_lang) and opens the page with ?lang=, its one address per
+ * language; the store's own language has none.
  */
 import { useId } from "react"
-import { LanguageSuggest } from "@/components/website-builder/theme/language-suggest"
 
-export function CreatorLanguage({ code, defaultLanguage, languages, suggest }: { code: string; defaultLanguage: string; languages: { code: string; name: string }[]; suggest: string | null }) {
+export function CreatorLanguage({ code, defaultLanguage, languages }: { code: string; defaultLanguage: string; languages: { code: string; name: string }[] }) {
   const id = useId()
   if (languages.length < 2) return null
   const go = (next: string) => {
@@ -27,7 +27,6 @@ export function CreatorLanguage({ code, defaultLanguage, languages, suggest }: {
   }
   return (
     <div data-creator-language="" className="flex justify-center px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-2">
-      <LanguageSuggest conf={{ current: code, defaultLanguage, languages: languages.map((l) => l.code), address: "query", suggest }} />
       <div className="relative inline-flex items-center text-[#4b5563]">
         <label htmlFor={id} className="sr-only">
           Language

@@ -672,7 +672,7 @@ const ARTICLES: Article[] = [
       { type: "p", text: "They pick Change the address and write the new one. While nothing has shipped, press Edit beside the order's Shipping address, type it, and keep Email the buyer the new address on. They get the Order updated email. The country has to stay the same, because shipping and tax were worked out for it. ShipStation gets the new address too. A partner who already has the order needs telling yourself." },
 
       { type: "sub", text: "What if they want to cancel?" },
-      { type: "p", text: `While the order is Unfulfilled, the buyer can press Cancel order on their page. It only asks you. You get an email, and the order shows Cancel requested. Press Cancel and refund to cancel it and refund it in full, or Keep order to send it after all. To stop these requests, turn off Let buyers ask to cancel in Settings > Checkout. More help: ${link("cancel-a-physical-order", "Cancel an order")}.` },
+      { type: "p", text: `While the order is Unfulfilled, the buyer can press Cancel order on their page. It's cancelled and refunded in full right away: the stock goes back on sale, they get the Order cancelled and refund emails, and you get an email saying they cancelled. If you already sent it to a print partner or an app, it asks you instead and the order shows Cancel requested: press Cancel and refund, or Keep order to send it after all. To turn it off, switch off Let buyers cancel in Settings > Checkout. More help: ${link("cancel-a-physical-order", "Cancel an order")}.` },
 
       { type: "sub", text: "What if they want to send it back?" },
       { type: "p", text: `While the return window is open, they press Return items and pick the items and a reason. You approve or decline it on the order, with instructions. When the parcel comes back, mark it received and choose what goes back in stock. Then refund. More help: ${link("returns-physical", "Returns")}.` },
@@ -2049,8 +2049,9 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "note", text: "Already sent part of it? You can't cancel the whole order any more. Refund the part you didn't send instead." },
-      { type: "h", text: "When the buyer asks to cancel" },
-      { type: "p", text: "While an order is still Unfulfilled, your buyer sees Cancel order on their order page. Pressing it only asks you. Nothing is cancelled until you answer." },
+      { type: "h", text: "When the buyer cancels" },
+      { type: "p", text: "While an order is still Unfulfilled, your buyer sees Cancel order on their order page. Pressing it cancels the order and refunds every paid item in full right away. The stock goes back on sale, the buyer gets the Order cancelled and refund emails, and you get an email saying they cancelled. There's nothing for you to do." },
+      { type: "p", text: "If the order already went to a print partner, a shipping app or your webhook, or it holds a download, pressing it only asks you, so nothing is made for an order that's gone. The same happens if the refund can't be made on the spot." },
       {
         type: "steps",
         items: [
@@ -2060,7 +2061,7 @@ const ARTICLES: Article[] = [
           "Or press Keep order to send it after all. Their order page then says you're going ahead. Tell them why by email.",
         ],
       },
-      { type: "p", text: "Once you press Mark as in progress or send anything, Cancel order is gone from their page. To stop buyers asking at all, turn off Let buyers ask to cancel in Settings, Checkout." },
+      { type: "p", text: "Once you press Mark as in progress or send anything, Cancel order is gone from their page. To turn it off, switch off Let buyers cancel in Settings, Checkout." },
       { type: "p", text: `More about refunds: ${link("refund-a-physical-order", "Refund a physical order")}.` },
     ],
   },

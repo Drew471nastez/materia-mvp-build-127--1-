@@ -201,8 +201,8 @@ export function CheckoutPanel() {
       {physical ? (
         <Card title={tt("Cancellations")} description={tt("Orders that ship, before you send them.")}>
           <Toggle
-            label={tt("Let buyers ask to cancel")}
-            description={tt("Cancel order on the buyer's order page while the order is still Unfulfilled. You get an email and answer from the order: cancel and refund it, or keep it. Nothing is cancelled until you do.")}
+            label={tt("Let buyers cancel")}
+            description={tt("Cancel order on the buyer's order page while the order is still Unfulfilled. It is cancelled and refunded in full at once, its stock goes back on sale and you get an email. An order already sent to a print partner or an app asks you first.")}
             checked={config.buyerCancel}
             onChange={(v) => change({ buyerCancel: v })}
           />

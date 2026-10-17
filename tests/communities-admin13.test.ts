@@ -313,7 +313,8 @@ async function main() {
   const shell = code("components/community/creator/community-shell.tsx")
   check("the editor's sections: Learn and Calendar", /label: "Learn"/.test(shell) && /label: "Calendar"/.test(shell) && !/label: "Classroom"/.test(shell) && !/label: "Events"/.test(shell))
   /* Changed on purpose (round 33): New community is a five step wizard; the step's card is held to 760px beside the 340px preview, in the product editor's frame (phone bar, foot bar from 1024px). */
-  check("New community is the product editor: phone bar, two columns, foot bar from 1024px", /data-create-bar/.test(create) && /lg:hidden/.test(create) && /lg:grid-cols-\[minmax\(0,760px\)_340px\]/.test(create) && /data-create-foot/.test(create) && /sticky bottom-0/.test(create) && /barButton/.test(create) && /primaryDepth/.test(create))
+  /* Round 27 (tests/wizard27.test.ts): one column of 680px, the preview beside it gone, because it squeezed the step. */
+  check("New community is the product editor: phone bar, one column, foot bar from 1024px", /data-create-bar/.test(create) && /lg:hidden/.test(create) && /max-w-\[680px\]/.test(create) && /data-create-foot/.test(create) && /sticky bottom-0/.test(create) && /barButton/.test(create) && /primaryDepth/.test(create))
   check("and is a page layer on a phone, as New product", /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/community/new/layout.tsx")))
   const settings = code("components/community/creator/settings-section.tsx")
   const parts = code("components/community/creator/parts.tsx")

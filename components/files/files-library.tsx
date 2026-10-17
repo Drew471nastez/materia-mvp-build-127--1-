@@ -1413,7 +1413,7 @@ export function FilesLibrary({
 
       {/* Files, Select: what is ticked, and what can be done to all of it at once. */}
       {!fill && selecting ? (
-        <div className="sticky bottom-[calc(var(--app-nav-top,0px)+10px)] z-[3] md:bottom-4" data-files-bulk-bar="">
+        <div className="sticky bottom-[calc(var(--app-nav-top,0px)+10px)] z-[3] md:bottom-4" data-files-bulk-bar="" data-app-foot="up">
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]">
             <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? tt("{length} selected", { length: ticked.length }) : kind === "image" ? tt("Tap pictures to select them") : tt("Tap files to select them")}</span>
             {shown.length > 0 ? (

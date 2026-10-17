@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
@@ -47,12 +48,14 @@ export async function POST(request: Request) {
   if (!to) return physicalJson({ error: "Your account has no email address to send the test to." }, 400)
 
   const db = c.db
-  const [identity, store, { data: creator }, look, saved] = await Promise.all([
+  const [identity, store, { data: creator }, look, saved, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
     loadBrand(db, c.creatorId).catch(() => null),
     loadCustomerEmailCopy(db, c.creatorId),
+    /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
+    orderStoreUrl({ creator_id: c.creatorId }),
   ])
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
   const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy) : null
@@ -63,7 +66,7 @@ export async function POST(request: Request) {
     {
       name,
       supportEmail: store?.email || identity.replyTo || null,
-      storeUrl: store?.websiteUrl ?? null,
+      storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
       currency: (creator?.payout_currency as string | null) || "USD",
