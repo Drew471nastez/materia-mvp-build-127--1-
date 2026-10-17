@@ -51,6 +51,7 @@ import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { liveRelease, releaseFiles } from "./site-releases-server"
 import { pageRowsOf, settingsRowOf } from "./site-releases"
+import { siteIconUrl } from "./site-icon"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -444,6 +445,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
     extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(),
+    /* The favicon (Website settings, Branding and the theme's own Logos & Favicon are one value), or the logo: drawn when the theme's layout draws no icon (./site-icon.ts). */
+    icon: siteIconUrl(settings as Record<string, unknown>) || undefined,
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }

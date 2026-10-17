@@ -157,6 +157,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "200", file: "200_learn_access_types.sql", sha256: "9959b7a0fcad7ce8025c05e4d4f168319aeba2b57b48d8fcc5d1823b35e0a38b" },
   { part: "202", file: "202_community_deletion_and_setup.sql", sha256: "b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92" },
   { part: "210", file: "210_site_web_performance.sql", sha256: "f981e728234406931585b37160e9c360fe35fd44e918140472ffa942a2346c19" },
+  { part: "211", file: "211_product_translation_settings.sql", sha256: "384b00c81f3d1424e58ce15ff1db64b16d7a66901f1e3cf64914092fad7d640a" },
   { part: "212", file: "212_checkout_text_overrides.sql", sha256: "ba6d49d827ec612e877a4c9caa5b2ed2d486f62a6c4d7120f39146c9eba81b50" },
   { part: "213", file: "213_translation_rules.sql", sha256: "99085c8146d594da4765cc420c5a3e2ef6530aa28d97b40ba305aef322700e9e" },
   { part: "214", file: "214_inventory_and_files.sql", sha256: "c6a6d2e5ac71572cd294f4ae99f5947f1f13a99b507bd2fd6f6a47d6dcd1888c" },

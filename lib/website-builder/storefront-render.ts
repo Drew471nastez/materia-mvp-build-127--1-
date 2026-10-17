@@ -7,6 +7,12 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
+import { eagerMedia, heroMedia } from "./media-pass"
+
+/** How many sections at the top of a page are drawn with their pictures at once, as Shopify's image_tag does for a theme's first sections. */
+export const TOP_SECTIONS = 3
+/** The header and the bars above it: drawn at once, never the page's main picture. */
+const CHROME_TYPE = /header|announcement|topbar|top_bar|nav|menu|marquee|ticker/i
 
 /**
  * ===========================================================================
@@ -173,11 +179,30 @@ export function renderWithSources(
   }
   /* A coded header or footer reads the logo uploaded in the built-in header's panel when Branding has none (./chrome-logo.ts). */
   const drawnTheme = themeWithHeaderLogo(theme, headerLogoOf(sections))
+  /*
+    THE TOP OF THE PAGE IS NOT LAZY (./media-pass.ts eagerMedia, heroMedia).
+    The first TOP_SECTIONS sections a visitor sees are drawn at once, and the
+    first picture of the first one that is not the header's is the page's
+    largest paint: asked for with fetchpriority="high".
+  */
+  let shown = 0
+  let heroDone = false
   for (const section of sections) {
+    const visible = !section.hidden
+    const top = visible && shown < TOP_SECTIONS
+    if (visible) shown++
     if (!isStorelibSection(section.type, sources)) continue
     const out = renderStorelibSection(section, drawnTheme, page, sources, products, data, globals)
     if (out.ok) {
-      prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
+      let html = out.html
+      if (top) {
+        const hero = !heroDone && !CHROME_TYPE.test(section.type) ? heroMedia(html) : null
+        if (hero !== null) {
+          html = hero
+          heroDone = true
+        } else html = eagerMedia(html)
+      }
+      prerendered[section.id] = { html, css: out.css, script: out.script, capabilities: out.capabilities }
     }
   }
   return prerendered

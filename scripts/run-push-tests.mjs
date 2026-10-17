@@ -573,6 +573,8 @@ const SUITES = [
   "tests/memberships-folded.test.ts",
   "tests/site-chrome.test.ts",
   "tests/section-groups.test.ts",
+  /* V5: the section menus, copy and paste, Edit code, the Apps category (scripts/check-section-menus.mjs measures them) */
+  "tests/section-actions-v.test.ts",
   "tests/communities-foundation.test.ts",
   "tests/user-notifications.test.ts",
   "tests/push-bridge.test.ts",
@@ -695,10 +697,14 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
+  "tests/live-speed-v.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* V round, the builder's AI: the theme brief cached per version, invented schema keys and unread settings refused, phone layouts checked without a browser, honest repair, follow ups scoped, one Undo step a run, calls and tokens on a budget */
   "tests/ai-quality-v.test.ts",
+  /* Round V8: the website's words in each language, edited in the builder's sidebar in that language, a product's own Translations, one read per language (SQL part 211; scripts/check-translation-switch.mjs measures the sidebar) */
+  "tests/translations-v.test.ts",
 ]
 
 /**

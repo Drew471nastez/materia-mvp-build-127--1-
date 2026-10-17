@@ -40,6 +40,7 @@ import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { SWITCH_GROUP, SwapPanels, SwitchRow } from "./editor-controls"
+import { ProductTranslationsCard } from "./product-translations-card"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
@@ -3593,6 +3594,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   </div>
                 </div>
               </div>
+
+              {/* A saved product on a website in more than one language: its words in each (product-translations-card.tsx). Drawn only when there is another language. */}
+              {editProductId ? <ProductTranslationsCard productId={editProductId} cardClass={CARD} titleClass={CARD_TITLE} /> : null}
           </div>
         </div>
       </div>

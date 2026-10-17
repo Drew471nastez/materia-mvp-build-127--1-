@@ -79,6 +79,10 @@ const componentFile = new Map<string, string>()
 for (const m of registry.matchAll(/import\s+\{\s*(\w+)\s*\}\s+from\s+"\.\/renderers\/(\w+)"/g)) {
   componentFile.set(m[1], m[2])
 }
+/* And the ones fetched when a page draws one (round V1: sections/lazy-section.tsx), named the same way. */
+for (const m of registry.matchAll(/const\s+(\w+)\s*=\s*lazySection\(\(\)\s*=>\s*import\("\.\/renderers\/(\w+)"\)/g)) {
+  componentFile.set(m[1], m[2])
+}
 /**
  * A section that lives in a `.storelib` file has no renderer file: its
  * source is `themes/default/sections/<type>.storelib`, and the audit reads
@@ -164,10 +168,20 @@ for (const type of types) {
   /* A renderer split into files of its own (ProductSection and its
      ./product/ blocks and media) is read with them: a setting read in one of
      them is read by the section. */
-  const parts = [...own.matchAll(/from "\.\/([\w/-]+)"/g)]
-    .map((m) => join(RENDERERS, `${m[1]}.tsx`))
-    .filter((p) => existsSync(p))
-    .map((p) => readFileSync(p, "utf8"))
+  /* Followed down: a part's own ./ imports (product-blocks -> offers-block) are the section's too. */
+  const parts: string[] = []
+  const seenParts = new Set<string>()
+  const walkParts = (text: string, dir: string) => {
+    for (const m of text.matchAll(/from "\.\/([\w/-]+)"/g)) {
+      const p = join(dir, `${m[1]}.tsx`)
+      if (seenParts.has(p) || !existsSync(p)) continue
+      seenParts.add(p)
+      const body = readFileSync(p, "utf8")
+      parts.push(body)
+      walkParts(body, join(p, ".."))
+    }
+  }
+  walkParts(own, RENDERERS)
   sources.set(type, stripComments([own, ...parts].join("\n")))
 }
 

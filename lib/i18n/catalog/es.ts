@@ -2304,6 +2304,7 @@ const words: Record<string, string> = {
  "Up to {room} more pictures or videos.": "Hasta {room} imágenes o videos más.",
  "{name} posted": "{name} publicó",
  "{name} joined": "{name} se unió",
+ "{name} is off": "{name} está desactivado",
  "{p}% of members": "{p}% de los miembros",
  "Write a post": "Escribir una publicación",
  "Invite people": "Invitar personas",
@@ -7605,7 +7606,6 @@ const words: Record<string, string> = {
  "New offer": "Nueva oferta",
  "Upsell": "Venta adicional",
  "Products in the bundle": "Productos del paquete",
- "{n} of {max}": "{n} de {max}",
  "Show it when the cart has": "Mostrarlo cuando el carrito tenga",
  "Anything": "Cualquier cosa",
  "Certain products": "Ciertos productos",
@@ -7621,7 +7621,7 @@ const words: Record<string, string> = {
  "Discounted items per order": "Artículos con descuento por pedido",
  "Discount codes can be used too": "También se pueden usar códigos de descuento",
  "With a code, the buyer gets whichever saves more.": "Con un código, el comprador recibe lo que más ahorre.",
- "Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.": "Las fechas, los lugares, los límites, las colecciones, el envío gratis y la regla de códigos necesitan la parte SQL 213 antes de poder guardarse.",
+ "Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.": "Las fechas, los lugares, los límites, las colecciones, el envío gratis y la regla de códigos necesitan la parte SQL 230 antes de poder guardarse.",
  "Delete offer": "Eliminar oferta",
  "Pay what you want, from {amount}": "Paga lo que quieras, desde {amount}",
  "Cart": "Carrito",
@@ -9483,7 +9483,6 @@ const words: Record<string, string> = {
  "A visit is counted when the visitor leaves the page.": "Una visita se cuenta cuando el visitante sale de la página.",
  "All devices": "Todos los dispositivos",
  "All three Core Web Vitals are Good.": "Las tres Core Web Vitals son buenas.",
- "Cart": "Carrito",
  "Core Web Vitals": "Core Web Vitals",
  "Could not load visitor speed. Try again.": "No se pudo cargar la velocidad para los visitantes. Inténtalo de nuevo.",
  "Cumulative Layout Shift": "Cumulative Layout Shift",
@@ -9571,7 +9570,15 @@ const words: Record<string, string> = {
  "{metric} on desktop is {value}": "{metric} en ordenador es {value}",
  "{metric} on mobile is {value}": "{metric} en móvil es {value}",
  "{metric} on {pages} on desktop is {value}": "{metric} en {pages} en ordenador es {value}",
- "{metric} on {pages} on mobile is {value}": "{metric} en {pages} en móvil es {value}"
+ "{metric} on {pages} on mobile is {value}": "{metric} en {pages} en móvil es {value}",
+ "Could not save. Try again.": "No se pudo guardar. Inténtalo de nuevo.",
+ "Could not save. Check the connection.": "No se pudo guardar. Revisa la conexión.",
+ "Everything here is already translated.": "Todo esto ya está traducido.",
+ "Translations": "Traducciones",
+ "Always show in {language}": "Mostrar siempre en {language}",
+ "{language} changed after this was translated.": "{language} cambió después de traducir esto.",
+ "Outdated": "Desactualizada",
+ "Translate automatically": "Traducir automáticamente"
 }
 
 export default words

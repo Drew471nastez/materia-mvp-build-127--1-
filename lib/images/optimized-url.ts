@@ -77,6 +77,14 @@ export const NEXT_IMAGE_WIDTHS = [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 
 export const PORTRAIT_QUALITY = 88
 
 /**
+ * A published website's pictures: its sections' and an imported theme's. The
+ * creator's own photographs, re-encoded at the width the screen needs, at a
+ * quality where AVIF and WebP are not visibly softer than the upload. Listed
+ * in `images.qualities` in next.config.mjs like the one above.
+ */
+export const SITE_PICTURE_QUALITY = 90
+
+/**
  * @param displayWidth CSS pixels the image occupies on screen — not the size
  *   of the source file. The ×2 for retina is applied here so callers do not
  *   have to remember it.

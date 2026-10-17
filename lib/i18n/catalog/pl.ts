@@ -2304,6 +2304,7 @@ const words: Record<string, string> = {
  "Up to {room} more pictures or videos.": "Jeszcze do {room} zdjęć lub filmów.",
  "{name} posted": "{name} dodał(a) post",
  "{name} joined": "{name} dołączył(a)",
+ "{name} is off": "{name} jest wyłączony",
  "{p}% of members": "{p}% członków",
  "Write a post": "Napisz post",
  "Invite people": "Zaproś osoby",
@@ -7605,7 +7606,6 @@ const words: Record<string, string> = {
  "New offer": "Nowa oferta",
  "Upsell": "Upselling",
  "Products in the bundle": "Produkty w pakiecie",
- "{n} of {max}": "{n} z {max}",
  "Show it when the cart has": "Pokaż, gdy w koszyku jest",
  "Anything": "Cokolwiek",
  "Certain products": "Wybrane produkty",
@@ -7621,7 +7621,7 @@ const words: Record<string, string> = {
  "Discounted items per order": "Produkty ze zniżką na zamówienie",
  "Discount codes can be used too": "Można też użyć kodów rabatowych",
  "With a code, the buyer gets whichever saves more.": "Z kodem kupujący dostaje to, co daje większą oszczędność.",
- "Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.": "Daty, miejsca, limity, kolekcje, darmowa wysyłka i zasada kodów wymagają części SQL 213, zanim będzie można je zapisać.",
+ "Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.": "Daty, miejsca, limity, kolekcje, darmowa wysyłka i zasada kodów wymagają części SQL 230, zanim będzie można je zapisać.",
  "Delete offer": "Usuń ofertę",
  "Pay what you want, from {amount}": "Zapłać, ile chcesz, od {amount}",
  "Cart": "Koszyk",
@@ -9483,7 +9483,6 @@ const words: Record<string, string> = {
  "A visit is counted when the visitor leaves the page.": "Wizyta jest liczona, gdy odwiedzający opuszcza stronę.",
  "All devices": "Wszystkie urządzenia",
  "All three Core Web Vitals are Good.": "Wszystkie trzy Core Web Vitals są dobre.",
- "Cart": "Koszyk",
  "Core Web Vitals": "Core Web Vitals",
  "Could not load visitor speed. Try again.": "Nie udało się wczytać szybkości dla odwiedzających. Spróbuj ponownie.",
  "Cumulative Layout Shift": "Cumulative Layout Shift",
@@ -9571,7 +9570,15 @@ const words: Record<string, string> = {
  "{metric} on desktop is {value}": "{metric} na komputerach wynosi {value}",
  "{metric} on mobile is {value}": "{metric} na telefonach wynosi {value}",
  "{metric} on {pages} on desktop is {value}": "{metric} na {pages} na komputerach wynosi {value}",
- "{metric} on {pages} on mobile is {value}": "{metric} na {pages} na telefonach wynosi {value}"
+ "{metric} on {pages} on mobile is {value}": "{metric} na {pages} na telefonach wynosi {value}",
+ "Could not save. Try again.": "Nie udało się zapisać. Spróbuj ponownie.",
+ "Could not save. Check the connection.": "Nie udało się zapisać. Sprawdź połączenie.",
+ "Everything here is already translated.": "Wszystko tutaj jest już przetłumaczone.",
+ "Translations": "Tłumaczenia",
+ "Always show in {language}": "Zawsze pokazuj w języku: {language}",
+ "{language} changed after this was translated.": "{language} zmienił się po przetłumaczeniu tego tekstu.",
+ "Outdated": "Nieaktualne",
+ "Translate automatically": "Przetłumacz automatycznie"
 }
 
 export default words

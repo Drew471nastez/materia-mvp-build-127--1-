@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, use
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
 import { BuilderLoader } from "@/components/website-builder/builder-loader"
 import { navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { backToEditorHref } from "@/lib/website-builder/code-return"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Save, Loader2, File, Folder, FolderOpen, ChevronRight, X, AlertCircle, Check, RotateCcw, Code2, RefreshCw, Search, Copy, Download, Sun, Moon, FilePlus, Pencil, Files, Trash2, History, MoreHorizontal,
@@ -369,7 +370,14 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    */
   const fromEditor =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("back") === "editor"
-  const backHref = fromEditor ? `/website-builder/editor/${installId}` : "/app/website-builder"
+  /**
+   * And back onto the section the code was opened from, on its page: the
+   * builder's section menus send `section` and `previewPath` along, and the
+   * builder opens that section again when it has loaded (backToEditorHref).
+   */
+  const backHref = fromEditor
+    ? backToEditorHref(installId, typeof window !== "undefined" ? window.location.search : "")
+    : "/app/website-builder"
   /** Set the instant Back is pressed, so the arrow can say the page is coming. */
   const [goingBack, setGoingBack] = useState(false)
   /**
@@ -379,6 +387,9 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
    */
   const wantedPath =
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("path") : null
+  /** `?at=schema` opens it scrolled to its schema; otherwise at the top of its template. */
+  const wantedAt: "top" | "schema" =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("at") === "schema" ? "schema" : "top"
 
   /**
    * Framed inside the editor, this page's own document must not scroll and
@@ -807,6 +818,33 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
     ta.scrollTop = Math.max(0, (line - 4) * lineHeight)
   }
 
+  /**
+   * OPENED AT THE PLACE IT WAS OPENED FOR: the top of the template, or the
+   * line its schema starts on. The caret goes there too, without focusing
+   * the field on a touch screen, where a focus is a keyboard coming up over
+   * the code somebody came to read.
+   */
+  const revealWanted = useRef<{ path: string; at: "top" | "schema" } | null>(null)
+  const [revealTick, setRevealTick] = useState(0)
+  useEffect(() => {
+    const want = revealWanted.current
+    const ta = textareaRef.current
+    if (!want || !ta || loadingFile || selectedFile?.path !== want.path) return
+    revealWanted.current = null
+    const line = want.at === "schema" ? Math.max(1, fileContent.split("\n").findIndex((l) => l.includes("<schema")) + 1) : 1
+    const offset = fileContent.split("\n").slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0)
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20
+    requestAnimationFrame(() => {
+      ta.scrollTop = Math.max(0, (line - 2) * lineHeight)
+      try {
+        if (window.matchMedia("(pointer: fine)").matches) ta.focus({ preventScroll: true })
+        ta.setSelectionRange(offset, offset)
+      } catch {
+        /* a field that cannot take a selection yet is still scrolled */
+      }
+    })
+  }, [selectedFile?.path, fileContent, loadingFile, revealTick])
+
   /** New, rename, duplicate: one inline path field, not a dialog. */
   const [pendingAction, setPendingAction] = useState<{ kind: "new" | "rename" | "duplicate"; path: string } | null>(null)
   /** The starter is being written. A press that shows nothing gets pressed again. */
@@ -852,6 +890,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   useEffect(() => {
     if (!wantedPath || openedWanted.current || loadingInstall) return
     openedWanted.current = true
+    revealWanted.current = { path: wantedPath, at: wantedAt }
     void openFile({
       path: wantedPath,
       name: wantedPath.split("/").pop() ?? wantedPath,
@@ -859,10 +898,38 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       isCustomized: true,
       language: detectLanguage(wantedPath),
     })
-  }, [wantedPath, loadingInstall])
+  }, [wantedPath, wantedAt, loadingInstall])
+
+  /**
+   * ANOTHER FILE, ASKED FOR BY THE BUILDER AROUND THIS FRAME: a section's
+   * Edit code while the code pane is already loaded. Opened here, in place,
+   * rather than by loading the whole page again with a new address. Same
+   * origin only; `n` counts the asks, so one ask is opened once.
+   */
+  const openFileLatest = useRef<(node: ThemeFileNode) => Promise<void>>(async () => {})
+  const lastOpenAsk = useRef(0)
+  useEffect(() => {
+    if (!embedded) return
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return
+      const d = e.data as { type?: string; path?: unknown; at?: unknown; n?: unknown } | null
+      if (!d || d.type !== "storelib:open-file" || typeof d.path !== "string" || typeof d.n !== "number") return
+      if (d.n <= lastOpenAsk.current || d.path.includes("..") || d.path.startsWith("/") || d.path.length > 256) return
+      lastOpenAsk.current = d.n
+      revealWanted.current = { path: d.path, at: d.at === "schema" ? "schema" : "top" }
+      void openFileLatest.current({ path: d.path, name: d.path.split("/").pop() ?? d.path, type: "file", isCustomized: true, language: detectLanguage(d.path) })
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [embedded])
 
   const openFile = async (node: ThemeFileNode) => {
     if (node.type !== "file") return
+    /* Already open: only the place in it changes (the reveal below). */
+    if (selectedFile?.path === node.path && !loadingFile) {
+      setRevealTick((n) => n + 1)
+      return
+    }
 
     /**
      * UNSAVED WORK IS KEPT, NOT THROWN AWAY OR ASKED ABOUT.
@@ -926,6 +993,8 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       return [...prev, node]
     })
   }
+
+  openFileLatest.current = openFile
 
   /**
    * The tree, filtered.

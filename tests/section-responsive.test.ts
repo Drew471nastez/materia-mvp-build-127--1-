@@ -2147,12 +2147,13 @@ check(
   "a row shows Hide, Delete and three dots under the pointer, and the dots open the same menu a right-click does",
   !/title="Remove"/.test(sectionsList) &&
     /aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
-    /<DropdownMenuTrigger asChild>\s*<button\s*type="button"\s*aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
-    /<DropdownMenu open=\{menuOpen\} onOpenChange=\{setMenuOpen\} modal=\{false\}>/.test(sectionsList) &&
-    /onContextMenu=\{\(e\) => \{\s*\n\s*e\.preventDefault\(\)\s*\n\s*setMenuOpen\(true\)/.test(sectionsList) &&
-    /Duplicate\s*<\/DropdownMenuItem>/.test(sectionsList) &&
-    /Move up\s*<\/DropdownMenuItem>/.test(sectionsList) &&
-    /Delete\s*<\/DropdownMenuItem>/.test(sectionsList) &&
+    /* V round: one menu for the list (ActionMenuAt), opened under the dots or at the pointer of a right click. */
+    /data-section-more=\{section\.id\}\s*aria-label=\{`More for \$\{displayName\}`\}/.test(sectionsList) &&
+    /<ActionMenuAt at=\{menu\?\.place \?\? null\} items=\{items\}/.test(sectionsList) &&
+    /onContextMenu=\{\(e\) => \{\s*\n\s*e\.preventDefault\(\)[\s\S]{0,260}openAt\(e\.clientX, e\.clientY, e\.currentTarget\)/.test(sectionsList) &&
+    /id: "duplicate", label: "Duplicate"/.test(sectionsList) &&
+    /id: "move-up", label: "Move up"/.test(sectionsList) &&
+    /id: "delete", label: "Delete"/.test(sectionsList) &&
     /label=\{`Delete \$\{displayName\}`\}/.test(sectionsList) &&
     !/text-red-500 hover:bg-red-50/.test(sectionsList),
 )

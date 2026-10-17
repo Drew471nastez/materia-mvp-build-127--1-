@@ -103,7 +103,9 @@ function main() {
     "and hands the canvas those, not the live ones",
     /* Changed on purpose (the owner: currency in the builder like the live site): canvasThemeShown is canvasThemeSettings in the language and market previewed. */
     (/theme=\{canvasThemeSettings\}/.test(editor) || (/theme=\{canvasThemeShown\}/.test(editor) && /localizeTheme\(canvasThemeSettings/.test(editor)))
-      && (/sections=\{canvasSections\}/.test(editor) || /* Changed on purpose (round AE): drawnShown is drawnSections in the language previewed. */ ((/sections=\{drawnSections\}/.test(editor) || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*drawnSections,/.test(editor))) && /withDynamicSources\((?:searchListsTheShop\()?canvasSections\)?,/.test(editor))),
+      && (/sections=\{canvasSections\}/.test(editor) || /* Changed on purpose (round AE): drawnShown is drawnSections in the language previewed. */ ((/sections=\{drawnSections\}/.test(editor) || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*drawnSections,/.test(editor))) && /withDynamicSources\((?:searchListsTheShop\()?canvasSections\)?,/.test(editor))
+        /* Changed on purpose (round V8): the language is laid over canvasSections before the bindings are filled, as the website does. */
+        || (/sections=\{drawnShown\}/.test(editor) && /localizeSections\(\s*canvasSections,/.test(editor) && /: canvasSections,/.test(editor) && /withDynamicSources\(searchListsTheShop\(sectionsInLanguage\),/.test(editor))),
   )
   check(
     "the canvas is memoised, so an unchanged deferred value costs nothing",
