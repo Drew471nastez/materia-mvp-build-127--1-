@@ -35,7 +35,7 @@ export function SocialIcon({ network, className }: { network: SocialNetwork; cla
   return <Icon aria-hidden className={className} />
 }
 
-/** Round 26: `sm` is the info card's size, a 32px disc on a computer (still a 40px target under a thumb). */
+/** Round 26: `sm` is the info card's size, a 32px disc from 1024px, where the card is drawn (40px below, under a thumb). */
 export function SocialLinks({ links, className, size = "md" }: { links: SocialLinkView[]; className?: string; size?: "md" | "sm" }) {
   if (!links.length) return null
   const sm = size === "sm"
@@ -52,7 +52,7 @@ export function SocialLinks({ links, className, size = "md" }: { links: SocialLi
             data-community-link={l.network}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f2f4] text-[#1a1a2e] outline-none transition-colors duration-150 hover:bg-[#e6e8eb] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]",
-              sm ? "[@media(pointer:fine)]:h-8 [@media(pointer:fine)]:w-8" : "sm:h-9 sm:w-9",
+              sm ? "lg:h-8 lg:w-8" : "sm:h-9 sm:w-9",
             )}
           >
             <SocialIcon network={l.network} className={sm ? "h-4 w-4" : "h-[18px] w-[18px]"} />

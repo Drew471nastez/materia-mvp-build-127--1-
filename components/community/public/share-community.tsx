@@ -145,7 +145,7 @@ export function CommunityShareButton({ slug, name, className }: { slug: string; 
           </button>
         }
       />
-      <SheetDialog open={qrOpen} onClose={() => setQrOpen(false)} phone={phone} label={`QR code for ${name}`} className="max-w-[340px] gap-0 rounded-2xl p-6">
+      <SheetDialog open={qrOpen} onClose={() => setQrOpen(false)} phone={phone} label={`QR code for ${name}`} className="gap-0 rounded-2xl p-6 sm:max-w-[340px]">
         <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""}>
           <SheetDialogTitle className="text-center text-[17px] font-semibold text-[#1a1a2e]">{name}</SheetDialogTitle>
           <p className="mt-1 truncate text-center text-[13px] text-[#6b7280]">{url.replace(/^https:\/\//, "")}</p>

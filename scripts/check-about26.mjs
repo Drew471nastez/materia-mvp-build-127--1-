@@ -34,6 +34,9 @@ const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${JSON.stringify(got)})`}`)
   if (!ok) broken++
 }
+/* PART=pages|desk-share|phone-share|member runs one part (a busy machine times a long run out). */
+const PART = process.env.PART || "all"
+const part = (name) => PART === "all" || PART === name
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 mkdirSync(stubs, { recursive: true })
@@ -89,7 +92,7 @@ export const notFound = () => {}
   async function open(path, vp) {
     const p = await browser.newPage()
     await p.setViewport(vp)
-    if (vp === PHONE) {
+    if (vp.isMobile && vp.width === 390 && !vp.fast) {
       const cdp = await p.createCDPSession()
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
       p.__cdp = cdp
@@ -166,7 +169,7 @@ export const notFound = () => {}
     ["tablet", TABLET],
     ["phone", PHONE],
   ]
-  for (const theme of ["light", "dark"]) {
+  for (const theme of part("pages") ? ["light", "dark"] : []) {
     for (const which of CASES) {
       for (const [name, vp] of VIEWS) {
         const tag = `${name} ${theme} ${which}`
@@ -230,7 +233,7 @@ export const notFound = () => {}
   }
 
   /* ── The summary clamps and expands; Share copies and says so ─────────── */
-  {
+  if (part("desk-share")) {
     console.log("\ninteractions, 1440")
     const { p } = await open("/community/clay-studio/about?case=paid", DESK)
     await p.evaluate(() => {
@@ -279,8 +282,28 @@ export const notFound = () => {}
     await p.close()
   }
 
+  /* ── On a phone: Share on the page's cover opens the shared bottom sheet ─ */
+  if (part("phone-share")) {
+    console.log("\ninteractions, 390")
+    const { p } = await open("/community/clay-studio/about?case=paid", { ...PHONE, fast: true })
+    const btn = await p.$("[data-share-on=gallery] button")
+    const box = btn ? await btn.boundingBox() : null
+    expect(!!box && box.width >= 40 && box.height >= 40, "the Share button is a 40px target on a phone", box && { w: Math.round(box.width), h: Math.round(box.height) })
+    if (btn) {
+      await btn.tap()
+      await sleep(700)
+      const sheet = await p.evaluate(() => {
+        const t = document.body.innerText
+        return { copy: /Copy link/.test(t), qr: /QR code/.test(t) }
+      })
+      expect(sheet.copy && sheet.qr, "a tap opens the sheet with Copy link and QR code", sheet)
+      await p.screenshot({ path: join(shots, "share-phone-sheet.png") })
+    }
+    await p.close()
+  }
+
   /* ── The member's card ─────────────────────────────────────────────────── */
-  for (const theme of ["light", "dark"]) {
+  for (const theme of part("member") ? ["light", "dark"] : []) {
     for (const which of ["paid", "invite"]) {
       const tag = `member card ${theme} ${which}`
       console.log(`\n${tag}`)
