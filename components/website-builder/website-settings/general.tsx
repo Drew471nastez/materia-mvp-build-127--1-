@@ -5,10 +5,7 @@ import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { siteLanguage } from "@/lib/website-builder/site-language"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
-import { siteTabTitle } from "@/lib/website-builder/tab-title"
-import { siteIconUrl } from "@/lib/website-builder/site-icon"
-import { storeNameFor } from "./seo"
-import { AddressValue, Badge, BrowserTabPreview, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
+import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
 import { activeLocale, tt } from "@/lib/i18n/text"
@@ -51,8 +48,6 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   /* The site's favicon, or an imported theme's own when the site has none yet (lib/website-builder/favicon-sync.ts). */
   const favicon = faviconOf(ctx.settings as Record<string, unknown>) || undefined
   const language = siteLanguage(ctx.settings) ?? ""
-  /* The home page's tab, as the live site writes it (lib/website-builder/tab-title.ts). */
-  const homeTitle = siteTabTitle({ page: { kind: "home" }, storeName: storeNameFor(ctx), siteTitle: typeof ctx.settings.seo_title === "string" ? ctx.settings.seo_title : "" })
 
   return (
     <>
@@ -96,7 +91,14 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
 
       <Card footer={GOES_LIVE}>
         <Row label={tt("Favicon")} hint={tt("The small icon in a browser tab. A square picture, 64 × 64 or larger.")} stack>
-          {/* A small tile, its actions, and the tab it ends up in, on one row (image-picker.tsx, layout "icon"). */}
+          {/*
+            A small tile and its actions: upload, drop, replace, remove
+            (image-picker.tsx, layout "icon"). No browser tab drawn beside it
+            (the owner: the tile already shows the icon). The one value the
+            builder's Branding panel and an imported theme's own settings
+            write too (lib/website-builder/favicon-sync.ts), through the same
+            writer, so a change in either shows here at once.
+          */}
           <div className="dark">
             <WbImagePicker
               value={favicon}
@@ -105,7 +107,6 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               layout="icon"
               folder="logos"
               library={false}
-              aside={<BrowserTabPreview icon={favicon || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={homeTitle} />}
             />
           </div>
         </Row>

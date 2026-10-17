@@ -5,7 +5,7 @@ import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
-import { SITE_PREFETCH_RULES } from "@/lib/website-builder/prefetch-rules"
+import { SiteLinks } from "@/components/website-builder/site-links"
 import { NAVIGATION_HEAD_SCRIPT, VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
 
 /**
@@ -44,13 +44,17 @@ export const metadata: Metadata = {
  * So: no dynamic reads, nothing wrapped, and the pages below decide their own
  * caching. The product routes stay dynamic, because a cart is per visitor.
  */
-/* The next page fetched while the visitor rests on its link (lib/website-builder/prefetch-rules.ts). */
-const SPECULATION = JSON.stringify(SITE_PREFETCH_RULES)
-
+/*
+  NO SPECULATION RULES HERE ANY MORE. They fetched the next page's whole
+  document while the pointer rested on its link (lib/website-builder/
+  prefetch-rules.ts, still used by imported themes' sites). A Storelib
+  theme's link to another of its pages now opens in place through Next's
+  router and is fetched ahead by it (SiteLinks below), so the document the
+  rules fetched would never have been used.
+*/
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION }} />
       {/* The page being left stays until the next is drawn, then they cross-fade (lib/website-builder/live-navigation.ts). Before the page, so the next one has it when it is drawn. */}
       <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
       {/* No transition in an app's web view or on a slow phone, where it froze the page between two; a press ends one (live-navigation.ts). */}
@@ -68,6 +72,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <SiteDocument />
       {/* A link marked "Open in a new tab" in the builder opens in one (lib/website-builder/new-tab). */}
       <NewTabLinks />
+      {/* A link to another page of the website opens in place and is fetched ahead (lib/website-builder/site-navigation.ts). */}
+      <SiteLinks />
     </>
   )
 }

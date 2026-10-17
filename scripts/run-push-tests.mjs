@@ -672,6 +672,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
+  "tests/live-speed-v.test.ts",
 ]
 
 /**

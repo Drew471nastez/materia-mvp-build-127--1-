@@ -79,6 +79,10 @@ const componentFile = new Map<string, string>()
 for (const m of registry.matchAll(/import\s+\{\s*(\w+)\s*\}\s+from\s+"\.\/renderers\/(\w+)"/g)) {
   componentFile.set(m[1], m[2])
 }
+/* And the ones fetched when a page draws one (round V1: sections/lazy-section.tsx), named the same way. */
+for (const m of registry.matchAll(/const\s+(\w+)\s*=\s*lazySection\(\(\)\s*=>\s*import\("\.\/renderers\/(\w+)"\)/g)) {
+  componentFile.set(m[1], m[2])
+}
 /**
  * A section that lives in a `.storelib` file has no renderer file: its
  * source is `themes/default/sections/<type>.storelib`, and the audit reads

@@ -791,6 +791,23 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
  * they saved. A publish or a take down clears every page instead
  * (revalidatePublishedSite).
  */
+/**
+ * A creator saved something the website's pages show of the shop: a
+ * product's name, price or picture, which channel it is on. Clearing the
+ * shop's data (creatorShopTag, which the caller does) is not enough on its
+ * own: the front page's Featured products and every product grid were drawn
+ * from the old data and are held for their minute as rendered pages. So
+ * every rendered page of the site goes too, and the creator who saves and
+ * opens their website sees the new price, not the old one for up to a
+ * minute. Only for a save a person made; the database's own pings (stock
+ * after an order) keep to the tag, so a busy shop is not drawn again on
+ * every sale.
+ */
+export async function revalidatePublishedPages(creatorId: string): Promise<void> {
+  if (!creatorId) return
+  for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
+}
+
 export async function revalidatePublishedProduct(creatorId: string, slug: string): Promise<void> {
   if (!creatorId || !slug) return
   for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}/products/${slug}`)

@@ -51,6 +51,7 @@ import {
 import { legacySchemeValues, schemeTokenName, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
 import { shopObject } from "./globals"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { BREAKPOINTS, MAX_BLOCK_DEPTH, isAssetRef, type BlockInstanceData, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition, type StorefrontCollection, type StorefrontCommunity, type ThemeBlockSchema } from "./types"
 
 export interface ResolveOptions {
@@ -693,7 +694,8 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
       /* What a header prints when there is no picture: the store's name. */
       text: str("brand_name"),
     },
-    favicon: safeMediaUrl(str("favicon_url")),
+    /* The one favicon (Website settings, Branding and an imported theme's own are one value): lib/website-builder/favicon-sync.ts. */
+    favicon: safeMediaUrl(faviconOf(settings)),
     buttons: {
       style: str("button_style", "filled"),
       shape: str("button_shape", "rounded"),

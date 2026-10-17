@@ -29,13 +29,13 @@
  * Pure string work, browser safe: the canvas renders sections in the browser.
  */
 
-import { isOptimizableImage, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { isOptimizableImage, optimizedSrcSet, SITE_PICTURE_QUALITY } from "@/lib/images/optimized-url"
 
 /** The widths a picture is offered at: a phone's card up to a wide screen at twice the density. */
 export const MEDIA_WIDTHS = [384, 640, 828, 1080, 1200, 1920, 2048]
 
-/** The quality every section picture is served at: the optimizer's everyday one. */
-const QUALITY = 75
+/** The quality every section picture is served at: a published website's, never visibly softer than the upload (lib/images/optimized-url.ts). */
+const QUALITY = SITE_PICTURE_QUALITY
 
 const TAG = /<(img|video|iframe)\b([^>]*?)(\/?)>/gi
 
@@ -97,5 +97,51 @@ export function optimizeSectionMedia(html: string): string {
     if (!add.length) return whole
     attrs = `${attrs.replace(/\s+$/, "")} ${add.join(" ")}`
     return `<${tagName}${attrs.startsWith(" ") ? "" : " "}${attrs}${selfClose}>`
+  })
+}
+
+/**
+ * ===========================================================================
+ *  THE FIRST PICTURE OF A PAGE IS ASKED FOR FIRST
+ * ===========================================================================
+ * The pass above makes every picture lazy, which is right four screens down
+ * and wrong at the top: the hero's photograph is the largest thing a visitor
+ * sees first (the page's LCP), and a lazy one is not even asked for until
+ * the layout is done. The live page knows which sections come first
+ * (renderWithSources), so it hands them here:
+ *
+ *   eagerMedia(html)       the sections at the top of the page: drawn at once,
+ *                          not lazily (what the pass added; an author's own
+ *                          loading="lazy" too, since it is on screen)
+ *   heroMedia(html)        the first picture of the first section with one:
+ *                          eager and fetchpriority="high", as Shopify's
+ *                          image_tag does for a theme's first sections
+ *
+ * Nothing else about the tag changes: its srcset, sizes and quality stay.
+ */
+const IMG = /<img\b([^>]*?)(\/?)>/gi
+
+function eagerTag(tag: string, attrs: string, selfClose: string, high: boolean): string {
+  let next = attrs.replace(/(^|\s)loading\s*=\s*("lazy"|'lazy'|lazy)(?=\s|$)/i, "$1loading=\"eager\"")
+  if (!has(next, "loading")) next = `${next.replace(/\s+$/, "")} loading="eager"`
+  if (high && !has(next, "fetchpriority")) next = `${next.replace(/\s+$/, "")} fetchpriority="high"`
+  if (next === attrs) return tag
+  return `<img${next.startsWith(" ") ? "" : " "}${next}${selfClose}>`
+}
+
+/** Every picture in a section at the top of the page, drawn at once. */
+export function eagerMedia(html: string): string {
+  if (!html || !/<img\b/i.test(html)) return html
+  return html.replace(IMG, (whole, attrs: string, selfClose: string) => eagerTag(whole, attrs, selfClose, false))
+}
+
+/** The first picture in this markup, eager and asked for before the rest; null when it has none. */
+export function heroMedia(html: string): string | null {
+  if (!html || !/<img\b/i.test(html)) return null
+  let done = false
+  return html.replace(IMG, (whole, attrs: string, selfClose: string) => {
+    if (done) return eagerTag(whole, attrs, selfClose, false)
+    done = true
+    return eagerTag(whole, attrs, selfClose, true)
   })
 }

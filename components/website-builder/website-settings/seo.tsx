@@ -5,7 +5,6 @@ import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { BrowserTabPreview, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
 import { siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
 import { siteIconUrl } from "@/lib/website-builder/site-icon"
-import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 
@@ -57,7 +56,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
           live page uses, in a search page's own dark colours. */}
       <div className="mt-5 flex flex-col gap-3 md:mt-6">
         {/* The home page's browser tab, exactly as it will read. */}
-        <BrowserTabPreview icon={faviconOf(ctx.settings as Record<string, unknown>) || siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={preview.title} />
+        <BrowserTabPreview icon={siteIconUrl(ctx.settings as Record<string, unknown>, ctx.header ? [ctx.header] : []) || undefined} title={preview.title} />
         <SearchResultPreview address={ctx.websiteUrlDisplay || "yourname.storelib.com"} title={preview.title} description={preview.description} />
       </div>
 

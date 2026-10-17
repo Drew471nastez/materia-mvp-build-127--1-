@@ -23,6 +23,7 @@ import { useDrawerHost } from "../../site-drawer-host"
 import { SearchModal } from "../../header-search-modal"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
+import { followSitePage } from "@/lib/website-builder/site-navigation"
 import { useSiteCart } from "../../site-cart"
 import { useCartMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
@@ -1202,7 +1203,7 @@ function MobileDrawerInner({
        page scrolls to it on the live site's curve (section-motion.ts). */
     const go = onEditorNavigate
       ? () => { onEditorNavigate(href, true) }
-      : () => { if (!followSectionLink(href)) window.location.assign(href) }
+      : () => { if (!followSectionLink(href) && !followSitePage(href)) window.location.assign(href) }
     window.setTimeout(go, CLOSE_MS)
   }
 
