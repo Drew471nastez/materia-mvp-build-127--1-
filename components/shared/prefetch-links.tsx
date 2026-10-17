@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { prefetchPlan } from "@/lib/nav/prefetch-policy"
+import { onCreatorSite } from "@/lib/nav/creator-site"
 
 /**
  * Route prefetch map: for each current route, prefetch these next likely routes.
@@ -32,14 +33,6 @@ const PREFETCH_MAP: Record<string, string[]> = {
  * Uses Next.js router.prefetch() which triggers RSC prefetching.
  * Deferred to requestIdleCallback to avoid blocking the main thread.
  */
-/** A creator's website: any host that is not Storelib's own, a preview or a developer's machine. */
-export function onCreatorSite(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^www\./, "")
-  const main = (process.env.NEXT_PUBLIC_SITES_HOST || "storelib.com").toLowerCase()
-  if (!h || h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")) return false
-  return true
-}
-
 export function PrefetchLinks() {
   const router = useRouter()
   const pathname = usePathname()
