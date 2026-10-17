@@ -1,6 +1,7 @@
 import type { LinkTarget, SectionLinkSource } from "@/components/website-builder/link-picker"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
+import type { PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
 
 /**
  * The pages of Website Settings, in the order they are listed. The ids are
@@ -122,4 +123,6 @@ export interface SettingsContext {
   currentSections?: SectionInstance[]
   /** A page's draft was saved from here: the builder says there is something to publish, and lists a page it did not have. */
   onPageDraftSaved?: (pageKey: string) => void
+  /** The language and currency the builder shows (and its sidebar writes), switched from General too. */
+  preview?: PreviewLocaleModel
 }

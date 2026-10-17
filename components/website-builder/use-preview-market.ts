@@ -12,8 +12,9 @@
  * written the same way.
  *
  * Read again when the builder comes back into view: a market changed in
- * Settings › Languages shows without a reload. Opens on the store's own
- * currency. Display only: nothing here is saved or charged.
+ * Settings › Languages shows without a reload. Opens on the currency last
+ * picked in this tab (sessionStorage), else the store's own. Display only:
+ * nothing here is saved or charged.
  */
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { FxRates, PriceRounding } from "@/lib/markets/money"
@@ -80,9 +81,15 @@ export function usePreviewMarket(installId: string): PreviewMarket {
     }
   }, [])
 
-  /* The editor opens on the store's own currency, as the website does for a visitor in its home country; the theme's own selector in the canvas changes it. */
+  /* The editor opens on the currency last picked in this tab for this website, else the store's own, as the website does for a visitor in its home country. */
   useEffect(() => {
-    setMarketState(null)
+    let start: string | null = null
+    try {
+      start = window.sessionStorage.getItem(`wb-preview-market:${installId}`) || null
+    } catch {
+      /* Storage off: the store's own currency. */
+    }
+    setMarketState(start)
     void read()
   }, [installId, read])
 
@@ -98,7 +105,18 @@ export function usePreviewMarket(installId: string): PreviewMarket {
     }
   }, [read])
 
-  const setMarket = useCallback((id: string | null) => setMarketState(id), [])
+  const setMarket = useCallback(
+    (id: string | null) => {
+      setMarketState(id)
+      try {
+        if (id) window.sessionStorage.setItem(`wb-preview-market:${installId}`, id)
+        else window.sessionStorage.removeItem(`wb-preview-market:${installId}`)
+      } catch {
+        /* Not remembered: the choice still holds for this page. */
+      }
+    },
+    [installId],
+  )
 
   /* What a visitor can be shown: a market someone can be in, whose prices the day's rates convert (pricingFor, as the live site's own switch offers them). */
   const options = useMemo(() => info.markets.filter((m) => m.countries.length > 0 && pricingFor(m, info.base, info.fx) !== null), [info])

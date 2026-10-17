@@ -44,6 +44,7 @@ import { isEnglish } from "@/lib/markets/translate"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
+import { GlossaryButton } from "./translation-glossary"
 import { CountryCurrency } from "./country-currency"
 import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
 import { activeLocale, tt, ttx } from "@/lib/i18n/text"
@@ -461,6 +462,8 @@ export function MarketsPanel() {
           <Plus className="h-4 w-4" />
           {tt("Add language")}
         </button>
+        {/* Words automatic translation keeps or always translates one way (./translation-glossary.tsx). */}
+        {draft.languages.length ? <GlossaryButton languages={draft.languages.map((l) => l.code)} disabled={!data.ready} /> : null}
         {/* The two switches most stores never touch, folded away (both saved as they are switched, like the rest). */}
         <details className="group mt-4 border-t border-[#f1f2f4] pt-3" data-language-options="" open={draft.visitorLanguage === true || draft.autoTranslate === true ? true : undefined}>
           <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
