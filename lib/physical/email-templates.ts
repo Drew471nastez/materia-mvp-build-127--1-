@@ -10,7 +10,9 @@
  */
 
 import { finalizeEmailHtml } from "@/lib/mail-document"
-import { emailDocument, emailKit, plainOf, type EmailKit, type EmailSender } from "@/lib/emails/layout"
+import { emailDocument, emailKit, plainOf, ITEM_PX, type EmailKit, type EmailSender } from "@/lib/emails/layout"
+import { emailImageSrc } from "@/lib/email-campaigns/sender"
+import { mediaUrl } from "@/lib/storage/media-url"
 import { itemsText, type ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
 import { emailLanguage, et } from "@/lib/emails/words"
@@ -179,6 +181,16 @@ function textLink(k: EmailKit, href: string, label: string): string {
   return k.link(label, href, { prefix: et("or") })
 }
 
+/**
+ * An item's picture for an inbox: at Storelib's own address (never the
+ * storage host), fetched through the image endpoint at the size it is drawn
+ * (lib/email-campaigns/sender emailImageSrc), never the upload itself. Null
+ * (a letter tile) for none, an SVG, or anything not https.
+ */
+function itemPicture(url: string | null | undefined): string | null {
+  return url && /^https:\/\//.test(url) ? emailImageSrc(mediaUrl(url), ITEM_PX) : null
+}
+
 /** The items: picture, name, variant and quantity, and what was paid for each when `prices`. */
 function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = true): string {
   return k.items(
@@ -186,7 +198,7 @@ function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = 
       title: l.title,
       detail: [l.variantName, et("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · "),
       amount: prices ? formatMoney(l.cents, currency) : null,
-      imageUrl: l.imageUrl && /^https:\/\//.test(l.imageUrl) ? l.imageUrl : null,
+      imageUrl: itemPicture(l.imageUrl),
     })),
   )
 }
@@ -198,12 +210,15 @@ function deliveryParts(t: EmailTotals): { fee: number; shipped: number; shipping
   return { fee, shipped, shipping: shipped - t.shippingDiscount }
 }
 
-function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = []): string {
+/** "Delivery" when the store brings it itself, "Shipping" otherwise. */
+const deliveryLabel = (local?: boolean) => (local ? et("Delivery") : et("Shipping"))
+
+function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = [], local = false): string {
   const { fee, shipped, shipping } = deliveryParts(t)
   return k.totals([
     { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
     ...(t.discount > 0 ? [{ label: et("Discount"), value: `-${formatMoney(t.discount, t.currency)}` }] : []),
-    ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: et("Shipping"), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: deliveryLabel(local), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
     ...(fee > 0 ? [{ label: et("Cash on delivery fee"), value: formatMoney(fee, t.currency) }] : []),
     ...taxRows(t),
     { label: et("Total"), value: formatMoney(t.total, t.currency), strong: true },
@@ -230,12 +245,12 @@ function taxRows(t: EmailTotals): { label: string; value: string }[] {
 }
 
 /** The money as the plain text part says it, every row the HTML has. */
-function totalsText(t: EmailTotals): string[] {
+function totalsText(t: EmailTotals, local = false): string[] {
   const { fee, shipped, shipping } = deliveryParts(t)
   return [
     `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
     ...(t.discount > 0 ? [`${et("Discount")}: -${formatMoney(t.discount, t.currency)}`] : []),
-    ...(shipped > 0 || t.shippingDiscount > 0 ? [`${et("Shipping")}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
+    ...(shipped > 0 || t.shippingDiscount > 0 ? [`${deliveryLabel(local)}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
     ...(fee > 0 ? [`${et("Cash on delivery fee")}: ${formatMoney(fee, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
     `${et("Total")}: ${formatMoney(t.total, t.currency)}`,
@@ -265,7 +280,9 @@ export interface OrderEmailModel {
   hasDownloads: boolean
   /** Picked up instead of shipped: where, when it is usually ready, and what to bring. */
   pickup?: PickupPlace | null
-  /** The store, for "or visit our store": its creator page. */
+  /** Brought by the store itself (local delivery, part 154): worded as a delivery, never as shipping. */
+  local?: boolean
+  /** The store's live website, for "Visit our store" (lib/physical/store-link orderStoreUrl); never its creator page. Null leaves the button out. */
   storeUrl?: string | null
   /** How it was paid, as the receipt says it ("Visa ending 4242"). */
   paymentLabel?: string | null
@@ -323,6 +340,8 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const name = m.buyerFirstName ? esc(m.buyerFirstName) : null
   const next = m.pickup
     ? name ? et("Hi {name}, we're getting your order ready. We'll email you when it's ready to pick up.", { name }) : et("We're getting your order ready. We'll email you when it's ready to pick up.")
+    : m.address?.line1 && m.local
+      ? name ? et("Hi {name}, we're getting your order ready for delivery. We'll let you know when it's on its way.", { name }) : et("We're getting your order ready for delivery. We'll let you know when it's on its way.")
     : m.address?.line1
       ? name ? et("Hi {name}, we're getting your order ready to be shipped. We'll let you know when it's on its way.", { name }) : et("We're getting your order ready to be shipped. We'll let you know when it's on its way.")
       : name ? et("Hi {name}, your order is confirmed and everything is on your order page.", { name }) : et("Your order is confirmed and everything is on your order page.")
@@ -331,10 +350,13 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const intro = (m.copy?.introHtml ?? `${next}${m.hasDownloads ? ` ${et("Your downloads are on your order page.")}` : ""}`) + esc(cash)
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
+  /* The store brings it: where it is delivered and how, not a shipping address and method. */
+  const toLabel = m.local ? et("Delivering to") : et("Shipping address")
+  const howLabel = m.local ? et("Delivery") : et("Shipping method")
   const info: { label: string; html: string }[] = []
   if (m.pickup) info.push({ label: et("Pick up at"), html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.hours ? `<br><br>${et("Opening hours: {hours}", { hours: esc(m.pickup.hours) })}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
-  else if (m.address?.line1) info.push({ label: et("Shipping address"), html: addressLines(m.address).map(esc).join("<br>") })
-  if (!m.pickup && delivery) info.push({ label: et("Shipping method"), html: delivery })
+  else if (m.address?.line1) info.push({ label: toLabel, html: addressLines(m.address).map(esc).join("<br>") })
+  if (!m.pickup && delivery) info.push({ label: howLabel, html: delivery })
   if (m.paymentLabel) info.push({ label: et("Payment method"), html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
 
   const viewOrder = m.copy?.button ?? et("View your order")
@@ -343,7 +365,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     actions,
     sectionHeading(k, et("Order summary")),
     linesTable(k, m.lines, m.totals.currency, true),
-    totalsTable(k, m.totals, saved > 0 ? [{ label: et("You saved"), value: formatMoney(saved, m.totals.currency), tone: "good" }] : []),
+    totalsTable(k, m.totals, saved > 0 ? [{ label: et("You saved"), value: formatMoney(saved, m.totals.currency), tone: "good" }] : [], !!m.local),
     info.length ? sectionHeading(k, et("Customer information")) + infoGrid(k, info) : "",
   ].join("")
   const text = [
@@ -354,12 +376,12 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     et("Order summary"),
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
     "",
-    ...totalsText(m.totals),
+    ...totalsText(m.totals, !!m.local),
     ...(saved > 0 ? [et("You saved {amount}", { amount: formatMoney(saved, m.totals.currency) })] : []),
     ...(m.pickup
       ? ["", `${et("Pick up at")}:`, m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.hours ? [et("Opening hours: {hours}", { hours: m.pickup.hours })] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
       : m.address?.line1
-        ? ["", `${et("Shipping address")}:`, ...addressLines(m.address), ...(m.deliveryName ? ["", `${et("Shipping method")}: ${m.deliveryName}`] : [])]
+        ? ["", `${toLabel}:`, ...addressLines(m.address), ...(m.deliveryName ? ["", `${howLabel}: ${m.deliveryName}`] : [])]
         : []),
     ...(m.paymentLabel ? ["", `${et("Payment method")}: ${m.paymentLabel}`] : []),
     "",
@@ -523,7 +545,7 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
     issue ? "" : progressBar(k, at),
     m.kind === "delivered" || local ? "" : trackingBox(k, m.carrier, m.trackingNumber, m.trackingUrl),
     primary,
-    sectionHeading(k, m.kind === "delivered" ? et("In your package") : m.partial ? et("Items in this package") : issue ? et("Items in this delivery") : et("Items in this shipment")),
+    sectionHeading(k, m.kind === "delivered" ? et("In your package") : m.partial ? et("Items in this package") : issue || local ? et("Items in this delivery") : et("Items in this shipment")),
     linesTable(k, m.lines, "USD", false),
     info.length ? sectionHeading(k, et("Delivery")) + infoGrid(k, info) : "",
   ].join("")
@@ -816,9 +838,11 @@ export function supplierOrderEmail(m: {
 } {
   const k = kitFor(m.shopName, undefined)
   const subject = `New order to fulfil: ${m.orderNumber} from ${m.shopName}`
+  /* The product's picture beside each line, so the partner packs the right thing; no pictures column when none has one. */
+  const pictures = m.lines.some((l) => l.imageUrl)
   const rows = k.items(
-    m.lines.map((l) => ({ title: `${l.title}${l.variantName ? ` (${l.variantName})` : ""}`, detail: l.sku ? `SKU ${l.sku}` : null, amount: `x ${l.quantity}` })),
-    { pictures: false, below: 20 },
+    m.lines.map((l) => ({ title: `${l.title}${l.variantName ? ` (${l.variantName})` : ""}`, detail: l.sku ? `SKU ${l.sku}` : null, amount: `x ${l.quantity}`, imageUrl: itemPicture(l.imageUrl) })),
+    { pictures, below: 20 },
   )
   const body = [
     rows,

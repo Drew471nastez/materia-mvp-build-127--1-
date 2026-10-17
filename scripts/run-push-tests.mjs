@@ -53,6 +53,8 @@ const SUITES = [
   "tests/buyer24.test.ts",
   /* Round 27 (B27): the buyer's order pages: Cancel order cancels and refunds, live status, words, logo, Visit store, returns. */
   "tests/buyer27.test.ts",
+  /* Round 27 (H27): order help live on both sides, on the shop's website, Ask Storelib gated, Storelib's cases */
+  "tests/help27.test.ts",
   "tests/storelib-reviews.test.ts",
   "tests/reviews-manage.test.ts",
   "tests/review-widgets.test.ts",
@@ -689,6 +691,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Round 27 (M27): physical order emails link the live website, never the creator page (lib/physical/store-link), no unsubscribe on transactional mail, product thumbnails, the creator page language banner gone */
+  "tests/emails27.test.ts",
 ]
 
 /**

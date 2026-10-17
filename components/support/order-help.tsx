@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils"
 import { useCt } from "@/app/checkout/parts/words"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
-/* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). */
-function reasonLabel(r: CaseReason, ct: CheckoutT): string {
+/* What a message is about, in the page's language (lib/support/cases.ts CASE_REASON_LABELS, the shop's side of the same list). Also the conversation page's title (app/order-help). */
+export function reasonLabel(r: CaseReason, ct: CheckoutT): string {
   switch (r) {
     case "question": return ct("A question")
     case "change_address": return ct("Change the address")
@@ -36,6 +36,17 @@ function reasonLabel(r: CaseReason, ct: CheckoutT): string {
     case "refund": return ct("I want a refund")
     case "access": return ct("I can't open what I bought")
     case "other": return ct("Something else")
+  }
+}
+
+/** A case link as a path on this host (an address that isn't one is left as it is). */
+function samePage(link: string | null): string | null {
+  if (!link) return null
+  try {
+    const u = new URL(link, "https://x.invalid")
+    return u.pathname.startsWith("/order-help/") ? `${u.pathname}${u.search}` : link
+  } catch {
+    return link
   }
 }
 
@@ -106,7 +117,8 @@ export function OrderHelp({
     }
   }
 
-  const link = sent?.link || openCase?.link || null
+  /* The conversation on the host this page is on: /order-help is served on the store's website and on storelib.com alike, so the buyer stays where they are. */
+  const link = samePage(sent?.link || openCase?.link || null)
   const shortcut = reason === "cancel" ? cancel : reason === "return" ? returns : null
   const others = [cancel, returns].filter((x): x is HelpShortcut => !!x)
 

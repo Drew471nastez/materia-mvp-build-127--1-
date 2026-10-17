@@ -1671,7 +1671,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         })()}
 
         <SafeRegion name="footer">
-          {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} suggest={pageLanguage.suggest} /> : null}
+          {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} /> : null}
           <SellerFooter surface={storefrontFooterSurface(chrome)} />
         </SafeRegion>
       </div>
@@ -1895,7 +1895,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         }
       />
 
-      {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} suggest={pageLanguage.suggest} /> : null}
+      {pageLanguage ? <CreatorLanguage code={pageLanguage.code} defaultLanguage={pageLanguage.defaultLanguage} languages={pageLanguage.languages} /> : null}
       <SellerFooter />
     </div>
     </>

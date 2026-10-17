@@ -13,9 +13,15 @@ import "server-only"
  *                   the page, or the offer card): remembered in sl_lang
  *   sl_lang         what they chose before, on any creator page
  *   their browser   with Show visitors their own language on: the first
- *                   language the browser asks for that the store published
- *                   exactly; a near one, or their country's, is offered by
- *                   the card instead (lib/markets/visitor-language.ts)
+ *                   language the browser asks for that the store published,
+ *                   exactly or nearly ("pt-PT" reads the store's "pt-BR"),
+ *                   chosen silently (lib/markets/visitor-language.ts)
+ *
+ * NEVER A CARD HERE. The creator page has no "View this site in ...?" offer
+ * (the owner, round 27): the language is chosen as above or left as the
+ * store's own, and the language row at the foot of the page is the way to
+ * change it. The country alone (where someone happens to be) is too weak a
+ * sign to change the page without asking, so it changes nothing here.
  *
  * A crawler always gets the page in the store's own language, which is the
  * one address search engines know. Only published languages, only approved
@@ -35,8 +41,6 @@ export interface CreatorPageLanguage {
   defaultLanguage: string
   /** Every published language, the store's own first, each in its own words. */
   languages: { code: string; name: string }[]
-  /** A language to offer this visitor (the card), or null. */
-  suggest: string | null
   /** A product with its translated title and description laid over. */
   product<T extends Record<string, unknown>>(p: T): T
 }
@@ -61,22 +65,18 @@ export async function creatorPageLanguage(creatorId: string, asked: string | nul
   const [h, jar] = await Promise.all([headers(), cookies()])
   const crawler = LANGUAGE_CRAWLER.test(h.get("user-agent") ?? "")
   let code = find(asked) ?? (crawler ? null : find(jar.get("sl_lang")?.value))
-  let suggest: string | null = null
   if (!code && !crawler && !jar.get("sl_lang")?.value && (await visitorLanguageOn(creatorId))) {
-    const seen = h.get("x-vercel-ip-country")
-    const pick = visitorLanguageFor({ acceptLanguage: h.get("accept-language"), country: seen && /^[A-Za-z]{2}$/.test(seen) ? seen : null, languages: all })
-    if (pick.exact) code = pick.exact
-    else suggest = pick.closest
+    /* The browser's languages only: no country, so `closest` is a near match of one of them. */
+    const pick = visitorLanguageFor({ acceptLanguage: h.get("accept-language"), country: null, languages: all })
+    code = pick.exact ?? pick.closest
   }
   code = code ?? langs.defaultLanguage
-  if (suggest && suggest.toLowerCase() === code.toLowerCase()) suggest = null
   /* The default language's translations too, as the website draws them. */
   const localizer = await siteLocalizer(creatorId, code === langs.defaultLanguage ? null : code)
   return {
     code,
     defaultLanguage: langs.defaultLanguage,
     languages: all.map((c) => ({ code: c, name: languageName(c) })),
-    suggest,
     product: (p) => (localizer ? (localizer.product(p as never) as typeof p) : p),
   }
 }
