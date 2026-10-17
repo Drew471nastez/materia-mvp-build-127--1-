@@ -32,13 +32,21 @@
  *                  rate (visits to joins), monthly revenue (or member churn
  *                  for a community that sells nothing) and churn. Each opens
  *                  the section it belongs to, on its own figure.
- *   SECTIONS       Analytics' own tabs (ReportTabs): Growth, Traffic,
- *                  Engagement, Content and, for a community that sells
- *                  something, Revenue. One section on screen at a time,
- *                  each a chart of its figures and its lists under it, so a
- *                  phone shows one subject, not fifteen cards. The choice is
- *                  kept for the tab (sessionStorage) and an address ending
- *                  in #traffic opens Traffic.
+ *   SECTIONS       Growth, Traffic, Engagement, Content and, for a community
+ *                  that sells something, Revenue: one under the next down a
+ *                  single page, each named, each a chart of its figures with
+ *                  its lists beneath it.
+ *
+ * ROUND 35, THE OWNER: "I dont like the analytics tabs Growth Traffic
+ * Engagement Content Revenue. I want one consolidated dashboard." The row of
+ * section tabs that used to sit under the overview is gone, and with it the
+ * reason the figures at the top had to be doors: four subjects out of five
+ * were behind a press, and the row was a second tab bar under the
+ * community's own. Every section is now on the page. A figure at the top
+ * still takes the page to its section and picks that figure's line, so the
+ * overview reads as a summary of what is below rather than a menu. An
+ * address ending in #traffic starts the page at Traffic, now by scrolling to
+ * it.
  *
  * NOTHING DRAWN THAT WAS NOT COUNTED. Every number is the server's
  * (lib/communities/server/analytics-report.ts) from rows; a figure the
@@ -365,7 +373,6 @@ function TrendCard<K extends string>({
 
 export type SectionId = "growth" | "traffic" | "engagement" | "content" | "revenue"
 const SECTIONS: readonly SectionId[] = ["growth", "traffic", "engagement", "content", "revenue"]
-const SECTION_KEY = "storelib:community-analytics-section"
 
 function sectionName(id: SectionId): string {
   if (id === "growth") return tt("Growth")
@@ -375,29 +382,19 @@ function sectionName(id: SectionId): string {
   return tt("Revenue")
 }
 
-/** The section on screen: Growth until the tab or the address says otherwise; kept for the tab, never a reason for the page to break. */
-function useSection(): [SectionId, (id: SectionId) => void] {
-  const [id, setId] = React.useState<SectionId>("growth")
-  React.useLayoutEffect(() => {
-    const fromHash = window.location.hash.replace(/^#/, "") as SectionId
-    let kept: string | null = null
-    try {
-      kept = window.sessionStorage.getItem(SECTION_KEY)
-    } catch {
-      /* Private window: Growth it is. */
-    }
-    const pick = SECTIONS.includes(fromHash) ? fromHash : SECTIONS.includes(kept as SectionId) ? (kept as SectionId) : null
-    if (pick) setId(pick)
-  }, [])
-  const choose = React.useCallback((next: SectionId) => {
-    setId(next)
-    try {
-      window.sessionStorage.setItem(SECTION_KEY, next)
-    } catch {
-      /* Kept for this visit only. */
-    }
-  }, [])
-  return [id, choose]
+/**
+ * AN ADDRESS ENDING IN #traffic STARTS THE PAGE AT TRAFFIC. A browser does
+ * that itself for a page it was served, but these sections are drawn in the
+ * browser, so at the moment it looks for the element the hash names there is
+ * nothing there yet. One scroll when the sections first exist, with no
+ * animation, so the page simply begins where it was asked to.
+ */
+function useHashSection(root: React.RefObject<HTMLDivElement | null>) {
+  React.useEffect(() => {
+    const id = window.location.hash.replace(/^#/, "")
+    if (!SECTIONS.includes(id as SectionId)) return
+    root.current?.querySelector(`[data-analytics-section="${id}"]`)?.scrollIntoView({ block: "start" })
+  }, [root])
 }
 
 /**
@@ -461,7 +458,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   const formatMoney = React.useCallback((cents: number) => formatCurrency((cents || 0) / 100, currency.toUpperCase(), appLocale()), [currency])
   const frame: ChartFrame = { labels, cold, legend, compareLabel, formatMoney }
 
-  const [section, setSection] = useSection()
+  useHashSection(root)
   const [growthTab, setGrowthTab] = React.useState<GrowthMetric>("members")
   const [trafficTab, setTrafficTab] = React.useState<TrafficMetric>("visits")
   const [activityTab, setActivityTab] = React.useState<ActivityMetric>("active")
@@ -478,7 +475,6 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   const net = f ? (f.joined.value ?? 0) - (f.left.value ?? 0) : 0
   const m = r?.money ?? null
   const sells = !!m || !!r?.eventMoney
-  const shownSection: SectionId = section === "revenue" && r && !sells ? "growth" : section
 
   /* ── Growth ── */
   const growthTabs: TabSpec<GrowthMetric>[] = [
@@ -530,18 +526,25 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
       ]
     : []
 
-  /* ── The overview: six figures, each the door to its section ── */
-  const open = (id: SectionId, tab?: () => void) => () => {
+  /*
+    THE OVERVIEW: six figures, each taking the page to its own section and
+    choosing the line that figure draws there. A press moves the page, it
+    does not hide the rest of it, and a reader who has asked for less motion
+    is simply put there.
+  */
+  const goTo = (id: SectionId, tab?: () => void) => () => {
     tab?.()
-    setSection(id)
+    const el = root.current?.querySelector(`[data-analytics-section="${id}"]`)
+    const still = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    el?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" })
   }
   const overview: OverviewFigure[] = [
-    { key: "members", label: tt("Members"), value: count(fig("members")), figure: fig("members"), foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }), onOpen: open("growth", () => setGrowthTab("members")) },
-    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), foot: tt("{rate} of members", { rate: pct(activeShare) }), onOpen: open("engagement", () => setActivityTab("active")) },
-    ...(counted.engagement ? [{ key: "engagement", label: tt("Engagement"), value: rateOf(fig("engagement")), figure: fig("engagement"), foot: tt("Members who took part"), onOpen: open("engagement", () => setActivityTab("engagement")) }] : []),
-    ...(counted.visits ? [{ key: "joinRate", label: tt("Join rate"), value: rateOf(fig("joinRate")), figure: fig("joinRate"), foot: tt("{n, plural, one {# visit} other {# visits}}", { n: fig("visits")?.value ?? 0 }), onOpen: open("traffic", () => setTrafficTab("joinRate")) }] : []),
-    ...(m ? [{ key: "mrr", label: tt("Monthly revenue"), value: wholeMoney(m.figures.mrr.value ?? 0, currency), figure: m.figures.mrr, foot: tt("{n, plural, one {# paying member} other {# paying members}}", { n: m.figures.subscribers.value ?? 0 }), onOpen: open("revenue", () => setMoneyTab("mrr")) }] : []),
-    { key: "churn", label: tt("Member churn"), value: rateOf(fig("churn")), figure: fig("churn"), lowerIsBetter: true, foot: m ? tt("Churn rate {rate}", { rate: pct(m.churnRate) }) : tt("{left} left", { left: n(f?.left.value ?? 0) }), onOpen: open("growth", () => setGrowthTab("churn")) },
+    { key: "members", label: tt("Members"), value: count(fig("members")), figure: fig("members"), foot: tt("Net {value}", { value: `${net > 0 ? "+" : ""}${n(net)}` }), onOpen: goTo("growth", () => setGrowthTab("members")) },
+    { key: "active", label: tt("Active members"), value: count(fig("active")), figure: fig("active"), foot: tt("{rate} of members", { rate: pct(activeShare) }), onOpen: goTo("engagement", () => setActivityTab("active")) },
+    ...(counted.engagement ? [{ key: "engagement", label: tt("Engagement"), value: rateOf(fig("engagement")), figure: fig("engagement"), foot: tt("Members who took part"), onOpen: goTo("engagement", () => setActivityTab("engagement")) }] : []),
+    ...(counted.visits ? [{ key: "joinRate", label: tt("Join rate"), value: rateOf(fig("joinRate")), figure: fig("joinRate"), foot: tt("{n, plural, one {# visit} other {# visits}}", { n: fig("visits")?.value ?? 0 }), onOpen: goTo("traffic", () => setTrafficTab("joinRate")) }] : []),
+    ...(m ? [{ key: "mrr", label: tt("Monthly revenue"), value: wholeMoney(m.figures.mrr.value ?? 0, currency), figure: m.figures.mrr, foot: tt("{n, plural, one {# paying member} other {# paying members}}", { n: m.figures.subscribers.value ?? 0 }), onOpen: goTo("revenue", () => setMoneyTab("mrr")) }] : []),
+    { key: "churn", label: tt("Member churn"), value: rateOf(fig("churn")), figure: fig("churn"), lowerIsBetter: true, foot: m ? tt("Churn rate {rate}", { rate: pct(m.churnRate) }) : tt("{left} left", { left: n(f?.left.value ?? 0) }), onOpen: goTo("growth", () => setGrowthTab("churn")) },
   ]
 
   /*
@@ -557,7 +560,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   return (
     <CompareContext.Provider value={compareLabel}>
       <ReportComparedContext.Provider value={drawnCompared !== null}>
-        <div ref={root} className="space-y-4" data-analytics="" data-section={shownSection} data-waiting={report.waiting ? "true" : "false"}>
+        <div ref={root} className="space-y-4" data-analytics="" data-waiting={report.waiting ? "true" : "false"}>
           <div className="flex items-center gap-3" data-analytics-controls="" onPointerDownCapture={warm} onFocusCapture={warm}>
             <DateRangePicker value={period} onChange={setPeriod} today={today} firstDay={r?.firstDay} />
           </div>
@@ -567,110 +570,86 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
             <Overview figures={overview} cold={cold} />
           </div>
 
-          <SectionTabs value={shownSection} onChange={setSection} options={sections} />
-
-          <div className={cn("space-y-4", dim)} style={dimDelay} data-analytics-trends="" data-analytics-panel={shownSection}>
-            {shownSection === "growth" ? (
-              <TrendCard name="growth" label={tt("Growth")} tabs={growthTabs} selected={growthTab} onSelect={setGrowthTab} lines={r ? r.lines : null} frame={frame} />
-            ) : null}
-            {shownSection === "traffic" ? (
-              counted.visits ? (
-                <TrendCard
-                  name="traffic"
-                  label={tt("Traffic")}
-                  tabs={trafficTabs}
-                  selected={trafficTab}
-                  onSelect={setTrafficTab}
-                  lines={r ? r.lines : null}
-                  frame={frame}
-                  note={counted.visitsByHour ? since(r?.countedSince.visits) : tt("Visits older than three days are counted by day, not by hour.")}
-                />
-              ) : (
-                <Notice tone="info">{tt("Run SQL part 184 in Supabase to count where visits come from.")}</Notice>
-              )
-            ) : null}
-            {shownSection === "engagement" ? (
-              <>
-                <TrendCard
-                  name="activity"
-                  label={tt("Engagement")}
-                  tabs={activityTabs}
-                  selected={shownActivity}
-                  onSelect={setActivityTab}
-                  lines={r ? r.lines : null}
-                  frame={frame}
-                  note={shownActivity === "active" ? (r && !r.counted.active ? tt("Active members are counted by day, not by hour.") : since(r?.countedSince.active)) : null}
-                />
-                {r ? <LiveCard live={r.live} /> : null}
-              </>
-            ) : null}
-            {shownSection === "content" ? (
-              <TrendCard name="content" label={tt("Content")} tabs={contentTabs} selected={contentTab} onSelect={setContentTab} lines={r ? r.lines : null} frame={frame} />
-            ) : null}
-            {shownSection === "revenue" ? (
-              <>
-                {m ? (
-                  <div data-revenue="">
-                    <TrendCard name="money" label={tt("Paid memberships")} tabs={moneyTabs} selected={moneyTab} onSelect={setMoneyTab} lines={m.lines} frame={frame} detail={<MoneyDetail tab={moneyTab} money={m} formatMoney={formatMoney} />} />
-                  </div>
+          {sections.map((id) => (
+            <SectionBlock key={id} id={id}>
+              <div className={cn("space-y-4", dim)} style={dimDelay} data-analytics-trends="" data-analytics-panel={id}>
+                {id === "growth" ? <TrendCard name="growth" label={tt("Growth")} tabs={growthTabs} selected={growthTab} onSelect={setGrowthTab} lines={r ? r.lines : null} frame={frame} /> : null}
+                {id === "traffic" ? (
+                  counted.visits ? (
+                    <TrendCard
+                      name="traffic"
+                      label={tt("Traffic")}
+                      tabs={trafficTabs}
+                      selected={trafficTab}
+                      onSelect={setTrafficTab}
+                      lines={r ? r.lines : null}
+                      frame={frame}
+                      note={counted.visitsByHour ? since(r?.countedSince.visits) : tt("Visits older than three days are counted by day, not by hour.")}
+                    />
+                  ) : (
+                    <Notice tone="info">{tt("Run SQL part 184 in Supabase to count where visits come from.")}</Notice>
+                  )
                 ) : null}
-                {r?.eventMoney ? <EventMoneyCard events={r.eventMoney} /> : null}
-              </>
-            ) : null}
-          </div>
+                {id === "engagement" ? (
+                  <>
+                    <TrendCard
+                      name="activity"
+                      label={tt("Engagement")}
+                      tabs={activityTabs}
+                      selected={shownActivity}
+                      onSelect={setActivityTab}
+                      lines={r ? r.lines : null}
+                      frame={frame}
+                      note={shownActivity === "active" ? (r && !r.counted.active ? tt("Active members are counted by day, not by hour.") : since(r?.countedSince.active)) : null}
+                    />
+                    {r ? <LiveCard live={r.live} /> : null}
+                  </>
+                ) : null}
+                {id === "content" ? <TrendCard name="content" label={tt("Content")} tabs={contentTabs} selected={contentTab} onSelect={setContentTab} lines={r ? r.lines : null} frame={frame} /> : null}
+                {id === "revenue" ? (
+                  <>
+                    {m ? (
+                      <div data-revenue="">
+                        <TrendCard name="money" label={tt("Paid memberships")} tabs={moneyTabs} selected={moneyTab} onSelect={setMoneyTab} lines={m.lines} frame={frame} detail={<MoneyDetail tab={moneyTab} money={m} formatMoney={formatMoney} />} />
+                      </div>
+                    ) : null}
+                    {r?.eventMoney ? <EventMoneyCard events={r.eventMoney} /> : null}
+                  </>
+                ) : null}
+              </div>
 
-          {shownSection !== "revenue" ? (
-            <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
-              <Lists r={r} slug={head.slug} section={shownSection} />
-            </div>
-          ) : null}
+              {id !== "revenue" ? (
+                <div className={cn(REPORT_GRID, dim)} style={dimDelay} data-analytics-lists="" data-analytics-cards="">
+                  <Lists r={r} slug={head.slug} section={id} />
+                </div>
+              ) : null}
 
-          {shownSection === "traffic" ? <GaLine ga={r?.ga ?? null} /> : null}
+              {id === "traffic" ? <GaLine ga={r?.ga ?? null} /> : null}
+            </SectionBlock>
+          ))}
         </div>
       </ReportComparedContext.Provider>
     </CompareContext.Provider>
   )
 }
 
-/* ── The sections' tabs ──────────────────────────────────────────────── */
+/* ── A section of the page ───────────────────────────────────────────── */
 
 /**
- * Analytics' own tabs (analytics-reports' ReportTabs: the grey track, the
- * white chosen tab with its hairline shadow), a finger's 40px tall on a
- * phone, since these choose the whole page under them; ReportTabs' own
- * height from sm. On a phone narrower than the five, the row scrolls
- * sideways inside itself and follows the tab chosen (use-tab-strip, as the
- * figure strips do), never the page.
+ * ONE SUBJECT, NAMED, with its chart and its lists under the name. The name
+ * is a word in the page, not a tab and not a card of its own: a card around
+ * a card is exactly what the sections are not. It is also the anchor the
+ * overview's figures and an address ending in #traffic scroll to, with room
+ * above it so the community's own tabs do not sit on the heading.
  */
-function SectionTabs({ value, onChange, options }: { value: SectionId; onChange: (v: SectionId) => void; options: SectionId[] }) {
-  const strip = useTabStrip<HTMLElement>(value, options)
+function SectionBlock({ id, children }: { id: SectionId; children: React.ReactNode }) {
   return (
-    <nav ref={strip} aria-label={tt("Sections")} data-analytics-sections="" data-scroll-x="" className="relative -mx-1 overflow-x-auto px-1 scrollbar-hide" style={TAB_STRIP_STYLE}>
-      <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
-        {options.map((o) => (
-          <SectionTab key={o} id={o} selected={o === value} onChange={onChange} />
-        ))}
-      </div>
-    </nav>
-  )
-}
-
-function SectionTab({ id, selected, onChange }: { id: SectionId; selected: boolean; onChange: (v: SectionId) => void }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      data-tab={id}
-      data-section-tab={id}
-      onClick={() => onChange(id)}
-      className={cn(
-        "h-10 shrink-0 cursor-pointer rounded-md px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-8 sm:text-[12.5px]",
-        selected ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-      )}
-    >
-      {sectionName(id)}
-    </button>
+    <section id={id} data-analytics-section={id} aria-labelledby={`${id}-name`} className="scroll-mt-4 space-y-4 pt-2">
+      <h3 id={`${id}-name`} className="px-1 text-[15px] font-semibold text-[#1a1a2e]">
+        {sectionName(id)}
+      </h3>
+      {children}
+    </section>
   )
 }
 

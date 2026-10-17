@@ -153,13 +153,14 @@ export const notFound = () => {}
 
       /*
         Changed on purpose (round 33): the section is an overview and five sections (Growth, Traffic, Engagement,
-        Content, Revenue), one on screen at a time, so each chart and list is measured with its own section chosen;
-        Growth's visits and join rate are Traffic's chart now, Activity is Engagement and Content, and Google
-        Analytics is one line under Traffic when connected and not mentioned when it is not
+        Content, Revenue); Growth's visits and join rate are Traffic's chart now, Activity is Engagement and
+        Content, and Google Analytics is one line under Traffic when connected and not mentioned when it is not
         (scripts/check-community-analytics-round33.mjs measures the overview and the sections themselves).
+        Changed again (round 35): all five sections are on one page, so showing one is scrolling to it rather
+        than pressing a tab, and what is measured after it is the same.
       */
       const show = async (section) => {
-        await p.evaluate((s) => document.querySelector(`[data-section-tab="${s}"]`)?.click(), section)
+        await p.evaluate((s) => document.querySelector(`[data-analytics-section="${s}"]`)?.scrollIntoView({ block: "start" }), section)
         await sleep(700)
         return look()
       }
@@ -241,7 +242,7 @@ export const notFound = () => {}
         const e = await show("engagement")
         expect(e.activity.tabs.map((t) => t.tab).join() === "active", "Engagement has active members alone: no engagement, RSVPs or lessons", e.activity.tabs.map((t) => t.tab))
         expect(!e.lists.contributors, "no contributor list without the part", Object.keys(e.lists))
-        expect(!(await p.$('[data-section-tab="revenue"]')), "nothing sold: no Revenue section")
+        expect(!(await p.$('[data-analytics-section="revenue"]')), "nothing sold: no Revenue section")
         const t = await show("traffic")
         expect(t.traffic === null && /SQL part 184/.test(t.notice ?? ""), "Traffic says how to count visits, with no empty chart", { trend: t.traffic, notice: t.notice })
         expect(t.ga === null, "Google Analytics not connected: not mentioned", t.ga)
