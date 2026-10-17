@@ -191,6 +191,9 @@ const DIRECTIVES: [string, string[]][] = [
     "https://www.loom.com",
     "https://open.spotify.com",
     "https://w.soundcloud.com",
+    /* A OnePage link block that plays where it is: Apple Music's player and TikTok's, both pinned to their host before they reach a frame (lib/onepage/embed-source.ts). */
+    "https://embed.music.apple.com",
+    "https://www.tiktok.com",
     "https://www.google.com",
     "https://maps.google.com",
     "https://www.openstreetmap.org",

@@ -23,6 +23,7 @@ import type {
   CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { normalizeSocialUrl } from "@/lib/onepage/types"
+import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource, safeFrameSrc } from "@/lib/onepage/embed-source"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
@@ -3496,10 +3497,7 @@ function PublicBlockRenderer({
   }
 
   // Apple Music URL helper
-  const isAppleMusicUrl = (url: string): boolean => {
-    if (!url) return false
-    return url.includes('music.apple.com')
-  }
+  const isAppleMusicUrl = (url: string): boolean => appleMusicEmbedUrl(url) !== null
 
   // TikTok video URL helper
   const isTikTokVideoUrl = (url: string): boolean => {
@@ -3514,18 +3512,17 @@ function PublicBlockRenderer({
     return match ? match[1] : null
   }
 
-  // Get Apple Music embed URL
-  const getAppleMusicEmbedUrl = (url: string): string | null => {
-    try {
-      if (!url.includes('music.apple.com')) return null
-      // Convert Apple Music URL to embed URL
-      // Example: https://music.apple.com/us/album/song-name/1234567890?i=1234567891
-      // To: https://embed.music.apple.com/us/album/song-name/1234567890?i=1234567891
-      return url.replace('music.apple.com', 'embed.music.apple.com')
-    } catch {
-      return null
-    }
-  }
+  /*
+    THE PLAYER'S ADDRESS, BUILT FROM THE LINK'S HOST, NOT FROM A SUBSTRING OF
+    IT (lib/onepage/embed-source.ts). This replaced the first "music.apple.com"
+    anywhere in the creator's link with "embed.music.apple.com", so a link
+    whose QUERY held that name, or a host ending in it
+    (music.apple.com.example.com), put an address of somebody else's choosing
+    into the <iframe src> below, which may open a page and may navigate this
+    one on a tap. Now the host has to be Apple's, whole, over https, and the
+    player's address is Apple's own with this link's path on it.
+  */
+  const getAppleMusicEmbedUrl = (url: string): string | null => appleMusicEmbedUrl(url)
 
   // Open Apple Music modal via context
   const openAppleMusicModal = (data: LinkButtonBlockData) => {
@@ -4123,7 +4120,8 @@ function PublicBlockRenderer({
         // TikTok embed handling
         const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
         const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
-        const tiktokEmbedUrl = data.tiktok_embed_url || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${tiktokVideoId}` : null)
+        /* The frame's address is TikTok's, by host: the stored field comes from the editor and could hold anything (lib/onepage/embed-source.ts). */
+        const tiktokEmbedUrl = embedSource(data.tiktok_embed_url, EMBED_HOSTS.tiktok)?.toString() || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${encodeURIComponent(tiktokVideoId)}` : null)
 
         // Pro layout content (shared between button and link)
         const proLayoutContent = (
@@ -5655,7 +5653,8 @@ function PublicBlockRenderer({
       const data = block.data as PDFDocumentBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const pdfUrl = data.pdf_file_url
+      /* The file this page shows in a frame and opens in a tab: this site's own path or https, never a scheme that runs (lib/onepage/embed-source.ts). */
+      const pdfUrl = safeFrameSrc(data.pdf_file_url)
 
       // Button styles for PDF block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5841,7 +5840,8 @@ function PublicBlockRenderer({
       const data = block.data as FoodMenuBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const pdfUrl = data.pdf_file_url
+      /* The file this page shows in a frame and opens in a tab: this site's own path or https, never a scheme that runs (lib/onepage/embed-source.ts). */
+      const pdfUrl = safeFrameSrc(data.pdf_file_url)
 
       // Button styles for menu block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -6027,7 +6027,14 @@ function PublicBlockRenderer({
       const data = block.data as CalendlyBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const calendlyUrl = data.calendly_url
+      /*
+        A booking page can be on Calendly's host or on a company's own, so
+        the host is the creator's business; the scheme is not. Only this
+        site's own path or https reaches the frame, because an iframe src
+        with a javascript: scheme runs in THIS page's origin
+        (lib/onepage/embed-source.ts safeFrameSrc).
+      */
+      const calendlyUrl = safeFrameSrc(data.calendly_url)
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"

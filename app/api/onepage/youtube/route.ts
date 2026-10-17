@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { EMBED_HOSTS, embedSource } from "@/lib/onepage/embed-source"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 // Helper to extract channel ID or username from YouTube URL
 function extractYouTubeChannelInfo(url: string): { type: 'channel' | 'user' | 'custom' | 'video', id: string } | null {
@@ -126,11 +128,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })
     }
 
-    const info = extractYouTubeChannelInfo(url)
+    /* A YouTube address, by host: the path alone used to be enough, so any site with a /channel/... path was accepted. */
+    const source = embedSource(url, EMBED_HOSTS.youtube)
+    const info = source ? extractYouTubeChannelInfo(source.toString()) : null
 
-    if (!info) {
+    if (!source || !info) {
       return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 })
     }
+
+    /* This route asks YouTube on the caller's behalf and needs no account, so it is counted per address. */
+    const limited = await rateLimit({
+      bucket: "onepage-embed",
+      subjects: [addressSubject(request)],
+      windows: [{ limit: 30, seconds: 60 }, { limit: 300, seconds: 3600 }],
+      message: "That is a lot of links at once. Try again in a minute.",
+    })
+    if (limited) return limited
 
     // If it's already a video, just return the video info
     if (info.type === 'video') {

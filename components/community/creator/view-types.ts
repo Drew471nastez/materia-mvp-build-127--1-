@@ -501,6 +501,8 @@ export interface ReportView {
   /** The content's own state: still up, removed, deleted, or gone. */
   targetState: "published" | "removed" | "deleted" | "missing" | "member"
   resolution: string | null
+  /** Sent on to Storelib as well (lib/communities/server/moderation.ts escalateReport). The report stays in this queue. */
+  escalated?: boolean
 }
 
 export interface AuditView {

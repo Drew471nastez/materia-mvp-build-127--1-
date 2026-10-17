@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { EMBED_HOSTS, embedSource } from "@/lib/onepage/embed-source"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
+
+/** How long the server waits on somebody else's page before giving up on the picture. */
+const SCRAPE_TIMEOUT_MS = 8000
 
 // Extract SoundCloud entity info from URL
 function extractSoundCloudInfo(url: string): { type: 'track' | 'playlist' | 'artist', username: string, trackSlug?: string } | null {
@@ -101,10 +106,12 @@ async function fetchSoundCloudMetadata(url: string): Promise<{
   // Fallback: Try to scrape the page for og:image if no thumbnail
   if (!thumbnailUrl) {
     try {
+      /* url is soundcloud.com over https: the caller's string never reaches here (lib/onepage/embed-source.ts). */
       const pageResponse = await fetch(url, {
-        headers: { 
+        headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
+        },
+        signal: AbortSignal.timeout(SCRAPE_TIMEOUT_MS)
       })
       
       if (pageResponse.ok) {
@@ -157,14 +164,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })
     }
 
-    const soundcloudInfo = extractSoundCloudInfo(url)
+    /* A SoundCloud address: the host was not checked at all before, so any address was scraped and read back. */
+    const source = embedSource(url, EMBED_HOSTS.soundcloud)
+    const soundcloudInfo = source ? extractSoundCloudInfo(source.toString()) : null
 
-    if (!soundcloudInfo) {
+    if (!source || !soundcloudInfo) {
       return NextResponse.json({ error: "Invalid SoundCloud URL" }, { status: 400 })
     }
 
+    /* This route asks another site on the caller's behalf and needs no account, so it is counted per address. */
+    const limited = await rateLimit({
+      bucket: "onepage-embed",
+      subjects: [addressSubject(request)],
+      windows: [{ limit: 30, seconds: 60 }, { limit: 300, seconds: 3600 }],
+      message: "That is a lot of links at once. Try again in a minute.",
+    })
+    if (limited) return limited
+
     // Fetch metadata
-    const { title, artistName, thumbnailUrl, type } = await fetchSoundCloudMetadata(url)
+    const { title, artistName, thumbnailUrl, type } = await fetchSoundCloudMetadata(source.toString())
 
     return NextResponse.json({
       type: type || soundcloudInfo.type,

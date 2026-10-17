@@ -28,6 +28,7 @@ import { REPORT_REASONS, isOneOf, type ReportReason, type ReportTarget, type Rol
 import { isUniqueViolation, missing, reasonOf } from "./db"
 import { chatSpace } from "./chat"
 import { cleanText, visiblePostRow, type Checked, type WriteContext } from "./feed"
+import { escalateReport } from "./moderation"
 import { notifyMember, queueReportDigest } from "./notify"
 import { hideAfterReports } from "./safety"
 
@@ -104,6 +105,20 @@ export async function createReport(w: WriteContext, input: ReportInput): Promise
     return { ok: false, error: "The report did not send. Try again.", status: missing(error) ? 503 : 500 }
   }
   await hideAfterReports(db, community, input)
+
+  /*
+    ILLEGAL IS NOT ONE COMMUNITY'S DECISION. A report whose reason is
+    "Illegal" goes to Storelib's queue as well as this one
+    (./moderation.ts escalateReport, /admin/communities), which reads what
+    kind of thing it is, why, and which community, and never the words
+    themselves. The community's own moderators still see it and still resolve
+    or dismiss it; the flag beside it only means Storelib has been told. One
+    member can send at most ten reports an hour (RATE_LIMITS.report), so
+    this cannot be used to flood that queue.
+  */
+  if (input.reason === "illegal") {
+    await escalateReport(db, { community, actorId: null, actorKind: "system", id: data.id, reason: "Reported as illegal" })
+  }
 
   try {
     const { data: staff } = await db

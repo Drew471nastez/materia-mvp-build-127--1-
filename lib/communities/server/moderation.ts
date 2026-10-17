@@ -24,7 +24,7 @@ import "server-only"
  * written to the audit log.
  */
 import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction, type RolePermissions } from "../permissions"
-import { MEMBER_COLUMNS, PAID_SOURCES, REPORT_REASONS, REPORT_STATUSES, REPORT_TARGETS, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
+import { MEMBER_COLUMNS, PAID_SOURCES, REPORT_REASONS, REPORT_STATUSES, REPORT_TARGETS, isOneOf, type AuditActorKind, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr } from "@/components/community/creator/logic"
 import type { AuditView, ReportView } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
@@ -529,6 +529,7 @@ interface ReportRowLite {
   status: ReportStatus
   resolution: string | null
   created_at: string
+  escalated?: boolean | null
 }
 
 /** Open reports and requests to join, for the tab counts. */
@@ -543,7 +544,7 @@ export async function openReportCount(db: Db, communityId: string): Promise<numb
  * read in one pass per kind of content (never one read per report).
  */
 export async function listReports(db: Db, communityId: string, opts: { status: "open" | "closed" | ReportStatus; cursor: string | null; reason?: string | null; type?: string | null }): Promise<{ rows: ReportView[]; next: string | null }> {
-  let q = db.from("community_reports").select("id, reporter_id, target_type, target_id, reason, note, status, resolution, created_at").eq("community_id", communityId)
+  let q = db.from("community_reports").select("id, reporter_id, target_type, target_id, reason, note, status, resolution, created_at, escalated").eq("community_id", communityId)
   if (opts.status === "open") q = q.in("status", ["open", "reviewing"])
   else if (opts.status === "closed") q = q.in("status", ["resolved", "dismissed"])
   else if (isOneOf(REPORT_STATUSES, opts.status)) q = q.eq("status", opts.status)
@@ -609,18 +610,50 @@ export async function listReports(db: Db, communityId: string, opts: { status: "
           : null,
         targetState: r.target_type === "member" ? "member" : c ? c.status : "missing",
         resolution: r.resolution,
+        escalated: r.escalated === true,
       }
     }),
     next: all.length > REPORTS_PAGE && last ? encodeCursor(last.created_at, last.id) : null,
   }
 }
 
-export async function updateReport(db: Db, a: { community: CommunityRow; actor: Actor; id: string; status: unknown; resolution?: unknown }): Promise<Outcome> {
+/**
+ * SENDING ONE ON TO STORELIB. A community's moderators handle their own
+ * queue; what they cannot handle is somebody using the platform (a scam run
+ * across several communities, a threat, material that has to be dealt with
+ * by Storelib and not by the owner of one community). Marking a report
+ * escalated puts it in the platform's queue at /admin/communities, which
+ * reads WHAT and WHY and never the reported words themselves
+ * (lib/communities/server/admin.ts escalatedReports, REPORT_META_COLUMNS).
+ *
+ * It is a flag beside the report, not a status: the report stays in the
+ * community's queue and its own moderators still resolve or dismiss it.
+ * Escalating gives the community's staff nothing platform wide; only
+ * Storelib acts on the platform's side, behind its own gate
+ * (lib/admin/gate.ts).
+ *
+ * Best effort: a community whose database has not got the column answers
+ * false and the report is untouched, rather than the request failing.
+ */
+export async function escalateReport(db: Db, a: { community: CommunityRow; actorId: string | null; actorKind: AuditActorKind; id: string; reason: string | null }): Promise<boolean> {
+  if (!isUuid(a.id)) return false
+  const { error } = await db.from("community_reports").update({ escalated: true }).eq("id", a.id).eq("community_id", a.community.id)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] report not escalated: ${reasonOf(error)}`)
+    return false
+  }
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: a.actorKind, action: "report.escalated", targetType: "report", targetId: a.id, targetLabel: "report", reason: a.reason })
+  return true
+}
+
+export async function updateReport(db: Db, a: { community: CommunityRow; actor: Actor; id: string; status: unknown; resolution?: unknown; escalate?: unknown }): Promise<Outcome> {
   if (!(await actorMay(db, a.community.id, a.actor, "review_reports")).ok) return no(403, "forbidden")
   if (!isUuid(a.id)) return no(404, "not_found")
   if (!isOneOf(REPORT_STATUSES, a.status)) return no(400, "Pick a status.")
   const { data: row } = await db.from("community_reports").select("id, status, target_type, target_id").eq("id", a.id).eq("community_id", a.community.id).maybeSingle()
   if (!row) return no(404, "not_found")
+  /* Sent on to Storelib in the same press, when the moderator asked for that: the report stays theirs either way. */
+  if (a.escalate === true) await escalateReport(db, { community: a.community, actorId: a.actor.userId, actorKind: "member", id: row.id, reason: typeof a.resolution === "string" ? a.resolution.slice(0, 500) : null })
   const closing = a.status === "resolved" || a.status === "dismissed"
   const resolution = typeof a.resolution === "string" ? a.resolution.trim().slice(0, 500) || null : null
   const { error } = await db
@@ -628,7 +661,10 @@ export async function updateReport(db: Db, a: { community: CommunityRow; actor: 
     .update({ status: a.status, resolution: closing ? (resolution ?? (a.status === "dismissed" ? "Dismissed" : "Resolved")) : null, resolved_by: closing ? a.actor.userId : null, resolved_at: closing ? nowIso() : null, assigned_to: a.status === "reviewing" ? a.actor.userId : undefined })
     .eq("id", row.id)
   if (error) return no(500, "That did not save. Try again.")
-  await audit(db, { communityId: a.community.id, actorId: a.actor.userId, actorKind: "member", action: `report.${a.status}`, targetType: "report", targetId: row.id, targetLabel: `${row.target_type} report`, reason: resolution, detail: { from: row.status, target: { type: row.target_type, id: row.target_id } } })
+  /* Only a change is logged: sending a report to Storelib keeps its status, and a line saying it stayed open reads as if somebody reopened it. */
+  if (a.status !== row.status) {
+    await audit(db, { communityId: a.community.id, actorId: a.actor.userId, actorKind: "member", action: `report.${a.status}`, targetType: "report", targetId: row.id, targetLabel: `${row.target_type} report`, reason: resolution, detail: { from: row.status, target: { type: row.target_type, id: row.target_id } } })
+  }
   return { ok: true }
 }
 

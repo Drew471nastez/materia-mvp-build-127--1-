@@ -27,6 +27,30 @@ export const MAX_REVIEW_CHARS = 1000
 export const MAX_REPLY_CHARS = 1000
 export const MAX_NAME_CHARS = 40
 
+/**
+ * HOW OFTEN ONE PERSON MAY WRITE ABOUT A REVIEW (lib/api/rate-limit counts
+ * them in Postgres, the same table every other limit in Storelib uses).
+ *
+ * Writing a review is already behind a purchase and one per buyer per
+ * product, and the eligibility read behind it is several queries; replying,
+ * changing, deleting and reporting are behind owning the review or the
+ * store. So these are not the thing that stops abuse. They are the ceiling
+ * that keeps a script from spending the database on those checks, and they
+ * sit far above what a person does: somebody who bought six things and
+ * reviews them all in one sitting, or a seller working through a morning's
+ * reviews, never meets one.
+ */
+export const REVIEW_LIMITS = {
+  /** Writing one, as a buyer or from a receipt link. */
+  write: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86_400 }],
+  /** Changing or deleting one's own. */
+  edit: [{ limit: 30, seconds: 600 }, { limit: 120, seconds: 86_400 }],
+  /** A seller's public answer. */
+  reply: [{ limit: 30, seconds: 600 }, { limit: 200, seconds: 86_400 }],
+  /** A seller reporting one, which hides it until Storelib looks. */
+  report: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86_400 }],
+} as const satisfies Record<string, readonly { limit: number; seconds: number }[]>
+
 /** What each number of stars means, as the form and the seller's list say it. */
 export const RATING_WORDS = ["", msg("Poor"), msg("Fair"), msg("Good"), msg("Very good"), msg("Excellent")] as const
 
