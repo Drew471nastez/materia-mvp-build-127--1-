@@ -158,6 +158,24 @@ const STEP_LOOK = () => {
   }
 }
 
+/* A frame sheet: `frames` screenshots in a row of up to four, drawn on a page of their own and taken as one picture. */
+async function sheet(browser, frames, path, width) {
+  const q = await browser.newPage()
+  const cols = Math.min(4, frames.length)
+  await q.setViewport({ width: cols * (width + 8) + 8, height: 600, deviceScaleFactor: 1 })
+  await q.setContent(`<body style="margin:0;background:#888;display:flex;flex-wrap:wrap;gap:8px;padding:8px">${frames.map((b, i) => `<figure style="margin:0;width:${width}px;font:12px sans-serif;color:#fff"><img src="data:image/png;base64,${b}" style="width:100%;display:block"><figcaption>${i}</figcaption></figure>`).join("")}</body>`)
+  await q.screenshot({ path, fullPage: true })
+  await q.close()
+}
+async function film(p, n, gap) {
+  const out = []
+  for (let i = 0; i < n; i++) {
+    out.push(await p.screenshot({ encoding: "base64" }))
+    await sleep(gap)
+  }
+  return out
+}
+
 let server
 let browser
 try {
@@ -269,9 +287,15 @@ try {
       await step("review")
       if (view === "390") {
         await press("[data-create-submit]")
-        await p.waitForSelector("[data-wizard-composer] [data-composer]", { timeout: 20000 }).catch(() => {})
-        await sleep(1200)
-        await step("welcome")
+        await p.waitForFunction(() => window.__sent.some((x) => x.url === "/api/app/community" && x.method === "POST"), { timeout: 20000 }).catch(() => {})
+        /* The welcome step arriving and the phone's sheet rising at once, filmed. */
+        await sheet(browser, await film(p, 8, 60), join(shots, "film-390-welcome.png"), 260)
+        await sleep(800)
+        await p.screenshot({ path: join(shots, "wizard-390-welcome-sheet.png") })
+        const title = await p.evaluate(() => [...document.querySelectorAll("input:not([type=file])")].find((i) => i.getClientRects().length && /Welcome/.test(i.value))?.value ?? null)
+        expect(title === "Welcome to The Morning Writers", "on a phone the composer's sheet is up at once with the welcome in it", title)
+        await p.keyboard.press("Escape").catch(() => {})
+        await sleep(600)
         const host = await p.evaluate(() => !!document.querySelector("[data-wizard-composer] [data-composer]"))
         expect(host, "on a phone too the welcome step is the feed's composer, its card in the column", host)
       }
@@ -282,6 +306,7 @@ try {
       }
       await press("[data-create-submit]")
       await p.waitForFunction(() => window.__sent.some((x) => x.url === "/api/app/community" && x.method === "POST"), { timeout: 20000 }).catch(() => {})
+      await sheet(browser, await film(p, 8, 60), join(shots, "film-1440-welcome.png"), 480)
       const sent = await p.evaluate(() => window.__sent.find((x) => /^\/api\/app\/community(\?|$)/.test(x.url) && x.method === "POST")?.body ?? window.__sent.map((x) => [x.method, x.url]))
       expect(!!sent && !Array.isArray(sent) && sent.name === "The Morning Writers" && sent.slug === null && !("welcomeTitle" in sent) && !("spaceName" in sent), "Create sends the community, no welcome fields", sent)
       await p.waitForSelector("[data-wizard-composer] [data-composer]", { timeout: 15000 }).catch(() => {})
