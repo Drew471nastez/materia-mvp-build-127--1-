@@ -52,7 +52,7 @@ import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Confirm, Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, SelectField, errorText, field, label, send, shortDate, useToast, ListLoading, usePhone } from "./parts"
 import { ROW_PRESS, RowControls, RowOpen, rowPress } from "./rows"
-import { BulkBar, ListFoot, MUTED, PHONE_LIST, PickAll, PickOne, SortPick, TABLE, TD, TH, TR, bulkButton, count, downloadCsv, useSelection } from "./ui-kit"
+import { BulkBar, LIST_BOX, ListFoot, MUTED, PickAll, PickOne, SortPick, TD, TH, TR, WIDE_LIST, WIDE_TABLE, bulkButton, count, downloadCsv, useSelection } from "./ui-kit"
 import { MemberSheet, sourceWords } from "./member-sheet"
 import { tt, ttx } from "@/lib/i18n/text"
 
@@ -288,21 +288,22 @@ export function MembersSection(p: Props) {
   )
 
   const toolbar = (
-    <div className="flex w-full min-w-0 flex-col md:flex-row md:items-center">
+    /* Round 26: one row from a 720px card (the filters take about 470px, the search keeps the rest), two below it, by the card's width (./ui-kit LIST_BOX), not the screen's. */
+    <div className="flex w-full min-w-0 flex-col @min-[720px]/list:flex-row @min-[720px]/list:items-center">
       <div className="flex min-w-0 flex-1 items-center">
         <SearchField value={q} onChange={setQ} placeholder={tt("Search members")} label={p.canEmail ? tt("Search members by name or email") : tt("Search members by name")} />
       </div>
       {/* On a phone the filters are a second row that scrolls sideways, the order pinned at its end; on a computer they follow the search. */}
-      <div className="-mx-1 flex min-w-0 items-center border-t border-[#f1f2f4] pl-1 md:mx-0 md:border-t-0 md:pl-0" data-member-filters="">
-        <span className="contents max-md:hidden">
+      <div className="-mx-1 flex min-w-0 items-center border-t border-[#f1f2f4] pl-1 @min-[720px]/list:mx-0 @min-[720px]/list:border-t-0 @min-[720px]/list:pl-0" data-member-filters="">
+        <span className="hidden @min-[720px]/list:contents">
           <ToolbarDivider />
         </span>
-        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)] md:flex-none md:overflow-visible md:[mask-image:none]">
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)] @min-[720px]/list:flex-none @min-[720px]/list:overflow-visible @min-[720px]/list:[mask-image:none]">
           <PickButton name="role" title={tt("Role")} options={roleOptions} value={role} onPick={setRole} align="end" />
           {p.tiers.length > 1 ? <PickButton name="tier" title={tt("Tier")} options={tierOptions} value={tier} onPick={setTier} align="end" /> : null}
           {!pending ? <PickButton name="joined" title={tt("Joined")} options={joinedOptions} value={joined} onPick={setJoined} align="end" /> : null}
         </div>
-        <span aria-hidden className="h-6 w-px shrink-0 bg-[#e5e7eb] md:hidden" />
+        <span aria-hidden className="h-6 w-px shrink-0 bg-[#e5e7eb] @min-[720px]/list:hidden" />
         <SortPick value={sort} options={sortOptions} onPick={(v) => setSort(v as MemberSort)} />
       </div>
     </div>
@@ -340,6 +341,7 @@ export function MembersSection(p: Props) {
 
       <ListCard
         data-members-table=""
+        className={LIST_BOX}
         busy={loading}
         head={<FilterTabs label={tt("Member status")} value={status} onChange={(s) => { sel.clear(); setSort("newest"); setStatus(s) }} tabs={statuses.map((s) => ({ value: s, label: STATUS_LABEL[s], count: counts[s] ?? 0, attention: s === "pending" }))} />}
         actions={
@@ -393,7 +395,7 @@ export function MembersSection(p: Props) {
           )
         ) : (
           <>
-            <table className={TABLE} data-cols={cols}>
+            <table className={WIDE_TABLE} data-cols={cols}>
               <thead>
                 <tr>
                   {pickable ? (
@@ -467,7 +469,7 @@ export function MembersSection(p: Props) {
               </tbody>
             </table>
 
-            <ul className={PHONE_LIST}>
+            <ul className={WIDE_LIST} data-members-list="">
               {rows.map((m) => (
                 <li key={m.userId} onClick={rowPress(() => setOpenId(m.userId))} className={cn("flex min-h-[64px] items-center gap-3 py-2.5 pl-4 pr-2", ROW_PRESS)} data-member-row="">
                   {who(m, 36)}

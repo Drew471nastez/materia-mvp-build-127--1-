@@ -28,6 +28,9 @@
  *             does; the pressed tab is brought into view, gradually
  *   OVERVIEW  at most four figures, none twice, no selector or chart; a
  *             phone stacks them as rows; free, new and busy communities
+ *   MEMBERS   the Members card shows its table only when it is wide enough
+ *             (860px), the rows below; no header runs into the next; the
+ *             search keeps its room; at 820, 1024, 1150, 1440 and 390
  *   DELETING  a community being deleted: the banner says when, and that
  *             Settings keeps it
  *   CHROME    every section at each size, light, and with the dark attribute
@@ -629,6 +632,44 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       })
       results.overview[`frame-${w}`] = { frame, real }
       expect(frame && real && frame.y === real.y && Math.abs(frame.h - real.h) <= 2, `${w}: the frame's figures card is where and how tall the Overview's is`, { frame, real })
+      await p.close()
+    }
+  }
+
+  /* ── MEMBERS: the table or the rows by the card's own width, never headers into each other ── */
+  if (want("MEMBERS")) {
+    console.log("\nMEMBERS")
+    const LAPTOP = { width: 1024, height: 768, deviceScaleFactor: 1 }
+    const MID = { width: 1150, height: 800, deviceScaleFactor: 1 }
+    for (const [w, vp] of [["820", TABLET], ["1024", LAPTOP], ["1150", MID], ["1440", DESK], ["390", PHONE]]) {
+      const { p, errors } = await open(`${BASE}/members`, vp, { cpu: 1 })
+      const r = await p.evaluate(() => {
+        const box = document.querySelector("[data-members-table]")
+        const card = box.getBoundingClientRect().width
+        const table = box.querySelector("table")
+        const list = box.querySelector("[data-members-list]")
+        const shown = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== "none"
+        const ths = table && shown(table) ? [...table.querySelectorAll("thead th")].map((th) => ({ text: th.textContent.trim(), w: Math.round(th.getBoundingClientRect().width), over: th.scrollWidth > th.clientWidth + 1 })) : []
+        const search = box.querySelector("[data-toolbar] input")
+        const filters = box.querySelector("[data-member-filters]")
+        return {
+          card: Math.round(card),
+          table: shown(table),
+          list: shown(list),
+          ths,
+          member: ths.find((t) => t.text === "Member")?.w ?? null,
+          search: search ? Math.round(search.getBoundingClientRect().width) : null,
+          oneRow: search && filters ? Math.abs(search.getBoundingClientRect().top - filters.getBoundingClientRect().top) < 12 : null,
+          wider: box.scrollWidth - box.clientWidth,
+        }
+      })
+      results[`members-${w}`] = r
+      expect(r.table === r.card >= 860 && r.list === !r.table, `${w}: a ${r.card}px card shows the ${r.table ? "table" : "rows"}`, { card: r.card, table: r.table, list: r.list })
+      if (r.table) expect(r.ths.every((t) => !t.over) && (r.member ?? 0) >= 200, `${w}: no header runs into the next, the Member column keeps ${r.member}px`, r.ths.filter((t) => t.over))
+      expect((r.search ?? 0) >= 160, `${w}: the search box keeps its room (${r.search}px, ${r.oneRow ? "beside" : "above"} the filters)`)
+      expect(r.wider <= 0, `${w}: nothing wider than the card`, r.wider)
+      await shot(p, `members-${w}`, { x: 0, y: 0, width: vp.width, height: Math.min(560, vp.height) })
+      expect(errors.length === 0, `${w}: no page errors`, errors)
       await p.close()
     }
   }
