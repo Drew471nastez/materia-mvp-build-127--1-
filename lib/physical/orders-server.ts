@@ -376,6 +376,18 @@ function cleanText(value: unknown, max: number): string | null {
 
 /* ── fulfil ───────────────────────────────────────────────────────────── */
 
+/** One parcel of a fulfilment: its items and how it travels. */
+export interface ParcelInput {
+  items: { orderId: string; quantity: number }[]
+  carrier?: unknown
+  trackingNumber?: unknown
+  trackingUrl?: unknown
+  locationId?: unknown
+}
+
+/** At most this many parcels in one press of Fulfill. */
+export const MAX_PARCELS = 20
+
 export async function fulfilItems(
   db: Db,
   creatorId: string,
@@ -392,75 +404,151 @@ export async function fulfilItems(
     partner?: { provider: string; name: string }
   },
 ): Promise<Outcome> {
+  return fulfilParcels(db, creatorId, checkoutId, {
+    parcels: [{ items: input.items, carrier: input.carrier, trackingNumber: input.trackingNumber, trackingUrl: input.trackingUrl, locationId: input.locationId }],
+    notifyBuyer: input.notifyBuyer,
+    key: input.key,
+    partner: input.partner,
+  })
+}
+
+/**
+ * Ship items in one or more parcels at once, each its own fulfillments row
+ * with its own carrier and tracking. All of them or none: every parcel is
+ * checked before anything is written, and a row that fails to save takes the
+ * ones saved before it with it, before any stock moves. Stock is taken once
+ * per unit (physical_fulfill per parcel, keyed per parcel and line).
+ *
+ * One parcel is exactly the single fulfilment it always was, keyed
+ * `fulfil:<checkout>:<key>`. Several are keyed `fulfil:<checkout>:<key>:<n>`,
+ * so pressing the same Fulfill again finds them all and writes nothing. The
+ * buyer gets one email for the batch, naming every parcel.
+ */
+export async function fulfilParcels(
+  db: Db,
+  creatorId: string,
+  checkoutId: string,
+  input: { parcels: ParcelInput[]; notifyBuyer?: boolean; key?: unknown; partner?: { provider: string; name: string } },
+): Promise<Outcome> {
   const order = await loadOrder(db, { creatorId, checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
   if (order.status !== "paid" && order.status !== "partially_refunded") return { ok: false, error: order.status === "refunded" ? "This order was refunded." : "Only a paid order can be fulfilled." }
   if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
-  const open = unfulfilledQuantities(progressOf(order))
-  const items = mergeItemQuantities(input.items.map((i) => ({ orderId: i.orderId, quantity: i.quantity })))
-  if (items.length === 0) return { ok: false, error: "Choose at least one item to fulfil." }
-  for (const i of items) {
-    const left = open.get(i.orderId)
-    if (left === undefined) return { ok: false, error: "That item is not part of this order." }
-    if (i.quantity > left) return { ok: false, error: `Only ${left} left to fulfil on that item.` }
-  }
+  if (input.parcels.length === 0) return { ok: false, error: "Choose at least one item to fulfil." }
+  if (input.parcels.length > MAX_PARCELS) return { ok: false, error: `At most ${MAX_PARCELS} parcels at once.` }
+  const multi = input.parcels.length > 1
   const pickup = order.deliveryMethod === "pickup"
-  const carrier = pickup ? null : cleanText(input.carrier, 40)
-  const tracking = pickup ? null : normaliseTrackingNumber(cleanText(input.trackingNumber, 80))
-  if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
-  let url = pickup ? null : cleanText(input.trackingUrl, 500)
-  if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
-  /* The shipping country picks a carrier's own national tracking page where it runs one (DPD in Romania). */
-  url = url ?? trackingUrl(carrier, tracking, typeof order.address?.country === "string" ? order.address.country : null)
+  if (multi && pickup) return { ok: false, error: "A pickup order is handed over in one go." }
+  const open = unfulfilledQuantities(progressOf(order))
+  const say = (n: number, e: string) => (multi ? `Parcel ${n + 1}: ${e}` : e)
   const key = cleanText(input.key, 120)
-  const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
-  /* Where it ships from: one of the chosen lines' own locations, never an id taken on trust from the request. */
-  const ownLocations = new Set(items.map((i) => order.lines.find((l) => l.orderId === i.orderId)?.locationId).filter((x): x is string => !!x))
-  const asked = typeof input.locationId === "string" && ownLocations.has(input.locationId) ? input.locationId : null
-  const locationId = pickup ? (order.pickup?.locationId ?? firstLine?.locationId ?? null) : (asked ?? firstLine?.locationId ?? null)
+  const keyOf = (n: number) => (key ? (multi ? `fulfil:${checkoutId}:${key}:${n + 1}` : `fulfil:${checkoutId}:${key}`) : null)
+  /* Pressed again: the parcels already saved under these keys are neither checked nor saved twice. */
+  const saved = new Set<string>()
+  if (multi && key) {
+    const { data: had } = await db.from("fulfillments").select("idempotency_key").eq("checkout_id", checkoutId).in("idempotency_key", input.parcels.map((_, n) => keyOf(n)))
+    for (const r of (had ?? []) as { idempotency_key: string }[]) saved.add(r.idempotency_key)
+    if (saved.size === input.parcels.length) return { ok: true, order }
+  }
+
+  type Clean = { items: { orderId: string; quantity: number }[]; carrier: string | null; tracking: string | null; url: string | null; locationId: string | null; key: string | null }
+  const todo: Clean[] = []
+  for (const [n, p] of input.parcels.entries()) {
+    if (saved.has(keyOf(n) ?? "")) continue
+    const items = mergeItemQuantities((Array.isArray(p.items) ? p.items : []).map((i) => ({ orderId: i.orderId, quantity: i.quantity })))
+    if (items.length === 0) return { ok: false, error: multi ? `Parcel ${n + 1} has no items.` : "Choose at least one item to fulfil." }
+    for (const i of items) {
+      const left = open.get(i.orderId)
+      if (left === undefined) return { ok: false, error: say(n, "That item is not part of this order.") }
+      if (i.quantity > left) return { ok: false, error: say(n, `Only ${left} left to fulfil on that item.`) }
+    }
+    const carrier = pickup ? null : cleanText(p.carrier, 40)
+    const tracking = pickup ? null : normaliseTrackingNumber(cleanText(p.trackingNumber, 80))
+    if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: say(n, "Check the tracking number.") }
+    let url = pickup ? null : cleanText(p.trackingUrl, 500)
+    if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: say(n, "The tracking link must start with https://.") }
+    /* The shipping country picks a carrier's own national tracking page where it runs one (DPD in Romania). */
+    url = url ?? trackingUrl(carrier, tracking, typeof order.address?.country === "string" ? order.address.country : null)
+    const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
+    /* Where it ships from: one of the chosen lines' own locations, never an id taken on trust from the request. */
+    const ownLocations = new Set(items.map((i) => order.lines.find((l) => l.orderId === i.orderId)?.locationId).filter((x): x is string => !!x))
+    const asked = typeof p.locationId === "string" && ownLocations.has(p.locationId) ? p.locationId : null
+    const locationId = pickup ? (order.pickup?.locationId ?? firstLine?.locationId ?? null) : (asked ?? firstLine?.locationId ?? null)
+    todo.push({ items, carrier, tracking, url, locationId, key: keyOf(n) })
+  }
+  /* Together, the parcels can't ship more of a line than is left on it. */
+  if (multi) {
+    const asked = new Map<string, number>()
+    for (const t of todo) for (const i of t.items) asked.set(i.orderId, (asked.get(i.orderId) ?? 0) + i.quantity)
+    for (const [orderId, n] of asked) {
+      const left = open.get(orderId) ?? 0
+      if (n > left) return { ok: false, error: `The parcels add up to more than the ${left} left on ${order.lines.find((l) => l.orderId === orderId)?.title ?? "that item"}.` }
+    }
+  }
 
   const now = new Date().toISOString()
-  const { data: f, error } = await db
-    .from("fulfillments")
-    .insert({
-      checkout_id: checkoutId,
-      creator_id: creatorId,
-      location_id: locationId,
-      status: "shipped",
-      provider: pickup ? "pickup" : (input.partner?.provider ?? "manual"),
-      carrier,
-      tracking_number: tracking,
-      tracking_url: url,
-      notify_buyer: input.notifyBuyer !== false,
-      idempotency_key: key ? `fulfil:${checkoutId}:${key}` : null,
-      shipped_at: now,
+  const made: { id: string; parcel: (typeof todo)[number] }[] = []
+  const undo = async () => {
+    const ids = made.map((m) => m.id)
+    if (ids.length === 0) return
+    await db.from("fulfillment_items").delete().in("fulfillment_id", ids)
+    await db.from("fulfillments").delete().in("id", ids)
+  }
+  for (const t of todo) {
+    const { data: f, error } = await db
+      .from("fulfillments")
+      .insert({
+        checkout_id: checkoutId,
+        creator_id: creatorId,
+        location_id: t.locationId,
+        status: "shipped",
+        provider: pickup ? "pickup" : (input.partner?.provider ?? "manual"),
+        carrier: t.carrier,
+        tracking_number: t.tracking,
+        tracking_url: t.url,
+        notify_buyer: input.notifyBuyer !== false,
+        idempotency_key: t.key,
+        shipped_at: now,
+      })
+      .select("id")
+      .single()
+    if (error?.code === "23505") {
+      /* The same press, saved a moment ago by another request: that one stands, this one leaves nothing behind. */
+      await undo()
+      const fresh = await loadOrder(db, { creatorId, checkoutId })
+      return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+    }
+    if (error || !f) {
+      await undo()
+      return { ok: false, error: "The fulfillment could not be saved." }
+    }
+    const { error: itemsError } = await db.from("fulfillment_items").insert(t.items.map((i) => ({ fulfillment_id: f.id, order_id: i.orderId, quantity: i.quantity })))
+    if (itemsError) {
+      await db.from("fulfillments").delete().eq("id", f.id)
+      await undo()
+      return { ok: false, error: "The fulfillment could not be saved." }
+    }
+    made.push({ id: f.id, parcel: t })
+  }
+
+  for (const [n, { id, parcel: t }] of made.entries()) {
+    await db.rpc("physical_fulfill", { p_fulfillment: id })
+    await db.from("fulfillment_events").insert({ fulfillment_id: id, status: "shipped", message: pickup ? "Ready for pickup" : t.tracking ? `${t.carrier ?? "Carrier"} ${t.tracking}` : "Marked as shipped", source: input.partner ? "provider" : "manual" })
+    const count = t.items.reduce((m, i) => m + i.quantity, 0)
+    const parcelNote = made.length > 1 ? ` (parcel ${n + 1} of ${made.length})` : ""
+    await addOrderEvent(db, {
+      checkoutId,
+      creatorId,
+      kind: "fulfillment.created",
+      message: pickup
+        ? `${count} ${count === 1 ? "item" : "items"} ready for pickup`
+        : `${count} ${count === 1 ? "item" : "items"} shipped${input.partner ? ` by ${input.partner.name}` : ""}${t.tracking ? `, ${t.carrier ?? "tracking"} ${t.tracking}` : ""}${parcelNote}`,
+      actor: input.partner ? "webhook" : "creator",
+      key: `fulfilled:${id}`,
     })
-    .select("id")
-    .single()
-  if (error?.code === "23505") {
-    const fresh = await loadOrder(db, { creatorId, checkoutId })
-    return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
   }
-  if (error || !f) return { ok: false, error: "The fulfillment could not be saved." }
-  const { error: itemsError } = await db.from("fulfillment_items").insert(items.map((i) => ({ fulfillment_id: f.id, order_id: i.orderId, quantity: i.quantity })))
-  if (itemsError) {
-    await db.from("fulfillments").delete().eq("id", f.id)
-    return { ok: false, error: "The fulfillment could not be saved." }
-  }
-  await db.rpc("physical_fulfill", { p_fulfillment: f.id })
-  await db.from("fulfillment_events").insert({ fulfillment_id: f.id, status: "shipped", message: pickup ? "Ready for pickup" : tracking ? `${carrier ?? "Carrier"} ${tracking}` : "Marked as shipped", source: input.partner ? "provider" : "manual" })
-  const count = items.reduce((n, i) => n + i.quantity, 0)
-  await addOrderEvent(db, {
-    checkoutId,
-    creatorId,
-    kind: "fulfillment.created",
-    message: pickup
-      ? `${count} ${count === 1 ? "item" : "items"} ready for pickup`
-      : `${count} ${count === 1 ? "item" : "items"} shipped${input.partner ? ` by ${input.partner.name}` : ""}${tracking ? `, ${carrier ?? "tracking"} ${tracking}` : ""}`,
-    actor: input.partner ? "webhook" : "creator",
-    key: `fulfilled:${f.id}`,
-  })
-  if (input.notifyBuyer !== false) await queueShipmentEmail(db, checkoutId, creatorId, f.id, "shipped")
+  /* One email for the batch, keyed by its first parcel as a single parcel's always was. */
+  if (input.notifyBuyer !== false) await queueShipmentEmail(db, checkoutId, creatorId, made[0].id, "shipped", undefined, made.length > 1 ? made.map((m) => m.id) : undefined)
   const updated = await restate(db, creatorId, checkoutId)
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
