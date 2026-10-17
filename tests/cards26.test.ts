@@ -286,7 +286,8 @@ async function main() {
   {
     const pub = code("lib/communities/server/public.ts")
     check("a draft is a 404 to everyone but its staff", /if \(community\.status === "draft" && !staff\) return null/.test(pub))
-    check("only a published public one is indexable", /return c\.status === "published" && c\.visibility === "public" && !c\.suspended_at && !c\.deleted_at && !c\.platform_hidden/.test(pub))
+    /* Changed on purpose (round 26, W6): listedPublicly also keeps invite only communities out of search. */
+    check("only a published public one is indexable", /return c\.status === "published" && listedPublicly\(c\) && !c\.suspended_at && !c\.deleted_at && !c\.platform_hidden/.test(pub))
     check("a draft's link shows nothing in a preview", /return c\.status !== "draft" && c\.status !== "suspended" && !c\.suspended_at && !c\.deleted_at/.test(pub))
   }
 
