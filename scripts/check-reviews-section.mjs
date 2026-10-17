@@ -58,7 +58,7 @@ import { readReviewsApp } from ${at("lib/reviews/app-settings.ts")}
 import { buildStorefrontReviews } from ${at("lib/reviews/storefront.ts")}
 const settings = readReviewsApp({ enabled: true, who: "anyone", display: { perPage: 4, sort: "newest" } })
 const ratings = [5, 4, 5, 3, 1, 5, 4, 2, 5, 5, 4, 1, 5, 3]
-const rows = ratings.map((rating, i) => ({ id: "r" + i, product_id: "p1", rating, title: i % 3 ? "" : "Exactly what I hoped for", content: i === 1 ? "The linen is heavier than I expected and the pocket sits right. Washed it twice and it kept its shape." : "Clear, well made and easy to get started with.", created_at: new Date(Date.UTC(2026, 8, 1 + i)).toISOString(), reviewer_name: ["Maya Rivers", "Jonas Kahn", "Priya Shah", "Sam Tan"][i % 4], verified: i % 2 === 0, photos: i === 13 ? [{ path: "c/a.svg", url: "PHOTO", status: "approved" }] : [], seller_reply: i === 13 ? "Thank you, glad it works." : null }))
+const rows = ratings.map((rating, i) => ({ id: "r" + i, product_id: "p1", rating, title: i % 3 ? "" : "Exactly what I hoped for", content: i === 1 ? "The linen is heavier than I expected and the pocket sits right. Washed it twice and it kept its shape." : "Clear, well made and easy to get started with.", created_at: new Date(Date.UTC(2026, 8, 1 + i)).toISOString(), reviewer_name: ["Maya Rivers", "Jonas Kahn", "Priya Shah", "Sam Tan"][i % 4], verified: i % 2 === 0, photos: i === 13 ? [{ path: "c/a.svg", url: "https://photo.test/a.svg", status: "approved" }] : [], seller_reply: i === 13 ? "Thank you, glad it works." : null }))
 const data = buildStorefrontReviews({ settings, creatorId: "c", rows, products: [{ id: "p1", title: "Linen Apron", slug: "linen-apron" }], product: { id: "p1", title: "Linen Apron", rows, ratings }, limit: 100 })
 const r = compileSection(DEFAULT_THEME_SOURCES["sections/reviews_product.storelib"], { file: "sections/reviews_product.storelib" })
 if (r.ok !== true) throw new Error(JSON.stringify(r.errors))
@@ -68,16 +68,16 @@ process.stdout.write(JSON.stringify({ html: out.html, css: out.css }))
 )
 let drawn
 try {
-  drawn = JSON.parse(execFileSync("pnpm", ["exec", "tsx", join(renderDir, "render.ts")], { cwd: root, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NODE_OPTIONS: "" }, stdio: ["ignore", "pipe", "pipe"] }).toString())
+  drawn = JSON.parse(execFileSync("npx", ["tsx", join(renderDir, "render.ts")], { cwd: root, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NODE_OPTIONS: "" }, stdio: ["ignore", "pipe", "pipe"] }).toString())
 } catch (e) {
-  fail(`the section did not draw: ${String(e?.stderr ?? e?.message ?? e).slice(0, 800)}`)
+  fail(`the section did not draw: ${String(e?.stderr || "").slice(0, 600)} ${String(e?.stdout || "").slice(0, 300)} ${String(e?.message || e).slice(0, 300)}`)
 } finally {
   rmSync(renderDir, { recursive: true, force: true })
 }
 const PHOTO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900"><rect width="1200" height="900" fill="#d9c7b4"/><circle cx="600" cy="420" r="200" fill="#8a6a52"/></svg>'
 const sectionPage = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${interFaces(root)}</style>
 <style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><style>${drawn.css}</style></head>
-<body><div data-section-id="s1" style="--s-bg:#fff">${drawn.html.replaceAll("PHOTO", "/photo.svg")}</div></body></html>`
+<body><div data-section-id="s1" style="--s-bg:#fff">${drawn.html.replaceAll("https://photo.test/a.svg", "/photo.svg")}</div></body></html>`
 
 /* ── the import step, bundled for the browser ─────────────────────────── */
 
