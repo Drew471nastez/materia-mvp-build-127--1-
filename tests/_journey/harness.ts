@@ -63,6 +63,7 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/checkout/quote": () => import("@/app/api/physical/checkout/quote/route"),
   "/api/physical/checkout/complete": () => import("@/app/api/physical/checkout/complete/route"),
   "/api/physical/orders": () => import("@/app/api/physical/orders/route"),
+  "/api/physical/orders/bulk": () => import("@/app/api/physical/orders/bulk/route"),
   "/api/physical/orders/[id]": () => import("@/app/api/physical/orders/[id]/route"),
   "/api/physical/order-status/[token]/cancel": () => import("@/app/api/physical/order-status/[token]/cancel/route"),
   "/api/physical/order-status/[token]/return": () => import("@/app/api/physical/order-status/[token]/return/route"),
