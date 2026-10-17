@@ -7,6 +7,7 @@
  *   ROW       the row under the name keeps members and the price; the admins moved to the card's facts
  *   SUMMARY   the card's short description: the creator's, else the tagline, else the description's start, cut at a word
  *   SHARE     who may share from the card: published, not archived; a private community only its staff
+ *   DELETING  the people who run a community see the day its scheduled deletion happens; nobody else
  *   SOURCE    no Membership block and no "Other ways to join", "What's inside", the icons in the card and not under the
  *             name, Powered by under the card linking to storelib.com, Privacy and Terms, the gallery's thumbnails
  *             without the dark look's floating box, the editor's markers kept, the summary read without breaking the
@@ -20,6 +21,7 @@ import { aboutFacts, aboutRow, canShareCommunity, cardSummary, SUMMARY_MAX } fro
 import { buttonLabel } from "@/components/community/public/join-controls"
 import { JOIN_TRIAL_LABEL, joinButtonLabel } from "@/lib/communities/format"
 import type { JoinOption } from "@/components/community/public/types"
+import { deletionNotice } from "@/lib/communities/server/public"
 
 let passed = 0
 let failed = 0
@@ -129,6 +131,14 @@ console.log("\nSOURCE: the page")
   const server = code("lib/communities/server/public.ts")
   check("the summary is read on its own, so the page keeps working before part 220", /async function readSummary/.test(server) && /code !== "42703" && code !== "PGRST204"/.test(server) && /summary,\s*adminCount:/.test(server))
   check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: plan\.trial_days/.test(server))
+}
+
+console.log("\nDELETING: the line its staff see")
+{
+  check("a scheduled deletion reads as its day", deletionNotice("2026-11-05T09:00:00Z") === "This community is being deleted on Nov 5, 2026.", deletionNotice("2026-11-05T09:00:00Z"))
+  check("none, none", deletionNotice(null) === null && deletionNotice("x") === null)
+  const server = code("lib/communities/server/public.ts")
+  check("asked only for staff, from the scheduled row, and it comes first", /staff \? scheduledDeletionAt\(db, community\.id\) : Promise\.resolve\(null\)/.test(server) && /\.eq\("state", "scheduled"\)/.test(server) && /const deleting = staff \? deletionNotice\(deleteAt\) : null/.test(server))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
