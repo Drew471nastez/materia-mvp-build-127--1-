@@ -107,12 +107,19 @@ async function main() {
   check("  a product's videos are with the product photos", media.find((f) => f.name === "3-c-5s.mov")?.source === "Product photos")
   check("image: no videos, no frames", JSON.stringify((await listLibrary(fakeAdmin(tree), owner, "image")).map((f) => f.name)) === '["p.png"]')
   check("video: videos only", (await listLibrary(fakeAdmin(tree), owner, "video")).every((f) => isVideoUrl(f.name)))
+  /* ROUND 27: removing a video takes it out of the LIST, with its frame, and
+     deletes neither, so a website section or a lesson still playing it keeps
+     working (lib/files/assets.ts). This fake admin is storage only, so the
+     request refuses rather than falling back to a hard delete. The video and
+     frame going together is pinned on the real path, with the fake database,
+     in tests/files-retention.test.ts. */
   const removed: string[][] = []
-  await deleteLibraryFile(fakeAdmin(tree, removed), owner, "store-builder-images", "user-1/files/1-a-37s.mp4")
-  check("deleting a video takes its frame with it", JSON.stringify(removed[0]) === JSON.stringify(["store-builder-images:user-1/files/1-a-37s.mp4", "store-builder-images:user-1/files/1-a-37s.poster.jpg"]), removed)
+  const one = await deleteLibraryFile(fakeAdmin(tree, removed), owner, "store-builder-images", "user-1/files/1-a-37s.mp4")
+  check("removing a video never deletes it on the spot", !one.ok && removed.length === 0, removed)
+  check("  a video's frame is still named with it", /return bucket === "store-builder-images" && VIDEO\.test\(path\) \? \[path, posterPathFor\(path\)\] : \[path\]/.test(read("lib/files/library.ts")))
   const many: string[][] = []
   const out = await deleteLibraryFiles(fakeAdmin(tree, many), owner, [{ bucket: "store-builder-images", path: "user-1/files/1-a-37s.mp4" }, { bucket: "store-builder-images", path: "user-1/files/p.png" }])
-  check("  and several at once, counting files, not frames", out.ok && (out as { removed: number }).removed === 2 && many[0].length === 3, { out, many })
+  check("  and several at once delete nothing either", !out.ok && many.length === 0, { out, many })
 
   console.log("\n5. Checked on the server as what the name says")
   check("a video name in store-builder-images is checked as a video, up to 500 MB", directRulesFor("store-builder-images", "u/files/a.mp4")?.context === "video" && directRulesFor("store-builder-images", "u/files/a.MOV")?.maxBytes === 500 * 1024 * 1024)
