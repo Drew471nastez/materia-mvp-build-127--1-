@@ -206,6 +206,12 @@ export interface ComposerProps {
    * draft opened here to change. A member's composer never has it.
    */
   staff?: ComposerStaff | null
+  /**
+   * ROUND 27 (J4): open at once with these words, as if the person had just written them (the create wizard's welcome post,
+   * create-flow.tsx). No "Your draft is back" line, and on a phone the sheet rises at once instead of waiting under
+   * "Continue". This browser's kept draft is not read over it; what is typed is kept from then on as usual.
+   */
+  initial?: { title: string; body: string; spaceId?: string | null } | null
 }
 
 export interface ComposerEdit {
@@ -482,14 +488,14 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   }, [guarding])
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null, staff = null }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null, staff = null, initial = null }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const phone = usePhone()
   /* Edit post: the post as it was, read once, for the editor's first state and to tell whether anything changed. */
   const editing = !!edit
   const [was] = useState(() => (edit ? edit.post : null))
   const wasLink = was?.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link") ?? null
-  const [open, setOpen] = useState(editing || !!away)
+  const [open, setOpen] = useState(editing || !!away || !!initial)
   const awayRef = useRef(away)
   awayRef.current = away
   const [sheetIn, setSheetIn] = useState(false)
@@ -503,9 +509,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     time the body has come up into view it is filled.
   */
   const [filled, setFilled] = useState(editing)
-  const [title, setTitle] = useState(was?.title ?? "")
-  const [body, setBody] = useState(was?.bodyText ?? "")
-  const [spaceId, setSpaceId] = useState<string | null>(was ? (was.space?.id ?? null) : (fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null)))
+  const [title, setTitle] = useState(was?.title ?? initial?.title ?? "")
+  const [body, setBody] = useState(was?.bodyText ?? initial?.body ?? "")
+  const [spaceId, setSpaceId] = useState<string | null>(
+    was ? (was.space?.id ?? null) : (fixedSpaceId ?? (initial?.spaceId && spaces.some((x) => x.id === initial.spaceId) ? initial.spaceId : spaces.length === 1 ? spaces[0].id : null)),
+  )
   /* Round 30: Post was pressed before a space was chosen; the picker says so until one is. */
   const [spaceAsk, setSpaceAsk] = useState(false)
   const spaceOpener = useRef<(() => void) | null>(null)
@@ -569,7 +577,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. (Never into Edit post.) */
   useEffect(() => {
-    if (editing) return
+    /* Edit post, or words handed in (`initial`, round 27): the kept draft is not read over them. */
+    if (editing || initial) return
     const d = readDraft(key)
     if (restoreFrom(d) && !window.matchMedia("(max-width: 639px)").matches) setOpen(true)
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps

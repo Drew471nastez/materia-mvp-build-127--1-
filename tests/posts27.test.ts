@@ -263,6 +263,8 @@ async function main() {
     const welcome = code("components/community/member/composer-welcome.tsx")
     check("J4: the welcome post writer is the feed's: its title and words fields, MentionTextarea and Emoji control", /export function WelcomePostWriter/.test(welcome) && /className=\{TITLE_FIELD\}/.test(welcome) && /className=\{WORDS_FIELD\}/.test(welcome) && /<MentionTextarea/.test(welcome) && /<EmojiControl/.test(welcome))
     check("J4: it posts nothing itself (the wizard sends it with the community) and asks no server", !/\bapi\(|fetch\(|requestJson/.test(welcome))
+    const comp = code("components/community/member/composer.tsx")
+    check("J4: the feed's Composer itself opens with words handed in (`initial`), no restored-draft line, the kept draft not read over them", /useState\(editing \|\| !!away \|\| !!initial\)/.test(comp) && /useState\(was\?\.title \?\? initial\?\.title \?\? ""\)/.test(comp) && /if \(editing \|\| initial\) return/.test(comp))
     check("J4: with no community, nobody is looked up to mention", /if \(!at \|\| !communityId\)/.test(code("components/community/member/mention-input.tsx")))
   }
 
