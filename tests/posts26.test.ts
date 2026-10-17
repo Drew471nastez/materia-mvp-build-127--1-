@@ -152,7 +152,8 @@ async function main() {
     check("the kit writes only to part 194's routes", /\/api\/app\/community\/\$\{bridge\.communityId\}\/scheduled-posts/.test(kit) && !/\/api\/community\//.test(kit))
     check("it checks with the server's own rules and sends what scheduleBody makes", /checkScheduledInput\(/.test(kit) && /scheduleBody\(bridge, publishAt\)/.test(kit))
     check("the day and time are read and written in appTimeZone", /appTimeZone\(\)/.test(kit) && /localParts\(when, undefined, zone\)/.test(kit) && /fromLocalParts\(d, t, zone\)/.test(kit))
-    check("what part 194 cannot keep is said, not dropped", /bridge\.extras > 0/.test(kit))
+    /* Round 27 (part 222): what a post carries goes with it; the line saying it could only be posted now is gone (tests/posts27.test.ts). */
+    check("what the post carries is kept with it, not refused (round 27)", !/bridge\.extras/.test(kit) && /media: bridge\.media|bridge\.media/.test(kit) && !/can only be posted now/.test(raw("components/community/creator/composer-schedule.tsx")))
     check("an inert kit without `staff`: a member's composer draws none of it", /const on = !!staff && staff\.ready/.test(kit))
     const composer = code("components/community/member/composer.tsx")
     check("the composer takes `staff` and routes Schedule through the kit", /staff = null/.test(composer) && /useStaffSchedule\(staff,/.test(composer) && /if \(kit\.item \|\| kit\.when\)/.test(composer))

@@ -696,6 +696,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 27 (M27): physical order emails link the live website, never the creator page (lib/physical/store-link), no unsubscribe on transactional mail, product thumbnails, the creator page language banner gone */
   "tests/emails27.test.ts",
+  /* Round 27 (P27): scheduled posts carry their media and poll (SQL part 222), the composer's toolbar down with the keys, the New post pill, closed comments, the welcome post writer */
+  "tests/posts27.test.ts",
 ]
 
 /**
