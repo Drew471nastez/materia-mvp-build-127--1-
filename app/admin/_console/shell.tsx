@@ -61,6 +61,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
     items: [
       { id: "system", label: "Health" },
       { href: "/admin/performance", label: "Performance" },
+      { href: "/admin/sql-updates", label: "SQL updates" },
       { href: "/admin/notifications", label: "Notifications" },
       { href: "/admin/emails", label: "Every email" },
       { href: "/admin/security", label: "File security" },

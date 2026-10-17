@@ -423,7 +423,7 @@ async function main() {
     let suite = ""
     let ok = false
     try {
-      suite = execFileSync(process.execPath, ["--test"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 240_000 })
+      suite = execFileSync(process.execPath, ["--test", "--test-reporter=tap"], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 240_000 })
       ok = true
     } catch (e) {
       suite = String((e as { stdout?: string }).stdout ?? e)

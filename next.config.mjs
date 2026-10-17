@@ -132,6 +132,9 @@ const nextConfig = {
     qualities: [75, 88],
   },
   experimental: {
+    // Bound prerender/route-data workers so each does not load the server graph
+    // four times at once. Runtime routes and validation are unchanged.
+    cpus: 2,
     /**
      * NO SOURCE MAPS FROM TURBOPACK'S PRODUCTION BUILD.
      *

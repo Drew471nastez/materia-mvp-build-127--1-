@@ -4,8 +4,8 @@
   "packageManager": "pnpm@10.33.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && next build",
-    "dev": "node scripts/build-sites-assets.mjs && next dev",
+    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && next build",
+    "dev": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && next dev",
     "lint": "eslint .",
     "start": "next start",
     "test:push": "node scripts/run-push-tests.mjs",

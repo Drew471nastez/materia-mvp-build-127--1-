@@ -23,6 +23,13 @@ try {
   output = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
 } catch (e) {
   output = String(e.stdout ?? "") + String(e.stderr ?? "")
+  // A killed compiler, missing executable, or exhausted heap is not zero errors.
+  // Only a completed compiler with actual TS diagnostics can use the baseline.
+  if (typeof e.status !== "number" || e.signal || !/error TS\d+/.test(output)) {
+    console.error("TypeScript did not complete. Validation failed; the baseline was not changed.")
+    console.error(output.slice(-2000))
+    process.exit(1)
+  }
 }
 const now = {}
 for (const line of output.split("\n")) {

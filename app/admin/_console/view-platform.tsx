@@ -495,13 +495,13 @@ function SqlPartsPanel({ parts }: { parts: SystemPayload["sqlParts"] }) {
   const unknown = parts.every((p) => p.state === "unknown")
   const open = parts.filter((p) => p.state === "missing" || p.state === "changed")
   const applied = parts.filter((p) => p.state === "applied").length
-  const meta = unknown ? "No record yet" : open.length ? `${open.length} to run` : `All ${applied} run`
+  const meta = unknown ? "History unavailable" : open.length ? `${open.length} to review` : `${applied} recorded`
   return (
-    <Panel title="Database updates" meta={meta}>
+    <Panel title="Database updates" meta={meta} action={<a href="/admin/sql-updates" className="text-[12px] text-[#9b9ba6] underline">Review and copy SQL</a>}>
       {unknown ? (
-        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">This database keeps no record of its SQL yet. Run supabase/sql/run-four in order in the Supabase SQL editor (part 67 creates this table). If Health still shows missing tables, run supabase/sql/RUN_ADMIN_HEALTH.sql first.</p>
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Execution history is unavailable. The ledger may be missing, or the database could not be read. Open SQL updates to review source files and tracking instructions. Nothing is assumed applied or pending.</p>
       ) : open.length === 0 ? (
-        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Every part in the repository has run here, as written.</p>
+        <p className="px-4 py-3 text-[13px] text-[#9b9ba6]">Every part in this Health list has a matching execution record. Open SQL updates to also review standalone and owner-only files.</p>
       ) : (
         <>
           <DataList
@@ -511,11 +511,11 @@ function SqlPartsPanel({ parts }: { parts: SystemPayload["sqlParts"] }) {
             empty=""
             columns={[
               { key: "file", label: "Part", width: "minmax(0,2fr)", phone: "primary", render: (r) => r.file },
-              { key: "state", label: "State", width: "120px", phone: "end", render: (r) => <Status value={r.state === "missing" ? "failed" : "late"} label={r.state === "missing" ? "Not run" : "Changed since"} /> },
-              { key: "when", label: "Ran", width: "100px", align: "right", render: (r) => (r.appliedAt ? ago(r.appliedAt) : "Never") },
+              { key: "state", label: "State", width: "120px", phone: "end", render: (r) => <Status value={r.state === "missing" ? "failed" : "late"} label={r.state === "missing" ? "Unrecorded" : "Changed since"} /> },
+              { key: "when", label: "Ran", width: "100px", align: "right", render: (r) => (r.appliedAt ? ago(r.appliedAt) : "No record") },
             ]}
           />
-          <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] text-[#9b9ba6]">Run the files in supabase/sql/run-four in order in the Supabase SQL editor, then open this page again.</p>
+          <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] text-[#9b9ba6]">Review files and dependencies in SQL updates before running anything. Older manual executions may not be recorded.</p>
         </>
       )}
     </Panel>
