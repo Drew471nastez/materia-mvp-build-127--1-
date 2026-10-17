@@ -147,6 +147,16 @@ function sampleFor(type: NotificationType): Record<string, unknown> {
   const day = new Date(Date.now() + 7 * 86_400_000).toISOString()
   for (const k of DATA_KEYS[type] ?? []) {
     if (data[k] !== undefined) continue
+    /* A community's own words (round AG) are left out: the gallery shows Storelib's. */
+    if (k.startsWith("tpl")) continue
+    if (k === "subject") {
+      data[k] = "New lessons are up"
+      continue
+    }
+    if (k === "message") {
+      data[k] = "Three new lessons on mixing went up this week.\n\nStart with the first one, it is short. See you in the comments."
+      continue
+    }
     if (/cents$/i.test(k)) data[k] = 4900
     else if (/(At|Date|By|Until)$/.test(k)) data[k] = day
     else if (/(count|Count|days|Days|members|Members)$/.test(k)) data[k] = 3

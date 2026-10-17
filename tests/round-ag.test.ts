@@ -9,6 +9,7 @@
  *   TAX        Settings › Taxes opens on status, tax collected by country, a CSV, and who does what, honestly
  *   EMAILS     /admin/emails: every email Storelib and a business sends, by category, each drawn with sample data
  *   MODULES    a module of a program sold on its own: price, checkout, grant, lessons opened on the server, refunds
+ *   EMAILS     Email your members (one a day, members who keep community emails on) and a community's own words on its emails
  *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
@@ -184,8 +185,41 @@ async function main() {
     check("the SQL: a price column and a server only table", /course_modules ADD COLUMN IF NOT EXISTS price_cents/.test(agSql) && /CREATE TABLE IF NOT EXISTS public\.community_module_access/.test(agSql) && /community_module_access ENABLE ROW LEVEL SECURITY/.test(agSql))
   }
 
+  console.log("\nMember emails")
+  {
+    const b = await import("@/lib/communities/server/broadcasts")
+    const ok = b.broadcastInput({ subject: "  New lessons  ", message: "Line one.\r\n\r\n\r\n\r\nLine two is here." })
+    check("a broadcast needs a subject and a few words, and keeps its paragraphs", "subject" in ok && ok.subject === "New lessons" && ok.message === "Line one.\n\nLine two is here." && "error" in b.broadcastInput({ subject: "Hi", message: "Long enough message" }) && "error" in b.broadcastInput({ subject: "Hello there", message: "short" }) && "error" in b.broadcastInput({ subject: "Hello there", message: "x".repeat(4001) }))
+    const now = Date.parse("2026-10-17T12:00:00Z")
+    check("one email a day per community", b.nextBroadcastAt("2026-10-17T02:00:00Z", now) === "2026-10-18T02:00:00.000Z" && b.nextBroadcastAt("2026-10-16T11:00:00Z", now) === null && b.nextBroadcastAt(null, now) === null)
+    const { renderEmail } = await import("@/lib/notify/templates")
+    const { emailAllowed, emailClass } = await import("@/lib/notify/email-budget")
+    const base = { communityName: "Makers Club", communitySlug: "makers", creatorName: "Ana Lopez" }
+    const e = renderEmail("COMMUNITY_BROADCAST", { ...base, subject: "New lessons are up", message: "First paragraph here.\n\nSecond paragraph here.", authorName: "Ana Lopez" }, { baseUrl: "https://storelib.com" })
+    check("the broadcast is the owner's subject and paragraphs, with why it came", e.subject === "New lessons are up" && /First paragraph here\.<\/p>/.test(e.html) && /Second paragraph here\./.test(e.html) && /You get emails from this community because you are a member of Makers Club/.test(e.text) && /storelib\.com\/community\/makers/.test(e.html))
+    check("a broadcast is optional email: counted against each member's daily cap", emailAllowed("COMMUNITY_BROADCAST") && emailClass("COMMUNITY_BROADCAST") === "budgeted" && /"community\.broadcast": "COMMUNITY_BROADCAST"/.test(read("lib/notify/workflows/communities.ts")))
+    const emailSrc = code("lib/communities/server/email.ts")
+    check("only active members who keep community emails on get it", /broadcast: "email_announcements"/.test(emailSrc))
+    check("the job pages members and keys each email per member", /reason === "broadcast"/.test(code("lib/communities/server/jobs/fanout_announcement.ts")) && /key: `broadcast:\$\{broadcastId\}`/.test(code("lib/communities/server/broadcasts.ts")) && /\.eq\("email_announcements", true\)/.test(code("lib/communities/server/broadcasts.ts")))
+    const w = renderEmail("COMMUNITY_WELCOME", { ...base, tplSubject: "You made it into {community}", tplIntro: "So glad you are here. {creator}" }, { baseUrl: "https://storelib.com" })
+    const plain = renderEmail("COMMUNITY_WELCOME", base, { baseUrl: "https://storelib.com" })
+    check("a community's own words change the subject and open the email; the button stays", w.subject === "You made it into Makers Club" && /So glad you are here\. Ana Lopez/.test(w.text) && /Open the community/.test(w.html) && plain.subject === "Welcome to Makers Club")
+    const tickets = renderEmail("COMMUNITY_EVENT_TICKET", { ...base, tplSubject: "Changed" }, { baseUrl: "https://storelib.com" })
+    check("money emails never take the community's words", tickets.subject !== "Changed")
+    const t = await import("@/lib/communities/server/email-templates")
+    check("the words are checked: too long is refused, empty keeps Storelib's", "error" in t.wordsInput({ subject: "x".repeat(121) }) && t.emptyWords(t.wordsInput({ subject: "", heading: "" }) as never) && !t.isEditableEmail("event_ticket"))
+    check("sendCommunityEmail puts the community's words in the event", /wordsPayload\(await emailWordsFor\(db, input\.communityId, kind\)\)/.test(emailSrc))
+    const panel = read("components/community/creator/settings-section.tsx")
+    check("Settings has Member emails, for the owner and admins", /value: "emails"[^\n]*needs: "manage_settings"/.test(panel) && /"emails",/.test(read("components/community/creator/logic.ts")))
+    const routes = ["app/api/app/community/[id]/emails/route.ts", "app/api/app/community/[id]/emails/templates/route.ts", "app/api/app/community/[id]/emails/preview/route.ts"].map((f) => code(f))
+    check("every member emails route needs the settings permission", routes.every((r) => /requireCreatorCommunity\(id, "manage_settings"\)/.test(r)))
+    check("the preview draws in a sandboxed frame", /sandbox=""/.test(read("components/community/creator/member-emails-panel.tsx")))
+    const agSql = read("supabase/migrations/20270201_round_ag.sql")
+    check("the SQL: broadcasts and templates, server only", /CREATE TABLE IF NOT EXISTS public\.community_broadcasts/.test(agSql) && /CREATE TABLE IF NOT EXISTS public\.community_email_templates/.test(agSql) && /community_broadcasts ENABLE ROW LEVEL SECURITY/.test(agSql) && /community_email_templates ENABLE ROW LEVEL SECURITY/.test(agSql))
+  }
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts", "lib/communities/server/broadcasts.ts", "lib/communities/server/email-templates.ts", "components/community/creator/member-emails-panel.tsx"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

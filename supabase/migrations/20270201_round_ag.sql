@@ -115,3 +115,34 @@ CREATE INDEX IF NOT EXISTS community_module_access_user ON public.community_modu
 CREATE INDEX IF NOT EXISTS community_module_access_intent ON public.community_module_access (payment_intent_id) WHERE payment_intent_id IS NOT NULL;
 ALTER TABLE public.community_module_access ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_module_access FROM anon, authenticated;
+
+
+-- Email your members: the owner's own email, at most one a day per community (lib/communities/server/broadcasts.ts). Server only.
+CREATE TABLE IF NOT EXISTS public.community_broadcasts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  community_id uuid NOT NULL REFERENCES public.communities(id) ON DELETE CASCADE,
+  author_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  subject text NOT NULL CHECK (char_length(subject) BETWEEN 3 AND 120),
+  message text NOT NULL CHECK (char_length(message) BETWEEN 10 AND 4000),
+  status text NOT NULL DEFAULT 'sending' CHECK (status IN ('sending', 'sent', 'failed')),
+  sent_count integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  sent_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS community_broadcasts_community_created ON public.community_broadcasts (community_id, created_at DESC);
+ALTER TABLE public.community_broadcasts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.community_broadcasts FROM anon, authenticated;
+
+-- A community's own subject, heading and opening line for each of its emails (lib/communities/server/email-templates.ts). Server only.
+CREATE TABLE IF NOT EXISTS public.community_email_templates (
+  community_id uuid NOT NULL REFERENCES public.communities(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('welcome', 'join_approved', 'invite', 'announcement', 'event_reminder', 'course_available')),
+  subject text CHECK (subject IS NULL OR char_length(subject) <= 120),
+  heading text CHECK (heading IS NULL OR char_length(heading) <= 120),
+  intro text CHECK (intro IS NULL OR char_length(intro) <= 600),
+  updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (community_id, kind)
+);
+ALTER TABLE public.community_email_templates ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.community_email_templates FROM anon, authenticated;

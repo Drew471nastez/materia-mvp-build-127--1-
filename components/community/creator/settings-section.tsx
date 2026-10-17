@@ -68,6 +68,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
+import { MemberEmailsPanel } from "./member-emails-panel"
 import { RulesEditor } from "./moderation-section"
 import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
@@ -120,6 +121,8 @@ const PANELS: SettingsPanel[] = [
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
   { value: "roles", get label() { return tt("Roles and permissions") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
   { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
+  /* Round AG: email the members, and the community's own words on the emails it sends (./member-emails-panel.tsx). */
+  { value: "emails", get label() { return tt("Member emails") }, needs: "manage_settings", group: "people", get line() { return tt("Email your members and edit your emails") }, render: (p) => <MemberEmailsPanel head={p.head} /> },
   { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") }, render: (p) => <GamificationPanel head={p.head} levels={p.data.levels} badges={p.data.badges} /> },
   { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") }, render: (p) => <Notifications head={p.head} data={p.data} /> },
   /* round32: features panels (a new panel: its entry here, its name in ./logic SETTINGS_TABS) */

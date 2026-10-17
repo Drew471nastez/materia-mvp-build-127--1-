@@ -21,6 +21,7 @@
  *   community.report_digest      COMMUNITY_REPORT_DIGEST, once per moderator, community and day,
  *                                to the person (a creator template: it opens /app)
  *   community.weekly_digest      COMMUNITY_WEEKLY_DIGEST, once per person and week, to the person
+ *   community.broadcast          COMMUNITY_BROADCAST, the owner's own email, once per email and member
  *
  * ONLY WHAT MAY BE AN EMAIL. lib/notify/email-budget.ts is the list: a type
  * that is never an email (an announcement, an event reminder, a new program)
@@ -47,6 +48,7 @@ const TYPE_OF: Partial<Record<string, NotificationType>> = {
   "community.event_cancelled": "COMMUNITY_EVENT_CANCELLED",
   "community.report_digest": "COMMUNITY_REPORT_DIGEST",
   "community.weekly_digest": "COMMUNITY_WEEKLY_DIGEST",
+  "community.broadcast": "COMMUNITY_BROADCAST",
 }
 
 export const communities: Workflow = (event, ctx) => {

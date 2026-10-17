@@ -123,6 +123,8 @@ export const EMAIL_POLICY: Record<NotificationType, EmailClass> = {
   COMMUNITY_EVENT_CANCELLED: "essential",
   COMMUNITY_REPORT_DIGEST: "budgeted",
   COMMUNITY_WEEKLY_DIGEST: "budgeted",
+  /* The owner's own email to the members: optional, so it counts against each member's daily cap. */
+  COMMUNITY_BROADCAST: "budgeted",
 }
 
 /** The class of a type; anything unknown is never emailed. */

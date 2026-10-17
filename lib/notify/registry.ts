@@ -171,6 +171,8 @@ const ENTRIES: Record<NotificationType, Entry> = {
     their account, not one purchase).
   */
   COMMUNITY_WEEKLY_DIGEST: E({ category: "tips", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 6 * DAY }),
+  /* Round AG: the owner's own email to the members, like an announcement: only to members who keep community emails on. */
+  COMMUNITY_BROADCAST: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

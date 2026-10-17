@@ -31,6 +31,8 @@ import "server-only"
  *                     a ticket holder, whatever their switches say and
  *                     whatever state their membership is in: it is money
  *   invite            an address (email), member or not
+ *   broadcast         an active member who keeps email_announcements on: the
+ *                     owner's own email (./broadcasts.ts), at most one a day
  *   report_digest     an active member, once a day at most per community,
  *                     about new reports (jobs/report_digest.ts checks the
  *                     role and the person's own switch first)
@@ -47,8 +49,9 @@ import { storeOf } from "@/lib/notify/store"
 import type { DomainEventName } from "@/lib/notify/types"
 import { communitiesEnabled } from "../flag"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import { emailWordsFor, wordsPayload } from "./email-templates"
 
-export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest", "event_ticket", "event_ticket_invite", "event_refund", "event_cancelled"] as const
+export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest", "event_ticket", "event_ticket_invite", "event_refund", "event_cancelled", "broadcast"] as const
 export type CommunityEmailKind = (typeof COMMUNITY_EMAIL_KINDS)[number]
 
 export type CommunityEmailOutcome = "queued" | "duplicate" | "unavailable"
@@ -92,6 +95,8 @@ const MEMBER_ONLY: Partial<Record<CommunityEmailKind, "email_announcements" | "e
   course_available: null,
   report_digest: null,
   event_ticket_invite: null,
+  /* Round AG: the owner's own email (./broadcasts.ts) goes to members who keep community emails on, like an announcement. */
+  broadcast: "email_announcements",
 }
 
 /** "welcome" or "community.welcome", as the kind it is. */
@@ -111,7 +116,7 @@ function plainData(data: Record<string, unknown> | null | undefined): Record<str
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(data ?? {})) {
     if (!/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k)) continue
-    if (typeof v === "string") out[k] = v.slice(0, 1000)
+    if (typeof v === "string") out[k] = v.slice(0, k === "message" ? 4000 : 1000)
     else if (typeof v === "number" && Number.isFinite(v)) out[k] = v
     else if (typeof v === "boolean") out[k] = v
   }
@@ -210,6 +215,8 @@ export async function sendCommunityEmail(
       recipient = `u:${userId}`
     }
 
+    /* Round AG: the owner's own subject, heading and opening line for this kind, when they wrote any (./email-templates.ts). */
+    const words = wordsPayload(await emailWordsFor(db, input.communityId, kind))
     const result = await storeOf(db).insertEvent({
       name: `community.${kind}` as DomainEventName,
       key: communityEmailKey(kind, input.communityId, recipient, key),
@@ -222,6 +229,7 @@ export async function sendCommunityEmail(
         communityName: community.name,
         communitySlug: community.slug,
         ...(community.creatorName ? { creatorName: community.creatorName } : {}),
+        ...words,
         recipientEmail,
         dedupeKey: key.slice(0, 200),
       },
