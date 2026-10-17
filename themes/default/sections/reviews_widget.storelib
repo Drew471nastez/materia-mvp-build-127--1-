@@ -13,7 +13,7 @@
    =========================================================================== #}
 <template>
 {% if reviews.enabled %}
-<section class="s rw" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }};">
+<section class="s rw" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
 {{ settings | review_widget }}
 </section>
 {% endif %}
@@ -21,7 +21,7 @@
 
 <style scoped>
 {{ settings | review_widget_css }}
-.s { background: var(--s-bg); color: var(--s-text); --slw-theme-hs: var(--section-heading-size, 32px); }
+.s { background: var(--s-bg); color: var(--s-text); padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) 0 calc(var(--s-pb) * var(--theme-spacing-scale, 1)); --slw-theme-hs: var(--section-heading-size, 32px); }
 /* The theme's heading style (Theme settings › Typography, the section's heading style), unless the saved look picks its own font or size. */
 .s .slw__h {
   font-family: var(--slw-font, var(--section-heading-font, var(--theme-font-heading, inherit)));
@@ -359,7 +359,9 @@
       "id": "color_scheme",
       "label": "Colour scheme",
       "default": "white"
-    }
+    },
+    { "type": "range", "id": "padding_top", "label": "Extra space above", "default": 0, "min": 0, "max": 120, "step": 4, "unit": "px", "info": "Around the widget on this page. The widget's own spacing is in its saved look." },
+    { "type": "range", "id": "padding_bottom", "label": "Extra space below", "default": 0, "min": 0, "max": 120, "step": 4, "unit": "px" }
   ],
   "presets": [
     {

@@ -29,10 +29,11 @@ import { WidgetPreview } from "./widget-preview"
 import { WidgetCustomizer } from "./widget-customizer"
 
 export interface WidgetsGalleryProps {
-  initialConfigs: WidgetConfig[]
-  ready: boolean
-  shopName: string
-  languages: { defaultLanguage: string; others: string[] }
+  /** What the page read on the server. Left out (the reviews management's Widgets tab), the gallery reads them itself from /api/reviews/widgets. */
+  initialConfigs?: WidgetConfig[]
+  ready?: boolean
+  shopName?: string
+  languages?: { defaultLanguage: string; others: string[] }
   /** Inside the reviews management's own frame: no page bar of its own. */
   embedded?: boolean
 }
@@ -59,8 +60,28 @@ function readOpen(): Open {
   return isWidgetType(w) ? { type: w, configId: q.get("config") } : null
 }
 
-export function WidgetsGallery({ initialConfigs, ready, shopName, languages, embedded = false }: WidgetsGalleryProps) {
-  const [configs, setConfigs] = useState(initialConfigs)
+export function WidgetsGallery(props: WidgetsGalleryProps) {
+  const { embedded = false } = props
+  const [configs, setConfigs] = useState<WidgetConfig[]>(props.initialConfigs ?? [])
+  const [meta, setMeta] = useState({ ready: props.ready ?? true, shopName: props.shopName ?? "", languages: props.languages ?? { defaultLanguage: "en", others: [] as string[] } })
+  const { ready, shopName, languages } = meta
+  /* Shown without the page's server read (a tab of the reviews management): the same, read here. */
+  useEffect(() => {
+    if (props.initialConfigs) return
+    let live = true
+    fetch("/api/reviews/widgets", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { configs?: WidgetConfig[]; ready?: boolean; shopName?: string; languages?: { defaultLanguage: string; others: string[] } } | null) => {
+        if (!live || !j) return
+        setConfigs(Array.isArray(j.configs) ? j.configs : [])
+        setMeta((m) => ({ ready: j.ready ?? m.ready, shopName: j.shopName ?? m.shopName, languages: j.languages ?? m.languages }))
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [reviews, setReviews] = useState<WidgetReviews | null>(null)
   const [appOn, setAppOn] = useState<boolean | null>(null)
   const [open, setOpenState] = useState<Open>(null)
@@ -324,3 +345,7 @@ function AddToWebsite({ type, configId, configs, onClose }: { type: WidgetType; 
     </div>
   )
 }
+
+/** The stable name the reviews management's Widgets tab imports (components/app/settings/integration-apps.tsx, K5). */
+export const ReviewWidgetsGallery = WidgetsGallery
+export default WidgetsGallery

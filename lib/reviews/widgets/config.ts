@@ -364,9 +364,9 @@ export function sectionOverrides(settings: Record<string, unknown> | null | unde
   if (!settings) return {}
   const picked: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(settings)) {
-    if (k === "widget" || k === "review_config") continue
+    /* The section's own: which widget and look, and its spacing on the page and colour scheme, which sit around the widget rather than change it. */
+    if (k === "widget" || k === "review_config" || k === "padding_top" || k === "padding_bottom" || k === "color_scheme") continue
     if (v === "" || v === null || v === undefined || v === "inherit") continue
-    if (typeof v === "number" && v === 0 && k !== "border_width" && k !== "gap" && k !== "card_padding" && k !== "radius" && k !== "padding_top" && k !== "padding_bottom") continue
     picked[k] = v
   }
   return sanitizeWidgetSettings(picked)
