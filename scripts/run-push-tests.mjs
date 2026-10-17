@@ -43,6 +43,7 @@ const SUITES = [
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
+  "tests/checkout-text.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
