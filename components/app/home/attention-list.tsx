@@ -56,7 +56,8 @@ export function AttentionList({ initial, className }: { initial: CommerceActionC
               data-tone={l.tone}
               className="flex min-h-[48px] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[#f9fafb] focus-visible:bg-[#f9fafb] focus-visible:outline-none sm:px-5"
             >
-              <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${l.tone === "critical" ? "bg-[#d92d20]" : "bg-[#d1d5db]"}`} />
+              {/* Mustard, not grey: a waiting order is something to do, and a grey dot read as nothing (round 27). Red stays for what went wrong. */}
+              <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${l.tone === "critical" ? "bg-[#d92d20]" : "bg-[#d4a017]"}`} />
               <span className={`min-w-0 flex-1 text-[14px] leading-5 ${l.tone === "critical" ? "font-semibold text-[#b42318]" : "font-medium text-[#1a1a2e]"}`}>{l.text}</span>
               <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
             </AppLink>

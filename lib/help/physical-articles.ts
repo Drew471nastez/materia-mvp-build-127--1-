@@ -1933,7 +1933,7 @@ const ARTICLES: Article[] = [
           "Pack it and post it.",
           "Press Fulfill items.",
           "Check the quantities. Lower one to send only part of the order now.",
-          "Type the tracking number. Storelib often knows the carrier from the number; if not, pick it. For a carrier that isn't listed, choose Other and type its name and tracking link.",
+          "Choose the carrier: the ones used most in the buyer's country come first, each with its logo. Then type the tracking number; the buyer follows the parcel with it, so a carrier always needs one. For a carrier that isn't listed, choose Other and type its name and tracking link. Delivering it yourself, or sending it untracked? Choose Local delivery / no tracking.",
           "Keep Send shipment details to the buyer on and press Fulfill.",
         ],
       },
@@ -1978,12 +1978,12 @@ const ARTICLES: Article[] = [
     body: [
       { type: "p", text: "Every shipment can carry a tracking number. Storelib turns it into a link to the carrier's own tracking page, and puts that link in the buyer's email and on their order page." },
       { type: "h", text: "Carriers Storelib knows" },
-      { type: "p", text: "For these, the tracking link is made for you: USPS, UPS, FedEx, DHL Express, DHL Paket, Royal Mail, Evri, Hermes, DPD, GLS, FAN Courier, Sameday, Cargus, Posta Romana, Canada Post, Australia Post, PostNL, La Poste / Colissimo, Aramex, InPost, PostNord, Correos, Poste Italiane, An Post and Purolator." },
+      { type: "p", text: "For these, the tracking link is made for you: DHL Express, UPS, FedEx, USPS, DHL (Paket, Parcel and eCommerce), DPD, GLS, Amazon Logistics, Royal Mail, Evri, TNT, La Poste / Colissimo, Hermes, PostNL, Poste Italiane, Correos, InPost, Canada Post, Australia Post, FAN Courier, Sameday, Cargus, Posta Romana, PostNord, Aramex, An Post and Purolator. A parcel to Romania sent with DPD gets DPD Romania's own page." },
       {
         type: "list",
         items: [
-          "Type the number first: Storelib often picks the carrier from how the number looks.",
-          "Under the fields, The buyer can follow it at names the carrier's site, so you can check before you save.",
+          "Typed before a carrier is chosen, the number often picks the carrier by how it looks.",
+          "Under the number, The buyer follows it on names the carrier's site, and Check the link opens it, so you can check before you save.",
           "For any other carrier, choose Other, type its name and paste its tracking link. Without a link, the buyer sees the number on its own.",
         ],
       },

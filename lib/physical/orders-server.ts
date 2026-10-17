@@ -410,7 +410,8 @@ export async function fulfilItems(
   if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
   let url = pickup ? null : cleanText(input.trackingUrl, 500)
   if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
-  url = url ?? trackingUrl(carrier, tracking)
+  /* The shipping country picks a carrier's own national tracking page where it runs one (DPD in Romania). */
+  url = url ?? trackingUrl(carrier, tracking, typeof order.address?.country === "string" ? order.address.country : null)
   const key = cleanText(input.key, 120)
   const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
   /* Where it ships from: one of the chosen lines' own locations, never an id taken on trust from the request. */
@@ -508,7 +509,13 @@ export async function updateShipment(
     if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
     let url = "trackingUrl" in input ? cleanText(input.trackingUrl, 500) : null
     if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
-    url = url ?? trackingUrl(carrier, tracking) ?? (tracking === f.tracking_number ? f.tracking_url : null)
+    /* The shipping country, for a carrier's own national tracking page (DPD in Romania). */
+    let country: string | null = null
+    if (!url && tracking && f.checkout_id) {
+      const { data: co } = await db.from("commerce_checkouts").select("shipping_address").eq("id", f.checkout_id).maybeSingle()
+      country = typeof co?.shipping_address?.country === "string" ? co.shipping_address.country : null
+    }
+    url = url ?? trackingUrl(carrier, tracking, country) ?? (tracking === f.tracking_number ? f.tracking_url : null)
     Object.assign(patch, { carrier, tracking_number: tracking, tracking_url: url })
   }
   const to = typeof input.status === "string" ? (input.status as ShipmentStatus) : null

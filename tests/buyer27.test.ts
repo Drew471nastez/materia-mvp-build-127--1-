@@ -269,7 +269,7 @@ async function main() {
     }
     const html = renderToStaticMarkup(React.createElement(CheckoutWords, { lang: "ro", words: checkoutWordsIn("ro", null), children: React.createElement(OrderStatusView, base) })).replace(/\u00a0/g, " ")
     check("the header draws the shop's logo and Visit store goes to its website", /data-shop-logo="" src="https:\/\/cdn\.example\.com\/logo\.png"|src="https:\/\/cdn\.example\.com\/logo\.png"[^>]*data-shop-logo/.test(html) && /href="https:\/\/andrewrullz\.storelib\.com"[^>]*data-visit-store/.test(html) && /Vizitează magazinul/.test(html))
-    check("the carrier's mark on its parcel", /data-carrier-logo="FAN Courier"/.test(html))
+    check("the carrier's mark on its parcel", /data-carrier-logo="fan-courier"/.test(html))
     check("Email the shop opens the letter: subject, the order, the link back", (() => {
       const m = html.match(/href="(mailto:[^"]+)"[^>]*data-email-shop/)
       if (!m) return false
@@ -292,7 +292,7 @@ async function main() {
 
     const known = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "fan courier", size: 40 }))
     const unknown = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "Curier Local SRL", size: 40 }))
-    check("a carrier as the seller wrote it is still its mark; one we don't know gets a plain parcel mark, never a remote image", /data-carrier-logo="FAN Courier"/.test(known) && /data-carrier-logo=""/.test(unknown) && !/<img/.test(known + unknown))
+    check("a carrier as the seller wrote it is still its mark; one we don't know gets a plain parcel mark, never a remote image", /data-carrier-logo="fan-courier"/.test(known) && /src="\/carriers\/fan-courier\.webp"/.test(known) && /data-carrier-logo="other"/.test(unknown) && !/<img/.test(unknown) && !/src="https?:/.test(known + unknown))
 
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     check("the return stepper: minus, the number, plus, never past what can go back, big enough to press", /function Stepper/.test(view) && /disabled=\{value >= max\}/.test(view) && /disabled=\{value <= 0\}/.test(view) && /h-10 w-10/.test(view) && !/<select value=\{qty/.test(view))

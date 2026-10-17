@@ -66,6 +66,13 @@ export interface OrderRow {
   physical_problem?: boolean | null
   /** Paid in cash on delivery and the seller has not marked the cash received (lib/physical/cash-on-delivery.ts). */
   physical_cash_due?: boolean | null
+  /** The carrier of the order's latest parcel, as the seller named it ("FAN Courier"): its logo on the list. */
+  physical_carrier?: string | null
+  /**
+   * When someone on the store first opened the order (SQL part 224). Null: nobody has yet, and the list marks it.
+   * Absent (undefined) on a database without the column: every order reads as seen, as before.
+   */
+  seller_seen_at?: string | null
   /** This line's share of what the buyer paid for delivery, inside `amount_cents` (lib/physical/checkout-server). */
   shipping_cents?: number | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
@@ -111,6 +118,8 @@ export interface Shipping {
   problem?: boolean
   /** A return the buyer asked for that is not finished (requested or on its way back): the Returns view. */
   returnOpen?: boolean
+  /** The carrier of its latest parcel, for its logo beside Shipped and Delivered. */
+  carrier?: string | null
 }
 
 /** Whether a stage still shows a delivery problem: only while the parcel is out (not delivered, returned or cancelled). */
@@ -194,6 +203,8 @@ export interface Order {
   deliveredAt: string | null
   /** An order with something to ship: where it is and how it goes. Null for downloads, courses and memberships. */
   shipping: Shipping | null
+  /** Nobody on the store has opened it yet (SQL part 224): a small dot on the list until someone does. */
+  unseen: boolean
 }
 
 /** Shopify starts at #1001, and so does everything a creator will compare this with. */
@@ -346,7 +357,9 @@ export function groupOrders(rows: OrderRow[], numbers?: Record<string, number> |
           : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
-      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true), returnOpen: shipped.physical_return === "requested" || shipped.physical_return === "in_progress" } : null,
+      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true), returnOpen: shipped.physical_return === "requested" || shipped.physical_return === "in_progress", carrier: lines.map((r) => r.physical_carrier).find(Boolean) ?? null } : null,
+      /* Opened by nobody yet: null on the column, never a missing column; a payment that failed is not news to open. */
+      unseen: payment !== "failed" && payment !== "voided" && lines.some((r) => r.seller_seen_at === null),
     })
   }
 
