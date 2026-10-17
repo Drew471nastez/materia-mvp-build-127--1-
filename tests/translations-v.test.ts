@@ -149,12 +149,12 @@ const P2 = "20000000-0000-4000-8000-000000000002"
 async function main() {
   console.log("\n1. What is words")
   {
-    check("text, long text, rich text and inline rich text are", ["text", "textarea", "richtext", "inline_richtext"].every((type) => isWordsField({ type, id: "heading" })))
+    check("text, long text, rich text and inline rich text are", ["text", "textarea", "richtext", "inline_richtext"].every((type) => isWordsField({ type: type as never, id: "heading" })))
     check("  a picture's description (alt text) is", isWordsField({ type: "text", id: "image_alt" }) && isWordsField({ type: "text", id: "alt" }) && isWordsField({ type: "text", id: "hero_image_alt" }))
     check("  a button's label and a link's words are", isWordsField({ type: "text", id: "button_label" }) && isWordsField({ type: "text", id: "link_text" }))
-    check("a colour, a number, a toggle, a picture and a link are not", ["color", "range", "number", "checkbox", "image_picker", "url", "select", "font_picker"].every((type) => !isWordsField({ type, id: "x" })))
+    check("a colour, a number, a toggle, a picture and a link are not", ["color", "range", "number", "checkbox", "image_picker", "url", "select", "font_picker"].every((type) => !isWordsField({ type: type as never, id: "x" })))
     check("  nor a text setting that holds an address, a gradient or an embed", ["contact_email", "contact_phone", "embed_url", "bg_gradient", "embed_code", "target_id"].every((id) => !isWordsField({ type: "text", id })))
-    check("  every type the old rule took is still offered where it holds words", [...TRANSLATABLE_TYPES].every((type) => isWordsField({ type, id: "heading" })))
+    check("  every type the old rule took is still offered where it holds words", [...TRANSLATABLE_TYPES].every((type) => isWordsField({ type: type as never, id: "heading" })))
     check("  and a gradient is not words, by its id or its label", !isWordsField({ type: "text", id: "bg", label: "Background gradient" }))
     const listed = translatablesOf([section()], fieldsOf, blockFieldsOf).map((t) => t.key)
     check("listed to translate: the words, the alt text, the block's words", ["section:s1:heading", "section:s1:text", "section:s1:image_alt", "section:s1:button_label", "block:s1:b1:title", "block:s1:b1:alt"].every((k) => listed.includes(k)), listed)
