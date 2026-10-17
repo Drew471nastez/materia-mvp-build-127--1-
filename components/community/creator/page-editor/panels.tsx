@@ -191,7 +191,7 @@ function JoinPanel(p: PanelProps) {
   const look = p.draft.look
   const setLook = (patch: Partial<PageLook>) => p.set("look", { ...look, ...patch })
   const brand = buttonBrand(look.brand)
-  const suggestions = [p.free ? tt("Join for free") : null, tt("Get access"), tt("Join now"), p.requests ? tt("Request access") : null].filter((s): s is string => !!s)
+  const suggestions = [p.free ? tt("Join free") : null, tt("Get access"), tt("Join now"), p.requests ? tt("Request access") : null].filter((s): s is string => !!s)
   const shownLabel = look.joinLabel.trim() || p.defaultJoinLabel
   const styles: { value: JoinStyle; title: string; detail: string }[] = [
     { value: "ink", title: tt("Ink"), detail: tt("Storelib's dark button") },

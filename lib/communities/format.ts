@@ -55,14 +55,21 @@ export function priceLine(p: PriceFacts): string {
   return p.kind === "paid" ? "" : "Free"
 }
 
-/** The one button on a community's public page. */
-export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null }): string {
+/**
+ * The one button on a community's public page (round AF: "Join $24/month", never "Join for"):
+ *
+ *   one plan           "Join free", "Join $24/month", or "Start free trial" when it has one
+ *   several plans      "Join free" when one of them is free, else "Choose plan": the press opens the plan picker
+ */
+export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; approvalRequired?: boolean; priceLine?: string | null; trialDays?: number; plans?: number; anyFree?: boolean }): string {
   if (s.isMember) return "Open community"
   if (s.pending) return "Request sent"
   if (s.approvalRequired) return "Request to join"
-  if (s.priceLine === "Free") return "Join for free"
+  if ((s.plans ?? 0) > 1) return s.anyFree ? "Join free" : "Choose plan"
+  if (s.priceLine === "Free") return "Join free"
+  if ((s.trialDays ?? 0) > 0) return "Start free trial"
   if (!s.priceLine) return "Join"
-  return `Join for ${s.priceLine}`
+  return `Join ${s.priceLine}`
 }
 
 /* Newer ICU puts a narrow no break space before AM/PM; one plain space reads the same and renders the same on server and client. */
