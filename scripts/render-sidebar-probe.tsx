@@ -48,13 +48,19 @@ const common = {
  * route — the third is how the filled active icon is checked: the same icon,
  * rendered active and rendered resting, has to be a different shape.
  */
-const CASES: [string, Set<string>, string][] = [
-  ["closed", new Set(), "/app"],
-  ["open", new Set(["/app/products"]), "/app"],
-  ["elsewhere", new Set(), "/app/orders"],
+const CASES: [string, Set<string>, string, string][] = [
+  ["closed", new Set(), "/app", "100vh"],
+  ["open", new Set(["/app/products"]), "/app", "100vh"],
+  ["elsewhere", new Set(), "/app/orders", "100vh"],
+  /*
+    The same rail, too short for its own rows, so the nav scrolls. Measured
+    against "open": a scrollbar that takes its width out of the rows is what
+    moved every label sideways the moment a group opened.
+  */
+  ["short", new Set(["/app/products"]), "/app", "320px"],
 ]
 
-for (const [name, expandedGroups, pathname] of CASES) {
+for (const [name, expandedGroups, pathname, height] of CASES) {
   ;(globalThis as Record<string, unknown>).__PATHNAME__ = pathname
   const html = renderToStaticMarkup(
     createElement(DesktopSidebarContent, { ...common, expandedGroups }),
@@ -64,7 +70,7 @@ for (const [name, expandedGroups, pathname] of CASES) {
     `<!doctype html><meta name="viewport" content="width=device-width">
 <link rel="stylesheet" href="app.css">
 <style>body{margin:0;background:#fff}</style>
-<aside id="rail" style="width:240px;height:100vh;border-right:1px solid rgba(229,231,235,.6)">${html}</aside>
+<aside id="rail" style="width:240px;height:${height};border-right:1px solid rgba(229,231,235,.6)">${html}</aside>
 <pre id="out">pending</pre>`,
   )
 }

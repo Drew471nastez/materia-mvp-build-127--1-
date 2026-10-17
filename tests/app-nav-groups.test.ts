@@ -66,10 +66,14 @@ console.log("\nIn the sidebar itself")
   check("nothing says the groups always start closed any more", !/Always collapsed on mount/.test(side))
   /*
     The scrollbar: 3px of room, always there. Without the gutter it appeared the moment a group opened,
-    took its width out of the rows, and every label moved while the group was still opening.
+    took its width out of the rows, and every label moved while the group was still opening. The rule is in
+    the app's own stylesheet rather than a style block inside the sidebar, because the phone's menu uses the
+    same class and a rule that exists only while one component is on screen is one no probe can measure.
   */
-  check("the sidebar keeps the scrollbar's room whether or not it is scrolling", /\.sidebar-nav \{[\s\S]*?scrollbar-gutter: stable;[\s\S]*?\}/.test(side))
-  check("and the scrollbar itself is slim and quiet until a pointer is over it", /scrollbar-width: thin/.test(side) && /\.sidebar-nav::-webkit-scrollbar \{\s*width: 3px;/.test(side) && /\.sidebar-nav:hover::-webkit-scrollbar-thumb/.test(side))
+  const css = code("app/globals.css")
+  check("the sidebar keeps the scrollbar's room whether or not it is scrolling", /\.sidebar-nav \{[\s\S]*?scrollbar-gutter: stable;[\s\S]*?\}/.test(css))
+  check("and the scrollbar itself is slim and quiet until a pointer is over it", /scrollbar-width: thin/.test(css) && /\.sidebar-nav::-webkit-scrollbar \{\s*width: 3px;/.test(css) && /\.sidebar-nav:hover::-webkit-scrollbar-thumb/.test(css))
+  check("and the sidebar carries no stylesheet of its own any more", !/<style jsx global>/.test(side))
   const nav = code("components/app/sidebar-desktop-nav.tsx")
   check("a group opens on a grid row, with no height measured in JavaScript", /gridTemplateRows: open \? "1fr" : "0fr"/.test(nav))
   check("a closed group is out of the keyboard's way", /aria-hidden=\{!open\}/.test(nav))

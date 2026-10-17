@@ -654,49 +654,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   return (
     <>
-      <style jsx global>{`
-        .sidebar-nav {
-          scrollbar-width: thin;
-          scrollbar-color: transparent transparent;
-          /*
-            The room for the scrollbar is always there, whether or not there
-            is anything to scroll. Without this the bar appeared the moment a
-            group opened, took its width out of the rows, and every label in
-            the sidebar moved a few pixels sideways while the group was still
-            opening.
-          */
-          scrollbar-gutter: stable;
-        }
-        .sidebar-nav:hover {
-          scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
-        }
-        .sidebar-nav::-webkit-scrollbar {
-          width: 3px;
-        }
-        .sidebar-nav::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .sidebar-nav::-webkit-scrollbar-thumb {
-          background-color: transparent;
-          border-radius: 999px;
-        }
-        .sidebar-nav:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, 0.12);
-        }
-        .sidebar-nav::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(0, 0, 0, 0.22);
-        }
-        /* Dark scrollbar for mobile sidebar */
-        .sidebar-nav-dark:hover {
-          scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-        }
-        .sidebar-nav-dark:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.15);
-        }
-        .sidebar-nav-dark::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255, 255, 255, 0.25);
-        }
-      `}</style>
 
       {/* Desktop Header Bar — dark bar with concave bottom corners.
           pt-[env(safe-area-inset-top)] pushes the 58 px content row below

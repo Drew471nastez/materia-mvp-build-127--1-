@@ -60,8 +60,10 @@ export default function Link({ href, children, ...rest }) {
 
 export const useLinkStatus = () => ({ pending: false })
 `)
+/* useSearchParams came with the shell's own record of the address (lib/ui/app-navigation); without it the bundle stopped and this probe could not run at all. */
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => globalThis.__PATHNAME__ ?? "/app"
-export const useRouter = () => ({ push() {}, prefetch() {} })
+export const useSearchParams = () => new URLSearchParams(globalThis.__SEARCH__ ?? "")
+export const useRouter = () => ({ push() {}, replace() {}, prefetch() {} })
 `)
 
 const PROBE = `<script>
@@ -82,6 +84,12 @@ function run() {
   const out = {
     railWidth: Math.round(rail.getBoundingClientRect().width),
     navPadding: getComputedStyle(nav).paddingLeft + "/" + getComputedStyle(nav).paddingRight,
+    /* Whether the nav has more than it can show, and how wide the rows are drawn in either case. */
+    navScrolls: nav.scrollHeight > nav.clientHeight + 1,
+    navInner: Math.round(nav.clientWidth),
+    rowLeft: rows.length ? Math.round(rows[0].getBoundingClientRect().left) : null,
+    rowRight: rows.length ? Math.round(rows[0].getBoundingClientRect().right) : null,
+    gutter: getComputedStyle(nav).scrollbarGutter,
     rows: rows.map((el) => ({ label: el.textContent.trim().slice(0, 18), ...box(el) })),
     icons: [...rail.querySelectorAll("span[data-nav-icon]")].map((el) => {
       const b = el.getBoundingClientRect()
@@ -209,7 +217,8 @@ try {
     if (!ok) broken++
   }
 
-  for (const name of ["closed", "open", "elsewhere"]) {
+  const seen = {}
+  for (const name of ["closed", "open", "elsewhere", "short"]) {
     const file = join(out, `sidebar-${name}.html`)
     writeFileSync(file, readFileSync(file, "utf8").replace("</pre>", "</pre>" + PROBE))
     const dom = execFileSync(
@@ -222,6 +231,7 @@ try {
     if (!match || match[1] === "pending") fail(`No measurement came back for ${name}.`)
     const m = JSON.parse(match[1])
 
+    seen[name] = m
     console.log(`\nproducts ${name}`)
     expect(m.railWidth === 240, "the rail is 240px", m.railWidth)
     expect(m.navPadding === "7px/7px", "with 7px of gutter", m.navPadding)
@@ -251,12 +261,14 @@ try {
       "every icon carries both weights at once",
       JSON.stringify(m.icons.map((i) => [!!i.outline, !!i.filled])),
     )
-    const layers = m.icons.flatMap((i) => [i.outline, i.filled])
+    /* A row whose icon is not a stacked pair has nothing to measure; the check above is what says so, and this one reads the rest rather than stopping. */
+    const pairs = m.icons.filter((i) => i.outline && i.filled)
+    const layers = pairs.flatMap((i) => [i.outline, i.filled])
     expect(layers.every((l) => l.glyph === "20x20"), "both are 20×20", JSON.stringify(layers.map((l) => l.glyph)))
     expect(
-      m.icons.every((i) => i.outline.offset === i.filled.offset),
+      pairs.every((i) => i.outline.offset === i.filled.offset),
       "and sit in exactly the same place, so the fade cannot shift the glyph",
-      JSON.stringify(m.icons.map((i) => [i.outline.offset, i.filled.offset])),
+      JSON.stringify(pairs.map((i) => [i.outline.offset, i.filled.offset])),
     )
     expect(layers.every((l) => l.painted > 0), "every layer paints something", JSON.stringify(layers.map((l) => l.painted)))
     expect(
@@ -274,13 +286,13 @@ try {
         renderings: either the geometry differs, or the paint does (a real
         stroke with no fill vs. a real fill with no stroke).
       */
-      m.icons.every(
+      pairs.every(
         (i) =>
           i.outline.d !== i.filled.d ||
           (i.outline.stroke !== "none" && i.outline.fill === "none" && i.filled.fill !== "none" && i.filled.stroke === "none"),
       ),
       "the two weights are genuinely different, in shape or in paint",
-      JSON.stringify(m.icons.find((i) => i.outline.d === i.filled.d)),
+      JSON.stringify(pairs.find((i) => i.outline.d === i.filled.d)),
     )
     /*
       THE SMOOTHNESS, WHICH IS THE WHOLE POINT.
@@ -295,11 +307,11 @@ try {
       JSON.stringify([...new Set(layers.map((l) => l.transition))]),
     )
     expect(
-      m.icons.every((i) =>
+      pairs.every((i) =>
         i.active ? i.filled.opacity === "1" && i.outline.opacity === "0"
                  : i.filled.opacity === "0" && i.outline.opacity === "1"),
       "with the layer that matches the route the visible one",
-      JSON.stringify(m.icons.map((i) => [i.active, i.outline.opacity, i.filled.opacity])),
+      JSON.stringify(pairs.map((i) => [i.active, i.outline.opacity, i.filled.opacity])),
     )
     expect(
       m.icons.filter((i) => i.active).length === 1,
@@ -320,19 +332,19 @@ try {
         stroked, on the same 24-unit box, so every icon in the rail — Home
         included — reads the same drawing weight with nothing excepted.
       */
-      m.icons.every((i) => i.outline.stroke === "1.5px"),
+      pairs.every((i) => i.outline.stroke === "1.5px"),
       "every resting layer is stroked at 1.5, the weight it is drawn at",
-      JSON.stringify(m.icons.map((i) => i.outline.stroke)),
+      JSON.stringify(pairs.map((i) => i.outline.stroke)),
     )
     expect(
-      m.icons.every((i) => i.outline.fill === "none"),
+      pairs.every((i) => i.outline.fill === "none"),
       "and is a stroke rather than a fill shaped like one",
-      JSON.stringify(m.icons.map((i) => i.outline.fill)),
+      JSON.stringify(pairs.map((i) => i.outline.fill)),
     )
     expect(
-      m.icons.every((i) => i.filled.fill !== "none"),
+      pairs.every((i) => i.filled.fill !== "none"),
       "while the active layer is a genuine solid",
-      JSON.stringify(m.icons.map((i) => i.filled.fill)),
+      JSON.stringify(pairs.map((i) => i.filled.fill)),
     )
 
     /*
@@ -351,16 +363,34 @@ try {
       JSON.stringify(home),
     )
 
-    expect(m.chevron.w === 20 && m.chevron.fromRight === 18, "the chevron is a fixed box pinned right", JSON.stringify(m.chevron))
+    /* The gutter the scrollbar keeps is part of how far the chevron sits from the rail's edge, so the number is read against it. */
+    expect(m.chevron.w === 20 && m.chevron.fromRight >= 18 && m.chevron.fromRight <= 36, "the chevron is a fixed box pinned right", JSON.stringify(m.chevron))
+    /* "short" is the open group again, in a rail too small for it: the chevron and the submenu are the open case's. */
+    const isOpen = name === "open" || name === "short"
     const turned = m.chevron.transform.startsWith("matrix(-1")
-    expect(name === "open" ? turned : !turned, `and is ${name === "open" ? "turned over" : "upright"}`, m.chevron.transform)
+    expect(isOpen ? turned : !turned, `and is ${isOpen ? "turned over" : "upright"}`, m.chevron.transform)
     expect(
-      name === "open" ? m.submenu.height > 0 && m.submenu.opacity === "1" : m.submenu.height === 0 && m.submenu.opacity === "0",
-      `the submenu is ${name === "open" ? "open" : "closed"}`,
+      isOpen ? m.submenu.height > 0 && m.submenu.opacity === "1" : m.submenu.height === 0 && m.submenu.opacity === "0",
+      `the submenu is ${isOpen ? "open" : "closed"}`,
       JSON.stringify(m.submenu),
     )
   }
 
+
+  /*
+    THE SCROLLBAR DOES NOT MOVE THE ROWS. A nav with more rows than room shows
+    one; without a reserved gutter it takes its width out of the rows, so every
+    label in the sidebar shifted sideways the moment a group opened. The short
+    rail scrolls, the tall one does not, and the rows have to be drawn in the
+    same place in both.
+  */
+  console.log("\nthe scrollbar takes nothing from the rows")
+  expect(seen.short.navScrolls === true, "the short rail has more than it can show", seen.short.navScrolls)
+  expect(seen.open.navScrolls === false, "and the tall one does not", seen.open.navScrolls)
+  expect(seen.short.gutter === "stable" && seen.open.gutter === "stable", "both keep the scrollbar's room", `${seen.open.gutter} / ${seen.short.gutter}`)
+  expect(seen.short.navInner === seen.open.navInner, "so the nav is the same width scrolling or not", `${seen.open.navInner} vs ${seen.short.navInner}`)
+  expect(seen.short.rowLeft === seen.open.rowLeft && seen.short.rowRight === seen.open.rowRight, "and a row is drawn in the same place", `${seen.open.rowLeft}-${seen.open.rowRight} vs ${seen.short.rowLeft}-${seen.short.rowRight}`)
+  expect(seen.open.rowLeft === seen.closed.rowLeft && seen.open.rowRight === seen.closed.rowRight, "opening a group moves no row sideways", `${seen.closed.rowLeft}-${seen.closed.rowRight} vs ${seen.open.rowLeft}-${seen.open.rowRight}`)
 
   console.log(`\n${broken === 0 ? "the rail holds its shape" : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)

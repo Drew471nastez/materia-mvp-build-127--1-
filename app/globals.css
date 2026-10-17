@@ -8472,3 +8472,55 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
 @media (prefers-reduced-motion: reduce) {
   .rail-tip-in { animation: none; }
 }
+
+/*
+  ===========================================================================
+   THE APP SIDEBAR'S SCROLL
+  ===========================================================================
+  Here rather than in a style block inside components/app/sidebar, because the
+  nav is drawn by components/app/sidebar-desktop-nav and by the phone's menu,
+  and a rule that only exists while one component is on screen is a rule no
+  probe can measure and no other caller gets. One place, read by both.
+*/
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  /*
+    The room for the scrollbar is always there, whether or not there
+    is anything to scroll. Without this the bar appeared the moment a
+    group opened, took its width out of the rows, and every label in
+    the sidebar moved a few pixels sideways while the group was still
+    opening.
+  */
+  scrollbar-gutter: stable;
+}
+.sidebar-nav:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+}
+.sidebar-nav:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.12);
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.22);
+}
+/* Dark scrollbar for mobile sidebar */
+.sidebar-nav-dark:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.sidebar-nav-dark:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+.sidebar-nav-dark::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+      
