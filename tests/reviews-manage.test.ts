@@ -189,7 +189,13 @@ export const isUuid = (v) => typeof v === "string" && UUID.test(v)
 export const shopCaller = async () => globalThis.__rmStubs.caller ?? NextResponse.json({ error: "Sign in to continue." }, { status: 401 })
 `,
   ),
-  "@/lib/api/rate-limit": stub("rl", `export const rateLimit = async () => null\n`),
+  /* Every name the reviews routes take from it: one missing (addressSubject, when the routes began naming who they are limiting) stopped this suite dead, after its checks had printed and before the routes were run at all. */
+  "@/lib/api/rate-limit": stub("rl", `export const rateLimit = async () => null
+export const addressSubject = () => "probe"
+export const callerAddress = () => "127.0.0.1"
+export const emailSubject = (e) => (typeof e === "string" ? e.toLowerCase() : null)
+export const LIMITS = {}
+`),
   "@/lib/activity/log-server": stub("act", `export const recordActivity = async () => undefined\n`),
   "@/lib/notify/providers/mailgun": stub("mail", `export const emailProvider = () => ({ send: async (m) => { globalThis.__rmStubs.sent.push(m); return { status: "sent" } } })\nexport const mailgunDomain = () => "mg.test"\n`),
 }
