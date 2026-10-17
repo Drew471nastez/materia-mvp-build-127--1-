@@ -46,12 +46,15 @@ execFileSync("npx", [
   '--define:process.env.NODE_ENV="production"',
   `--alias:@=${root}`, "--loader:.css=empty",
 ], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
+/* The section's panel before and after, read in Node the way the builder reads it. */
+const sectionFields = execFileSync("npx", ["--no-install", "tsx", join(root, "scripts/render-settings-sync-fields.ts")], { cwd: root, encoding: "utf8" })
 const pageFile = join(out, "index.html")
 writeFileSync(pageFile,
   `<!doctype html><html class="light"><head><meta charset="utf-8">` +
   `<meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${css}</style><style>body{margin:0;background:#fff;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div>` +
   `<script>window.__err=[];window.addEventListener("error",function(e){window.__err.push(String(e.message))})</script>` +
+  `<script>window.__sectionFields=${sectionFields.replace(/</g, "\\u003c")}</script>` +
   `<script src="probe.js"></script></body></html>`)
 
 /* ── the browser ─────────────────────────────────────────────────────── */
@@ -147,12 +150,12 @@ const byId = (rows, id) => rows.find((r) => r.id === id)
 await js("window.__panelRoot = document.querySelector('#section > div')")
 const a = await js(READ)
 await shot("before")
-const storedBefore = await js("window.__values()")
-await js("window.__swap()")
+const storedBefore = await js("window.__storedValues()")
+await js("window.__swapSchemas()")
 await sleep(120)
 const b = await js(READ)
 await shot("after")
-const storedAfter = await js("window.__values()")
+const storedAfter = await js("window.__storedValues()")
 const sameRoot = await js("window.__panelRoot === document.querySelector('#section > div') && document.contains(window.__panelRoot)")
 
 console.log("\nTheme settings: config/settings_schema.json changed")
@@ -196,7 +199,7 @@ check("a title of its own: the box holds it, and Reset to collection is offered"
 await js(`(() => { const b = [...document.querySelectorAll('#section [data-field-id="title"] button')].find((x) => /Reset to collection/.test(x.textContent)); b.click() })()`)
 await sleep(80)
 const back = byId((await js(READ)).section, "title")
-const storedBack = await js("window.__values()")
+const storedBack = await js("window.__storedValues()")
 check("Reset to collection empties it, and the collection's name is back", back?.box === "" && back?.placeholder === "Kitchen" && storedBack.section.title === "", { back, stored: storedBack.section.title })
 await shot("bound")
 

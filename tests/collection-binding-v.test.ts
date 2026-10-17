@@ -112,7 +112,7 @@ async function main() {
   console.log("\nBound, overridden, reset: read when the page is drawn")
   {
     const block = compileThemeFile(DEFAULT_THEME_SOURCES["blocks/collection_card.storelib"], { file: "blocks/collection_card.storelib" })
-    const defs = block.ok === true ? ((block as { value: { schema: { settings: never[] } } }).value.schema.settings) : []
+    const defs = block.ok === true ? ((block as unknown as { value: { schema: { settings: never[] } } }).value.schema.settings) : []
     const collections = { [KITCHEN]: collection(KITCHEN, "Kitchen") }
     const bound = resolveSettings(defs, { collection: KITCHEN }, { collections })
     check("picked, nothing else set: the card is the collection's picture, title and words", bound.image === FULL && bound.title === "Kitchen" && bound.description === "Kitchen, chosen by hand", { image: bound.image, title: bound.title })
@@ -143,7 +143,7 @@ async function main() {
     check("never another creator's collection", !(THEIRS.toLowerCase() in visitor.collections))
     check("every collection read is filtered by the creator", asked.filter((q) => q.table === "product_collections").every((q) => q.eq.some(([c, v]) => c === "creator_id" && v === A)))
     const block = compileThemeFile(DEFAULT_THEME_SOURCES["blocks/collection_card.storelib"], { file: "blocks/collection_card.storelib" })
-    const defs = block.ok === true ? ((block as { value: { schema: { settings: never[] } } }).value.schema.settings) : []
+    const defs = block.ok === true ? ((block as unknown as { value: { schema: { settings: never[] } } }).value.schema.settings) : []
     const bare = resolveSettings(defs, { collection: BARE }, { collections: visitor.collections })
     check("so a card for it shows the product's picture, with nothing uploaded", bare.image === "https://cdn.test/oak.jpg" && bare.title === "No picture")
   }

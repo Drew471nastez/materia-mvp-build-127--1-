@@ -202,7 +202,7 @@ async function main() {
   console.log("\nThe canvas and the sidebar have the file's defaults before any save")
   {
     const groups = groupsOf(JSON.stringify([{ name: "Promo strip", settings: [{ type: "toggle", id: "promo_show", label: "Show", default: true }] }, { name: "Layout", settings: [{ type: "range", id: "page_width", label: "W", min: 900, max: 1800, default: 1280 }] }]))!
-    const values = { brand_name: "Astrid" }
+    const values: Record<string, unknown> = { brand_name: "Astrid" }
     const drawn = withThemeDefaults(values, groups)
     check("a setting the theme added draws at its default", drawn.promo_show === true)
     check("  Storelib's own default unchanged by the file is not written in", !("page_width" in drawn))

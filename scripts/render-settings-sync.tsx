@@ -8,15 +8,16 @@
  *   #theme     Theme settings' group list (themeSettingsGroupsFor, the
  *              theme's config/settings_schema.json over Storelib's), and the
  *              open group's controls
- *   #section   a section's panel (schemaFor, from its .storelib <schema>)
+ *   #section   a section's panel (schemaFor, from its .storelib <schema>,
+ *              read in Node by scripts/render-settings-sync-fields.ts)
  *
  * Each control is the sidebar's own: SliderNumberControl for a range (given
  * the value clampTo shows, as WbSlider and FieldControl give it), the
  * registered controls (renderRegisteredControl) inside CollectionBoundField
  * for the rest, a switch for a toggle. The values live in one state that a
- * schema change never touches. `window.__swap()` replaces both schema files
+ * schema change never touches. `window.__swapSchemas()` replaces both schema files
  * in place, without remounting, as a save, a push or Storelib AI does in the
- * open editor; `window.__values()` reads the stored values back.
+ * open editor; `window.__storedValues()` reads the stored values back.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -28,16 +29,13 @@ import { renderRegisteredControl } from "@/components/website-builder/editor/con
 import { CollectionBoundField } from "@/components/website-builder/editor/controls/collection-bound-field"
 import { builtInSettingsSchema, clampTo, themeSettingsGroupsFor } from "@/lib/storelib-theme/theme-config"
 import { resolveControlType } from "@/lib/storelib-theme/controls/types"
-import { schemaFor } from "@/lib/website-builder/storelib-schemas"
-import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SchemaField } from "@/lib/website-builder/types"
 
-declare global {
-  interface Window {
-    __ready: boolean
-    __swap: () => void
-    __values: () => { theme: Record<string, unknown>; section: Record<string, unknown> }
-  }
+/* What the check script calls: its own names, typed here, not on Window, where other probes declare theirs. */
+const page = window as unknown as {
+  __ready: boolean
+  __swapSchemas: () => void
+  __storedValues: () => { theme: Record<string, unknown>; section: Record<string, unknown> }
 }
 
 const KITCHEN = "c1c1c1c1-0000-4000-8000-000000000001"
@@ -73,36 +71,8 @@ after.unshift({
 const THEME_BEFORE = JSON.stringify(before)
 const THEME_AFTER = JSON.stringify(after)
 
-const SECTION_FILE = (() => {
-  /* A section of the creator's own: a collection picker, a bound picture and title, a slider, a toggle. */
-  const schema = {
-    name: "Shelf",
-    settings: [
-      { type: "collection_picker", id: "collection", label: "Collection" },
-      { type: "image_picker", id: "image", label: "Picture", from: "collection.image" },
-      { type: "text", id: "title", label: "Title", from: "collection.title" },
-      { type: "range", id: "padding_top", label: "Top padding", min: 0, max: 200, step: 4, unit: "px", default: 72 },
-      { type: "toggle", id: "show_count", label: "Show how many products", default: true },
-      { type: "text", id: "old_words", label: "Old words", default: "" },
-    ],
-    presets: [{ name: "Shelf" }],
-  }
-  const changed = {
-    ...schema,
-    settings: [
-      { type: "header", id: "hdr_look", label: "Look" },
-      { type: "range", id: "padding_top", label: "Top padding", min: 0, max: 96, step: 4, unit: "px", default: 48 },
-      { type: "range", id: "gap", label: "Gap", min: 0, max: 40, step: 4, unit: "px", default: 12 },
-      { type: "toggle", id: "show_count", label: "Show how many products", default: true },
-      { type: "header", id: "hdr_content", label: "Content" },
-      { type: "collection_picker", id: "collection", label: "Collection" },
-      { type: "text", id: "title", label: "Title", from: "collection.title" },
-      { type: "image_picker", id: "image", label: "Picture", from: "collection.image" },
-    ],
-  }
-  const file = (s: unknown) => `<template>\n<section class="s"><h2>{{ settings.title }}</h2></section>\n</template>\n\n<schema>\n${JSON.stringify(s, null, 2)}\n</schema>\n`
-  return { before: file(schema), after: file(changed) }
-})()
+/* The section's panel before and after its <schema> changed, read in Node by schemaFor (scripts/render-settings-sync-fields.ts): the compiler is not a browser module. */
+const SECTION_FIELDS = (window as unknown as { __sectionFields: { before: SchemaField[]; after: SchemaField[] } }).__sectionFields
 
 /* ── one control, the sidebar's way ──────────────────────────────────── */
 
@@ -148,24 +118,23 @@ function Panel({ fields, values, set }: { fields: SchemaField[]; values: Record<
 
 function App() {
   const [themeText, setThemeText] = React.useState(THEME_BEFORE)
-  const [sectionText, setSectionText] = React.useState(SECTION_FILE.before)
+  const [sectionFields, setSectionFields] = React.useState(SECTION_FIELDS.before)
   /* The stored values: what the creator set before the schema moved. */
   const [themeValues, setThemeValues] = React.useState<Record<string, unknown>>({ page_width: 1600, section_gap: 24, brand_name: "Astrid" })
   const [sectionValues, setSectionValues] = React.useState<Record<string, unknown>>({ collection: KITCHEN, padding_top: 160, show_count: false, old_words: "kept but not drawn", title: "" })
   const valuesRef = React.useRef({ theme: themeValues, section: sectionValues })
   valuesRef.current = { theme: themeValues, section: sectionValues }
   React.useEffect(() => {
-    window.__swap = () => flushSync(() => {
+    page.__swapSchemas = () => flushSync(() => {
       setThemeText(THEME_AFTER)
-      setSectionText(SECTION_FILE.after)
+      setSectionFields(SECTION_FIELDS.after)
     })
-    window.__values = () => JSON.parse(JSON.stringify(valuesRef.current))
-    window.__ready = true
+    page.__storedValues = () => JSON.parse(JSON.stringify(valuesRef.current))
+    page.__ready = true
   }, [])
   const groups = themeSettingsGroupsFor(themeText)
   const layout = groups.find((g) => g.id === "layout")!
   const promo = groups.find((g) => g.id === "promo_strip")
-  const section = schemaFor("shelf", { "sections/shelf.storelib": sectionText }, SECTION_SCHEMAS)
   return (
     <EditorFieldProvider value={env}>
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
@@ -174,7 +143,7 @@ function App() {
           <div id="layout"><Panel fields={layout.fields.filter((f) => f.type === "range")} values={themeValues} set={(id, v) => setThemeValues((p) => ({ ...p, [id]: v }))} /></div>
           {promo ? <div id="promo"><Panel fields={promo.fields} values={themeValues} set={(id, v) => setThemeValues((p) => ({ ...p, [id]: v }))} /></div> : null}
         </div>
-        <div id="section">{section ? <Panel fields={section.fields} values={sectionValues} set={(id, v) => setSectionValues((p) => ({ ...p, [id]: v }))} /> : <p>no schema</p>}</div>
+        <div id="section"><Panel fields={sectionFields} values={sectionValues} set={(id, v) => setSectionValues((p) => ({ ...p, [id]: v }))} /></div>
       </div>
     </EditorFieldProvider>
   )
