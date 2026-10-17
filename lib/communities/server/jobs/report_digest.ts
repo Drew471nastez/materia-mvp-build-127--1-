@@ -17,6 +17,7 @@ import "server-only"
 import { can } from "../../permissions"
 import type { Role } from "../../types"
 import { reasonOf, type Db } from "../db"
+import { rolePermissionsOf } from "../creator-roles"
 import { sendCommunityEmail } from "../email"
 import { readChoices } from "@/lib/notifications/push-bridge"
 import { reportDigestData } from "@/lib/notifications/report-digest"
@@ -51,10 +52,14 @@ export async function runReportDigest(db: Db, raw: unknown, now: number = Date.n
   const d = readReportDigestPayload(raw)
   if (!d) throw new Error("a report digest needs payload.userId, payload.communityId, payload.since and payload.day")
 
-  const { data: member, error: memberError } = await db.from("community_members").select("status, role").eq("community_id", d.communityId).eq("user_id", d.userId).maybeSingle()
+  const [{ data: member, error: memberError }, perms] = await Promise.all([
+    db.from("community_members").select("status, role").eq("community_id", d.communityId).eq("user_id", d.userId).maybeSingle(),
+    rolePermissionsOf(db, d.communityId),
+  ])
   if (memberError) throw new Error(`member read: ${reasonOf(memberError)}`)
   const m = member as { status: string; role: Role } | null
-  if (!m || m.status !== "active" || !can(m.role, "review_reports")) return "not_staff"
+  /* The owner's own choices for this community, so a moderator the reports group was taken from stops being sent them. */
+  if (!m || m.status !== "active" || !can(m.role, "review_reports", perms.perms)) return "not_staff"
 
   const choice = (await readChoices(db, [d.userId], now)).get(d.userId)
   if (choice?.emailOff.includes("report_digest")) return "turned_off"

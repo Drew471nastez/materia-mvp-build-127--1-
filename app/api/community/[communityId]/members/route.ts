@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: Params) {
   const limit = Math.max(1, Math.min(50, Number(sp.get("limit")) || 30))
   const q = sp.get("q") ?? ""
   const mentionLookup = limit <= 8 && q.trim().length > 0
-  if (!gate.community.directory_enabled && !can(gate.viewer.role, "manage_members") && !mentionLookup) {
+  if (!gate.community.directory_enabled && !can(gate.viewer.role, "manage_members", gate.viewer.perms) && !mentionLookup) {
     return NextResponse.json({ error: "directory_off" }, { status: 403, headers: NO_STORE })
   }
   const role = sp.get("role")

@@ -767,7 +767,7 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
         }
       : null,
     communities,
-    manageHref: staffAccount && (can(role, "manage_settings") || can(role, "review_reports")) ? `/app/community/${community.slug}` : null,
+    manageHref: staffAccount && (can(role, "manage_settings", viewer?.perms) || can(role, "review_reports", viewer?.perms)) ? `/app/community/${community.slug}` : null,
   }
 }
 

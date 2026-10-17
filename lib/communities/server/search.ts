@@ -263,7 +263,7 @@ export async function searchCommunity(db: Db, community: SearchCommunityRow, vie
   }
 
   const members = async (): Promise<SearchMemberHit[]> => {
-    if (!community.directory_enabled && !can(viewer.role, "manage_members")) return []
+    if (!community.directory_enabled && !can(viewer.role, "manage_members", viewer.perms)) return []
     const found = await listMembers(db, community.id, { q: words.length > 1 ? q : longest, limit: 20 })
     const hits = found.members.map((m) => ({ id: m.userId, name: m.name, username: m.username, avatarUrl: m.avatarUrl, role: m.role, href: memberHref(community.slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront }) }))
     return rankAll(hits, (m) => rankItem([{ text: m.name, weight: 3 }, { text: m.username, weight: 2 }], words), SEARCH_MEMBERS)
@@ -318,7 +318,7 @@ export async function searchIndex(db: Db, community: SearchCommunityRow, viewer:
     }
   }
   const members = async (): Promise<SearchMemberHit[]> => {
-    if (!community.directory_enabled && !can(viewer.role, "manage_members")) return []
+    if (!community.directory_enabled && !can(viewer.role, "manage_members", viewer.perms)) return []
     const found = await listMembers(db, community.id, { limit: INDEX_MEMBERS })
     return found.members.map((m) => ({ id: m.userId, name: m.name, username: m.username, avatarUrl: m.avatarUrl, role: m.role, href: memberHref(community.slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront }) }))
   }

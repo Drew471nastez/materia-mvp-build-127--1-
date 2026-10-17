@@ -63,7 +63,7 @@ async function composeFor(db: Db, community: CommunityRow, viewer: Viewer) {
  */
 export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer, place: Place, opts: { lesson?: string | null } = {}): Promise<PlaceLoad> {
   const ok = (data: PlaceData): PlaceLoad => ({ ok: true, place, data })
-  const manageLearn = can(viewer.role, "manage_classroom") ? `/app/community/${community.slug}/learn` : null
+  const manageLearn = can(viewer.role, "manage_classroom", viewer.perms) ? `/app/community/${community.slug}/learn` : null
   switch (place.kind) {
     case "feed":
     case "saved":
@@ -130,7 +130,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       return ok({ kind: "event", event, eventsHref: `/community/${community.slug}/events`, aboutHref: `/community/${community.slug}/about` })
     }
     case "members": {
-      if (!community.directory_enabled && !can(viewer.role, "manage_members")) return off
+      if (!community.directory_enabled && !can(viewer.role, "manage_members", viewer.perms)) return off
       const [first, byCountry] = await Promise.all([listMembers(db, community.id, {}), locationsReady(db)])
       return ok({ kind: "members", communityId: community.id, slug: community.slug, memberCount: community.member_count, initial: first, meId: viewer.userId, canMessage: community.chat_enabled, countryFilter: byCountry })
     }

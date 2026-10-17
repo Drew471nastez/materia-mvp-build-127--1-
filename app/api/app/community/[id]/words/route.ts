@@ -34,7 +34,7 @@ export async function GET(_request: Request, { params }: Params) {
   const gate = await requireCreatorCommunity(id, "view")
   if (gate instanceof NextResponse) return gate
   const s = wordSettingsOf(gate.community.onboarding)
-  return NextResponse.json({ words: s.words, action: s.action, canEdit: can(gate.role, "manage_settings") }, { headers: noStore })
+  return NextResponse.json({ words: s.words, action: s.action, canEdit: can(gate.role, "manage_settings", gate.viewer.perms) }, { headers: noStore })
 }
 
 export async function PUT(request: Request, { params }: Params) {

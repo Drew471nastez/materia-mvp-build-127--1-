@@ -394,7 +394,7 @@ export async function programPlayer(db: Db, community: CommunityRow, viewer: Vie
   const [{ readCourseTreeById }, { playerFromTree }] = await Promise.all([import("@/lib/courses/server"), import("@/lib/courses/load")])
   const tree = await readCourseTreeById(db, program.courseId)
   if (!tree || !tree.modules.some((m) => m.lessons.length > 0)) return null
-  const level: ProductLevel = can(viewer.role, "manage_classroom") ? "creator" : "owner"
+  const level: ProductLevel = can(viewer.role, "manage_classroom", viewer.perms) ? "creator" : "owner"
   return playerFromTree(db, {
     userId: viewer.userId,
     tree,
@@ -447,7 +447,7 @@ export async function programLessonLevel(
   if (!enabled || !communityOpen(community) || !community.classroom_enabled || !userId) return found("none")
   const viewer = await viewerContext(db, community, userId)
   if (!viewer.active) return found("none")
-  if (can(viewer.role, "manage_classroom")) return found("creator")
+  if (can(viewer.role, "manage_classroom", viewer.perms)) return found("creator")
   const owned = program.priceCents ? await ownedPrograms(db, userId, [program.id]) : new Set<string>()
   const gate = programGate(program, programViewer(viewer, owned.has(program.id)), opts.now)
   if (gate.open) return found("owner")
@@ -599,7 +599,7 @@ export async function programManager(db: Db, userId: string, programId: string):
     const community = await loadCommunity(db, { id: communityId })
     if (!community?.creator_id) return null
     const viewer = await viewerContext(db, community, userId)
-    if (!(community.owner_user_id === userId || (viewer.active && can(viewer.role, "manage_classroom")))) return null
+    if (!(community.owner_user_id === userId || (viewer.active && can(viewer.role, "manage_classroom", viewer.perms)))) return null
     const { data: creator } = await db.from("creators").select("subscription_plan_id").eq("id", community.creator_id).maybeSingle()
     return { creatorId: community.creator_id, planId: (creator as { subscription_plan_id?: string | null } | null)?.subscription_plan_id ?? null, communityId }
   } catch {
