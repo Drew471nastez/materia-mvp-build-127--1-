@@ -75,6 +75,8 @@ const SUITES = [
   "tests/integrations-i4.test.ts",
   /* Round 30: the Integrations page's pill order, All mixed, the pill in the address, a return with no landing (scripts/check-integrations-round30.mjs measures them). */
   "tests/integrations-round30.test.ts",
+  /* Round K4: the marketplace (pills with live counts, Filter, the list in the address) and the integration page's shell, its actions and the plug-in API for built-in apps. */
+  "tests/integrations-k4.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",
