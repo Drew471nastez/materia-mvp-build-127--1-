@@ -20,7 +20,7 @@
  *                         page above it stays in sight and can be pressed),
  *                         and nearly all of it, for a long field
  *   DRAGGED IN REAL TIME  its head follows the finger (or the mouse), one
- *                         transform per move, written on the event, never
+ *                         translate per move, written on the event, never
  *                         through React; let go, it carries on at the
  *                         finger's speed to where a throw that fast would
  *                         stop (snapTarget, snapMotion) on the compositor
@@ -40,7 +40,7 @@
  * It sits above the phone's navigation pill and the home indicator (and on
  * the keyboard when one is up, --kb-inset), over the content area only on a
  * tablet (clear of the rail). Its whole height is laid out once; the three
- * places are offsets of one transform, so moving it lays nothing out. The
+ * places are offsets of one translate, so moving it lays nothing out. The
  * list inside scrolls on its own, with room at its foot for the part of the
  * drawer below the screen, so the last field can always be reached.
  */
@@ -55,13 +55,12 @@ import { CLICK_AFTER_MS } from "@/components/community/member/chip-hit"
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
+/** Where it is now, mid glide included: the second value of its computed translate ("0px 348px"). */
 function currentY(el: HTMLElement): number {
-  const t = getComputedStyle(el).transform
+  const t = getComputedStyle(el).translate
   if (!t || t === "none") return 0
-  const m = t.match(/matrix(3d)?\(([^)]+)\)/)
-  if (!m) return 0
-  const v = m[2].split(",").map(Number)
-  return m[1] ? v[13] : v[5]
+  const parts = t.split(/\s+/)
+  return parts.length > 1 ? parseFloat(parts[1]) || 0 : 0
 }
 
 export function EditorDrawer({ detent, onDetent, head, children, label }: { detent: Detent; onDetent: (d: Detent) => void; head: React.ReactNode; children: React.ReactNode; label: string }) {
@@ -83,7 +82,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     const from = anim.current ? currentY(el) : parseFloat(el.dataset.y ?? "0") || 0
     anim.current?.cancel()
     anim.current = null
-    el.style.transform = `translate3d(0, ${y}px, 0)`
+    el.style.translate = `0 ${y}px`
     el.dataset.y = String(y)
     const settle = () => {
       if (body.current) body.current.style.paddingBottom = `${Math.round(y)}px`
@@ -92,7 +91,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     if (y > from) settle()
     if (reducedMotion() || Math.abs(y - from) < 0.5) return settle()
     const motion = snapMotion(y - from, velocity)
-    const a = el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${y}px, 0)` }], { duration: motion.ms, easing: curveCss(motion.curve) })
+    const a = el.animate([{ translate: `0 ${from}px` }, { translate: `0 ${y}px` }], { duration: motion.ms, easing: curveCss(motion.curve) })
     anim.current = a
     a.onfinish = () => {
       if (anim.current === a) anim.current = null
@@ -123,7 +122,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       el.dataset.halfTop = String(Math.round(foot - (height - next.half)))
       if (!anim.current && sheet.current) {
         const y = next[detentRef.current]
-        sheet.current.style.transform = `translate3d(0, ${y}px, 0)`
+        sheet.current.style.translate = `0 ${y}px`
         sheet.current.dataset.y = String(y)
         if (body.current) body.current.style.paddingBottom = `${y}px`
       }
@@ -153,7 +152,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     glide(offsets.current[detent])
   }, [detent, glide])
 
-  /* ── The drag, on the grip and the head: pointer events, one transform per move ── */
+  /* ── The drag, on the grip and the head: pointer events, one translate per move ── */
   React.useEffect(() => {
     const g = grip.current
     const el = sheet.current
@@ -183,7 +182,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
         const y = currentY(el)
         anim.current.cancel()
         anim.current = null
-        el.style.transform = `translate3d(0, ${y}px, 0)`
+        el.style.translate = `0 ${y}px`
         el.dataset.y = String(y)
       }
       startAt = parseFloat(el.dataset.y ?? "0") || 0
@@ -203,7 +202,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       e.preventDefault()
       at = dragPosition(startAt + dy, 0, offsets.current.peek)
       /* Written on the event, not the next frame: a frame of lag is what makes a drawer trail the finger. */
-      el.style.transform = `translate3d(0, ${at}px, 0)`
+      el.style.translate = `0 ${at}px`
       el.dataset.y = String(at)
       samples.push({ y: e.clientY, t: e.timeStamp })
       if (samples.length > 12) samples.shift()
@@ -298,7 +297,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       <div className="relative h-full min-h-0 [clip-path:inset(-48px_-48px_0_-48px_round_0_0_16px_16px)]">
         <div
           ref={sheet}
-          className="pointer-events-auto flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb]/80 bg-white shadow-[0_-6px_28px_-14px_rgba(17,24,39,0.30),0_2px_8px_-2px_rgba(17,24,39,0.08)] will-change-transform"
+          className="pointer-events-auto flex h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb]/80 bg-white shadow-[0_-6px_28px_-14px_rgba(17,24,39,0.30),0_2px_8px_-2px_rgba(17,24,39,0.08)] [will-change:translate]"
           data-page-sheet=""
         >
           <div ref={grip} className="shrink-0 cursor-grab touch-none select-none active:cursor-grabbing" data-page-drawer-grip="">

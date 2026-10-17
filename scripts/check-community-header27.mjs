@@ -321,7 +321,7 @@ try {
               const pins = still ? [...still.querySelectorAll("[data-still-pin]")].map((e) => Math.round(e.getBoundingClientRect().top)) : []
               const btns = [...bar.querySelectorAll("a, button")].filter((b) => b.getClientRects().length)
               const right = btns.length ? Math.round(Math.max(...btns.map((b) => b.getBoundingClientRect().right))) : null
-              return { pins, vw: Math.round(document.body.getBoundingClientRect().width), right, top: Math.round(r.top * 10) / 10, h: Math.round(r.height * 10) / 10, bg: cs.backgroundColor, shadow: cs.boxShadow, op: +cs.opacity, tr: cs.transform, over: [...new Set(over)], still: sr ? { top: Math.round(sr.top), h: Math.round(sr.height), o: +(+getComputedStyle(still).opacity).toFixed(2) } : null, sy: Math.round(scrollY), tabsLeft: tabs ? Math.round(tabs.scrollLeft) : null, on }
+              return { pins, vw: Math.round(document.body.getBoundingClientRect().width), right, top: Math.round(r.top * 10) / 10, h: Math.round(r.height * 10) / 10, bg: cs.backgroundColor, shadow: cs.boxShadow, op: +cs.opacity, over: [...new Set(over)], still: sr ? { top: Math.round(sr.top), h: Math.round(sr.height), o: +(+getComputedStyle(still).opacity).toFixed(2) } : null, sy: Math.round(scrollY), tabsLeft: tabs ? Math.round(tabs.scrollLeft) : null, on }
             `, 1600)
             const frames = await film(p, () => press(p, view, at), { until: `location.pathname === "${href}"`, settle: 1000 }).catch(() => [])
             const log = await p.evaluate(() => window.__log || [])

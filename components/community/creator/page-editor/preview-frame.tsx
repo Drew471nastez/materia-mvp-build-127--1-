@@ -36,7 +36,7 @@
  * at a new width, and drawing it again at a new scale, are the costly parts
  * (the whole About page, every frame of a drag). While the pane is changing
  * size (the panel dragged, the window resized, the rail folding) the box
- * the page is in keeps everything it had and is only transformed to the
+ * the page is in keeps everything it had and is only moved and scaled to the
  * pane, on its own layer, written straight to it on the ResizeObserver's
  * callback (before the frame is painted, no React render, no frame of lag):
  * the compositor's work alone. SETTLE_MS after the last change the page is
@@ -226,13 +226,14 @@ export function PreviewFrame({
       b.style.height = `${g.boxH}px`
       b.style.left = `${g.left}px`
       b.style.top = `${g.top}px`
-      b.style.transform = ""
+      b.style.translate = ""
+      b.style.scale = ""
       b.style.willChange = ""
       if (!was || was.w !== g.w || was.h !== g.h || was.device !== device) {
         f.style.width = `${g.w}px`
         f.style.height = `${g.h}px`
       }
-      f.style.transform = g.scale === 1 ? "" : `scale(${g.scale})`
+      f.style.scale = g.scale === 1 ? "" : String(g.scale)
       b.toggleAttribute("data-card", g.card)
       el.toggleAttribute("data-preview-card", g.card)
       el.setAttribute("data-preview-scale", g.scale.toFixed(3))
@@ -242,7 +243,7 @@ export function PreviewFrame({
       setScale(g.scale)
     }
     /*
-      WHILE IT MOVES: ONE TRANSFORM. The box with the page in it is held on its own layer and only scaled (and moved
+      WHILE IT MOVES: ONE MOVE AND ONE SCALE. The box with the page in it is held on its own layer and only scaled (and moved
       to stay centred), so nothing is laid out, nothing is painted and nothing is drawn again: measured, a scale written
       to the frame itself every frame still had Chromium raster and commit the page at each step. A pane taller than
       the box shows the page's own ground under it for that moment; at rest it is laid out once more.
@@ -263,9 +264,9 @@ export function PreviewFrame({
       }
       const k = liveGeometry(device, pw, ph, was).scale / was.scale
       const tx = (pw - was.boxW * k) / 2 - was.left
-      b.style.willChange = "transform"
-      b.style.transformOrigin = "0 0"
-      b.style.transform = `translate3d(${tx}px, 0, 0) scale(${k})`
+      b.style.willChange = "translate, scale"
+      b.style.translate = `${tx}px 0`
+      b.style.scale = String(k)
       el.setAttribute("data-preview-live", "")
       window.clearTimeout(settle)
       settle = window.setTimeout(settleNow, SETTLE_MS)
@@ -357,7 +358,7 @@ export function PreviewFrame({
     <div ref={pane} className={cn("relative h-full w-full overflow-hidden bg-[#f8f9fa] data-[preview-card]:bg-[#eceef1]", className)} data-preview-pane={device} data-preview-visitor={visitor ? "" : undefined} data-preview-look={dark === true ? "dark" : dark === false ? "light" : undefined}>
       <div
         ref={box}
-        className="absolute overflow-hidden data-[card]:rounded-[22px] data-[card]:bg-white data-[card]:shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_12px_32px_-12px_rgba(16,24,40,0.25)]"
+        className="absolute origin-top-left overflow-hidden data-[card]:rounded-[22px] data-[card]:bg-white data-[card]:shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_12px_32px_-12px_rgba(16,24,40,0.25)]"
         data-preview-device={device}
       >
         <iframe ref={frame} title={tt("Preview of your page")} srcDoc={BLANK} data-page-preview="" className="block origin-top-left border-0" />

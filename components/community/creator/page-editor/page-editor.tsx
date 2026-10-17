@@ -433,9 +433,9 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
   const focusOn = React.useCallback((block: string, wait = 0) => {
     const go = () => {
       const drawer = root.current?.querySelector<HTMLElement>("[data-page-drawer]")
-      const card = root.current?.querySelector<HTMLElement>("[data-preview-pane]")
+      const pane = root.current?.querySelector<HTMLElement>("[data-preview-pane]")
       const halfTop = Number(drawer?.dataset.halfTop)
-      const room = drawer && drawer.dataset.detent !== "peek" && card && halfTop ? Math.max(120, halfTop - card.getBoundingClientRect().top) : undefined
+      const room = drawer && drawer.dataset.detent !== "peek" && pane && halfTop ? Math.max(120, halfTop - pane.getBoundingClientRect().top) : undefined
       setFocus({ block, room })
     }
     if (wait) window.setTimeout(go, wait)
