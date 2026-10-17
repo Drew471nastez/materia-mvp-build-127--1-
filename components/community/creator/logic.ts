@@ -23,6 +23,7 @@ import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJs
 
 import type { MemberActionTaken } from "./view-types"
 import { tt } from "@/lib/i18n/text"
+import { money } from "@/lib/memberships/state"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; field: string }
@@ -620,6 +621,66 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   if (!f.customized) steps.push({ id: "customize", title: tt("Customize the page"), detail: tt("Add pictures, a video and what members get."), href: `${base}/page`, action: tt("Edit") })
   if (f.rules === 0) steps.push({ id: "rules", title: tt("Write the rules"), detail: tt("Members see them before they join and when they post."), href: `${base}/moderation?tab=rules`, action: tt("Write") })
   return steps
+}
+
+/* ── The row of sections (round 26, ./community-shell CommunityTabs) ─────── */
+
+/** The fade over each end of the row is this wide, and a tab under it counts as out of view. */
+export const TABS_FADE_PX = 24
+
+/** Which ends of a sideways row have more to scroll to (a pixel of slack for the browser's rounding). */
+export function tabsMore(scrollLeft: number, clientWidth: number, scrollWidth: number): { left: boolean; right: boolean } {
+  return { left: scrollLeft > 1, right: scrollLeft + clientWidth < scrollWidth - 1 }
+}
+
+/**
+ * Where the row scrolls to so the tab you are on is in view: null while it is wholly clear of both fades (the row stays
+ * as it is), else the scroll that puts it in the middle of the row, within what the row can scroll. Boxes are on screen
+ * (getBoundingClientRect), the scroll is the row's own.
+ */
+export function tabRevealLeft(row: { left: number; width: number }, tab: { left: number; width: number }, scroll: { left: number; client: number; width: number }, fade = TABS_FADE_PX): number | null {
+  if (tab.left >= row.left + fade && tab.left + tab.width <= row.left + row.width - fade) return null
+  const want = scroll.left + (tab.left - row.left) - (row.width - tab.width) / 2
+  return Math.max(0, Math.min(scroll.width - scroll.client, Math.round(want)))
+}
+
+/* ── The Overview's figures (round 26) ──────────────────────────────────── */
+
+/** One of the Overview's figures: a name, the number as shown, a quiet line under it, and the screen it opens. */
+export interface OverviewFigure {
+  label: string
+  value: string
+  foot?: string
+  href?: string
+}
+
+/**
+ * FOUR FIGURES AT MOST, NONE TWICE (round 26, the owner: "too many statistics ... repeated metrics"). Members with who
+ * joined in 30 days under it; Active in 30 days with its share; then, for a community that sells and a person who may see
+ * its prices, Paid members with the cancellations under it and Monthly revenue; otherwise Posts this week with the
+ * comments. Every number is one the server counted (OverviewFigures); nothing is derived from two of them, so round 33's
+ * Per paid member (the revenue divided by the paid members) is gone, as are New, 30 days and Cancellations as cells of
+ * their own.
+ */
+export function overviewFigures(
+  head: { slug: string; can: Partial<Record<"manage_members" | "approve_member" | "invite" | "manage_pricing" | "view_analytics" | "moderate_content", boolean>> },
+  data: { figures: { members: number; active30d: number; new30d: number; paidMembers: number; mrrCents: number; currency: string; cancellations30d: number; posts7d: number; comments7d: number }; sells: boolean },
+): OverviewFigure[] {
+  const f = data.figures
+  const base = `/app/community/${head.slug}`
+  const n = (v: number) => v.toLocaleString(appLocale())
+  const canSeeMembers = head.can.manage_members || head.can.approve_member || head.can.invite
+  const sells = data.sells && head.can.manage_pricing === true
+  return [
+    { label: tt("Members"), value: n(f.members), foot: f.new30d > 0 ? tt("+{n} in 30 days", { n: n(f.new30d) }) : undefined, href: canSeeMembers ? `${base}/members` : undefined },
+    { label: tt("Active, 30 days"), value: n(f.active30d), foot: f.members ? tt("{p}% of members", { p: Math.round((f.active30d / Math.max(1, f.members)) * 100) }) : undefined },
+    ...(sells
+      ? [
+          { label: tt("Paid members"), value: n(f.paidMembers), foot: f.cancellations30d > 0 ? tt("{n, plural, one {# cancellation} other {# cancellations}} in 30 days", { n: f.cancellations30d }) : undefined },
+          { label: tt("Monthly revenue"), value: money(f.mrrCents, f.currency), foot: tt("From active memberships"), href: head.can.view_analytics ? `${base}/analytics` : undefined },
+        ]
+      : [{ label: tt("Posts this week"), value: n(f.posts7d), foot: tt("{n, plural, one {# comment} other {# comments}}", { n: f.comments7d }), href: head.can.moderate_content ? `${base}/feed` : undefined }]),
+  ]
 }
 
 /* ── Analytics ──────────────────────────────────────────────────────────── */

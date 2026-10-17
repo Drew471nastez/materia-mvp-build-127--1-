@@ -7,7 +7,7 @@ import { sharePreviewable } from "@/lib/communities/server/public"
 import { shareFonts, sharePicture } from "@/lib/communities/server/share-image"
 import { eventTime } from "@/lib/communities/format"
 import { eventFacts } from "../event-facts"
-import { EVENT_SHARE_HEIGHT, EVENT_SHARE_WIDTH, publicEvent } from "../event-seo"
+import { EVENT_SHARE_HEIGHT, EVENT_SHARE_WIDTH, indexableEvent } from "../event-seo"
 import { EventShareArt, GenericEventShareArt } from "../event-share-card"
 
 export const runtime = "nodejs"
@@ -36,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const facts = await eventFacts(slug, eventId)
   if (!facts || !sharePreviewable(facts.communityRow)) return missing()
   const logo = await sharePicture(facts.community.logo_url, 144, 144, "png")
-  const open = publicEvent(facts)
+  const open = indexableEvent(facts)
   const drawn = open
     ? await png(
         <EventShareArt

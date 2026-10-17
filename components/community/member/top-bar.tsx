@@ -290,7 +290,7 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
           {/* Light or dark, beside the bell on a computer (round 27); on a phone it is a row of the account sheet. */}
           <AppearanceButton className="hidden md:grid" />
           {me ? <NotificationBell className={BELL} sheetMin="50dvh" tabBadge /> : null}
-          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} /> : <LogInLink base={base} />}
+          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} links={menu?.links} /> : <LogInLink base={base} />}
         </div>
       </div>
     </header>

@@ -313,15 +313,19 @@ export const notFound = () => {}
         expect(a.sheet && a.sheet.w >= Math.round(772 * 1.1) - 2 && a.sheet.w <= Math.round(772 * 1.1) + 2, `${tag}: the sheet with the gallery is 10% wider than round 32's 772px`, { sheet: a.sheet?.w, target: Math.round(772 * 1.1), card: a.card?.w })
         expect(new Set(a.items.map((i) => i.y)).size === 1, `${tag}: the facts are one row`, a.items.map((i) => i.text))
       }
-      expect(a.items.map((i) => i.k).join(",") === "visibility,members,online,price,admins", `${tag}: the row says who it is for, members, online, the price and the admins`, a.items.map((i) => i.text))
+      /* Changed on purpose (round 26, W4): the admins moved into the info card. */
+      expect(a.items.map((i) => i.k).join(",") === "visibility,members,online,price", `${tag}: the row says who it is for, members, online and the price`, a.items.map((i) => i.text))
       const grey = a.items.every((i) => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(i.border); return m && Number(m[1]) > 200 && Number(m[1]) < 240 })
       expect(grey, `${tag}: the dividers are a light grey hairline`, a.items[0]?.border)
       expect(a.lineStartsClipped >= 1, `${tag}: the first fact on each line starts flush, its divider clipped`, a.lineStartsClipped)
       const overlap = a.faces.length === 5 && a.faces.slice(1).every((f, i) => f.x < a.faces[i].right)
       expect(overlap, `${tag}: five faces overlap in front of the member count`, a.faces.map((f) => f.x))
-      expect(a.links.length === 3 && a.links[0][1] === "https://www.instagram.com/salajanywood" && a.links.every((l) => l[2] >= 36), `${tag}: the links are icons, 36px or more each`, a.links)
+      /* Changed on purpose (round 26, W4): the icons are in the info card (32px discs) from 1280px and with who runs it below; drawn in one place at a time. */
+      const shownLinks = a.links.filter((l) => l[2] > 0)
+      expect(shownLinks.length === 3 && shownLinks[0][1] === "https://www.instagram.com/salajanywood" && shownLinks.every((l) => l[2] >= 32), `${tag}: the links are icons, 32px or more each, drawn once`, a.links)
       expect(a.rich && a.rich.h2 === 1 && a.rich.li === 2 && a.rich.img === 1 && a.rich.strong === 1 && a.rich.a === 1, `${tag}: the description is drawn as rich text (heading, list, picture, bold, link)`, a.rich)
-      expect(a.membership, `${tag}: Membership is shown with 1,284 members`)
+      /* Changed on purpose (round 26, W4, the owner): no Membership block; the card and the button carry the way in. */
+      expect(!a.membership, `${tag}: no Membership block`)
       if (tag >= 1280) {
         expect(a.button?.style === "brand" && a.button.bg === "rgb(31, 122, 92)" && a.button.label === "Join for free" && a.note === "No card needed", `${tag}: the side card's button is the creator's: their words, their colour, their line`, { ...a.button, note: a.note })
         expect(a.cover === "50% 30%", `${tag}: the side card's cover sits where the creator put it`, a.cover)
