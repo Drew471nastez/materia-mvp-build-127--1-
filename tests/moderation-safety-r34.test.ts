@@ -241,12 +241,14 @@ async function main() {
   ]
   check("every address that defeated the substring check is refused now", walkedThrough.every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null && appleMusicEmbedUrl(u) === null), walkedThrough.filter((u) => embedSource(u, EMBED_HOSTS.appleMusic) !== null).join(", "))
   check("the control case fails the old check, so this test is testing something", walkedThrough.every((u) => u.includes("music.apple.com")))
-  check("a scheme that is not http or https cannot become an iframe src or a fetch", [
+  const runsLater = [
     "javascript:alert(1)//music.apple.com",
     "data:text/html,<script>1</script>?music.apple.com",
     "file:///etc/passwd#music.apple.com",
     "blob:https://music.apple.com/x",
-  ].every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null && appleMusicEmbedUrl(u) === null))
+    "vbscript:msgbox(1)",
+  ]
+  check("a scheme that is not http or https cannot become an iframe src or a fetch", runsLater.every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null && appleMusicEmbedUrl(u) === null))
   check("a host hidden behind credentials is refused", embedSource("https://music.apple.com@evil.example.com/x", EMBED_HOSTS.appleMusic) === null && embedSource("https://a:b@music.apple.com/x", EMBED_HOSTS.appleMusic) === null)
   check("a port that is not the standard one is refused", embedSource("https://music.apple.com:8443/us/album/x/1", EMBED_HOSTS.appleMusic) === null)
   check("and a trailing dot does not make a new host", embedSource("https://music.apple.com./us/album/x/1", EMBED_HOSTS.appleMusic)?.hostname === "music.apple.com")
@@ -271,7 +273,10 @@ async function main() {
   check("https is what comes out, whatever went in", embedSource("http://music.apple.com/us/album/x/1", EMBED_HOSTS.appleMusic)?.protocol === "https:")
   check("the path and the query are kept, so a song inside an album is still that song", appleMusicEmbedUrl("https://music.apple.com/us/album/a/1?i=2") === "https://embed.music.apple.com/us/album/a/1?i=2")
   check("the player's address is Apple's own host", appleMusicEmbedUrl("https://music.apple.com/us/album/a/1")?.startsWith("https://embed.music.apple.com/") === true)
-  check("junk is refused without throwing", [null, undefined, "", "   ", 7, {}, "not a url", "//music.apple.com/x"].every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null))
+  check("junk is refused without throwing", [null, undefined, "", "   ", 7, {}, "not a url", "//music.apple.com/x", "/us/album/x"].every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null))
+  /* People paste a bare host as often as a whole address, and the editor stores what was typed, so that still works. */
+  check("a link typed without https still works, and the host is still checked", embedSource("music.apple.com/us/album/a/1", EMBED_HOSTS.appleMusic)?.toString() === "https://music.apple.com/us/album/a/1" && embedSource("music.apple.com.example.com/x", EMBED_HOSTS.appleMusic) === null && safeFrameSrc("calendly.com/someone/30min") === "https://calendly.com/someone/30min")
+  check("and a scheme written out is never guessed at", [...runsLater].every((u) => embedSource(u, EMBED_HOSTS.appleMusic) === null && safeFrameSrc(u) === null))
 
   /* ── What may become an iframe src on a published page ───────────────── */
   console.log("\nthe frames a creator's blocks draw")

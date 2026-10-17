@@ -40,6 +40,30 @@
  * anything that service hosts.
  */
 
+/**
+ * A URL object for what somebody typed, or null. People paste
+ * "music.apple.com/us/album/x" as often as they paste the whole thing, and
+ * the editor has always stored it as typed, so a bare host is read as https
+ * rather than refused. Anything that already names a scheme is read as it
+ * stands, so "javascript:..." stays javascript: and is refused below; a
+ * path and a protocol relative "//host" are never guessed at.
+ */
+function parsed(raw: string): URL | null {
+  const s = raw.trim()
+  if (!s || s.startsWith("/")) return null
+  try {
+    return new URL(s)
+  } catch {
+    /* No scheme at all: read it as https. A string that merely contains a colon later (a port, a path) still gets here. */
+    if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return null
+    try {
+      return new URL(`https://${s}`)
+    } catch {
+      return null
+    }
+  }
+}
+
 /** The hosts each route may be given. Every name is matched whole, with "www." dropped first. */
 export const EMBED_HOSTS = {
   appleMusic: ["music.apple.com", "embed.music.apple.com"],
@@ -54,13 +78,9 @@ export const EMBED_HOSTS = {
  * otherwise. Never throws, whatever the string is.
  */
 export function embedSource(raw: unknown, hosts: readonly string[]): URL | null {
-  if (typeof raw !== "string" || !raw.trim()) return null
-  let url: URL
-  try {
-    url = new URL(raw.trim())
-  } catch {
-    return null
-  }
+  if (typeof raw !== "string") return null
+  const url = parsed(raw)
+  if (!url) return null
   if (url.protocol !== "https:" && url.protocol !== "http:") return null
   if (url.username || url.password) return null
   if (url.port && url.port !== "80" && url.port !== "443") return null
@@ -90,13 +110,9 @@ export function safeFrameSrc(raw: unknown): string | null {
   const s = raw.trim()
   if (!s) return null
   /* This site's own path. Never "//host", which is another site. */
-  if (s.startsWith("/") && !s.startsWith("//")) return s
-  let url: URL
-  try {
-    url = new URL(s)
-  } catch {
-    return null
-  }
+  if (s.startsWith("/")) return s.startsWith("//") ? null : s
+  const url = parsed(s)
+  if (!url) return null
   if (url.protocol !== "https:") return null
   if (url.username || url.password) return null
   return url.toString()
