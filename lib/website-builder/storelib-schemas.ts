@@ -44,6 +44,7 @@ function field(s: SettingDefinition): SchemaField {
   if (typeof s.image === "string") f.image = s.image
   if (typeof s.content === "string") f.content = s.content
   if (typeof s.visible_if === "string") f.visible_if = s.visible_if
+  if (typeof s.from === "string") f.from = s.from
   return f
 }
 

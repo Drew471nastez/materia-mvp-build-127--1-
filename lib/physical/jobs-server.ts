@@ -47,6 +47,8 @@ import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { physicalCheckoutHref } from "./cart-link"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
+import { variantLowStockLines } from "./inventory-server"
+import { lowForAlert, lowStockAt } from "./inventory-rules"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
@@ -212,9 +214,11 @@ export async function queueLowStockAlerts(db: Db, creatorId: string, variantIds:
   const { data: settings } = await db.from("commerce_settings").select("low_stock_alerts, low_stock_default").eq("creator_id", creatorId).maybeSingle()
   if (settings && settings.low_stock_alerts === false) return
   const fallback = Number(settings?.low_stock_default ?? 5)
-  const [{ data: variants }, { data: levels }] = await Promise.all([
-    db.from("product_variants").select("id, name, product_id, track_inventory, inventory_policy, products!inner(title, creator_id, low_stock_threshold, track_inventory, type)").in("id", ids),
+  const [{ data: variants }, { data: levels }, own] = await Promise.all([
+    db.from("product_variants").select("id, name, product_id, track_inventory, inventory_policy, products!inner(title, creator_id, low_stock_threshold, track_inventory, type, fulfillment_method)").in("id", ids),
     db.from("inventory_levels").select("variant_id, available").eq("creator_id", creatorId).in("variant_id", ids),
+    /* A variant's own line (part 214), where it has one. */
+    variantLowStockLines(db, ids),
   ])
   const sum = new Map<string, number>()
   for (const l of (levels ?? []) as { variant_id: string; available: number }[]) sum.set(l.variant_id, (sum.get(l.variant_id) ?? 0) + Number(l.available ?? 0))
@@ -222,10 +226,10 @@ export async function queueLowStockAlerts(db: Db, creatorId: string, variantIds:
   for (const v of (variants ?? []) as Record<string, any>[]) {
     const p = Array.isArray(v.products) ? v.products[0] : v.products
     if (!p || p.creator_id !== creatorId || p.type !== "physical") continue
-    if ((v.track_inventory ?? p.track_inventory ?? true) === false) continue
-    const threshold = p.low_stock_threshold ?? fallback
+    if (p.fulfillment_method === "print_on_demand" || (v.track_inventory ?? p.track_inventory ?? true) === false) continue
+    const threshold = lowStockAt(own.get(v.id), p.low_stock_threshold, fallback)
     const available = sum.get(v.id) ?? 0
-    if (available > threshold) continue
+    if (!lowForAlert(available, threshold, true)) continue
     low.push({ variantId: v.id, title: p.title, variantName: v.name && v.name !== "Default" ? v.name : null, available, threshold })
   }
   if (low.length === 0) return

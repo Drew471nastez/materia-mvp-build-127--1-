@@ -124,7 +124,8 @@ export async function translateFieldsNow(
   locale: string,
   items: unknown,
   userId: string | null,
-  opts: { replaceManual: boolean; deadlineAt: number },
+  /** `draft`: the translator, Storelib AI's by default (translate-ai.ts draftReusing); a test passes its own so nothing leaves the machine. */
+  opts: { replaceManual: boolean; deadlineAt: number; draft?: typeof draftReusing },
 ): Promise<FieldPressResult> {
   const where = await translatableLocale(db, creatorId, locale)
   if (!where.ok) return { ok: false, status: 400, error: "Add this language to your website first." }
@@ -145,7 +146,7 @@ export async function translateFieldsNow(
   const memory = saved.rows.filter((r) => !keys.has(r.key) && (!opts.replaceManual || r.source === "ai"))
   /* From the website's own language; into the default itself, the shop's words are English. */
   const from = where.own ? "en" : where.defaultLanguage
-  const { drafts, unavailable, reason, busy } = await draftReusing(wanted.map((w) => ({ key: w.key, source: w.source })), memory, from, locale, store?.name || "the store", { deadlineAt: opts.deadlineAt, concurrency: 2, rules })
+  const { drafts, unavailable, reason, busy } = await (opts.draft ?? draftReusing)(wanted.map((w) => ({ key: w.key, source: w.source })), memory, from, locale, store?.name || "the store", { deadlineAt: opts.deadlineAt, concurrency: 2, rules })
   if (drafts.size === 0) return { ok: false, status: unavailable ? (busy ? 429 : 503) : 502, error: unavailable ? (reason ?? AI_UNAVAILABLE) : "Couldn't translate that right now. Your text stays as it is. Try again in a minute." }
   const writes = wanted.filter((w) => drafts.has(w.key)).map((w) => ({ key: w.key, value: drafts.get(w.key)!, source: w.source, approved: true, ai: true, rich: w.rich }))
   const done = await saveTranslations(db, creatorId, locale, writes, userId, { keepManual: !opts.replaceManual })

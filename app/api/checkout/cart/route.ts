@@ -415,8 +415,9 @@ async function handlePOST(request: Request) {
             unit_amount: part.unitCents,
             product_data: {
               name: String(l.product.title ?? "Product"),
-              ...(l.item.discountCents > 0 && coupon
-                ? { description: `${formatStoreMoney(l.item.discountCents, storeCurrency)} off with ${coupon.code}` }
+              /* What came off the line: a code's, or a bundle's or an upsell's (lib/offers), or both, said as one amount. */
+              ...(l.item.discountCents > 0
+                ? { description: coupon && priced.offerCents === 0 ? `${formatStoreMoney(l.item.discountCents, storeCurrency)} off with ${coupon.code}` : `${formatStoreMoney(l.item.discountCents, storeCurrency)} off` }
                 : {}),
               ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
             },
@@ -477,7 +478,8 @@ async function handlePOST(request: Request) {
           ? {
               coupon_id: coupon.id,
               coupon_code: coupon.code,
-              discount_cents: String(priced.discountCents),
+              /* The code's part alone: the offers' part is in each line's own discount (packItems). */
+              discount_cents: String(priced.discountCents - priced.offerCents),
               ...(holder ? { coupon_holder: holder } : {}),
             }
           : {}),

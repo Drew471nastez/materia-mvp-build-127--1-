@@ -141,10 +141,12 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("a new block takes the defaults its block schema declares", /function blockDefaults\(/.test(editor) && /settings: \{ \.\.\.blockDefaults\(def\), \.\.\.\(opts\.preset\?\.settings \?\? \{\}\), \.\.\.initialSettings \}/.test(editor))
-    check("the section's total is checked", /function blockRoom\(/.test(editor) && /placed\.length >= max/.test(editor) && /countAll\(section\.blocks\) \+ room\.size > LIMITS\.blocksPerSection/.test(editor))
-    check("and so is the limit on that kind of block", /placed\.filter\(\(b\) => b\.type === blockType\)\.length >= limit/.test(editor))
+    /* V round: the rules live in lib/website-builder/block-room.ts, so Paste block keeps them too. */
+    const room = readFileSync(join(root, "lib/website-builder/block-room.ts"), "utf8")
+    check("the section's total is checked", /import \{ blockRoom \} from "@\/lib\/website-builder\/block-room"/.test(editor) && /function blockRoom\(/.test(room) && /placed\.length >= max/.test(room) && /countAll\(section\.blocks\) \+ room\.size > LIMITS\.blocksPerSection/.test(room))
+    check("and so is the limit on that kind of block", /placed\.filter\(\(b\) => b\.type === blockType\)\.length >= limit/.test(room))
     check("both are checked before adding and before duplicating", (editor.match(/const room = blockRoom\(at\.owner, at\.siblings, /g) ?? []).length === 2)
-    check("a refusal says which limit it is", /toast\.error\(room\.reason\)/.test(editor) && /holds \$\{limit\}/.test(editor))
+    check("a refusal says which limit it is", /toast\.error\(room\.reason\)/.test(editor) && /holds \$\{limit\}/.test(room))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

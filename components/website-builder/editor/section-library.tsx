@@ -69,6 +69,13 @@
  *   addSection, which then slides the page open where it lands, and on a
  *   phone brings the sections sheet up on the new section's settings).
  *
+ * APPS. The sections Storelib's apps put on a website, one category per app
+ * (Reviews, Email and the others in lib/website-builder/app-sections.ts)
+ * under an Apps heading right after All, as Shopify's editor has its Apps
+ * tab. The same cards as everywhere else, each with its app's name under
+ * it, and over an app's cards a line when that app is off, with the way to
+ * turn it on. Added like any other.
+ *
  * scripts/check-add-section.mjs opens it, switches categories and adds a
  * section on a phone and a computer, reads every frame of a category switch
  * and films it, and follows the add until everything has settled.
@@ -85,11 +92,15 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
-import { APP_SECTION_CATEGORIES, appSectionCategory, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
+import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
+import { appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/app-sections"
+import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
+import { useAppStates } from "./use-app-states"
+
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
 
@@ -292,8 +303,33 @@ function drawOne(job: Job): string {
  * longer for the moment it is in there.
  */
 let ruler: HTMLDivElement | null = null
-function measureOne(html: string, width: number): number {
-  if (!html || typeof document === "undefined") return 0
+
+/**
+ * ===========================================================================
+ *  SEVERAL PREVIEWS MEASURED FOR THE PRICE OF ONE
+ * ===========================================================================
+ * Measured in the real editor (scripts/check-editor-perf.mjs): putting
+ * markup anywhere in the editor's document and reading a height restyles
+ * the whole document, about 1,180 elements and 35 to 45ms on a computer,
+ * however small the markup is. One preview per read was 51 such passes in
+ * the first seconds after the editor opened, 2 to 4 seconds of the main
+ * thread in tasks of 50 to 250ms.
+ *
+ * (Round V12 found the cause: two `html:has()` rules for the account pages,
+ * now classes, see app/globals.css. The same insertion restyles a few
+ * elements now, under 1ms in the body and 2 to 8ms in the sidebar, so a
+ * batch is a small saving rather than the whole of it.)
+ *
+ * So a batch goes in at once, each in its own box with the ruler's own
+ * containment (the same width, the same formatting context, a fixed layer
+ * held inside it), and the heights are read after all of them are in: the
+ * first read pays for the pass and the rest find it done. Each box is the
+ * ruler as it was when it held one preview at a time, so a height is the
+ * same either way.
+ */
+export const MEASURE_BATCH = 8
+function measureMany(items: { html: string; width: number }[]): { height: number; empty: boolean }[] {
+  if (typeof document === "undefined") return items.map(() => ({ height: 0, empty: true }))
   if (!ruler || !ruler.isConnected) {
     ruler = document.createElement("div")
     ruler.setAttribute("aria-hidden", "true")
@@ -301,17 +337,25 @@ function measureOne(html: string, width: number): number {
     ruler.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"
     document.body.appendChild(ruler)
   }
-  ruler.style.width = `${width}px`
-  ruler.innerHTML = html
-  const height = ruler.getBoundingClientRect().height
-  const words = (ruler.textContent ?? "").replace(/\s+/g, "").length
-  const things = ruler.querySelector("img, svg, video, picture, canvas, iframe, input, button")
-  lastWasEmpty = height < 8 || (words === 0 && !things)
+  ruler.style.width = `${Math.max(0, ...items.map((i) => i.width))}px`
+  const boxes = items.map((item) => {
+    const box = document.createElement("div")
+    box.style.cssText = `width:${item.width}px;contain:layout paint`
+    box.innerHTML = item.html
+    return box
+  })
+  ruler.append(...boxes)
+  const out = boxes.map((box, k) => {
+    if (!items[k].html) return { height: 0, empty: true }
+    const height = box.getBoundingClientRect().height
+    const words = (box.textContent ?? "").replace(/\s+/g, "").length
+    const things = box.querySelector("img, svg, video, picture, canvas, iframe, input, button")
+    const empty = height < 8 || (words === 0 && !things)
+    return { height: Math.ceil(height), empty }
+  })
   ruler.textContent = ""
-  return Math.ceil(height)
+  return out
 }
-/** Whether the markup measureOne last measured had nothing in it to see. */
-let lastWasEmpty = false
 
 const idle = (cb: (deadline: { timeRemaining: () => number }) => void) => {
   const w = typeof window !== "undefined" ? (window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining: () => number }) => void, o?: { timeout: number }) => number }) : undefined
@@ -394,20 +438,23 @@ function pump() {
     if (unmeasured.length) {
       /* After the styles are in, so each is measured as it will look. */
       flushStyles()
+      /* A batch per idle moment (measureMany), and more while the moment has room. */
       do {
-        const next = unmeasured.shift()!
-        let height = 0
+        const batch = unmeasured.splice(0, MEASURE_BATCH)
+        let sizes: { height: number; empty: boolean }[]
         try {
-          height = measureOne(next.html, next.width)
+          sizes = measureMany(batch)
         } catch {
-          height = 0
-          lastWasEmpty = true
+          sizes = batch.map(() => ({ height: 0, empty: true }))
         }
-        if (lastWasEmpty || !next.html) EMPTY.add(next.key)
-        else EMPTY.delete(next.key)
-        HEIGHTS.set(next.key, height)
-        MARKUP.set(next.key, next.html)
-        pending.delete(next.key)
+        batch.forEach((next, k) => {
+          const { height, empty } = sizes[k]
+          if (empty || !next.html) EMPTY.add(next.key)
+          else EMPTY.delete(next.key)
+          HEIGHTS.set(next.key, height)
+          MARKUP.set(next.key, next.html)
+          pending.delete(next.key)
+        })
       } while (unmeasured.length && deadline.timeRemaining() > MEASURE_ROOM_MS)
       heightsVersion++
       notify()
@@ -756,6 +803,8 @@ const LibraryCard = memo(function LibraryCard({
       </div>
       {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}
       <span className="truncate px-0.5 text-[14px] font-medium leading-tight text-[#1a1a2e] sm:text-[13px]">{entry.title}</span>
+      {/* The app it comes from, for a section an app provides. */}
+      {entry.app && <span data-card-app={entry.app.id} className="-mt-1.5 truncate px-0.5 text-[12.5px] leading-tight text-[#6b7280] sm:text-[12px]">{entry.app.name}</span>}
     </button>
   )
 })
@@ -768,6 +817,8 @@ interface LibraryEntry {
   title: string
   schema: SectionSchema
   category: string
+  /** The app that provides it, when one does: it is in the Apps category too. */
+  app?: SectionApp
   /** Everything somebody might type to find this, lower-cased once. */
   haystack: string
   keyFor: (width: number) => string
@@ -897,7 +948,8 @@ export const SectionLibrary = memo(function SectionLibrary({
           instead, from what the theme says about it (section-categories.ts).
         */
         /* Storelib's own apps' sections (Storelib Reviews and its widgets) under Apps, in either kind of theme (section-categories.ts). */
-        const app = own_ ? null : appSectionCategory(type)
+        const appInfo = own_ ? undefined : appForSection(type)?.app
+        const app = appInfo?.id ?? null
         const category = app
           ? app
           : compatInstallId && schema.imported
@@ -911,14 +963,15 @@ export const SectionLibrary = memo(function SectionLibrary({
               groups: schema.enabled_on?.groups,
             })
           : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
-        const label = (app ? APP_SECTION_CATEGORIES.find((c) => c.id === app)?.label : undefined) ?? (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
+        const label = (app ? appSectionCategories().find((c) => c.id === app)?.label : undefined) ?? (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,
           title: name,
           schema,
           category,
-          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
+          app: appInfo,
+          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}${appInfo ? ` ${appInfo.name} apps` : ""}`.toLowerCase(),
           keyFor: (w) => previewKey(type, i, w, `${own.has(type) ? sourcesTag : ""}${lookTag}`),
         })
       }
@@ -937,7 +990,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
     const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
     const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
-    const apps = APP_SECTION_CATEGORIES.filter((c) => counts.has(c.id)).map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: "apps" as const }))
+    const apps = appSectionCategories().filter((c) => counts.has(c.id)).map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: "apps" as const }))
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
@@ -945,9 +998,9 @@ export const SectionLibrary = memo(function SectionLibrary({
     return [
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
-      ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-      /* Apps last, under their own heading: Storelib Reviews' widgets. */
+      /* Apps second, under their own heading, so a phone's row shows them without a scroll. */
       ...apps,
+      ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
     ] as { key: string; label: string; count: number; group?: "apps" }[]
   }, [entries, compatInstallId])
 
@@ -1170,6 +1223,40 @@ export const SectionLibrary = memo(function SectionLibrary({
       ? tt("Write a section in the code editor and it appears here")
       : tt("No sections in this category")
 
+  /**
+   * AN APP THAT IS OFF, said once over its cards, with the way to turn it
+   * on. Its sections can still be added: they show on the website once the
+   * app is on.
+   */
+  const hasApps = useMemo(() => entries.some((e) => e.app), [entries])
+  const appStates = useAppStates(open && hasApps)
+  const appsOff = useMemo(() => {
+    const seen = new Map<string, SectionApp>()
+    for (const e of entries) if (e.app && e.app.id === activeCategory && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
+    return [...seen.values()]
+  }, [entries, appStates, activeCategory])
+  const appsNotice = !searching && appsOff.length > 0 ? (
+    <div data-apps-off="" className="mb-4 flex flex-col gap-2">
+      {appsOff.map((app) => {
+        const Icon = ICON_MAP[app.icon]
+        return (
+          <div key={app.id} data-app-off={app.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-3.5 py-2">
+            {Icon ? <Icon className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} /> : null}
+            <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] sm:text-[13px]">{tt("{name} is off", { name: app.name })}</span>
+            <a
+              href={app.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-md px-2 py-1 text-[14px] font-medium text-[#7c3aed] transition-colors hover:bg-[#8b5cf6]/10 sm:text-[13px]"
+            >
+              {tt("Turn on")}
+            </a>
+          </div>
+        )
+      })}
+    </div>
+  ) : null
+
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
     <div className="relative">
@@ -1272,7 +1359,14 @@ export const SectionLibrary = memo(function SectionLibrary({
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
             <div className="flex w-max items-center gap-2">
-              {categories.map((cat, i) => (cat.group === "apps" && categories[i - 1]?.group !== "apps" ? [<span key="apps-heading" data-library-group="apps" className="ml-1 shrink-0 text-[12px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</span>, chip(cat)] : chip(cat)))}
+              {categories.map((cat, i) =>
+                cat.group === "apps" && categories[i - 1]?.group !== "apps"
+                  ? [<span key="apps-heading" data-library-group="apps" className="ml-1 shrink-0 text-[12px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</span>, chip(cat)]
+                  : /* The theme's own categories after the apps: a hairline between the two. */
+                    cat.group !== "apps" && categories[i - 1]?.group === "apps"
+                    ? [<span key="apps-end" aria-hidden data-library-group="sections" className="mx-1 h-5 w-px shrink-0 bg-[#e5e7eb]" />, chip(cat)]
+                    : chip(cat),
+              )}
             </div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
@@ -1282,6 +1376,7 @@ export const SectionLibrary = memo(function SectionLibrary({
             data-library-scroll=""
             className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-4 [scrollbar-gutter:stable]"
           >
+            {appsNotice}
             {grid}
           </div>
         </div>
@@ -1309,9 +1404,12 @@ export const SectionLibrary = memo(function SectionLibrary({
           {categories.map((cat, i) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
             const heading = cat.group === "apps" && categories[i - 1]?.group !== "apps"
+            /* After the apps, the theme's own sections under their own heading. */
+            const sectionsHeading = cat.group !== "apps" && categories[i - 1]?.group === "apps"
             return (
               <div key={cat.key}>
               {heading ? <p data-library-group="apps" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</p> : null}
+              {sectionsHeading ? <p data-library-group="sections" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Sections")}</p> : null}
               <button
                 type="button"
                 aria-pressed={on}
@@ -1345,6 +1443,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               {shown.size === 1 ? tt("1 section") : tt("{size} sections", { size: shown.size })} {tt("matching “{value}”", { value: query.trim() })}
             </p>
           )}
+          {appsNotice}
           {grid}
         </div>
       </div>

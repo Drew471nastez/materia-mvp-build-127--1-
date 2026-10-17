@@ -32,6 +32,14 @@ const PREFETCH_MAP: Record<string, string[]> = {
  * Uses Next.js router.prefetch() which triggers RSC prefetching.
  * Deferred to requestIdleCallback to avoid blocking the main thread.
  */
+/** A creator's website: any host that is not Storelib's own, a preview or a developer's machine. */
+export function onCreatorSite(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^www\./, "")
+  const main = (process.env.NEXT_PUBLIC_SITES_HOST || "storelib.com").toLowerCase()
+  if (!h || h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")) return false
+  return true
+}
+
 export function PrefetchLinks() {
   const router = useRouter()
   const pathname = usePathname()
@@ -41,6 +49,9 @@ export function PrefetchLinks() {
     /* The same plan as every other read ahead (lib/nav/prefetch-policy.ts):
        nothing on Save-Data or 2g, only the likeliest on a slow phone or 3g,
        and never the page already on screen. */
+    /* These are Storelib's own pages. On a creator's website (username.storelib.com or their own domain) "/" is
+       their home, and /explore, /signup and /login there are only 404s fetched in the background. */
+    if (onCreatorSite(window.location.hostname)) return
     const routes = (PREFETCH_MAP[pathname] ?? []).filter((route) => route !== pathname).slice(0, prefetchPlan().idleBudget)
     if (routes.length === 0) return
 

@@ -136,6 +136,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "order-help/route.ts": "a buyer opens a case about their order with the order's own receipt token, the key they already hold; the buyer's email comes from the order, never the request, and it is rate limited by address and by email",
   "order-help/[id]/route.ts": "a buyer reads and writes their own case with its private link's secret, checked against the stored hash; nothing is read or written without it",
   "offers/bundles/route.ts": "the bundles a published product is in, with each item's public title, picture and price, for its public page; only a store's active offers and published products, and the checkout prices the cart again on the server",
+  "offers/cart/route.ts": "what a shopper's cart gets from a store's active offers and what it could add, for the cart drawer and page: only that store's published products are priced, from the database, rate limited, and the checkout prices the cart again on the server",
   "memberships/confirm/route.ts": "after joining: the subscription's own current client secret, which only the paying page holds, is the credential; it only brings the row up to date from Stripe, rate limited",
 
   // Email, opened in a mail client with no cookies.

@@ -93,6 +93,8 @@ const CONSUMERS = [
   "components/website-builder/theme/site-intro.tsx",
   /* Breadcrumbs: the bar under the header on every page but home. */
   "lib/website-builder/theme-breadcrumbs.ts",
+  /* The favicon: one value, read through faviconOf by the live metadata, imported pages and checkout. */
+  "lib/website-builder/favicon-sync.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 

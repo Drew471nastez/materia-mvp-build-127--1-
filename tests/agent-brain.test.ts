@@ -39,7 +39,7 @@ import { readAsk, questionText, MAX_BUILDER_ASKS } from "@/lib/website-builder/a
 import { describeRecent, lastQuestion } from "@/lib/website-builder/agent/memory"
 import { copyProblem, reviewSections } from "@/lib/website-builder/agent/review"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { ENGINES, STRENGTHS } from "@/lib/website-builder/ask-engines"
+import { EFFORT, ENGINES } from "@/lib/website-builder/ask-engines"
 import { requestMessages, toMessages } from "@/lib/sites/agent/anthropic-provider"
 import { toInput } from "@/lib/sites/agent/openai-provider"
 import { describeImages, reviewImages, type AgentImage } from "@/lib/sites/agent/attachments"
@@ -272,7 +272,8 @@ async function main() {
     /* System 14,000 until round 25: the build recipe says when to write a section of its own, and the reference it carries quotes sections that read more of the theme (about 150 tokens). */
     /* Tools 6,450 since Storelib Reviews: its four sections (reviews_product, reviews_badge, reviews_carousel, reviews_all) are in the list of section types the tools name, about 5 tokens. */
     /* Tools 6,600: update_theme names the settings the sidebar writes outside the schema (typography_styles, the phone logo, default_color_scheme) and set_color_scheme its gradient, about 105 tokens (agent/theme-extras.ts). */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_200 && tokens(JSON.stringify(first.tools)) <= 6_600 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* System 14,350 since the V round: CREATIVE_BRIEF says how a section it codes is designed (one type size, 65 characters a line, one spacing scale, one primary action, one column on a phone, every visible value a setting it reads), about 110 cached tokens (agent/creative-section.ts). */
+    check("the first request stays inside its budget", tokens(first.system) <= 14_350 && tokens(JSON.stringify(first.tools)) <= 6_600 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
@@ -573,13 +574,13 @@ async function main() {
   {
     const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     const provider = read("lib/sites/agent/provider.ts")
-    /* Storelib AI runs on ChatGPT only for now: two models, each with what it is best for. */
-    check("the picker offers Claude and ChatGPT models", ENGINES.some((e) => e.provider === "anthropic") && ENGINES.some((e) => e.provider === "openai"))
+    /* Four Claude models, each with what it is best for (lib/website-builder/ask-engines.ts). */
+    check("the picker offers the four Claude models and no ChatGPT model", ENGINES.length === 4 && ENGINES.every((e) => e.provider === "anthropic"))
     check("each explains its purpose in a short line", ENGINES.every((e) => e.detail.length > 0 && e.detail.length <= 60 && !/—/.test(e.detail)))
     check("each is a provider and tier the route accepts", ENGINES.every((e) => /provider: z\.enum\(\["anthropic", "openai"\]\)/.test(route) && ["anthropic", "openai"].includes(e.provider) && ["fast", "strong"].includes(e.tier)))
     check("the resolver uses both tested adapters", /openai: \{\s*fast: DEFAULT_MODEL,\s*strong: STRONG_MODEL/.test(provider) && /openAIProvider/.test(provider) && /anthropicProvider/.test(provider))
-    check("Strength is Light, Standard and Deep, which are low, medium and high", STRENGTHS.map((s) => `${s.label}:${s.effort}`).join(",") === "Light:low,Standard:medium,Deep:high")
-    check("and the route takes only those, from a browser", /effort: z\.enum\(EFFORTS as \[Effort, \.\.\.Effort\[\]\]\)\.optional\(\)/.test(route) && /effort: body\.effort \?\?/.test(route))
+    check("there is no Strength: every run asks for medium", EFFORT === "medium" && /effort: EFFORT,/.test(route))
+    check("and the route takes no effort from a browser", !/effort: z\./.test(route) && !/body\.effort/.test(route))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

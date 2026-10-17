@@ -32,6 +32,8 @@ import {
   syncCompatFile,
   type SchemaWords,
 } from "@/lib/storelib-theme/compat/schema-sync"
+import { THEME_DATA_FILE, THEME_SCHEMA_FILE, readThemeSettingsSchema } from "@/lib/storelib-theme/theme-config"
+import { fillSchemaDefaults, saveSettingsData } from "./theme-config-store"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -192,6 +194,25 @@ export async function saveThemeFile(
   }
 
   /**
+   * THE THEME'S VALUES ARE NOT A FILE. config/settings_data.json is a view of
+   * the install's theme settings (lib/storelib-theme/theme-config.ts): a
+   * write to it writes them, so the sidebar and the file are one copy.
+   */
+  if (path === THEME_DATA_FILE) {
+    const data = await saveSettingsData(db, installId, content)
+    if (data.ok === false) return data as Extract<SaveResult, { ok: false }>
+    const kept = data as { row: FileRow; text: string; set: string[]; cleared: string[] }
+    return {
+      ok: true,
+      row: kept.row,
+      drafted: true,
+      created: false,
+      ...(kept.text !== sent ? { source: kept.text } : {}),
+      notes: [kept.set.length || kept.cleared.length ? `Theme settings changed: ${[...kept.set, ...kept.cleared.map((k) => `${k} (back to its default)`)].join(", ")}` : "Theme settings already had these values"],
+    }
+  }
+
+  /**
    * COMPILE BEFORE STORE. A section's type is its FILE NAME, which is what a
    * page stores and what the library is keyed by; the schema's own `type`
    * line is documentation, so a copy saved under a new name saves.
@@ -220,6 +241,10 @@ export async function saveThemeFile(
     /* An imported theme's settings are a list of groups; anything else would take every theme setting off the page. */
     const errors = settingsSchemaErrors(content)
     if (errors.length) return { ok: false, status: 422, error: `${path} did not read`, errors }
+  } else if (path === THEME_SCHEMA_FILE) {
+    /* The theme's own Theme settings, over Storelib's: every problem on its line, nothing half read kept. */
+    const read = readThemeSettingsSchema(content)
+    if (read.ok === false) return { ok: false, status: 422, error: `${path} did not read`, errors: (read as { errors: ThemeError[] }).errors }
   } else if (path.endsWith(".storelib") && path.startsWith("blocks/")) {
     /* A theme block: compiled by a block's rules (compile.ts, compileBlock). It is never a header or a footer, and its name is the Add block menu's, not Add section's. */
     const r = compileThemeFile(content, { file: path })
@@ -306,6 +331,8 @@ export async function saveThemeFile(
   if (saved.ok === false) return { ok: false, status: 500, error: saved.error }
   await recordVersion(db, installId, path, content, "save")
   if (rebuildsSettingsPanel(path)) notes = [...notes, ...(await rebuildSettingsPanel(db, installId, { path, text: content }))]
+  /* A setting the file added, or a default it moved, has its default under the values nobody set, so the live site draws it too. */
+  if (path === THEME_SCHEMA_FILE) await fillSchemaDefaults(db, installId, content)
   return {
     ok: true,
     row: saved.row,

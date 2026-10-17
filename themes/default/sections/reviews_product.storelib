@@ -11,12 +11,16 @@
    The form posts to the store (data-storelib-form="native") and comes back
    to this page at #review-posted, #review-waiting, #review-check-email or
    #review-error, which the notes below answer with :target, so it works
-   with no script at all. "Show more" is a <details>.
+   with no script at all. So does the rest: the filter by stars is a row of
+   radio inputs and the order a <select>, read with :has() (a filter or an
+   order other than the store's shows every review sent, sorted with CSS
+   `order` from each review's rank_*); "Show more" is a checkbox; a photo
+   opens larger in a popover. A product page is sent up to 100 reviews.
    =========================================================================== #}
 <template>
 {% if reviews.enabled %}
 {% if reviews.here.summary.count > 0 or reviews.can_write or page.in_editor %}
-<section class="s rv" id="reviews" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }}; --rv-star: {{ settings.star_color | default: reviews.star_color }};">
+<section class="s rv" id="reviews" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --cols-d: {{ settings.columns.desktop }}; --cols-t: {{ settings.columns.tablet }}; --cols-m: {{ settings.columns.mobile }}; --rv-star: {{ settings.star_color | default: reviews.star_color }};{% if settings.bar_color %} --rv-bar: {{ settings.bar_color }};{% endif %}{% if settings.verified_color %} --rv-ver: {{ settings.verified_color }};{% endif %}">
   <div class="s__in s__in--{{ settings.max_width }}">
     {% if settings.heading %}<h2 class="s__h rv__h">{{ settings.heading }}</h2>{% endif %}
     {% if page.in_editor and reviews.sample %}<p class="rv__sample">Sample reviews. Your real reviews show here once you have some.</p>{% endif %}
@@ -77,43 +81,46 @@
     {% endif %}
 
     {% if reviews.here.items.size > 0 %}
+      {% if settings.show_tools and reviews.here.items.size > 1 %}
+        <div class="rv__tools">
+          <div class="rv-chips" role="radiogroup" aria-label="{{ words.reviews_by_rating }}">
+            <input class="rv-f rv-f--0" type="radio" name="rv-f-{{ section.id }}" id="rv-f0-{{ section.id }}" checked><label class="rv-chip" for="rv-f0-{{ section.id }}">{{ words.filter_all }}</label>
+            {% for b in reviews.here.summary.bars %}{% if b.count > 0 %}<input class="rv-f rv-f--{{ b.stars }}" type="radio" name="rv-f-{{ section.id }}" id="rv-f{{ b.stars }}-{{ section.id }}"><label class="rv-chip" for="rv-f{{ b.stars }}-{{ section.id }}">{{ b.stars }}<span aria-hidden="true"> &#9733;</span><span class="sr"> {% if b.stars == 1 %}{{ words.star }}{% else %}{{ words.stars }}{% endif %}</span></label>{% endif %}{% endfor %}
+          </div>
+          <label class="rv-sort"><span class="sr">{{ words.sort_reviews }}</span>
+            <select class="rv-sort__s">
+              <option value="featured"{% if reviews.sort == 'featured' %} selected{% endif %}>{{ words.sort_featured }}</option>
+              <option value="newest"{% if reviews.sort == 'newest' %} selected{% endif %}>{{ words.sort_newest }}</option>
+              <option value="highest"{% if reviews.sort == 'highest' %} selected{% endif %}>{{ words.sort_highest }}</option>
+              <option value="lowest"{% if reviews.sort == 'lowest' %} selected{% endif %}>{{ words.sort_lowest }}</option>
+              <option value="photos"{% if reviews.sort == 'photos' %} selected{% endif %}>{{ words.sort_with_photos }}</option>
+            </select>
+          </label>
+        </div>
+      {% endif %}
       <div class="rv__list rv__list--{{ settings.layout }}">
-        {% for r in reviews.here.items limit: settings.per_page %}
-          <article class="rv-card" data-review-id="{{ r.id }}">
+        {% for r in reviews.here.items %}
+          <article class="rv-card{% if settings.per_page > 0 %}{% if forloop.index > settings.per_page %} rv-card--more{% endif %}{% elsif forloop.index > reviews.per_page %} rv-card--more{% endif %}" data-review-id="{{ r.id }}" data-rating="{{ r.rating }}" style="--o-featured: {{ r.rank_featured }}; --o-newest: {{ r.rank_newest }}; --o-highest: {{ r.rank_highest }}; --o-lowest: {{ r.rank_lowest }}; --o-photos: {{ r.rank_photos }};">
             <div class="rv-card__top">
               <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
               {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
             </div>
             {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
             <p class="rv-card__body">{{ r.body }}</p>
-            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
+            {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<button type="button" class="rv-ph" popovertarget="rv-lb-{{ section.id }}-{{ r.id }}-{{ forloop.index }}"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></button><div class="rv-lb" id="rv-lb-{{ section.id }}-{{ r.id }}-{{ forloop.index }}" popover><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"><p class="rv-lb__bar"><a href="{{ ph | url }}" target="_blank" rel="noopener">{{ words.open_full_size }}</a><button type="button" popovertarget="rv-lb-{{ section.id }}-{{ r.id }}-{{ forloop.index }}" popovertargetaction="hide">{{ words.close }}</button></p></div>{% endfor %}</div>{% endif %}
+            {% if reviews.show_photos and r.videos.size > 0 %}<p class="rv-card__videos">{% for v in r.videos %}<a href="{{ v | url }}" target="_blank" rel="noopener">{{ words.watch_video }}</a>{% endfor %}</p>{% endif %}
             <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
             {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">{{ words.review_on }} {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
             {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
           </article>
         {% endfor %}
       </div>
-      {% if reviews.here.items.size > settings.per_page %}
-        <details class="rv-more">
-          <summary class="rv-btn rv-btn--quiet">{{ words.show_more_reviews }}</summary>
-          <div class="rv__list rv__list--{{ settings.layout }}">
-            {% for r in reviews.here.items offset: settings.per_page %}
-              <article class="rv-card" data-review-id="{{ r.id }}">
-                <div class="rv-card__top">
-                  <span class="rv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ words.out_of_five_stars }}"></span>
-                  {% if reviews.show_date %}<span class="rv-card__date">{{ r.date }}</span>{% endif %}
-                </div>
-                {% if r.title %}<h3 class="rv-card__title">{{ r.title }}</h3>{% endif %}
-                <p class="rv-card__body">{{ r.body }}</p>
-                {% if reviews.show_photos and r.has_photos %}<div class="rv-card__photos">{% for ph in r.photos %}<a href="{{ ph | url }}" target="_blank" rel="noopener"><img src="{{ ph }}" alt="{{ words.photo_from }} {{ r.author }}" loading="lazy" decoding="async"></a>{% endfor %}</div>{% endif %}
-                <p class="rv-card__by"><span class="rv-card__av" aria-hidden="true">{{ r.initial }}</span><span class="rv-card__name">{{ r.author }}</span>{% if reviews.show_verified and r.verified %}<span class="rv-card__ver">{{ words.verified_buyer }}</span>{% endif %}</p>
-                {% if reviews.here.scope == 'shop' and r.product_title %}<p class="rv-card__product">{{ words.review_on }} {% if r.product_url %}<a href="{{ r.product_url | url }}">{{ r.product_title }}</a>{% else %}{{ r.product_title }}{% endif %}</p>{% endif %}
-                {% if r.reply %}<div class="rv-card__reply"><p class="rv-card__reply-by">{{ words.reply_from }} {{ shop.name }}</p><p class="rv-card__body">{{ r.reply }}</p></div>{% endif %}
-              </article>
-            {% endfor %}
-          </div>
-        </details>
+      <p class="rv__nomatch">{{ words.no_reviews_with_rating }}</p>
+      {% if settings.per_page > 0 %}
+        {% if reviews.here.items.size > settings.per_page %}<input class="rv-more-t sr" type="checkbox" id="rv-more-{{ section.id }}"><label class="rv-btn rv-btn--quiet rv-more-b" for="rv-more-{{ section.id }}">{{ words.show_more_reviews }}</label>{% endif %}
+      {% elsif reviews.here.items.size > reviews.per_page %}<input class="rv-more-t sr" type="checkbox" id="rv-more-{{ section.id }}"><label class="rv-btn rv-btn--quiet rv-more-b" for="rv-more-{{ section.id }}">{{ words.show_more_reviews }}</label>
       {% endif %}
+      {% if reviews.here.summary.count > reviews.here.items.size %}<p class="rv__showing">{{ words.showing }} {{ reviews.here.items.size }} {{ words.of }} {{ reviews.here.summary.count }} {{ words.reviews }}</p>{% endif %}
     {% endif %}
   </div>
 </section>
@@ -214,9 +221,58 @@
 .rv-card__reply-by { margin: 0; font-size: 13px; font-weight: 600; color: var(--s-heading); }
 .rv-card__reply .rv-card__body { margin-top: 4px; font-size: 14px; }
 
-.rv-more { margin-top: 20px; }
-.rv-more > summary { margin: 0 auto; }
-.rv-more[open] > summary { display: none; }
+.rv__bar span { background: var(--rv-bar, var(--rv-star, var(--s-accent))); }
+.rv-card__ver { color: var(--rv-ver, var(--s-para)); }
+.rv-card__ver::before { color: var(--rv-ver, var(--s-heading)); }
+
+.rv__tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; }
+.rv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-f { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.rv-chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--s-border); border-radius: 999px; font-size: 14px; color: var(--s-heading); cursor: pointer; font-variant-numeric: tabular-nums; transition: background-color 150ms ease, border-color 150ms ease; }
+.rv-chip:hover { background: color-mix(in srgb, var(--s-para) 8%, transparent); }
+.rv-f:checked + .rv-chip { background: var(--s-heading); border-color: var(--s-heading); color: var(--s-bg); }
+.rv-f:focus-visible + .rv-chip { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.rv-sort { position: relative; }
+.rv-sort__s { appearance: none; min-height: 36px; padding: 0 34px 0 12px; font: inherit; font-size: 14px; color: var(--s-heading); background: var(--s-bg); border: 1px solid var(--s-border); border-radius: calc(var(--s-radius) * 0.6); cursor: pointer; }
+.rv-sort::after { content: ""; position: absolute; right: 13px; top: 50%; width: 6px; height: 6px; border-right: 1.5px solid var(--s-para); border-bottom: 1.5px solid var(--s-para); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+
+.rv-card--more { display: none; }
+.rv:has(.rv-more-t:checked) .rv-card--more,
+.rv:has(.rv-f:not(.rv-f--0):checked) .rv-card--more,
+.rv:has(.rv-sort__s option:checked:not([selected])) .rv-card--more { display: block; }
+.rv-more-b { display: flex; width: max-content; margin: 20px auto 0; }
+.rv-more-t:focus-visible + .rv-more-b { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.rv:has(.rv-more-t:checked) .rv-more-b,
+.rv:has(.rv-f:not(.rv-f--0):checked) .rv-more-b,
+.rv:has(.rv-sort__s option:checked:not([selected])) .rv-more-b { display: none; }
+.rv:has(.rv-f--1:checked) .rv-card:not([data-rating="1"]),
+.rv:has(.rv-f--2:checked) .rv-card:not([data-rating="2"]),
+.rv:has(.rv-f--3:checked) .rv-card:not([data-rating="3"]),
+.rv:has(.rv-f--4:checked) .rv-card:not([data-rating="4"]),
+.rv:has(.rv-f--5:checked) .rv-card:not([data-rating="5"]) { display: none; }
+.rv:has(.rv-sort__s option[value="featured"]:checked) .rv-card { order: var(--o-featured); }
+.rv:has(.rv-sort__s option[value="newest"]:checked) .rv-card { order: var(--o-newest); }
+.rv:has(.rv-sort__s option[value="highest"]:checked) .rv-card { order: var(--o-highest); }
+.rv:has(.rv-sort__s option[value="lowest"]:checked) .rv-card { order: var(--o-lowest); }
+.rv:has(.rv-sort__s option[value="photos"]:checked) .rv-card { order: var(--o-photos); }
+.rv__nomatch { display: none; margin: 24px 0 0; font-size: 15px; color: var(--s-para); }
+.rv:has(.rv-f--1:checked):not(:has(.rv-card[data-rating="1"])) .rv__nomatch,
+.rv:has(.rv-f--2:checked):not(:has(.rv-card[data-rating="2"])) .rv__nomatch,
+.rv:has(.rv-f--3:checked):not(:has(.rv-card[data-rating="3"])) .rv__nomatch,
+.rv:has(.rv-f--4:checked):not(:has(.rv-card[data-rating="4"])) .rv__nomatch,
+.rv:has(.rv-f--5:checked):not(:has(.rv-card[data-rating="5"])) .rv__nomatch { display: block; }
+.rv__showing { margin: 16px 0 0; text-align: center; font-size: 13px; color: var(--s-para); }
+
+.rv-ph { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: calc(var(--s-radius) * 0.6); }
+.rv-ph:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.rv-lb { margin: auto; padding: 0; border: 0; background: transparent; max-width: min(92vw, 960px); max-height: 92vh; overflow: visible; }
+.rv-lb::backdrop { background: var(--rv-scrim, rgb(0 0 0 / 0.72)); }
+.rv-lb img { display: block; width: auto; height: auto; max-width: min(92vw, 960px); max-height: calc(92vh - 56px); object-fit: contain; border-radius: calc(var(--s-radius) * 0.6); }
+.rv-card__photos .rv-lb img { width: auto; height: auto; }
+.rv-lb__bar { display: flex; justify-content: space-between; gap: 16px; margin: 10px 0 0; font-size: 14px; }
+.rv-lb__bar a, .rv-lb__bar button { color: var(--rv-scrim-text, #fff); background: none; border: 0; padding: 8px 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.rv-card__videos { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 0; font-size: 14px; }
+.rv-card__videos a { color: var(--s-heading); text-decoration: underline; text-underline-offset: 3px; }
 </style>
 
 <schema>
@@ -234,7 +290,8 @@
     { "type": "toggle", "id": "show_summary", "label": "Show the rating", "default": true },
     { "type": "toggle", "id": "show_bars", "label": "Show reviews by stars", "default": true },
     { "type": "toggle", "id": "show_write", "label": "Show Write a review", "default": true, "info": "Only when Storelib Reviews lets anyone write. Otherwise buyers review from their email." },
-    { "type": "range", "id": "per_page", "label": "Reviews before Show more", "default": 6, "min": 2, "max": 24, "step": 1 },
+    { "type": "range", "id": "per_page", "label": "Reviews before Show more", "default": 0, "min": 0, "max": 24, "step": 1, "info": "0 uses the number set in Storelib Reviews." },
+    { "type": "toggle", "id": "show_tools", "label": "Show filter by stars and sort", "default": true },
     { "type": "header", "id": "hdr_layout", "label": "Layout" },
     { "type": "select", "id": "layout", "label": "Layout", "default": "list", "options": [{ "label": "List", "value": "list" }, { "label": "Cards", "value": "grid" }] },
     { "type": "range", "id": "columns", "label": "Columns (cards)", "default": { "desktop": 2, "tablet": 2, "mobile": 1 }, "min": 1, "max": 3, "step": 1, "responsive": true },
@@ -242,6 +299,8 @@
     { "type": "header", "id": "hdr_style", "label": "Style" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
     { "type": "color", "id": "star_color", "label": "Star colour", "default": "", "info": "Empty uses the colour set in Storelib Reviews." },
+    { "type": "color", "id": "bar_color", "label": "Rating bar colour", "default": "", "info": "Empty uses the star colour." },
+    { "type": "color", "id": "verified_color", "label": "Verified buyer colour", "default": "" },
     { "type": "header", "id": "hdr_spacing", "label": "Spacing" },
     { "type": "range", "id": "padding_top", "label": "Top padding", "default": 64, "min": 0, "max": 160, "step": 4, "unit": "px" },
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "default": 64, "min": 0, "max": 160, "step": 4, "unit": "px" }

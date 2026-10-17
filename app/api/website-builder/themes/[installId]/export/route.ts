@@ -8,6 +8,7 @@
 //   manifest.json image_map field maps original_url -> images/<sha>.<ext>
 // ============================================================
 import { createAdminClient } from "@/lib/supabase/admin"
+import { THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
 import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
@@ -330,6 +331,9 @@ export async function GET(_req: Request, { params }: Params) {
   )
   for (const [path, content] of Object.entries(DEFAULT_THEME_SOURCES)) files[path] = saved.get(path) ?? content
   for (const [path, content] of saved) if (path.endsWith(".storelib") && !(path in files)) files[path] = content
+  /* The theme's own Theme settings, when it has them (lib/storelib-theme/theme-config.ts): an import reads them back. */
+  const ownSchema = saved.get(THEME_SCHEMA_FILE)
+  if (ownSchema) files[THEME_SCHEMA_FILE] = ownSchema
 
   /**
    * THE PAGES, WITH THE HEADER ONCE. The Header and Footer groups go in

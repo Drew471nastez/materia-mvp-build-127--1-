@@ -159,13 +159,21 @@ section("The period is the shared picker's, and Analytics opens on the same one"
 // ── The collector ───────────────────────────────────────────────────────
 section("The collector runs on published pages only, once, and sends nothing personal")
 {
-  const c = code("components/website-builder/site-vitals.tsx")
-  check("never inside a frame (the editor canvas, previews embedded anywhere)", /window\.self !== window\.top/.test(c))
-  check("never in a browser driven by a script (cover screenshots, bots)", /navigator\.webdriver/.test(c))
-  check("once per page load, whatever remounts it", /let started = false/.test(c) && /if \(started \|\| !installId\) return/.test(c))
+  /*
+    The collector is one inline script now (lib/perf/site-vitals-inline.ts),
+    the same on a Storelib theme's page and an imported theme's, and it no
+    longer sends the site: the route finds it from the host
+    (tests/web-performance-v.test.ts holds the rest of it).
+  */
+  const c = read("lib/perf/site-vitals-inline.ts")
+  check("never inside a frame (the editor canvas, previews embedded anywhere)", /W\.self!==W\.top/.test(c))
+  check("never in a browser driven by a script (cover screenshots, bots)", /N\.webdriver/.test(c))
+  check("once per page load, whatever remounts it", /if\(W\.__slSV\|\|/.test(c) && /W\.__slSV=1/.test(c))
   check("the browser's own observers, no library", /new PerformanceObserver/.test(c) && /"largest-contentful-paint"/.test(c) && /"layout-shift"/.test(c) && /"event"/.test(c) && !/from "web-vitals"/.test(c))
-  check("sent once, as the page is hidden or left, by beacon", /"visibilitychange"/.test(c) && /"pagehide"/.test(c) && /sendBeacon/.test(c) && /if \(sent\) return/.test(c))
-  check("no cookie and no visitor in the body", !/document\.cookie|localStorage|visitor/i.test(c) && /s: installId/.test(c) && /credentials: "omit"/.test(c))
+  check("sent once, as the page is hidden or left, by beacon", /"visibilitychange"/.test(c) && /"pagehide"/.test(c) && /sendBeacon/.test(c) && /if\(v\.sent\)return/.test(c))
+  const js = c.slice(c.indexOf("export const SITE_VITALS_JS"))
+  check("no cookie and no visitor in the body, and no site id either", !/document\.cookie|localStorage|visitor/i.test(js) && !/installId|s:ID/.test(js) && /credentials:"omit"/.test(js))
+  check("a Storelib theme's page renders that script", /__html: SITE_VITALS_JS/.test(code("components/website-builder/site-vitals.tsx")))
   const site = read("app/(site)/w/[username]/render-site.tsx")
   const published = site.slice(site.indexOf("export async function renderSite"), site.indexOf("export async function previewInstall"))
   const preview = site.slice(site.indexOf("async function previewPage"))
@@ -179,8 +187,8 @@ section("The ingest route keeps the site, the numbers, the device and the day")
 {
   const r = code("app/api/public/vitals/route.ts")
   check("under /api/public/, the prefix the proxy keeps for public endpoints", true)
-  check("validated and clamped by the pure rules", /cleanBeacon\(raw\)/.test(r))
-  check("only a published site is recorded", /status === "published"/.test(r))
+  check("validated and bounded by the pure rules", /cleanRumBeacon\(raw\)/.test(r))
+  check("only a published site is recorded, found from the host", /rumSiteOfHost\(admin, req\.headers\.get\("host"\)/.test(r) && /\.eq\("status", "published"\)/.test(read("lib/website-builder/rum-site.ts")))
   check("limited per address", /PER_MINUTE/.test(r) && /allowed\(address/.test(r))
   check("bots are not visitors", /isBotAgent/.test(r))
   check("it sets no cookie and caches nothing", !/cookies\(|set-cookie|Set-Cookie/i.test(r) && /"Cache-Control": "no-store"/.test(r))

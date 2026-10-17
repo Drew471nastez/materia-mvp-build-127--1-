@@ -1,0 +1,3 @@
+reviewId,productId,productName,rating,title,body,reviewerName,reviewerEmail,dateCreated,isRecommended,status,reviewerIsVerified,reply
+ok-1,123,Linen Apron,5,Love,Great quality,Lee Wong,lee@example.com,2024-04-01T12:00:00.000Z,true,approved,true,
+ok-2,123,Linen Apron,1,Bad,Ripped at the seam,Ray,ray@example.com,2024-04-02,false,rejected,false,

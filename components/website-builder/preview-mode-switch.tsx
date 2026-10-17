@@ -162,6 +162,7 @@ export function CodePane({
   fullScreen = false,
   onClose,
   codeFilePath,
+  codeFileAt,
 }: {
   installId: string
   visible: boolean
@@ -173,6 +174,8 @@ export function CodePane({
    * somewhere in it is not opening it.
    */
   codeFilePath?: string | null
+  /** Where in it (a section's template top or its schema), counted so the same file asked for again is opened again. */
+  codeFileAt?: { at: "top" | "schema"; n: number }
 }) {
   const [everShown, setEverShown] = useState(visible)
   const [loaded, setLoaded] = useState(false)
@@ -227,14 +230,45 @@ export function CodePane({
       /**
        * The page inside announces its theme as it mounts, which is the one
        * moment it is certainly listening. Answering here rather than only on
-       * the iframe's load event means a reload — opening a different file
-       * changes the frame's src — is told again without anyone tracking it.
+       * the iframe's load event means a reload is told again without anyone
+       * tracking it, and so is a file asked for while it was loading.
        */
       sendChrome()
+      sendOpen()
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [sendChrome])
+  /**
+   * A FILE ASKED FOR AFTER THE FRAME LOADED IS OPENED INSIDE IT. The frame's
+   * address is fixed the first time it is drawn, warmed in idle time with
+   * whatever file was wanted then; a section's Edit code later tells the
+   * page inside which file to open and where, and it opens it in place
+   * (the code page's storelib:open-file), so a warm pane is never loaded
+   * again from nothing for a new file.
+   */
+  const latestOpen = useRef({ path: codeFilePath ?? null, at: codeFileAt?.at ?? "top", n: codeFileAt?.n ?? 0 })
+  latestOpen.current = { path: codeFilePath ?? null, at: codeFileAt?.at ?? "top", n: codeFileAt?.n ?? 0 }
+  /* The frame's file and place, fixed at its first render: later files open inside it (sendOpen), never by reloading it. */
+  const srcRef = useRef<string | null>(null)
+  const srcAsk = useRef(0)
+  if (srcRef.current === null) {
+    srcRef.current = codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}${codeFileAt?.at === "schema" ? "&at=schema" : ""}` : ""
+    srcAsk.current = codeFileAt?.n ?? 0
+  }
+  const sendOpen = useCallback(() => {
+    const ask = latestOpen.current
+    if (!ask.path || ask.n <= srcAsk.current) return
+    try {
+      frameRef.current?.contentWindow?.postMessage({ type: "storelib:open-file", path: ask.path, at: ask.at, n: ask.n }, window.location.origin)
+    } catch {
+      /* not loaded yet: it is told when it announces itself */
+    }
+  }, [])
+  useEffect(() => {
+    if (loaded) sendOpen()
+  }, [loaded, codeFilePath, codeFileAt?.n, sendOpen])
+
   /**
    * WHAT THIS BAR IS ALREADY SHOWING, so the page inside does not show it
    * again. The framed editor has a light-and-dark switch of its own; on a
@@ -478,7 +512,7 @@ export function CodePane({
         <iframe
           ref={frameRef}
           title={tt("Code editor")}
-          src={`/website-builder/code/${installId}?embedded=1${codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}` : ""}`}
+          src={`/website-builder/code/${installId}?embedded=1${srcRef.current ?? ""}`}
           onLoad={() => setLoaded(true)}
           className={cn(
             "h-full w-full border-0 bg-white transition-opacity duration-300",

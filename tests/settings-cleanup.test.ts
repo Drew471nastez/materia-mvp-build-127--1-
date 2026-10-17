@@ -122,7 +122,8 @@ console.log("\nEvery setting is read by something")
     brand_name: "lib/storelib-theme/resolve.ts",
     logo_url: "lib/storelib-theme/resolve.ts",
     logo_width: "lib/storelib-theme/resolve.ts",
-    favicon_url: "lib/storelib-theme/resolve.ts",
+    /* Read once, for every place a favicon is shown (round V1): lib/website-builder/favicon-sync.ts faviconOf, which resolve.ts, the live pages and checkout ask. */
+    favicon_url: "lib/website-builder/favicon-sync.ts",
     tagline: "lib/storelib-theme/globals.ts",
     brand_headline: "lib/website-builder/storefront-data.ts",
     brand_description: "lib/website-builder/storefront-data.ts",

@@ -127,7 +127,8 @@ async function main() {
     check("SEO & Social previews with it", /siteTabTitle\(\{ page: \{ kind: "home" \}, storeName: store, siteTitle:/.test(seo) && /<BrowserTabPreview/.test(seo))
     check("and its placeholder is the store's name", /placeholder=\{preview\.store\}/.test(seo) && !/\| Storelib/.test(seo))
     check("Pages previews each page with it", /siteTabTitle\(\{ page: key === "404"/.test(read("components/website-builder/website-settings/pages.tsx")))
-    check("General's favicon row shows the same home tab", /<BrowserTabPreview icon=\{[^}]*\}[^>]*title=\{homeTitle\}/.test(read("components/website-builder/website-settings/general.tsx")))
+    /* Changed on purpose (round V): the owner did not want a browser tab drawn beside the favicon tile; SEO & Social keeps its tab preview. */
+    check("General's favicon row is the tile and its actions, no tab drawn beside it", !/BrowserTabPreview/.test(read("components/website-builder/website-settings/general.tsx")) && /layout="icon"/.test(read("components/website-builder/website-settings/general.tsx")))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("an empty site title is no longer filled with '{username} | Storelib'", !/const canonical = `\$\{handle\} \| Storelib`/.test(editor) && /NO MADE UP SITE TITLE/.test(editor))
     /* Changed on purpose (round I): "{username} | Storelib", the one the editor wrote most, is cleared as an old default too. */

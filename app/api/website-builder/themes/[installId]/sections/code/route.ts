@@ -13,7 +13,7 @@
  * a version row beside it. Nothing reaches a visitor until the creator
  * publishes, and nothing reaches the account at all unless it compiles.
  */
-import { MEMORY_IN_TURN, listMemories, type MemoryDb } from "@/lib/ai-memory/store"
+import { describeMemory, memoriesForSite, type MemoryDb } from "@/lib/ai-memory/store"
 import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse, after, type NextRequest } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
@@ -23,7 +23,7 @@ import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { writeSection, type WriteEvent, type WriteStage } from "@/lib/website-builder/agent/write-section"
-import { EFFORTS, type Effort } from "@/lib/website-builder/ask-engines"
+import { EFFORT } from "@/lib/website-builder/ask-engines"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 import { withPictureNote } from "@/lib/website-builder/ask-attach"
@@ -66,12 +66,6 @@ const BodySchema = z.object({
   settings: z.record(z.unknown()).optional(),
   /** What the site is already built out of, for coherence. Names only. */
   sectionTypes: z.array(z.string().max(80)).max(60).optional(),
-  /**
-   * HOW HARD IT THINKS, the panel's Strength for Code a section: Deep unless
-   * the creator chose otherwise (lib/website-builder/ask-engines.ts,
-   * DEFAULT_CODE_STRENGTH). Absent, from an older panel: high.
-   */
-  effort: z.enum(EFFORTS as [Effort, ...Effort[]]).optional(),
   /**
    * THE CONVERSATION ON SCREEN, so a section written here is part of the
    * same chat as the changes around it: in the history, and in what the
@@ -195,7 +189,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * so it can still say why.
    */
   const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
-  const accountMemory = await listMemories(supabase as unknown as MemoryDb, (creator as { id: string }).id, MEMORY_IN_TURN)
+  /* AI Memory, this website's notes and the everywhere ones, read through the creator's own client (lib/ai-memory/store.ts). */
+  const memory = await memoriesForSite(supabase as unknown as MemoryDb, (creator as { id: string }).id, installId)
   const run = async (
     onStage?: (stage: WriteStage, attempt: number) => void,
     onEvent?: (event: WriteEvent) => void,
@@ -205,17 +200,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       model: resolved.model,
       prompt: parsed.data.prompt,
       images,
-      /* Accuracy over speed: planned, written, drawn, checked against the request and the picture, refined once. */
-      effort: parsed.data.effort ?? "high",
+      /* Medium, always, with no switch (lib/website-builder/ask-engines.ts): planned, written, drawn, checked and refined once still. */
+      effort: EFFORT,
       cacheKey: `theme:${installId}`,
       deadlineAt: Date.now() + (maxDuration - 15) * 1000,
       onEvent,
-      /* What the creator asked to keep on every website, read through their own client (lib/ai-memory/store.ts). */
-      accountMemory: accountMemory.ready ? accountMemory.memories.map((m) => m.content) : [],
+      accountMemory: memory.ready ? memory.account.map((m) => m.content) : [],
+      memoryText: memory.ready ? describeMemory(memory) : undefined,
       takenTypes,
       takenNames,
       theme: {
         settings: parsed.data.settings ?? null,
+        /* The creator's own section files, read above: the brief lists them and is cached per theme version (lib/website-builder/agent/theme-brief.ts). */
+        sources,
         neighbours: (parsed.data.sectionTypes ?? []).map((type) => ({
           type,
           name: SECTION_SCHEMAS[type]?.name ?? mine[type]?.name,

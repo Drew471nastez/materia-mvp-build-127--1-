@@ -24,6 +24,7 @@ import { cache } from "react"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { getMainDomain } from "@/lib/url-helpers"
 import { ASSET_MAP_PATH, compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -94,17 +95,20 @@ export async function checkoutBrand(db: Db, creatorId: string): Promise<Checkout
   let websiteLogo: string | null = null
   let websiteIcon: string | null = null
   let websiteShare: string | null = null
+  /* The website's one favicon (Website settings, Branding and an imported theme's own are one value: lib/website-builder/favicon-sync.ts). */
+  const ownIcon = faviconOf(theme as Record<string, unknown>)
   if (compatOf(theme)) {
     const values = compatValues(theme)
     const value = str(values.logo)
-    const favicon = str(values.favicon)
+    /* An imported theme's own picture by its theme address only when the site has no favicon a browser can fetch. */
+    const favicon = ownIcon ? "" : str(values.favicon)
     ;[websiteLogo, websiteIcon] = await Promise.all([
       value && install?.id ? compatLogo(db, install.id, value) : Promise.resolve(null),
-      favicon && install?.id ? compatLogo(db, install.id, favicon) : Promise.resolve(null),
+      ownIcon ? Promise.resolve(absolute(ownIcon)) : favicon && install?.id ? compatLogo(db, install.id, favicon) : Promise.resolve(null),
     ])
   } else {
     websiteLogo = absolute(str(theme.logo_url))
-    websiteIcon = absolute(str(theme.favicon_url))
+    websiteIcon = absolute(ownIcon)
     websiteShare = absolute(str(theme.seo_og_image))
   }
 

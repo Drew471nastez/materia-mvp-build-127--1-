@@ -19,6 +19,7 @@ import { AccountHub, type AccountIdentity } from "@/components/account/account-h
 import { AccountNavFade } from "@/components/account/account-nav-fade"
 import { AccountSkeleton } from "@/components/account/account-skeleton"
 import { LibraryBgFix } from "@/components/library/library-bg-fix"
+import { HtmlClass } from "@/components/platform/html-class"
 import { AccountColumn } from "@/components/account/account-column"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { followCounts } from "@/lib/profile/follows"
@@ -131,6 +132,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   const shell = (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
+      {/* What `html:has([data-page="account"])` said, as a class (app/globals.css, the account pages keep their width). */}
+      <HtmlClass name="with-page-account" />
       <script dangerouslySetInnerHTML={{ __html: ACCOUNT_COMMUNITY_HEADER_BOOT }} />
       {/* The same line the library and Explore carry, so leaving Profile for
           another tab says so when the next page is slow. */}

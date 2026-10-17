@@ -19,14 +19,25 @@
  *                 how long
  *
  * The first visit asks one question, "How do you fulfil your physical
- * orders?", and sets up a first location of that kind.
+ * orders?", and sets up a first location of that kind. Then, while the
+ * store has no rate a buyer can use, Quick setup proposes a whole first
+ * way to ship from what Storelib knows (the store's country, address and
+ * currency): a zone for the home country and one for the rest of the EU
+ * or the world, each with a price the merchant types and a delivery time
+ * to start from (lib/physical/quick-setup.ts). One press makes it
+ * (app/api/physical/shipping/quick-setup).
+ *
+ * Once a store can ship, the page leads with a few lines that say where it
+ * ships, for how much and how fast, with Edit. Profiles, zones, rates,
+ * units, packages and the fulfilment question sit under "All shipping
+ * settings", open from the start for a store set up any further way.
  *
  * Inside the Settings form: every button is type="button" and Enter in a
  * field never submits the account form around it.
  */
 
 import * as React from "react"
-import { Check, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
+import { Check, ChevronDown, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { CountryFlag } from "@/components/app/settings/country-picker"
@@ -38,6 +49,10 @@ import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { dimensionUnitFor, formatSize, fromGrams, fromMm, smallWeightUnitFor, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
 import { ReadinessChecklist } from "./readiness-checklist"
+import { ReadinessLink } from "./readiness-client"
+import { EU_COUNTRIES, hasUsableRate, isSimpleSetup, quickSetupProposal, shippingSummary } from "@/lib/physical/quick-setup"
+import { useStoreCurrency } from "@/lib/store/currency-context"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
 import { tt } from "@/lib/i18n/text"
 
@@ -72,14 +87,16 @@ interface TaxRow {
   name: string
   rateBps: number
 }
-interface Integration {
-  provider: string
-  status: "connected" | "disconnected" | "error" | "needs_setup"
-  url: string | null
-  keyHint: string | null
-  secretHint: string | null
-  lastSyncAt: string | null
-  lastError: string | null
+/** An app that can price a Carrier calculated rate, and whether this store has it connected (GET /api/physical/settings). */
+interface CarrierApp {
+  id: string
+  name: string
+  connected: boolean
+}
+/** Store details' country and business address, what Quick setup starts from. */
+interface Origin {
+  country: string | null
+  address: { addressLine1: string; addressLine2: string; city: string; region: string; postalCode: string; country: string } | null
 }
 interface ShippingProduct {
   id: string
@@ -94,9 +111,12 @@ interface Data {
   profiles: ShippingProfile[]
   packages: Pack[]
   taxRates: TaxRow[]
-  integrations: Integration[]
+  carrierApps?: CarrierApp[]
+  origin?: Origin
   shippingProducts?: ShippingProduct[]
 }
+
+type SetData = React.Dispatch<React.SetStateAction<Data | null>>
 
 const MODELS: { id: FulfillmentModel; title: string; line: string }[] = [
   { id: "self", get title() { return tt("I ship orders myself") }, get line() { return tt("From home, a studio or a shop.") } },
@@ -237,20 +257,14 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
       {/* What still stops a sale, read again whenever anything here changes (components/physical/readiness-checklist). */}
       {data.settings.onboardedAt && part !== "returns" ? <ReadinessChecklist version={readinessVersion(data)} /> : null}
 
-      {part === "delivery" ? (
-        <>
-          <FulfilmentCard data={data} reload={load} />
-          <Delivery data={data} reload={load} setData={setData} />
-          <Packages data={data} setData={setData} />
-        </>
-      ) : null}
+      {part === "delivery" && data.settings.onboardedAt ? <Delivery data={data} reload={load} setData={setData} /> : null}
       {part === "locations" ? (
         <>
           <Locations data={data} reload={load} setData={setData} />
-          <StockAlerts data={data} reload={load} />
+          <StockAlerts data={data} reload={load} setData={setData} />
         </>
       ) : null}
-      {part === "returns" ? <ReturnsPolicy data={data} reload={load} /> : null}
+      {part === "returns" ? <ReturnsPolicy data={data} reload={load} setData={setData} /> : null}
 
       <p className="text-[13px] text-[#6b7280]">
         {tt("New to selling physical products? See")}{" "}
@@ -269,6 +283,66 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
 
 /* ── The first question ────────────────────────────────────────────────── */
 
+/**
+ * Arrow keys move the choice in a radiogroup, as a native radio set does:
+ * Up and Left back, Down and Right on, Home and End to the ends, wrapping
+ * round. Only the chosen radio (or the first, before any is) is a Tab stop.
+ */
+export function radioKeys<T extends string>(ids: readonly T[], current: T | "" | null, choose: (id: T) => void) {
+  return (e: React.KeyboardEvent<HTMLElement>) => {
+    const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0
+    if (!step && e.key !== "Home" && e.key !== "End") return
+    e.preventDefault()
+    /* Before any pick, from the radio that has the focus, as a native radio set moves. */
+    const at = current ? ids.indexOf(current as T) : ids.indexOf((e.target as HTMLElement | null)?.getAttribute?.("data-radio") as T)
+    const next = e.key === "Home" ? 0 : e.key === "End" ? ids.length - 1 : at < 0 ? (step > 0 ? 0 : ids.length - 1) : (at + step + ids.length) % ids.length
+    choose(ids[next])
+    const group = e.currentTarget
+    requestAnimationFrame(() => group.querySelector<HTMLElement>(`[data-radio="${ids[next]}"]`)?.focus())
+  }
+}
+
+/**
+ * HOW ORDERS ARE FULFILLED, asked in one place: the first visit's question
+ * and the card under All shipping settings draw this same list. A
+ * radiogroup, like the units switch and the rate kinds, so a screen reader
+ * hears one question with seven answers and the arrow keys move the pick.
+ */
+export function FulfilmentChoice({ value, onChange }: { value: FulfillmentModel | "" | null; onChange: (m: FulfillmentModel) => void }) {
+  const ids = MODELS.map((m) => m.id)
+  return (
+    <div role="radiogroup" aria-label={tt("How do you fulfil your physical orders?")} className="grid gap-2 sm:grid-cols-2" onKeyDown={radioKeys(ids, value, onChange)} data-fulfil-choice="">
+      {MODELS.map((m, i) => {
+        const on = value === m.id
+        return (
+          <button
+            key={m.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on || (!value && i === 0) ? 0 : -1}
+            onClick={() => onChange(m.id)}
+            data-radio={m.id}
+            data-fulfil-model={m.id}
+            className={cn(
+              "flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
+              on ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]",
+            )}
+          >
+            <span aria-hidden className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")}>
+              <span className={cn("h-1.5 w-1.5 rounded-full bg-white transition-transform duration-150", on ? "scale-100" : "scale-0")} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-medium text-[#1a1a2e]">{m.title}</span>
+              <span className="block text-[13px] leading-[18px] text-[#6b7280]">{m.line}</span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function Onboarding({ onDone }: { onDone: () => void }) {
   const [chosen, setChosen] = React.useState<FulfillmentModel | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -283,23 +357,7 @@ function Onboarding({ onDone }: { onDone: () => void }) {
   }
   return (
     <Card title={tt("How do you fulfil your physical orders?")} description={tt("We'll set up your first location to match. You can change this any time.")} help="fulfilment">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {MODELS.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setChosen(m.id)}
-            aria-pressed={chosen === m.id}
-            className={cn("flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors", chosen === m.id ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]")}
-          >
-            <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", chosen === m.id ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{chosen === m.id ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
-            <span className="min-w-0">
-              <span className="block text-[14px] font-medium text-[#1a1a2e]">{m.title}</span>
-              <span className="block text-[13px] leading-[18px] text-[#6b7280]">{m.line}</span>
-            </span>
-          </button>
-        ))}
-      </div>
+      <FulfilmentChoice value={chosen} onChange={setChosen} />
       {error ? <Notice className="mt-3">{error}</Notice> : null}
       <div className="mt-4 flex justify-end">
         <button type="button" className={BTN_PRIMARY} disabled={!chosen || busy} onClick={go}>
@@ -312,7 +370,7 @@ function Onboarding({ onDone }: { onDone: () => void }) {
 
 /* ── Delivery: profiles, zones, rates ──────────────────────────────────── */
 
-function Delivery({ data, reload, setData }: { data: Data; reload: () => void; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
+function Delivery({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
   const [newProfile, setNewProfile] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   /* Zones made in this visit open their first rate at once: a zone without a rate ships nothing. */
@@ -326,6 +384,19 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
     setData((d) => (d ? { ...d, profiles: p, ...(extra?.shippingProducts ? { shippingProducts: extra.shippingProducts } : {}) } : d))
   }
   const noRates = data.profiles.every((p) => p.zones.every((z) => z.rates.length === 0))
+  const usable = hasUsableRate(data.profiles)
+  /*
+    WHAT LEADS. No rate at all yet: Quick setup. One that ships: the
+    summary. "Set it up myself" puts Quick setup away and opens the full
+    settings; a store already set up some other way finds them open.
+  */
+  const [skipped, setSkipped] = React.useState(false)
+  const [open, setOpen] = React.useState(() => !isSimpleSetup(data.profiles) && !noRates)
+  const allRef = React.useRef<HTMLDivElement>(null)
+  const showAll = () => {
+    setOpen(true)
+    requestAnimationFrame(() => allRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }))
+  }
 
   React.useEffect(() => {
     if (data.profiles.length === 0) void api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/profiles").then((r) => r.ok && updateProfiles(r.data.profiles))
@@ -342,70 +413,373 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
       reload()
     }
   }
+  const units = [
+    { id: "metric", label: tt("Metric (kg, cm)") },
+    { id: "imperial", label: tt("Imperial (lb, in)") },
+  ] as const
 
   return (
     <div className="space-y-4">
-      <Card title={tt("Units")} description={tt("How weights and sizes are typed and shown here, on new products and in packages. Rates keep working when you switch.")}>
-        <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label={tt("Units")} data-unit-system={system}>
-          {(
-            [
-              { id: "metric", label: tt("Metric (kg, cm)") },
-              { id: "imperial", label: tt("Imperial (lb, in)") },
-            ] as const
-          ).map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              role="radio"
-              aria-checked={system === o.id}
-              onClick={() => setSystem(o.id)}
-              className={cn("h-9 rounded-lg px-3 text-[13.5px] font-medium transition-colors", system === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </Card>
-      {noRates ? <Notice tone="amber">{tt("Buyers can't check out a physical product until it has a rate for their address. Add a zone and a rate below.")}</Notice> : null}
-      {profiles.map((p) => (
-        <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} products={products} system={system} freshZones={freshZones} onProfiles={updateProfiles} onError={setError} />
-      ))}
-      {error ? <Notice>{error}</Notice> : null}
-      {newProfile === null ? (
-        <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile("")}>
-          <Plus className="h-4 w-4" />
-          {tt("Custom shipping profile")}
+      {noRates && !skipped ? (
+        <QuickSetup
+          data={data}
+          onMade={(next) => setData((d) => (d ? { ...d, profiles: next.profiles, settings: next.settings, locations: next.locations } : d))}
+          onSkip={() => {
+            setSkipped(true)
+            showAll()
+          }}
+        />
+      ) : null}
+      {usable ? <ShippingSummary data={data} onEdit={showAll} /> : null}
+
+      <div ref={allRef} className="scroll-mt-4">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="shipping-all"
+          className="flex w-full items-center justify-between gap-3 rounded-xl px-1 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]"
+          data-shipping-all={open ? "open" : "closed"}
+        >
+          <span className="min-w-0">
+            <span className="block text-[14.5px] font-semibold text-[#1a1a2e]">{tt("All shipping settings")}</span>
+            <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Who ships, units, zones and rates, profiles for some products, packages")}</span>
+          </span>
+          <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-200", open && "rotate-180")} />
         </button>
-      ) : (
-        <Card title={tt("New shipping profile")} description={tt("For products that ship differently, like heavy or fragile items. Next you pick its products, then where it ships and for how much.")}>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <TextInput autoFocus placeholder={tt("Heavy items")} value={newProfile} maxLength={80} onChange={(e) => setNewProfile(e.target.value)} className="flex-1" />
-            <div className="flex gap-2">
-              <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile(null)}>
-                {tt("Cancel")}
-              </button>
-              <button
-                type="button"
-                className={BTN_PRIMARY}
-                disabled={!newProfile.trim()}
-                onClick={async () => {
-                  const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/profiles", { body: { name: newProfile } })
-                  if (!r.ok) return setError(r.error)
-                  updateProfiles(r.data.profiles)
-                  setNewProfile(null)
-                }}
-              >
-                {tt("Create profile")}
-              </button>
+      </div>
+
+      {open ? (
+        <div id="shipping-all" className="shipping-all-in space-y-4">
+          <FulfilmentCard data={data} reload={reload} setData={setData} />
+          <Card title={tt("Units")} description={tt("How weights and sizes are typed and shown here, on new products and in packages. Rates keep working when you switch.")}>
+            <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label={tt("Units")} data-unit-system={system} onKeyDown={radioKeys(["metric", "imperial"] as const, system, setSystem)}>
+              {units.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={system === o.id}
+                  tabIndex={system === o.id ? 0 : -1}
+                  data-radio={o.id}
+                  onClick={() => setSystem(o.id)}
+                  className={cn("h-9 rounded-lg px-3 text-[13.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25", system === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                >
+                  {o.label}
+                </button>
+              ))}
             </div>
-          </div>
-        </Card>
-      )}
-      {/* Local delivery and pickup are a place's, not a zone's: each location sets its own (Locations). */}
-      <p className="text-[13px] leading-[19px] text-[#6b7280]" data-local-hint="">
-        {tt("Local delivery and local pickup are set on each location, in Locations:")} {deliveryHint(data.locations)}
-      </p>
+          </Card>
+          {noRates ? <Notice tone="amber">{tt("Buyers can't check out a physical product until it has a rate for their address. Add a zone and a rate below.")}</Notice> : null}
+          {profiles.map((p) => (
+            <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} products={products} system={system} freshZones={freshZones} carrierApps={data.carrierApps ?? []} home={homeCountry(data)} onProfiles={updateProfiles} onError={setError} />
+          ))}
+          {error ? <Notice>{error}</Notice> : null}
+          {newProfile === null ? (
+            <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile("")}>
+              <Plus className="h-4 w-4" />
+              {tt("Custom shipping profile")}
+            </button>
+          ) : (
+            <Card title={tt("New shipping profile")} description={tt("For products that ship differently, like heavy or fragile items. Next you pick its products, then where it ships and for how much.")}>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <TextInput autoFocus placeholder={tt("Heavy items")} value={newProfile} maxLength={80} onChange={(e) => setNewProfile(e.target.value)} className="flex-1" />
+                <div className="flex gap-2">
+                  <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile(null)}>
+                    {tt("Cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    className={BTN_PRIMARY}
+                    disabled={!newProfile.trim()}
+                    onClick={async () => {
+                      const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/profiles", { body: { name: newProfile } })
+                      if (!r.ok) return setError(r.error)
+                      updateProfiles(r.data.profiles)
+                      setNewProfile(null)
+                    }}
+                  >
+                    {tt("Create profile")}
+                  </button>
+                </div>
+              </div>
+            </Card>
+          )}
+          {/* Local delivery and pickup are a place's, not a zone's: each location sets its own (Locations). */}
+          <p className="text-[13px] leading-[19px] text-[#6b7280]" data-local-hint="">
+            {tt("Local delivery and local pickup are set on each location, in Locations:")} {deliveryHint(data.locations)}
+          </p>
+          <Packages data={data} setData={setData} />
+        </div>
+      ) : null}
     </div>
+  )
+}
+
+/** The store's own country: Store details' (read with these settings), else what Settings read ahead, else the default location's. */
+function homeCountry(data: Data): string {
+  const loc = data.locations.find((l) => l.id === data.settings.defaultLocationId) ?? data.locations[0]
+  return data.origin?.country || storeCountry() || loc?.country || ""
+}
+
+/* ── Quick setup ───────────────────────────────────────────────────────── */
+
+/** Days typed as text, kept to whole numbers 0 to 365. */
+function DaysInputs({ min, max, onMin, onMax, label }: { min: string; max: string; onMin: (v: string) => void; onMax: (v: string) => void; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <NumberInput value={min} onChange={onMin} aria-label={tt("{label}, fewest days", { label })} className="w-[72px] text-center" />
+      <span className="text-[13px] text-[#6b7280]">{tt("to")}</span>
+      <NumberInput value={max} onChange={onMax} aria-label={tt("{label}, most days", { label })} className="w-[72px] text-center" />
+      <span className="text-[13px] text-[#6b7280]">{tt("days")}</span>
+    </div>
+  )
+}
+
+const OWN_PLACE: LocationKind[] = ["home", "warehouse", "retail", "custom"]
+
+/**
+ * ONE CARD, A WHOLE FIRST WAY TO SHIP. What Storelib knows is filled in:
+ * the country, the zone for the rest of the EU (or the world), a delivery
+ * time to start from, the address parcels leave from. The prices are
+ * empty: the merchant types each one (0 for free), and nothing is saved
+ * until Use this setup. lib/physical/quick-setup.ts says why.
+ */
+function QuickSetup({ data, onMade, onSkip }: { data: Data; onMade: (next: { profiles: ShippingProfile[]; settings: Settings; locations: Location[] }) => void; onSkip: () => void }) {
+  const currency = useStoreCurrency()
+  const [country, setCountry] = React.useState(() => homeCountry(data))
+  const plan = quickSetupProposal({ country, currency })
+  const [home, setHome] = React.useState({ price: "", min: "", max: "", freeOver: "" })
+  const [abroad, setAbroad] = React.useState({ on: true, price: "", min: "", max: "" })
+  /* The delivery times start from the proposal for the country, and follow it when the country changes. */
+  React.useEffect(() => {
+    if (!plan) return
+    setHome((h) => ({ ...h, min: String(plan.home.minDays), max: String(plan.home.maxDays) }))
+    setAbroad((a) => ({ ...a, min: String(plan.abroad.minDays), max: String(plan.abroad.maxDays) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.country])
+
+  /* Ships from: the default location when it has an address, else the business address from Store details, for an own place only. */
+  const location = data.locations.find((l) => l.id === data.settings.defaultLocationId) ?? data.locations[0] ?? null
+  const ownPlace = !!location && OWN_PLACE.includes(location.kind)
+  const known = location?.addressLine1 && location.city ? location : null
+  const [from, setFrom] = React.useState(() => {
+    const a = data.origin?.address
+    return { addressLine1: a?.addressLine1 ?? "", addressLine2: a?.addressLine2 ?? "", city: a?.city ?? "", region: a?.region ?? "", postalCode: a?.postalCode ?? "" }
+  })
+  const [editFrom, setEditFrom] = React.useState(false)
+  const [missing, setMissing] = React.useState<{ home?: boolean; abroad?: boolean }>({})
+  const [error, setError] = React.useState<string | null>(null)
+  const [busy, setBusy] = React.useState(false)
+
+  const homeName = plan ? countryName(plan.country) : ""
+  const fromLine = [from.addressLine1, from.city, from.postalCode].filter(Boolean).join(", ")
+
+  const submit = async () => {
+    if (!plan) return
+    const homeCents = centsOf(home.price)
+    const abroadCents = abroad.on ? centsOf(abroad.price) : 0
+    const gaps = { home: homeCents === null, abroad: abroad.on && abroadCents === null }
+    setMissing(gaps)
+    if (gaps.home || gaps.abroad) return
+    setBusy(true)
+    setError(null)
+    const r = await api<{ profiles: ShippingProfile[]; settings: Settings; locations: Location[] }>("/api/physical/shipping/quick-setup", {
+      body: {
+        country: plan.country,
+        home: { priceCents: homeCents, minDays: home.min || null, maxDays: home.max || null, freeOverCents: centsOf(home.freeOver) },
+        abroad: abroad.on ? { priceCents: abroadCents, minDays: abroad.min || null, maxDays: abroad.max || null } : null,
+        shipFrom: ownPlace && !known && from.addressLine1.trim() && from.city.trim() ? from : null,
+      },
+    })
+    setBusy(false)
+    if (!r.ok) return setError(r.error)
+    onMade(r.data)
+  }
+
+  return (
+    <Card title={tt("Set up shipping")} description={plan ? tt("A start for a store in {country}. Type your prices, check the days, then press Use this setup. You can change all of it later.", { country: homeName }) : tt("Choose where you ship from to get a start you can change.")} className="shipping-all-in" id="quick-setup">
+      <div data-quick-setup={plan?.country ?? ""}>
+        {!data.origin?.country ? (
+          <Field label={tt("Where do you ship from?")} className="mb-4 sm:max-w-[320px]">
+            <SelectInput value={country} onChange={setCountry}>
+              <option value="">{tt("Choose")}</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        ) : null}
+        {plan ? (
+          <div className="divide-y divide-[#eceef1] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+            <section className="space-y-3 px-3.5 py-3.5 sm:px-4" data-setup-part="home">
+              <div className="flex items-center gap-2.5">
+                <CountryFlag code={plan.country} className="h-[14px] w-[21px] rounded-[2px]" />
+                <h3 className="text-[14.5px] font-semibold text-[#1a1a2e]">{plan.home.label}</h3>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label={tt("Price")} hint={tt("What a buyer pays per order. 0 is free.")} error={missing.home ? tt("Type a price, or 0 for free.") : null}>
+                  <MoneyInput
+                    value={home.price}
+                    placeholder=""
+                    onChange={(v) => {
+                      setHome((h) => ({ ...h, price: v }))
+                      setMissing((m) => ({ ...m, home: false }))
+                    }}
+                    aria-label={tt("Price, {label}", { label: plan.home.label })}
+                    aria-invalid={missing.home || undefined}
+                    data-setup-price="home"
+                  />
+                </Field>
+                <Field label={tt("Delivery time")} hint={tt("Business days, shown at checkout")}>
+                  <DaysInputs label={plan.home.label} min={home.min} max={home.max} onMin={(v) => setHome((h) => ({ ...h, min: v }))} onMax={(v) => setHome((h) => ({ ...h, max: v }))} />
+                </Field>
+                <Field label={tt("Free shipping on orders over")} hint={tt("Optional. Leave it empty to always charge.")} className="sm:col-span-2 sm:max-w-[calc(50%-6px)]">
+                  <MoneyInput value={home.freeOver} placeholder="" onChange={(v) => setHome((h) => ({ ...h, freeOver: v }))} />
+                </Field>
+              </div>
+            </section>
+            <section className="space-y-3 px-3.5 py-3.5 sm:px-4" data-setup-part="abroad" data-setup-kind={plan.abroad.kind}>
+              <Toggle
+                label={<span className="text-[14.5px] font-semibold text-[#1a1a2e]">{plan.abroad.label}</span>}
+                description={plan.abroad.kind === "eu" ? tt("{n} EU countries", { n: plan.abroad.countries.length }) : tt("Every country outside {country}", { country: homeName })}
+                checked={abroad.on}
+                onChange={(on) => {
+                  setAbroad((a) => ({ ...a, on }))
+                  setMissing((m) => ({ ...m, abroad: false }))
+                }}
+              />
+              {abroad.on ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={tt("Price")} hint={tt("What a buyer pays per order. 0 is free.")} error={missing.abroad ? tt("Type a price, or 0 for free.") : null}>
+                    <MoneyInput
+                      value={abroad.price}
+                      placeholder=""
+                      onChange={(v) => {
+                        setAbroad((a) => ({ ...a, price: v }))
+                        setMissing((m) => ({ ...m, abroad: false }))
+                      }}
+                      aria-label={tt("Price, {label}", { label: plan.abroad.label })}
+                      aria-invalid={missing.abroad || undefined}
+                      data-setup-price="abroad"
+                    />
+                  </Field>
+                  <Field label={tt("Delivery time")} hint={tt("Business days, shown at checkout")}>
+                    <DaysInputs label={plan.abroad.label} min={abroad.min} max={abroad.max} onMin={(v) => setAbroad((a) => ({ ...a, min: v }))} onMax={(v) => setAbroad((a) => ({ ...a, max: v }))} />
+                  </Field>
+                </div>
+              ) : (
+                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Only buyers in {country} can order. You can add more places later.", { country: homeName })}</p>
+              )}
+            </section>
+            {ownPlace ? (
+              <section className="px-3.5 py-3.5 sm:px-4" data-setup-part="from">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-[14.5px] font-semibold text-[#1a1a2e]">{tt("Ships from")}</h3>
+                    <p className="mt-0.5 text-[13px] leading-[19px] text-[#6b7280]">
+                      {known
+                        ? [known.addressLine1, known.city, known.country ? countryName(known.country) : null].filter(Boolean).join(", ")
+                        : fromLine
+                          ? tt("{address}, from your business details", { address: fromLine })
+                          : tt("Optional. Labels and return emails use it.")}
+                    </p>
+                  </div>
+                  {known ? null : (
+                    <button type="button" className={cn(BTN_GHOST, "shrink-0")} onClick={() => setEditFrom((v) => !v)} aria-expanded={editFrom}>
+                      {editFrom ? tt("Done") : fromLine ? tt("Change") : tt("Add address")}
+                    </button>
+                  )}
+                </div>
+                {editFrom && !known ? (
+                  <div className="shipping-all-in mt-3 grid gap-3 sm:grid-cols-2">
+                    <Field label={tt("Street and number")} className="sm:col-span-2">
+                      <TextInput value={from.addressLine1} maxLength={200} autoComplete="address-line1" onChange={(e) => setFrom((f) => ({ ...f, addressLine1: e.target.value }))} />
+                    </Field>
+                    <Field label={tt("City")}>
+                      <TextInput value={from.city} maxLength={120} autoComplete="address-level2" onChange={(e) => setFrom((f) => ({ ...f, city: e.target.value }))} />
+                    </Field>
+                    <Field label={addressFormat(plan.country).postal.label}>
+                      <TextInput value={from.postalCode} maxLength={20} autoComplete="postal-code" placeholder={addressFormat(plan.country).postal.example} onChange={(e) => setFrom((f) => ({ ...f, postalCode: e.target.value }))} />
+                    </Field>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+        {error ? <Notice className="mt-3">{error}</Notice> : null}
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" className={cn(BTN_GHOST, "self-center sm:self-auto")} onClick={onSkip} data-setup-skip="">
+            {tt("I'll set it up myself")}
+          </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <p className="text-center text-[12.5px] text-[#9ca3af] sm:text-right">{tt("Nothing is saved until you press it")}</p>
+            <button type="button" className={cn(BTN_PRIMARY, "h-11 sm:h-10")} disabled={!plan || busy} onClick={submit} data-setup-save="">
+              {busy ? tt("Setting up") : tt("Use this setup")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+/* ── What the store ships, in a few lines ──────────────────────────────── */
+
+const capital = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
+
+function ShippingSummary({ data, onEdit }: { data: Data; onEdit: () => void }) {
+  const currency = useStoreCurrency()
+  const home = homeCountry(data)
+  const { sentence, rows } = shippingSummary(data.profiles, { home, money: (c) => shopMoneyIn(c, currency) })
+  const custom = data.profiles.filter((p) => !p.isDefault).length
+  const location = data.locations.find((l) => l.id === data.settings.defaultLocationId) ?? data.locations.find((l) => l.active) ?? null
+  const general = data.profiles.find((p) => p.isDefault) ?? data.profiles[0]
+  return (
+    <Card title={tt("Shipping")} action={<button type="button" className={BTN_SECONDARY} onClick={onEdit} data-summary-edit="">{tt("Edit")}</button>} className="shipping-all-in">
+      <div data-shipping-summary={rows.length}>
+        <p className="text-[15px] leading-[22px] text-[#1a1a2e]">{sentence}</p>
+        {rows.length ? (
+          <ul className="mt-3 divide-y divide-[#f0f1f3] rounded-xl border border-[#eceef1]">
+            {rows.map((r) => {
+              const zone = general?.zones.find((z) => z.id === r.zoneId)
+              const flags = zone && !zone.restOfWorld ? zone.countries.slice(0, 3) : []
+              return (
+                <li key={r.zoneId} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {/* One width for every row's flags, so the names line up. */}
+                    <span className="flex w-[44px] shrink-0 -space-x-2.5" aria-hidden>
+                      {flags.length ? flags.map((c) => <CountryFlag key={c} code={c} className="ring-2 ring-white" />) : <span className="h-[15px] w-[22px] rounded-[3px] bg-[#f1f2f4]" />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{capital(r.place)}</p>
+                      <p className="truncate text-[12.5px] text-[#6b7280]">{[r.days, r.free].filter(Boolean).join(" · ")}</p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{capital(r.price)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        ) : null}
+        <p className="mt-3 text-[12.5px] leading-[18px] text-[#6b7280]">
+          {location?.addressLine1 && location.city ? (
+            tt("Ships from {place}.", { place: [location.addressLine1, location.city].join(", ") })
+          ) : (
+            <>
+              {tt("No ship-from address yet.")}{" "}
+              <ReadinessLink plain href="/app/settings?tab=locations" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+                {tt("Add it in Locations")}
+              </ReadinessLink>
+            </>
+          )}
+          {custom ? ` ${tt("{n, plural, one {# product group ships its own way.} other {# product groups ship their own way.}}", { n: custom })}` : ""}
+        </p>
+      </div>
+    </Card>
   )
 }
 
@@ -424,6 +798,8 @@ function ProfileCard({
   products,
   system,
   freshZones,
+  carrierApps,
+  home: homeProp,
   onProfiles,
   onError,
 }: {
@@ -432,6 +808,8 @@ function ProfileCard({
   products: ShippingProduct[]
   system: UnitSystem
   freshZones: string[]
+  carrierApps: CarrierApp[]
+  home?: string
   onProfiles: (p: ShippingProfile[], extra?: { shippingProducts?: ShippingProduct[] }) => void
   onError: (e: string | null) => void
 }) {
@@ -443,7 +821,7 @@ function ProfileCard({
   const custom = new Set(allProfiles.filter((p) => !p.isDefault).map((p) => p.id))
   /* The general profile ships every product not in a custom one (or in one that was deleted). */
   const mine = profile.isDefault ? products.filter((p) => !p.profileId || !custom.has(p.profileId)) : products.filter((p) => p.profileId === profile.id)
-  const home = storeCountry()
+  const home = homeProp || storeCountry()
   const startHome = async () => {
     const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/zones", { body: { profileId: profile.id, name: countryName(home), countries: [home], regions: [] } })
     if (!r.ok) return onError(r.error)
@@ -519,7 +897,7 @@ function ProfileCard({
           </div>
         ) : null}
         {profile.zones.map((z) => (
-          <ZoneBlock key={z.id} zone={z} taken={taken} takenRegions={takenRegions} system={system} fresh={freshZones.includes(z.id)} onProfiles={onProfiles} onError={onError} />
+          <ZoneBlock key={z.id} zone={z} taken={taken} takenRegions={takenRegions} system={system} fresh={freshZones.includes(z.id)} carrierApps={carrierApps} onProfiles={onProfiles} onError={onError} />
         ))}
         {addingZone ? (
           <ZoneForm
@@ -667,6 +1045,7 @@ function ZoneForm({
   const defaultName = () => {
     if (row) return tt("Rest of world")
     if (countries.length === 1 && regions.length === 0) return countryName(countries[0])
+    if (regions.length === 0 && countries.length === EU_COUNTRIES.length && EU_COUNTRIES.every((c) => countries.includes(c))) return tt("European Union")
     const of = [...new Set(regions.map((r) => r.split("-")[0]))]
     if (countries.length === 0 && regions.length === 1) return regionLabel(regions[0])
     /* States of one country: "Canada" when all, "Canada, 3 provinces" when some. */
@@ -681,6 +1060,14 @@ function ZoneForm({
     return tt("Zone")
   }
   const statesOf = (cc: string) => regionsOf(cc).map((r) => `${cc}-${r.code}`)
+  const pickCountries = (next: string[]) => {
+    setCountries(next)
+    /* A country chosen whole covers its states: their own picks are dropped. */
+    setRegions((prev) => prev.filter((r) => !next.includes(r.split("-")[0])))
+  }
+  /* One tap for the 27 member states (lib/markets/regions.ts), less any already in another zone. */
+  const euFree = EU_COUNTRIES.filter((c) => !otherCountries.includes(c))
+  const euOn = euFree.length > 0 && euFree.every((c) => countries.includes(c))
   const freeStates = statesFor ? statesOf(statesFor).filter((k) => !otherRegions.includes(k)) : []
   const allStatesOn = freeStates.length > 0 && freeStates.every((k) => regions.includes(k))
   return (
@@ -689,11 +1076,23 @@ function ZoneForm({
         <TextInput value={name} maxLength={80} placeholder={row ? tt("Rest of world") : defaultName() === tt("Zone") ? tt("Europe") : defaultName()} onChange={(e) => setName(e.target.value)} />
       </Field>
       {canRestOfWorld || initial?.restOfWorld ? <Toggle label={tt("Rest of world")} description={tt("Every country not in another zone of this profile. Countries where you picked only some states stay out.")} checked={row} onChange={setRow} disabled={!!initial} /> : null}
-      {!row ? <CountryPicker value={countries} onChange={(next) => {
-        setCountries(next)
-        /* A country chosen whole covers its states: their own picks are dropped. */
-        setRegions((prev) => prev.filter((r) => !next.includes(r.split("-")[0])))
-      }} taken={otherCountries} /> : null}
+      {!row ? (
+        <div className="flex flex-wrap items-center gap-2" data-zone-quick="">
+          <span className="text-[12.5px] text-[#6b7280]">{tt("Quick pick")}</span>
+          <button
+            type="button"
+            aria-pressed={euOn}
+            disabled={euFree.length === 0}
+            onClick={() => pickCountries(euOn ? countries.filter((c) => !EU_COUNTRIES.includes(c)) : [...new Set([...countries, ...euFree])])}
+            className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:opacity-40", euOn ? "border-[#1a1a2e] bg-[#fafafa] text-[#1a1a2e]" : "border-[#e5e7eb] text-[#4b5563] hover:bg-[#f7f7f8]")}
+            data-quick-eu={euFree.length}
+          >
+            {euOn ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
+            {tt("EU, {n} countries", { n: euFree.length })}
+          </button>
+        </div>
+      ) : null}
+      {!row ? <CountryPicker value={countries} onChange={pickCountries} taken={otherCountries} /> : null}
       {!row ? (
         <div className="rounded-xl border border-[#eceef1] bg-white p-3" data-zone-states="">
           <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("Only some states or provinces")}</p>
@@ -775,7 +1174,7 @@ function ZoneForm({
   )
 }
 
-function ZoneBlock({ zone, taken, takenRegions, system, fresh, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; carrierApps: CarrierApp[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const [editing, setEditing] = React.useState(false)
   const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(() => (fresh && zone.rates.length === 0 ? "new" : null))
   const label = zonePlaces(zone)
@@ -838,7 +1237,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, onProfiles, onErr
         {zone.rates.map((r) =>
           rateForm !== null && rateForm !== "new" && rateForm.id === r.id ? (
             <li key={r.id} className="p-3">
-              <RateForm initial={r} system={system} onCancel={() => setRateForm(null)} onSave={async (body) => {
+              <RateForm initial={r} system={system} carrierApps={carrierApps} onCancel={() => setRateForm(null)} onSave={async (body) => {
                 const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "PATCH", body })
                 if (!res.ok) return res.error
                 onProfiles(res.data.profiles)
@@ -880,6 +1279,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, onProfiles, onErr
         {rateForm === "new" ? (
           <RateForm
             system={system}
+            carrierApps={carrierApps}
             first={zone.rates.length === 0}
             onCancel={() => setRateForm(null)}
             onSave={async (body) => {
@@ -906,10 +1306,20 @@ interface TierDraft {
   price: string
 }
 
-function RateForm({ initial, system, first = false, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; first?: boolean; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
+export function RateForm({ initial, system, carrierApps = [], first = false, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; carrierApps?: CarrierApp[]; first?: boolean; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
   const unit = weightUnitFor(system)
   const legacy = initial?.kind === "quantity"
-  const [carrierApp, setCarrierApp] = React.useState(initial?.carrier === "easypost" ? "easypost" : "shippo")
+  /*
+    CARRIER CALCULATED ONLY WITH A CARRIER APP. Its price comes from a
+    connected Shippo or EasyPost account; without one the rate is never
+    offered at checkout, so the kind is not offered either, and a line says
+    where to connect one. A carrier rate made before stays editable.
+  */
+  const connected = carrierApps.filter((a) => a.connected)
+  const canCarrier = connected.length > 0 || initial?.kind === "carrier"
+  const carrierChoices = [...connected, ...(initial?.carrier && !connected.some((a) => a.id === initial.carrier) ? [{ id: initial.carrier, name: carrierApps.find((a) => a.id === initial.carrier)?.name ?? initial.carrier, connected: false }] : [])]
+  const offered = RATE_KINDS_OFFERED.filter((k) => k !== "carrier" || canCarrier)
+  const [carrierApp, setCarrierApp] = React.useState(initial?.carrier ?? connected[0]?.id ?? "shippo")
   const [service, setService] = React.useState(initial?.serviceCode ?? "")
   const [kind, setKind] = React.useState<RateKind>(initial?.kind ?? "flat")
   /* A zone's first rate is Standard; a second one is usually the faster one. */
@@ -971,8 +1381,8 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
       */}
       <div className="space-y-1.5">
         <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("How it's priced")}</p>
-        <div role="radiogroup" aria-label={tt("How it's priced")} className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" data-rate-kinds="">
-          {(legacy ? [...RATE_KINDS_OFFERED, initial!.kind] : RATE_KINDS_OFFERED).map((k) => {
+        <div role="radiogroup" aria-label={tt("How it's priced")} className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" data-rate-kinds="" onKeyDown={radioKeys(legacy ? [...offered, initial!.kind] : offered, kind, changeKind)}>
+          {(legacy ? [...offered, initial!.kind] : offered).map((k) => {
             const on = kind === k
             return (
               <button
@@ -980,6 +1390,8 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
                 type="button"
                 role="radio"
                 aria-checked={on}
+                tabIndex={on ? 0 : -1}
+                data-radio={k}
                 onClick={() => changeKind(k)}
                 className={cn(
                   "flex w-full items-start gap-3 border-b border-[#f0f1f3] px-3.5 py-2.5 text-left outline-none transition-colors duration-150 last:border-b-0 focus-visible:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]",
@@ -998,6 +1410,14 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
             )
           })}
         </div>
+        {canCarrier ? null : (
+          <p className="pt-0.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-carrier-hidden="">
+            {tt("Live rates from a carrier show up here once {apps} is connected.", { apps: carrierApps.map((a) => a.name).join(tt(" or ")) || tt("a shipping app") })}{" "}
+            <ReadinessLink plain href="/app/settings?tab=integrations" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+              {tt("Go to Integrations")}
+            </ReadinessLink>
+          </p>
+        )}
       </div>
 
       {kind === "flat" ? (
@@ -1020,10 +1440,13 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
 
       {kind === "carrier" ? (
         <div className="grid gap-3 sm:grid-cols-2" data-rate-carrier="">
-          <Field label={tt("Rates from")} hint={tt("Connected in Settings › Integrations. Until it is, this rate isn't offered.")}>
+          <Field label={tt("Rates from")} hint={carrierChoices.some((a) => a.id === carrierApp && !a.connected) ? tt("Not connected, so this rate isn't offered. Connect it in Settings › Integrations.") : tt("Your connected account prices each order for the buyer's address.")}>
             <SelectInput value={carrierApp} onChange={setCarrierApp}>
-              <option value="shippo">{tt("Shippo")}</option>
-              <option value="easypost">{tt("EasyPost")}</option>
+              {carrierChoices.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.connected ? a.name : tt("{name} (not connected)", { name: a.name })}
+                </option>
+              ))}
             </SelectInput>
           </Field>
           <Field label={tt("Service")} hint={tt("Optional, like usps_priority (Shippo) or Priority (EasyPost). Empty: the cheapest.")}>
@@ -1161,7 +1584,7 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
 
 /* ── Locations ─────────────────────────────────────────────────────────── */
 
-function Locations({ data, reload, setData }: { data: Data; reload: () => void; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
+function Locations({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
   const [editing, setEditing] = React.useState<Location | "new" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
@@ -1192,7 +1615,7 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
       <Card title={tt("Locations")} description={tt("Where you keep stock, where orders ship from, and where buyers can pick up.")} help="locations" action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />{tt("Add location")}</button> : null}>
         {notice ? <Notice tone="gray" className="mb-3">{notice}</Notice> : null}
         {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {editing === "new" ? <LocationForm startCountry={storeCountry()} onCancel={() => setEditing(null)} onSaved={saved} /> : null}
+        {editing === "new" ? <LocationForm startCountry={data.origin?.country || storeCountry()} onCancel={() => setEditing(null)} onSaved={saved} /> : null}
         {data.locations.length === 0 && editing === null ? <Empty title={tt("No locations yet")}>{tt("Add the place your stock is kept, even if it's your home.")}</Empty> : null}
         <ul className="space-y-2" ref={listRef}>
           {data.locations.map((l) =>
@@ -1515,7 +1938,7 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
  * prices as 500 g. Sizes and weights are typed in the shop's units and kept
  * in millimetres and grams.
  */
-function Packages({ data, setData }: { data: Data; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
+function Packages({ data, setData }: { data: Data; setData: SetData }) {
   const system = data.settings.unitSystem ?? "metric"
   const [editing, setEditing] = React.useState<Pack | "new" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -1662,20 +2085,27 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
 
 /* ── Taxes ─────────────────────────────────────────────────────────────── */
 
-function useSettingsSave(reload: () => void) {
+/**
+ * A settings save, drawn from what the PUT sends back (the settings as
+ * kept): no second read of the whole page after it. Only a failed save
+ * reads the page again, so what shows is what the server has.
+ */
+function useSettingsSave(setData: SetData, reload: () => void) {
   const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
   const [error, setError] = React.useState<string | null>(null)
   const save = async (patch: Partial<Settings>) => {
     setState("saving")
-    const r = await api("/api/physical/settings", { method: "PUT", body: patch })
+    const r = await api<{ settings: Settings }>("/api/physical/settings", { method: "PUT", body: patch })
     if (!r.ok) {
       setError(r.error)
       setState("idle")
+      reload()
       return false
     }
     setError(null)
     setState("saved")
-    reload()
+    const kept = r.data?.settings
+    setData((d) => (d ? { ...d, settings: kept ? { ...d.settings, ...kept } : { ...d.settings, ...patch } } : d))
     setTimeout(() => setState("idle"), 1600)
     return true
   }
@@ -1701,30 +2131,13 @@ function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "
 
 /* ── How orders are fulfilled ──────────────────────────────────────────── */
 
-function FulfilmentCard({ data, reload }: { data: Data; reload: () => void }) {
+function FulfilmentCard({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
   const [model, setModel] = React.useState<FulfillmentModel | "">(data.settings.fulfillmentModel ?? "")
-  const { state, error, save } = useSettingsSave(reload)
+  const { state, error, save } = useSettingsSave(setData, reload)
   const changed = model !== (data.settings.fulfillmentModel ?? "")
   return (
     <Card title={tt("How you fulfil orders")} description={tt("Who packs and ships what you sell. A mix is fine: each location says who ships from it.")} help="fulfilment">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {MODELS.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setModel(m.id)}
-            aria-pressed={model === m.id}
-            data-fulfil-model={m.id}
-            className={cn("flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors", model === m.id ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]")}
-          >
-            <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", model === m.id ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{model === m.id ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
-            <span className="min-w-0">
-              <span className="block text-[14px] font-medium text-[#1a1a2e]">{m.title}</span>
-              <span className="block text-[13px] leading-[18px] text-[#6b7280]">{m.line}</span>
-            </span>
-          </button>
-        ))}
-      </div>
+      <FulfilmentChoice value={model} onChange={setModel} />
       {error ? <Notice className="mt-3">{error}</Notice> : null}
       {changed ? (
         <div className="mt-4 flex justify-end">
@@ -1737,10 +2150,10 @@ function FulfilmentCard({ data, reload }: { data: Data; reload: () => void }) {
 
 /* ── Low stock emails ──────────────────────────────────────────────────── */
 
-function StockAlerts({ data, reload }: { data: Data; reload: () => void }) {
+function StockAlerts({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
   const [low, setLow] = React.useState(String(data.settings.lowStockDefault))
   const [alerts, setAlerts] = React.useState(data.settings.lowStockAlerts !== false)
-  const { state, error, save } = useSettingsSave(reload)
+  const { state, error, save } = useSettingsSave(setData, reload)
   return (
     <Card title={tt("Low stock")} description={tt("So you reorder before something sells out, and buyers see when few are left.")}>
       <div className="space-y-4">
@@ -1766,10 +2179,10 @@ function StockAlerts({ data, reload }: { data: Data; reload: () => void }) {
 
 /* ── Returns ───────────────────────────────────────────────────────────── */
 
-function ReturnsPolicy({ data, reload }: { data: Data; reload: () => void }) {
+function ReturnsPolicy({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
   const [days, setDays] = React.useState(String(data.settings.returnWindowDays))
   const [enabled, setEnabled] = React.useState(data.settings.returnsEnabled)
-  const { state, error, save } = useSettingsSave(reload)
+  const { state, error, save } = useSettingsSave(setData, reload)
   return (
     <Card title={tt("Returns")} description={tt("Buyers ask for a return from their order page, and you approve each one.")} help="returns">
       <div className="space-y-4">

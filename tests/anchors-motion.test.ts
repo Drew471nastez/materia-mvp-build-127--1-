@@ -229,7 +229,7 @@ function main() {
     /* Changed on purpose (merge): read through entranceSetting, which a tabs section's own animation goes by. */ /body\.flatMap\(\(s\) => \{\s*const own = entranceSetting\(s\)\s*return own == null \? \[\] : \[\[s\.id, own\]\]/.test(hook))
   check("on opacity and transforms only", /fill: "backwards"/.test(motion) && !/(height|top|margin)\s*:/.test(motion.slice(motion.indexOf("function keyframesFor"), motion.indexOf("export interface Reveal"))))
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
-  check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)\) window\.location\.assign\(href\)/.test(header))
+  check("the menu drawer closes, then scrolls", /window\.setTimeout\(go, CLOSE_MS\)/.test(header) && /if \(!followSectionLink\(href\)(?: && !followSitePage\(href\))?\) window\.location\.assign\(href\)/.test(header))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("the canvas scrolls an anchor with the same code", /scrollToHash\(root, decision\.id, \{ scroller \}\)/.test(editor))
   check("a section link in preview scrolls the canvas", /if \(decision\.kind === "anchor"\) handleEditorNavigate\(href, inNav\)/.test(editor))

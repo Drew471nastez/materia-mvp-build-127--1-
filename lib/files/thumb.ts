@@ -15,7 +15,7 @@
  * the address. Anything else (a data URL, another host) is drawn as it is.
  *
  * `w` must be one of next.config's sizes and `q` one of its qualities, or the
- * optimizer answers 400 instead of a picture: 128, 256 and 384 are in
+ * optimizer answers 400 instead of a picture: 128, 256, 384 and 640 are in
  * imageSizes/deviceSizes, 88 is in `images.qualities`. 88 rather than the
  * default 75: at 75 a screenshot or a logo with text in it came out soft in a
  * tile ("thumbnails look soft"), and a 384px copy at 88 is still a few KB.
@@ -38,17 +38,34 @@
 import { isOwnMedia } from "@/lib/storage/media-url"
 import { isOptimizableImage } from "@/lib/images/optimized-url"
 
-export const THUMB_WIDTHS = [128, 256, 384] as const
+export const THUMB_WIDTHS = [128, 256, 384, 640] as const
 export const THUMB_QUALITY = 88
 /**
  * What the tile is on screen: a third of a phone (three columns), about 170px
  * in the window on a computer. The browser picks the file from this.
  */
 export const THUMB_SIZES = "(max-width: 639px) 34vw, 180px"
+/**
+ * The Files page's own grid (round V): two across on a phone, four to 1023px,
+ * five in the 1200px page from there. A phone at three pixels to the point
+ * asks for the 640 copy, so a 160px tile is sharp rather than a stretched 384.
+ */
+export const MANAGE_SIZES = "(max-width: 639px) 46vw, (max-width: 1023px) 23vw, 220px"
+
+/** A `sizes` list of "(max-width: Npx) Xvw" parts and a last width, worked out for a viewport. */
+export function slotFor(sizes: string, viewportWidth: number): number {
+  for (const part of sizes.split(",").map((p) => p.trim())) {
+    const m = /^(?:\(max-width:\s*(\d+)px\)\s*)?([\d.]+)(vw|px)$/.exec(part)
+    if (!m) continue
+    if (m[1] && viewportWidth > Number(m[1])) continue
+    return m[3] === "vw" ? (viewportWidth * Number(m[2])) / 100 : Number(m[2])
+  }
+  return 180
+}
 
 /** THUMB_SIZES worked out for a viewport: the CSS width the browser picks a copy for. */
 export function thumbSlot(viewportWidth: number): number {
-  return viewportWidth <= 639 ? viewportWidth * 0.34 : 180
+  return slotFor(THUMB_SIZES, viewportWidth)
 }
 
 /** A drawing (SVG) or a format the optimizer cannot read (HEIC): drawn as it is. */
@@ -67,13 +84,13 @@ function at(url: string, w: number): string {
   return `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=${THUMB_QUALITY}`
 }
 
-/** `src`, `srcSet` and `sizes` for a tile; the original alone when it cannot be resized. */
-export function fileThumb(url: string): { src: string; srcSet?: string; sizes?: string } {
+/** `src`, `srcSet` and `sizes` for a tile; the original alone when it cannot be resized. AVIF or WebP, as the browser takes it (next.config images.formats). */
+export function fileThumb(url: string, sizes: string = THUMB_SIZES): { src: string; srcSet?: string; sizes?: string } {
   if (!thumbable(url)) return { src: url }
   return {
     src: at(url, 256),
     srcSet: THUMB_WIDTHS.map((w) => `${at(url, w)} ${w}w`).join(", "),
-    sizes: THUMB_SIZES,
+    sizes,
   }
 }
 
@@ -90,7 +107,7 @@ export function filePreview(url: string): string {
  */
 export function rawSize(img: { naturalWidth: number; naturalHeight: number; currentSrc: string; sizes?: string }, viewportWidth: number): { w: number; h: number } {
   const asked = /[?&]w=(\d+)/.exec(img.currentSrc)
-  const density = asked && img.sizes ? Number(asked[1]) / thumbSlot(viewportWidth) : 1
+  const density = asked && img.sizes ? Number(asked[1]) / slotFor(img.sizes, viewportWidth) : 1
   return { w: Math.round(img.naturalWidth * density), h: Math.round(img.naturalHeight * density) }
 }
 

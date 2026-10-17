@@ -38,6 +38,7 @@ import { SiteCartProvider, useSiteCart } from "../site-cart"
 import { SiteWishlistProvider } from "../site-wishlist"
 import { CartNotice } from "./cart-notice"
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { preconnect, preload } from "react-dom"
 import { announcementMessages, announcementSeconds } from "@/lib/website-builder/announcement"
 import { cn } from "@/lib/utils"
 
@@ -493,6 +494,20 @@ export function ThemePage({
   }, [pageLang, pageDir, storefront?.inEditor])
 
   const fontHref = fontStylesheetHref(theme as unknown as Record<string, unknown>, sectionFamilies(sections))
+  /*
+    THE FONTS ARE ASKED FOR FROM THE HEAD. The stylesheet below is drawn where
+    the page starts, so the browser only met it, then its font files on
+    another host, after reading that far. React writes these into the
+    document's <head> on the server: the two hosts are connected to and the
+    stylesheet fetched while the rest of the page is still arriving. The
+    stylesheet itself says display=swap (font-link.ts): text shows in the
+    fallback face at once, never invisible.
+  */
+  if (fontHref) {
+    preconnect("https://fonts.googleapis.com")
+    preconnect("https://fonts.gstatic.com", { crossOrigin: "anonymous" })
+    preload(fontHref, { as: "style" })
+  }
   /**
    * The theme's stylesheet, built and handed to React once per theme. Inline,
    * it was rebuilt on every render and, because React 19 compares the prop

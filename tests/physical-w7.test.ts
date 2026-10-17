@@ -149,9 +149,10 @@ async function main() {
     const routeSrc = read("app/api/physical/partner-tracking/route.ts")
     const pageSrc = read("app/checkout/physical/partner/[token]/page.tsx")
     check("  the page and the route both check it", /!partnerLinkHolds\(link, loc\)\) return back\("error=link"\)/.test(routeSrc) && /partnerLinkHolds\(link, found\)/.test(pageSrc))
+    /* The first letter of the signature: the last one also carries padding bits, so "A" for "B" there can decode to the same bytes and the check passed by luck. */
     const [body, sig] = token.split(".")
     const forged = Buffer.from(JSON.stringify({ c: CO, l: "22222222-0000-4000-8000-000000000002", e: now + 1e9, v: link.v })).toString("base64url")
-    check("  changed by a letter, or pointed at another location, it is nothing", verifyPartnerLink(`${body}.${sig.slice(0, -1)}${sig.endsWith("A") ? "B" : "A"}`, now) === null && verifyPartnerLink(`${forged}.${sig}`, now) === null && verifyPartnerLink("x", now) === null)
+    check("  changed by a letter, or pointed at another location, it is nothing", verifyPartnerLink(`${body}.${sig.startsWith("A") ? "B" : "A"}${sig.slice(1)}`, now) === null && verifyPartnerLink(`${forged}.${sig}`, now) === null && verifyPartnerLink("x", now) === null)
     const secret = "whsec_test_partner"
     const raw = JSON.stringify({ order_id: CO, carrier: "UPS", tracking_number: "1Z999AA10123456784" })
     const ts = String(Math.floor(now / 1000))

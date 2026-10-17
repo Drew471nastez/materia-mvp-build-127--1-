@@ -44,12 +44,11 @@ import { describeAccountMemory } from "@/lib/ai-memory/store"
 import { INTEGRATION_CONTRACT } from "@/lib/storelib-ai/integration"
 import {
   MAX_REPAIR_ATTEMPTS,
-  describeThemeForAuthoring,
   knowledgeBlock,
   validateSection,
   writeSectionRules,
-  type ThemeContextInput,
 } from "@/lib/storelib-ai"
+import { themeBrief, type ThemeBriefInput } from "./theme-brief"
 import { writerReference } from "@/lib/storelib-ai/reference"
 import type { AgentProvider, ProviderRequest } from "@/lib/sites/agent/types"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
@@ -60,6 +59,7 @@ import { instanceFromSchema } from "@/lib/website-builder/ai-placement"
 import { checkSectionSource } from "./compile-feedback"
 import {
   CREATIVE_RULES,
+  DESIGN_CRAFT,
   IMAGE_FIDELITY_RULES,
   emptyImageSlots,
   newSectionSubject,
@@ -120,6 +120,7 @@ export function writeSectionSystem(): string {
     INTEGRATION_CONTRACT,
     "PADDING AND SPACING ARE SETTINGS (a range, in px), not fixed numbers in the CSS.",
     CREATIVE_RULES,
+    DESIGN_CRAFT,
     IMAGE_FIDELITY_RULES,
     writerReference(),
     [
@@ -202,10 +203,11 @@ export type WriteResult =
 
 /** The whole gate a file passes before it is kept, written once for the write and the refine. */
 type Gate =
-  | { ok: true; type: string; name: string; path: string; slots: { setting: string; label: string }[] }
+  /* `notes`: what the drawn section still shows (a picture with no size, a colour hard to read): handed to the review. */
+  | { ok: true; type: string; name: string; path: string; slots: { setting: string; label: string }[]; notes: string[] }
   | { ok: false; feedback: string; final: { error: string; errors?: ThemeError[] } }
 
-function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeContextInput }): Gate {
+function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput }): Gate {
   /**
    * The type comes from the file's own schema, and the file name follows it
    * rather than the other way round: the compiler insists the two agree, so
@@ -275,7 +277,13 @@ function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; 
   if (drawn.ok === false) {
     return { ok: false, feedback: drawn.feedback, final: { error: "The section did not compile.", errors: drawn.errors } }
   }
-  return { ok: true, type, name, path, slots: emptyImageSlots(schema) }
+  /* Worth saying in the review, never a refusal: the drawn section's notes, and the advice the strict gate passed with. */
+  const worth = new Set(["reduced-motion", "img-alt", "advice-colour-settings", "integration-responsive", "integration-button-hover"])
+  const notes = [
+    ...((drawn as { notes?: { message: string }[] }).notes ?? []).map((n) => n.message),
+    ...((checked as { findings?: { id: string; severity: string; message: string }[] }).findings ?? []).filter((f) => f.severity === "warning" && worth.has(f.id)).map((f) => f.message),
+  ].slice(0, 6)
+  return { ok: true, type, name, path, slots: emptyImageSlots(schema), notes }
 }
 
 /**
@@ -297,12 +305,12 @@ export async function writeSection(opts: {
   takenTypes: string[]
   takenNames: string[]
   /**
-   * The site this section is being written FOR: its colour schemes, its type,
-   * its buttons, what it is already built out of.
+   * The site this section is being written FOR (./theme-brief.ts, read once per theme version): its colour schemes, type, tokens, own sections,
+   * buttons and what it is already built out of.
    */
-  theme?: ThemeContextInput
+  theme?: ThemeBriefInput
   signal?: AbortSignal
-  /** How hard it thinks: the creator's Strength for Code a section (lib/website-builder/ask-engines.ts). */
+  /** How hard it thinks: medium for every Ask Storelib run (lib/website-builder/ask-engines.ts, EFFORT). */
   effort?: ProviderRequest["effort"]
   /** Groups this website's requests for the provider's prompt cache. */
   cacheKey?: string
@@ -318,6 +326,8 @@ export async function writeSection(opts: {
   onEvent?: (event: WriteEvent) => void
   /** What the creator asked Storelib AI to remember on every website (lib/ai-memory/store.ts). */
   accountMemory?: string[]
+  /** AI Memory as one block, this website's notes and the everywhere ones (lib/ai-memory/store.ts describeMemory). Used instead of `accountMemory` when given. */
+  memoryText?: string
 }): Promise<WriteResult> {
   const system = writeSectionSystem()
   const images = opts.images ?? []
@@ -336,8 +346,8 @@ export async function writeSection(opts: {
      * The site FIRST, because it is the frame the request is read in. A model
      * told afterwards what the colours are has already chosen them.
      */
-    opts.theme ? describeThemeForAuthoring(opts.theme) : "",
-    describeAccountMemory(opts.accountMemory ?? []),
+    opts.theme ? themeBrief({ ...opts.theme, for: "writer" }).text : "",
+    opts.memoryText !== undefined ? opts.memoryText : describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",
       content: "the site described above and the creator's own business",
@@ -488,7 +498,7 @@ export async function writeSection(opts: {
   if (opts.review !== false && room && !opts.signal?.aborted) {
     const reviewLabel = hasImages ? "Comparing it with your picture" : "Checking every part you asked for"
     step("review", reviewLabel, "running")
-    turns.push({ role: "user", content: reviewRequest(plan, hasImages) })
+    turns.push({ role: "user", content: reviewRequest(plan, hasImages, kept.gate.notes) })
     try {
       const turn = await call(turns, 16_000)
       const answer = turn.stop === "length" || turn.stop === "refusal" ? ({ kind: "unclear" } as const) : readReview(unfence(turn.text ?? ""))

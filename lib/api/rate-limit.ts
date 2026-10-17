@@ -280,6 +280,12 @@ export const LIMITS = {
    */
   siteAi: [{ limit: 6, seconds: 60 }, { limit: 40, seconds: 3600 }],
   /**
+   * A lab test (Website settings › Performance) asks Google's PageSpeed
+   * Insights to load a page, 10 to 40 seconds each, on a shared daily quota.
+   * Two strategies of one page and a retry is four; thirty a day is plenty.
+   */
+  siteLabTest: [{ limit: 4, seconds: 600 }, { limit: 30, seconds: 86400 }],
+  /**
    * Analytics events from one address (lib/analytics/collect): page views,
    * link clicks and the steps towards a sale together. A person reading a
    * site opens a page every few seconds at most; two a second for a minute,

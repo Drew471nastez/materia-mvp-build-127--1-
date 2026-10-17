@@ -37,6 +37,8 @@ import type { LabelApi, LabelRate } from "./types"
 export const CARRIER_TIMEOUT_MS = 3500
 const KEEP_MS = 10 * 60_000
 const APIS: Record<string, LabelApi> = { shippo, easypost }
+/** The apps a "Carrier calculated" rate can be priced by: Settings offers that kind only while one of them is connected. */
+export const CARRIER_RATE_APPS: readonly string[] = Object.keys(APIS)
 
 const kept = new Map<string, { at: number; rates: LabelRate[] }>()
 

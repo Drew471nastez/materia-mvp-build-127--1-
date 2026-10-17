@@ -46,19 +46,24 @@ export interface PreviewLanguage {
   /** Texts kept untranslated (Settings › Glossary), and whether product names are. */
   noTranslate: string[]
   keepProductNames: boolean
+  /** Products shown in their own words in every language (Products › Translations, SQL part 211). */
+  originals: ReadonlySet<string>
 }
+
+const NO_ORIGINALS: ReadonlySet<string> = new Set()
 
 const remembered = (installId: string) => `wb-preview-lang:${installId}`
 
 /** `s`: "ai" for Storelib AI's, so the preview hides an outdated one as the live site does (lib/markets/translate.ts valueFor); a person's stays. */
 export type Values = Record<string, { v: string; h: string; s?: "ai" }>
-type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values; noTranslate?: string[]; keepProductNames?: boolean }
+type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values; noTranslate?: string[]; keepProductNames?: boolean; originals?: string[] }
 
 export function usePreviewLanguage(installId: string): PreviewLanguage {
   const [info, setInfo] = useState<{ languages: string[]; published: string[]; defaultLanguage: string }>({ languages: [], published: [], defaultLanguage: "en" })
   const [locale, setLocaleState] = useState<string | null>(null)
   const [values, setValues] = useState<{ locale: string; values: Values } | null>(null)
   const [rules, setRules] = useState<{ noTranslate: string[]; keepProductNames: boolean }>({ noTranslate: [], keepProductNames: false })
+  const [originals, setOriginals] = useState<ReadonlySet<string>>(NO_ORIGINALS)
   const localeRef = useRef(locale)
   localeRef.current = locale
 
@@ -76,6 +81,7 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
         const next = { noTranslate: Array.isArray(d.noTranslate) ? d.noTranslate : [], keepProductNames: d.keepProductNames === true }
         return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
       })
+      if (Array.isArray(d.originals)) setOriginals((prev) => (prev.size === d.originals!.length && d.originals!.every((id) => prev.has(id)) ? prev : new Set(d.originals)))
       /* An answer for a language no longer picked is not drawn. */
       /* The default language's answer comes back named (the canvas opens in it): it belongs to "no language picked". */
       if (localeRef.current !== code && !(code === null && localeRef.current === null)) return
@@ -169,5 +175,5 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
   }, [map])
 
   const raw = useMemo(() => (values && values.locale === shown ? values.values : {}), [values, shown])
-  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words, raw, patch, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames }
+  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words, raw, patch, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames, originals }
 }

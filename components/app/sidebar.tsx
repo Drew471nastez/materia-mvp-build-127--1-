@@ -368,8 +368,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products/collections", label: tt("Collections") },
   )
   mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: tt("Files") })
-  /* Upsells and bundles beside Coupons: they apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
-  if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: tt("Upsells and bundles") })
+  /* Upsells and bundles beside Coupons, for every shop: they apply in the basket checkout of downloads and the cart checkout of things that ship alike (app/app/offers). */
+  mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: tt("Upsells and bundles") })
 
   /*
     INTEGRATIONS, ALWAYS THERE. A row to the Integrations page

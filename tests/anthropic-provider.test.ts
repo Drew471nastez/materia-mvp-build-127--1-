@@ -223,11 +223,11 @@ section("Which model answers")
     else process.env.OPENAI_API_KEY = had
     if (hadClaude !== undefined) process.env.ANTHROPIC_API_KEY = hadClaude
   }
-  /* Kept, priced and tested, and reachable from nothing a browser sends. */
+  /* The tiers a request without a model gets: Sonnet 5.5 and Opus 5.5, the menu's own (lib/website-builder/ask-engines.ts). */
   check(
-    "the Claude rows stay in the resolver for the day they come back",
-    modelFor("anthropic", "fast") === "claude-sonnet-5" &&
-      modelFor("anthropic", "strong") === "claude-opus-5",
+    "the Claude tiers are the current Sonnet and Opus",
+    modelFor("anthropic", "fast") === "claude-sonnet-5-5" &&
+      modelFor("anthropic", "strong") === "claude-opus-5-5",
     `${modelFor("anthropic", "fast")} / ${modelFor("anthropic", "strong")}`,
   )
   check(
@@ -366,7 +366,7 @@ section("The switch, where somebody can reach it")
   const chat = readFileSync(join(root, "components/website-builder/theme-chat.tsx"), "utf8")
 
   /* The list itself is lib/website-builder/ask-engines.ts, tested in tests/ask-engines.test.ts. */
-  check("the chat reads one model catalog", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && /\/api\/ai-models/.test(chat))
+  check("the chat reads one model catalog, the fixed list, with no fetch", /from "@\/lib\/website-builder\/ask-engines"/.test(chat) && /const engines = ENGINES/.test(chat) && !/\/api\/ai-models/.test(chat))
   check(
     "the chat initializes its configured default",
     /React\.useState<EngineId>\(DEFAULT_ENGINE\)/.test(chat),
@@ -376,10 +376,11 @@ section("The switch, where somebody can reach it")
     /localStorage\.setItem\(ENGINE_KEY/.test(chat) && /engineFromSaved\(window\.localStorage\.getItem\(ENGINE_KEY\)\)/.test(chat),
   )
   check(
-    "and it is actually sent, read at send time like everything else, with its strength",
+    "and it is actually sent, read at send time like everything else, with no strength",
     /provider: live\.current\.engine\.provider/.test(chat) &&
+      /model: live\.current\.engine\.model/.test(chat) &&
       /tier: live\.current\.engine\.tier/.test(chat) &&
-      /effort: live\.current\.effort/.test(chat),
+      !/effort:/.test(chat),
   )
   /**
    * A menu you can only close by choosing something is a menu people close by

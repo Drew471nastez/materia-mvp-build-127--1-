@@ -203,6 +203,28 @@ They come in the order the creator chose them, each once. One that has since bee
 
 A collection that is unpublished, deleted or somebody else's is empty. **A `collection_list`** stores up to `limit` of them and arrives block-shaped, `{% for block in settings.collections %}` with `block.settings.title`. On the collections page, `collections` is every published one, in the same shape. The library's Collection list and Featured collection sections are written this way.
 
+What a picked collection carries, read when the page is drawn, never copied:
+
+| Field | What it is |
+| --- | --- |
+| `collection.title` | Its name |
+| `collection.image` | Its own picture, at the size it was uploaded, or its first product's when it has none |
+| `collection.description` | Its words, plain text |
+| `collection.url` | `/collections/<handle>`, also what `{{ settings.collection }}` prints |
+| `collection.handle` | Its handle |
+| `collection.products_count` | How many published products are in it |
+| `collection.products` | Its first twelve products, shaped like `products` |
+
+**A picture or a title that follows the collection.** A setting beside a `collection_picker` may say `"from"`: while it is empty it is the collection's, once somebody sets it that value is drawn, and the sidebar's **Reset to collection** empties it again. Nothing is uploaded or typed to start, and a collection renamed or given a new picture is on the page at once.
+
+```json
+{ "type": "collection_picker", "id": "collection", "label": "Collection" },
+{ "type": "image_picker", "id": "image", "label": "Picture", "from": "collection.image" },
+{ "type": "text", "id": "title", "label": "Title", "from": "collection.title" }
+```
+
+`"from"` takes `collection.image` (an `image_picker`), `collection.title` or `collection.description` (a `text`, `textarea` or `inline_richtext`) and `collection.url` (a `url`), and names a `collection_picker` in the same settings. The template reads the setting as usual, `{{ block.settings.title }}`, and gets the collection's or its own. The theme's Collection card block (`blocks/collection_card.storelib`) is written this way, and Featured collection's heading follows its collection's name.
+
 **A `link_list`** stores a menu's handle and arrives as `{ handle, title, links }`, each link `{ title, url, links }` with one level of links under it:
 
 ```storelib

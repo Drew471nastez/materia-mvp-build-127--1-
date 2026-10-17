@@ -29,7 +29,7 @@
  * Run with:  npm run test:push
  */
 import { readCode } from "./_source"
-import { TRANSLATABLE_TYPES, blockKey, isTranslationKey, localizeSections, localizeTheme, optionKey, sectionKey, shownText, sourceHash, themeTextTranslatables, translatablesOf, translationMap, type Translatable, type TranslationRow } from "@/lib/markets/translate"
+import { TRANSLATABLE_TYPES, blockKey, isWordsField, isTranslationKey, localizeSections, localizeTheme, optionKey, sectionKey, shownText, sourceHash, themeTextTranslatables, translatablesOf, translationMap, type Translatable, type TranslationRow } from "@/lib/markets/translate"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "@/lib/markets/compat-fields"
 import { UI_WORDS } from "@/lib/markets/ui-words"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -160,7 +160,8 @@ async function coverage() {
   for (const s of sections) {
     const fieldsWithWords = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
       for (const f of fields ?? []) {
-        if (!TRANSLATABLE_TYPES.has(f.type) || !shown(f, settings[f.id])) continue
+        /* Changed on purpose (round V8): words only; a text setting that holds an address, a gradient or an embed is the same in every language (translate.ts isWordsField). */
+        if (!isWordsField(f) || !shown(f, settings[f.id])) continue
         const k = key(f.id)
         if (!listed.has(k)) unlisted.push(k)
         else if (after.get(k) !== marker.get(k)) notLaid.push(`${k}=${JSON.stringify(after.get(k))}`)
@@ -261,7 +262,7 @@ async function coverage() {
 
   console.log("\n8. The default language, live and in the builder, for both kinds of theme")
   const live = readCode("lib/markets/live.ts")
-  check("the localizer reads the default language's translations when no other is asked for", /: await cachedTranslations\(creatorId, langs\.defaultLanguage\)/.test(live))
+  check("the localizer reads the default language's translations when no other is asked for", /* Changed on purpose (round V8): one read, for the language asked for or else the default. */ /cachedTranslations\(creatorId, code \?\? langs\.defaultLanguage\)/.test(live))
   check("every live page asks for it, not only /fr", /const localizer = await siteLocalizer\(site\.creatorId, locale, market\)/.test(site) && /const localizer = await siteLocalizer\(creator\.creatorId, locale\)/.test(readCode("app/(site)/w/[username]/render-site.tsx")) && /const localizer = await siteLocalizer\(creator\.creatorId, pageLocale\)/.test(readCode("app/(site)/w/[username]/products/[slug]/page.tsx")) && /const localizer = owner && !previewToken \? await siteLocalizer/.test(readCode("components/website-builder/theme/render-product.tsx")) && /siteLocalizer\(published\.creatorId, extras\.lang\?\.locale \?\? null/.test(readCode("app/(site)/w/[username]/render-account.tsx")))
   check("the product's search result data (JSON-LD) in the page's language", /inLanguage: localizer \? \(p\) => localizer\.product\(p\) : undefined \}\)/.test(readCode("app/(site)/w/[username]/products/[slug]/page.tsx")))
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")

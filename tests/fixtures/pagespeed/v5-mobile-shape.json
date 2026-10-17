@@ -1,0 +1,235 @@
+{
+ "_fixture": "Assembled by hand in the shape of a PageSpeed Insights v5 answer (Lighthouse 12), with the fields lib/website-builder/pagespeed.ts reads. The live API refused every request from the build machine with 429 (see v5-quota-429.json, which is recorded), so no real answer could be recorded here.",
+ "captchaResult": "CAPTCHA_NOT_NEEDED",
+ "kind": "pagespeedonline#result",
+ "id": "https://demo.storelib.com/",
+ "analysisUTCTimestamp": "2026-10-16T09:12:44.118Z",
+ "lighthouseResult": {
+  "requestedUrl": "https://demo.storelib.com/",
+  "finalUrl": "https://demo.storelib.com/",
+  "finalDisplayedUrl": "https://demo.storelib.com/",
+  "lighthouseVersion": "12.6.1",
+  "fetchTime": "2026-10-16T09:12:31.402Z",
+  "runWarnings": [],
+  "configSettings": {
+   "emulatedFormFactor": "mobile",
+   "formFactor": "mobile",
+   "locale": "en-US",
+   "onlyCategories": [
+    "performance"
+   ]
+  },
+  "categories": {
+   "performance": {
+    "id": "performance",
+    "title": "Performance",
+    "score": 0.58
+   }
+  },
+  "audits": {
+   "first-contentful-paint": {
+    "id": "first-contentful-paint",
+    "title": "First Contentful Paint",
+    "score": 0.62,
+    "numericValue": 2614.2,
+    "displayValue": "2.6 s"
+   },
+   "largest-contentful-paint": {
+    "id": "largest-contentful-paint",
+    "title": "Largest Contentful Paint",
+    "score": 0.21,
+    "numericValue": 5120.7,
+    "displayValue": "5.1 s"
+   },
+   "cumulative-layout-shift": {
+    "id": "cumulative-layout-shift",
+    "title": "Cumulative Layout Shift",
+    "score": 0.93,
+    "numericValue": 0.0712,
+    "displayValue": "0.071"
+   },
+   "total-blocking-time": {
+    "id": "total-blocking-time",
+    "title": "Total Blocking Time",
+    "score": 0.7,
+    "numericValue": 284.0,
+    "displayValue": "280 ms"
+   },
+   "speed-index": {
+    "id": "speed-index",
+    "title": "Speed Index",
+    "score": 0.55,
+    "numericValue": 4890.3,
+    "displayValue": "4.9 s"
+   },
+   "server-response-time": {
+    "id": "server-response-time",
+    "title": "Initial server response time was short",
+    "score": 1,
+    "numericValue": 186.4,
+    "displayValue": "Root document took 190 ms",
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 0,
+     "items": []
+    }
+   },
+   "render-blocking-resources": {
+    "id": "render-blocking-resources",
+    "title": "Eliminate render-blocking resources",
+    "score": 0.5,
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 640,
+     "items": [
+      {
+       "url": "https://demo.storelib.com/_next/static/css/app.css",
+       "totalBytes": 48211,
+       "wastedMs": 640
+      }
+     ]
+    }
+   },
+   "uses-optimized-images": {
+    "id": "uses-optimized-images",
+    "title": "Efficiently encode images",
+    "score": 0,
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 1350,
+     "overallSavingsBytes": 1484210,
+     "items": [
+      {
+       "url": "https://images.storelib.com/creators/demo/hero-summer.jpg",
+       "totalBytes": 2140533,
+       "wastedBytes": 1484210
+      }
+     ]
+    }
+   },
+   "modern-image-formats": {
+    "id": "modern-image-formats",
+    "title": "Serve images in next-gen formats",
+    "score": 0,
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 1200,
+     "overallSavingsBytes": 1302004,
+     "items": [
+      {
+       "url": "https://images.storelib.com/creators/demo/hero-summer.jpg",
+       "totalBytes": 2140533,
+       "wastedBytes": 1302004
+      }
+     ]
+    }
+   },
+   "uses-responsive-images": {
+    "id": "uses-responsive-images",
+    "title": "Properly size images",
+    "score": 0.5,
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 450,
+     "overallSavingsBytes": 610400,
+     "items": []
+    }
+   },
+   "unused-javascript": {
+    "id": "unused-javascript",
+    "title": "Reduce unused JavaScript",
+    "score": 0.5,
+    "metricSavings": {
+     "LCP": 300,
+     "FCP": 150
+    },
+    "details": {
+     "type": "opportunity",
+     "overallSavingsBytes": 96311,
+     "items": []
+    }
+   },
+   "unminified-css": {
+    "id": "unminified-css",
+    "title": "Minify CSS",
+    "score": 1,
+    "details": {
+     "type": "opportunity",
+     "overallSavingsMs": 0,
+     "overallSavingsBytes": 0,
+     "items": []
+    }
+   },
+   "total-byte-weight": {
+    "id": "total-byte-weight",
+    "title": "Avoid enormous network payloads",
+    "score": 0.5,
+    "numericValue": 3412778,
+    "details": {
+     "type": "table",
+     "items": [
+      {
+       "url": "https://demo.storelib.com/_next/static/chunks/main.js",
+       "totalBytes": 402118
+      },
+      {
+       "url": "https://images.storelib.com/creators/demo/hero-summer.jpg",
+       "totalBytes": 2140533
+      },
+      {
+       "url": "https://images.storelib.com/creators/demo/logo.png",
+       "totalBytes": 88120
+      },
+      {
+       "url": "https://fonts.gstatic.com/s/inter/v13/inter.woff2",
+       "totalBytes": 48402
+      }
+     ]
+    }
+   },
+   "largest-contentful-paint-element": {
+    "id": "largest-contentful-paint-element",
+    "title": "Largest Contentful Paint element",
+    "score": 0,
+    "details": {
+     "type": "list",
+     "items": [
+      {
+       "type": "table",
+       "items": [
+        {
+         "node": {
+          "type": "node",
+          "nodeLabel": "Summer collection",
+          "snippet": "<img class=\"hero__image\" src=\"https://images.storelib.com/creators/demo/hero-summer.jpg\">"
+         }
+        }
+       ]
+      },
+      {
+       "type": "table",
+       "items": [
+        {
+         "phase": "TTFB",
+         "timing": 190
+        },
+        {
+         "phase": "Load Delay",
+         "timing": 1210
+        },
+        {
+         "phase": "Load Time",
+         "timing": 3300
+        },
+        {
+         "phase": "Render Delay",
+         "timing": 420
+        }
+       ]
+      }
+     ]
+    }
+   }
+  }
+ }
+}
