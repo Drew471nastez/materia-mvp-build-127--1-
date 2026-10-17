@@ -9,15 +9,18 @@
  * products and collections), each with the original above and the
  * translation under it, and where it stands:
  *
- *   To translate   no translation yet: the original shows on the website
- *   Changed        Storelib AI's, and the original changed since: the new
+ * The same names everywhere a translation's state is said (this list, the
+ * theme editor's sidebar badges, a product's Translations card):
+ *
+ *   Not translated no translation yet: the original shows on the website
+ *   Outdated       Storelib AI's, and the original changed since: the new
  *                  original shows until it is translated again (by the
  *                  automatic run, or Translate the rest)
  *   Needs review   the merchant's own, and the original changed since: still
  *                  on the website as they wrote it, never replaced by
  *                  Storelib AI. Editing it, or Keep as is, settles it.
  *   Draft          translated automatically, not on the website until approved
- *   Auto           Storelib AI's, on the website
+ *   Automatic      Storelib AI's, on the website
  *   Edited         the merchant's own, on the website; never replaced
  *   Kept as written  marked Don't translate (Settings › Glossary): the
  *                  original shows in every language
@@ -72,12 +75,12 @@ interface Loaded {
 }
 
 const STATUS: Record<Shown, { label: string; tone: "gray" | "amber" | "blue" | "green" }> = {
-  missing: { get label() { return tt("To translate") }, tone: "gray" },
-  outdated: { get label() { return tt("Changed") }, tone: "amber" },
+  missing: { get label() { return tt("Not translated") }, tone: "gray" },
+  outdated: { get label() { return tt("Outdated") }, tone: "amber" },
   review: { get label() { return tt("Needs review") }, tone: "amber" },
   draft: { get label() { return tt("Draft") }, tone: "blue" },
   done: { get label() { return tt("Done") }, tone: "green" },
-  auto: { get label() { return tt("Auto") }, tone: "blue" },
+  auto: { get label() { return tt("Automatic") }, tone: "blue" },
   edited: { get label() { return tt("Edited") }, tone: "green" },
   kept: { get label() { return tt("Kept as written") }, tone: "gray" },
 }

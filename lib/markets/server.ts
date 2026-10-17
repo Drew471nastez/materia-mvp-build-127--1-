@@ -36,7 +36,7 @@ import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { compatThemeFor, installFiles } from "@/lib/website-builder/compat-site"
 import { compatFields } from "./compat"
 import { markTranslationsChanged, queueMissing } from "./translate-queue"
-import { emptyRules, rulesFrom, validateRules, type TranslationRules } from "./translation-rules"
+import { emptyRules, productNamesChosen, rulesFrom, validateRules, type TranslationRules } from "./translation-rules"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -527,14 +527,33 @@ export function rulesMissing(error: { code?: string; message?: string } | null |
 
 export const RULES_NEED_PART = "The glossary needs a database update. Run SQL part 213 in Supabase, then try again."
 
-/** The store's glossary and the texts it keeps untranslated. No rules before part 213, or on any failed read. */
-export async function translationRulesOf(db: Db, creatorId: string): Promise<{ ready: boolean; rules: TranslationRules }> {
+/**
+ * The store's glossary and the texts it keeps untranslated. No rules before
+ * part 213, or on any failed read. `namesChosen`: the store saved its own
+ * Keep product names choice (else `rules.keepProductNames` is the default).
+ */
+export async function translationRulesOf(db: Db, creatorId: string): Promise<{ ready: boolean; rules: TranslationRules; namesChosen?: boolean }> {
   const { data, error } = await db.from("store_localization").select("translation_rules").eq("creator_id", creatorId).maybeSingle().then(
     (r: { data: unknown; error: { code?: string; message?: string } | null }) => r,
     (e: unknown) => ({ data: null, error: { message: String(e) } }),
   )
   if (error) return { ready: !rulesMissing(error) && !marketsMissing(error), rules: emptyRules() }
-  return { ready: true, rules: rulesFrom((data as { translation_rules?: unknown } | null)?.translation_rules) }
+  const stored = (data as { translation_rules?: unknown } | null)?.translation_rules
+  /* Product names never chosen: kept, unless Storelib AI already translates this store's titles (translation-rules.ts keepProductNamesDefault). */
+  const namesChosen = productNamesChosen(stored)
+  const aiTitles = namesChosen ? false : await aiProductTitlesExist(db, creatorId)
+  return { ready: true, rules: rulesFrom(stored, { aiTitles }), namesChosen }
+}
+
+/** Whether Storelib AI has translated any of this store's product titles. A read that fails answers yes: nothing changes for the store. */
+async function aiProductTitlesExist(db: Db, creatorId: string): Promise<boolean> {
+  try {
+    const { data, error } = await db.from("site_translations").select("key").eq("creator_id", creatorId).eq("source", "ai").like("key", "product:%:title").limit(1)
+    if (error) return true
+    return Array.isArray(data) && data.length > 0
+  } catch {
+    return true
+  }
 }
 
 /**
@@ -542,14 +561,18 @@ export async function translationRulesOf(db: Db, creatorId: string): Promise<{ r
  * translations of it in every language at once, so the original shows; a
  * translation the merchant wrote is theirs and stays.
  */
-export async function saveTranslationRules(db: Db, creatorId: string, input: unknown): Promise<{ ok: true; value: TranslationRules; removed: number } | { ok: false; status: number; error: string }> {
+export async function saveTranslationRules(db: Db, creatorId: string, input: unknown): Promise<{ ok: true; value: TranslationRules; removed: number; before: TranslationRules } | { ok: false; status: number; error: string }> {
   const checked = validateRules(input)
   if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
-  const before = (await translationRulesOf(db, creatorId)).rules
-  const { data, error } = await db.from("store_localization").update({ translation_rules: checked.value }).eq("creator_id", creatorId).select("creator_id")
+  const read = await translationRulesOf(db, creatorId)
+  const before = read.rules
+  /* A save that does not name product names keeps the store's own choice, when it made one; never chosen stays never chosen. */
+  const written: TranslationRules = typeof checked.value.keepProductNames === "boolean" || !read.namesChosen ? checked.value : { ...checked.value, keepProductNames: before.keepProductNames === true }
+  const { data, error } = await db.from("store_localization").update({ translation_rules: written }).eq("creator_id", creatorId).select("creator_id")
   if (error) return rulesMissing(error) ? { ok: false, status: 409, error: RULES_NEED_PART } : marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
   if (!Array.isArray(data) || data.length === 0) return { ok: false, status: 400, error: "Add a language to your website first." }
-  const v = checked.value
+  /* What is answered is what applies. */
+  const v: TranslationRules = { ...written, keepProductNames: typeof written.keepProductNames === "boolean" ? written.keepProductNames : before.keepProductNames === true }
   const newly = v.noTranslate.filter((k) => !before.noTranslate.includes(k))
   const gone: { locale: string }[] = []
   for (let at = 0; at < newly.length; at += 200) {
@@ -561,5 +584,5 @@ export async function saveTranslationRules(db: Db, creatorId: string, input: unk
     if (!r.error) gone.push(...((r.data ?? []) as { locale: string }[]))
   }
   for (const locale of new Set(gone.map((g) => g.locale))) revalidateTag(translationsTag(creatorId, locale), { expire: 0 })
-  return { ok: true, value: v, removed: gone.length }
+  return { ok: true, value: v, removed: gone.length, before }
 }

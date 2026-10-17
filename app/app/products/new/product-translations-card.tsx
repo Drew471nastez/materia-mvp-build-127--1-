@@ -41,6 +41,8 @@ interface View {
   defaultLanguage: string
   languages: { code: string; published: boolean }[]
   showOriginal: boolean
+  /** Settings › Glossary keeps product names as written: Translate automatically leaves the title, and a title typed here still shows. */
+  keepName?: boolean
   showOriginalReady: boolean
   canTranslate: boolean
   fields: { field: Field; source: string; rich: boolean }[]
@@ -131,7 +133,8 @@ export function ProductTranslationsCard({ productId, cardClass, titleClass }: { 
     }
   }
 
-  const empty = view.fields.some((f) => !values[f.field]?.value?.trim())
+  /* What Translate automatically would fill: the title is not its to write while product names are kept as written. */
+  const empty = view.fields.some((f) => !(view.keepName && f.field === "title") && !values[f.field]?.value?.trim())
 
   return (
     <div className={cardClass} data-product-translations="" data-locale={locale}>
@@ -194,6 +197,11 @@ export function ProductTranslationsCard({ productId, cardClass, titleClass }: { 
                 ) : (
                   <Input id={id} value={v?.value ?? ""} placeholder={plain(f.source)} onChange={(e) => type(f.field, e.target.value)} className="h-11 border-gray-200 text-sm sm:text-base" />
                 )}
+                {f.field === "title" && view.keepName && !v?.value?.trim() ? (
+                  <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-product-keep-name="">
+                    {tt("Product names are kept as written in every language. Type a title here to translate this one.")}
+                  </p>
+                ) : null}
               </div>
             )
           })}
