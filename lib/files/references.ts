@@ -52,7 +52,7 @@ export interface Owner {
 /** How a surface's rows narrow to one store. */
 type Scope =
   /** The table has the column itself: `creator_id`, `user_id`, or `id` for creators and profiles. */
-  | { kind: "own"; column: string; owner: "creator" | "user" }
+  | { kind: "own"; column: string | readonly string[]; owner: "creator" | "user" }
   /**
    * The table points at a parent that is narrowed in its own turn:
    * product_variants.product_id to products.creator_id, and one more hop for
@@ -106,13 +106,16 @@ export const SURFACES: readonly Surface[] = [
   /* Checkout: the store's own checkout words, which can carry a picture, and the icons a reworded block names. */
   { key: "checkout-text", label: "Checkout", table: "checkout_text_overrides", columns: ["text", "values", "overrides"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
   /* Courses and lessons: a cover and a lesson's video. */
-  { key: "course", label: "Courses", table: "courses", columns: ["thumbnail_url", "image_url", "cover_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
-  { key: "course-lesson", label: "Course lessons", table: "course_lessons", columns: ["video_path", "video_url", "thumbnail_url", "content"], scope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 1000 },
+  /* `courses` hangs off its product; it has no creator column of its own. */
+  { key: "course", label: "Courses", table: "courses", columns: ["thumbnail_url", "image_url", "cover_url"], scope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 400 },
+  /* A lesson sits in a module, the module in a course, the course on a product. */
+  { key: "course-lesson", label: "Course lessons", table: "course_lessons", columns: ["video_path", "video_url", "thumbnail_url", "content_text"], scope: { kind: "via", column: "module_id", parent: "course_modules", parentScope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } } } }, limit: 1000 },
   /* Memberships: a post's pictures. */
   { key: "membership-post", label: "Membership posts", table: "membership_posts", columns: ["images", "body", "thumbnail_url"], scope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 1000 },
   /* The person behind the store: their photo and cover, which the checkout header falls back to. */
   { key: "profile", label: "Your photo", table: "profiles", columns: ["avatar_url", "cover_url"], scope: { kind: "own", column: "id", owner: "user" }, limit: 2 },
-  { key: "onepage", label: "One page", table: "onepages", columns: ["avatar_url", "draft_blocks", "published_blocks", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
+  /* OnePage's owner column has been three different names; each is tried in turn (lib/attribution/server.ts reads all three). */
+  { key: "onepage", label: "One page", table: "onepages", columns: ["avatar_url", "draft_blocks", "published_blocks", "settings"], scope: { kind: "own", column: ["creator_id", "seller_id"], owner: "creator" }, limit: 40 },
   /* Communities: the logo and cover of each one they own, their spaces and their events. */
   { key: "community", label: "Community", table: "communities", columns: ["logo_url", "cover_url"], scope: { kind: "own", column: "owner_user_id", owner: "user" }, limit: 100 },
   { key: "community-space", label: "Community spaces", table: "community_spaces", columns: ["icon"], scope: { kind: "via", column: "community_id", parent: "communities", parentScope: { kind: "own", column: "owner_user_id", owner: "user" } }, limit: 400 },
@@ -121,8 +124,7 @@ export const SURFACES: readonly Surface[] = [
   /* Email: a campaign's own pictures and the branding in it. */
   { key: "email-campaign", label: "Email campaigns", table: "email_campaigns", columns: ["body", "rendered_html", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
   { key: "email-flow", label: "Email automations", table: "email_flows", columns: ["trigger_config", "steps"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
-  /* Published writing. */
-  { key: "blog", label: "Blog posts", table: "blog_posts", columns: ["cover_image_url", "content", "body"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  /* `blog_posts` is Storelib's own blog, not a store's, and has no owner column: a creator's picture never lands there, so it is not a surface here. */
   /* Reviews: a saved widget look, and the photos on a review. */
   { key: "review-widget", label: "Review widgets", table: "review_widget_configs", columns: ["settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
   { key: "review", label: "Reviews", table: "reviews", columns: ["photos", "content"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 2000 },
@@ -136,7 +138,7 @@ export const SURFACES: readonly Surface[] = [
        store. `lesson_attachments` has no owner column of its own, so the
        catalogue walk in the database never reaches it and this list is the
        only gate that can speak for it. */
-    scope: { kind: "via", column: "lesson_id", parent: "course_lessons", parentScope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "own", column: "creator_id", owner: "creator" } } },
+    scope: { kind: "via", column: "lesson_id", parent: "course_lessons", parentScope: { kind: "via", column: "module_id", parent: "course_modules", parentScope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } } } } },
     limit: 2000,
   },
 ]
@@ -218,11 +220,26 @@ async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown 
  * to every column rather than reading as "could not be checked", which would
  * keep files for ever and tell the person nothing.
  */
-async function readSurface(db: Db, table: string, cols: string, narrow: (q: unknown) => unknown): Promise<{ rows: Record<string, unknown>[]; ok: boolean }> {
+async function readSurface(db: Db, table: string, cols: string, narrow: (q: unknown) => unknown): Promise<{ rows: Record<string, unknown>[]; ok: boolean; noColumn?: boolean }> {
   const first = await soft<Record<string, unknown>>(() => narrow(db.from(table).select(cols)) as PromiseLike<{ data: unknown; error?: unknown }>)
   if (first.ok || !first.noColumn) return { rows: first.rows, ok: first.ok }
   const again = await soft<Record<string, unknown>>(() => narrow(db.from(table).select("*")) as PromiseLike<{ data: unknown; error?: unknown }>)
-  return { rows: again.rows, ok: again.ok }
+  return { rows: again.rows, ok: again.ok, noColumn: again.noColumn }
+}
+
+/**
+ * The owner column, tried in order. One surface is spelt differently on
+ * different databases (OnePage's owner has been `creator_id`, `seller_id`
+ * and `owner_id` in turn, lib/attribution/server.ts reads all three), and a
+ * column that is not there must not make the surface unreadable for ever.
+ */
+async function readBy(db: Db, table: string, cols: string, column: string | readonly string[], narrow: (q: unknown, column: string) => unknown): Promise<{ rows: Record<string, unknown>[]; ok: boolean }> {
+  const candidates = typeof column === "string" ? [column] : column
+  for (const col of candidates) {
+    const read = await readSurface(db, table, cols, (q) => narrow(q, col))
+    if (read.ok || !read.noColumn) return { rows: read.rows, ok: read.ok }
+  }
+  return { rows: [], ok: false }
 }
 
 /**
@@ -233,7 +250,8 @@ async function idsOf(db: Db, table: string, scope: Scope, owner: Owner): Promise
   if (scope.kind === "own") {
     const id = scope.owner === "creator" ? owner.creatorId : owner.userId
     if (!id) return { ids: [], ok: true }
-    const { rows, ok } = await soft<{ id: string }>(() => db.from(table).select("id").eq(scope.column, id).limit(600))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { rows, ok } = await readBy(db, table, "id", scope.column, (q: any, col) => q.eq(col, id).limit(600))
     return { ids: rows.map((r) => str(r.id)).filter(Boolean), ok }
   }
   const up = await idsOf(db, scope.parent, scope.parentScope, owner)
@@ -274,7 +292,7 @@ async function surfaceHits(db: Db, surface: Surface, owner: Owner, targets: read
     const id = scope.owner === "creator" ? owner.creatorId : owner.userId
     if (!id) return { counts, ok: true }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const read = await readSurface(db, surface.table, cols, (q: any) => q.eq(scope.column, id).limit(limit))
+    const read = await readBy(db, surface.table, cols, scope.column, (q: any, col) => q.eq(col, id).limit(limit))
     if (!read.ok) return { counts, ok: false }
     rows = read.rows
   } else {

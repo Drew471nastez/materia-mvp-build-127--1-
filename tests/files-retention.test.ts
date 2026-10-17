@@ -185,13 +185,17 @@ async function main() {
   })
 
   /* Courses and their lessons. */
+  /* A course hangs off its product; a lesson off a module, the module off the course. */
   await surfaceCase("course image", "Courses", {
-    courses: [{ id: "cr1", creator_id: CREATOR, thumbnail_url: LOGO_URL }],
+    products: [{ id: "pr1", creator_id: CREATOR }],
+    courses: [{ id: "cr1", product_id: "pr1", thumbnail_url: LOGO_URL }],
   })
 
   await surfaceCase("course lesson video", "Course lessons", {
-    courses: [{ id: "cr1", creator_id: CREATOR }],
-    course_lessons: [{ id: "l1", course_id: "cr1", video_path: LOGO }],
+    products: [{ id: "pr1", creator_id: CREATOR }],
+    courses: [{ id: "cr1", product_id: "pr1" }],
+    course_modules: [{ id: "m1", course_id: "cr1" }],
+    course_lessons: [{ id: "l1", module_id: "m1", video_path: LOGO }],
   })
 
   /* The creator's own avatar and banner, and the person's photo the checkout falls back to. */
@@ -232,10 +236,6 @@ async function main() {
     email_campaigns: [{ id: "ec1", creator_id: CREATOR, body: `<img src="${LOGO_URL}">` }],
   })
 
-  await surfaceCase("published blog post", "Blog posts", {
-    blog_posts: [{ id: "bp1", creator_id: CREATOR, cover_image_url: LOGO_URL }],
-  })
-
   await surfaceCase("offer picture", "Offers", {
     store_offers: [{ id: "o1", creator_id: CREATOR, image_url: LOGO_URL }],
   })
@@ -252,10 +252,12 @@ async function main() {
     reviews: [{ id: "rv1", creator_id: CREATOR, photos: [LOGO_URL] }],
   })
 
-  /* Two hops: the attachment's lesson, the lesson's course, the course's store. */
+  /* Four hops: the attachment's lesson, its module, its course, the course's product, the product's store. */
   await surfaceCase("a file attached to a published lesson", "Course lessons", {
-    courses: [{ id: "cr1", creator_id: CREATOR }],
-    course_lessons: [{ id: "l1", course_id: "cr1" }],
+    products: [{ id: "pr1", creator_id: CREATOR }],
+    courses: [{ id: "cr1", product_id: "pr1" }],
+    course_modules: [{ id: "m1", course_id: "cr1" }],
+    course_lessons: [{ id: "l1", module_id: "m1" }],
     lesson_attachments: [{ id: "at1", lesson_id: "l1", file_path: LOGO }],
   })
 
@@ -569,6 +571,46 @@ async function main() {
     check("a picture nothing points at reads as nowhere", none.total === 0 && none.uses.length === 0, none)
     const only = await findUses(db, owner, "store-builder-images", LOGO, SURFACES.filter((s) => s.key === "collection"))
     check("  and with only the wrong surface looked at, the answer IS wrong (the control)", only.total === 0, only)
+  }
+
+  /*
+    EVERY SURFACE NAMES A TABLE AND A COLUMN THIS APP ACTUALLY USES. A column
+    that is not there answers 42703 for ever, which reads as "could not be
+    checked": safe, because it keeps the file, but it would tell the person
+    nothing and refuse their removals before part 222. `blog_posts` was in
+    the list once and is Storelib's own blog with no owner column at all.
+  */
+  console.log("\nThe surface list matches the schema in this repository")
+  {
+    const { readdirSync, statSync } = await import("node:fs")
+    const sql: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(join(process.cwd(), dir))) {
+        const full = `${dir}/${name}`
+        if (statSync(join(process.cwd(), full)).isDirectory()) walk(full)
+        else if (name.endsWith(".sql")) sql.push(readFileSync(join(process.cwd(), full), "utf8"))
+      }
+    }
+    walk("supabase")
+    const schema = sql.join("\n").toLowerCase()
+    /* Every CREATE TABLE and ALTER TABLE statement that names this table. */
+    const statementsFor = (table: string) =>
+      schema.match(new RegExp(`(?:create table[^;]{0,200}?\\b${table}\\b[^;]{0,40000}?;|alter table[^;]{0,120}?\\b${table}\\b[^;]{0,400}?;)`, "g")) ?? []
+    const known = (table: string, column: string | readonly string[]) => {
+      const hits = statementsFor(table)
+      /* A table this repository does not create (OnePage came from before it) cannot be checked here. */
+      if (hits.length === 0) return true
+      const names = typeof column === "string" ? [column] : column
+      return hits.some((h) => names.some((c) => new RegExp(`\\b${c}\\b`).test(h)))
+    }
+    const chain = (table: string, scope: (typeof SURFACES)[number]["scope"]): string[] => {
+      if (scope.kind === "own") return known(table, scope.column) ? [] : [`${table}.${String(scope.column)}`]
+      return [...(known(table, scope.column) ? [] : [`${table}.${scope.column}`]), ...chain(scope.parent, scope.parentScope)]
+    }
+    const unknown = SURFACES.flatMap((x) => chain(x.table, x.scope))
+    check("every table and owner column a surface narrows by is in the schema", unknown.length === 0, unknown)
+    /* The control: `blog_posts` is Storelib's own blog and has no creator column. It was in the list once. */
+    check("  and the control: a column the schema does not have is caught", chain("blog_posts", { kind: "own", column: "creator_id", owner: "creator" }).length === 1)
   }
 
   /* ─────────────────────────────────────────────────────────────────────────
