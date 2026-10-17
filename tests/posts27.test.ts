@@ -221,7 +221,7 @@ async function main() {
     check("it skips itself before part 194", /to_regclass\('public\.community_scheduled_posts'\) IS NULL THEN RAISE NOTICE/.test(text))
     check("notify pgrst last", lines.at(-1) === "notify pgrst, 'reload schema';")
     check("the migration is the same text", raw("supabase/migrations/20270131_community_scheduled_post_media.sql") === text)
-    check("README row and the check column", /`222_community_scheduled_post_media\.sql`/.test(raw("supabase/sql/run-now/README.md")) && /as p222_community_scheduled_post_media;/.test(raw("supabase/sql/run-now/99_check_after.sql")))
+    check("README row and the check column", /`222_community_scheduled_post_media\.sql`/.test(raw("supabase/sql/run-now/README.md")) && /as p222_community_scheduled_post_media[,;]/.test(raw("supabase/sql/run-now/99_check_after.sql")))
     check("the combined files carry it", raw("supabase/sql/all-in-two/1_of_2_everything.sql").includes(lines[1]) && raw("supabase/sql/run-four/3_of_4_latest.sql").includes(lines[1]))
     check("the harness writes a scheduled post with media and a poll", /f222/.test(raw("scripts/sql-harness/app-writes.sql")))
   }

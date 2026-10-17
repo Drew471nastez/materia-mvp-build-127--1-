@@ -28,9 +28,11 @@ export function OrderMessagesCard({ checkoutId, orderId, className }: { checkout
     if (!query) return
     void api<{ cases: CaseSummary[] }>(`/api/store/cases?${query}`).then((r) => {
       if ("error" in r) return setCases([])
-      setCases(r.data.cases)
+      /* A reply without a list (an older server, a proxy page) reads as no cases, never a crash of the order page. */
+      const list = Array.isArray(r.data?.cases) ? r.data.cases : []
+      setCases(list)
       /* The newest case that isn't sorted opens by itself: that is the one waiting. */
-      setOpenId((cur) => cur ?? r.data.cases.find((c) => c.status !== "resolved")?.id ?? null)
+      setOpenId((cur) => cur ?? list.find((c) => c.status !== "resolved")?.id ?? null)
     })
   }, [query])
   React.useEffect(load, [load])

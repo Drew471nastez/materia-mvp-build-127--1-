@@ -186,7 +186,7 @@ async function main() {
     check("the dot: small, in the cell's padding (the number never moves), named for a screen reader", /order\.unseen \? <span aria-hidden data-unseen=""[^>]*-ml-\[9px\] mr-\[3px\][^>]*h-1\.5 w-1\.5/.test(list) && /sr-only/.test(list))
     const sql = read("supabase/sql/run-now/224_orders_seller_seen.sql").split("\n").filter(Boolean)
     check("SQL part 224: one statement a line, the old orders seen without a rewrite, idempotent, pgrst last", sql.length === 3 && /^DO \$\$ BEGIN IF .*NOT EXISTS .*seller_seen_at.* THEN ALTER TABLE public\.orders ADD COLUMN seller_seen_at timestamptz DEFAULT now\(\); ALTER TABLE public\.orders ALTER COLUMN seller_seen_at DROP DEFAULT; END IF; END \$\$;$/.test(sql[1]) && sql[2] === "notify pgrst, 'reload schema';")
-    check("its migration copy, README row and check column", read("supabase/migrations/20270131_orders_seller_seen.sql") === read("supabase/sql/run-now/224_orders_seller_seen.sql") && /`224_orders_seller_seen\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p224_orders_seller_seen;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("its migration copy, README row and check column", read("supabase/migrations/20270131_orders_seller_seen.sql") === read("supabase/sql/run-now/224_orders_seller_seen.sql") && /`224_orders_seller_seen\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p224_orders_seller_seen[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   }
 
   section("Carrier logos instead of the truck")
