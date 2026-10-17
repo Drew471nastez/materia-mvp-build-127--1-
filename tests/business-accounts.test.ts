@@ -483,7 +483,20 @@ function main() {
   check("and it folds back once the menu has gone", /open=\{headerProfileOpen\}/.test(read("components/app/sidebar.tsx")) && /open=\{mobileProfileDropdownOpen\}/.test(read("components/app/mobile-account-menu.tsx")))
   const desktopMenu = /const profileDropdownItems = \[([\s\S]*?)\]/.exec(read("components/app/sidebar.tsx"))?.[1] ?? ""
   const phoneMenu = /const items = useMemo\(\(\) => \[([\s\S]*?)\]/.exec(read("components/app/mobile-account-menu.tsx"))?.[1] ?? ""
-  check("no Help in the account menu on any size", !!desktopMenu && !!phoneMenu && !/"\/help"/.test(desktopMenu) && !/"\/help"/.test(phoneMenu))
+  /* Changed on purpose (round K): Help is back in both menus, as /app/help, a page in the app, never the public /help in a new tab. */
+  {
+    const sidebarSrc = read("components/app/sidebar.tsx")
+    const sheetSrc = read("components/app/mobile-account-menu.tsx")
+    const header = sidebarSrc.slice(sidebarSrc.indexOf("Header Profile Dropdown"), sidebarSrc.indexOf("Center: the search bar"))
+    const order = (src: string, marks: string[]) => marks.map((m) => src.indexOf(m)).every((i, n, all) => i >= 0 && (n === 0 || i > all[n - 1]))
+    check("Help in the account menu at both sizes, opening /app/help in the app, not the public /help",
+      /export const APP_HELP_HREF = "\/app\/help"/.test(sheetSrc) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(header) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(sheetSrc)
+        && !/"\/help"/.test(desktopMenu) && !/"\/help"/.test(phoneMenu) && !/HELP_FULL_URL|\/help`/.test(sidebarSrc + sheetSrc))
+    check("  its own row after Language and right above Sign Out, with the help icon the rows share",
+      order(header, ['t("settings.language")', "data-account-help", "handleSignOut()"]) && order(sheetSrc, ["{languageLabel}", "data-account-help", "onSignOut()"])
+        && /<HelpCircle className="h-4 w-4 shrink-0" strokeWidth=\{1\.5\} \/>/.test(header) && /<HelpCircle className="h-\[18px\] w-\[18px\] shrink-0 text-neutral-400" strokeWidth=\{1\.75\} \/>/.test(sheetSrc))
+    check("  not a new tab: no target on it, and the sheet fetches the page ahead once it is up", !/APP_HELP_HREF\}[^>]*target=/.test(header + sheetSrc) && /prefetchAppPage\(router, APP_HELP_HREF\)/.test(sheetSrc))
+  }
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",

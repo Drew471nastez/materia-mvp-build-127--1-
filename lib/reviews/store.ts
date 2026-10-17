@@ -149,6 +149,8 @@ export function forgetReviewPages(ids: { productId?: string | null; creatorId?: 
     if (ids.productId) revalidateTag(productTag(ids.productId), "max")
     if (ids.productSlug) revalidateTag(productTag(ids.productSlug), "max")
     if (ids.creatorId) revalidateTag(creatorTag(ids.creatorId), "max")
+    /* Storelib Reviews' overview (lib/reviews/manage-server reviewsManageTag): a new, changed or reported review shows on its next read. */
+    if (ids.creatorId) revalidateTag(`reviews-manage:${ids.creatorId}`, { expire: 0 })
   } catch {
     /* Outside a request (a test, a script): nothing is cached there. */
   }
