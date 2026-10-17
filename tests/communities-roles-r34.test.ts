@@ -65,7 +65,7 @@ import {
 } from "@/lib/communities/route-permissions"
 import { creatorRefusal, memberRefusal } from "@/lib/communities/server/context"
 import { MEMBER_ACTIONS, UNDO_ACTIONS, memberActionNeeds } from "@/lib/communities/server/moderation"
-import type { CommunityRow, Role } from "@/lib/communities/types"
+import { ROLES, type CommunityRow, type Role } from "@/lib/communities/types"
 
 let passed = 0
 let failed = 0
@@ -347,6 +347,20 @@ function whoGetsThrough() {
   const adminNoPeople = { admin: { ...roleGroups("admin"), people: false } }
   check("an admin the people group was taken from cannot change a role", creatorRefusal("admin", "change_role", adminNoPeople, open())?.error === "forbidden" && assignableRoles("admin", adminNoPeople).length === 0)
   check("the choices never reach an owner only action", (["admin", "moderator"] as const).every((r) => OWNER_ONLY_ACTIONS.every((a) => creatorRefusal(r, a, { [r]: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, true])) }, open())?.error === "forbidden")))
+
+  /*
+    STORELIB'S OWN ADMINISTRATORS ARE NOT A COMMUNITY'S. The owner: "Keep
+    platform-wide Storelib administrators distinct from the administrators of
+    one community." They are two gates that never meet: lib/admin/gate
+    requireAdmin for Storelib's console, requireCreatorCommunity for a
+    community's own side. Neither file reaches for the other's.
+  */
+  const platform = readFileSync("app/api/admin/communities/route.ts", "utf8")
+  check("Storelib's own console decides with requireAdmin and never with a community role", /requireAdmin\(/.test(platform) && !/requireCreatorCommunity|requireMember/.test(platform))
+  const communityFiles = [...routeFiles(), ...sectionPages()]
+  const borrowed = communityFiles.filter((f) => /\brequireAdmin\b/.test(stripComments(readFileSync(f, "utf8"))))
+  check(`no community route lets a Storelib administrator in through the side (${communityFiles.length} files)`, borrowed.length === 0, borrowed.join(", "))
+  check("and a community knows four roles, with no Storelib one among them", [...ROLES].sort().join() === "admin,member,moderator,owner")
 
   /* A suspended community reaches nobody new, whatever the role. */
   check("a suspended community refuses its owner the doors that reach people", creatorRefusal("owner", "invite", null, open({ suspended_at: "2026-01-01T00:00:00Z" }))?.error === "suspended" && creatorRefusal("owner", "view", null, open({ suspended_at: "2026-01-01T00:00:00Z" })) === null)
