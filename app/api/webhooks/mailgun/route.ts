@@ -5,6 +5,7 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 import { supabaseNotifyStore } from "@/lib/notify/store"
 import { handleMailgunWebhook } from "@/lib/notify/webhook"
 import { timed } from "@/lib/perf/server-timing"
+import { recordReviewRequestEvent } from "@/lib/reviews/request-tracking"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -146,6 +147,8 @@ async function handlePOST(request: Request) {
  * always handled it. Runs once per Mailgun event id.
  */
 async function handleListEvent(eventData: any) {
+  /* A Storelib Reviews request delivered, opened or pressed (lib/reviews/request-tracking.ts), for its Requests tab. */
+  await recordReviewRequestEvent(supabaseAdmin, eventData)
   const event = eventData?.event || ""
   const recipient = (eventData?.recipient || "").toLowerCase().trim()
   const severity = eventData?.severity || ""

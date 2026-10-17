@@ -33,6 +33,7 @@ import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/
 import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
+import { BUILT_IN_APP_PAGES } from "@/components/app/settings/built-in-app-pages"
 import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
 import { GaConnect } from "@/components/app/settings/ga-connect"
 import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
@@ -909,6 +910,8 @@ function IntegrationPage({
 }) {
   const setupRef = React.useRef<HTMLElement>(null)
   const standing = STANDING[status]
+  /* A built in app managed in full on this page draws its own tabs under the header (./built-in-app-pages.tsx). */
+  const OwnPage = BUILT_IN_APP_PAGES[item.id]
   /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
   const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
   const providerState = item.providerId ? (states?.find((s) => s.provider === item.providerId) ?? null) : null
@@ -951,7 +954,7 @@ function IntegrationPage({
               </div>
             </div>
           </div>
-          {action ? (
+          {action && !OwnPage ? (
             /* On a phone the setup card is the very next thing on the screen, so the header keeps to the name and the status there. */
             <button type="button" onClick={() => { if (notifyOnly) setAskTick((n) => n + 1); toSetup() }} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "hidden h-10 shrink-0 rounded-xl px-5 sm:inline-flex")} data-integration-action="">
               {action}
@@ -961,6 +964,9 @@ function IntegrationPage({
         </div>
       </header>
 
+      {OwnPage ? (
+        <OwnPage onAppChanged={(on) => item.appId && onApp(item.appId, on)} />
+      ) : (
       <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4 sm:space-y-5">
           <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden")} aria-labelledby="integration-install" data-integration-install="">
@@ -1070,6 +1076,7 @@ function IntegrationPage({
           ) : null}
         </aside>
       </div>
+      )}
     </div>
   )
 }

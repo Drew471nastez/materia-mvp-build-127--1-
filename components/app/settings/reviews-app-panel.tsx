@@ -12,9 +12,15 @@
  * product pages" is on (lib/website-builder/product-page.ts), so turning the
  * app on is the whole setup.
  * Save keeps everything at once; nothing is saved while it is being typed.
+ *
+ * ONE PLACE FOR EACH SETTING (round K5). The panel is drawn on Storelib
+ * Reviews' own page (components/reviews/manage): its Settings tab draws the
+ * switch, new reviews and the website (`sections` general and display), and
+ * its Requests tab draws the request email's timing (`sections` requests),
+ * so nothing is set in two places. The counts and the Open Reviews link it
+ * had are the page's Overview now.
  */
 import * as React from "react"
-import Link from "next/link"
 import { BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { cn } from "@/lib/utils"
 import { REVIEWS_APP_DEFAULTS, cleanHexColor, type ReviewsAppSettings } from "@/lib/reviews/app-settings"
@@ -22,10 +28,14 @@ import { tt } from "@/lib/i18n/text"
 
 type Loaded = { settings: ReviewsAppSettings; ready: boolean; counts?: { pending: number; published: number; asked: number } }
 
+export type ReviewsPanelSection = "general" | "requests" | "display"
+const ALL_SECTIONS: ReviewsPanelSection[] = ["general", "requests", "display"]
+
 const SECTION = "border-t border-[#f1f2f4] pt-5"
 const H = "text-[14px] font-semibold text-[#1a1a2e]"
 
-export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSettings) => void }) {
+export function ReviewsAppPanel({ onChanged, sections = ALL_SECTIONS }: { onChanged?: (s: ReviewsAppSettings) => void; sections?: ReviewsPanelSection[] }) {
+  const has = (s: ReviewsPanelSection) => sections.includes(s)
   /* Drawn at once from what the Integrations page already read (peekGet), never a grey box first when it is there (round 30). */
   const [loaded, setLoaded] = React.useState<Loaded | null>(() => peekGet<Loaded>("/api/store/reviews-app"))
   const [draft, setDraft] = React.useState<ReviewsAppSettings>(() => peekGet<Loaded>("/api/store/reviews-app")?.settings ?? REVIEWS_APP_DEFAULTS)
@@ -69,25 +79,20 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
   const on = draft.enabled
   return (
     <div className="space-y-5" data-reviews-app-panel="">
-      <Toggle
-        label={on ? tt("Storelib Reviews is on") : tt("Turn on Storelib Reviews")}
-        description={on ? tt("Reviews show on your website and buyers are asked by email.") : tt("Show reviews on your website, collect them by email and approve them in Reviews.")}
-        checked={on}
-        onChange={(v) => {
-          const next = { ...draft, enabled: v }
-          setDraft(next)
-          void save(next)
-        }}
-      />
-      {loaded.counts && on ? (
-        <p className="text-[13px] text-[#6b7280]" data-reviews-app-counts="">
-          {tt("{published} published · {pending} waiting for approval · {asked} asked by email", { published: loaded.counts.published, pending: loaded.counts.pending, asked: loaded.counts.asked })} ·{" "}
-          <Link href="/app/reviews" className="font-medium text-[#1a1a2e] underline underline-offset-4">
-            {tt("Open Reviews")}
-          </Link>
-        </p>
+      {has("general") ? (
+        <Toggle
+          label={on ? tt("Storelib Reviews is on") : tt("Turn on Storelib Reviews")}
+          description={on ? tt("Reviews show on your website and buyers are asked by email.") : tt("Show reviews on your website, collect them by email and approve them in Reviews.")}
+          checked={on}
+          onChange={(v) => {
+            const next = { ...draft, enabled: v }
+            setDraft(next)
+            void save(next)
+          }}
+        />
       ) : null}
 
+      {has("general") ? (
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
         <p className={H}>{tt("New reviews")}</p>
         <Field label={tt("When a review comes in")} htmlFor="ra-publish">
@@ -125,8 +130,10 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
           </SelectInput>
         </Field>
       </div>
+      ) : null}
 
-      <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
+      {has("requests") ? (
+      <div className={cn(has("general") ? SECTION : "", "space-y-3", !on && "opacity-60")}>
         <Toggle label={tt("Review request email")} description={tt("Sent as your store, with five stars to tap. One per item bought.")} checked={draft.request.enabled} onChange={(v) => setRequest({ enabled: v })} />
         {draft.request.enabled ? (
           <>
@@ -154,7 +161,9 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
           </>
         ) : null}
       </div>
+      ) : null}
 
+      {has("display") ? (
       <div className={cn(SECTION, "space-y-3", !on && "opacity-60")}>
         <p className={H}>{tt("On your website")}</p>
         <Toggle
@@ -195,6 +204,7 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
           {tt("For other pages, Product reviews, Star rating, Reviews carousel and All reviews are under Add section in the website editor. Your website also has a reviews page at /reviews.")}
         </p>
       </div>
+      ) : null}
 
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
