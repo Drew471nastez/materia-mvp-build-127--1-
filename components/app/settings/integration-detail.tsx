@@ -62,7 +62,6 @@ const BRAND: Record<string, string> = {
   "meta-pixel": "#0866ff",
   "tiktok-pixel": "#25f4ee",
   "pinterest-tag": "#e60023",
-  clarity: "#0078d4",
   "microsoft-clarity": "#0078d4",
   klaviyo: "#232426",
   omnisend: "#1d1d1d",
