@@ -426,3 +426,9 @@ export function mediaLayout(count: number): MediaLayout {
   const below = Math.min(3, count - 1)
   return { kind: "grid", below, more: count - 1 - below }
 }
+
+/** Round AF: the welcome's intro video, a YouTube, Vimeo or Loom address, as the player to draw (not playing until pressed), or null. */
+export function welcomeVideoSrc(raw: unknown): string | null {
+  const ref = postEmbedFromUrl(raw)
+  return ref ? embedPlayerSrc(ref, false) : null
+}
