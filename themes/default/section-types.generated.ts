@@ -54,6 +54,7 @@ export const DEFAULT_STORELIB_SECTION_TYPES: readonly string[] = [
   "reviews_badge",
   "reviews_carousel",
   "reviews_product",
+  "reviews_widget",
   "search",
   "testimonials",
   "text_columns",

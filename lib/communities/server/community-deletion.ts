@@ -36,7 +36,8 @@ import "server-only"
  *              one refund.
  *   EMAIL      each member once (emailed_at is claimed before sending).
  *   UNDO       undoDeletion, before the date and only for a period end
- *              deletion: every membership this deletion stopped renews again
+ *              deletion, and (round 26) only while the plan has a place for
+ *              it: every membership this deletion stopped renews again
  *              (cancel_at_period_end false), the community comes back as it
  *              was, and each of those members is told. A resume that fails
  *              is said, and Undo again tries only those.
@@ -61,6 +62,8 @@ import { audit } from "./audit"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 import { communityProducts, defaultRefundDeps, defaultSubscriptionDeps, type RefundLike } from "./membership-lifecycle"
 import { syncTierProducts } from "./tiers"
+import { communityRoom } from "./creator-policies"
+import { KEEP_LIMIT_TEXT, type CommunityPlan } from "../plan-limit"
 
 export type DeletionResult<T = unknown> = ({ ok: true } & T) | { ok: false; status: number; error: string; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -98,6 +101,8 @@ export interface DeletionDeps {
   sendMail: (mail: { to: string; subject: string; html: string; text: string; fromName: string | null; replyTo: string | null }) => Promise<{ success: boolean }>
   baseUrl: () => string
   now: () => number
+  /** The owner's plan, for Keep's place on it (round 26); read where Sites reads it when absent. */
+  plan?: (creatorId: string) => Promise<CommunityPlan>
 }
 
 export function defaultDeletionDeps(db: Db): DeletionDeps {
@@ -621,6 +626,17 @@ export async function undoDeletion(db: Db, a: { community: CommunityRow; actorId
     if (!canUndoDeletion(row, now)) return no(409, row.mode === "now" ? "Memberships already ended with refunds, so this cannot be undone." : "The date has passed, so this cannot be undone.")
     const { data } = await db.from("community_deletions").update({ state: "undone", undone_by: a.actorId, undone_at: nowIso(now), updated_at: nowIso(now) }).eq("community_id", c.id).eq("state", "scheduled").select("community_id")
     if (!Array.isArray(data) || data.length !== 1) return no(409, "Nothing is being deleted.")
+    /*
+      ROUND 26: A community being deleted takes no place on the plan, so the owner may have made a replacement
+      (lib/communities/plan-limit.ts). Kept, it takes one again: counted after the claim, so a create at the same moment
+      sees it too, and over the plan the claim is given back and nothing else changes.
+    */
+    const owner = c.creator_id
+    const room = owner ? await communityRoom(db, owner, deps.plan ? await deps.plan(owner) : undefined) : null
+    if (room && room.limit.max !== null && room.limit.owned > room.limit.max) {
+      await db.from("community_deletions").update({ state: "scheduled", undone_by: null, undone_at: null, updated_at: nowIso(now) }).eq("community_id", c.id).eq("state", "undone")
+      return no(402, KEEP_LIMIT_TEXT)
+    }
     /* Back as it was: published or a draft, and on sale again when published. An owner who had archived it first finds it archived. */
     const status = row.prior_status === "published" || row.prior_status === "draft" ? row.prior_status : "archived"
     const back = status === "archived" ? { status, archived_at: row.prior_archived_at ?? c.archived_at } : { status, archived_at: row.prior_archived_at }

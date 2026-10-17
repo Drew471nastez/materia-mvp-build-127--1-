@@ -138,6 +138,8 @@ const isSetting = (f: Field) => f.type !== "header" && f.type !== "paragraph"
 
 const schemas = new Map<string, Schema>()
 const sources = new Map<string, string>()
+/** Code outside the section file that reads its settings for it (see the review_widget note below). */
+const drawnBy = new Map<string, string>()
 for (const type of types) {
   schemas.set(type, (STORELIB_SCHEMAS[type] as Schema | undefined) ?? JSON.parse(readFileSync(join(SECTIONS, `${type}.json`), "utf8")))
   const file = rendererFor.get(type)
@@ -147,6 +149,13 @@ for (const type of types) {
     const path = join(SECTIONS, `${type}.storelib`)
     const raw = existsSync(path) ? readFileSync(path, "utf8") : ""
     const withoutSchema = raw.replace(/^<schema>[\s\S]*?^<\/schema>/m, "")
+    /* A template that hands its whole settings to the engine's `review_widget`
+       filter is drawn by lib/reviews/widgets/render.ts, which reads each
+       setting there (`settings.widget`, `s.columns`): that file is part of its
+       renderer, the way a renderer's own ./parts are below. Only for "is every
+       control read": that file also reads the saved look's own settings,
+       which are set in Storelib Reviews › Widgets, not in this panel. */
+    if (/\|\s*review_widget\b/.test(withoutSchema)) drawnBy.set(type, stripComments(readFileSync(join(root, "lib/reviews/widgets/render.ts"), "utf8")))
     sources.set(type, stripComments(withoutSchema.replace(/<!--[\s\S]*?-->/g, " ")))
     continue
   }
@@ -279,7 +288,7 @@ section("Nothing in a settings panel is a lie")
   for (const type of types) {
     const src = sources.get(type)!
     if (!src) continue
-    const haystack = src + "\n" + shared
+    const haystack = src + "\n" + shared + "\n" + (drawnBy.get(type) ?? "")
     /**
      * A READ, not a word that happens to appear.
      *

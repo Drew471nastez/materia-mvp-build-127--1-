@@ -8,7 +8,7 @@ import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
-import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type ReactNode } from "react"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
@@ -161,6 +161,8 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { isWidgetType } from "@/lib/reviews/widgets/config"
+import { REVIEW_WIDGET_SECTION_TYPE, isMainProductSectionType } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
@@ -173,6 +175,10 @@ import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/web
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
+import { tt } from "@/lib/i18n/text"
+import { SharedInAllLanguages, TranslatedFieldEditor, TranslationEditingProvider, TranslationScope, useTranslationEditing, useTranslationEditor, useTranslationScope } from "@/components/website-builder/editor/translation-editing"
+import { PreviewLocaleButton, SidebarLanguageBar, type PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
+import { blockKey as translationBlockKey, isWordsField, sectionKey as translationSectionKey } from "@/lib/markets/translate"
 import { ColorSchemeControl } from "@/components/website-builder/editor/controls/color-scheme-control"
 import { localizeCards, localizeMenus, localizeOptions, localizeRecord, localizeSections, localizeTheme } from "@/lib/markets/translate"
 import { pricesInMarket, storefrontDisplay, type StorefrontDisplay } from "@/lib/markets/pricing"
@@ -619,6 +625,17 @@ function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS
 }
 
 function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
+  /*
+    ANOTHER LANGUAGE BEING EDITED (the language switch in the top bar or the
+    sidebar): a text setting shows and writes that language's translation,
+    everything else is drawn as the same in every language and cannot be
+    changed from here (editor/translation-editing.tsx).
+  */
+  const translating = useTranslationEditing()
+  const keyFor = useTranslationScope()
+  if (translating) {
+    return <TranslatedFieldEditor tr={translating} keyFor={keyFor} field={props.field} label={label} value={props.value} render={(v, change, f) => <FieldControl field={f} value={v} onChange={change} />} />
+  }
   return (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
       <FieldControl {...props} />
@@ -1097,6 +1114,41 @@ const EMPTY_SOURCES: Record<string, string> = {}
   It is imported above. The move is so scripts/check-image-picker.mjs mounts
   the same component the editor renders rather than a copy of it.
 */
+
+/** A theme setting's text in another language, by the key the website lays over (lib/markets/translate.ts localizeTheme); the store's name is never translated. */
+const themeTextKey = (id: string) => (id === "brand_name" ? null : `theme:${id}`)
+
+/** Theme settings that are the same in every language (a toggle, a size, a font, a picture): drawn dimmed while another language is edited. */
+function ThemeFieldShell({ field, children }: { field: SchemaField; children: ReactNode }) {
+  const shared = !isWordsField(field) && field.type !== "color" && field.type !== "header" && field.type !== "paragraph" && field.type !== "menus"
+  return (
+    <div>
+      <SharedInAllLanguages when={shared}>{children}</SharedInAllLanguages>
+    </div>
+  )
+}
+
+/** Branding's fields the group's own list draws after BrandingTabPanel, so they are not drawn twice. */
+const BRANDING_WORDS_ELSEWHERE = new Set(["brand_headline", "brand_description"])
+
+/**
+ * Branding's words (its tagline, and where the panel has no list of its own
+ * its headline and description) while another language is edited:
+ * BrandingTabPanel draws the website's own and is dimmed then.
+ */
+function BrandingWords({ fields, settings, skip }: { fields: SchemaField[]; settings: Record<string, unknown>; skip: Set<string> | null }) {
+  const translating = useTranslationEditing()
+  if (!translating) return null
+  const words = fields.filter((f) => isWordsField(f) && f.id !== "brand_name" && !skip?.has(f.id))
+  if (words.length === 0) return null
+  return (
+    <div className="space-y-4" data-branding-words="">
+      {words.map((field) => (
+        <FieldEditor key={field.id} label={fieldCarriesOwnLabel(field) ? undefined : field.label} field={field} value={settings[field.id] ?? field.default} onChange={() => undefined} />
+      ))}
+    </div>
+  )
+}
 
 // ── Branding Tab Panel — logo/favicon/tagline with header sync ──
 /** The branding group's fields BrandingTabPanel draws itself; the rest of the group is drawn as usual. */
@@ -2603,11 +2655,15 @@ function BlockFields({
   if (fields.length === 0) {
     return <p className="text-[12.5px] leading-5 text-muted-foreground">This block has no settings of its own.</p>
   }
+  /* Its texts in another language, by the key the website lays over; a block the section places but has not saved yet has none until it is. */
+  const keyFor = virtual ? null : (id: string) => translationBlockKey(section.id, block.id, id)
   return (
+    <TranslationScope keyFor={keyFor}>
     <SiblingSettingsProvider settings={block.settings}>
       {fields.map((field) => (
         <div key={field.id} data-block-field={field.id}>
           {field.type === "color" ? (
+            <SharedInAllLanguages>
             <SectionColorSetting
               field={field}
               value={block.settings[field.id]}
@@ -2615,6 +2671,7 @@ function BlockFields({
               theme={theme}
               onChange={(val) => onUpdate(blockKey, field.id, val, virtual)}
             />
+            </SharedInAllLanguages>
           ) : (
             <FieldEditor
               label={fieldCarriesOwnLabel(field) ? undefined : field.label}
@@ -2629,6 +2686,7 @@ function BlockFields({
         </div>
       ))}
     </SiblingSettingsProvider>
+    </TranslationScope>
   )
 }
 
@@ -5483,7 +5541,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })
   }
 
-  const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {
+  const addSection = (
+    type: string,
+    presetIndex = 0,
+    replaceConfirmed = false,
+    /** From Storelib Reviews › Add to website: settings laid over the preset's, and a list index to go in at (null: the end of the page). */
+    extra?: { settings?: Record<string, unknown>; at: number | null },
+  ) => {
     const schema = librarySchemas[type]
     if (!schema) return
     /**
@@ -5507,7 +5571,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       id: `${type}-${Date.now()}`,
       type,
       name: schema.name,
-      settings: newSectionSettings(type, preset?.settings, storelibSources),
+      settings: { ...newSectionSettings(type, preset?.settings, storelibSources), ...(extra?.settings ?? {}) },
       /* The preset's blocks as this section's own: new ids, so adding the same preset twice is two sets of blocks, not one shared. */
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
@@ -5520,9 +5584,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * never land above the header or below the footer.
      */
     const insertAt =
-      canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+      extra ? extra.at : canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
     const before = splitGroups(sections)
-    const requested: SectionGroup = canvasInsertAt != null ? "template" : addGroup
+    const requested: SectionGroup = extra || canvasInsertAt != null ? "template" : addGroup
     const placed = placeSection(sections, newSection, {
       groups,
       kind,
@@ -6316,6 +6380,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   addSectionRef.current = addSection
 
   /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  STORELIB REVIEWS › WIDGETS › ADD TO WEBSITE
+   * ═════════════════════════════════════════════════════════════════════════
+   * The gallery opens the editor on the page it chose (`previewPath`) with
+   * `?addReviewWidget=<widget>&reviewConfig=<id>&placement=<where>`
+   * (app/app/reviews/widgets/add). Once that page's sections are in, the
+   * Reviews widget section goes in where it was asked (under the product,
+   * at the top or at the end of the page) naming the saved look, selected,
+   * with its settings open, unsaved like any section just added. The words
+   * are taken off the address so a reload does not add it again.
+   */
+  const widgetArrival = useRef<{ widget: string; config: string; placement: string } | null | undefined>(undefined)
+  useEffect(() => {
+    if (widgetArrival.current === undefined) {
+      const url = new URL(window.location.href)
+      const widget = url.searchParams.get("addReviewWidget")
+      widgetArrival.current = widget && isWidgetType(widget) ? { widget, config: url.searchParams.get("reviewConfig") ?? "", placement: url.searchParams.get("placement") ?? "" } : null
+      if (widget) {
+        for (const k of ["addReviewWidget", "reviewConfig", "placement"]) url.searchParams.delete(k)
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+      }
+    }
+    const want = widgetArrival.current
+    if (!want || loading || sections.length === 0) return
+    const type = compatInstall ? REVIEW_WIDGET_SECTION_TYPE : "reviews_widget"
+    const schema = librarySchemas[type]
+    if (!schema) return
+    widgetArrival.current = null
+    const presetIndex = Math.max(0, (schema.presets ?? []).findIndex((p) => (p.settings as Record<string, unknown> | undefined)?.widget === want.widget))
+    const header = splitGroups(sections).header.length
+    const main = sections.findIndex((x) => isMainProductSectionType(x.type))
+    const at = want.placement === "top" ? header : want.placement === "below_product" && main >= 0 ? main + 1 : null
+    addSection(type, presetIndex, true, { settings: { widget: want.widget, review_config: /^[0-9a-f-]{36}$/i.test(want.config) ? want.config : "" }, at })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, sections, librarySchemas, compatInstall])
+
+  /**
    * Everywhere on this site a link can point, for the link fields.
    *
    * Built from exactly what the page browser already lists, so the two cannot
@@ -6970,11 +7071,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 ? "Menus belong to your store, so every theme shows the same ones. Changes go live right away."
                 : "Menus are saved with this theme."}
             </p>
+            <SharedInAllLanguages note={tt("Menu links are translated in Settings, Markets and languages.")}>
             <MenusEditor
               value={(settingsDraft as Record<string, unknown>).menus}
               onChange={(next) => updateSetting("menus", next)}
               openHandle={selectedPanel.handle ?? null}
             />
+            </SharedInAllLanguages>
           </div>
         </div>
       )
@@ -7050,10 +7153,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <p className="truncate text-[15px] font-semibold md:text-sm">{group.label}</p>
               </PanelBack>
               <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
-
+              <TranslationScope keyFor={themeTextKey}>
                 <>
                   {/* Custom Color Schemes editor */}
                   {group.id === "color_schemes" ? (
+                    <SharedInAllLanguages>
                     <ColorsPanel
                       theme={settingsDraft}
                       updateSetting={updateSetting}
@@ -7075,7 +7179,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         </div>
                       ))}
                     />
+                    </SharedInAllLanguages>
                   ) : group.id === "typography" ? (
+                    <SharedInAllLanguages>
                     <TypographyPanel
                       theme={settingsDraft}
                       updateSetting={updateSetting}
@@ -7089,23 +7195,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         />
                       ))}
                     />
+                    </SharedInAllLanguages>
                   ) : (
                     <>
                     {group.id === "branding" && (
+                      <SharedInAllLanguages>
                       <BrandingTabPanel
                         settingsDraft={settingsDraft}
                         updateSetting={updateSetting}
                       />
+                      </SharedInAllLanguages>
                     )}
+                    {/* Its tagline in another language: BrandingTabPanel draws the website's own. */}
+                    {group.id === "branding" && <BrandingWords fields={group.fields} settings={settingsDraft as Record<string, unknown>} skip={BRANDING_WORDS_ELSEWHERE} />}
                     {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
                     {/* Social links: the platforms as a list you add to (editor/social-links-editor), the two placement switches after it. */}
                     {group.id === "social" && (
+                      <SharedInAllLanguages>
                       <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                      </SharedInAllLanguages>
                     )}
                     {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
-                        <div key={field.id}>
+                        <ThemeFieldShell key={field.id} field={field}>
                           {field.type === "toggle" ? (
                             <WbToggle
                               label={field.label}
@@ -7166,13 +7279,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           {field.type !== "toggle" && field.info && (
                             <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
                           )}
-                        </div>
+                        </ThemeFieldShell>
                       )
                     })}
                     </>
                   )}
                 </>
-
+              </TranslationScope>
               </div>
             </div>
           )
@@ -7458,7 +7571,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
                 an imported theme reads none of them, and its scheme and any such settings of its
                 own are drawn below as the theme declares them. */}
-            {!compatInstall && <SectionDesignPanel
+            {!compatInstall && <SharedInAllLanguages><SectionDesignPanel
               section={section}
               schema={schema}
               theme={settingsDraft}
@@ -7470,7 +7583,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setExpandedSettings("color_schemes")
                 setSelectedPanel({ type: "pages" })
               }}
-            />}
+            /></SharedInAllLanguages>}
 
             {schema?.fields && schema.fields.length > 0 && (() => {
               /**
@@ -7506,11 +7619,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               }
               if (clean.length === 0) return null
               return (
+                <TranslationScope keyFor={(id) => translationSectionKey(section.id, id)}>
                 <SiblingSettingsProvider settings={section.settings}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
                     <div key={field.id} data-setting-field={field.id}>
                       {field.type === "color" ? (
+                        <SharedInAllLanguages>
                         <SectionColorSetting
                           field={field}
                           value={section.settings[field.id]}
@@ -7518,6 +7633,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           theme={settingsDraft}
                           onChange={val => updateSectionSetting(section.id, field.id, val)}
                         />
+                        </SharedInAllLanguages>
                       ) : (
                       <FieldEditor
                         label={fieldCarriesOwnLabel(field) ? undefined : field.label}
@@ -7533,6 +7649,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   ))}
                 </div>
                 </SiblingSettingsProvider>
+                </TranslationScope>
               )
             })()}
 
@@ -7653,22 +7770,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <span className="text-[15px] font-semibold md:text-sm">{group.label}</span>
             </PanelBack>
             <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
-
+            <TranslationScope keyFor={themeTextKey}>
                   <>
                     {group.id === "branding" ? (
+                      <SharedInAllLanguages>
                       <BrandingTabPanel
                         settingsDraft={settingsDraft}
                         updateSetting={updateSetting}
                       />
+                      </SharedInAllLanguages>
                     ) : (
                       [
                         group.id === "social" ? (
-                          <SocialLinksEditor key="social-links" values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                          <SharedInAllLanguages key="social-links">
+                          <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                          </SharedInAllLanguages>
                         ) : null,
                         ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
-                          <div key={field.id}>
+                          <ThemeFieldShell key={field.id} field={field}>
                             {field.type === "toggle" ? (
                               <WbToggle
                                 label={field.label}
@@ -7729,13 +7850,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             {field.type !== "toggle" && field.info && (
                               <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
                             )}
-                          </div>
+                          </ThemeFieldShell>
                         )
                       }),
                       ]
                     )}
+                    {group.id === "branding" ? <BrandingWords fields={group.fields} settings={settingsDraft as Record<string, unknown>} skip={null} /> : null}
                   </>
-
+            </TranslationScope>
             </div>
           </div>
         )
@@ -8084,6 +8206,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       currency: (id: string) => pickPreviewMarket(id === "home" ? null : id),
     }),
     [setPreviewLocale, pickPreviewMarket],
+  )
+  /*
+    THE LANGUAGE THE SIDEBAR WRITES is the one the canvas shows: in another
+    language than the website's own, its text settings edit that language's
+    translations (editor/translation-editing.tsx). And the switch for both,
+    in the top bar, at the top of the sidebar and in Website settings
+    (preview-locale-switch.tsx): every language, hidden ones included, and
+    the currencies a visitor can be shown.
+  */
+  const translationEditing = useTranslationEditor(previewLang)
+  const localeModel = useMemo<PreviewLocaleModel>(
+    () => ({
+      languages: previewLang.languages.length > 1 ? previewLang.languages : [previewLang.defaultLanguage],
+      published: previewLang.published,
+      defaultLanguage: previewLang.defaultLanguage,
+      locale: previewLang.locale,
+      setLocale: setPreviewLocale,
+      base: previewMarket.base,
+      markets: marketOptions.map((m) => ({ id: m.id, name: m.name, currency: m.currency })),
+      marketId: previewMarket.marketId,
+      setMarket: pickPreviewMarket,
+    }),
+    [previewLang.languages, previewLang.published, previewLang.defaultLanguage, previewLang.locale, setPreviewLocale, previewMarket.base, marketOptions, previewMarket.marketId, pickPreviewMarket],
   )
   /* A country chosen in the theme: the market it is in, when its prices can be shown today; else the store's own, as the website's proxy picks it. */
   const pickInTheme = useCallback(
@@ -9218,7 +9363,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </Tooltip>
           )}
 
-          {/* The language the canvas is drawn in, for a website with more than one. */}
+          {/* The language and the currency the canvas is drawn in (and the sidebar writes), for a website with more than one. */}
+          {!isMobileView && <PreviewLocaleButton model={localeModel} />}
 
           {!isMobileView && (
           <PageSwitcher
@@ -9521,6 +9667,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           /* Policies: the open page goes through the writers above, any other through the sections route. */
           currentPageKey: currentPage,
           currentSections: sections,
+          /* General's Languages and currencies switches what the builder shows, as the top bar does. */
+          preview: localeModel,
           onPageDraftSaved: (key) => {
             setUnpublished(true)
             forgetPage(key)
@@ -9731,6 +9879,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div className="shrink-0 px-3 pt-3 pb-2" data-wb-sidebar-tabs="">
                 {renderSidebarTabs()}
               </div>
+              <SidebarLanguageBar model={localeModel} editing={translationEditing} />
               <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets} sections={sectionSource}>
                 <EditorFieldProvider value={fieldEnv}>
@@ -9739,7 +9888,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     ref={desktopPanelRef}
                     className="h-full"
                   >
-                    {renderSidebarContent()}
+                    <TranslationEditingProvider value={translationEditing}>{renderSidebarContent()}</TranslationEditingProvider>
                   </div>
                 </EditorFieldProvider>
                 </LinkTargetsProvider>
@@ -9798,6 +9947,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div className="px-3 pt-1 pb-2 shrink-0 bg-background">
               {renderSidebarTabs(() => setMobileSidebarOpen(true))}
             </div>
+            <SidebarLanguageBar model={localeModel} editing={translationEditing} />
 
             {/* data-sheet-scroll as well as the sidebar's own marker. It is
                 what the stylesheet hangs the room after the content on
@@ -9812,7 +9962,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     className="h-full wb-sheet-panel"
                     data-dir={panelDir > 0 ? "in" : panelDir < 0 ? "back" : "none"}
                   >
-                    {renderSidebarContent()}
+                    <TranslationEditingProvider value={translationEditing}>{renderSidebarContent()}</TranslationEditingProvider>
                   </div>
               </EditorFieldProvider>
                 </LinkTargetsProvider>

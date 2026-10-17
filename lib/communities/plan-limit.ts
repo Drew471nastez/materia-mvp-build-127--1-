@@ -7,6 +7,12 @@
  * does not get round it. Communities somebody helps run as an admin or a
  * moderator are somebody else's and do not count.
  *
+ * Round 26 ("a community scheduled for deletion on November 5 should not
+ * stop me making a replacement on October 16"): a community whose deletion
+ * is scheduled (run-now part 202, community_deletions.state 'scheduled')
+ * takes no place either. Keeping it again (Undo) needs a free place, and is
+ * refused with KEEP_LIMIT_TEXT when the replacement has taken it.
+ *
  * The plan itself is read where Sites reads it (lib/sites/plan-server
  * creatorSitePlan: the subscription's plan while it is active or trialing),
  * never derived again here. Pure, browser safe: the list draws "Upgrade"
@@ -27,6 +33,17 @@ export function mayCreateCommunity(plan: CommunityPlan | null | undefined, owned
   return max === null || owned < max
 }
 
+/**
+ * Whether a community the account owns takes one of its plan's places: not
+ * deleted, and not on its way to being deleted. Archived ones do.
+ */
+export function takesCommunitySlot(c: { deleted?: boolean; deleting?: boolean }): boolean {
+  return !c.deleted && !c.deleting
+}
+
 /** The error code a create answers with at the limit, and what the screens say. */
 export const PLAN_LIMIT_ERROR = "plan_limit"
 export const PLAN_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities. Upgrade to Pro to run more.`
+
+/** Round 26: Keep (undo a scheduled deletion) when the replacement has taken the place. */
+export const KEEP_LIMIT_TEXT = `The Free plan includes ${FREE_COMMUNITY_LIMIT} communities and ${FREE_COMMUNITY_LIMIT} are in use. Delete one or upgrade to Pro to keep this one.`

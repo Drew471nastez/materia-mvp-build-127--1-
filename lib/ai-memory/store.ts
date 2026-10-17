@@ -5,7 +5,7 @@
  * Short notes kept between conversations: the brand voice, design decisions,
  * what the creator said they like and dislike, facts about the business,
  * standing preferences ("never use gradients"). Two scopes, one table
- * (`ai_memories`, run-now parts 106 and 215):
+ * (`ai_memories`, run-now parts 106 and 231):
  *
  *   Everywhere    true of the creator, so every website and every
  *                 conversation sees it: install_id empty.
@@ -32,7 +32,7 @@
  * website's notes are read and deleted only with that website's id.
  *
  * Nothing throws. Until part 106 has run the reads are empty and a write says
- * memory is not set up; until part 215 has run, a note keeps its words and
+ * memory is not set up; until part 231 has run, a note keeps its words and
  * scope without its kind or the connected agent's name.
  */
 
@@ -91,7 +91,7 @@ export function isMissingTable(err: DbError | undefined): boolean {
   return err.code === "42P01" || err.code === "PGRST205" || (/ai_memories/.test(err.message ?? "") && /does not exist|schema cache/.test(err.message ?? ""))
 }
 
-/** A column part 215 adds is not there yet. */
+/** A column part 231 adds is not there yet. */
 export function isMissingColumn(err: DbError | undefined): boolean {
   if (!err) return false
   return err.code === "42703" || err.code === "PGRST204" || /(source_name|kind)/.test(err.message ?? "") && /column|schema cache/.test(err.message ?? "")
@@ -205,7 +205,7 @@ export async function addMemory(db: MemoryDb, creatorId: string, text: unknown, 
 }
 
 /**
- * Written with every column, then, before part 215 has run, without its two
+ * Written with every column, then, before part 231 has run, without its two
  * new ones: a note from a connected agent is kept as Storelib AI's rather than
  * lost, since part 106 allows only the creator and the assistant.
  */

@@ -79,7 +79,8 @@ async function main() {
     const extras = { activity: { posts30: 186, active7: 402, since: "2024-03-02T00:00:00Z" }, classroom: { total: 9, courses: [] }, creatorBio: null }
     const creator = { name: "Mara Lindqvist", username: "mara", avatarUrl: null, href: "/mara" }
     const facts = aboutFacts({ visibility: "private", creator }, { members: 8012, online: 191, admins: 2 }, extras)
-    check("the facts: members, kind, started, run by", facts.map((f) => `${f.key}=${f.value}`).join() === "members=8,012,visibility=Private,since=Mar 2024,creator=Mara Lindqvist", facts)
+    /* Changed on purpose (round 26, the owner): the admin count moved from the row under the name into this list. */
+    check("the facts: members, kind, admins, started, run by", facts.map((f) => `${f.key}=${f.value}`).join() === "members=8,012,visibility=Private,admins=2,since=Mar 2024,creator=Mara Lindqvist", facts)
     check("never active this week, never online now", !facts.some((f) => /active|online/i.test(f.label)))
     const bare = aboutFacts({ visibility: "public", creator: null }, { members: 1, online: null, admins: null }, null)
     check("a community with nothing counted yet: members and its kind alone", bare.map((f) => f.key).join() === "members,visibility", bare)
@@ -89,10 +90,10 @@ async function main() {
     const page = code("components/community/public/sales-page.tsx")
     check("the sheet leaves a cover only gallery out from 1024px, where the left card has it", /coverOnly && "lg:hidden"/.test(page) && /const coverOnly = galleryIsCoverOnly\(c\.gallery, c\.coverUrl\)/.test(page))
     /* Changed on purpose (round 33): the owner asked for the key facts in one row under the name at every width (about-row.tsx); the side card keeps the list of what the row does not say. */
-    check("no facts line under the name and no figures panel; the facts row under the name and the list in the side card", !/<FactsLine/.test(page) && !/<Figures /.test(page) && /<AboutRow facts=\{row\} faces=\{extras\?\.faces \?\? \[\]\}/.test(page) && /<JoinCard facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\} \/>/.test(page))
+    check("no facts line under the name and no figures panel; the facts row under the name and the list in the side card", !/<FactsLine/.test(page) && !/<Figures /.test(page) && /<AboutRow facts=\{row\} faces=\{extras\?\.faces \?\? \[\]\}/.test(page) && /<JoinCard\s+facts=\{facts\.length \? <FactsList facts=\{facts\} \/> : null\}/.test(page))
     check("no copy says active this week", !/Active this week/.test(page) && !/Active this week/.test(code("components/community/public/about-facts.ts")))
     const controls = code("components/community/public/join-controls.tsx")
-    check("the side card draws the facts where the member count line was", /export function JoinCard\(\{ facts = null \}/.test(controls) && /data-join-card-facts=""/.test(controls))
+    check("the side card draws the facts where the member count line was", /export function JoinCard\(\{ facts = null,/.test(controls) && /data-join-card-facts=""/.test(controls))
     check("Who runs it: View profile ends the row at every width; the line under the whole row on a phone", /grid-cols-\[48px_minmax\(0,1fr\)_auto\]/.test(page) && /col-start-3 row-start-1[^"]*justify-self-end/.test(page) && /col-span-3 col-start-1 row-start-2 mt-3/.test(page))
     const view = code("components/community/public/gallery-view.tsx")
     check("the swipe's index is a transition, so React never stalls the glide", /React\.startTransition\(\(\) => \{\s*setIndex\(i\)/.test(view))

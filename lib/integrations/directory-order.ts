@@ -6,10 +6,12 @@
  * (components/app/settings/integrations-directory.tsx), its probe and its
  * tests read the same ones.
  *
- *   THE PILLS     All, Reviews, Analytics, Installed, Storelib apps,
+ *   THE PILLS     All, Installed, Reviews, Analytics, Storelib apps,
  *                 Advertising, Email marketing, Automation, then every other
  *                 category in the catalog's order (Shipping, Print on
- *                 demand, Dropshipping, Fulfillment, Suppliers).
+ *                 demand, Dropshipping, Fulfillment, Suppliers). Installed
+ *                 moved up beside All in round K4, when it stopped being a
+ *                 list of its own above the cards.
  *
  *   ALL, MIXED    "Storelib's own apps all come first in a block." Now every
  *                 card sits in a lane (its category, or Storelib apps for one
@@ -32,7 +34,7 @@ import { CATEGORY_ORDER, type IntegrationCategory } from "@/lib/integrations/cat
 export type DirectoryPill = "all" | "installed" | "storelib" | IntegrationCategory
 
 /** The pills the owner placed, in their order. Every other category follows in CATEGORY_ORDER. */
-export const PILL_HEAD: DirectoryPill[] = ["all", "reviews", "analytics", "installed", "storelib", "advertising", "email", "automation"]
+export const PILL_HEAD: DirectoryPill[] = ["all", "installed", "reviews", "analytics", "storelib", "advertising", "email", "automation"]
 
 /** Every pill in order. A category with no card in it has no pill; All, Installed and Storelib apps always have one. */
 export function pillOrder(cardsIn: (pill: DirectoryPill) => number): DirectoryPill[] {

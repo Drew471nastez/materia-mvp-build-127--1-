@@ -467,11 +467,11 @@ async function main() {
   section("The SQL part, and where creators manage it")
   // ═════════════════════════════════════════════════════════════════════════
   {
-    const sql = read("supabase/sql/run-now/215_ai_memory_sources.sql")
-    check("part 215 adds the kind, the agent's name and the agent source, idempotently", /ADD COLUMN IF NOT EXISTS kind text/.test(sql) && /ADD COLUMN IF NOT EXISTS source_name text/.test(sql) && /source IN \('creator', 'assistant', 'agent'\)/.test(sql) && /DROP CONSTRAINT IF EXISTS ai_memories_source_check/.test(sql))
+    const sql = read("supabase/sql/run-now/231_ai_memory_sources.sql")
+    check("part 231 adds the kind, the agent's name and the agent source, idempotently", /ADD COLUMN IF NOT EXISTS kind text/.test(sql) && /ADD COLUMN IF NOT EXISTS source_name text/.test(sql) && /source IN \('creator', 'assistant', 'agent'\)/.test(sql) && /DROP CONSTRAINT IF EXISTS ai_memories_source_check/.test(sql))
     check("row level security stays on, and nobody changes a row in place", /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE UPDATE ON public\.ai_memories FROM authenticated, anon/.test(sql))
     check("its migration is the same file", sql === read("supabase/migrations/20270201_v6_ai_memory_sources.sql"))
-    check("and the run-now list names it", /`215_ai_memory_sources\.sql`/.test(read("supabase/sql/run-now/README.md")))
+    check("and the run-now list names it", /`231_ai_memory_sources\.sql`/.test(read("supabase/sql/run-now/README.md")))
     const api = read("app/api/ai-memory/route.ts") + read("app/api/ai-memory/[id]/route.ts") + read("app/api/ai-memory/caller.ts")
     check("the memory API checks a website is the caller's, through their own client", /\.from\("store_theme_installs"\)\.select\("id"\)\.eq\("id", installId\)\.eq\("creator_id", creator\.id\)/.test(api) && !/createAdminClient/.test(api))
     const settings = read("components/website-builder/website-settings/connections.tsx")

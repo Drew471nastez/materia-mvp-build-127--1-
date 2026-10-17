@@ -1,12 +1,12 @@
 import "server-only"
 
 /**
- * A store's upsells and bundles (store_offers, SQL parts 116 and 213; the
+ * A store's upsells and bundles (store_offers, SQL parts 116 and 230; the
  * arithmetic is lib/offers/offers.ts, the reads lib/offers/offers-read.ts):
  * the store's own edits from /app/offers, and the products an offer shows a
  * buyer. Every product and collection an offer names must be the store's
  * own; an offer whose products are no longer on sale simply doesn't apply.
- * Saving one of part 213's settings away from its default before that part
+ * Saving one of part 230's settings away from its default before that part
  * has run says which part to run, rather than dropping it without a word.
  */
 import { loggable } from "@/lib/admin/plain-reason"
@@ -15,9 +15,9 @@ import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { MAX_OFFERS, PLACEMENTS_FOR, discountLabel, offerUnitPrice, type Offer } from "@/lib/offers/offers"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { shopMoneyIn } from "@/lib/store/shop-money"
-import { BASE_COLUMNS, COLUMNS, PART_213, loadOffers, offerOf, type Row } from "./offers-read"
+import { BASE_COLUMNS, COLUMNS, PART_230, loadOffers, offerOf, type Row } from "./offers-read"
 
-export { collectionsOf, loadOffers, offerLinesFor, offerOf, PART_213, PART_213_COLUMNS } from "./offers-read"
+export { collectionsOf, loadOffers, offerLinesFor, offerOf, PART_230, PART_230_COLUMNS } from "./offers-read"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -38,7 +38,7 @@ async function ownCollections(db: Db, creatorId: string, ids: string[]): Promise
 
 type Failure = { ok: false; error: string; status: number }
 
-/** Whether an offer uses any of part 213's settings away from its default. */
+/** Whether an offer uses any of part 230's settings away from its default. */
 function usesNewSettings(o: Omit<Offer, "id">): boolean {
   const all = PLACEMENTS_FOR[o.kind]
   const places = o.placements ?? all
@@ -86,9 +86,9 @@ export async function saveOffer(db: Db, creatorId: string, id: string | null, of
     return db.from("store_offers").insert({ ...row, creator_id: creatorId, position: count ?? 0 }).select(columns).single()
   }
   let { data, error } = await write(true)
-  /* Part 213 not run yet: an offer that needs none of its settings is saved without them; one that does says so. */
+  /* Part 230 not run yet: an offer that needs none of its settings is saved without them; one that does says so. */
   if (error && (error.code === "42703" || error.code === "PGRST204")) {
-    if (usesNewSettings(offer)) return { ok: false, error: `Dates, places, limits, collections, free shipping and the code rule need SQL part 213 (${PART_213}). Run it in Supabase and save again.`, status: 503 }
+    if (usesNewSettings(offer)) return { ok: false, error: `Dates, places, limits, collections, free shipping and the code rule need SQL part 230 (${PART_230}). Run it in Supabase and save again.`, status: 503 }
     ;({ data, error } = await write(false))
   }
   if (error?.code === "LIMIT") return { ok: false, error: `A store can have up to ${MAX_OFFERS} offers.`, status: 400 }
@@ -219,7 +219,7 @@ export interface OfferAreaProduct {
 /**
  * Everything /app/offers draws, read once on the server (the page) or by
  * GET /api/store/offers: the offers in their order, the store's products and
- * collections to choose from, whether parts 116 and 213 have run, and the
+ * collections to choose from, whether parts 116 and 230 have run, and the
  * currency its amounts are in. Every read is filtered by the creator id the
  * caller was checked for.
  */

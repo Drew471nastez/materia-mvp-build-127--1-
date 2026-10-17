@@ -7,7 +7,8 @@
  * Round 9 put the places back on the left. Left: the community card (its
  * cover, its name with its address under it, storelib.com/community/<slug>,
  * which copies itself when pressed, Members / Online / Admins, the faces of
- * the members here most recently, Settings for the people who run it) and
+ * the members here most recently, Settings for the people who run it; round
+ * 26: the short description, the social icons and Share on the cover) and
  * right under it the places in the community, each a quiet grey tile with
  * its icon (place-icons.tsx, drawn by hand on one grid in round 11; the open
  * one's tile is white with a hairline and a one pixel shadow, its icon a
@@ -38,6 +39,10 @@ import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
 import { EDIT_GROUP, EditHint } from "./edit-hint"
 import { CARD, CARD_RAISED, DEPTH, DEPTH_PRESS, PRESS_PROPS, STACK, STACK_FACE } from "./ui"
+import { CardSummary } from "@/components/community/public/card-summary"
+import { SocialLinks } from "@/components/community/public/social-icons"
+import { CommunityShareButton } from "@/components/community/public/share-community"
+import { canShareCommunity } from "@/components/community/public/about-facts"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
 /* ── The community card ────────────────────────────────────────────────── */
@@ -123,10 +128,18 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
   if (stats.online !== null) cells.push(<Stat key="online" kind="online" value={compactCount(stats.online)} label="Online" dot={stats.online > 0} />)
   if (stats.admins !== null) cells.push(<Stat key="admins" kind="admins" value={compactCount(stats.admins)} label={stats.admins === 1 ? "Admin" : "Admins"} />)
   const moreLabel = `+${compactCount(more)}`
+  /*
+    Round 26, the owner's section 8: Share in the cover's upper right, the community's public address, while it may be
+    shared (published, not archived; a private one only by the people who run it, here those with Settings).
+  */
+  const share = canShareCommunity({ status: community.published === false ? "draft" : "published", archived: community.archived, visibility: community.visibility ?? null, access: community.access ?? null }, { staff: !!card.settingsHref })
+  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} /> : null
+  const links = community.links ?? []
   return (
     <section className={`${CARD} relative overflow-hidden ${card.settingsHref ? EDIT_GROUP : ""}`} data-wall-card="">
-      {/* Round 33: for whoever may change the page, the cover, name and tagline are a pencil away, under the pointer only. */}
-      {card.settingsHref ? <EditHint href={card.settingsHref.replace(/\/settings$/, "/page")} label="Edit page" className="absolute right-2.5 top-2.5 z-[1]" /> : null}
+      {/* Round 33: for whoever may change the page, the cover, name and tagline are a pencil away, under the pointer only. Beside Share when it is there. */}
+      {card.settingsHref ? <EditHint href={card.settingsHref.replace(/\/settings$/, "/page")} label="Edit page" className={`absolute top-2.5 z-[2] ${shareButton && community.coverUrl ? "right-12" : "right-2.5"}`} /> : null}
+      {shareButton && community.coverUrl ? <div className="absolute right-2.5 top-2.5 z-[2]">{shareButton}</div> : null}
       {community.coverUrl ? (
         /*
           ROUND 27, THE COVER ARRIVES SOFTLY AND AT ITS SIZE. It sits at the top of the left column on every place, so it
@@ -147,7 +160,12 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
             </Link>
             <WallAddress slug={community.slug} />
           </div>
+          {shareButton && !community.coverUrl ? <div className="shrink-0 self-start">{shareButton}</div> : null}
         </div>
+
+        {/* Round 26: the short description (clamped, with More) and the website and social pages, small. */}
+        {community.summary ? <CardSummary text={community.summary} className="mt-3" /> : null}
+        {links.length ? <SocialLinks links={links} size="sm" className="mt-3" /> : null}
 
         <div className="mt-3.5 flex items-stretch divide-x divide-[#eceef1] border-y border-[#eceef1] py-3" data-wall-stats="">
           {cells}

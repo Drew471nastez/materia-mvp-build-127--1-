@@ -20,9 +20,10 @@ export default async function CommunityOverviewPage({ params, searchParams }: { 
   const ctx = await sectionPage(id, "view")
   if (!ctx) return null
   /* Kept by the shell for the way back (round 31); ?created=1 is a one time ask, so it starts the overview again. */
+  /* Round 26: the frame draws as many figures as the Overview will (four for a community that charges, three otherwise). */
   return (
     <SectionSeed id="overview" stamp={query.created === "1" ? "created" : ""}>
-      <Suspense fallback={<SectionFrame id="overview" />}>
+      <Suspense fallback={<SectionFrame id="overview" facts={{ figures: ctx.community.access === "paid" ? 4 : 3 }} />}>
         {overviewBody({ ctx, created: query.created === "1" })}
       </Suspense>
     </SectionSeed>
@@ -37,7 +38,8 @@ async function overviewBody({ ctx, created }: { ctx: CreatorPageContext; created
       {/* Staff see why members have no Messages button, when the only reason is the missing database part. */}
       <MessagesSetupNote chatEnabled={!!ctx.community.chat_enabled} />
       <Overview head={head} data={data} created={created} />
-      {left ? (
+      {/* Round 26: only once somebody has said why; before that the card was one more box saying nothing yet. */}
+      {left && left.total > 0 ? (
         <div className="mt-4">
           <LeaveReasonsCard summary={left} />
         </div>

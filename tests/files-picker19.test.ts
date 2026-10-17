@@ -30,7 +30,7 @@ console.log("\nThumbnails are small copies from Next's optimizer, never the orig
 const own = "https://storelib.com/media/store-builder-images/u1/files/1.jpg"
 const t = fileThumb(own)
 check("a file's own address is resized", thumbable(own) && t.src.startsWith("/_next/image?url=") && t.src.includes(encodeURIComponent(own)), t)
-check("it offers 128, 256 and 384 wide copies, with sizes", (t.srcSet ?? "").split(", ").length === 3 && /128w/.test(t.srcSet ?? "") && /384w/.test(t.srcSet ?? "") && !!t.sizes, t)
+check("it offers 128, 256, 384 and 640 wide copies, with sizes (640 since round V, for Files' two across grid on a phone)", (t.srcSet ?? "").split(", ").length === 4 && /128w/.test(t.srcSet ?? "") && /384w/.test(t.srcSet ?? "") && /640w/.test(t.srcSet ?? "") && !!t.sizes, t)
 check("every width is one Next serves (imageSizes/deviceSizes)", THUMB_WIDTHS.every((w) => [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840].includes(w)))
 const qualities = config.match(/qualities:\s*\[([^\]]*)\]/)?.[1] ?? ""
 check("the quality is in next.config's list, so the optimizer answers 200", qualities.split(",").map((q) => Number(q.trim())).includes(THUMB_QUALITY), qualities)

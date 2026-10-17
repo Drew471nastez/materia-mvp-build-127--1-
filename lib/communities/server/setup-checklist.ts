@@ -98,7 +98,10 @@ export async function loadSetupChecklist(db: Db, a: { community: CommunityRow; u
     eventsEnabled: c.events_enabled,
     pricedEventsUnsellable: priced,
   }
-  return setupChecklist(factsFrom(c, base, extras, { invitesSent: invites, isOwner: a.role === "owner" }), `/app/community/${c.slug}`)
+  const list = setupChecklist(factsFrom(c, base, extras, { invitesSent: invites, isOwner: a.role === "owner" }), `/app/community/${c.slug}`)
+  /* Round 26: an archived community (one being deleted is archived too) is not being set up; its pill said "It is a draft. Publish". */
+  const closed = c.status === "archived" || !!c.archived_at || c.status === "suspended" || !!c.suspended_at
+  return closed ? { ...list, pillHidden: true } : list
 }
 
 export type SetupMarkResult = { ok: true } | { ok: false; status: number; error: string }

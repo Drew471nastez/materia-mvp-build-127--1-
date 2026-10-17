@@ -566,7 +566,7 @@ export async function dressPage(
   const reviews = pageWantsReviews(sections, sourceOf)
     ? await (async () => {
         const { storefrontReviews } = await import("@/lib/reviews/storefront-server")
-        return (await storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null)) as unknown as Record<string, unknown>
+        return (await storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null)) as unknown as Record<string, unknown>
       })().catch(() => undefined)
     : undefined
   const data = storefrontData({

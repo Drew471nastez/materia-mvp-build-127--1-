@@ -3,7 +3,7 @@ import { tt } from "@/lib/i18n/text"
  * ===========================================================================
  *  UPSELLS AND BUNDLES: WHAT AN OFFER TAKES OFF A CART
  * ===========================================================================
- * A store's offers (store_offers, SQL parts 116 and 213) are of two kinds:
+ * A store's offers (store_offers, SQL parts 116 and 230) are of two kinds:
  *
  *   bundle     two to five products bought together. Each complete set in
  *              the cart (one of each) gets the offer's discount: a percent
@@ -63,7 +63,7 @@ export interface Offer {
   /** Percent (1 to 90) or cents, by discountType; 0 for free shipping and none. */
   discountValue: number
   active: boolean
-  /** A checkout offer's trigger collections: a product from any of them in the cart qualifies it (SQL part 213). */
+  /** A checkout offer's trigger collections: a product from any of them in the cart qualifies it (SQL part 230). */
   triggerCollectionIds?: string[]
   /** Where it shows; every place its kind allows when unset. */
   placements?: Placement[]

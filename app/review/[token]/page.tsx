@@ -8,6 +8,9 @@ import { requestContext } from "@/lib/reviews/requests-server"
 import { photoViewUrl } from "@/lib/reviews/photos-server"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { ReviewPageForm, type ReviewPageProps } from "./review-form"
+import { CheckoutWords } from "@/app/checkout/parts/words"
+import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { cleanOrigin } from "@/lib/orders/order-source"
 
 export const dynamic = "force-dynamic"
 
@@ -23,6 +26,12 @@ export const dynamic = "force-dynamic"
  * Opened with ?rate=4 (a star pressed in the email), the form starts on
  * four stars. A review already written from this link is shown, and can be
  * changed for as long as the store allows.
+ *
+ * IN THE STORE'S LANGUAGE (round K5): the language the order was placed in
+ * when the website still publishes it, else the website's own, with the
+ * store's approved translations of the page's sentences (the checkout's
+ * words, lib/markets/checkout-language). A store whose website is in English
+ * and has no other language reads in English, as before.
  *
  * Never indexed, and the address is not sent on as a Referer.
  */
@@ -47,8 +56,12 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
   /* A new review needs the app on and a link under REQUEST_LINK_DAYS old (app/api/reviews/request); one already written can still be read here. */
   const expired = !review && (!ctx.settings.enabled || !requestLinkOpen(ctx.request as { sent_at?: string | null; created_at?: string | null }))
   const closed = !ctx.order || !canDeliver(ctx.order) || ctx.product.status === "deleted" || expired
+  /* The page's words, read beside the photos' signed addresses; English if the languages cannot be read. */
+  const languageLoad = checkoutLanguage(ctx.request.creator_id, null, cleanOrigin(ctx.order?.source_detail)?.lang ?? null).catch(() => null)
   const props: ReviewPageProps = {
     token,
+    /* The link names one order of this buyer's: whatever they write here is a verified purchase. */
+    verified: !!ctx.order,
     storeName: ctx.storeName,
     product: { title: ctx.product.title ?? "Your purchase", image: mediaUrl(ctx.product.thumbnail_url) ?? null },
     starColor: ctx.settings.display.starColor,
@@ -69,5 +82,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
         }
       : null,
   }
-  return <ReviewPageForm {...props} />
+  const language = await languageLoad
+  const form = <ReviewPageForm {...props} />
+  return language && language.lang ? <CheckoutWords lang={language.lang} words={language.words}>{form}</CheckoutWords> : form
 }

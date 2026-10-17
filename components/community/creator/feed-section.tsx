@@ -40,11 +40,26 @@
  *   row's menu. All, Pinned and Removed are read side by side and kept, so a
  *   press on one shows it at once (ALL, PINNED AND REMOVED, AT ONCE, below).
  *   The Scheduled and drafts panel comes with the page (its `initial`).
+ *
+ *   ROUND 26, the owner: the writer opened and closed with a jump, scheduling
+ *   was a second writer in a modal, and a post opened in a side panel.
+ *     THE WRITER'S MOVE. The composer slides what is under it as it grows and
+ *     folds (composer.tsx `following`), but here it sat alone in a wrapper, so
+ *     the panel and the list jumped by its height in one frame both ways. The
+ *     wrapper is marked data-composer-host and what follows it slides.
+ *     SCHEDULE IN THE WRITER. The composer is passed `staff` (./composer-
+ *     schedule.tsx): Schedule with a day and a time in the creator's zone,
+ *     Save draft, and a row of the Scheduled and drafts list opened in it to
+ *     change, reschedule, post now, make a draft or delete (part 194's routes).
+ *     The list keeps no form of its own.
+ *     THE COMMUNITY'S OWN POPUP. A row opens its post in member/post-overlay
+ *     (./post-viewer.tsx AdminPostOverlay) with the list's actions over it.
+ *     ANNOUNCEMENTS say so on their row, as Pinned does.
  */
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { BarChart3, Heart, Lock, MessageCircle, Paperclip, Pin, Star } from "lucide-react"
+import { BarChart3, Heart, Lock, Megaphone, MessageCircle, Paperclip, Pin, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
@@ -53,12 +68,13 @@ import { requestCompose } from "@/lib/communities/client/compose-intent"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { Composer, draftKey } from "@/components/community/member/composer"
-import { ScheduledPostsPanel } from "./scheduled-posts-panel"
+import { ScheduledPostsPanel, type ScheduledPanelControl } from "./scheduled-posts-panel"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { PostThumb } from "@/components/community/member/media"
 import { WARM_ON_HOVER_MS } from "@/components/community/member/post-card"
-import type { ScheduledPanelData } from "@/lib/communities/scheduled-posts"
-import { PostViewer, staffViewer, warmPost, type ViewerAction } from "./post-viewer"
+import type { ScheduledPanelData, ScheduledPostView } from "@/lib/communities/scheduled-posts"
+import { AdminPostOverlay, OPEN_WAIT_MS, keptPost, previewOf, readPost, staffViewer, warmPost, type AdminPostHands } from "./post-viewer"
+import type { ComposerStaff, StaffSaved } from "./composer-schedule"
 import { spaceGlyph } from "@/components/community/member/space-glyph"
 import { Toasts } from "@/components/community/member/toast"
 import { api, apiBase } from "@/components/community/member/api"
@@ -346,12 +362,10 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
   const next = view?.next ?? null
   const loading = !current
 
-  /* The post open in the viewer (./post-viewer.tsx): its row as the lists have it now, or as it was when it left them. */
-  const [viewing, setViewing] = React.useState<FeedRowView | null>(null)
-  const [viewerOpen, setViewerOpen] = React.useState(false)
-  const [viewerError, setViewerError] = React.useState<string | null>(null)
+  /* The post open in the community's own popup (./post-viewer.tsx AdminPostOverlay), and the press still waiting for one. */
+  const [opened, setOpened] = React.useState<FeedPostView | null>(null)
+  const openTicket = React.useRef(0)
   const viewer = React.useMemo(() => staffViewer(head), [head])
-  const viewerRow = viewing ? (rowIn(lists, viewing.id) ?? viewing) : null
 
   /* One row changed (or went, null) everywhere it is kept. */
   const changeRow = React.useCallback(
@@ -359,7 +373,6 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
       const was = rowIn(listsRef.current, id) ?? known ?? null
       const row = was ? fn(was) : null
       commit(relist(listsRef.current, id, row, filter.current))
-      setViewing((v) => (v && v.id === id && row ? row : v))
     },
     [commit],
   )
@@ -371,7 +384,11 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     router.refresh()
   }
 
-  /* `quiet`: asked from the viewer, whose buttons show what happened; an error is handed back for it to say. */
+  /* Remove and Delete asked from the popup: what to do there once they have happened. */
+  const removingDone = React.useRef<(() => void) | null>(null)
+  const deletingDone = React.useRef<(() => void) | null>(null)
+
+  /* `quiet`: asked from the popup, whose buttons show what happened; an error is handed back for it to say. */
   const act = async (r: FeedRowView, action: string, extra?: { reason?: string; spaceId?: string }, quiet = false): Promise<string | null> => {
     setBusy(true)
     const res = await send<{ status?: string }>(`${base}/moderation`, "POST", { action, targetType: "post", targetId: r.id, reason: extra?.reason, spaceId: extra?.spaceId })
@@ -383,6 +400,10 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     }
     setRemoving(null)
     setMoving(null)
+    if (action === "remove") {
+      removingDone.current?.()
+      removingDone.current = null
+    }
     const to = extra?.spaceId ? spaces.find((s) => s.id === extra.spaceId) : undefined
     const icon = writerSpaces.find((s) => s.id === to?.id)?.icon ?? null
     changeRow(r.id, (x) => patched(x, action, to, icon), r)
@@ -404,7 +425,8 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     setBusy(false)
     if (!res.ok) return toast(res.error || tt("The post was not deleted. Try again."))
     changeRow(deleting.id, () => null)
-    if (viewing?.id === deleting.id) setViewerOpen(false)
+    deletingDone.current?.()
+    deletingDone.current = null
     setDeleting(null)
     toast(tt("Post deleted"))
   }
@@ -425,12 +447,32 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
 
   const hrefOf = (r: FeedRowView) => postPath(head.slug, { id: r.id, title: r.title, bodyText: r.excerpt })
 
-  /* A row opens its post here, over the list (./post-viewer.tsx); what it needs is asked for as the press lands. */
+  /*
+    A row opens its post here, over the list, in the community's own popup; what it needs is asked for as the press lands.
+    A post read before opens on the press; one not read yet is waited for a moment (OPEN_WAIT_MS), so the popup opens with
+    the whole post, not the row's short one growing under the eye. The list's own word on a pin, a lock or a removal wins
+    over a copy read before it.
+  */
+  const withRow = (p: FeedPostView, r: FeedRowView | null): FeedPostView =>
+    r ? { ...p, kind: r.kind, pinned: r.pinned, locked: r.locked, featured: r.featured, status: r.status === "removed" ? "removed" : p.status } : p
   const openPost = (r: FeedRowView) => {
     warmPost(head.id, r)
-    setViewerError(null)
-    setViewing(r)
-    setViewerOpen(true)
+    const ticket = ++openTicket.current
+    const have = keptPost(r.id)
+    if (have) return setOpened(withRow(have, r))
+    void Promise.race([readPost(head.id, r.id), new Promise<null>((done) => window.setTimeout(() => done(null), OPEN_WAIT_MS))]).then((p) => {
+      if (ticket !== openTicket.current) return
+      setOpened(withRow(p ?? previewOf(r, head.id), rowIn(listsRef.current, r.id) ?? r))
+    })
+  }
+  /* A posted one in the Scheduled and drafts list: its post, read, then opened the same way. */
+  const openPostById = (postId: string) => {
+    const ticket = ++openTicket.current
+    void readPost(head.id, postId).then((p) => {
+      if (ticket !== openTicket.current) return
+      if (p) setOpened(withRow(p, rowIn(listsRef.current, postId)))
+      else toast(tt("That post could not be opened."))
+    })
   }
   /* A mouse resting on a row (WARM_ON_HOVER_MS, the member feed's) reads its post ahead; a press reads it as it lands (hands, below). */
   const hoverTimer = React.useRef(0)
@@ -457,32 +499,62 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
     return items
   }
 
-  /* The same actions as the row's menu, as the viewer's row of buttons (Edit is the viewer's own: the card's composer). */
-  const viewerActions = (r: FeedRowView): ViewerAction[] => {
-    const c = head.can
-    const mine = !!me && r.authorId === me.userId
-    const now = (action: string) => async () => setViewerError(await act(r, action, undefined, true))
-    const out: ViewerAction[] = []
-    if (r.status === "published") {
-      if (c.pin) out.push(r.pinned ? { id: "unpin", label: tt("Unpin"), run: now("unpin") } : { id: "pin", label: tt("Pin"), run: now("pin") })
-      if (c.moderate_content && spaces.length > 1) out.push({ id: "move", label: tt("Move"), run: () => setMoving({ row: r, to: r.spaceId ?? "" }) })
-      if (c.lock) out.push(r.locked ? { id: "reopen", label: tt("Allow comments"), run: now("reopen") } : { id: "lock", label: tt("Lock comments"), run: now("lock") })
-      if (c.feature) out.push(r.featured ? { id: "unfeature", label: tt("Stop featuring"), run: now("unfeature") } : { id: "feature", label: tt("Feature"), run: now("feature") })
-      if (mine) out.push({ id: "delete", label: tt("Delete"), danger: true, run: () => setDeleting(r) })
-      else if (c.moderate_content) out.push({ id: "remove", label: tt("Remove"), danger: true, run: () => setRemoving(r) })
-    } else if (r.status === "removed" && c.moderate_content) {
-      out.push({ id: "restore", label: tt("Restore"), run: now("restore") })
-    }
-    return out
-  }
-
   /*
     NOTHING BUT THE LIST IS DRAWN AGAIN FOR A TAB (round 33). The writer and the panel are the same elements from one press
     to the next (so React leaves them as they are), and a row that is in both lists is not drawn again (FeedRow, memo):
     a press on a tab costs the rows that change, not the section.
   */
-  const latest = React.useRef({ onPosted, openPost, menu })
-  latest.current = { onPosted, openPost, menu }
+  /* What the popup asks of the list (./post-viewer.tsx AdminPostHands): the same functions for the section's whole life. */
+  const rowFor = (p: FeedPostView): FeedRowView => rowIn(listsRef.current, p.id) ?? rowOfPost(p, me)
+  const overlayUpdate = (id: string, fn: (p: FeedPostView) => FeedPostView | null) => {
+    const cur = openedRef.current
+    if (!cur || cur.id !== id) return
+    const next = fn(cur)
+    if (!next) return changeRow(id, () => null)
+    openedRef.current = next
+    changeRow(id, (y) => ({ ...y, ...rowOfPost(next, me), authorName: y.authorName, authorAvatar: y.authorAvatar }), rowOfPost(next, me))
+  }
+  const openedRef = React.useRef<FeedPostView | null>(null)
+  if (opened && openedRef.current?.id !== opened.id) openedRef.current = opened
+
+  /* The staff writer (./composer-schedule.tsx): a row of the Scheduled and drafts list, or Schedule a post, opens it. */
+  const panelControl = React.useRef<ScheduledPanelControl | null>(null)
+  const [staffAsk, setStaffAsk] = React.useState<ComposerStaff["open"]>(null)
+  const askWriter = (item: ScheduledPostView | null) => setStaffAsk((a) => ({ seq: (a?.seq ?? 0) + 1, item }))
+  const onStaffSaved = (done: StaffSaved) => {
+    if (done.kind === "deleted") return panelControl.current?.drop(done.id)
+    panelControl.current?.put(done.post)
+    /* Posted now from the list: the post goes into the list of posts as the feed has it. */
+    if (done.kind === "published" && done.post.postId) {
+      void readPost(head.id, done.post.postId, true).then((p) => {
+        if (p) {
+          const row = rowOfPost(p, me)
+          changeRow(p.id, () => row, row)
+        } else router.refresh()
+      })
+    }
+  }
+
+  const latest = React.useRef({ onPosted, openPost, menu, act, rowFor, overlayUpdate, askWriter, onStaffSaved, openPostById })
+  latest.current = { onPosted, openPost, menu, act, rowFor, overlayUpdate, askWriter, onStaffSaved, openPostById }
+  const adminHands = React.useMemo<AdminPostHands>(
+    () => ({
+      act: (p, action, extra) => latest.current.act(latest.current.rowFor(p), action, extra, true),
+      askRemove: (p, done) => {
+        removingDone.current = done
+        setRemoving(latest.current.rowFor(p))
+      },
+      askDelete: (p, done) => {
+        deletingDone.current = done
+        setDeleting(latest.current.rowFor(p))
+      },
+      update: (id, fn) => latest.current.overlayUpdate(id, fn),
+      communityHref: (p) => postPath(head.slug, { id: p.id, title: p.title, bodyText: p.bodyText }),
+    }),
+    [head.slug],
+  )
+  const staffReady = scheduled?.ready !== false
+  const staff = React.useMemo<ComposerStaff>(() => ({ ready: staffReady, open: staffAsk, onSaved: (d) => latest.current.onStaffSaved(d) }), [staffReady, staffAsk])
   const posted = React.useCallback((post: FeedPostView) => latest.current.onPosted(post), [])
   const hands = React.useMemo<RowHands>(
     () => ({
@@ -509,15 +581,24 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
         <div
           className="max-sm:[&>[data-composer]]:mx-0 max-sm:[&>[data-composer]]:w-auto max-sm:[&>[data-composer]]:rounded-2xl max-sm:[&>[data-composer]]:border max-sm:[&>[data-composer]]:border-[#e5e7eb]/80"
           data-feed-writer=""
+          /* What comes after this wrapper (the panel, the list) slides as the editor grows and folds (composer.tsx following). */
+          data-composer-host=""
           data-composer-welcome={welcome ? "" : undefined}
         >
-          <Composer communityId={head.id} userId={me.userId} me={writerMe} spaces={writerSpaces} onPosted={posted} />
+          <Composer communityId={head.id} userId={me.userId} me={writerMe} spaces={writerSpaces} onPosted={posted} staff={staff} />
         </div>
       ) : null,
-    [canWrite, me, writerMe, welcome, head.id, writerSpaces, posted],
+    [canWrite, me, writerMe, welcome, head.id, writerSpaces, posted, staff],
   )
   /* Drafts and posts set to go up later (./scheduled-posts-panel), drawn with the page from what it read (round 33). */
-  const panel = React.useMemo(() => <ScheduledPostsPanel head={head} initial={scheduled} />, [head, scheduled])
+  const panelHands = React.useMemo(
+    () => ({ compose: () => latest.current.askWriter(null), edit: (row: ScheduledPostView) => latest.current.askWriter(row), open: (id: string) => latest.current.openPostById(id) }),
+    [],
+  )
+  const panel = React.useMemo(
+    () => <ScheduledPostsPanel head={head} initial={scheduled} onCompose={canWrite ? panelHands.compose : undefined} onEdit={canWrite ? panelHands.edit : undefined} onOpenPost={panelHands.open} control={panelControl} />,
+    [head, scheduled, canWrite, panelHands],
+  )
 
   return (
     <div className="space-y-4" data-feed="">
@@ -598,7 +679,7 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
                   </div>
                 </li>
               ) : (
-                <FeedRow key={r.id} r={r} head={head} href={hrefOf(r)} open={viewerOpen && viewing?.id === r.id} hands={hands} />
+                <FeedRow key={r.id} r={r} head={head} href={hrefOf(r)} open={opened?.id === r.id} hands={hands} />
               ),
             )}
           </ul>
@@ -608,19 +689,20 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
       {spaces.length === 0 && head.can.manage_spaces ? <Notice tone="info">{tt("There is no space to post in. Add one under Spaces.")}</Notice> : null}
       {head.can.post && spaces.length > 0 && !head.archived && !me ? <Notice tone="info">{tt("Refresh the page to write a post.")}</Notice> : null}
 
-      <PostViewer
-        open={viewerOpen}
-        row={viewerRow}
-        head={head}
-        viewer={viewer}
-        spaces={writerSpaces}
-        actions={viewerRow ? viewerActions(viewerRow) : []}
-        busy={busy}
-        error={viewerError}
-        communityHref={viewerRow ? hrefOf(viewerRow) : `/community/${head.slug}`}
-        onClose={() => setViewerOpen(false)}
-        onChange={(post) => changeRow(post.id, (y) => ({ ...y, ...rowOfPost(post, me), authorName: y.authorName, authorAvatar: y.authorAvatar }))}
-      />
+      {opened ? (
+        <AdminPostOverlay
+          post={opened}
+          head={head}
+          viewer={viewer}
+          spaces={writerSpaces}
+          hands={adminHands}
+          onClose={() => {
+            openTicket.current++
+            openedRef.current = null
+            setOpened(null)
+          }}
+        />
+      ) : null}
 
       <FormSheet
         open={moving !== null}
@@ -651,8 +733,8 @@ export function FeedSection({ head, initial, spaces, compose, scheduled }: { hea
         ) : null}
       </FormSheet>
 
-      <Confirm open={removing !== null} onClose={() => setRemoving(null)} title={tt("Remove this post?")} detail={tt("Members stop seeing it. You can restore it from Removed.")} action={tt("Remove")} danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", { reason: reason || undefined })} />
-      <Confirm open={deleting !== null} onClose={() => setDeleting(null)} title={tt("Delete this post?")} detail={tt("It is gone for everyone, with its comments. This cannot be undone.")} action={tt("Delete")} danger busy={busy} onConfirm={() => void remove()} />
+      <Confirm open={removing !== null} onClose={() => ((removingDone.current = null), setRemoving(null))} title={tt("Remove this post?")} detail={tt("Members stop seeing it. You can restore it from Removed.")} action={tt("Remove")} danger busy={busy} reason onConfirm={(reason) => removing && void act(removing, "remove", { reason: reason || undefined })} />
+      <Confirm open={deleting !== null} onClose={() => ((deletingDone.current = null), setDeleting(null))} title={tt("Delete this post?")} detail={tt("It is gone for everyone, with its comments. This cannot be undone.")} action={tt("Delete")} danger busy={busy} onConfirm={() => void remove()} />
     </div>
   )
 }
@@ -698,10 +780,20 @@ function FeedRowBody({ r, head, href, onOpen }: { r: FeedRowView; head: Communit
     <div className="flex min-w-0 flex-1 gap-3">
       <MemberAvatar src={r.authorAvatar ?? undefined} name={r.authorName} size={36} className={cn("mt-0.5 h-9 w-9 shrink-0 rounded-full", !live && "opacity-60")} lazy />
       <div className="min-w-0 flex-1">
-        {r.pinned ? (
-          <p className="mb-0.5 flex items-center gap-1 text-[12px] font-medium text-[#4b5563]" data-feed-pinned="">
-            <Pin aria-hidden className="h-3 w-3" />
-            {tt("Pinned")}
+        {r.pinned || r.kind === "announcement" ? (
+          <p className="mb-0.5 flex items-center gap-3 text-[12px] font-medium text-[#4b5563]">
+            {r.pinned ? (
+              <span className="inline-flex items-center gap-1" data-feed-pinned="">
+                <Pin aria-hidden className="h-3 w-3" />
+                {tt("Pinned")}
+              </span>
+            ) : null}
+            {r.kind === "announcement" ? (
+              <span className="inline-flex items-center gap-1" data-feed-announcement="">
+                <Megaphone aria-hidden className="h-3 w-3" />
+                {tt("Announcement")}
+              </span>
+            ) : null}
           </p>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] text-[#6b7280]">

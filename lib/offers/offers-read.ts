@@ -1,13 +1,13 @@
 /**
- * Reading a store's offers (store_offers, SQL parts 116 and 213) with
+ * Reading a store's offers (store_offers, SQL parts 116 and 230) with
  * whatever database client the caller has: the checkout's and the basket's
  * pricing (lib/physical/checkout-pricing-server.ts, lib/checkout/pricing.ts),
  * the cart and the product page. Kept apart from ./offers-server.ts, which
  * is server only and holds the store's own edits, so pricing code that its
  * tests run directly can import it. The arithmetic is ./offers.ts.
  *
- * A database that has part 116 and not yet 213 still reads and applies the
- * offers it has, with the defaults for the settings 213 adds (shown
+ * A database that has part 116 and not yet 230 still reads and applies the
+ * offers it has, with the defaults for the settings 230 adds (shown
  * everywhere, no dates, combines with codes, no limits).
  */
 import { loggable } from "@/lib/admin/plain-reason"
@@ -37,11 +37,11 @@ export type Row = {
   min_subtotal_cents?: number | null
 }
 export const BASE_COLUMNS = "id, kind, title, product_ids, trigger_product_ids, discount_type, discount_value, active, position"
-/** Added by SQL part 213. */
-export const PART_213_COLUMNS = ["trigger_collection_ids", "placements", "starts_at", "ends_at", "combines_with_codes", "max_per_order", "min_subtotal_cents"] as const
-export const COLUMNS = `${BASE_COLUMNS}, ${PART_213_COLUMNS.join(", ")}`
+/** Added by SQL part 230. */
+export const PART_230_COLUMNS = ["trigger_collection_ids", "placements", "starts_at", "ends_at", "combines_with_codes", "max_per_order", "min_subtotal_cents"] as const
+export const COLUMNS = `${BASE_COLUMNS}, ${PART_230_COLUMNS.join(", ")}`
 export const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
-export const PART_213 = "supabase/sql/run-now/213_store_offers_settings.sql"
+export const PART_230 = "supabase/sql/run-now/230_store_offers_settings.sql"
 
 export const offerOf = (r: Row): Offer => {
   const kind = r.kind
@@ -68,11 +68,11 @@ export const offerOf = (r: Row): Offer => {
  * The store's offers, in its order. `live`: only those on now (switched on,
  * started, not ended), for a buyer. A database without part 116 has none; a
  * failed read has none too, so a checkout never stops on it. `settings`
- * says whether part 213's columns are there.
+ * says whether part 230's columns are there.
  */
 export async function loadOffers(db: Db, creatorId: string, opts: { activeOnly?: boolean } = {}): Promise<{ offers: Offer[]; ready: boolean; settings: boolean }> {
   try {
-    const { data, error, dropped } = await selectTolerant("offers", COLUMNS, PART_213_COLUMNS, (columns) => {
+    const { data, error, dropped } = await selectTolerant("offers", COLUMNS, PART_230_COLUMNS, (columns) => {
       let q = db.from("store_offers").select(columns).eq("creator_id", creatorId)
       if (opts.activeOnly) q = q.eq("active", true)
       return q.order("position", { ascending: true }).order("created_at", { ascending: true }).limit(MAX_OFFERS)

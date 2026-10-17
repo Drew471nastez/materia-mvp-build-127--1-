@@ -81,7 +81,7 @@ export function OfferEditor({
   currency: string
   /** Physical commerce is on: free shipping can be offered. */
   physical: boolean
-  /** SQL part 213 has run: dates, places, limits and the rest can be saved. */
+  /** SQL part 230 has run: dates, places, limits and the rest can be saved. */
   settingsReady: boolean
   onRequestClose: (dirty: boolean) => void
   /** Saves, and answers with what went wrong, or null. */
@@ -345,7 +345,7 @@ export function OfferEditor({
             </section>
 
             {newSettingsUsed ? (
-              <p className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Dates, places, limits, collections, free shipping and the code rule need SQL part 213 before they can be saved.")}</p>
+              <p className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.")}</p>
             ) : null}
 
             {error ? (
