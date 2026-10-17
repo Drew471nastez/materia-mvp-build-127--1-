@@ -26,6 +26,7 @@ import { tt } from "@/lib/i18n/text"
 import { Section, buttonPrimary, card } from "./parts"
 import { Shimmer, ShimmerBlock, ShimmerRows, ShimmerChart } from "@/components/ui/shimmer"
 import type { AdminSection } from "./logic"
+import { figureColumns } from "./overview"
 
 /**
  * Posts' Scheduled and drafts card before its rows are here (round 33): its own title and words, the room of its button
@@ -63,6 +64,8 @@ export interface SectionFrameFacts {
   composer?: boolean
   /** Settings: the address names no panel, so a phone opens on the list of panels (settings-section.tsx). */
   settingsList?: boolean
+  /** Overview (round 26): how many figures it draws, four for a community that sells and three otherwise (four when not said). */
+  figures?: number
 }
 
 /** Settings' list of panels on a phone, in its three groups: a group's name over a card of 60px rows. */
@@ -128,21 +131,24 @@ function ListFrame({ words, action, toolbar = false, rows, rowHeight, lead = fal
   )
 }
 
-/** The overview's figures: the Figure cell's own box (components/community/creator/overview.tsx), four of them. */
-function FiguresFrame() {
+/**
+ * The overview's figures: the Figure cell's own box (components/community/creator/overview.tsx), as many as it draws, in
+ * its columns (figureColumns): rows on a phone (the name and its line on the left, the number on the right), two by two up
+ * to 1024px, one row after.
+ */
+function FiguresFrame({ n }: { n: number }) {
   return (
     <section className={cn(card, "overflow-hidden")} data-frame-card="">
-      <Shimmer className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="bg-white">
-            <div className="min-w-0 px-4 py-3.5 sm:px-5 sm:py-4">
-              <p className="truncate text-[12.5px] font-medium">
-                <ShimmerBlock className="inline-block h-2.5 w-20 rounded-full align-middle" />
-              </p>
-              <p className="mt-1 text-[22px] font-semibold leading-7">
-                <ShimmerBlock className="inline-block h-5 w-16 rounded-md align-middle" />
-              </p>
-            </div>
+      <Shimmer className={cn("grid grid-cols-1 gap-px bg-[#f1f2f4]", figureColumns(n))}>
+        {Array.from({ length: n }, (_, i) => (
+          <div key={i} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 bg-white px-4 py-3 sm:grid-cols-1 sm:items-start sm:px-5 sm:py-3.5">
+            <span className="col-start-1 row-start-1 block truncate text-[13px] font-medium leading-5 sm:text-[12px] sm:leading-[18px]">
+              <ShimmerBlock className="inline-block h-2.5 w-20 rounded-full align-middle" />
+            </span>
+            <span className="col-start-2 row-span-2 row-start-1 block text-[20px] font-semibold leading-7 sm:col-start-1 sm:row-span-1 sm:row-start-2 sm:mt-0.5 sm:text-[22px]">
+              <ShimmerBlock className="inline-block h-5 w-16 rounded-md align-middle" />
+            </span>
+            <span className="col-start-1 row-start-2 block h-4 text-[12px] leading-4 sm:row-start-3 sm:text-[11px]" />
           </div>
         ))}
       </Shimmer>
@@ -170,7 +176,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
     case "overview":
       body = (
         <>
-          <FiguresFrame />
+          <FiguresFrame n={facts.figures ?? 4} />
           <PanelFrame rows={3} />
         </>
       )
@@ -226,15 +232,15 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       )
       break
     case "page":
-      /* Round 33, the Page editor: the page's preview, and from 1024px the panel beside it. */
+      /* The Page editor: the page's preview, and from 1280px the panel beside it (round 26: a drawer below that, page-editor/**). */
       body = (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6" data-frame-page="">
+        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6" data-frame-page="">
           <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
             <Shimmer className="h-full">
               <ShimmerBlock className="h-full w-full rounded-xl" />
             </Shimmer>
           </section>
-          <PanelFrame rows={5} className="hidden lg:block" />
+          <PanelFrame rows={5} className="hidden xl:block" />
         </div>
       )
       break

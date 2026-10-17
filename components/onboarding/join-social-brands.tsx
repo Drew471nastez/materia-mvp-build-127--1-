@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import type { IconType } from "react-icons"
 import { FaBluesky, FaInstagram, FaLinkedin, FaTiktok, FaXTwitter, FaYoutube } from "react-icons/fa6"
 
@@ -12,6 +13,7 @@ export const JOIN_SOCIAL_BRANDS: Record<"tiktok" | "instagram" | "youtube" | "bl
 }
 
 export function JoinSocialBrandIcon({ id, className }: { id: keyof typeof JOIN_SOCIAL_BRANDS; className?: string }) {
-  const Icon = JOIN_SOCIAL_BRANDS[id]
+  /* react-icons' type answers ReactNode, which the tests' loose compile refuses as a component; it always draws an <svg>. */
+  const Icon = JOIN_SOCIAL_BRANDS[id] as unknown as ComponentType<{ className?: string; "aria-hidden"?: boolean }>
   return <Icon className={className} aria-hidden />
 }

@@ -3,6 +3,7 @@
  * lib/communities/types.ts. Types and tiny pure helpers only, so a client
  * component and a server module can both import this file.
  */
+import type { SocialLinkView } from "@/lib/communities/social-links"
 import type { AuthorView, CommentView, CommunityAccess, CommunityVisibility, FeedPostView, MemberView, PostMedia, Role, SpaceKind } from "@/lib/communities/types"
 
 export type { AuthorView, CommentView, FeedPostView, MemberView }
@@ -49,6 +50,15 @@ export interface ShellCommunity {
   visibility?: CommunityVisibility
   /** Joining waits for an admin's yes. */
   approvalRequired?: boolean
+  /**
+   * Round 26: what the community card says under the address, already resolved: the creator's short description, else
+   * the tagline, else the start of the description (components/community/public/about-facts.ts cardSummary).
+   */
+  summary?: string | null
+  /** Round 26: the website and social pages as the card's icons (lib/communities/social-links.ts). */
+  links?: SocialLinkView[]
+  /** Round 26: published (not a draft), for whether the card's cover offers Share. */
+  published?: boolean
 }
 
 /** A community as the top bar and its switcher draw it. */

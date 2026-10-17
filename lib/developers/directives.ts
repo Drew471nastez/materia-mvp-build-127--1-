@@ -77,6 +77,8 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
   strip_html: { use: `alt="{{ settings.heading | strip_html }}"`, does: "The words of some markup, entities decoded, on one line. For an alt text or a title made from a rich text setting." },
   lines: { use: `{% for line in block.settings.features | lines %}`, does: "Each line of a text that has something on it, trimmed, as a list, at most 100. For a `textarea` typed one item per line: the features of a plan, the lessons of a module." },
   alpha: { use: `{{ settings.color | alpha: 0.4 }}`, does: "A 3 or 6 digit hex colour at that opacity, as `rgba()`. Anything else passes through unchanged." },
+  review_widget: { use: `{{ settings | review_widget }}`, does: "A Storelib Reviews widget, drawn from the section's settings (which widget, the saved look it names, this page's changes) and the page's reviews. The engine builds and escapes the markup. sections/reviews_widget.storelib uses it." },
+  review_widget_css: { use: `{{ settings | review_widget_css }}`, does: "That widget's stylesheet, for the section's <style> block, where it is scoped to the section like the rest of the block." },
 }
 
 export const CAPABILITY_DOCS: Record<string, { grants: string; now: boolean }> = {

@@ -13,7 +13,15 @@
  *
  * Read again when the builder comes back into view: a translation approved
  * in Settings › Markets and languages shows without a reload. Remembered for
- * the tab, per install. Nothing here is saved anywhere.
+ * the tab, per install (sessionStorage), so a reload or the next page opens
+ * in the language last picked. Nothing here is saved to the website.
+ *
+ * THE SAME LANGUAGE IS THE ONE BEING EDITED. In another language than the
+ * website's own, the sidebar's text settings show and write that
+ * language's translations (components/website-builder/editor/
+ * translation-editing.tsx); `patch` lays a translation just typed or
+ * just written by Storelib AI over the canvas at once, before the save
+ * lands. `raw` is every value with who wrote it and for which original.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { translationMap, valueFor, type TranslationMap } from "@/lib/markets/translate"
@@ -31,16 +39,26 @@ export interface PreviewLanguage {
   map: TranslationMap | null
   /** The shop's own words (cart, buttons) in it (lib/markets/ui-words.ts). */
   words: Record<string, string>
+  /** The language's values as read, with the original's hash and who wrote them (`s: "ai"`, else the merchant). */
+  raw: Values
+  /** Lays one value over (or takes it away, null) at once, for the language shown. */
+  patch: (key: string, value: Values[string] | null) => void
+  /** Texts kept untranslated (Settings › Glossary), and whether product names are. */
+  noTranslate: string[]
+  keepProductNames: boolean
 }
 
+const remembered = (installId: string) => `wb-preview-lang:${installId}`
+
 /** `s`: "ai" for Storelib AI's, so the preview hides an outdated one as the live site does (lib/markets/translate.ts valueFor); a person's stays. */
-type Values = Record<string, { v: string; h: string; s?: "ai" }>
-type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values }
+export type Values = Record<string, { v: string; h: string; s?: "ai" }>
+type Answer = { locale: string | null; defaultLanguage: string; languages: string[]; published?: string[]; values: Values; noTranslate?: string[]; keepProductNames?: boolean }
 
 export function usePreviewLanguage(installId: string): PreviewLanguage {
   const [info, setInfo] = useState<{ languages: string[]; published: string[]; defaultLanguage: string }>({ languages: [], published: [], defaultLanguage: "en" })
   const [locale, setLocaleState] = useState<string | null>(null)
   const [values, setValues] = useState<{ locale: string; values: Values } | null>(null)
+  const [rules, setRules] = useState<{ noTranslate: string[]; keepProductNames: boolean }>({ noTranslate: [], keepProductNames: false })
   const localeRef = useRef(locale)
   localeRef.current = locale
 
@@ -52,6 +70,10 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
       const languages = Array.isArray(d.languages) && d.languages.length > 1 ? d.languages : []
       setInfo((prev) => {
         const next = { languages, published: Array.isArray(d.published) ? d.published : [], defaultLanguage: d.defaultLanguage || "en" }
+        return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+      })
+      setRules((prev) => {
+        const next = { noTranslate: Array.isArray(d.noTranslate) ? d.noTranslate : [], keepProductNames: d.keepProductNames === true }
         return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
       })
       /* An answer for a language no longer picked is not drawn. */
@@ -68,11 +90,23 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
     }
   }, [])
 
-  /* The editor opens in the website's own language, as a visitor's first page does; the theme's own selector in the canvas changes it. */
+  /*
+    The editor opens in the language last picked in this tab for this
+    website, else in its own, as a visitor's first page does. A remembered
+    language the website no longer has falls back to its own (the answer
+    comes back without a locale).
+  */
   useEffect(() => {
-    localeRef.current = null
-    setLocaleState(null)
+    let start: string | null = null
+    try {
+      start = window.sessionStorage.getItem(remembered(installId)) || null
+    } catch {
+      /* Storage off: the website's own language. */
+    }
+    localeRef.current = start
+    setLocaleState(start)
     void read(null)
+    if (start) void read(start)
   }, [installId, read])
 
   useEffect(() => {
@@ -92,10 +126,30 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
       const next = code && code !== info.defaultLanguage ? code : null
       localeRef.current = next
       setLocaleState(next)
+      try {
+        if (next) window.sessionStorage.setItem(remembered(installId), next)
+        else window.sessionStorage.removeItem(remembered(installId))
+      } catch {
+        /* Not remembered: the choice still holds for this page. */
+      }
       void read(next)
     },
-    [info.defaultLanguage, read],
+    [info.defaultLanguage, read, installId],
   )
+
+  const patch = useCallback((key: string, value: Values[string] | null) => {
+    setValues((prev) => {
+      const shownNow = localeRef.current
+      if (!prev || (shownNow && prev.locale !== shownNow)) {
+        if (!shownNow || !value) return prev
+        return { locale: shownNow, values: { [key]: value } }
+      }
+      const next = { ...prev.values }
+      if (value) next[key] = value
+      else delete next[key]
+      return { locale: prev.locale, values: next }
+    })
+  }, [])
 
   /* The language drawn: the one picked, else the default, whose translations are laid over too (an English theme on a store whose default is Spanish reads Spanish). */
   const shown = locale ?? info.defaultLanguage
@@ -114,5 +168,6 @@ export function usePreviewLanguage(installId: string): PreviewLanguage {
     return out
   }, [map])
 
-  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words }
+  const raw = useMemo(() => (values && values.locale === shown ? values.values : {}), [values, shown])
+  return { ...info, locale: info.languages.length ? locale : null, setLocale, map, words, raw, patch, noTranslate: rules.noTranslate, keepProductNames: rules.keepProductNames }
 }

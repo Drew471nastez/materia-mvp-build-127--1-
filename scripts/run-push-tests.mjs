@@ -37,12 +37,14 @@ const SUITES = [
   "tests/order-currency.test.ts",
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
+  "tests/translations-k3.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
+  "tests/checkout-text.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
@@ -50,6 +52,8 @@ const SUITES = [
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   "tests/storelib-reviews.test.ts",
+  "tests/reviews-manage.test.ts",
+  "tests/review-widgets.test.ts",
   "tests/reviews-product-page.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
@@ -75,6 +79,8 @@ const SUITES = [
   "tests/integrations-i4.test.ts",
   /* Round 30: the Integrations page's pill order, All mixed, the pill in the address, a return with no landing (scripts/check-integrations-round30.mjs measures them). */
   "tests/integrations-round30.test.ts",
+  /* Round K4: the marketplace (pills with live counts, Filter, the list in the address) and the integration page's shell, its actions and the plug-in API for built-in apps. */
+  "tests/integrations-k4.test.ts",
   "tests/settings-r1.test.ts",
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",
@@ -609,14 +615,20 @@ const SUITES = [
   "tests/community-analytics-r33.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
+  /* Round 26: the admin's Posts: one writer that posts, schedules in the creator's zone and keeps team drafts (part 194), the writer's slide, the community's own post popup (scripts/check-posts26.mjs films them). */
+  "tests/posts26.test.ts",
   /* Round 33: who opens a program (Open, Reach a level, Buy now, Days after joining, Private) decided on the server for the shelf, the page, every lesson and the checkout; modules and lessons added at once (SQL part 200; scripts/check-learn-round33.mjs measures the screens). */
   "tests/community-learn-access-round33.test.ts",
   /* Round 33: the community Page editor, the links as icons, the cover's focus, the join button, the About page's row (scripts/check-page-editor-round33.mjs measures them). */
   "tests/community-page-round33.test.ts",
+  /* Round 26 (W4): the About page and the info card: the button's words, the admins and icons in the card, the short description, Share, Powered by, Privacy and Terms (scripts/check-about26.mjs measures it). */
+  "tests/about26.test.ts",
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
   "tests/communities-round33.test.ts",
+  /* Round 26 (W2): the community admin's row of tabs (stuck in the middle of its row, nothing moves on a hover, fades only where there is more) and an Overview of four figures (scripts/check-community-admin-nav26.mjs measures them). */
+  "tests/nav26.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",
@@ -674,6 +686,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
+  "tests/seo26.test.ts",
 ]
 
 /**
@@ -709,6 +723,18 @@ const STRICT_SUITES = [
     narrowed by `if (!x.ok)`, which only narrows under strict.
   */
   "tests/community-lifecycle-round33.test.ts",
+  /*
+    Round 26 (W1): a community being deleted takes no place on the plan, Keep after a replacement, two tabs, the
+    states and the cards (scripts/check-cards-round26.mjs measures the cards). Here for the same reason as the line
+    above: it runs lib/communities/server/creator.ts.
+  */
+  "tests/cards26.test.ts",
+  /*
+    Round 26 (W5): the Page editor rebuilt, the short description and member links (SQL part 220), a join button that
+    never states a price, every field saved and read back through creator.ts (strict, as above); scripts/
+    check-page-editor26.mjs measures the editor.
+  */
+  "tests/editor26.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -7,7 +7,8 @@ import "server-only"
  * Round 13, beside ./creator.ts (which imports from here):
  *
  *   ROOM        whether the creator may make one more community on their
- *               plan (lib/communities/plan-limit.ts: Free makes two).
+ *               plan (lib/communities/plan-limit.ts: Free makes two; round
+ *               26: one whose deletion is scheduled takes no place).
  *   DUPLICATE   a new draft with one community's settings.
  *   POLICIES    the refund policy and the contact email, worker M's columns
  *               (run-now part 101), written with M's helpers
@@ -17,7 +18,8 @@ import "server-only"
  * in-memory database (tests/communities-admin13.test.ts).
  */
 import { creatorSitePlan } from "@/lib/sites/plan-server"
-import { communityLimitFor, mayCreateCommunity, PLAN_LIMIT_ERROR } from "../plan-limit"
+import { communityLimitFor, mayCreateCommunity, PLAN_LIMIT_ERROR, takesCommunitySlot, type CommunityPlan } from "../plan-limit"
+import { canUndoDeletion } from "../community-deletion"
 import { REFUND_POLICY_MAX, cleanContactEmail, cleanRefundPolicy } from "../membership-policy"
 import { accessColumnsFor, privacyOf } from "../access-model"
 import { COMMUNITY_COLUMNS, type CommunityRow, type Role } from "../types"
@@ -30,11 +32,71 @@ import { missing, reasonOf, type Db } from "./db"
 type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
 
-/** Whether this creator may make one more community on their plan (lib/communities/plan-limit.ts). */
-export async function communityRoom(db: Db, creatorId: string): Promise<{ ok: boolean; limit: CommunityLimitView }> {
-  const [plan, { count: owned }] = await Promise.all([creatorSitePlan(creatorId), db.from("communities").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).is("deleted_at", null)])
-  const limit = { max: communityLimitFor(plan), owned: owned ?? 0 }
-  return { ok: mayCreateCommunity(plan, limit.owned), limit }
+/** A scheduled deletion as the list and the plan's count read it. */
+export interface PendingDeletion {
+  deleteAt: string
+  /** Keep (Undo) is still possible: a deletion at the end of the paid time, before its date. */
+  canKeep: boolean
+}
+
+/**
+ * ROUND 26: THE COMMUNITIES AMONG `ids` WHOSE DELETION IS SCHEDULED (run-now
+ * part 202, community_deletions.state 'scheduled'). Before part 202, or when
+ * the read fails, none: such a community then still counts, as it did.
+ * Scheduling archives the community, so callers pass only archived ids and
+ * the list stays short.
+ */
+export async function pendingDeletions(db: Db, ids: string[], now: number = Date.now()): Promise<Map<string, PendingDeletion>> {
+  const out = new Map<string, PendingDeletion>()
+  if (!ids.length) return out
+  const { data, error } = await db.from("community_deletions").select("community_id, state, mode, delete_at").in("community_id", ids.slice(0, 200)).eq("state", "scheduled")
+  if (error) {
+    if (!missing(error)) console.error(`[communities] pending deletions: ${reasonOf(error)}`)
+    return out
+  }
+  for (const r of (data as { community_id: string; state: string; mode: string; delete_at: string }[] | null) ?? []) out.set(r.community_id, { deleteAt: r.delete_at, canKeep: canUndoDeletion(r, now) })
+  return out
+}
+
+/** The communities this account owns that take a place on its plan (lib/communities/plan-limit.ts takesCommunitySlot), oldest first. */
+async function slotHolders(db: Db, creatorId: string): Promise<{ id: string; created_at: string }[]> {
+  const { data, error } = await db.from("communities").select("id, status, archived_at, created_at").eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: true }).limit(1000)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] plan count: ${reasonOf(error)}`)
+    return []
+  }
+  const rows = (data as { id: string; status: string; archived_at: string | null; created_at: string }[] | null) ?? []
+  const pending = await pendingDeletions(db, rows.filter((r) => r.status === "archived" || r.archived_at).map((r) => r.id))
+  return rows
+    .filter((r) => takesCommunitySlot({ deleting: pending.has(r.id) }))
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
+}
+
+/**
+ * Whether this creator may make one more community on their plan
+ * (lib/communities/plan-limit.ts). Round 26: a community whose deletion is
+ * scheduled takes no place, so a replacement can be made the same day.
+ * `plan` is for a caller (or a test) that already knows it.
+ */
+export async function communityRoom(db: Db, creatorId: string, plan?: CommunityPlan): Promise<{ ok: boolean; limit: CommunityLimitView }> {
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const limit = { max: communityLimitFor(p), owned: holders.length }
+  return { ok: mayCreateCommunity(p, limit.owned), limit }
+}
+
+/**
+ * ROUND 26, TWO TABS AT ONCE: whether a community just made is inside the
+ * plan's places. Two creates (or a create and a Keep) can both pass
+ * communityRoom before either is written; asked again after the write, the
+ * places go oldest first, so exactly the later one is over and its caller
+ * takes it back. Never more communities than the plan holds.
+ */
+export async function madeWithinLimit(db: Db, creatorId: string, communityId: string, plan?: CommunityPlan): Promise<boolean> {
+  const [p, holders] = await Promise.all([plan ?? creatorSitePlan(creatorId), slotHolders(db, creatorId)])
+  const max = communityLimitFor(p)
+  if (max === null) return true
+  const at = holders.findIndex((h) => h.id === communityId)
+  return at === -1 || at < max
 }
 
 /* ── Duplicate ──────────────────────────────────────────────────────────── */
@@ -63,6 +125,10 @@ export async function duplicateCommunity(db: Db, a: { source: CommunityRow; crea
     coverUrl: src.cover_url ?? undefined,
   })
   if (made.ok === false) return made.error === "not_set_up" ? no(503, "Communities are not set up on Storelib yet.") : no(500, "The copy could not be made. Try again.")
+  if (!(await madeWithinLimit(db, a.creatorId, made.community.id))) {
+    await db.from("communities").delete().eq("id", made.community.id)
+    return no(402, PLAN_LIMIT_ERROR)
+  }
   const copied = {
     description: src.description,
     category: src.category,

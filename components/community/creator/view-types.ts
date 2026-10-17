@@ -33,6 +33,7 @@ import type {
 } from "@/lib/communities/types"
 import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
 import type { PageLook } from "@/lib/communities/page-look"
+import type { MemberLink } from "@/lib/communities/member-links"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
@@ -53,6 +54,8 @@ export interface CommunityHead {
   postCount: number
   archived: boolean
   suspended: boolean
+  /** Round 26: its deletion is scheduled; the header's badge says Pending deletion. Absent on older callers. */
+  deleting?: PendingDeletionView | null
   gamificationEnabled: boolean
   classroomEnabled: boolean
   eventsEnabled: boolean
@@ -90,15 +93,24 @@ export interface CommunityListRow {
   mrrCents: number | null
   currency: string
   archived: boolean
+  /** Round 26: its deletion is scheduled (run-now part 202): when, and whether the owner can still keep it. Null or absent: not being deleted. */
+  deleting?: PendingDeletionView | null
   /** What this person may do from the card's menu (the owner's choices for their role included). */
   can: { edit: boolean; analytics: boolean; archive: boolean; duplicate: boolean }
+}
+
+/** A scheduled deletion as a card and the header show it (lib/communities/server/creator-policies.ts pendingDeletions). */
+export interface PendingDeletionView {
+  deleteAt: string
+  /** Keep (Undo) is still possible for this person: the owner, a deletion at the end of the paid time, before its date. */
+  canKeep: boolean
 }
 
 /** The Free plan's community limit as the list sees it (lib/communities/plan-limit.ts). */
 export interface CommunityLimitView {
   /** Null: no limit on this plan. */
   max: number | null
-  /** Communities this account owns now, archived ones included. */
+  /** Communities this account owns now that take a place: archived ones included, ones being deleted not (round 26). */
   owned: number
 }
 
@@ -194,6 +206,12 @@ export interface SettingsData {
   /** Round 33: the cover's focus and the join button (lib/communities/page-look.ts). */
   pageLook?: PageLook
   tagline: string | null
+  /** Round 26: the short description on the community's card (communities.summary, run-now part 220), or null for none. */
+  summary?: string | null
+  /** Round 26: up to four shortcuts members see inside the community (communities.member_links, never public). */
+  memberLinks?: MemberLink[]
+  /** Round 26: false until run-now part 220 has run; the editor then shows the two fields above as waiting. */
+  pageFieldsReady?: boolean
   category: string | null
   rules: CommunityRule[]
   faq: CommunityFaq[]

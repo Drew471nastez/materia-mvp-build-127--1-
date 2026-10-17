@@ -95,7 +95,8 @@ check("each category and article page has its own title, description and canonic
   /generateMetadata/.test(category) && /alternates: \{ canonical: `\/help\/\$\{category\.slug\}` \}/.test(category) &&
   /generateMetadata/.test(article) && /description: article\.summary/.test(article) && /alternates: \{ canonical: path \}/.test(article))
 check("pages are built ahead of time and unknown ones 404", /dynamicParams = false/.test(category) && /dynamicParams = false/.test(article))
-check("the search is a form that works without script", /action="\/help\/search" method="get" role="search"/.test(read("components/help/help-search.tsx")))
+/* Changed on purpose (round K): the form posts to the search of the Help Center it is in, /help/search by default or /app/help/search in the app. */
+check("the search is a form that works without script", /action=\{`\$\{base\}\/search`\} method="get" role="search"/.test(read("components/help/help-search.tsx")) && /base = HELP_BASE/.test(read("components/help/help-search.tsx")) && /export const HELP_BASE = "\/help"/.test(read("lib/help/paths.ts")))
 check("and the results page runs the same search, unindexed", /searchHelp\(q, 30, \{ physical: await isPhysicalCommerceEnabled\(\) \}\)/.test(read("app/help/search/page.tsx")) && /index: false/.test(read("app/help/search/page.tsx")))
 check("support is the real address", /SUPPORT_EMAIL = "support@storelib\.com"/.test(read("lib/help/articles.ts")))
 check("no \"Was this helpful\" that records nothing", ![index, category, article].some((s) => /helpful/i.test(s)))

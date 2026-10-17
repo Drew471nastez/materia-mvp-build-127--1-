@@ -45,6 +45,8 @@ import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtra
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { cn } from "@/lib/utils"
 import type { TopBarData } from "./view-types"
+import type { MemberLinkView } from "@/lib/communities/member-link-view"
+import { MemberLinks } from "./member-links"
 
 /** Paths inside storelib.com: a community is always on the main address, so a link is just its path. */
 const link: HeaderLink = (path) => ({ href: path, onClick: () => {} })
@@ -66,9 +68,14 @@ export interface CommunityMenuRows {
   savedHref?: string | null
   /** The member's own Membership page here (round 13: notifications, leave, the plan); left out for somebody who is not a member. */
   membershipHref?: string | null
+  /**
+   * The community's member links (round 26, member-links.tsx), drawn under the member's own name: in the phone's sheet, and in
+   * the computer's menu below 1024px, where the left column (which shows them from 1024px) is not drawn.
+   */
+  links?: { communityId: string; list: MemberLinkView[] } | null
 }
 
-export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null, membershipHref = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
+export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null, membershipHref = null, links = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
   const router = useRouter()
   const [sheet, setSheet] = useState(false)
   const logOut = useCallback(async () => {
@@ -91,6 +98,21 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
   )
   const desktopRows = useMemo(() => rows(false), [rows])
   const phoneRows = useMemo(() => rows(true), [rows])
+  /* The member links under the name: the computer's menu closes itself on a route change; the sheet is closed by the press. */
+  const desktopLinks = useMemo(
+    () =>
+      links?.list.length ? (
+        <div className="lg:hidden" data-account-member-links="">
+          <MemberLinks communityId={links.communityId} links={links.list} variant="menu" />
+          <div className="my-1 h-px bg-[#f0f1f3]" />
+        </div>
+      ) : null,
+    [links],
+  )
+  const phoneLinks = useMemo(
+    () => (links?.list.length ? <MemberLinks communityId={links.communityId} links={links.list} variant="sheet" onPick={() => setSheet(false)} className="mt-0.5 shrink-0" /> : null),
+    [links],
+  )
   return (
     <div className={cn("flex shrink-0 items-center", className)} data-community-account="">
       {/* A computer: the header's own dropdown, opened by "..." instead of the photo. */}
@@ -106,6 +128,7 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
           rows="community"
           avatarSize={36}
           extra={desktopRows}
+          under={desktopLinks}
         />
       </div>
       {/* A phone: the same "..." opens the header's account sheet. */}
@@ -134,6 +157,7 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
         onLanguage={noop}
         onLogout={() => void logOut()}
         extra={phoneRows}
+        under={phoneLinks}
       />
     </div>
   )

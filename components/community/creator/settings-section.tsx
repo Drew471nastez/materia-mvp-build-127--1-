@@ -198,7 +198,8 @@ export function SettingsSection({ head, data, tab: initialTab, asked = true, vid
   const current = tabs.find((t) => t.value === tab)
   return (
     <div ref={root} data-settings="" data-tab={tab} data-view={view} className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[232px_minmax(0,1fr)] xl:gap-12">
-      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[68px] hidden lg:block">
+      {/* Sticky 20px under the shell's row of tabs, which is 52px from 768px (round 26, community-shell.tsx CommunityHeader). */}
+      <nav aria-label={tt("Settings")} data-settings-groups="" className="sticky top-[72px] hidden lg:block">
         {GROUPS.map((g) => {
           const list = tabs.filter((t) => t.group === g.id)
           if (!list.length) return null
@@ -1274,15 +1275,18 @@ function Advanced({ head, videoProviders }: { head: CommunityHead; videoProvider
           <VideoProviders providers={videoProviders} />
         </EditorCard>
       ) : null}
-      <EditorCard
-        title={head.archived ? tt("Archived") : tt("Archive")}
-        hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}
-        action={
-          <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
-            {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
-          </button>
-        }
-      />
+      {/* Round 26: one being deleted comes back only through Keep, on the Delete card below; Bring it back was refused there. */}
+      {head.deleting ? null : (
+        <EditorCard
+          title={head.archived ? tt("Archived") : tt("Archive")}
+          hint={head.archived ? tt("Members can read it; nobody can post. Bringing it back makes it a draft.") : tt("Keep everything, stop new posts and new members. Members can still read it.")}
+          action={
+            <button type="button" onClick={() => void run("archive", `/api/app/community/${head.id}/archive`, { archived: !head.archived }, head.archived ? tt("Brought back as a draft") : tt("Archived"))} disabled={busy !== null} className={buttonSecondary}>
+              {busy === "archive" ? tt("Working") : head.archived ? tt("Bring it back") : tt("Archive")}
+            </button>
+          }
+        />
+      )}
       {/* Round 33: deleting, with members who pay, at the end of what they paid for or now with refunds (./delete-community). */}
       {head.can.delete ? <DeleteCommunity head={head} /> : null}
     </div>

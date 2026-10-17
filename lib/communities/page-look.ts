@@ -54,12 +54,53 @@ function words(v: unknown, max: number): string {
   return typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : ""
 }
 
+/*
+  ROUND 26: THE BUTTON NEVER STATES A PRICE OF ITS OWN. The owner: "no misleading pricing or billing text". The page
+  already prints the real price from the memberships (the row under the name, the card, "Join $24/month"), so the
+  creator's words and the line under the button carry no money at all. One rule, said in the editor under the field:
+
+    REFUSED ALWAYS      a currency sign ($, €, £, ¥, ₹, any \p{Sc}), a currency named with a number ("24 USD",
+                        "10 euros", "5 lei"), a billing period ("/month", "per year", "monthly", "a week").
+    REFUSED WHEN PAID   "free" on a page whose way in costs money ("Start free trial" is the page's own words when a
+                        membership really has a trial).
+
+  The editor shows the problem and Save waits; the server refuses the same words (moneyInWords, joinWordsProblem);
+  and a look stored before this rule is read with such words left out (cleanLook), so the page falls back to its
+  own, true words.
+*/
+const CURRENCY_SIGN = /\p{Sc}/u
+const CURRENCY_NAMED = /\d[\d.,\s]*\s*(usd|eur|gbp|ron|lei|cad|aud|nzd|chf|pln|zł|zl|sek|nok|dkk|jpy|inr|brl|mxn|huf|czk|dollars?|euros?|pounds?|bucks|cents?|rupees?)\b|\b(usd|eur|gbp|ron|lei|cad|aud|nzd|chf|pln|sek|nok|dkk|jpy|inr|brl|mxn|huf|czk)\s*\d/iu
+const BILLING = /\/\s*(mo|mth|month|months|yr|year|years|wk|week|day)\b|\b(per|a|an|each|every)\s+(month|year|week|day)\b|\b(monthly|yearly|annually|annual|weekly|daily)\b|\bfor\s+\d+(?:[.,]\d{1,2})?\s*$/i
+const FREE = /\bfree\b/i
+
+/** Whether words name a price, a currency with an amount, or a billing period. */
+export function moneyInWords(text: string): boolean {
+  return CURRENCY_SIGN.test(text) || CURRENCY_NAMED.test(text) || BILLING.test(text)
+}
+
+export type JoinWordsProblem = "money" | "free"
+
+/**
+ * Why the button's words (or the line under it) cannot be used, or null. `paid` is whether joining costs money;
+ * unknown (an access the page decides tier by tier) is treated as not paid. A code, so each side words it its own way.
+ */
+export function joinWordsProblem(text: string, paid: boolean): JoinWordsProblem | null {
+  const t = text.trim()
+  if (!t) return null
+  if (moneyInWords(t)) return "money"
+  if (paid && FREE.test(t)) return "free"
+  return null
+}
+
 /** The look from anything (a settings body, a stored row): every field checked on its own, the default where it is not one. */
 export function cleanLook(raw: unknown): PageLook {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
   const style = JOIN_STYLES.includes(r.joinStyle as JoinStyle) ? (r.joinStyle as JoinStyle) : "ink"
   const brand = typeof r.brand === "string" && HEX.test(r.brand) ? r.brand.toLowerCase() : null
-  return { coverX: pct(r.coverX), coverY: pct(r.coverY), joinLabel: words(r.joinLabel, JOIN_LABEL_MAX), joinStyle: style === "brand" && !brand ? "ink" : style, joinNote: words(r.joinNote, JOIN_NOTE_MAX), brand }
+  /* Words with money in them are never drawn (the rule above): the page's own words stand instead. */
+  const label = words(r.joinLabel, JOIN_LABEL_MAX)
+  const note = words(r.joinNote, JOIN_NOTE_MAX)
+  return { coverX: pct(r.coverX), coverY: pct(r.coverY), joinLabel: moneyInWords(label) ? "" : label, joinStyle: style === "brand" && !brand ? "ink" : style, joinNote: moneyInWords(note) ? "" : note, brand }
 }
 
 /** The look a community's stored settings hold (communities.onboarding.page). */

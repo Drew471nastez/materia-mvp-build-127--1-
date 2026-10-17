@@ -188,7 +188,7 @@ async function main() {
   check("  drawn by the controls folder for every color_scheme setting", /case "color_scheme":\s*\n\s*return <ColorSchemeControl/.test(controls))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("  the editor hands an imported theme's schemes to the controls", /colorSchemes: compatSchemes/.test(editor) && /themeSchemeList\(compatShopify\)/.test(editor))
-  check("Storelib's own design panel (its schemes, heading and body style, animation) is not offered for an imported section, which reads none of it", /\{!compatInstall && <SectionDesignPanel/.test(editor) && /filter\(f => compatInstall \|\|/.test(editor))
+  check("Storelib's own design panel (its schemes, heading and body style, animation) is not offered for an imported section, which reads none of it", /* Changed on purpose (round K3): wrapped so it is the same in every language while another is edited. */ /\{!compatInstall && (?:<SharedInAllLanguages>)?<SectionDesignPanel/.test(editor) && /filter\(f => compatInstall \|\|/.test(editor))
   const r = { products: [], collections: [], menus: {}, schemes: {}, imageUrl: (v: string) => v, currentPath: "/" } as unknown as Parameters<typeof typedValue>[2]
   const picked = typedValue("page", "/pages/about-us", r) as { handle?: string; url?: string; title?: string } | null
   check("a page setting is the page at that address, picked in the sidebar or saved by the theme", picked?.handle === "about-us" && picked.url === "/pages/about-us" && picked.title === "About us" && (typedValue("page", "shopify://pages/faq", r) as { handle?: string })?.handle === "faq" && typedValue("page", "", r) === null, picked)

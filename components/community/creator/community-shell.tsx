@@ -69,9 +69,9 @@ import { cn } from "@/lib/utils"
 import { iconButton } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { CommunityHead, SectionId } from "./view-types"
-import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, useFootsUp, useToast } from "./parts"
+import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, shortDate, useFootsUp, useToast } from "./parts"
 import { nameCoverGradient } from "@/lib/communities/cover-gradient"
-import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, type AdminSection } from "./logic"
+import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -105,7 +105,12 @@ const SHELL_GUTTER = "app-gutter"
  * and Settings opens on the list of panels on a phone when the address names none.
  */
 export function frameFacts(head: CommunityHead, search: string): SectionFrameFacts {
-  return { composer: head.can.post === true && !head.archived && !!head.me, settingsList: !new URLSearchParams(search).get("tab")?.trim() }
+  return {
+    composer: head.can.post === true && !head.archived && !!head.me,
+    settingsList: !new URLSearchParams(search).get("tab")?.trim(),
+    /* The Overview's money figures are for a community that charges, seen by whoever may price it (overview.tsx). */
+    figures: head.access === "paid" && head.can.manage_pricing === true ? 4 : 3,
+  }
 }
 
 export interface SectionTab {
@@ -293,25 +298,75 @@ function CommunityBar({ head }: { head: CommunityHead }) {
 
 /**
  * THE ROW OF SECTIONS. A word each, the one you are on filled grey, the
- * memberships screen's views. On a phone the row scrolls sideways with its
- * ends fading and the one you are on is kept in view. A press on a section
- * the shell holds is answered by the shell (onGo prevents the link); any
- * other press is the router's. Nothing is fetched ahead for a section the
- * shell holds (onWarm decides), so pointing at one costs no request.
+ * memberships screen's views. On a phone the row scrolls sideways and the one
+ * you are on is kept in view. A press on a section the shell holds is
+ * answered by the shell (onGo prevents the link); any other press is the
+ * router's. Nothing is fetched ahead for a section the shell holds (onWarm
+ * decides), so pointing at one costs no request.
+ *
+ * ROUND 26, THE OWNER: "the hover behavior creates an annoying bump". Every
+ * box in the row was read on every frame while each tab was pointed at, and
+ * the row photographed at rest and hovered (scripts/check-community-admin-
+ * nav26.mjs HOVER): in Chromium nothing moves and no pixel outside the tab
+ * changes. What did differ under 1280px, the width of the owner's window,
+ * was how the row was drawn: through a mask-image fading both ends at all
+ * times, which puts the whole row in a layer of its own, painted again on
+ * every hover; Safari can redraw such a layer half a pixel off on a Retina
+ * screen, which moves every word in the row as one tab lights. That is the
+ * likely bump; it could not be reproduced here. So no mask: the fades are two strips of the row's
+ * own grey over its ends (./logic TABS_FADE_PX), shown only on a side that has more
+ * to scroll to, so a row that fits has none and the first tab is never
+ * faded at rest. The strip cannot scroll up and down (a wheel over it is the
+ * page's), and a sideways swipe that reaches its end stays in it rather than
+ * going Back.
  */
+/** Which sides of a sideways row have more to scroll to, as the data attributes the fades read (./logic tabsMore). */
+function markMore(nav: HTMLElement, s: HTMLElement) {
+  const { left, right } = tabsMore(s.scrollLeft, s.clientWidth, s.scrollWidth)
+  if (nav.hasAttribute("data-more-left") !== left) nav.toggleAttribute("data-more-left", left)
+  if (nav.hasAttribute("data-more-right") !== right) nav.toggleAttribute("data-more-right", right)
+}
+
 export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityHead; active: SectionId; onGo?: (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => void; onWarm?: (tab: SectionTab) => void }) {
   const tabs = sectionTabs(head)
+  const nav = React.useRef<HTMLElement>(null)
   const strip = React.useRef<HTMLDivElement>(null)
+  /* The fades follow the scroll and the width (a rotated phone, the rail opening). */
+  React.useEffect(() => {
+    const n = nav.current
+    const s = strip.current
+    if (!n || !s) return
+    const mark = () => markMore(n, s)
+    mark()
+    s.addEventListener("scroll", mark, { passive: true })
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(mark) : null
+    ro?.observe(s)
+    return () => {
+      s.removeEventListener("scroll", mark)
+      ro?.disconnect()
+    }
+  }, [])
+  /*
+    THE ONE YOU ARE ON, IN VIEW. Half under a fade or out of sight, it is brought to the middle of the row: at once when the
+    page opens on it, gliding there after a press (the row moves under the finger rather than jumping), at once again with
+    reduced motion.
+  */
+  const placed = React.useRef(false)
   React.useLayoutEffect(() => {
     const s = strip.current
     const el = s?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!el || !s) return
-    const left = el.offsetLeft - s.offsetLeft
-    if (left < s.scrollLeft + 8 || left + el.offsetWidth > s.scrollLeft + s.clientWidth - 16) s.scrollTo({ left: Math.max(0, left - 24), behavior: "auto" })
+    const first = !placed.current
+    placed.current = true
+    const left = tabRevealLeft(s.getBoundingClientRect(), el.getBoundingClientRect(), { left: s.scrollLeft, client: s.clientWidth, width: s.scrollWidth })
+    if (left === null) return
+    const still = first || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    s.scrollTo({ left, behavior: still ? "auto" : "smooth" })
   }, [active])
+  const fade = "pointer-events-none absolute inset-y-0 z-[1] w-6 opacity-0 transition-opacity duration-150 motion-reduce:transition-none"
   return (
-    <nav aria-label={tt("Community sections")} data-community-tabs="">
-      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto pb-2 scrollbar-hide [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] md:gap-0.5 xl:[mask-image:none]">
+    <nav ref={nav} aria-label={tt("Community sections")} data-community-tabs="" className="group/tabs relative">
+      <div ref={strip} data-section-tabs="" className="app-gutter-bleed flex items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1.5 scrollbar-hide md:gap-0.5 md:pb-2">
         {tabs.map((t) => {
           const on = t.id === active
           return (
@@ -341,6 +396,9 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
           )
         })}
       </div>
+      {/* The fades, in the row's own grey and as wide as TABS_FADE_PX (w-6), over the ends that reach the pane's edges. */}
+      <span aria-hidden data-tabs-fade="left" className={cn(fade, "left-[calc(var(--app-gutter)*-1)] bg-linear-to-r from-[#f8f9fa] to-[#f8f9fa]/0 group-data-more-left/tabs:opacity-100")} />
+      <span aria-hidden data-tabs-fade="right" className={cn(fade, "right-[calc(var(--app-gutter)*-1)] bg-linear-to-l from-[#f8f9fa] to-[#f8f9fa]/0 group-data-more-right/tabs:opacity-100")} />
     </nav>
   )
 }
@@ -620,6 +678,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
   }, [framed, shown])
 
+  /* A deletion that is scheduled (round 26, W1: CommunityHead.deleting); read structurally so this compiles before and after that field. */
+  const deleting = (head as CommunityHead & { deleting?: { deleteAt: string } | null }).deleting ?? null
   const hostValue = React.useMemo<HostValue>(() => ({ active, kept, settled, hold, routedHere }), [active, kept, settled, hold, routedHere])
   const foots = useFootsUp()
 
@@ -636,6 +696,11 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
           <div className={cn("mx-auto min-h-full pb-[calc(7rem+var(--foot-room))] pt-4 md:pb-[calc(3rem+var(--foot-room))] lg:pt-5", SHELL_GUTTER, SHELL_WIDTH)} style={{ "--foot-room": `${foots * FOOT_ROOM_PX}px` } as React.CSSProperties} data-community-body="" data-foots={foots}>
             {head.suspended ? (
               <p className="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2.5 text-[13.5px] text-[#991b1b]">{tt("Storelib suspended this community. Members cannot open it. Contact support to talk about it.")}</p>
+            ) : deleting ? (
+              /* Round 26 (W1's pending deletion): not "bring it back", which reads as if nothing were scheduled. */
+              <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]" data-community-deleting="">
+                {tt("Deleting on {date}. Members can read it until then. Keep it from Settings.", { date: shortDate(deleting.deleteAt) })}
+              </p>
             ) : head.archived ? (
               <p className="mb-4 rounded-xl border border-[#e5e7eb] bg-white px-4 py-2.5 text-[13.5px] text-[#4b5563]">{tt("This community is archived. Members can read it, nobody can post. Bring it back from Settings.")}</p>
             ) : null}
@@ -674,6 +739,13 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
  * something is under it (app/app/orders/order-parts PaneBar). Scrolled back
  * up, the bar is there again. On a 900px screen that gives a section 60px
  * more of the screen than round 32's header, which kept both.
+ *
+ * Under Storelib's header at every width (round 26): the pane is the box
+ * that scrolls and it starts where /app's header ends (app/app/layout.tsx:
+ * 58px from 768px, 68px on a phone, plus the safe area in the apps), so
+ * `top-0` in it is right under the header and nothing has to know the
+ * header's height. Measured at 1440, 820 and 390: the stuck row's top is the
+ * header's bottom.
  */
 /** How far the pane scrolls before the row of tabs is stuck: the height of the bar above it (it is the pane's first box). */
 function barHeight(pane: HTMLElement): number {
@@ -706,7 +778,13 @@ function CommunityHeader({ head, shown, onGo, onWarm }: { head: CommunityHead; s
         </div>
       </div>
       <div ref={ref} data-orders-bar="" data-scrolled="false" data-community-tabs-bar="" className="orders-bar sticky top-0 z-10 bg-[#f8f9fa]">
-        <div className={cn("mx-auto pt-1", SHELL_GUTTER, SHELL_WIDTH)}>
+        {/*
+          ROUND 26, THE OWNER: the labels "too close to the upper edge" once the row is stuck. It was 4px above the pills and
+          8px under them; now the pill sits in the middle of a 52px row at every width (8px either side of the 36px pill
+          from 768px, 6px either side of a phone's 40px one), so stuck under the header it has the same room above as below.
+          The settings column's sticky top (settings-section.tsx, 72px) is this row and 20px.
+        */}
+        <div className={cn("mx-auto pt-1.5 md:pt-2", SHELL_GUTTER, SHELL_WIDTH)}>
           <CommunityTabs head={head} active={shown} onGo={onGo} onWarm={onWarm} />
         </div>
       </div>

@@ -124,6 +124,8 @@ import { NAV_ENTER_EASE, NAV_ENTER_MS } from "@/lib/ui/app-navigation"
 import { arrivedByTab, tabSwapInProgress } from "@/lib/nav/tab-swap"
 import type { MemberProfileData } from "@/lib/communities/member-profile-view"
 import { MemberProfilePlace } from "./place-views"
+import { MemberLinks } from "./member-links"
+import type { MemberLinkView } from "@/lib/communities/member-link-view"
 
 /** Away this long (another app, a locked phone), the community reads itself again when it comes back (NOT EVERY TIME THE APP COMES BACK). */
 const AWAY_REFRESH_MS = 5 * 60_000
@@ -142,6 +144,8 @@ export interface ShellFrameProps {
   active?: ShellSection
   /** The community's chat spaces' slugs: a chat space is a place of its own, every feed space is the feed (place-host.tsx). */
   chatSpaces?: string[]
+  /** The creator's links for members (round 26), read on the server for a member or staff only (lib/communities/server/member-shortcuts.ts). */
+  memberLinks?: MemberLinkView[]
   children: React.ReactNode
 }
 
@@ -250,6 +254,7 @@ export function usePresenceHeartbeat(communityId: string, userId: string | null)
   the visit starts on is the address the server drew.
 */
 const NO_CHAT: string[] = []
+const NO_LINKS: MemberLinkView[] = []
 
 export function ShellFrame(props: ShellFrameProps) {
   const pathname = usePathname()
@@ -274,7 +279,7 @@ export function ShellFrame(props: ShellFrameProps) {
   )
 }
 
-function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, chatSpaces = NO_CHAT, hooksRef, children }: ShellFrameProps & { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
+function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, chatSpaces = NO_CHAT, memberLinks = NO_LINKS, hooksRef, children }: ShellFrameProps & { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
   const pathname = usePathname()
   const router = useRouter()
   const nav = useCommunityNavigator()
@@ -428,9 +433,11 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
   const searchProp = useMemo(() => ({ communityId: community.id }), [community.id])
+  /* The member links (round 26) ride with the menu: under the member's own name where the left column is not drawn. */
+  const links = useMemo(() => (memberLinks.length ? { communityId: community.id, list: memberLinks } : null), [community.id, memberLinks])
   const menu = useMemo(
-    () => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved`, membershipHref: `/community/${community.slug}/membership` }),
-    [community.archived, community.slug, openInvite],
+    () => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved`, membershipHref: `/community/${community.slug}/membership`, links }),
+    [community.archived, community.slug, openInvite, links],
   )
   const tabs = useMemo(() => <SectionTabs entries={entries} />, [entries])
 
@@ -668,6 +675,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
             {/* LEFT: the community card. */}
             <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : about ? "lg:block xl:hidden" : "lg:block"} ${landing ? LAND : ""}`} data-community-left="">
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+              {/* Round 26: the creator's links for members, quiet lines of text under the card (member-links.tsx). */}
+              {memberLinks.length ? <MemberLinks communityId={community.id} links={memberLinks} variant="column" className="pt-1" /> : null}
             </div>
             {/* RIGHT from 1280px (under the card from 1024px): the next event, then who takes part, sticking under the bar. */}
             <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${landing ? LAND : ""}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
