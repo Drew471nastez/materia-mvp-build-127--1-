@@ -292,8 +292,28 @@ function drawOne(job: Job): string {
  * longer for the moment it is in there.
  */
 let ruler: HTMLDivElement | null = null
-function measureOne(html: string, width: number): number {
-  if (!html || typeof document === "undefined") return 0
+
+/**
+ * ===========================================================================
+ *  SEVERAL PREVIEWS MEASURED FOR THE PRICE OF ONE
+ * ===========================================================================
+ * Measured in the real editor (scripts/check-editor-perf.mjs): putting
+ * markup anywhere in the editor's document and reading a height restyles
+ * the whole document, about 1,180 elements and 35 to 45ms on a computer,
+ * however small the markup is. One preview per read was 51 such passes in
+ * the first seconds after the editor opened, 2 to 4 seconds of the main
+ * thread in tasks of 50 to 250ms.
+ *
+ * So a batch goes in at once, each in its own box with the ruler's own
+ * containment (the same width, the same formatting context, a fixed layer
+ * held inside it), and the heights are read after all of them are in: the
+ * first read pays for the pass and the rest find it done. Each box is the
+ * ruler as it was when it held one preview at a time, so a height is the
+ * same either way.
+ */
+export const MEASURE_BATCH = 8
+function measureMany(items: { html: string; width: number }[]): { height: number; empty: boolean }[] {
+  if (typeof document === "undefined") return items.map(() => ({ height: 0, empty: true }))
   if (!ruler || !ruler.isConnected) {
     ruler = document.createElement("div")
     ruler.setAttribute("aria-hidden", "true")
@@ -301,17 +321,25 @@ function measureOne(html: string, width: number): number {
     ruler.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"
     document.body.appendChild(ruler)
   }
-  ruler.style.width = `${width}px`
-  ruler.innerHTML = html
-  const height = ruler.getBoundingClientRect().height
-  const words = (ruler.textContent ?? "").replace(/\s+/g, "").length
-  const things = ruler.querySelector("img, svg, video, picture, canvas, iframe, input, button")
-  lastWasEmpty = height < 8 || (words === 0 && !things)
+  ruler.style.width = `${Math.max(0, ...items.map((i) => i.width))}px`
+  const boxes = items.map((item) => {
+    const box = document.createElement("div")
+    box.style.cssText = `width:${item.width}px;contain:layout paint`
+    box.innerHTML = item.html
+    return box
+  })
+  ruler.append(...boxes)
+  const out = boxes.map((box, k) => {
+    if (!items[k].html) return { height: 0, empty: true }
+    const height = box.getBoundingClientRect().height
+    const words = (box.textContent ?? "").replace(/\s+/g, "").length
+    const things = box.querySelector("img, svg, video, picture, canvas, iframe, input, button")
+    const empty = height < 8 || (words === 0 && !things)
+    return { height: Math.ceil(height), empty }
+  })
   ruler.textContent = ""
-  return Math.ceil(height)
+  return out
 }
-/** Whether the markup measureOne last measured had nothing in it to see. */
-let lastWasEmpty = false
 
 const idle = (cb: (deadline: { timeRemaining: () => number }) => void) => {
   const w = typeof window !== "undefined" ? (window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining: () => number }) => void, o?: { timeout: number }) => number }) : undefined
@@ -394,20 +422,23 @@ function pump() {
     if (unmeasured.length) {
       /* After the styles are in, so each is measured as it will look. */
       flushStyles()
+      /* A batch per idle moment (measureMany), and more while the moment has room. */
       do {
-        const next = unmeasured.shift()!
-        let height = 0
+        const batch = unmeasured.splice(0, MEASURE_BATCH)
+        let sizes: { height: number; empty: boolean }[]
         try {
-          height = measureOne(next.html, next.width)
+          sizes = measureMany(batch)
         } catch {
-          height = 0
-          lastWasEmpty = true
+          sizes = batch.map(() => ({ height: 0, empty: true }))
         }
-        if (lastWasEmpty || !next.html) EMPTY.add(next.key)
-        else EMPTY.delete(next.key)
-        HEIGHTS.set(next.key, height)
-        MARKUP.set(next.key, next.html)
-        pending.delete(next.key)
+        batch.forEach((next, k) => {
+          const { height, empty } = sizes[k]
+          if (empty || !next.html) EMPTY.add(next.key)
+          else EMPTY.delete(next.key)
+          HEIGHTS.set(next.key, height)
+          MARKUP.set(next.key, next.html)
+          pending.delete(next.key)
+        })
       } while (unmeasured.length && deadline.timeRemaining() > MEASURE_ROOM_MS)
       heightsVersion++
       notify()

@@ -13,7 +13,6 @@ import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { openInstallPreview } from "@/lib/website-builder/open-preview"
-import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
@@ -111,6 +110,8 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAnces
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { exitScreen } from "@/components/website-builder/exit-screen"
+import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
 
@@ -2825,6 +2826,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *  on a phone, and a button that does nothing for that second is a button
    *  somebody presses again. */
   const [leaving, setLeaving] = useState(false)
+  const leavingRef = useRef(false)
+  leavingRef.current = leaving
 
   /**
    * =========================================================================
@@ -2839,6 +2842,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingExit, setPendingExit] = useState<string | null>(null)
   /** Where this page is on its way to, read by the watchdog that finishes the job. */
   const leavingHref = useRef<string | null>(null)
+  /** The push out has gone: a second press of Back while the Going back screen is up is the same exit, not a second navigation. */
+  const exitPushed = useRef(false)
   /** The leave dialog was answered (Save or Discard), so the browser's own question is not asked as well. */
   const leaveAnswered = useRef(false)
   /** Reported by the code editor in its frame; see its postMessage. */
@@ -2949,6 +2954,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const importedTheme = useRef(false)
   if (compatInstall) importedTheme.current = true
+  /*
+    THE TYPES IN THE OVERLAY GROUP, AS ONE STRING. libraryAddable read the
+    page's sections for them and so depended on `sections`: every key typed
+    in a heading built a new list, and every library card (51 of them)
+    rendered again behind the closed library. Measured with
+    scripts/check-editor-perf.mjs.
+  */
+  const overlayTypesKey = overlayTypesOf(sections)
   const libraryAddable = useMemo(() => {
     const all = compatInstall ? ownSectionTypes : [
       ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
@@ -2971,14 +2984,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (addGroup === "overlay") {
       const floats = all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
       /* Only what may float over the page: what its schema says (enabled_on custom.overlay), and a type already in the site's Overlay group. */
-      const placed = sections.filter((sec) => sec.group === "overlay").map((sec) => sec.type).filter((t) => all.includes(t))
+      const placed = splitTypesKey(overlayTypesKey).filter((t) => all.includes(t))
       return [...new Set([...floats, ...placed])]
     }
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, sections])
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
@@ -3017,10 +3030,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
   }, [loadStorelibSources])
-  /** `document` exists only after the first client render, and the leaving
-   *  screen is portalled into it. */
-  const [portalReady, setPortalReady] = useState(false)
-  useEffect(() => setPortalReady(true), [])
   const publishBtnRef = useRef<HTMLDivElement | null>(null)
   const [previewMode, setPreviewMode] = useState<PreviewMode>("preview")
   useEffect(() => {
@@ -8527,6 +8536,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setPendingExit(null)
       /* Still here, so the next way out asks again. */
       leaveAnswered.current = false
+      /* And goes again: the screen comes down and the next press pushes. */
+      exitPushed.current = false
+      exitScreen.cancel()
     }
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) revive()
@@ -8779,6 +8791,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const cancelCeiling = useRef<(() => void) | null>(null)
   const leaveFor = useCallback((href: string) => {
+    if (exitPushed.current) return
+    exitPushed.current = true
+    /*
+      The Going back screen goes up on the press and stays at least
+      EXIT_MIN_MS, the owner's three seconds (components/website-builder/
+      exit-screen.tsx). Already up when Back went through the browser first
+      (goBackForReal); the push still goes.
+    */
+    exitScreen.start()
     leavingHref.current = href
     setLeaving(true)
     cancelCeiling.current?.()
@@ -8803,8 +8824,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     cancelCeiling.current = () => window.clearTimeout(start)
   }, [router])
   // Navigating unmounts this page, and that cancels the fallback: a hard load
-  // happens only when the soft one did not.
-  useEffect(() => () => cancelCeiling.current?.(), [])
+  // happens only when the soft one did not. It is also the moment the page it
+  // went to has arrived, so the Going back screen may go once its minimum is over.
+  useEffect(() => () => {
+    cancelCeiling.current?.()
+    exitScreen.arrived()
+  }, [])
 
   /**
    * The two addresses out of here, warmed while nothing else is happening, so
@@ -8881,10 +8906,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const goBackForReal = useCallback(() => {
     goingBack.current = true
     leaveAnswered.current = true
+    /* Up before the browser goes back, so the way out looks the same whichever door it took. */
+    exitScreen.start()
     backThen(() => leaveFor("/app/website-builder"))
   }, [leaveFor])
   useEffect(() => {
     const onPop = () => {
+      /*
+        THE BROWSER'S BACK, OR A PHONE'S, WITH NOTHING TO LOSE. Next takes it
+        straight to the page before; the Going back screen goes up over that
+        page as it arrives, the same as the bar's Back. Only when it leaves
+        the builder: the code editor's own route is part of it.
+      */
+      if (!guardArmed.current && !goingBack.current && !leavingRef.current && !window.location.pathname.startsWith("/website-builder/")) {
+        exitScreen.start()
+        return
+      }
       if (!guardArmed.current || goingBack.current) return
       /* Forward onto the guard again: nothing has been left. */
       if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) return
@@ -9718,12 +9755,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         }}
       />
 
-      {/* Leaving. Rendered the moment Back is pressed: going back can take a
-          second or more on a phone, and a second of nothing is a second in
-          which the button gets pressed again. */}
-      {/* Portalled, for the reason the sheets are: a z-index is only
-          comparable inside one stacking context, and this has to cover sheets
-          that render into the body. From in here it could not. */}
       {/* The outline and the section's name under the pointer: components/website-builder/canvas-hover.tsx. */}
       <CanvasHover enabled={inspectorEnabled && canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
 
@@ -9761,20 +9792,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onSave={saveThenLeave}
       />
 
-      {leaving && portalReady && createPortal(
-        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back">
-          {/* `dark` is the surface this is ON, not the colour of the words:
-              the glass is a near-black blur, so the loader draws in white.
-              It said `light` and rendered dark grey on it, which is why
-              going back looked like a blur with nothing written on it. */}
-          <BuilderLoader
-            className="wb-leaving-content"
-            tone="dark"
-            lines={["Going back", "Saving where you were", "Almost there"]}
-          />
-        </div>,
-        document.body,
-      )}
+      {/* Going back: components/website-builder/exit-screen.tsx, its own root on <body>, put up by leaveFor and goBackForReal. */}
 
       {/* ── A save that did not go through: what happened and the one thing to do ── */}
       {/* ── What came in from GitHub or an agent, what didn't, and two versions of one page: lib/github-sync/editor-status.ts ── */}
