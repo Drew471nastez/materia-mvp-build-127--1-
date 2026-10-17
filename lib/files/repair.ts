@@ -92,30 +92,33 @@ const textOf = (value: unknown): string => {
   }
 }
 
+/** This store's rows of one surface, through the same scope chain the reference check walks. */
 async function rowsOf(db: Db, surface: Surface, owner: Owner): Promise<{ rows: Record<string, unknown>[]; ok: boolean }> {
   const cols = ["id", ...surface.columns].join(", ")
   const limit = surface.limit ?? 400
   try {
-    if (surface.scope.kind === "own") {
-      const scope = surface.scope
-      const id = scope.owner === "creator" ? owner.creatorId : owner.userId
-      if (!id) return { rows: [], ok: true }
-      const { data, error } = await db.from(surface.table).select(cols).eq(scope.column, id).limit(limit)
-      if (error) return { rows: [], ok: false }
-      return { rows: (data ?? []) as Record<string, unknown>[], ok: true }
-    }
-    const scope = surface.scope
-    const parentId = scope.parentOwner === "creator" ? owner.creatorId : owner.userId
-    const parent = await db.from(scope.parent).select("id").eq(scope.parentColumn, parentId).limit(600)
-    if (parent.error) return { rows: [], ok: false }
-    const ids = ((parent.data ?? []) as { id: string }[]).map((r) => r.id).filter(Boolean)
-    if (ids.length === 0) return { rows: [], ok: true }
-    const { data, error } = await db.from(surface.table).select(cols).in(scope.column, ids).limit(limit)
-    if (error) return { rows: [], ok: false }
-    return { rows: (data ?? []) as Record<string, unknown>[], ok: true }
+    const scoped = await scopedRows(db, surface.table, surface.scope, owner, cols, limit)
+    return scoped
   } catch {
     return { rows: [], ok: false }
   }
+}
+
+async function scopedRows(db: Db, table: string, scope: Surface["scope"], owner: Owner, cols: string, limit: number): Promise<{ rows: Record<string, unknown>[]; ok: boolean }> {
+  if (scope.kind === "own") {
+    const id = scope.owner === "creator" ? owner.creatorId : owner.userId
+    if (!id) return { rows: [], ok: true }
+    const { data, error } = await db.from(table).select(cols).eq(scope.column, id).limit(limit)
+    if (error) return { rows: [], ok: false }
+    return { rows: (data ?? []) as Record<string, unknown>[], ok: true }
+  }
+  const up = await scopedRows(db, scope.parent, scope.parentScope, owner, "id", 2000)
+  if (!up.ok) return { rows: [], ok: false }
+  const ids = up.rows.map((r) => r.id).filter(Boolean)
+  if (ids.length === 0) return { rows: [], ok: true }
+  const { data, error } = await db.from(table).select(cols).in(scope.column, ids).limit(limit)
+  if (error) return { rows: [], ok: false }
+  return { rows: (data ?? []) as Record<string, unknown>[], ok: true }
 }
 
 /** Whether an object is in storage. One listing per folder, kept for the run. */

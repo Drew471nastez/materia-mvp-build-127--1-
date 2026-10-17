@@ -53,8 +53,13 @@ export interface Owner {
 type Scope =
   /** The table has the column itself: `creator_id`, `user_id`, or `id` for creators and profiles. */
   | { kind: "own"; column: string; owner: "creator" | "user" }
-  /** The table points at a parent that has it: product_variants.product_id to products.creator_id. */
-  | { kind: "via"; column: string; parent: string; parentColumn: string; parentOwner: "creator" | "user" }
+  /**
+   * The table points at a parent that is narrowed in its own turn:
+   * product_variants.product_id to products.creator_id, and one more hop for
+   * lesson_attachments.lesson_id to course_lessons.course_id to
+   * courses.creator_id.
+   */
+  | { kind: "via"; column: string; parent: string; parentScope: Scope }
 
 export interface Surface {
   /** Stable key, used by the tests and the API. */
@@ -79,22 +84,22 @@ export const SURFACES: readonly Surface[] = [
   /* Settings › Store details: the picture on receipts, order emails and the checkout header (lib/store/settings-server.ts, lib/checkout/brand-server.ts). */
   { key: "store-logo", label: "Store logo, receipts and emails", table: "store_settings", columns: ["logo_url", "checkout", "legal"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 4 },
   /* The published website's theme: Branding › Logo, the favicon, the share image, and every section setting (lib/checkout/brand-server.ts, lib/website-builder). */
-  { key: "website-theme", label: "Website theme", table: "store_theme_settings", columns: ["settings", "draft_settings"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 40 },
+  { key: "website-theme", label: "Website theme", table: "store_theme_settings", columns: ["settings", "draft_settings"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 40 },
   /* The website's pages and their sections. */
-  { key: "website-sections", label: "Website sections", table: "store_theme_pages", columns: ["sections", "draft_sections"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 200 },
+  { key: "website-sections", label: "Website sections", table: "store_theme_pages", columns: ["sections", "draft_sections"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 200 },
   { key: "website-install", label: "Website", table: "store_theme_installs", columns: ["sections", "settings", "draft_sections", "draft_settings", "snapshot_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
   /* A theme's own files: an imported theme keeps its asset map and its CSS here, both of which can name a picture. */
-  { key: "website-files", label: "Website files", table: "store_theme_custom_files", columns: ["content", "draft_content"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
+  { key: "website-files", label: "Website files", table: "store_theme_custom_files", columns: ["content", "draft_content"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 400 },
   /* The store builder's own surface (the creator page and the storefront header). */
   { key: "store-builder", label: "Store page", table: "store_builder_configs", columns: ["draft_config", "published_config", "sections", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 10 },
   { key: "creator-page", label: "Store page", table: "creators", columns: ["avatar_url", "cover_url", "draft_config", "published_config"], scope: { kind: "own", column: "id", owner: "creator" }, limit: 2 },
   /* Sites: the newer website surface and the files published with it. */
   { key: "site", label: "Website", table: "sites", columns: ["settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
-  { key: "site-assets", label: "Website files", table: "site_assets", columns: ["url"], scope: { kind: "via", column: "site_id", parent: "sites", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
-  { key: "site-files", label: "Website files", table: "site_files", columns: ["content"], scope: { kind: "via", column: "site_id", parent: "sites", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
+  { key: "site-assets", label: "Website files", table: "site_assets", columns: ["url"], scope: { kind: "via", column: "site_id", parent: "sites", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 400 },
+  { key: "site-files", label: "Website files", table: "site_files", columns: ["content"], scope: { kind: "via", column: "site_id", parent: "sites", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 400 },
   /* Products: the thumbnail, the gallery (which also holds videos), each variant's own picture, and the product page's sections. */
   { key: "product-thumbnail", label: "Product photos", table: "products", columns: ["thumbnail_url", "gallery_urls", "description"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 2000 },
-  { key: "product-variant", label: "Product photos", table: "product_variants", columns: ["image_url"], scope: { kind: "via", column: "product_id", parent: "products", parentColumn: "creator_id", parentOwner: "creator" }, limit: 2000 },
+  { key: "product-variant", label: "Product photos", table: "product_variants", columns: ["image_url"], scope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 2000 },
   { key: "product-page", label: "Product page", table: "product_page_configs", columns: ["draft_config", "published_config"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
   { key: "collection", label: "Collections", table: "product_collections", columns: ["image_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
   { key: "offer", label: "Offers", table: "store_offers", columns: ["image_url", "config"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
@@ -102,24 +107,38 @@ export const SURFACES: readonly Surface[] = [
   { key: "checkout-text", label: "Checkout", table: "checkout_text_overrides", columns: ["text", "values", "overrides"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
   /* Courses and lessons: a cover and a lesson's video. */
   { key: "course", label: "Courses", table: "courses", columns: ["thumbnail_url", "image_url", "cover_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
-  { key: "course-lesson", label: "Course lessons", table: "course_lessons", columns: ["video_path", "video_url", "thumbnail_url", "content"], scope: { kind: "via", column: "course_id", parent: "courses", parentColumn: "creator_id", parentOwner: "creator" }, limit: 1000 },
+  { key: "course-lesson", label: "Course lessons", table: "course_lessons", columns: ["video_path", "video_url", "thumbnail_url", "content"], scope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 1000 },
   /* Memberships: a post's pictures. */
-  { key: "membership-post", label: "Membership posts", table: "membership_posts", columns: ["images", "body", "thumbnail_url"], scope: { kind: "via", column: "product_id", parent: "products", parentColumn: "creator_id", parentOwner: "creator" }, limit: 1000 },
+  { key: "membership-post", label: "Membership posts", table: "membership_posts", columns: ["images", "body", "thumbnail_url"], scope: { kind: "via", column: "product_id", parent: "products", parentScope: { kind: "own", column: "creator_id", owner: "creator" } }, limit: 1000 },
   /* The person behind the store: their photo and cover, which the checkout header falls back to. */
   { key: "profile", label: "Your photo", table: "profiles", columns: ["avatar_url", "cover_url"], scope: { kind: "own", column: "id", owner: "user" }, limit: 2 },
   { key: "onepage", label: "One page", table: "onepages", columns: ["avatar_url", "draft_blocks", "published_blocks", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
   /* Communities: the logo and cover of each one they own, their spaces and their events. */
   { key: "community", label: "Community", table: "communities", columns: ["logo_url", "cover_url"], scope: { kind: "own", column: "owner_user_id", owner: "user" }, limit: 100 },
-  { key: "community-space", label: "Community spaces", table: "community_spaces", columns: ["icon"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 400 },
-  { key: "community-event", label: "Community events", table: "community_events", columns: ["cover_url"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 400 },
-  { key: "community-post", label: "Community posts", table: "community_feed_posts", columns: ["media", "body"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 1000 },
+  { key: "community-space", label: "Community spaces", table: "community_spaces", columns: ["icon"], scope: { kind: "via", column: "community_id", parent: "communities", parentScope: { kind: "own", column: "owner_user_id", owner: "user" } }, limit: 400 },
+  { key: "community-event", label: "Community events", table: "community_events", columns: ["cover_url"], scope: { kind: "via", column: "community_id", parent: "communities", parentScope: { kind: "own", column: "owner_user_id", owner: "user" } }, limit: 400 },
+  { key: "community-post", label: "Community posts", table: "community_feed_posts", columns: ["media", "body"], scope: { kind: "via", column: "community_id", parent: "communities", parentScope: { kind: "own", column: "owner_user_id", owner: "user" } }, limit: 1000 },
   /* Email: a campaign's own pictures and the branding in it. */
   { key: "email-campaign", label: "Email campaigns", table: "email_campaigns", columns: ["body", "rendered_html", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
   { key: "email-flow", label: "Email automations", table: "email_flows", columns: ["trigger_config", "steps"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
   /* Published writing. */
   { key: "blog", label: "Blog posts", table: "blog_posts", columns: ["cover_image_url", "content", "body"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
-  /* Reviews widgets: a saved look can name a picture. */
+  /* Reviews: a saved widget look, and the photos on a review. */
   { key: "review-widget", label: "Review widgets", table: "review_widget_configs", columns: ["settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
+  { key: "review", label: "Reviews", table: "reviews", columns: ["photos", "content"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 2000 },
+  /* Files attached to a published lesson. */
+  {
+    key: "lesson-attachment",
+    label: "Course lessons",
+    table: "lesson_attachments",
+    columns: ["file_path"],
+    /* Two hops: the attachment's lesson, the lesson's course, the course's
+       store. `lesson_attachments` has no owner column of its own, so the
+       catalogue walk in the database never reaches it and this list is the
+       only gate that can speak for it. */
+    scope: { kind: "via", column: "lesson_id", parent: "course_lessons", parentScope: { kind: "via", column: "course_id", parent: "courses", parentScope: { kind: "own", column: "creator_id", owner: "creator" } } },
+    limit: 2000,
+  },
 ]
 
 /** The forms an address can carry a path in. Never the file name alone. */
@@ -182,11 +201,27 @@ async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown 
   }
 }
 
-/** The ids of the parent rows a `via` surface hangs off, this store's own. */
-async function parentIds(db: Db, surface: Surface & { scope: Extract<Scope, { kind: "via" }> }, owner: Owner): Promise<{ ids: string[]; ok: boolean }> {
-  const id = surface.scope.parentOwner === "creator" ? owner.creatorId : owner.userId
-  const { rows, ok } = await soft<{ id: string }>(() => db.from(surface.scope.parent).select("id").eq(surface.scope.parentColumn, id).limit(600))
+/**
+ * The ids of one table's rows that belong to this store, following the chain
+ * up to whichever table holds the owner column. One query a hop.
+ */
+async function idsOf(db: Db, table: string, scope: Scope, owner: Owner): Promise<{ ids: string[]; ok: boolean }> {
+  if (scope.kind === "own") {
+    const id = scope.owner === "creator" ? owner.creatorId : owner.userId
+    if (!id) return { ids: [], ok: true }
+    const { rows, ok } = await soft<{ id: string }>(() => db.from(table).select("id").eq(scope.column, id).limit(600))
+    return { ids: rows.map((r) => str(r.id)).filter(Boolean), ok }
+  }
+  const up = await idsOf(db, scope.parent, scope.parentScope, owner)
+  if (!up.ok) return { ids: [], ok: false }
+  if (up.ids.length === 0) return { ids: [], ok: true }
+  const { rows, ok } = await soft<{ id: string }>(() => db.from(table).select("id").in(scope.column, up.ids).limit(2000))
   return { ids: rows.map((r) => str(r.id)).filter(Boolean), ok }
+}
+
+/** The ids of the parent rows a `via` surface hangs off, this store's own. */
+async function parentIds(db: Db, scope: Extract<Scope, { kind: "via" }>, owner: Owner): Promise<{ ids: string[]; ok: boolean }> {
+  return idsOf(db, scope.parent, scope.parentScope, owner)
 }
 
 /** One thing being asked about: an id to answer under, and the paths an address could carry. */
@@ -219,7 +254,7 @@ async function surfaceHits(db: Db, surface: Surface, owner: Owner, targets: read
     rows = read.rows
   } else {
     const scope = surface.scope
-    const { ids, ok: parentOk } = await parentIds(db, surface as Surface & { scope: typeof scope }, owner)
+    const { ids, ok: parentOk } = await parentIds(db, scope, owner)
     if (!parentOk) return { counts, ok: false }
     if (ids.length === 0) return { counts, ok: true }
     const read = await soft<Record<string, unknown>>(() => db.from(surface.table).select(cols).in(scope.column, ids).limit(limit))

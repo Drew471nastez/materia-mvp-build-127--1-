@@ -248,6 +248,17 @@ async function main() {
     onepages: [{ id: "op1", creator_id: CREATOR, avatar_url: LOGO_URL }],
   })
 
+  await surfaceCase("a photo on a review", "Reviews", {
+    reviews: [{ id: "rv1", creator_id: CREATOR, photos: [LOGO_URL] }],
+  })
+
+  /* Two hops: the attachment's lesson, the lesson's course, the course's store. */
+  await surfaceCase("a file attached to a published lesson", "Course lessons", {
+    courses: [{ id: "cr1", creator_id: CREATOR }],
+    course_lessons: [{ id: "l1", course_id: "cr1" }],
+    lesson_attachments: [{ id: "at1", lesson_id: "l1", file_path: LOGO }],
+  })
+
   /*
     THE OWNER'S OWN TEST, END TO END, THROUGH THE REAL READERS: upload a
     picture, set it as the store logo, remove it from Files, and the store
