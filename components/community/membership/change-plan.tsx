@@ -16,9 +16,11 @@ import { useEffect, useRef, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { api, apiBase } from "@/components/community/member/api"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
-import { formatDay, formatMoney, type CommunityMembershipView } from "@/lib/communities/membership-policy"
-import type { ChangeKind, PlanInterval } from "@/lib/communities/plan-change"
+import { formatMoney, type CommunityMembershipView } from "@/lib/communities/membership-policy"
+import type { PlanInterval } from "@/lib/communities/plan-change"
+import { getStripePromise } from "@/app/checkout/parts/stripe-loader"
 import { MembershipSheet } from "./sheet"
+import { confirmLabel, previewSentence, type PlanPreview as Preview } from "./plan-words"
 
 interface PlanChoice {
   tierId: string
@@ -36,34 +38,8 @@ interface PlanChoices {
   currentInterval: PlanInterval
   plans: PlanChoice[]
 }
-interface Preview {
-  kind: ChangeKind
-  toName: string
-  interval: PlanInterval
-  amountCents: number
-  currency: string
-  dueNowCents: number
-  creditCents: number
-  nextChargeAt: string | null
-  trialing: boolean
-}
 
-/** What the member reads before confirming, from the preview's numbers. */
-export function previewSentence(p: Preview, locale = "en-US"): string {
-  const m = (c: number) => formatMoney(c, p.currency, locale)
-  const per = p.interval === "year" ? "year" : "month"
-  const then = `${m(p.amountCents)}/${per}${p.nextChargeAt ? ` from ${formatDay(p.nextChargeAt, locale)}` : ""}`
-  if (p.trialing) return `Your free trial carries on. Nothing is charged today, then ${then}.`
-  const credit = p.creditCents > 0 ? ` ${m(p.creditCents)} for the time you have not used comes off your next bill.` : ""
-  if (p.dueNowCents > 0) return `You pay ${m(p.dueNowCents)} today, the difference for the rest of this period.${credit} Then ${then}.`
-  return `Nothing to pay today.${credit} Then ${then}.`
-}
-
-export function confirmLabel(kind: ChangeKind, name: string, interval: PlanInterval): string {
-  if (kind === "upgrade") return `Upgrade to ${name}`
-  if (kind === "interval") return interval === "year" ? "Switch to annual" : "Switch to monthly"
-  return `Switch to ${name}`
-}
+export { confirmLabel, previewSentence }
 
 export function ChangePlan({
   communityId,
@@ -144,11 +120,30 @@ export function ChangePlan({
     if (busy || !preview) return
     setBusy(true)
     setError(null)
-    const r = await api<{ membership: CommunityMembershipView }>(`${apiBase(communityId)}/membership/plan`, { body: { tierId, interval: every, confirm: true }, timeoutMs: 30_000 })
+    const r = await api<{ membership?: CommunityMembershipView; needsAction?: { clientSecret: string } }>(`${apiBase(communityId)}/membership/plan`, { body: { tierId, interval: every, confirm: true }, timeoutMs: 30_000 })
+    if (!r.ok) {
+      setBusy(false)
+      return setError((r as { error: string }).error)
+    }
+    let view = r.data.membership ?? null
+    /* Round AG: the bank wants to confirm the difference (3-D Secure): Stripe's own window, then the server finishes once it sees it paid. */
+    if (r.data.needsAction) {
+      const stripe = await getStripePromise()
+      const confirmed = stripe ? await stripe.confirmCardPayment(r.data.needsAction.clientSecret) : null
+      if (!confirmed || confirmed.error) {
+        setBusy(false)
+        return setError(`${confirmed?.error?.message ?? "Your bank did not approve the payment."} Nothing changed.`)
+      }
+      const fin = await api<{ membership?: CommunityMembershipView }>(`${apiBase(communityId)}/membership/plan`, { body: { tierId, interval: every, finish: true }, timeoutMs: 30_000 })
+      if (!fin.ok) {
+        setBusy(false)
+        return setError((fin as { error: string }).error)
+      }
+      view = fin.data.membership ?? null
+    }
     setBusy(false)
-    if (!r.ok) return setError((r as { error: string }).error)
     setOpen(false)
-    onChanged(r.data.membership)
+    if (view) onChanged(view)
   }
 
   const price = (p: PlanChoice, i: PlanInterval) => {

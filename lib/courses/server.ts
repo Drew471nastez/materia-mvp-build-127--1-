@@ -388,7 +388,13 @@ async function programLessonContext(db: Db, userId: string | null, lesson: Lesso
     const { programLessonLevel } = await import("@/lib/communities/server/learn")
     const found = await programLessonLevel(db, userId, course.id)
     if (!found) return null
-    return { lesson, module: mod, course, product: found.product, programId: found.programId, creatorId: found.creatorId, level: found.level, access: lessonAccess(found.level, !!lesson.is_preview) }
+    let access = lessonAccess(found.level, !!lesson.is_preview)
+    /* Round AG: a module this member bought on its own opens its lessons, on the server, whatever the program's own lock. */
+    if (found.level === "public" && userId && (mod as { price_cents?: number | null }).price_cents) {
+      const { ownedModules } = await import("@/lib/communities/server/module-sales")
+      if ((await ownedModules(db, userId, [mod.id])).has(mod.id)) access = "owner"
+    }
+    return { lesson, module: mod, course, product: found.product, programId: found.programId, creatorId: found.creatorId, level: found.level, access }
   } catch {
     return null
   }

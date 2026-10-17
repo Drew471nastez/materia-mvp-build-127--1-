@@ -54,22 +54,26 @@ export interface BuyProgramProps {
   className?: string
   /** Opened already (the probe, which has no button to press). */
   initiallyOpen?: boolean
+  /** Round AG: one module of the program, bought on its own (lib/communities/server/module-sales.ts). */
+  moduleId?: string | null
+  /** The button's own words, for a module ("Buy module"). */
+  buttonLabel?: string
 }
 
 export function BuyProgram({ className, ...props }: BuyProgramProps) {
   const [open, setOpen] = React.useState(!!props.initiallyOpen)
   return (
     <>
-      <button type="button" className={className} onClick={() => setOpen(true)} data-buy-program={props.programId}>
+      <button type="button" className={className} onClick={() => setOpen(true)} data-buy-program={props.programId} data-buy-module={props.moduleId ?? undefined}>
         <Lock className="h-4 w-4" aria-hidden />
-        {tt("Buy for {priceLabel}", { priceLabel: props.priceLabel })}
+        {props.buttonLabel ?? tt("Buy for {priceLabel}", { priceLabel: props.priceLabel })}
       </button>
       <ProgramCheckoutSheet {...props} open={open} onClose={() => setOpen(false)} />
     </>
   )
 }
 
-export function ProgramCheckoutSheet({ communityId, communityName, programId, title, priceLabel, open, onClose }: BuyProgramProps & { open: boolean; onClose: () => void }) {
+export function ProgramCheckoutSheet({ communityId, communityName, programId, title, priceLabel, open, onClose, moduleId = null }: BuyProgramProps & { open: boolean; onClose: () => void }) {
   const phone = usePhone()
   const router = useRouter()
   const [phase, setPhase] = React.useState<Phase>({ kind: "form" })
@@ -86,7 +90,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
   }, [open])
 
   const fetchClientSecret = React.useCallback(async () => {
-    const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin" }).catch(() => null)
+    const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", ...(moduleId ? { body: JSON.stringify({ moduleId }) } : {}) }).catch(() => null)
     const body = (await res?.json().catch(() => null)) as { clientSecret?: string; sessionId?: string; error?: string } | null
     if (!res?.ok || !body?.clientSecret) {
       const message = body?.error || tt("The payment form did not load. Try again.")
@@ -95,13 +99,13 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
     }
     session.current = body.sessionId ?? null
     return body.clientSecret
-  }, [base])
+  }, [base, moduleId])
 
   const onComplete = React.useCallback(async () => {
     setPhase({ kind: "confirming" })
     /* The webhook may already have done it; asking again is harmless and makes this page not wait for it. */
     for (let i = 0; i < 4; i++) {
-      const res = await fetch(`${base}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ sessionId: session.current }) }).catch(() => null)
+      const res = await fetch(`${base}/confirm`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ sessionId: session.current, ...(moduleId ? { kind: "module" } : {}) }) }).catch(() => null)
       if (res?.ok) {
         setPhase({ kind: "done" })
         router.refresh()
@@ -112,7 +116,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
     }
     setPhase({ kind: "error", message: tt("Your payment went through. The program opens in a moment: refresh the page if it does not.") })
     router.refresh()
-  }, [base, router])
+  }, [base, router, moduleId])
 
   const options = React.useMemo(() => ({ fetchClientSecret, onComplete }), [fetchClientSecret, onComplete])
   const busy = phase.kind === "confirming"

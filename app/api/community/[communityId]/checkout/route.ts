@@ -8,6 +8,7 @@ import { communityOptions, communityTrialUsed } from "@/lib/communities/server/p
 import { checkoutTermsFor } from "@/lib/communities/server/membership-lifecycle"
 import { buyerLocale, withdrawalWaiverApplies } from "@/lib/communities/membership-policy"
 import { createClient } from "@/lib/supabase/server"
+import { buyerCountry, buyerIp, membershipTaxQuote } from "@/lib/tax/membership"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -59,12 +60,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
     headers(),
   ])
   const name = String((profile.data as { display_name?: string | null } | null)?.display_name ?? "").trim() || email.split("@")[0]
+  /* Round AG: the tax each interval carries for this buyer, worked out as the subscription will be (lib/tax/membership.ts). */
+  const sale = { creatorId: community.creator_id ?? "", productId: plan.productId, currency: plan.currency || "usd", country: buyerCountry(h), ip: buyerIp(h) }
+  const [taxMonth, taxYear] = community.creator_id
+    ? await Promise.all([
+        plan.monthlyCents ? membershipTaxQuote(db, { ...sale, amountCents: plan.monthlyCents }).catch(() => null) : Promise.resolve(null),
+        plan.yearlyCents ? membershipTaxQuote(db, { ...sale, amountCents: plan.yearlyCents }).catch(() => null) : Promise.resolve(null),
+      ])
+    : [null, null]
+  const view = (q: Awaited<ReturnType<typeof membershipTaxQuote>>) => (q ? { taxCents: q.taxCents, included: q.included, label: q.label } : null)
   return NextResponse.json(
     {
       plan,
       buyer: { email, name },
       trialDays: used ? 0 : plan.trialDays ?? 0,
       trialUsed: used && (plan.trialDays ?? 0) > 0,
+      tax: { month: view(taxMonth), year: view(taxYear) },
       terms: {
         communityName: terms?.communityName ?? community.name ?? "",
         refundPolicy: terms?.refundPolicy ?? null,

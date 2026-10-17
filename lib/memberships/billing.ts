@@ -137,6 +137,9 @@ export async function createSubscription(p: {
   paymentMethodId?: string | null
   /** The ways to pay the page's form loaded with (lib/checkout/payment-methods): the first invoice takes exactly those. */
   paymentMethodTypes?: ("card" | "link")[]
+  /** Round AG (lib/tax/membership.ts): Stripe Tax works the tax out, or the creator's own rate is charged on every invoice. */
+  automaticTax?: boolean
+  taxRateIds?: string[]
 }): Promise<CreatedSubscription> {
   const params: Stripe.SubscriptionCreateParams = {
     customer: p.customerId,
@@ -154,6 +157,8 @@ export async function createSubscription(p: {
     params.trial_settings = { end_behavior: { missing_payment_method: "cancel" } }
   }
   if (p.paymentMethodId) params.default_payment_method = p.paymentMethodId
+  if (p.automaticTax) params.automatic_tax = { enabled: true }
+  else if (p.taxRateIds?.length) params.default_tax_rates = p.taxRateIds
   const subscription = await stripe.subscriptions.create(params, { idempotencyKey: p.idempotencyKey })
   return { subscription, intent: intentOf(subscription) }
 }

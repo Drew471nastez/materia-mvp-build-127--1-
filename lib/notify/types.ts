@@ -86,6 +86,8 @@ export const DOMAIN_EVENTS = [
   "community.event_cancelled",
   /* The weekly digest a member asked for in Settings, one per account a week across their communities (lib/communities/server/jobs/weekly_digest.ts). */
   "community.weekly_digest",
+  /* Round AG: an email the community's owner wrote to every member who keeps community emails on (lib/communities/server/broadcasts.ts). */
+  "community.broadcast",
   "domain.connected",
   "domain.connection_failed",
   "team.invitation_created",
@@ -219,6 +221,8 @@ export const NOTIFICATION_TYPES = [
   "COMMUNITY_REPORT_DIGEST",
   /* The week in the person's communities, only when they asked for it in Settings (lib/communities/server/jobs/weekly_digest.ts). */
   "COMMUNITY_WEEKLY_DIGEST",
+  /* Round AG: the owner's own email to the members, at most one a day per community (lib/communities/server/broadcasts.ts). */
+  "COMMUNITY_BROADCAST",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]

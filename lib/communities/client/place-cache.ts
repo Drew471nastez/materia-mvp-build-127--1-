@@ -45,6 +45,12 @@ export const AHEAD_FRESH_MS = 4 * 60_000
 export const AHEAD_AT_ONCE = 2
 /** A read that failed is tried once more after this long (a phone that just woke gets its connection back). */
 export const RETRY_AFTER_MS = 700
+/**
+ * ROUND AG: A READ NEVER WAITS FOREVER. After a computer sleeps (the owner: "AFK, then the community spins forever") the
+ * first read can go out on a connection that died meanwhile and never answer. Every later read of that place shared the
+ * one on its way (asking), so the place spun for good. Each read now gives up after this long and is tried once more.
+ */
+export const PLACE_READ_TIMEOUT_MS = 12_000
 
 /* ── The rules ── */
 
@@ -89,7 +95,7 @@ export function retryable(error: unknown): boolean {
   if (!error) return false
   const name = (error as { name?: string }).name || ""
   const message = String((error as { message?: string }).message || error)
-  return name === "TypeError" || /load failed|failed to fetch|network|timed? ?out/i.test(message)
+  return name === "TypeError" || name === "AbortError" || name === "TimeoutError" || /load failed|failed to fetch|network|timed? ?out|aborted/i.test(message)
 }
 
 /* ── The cache ── */
@@ -159,9 +165,15 @@ function warmProfileCover(data: PlaceData) {
 }
 
 async function askOnce(url: string): Promise<{ answer: PlaceAnswer | null; status: number }> {
-  const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" })
-  const answer = (await res.json().catch(() => null)) as PlaceAnswer | null
-  return { answer, status: res.status }
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null
+  const timer = setTimeout(() => ctrl?.abort(), PLACE_READ_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store", signal: ctrl?.signal })
+    const answer = (await res.json().catch(() => null)) as PlaceAnswer | null
+    return { answer, status: res.status }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**

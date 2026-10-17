@@ -174,7 +174,7 @@ async function main() {
     const footer = code("components/storefront/seller-footer.tsx")
     check("the footer can take the header's container", /headerWidth \? "max-w-\[1400px\] lg:px-8" : "max-w-6xl"/.test(footer))
     check("the header's container is that one", /mx-auto max-w-\[1400px\] px-4 sm:px-6 lg:px-8/.test(read("components/platform/platform-header-client.tsx")))
-    check("Explore on a computer asks for it, and only Explore", /data-explore-desktop-footer="">\s*(\{\}\s*)?<SellerFooter headerWidth \/>/.test(code("components/marketing/conditional-footer.tsx")) && !/headerWidth/.test(read("app/(marketing)/p/[slug]/page.tsx")))
+    check("Explore on a computer asks for it, and only Explore", /data-explore-desktop-footer="">\s*(\{\}\s*)?(\{\}\s*)?<SellerFooter headerWidth( home=\{!signedIn\})? \/>/.test(code("components/marketing/conditional-footer.tsx")) && !/headerWidth/.test(read("app/(marketing)/p/[slug]/page.tsx")))
   }
 
   console.log("\n3. The photo beside Dashboard")

@@ -60,6 +60,9 @@ export const WORKFLOWS = {
   verification: "verification",
 } as const
 
+/** Text a person wrote to be read whole: a community owner's own email (round AG, COMMUNITY_BROADCAST). */
+const LONG_TEXT_KEYS = new Set(["message"])
+
 const SECRET_KEY = /token|secret|password|authorization|signature|api[_-]?key|iban|account[_-]?number|routing|cvc/i
 
 /**
@@ -77,7 +80,7 @@ export function safeData(payload: Record<string, unknown> | null | undefined, ex
       if (typeof v === "string" && /^\d{4}$/.test(v)) out[k] = v
       continue
     }
-    if (typeof v === "string") out[k] = v.slice(0, 500)
+    if (typeof v === "string") out[k] = v.slice(0, LONG_TEXT_KEYS.has(k) ? 4000 : 500)
     else if (typeof v === "number" && Number.isFinite(v)) out[k] = v
     else if (typeof v === "boolean") out[k] = v
     else if (v === null) out[k] = null

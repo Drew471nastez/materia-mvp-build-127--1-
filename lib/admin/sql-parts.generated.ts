@@ -163,6 +163,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "214", file: "214_inventory_and_files.sql", sha256: "c6a6d2e5ac71572cd294f4ae99f5947f1f13a99b507bd2fd6f6a47d6dcd1888c" },
   { part: "215", file: "215_reviews_manage.sql", sha256: "50c6777de9bf2236675c3392cc0795455e9366cfa28b85a429ef3d6f1fc62eca" },
   { part: "216", file: "216_review_widget_configs.sql", sha256: "0798f57a409af7bf17ec74d261e7e1be6de2e89d6d377319e3bc14be73afd992" },
+  { part: "217", file: "217_round_ag.sql", sha256: "5494ba3b379376963ca17f8181293734a233882a8ee84089a52931722481b4d9" },
   { part: "220", file: "220_community_summary_and_member_links.sql", sha256: "cfe2288f90605cd9accfd06f3a80edb536dfdee0dda1b14f80baa15a655bbac7" },
   { part: "221", file: "221_community_member_link_clicks.sql", sha256: "b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee" },
   { part: "230", file: "230_store_offers_settings.sql", sha256: "9715ba52c7854fed848def4e4eb70b8570a650dc69bd1481ceeeec7901dcc062" },

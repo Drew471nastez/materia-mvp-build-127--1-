@@ -53,11 +53,11 @@ import { welcomeVideoSrc } from "@/lib/communities/post-media"
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, Plus, X } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Plus, X } from "lucide-react"
 import { ChoicePicker } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
-import { centsFromInput } from "@/lib/memberships/plan"
+import { centsFromInput, TRIAL_CHOICES, trialDaysOf } from "@/lib/memberships/plan"
 import { MAX_ACTIVE_TIERS, MAX_BENEFITS } from "@/lib/communities/limits"
 import type { NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
@@ -68,6 +68,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
+import { MemberEmailsPanel } from "./member-emails-panel"
 import { RulesEditor } from "./moderation-section"
 import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
@@ -120,6 +121,8 @@ const PANELS: SettingsPanel[] = [
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
   { value: "roles", get label() { return tt("Roles and permissions") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
   { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
+  /* Round AG: email the members, and the community's own words on the emails it sends (./member-emails-panel.tsx). */
+  { value: "emails", get label() { return tt("Member emails") }, needs: "manage_settings", group: "people", get line() { return tt("Email your members and edit your emails") }, render: (p) => <MemberEmailsPanel head={p.head} /> },
   { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") }, render: (p) => <GamificationPanel head={p.head} levels={p.data.levels} badges={p.data.badges} /> },
   { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") }, render: (p) => <Notifications head={p.head} data={p.data} /> },
   /* round32: features panels (a new panel: its entry here, its name in ./logic SETTINGS_TABS) */
@@ -601,7 +604,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
         action={
           owner ? (
             <div className="flex items-center gap-2">
-              <a href={`/community/${head.slug}?join=plans`} target="_blank" rel="noreferrer" className={cn(buttonSecondary, "border-transparent shadow-none")} data-plans-preview="">
+              <a href={`/community/${head.slug}?preview=plans&join=plans`} target="_blank" rel="noreferrer" className={cn(buttonSecondary, "border-transparent shadow-none")} data-plans-preview="">
                 <ExternalLink aria-hidden className="h-4 w-4" />
                 {tt("Preview")}
               </a>
@@ -615,8 +618,8 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
           ) : null
         }
       >
-        {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">{tt("No tiers yet.")}</p> : (
-          <div className="-my-1 divide-y divide-[#f1f2f4]">
+        {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">{tt("No plans yet. Add one to start.")}</p> : (
+          <div className="space-y-3" data-tier-list="">
             {live.map((t) => (
               <TierCard key={t.id} head={head} tier={t} products={data.products} owner={owner} canDefault={live.length > 1} first={t.id === live[0]?.id} last={t.id === live[live.length - 1]?.id} />
             ))}
@@ -668,12 +671,13 @@ function TierCard({ head, tier, products, owner, canDefault, first = true, last 
   const router = useRouter()
   const toast = useToast()
   const base = `/api/app/community/${head.id}/tiers/${tier.id}`
-  const start = { name: tier.name, description: tier.description ?? "", benefits: tier.benefits.join("\n"), trial: String(tier.trialDays ?? 0), monthly: dollars(tier.monthlyCents), yearly: dollars(tier.yearlyCents), price: dollars(tier.priceCents) }
+  const start = { name: tier.name, description: tier.description ?? "", benefits: tier.benefits.join("\n"), trial: String(trialDaysOf(tier.trialDays)), monthly: dollars(tier.monthlyCents), yearly: dollars(tier.yearlyCents), price: dollars(tier.priceCents) }
   const [s, setS] = React.useState(start)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [archiving, setArchiving] = React.useState(false)
   const [picking, setPicking] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
   const dirty = JSON.stringify(s) !== JSON.stringify(start)
 
   const save = async () => {
@@ -692,6 +696,7 @@ function TierCard({ head, tier, products, owner, canDefault, first = true, last 
     const res = await send(base, "PATCH", body)
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
+    setEditing(false)
     toast(tier.billing === "recurring" && (body.monthlyPrice !== undefined || body.yearlyPrice !== undefined) ? tt("Price saved. Members keep the price they joined at.") : body.trialDays !== undefined ? tt("Saved. The trial applies to people who join from now on.") : tt("Saved"))
     router.refresh()
   }
@@ -722,159 +727,232 @@ function TierCard({ head, tier, products, owner, canDefault, first = true, last 
   const offered = new Set([...tier.accessProducts.map((p) => p.id)])
   const pickable = products.filter((p) => !offered.has(p.id))
 
+  /* Round AG: the benefits as a list of rows, one input each; saved as lines like before. */
+  const benefitRows = s.benefits.length ? s.benefits.split("\n") : []
+  const setBenefits = (rows: string[]) => setS({ ...s, benefits: rows.slice(0, MAX_BENEFITS).join("\n") })
+  const shownBenefits = tier.benefits.slice(0, 3)
+  const cancel = () => {
+    setS(start)
+    setError(null)
+    setEditing(false)
+  }
+
+  /*
+    ROUND AG: A PLAN IS A CARD, the way a visitor sees it. Name, price, trial and members at a glance; Edit opens the
+    form below it (a smooth grid row open), saved with one button. Order, default and stop selling stay one tap away.
+  */
   return (
-    <div className="py-4 first:pt-1 last:pb-1" data-tier={tier.kind}>
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="mr-auto flex min-w-0 items-center gap-2">
-          <span className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">{tier.name}</span>
-          {tier.isDefault ? <StatusBadge tone="neutral">{tt("Default")}</StatusBadge> : null}
-          {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">{tt("Off sale")}</StatusBadge> : null}
-        </p>
-        <span className="text-[13px] tabular-nums text-[#6b7280]">
-          {tier.priceLine || tt("No price")}
-          {tier.trialDays > 0 ? ` · ${tt("{n}-day trial", { n: tier.trialDays })}` : ""} · {tt("{n, plural, one {# member} other {# members}}", { n: tier.members })}
-        </span>
-        {owner && !(first && last) ? (
-          <span className="flex items-center" data-tier-move="">
-            <button type="button" disabled={first} aria-label={tt("Move {name} up", { name: tier.name })} onClick={() => void patch({ move: "up" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
-              <ArrowUp aria-hidden className="h-4 w-4" />
-            </button>
-            <button type="button" disabled={last} aria-label={tt("Move {name} down", { name: tier.name })} onClick={() => void patch({ move: "down" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
-              <ArrowDown aria-hidden className="h-4 w-4" />
-            </button>
-          </span>
-        ) : null}
-      </div>
-      {tier.subscribers && (tier.subscribers.paying || tier.subscribers.trialing || tier.subscribers.trialsEnded) ? (
-        <p className="mt-1 text-[12.5px] tabular-nums text-[#6b7280]" data-tier-subscribers="">
-          {tt("{n} paying", { n: tier.subscribers.paying })}
-          {tier.subscribers.trialing ? ` · ${tt("{n} on a free trial", { n: tier.subscribers.trialing })}` : ""}
-          {tier.subscribers.trialsEnded ? ` · ${tt("{c} of {n} ended trials now paying", { c: tier.subscribers.trialsConverted, n: tier.subscribers.trialsEnded })}` : ""}
-        </p>
-      ) : null}
-      {owner ? (
-        <>
-          <div className={cn("mt-3 grid gap-3", tier.billing === "recurring" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
-            <div className={tier.billing === "recurring" ? "col-span-2 sm:col-span-1" : undefined}>
-              <label htmlFor={`t-name-${tier.id}`} className={label}>
-                {tt("Name")}
-              </label>
-              <input id={`t-name-${tier.id}`} value={s.name} onChange={(e) => setS({ ...s, name: e.target.value.slice(0, 60) })} className={cn(field, "h-11 sm:h-10")} />
-            </div>
-            {tier.billing === "recurring" ? (
-              <>
-                <div>
-                  <label htmlFor={`t-m-${tier.id}`} className={label}>
-                    {tt("Monthly")}
-                  </label>
-                  <PriceInput id={`t-m-${tier.id}`} value={s.monthly} onChange={(v) => setS({ ...s, monthly: v })} placeholder={tt("None")} />
-                </div>
-                <div>
-                  <label htmlFor={`t-y-${tier.id}`} className={label}>
-                    {tt("Yearly")}
-                  </label>
-                  <PriceInput id={`t-y-${tier.id}`} value={s.yearly} onChange={(v) => setS({ ...s, yearly: v })} placeholder={tt("None")} />
-                  {yearlyHint ? <p className="mt-1 text-[12px] text-[#15803d]">{yearlyHint}</p> : null}
-                </div>
-              </>
-            ) : tier.billing === "one_time" ? (
-              <div>
-                <label htmlFor={`t-p-${tier.id}`} className={label}>
-                  {tt("One time price")}
-                </label>
-                <PriceInput id={`t-p-${tier.id}`} value={s.price} onChange={(v) => setS({ ...s, price: v })} />
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor={`t-d-${tier.id}`} className={label}>
-                {tt("Short description")}
-              </label>
-              <textarea id={`t-d-${tier.id}`} value={s.description} rows={3} maxLength={500} onChange={(e) => setS({ ...s, description: e.target.value.slice(0, 500) })} placeholder={tt("Who this plan is for")} className={cn(field, "min-h-[88px] resize-y py-2.5 text-[16px] sm:text-[14px]")} data-tier-description="" />
-            </div>
-            <div>
-              <label htmlFor={`t-b-${tier.id}`} className={label}>
-                {tt("What members get, one per line")}
-              </label>
-              <textarea id={`t-b-${tier.id}`} value={s.benefits} rows={3} onChange={(e) => setS({ ...s, benefits: e.target.value.split("\n").slice(0, MAX_BENEFITS).join("\n") })} placeholder={tt("Full community access\nWeekly live calls")} className={cn(field, "min-h-[88px] resize-y py-2.5 text-[16px] sm:text-[14px]")} data-tier-benefits="" />
-            </div>
-          </div>
-          {tier.billing === "recurring" ? (
-            <div className="mt-3">
-              <p id={`t-t-${tier.id}`} className={label}>
-                {tt("Free trial")}
-              </p>
-              <div role="radiogroup" aria-labelledby={`t-t-${tier.id}`} className="mt-1 flex flex-wrap gap-1.5" data-tier-trial="">
-                {[...new Set([0, 3, 7, 14, 30, Number(start.trial)])].sort((a, b) => a - b).map((d) => {
-                  const on = s.trial === String(d)
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      onClick={() => setS({ ...s, trial: String(d) })}
-                      className={cn(
-                        "inline-flex h-10 items-center rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 sm:h-8",
-                        on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8f9fa]",
-                      )}
-                      data-trial-days={d}
-                    >
-                      {d === 0 ? tt("No trial") : tt("{n} days", { n: d })}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="mt-1 text-[12px] text-[#6b7280]">{tt("A card is taken at sign up and charged when the trial ends, unless they cancel.")}</p>
-            </div>
-          ) : null}
-          {tier.kind === "paid" ? (
-            <div className="mt-3">
-              <p className="text-[12.5px] font-medium text-[#4b5563]">{tt("Also let in buyers of")}</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {tier.accessProducts.map((p) => (
-                  <span key={p.id} className="inline-flex h-10 items-center gap-0.5 rounded-full border border-[#e5e7eb] bg-[#fafbfb] pl-3 text-[12.5px] text-[#1a1a2e] sm:h-8 sm:pr-1">
-                    <span className="max-w-[180px] truncate">{p.title}</span>
-                    <button type="button" aria-label={tt("Take {title} off", { title: p.title })} onClick={() => void setProduct(p.id, false)} className="grid h-10 w-10 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1] sm:h-6 sm:w-6">
-                      <X aria-hidden className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-                {pickable.length ? (
-                  <button type="button" onClick={() => setPicking(true)} className="inline-flex h-10 items-center gap-1 rounded-full border border-dashed border-[#d1d5db] px-3 text-[12.5px] font-medium text-[#4b5563] hover:border-[#9ca3af] sm:h-8">
-                    <Plus aria-hidden className="h-3.5 w-3.5" />
-                    {tt("Product")}
-                  </button>
-                ) : tier.accessProducts.length === 0 ? (
-                  <span className="text-[12.5px] text-[#9ca3af]">{tt("No other products yet.")}</span>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-          {error ? (
-            <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
-              {error}
+    <div className="rounded-2xl border border-[#e8eaee] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_2px_8px_rgba(16,24,40,0.06)]" data-tier={tier.kind} data-tier-card="" data-editing={editing ? "" : undefined}>
+      <div className="flex items-start gap-3 p-4 sm:p-5">
+        <div className="min-w-0 flex-1">
+          <p className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{tier.name}</span>
+            {tier.isDefault ? <StatusBadge tone="neutral">{tt("Default")}</StatusBadge> : null}
+            {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">{tt("Off sale")}</StatusBadge> : null}
+          </p>
+          <p className="mt-1 text-[13.5px] tabular-nums text-[#1a1a2e]">
+            <span className="font-medium">{tier.priceLine || (tier.kind === "free" ? ttx("price", "Free") : tt("No price"))}</span>
+            {tier.trialDays > 0 ? <span className="text-[#6b7280]"> · {tt("{n}-day free trial", { n: tier.trialDays })}</span> : null}
+            <span className="text-[#6b7280]"> · {tt("{n, plural, one {# member} other {# members}}", { n: tier.members })}</span>
+          </p>
+          {tier.subscribers && (tier.subscribers.paying || tier.subscribers.trialing || tier.subscribers.trialsEnded) ? (
+            <p className="mt-0.5 text-[12.5px] tabular-nums text-[#6b7280]" data-tier-subscribers="">
+              {tt("{n} paying", { n: tier.subscribers.paying })}
+              {tier.subscribers.trialing ? ` · ${tt("{n} on a free trial", { n: tier.subscribers.trialing })}` : ""}
+              {tier.subscribers.trialsEnded ? ` · ${tt("{c} of {n} ended trials now paying", { c: tier.subscribers.trialsConverted, n: tier.subscribers.trialsEnded })}` : ""}
             </p>
           ) : null}
-          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-            {!tier.isDefault && canDefault ? (
-              <button type="button" onClick={() => void patch({ makeDefault: true }, tt("{name} is the default", { name: tier.name }))} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
-                {tt("Make default")}
-              </button>
+          {!editing && shownBenefits.length ? (
+            <ul className="mt-2.5 flex flex-wrap gap-1.5" data-tier-benefit-chips="">
+              {shownBenefits.map((b, i) => (
+                <li key={i} className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#f4f5f7] px-2.5 py-1 text-[12px] text-[#4b5563]">
+                  <Check aria-hidden className="h-3 w-3 shrink-0 text-[#1a1a2e]" strokeWidth={2.5} />
+                  <span className="truncate">{b}</span>
+                </li>
+              ))}
+              {tier.benefits.length > shownBenefits.length ? <li className="px-1 py-1 text-[12px] text-[#9ca3af]">+{tier.benefits.length - shownBenefits.length}</li> : null}
+            </ul>
+          ) : null}
+        </div>
+        {owner ? (
+          <div className="flex shrink-0 items-center gap-0.5">
+            {!(first && last) ? (
+              <span className="flex items-center" data-tier-move="">
+                <button type="button" disabled={first} aria-label={tt("Move {name} up", { name: tier.name })} onClick={() => void patch({ move: "up" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
+                  <ArrowUp aria-hidden className="h-4 w-4" />
+                </button>
+                <button type="button" disabled={last} aria-label={tt("Move {name} down", { name: tier.name })} onClick={() => void patch({ move: "down" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
+                  <ArrowDown aria-hidden className="h-4 w-4" />
+                </button>
+              </span>
             ) : null}
-            {!tier.isDefault ? (
-              <button type="button" onClick={() => setArchiving(true)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
-                {tt("Stop selling")}
-              </button>
-            ) : null}
-            {dirty ? (
-              <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-8")} data-tier-save="">
-                {busy ? tt("Saving") : tt("Save plan")}
-              </button>
-            ) : null}
+            <button type="button" onClick={() => (editing ? cancel() : setEditing(true))} aria-expanded={editing} className={cn(buttonSecondary, "ml-1 h-10 gap-1 sm:h-8")} data-tier-edit="">
+              {editing ? tt("Close") : tt("Edit")}
+              <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-[rotate] duration-200", editing && "rotate-180")} />
+            </button>
           </div>
-        </>
+        ) : null}
+      </div>
+      {owner ? (
+        <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none", editing ? "grid-rows-[1fr]" : "grid-rows-[0fr]")} data-tier-form="">
+          <div className="min-h-0 overflow-hidden" inert={!editing}>
+            <div className="space-y-5 border-t border-[#f1f2f4] px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+              <section>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Plan")}</p>
+                <div className={cn("grid gap-3", tier.billing === "recurring" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
+                  <div className={tier.billing === "recurring" ? "col-span-2 sm:col-span-1" : undefined}>
+                    <label htmlFor={`t-name-${tier.id}`} className={label}>
+                      {tt("Name")}
+                    </label>
+                    <input id={`t-name-${tier.id}`} value={s.name} onChange={(e) => setS({ ...s, name: e.target.value.slice(0, 60) })} className={cn(field, "h-11 sm:h-10")} />
+                  </div>
+                  {tier.billing === "recurring" ? (
+                    <>
+                      <div>
+                        <label htmlFor={`t-m-${tier.id}`} className={label}>
+                          {tt("Monthly price")}
+                        </label>
+                        <PriceInput id={`t-m-${tier.id}`} value={s.monthly} onChange={(v) => setS({ ...s, monthly: v })} placeholder={tt("None")} />
+                      </div>
+                      <div>
+                        <label htmlFor={`t-y-${tier.id}`} className={label}>
+                          {tt("Yearly price")}
+                        </label>
+                        <PriceInput id={`t-y-${tier.id}`} value={s.yearly} onChange={(v) => setS({ ...s, yearly: v })} placeholder={tt("None")} />
+                        {yearlyHint ? <p className="mt-1 text-[12px] text-[#15803d]">{yearlyHint}</p> : null}
+                      </div>
+                    </>
+                  ) : tier.billing === "one_time" ? (
+                    <div>
+                      <label htmlFor={`t-p-${tier.id}`} className={label}>
+                        {tt("One time price")}
+                      </label>
+                      <PriceInput id={`t-p-${tier.id}`} value={s.price} onChange={(v) => setS({ ...s, price: v })} />
+                    </div>
+                  ) : null}
+                </div>
+                {tier.billing === "recurring" ? (
+                  <div className="mt-3">
+                    <p id={`t-t-${tier.id}`} className={label}>
+                      {tt("Free trial")}
+                    </p>
+                    <div role="radiogroup" aria-labelledby={`t-t-${tier.id}`} className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f4f5f7] p-1" data-tier-trial="">
+                      {[...new Set<number>([...TRIAL_CHOICES, trialDaysOf(start.trial)])].sort((a, b) => a - b).map((d) => {
+                        const on = s.trial === String(d)
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            onClick={() => setS({ ...s, trial: String(d) })}
+                            className={cn(
+                              "inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 sm:h-8",
+                              on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+                            )}
+                            data-trial-days={d}
+                          >
+                            {d === 0 ? tt("No trial") : tt("{n} days", { n: d })}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="mt-1.5 text-[12px] text-[#6b7280]">{tt("At least 7 days. A card is taken at sign up and charged when the trial ends, unless they cancel.")}</p>
+                  </div>
+                ) : null}
+              </section>
+
+              <section>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Pricing card")}</p>
+                <label htmlFor={`t-d-${tier.id}`} className={label}>
+                  {tt("Subheading")}
+                </label>
+                <input id={`t-d-${tier.id}`} value={s.description} maxLength={500} onChange={(e) => setS({ ...s, description: e.target.value.slice(0, 500) })} placeholder={tt("Who this plan is for")} className={cn(field, "h-11 sm:h-10")} data-tier-description="" />
+                <p className={cn(label, "mt-3")}>{tt("What members get")}</p>
+                <ul className="space-y-1.5" data-tier-benefits="">
+                  {benefitRows.map((b, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                      <input
+                        value={b}
+                        aria-label={tt("Benefit {n}", { n: i + 1 })}
+                        onChange={(e) => setBenefits(benefitRows.map((x, j) => (j === i ? e.target.value.replace(/\n/g, " ").slice(0, 120) : x)))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            if (benefitRows.length < MAX_BENEFITS) setBenefits([...benefitRows.slice(0, i + 1), "", ...benefitRows.slice(i + 1)])
+                          }
+                        }}
+                        placeholder={i === 0 ? tt("Full community access") : tt("Another thing members get")}
+                        className={cn(field, "h-10 flex-1")}
+                      />
+                      <button type="button" aria-label={tt("Remove")} onClick={() => setBenefits(benefitRows.filter((_, j) => j !== i))} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#9ca3af] hover:bg-[#f3f4f6] hover:text-[#4b5563]">
+                        <X aria-hidden className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {benefitRows.length < MAX_BENEFITS ? (
+                  <button type="button" onClick={() => setBenefits([...benefitRows, ""])} className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f4f5f7]" data-tier-benefit-add="">
+                    <Plus aria-hidden className="h-4 w-4" />
+                    {tt("Add a benefit")}
+                  </button>
+                ) : null}
+              </section>
+
+              {tier.kind === "paid" ? (
+                <section>
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Also let in buyers of")}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {tier.accessProducts.map((p) => (
+                      <span key={p.id} className="inline-flex h-10 items-center gap-0.5 rounded-full border border-[#e5e7eb] bg-[#fafbfb] pl-3 text-[12.5px] text-[#1a1a2e] sm:h-8 sm:pr-1">
+                        <span className="max-w-[180px] truncate">{p.title}</span>
+                        <button type="button" aria-label={tt("Take {title} off", { title: p.title })} onClick={() => void setProduct(p.id, false)} className="grid h-10 w-10 place-items-center rounded-full text-[#6b7280] hover:bg-[#eceef1] sm:h-6 sm:w-6">
+                          <X aria-hidden className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                    {pickable.length ? (
+                      <button type="button" onClick={() => setPicking(true)} className="inline-flex h-10 items-center gap-1 rounded-full border border-dashed border-[#d1d5db] px-3 text-[12.5px] font-medium text-[#4b5563] hover:border-[#9ca3af] sm:h-8">
+                        <Plus aria-hidden className="h-3.5 w-3.5" />
+                        {tt("Product")}
+                      </button>
+                    ) : tier.accessProducts.length === 0 ? (
+                      <span className="text-[12.5px] text-[#9ca3af]">{tt("No other products yet.")}</span>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null}
+
+              {error ? (
+                <p role="alert" className="text-[13px] text-[#b91c1c]">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2 border-t border-[#f1f2f4] pt-4">
+                {!tier.isDefault && canDefault ? (
+                  <button type="button" onClick={() => void patch({ makeDefault: true }, tt("{name} is the default", { name: tier.name }))} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
+                    {tt("Make default")}
+                  </button>
+                ) : null}
+                {!tier.isDefault ? (
+                  <button type="button" onClick={() => setArchiving(true)} className={cn(buttonSecondary, "h-10 border-transparent shadow-none sm:h-8")}>
+                    {tt("Stop selling")}
+                  </button>
+                ) : null}
+                <span className="flex-1" />
+                <button type="button" onClick={cancel} className={cn(buttonSecondary, "h-10 px-4 sm:h-8")}>
+                  {tt("Cancel")}
+                </button>
+                <button type="button" onClick={() => void save()} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-8")} data-tier-save="">
+                  {busy ? tt("Saving") : tt("Save plan")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
       <Confirm open={archiving} onClose={() => setArchiving(false)} title={tt("Stop selling {name}?", { name: tier.name })} detail={tt("Nobody new can join on it. Members already on it keep it while they pay.")} action="Stop selling" onConfirm={() => { setArchiving(false); void patch({ archived: true }, tt("Not sold any more")) }} />
       <Dialog open={picking} onClose={() => setPicking(false)} title={tt("Also let in buyers of")}>
@@ -899,6 +977,11 @@ function TierCard({ head, tier, products, owner, canDefault, first = true, last 
   )
 }
 
+/*
+  ROUND AG: ADDING A PLAN IN ONE GO. Free or paid, the name, the price and how often, then (for a subscription) the trial and
+  the card's subheading and benefits, so a new plan is ready to sell without opening it again. The plan is made first (POST),
+  the rest saved on it straight after (PATCH), each checked by the server as when editing.
+*/
 function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boolean; onClose: () => void }) {
   const router = useRouter()
   const toast = useToast()
@@ -906,17 +989,40 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
   const [name, setName] = React.useState("")
   const [price, setPrice] = React.useState("")
   const [interval, setInterval] = React.useState<PriceInterval>("month")
+  const [trial, setTrial] = React.useState(0)
+  const [description, setDescription] = React.useState("")
+  const [benefits, setBenefits] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const recurring = kind === "paid" && interval !== "once"
+  const reset = () => {
+    setName("")
+    setPrice("")
+    setTrial(0)
+    setDescription("")
+    setBenefits("")
+    setError(null)
+  }
   const submit = async () => {
     setBusy(true)
     setError(null)
-    const res = await send(`/api/app/community/${head.id}/tiers`, "POST", { kind, name, price, interval })
+    const res = await send(`/api/app/community/${head.id}/tiers`, "POST", { kind, name, price, interval, description: description.trim() || undefined })
+    if (!res.ok) {
+      setBusy(false)
+      return setError(errorText(res.data.error))
+    }
+    const lines = benefits.split("\n").map((b) => b.trim()).filter(Boolean).slice(0, MAX_BENEFITS)
+    const tierId = (res.data as { tierId?: string }).tierId
+    const extra: Record<string, unknown> = {}
+    if (lines.length) extra.benefits = lines
+    if (recurring && trial > 0) extra.trialDays = trial
+    if (tierId && Object.keys(extra).length) {
+      const more = await send(`/api/app/community/${head.id}/tiers/${tierId}`, "PATCH", extra)
+      if (!more.ok) toast(tt("Plan added. Its benefits or trial didn't save: {error}", { error: errorText(more.data.error) }))
+    }
     setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    toast(tt("Tier added"))
-    setName("")
-    setPrice("")
+    toast(tt("Plan added"))
+    reset()
     onClose()
     router.refresh()
   }
@@ -924,19 +1030,19 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
     <Dialog
       open={open}
       onClose={onClose}
-      title={tt("New tier")}
+      title={tt("New plan")}
       footer={
         <>
           <button type="button" onClick={onClose} className={cn(buttonSecondary, "h-10 px-4 sm:h-9")}>
             {tt("Cancel")}
           </button>
-          <button type="button" onClick={() => void submit()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")}>
-            {busy ? tt("Adding") : tt("Add tier")}
+          <button type="button" onClick={() => void submit()} disabled={busy || !name.trim() || (kind === "paid" && !price)} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-tier-create="">
+            {busy ? tt("Adding") : tt("Add plan")}
           </button>
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-4" data-new-tier="">
         <Segmented value={kind} onChange={setKind} label={tt("Kind")} className="w-full" options={[{ value: "paid", label: tt("Paid") }, { value: "free", label: "Free" }]} />
         <div>
           <label htmlFor="nt-name" className={label}>
@@ -955,6 +1061,39 @@ function NewTierDialog({ head, open, onClose }: { head: CommunityHead; open: boo
             <Segmented value={interval} onChange={setInterval} label={tt("How often")} className="w-full sm:w-auto" options={[{ value: "month", label: tt("Monthly") }, { value: "year", label: tt("Yearly") }, { value: "once", label: tt("One time") }]} />
           </div>
         ) : null}
+        {recurring ? (
+          <div>
+            <p id="nt-trial" className={label}>
+              {tt("Free trial")}
+            </p>
+            <div role="radiogroup" aria-labelledby="nt-trial" className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f4f5f7] p-1">
+              {TRIAL_CHOICES.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  role="radio"
+                  aria-checked={trial === d}
+                  onClick={() => setTrial(d)}
+                  className={cn("inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-8", trial === d ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                >
+                  {d === 0 ? tt("No trial") : tt("{n} days", { n: d })}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <div>
+          <label htmlFor="nt-sub" className={label}>
+            {tt("Subheading")} <span className="font-normal text-[#9ca3af]">{tt("(optional)")}</span>
+          </label>
+          <input id="nt-sub" value={description} onChange={(e) => setDescription(e.target.value.slice(0, 500))} placeholder={tt("Who this plan is for")} className={cn(field, "h-11 sm:h-10")} />
+        </div>
+        <div>
+          <label htmlFor="nt-benefits" className={label}>
+            {tt("What members get, one per line")} <span className="font-normal text-[#9ca3af]">{tt("(optional)")}</span>
+          </label>
+          <textarea id="nt-benefits" value={benefits} rows={3} onChange={(e) => setBenefits(e.target.value.split("\n").slice(0, MAX_BENEFITS).join("\n"))} placeholder={tt("Full community access\nWeekly live calls")} className={cn(field, "min-h-[84px] resize-y py-2.5 text-[16px] sm:text-[14px]")} />
+        </div>
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Dialog>

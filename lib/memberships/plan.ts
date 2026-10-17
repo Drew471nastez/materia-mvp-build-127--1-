@@ -9,7 +9,8 @@
  * The limits match the database's checks (supabase/sql/run-now/75):
  *   monthly price   $1 to $10,000
  *   yearly price    $1 to $100,000
- *   trial           0 to 90 days
+ *   trial           none, or 7 to 90 days (round AG: a week at least, so a
+ *                   trial is long enough to judge a community by)
  *   an update       a title up to 200 characters, text up to 20,000
  */
 
@@ -18,6 +19,7 @@ export const LIMITS = {
   monthlyMax: 1_000_000,
   yearlyMin: 100,
   yearlyMax: 10_000_000,
+  trialMin: 7,
   trialMax: 90,
   benefits: 12,
   benefitChars: 120,
@@ -39,6 +41,19 @@ export interface PlanValue {
   trialDays: number
   benefits: string[]
   includedProductIds: string[]
+}
+
+/** The trials a creator picks from: none, a week, two weeks, a month. */
+export const TRIAL_CHOICES = [0, 7, 14, 30] as const
+
+/**
+ * The trial a plan really gives. A plan saved before the 7 day minimum (3 days, say) gives 7, so every checkout,
+ * page and subscription agrees with the rule even before the database is updated.
+ */
+export function trialDaysOf(days: unknown): number {
+  const n = Math.floor(Number(days))
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.min(LIMITS.trialMax, Math.max(LIMITS.trialMin, n))
 }
 
 /** Dollars as typed ("9", "9.50", "$1,200") to whole cents, or null for empty. NaN when it is not a price. */
@@ -73,8 +88,8 @@ export function checkPlan(raw: unknown, opts: { publishing: boolean }): Checked<
     return { ok: false, field: "monthly", error: "Add a monthly or a yearly price before you publish." }
   }
   const trialRaw = r.trialDays === "" || r.trialDays === undefined || r.trialDays === null ? 0 : Number(r.trialDays)
-  if (!Number.isInteger(trialRaw) || trialRaw < 0 || trialRaw > LIMITS.trialMax) {
-    return { ok: false, field: "trial", error: "A free trial is 0 to 90 days." }
+  if (!Number.isInteger(trialRaw) || trialRaw < 0 || trialRaw > LIMITS.trialMax || (trialRaw > 0 && trialRaw < LIMITS.trialMin)) {
+    return { ok: false, field: "trial", error: "A free trial is 7 to 90 days, or none." }
   }
   const benefits = (Array.isArray(r.benefits) ? r.benefits : [])
     .map((b) => clean(b, LIMITS.benefitChars))

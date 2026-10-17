@@ -130,7 +130,8 @@ console.log("\nSOURCE: the page")
   check("a row of thumbnails (a horizontal listbox) does not float like a menu in the dark look", /\[role="listbox"\]:not\(\[aria-orientation="horizontal"\]\)/.test(dark) && /aria-orientation="horizontal"/.test(gallery))
   const server = code("lib/communities/server/public.ts")
   check("the summary is read softly (W6's reader), so the page keeps working before part 220", /readCommunitySummary\(db, community\.id\)/.test(server) && /summary,\s*adminCount:/.test(server))
-  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: recurring \? Math\.max\(0, Number\(plan\?\.trial_days/.test(server))
+  /* Round AG: through trialDaysOf, so a trial is none or 7 to 90 days. */
+  check("the trial comes from the membership plan", /monthly_price_cents, yearly_price_cents, currency, trial_days/.test(server) && /trialDays: recurring \? trialDaysOf\(plan\?\.trial_days\)/.test(server))
 }
 
 console.log("\nDELETING: the line its staff see")

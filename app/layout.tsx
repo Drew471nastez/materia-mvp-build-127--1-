@@ -69,6 +69,7 @@ import { NativePushInit } from "@/components/native-push-init"
 import { NotificationsAsk } from "@/components/platform/notifications-ask"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
+import { IMAGE_FALLBACK_SCRIPT } from "@/lib/media/image-fallback"
 import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplace-root"
 import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
@@ -255,6 +256,8 @@ export default function RootLayout({
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
+        {/* Round AG: a picture that fails is tried another way, then hidden; never a broken icon (lib/media/image-fallback). */}
+        <script dangerouslySetInnerHTML={{ __html: IMAGE_FALLBACK_SCRIPT }} />
         {/* The person's light or dark look on Storelib's own pages, before the first paint (lib/appearance/site-appearance.ts). */}
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         {/* The dashboard opened after a dark page starts under a veil of its header's colour, never on a light field (round 30). */}

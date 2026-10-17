@@ -282,50 +282,126 @@ export async function previewPlanChange(db: Db, community: CommunityRow, person:
   }
 }
 
-/** Moves the subscription to the plan, the row after it, and the member's tier after that. */
-export async function applyPlanChange(db: Db, community: CommunityRow, person: PersonRef, input: { tierId: unknown; interval: unknown }, deps: PlanChangeDeps = defaultPlanChangeDeps(db)): Promise<Answer<{ kind: ChangeKind; toName: string; interval: PlanInterval }>> {
+export interface PlanChangeDone {
+  kind: ChangeKind
+  toName: string
+  interval: PlanInterval
+  /** Round AG: the bank asks to confirm the upgrade's payment; the page confirms it with Stripe.js, then finishes. */
+  needsAction?: { clientSecret: string }
+}
+
+type UpdatedSub = { pending_update?: unknown; latest_invoice?: { confirmation_secret?: { client_secret?: string | null } | null; status?: string | null } | string | null }
+
+/**
+ * Moves the subscription to the plan, the row after it, and the member's tier after that.
+ *
+ * AN UPGRADE IS PAID BEFORE IT HAPPENS (payment_behavior pending_if_incomplete): Stripe holds the change until the
+ * difference is paid. When the card pays at once the change is made and finished here; when the bank wants to confirm
+ * (3-D Secure) the answer carries the payment's secret for the page to confirm in Stripe's own window, and the page then
+ * calls finishPlanChange. Unpaid, Stripe drops the held change by itself: nothing changes.
+ */
+export async function applyPlanChange(db: Db, community: CommunityRow, person: PersonRef, input: { tierId: unknown; interval: unknown }, deps: PlanChangeDeps = defaultPlanChangeDeps(db)): Promise<Answer<PlanChangeDone>> {
   const p = await prepare(db, community, person, input, deps)
   if (!p.ok) return p as Answer<never>
   const v = p.value
   const interval: PlanInterval = input.interval === "year" ? "year" : "month"
+  const paidFirst = v.proration === "always_invoice"
+  const metadata = { product_id: v.target.productId, title: String(v.target.name).slice(0, 200), interval }
+  let updated: UpdatedSub | null = null
   try {
-    await deps.update(
+    updated = (await deps.update(
       v.sub.id,
       {
         items: [{ id: v.itemId, price: v.priceId }],
         proration_behavior: v.proration,
         ...(v.proration === "none" ? {} : { proration_date: v.prorationDate }),
-        ...(v.proration === "always_invoice" ? { payment_behavior: "error_if_incomplete" } : {}),
-        metadata: { product_id: v.target.productId, title: String(v.target.name).slice(0, 200), interval },
+        /* Stripe takes no metadata with a held change: it moves in the finish, once paid. */
+        ...(paidFirst ? { payment_behavior: "pending_if_incomplete", expand: ["latest_invoice.confirmation_secret"] } : { metadata }),
       },
       `plan-change:${v.row.id}:${v.target.productId}:${interval}:${v.row.product_id}:${v.row.billing_interval}`,
-    )
+    )) as UpdatedSub | null
   } catch (e) {
     const err = e as { type?: string; code?: string; raw?: { message?: string }; message?: string }
     if (err?.type === "StripeCardError" || err?.code === "card_declined") return no(402, "card", `${err.raw?.message || "Your card was declined."} Nothing changed.`)
-    if (err?.code === "subscription_payment_intent_requires_action" || /authenticat/i.test(err?.message ?? "")) {
-      return no(402, "authentication", "Your bank wants to confirm this payment, which can't be done from here. Nothing changed. Update your card under Card and invoices, then try again.")
-    }
     return no(502, "stripe", "That did not go through. Nothing changed. Try again in a moment.")
   }
+  if (paidFirst && updated?.pending_update) {
+    const invoice = updated.latest_invoice && typeof updated.latest_invoice === "object" ? updated.latest_invoice : null
+    const secret = invoice?.confirmation_secret?.client_secret
+    if (!secret) return no(402, "card", "Your card could not pay the difference. Nothing changed. Update your card under Card and invoices, then try again.")
+    return { ok: true, value: { kind: v.kind, toName: v.target.name, interval, needsAction: { clientSecret: secret } } }
+  }
+  if (paidFirst) {
+    try {
+      await deps.update(v.sub.id, { metadata }, `plan-change-meta:${v.row.id}:${v.target.productId}:${interval}`)
+    } catch {
+      /* The price moved; the next sync reads the product from the row below. */
+    }
+  }
+  await settle(db, community, person, v.row, v.target, interval, v.kind, v.proration, v.fromName, `${v.target.productId}:${interval}:${v.prorationDate}`, deps)
+  return { ok: true, value: { kind: v.kind, toName: v.target.name, interval } }
+}
+
+/** The row, the tier, the email and the log, once Stripe has the new plan. */
+async function settle(db: Db, community: CommunityRow, person: PersonRef, row: MembershipRow, target: JoinOption, interval: PlanInterval, kind: ChangeKind, proration: Proration, fromName: string, changeId: string, deps: PlanChangeDeps) {
   /* The row follows the subscription to its new product; the sync then writes price, interval and dates from Stripe. */
-  await db.from("memberships").update({ product_id: v.target.productId, title: String(v.target.name).slice(0, 200) }).eq("id", v.row.id)
+  await db.from("memberships").update({ product_id: target.productId, title: String(target.name).slice(0, 200) }).eq("id", row.id)
   try {
-    await deps.sync(v.sub.id)
+    await deps.sync(row.stripe_subscription_id)
   } catch {
     /* The webhook brings it in step; the change itself is made. */
   }
-  if (v.row.buyer_id) await deps.reconcile(community.id, v.row.buyer_id).catch(() => null)
-  await deps.tell(v.row.id, { fromTitle: v.fromName, changeKind: v.kind, changeId: `${v.target.productId}:${interval}:${v.prorationDate}` }).catch(() => null)
+  if (row.buyer_id) await deps.reconcile(community.id, row.buyer_id).catch(() => null)
+  await deps.tell(row.id, { fromTitle: fromName, changeKind: kind, changeId }).catch(() => null)
   await audit(db, {
     communityId: community.id,
     actorId: person.id,
     actorKind: "member",
-    action: v.kind === "upgrade" ? "membership.upgraded" : v.kind === "downgrade" ? "membership.downgraded" : "membership.interval_changed",
+    action: kind === "upgrade" ? "membership.upgraded" : kind === "downgrade" ? "membership.downgraded" : "membership.interval_changed",
     targetType: "member",
     targetId: person.id,
     reason: null,
-    detail: { membershipId: v.row.id, fromProductId: v.row.product_id, toProductId: v.target.productId, fromInterval: v.row.billing_interval, toInterval: interval, proration: v.proration },
+    detail: { membershipId: row.id, fromProductId: row.product_id, toProductId: target.productId, fromInterval: row.billing_interval, toInterval: interval, proration },
   })
-  return { ok: true, value: { kind: v.kind, toName: v.target.name, interval } }
+}
+
+/**
+ * After the page confirmed an upgrade's payment with the bank: finished only when Stripe shows the new price on the
+ * subscription and nothing held, so a page that says "paid" cannot move anybody by itself.
+ */
+export async function finishPlanChange(db: Db, community: CommunityRow, person: PersonRef, input: { tierId: unknown; interval: unknown }, deps: PlanChangeDeps = defaultPlanChangeDeps(db)): Promise<Answer<PlanChangeDone>> {
+  const interval: PlanInterval | null = input.interval === "year" ? "year" : input.interval === "month" ? "month" : null
+  if (!interval || typeof input.tierId !== "string") return no(400, "bad_request", "Choose a plan and how often to pay.")
+  const lite = await membershipFor(db, community.id, person)
+  const row = lite ? await fullRow(db, lite.id) : null
+  if (!row) return no(404, "not_subscribed", "You do not pay for this community.")
+  const target = (await communityOptions(db, community)).find((o) => o.tierId === input.tierId)
+  if (!target?.productId) return no(409, "plan_unavailable", "That plan isn't available. Choose another.")
+  const { data: planData } = await db
+    .from("membership_plans")
+    .select(`${PLAN_COLUMNS}, stripe_product_id, stripe_monthly_price_id, stripe_monthly_price_cents, stripe_yearly_price_id, stripe_yearly_price_cents`)
+    .eq("product_id", target.productId)
+    .maybeSingle()
+  if (!planData) return no(409, "plan_unavailable", "That plan isn't available. Choose another.")
+  let sub: StripeSub & { pending_update?: unknown }
+  let price: { priceId: string }
+  try {
+    ;[sub, price] = await Promise.all([deps.retrieve(row.stripe_subscription_id) as Promise<StripeSub & { pending_update?: unknown }>, deps.ensurePrice(planData as PlanRow, { id: target.productId, title: target.name }, interval)])
+  } catch {
+    return no(502, "stripe", "That could not be checked just now. Try again in a moment.")
+  }
+  const onIt = sub.items?.data?.[0]?.price?.id === price.priceId && !sub.pending_update
+  if (!onIt) return no(409, "not_paid", "The payment for the new plan has not gone through, so nothing changed.")
+  if (row.product_id === target.productId && (row.billing_interval === "year" ? "year" : "month") === interval) {
+    return { ok: true, value: { kind: "same", toName: target.name, interval } }
+  }
+  try {
+    await deps.update(sub.id, { metadata: { product_id: target.productId, title: String(target.name).slice(0, 200), interval } }, `plan-change-meta:${row.id}:${target.productId}:${interval}`)
+  } catch {
+    /* The price moved; the row below names the product. */
+  }
+  const { data: fromProduct } = await db.from("products").select("title").eq("id", row.product_id ?? "").maybeSingle()
+  const kind = changeKind({ productId: row.product_id ?? "", amountCents: row.amount_cents, interval: row.billing_interval === "year" ? "year" : "month" }, { productId: target.productId, amountCents: ((interval === "year" ? (planData as PlanRow).yearly_price_cents : (planData as PlanRow).monthly_price_cents) ?? 0), interval })
+  await settle(db, community, person, row, target, interval, kind, "always_invoice", (fromProduct as { title?: string | null } | null)?.title || row.title || "Your plan", `${target.productId}:${interval}:finish`, deps)
+  return { ok: true, value: { kind, toName: target.name, interval } }
 }

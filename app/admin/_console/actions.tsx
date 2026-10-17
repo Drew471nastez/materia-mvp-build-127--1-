@@ -40,15 +40,11 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [reason, setReason] = React.useState("")
-  const [forceDelete, setForceDelete] = React.useState(false)
-  const [confirmId, setConfirmId] = React.useState("")
 
   React.useEffect(() => {
     setPlan(null)
     setError(null)
     setReason("")
-    setForceDelete(false)
-    setConfirmId("")
     if (!action) return
     let cancelled = false
     const load = async () => {
@@ -87,10 +83,6 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
   const submit = async () => {
     if (!plan) return
     if (action.kind === "delete_account" && plan.isAdmin) return
-    if (action.kind === "delete_account" && (plan.creatorOrders ?? 0) > 0 && !forceDelete) {
-      setError("Confirm that you understand this creator has sales on record.")
-      return
-    }
     setBusy(true)
     setError(null)
     try {
@@ -108,11 +100,7 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
           body: JSON.stringify({ orderId: action.orderId, confirm: plan.amount, reason: reason.trim() }),
         })
       } else if (action.kind === "delete_account") {
-        if (confirmId.trim() !== action.userId) {
-          setError("Type the user id exactly as shown to confirm.")
-          setBusy(false)
-          return
-        }
+        /* Round AG: the dialog is the double check (Are you sure?); the request still names the account it read. */
         res = await fetch("/api/admin/accounts/delete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -120,7 +108,7 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
             userId: action.userId,
             confirm: action.userId,
             reason: reason.trim() || null,
-            force: (plan?.creatorOrders ?? 0) > 0 ? forceDelete : true,
+            force: true,
           }),
         })
       } else {
@@ -216,27 +204,7 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
           {plan.blockers?.length ? (
             <p className="text-[12px] text-[#9b9ba6]">Note for creators with open balances: {plan.blockers.join(" ")}</p>
           ) : null}
-          {!plan.isAdmin ? (
-            <>
-              <label className="mt-3 block text-[12px] font-medium text-[#9b9ba6]">
-                Type user id to confirm
-                <input
-                  className="mt-1 w-full rounded-[7px] border border-white/[0.1] bg-[#17171d] px-3 py-2 font-mono text-[12px] text-[#ededf0] outline-none focus:border-[#8b5cf6]/50"
-                  value={confirmId}
-                  onChange={(e) => setConfirmId(e.target.value)}
-                  placeholder={action.userId}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </label>
-              {plan.creatorOrders > 0 ? (
-                <label className="mt-3 flex items-start gap-2 text-[13px] text-[#ededf0]">
-                  <input type="checkbox" className="mt-0.5" checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)} />
-                  <span>I understand this creator has sales on record and I still want to delete their account.</span>
-                </label>
-              ) : null}
-            </>
-          ) : null}
+          {!plan.isAdmin ? <p className="mt-3 font-medium text-[#ededf0]">Are you sure? This can&apos;t be undone.</p> : null}
         </>
       ) : null}
       {plan && action.kind !== "unban" && action.kind !== "republish" && action.kind !== "delete_account" ? (

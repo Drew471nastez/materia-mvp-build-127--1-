@@ -1,4 +1,5 @@
 import "server-only"
+import { trialDaysOf } from "./plan"
 
 /**
  * ===========================================================================
@@ -260,7 +261,7 @@ export async function loadCreatorMembership(admin: Db, creatorId: string, produc
       plan: {
         monthlyPriceCents: plan?.monthly_price_cents ?? null,
         yearlyPriceCents: plan?.yearly_price_cents ?? null,
-        trialDays: plan?.trial_days ?? 0,
+        trialDays: trialDaysOf(plan?.trial_days),
         benefits: Array.isArray(plan?.benefits) ? plan!.benefits : [],
         includedProductIds: Array.isArray(plan?.included_product_ids) ? plan!.included_product_ids : [],
       },

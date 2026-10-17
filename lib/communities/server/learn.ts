@@ -369,11 +369,13 @@ export async function programCard(db: Db, community: CommunityRow, viewer: Viewe
 /* ── A program's own page ───────────────────────────────────────────────── */
 
 /** The module and lesson titles of a program (its own course, or the attached course's), with each module's cover, for its locked page. */
-export async function programOutline(db: Db, program: ProgramRow): Promise<{ modules: { id: string; title: string; coverUrl?: string | null; lessons: string[] }[] } | null> {
+export async function programOutline(db: Db, program: ProgramRow): Promise<{ modules: { id: string; title: string; coverUrl?: string | null; lessons: string[]; priceCents?: number | null }[] } | null> {
   const { readCourseTree, readCourseTreeById } = await import("@/lib/courses/server")
   const tree = program.productId ? await readCourseTree(db, program.productId) : program.courseId ? await readCourseTreeById(db, program.courseId) : null
   if (!tree) return null
-  return { modules: tree.modules.map((m) => ({ id: m.id, title: m.title, coverUrl: coverOf(m), lessons: m.lessons.map((l) => l.title) })) }
+  /* Round AG: a module of a program made here may be sold on its own (./module-sales.ts); its price is on the outline. */
+  const prices = program.productId ? new Map<string, number | null>() : new Map((await (await import("./module-sales")).modulePrices(db, program.courseId)).map((m) => [m.id, m.priceCents] as const))
+  return { modules: tree.modules.map((m) => ({ id: m.id, title: m.title, coverUrl: coverOf(m), lessons: m.lessons.map((l) => l.title), priceCents: prices.get(m.id) ?? null })) }
 }
 
 /* A module's or a lesson's cover (part 200), only ever an https address. */
@@ -389,16 +391,18 @@ function coverOf(row: unknown): string | null {
  * program has no product to hang them on). Null while it has no lessons.
  * Only asked for once the page has found the program open to this viewer.
  */
-export async function programPlayer(db: Db, community: CommunityRow, viewer: Viewer, program: ProgramRow, askedLessonId: string | null) {
+export async function programPlayer(db: Db, community: CommunityRow, viewer: Viewer, program: ProgramRow, askedLessonId: string | null, openModules?: ReadonlySet<string>) {
   if (!program.courseId) return null
   const [{ readCourseTreeById }, { playerFromTree }] = await Promise.all([import("@/lib/courses/server"), import("@/lib/courses/load")])
   const tree = await readCourseTreeById(db, program.courseId)
   if (!tree || !tree.modules.some((m) => m.lessons.length > 0)) return null
-  const level: ProductLevel = can(viewer.role, "manage_classroom") ? "creator" : "owner"
+  /* Round AG: a member with only some modules bought plays those (and the previews); everything else stays locked. */
+  const level: ProductLevel = can(viewer.role, "manage_classroom") ? "creator" : openModules && openModules.size ? "public" : "owner"
   return playerFromTree(db, {
     userId: viewer.userId,
     tree,
     level,
+    openModules,
     askedLessonId,
     meta: {
       productId: program.id,
