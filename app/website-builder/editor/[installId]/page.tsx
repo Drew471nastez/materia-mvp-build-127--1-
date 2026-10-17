@@ -7799,16 +7799,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <TranslationScope keyFor={themeTextKey}>
                   <>
                     {/* Logo and brand: its own panel, then the group's other fields, a theme's own among them, as General settings draws it. */}
+                    {group.id === "branding" ? (
+                      <SharedInAllLanguages>
+                      <BrandingTabPanel
+                        settingsDraft={settingsDraft}
+                        updateSetting={updateSetting}
+                      />
+                      </SharedInAllLanguages>
+                    ) : null}
                     {(
                       [
-                        group.id === "branding" ? (
-                          <SharedInAllLanguages key="branding-panel">
-                          <BrandingTabPanel
-                            settingsDraft={settingsDraft}
-                            updateSetting={updateSetting}
-                          />
-                          </SharedInAllLanguages>
-                        ) : null,
                         group.id === "social" ? (
                           <SharedInAllLanguages key="social-links">
                           <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />

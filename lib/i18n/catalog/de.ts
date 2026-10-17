@@ -5897,6 +5897,7 @@ const words: Record<string, string> = {
  "Reset all to scheme": "Alles auf Schema zurücksetzen",
  "Reset style": "Stil zurücksetzen",
  "Reset to Storelib's version": "Auf Storelib-Version zurücksetzen",
+ "Reset to collection": "Auf Kollektion zurücksetzen",
  "Reset to default": "Auf Standard zurücksetzen",
  "Resetting": "Wird zurückgesetzt",
  "Resize {label}": "Größe von {label} ändern",
