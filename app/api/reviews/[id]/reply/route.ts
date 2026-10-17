@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { checkReplyInput } from "@/lib/reviews/rules"
+import { REVIEW_LIMITS, checkReplyInput } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
 import { forgetReviewPages, missingColumn } from "@/lib/reviews/store"
 
@@ -41,6 +42,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const input = checkReplyInput(body?.text)
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
+  /* A public answer under somebody's review: counted, generously (lib/reviews/rules REVIEW_LIMITS). */
+  const limited = await rateLimit({ bucket: "review-reply", subjects: [addressSubject(request)], windows: REVIEW_LIMITS.reply, message: "That is a lot of replies at once. Try again in a few minutes." })
+  if (limited) return limited
+
   const admin = createAdminClient()
   const mine = await sellersReview(admin, id, await userId())
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
@@ -59,8 +64,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   return NextResponse.json({ review: data })
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
   const { id } = await params
+  const limited = await rateLimit({ bucket: "review-reply", subjects: [addressSubject(request)], windows: REVIEW_LIMITS.reply, message: "That is a lot of changes at once. Try again in a few minutes." })
+  if (limited) return limited
   const admin = createAdminClient()
   const mine = await sellersReview(admin, id, await userId())
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })

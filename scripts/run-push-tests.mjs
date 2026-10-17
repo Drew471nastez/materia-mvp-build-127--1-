@@ -687,6 +687,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Moderation: the count in the community navigation is the server's and moves with a decision; reporting and restrictions end to end; a pasted link checked by host before the server asks it */
+  "tests/moderation-safety-r34.test.ts",
 ]
 
 /**

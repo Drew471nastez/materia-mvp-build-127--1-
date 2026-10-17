@@ -23,6 +23,7 @@ import type {
   CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { normalizeSocialUrl } from "@/lib/onepage/types"
+import { appleMusicEmbedUrl } from "@/lib/onepage/embed-source"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
@@ -3496,10 +3497,7 @@ function PublicBlockRenderer({
   }
 
   // Apple Music URL helper
-  const isAppleMusicUrl = (url: string): boolean => {
-    if (!url) return false
-    return url.includes('music.apple.com')
-  }
+  const isAppleMusicUrl = (url: string): boolean => appleMusicEmbedUrl(url) !== null
 
   // TikTok video URL helper
   const isTikTokVideoUrl = (url: string): boolean => {
@@ -3514,18 +3512,17 @@ function PublicBlockRenderer({
     return match ? match[1] : null
   }
 
-  // Get Apple Music embed URL
-  const getAppleMusicEmbedUrl = (url: string): string | null => {
-    try {
-      if (!url.includes('music.apple.com')) return null
-      // Convert Apple Music URL to embed URL
-      // Example: https://music.apple.com/us/album/song-name/1234567890?i=1234567891
-      // To: https://embed.music.apple.com/us/album/song-name/1234567890?i=1234567891
-      return url.replace('music.apple.com', 'embed.music.apple.com')
-    } catch {
-      return null
-    }
-  }
+  /*
+    THE PLAYER'S ADDRESS, BUILT FROM THE LINK'S HOST, NOT FROM A SUBSTRING OF
+    IT (lib/onepage/embed-source.ts). This replaced the first "music.apple.com"
+    anywhere in the creator's link with "embed.music.apple.com", so a link
+    whose QUERY held that name, or a host ending in it
+    (music.apple.com.example.com), put an address of somebody else's choosing
+    into the <iframe src> below, which may open a page and may navigate this
+    one on a tap. Now the host has to be Apple's, whole, over https, and the
+    player's address is Apple's own with this link's path on it.
+  */
+  const getAppleMusicEmbedUrl = (url: string): string | null => appleMusicEmbedUrl(url)
 
   // Open Apple Music modal via context
   const openAppleMusicModal = (data: LinkButtonBlockData) => {

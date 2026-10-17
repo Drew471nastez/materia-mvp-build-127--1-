@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
+import { EMBED_HOSTS, embedSource } from "@/lib/onepage/embed-source"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 // Extract Spotify entity info from URL
 function extractSpotifyInfo(url: string): { type: 'track' | 'album' | 'artist' | 'playlist', id: string } | null {
@@ -184,14 +186,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })
     }
 
-    const spotifyInfo = extractSpotifyInfo(url)
+    /* A Spotify address, by host: the path alone used to be enough, so any site with a /track/<id> path was passed on. */
+    const source = embedSource(url, EMBED_HOSTS.spotify)
+    const spotifyInfo = source ? extractSpotifyInfo(source.toString()) : null
 
-    if (!spotifyInfo) {
+    if (!source || !spotifyInfo) {
       return NextResponse.json({ error: "Invalid Spotify URL" }, { status: 400 })
     }
 
+    /* This route asks other sites on the caller's behalf and needs no account, so it is counted per address. */
+    const limited = await rateLimit({
+      bucket: "onepage-embed",
+      subjects: [addressSubject(request)],
+      windows: [{ limit: 30, seconds: 60 }, { limit: 300, seconds: 3600 }],
+      message: "That is a lot of links at once. Try again in a minute.",
+    })
+    if (limited) return limited
+
     // Fetch streaming links and Spotify info
-    const { services, artistName, title, thumbnailUrl, type, previewUrl } = await fetchStreamingLinks(url)
+    const { services, artistName, title, thumbnailUrl, type, previewUrl } = await fetchStreamingLinks(source.toString())
 
     return NextResponse.json({
       type: type || spotifyInfo.type,

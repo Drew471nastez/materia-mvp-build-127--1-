@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { MAX_REPLY_CHARS, isReportReason } from "@/lib/reviews/rules"
+import { MAX_REPLY_CHARS, REVIEW_LIMITS, isReportReason } from "@/lib/reviews/rules"
 import { sellersReview } from "@/lib/reviews/access"
 import { missingColumn, refreshReviewStats } from "@/lib/reviews/store"
 
@@ -35,6 +36,14 @@ export async function POST(request: NextRequest, { params }: Params) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  /* A report hides the review at once, so it is a write worth counting (lib/reviews/rules REVIEW_LIMITS). */
+  const limited = await rateLimit({
+    bucket: "review-report",
+    subjects: [user ? `user:${user.id}` : null, addressSubject(request)],
+    windows: REVIEW_LIMITS.report,
+    message: "That is a lot of reports at once. Storelib will get to them; try again later.",
+  })
+  if (limited) return limited
   const admin = createAdminClient()
   const mine = await sellersReview(admin, id, user?.id ?? null)
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })

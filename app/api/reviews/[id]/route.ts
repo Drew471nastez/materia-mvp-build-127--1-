@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { checkReviewInput } from "@/lib/reviews/rules"
+import { REVIEW_LIMITS, checkReviewInput } from "@/lib/reviews/rules"
 import { ownReview, orderStillReviewable, writeWithFallback } from "@/lib/reviews/access"
 import { refreshReviewStats } from "@/lib/reviews/store"
 
@@ -39,6 +40,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const input = checkReviewInput(body)
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
+  const limited = await rateLimit({ bucket: "review-edit", subjects: [addressSubject(request)], windows: REVIEW_LIMITS.edit, message: "That is a lot of changes at once. Try again in a few minutes." })
+  if (limited) return limited
+
   const admin = createAdminClient()
   const own = await ownReview(admin, id, { user: await who(), receiptToken: body?.receiptToken })
   if (!own.ok) return NextResponse.json({ error: own.error }, { status: own.status })
@@ -67,6 +71,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   const { id } = await params
   const receiptToken = new URL(request.url).searchParams.get("receiptToken")
+  const limited = await rateLimit({ bucket: "review-edit", subjects: [addressSubject(request)], windows: REVIEW_LIMITS.edit, message: "That is a lot of changes at once. Try again in a few minutes." })
+  if (limited) return limited
   const admin = createAdminClient()
   const own = await ownReview(admin, id, { user: await who(), receiptToken })
   if (!own.ok) return NextResponse.json({ error: own.error }, { status: own.status })

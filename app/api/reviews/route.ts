@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse, after } from "next/server"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
 import { canDeliver, isUuid } from "@/lib/receipts/rules"
-import { checkReviewInput, guestReviewerName } from "@/lib/reviews/rules"
+import { REVIEW_LIMITS, checkReviewInput, guestReviewerName } from "@/lib/reviews/rules"
 import { readPublishedReviews, refreshReviewStats, missingColumn } from "@/lib/reviews/store"
 import { accountForOrder, existingReview, orderByReceipt } from "@/lib/reviews/access"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
@@ -68,6 +69,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 })
   }
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Bad request" }, { status: 400 })
+
+  /*
+    COUNTED BEFORE THE CHECKS, NOT INSTEAD OF THEM (lib/reviews/rules
+    REVIEW_LIMITS). The purchase check behind a review is several reads, and
+    a receipt link needs no account at all, so the ceiling is here as well as
+    per account: a buyer reviewing everything they own in one sitting is far
+    inside it.
+  */
+  const limited = await rateLimit({
+    bucket: "review-write",
+    subjects: [user ? `user:${user.id}` : null, addressSubject(request)],
+    windows: REVIEW_LIMITS.write,
+    message: "That is a lot of reviews at once. Try again in a few minutes.",
+  })
+  if (limited) return limited
 
   if (body.receiptToken !== undefined && body.receiptToken !== null) return postFromReceipt(admin, user, body)
 
