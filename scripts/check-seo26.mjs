@@ -87,7 +87,16 @@ if (want("HTML")) {
       const name = `Clay ${slug} club`
       expect(r.status === s.status, `${path}: ${s.status}`, r.status)
       expect((h.robots ?? "").includes(s.indexed ? "index, follow" : "noindex") && !(s.indexed && /noindex/.test(h.robots ?? "")), `  robots ${s.indexed ? "index, follow" : "noindex"}`, h.robots)
-      if (s.preview) {
+      if (s.preview && !s.indexed) {
+        /* Its page answers whoever has the link, so the tab says its name; a shared link and a search engine get nothing else. */
+        const about = path.endsWith("/about")
+        expect(h.title === (about ? `About ${name}` : name), "  the tab's title is its name (its page shows it)", h.title)
+        expect(h.description === "A community on Storelib." && h.ogDescription === h.description, "  a neutral line, never its own words", h.description)
+        expect(!h.ogImage && !h.twitterImage && h.twitterCard === "summary", "  no picture in its preview, a small X card", { og: h.ogImage, tw: h.twitterCard })
+        expect(!/<meta[^>]*(og:|twitter:)[^>]*(tagline|short description|long description)/i.test(r.html), "  no tagline or description in any preview tag")
+        expect(h.canonical === `https://storelib.com/community/${slug}`, "  one canonical, the landing page", h.canonical)
+        expect(h.h1 === 1, "  one h1", h.h1)
+      } else if (s.preview) {
         const about = path.endsWith("/about")
         expect(h.title === (about ? `About ${name}` : name), "  the title is the community's", h.title)
         expect(h.description === `The ${slug} short description.`, "  the description is the short description", h.description)

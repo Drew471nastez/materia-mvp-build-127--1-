@@ -41,3 +41,27 @@ export async function readCommunitySummary(db: Db, communityId: string): Promise
 
 /** The same, once per request. */
 export const communitySummary = cache(async (communityId: string): Promise<string | null> => readCommunitySummary(admin(), communityId))
+
+/**
+ * WAITING TO BE DELETED (round 26, the deletion is W1's: ./community-deletion.ts, part 202). A scheduled deletion
+ * archives the community, which already keeps it out of search and previews; this asks the deletion's own row too, so a
+ * community waiting to be deleted is never previewed whatever its status says. Softly: before part 202, or on any
+ * failure, it reads as not deleting (the status rule still holds).
+ */
+export async function readCommunityDeleting(db: Db, communityId: string): Promise<boolean> {
+  if (!UUID.test(communityId)) return false
+  try {
+    const { data, error } = await db.from("community_deletions").select("state").eq("community_id", communityId).maybeSingle()
+    if (error) {
+      if (!missing(error)) console.error(`[communities] deletion read: ${reasonOf(error)}`)
+      return false
+    }
+    return (data as { state?: unknown } | null)?.state === "scheduled"
+  } catch (e) {
+    console.error(`[communities] deletion read: ${reasonOf(e)}`)
+    return false
+  }
+}
+
+/** The same, once per request. */
+export const communityDeleting = cache(async (communityId: string): Promise<boolean> => readCommunityDeleting(admin(), communityId))

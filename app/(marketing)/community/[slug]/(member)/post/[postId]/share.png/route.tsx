@@ -27,7 +27,7 @@ import { ImageResponse } from "next/og"
 import { sharePreviewable } from "@/lib/communities/server/public"
 import { shareFonts, sharePicture } from "@/lib/communities/server/share-image"
 import { postFacts } from "../post-facts"
-import { POST_SHARE_HEIGHT, POST_SHARE_WIDTH, firstPicture, postHeadline, publicPost } from "../post-seo"
+import { POST_SHARE_HEIGHT, POST_SHARE_WIDTH, firstPicture, indexablePost, postHeadline } from "../post-seo"
 import { GenericPostShareArt, PostShareArt, type PostShareModel } from "../post-share-card"
 import { plainSummary } from "@/lib/html-entities"
 
@@ -61,7 +61,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
 
   const logo = sharePicture(facts.community.logo_url, 120, 120, "png")
   let drawn: ArrayBuffer | null
-  if (publicPost(facts)) {
+  /* The same rule as the metadata (round 26): the post's own card only while its community is published. */
+  if (indexablePost(facts)) {
     const headline = postHeadline(facts) || `A post in ${facts.community.name}`
     const words = plainSummary(facts.post.bodyText, 220)
     const model: PostShareModel = {

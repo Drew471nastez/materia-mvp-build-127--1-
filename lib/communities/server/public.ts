@@ -878,8 +878,22 @@ export async function sitemapCommunities(offset: number, limit: number, db: Db =
       .order("id", { ascending: true })
       .range(offset, offset + limit - 1),
   )
-  const onOwnDomain = await communitiesOnOwnDomain(db, found)
-  return found.filter((c) => !onOwnDomain.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url }))
+  const [onOwnDomain, deleting] = await Promise.all([communitiesOnOwnDomain(db, found), communitiesDeleting(db, found)])
+  return found.filter((c) => !onOwnDomain.has(c.id) && !deleting.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url }))
+}
+
+/** Which of these communities wait to be deleted (part 202, W1's community_deletions), read softly: before part 202, none. A scheduled deletion archives the community already; this holds whatever the status says. */
+async function communitiesDeleting(db: Db, list: { id: string }[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (list.length === 0) return out
+  try {
+    const { data, error } = await db.from("community_deletions").select("community_id").eq("state", "scheduled").in("community_id", list.map((c) => c.id))
+    if (error || !data) return out
+    for (const d of data as { community_id: string }[]) out.add(d.community_id)
+  } catch {
+    /* No deletions table: nothing is waiting. */
+  }
+  return out
 }
 
 /** Which of these communities answer on their own domain (an active domain of their own creator's), read softly: before part 185, none. */

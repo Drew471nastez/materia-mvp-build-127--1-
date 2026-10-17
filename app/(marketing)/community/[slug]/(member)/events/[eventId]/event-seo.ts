@@ -71,7 +71,8 @@ function fingerprint(f: EventFacts, open: boolean): string {
 }
 
 export function eventMetadata(f: EventFacts): Metadata {
-  const open = publicEvent(f)
+  /* Previewed only while the community is published (round 26). */
+  const open = indexableEvent(f)
   const url = `${SITE}${eventPath(f.community.slug, f.event.id)}`
   const image = eventShareImageUrl(f.community.slug, f.event.id, fingerprint(f, open))
   const images = [{ url: image, width: EVENT_SHARE_WIDTH, height: EVENT_SHARE_HEIGHT, alt: open ? f.event.title : f.community.name, type: "image/png" }]
@@ -96,6 +97,6 @@ export function eventMetadata(f: EventFacts): Metadata {
     alternates: { canonical: url },
     openGraph: { type: "website", url, siteName: "Storelib", title: f.event.title, description, images },
     twitter: { card: "summary_large_image", title: f.event.title, description, images: [image] },
-    robots: indexableEvent(f) ? { index: true, follow: true } : { index: false, follow: false },
+    robots: { index: true, follow: true },
   }
 }

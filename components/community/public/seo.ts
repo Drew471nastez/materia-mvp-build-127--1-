@@ -163,10 +163,30 @@ export function describeCommunity(f: Pick<SeoFacts, "seoDescription" | "summary"
   return plain(f.seoDescription || f.summary || f.tagline || f.description, max) || (f.creatorName ? `A community by ${f.creatorName} on Storelib.` : "A community on Storelib.")
 }
 
+/** The neutral line a community that is not public says in place of its own (round 26). */
+export const UNLISTED_LINE = "A community on Storelib."
+
 export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): Metadata {
   const title = (f.seoTitle || f.name).slice(0, 120)
-  const description = describeCommunity(f)
   const url = canonicalUrl(f.slug, f.origin)
+  /*
+    ONLY A PUBLIC COMMUNITY IS PREVIEWED (round 26: "private, archived, unpublished or restricted content never in sitemaps
+    or previews"). A private, unlisted, archived (so also waiting to be deleted) or hidden community keeps its name as the
+    tab's title, as its page shows it to whoever has the link, but a shared link and a search engine are told nothing
+    else: a neutral line, no picture, noindex. Its Open Graph and X card are set (not left to the site's own), so the
+    preview cannot fall back to anything of the community's.
+  */
+  if (!f.indexable) {
+    return {
+      title: { absolute: opts.about ? `About ${title}` : title },
+      description: UNLISTED_LINE,
+      alternates: { canonical: url },
+      openGraph: { type: "website", url, siteName: "Storelib", title, description: UNLISTED_LINE },
+      twitter: { card: "summary", title, description: UNLISTED_LINE },
+      robots: { index: false, follow: false },
+    }
+  }
+  const description = describeCommunity(f)
   const images = previewImages(f, false)
   return {
     /* Absolute (round 12): the community's layout puts its name after every page's own word, and these already say it. */
@@ -175,7 +195,7 @@ export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): 
     alternates: { canonical: url },
     openGraph: { type: "website", url, siteName: "Storelib", title, description, ...(images ? { images: images.og } : {}) },
     twitter: { card: images ? "summary_large_image" : "summary", title, description, ...(images ? { images: images.twitter } : {}) },
-    robots: f.indexable ? { index: true, follow: true } : { index: false, follow: false },
+    robots: { index: true, follow: true },
   }
 }
 

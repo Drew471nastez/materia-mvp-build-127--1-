@@ -22,9 +22,9 @@ import { join } from "node:path"
 import { stripComments } from "./_source"
 import { untt } from "./i18n-source"
 import { fakeDb } from "./_fake-db"
-import { canonicalUrl, communityJsonLd, communityMetadata, describeCommunity, inviteMetadata, type SeoFacts } from "@/components/community/public/seo"
+import { canonicalUrl, communityJsonLd, communityMetadata, describeCommunity, inviteMetadata, UNLISTED_LINE, type SeoFacts } from "@/components/community/public/seo"
 import { communityIndexable, loadSalesPage, seoFacts, sharePreviewable, sitemapCommunities } from "@/lib/communities/server/public"
-import { readCommunitySummary } from "@/lib/communities/server/community-summary"
+import { readCommunityDeleting, readCommunitySummary } from "@/lib/communities/server/community-summary"
 import { communitySitemap } from "@/lib/custom-domains/community"
 import { indexablePost, postArticleJsonLd, postMetadata, publicPost, type PostFacts } from "@/app/(marketing)/community/[slug]/(member)/post/[postId]/post-seo"
 import { eventMetadata, indexableEvent, type EventFacts } from "@/app/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo"
@@ -139,10 +139,19 @@ async function main() {
     ]
     for (const [name, o, indexed, previewed] of states) {
       const r = row(o)
-      check(`${name}: ${indexed ? "indexed" : "noindex"}, ${previewed ? "a link preview" : "nothing said"}`, communityIndexable(r) === indexed && sharePreviewable(r) === previewed && (seoFacts(r).indexable === indexed), { indexable: communityIndexable(r), previewable: sharePreviewable(r) })
+      check(`${name}: ${indexed ? "indexed" : "noindex"}, ${previewed ? "its page answers (its name, its tab icon)" : "a 404, nothing said"}`, communityIndexable(r) === indexed && sharePreviewable(r) === previewed && (seoFacts(r).indexable === indexed), { indexable: communityIndexable(r), previewable: sharePreviewable(r) })
       const meta = communityMetadata(seoFacts(r))
       const robots = meta.robots as { index: boolean; follow: boolean }
       check(`  its metadata says index ${indexed}`, robots.index === indexed && robots.follow === indexed)
+      const og = meta.openGraph as Any
+      const tw = meta.twitter as Any
+      check(
+        indexed ? "  its link preview: its own line and picture" : "  its link preview: its name only, a neutral line, no picture (never its words or cover)",
+        indexed
+          ? meta.description === "A short line about the makers." && !!og.images?.length && tw.card === "summary_large_image"
+          : meta.description === UNLISTED_LINE && og.description === UNLISTED_LINE && !og.images && !tw.images && tw.card === "summary" && !JSON.stringify(meta).includes("cover") && !JSON.stringify(meta).includes("People who make things"),
+        meta,
+      )
     }
   }
 
@@ -172,6 +181,7 @@ async function main() {
     check("a summary is read softly: trimmed to one line", (await readCommunitySummary(fakeDb({ communities: [{ id: C, summary: "  Two\n lines  " }] }) as never, C)) === "Two lines")
     check("and a database before part 220 has none, without failing", (await readCommunitySummary(fakeDb({ communities: [{ id: C }] }, { failWith: { communities: { code: "42703", message: 'column communities.summary does not exist' } } }) as never, C)) === null)
     check("a bad id is not even asked", (await readCommunitySummary(fakeDb({}) as never, "nope")) === null)
+    check("waiting to be deleted is read from the deletion's own row, softly", (await readCommunityDeleting(fakeDb({ community_deletions: [{ community_id: C, state: "scheduled" }] }) as never, C)) === true && (await readCommunityDeleting(fakeDb({ community_deletions: [{ community_id: C, state: "undone" }] }) as never, C)) === false && (await readCommunityDeleting(fakeDb({}, { failWith: { community_deletions: { code: "42P01", message: "missing" } } }) as never, C)) === false)
   }
 
   /* ── JSON-LD ─────────────────────────────────────────────────────────── */
@@ -201,7 +211,7 @@ async function main() {
       author: { name: "Ana", username: "ana", avatarUrl: null },
     })
     check("a public post in a published community: indexed, with its Article", indexablePost(post("published")) && (postMetadata(post("published")).robots as Any).index === true && postArticleJsonLd(post("published")) !== null)
-    check("in an archived one: still readable by its link, but noindex and no Article", publicPost(post("archived")) && !indexablePost(post("archived")) && (postMetadata(post("archived")).robots as Any).index === false && postArticleJsonLd(post("archived")) === null)
+    check("in an archived one: still readable by its link, but noindex, no Article, and the generic preview (never its words)", publicPost(post("archived")) && !indexablePost(post("archived")) && (postMetadata(post("archived")).robots as Any).index === false && postArticleJsonLd(post("archived")) === null && postMetadata(post("archived")).title === "A post in Makers" && !JSON.stringify(postMetadata(post("archived"))).includes("Kiln day"))
     const event = (status: string): EventFacts => ({
       community: { slug: "makers", name: "Makers", logo_url: null, visibility: "public", access: "free", status: status as never, platform_hidden: false, suspended_at: null, deleted_at: null },
       event: { id: "e1", title: "Open studio", description: null, coverUrl: null, startsAt: "2026-11-01T10:00:00Z", timezone: "UTC", location: null, status: "scheduled", access: null, updatedAt: null },
@@ -226,6 +236,7 @@ async function main() {
       r("hidden", { platform_hidden: true }),
       r("ondomain"),
       r("strangerdomain"),
+      r("deleting"),
     ]
     const ids = new Set(rows.map((x) => x.id))
     check("(fixture ids are distinct)", ids.size === rows.length)
@@ -233,6 +244,8 @@ async function main() {
     const stranger = rows.find((x) => x.slug === "strangerdomain")!
     const db = fakeDb({
       communities: rows,
+      /* Waiting to be deleted while still published (whatever W1's flow does with the status): left out. */
+      community_deletions: [{ community_id: rows.find((x) => x.slug === "deleting")!.id, state: "scheduled" }, { community_id: rows.find((x) => x.slug === "open")!.id, state: "undone" }],
       custom_domains: [
         { domain: "club.example.com", purpose: "community", target_type: "community", target_id: onDomain.id, creator_id: CREATOR, status: "active" },
         /* Somebody else's domain pointed at a community they do not own is never served, so that community stays at storelib.com. */
@@ -240,9 +253,9 @@ async function main() {
       ],
     })
     const listed = (await sitemapCommunities(0, 100, db as never)).map((x) => x.slug).sort()
-    check("only published, public, open, not hidden, suspended or deleted; not invite only; not on its own domain", JSON.stringify(listed) === JSON.stringify(["open", "paid", "strangerdomain"]), listed)
-    const noDomains = fakeDb({ communities: rows }, { failWith: { custom_domains: { code: "42P01", message: "missing" } } })
-    check("before part 185 (no domains table) nothing fails", (await sitemapCommunities(0, 100, noDomains as never)).length === 4)
+    check("only published, public, open, not hidden, suspended or deleted; not invite only; not waiting to be deleted; not on its own domain", JSON.stringify(listed) === JSON.stringify(["open", "paid", "strangerdomain"]), listed)
+    const noDomains = fakeDb({ communities: rows }, { failWith: { custom_domains: { code: "42P01", message: "missing" }, community_deletions: { code: "42P01", message: "missing" } } })
+    check("before parts 185 and 202 (no domains or deletions table) nothing fails", (await sitemapCommunities(0, 100, noDomains as never)).length === 5)
     const pub = code("lib/communities/server/public.ts")
     check("the count asks the same question", /select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("status", "published"\)\s*\.eq\("visibility", "public"\)\s*\.neq\("access", "invite_only"\)\s*\.eq\("platform_hidden", false\)\s*\.is\("deleted_at", null\)\s*\.is\("suspended_at", null\)/.test(pub))
     const site = communitySitemap("club.example.com")
@@ -255,6 +268,10 @@ async function main() {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
     check("the page and About: the short description in their metadata, read per request", [page, about].every((s) => /summary: await communitySummary\(community\.id\)/.test(s) && /await connection\(\)/.test(s)))
+    check("and a community waiting to be deleted is never previewed, whatever its status", [page, about].every((s) => /const deleting = await communityDeleting\(community\.id\)/.test(s) && /\.\.\.\(deleting \? \{ indexable: false \} : \{\}\)/.test(s)))
+    const joinPage = code("app/(marketing)/community/[slug]/join/page.tsx")
+    check("an invite's preview: never for an archived, deleting or hidden community", /if \(typeof invite === "string" && invite && \(community\.status === "archived" \|\| community\.platform_hidden \|\| deleting\)\) return plainJoin/.test(joinPage))
+    check("the post and event pictures follow the same rule as their metadata", /if \(indexablePost\(facts\)\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")) && /const open = indexableEvent\(facts\)/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/share.png/route.tsx")))
     check("a draft or a suspended community says nothing (noindex only)", [page, about].every((s) => /if \(!community \|\| !sharePreviewable\(community\)\) return \{ robots: \{ index: false, follow: false \} \}/.test(s)))
     const layout = code("app/(marketing)/community/[slug]/layout.tsx")
     check("every page inside a community: noindex from the layout; its tab icon is the community's", /const robots = \{ index: false, follow: false \}/.test(layout) && /icons: \{ icon: \[\{ url: icon/.test(layout))

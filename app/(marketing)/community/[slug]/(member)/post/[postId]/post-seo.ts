@@ -177,7 +177,8 @@ function fingerprint(f: PostFacts, open: boolean): string {
 }
 
 export function postMetadata(f: PostFacts): Metadata {
-  const open = publicPost(f)
+  /* Previewed only while the community is published (round 26): an archived one's (or one waiting to be deleted) is the generic card. */
+  const open = indexablePost(f)
   const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const image = postShareImageUrl(f.community.slug, f.post.id, fingerprint(f, open))
   const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/jpeg" }]
@@ -220,9 +221,7 @@ export function postMetadata(f: PostFacts): Metadata {
       description,
       images: twitterImages,
     },
-    robots: indexablePost(f)
-      ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } }
-      : { index: false, follow: false, googleBot: { index: false, follow: false } },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
   }
 }
 
