@@ -71,7 +71,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import type { CommunityHead, SectionId } from "./view-types"
 import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, useFootsUp, useToast } from "./parts"
 import { nameCoverGradient } from "@/lib/communities/cover-gradient"
-import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, type AdminSection } from "./logic"
+import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -314,19 +314,15 @@ function CommunityBar({ head }: { head: CommunityHead }) {
  * every hover; Safari can redraw such a layer half a pixel off on a Retina
  * screen, which moves every word in the row as one tab lights. That is the
  * likely bump; it could not be reproduced here. So no mask: the fades are two strips of the row's
- * own grey over its ends (TABS_FADE_PX), shown only on a side that has more
+ * own grey over its ends (./logic TABS_FADE_PX), shown only on a side that has more
  * to scroll to, so a row that fits has none and the first tab is never
  * faded at rest. The strip cannot scroll up and down (a wheel over it is the
  * page's), and a sideways swipe that reaches its end stays in it rather than
  * going Back.
  */
-/** The width of the fade over each end of the row while there is more to scroll to that side. */
-const TABS_FADE_PX = 24
-
-/** Which sides of a sideways row have more to scroll to, as the data attributes the fades read. */
+/** Which sides of a sideways row have more to scroll to, as the data attributes the fades read (./logic tabsMore). */
 function markMore(nav: HTMLElement, s: HTMLElement) {
-  const left = s.scrollLeft > 1
-  const right = s.scrollLeft + s.clientWidth < s.scrollWidth - 1
+  const { left, right } = tabsMore(s.scrollLeft, s.clientWidth, s.scrollWidth)
   if (nav.hasAttribute("data-more-left") !== left) nav.toggleAttribute("data-more-left", left)
   if (nav.hasAttribute("data-more-right") !== right) nav.toggleAttribute("data-more-right", right)
 }
@@ -362,10 +358,8 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
     if (!el || !s) return
     const first = !placed.current
     placed.current = true
-    const sb = s.getBoundingClientRect()
-    const b = el.getBoundingClientRect()
-    if (b.left >= sb.left + TABS_FADE_PX && b.right <= sb.right - TABS_FADE_PX) return
-    const left = Math.max(0, Math.min(s.scrollWidth - s.clientWidth, s.scrollLeft + (b.left - sb.left) - (sb.width - b.width) / 2))
+    const left = tabRevealLeft(s.getBoundingClientRect(), el.getBoundingClientRect(), { left: s.scrollLeft, client: s.clientWidth, width: s.scrollWidth })
+    if (left === null) return
     const still = first || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     s.scrollTo({ left, behavior: still ? "auto" : "smooth" })
   }, [active])
@@ -402,7 +396,7 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
           )
         })}
       </div>
-      {/* The fades, in the row's own grey and as wide as TABS_FADE_PX, over the ends that reach the pane's edges. */}
+      {/* The fades, in the row's own grey and as wide as TABS_FADE_PX (w-6), over the ends that reach the pane's edges. */}
       <span aria-hidden data-tabs-fade="left" className={cn(fade, "left-[calc(var(--app-gutter)*-1)] bg-linear-to-r from-[#f8f9fa] to-[#f8f9fa]/0 group-data-more-left/tabs:opacity-100")} />
       <span aria-hidden data-tabs-fade="right" className={cn(fade, "right-[calc(var(--app-gutter)*-1)] bg-linear-to-l from-[#f8f9fa] to-[#f8f9fa]/0 group-data-more-right/tabs:opacity-100")} />
     </nav>

@@ -42,15 +42,13 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowRight, Copy } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { money } from "@/lib/memberships/state"
 import { eventDateBadge, eventTime, relativeTime } from "@/lib/communities/format"
 import { AppAvatar } from "@/components/app/app-avatar"
 import type { CommunityHead, OverviewActivity, OverviewData } from "./view-types"
-import { EVENT_KIND_LABEL } from "./logic"
+import { EVENT_KIND_LABEL, overviewFigures, type OverviewFigure } from "./logic"
 import { EDITOR_CARD_TITLE, buttonPrimary, buttonSecondary, card, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
-import { appLocale } from "@/lib/i18n/format"
 
 /** A card of the overview: the /app card, its heading and an optional link at the heading's right. */
 function Panel({ title, aside, children, className, ...rest }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLElement>) {
@@ -80,13 +78,6 @@ function AsideLink({ href, children }: { href: string; children: React.ReactNode
  * right (one grid, its cells placed differently, so nothing is drawn twice). A figure that has a screen of its own opens
  * it.
  */
-export interface OverviewFigure {
-  label: string
-  value: string
-  foot?: string
-  href?: string
-}
-
 function Figure({ label: name, value, foot, href }: OverviewFigure) {
   const body = (
     <>
@@ -179,20 +170,8 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
   const f = data.figures
   const toast = useToast()
   const base = `/app/community/${head.slug}`
-  const n = (v: number) => v.toLocaleString(appLocale())
-  const canSeeMembers = head.can.manage_members || head.can.approve_member || head.can.invite
-  const sells = data.sells && head.can.manage_pricing === true
-  /* Four at most, none twice: who joined and who cancelled are the lines under the counts they change. */
-  const figures: OverviewFigure[] = [
-    { label: tt("Members"), value: n(f.members), foot: f.new30d > 0 ? tt("+{n} in 30 days", { n: n(f.new30d) }) : undefined, href: canSeeMembers ? `${base}/members` : undefined },
-    { label: tt("Active, 30 days"), value: n(f.active30d), foot: f.members ? tt("{p}% of members", { p: Math.round((f.active30d / Math.max(1, f.members)) * 100) }) : undefined },
-    ...(sells
-      ? [
-          { label: tt("Paid members"), value: n(f.paidMembers), foot: f.cancellations30d > 0 ? tt("{n, plural, one {# cancellation} other {# cancellations}} in 30 days", { n: f.cancellations30d }) : undefined },
-          { label: tt("Monthly revenue"), value: money(f.mrrCents, f.currency), foot: tt("From active memberships"), href: head.can.view_analytics ? `${base}/analytics` : undefined },
-        ]
-      : [{ label: tt("Posts this week"), value: n(f.posts7d), foot: tt("{n, plural, one {# comment} other {# comments}}", { n: f.comments7d }), href: head.can.moderate_content ? `${base}/feed` : undefined }]),
-  ]
+  /* Four at most, none twice: who joined and who cancelled are the lines under the counts they change (./logic overviewFigures). */
+  const figures = overviewFigures(head, data)
   const waiting = [
     f.pendingRequests > 0 && head.can.approve_member ? { href: `${base}/members?status=pending`, text: tt("{pendingRequests, plural, one {# request} other {# requests}} to join", { pendingRequests: f.pendingRequests }) } : null,
     f.openReports > 0 && head.can.review_reports ? { href: `${base}/moderation`, text: tt("{openReports} open {openReports, plural, one {report} other {reports}}", { openReports: f.openReports }) } : null,
