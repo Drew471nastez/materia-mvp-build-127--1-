@@ -51,7 +51,7 @@ export interface AppSectionEntry {
 
 export const STORELIB_SECTION_APPS: SectionApp[] = [
   { id: "reviews", name: "Storelib Reviews", icon: "star", stateId: "storelib-reviews", href: "/app/integrations?integration=storelib-reviews" },
-  { id: "offers", name: "Bundles and upsells", icon: "gift", stateId: "storelib-bundles", href: "/app/offers" },
+  { id: "offers", name: "Offers", icon: "gift", stateId: "storelib-bundles", href: "/app/offers" },
   { id: "email", name: "Email", icon: "mail", stateId: null, href: "/app/emails" },
   { id: "wishlist", name: "Wishlist", icon: "heart", stateId: null, href: "/app/customers" },
 ]
@@ -64,6 +64,8 @@ const ENTRIES: AppSectionEntry[] = [
   { app: "reviews", kind: "block", type: "rating", in: ["product"], description: "Stars under the product's name." },
   { app: "email", kind: "section", type: "promo_newsletter", description: "Sign ups go to your contacts." },
   { app: "email", kind: "section", type: "newsletter", description: "Sign ups go to your contacts." },
+  /* The product section's Bundles and upsells block, added to every product page while offers run (product-page.ts withOffersBlock). */
+  { app: "offers", kind: "block", type: "offers", in: ["product"], description: "Bundles and upsells set up in Offers." },
   { app: "wishlist", kind: "block", type: "wishlist", in: ["product"], description: "Save for later, on the product." },
 ]
 

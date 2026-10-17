@@ -306,6 +306,7 @@ async function main() {
   check("every registered section exists in the theme", appSectionEntries().filter((e) => e.kind === "section").every((e) => !!SECTION_SCHEMAS[e.type]), appSectionEntries().filter((e) => e.kind === "section" && !SECTION_SCHEMAS[e.type]).map((e) => e.type))
   check("and some of them are offered in Add section", appSectionEntries().some((e) => e.kind === "section" && ADDABLE_SECTIONS.includes(e.type)))
   check("blocks are registered by the section types they go in", appForBlock("rating", "product")?.app.id === "reviews" && appForBlock("rating", "hero") === null)
+  check("the product's Bundles and upsells block is the Offers app's, set up in Offers", appForBlock("offers", "product")?.app.name === "Offers" && appForBlock("offers", "product")?.app.href === "/app/offers" && (SECTION_SCHEMAS.product?.blocks ?? []).some((b) => b.type === "offers"))
   check("a plain section is no app's", appForSection("hero") === null && appForSection("promo_countdown") === null)
   check("on, off, or not known yet", appIsOn(appById("reviews")!, { "storelib-reviews": "on" }) === true && appIsOn(appById("reviews")!, { "storelib-reviews": "off" }) === false && appIsOn(appById("reviews")!, null) === null && appIsOn(appById("email")!, null) === true)
   check("each app says where it is turned on", STORELIB_SECTION_APPS.every((a) => a.href.startsWith("/app/")))

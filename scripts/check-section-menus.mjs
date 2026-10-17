@@ -32,7 +32,8 @@ import { reporter, sleep } from "./anchor-motion-probe.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
-const css = await probeCss(root)
+/* Headless Chromium has no hover-capable pointer: the hover styles are taken as they are on a computer. */
+const css = (await probeCss(root)).replace(/@media \(hover: ?hover\)/g, "@media all")
 const out = mkdtempSync(join(tmpdir(), "storelib-sectionmenus-"))
 /* Add section draws real sections, whose compiler reaches for node's crypto and a router: small browser stand ins, as scripts/editor-probe-harness.mjs has. */
 const STUBS = {
