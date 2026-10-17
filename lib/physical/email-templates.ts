@@ -453,6 +453,8 @@ export interface ShipmentEmailModel {
   carrier: string | null
   trackingNumber: string | null
   trackingUrl: string | null
+  /** Several parcels shipped together: each with its own carrier and tracking link, in one email. */
+  parcels?: { carrier: string | null; trackingNumber: string | null; trackingUrl: string | null }[]
   address: Partial<Address> | null
   statusUrl: string
   /** tracking: the parcel already left and its tracking number changed. issue: the carrier (or the store's own delivery) could not deliver it (Delivery issue). */
@@ -496,6 +498,8 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
             : et("Your order is on the way")
   const heading = m.copy?.heading ?? own
   const number = m.orderNumber
+  /* Several parcels at once: a tracking box for each, and the button goes to the order page, which lists them all. */
+  const parcels = m.kind === "shipped" && !local && m.parcels && m.parcels.length > 1 ? m.parcels : null
   const subject =
     m.copy?.subject ??
     (m.kind === "tracking"
@@ -529,10 +533,12 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
           ? et("The carrier gave your package a new tracking number. Use this one to follow it from now on.")
           : local
             ? `${goodNews}${et("Your order is on its way. We're delivering it to you ourselves.")}${note}`
-            : `${goodNews}${m.partial ? et("Some of your items have shipped. The rest follow in another package, and we'll email you when they do.") : et("Your order has shipped.")}${m.trackingUrl ? ` ${et("Track it any time with the link below.")}` : ""}`)
+            : parcels
+              ? `${goodNews}${et("Your order has shipped in {count} packages.", { count: parcels.length })}${m.partial ? ` ${et("The rest follow in another package, and we'll email you when they do.")}` : ""}${parcels.some((x) => x.trackingUrl) ? ` ${et("Each package has its own tracking link below.")}` : ""}`
+              : `${goodNews}${m.partial ? et("Some of your items have shipped. The rest follow in another package, and we'll email you when they do.") : et("Your order has shipped.")}${m.trackingUrl ? ` ${et("Track it any time with the link below.")}` : ""}`)
   const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
   const primary =
-    m.trackingUrl && m.kind !== "delivered" && !local
+    m.trackingUrl && m.kind !== "delivered" && !local && !parcels
       ? button(k, m.trackingUrl, m.copy?.button ?? et("Track your package")) + textLink(k, m.statusUrl, et("View your order"))
       : button(k, m.statusUrl, m.copy?.button ?? et("View your order"))
   const toLabel = m.kind === "delivered" ? et("Delivered to") : local ? et("Delivering to") : et("Shipping to")
@@ -543,7 +549,11 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
   const body = [
     /* A delivery that went wrong is not a step along the way: no progress bar. */
     issue ? "" : progressBar(k, at),
-    m.kind === "delivered" || local ? "" : trackingBox(k, m.carrier, m.trackingNumber, m.trackingUrl),
+    m.kind === "delivered" || local
+      ? ""
+      : parcels
+        ? parcels.map((x, i) => trackingBox(k, `${et("Package {n} of {count}", { n: i + 1, count: parcels.length })}${x.carrier ? ` · ${x.carrier}` : ""}`, x.trackingNumber, x.trackingUrl)).join("")
+        : trackingBox(k, m.carrier, m.trackingNumber, m.trackingUrl),
     primary,
     sectionHeading(k, m.kind === "delivered" ? et("In your package") : m.partial ? et("Items in this package") : issue || local ? et("Items in this delivery") : et("Items in this shipment")),
     linesTable(k, m.lines, "USD", false),
@@ -556,8 +566,13 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
     m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
-    ...(tracking ? ["", tracking] : []),
-    ...(m.trackingUrl && !local ? [`${et("Track")}: ${m.trackingUrl}`] : []),
+    ...(parcels
+      ? parcels.flatMap((x, i) => [
+          "",
+          `${et("Package {n} of {count}", { n: i + 1, count: parcels.length })}${x.carrier ? `: ${x.carrier}` : ""}${x.trackingNumber ? ` ${x.trackingNumber}` : ""}`,
+          ...(x.trackingUrl ? [`${et("Track")}: ${x.trackingUrl}`] : []),
+        ])
+      : [...(tracking ? ["", tracking] : []), ...(m.trackingUrl && !local ? [`${et("Track")}: ${m.trackingUrl}`] : [])]),
     ...(m.address?.line1 ? ["", `${toLabel}:`, ...addressLines(m.address)] : []),
     ...(m.deliveryName ? [`${howLabel}: ${m.deliveryName}`] : []),
     "",

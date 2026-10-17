@@ -83,8 +83,12 @@ export async function queueOrderConfirmation(db: Db, checkoutId: string, creator
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:confirmation:${checkoutId}`, payload: { template: "confirmation", checkoutId } })
 }
 
-export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking" | "issue", key?: string): Promise<void> {
-  await enqueueJob(db, { creatorId, kind: "send_email", key: key ?? `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
+/**
+ * `batch`: several parcels shipped in one press (orders-server fulfilParcels). One email names
+ * them all, keyed by the first, so the buyer is not sent one per parcel.
+ */
+export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking" | "issue", key?: string, batch?: string[]): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: key ?? `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId, ...(batch && batch.length > 1 ? { fulfillmentIds: batch.slice(0, 20) } : {}) } })
 }
 
 /** Cancelled before it shipped: once per order. */
@@ -530,6 +534,13 @@ function addressOf(a: Record<string, any> | null) {
   return a ? { name: a.name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone } : null
 }
 
+/** The same line in two parcels, once, with both quantities. */
+function mergeLines(items: { order_id: string; quantity: number }[]): { order_id: string; quantity: number }[] {
+  const by = new Map<string, number>()
+  for (const i of items) by.set(i.order_id, (by.get(i.order_id) ?? 0) + i.quantity)
+  return [...by].map(([order_id, quantity]) => ({ order_id, quantity }))
+}
+
 /** Item rows for an email from the order rows it names (a shipment's items, a return's items). */
 async function linesOfOrders(db: Db, checkoutId: string, items: { order_id: string; quantity: number }[]): Promise<EmailLine[]> {
   if (items.length === 0) return []
@@ -669,8 +680,14 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   } else if (p.template === "shipment") {
     const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("id", p.fulfillmentId).maybeSingle()
     if (!f || f.notify_buyer === false || f.status === "cancelled") return
-    const { data: items } = await db.from("fulfillment_items").select("order_id, quantity").eq("fulfillment_id", f.id)
-    const shipped = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
+    /* Several parcels shipped together (fulfilParcels): every live one of them, in the order they were saved. */
+    const batchIds = p.kind === "shipped" && Array.isArray(p.fulfillmentIds) ? (p.fulfillmentIds as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 20) : []
+    const { data: batchRows } = batchIds.length > 1 ? await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("checkout_id", co.id).in("id", batchIds) : { data: null }
+    const parcels = ((batchRows ?? []) as { id: string; carrier: string | null; tracking_number: string | null; tracking_url: string | null; notify_buyer: boolean | null; status: string }[])
+      .filter((x) => x.status !== "cancelled" && x.notify_buyer !== false)
+      .sort((a, b) => batchIds.indexOf(a.id) - batchIds.indexOf(b.id))
+    const { data: items } = await db.from("fulfillment_items").select("order_id, quantity").in("fulfillment_id", parcels.length > 1 ? parcels.map((x) => x.id) : [f.id])
+    const shipped = await linesOfOrders(db, co.id, mergeLines((items ?? []) as { order_id: string; quantity: number }[]))
     const pickup = pickupOf(co)
     if (pickup) {
       if (p.kind === "out_for_delivery" || p.kind === "tracking" || p.kind === "issue") return
@@ -689,6 +706,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
         carrier: f.carrier,
         trackingNumber: f.tracking_number,
         trackingUrl: f.tracking_url ?? trackingUrl(f.carrier, f.tracking_number),
+        parcels: parcels.length > 1 ? parcels.map((x) => ({ carrier: x.carrier, trackingNumber: x.tracking_number, trackingUrl: x.tracking_url ?? trackingUrl(x.carrier, x.tracking_number) })) : undefined,
         address: addressOf(co.shipping_address),
         deliveryName: co.shipping_rate?.name ?? null,
         partial: p.kind === "shipped" && owed > 0 && sent < owed,
