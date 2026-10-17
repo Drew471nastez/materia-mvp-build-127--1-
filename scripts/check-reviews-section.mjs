@@ -13,7 +13,7 @@
  *             a photo opens in a popover that fits the window and Escape
  *             closes it. No script runs: every one of these is CSS over
  *             inputs the section draws.
- *   IMPORT    app/app/reviews/import-flow.tsx with a Yotpo export chosen:
+ *   IMPORT    components/reviews/manage/import-dialog.tsx with a Yotpo export:
  *             the dialog fits the window, the file is read as Yotpo, the
  *             fields are one column on a phone and two on a computer, every
  *             select is tap sized on a phone, the preview table scrolls
@@ -85,7 +85,7 @@ writeFileSync(
   join(dir, "import-probe.tsx"),
   `import React from "react"
 import { createRoot } from "react-dom/client"
-import { ImportFlow } from ${at("app/app/reviews/import-flow.tsx")}
+import { ImportDialog } from ${at("components/reviews/manage/import-dialog.tsx")}
 const products = [{ id: "p1", title: "Linen Apron", slug: "linen-apron", skus: ["LA-01"] }, { id: "p2", title: "Oak Board", slug: "oak-board", skus: [] }]
 const calls: unknown[] = []
 ;(window as any).__calls = calls
@@ -93,13 +93,13 @@ window.fetch = (async (url: string, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : null
   calls.push({ url, method: init?.method ?? "GET", body })
   let out: unknown = {}
-  if (!init || init.method === "GET") out = { products, imports: [{ id: "i1", platform: "judgeme", file_name: "judgeme-export.csv", status: "done", imported: 312, duplicates: 4, skipped: 2, errors: 1, created_at: "2026-10-01T10:00:00Z", undone_count: null }], ready: true }
-  else if (body?.action === "start") out = { importId: "00000000-0000-4000-8000-000000000002", ready: true }
+  if (!init || init.method === "GET") out = { products, imports: [{ id: "i1", platform: "judgeme", file_name: "judgeme-export.csv", imported: 312, duplicates: 4, skipped: 7, errors: 1, undone_at: null, created_at: "2026-10-01T10:00:00Z", undone_count: null }], ready: true }
+  else if (body?.action === "start") out = { importId: "00000000-0000-4000-8000-000000000002", level: 232 }
   else if (body?.action === "rows") out = { imported: body.rows.length, duplicates: 0, errors: [] }
-  else if (body?.action === "finish") out = { import: { id: "00000000-0000-4000-8000-000000000002", platform: "yotpo", file_name: "yotpo.csv", status: "done", imported: 2, duplicates: 0, skipped: 0, errors: 0, created_at: new Date().toISOString(), undone_count: null } }
+  else if (body?.action === "finish") out = { import: { id: "00000000-0000-4000-8000-000000000002", platform: "yotpo", file_name: "yotpo.csv", imported: 2, duplicates: 0, skipped: 0, errors: 0, undone_at: null, created_at: new Date().toISOString(), undone_count: null } }
   return new Response(JSON.stringify(out), { status: 200, headers: { "content-type": "application/json" } })
 }) as typeof fetch
-createRoot(document.getElementById("app")!).render(<div className="min-h-screen bg-[#f8f9fa]"><ImportFlow onClose={() => {}} onChanged={() => {}} /></div>)
+createRoot(document.getElementById("app")!).render(<div className="min-h-screen bg-[#f8f9fa]"><ImportDialog onClose={() => {}} onDone={() => {}} onUndone={() => {}} /></div>)
 `,
 )
 try {
@@ -228,12 +228,13 @@ try {
     await input.uploadFile(join(root, "tests/fixtures/reviews/yotpo.csv"))
     await page.waitForSelector("[data-import-map]", { timeout: 10_000 }).catch(() => null)
     const m = await page.evaluate(() => {
-      const dialog = document.querySelector("[data-import-step]").getBoundingClientRect()
+      const panel = document.querySelector('[role="dialog"] > div.relative')
+      const dialog = panel.getBoundingClientRect()
       const grid = document.querySelector("[data-import-fields]")
       const cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length
       const selects = [...grid.querySelectorAll("select")].map((s) => s.getBoundingClientRect())
       const prev = document.querySelector("[data-import-preview]")
-      const buttons = [...document.querySelectorAll("[data-import-step] > div:last-child button")].map((b) => b.getBoundingClientRect())
+      const buttons = [...panel.querySelectorAll(":scope > div:last-child button")].map((b) => b.getBoundingClientRect())
       return {
         platform: document.querySelector("[data-import-platform]").value,
         body: document.querySelector('[data-import-field="body"]').selectedOptions[0]?.textContent,

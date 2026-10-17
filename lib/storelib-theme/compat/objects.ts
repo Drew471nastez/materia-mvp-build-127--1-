@@ -1057,6 +1057,8 @@ export interface SiteI18n {
   countries?: { code: string; name: string; currency: string }[]
   /** The theme's own words in this language as the store translated them (Translate › Theme words, `tw:<key>`), by locale key: read before the theme's own files. */
   words?: Record<string, string>
+  /** Storelib's own words in this language (lib/markets/ui-words.ts, Translate › Shop words), approved only: what Storelib draws in the theme, the review widgets. */
+  uiWords?: Record<string, string>
 }
 
 /** "/fr" for a language that is not the website's own, "" for it. */

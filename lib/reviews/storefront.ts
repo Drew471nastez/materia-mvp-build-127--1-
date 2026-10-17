@@ -36,12 +36,12 @@ export interface StorefrontReview {
   /** "Mar 3, 2026". */
   date: string
   iso: string
-  /** A verified buyer's, or one the app it was imported from called a verified purchase (run-now part 212). */
+  /** A verified buyer's. An imported review never is, whatever the app it came from said (run-now part 232 keeps that for the store only). */
   verified: boolean
   featured: boolean
   photos: string[]
   has_photos: boolean
-  /** Web addresses of the review's videos, from an import (part 212). */
+  /** Web addresses of the review's videos, from an import (part 232). */
   videos: string[]
   /**
    * Where the review stands in each order a visitor can pick, 0 first: the
@@ -105,6 +105,12 @@ export interface StorefrontReviews {
   here: { scope: "product" | "shop"; product_id: string; summary: StorefrontReviewSummary; items: StorefrontReview[] }
   /** /reviews on this website. */
   page_url: string
+  /** The store's saved widget looks, by id: what a Reviews widget section names (lib/reviews/widgets). Type and settings only. */
+  widgets?: Record<string, { type: string; settings: Record<string, unknown> }>
+  /** The page's language, for a widget's own words (lib/reviews/widgets/config.ts widgetWords); absent, the website's own. */
+  locale?: string | null
+  /** True when that language is the website's own. */
+  default_locale?: boolean
 }
 
 /** A published review row as read for the storefront. */
@@ -121,8 +127,7 @@ export interface StorefrontReviewRow {
   featured?: boolean | null
   photos?: unknown
   seller_reply?: string | null
-  /** Run-now part 212. */
-  import_verified?: boolean | null
+  /** Run-now part 232. */
   videos?: unknown
 }
 
@@ -163,7 +168,7 @@ function buyerName(row: StorefrontReviewRow): string | null {
 
 export function toStorefrontReview(row: StorefrontReviewRow, product: StorefrontProductRow | undefined, showPhotos = true): StorefrontReview {
   const buyer = row.verified !== false
-  const verified = buyer || row.import_verified === true
+  const verified = buyer
   const author = buyerName(row) ?? (buyer ? "Verified buyer" : "Customer")
   const photos = showPhotos ? shownPhotos(row.photos) : []
   const videos = Array.isArray(row.videos) ? (row.videos as unknown[]).filter((v): v is string => typeof v === "string" && /^https:\/\/[^\s"'<>]+$/.test(v)).slice(0, 2) : []

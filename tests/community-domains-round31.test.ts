@@ -90,7 +90,7 @@ check("a file at the root: favicon, the push worker", step("/favicon.ico").kind 
   const robots = step("/robots.txt")
   const sitemap = step("/sitemap.xml")
   check("its own robots.txt, naming its own sitemap, never storelib.com's", robots.kind === "text" && robots.body === communityRobots(HOST) && /Sitemap: https:\/\/club\.maralind\.com\/sitemap\.xml/.test(robots.body) && !/storelib\.com/.test(robots.body))
-  check("its own sitemap: the community and its About", sitemap.kind === "text" && /<loc>https:\/\/club\.maralind\.com\/<\/loc>/.test(sitemap.body) && /<loc>https:\/\/club\.maralind\.com\/about<\/loc>/.test(sitemap.body) && sitemap.body === communitySitemap(HOST))
+  check("its own sitemap: the community's one canonical address (About names it as canonical, so is not listed)", sitemap.kind === "text" && /<loc>https:\/\/club\.maralind\.com\/<\/loc>/.test(sitemap.body) && !/<loc>https:\/\/club\.maralind\.com\/about<\/loc>/.test(sitemap.body) && sitemap.body === communitySitemap(HOST))
 }
 
 console.log("\nWhich community a domain serves, and only while it may")

@@ -27,7 +27,8 @@
  *   WEBSITE       the product's reviews with the filter by stars, the sort,
  *                 Show more by the app's number, photos in a lightbox,
  *                 verified purchase from an import, structured data
- *   SQL           part 212, RLS, as a migration and a run-now part
+ *   SQL           part 232 on part 215's import table, RLS, as a migration
+ *                 and a run-now part
  *
  * Run with:  NODE_OPTIONS="--conditions=react-server" npx tsx tests/reviews-import-v.test.ts
  */
@@ -60,7 +61,6 @@ import {
   ROW_ERRORS,
   type CatalogProduct,
 } from "../lib/reviews/import"
-import { planImport } from "../lib/reviews/import-csv"
 import { readReviewsApp } from "../lib/reviews/app-settings"
 import { buildStorefrontReviews, sampleStorefrontReviews } from "../lib/reviews/storefront"
 import { compileSection, renderSection } from "../lib/storelib-theme"
@@ -247,8 +247,6 @@ function plans() {
   const twice = readImportFile(fixture("shopify.csv") + fixture("shopify.csv").split("\n").slice(1).join("\n"), "x.csv")!
   const dup = planReviews(twice, autoMapping(twice.headers, "shopify"), { platform: "shopify", products: CATALOG })
   check("the same row twice in one file: once", dup.rows.length === 2 && dup.duplicates === 2)
-  const legacy = planImport(fixture("judgeme.csv"), CATALOG)
-  check("the one-step CSV read uses the same engine", legacy.platform === "judgeme" && legacy.reviews.length === 3 && legacy.reviews[0].name === "Jane D.")
 }
 
 /* ── sanitised ───────────────────────────────────────────────────────── */
@@ -290,7 +288,8 @@ const stubs: Record<string, string> = {
     `import { NextResponse } from "next/server"
 export const physicalJson = (body, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } })
 export const shopCaller = async () => { const c = globalThis.__rvImportStubs.caller; return c ? { ...c, db: globalThis.__rvImportStubs.admin } : physicalJson({ error: "Sign in to continue." }, 401) }
-export const readBody = async (r) => { try { return await r.json() } catch { return null } }
+export const readBody = async (r) => { try { const b = await r.json(); return b && typeof b === "object" && !Array.isArray(b) ? b : null } catch { return null } }
+export const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 `,
   ),
   "@/lib/api/rate-limit": stub("rl", `export const rateLimit = async () => null\nexport const addressSubject = () => "ip:x"\nexport const emailSubject = (e) => "email:" + e\nexport const callerAddress = () => "203.0.113.9"\n`),
@@ -404,7 +403,8 @@ async function runImport(route: any, file: string, opts: { assign?: Record<strin
 
 async function routes() {
   const route = (await import(await bundle("app/api/app/reviews/import/route.ts"))) as any
-  const undo = (await import(await bundle("app/api/app/reviews/import/[id]/route.ts"))) as any
+  /* Undo is Reviews' own: DELETE /api/app/reviews/import?id= (lib/reviews/manage-server undoImport). */
+  const undo = { DELETE: (_r: Request, ctx: { params: Promise<{ id: string }> }) => ctx.params.then((p) => route.DELETE(new Request(`https://storelib.com/api/app/reviews/import?id=${p.id}`, { method: "DELETE" }))) }
   const imported = (d: any) => d.tables.reviews.filter((r: any) => r.source === "import")
 
   realLog("\nImporting, through the route")
@@ -420,7 +420,7 @@ async function routes() {
     const first = await runImport(route, "judgeme.csv")
     const rows = imported(d)
     const jane = rows.find((r: any) => r.content.startsWith("Loved it"))
-    check("Judge.me imported: three reviews, its history row says so", first.totals.imported === 3 && rows.length === 3 && d.tables.review_imports[0]?.imported === 3 && d.tables.review_imports[0]?.status === "done" && d.tables.review_imports[0]?.platform === "judgeme", d.tables.review_imports[0])
+    check("Judge.me imported: three reviews, its history row says so", first.totals.imported === 3 && rows.length === 3 && d.tables.review_imports[0]?.imported === 3 && !!d.tables.review_imports[0]?.finished_at && d.tables.review_imports[0]?.platform === "judgeme" && d.tables.review_imports[0]?.file_name === "judgeme.csv", d.tables.review_imports[0])
     check("  each one the store's, never verified, marked imported, with its import and keys", rows.every((r: any) => r.creator_id === CREATOR && r.verified === false && r.source === "import" && r.import_id === first.start.importId && typeof r.content_hash === "string" && r.import_platform === "judgeme"))
     check("  named in public form, dated as the file says, the reply kept", jane?.reviewer_name === "Jane D." && jane?.created_at === "2024-03-03T10:00:00.000Z" && jane?.seller_reply === "Thanks Jane!" && jane?.status === "published")
     check("  spam hidden by the store, not yet waiting for approval", rows.some((r: any) => r.status === "hidden" && r.hidden_by === "seller") && rows.some((r: any) => r.status === "pending" && r.published_at === null))
@@ -447,9 +447,9 @@ async function routes() {
     const u = await undo.DELETE(new Request("https://storelib.com/x", { method: "DELETE" }), { params: Promise.resolve({ id: shopify.start.importId }) })
     const ub = await json(u)
     check("undo deletes that import's two reviews and nothing else", u.status === 200 && ub.removed === 2 && d.tables.reviews.length === all - 2 && d.tables.reviews.some((r: any) => r.id === "r-native") && imported(d).length === 3 && imported(d).every((r: any) => r.import_id === first.start.importId))
-    check("  the import stays in the history, marked undone, with the number", d.tables.review_imports.find((i: any) => i.id === shopify.start.importId)?.status === "undone" && d.tables.review_imports.find((i: any) => i.id === shopify.start.importId)?.undone_count === 2)
-    const again = await json(await undo.DELETE(new Request("https://storelib.com/x", { method: "DELETE" }), { params: Promise.resolve({ id: shopify.start.importId }) }))
-    check("  undone twice: nothing more", again.removed === 0 && d.tables.reviews.length === all - 2)
+    check("  the import stays in the history, marked undone, with the number", d.tables.review_imports.find((i: any) => i.id === shopify.start.importId)?.undone_at && d.tables.review_imports.find((i: any) => i.id === shopify.start.importId)?.undone_count === 2)
+    const again = await undo.DELETE(new Request("https://storelib.com/x", { method: "DELETE" }), { params: Promise.resolve({ id: shopify.start.importId }) })
+    check("  undone twice: refused (409), nothing more", again.status === 409 && d.tables.reviews.length === all - 2)
     const back = await runImport(route, "shopify.csv")
     check("  imported again after undo: it comes back", back.totals.imported === 2)
     const late = await json(await route.POST(post({ action: "rows", importId: first.start.importId, rows: [yotpoLike] })))
@@ -492,12 +492,12 @@ async function routes() {
     check("  undo removes the copies too", d.storage.buckets["review-photos"].size === 0 && d.storage.buckets["review-uploads"].size === 0)
   }
 
-  realLog("\nBefore SQL part 212")
+  realLog("\nBefore SQL part 215")
   {
     const d = db({ importsTable: false })
     asCreator(d)
     const g = await json(await route.GET())
-    check("the import screen says history needs part 212", g.ready === false && /212/.test(g.needs ?? ""))
+    check("the import screen is told there is no history yet", g.ready === false && g.imports.length === 0 && g.products.length === 2)
     const first = await runImport(route, "shopify.csv")
     check("  it still imports, with no import id", first.start.importId === null && first.totals.imported === 2 && d.tables.reviews.filter((r: any) => r.source === "import").every((r: any) => !("import_id" in r)))
     const second = await runImport(route, "shopify.csv")
@@ -507,7 +507,7 @@ async function routes() {
     const d = db()
     asCreator(d)
     const sneaky = await json(await route.POST(post({ action: "rows", importId: null, rows: [{ line: 2, productId: PRODUCT, rating: 5, body: "No history" }] })))
-    check("with part 212, rows with no import are refused: every import has its Undo", !!sneaky.error && !d.tables.reviews.some((r: any) => r.content === "No history"))
+    check("with part 215, rows with no import are refused: every import has its Undo", !!sneaky.error && !d.tables.reviews.some((r: any) => r.content === "No history"))
   }
 
   realLog("\nThe one-step CSV post")
@@ -515,9 +515,9 @@ async function routes() {
     const d = db()
     asCreator(d)
     const r = await json(await route.POST(post({ csv: fixture("judgeme.csv"), fileName: "judgeme.csv" })))
-    check("a CSV in one go: imported, in the history", r.imported === 3 && d.tables.review_imports.length === 1 && d.tables.review_imports[0].imported === 3)
+    check("a CSV in one go: imported, in the history", r.imported === 3 && d.tables.review_imports.length === 1 && d.tables.review_imports[0].imported === 3, { r, imports: d.tables.review_imports })
     const again = await json(await route.POST(post({ csv: fixture("judgeme.csv") })))
-    check("  and the second time, duplicates", again.imported === 0 && again.duplicates === 3)
+    check("  and the second time, every row is already on the store", again.imported === 0 && again.skippedCount === 3)
     const bad = await route.POST(post({ csv: "name,stars\nx,5" }))
     check("  a file without the columns says which", bad.status === 400 && (await json(bad)).missingColumns?.join() === "product,body")
   }
@@ -605,7 +605,7 @@ function website() {
   const data = buildStorefrontReviews({ settings, creatorId: CREATOR, rows, products: [{ id: PRODUCT, title: "Linen Apron", slug: "linen-apron" }], product: { id: PRODUCT, title: "Linen Apron", rows, ratings: [...rows.map((r) => r.rating), 5, 5] }, limit: 100 })
   const items = data.here.items
   check("sent in the store's order (newest), each with its place in every other order", items[0].id === "r8" && items.find((r) => r.id === "r4")!.rank_lowest === 0 && items.find((r) => r.id === "r2")!.rank_photos === 0 && items.every((r) => typeof r.rank_highest === "number"))
-  check("an import's verified purchase is shown as verified on the website; a plain import is not", items.find((r) => r.id === "r0")!.verified === true && items.find((r) => r.id === "r1")!.verified === false)
+  check("an import is never Verified on the website, whatever its app said", items.find((r) => r.id === "r0")!.verified === false && items.find((r) => r.id === "r1")!.verified === false)
   check("a video only when it is a web address", JSON.stringify(items.find((r) => r.id === "r3")!.videos) === JSON.stringify(["https://video.test/1.mp4"]))
   const html = drawProduct(data).html
   check("the filter by stars: All and one chip per rating there is", html.includes('class="rv-f rv-f--0"') && ["5", "4", "3", "2", "1"].every((n) => html.includes(`id="rv-f${n}-s1"`)))
@@ -635,18 +635,21 @@ function website() {
 /* ── the database part ───────────────────────────────────────────────── */
 
 function sql() {
-  realLog("\nSQL part 212")
-  const part = read("supabase/sql/run-now/212_review_imports.sql")
-  check("the run-now part and the migration are the same file", part === read("supabase/migrations/20270201_v9_review_imports.sql"))
-  check("idempotent: IF NOT EXISTS, DROP ... IF EXISTS before each constraint and policy", (part.match(/CREATE TABLE IF NOT EXISTS/g) ?? []).length === 1 && (part.match(/ADD COLUMN IF NOT EXISTS/g) ?? []).length === 6 && /DROP CONSTRAINT IF EXISTS reviews_import_values_check/.test(part) && /DROP POLICY IF EXISTS review_imports_owner_read/.test(part))
-  check("RLS on, the store reads its own imports only, the server writes", /ALTER TABLE public\.review_imports ENABLE ROW LEVEL SECURITY/.test(part) && /REVOKE ALL ON public\.review_imports FROM anon, authenticated/.test(part) && /FOR SELECT TO authenticated USING \(creator_id IN \(SELECT c\.id FROM public\.creators c WHERE c\.user_id = \(SELECT auth\.uid\(\)\)\)\)/.test(part) && !/GRANT (INSERT|UPDATE|DELETE|ALL)[^;]*TO authenticated/.test(part))
-  check("one id per store, so a second import adds nothing; the public cannot read the keys", /CREATE UNIQUE INDEX IF NOT EXISTS reviews_import_key_once ON public\.reviews \(creator_id, import_key\) WHERE import_key IS NOT NULL/.test(part) && /REVOKE SELECT \(import_id, import_key, content_hash, import_platform, import_verified, videos\) ON public\.reviews FROM anon, authenticated/.test(part))
-  check("undo is by import, and an import's row going leaves the reviews (SET NULL), never a cascade", /import_id uuid REFERENCES public\.review_imports\(id\) ON DELETE SET NULL/.test(part) && !/ON DELETE CASCADE[^;]*reviews ADD/.test(part))
-  check("listed in the run-now README and in the after check", read("supabase/sql/run-now/README.md").includes("`212_review_imports.sql`") && /as p212_review_imports;\s*$/.test(read("supabase/sql/run-now/99_check_after.sql")))
-  const routeSrc = read("app/api/app/reviews/import/route.ts") + read("app/api/app/reviews/import/[id]/route.ts")
-  check("every import route is the signed in store's (shopCaller), rate limited", (routeSrc.match(/await shopCaller\(\)/g) ?? []).length === 3 && (routeSrc.match(/rateLimit\(/g) ?? []).length >= 4)
+  realLog("\nSQL part 232")
+  const part = read("supabase/sql/run-now/232_review_imports_from_apps.sql")
+  check("the run-now part and the migration are the same file", part === read("supabase/migrations/20270201_v9_review_imports_from_apps.sql"))
+  check("on part 215's table, never a second one; idempotent", !/CREATE TABLE/.test(part) && /to_regclass\('public\.review_imports'\) IS NULL THEN RAISE NOTICE/.test(part) && (part.match(/ADD COLUMN IF NOT EXISTS/g) ?? []).length === 12 && /DROP CONSTRAINT IF EXISTS reviews_import_values_check/.test(part) && /DROP CONSTRAINT IF EXISTS review_imports_apps_check/.test(part))
+  check("one statement a line, and a comment line is only a comment", part.split("\n").filter((l) => l.trim()).every((l) => (l.startsWith("/*") ? l.trimEnd().endsWith("*/") : /;\s*$/.test(l))))
+  check("RLS on, server only like part 215: no grant and no policy for a signed in person", /ALTER TABLE public\.review_imports ENABLE ROW LEVEL SECURITY/.test(part) && /REVOKE ALL ON public\.review_imports FROM PUBLIC, anon, authenticated/.test(part) && !/CREATE POLICY/.test(part) && !/GRANT [^;]*TO (anon|authenticated)/.test(part))
+  check("one id per store, so a second import adds nothing; the public cannot read the keys", /CREATE UNIQUE INDEX IF NOT EXISTS reviews_import_key_once ON public\.reviews \(creator_id, import_key\) WHERE import_key IS NOT NULL/.test(part) && /REVOKE SELECT \(import_key, content_hash, import_platform, import_verified, videos\) ON public\.reviews FROM anon, authenticated/.test(part))
+  check("undo is by part 215's import_id, whose import going leaves the reviews (SET NULL)", /import_id uuid REFERENCES public\.review_imports\(id\) ON DELETE SET NULL/.test(read("supabase/sql/run-now/215_reviews_manage.sql")) && !/ON DELETE CASCADE/.test(part))
+  check("listed in the run-now README and in the after check", read("supabase/sql/run-now/README.md").includes("`232_review_imports_from_apps.sql`") && /as p232_review_imports_from_apps;\s*$/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  const routeSrc = read("app/api/app/reviews/import/route.ts")
+  check("every import call is the signed in store's (shopCaller), rate limited", (routeSrc.match(/await shopCaller\(\)/g) ?? []).length === 3 && (routeSrc.match(/rateLimit\(/g) ?? []).length >= 3)
   const server = read("lib/reviews/import-server.ts")
-  check("every write and delete is filtered by the creator", /\.delete\(\)\.eq\("creator_id", creatorId\)\.eq\("import_id", importId\)/.test(server) && /\.from\("products"\)\.select\("id"\)\.eq\("creator_id", a\.creatorId\)/.test(server) && !/NEXT_PUBLIC_/.test(server))
+  check("every write and delete is filtered by the creator", /\.delete\(\)\.eq\("creator_id", creatorId\)\.eq\("import_id", importId\)/.test(read("lib/reviews/manage-server.ts")) && /\.from\("products"\)\.select\("id"\)\.eq\("creator_id", a\.creatorId\)/.test(server) && !/NEXT_PUBLIC_/.test(server))
+  const dialog = read("components/reviews/manage/import-dialog.tsx")
+  check("one import screen: Reviews' own dialog is the multi-app one", /export function ImportDialog\(/.test(dialog) && /readImportFile\(/.test(dialog) && /detectPlatform\(/.test(dialog) && /import\?id=/.test(dialog) && /import \{ ImportDialog \} from "\.\/import-dialog"/.test(read("components/reviews/manage/reviews-view.tsx")))
 }
 
 async function main() {

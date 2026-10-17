@@ -8,8 +8,9 @@ import "server-only"
  * in chunks (app/api/app/reviews/import). Every call is the signed in
  * store's, and every write is filtered by its creator id:
  *
- *   start    a row in review_imports (run-now part 212) for the history;
- *            the import's id goes with every chunk
+ *   start    a row in review_imports (run-now part 215, with the app and
+ *            the counts apart from part 232) for the history; the
+ *            import's id goes with every chunk
  *   rows     each row read again (lib/reviews/import checkImportRow): only
  *            the store's own products, plain text, whole stars. A review
  *            already there (the app's id, or the same content from any
@@ -18,18 +19,19 @@ import "server-only"
  *            Photos are copied into Storelib's review photos when asked and
  *            when the address answers with a picture; otherwise the
  *            address is kept as a link.
- *   finish   the counts and the first errors on the import's row, and the
- *            ratings counted again for every product that got a review
- *   undo     that import's reviews deleted, their copied photos with them,
- *            and nothing else: a review the import found already there was
- *            never the import's
+ *   finish   the import's row closed, and the ratings counted again for
+ *            every product that got a review
+ *   undo     Reviews' own Undo (lib/reviews/manage-server undoImport), which
+ *            deletes that import's reviews, and the photos it copied, and
+ *            nothing else
  *
- * An imported review is never verified (Storelib's ratings count Storelib's
- * own buyers); the app's "verified purchase" is kept as import_verified, for
- * the store's website to show.
+ * An imported review is never verified and never says Verified purchase on
+ * the website (Storelib's ratings count Storelib's own buyers); the app's
+ * "verified purchase" is kept as import_verified, for the store to see.
  *
- * Before part 212: no history and no undo; the chunks still import, with the
- * duplicate check made from the reviews already imported.
+ * Before part 215: no history and no undo; the chunks still import, with the
+ * duplicate check made from the reviews already imported. Before part 232:
+ * history and undo, the same duplicate check, no app ids or videos.
  */
 import { randomBytes } from "node:crypto"
 import { fetchPublic } from "@/lib/api/public-fetch"
@@ -43,36 +45,46 @@ import { checkImportRow, contentHash, PLATFORM_BY_ID, type ImportRow, type Platf
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-export const IMPORT_NEEDS_PART = "Import history and Undo turn on after the database update (SQL part 212)."
+export const IMPORT_NEEDS_PART = "Import history and Undo turn on after the database update (SQL part 215)."
 export const MAX_ROWS_PER_CHUNK = 250
 /** Photos copied in one chunk at most; the rest of the chunk keeps its photos as links. */
 const MAX_COPIES_PER_CHUNK = 40
 const COPY_TIMEOUT_MS = 7000
-const MAX_ERROR_LINES = 50
+/** Rows kept in an import's report (part 215's `report`): the ones that did not go in, first ones first. */
+const MAX_REPORT_ROWS = 200
 
 const missing = (error: { code?: string } | null | undefined) => {
   const code = String(error?.code ?? "")
   return code === "42703" || code === "PGRST204" || isMissingTable(error)
 }
 
+/**
+ * An import's row. Part 215 made the table (file, imported, skipped, a
+ * report, undone); part 232 adds the app, the duplicates and errors apart
+ * from the rest skipped, when it finished and how many Undo took back. A
+ * field part 232 adds is absent before it runs.
+ */
 export interface ImportRecord {
   id: string
-  platform: string
   file_name: string | null
-  status: "running" | "done" | "undone"
-  total_rows: number
   imported: number
-  duplicates: number
   skipped: number
-  errors: number
-  error_lines: RowError[]
+  report: { row: number; ok: boolean; message?: string | null }[]
   created_at: string
-  finished_at: string | null
   undone_at: string | null
-  undone_count: number | null
+  platform?: string
+  total_rows?: number
+  duplicates?: number
+  errors?: number
+  finished_at?: string | null
+  undone_count?: number | null
 }
 
-const RECORD_COLUMNS = "id, platform, file_name, status, total_rows, imported, duplicates, skipped, errors, error_lines, created_at, finished_at, undone_at, undone_count"
+/** Which part the import table is at: 232 (every column), 215 (the import and its Undo), or none. */
+export type ImportLevel = 232 | 215 | 0
+
+export const RECORD_COLUMNS_215 = "id, file_name, imported, skipped, report, undone_at, created_at"
+export const RECORD_COLUMNS_232 = `${RECORD_COLUMNS_215}, platform, total_rows, duplicates, errors, finished_at, undone_count`
 
 export function readPlatform(v: unknown): PlatformId {
   return typeof v === "string" && v in PLATFORM_BY_ID ? (v as PlatformId) : "other"
@@ -93,29 +105,37 @@ export async function importCatalog(db: Db, creatorId: string): Promise<{ id: st
   return products
 }
 
-export async function listImports(db: Db, creatorId: string): Promise<{ ready: boolean; imports: ImportRecord[] }> {
-  const { data, error } = await db.from("review_imports").select(RECORD_COLUMNS).eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(20)
-  if (error) return { ready: !missing(error), imports: [] }
-  return { ready: true, imports: (data ?? []) as ImportRecord[] }
-}
-
-async function ownImport(db: Db, creatorId: string, importId: unknown): Promise<ImportRecord | null> {
+/** One of this store's imports, with the part its table is at. Another store's id reads as none. */
+async function ownImport(db: Db, creatorId: string, importId: unknown): Promise<{ record: ImportRecord; level: ImportLevel } | null> {
   if (typeof importId !== "string" || !/^[0-9a-f-]{36}$/i.test(importId)) return null
-  const { data } = await db.from("review_imports").select(RECORD_COLUMNS).eq("id", importId).eq("creator_id", creatorId).maybeSingle()
-  return (data as ImportRecord | null) ?? null
+  const read = (cols: string) => db.from("review_imports").select(cols).eq("id", importId).eq("creator_id", creatorId).maybeSingle()
+  let res = await read(RECORD_COLUMNS_232)
+  let level: ImportLevel = 232
+  if (res.error && missing(res.error)) {
+    res = await read(RECORD_COLUMNS_215)
+    level = 215
+  }
+  if (res.error || !res.data) return null
+  return { record: res.data as ImportRecord, level }
 }
 
-export async function startImport(db: Db, a: { creatorId: string; userId: string; platform: PlatformId; fileName: string; totalRows: number }): Promise<{ id: string | null; ready: boolean }> {
-  const { data, error } = await db
-    .from("review_imports")
-    .insert({ creator_id: a.creatorId, created_by: a.userId, platform: a.platform, file_name: a.fileName.replace(/[\u0000-\u001f]/g, "").slice(0, 200) || null, status: "running", total_rows: Math.max(0, Math.min(1_000_000, Math.floor(a.totalRows) || 0)), imported: 0, duplicates: 0, skipped: 0, errors: 0, error_lines: [] })
-    .select("id")
-    .single()
-  if (error) {
-    if (missing(error)) return { id: null, ready: false }
-    throw new Error(`import not started (${error.code ?? "unknown"})`)
+/** Still taking rows: not undone, and (with part 232) not finished. */
+const open = (o: { record: ImportRecord; level: ImportLevel }) => !o.record.undone_at && !(o.level === 232 && o.record.finished_at)
+
+export async function startImport(db: Db, a: { creatorId: string; userId: string; platform: PlatformId; fileName: string; totalRows: number }): Promise<{ id: string | null; level: ImportLevel }> {
+  const base = { creator_id: a.creatorId, file_name: a.fileName.replace(/[\u0000-\u001f]/g, "").slice(0, 200) || null, imported: 0, skipped: 0 }
+  const insert = (row: Record<string, unknown>) => db.from("review_imports").insert(row).select("id").single()
+  let res = await insert({ ...base, platform: a.platform, created_by: a.userId, total_rows: Math.max(0, Math.min(1_000_000, Math.floor(a.totalRows) || 0)), duplicates: 0, errors: 0 })
+  let level: ImportLevel = 232
+  if (res.error && (String(res.error.code) === "42703" || String(res.error.code) === "PGRST204")) {
+    res = await insert(base)
+    level = 215
   }
-  return { id: data.id as string, ready: true }
+  if (res.error) {
+    if (missing(res.error)) return { id: null, level: 0 }
+    throw new Error(`import not started (${res.error.code ?? "unknown"})`)
+  }
+  return { id: res.data.id as string, level }
 }
 
 /* ── photos ───────────────────────────────────────────────────────────── */
@@ -179,7 +199,7 @@ export interface ChunkResult {
   errors: RowError[]
 }
 
-/** Which of these keys and fingerprints the store already has. Before part 212, the fingerprints of the reviews it imported. */
+/** Which of these keys and fingerprints the store already has: the stored ones (part 232), and those of every review it imported, made again from their rows. */
 async function existing(db: Db, creatorId: string, keys: string[], hashes: string[], productIds: string[], ready: boolean): Promise<Set<string>> {
   const have = new Set<string>()
   if (ready) {
@@ -191,8 +211,8 @@ async function existing(db: Db, creatorId: string, keys: string[], hashes: strin
       const { data } = await db.from("reviews").select("content_hash").eq("creator_id", creatorId).in("content_hash", hashes)
       for (const r of (data ?? []) as { content_hash: string }[]) have.add(r.content_hash)
     }
-    return have
   }
+  /* Reviews imported without a fingerprint (before part 232, or by the one-step CSV post): their content, read back. */
   if (!productIds.length) return have
   const { data } = await db.from("reviews").select("product_id, rating, content, reviewer_name, created_at").eq("creator_id", creatorId).eq("source", "import").in("product_id", productIds).limit(5000)
   for (const r of (data ?? []) as { product_id: string; rating: number; content: string; reviewer_name: string | null; created_at: string | null }[]) {
@@ -202,20 +222,22 @@ async function existing(db: Db, creatorId: string, keys: string[], hashes: strin
 }
 
 /**
- * One chunk of rows, written. `importId` null: part 212 has not run, and the
- * rows are written without their import columns.
+ * One chunk of rows, written. `importId` null: part 215 has not run, and the
+ * rows are written without an import. Before part 232, without the app's id,
+ * fingerprint, verified flag and videos.
  */
-export async function importRows(db: Db, a: { creatorId: string; importId: string | null; rows: unknown[]; copyPhotos: boolean; now?: number }): Promise<ChunkResult | { error: string; status: number }> {
-  const record = a.importId ? await ownImport(db, a.creatorId, a.importId) : null
-  if (a.importId && !record) return { error: "That import is not yours, or it has gone.", status: 404 }
-  if (record && record.status !== "running") return { error: "That import has finished. Start a new one.", status: 409 }
+export async function importRows(db: Db, a: { creatorId: string; importId: string | null; rows: unknown[]; copyPhotos: boolean; platform?: PlatformId; now?: number }): Promise<ChunkResult | { error: string; status: number }> {
+  const own = a.importId ? await ownImport(db, a.creatorId, a.importId) : null
+  if (a.importId && !own) return { error: "That import is not yours, or it has gone.", status: 404 }
+  if (own && !open(own)) return { error: "That import has finished. Start a new one.", status: 409 }
   if (!a.importId) {
-    /* Rows with no import are for before part 212 only: with its table there, every import has its history and its Undo. */
+    /* Rows with no import are for before part 215 only: with its table there, every import has its history and its Undo. */
     const probe = await db.from("review_imports").select("id").eq("creator_id", a.creatorId).limit(1)
     if (!probe.error) return { error: "Start the import first.", status: 409 }
   }
-  const ready = !!record
-  const platform = readPlatform(record?.platform ?? "other")
+  /* Part 232: the app's id and the fingerprint are kept and read; before it, duplicates are found from the reviews already imported. */
+  const ready = own?.level === 232
+  const platform = readPlatform(own?.record.platform ?? a.platform ?? "other")
 
   const asked = new Set<string>()
   for (const r of a.rows.slice(0, MAX_ROWS_PER_CHUNK)) {
@@ -272,7 +294,8 @@ export async function importRows(db: Db, a: { creatorId: string; importId: strin
       seller_reply_at: r.reply ? (r.replyDate ?? at) : null,
       photos: photos.get(i) ?? [],
     }
-    return ready ? { ...base, import_id: a.importId, import_key: g.key, content_hash: g.hash, import_platform: platform, import_verified: r.verified, videos: r.videos } : base
+    if (ready) return { ...base, import_id: a.importId, import_key: g.key, content_hash: g.hash, import_platform: platform, import_verified: r.verified, videos: r.videos }
+    return own ? { ...base, import_id: a.importId } : base
   })
 
   const written: { id: string; product_id: string; at: number }[] = []
@@ -309,29 +332,37 @@ export async function importRows(db: Db, a: { creatorId: string; importId: strin
   return { imported, duplicates, errors }
 }
 
-/** After a chunk: the counts added to the import's row, its first errors kept. */
+/**
+ * After a chunk: the counts added to the import's row. `skipped` on the row
+ * is every row that did not go in (part 215's meaning); with part 232 the
+ * duplicates and errors are kept apart too. The rows that did not go in, with
+ * why, go in its report, the first MAX_REPORT_ROWS of them.
+ */
 export async function addToImport(db: Db, creatorId: string, importId: string | null, add: { imported: number; duplicates: number; skipped: number; errors: RowError[]; extraErrors?: number }): Promise<void> {
   if (!importId) return
-  const record = await ownImport(db, creatorId, importId)
-  if (!record || record.status !== "running") return
-  const lines = [...(Array.isArray(record.error_lines) ? record.error_lines : []), ...add.errors].slice(0, MAX_ERROR_LINES)
-  await db
-    .from("review_imports")
-    .update({ imported: record.imported + add.imported, duplicates: record.duplicates + add.duplicates, skipped: record.skipped + add.skipped, errors: record.errors + add.errors.length + (add.extraErrors ?? 0), error_lines: lines })
-    .eq("id", importId)
-    .eq("creator_id", creatorId)
+  const own = await ownImport(db, creatorId, importId)
+  if (!own || !open(own)) return
+  const r = own.record
+  const errorCount = add.errors.length + (add.extraErrors ?? 0)
+  const report = [...(Array.isArray(r.report) ? r.report : []), ...add.errors.map((e) => ({ row: e.line, ok: false, message: e.error }))].slice(0, MAX_REPORT_ROWS)
+  const change: Record<string, unknown> = { imported: (r.imported ?? 0) + add.imported, skipped: (r.skipped ?? 0) + add.skipped + add.duplicates + errorCount, report }
+  if (own.level === 232) Object.assign(change, { duplicates: (r.duplicates ?? 0) + add.duplicates, errors: (r.errors ?? 0) + errorCount })
+  await db.from("review_imports").update(change).eq("id", importId).eq("creator_id", creatorId)
 }
 
-/** The import done: its row closed, and the ratings counted again for every product it wrote to. */
+/** The import done: its row closed (part 232), and the ratings counted again for every product it wrote to. */
 export async function finishImport(db: Db, creatorId: string, importId: string | null, productIds: string[]): Promise<ImportRecord | null> {
   let record: ImportRecord | null = null
   if (importId) {
     const own = await ownImport(db, creatorId, importId)
     if (own) {
-      const { data } = await db.from("review_imports").update({ status: own.status === "running" ? "done" : own.status, finished_at: new Date().toISOString() }).eq("id", importId).eq("creator_id", creatorId).select(RECORD_COLUMNS).single()
-      record = (data as ImportRecord | null) ?? own
+      record = own.record
+      if (own.level === 232 && !own.record.finished_at) {
+        const { data } = await db.from("review_imports").update({ finished_at: new Date().toISOString() }).eq("id", importId).eq("creator_id", creatorId).select(RECORD_COLUMNS_232).single()
+        record = (data as ImportRecord | null) ?? own.record
+      }
       const { data: rows } = await db.from("reviews").select("product_id").eq("creator_id", creatorId).eq("import_id", importId).limit(10_000)
-      productIds = [...productIds, ...((rows ?? []) as { product_id: string }[]).map((r) => r.product_id)]
+      productIds = [...productIds, ...((rows ?? []) as { product_id: string }[]).map((x) => x.product_id)]
     }
   }
   await recount(db, creatorId, productIds)
@@ -345,40 +376,4 @@ async function recount(db: Db, creatorId: string, productIds: string[]) {
     for (const p of (data ?? []) as { id: string; slug: string | null }[]) await refreshReviewStats(db, { productId: p.id, productSlug: p.slug })
   }
   await refreshReviewStats(db, { creatorId })
-}
-
-/**
- * Undo: every review this import wrote, deleted, with the photos it copied.
- * Only this store's, only this import's. The import stays in the history,
- * marked undone, with how many it took back.
- */
-export async function undoImport(db: Db, creatorId: string, importId: string): Promise<{ ok: true; removed: number; record: ImportRecord | null } | { ok: false; status: number; error: string }> {
-  const record = await ownImport(db, creatorId, importId)
-  if (!record) return { ok: false, status: 404, error: "That import is not here." }
-  if (record.status === "undone") return { ok: true, removed: 0, record }
-  let removed = 0
-  const products = new Set<string>()
-  for (let round = 0; round < 100; round++) {
-    const { data, error } = await db.from("reviews").select("id, product_id, photos").eq("creator_id", creatorId).eq("import_id", importId).eq("source", "import").limit(500)
-    if (error) return { ok: false, status: 500, error: "The import was not undone. Try again." }
-    const rows = (data ?? []) as { id: string; product_id: string; photos: unknown }[]
-    if (!rows.length) break
-    const ids = rows.map((r) => r.id)
-    const { error: delError } = await db.from("reviews").delete().eq("creator_id", creatorId).eq("import_id", importId).in("id", ids)
-    if (delError) return { ok: false, status: 500, error: "The import was not undone. Try again." }
-    removed += ids.length
-    rows.forEach((r) => products.add(r.product_id))
-    const files = rows.flatMap((r) => (Array.isArray(r.photos) ? (r.photos as { path?: unknown }[]) : [])).map((p) => (typeof p?.path === "string" ? p.path : "")).filter((p) => p.startsWith(`${creatorId}/`))
-    await removeReviewPhotos(db, files)
-    if (rows.length < 500) break
-  }
-  const { data } = await db
-    .from("review_imports")
-    .update({ status: "undone", undone_at: new Date().toISOString(), undone_count: (record.undone_count ?? 0) + removed })
-    .eq("id", importId)
-    .eq("creator_id", creatorId)
-    .select(RECORD_COLUMNS)
-    .single()
-  await recount(db, creatorId, [...products])
-  return { ok: true, removed, record: (data as ImportRecord | null) ?? record }
 }

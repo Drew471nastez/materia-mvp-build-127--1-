@@ -50,7 +50,7 @@ import { tt } from "@/lib/i18n/text"
 const MAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
 const EXTERNAL: Record<string, string> = {
   "/explore": `https://${MAIN}/explore`,
-  "/help": `https://${MAIN}/help`,
+  /* Help is not here: it is /app/help, a page in the app (lib/search/app-pages), opened by the router like any other. */
 }
 
 /** How long a pause in typing before the server is asked. */

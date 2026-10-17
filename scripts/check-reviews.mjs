@@ -8,8 +8,9 @@
  *              count) and the reviews: the buyer's photo or initials, name,
  *              "Verified purchase", stars, date, the words cut at six lines
  *              with Show more, and the seller's reply under its review.
- *   SELLER     the Reviews list in /app: the filters by stars, a review with
- *              no reply offers Reply and posts it, a reported one is marked
+ *   SELLER     Storelib Reviews' Reviews view (components/reviews/manage):
+ *              the status tabs with the server's counts, a review with no
+ *              reply offers Reply and posts it, a reported one is marked
  *              hidden, the report dialog names its reasons.
  *   RECEIPT    a guest from the email's fourth star: four stars chosen, the
  *              form posts with the receipt token and no sign in; their own
@@ -72,6 +73,25 @@ const asked = []
 /** Requests deliberately left unanswered, cut loose at the end so the server can close. */
 const hanging = []
 let own = false
+/* Storelib Reviews' Reviews view (components/reviews/manage): the store's list, a page from the server. */
+const SELLER_PRODUCTS = [
+  { id: "11111111-0000-4000-8000-000000000001", title: "Notion Budget", slug: "notion-budget", thumbnail_url: null },
+  { id: "11111111-0000-4000-8000-000000000002", title: "Lightroom Presets Vol. 2", slug: "presets-2", thumbnail_url: null },
+]
+const sellerRow = (id, rating, content, extra = {}) => ({ id, product_id: SELLER_PRODUCTS[0].id, rating, title: null, content, created_at: "2026-09-20T10:00:00Z", edited_at: null, status: "published", hidden_by: null, on_storelib: true, verified: true, source: "storelib", featured: false, photos: [], reviewer_name: null, seller_reply: null, seller_reply_at: null, buyer: null, customer: null, product: SELLER_PRODUCTS[0], ...extra })
+const SELLER_ROWS = [
+  sellerRow("aaaaaaaa-0000-4000-8000-000000000001", 5, "Clean files and the setup guide is clear.", { buyer: { display_name: "Ghita Nastase", avatar_url: null }, seller_reply: "Thank you Ghita.", seller_reply_at: "2026-09-21T10:00:00Z" }),
+  sellerRow("aaaaaaaa-0000-4000-8000-000000000002", 4, "Good template. I would like a dark version.", { reviewer_name: "Ana" }),
+  sellerRow("aaaaaaaa-0000-4000-8000-000000000003", 5, "The first budget template I kept using.", { buyer: { display_name: "Mihai Popescu", avatar_url: null } }),
+  sellerRow("aaaaaaaa-0000-4000-8000-000000000004", 2, "The import from my bank did not work.", { buyer: { display_name: "Lena", avatar_url: null } }),
+  sellerRow("aaaaaaaa-0000-4000-8000-000000000005", 1, "Scam, call me on 0722 000 000.", { status: "hidden", hidden_by: "report", on_storelib: false, product_id: SELLER_PRODUCTS[1].id, product: SELLER_PRODUCTS[1], buyer: { display_name: "anon123", avatar_url: null } }),
+]
+function sellerList(tab) {
+  const inTab = (r, t) => (t === "published" ? r.status === "published" : t === "pending" ? r.status === "pending" : t === "hidden" ? r.status === "hidden" && r.hidden_by === "seller" : t === "reported" ? r.status === "hidden" && r.hidden_by !== "seller" : t === "unanswered" ? r.status !== "hidden" && !r.seller_reply : true)
+  const counts = Object.fromEntries(["all", "published", "pending", "hidden", "reported", "unanswered"].map((t) => [t, SELLER_ROWS.filter((r) => inTab(r, t)).length]))
+  const rows = SELLER_ROWS.filter((r) => inTab(r, tab))
+  return { rows, total: rows.length, page: 1, pageSize: 25, counts, ready: true }
+}
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://x")
   if (url.pathname === "/buyer.png") { res.writeHead(200, { "content-type": "image/svg+xml" }); res.end(BUYER_SVG); return }
@@ -92,6 +112,8 @@ const server = createServer((req, res) => {
           ? { isLoggedIn: false, hasPurchased: true, hasReviewed: true, viaReceipt: true, receiptToken: "rcpt_0123456789abcdefghijklmnopqrstuv", existingReview: { id: "r9", rating: 4, content: "Good template. The monthly view is what I needed; a dark version would be nice.", created_at: "2026-09-20T10:00:00Z", edited_at: null, hidden: false, seller_reply: "Thanks Ana. A dark version is on the way.", seller_reply_at: "2026-09-21T10:00:00Z" } }
           : { isLoggedIn: false, hasPurchased: true, hasReviewed: false, viaReceipt: true, existingReview: null }
       } else if (url.pathname === "/api/reviews" && req.method === "POST") out = { review: { id: "r10", rating: body.rating, content: body.content, created_at: new Date().toISOString() } }
+      else if (url.pathname === "/api/app/reviews" && url.searchParams.get("only") === "products") out = { products: SELLER_PRODUCTS.map((p) => ({ id: p.id, title: p.title })) }
+      else if (url.pathname === "/api/app/reviews") out = sellerList(url.searchParams.get("tab") || "all")
       else if (/\/reply$/.test(url.pathname)) out = { review: { seller_reply: body.text, seller_reply_at: new Date().toISOString() } }
       else if (/\/report$/.test(url.pathname)) out = { hidden: true }
       setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(out)) }, 120)
@@ -292,35 +314,32 @@ try {
     {
       const page = await open(vp, "view=seller")
       await common(page, `seller ${size}`)
+      await wait(400)
       const s = await page.evaluate(() => ({
-        tabs: [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent),
+        tabs: [...document.querySelectorAll("[data-reviews-tab]")].map((t) => t.textContent),
         rows: document.querySelectorAll("[data-review-row]").length,
         hidden: /Hidden, reported/.test(document.getElementById("app")?.textContent || ""),
-        summary: document.querySelector("[data-reviews-summary]")?.textContent,
-        product: !!document.querySelector("select"),
+        product: [...document.querySelectorAll("select")].some((x) => /All products/.test(x.textContent || "")),
       }))
-      expect(s.tabs.join("|") === "All5|No reply3|5 star2|4 star1|3 star0|2 star1|1 star0|Hidden1", "filters by stars, with counts, and No reply and Hidden", s.tabs.join("|"))
+      expect(s.tabs.join("|") === "All5|Published4|Pending0|Hidden0|Reported1|No reply3", "the tabs say where each review stands, with counts from the server", s.tabs.join("|"))
       expect(s.rows === 5 && s.hidden, "every review, the reported one marked hidden", JSON.stringify(s))
-      expect(/4\.0/.test(s.summary || "") && /4 reviews/.test(s.summary || ""), "the average of the published ones", s.summary)
       expect(s.product, "a product filter when there is more than one product")
       await shot(page, `seller-reviews-${size}`)
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^1 star/.test(t.textContent || ""))?.click())
-      await wait(150)
-      const oneStar = await page.evaluate(() => document.querySelectorAll("[data-review-row]").length)
-      expect(oneStar === 0, "the 1 star filter shows none (the hidden one is not counted)", String(oneStar))
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^No reply/.test(t.textContent || ""))?.click())
-      await wait(150)
+      await page.evaluate(() => [...document.querySelectorAll("[data-reviews-tab]")].find((t) => /^No reply/.test(t.textContent || ""))?.click())
+      await wait(400)
+      const unanswered = await page.evaluate(() => document.querySelectorAll("[data-review-row]").length)
+      expect(unanswered === 3, "No reply asks the server for that tab", String(unanswered))
       await page.evaluate(() => [...document.querySelectorAll("[data-review-row] button")].find((b) => b.textContent?.trim() === "Reply")?.click())
       await wait(200)
-      await page.type("#review-reply", "Thank you, a dark version is coming.")
+      await page.type("[data-review-row] textarea", "Thank you, a dark version is coming.")
       asked.length = 0
       await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Post reply/.test(b.textContent || ""))?.click())
       await wait(500)
       const put = asked.find((a) => a.method === "PUT" && /\/reply$/.test(a.path))
       expect(!!put && /dark version/.test(put.body.text), "Reply posts the words to the reply route", JSON.stringify(asked))
       await shot(page, `seller-reviews-replied-${size}`)
-      await page.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => /^All/.test(t.textContent || ""))?.click())
-      await wait(150)
+      await page.evaluate(() => [...document.querySelectorAll("[data-reviews-tab]")].find((t) => /^All/.test(t.textContent || ""))?.click())
+      await wait(400)
       await page.click("[data-review-row] button[aria-label^='Actions']")
       await wait(400)
       await page.evaluate(() => [...document.querySelectorAll("[role=menuitem], button, a")].find((b) => /Report review/.test(b.textContent || ""))?.click())

@@ -6,6 +6,10 @@
  * list itself is plain links and works without this: it only adds
  * aria-current to the link of the last heading that has scrolled past the
  * top third of the screen.
+ *
+ * The public pages scroll the window; inside the dashboard (/app/help) the
+ * page scrolls in its own pane, marked [data-help-scroll], so that is what
+ * it listens to there.
  */
 import { useEffect } from "react"
 
@@ -30,11 +34,12 @@ export function TocSpy() {
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(mark)
     }
+    const scroller: HTMLElement | Window = headings[0].closest<HTMLElement>("[data-help-scroll]") ?? window
     mark()
-    window.addEventListener("scroll", onScroll, { passive: true })
+    scroller.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onScroll)
     return () => {
-      window.removeEventListener("scroll", onScroll)
+      scroller.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onScroll)
       if (frame) window.cancelAnimationFrame(frame)
     }

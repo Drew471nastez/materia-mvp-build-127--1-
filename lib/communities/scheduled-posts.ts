@@ -16,6 +16,7 @@
  *               kept and it can be edited and scheduled again
  */
 import { LENGTHS } from "./limits"
+import { instantAt, wallClockIn } from "../i18n/format"
 
 export const SCHEDULED_STATUSES = ["draft", "scheduled", "publishing", "published", "failed"] as const
 export type ScheduledStatus = (typeof SCHEDULED_STATUSES)[number]
@@ -67,6 +68,11 @@ export function checkScheduledInput(raw: unknown, now: number = Date.now()): Che
   return { ok: true, value: { spaceId, title, body, publishAt: new Date(at).toISOString() } }
 }
 
+/** What the composer sends for a draft (publishAt null) or a scheduled post (round 26, creator/composer-schedule.tsx). */
+export function scheduleBody(fields: { spaceId: string | null; title: string; body: string }, publishAt: string | null): ScheduledInput {
+  return { spaceId: fields.spaceId, title: fields.title.trim(), body: fields.body.trim(), publishAt }
+}
+
 export interface ScheduledPostView {
   id: string
   status: ScheduledStatus
@@ -97,17 +103,46 @@ export interface ScheduledPanelData {
   spaces: { id: string; name: string; kind: string; icon?: string | null }[]
 }
 
-/** The local day and time inputs for an ISO time, in the browser's zone: ["2026-10-15", "09:30"]. */
-export function localParts(iso: string | null, fallback: number = Date.now() + 3_600_000): [string, string] {
+/*
+  THE DAY AND THE TIME ARE THE CREATOR'S (round 26). The form read and wrote them in the browser's own zone, while every
+  other date in the dashboard is in the zone chosen in Settings (lib/i18n/format.ts appTimeZone): a creator in Bucharest
+  on a laptop left on New York time scheduled 9:00 and got 16:00. Given a zone, the inputs are that zone's wall clock;
+  without one they stay the browser's, as before.
+*/
+
+/** The day and time inputs for an ISO time: ["2026-10-15", "09:30"], in `zone` when given, else the browser's zone. */
+export function localParts(iso: string | null, fallback: number = Date.now() + 3_600_000, zone?: string): [string, string] {
   const t = iso ? Date.parse(iso) : fallback
-  const d = new Date(Number.isFinite(t) ? t : fallback)
+  const at = Number.isFinite(t) ? t : fallback
   const p = (n: number) => String(n).padStart(2, "0")
+  if (zone) {
+    const w = wallClockIn(at, zone)
+    return [`${w.y}-${p(w.m + 1)}-${p(w.d)}`, `${p(w.h)}:${p(w.min)}`]
+  }
+  const d = new Date(at)
   return [`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, `${p(d.getHours())}:${p(d.getMinutes())}`]
 }
 
-/** The ISO time for a local day and time, or null when either is missing or not a time. */
-export function fromLocalParts(day: string, time: string): string | null {
+/** The ISO time for a day and time (in `zone` when given, else the browser's), or null when either is missing or not a time. */
+export function fromLocalParts(day: string, time: string, zone?: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{2}:\d{2}$/.test(time)) return null
+  if (zone) {
+    const [y, m, d] = day.split("-").map(Number)
+    const [h, min] = time.split(":").map(Number)
+    if (m < 1 || m > 12 || d < 1 || d > 31 || h > 23 || min > 59) return null
+    const t = instantAt(y, m - 1, d, h, min, zone).getTime()
+    return Number.isFinite(t) ? new Date(t).toISOString() : null
+  }
   const t = new Date(`${day}T${time}:00`).getTime()
   return Number.isFinite(t) ? new Date(t).toISOString() : null
+}
+
+/** When Schedule is first turned on: an hour from now, on the next quarter hour of the zone's clock. */
+export function suggestedPublishAt(now: number = Date.now(), zone?: string): string {
+  const [day, time] = localParts(null, now + 3_600_000, zone)
+  const [h, min] = time.split(":").map(Number)
+  const up = Math.ceil(min / 15) * 15
+  const base = fromLocalParts(day, `${String(h).padStart(2, "0")}:00`, zone)
+  const at = base ? Date.parse(base) + up * 60_000 : now + 3_600_000
+  return new Date(at).toISOString()
 }

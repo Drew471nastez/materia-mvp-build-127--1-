@@ -55,6 +55,9 @@ export function priceLine(p: PriceFacts): string {
   return p.kind === "paid" ? "" : "Free"
 }
 
+/** The words of a join that starts a free trial. */
+export const JOIN_TRIAL_LABEL = "Start free trial"
+
 /**
  * The one button on a community's public page (round AF: "Join $24/month", never "Join for"):
  *
@@ -67,7 +70,7 @@ export function joinButtonLabel(s: { isMember: boolean; pending?: boolean; appro
   if (s.approvalRequired) return "Request to join"
   if ((s.plans ?? 0) > 1) return s.anyFree ? "Join free" : "Choose plan"
   if (s.priceLine === "Free") return "Join free"
-  if ((s.trialDays ?? 0) > 0) return "Start free trial"
+  if ((s.trialDays ?? 0) > 0) return JOIN_TRIAL_LABEL
   if (!s.priceLine) return "Join"
   return `Join ${s.priceLine}`
 }

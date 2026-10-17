@@ -246,7 +246,8 @@ console.log("\nComing soon providers take no key\n")
   const market = read("components/physical/integrations-marketplace.tsx")
   check("its card has no Connect button, only Remove saved key", /const connectable = !comingSoon &&/.test(market) && /Remove saved key/.test(market))
   const dir = read("components/app/settings/integrations-directory.tsx")
-  check("its page is Tell me when it's ready", /item\.kind === "commerce" && !!item\.comingSoon/.test(dir))
+  /* The page has its own file since round K4 (components/app/settings/integration-detail.tsx). */
+  check("its page is Tell me when it's ready", /item\.kind === "commerce" && !!item\.comingSoon/.test(read("components/app/settings/integration-detail.tsx")))
   check("and it is never counted as installed (directory and sidebar)", /i\.kind !== "commerce" \|\| i\.comingSoon/.test(dir) && /!i\.builtIn && !i\.comingSoon/.test(read("app/api/store/integrations/installed/route.ts")))
 }
 

@@ -26,14 +26,15 @@ import { publishedReviewsApp } from "./app-server"
 import { readReviewsApp, type ReviewsAppSettings } from "./app-settings"
 import { buildStorefrontReviews, emptyStorefrontReviews, sampleStorefrontReviews, type StorefrontProductRow, type StorefrontReviewRow, type StorefrontReviews } from "./storefront"
 import { missingColumn } from "./store"
+import { cachedWidgetConfigs, listWidgetConfigs, publicConfigs } from "./widgets/server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
 const BUYER = "buyer:profiles!buyer_id(display_name)"
 const COLUMNS = `id, product_id, rating, title, content, created_at, reviewer_name, verified, featured, photos, seller_reply, ${BUYER}`
-/* With review imports (part 212): the imported app's verified purchase, and videos. */
-const IMPORT_COLUMNS = `id, product_id, rating, title, content, created_at, reviewer_name, verified, featured, photos, seller_reply, import_verified, videos, ${BUYER}`
+/* With review imports from other apps (part 232): a review's videos. */
+const IMPORT_COLUMNS = `id, product_id, rating, title, content, created_at, reviewer_name, verified, featured, photos, seller_reply, videos, ${BUYER}`
 const OLD_COLUMNS = `id, product_id, rating, content, created_at, reviewer_name, seller_reply, ${BUYER}`
 const SHOP_LIMIT = 48
 /* A product page sends this many of its reviews; the section's Show more, filter by stars and sort work on them with no script. */
@@ -110,7 +111,12 @@ function cachedProduct(creatorId: string, productId: string): Promise<{ rows: St
  * off reads as `enabled: false` with nothing in it, and the sections draw
  * nothing.
  */
-export async function storefrontReviews(creatorId: string, product?: { id: string; title?: string | null } | null): Promise<StorefrontReviews> {
+export async function storefrontReviews(
+  creatorId: string,
+  product?: { id: string; title?: string | null } | null,
+  /** The page's language, for the widgets' own words (lib/reviews/widgets). */
+  lang?: { locale?: string | null; isDefault?: boolean } | null,
+): Promise<StorefrontReviews> {
   const db = createAdminClient()
   let settings: ReviewsAppSettings
   try {
@@ -119,10 +125,10 @@ export async function storefrontReviews(creatorId: string, product?: { id: strin
     settings = readReviewsApp(null)
   }
   if (!settings.enabled) return emptyStorefrontReviews(settings, creatorId)
-  const [shop, own] = await Promise.all([cachedShop(creatorId), product?.id ? cachedProduct(creatorId, product.id) : Promise.resolve(null)])
+  const [shop, own, widgets] = await Promise.all([cachedShop(creatorId), product?.id ? cachedProduct(creatorId, product.id) : Promise.resolve(null), cachedWidgetConfigs(creatorId)])
   const products = [...shop.products]
   if (product?.id && !products.some((p) => p.id === product.id)) products.push({ id: product.id, title: product.title ?? "" })
-  return buildStorefrontReviews({
+  const built = buildStorefrontReviews({
     settings,
     creatorId,
     rows: shop.rows,
@@ -131,6 +137,7 @@ export async function storefrontReviews(creatorId: string, product?: { id: strin
     product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null,
     limit: PRODUCT_LIMIT,
   })
+  return { ...built, widgets, ...(lang?.locale ? { locale: lang.locale, default_locale: lang.isDefault === true } : {}) }
 }
 
 /**
@@ -148,7 +155,9 @@ export async function canvasReviews(db: Db, creatorId: string, product?: { id: s
   const settings = readReviewsApp((data as { reviews?: unknown } | null)?.reviews)
   const shop = await readShop(db, creatorId).catch(() => ({ rows: [], ratings: [], products: [] }) as ShopReviews)
   const own = product?.id ? { rows: await readRows(db, "product_id", product.id, PRODUCT_LIMIT), ratings: await readRatings(db, "product_id", product.id) } : null
-  if (shop.rows.length === 0 && !(own && own.rows.length)) return { ...sampleStorefrontReviews(settings, creatorId, product ?? null), enabled: true }
+  /* The store's saved widget looks as they are now, so a section's look follows the gallery without waiting for a cache. */
+  const widgets = publicConfigs((await listWidgetConfigs(db, creatorId).catch(() => ({ configs: [] }))).configs)
+  if (shop.rows.length === 0 && !(own && own.rows.length)) return { ...sampleStorefrontReviews(settings, creatorId, product ?? null), enabled: true, widgets }
   const built = buildStorefrontReviews({ settings, creatorId, rows: shop.rows, shopRatings: shop.ratings, products: shop.products, product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null })
-  return { ...built, enabled: true }
+  return { ...built, enabled: true, widgets }
 }

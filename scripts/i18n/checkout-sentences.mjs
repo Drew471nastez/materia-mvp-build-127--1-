@@ -14,7 +14,7 @@ import { join, relative } from "node:path"
 
 const ROOT = join(new URL(".", import.meta.url).pathname, "..", "..")
 /* Folders, and single files the checkout's pages draw from elsewhere. */
-const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx"]
+const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "app/review", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx"]
 const OUT = join(ROOT, "lib/markets/checkout-words.generated.ts")
 
 const walk = (dir) =>
@@ -25,7 +25,7 @@ const walk = (dir) =>
 const filesOf = (p) => (statSync(p).isDirectory() ? walk(p) : [p])
 
 /* Server code whose answers the checkout shows as they are: its error and message sentences are listed too, and ct() translates them there. */
-const SERVER_FILES = ["app/api/checkout/site/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts", "app/api/order-help/route.ts", "lib/support/cases-server.ts"]
+const SERVER_FILES = ["app/api/checkout/site/route.ts", "app/api/reviews/request/route.ts", "app/api/reviews/photo/route.ts", "lib/checkout/site-quote-server.ts", "lib/checkout/access-link.ts", "lib/physical/rates.ts", "lib/checkout/coupons.ts", "app/api/order-help/route.ts", "lib/support/cases-server.ts"]
 const SAID = /\b(?:error|message|couponError)\s*:\s*("(?:[^"\\\n]|\\.)*")|\bexport const [A-Z_]+\s*=\s*("(?:[^"\\\n]|\\.)*")/g
 
 const CALL = /\b(?:ct|checkoutMsg)\(\s*("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\$]|\\.)*`)/g
@@ -66,7 +66,7 @@ export function scan() {
 }
 
 /* A buyer's emails (lib/emails/words.ts): every et("…") in the files that build them. */
-const EMAIL_FILES = ["lib/physical/email-templates.ts", "lib/emails/layout.ts", "lib/receipts/email.ts", "lib/email.tsx", "lib/physical/jobs-server.ts"]
+const EMAIL_FILES = ["lib/physical/email-templates.ts", "lib/emails/layout.ts", "lib/receipts/email.ts", "lib/email.tsx", "lib/physical/jobs-server.ts", "lib/reviews/request-email.ts"]
 const EMAIL_CALL = /\bet\(\s*("(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.)*`)/g
 
 export function scanEmails() {

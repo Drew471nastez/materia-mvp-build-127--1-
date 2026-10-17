@@ -51,6 +51,7 @@ import type { ChoicesByProduct } from "@/lib/checkout/variant-choices"
 import { useCheckoutCurrency, useMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 interface QuoteLine {
@@ -531,18 +532,19 @@ export function PhysicalCheckout({
             <dt className="text-[#4b5563]">Subtotal</dt>
             <dd className="tabular-nums text-[#1a1a2e]">{money(t.itemsSubtotalCents)}</dd>
           </div>
-          {t.discountCents > 0 ? (
-            <div className="flex justify-between">
-              <dt className="text-[#4b5563]">Discount</dt>
-              <dd className="tabular-nums text-[#166534]">-{money(t.discountCents)}</dd>
-            </div>
-          ) : null}
-          {(quote.offers ?? []).map((o) => (
-            <div key={o.title} className="flex justify-between pl-3 text-[13px]" data-offer-saving="">
-              <dt className="truncate text-[#6b7280]">{o.title}</dt>
-              <dd className="shrink-0 tabular-nums text-[#6b7280]">-{money(o.savedCents)}</dd>
+          {/* The offers, then the code's part of the discount: the rows add up to the total (lib/checkout/summary-rows). */}
+          {summaryRows(quote).offers.map((o) => (
+            <div key={o.title} className="flex justify-between" data-offer-saving="">
+              <dt className="truncate text-[#4b5563]">{o.title}</dt>
+              <dd className="shrink-0 tabular-nums text-[#166534]">-{money(o.cents)}</dd>
             </div>
           ))}
+          {summaryRows(quote).discount > 0 ? (
+            <div className="flex justify-between">
+              <dt className="text-[#4b5563]">Discount</dt>
+              <dd className="tabular-nums text-[#166534]">-{money(summaryRows(quote).discount)}</dd>
+            </div>
+          ) : null}
           {quote.requiresShipping ? (
             <div className="flex justify-between">
               <dt className="text-[#4b5563]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>

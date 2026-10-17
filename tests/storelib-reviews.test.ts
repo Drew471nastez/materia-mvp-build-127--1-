@@ -265,7 +265,8 @@ function website() {
   const item = INTEGRATIONS.find((i) => i.id === "storelib-reviews")
   check("Storelib Reviews is in the directory, Storelib's own, first", INTEGRATIONS[0]?.id === "storelib-reviews" && item?.kind === "app" && item.category === "reviews")
   const dir = read("components/app/settings/integrations-directory.tsx")
-  check("  its page's Set up card is the app's settings", /<ReviewsAppPanel onChanged=/.test(dir) && /* Round I4: its card says On or Off, read off the store (lib/integrations/storelib-apps). */ /hasBuiltInArt\(e\.id\) && appState\(e\.id\) \? <AppBadge state=\{appState\(e\.id\)\} \/>/.test(dir))
+  /* Changed on purpose (round K4): the page has its own file (components/app/settings/integration-detail.tsx), and every integration's card, Reviews' too, says Installed or Available in the marketplace's words (StatusBadge), read off the same switch. */
+  check("  its page's Set up card is the app's settings", /<ReviewsAppPanel onChanged=/.test(read("components/app/settings/integration-detail.tsx")) && /badge=\{<StatusBadge status=\{statusOf\(e\.item\)\} \/>\}/.test(dir) && /if \(i\.kind === "app"\) return !!\(i\.appId && appsOn\[i\.appId\]\)/.test(dir))
 }
 
 /* ── Routes ─────────────────────────────────────────────────────────── */
@@ -660,8 +661,9 @@ function wiring() {
   check("the website's review sections and its JSON-LD read only what the store shows there", (shopRead.match(/q\.eq\("site_status", "shown"\)/g) ?? []).length === 2)
   const marketRead = read("lib/reviews/store.ts")
   check("  Explore, the product page and the ratings never read it", !/site_status/.test(marketRead) && !/site_status/.test(read("supabase/sql/run-now/52_reviews_replies_reports_guests.sql")))
-  const ui = read("app/app/reviews/reviews-client.tsx")
-  check("the store's list says it plainly, and offers no delete for a verified buyer's review", ui.includes("Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.") && /moderation && !reported && !review\.verified \? \[\{ label: "Delete"/.test(ui))
+  /* Moved on purpose (round K5): the store's list is Storelib Reviews' Reviews view (components/reviews/manage), the same words and the same rule. */
+  const ui = read("components/reviews/manage/reviews-view.tsx")
+  check("the store's list says it plainly, and offers no delete for a verified buyer's review", ui.includes("Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.") && /ready && !reported && !review\.verified \? \[\{ label: "Delete"/.test(ui))
 }
 
 async function main() {

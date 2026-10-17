@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, joinPrice, seoFacts, sharePreviewable } from "@/lib/communities/server/public"
+import { communityDeleting, communitySummary } from "@/lib/communities/server/community-summary"
 import { admin } from "@/lib/communities/server/db"
 import { communityMetadata, inviteMetadata } from "@/components/community/public/seo"
 import { memberPage } from "@/components/community/member/data"
@@ -30,7 +31,14 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const [{ slug }, { invite }] = await Promise.all([params, searchParams])
   const community = await communityBySlug(slug)
   if (!community || !sharePreviewable(community)) return plainJoin
-  return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
+  const deleting = await communityDeleting(community.id)
+  const facts = { ...seoFacts(community), summary: await communitySummary(community.id) }
+  /*
+    An invite is the one preview a community that is not public still gets (round 26): its creator chose to share it. Never
+    for one that is archived, waiting to be deleted or hidden by Storelib: nobody can join it.
+  */
+  if (typeof invite === "string" && invite && (community.status === "archived" || community.platform_hidden || deleting)) return plainJoin
+  return typeof invite === "string" && invite ? inviteMetadata(facts) : { ...communityMetadata(deleting ? { ...facts, indexable: false } : facts), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
 }
 
 export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string; event?: string; et?: string }> }) {
@@ -41,6 +49,8 @@ export default async function CommunityJoinPage({ params, searchParams }: { para
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
   const c = page.community
   if (page.state === "member") redirect(`/community/${c.slug}`)
+  /* A draft or a suspended community shows nobody outside it its name or picture, an invite included (round 26). */
+  if (!sharePreviewable(c)) notFound()
   const token = typeof invite === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(invite) ? invite : null
   /*
     AN INVITE FOR ONE PAID EVENT carries the event and a signature over it

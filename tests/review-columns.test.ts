@@ -65,7 +65,7 @@ const REVIEW_COLUMNS = new Set([
     verified, where it came from, who hid it, when it was published, and
     site_status (the store's say over its own website only). The
     app's reads ask again without them when the part has not run
-    (lib/reviews/storefront-server, app/app/reviews/load-reviews), and its
+    (lib/reviews/storefront-server, lib/reviews/manage-server), and its
     writes answer that the part is needed.
   */
   "title",
@@ -77,7 +77,7 @@ const REVIEW_COLUMNS = new Set([
   "hidden_by",
   "published_at",
   /*
-    Added by run-now part 212 (review imports): the import a review came
+    Added by run-now part 232 (review imports from other apps): the import a review came
     from, the app's own id for it and its content's fingerprint (the
     duplicate check), the app, its verified purchase, and videos. Reads
     that name them ask again without them before the part has run
