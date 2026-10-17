@@ -347,6 +347,8 @@ const SUITES = [
   "tests/builder-click-edit.test.ts",
   "tests/policy-editing.test.ts",
   "tests/web-vitals.test.ts",
+  /* Website settings › Performance: real-user speed for every published website, the lab test, run-now part 210 */
+  "tests/web-performance-v.test.ts",
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",

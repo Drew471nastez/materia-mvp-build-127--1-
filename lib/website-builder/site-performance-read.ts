@@ -24,7 +24,8 @@ import type { OrderRow } from "@/lib/orders/order-view"
 import { addDays, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { trafficFigures, type PerformanceAnswer, type WebsitePerformance } from "./site-performance"
 import { periodFromParams, type Span } from "./site-period"
-import { vitalsFromRows, type SummaryRow, type VitalsState } from "./web-vitals"
+import { MIN_SAMPLES, VITALS, vitalsFromRows, type SummaryRow, type VitalName, type VitalReport, type VitalsState } from "./web-vitals"
+import { aggFromDb, bothDevices, p75FromHistogram, type AggRow, type DbAggRow } from "./web-performance"
 
 const PAGE = 1000
 const CEILING = 100_000
@@ -137,25 +138,48 @@ export async function readWebsitePerformance(input: {
 }
 
 /**
- * The 75th percentiles for the period's days. The table keeps whole UTC days
- * (no time of day is stored), so the period's first and last days are read
- * whole: at most a few hours either side of the creator's own midnight.
+ * The 75th percentiles for the period's days. Read from the daily rows
+ * Website settings › Performance keeps (part 210, site_rum_window, summed in
+ * the database as the asker), and from the older table (part 06,
+ * site_vitals_summary) when those have nothing for the period, which is
+ * every period from before part 210. Both keep whole UTC days, so the
+ * period's first and last days are read whole: at most a few hours either
+ * side of the creator's own midnight.
  */
 async function readVitals(user: Client, installId: string, period: RangeValue, timeZone: string): Promise<VitalsState> {
+  const today = todayIn("UTC", Date.now())
+  /* A period that ends today on the creator's clock may already be tomorrow in UTC. */
+  const to = period.end >= todayIn(timeZone, Date.now()) ? addDays(today, 1) : period.end
   try {
-    const today = todayIn("UTC", Date.now())
-    const { data, error } = await user.rpc("site_vitals_summary", {
-      p_install: installId,
-      p_from: period.start,
-      /* A period that ends today on the creator's clock may already be
-         tomorrow in UTC. */
-      p_to: period.end >= todayIn(timeZone, Date.now()) ? addDays(today, 1) : period.end,
-    })
+    const { data, error } = await user.rpc("site_rum_window", { p_install: installId, p_from: period.start, p_to: to })
+    if (!error) {
+      const rows = ((data ?? []) as DbAggRow[]).map(aggFromDb).filter((r): r is AggRow => !!r && r.dim === "all")
+      if (rows.some((r) => r.samples > 0)) return { kind: "ready", metrics: vitalsFromAggs(rows) }
+    }
+  } catch {
+    /* The older table answers below. */
+  }
+  try {
+    const { data, error } = await user.rpc("site_vitals_summary", { p_install: installId, p_from: period.start, p_to: to })
     if (error) return { kind: "unavailable" }
     return { kind: "ready", metrics: vitalsFromRows((data ?? []) as SummaryRow[]) }
   } catch {
     return { kind: "unavailable" }
   }
+}
+
+/** The three cells from part 210's rows: the same rule (p75, MIN_SAMPLES), from the histograms. */
+function vitalsFromAggs(rows: AggRow[]): Record<VitalName, VitalReport> {
+  const out = {} as Record<VitalName, VitalReport>
+  const fig = (r: AggRow | null, m: VitalName) => {
+    const samples = r?.n[m] ?? 0
+    return { samples, p75: r && samples >= MIN_SAMPLES ? p75FromHistogram(m, r.h[m]) : null }
+  }
+  const mobile = rows.find((r) => r.device === "mobile") ?? null
+  const desktop = rows.find((r) => r.device === "desktop") ?? null
+  const all = bothDevices(rows, "all", "")
+  for (const m of VITALS) out[m] = { all: fig(all, m), mobile: fig(mobile, m), desktop: fig(desktop, m) }
+  return out
 }
 
 /**
