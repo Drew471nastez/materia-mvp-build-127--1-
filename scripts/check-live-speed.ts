@@ -262,7 +262,8 @@ async function openingTab(browser: Browser) {
 */
 async function photoBytes() {
   console.log("\nOne photograph, through the optimizer's own settings")
-  const url = process.env.PHOTO_URL ?? "https://storelib.com/media/product-images/8a88f2c0-f0f5-4935-96ad-8b6ff2127a8f/temp/1791753643271_HeavyweightTshirt_Natural_02.webp"
+  /* A picture on the owner's live imported site (its hero). */
+  const url = process.env.PHOTO_URL ?? "https://cdn.shopify.com/s/files/1/1049/1671/3553/files/ChatGPT_Image_Jun_13_2026_03_30_46_PM.png"
   let original: Buffer
   try {
     const r = await fetch(url)
