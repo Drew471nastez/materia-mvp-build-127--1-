@@ -5,8 +5,10 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Community links": "Links der Community",
  "Could not load published versions": "Veröffentlichte Versionen konnten nicht geladen werden",
  "Could not restore this version": "Diese Version konnte nicht wiederhergestellt werden",
+ "opens in a new tab": "öffnet sich in einem neuen Tab",
  "Published versions": "Veröffentlichte Versionen",
  "The newest 20 are kept.": "Die neuesten 20 werden aufbewahrt.",
  "No published versions yet.": "Noch keine veröffentlichten Versionen.",

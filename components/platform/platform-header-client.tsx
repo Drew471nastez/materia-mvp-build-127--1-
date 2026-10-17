@@ -388,6 +388,7 @@ export function DesktopAccountMenu({
   extra,
   rows = "storelib",
   avatarSize = 42,
+  under,
 }: {
   avatarUrl?: string
   name: string
@@ -411,6 +412,8 @@ export function DesktopAccountMenu({
   extra?: AccountExtraRow[]
   /** Which of Storelib's rows (AccountRows): all of them, or a community's short list. */
   rows?: AccountRows
+  /** Drawn right under who is signed in (a community's member links, round 26); its rows carry role="menuitem". */
+  under?: React.ReactNode
 }) {
   const pathname = usePathname()
   const { t } = useLocale()
@@ -453,7 +456,8 @@ export function DesktopAccountMenu({
   }
   const onMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return
-    const rows = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+    /* Only the rows on screen: a row a narrower screen shows (round 26's member links, under lg) is skipped where it is hidden. */
+    const rows = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])].filter((el) => el.getClientRects().length > 0)
     if (!rows.length) return
     e.preventDefault()
     const i = rows.indexOf(document.activeElement as HTMLElement)
@@ -545,6 +549,7 @@ export function DesktopAccountMenu({
             </span>
           </Link>
           <div className="mb-1 h-px bg-[#f0f1f3]" />
+          {under}
           {extra?.length ? (
             <>
               {extra.map((x) =>
@@ -657,6 +662,7 @@ export function AccountSheet({
   onLogout,
   extra,
   rows = "storelib",
+  under,
 }: {
   open: boolean
   onClose: () => void
@@ -672,6 +678,8 @@ export function AccountSheet({
   extra?: AccountExtraRow[]
   /** Which of Storelib's rows (AccountRows): all of them, or a community's short list. */
   rows?: AccountRows
+  /** Drawn right under who is signed in (a community's member links, round 26). */
+  under?: React.ReactNode
 }) {
   const { t } = useLocale()
   return (
@@ -691,6 +699,7 @@ export function AccountSheet({
             {username ? <span className="block truncate text-[13px] text-neutral-500">@{username}</span> : null}
           </span>
         </Link>
+        {under}
         <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
 
         {/*
