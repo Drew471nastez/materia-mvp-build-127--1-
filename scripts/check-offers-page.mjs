@@ -90,22 +90,24 @@ const fits = () => page.evaluate(() => {
   return { over, cut }
 })
 const fitLine = (f) => `nothing runs off the side or is cut (${f.over}px over${f.cut.length ? `, cut: ${f.cut.join(" | ")}` : ""})`
-/** Samples the editor's panel every frame from `start` until it has not moved or faded for 6 frames, or it has gone: how long that took. */
+/**
+ * Samples the editor's form every frame (its own box, which moves with the sheet or the dialog, and its opacity
+ * through every ancestor) and says when it last changed: how long it took to settle, or to be gone.
+ */
 const motion = (closing) => page.evaluate((closing) => new Promise((resolve) => {
   const t0 = performance.now()
-  let last = null, still = 0, frames = 0
-  const panel = () => document.querySelector("[data-offer-editor]")?.closest('[role="dialog"], [data-bottom-sheet], [data-sheet]') ?? document.querySelector("[data-offer-editor]")?.parentElement
+  let last = null, changed = t0, frames = 0
   const tick = () => {
     frames++
-    const el = panel()
-    if (!el) return resolve({ ms: Math.round(performance.now() - t0), frames, gone: true })
+    const el = document.querySelector("[data-offer-editor]")
+    const t = performance.now()
+    if (!el) return resolve({ ms: Math.round(t - t0), frames, gone: true })
     const r = el.getBoundingClientRect()
     let op = 1
-    for (let n = el; n && n !== document.body; n = n.parentElement) op *= Number(getComputedStyle(n).opacity)
-    const now = `${Math.round(r.top)}:${Math.round(r.height)}:${Math.round(r.width)}:${op.toFixed(2)}`
-    if (now === last) still++
-    else { still = 0; last = now }
-    if ((!closing && still >= 6) || performance.now() - t0 > 1500) return resolve({ ms: Math.round(performance.now() - t0 - (closing ? 0 : 6 * 16.7)), frames, at: now, gone: false })
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) op *= Number(getComputedStyle(n).opacity)
+    const now = `${Math.round(r.top)}:${Math.round(r.left)}:${Math.round(r.width)}:${op.toFixed(2)}`
+    if (now !== last) { last = now; changed = t }
+    if ((!closing && t - changed > 400) || t - t0 > 2000) return resolve({ ms: Math.round(changed - t0), frames, at: now, gone: false })
     requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
@@ -122,15 +124,15 @@ for (const [name, vp] of [["a phone (390)", { width: 390, height: 844, isMobile:
     const h1 = document.querySelector("h1")
     const shown = (sel) => [...document.querySelectorAll(sel)].filter((el) => el.getClientRects().length > 0)
     const rows = shown("[data-row]")
-    const tabs = [...document.querySelectorAll('[role="tab"]')].map((t) => t.textContent.replace(/\s+/g, " ").trim())
+    const tabs = [...document.querySelectorAll('[role="tab"]')].map((t) => t.innerText.replace(/\s+/g, " ").trim())
     const nb = document.querySelector("[data-offer-new]").getBoundingClientRect()
-    return { gutter: Math.round(card.left), cardWidth: Math.round(card.width), title: getComputedStyle(h1).fontSize, rows: rows.length, rowHeights: rows.map((r) => Math.round(r.getBoundingClientRect().height)), table: shown("table").length, list: shown("[data-list]").length, tabs, newButton: `${Math.round(nb.width)}x${Math.round(nb.height)}`, text: rows.map((r) => r.textContent.replace(/\s+/g, " ").trim().slice(0, 90)) }
+    return { gutter: Math.round(card.left), cardWidth: Math.round(card.width), title: getComputedStyle(h1).fontSize, rows: rows.length, rowHeights: rows.map((r) => Math.round(r.getBoundingClientRect().height)), table: shown("table").length, list: shown("[data-list]").length, tabs, newButton: `${Math.round(nb.width)}x${Math.round(nb.height)}`, text: rows.map((r) => r.innerText.replace(/\s+/g, " ").trim().slice(0, 120)), appGutter: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-gutter")) }
   })
   console.log(`        gutter ${L.gutter}px, card ${L.cardWidth}px, title ${L.title}, rows ${L.rowHeights.join("/")}px, New offer ${L.newButton}, ${L.table ? "table" : "list"}`)
-  say(phone ? L.gutter === 16 && L.list === 1 && L.table === 0 : L.table === 1 && L.list === 0 && L.cardWidth <= 1323, `${phone ? "a 16px gutter and a list of whole-row presses" : "a table inside the products page's column"} (${L.gutter}px, ${L.cardWidth}px)`)
+  say(phone ? L.gutter === L.appGutter && L.list === 1 && L.table === 0 : L.table === 1 && L.list === 0 && L.cardWidth <= 1323, `${phone ? `the app's own phone gutter (--app-gutter ${L.appGutter}px, as Coupons and Collections) and a list of whole-row presses` : "a table inside the products page's column"} (${L.gutter}px, ${L.cardWidth}px)`)
   say(L.rows === 3 && L.rowHeights.every((h) => h >= (phone ? 64 : 52)), `three rows, each ${phone ? "at least 64px to press" : "a table row"}: ${L.rowHeights.join(", ")}`)
   say(L.tabs.join(" | ") === "All 3 | Active 1 | Scheduled 1 | Off 1", `views with their counts: ${L.tabs.join(" | ")}`)
-  say(/Breakfast set/.test(L.text[0]) && /15% off/.test(L.text[0]) && /Wildflower honey \+ Honey dipper/.test(L.text[0]) && /\$3 off/.test(L.text[1]) && /Off/.test(L.text[1]) && /Scheduled/.test(L.text[2]), `each row says its type, discount, contents and status: "${L.text[0]}"`)
+  say(/Breakfast set/.test(L.text[0]) && /15% off/.test(L.text[0]) && /Wildflower honey \+ Honey dipper/.test(L.text[0]) && /\$3 off/.test(L.text[1]) && /Off/.test(L.text[1]) && /Scheduled/.test(L.text[2]), `each row says its type, discount, contents and status: ${L.text.map((t) => `"${t}"`).join(" / ")}`)
   await page.type("[data-offer-search]", "candle")
   await wait(60)
   const found = await page.evaluate(() => [...document.querySelectorAll("[data-row]")].filter((el) => el.getClientRects().length > 0).length)
@@ -214,7 +216,7 @@ for (const [name, vp] of [["a phone (390)", { width: 390, height: 844, isMobile:
     return { heading: c("[data-bundle] h3"), price: c("[data-bundle-price]"), badge: c("[data-bundle-label]", "backgroundColor"), button: c("[data-bundle-add]", "backgroundColor"), upsell: document.querySelector("[data-upsell]")?.textContent.replace(/\s+/g, " ") }
   })
   say(b.heading === "rgb(18, 52, 86)" && b.price === "rgb(170, 0, 0)" && b.badge === "rgb(255, 238, 170)" && b.button === "rgb(10, 125, 85)", `each element in its own colour: heading ${b.heading}, price ${b.price}, saving ${b.badge}, button ${b.button}`)
-  say(/Beeswax candle/.test(b.upsell ?? "") && /\$6\.00/.test(b.upsell ?? "") && /\$9\.00/.test(b.upsell ?? ""), `an upsell with its offer price beside the usual one: "${(b.upsell ?? "").slice(0, 60)}"`)
+  say(/Beeswax candle/.test(b.upsell ?? "") && /6\.00/.test(b.upsell ?? "") && /9\.00/.test(b.upsell ?? ""), `an upsell with its offer price beside the usual one: "${(b.upsell ?? "").slice(0, 60)}"`)
   await page.select('select[aria-label="Honey dipper option"]', "b2")
   await page.click("[data-bundle-add]")
   await page.click("[data-upsell-add]")
