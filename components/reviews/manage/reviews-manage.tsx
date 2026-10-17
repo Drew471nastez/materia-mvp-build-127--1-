@@ -22,14 +22,15 @@
  *               they look. The request schedule lives under Requests, so
  *               every setting is in one place only.
  *
- * The view is in the address (?view=reviews), written in place, so a link
- * opens it and a refresh keeps it. /app/reviews (the sidebar, the bell, the
+ * The view is in the address (?view=reviews), so a link opens it and a
+ * refresh keeps it. /app/reviews (the sidebar, the bell, the
  * review emails) sends here: ?review=<id> opens Reviews with that review,
  * ?status=pending opens its Pending tab.
  *
- * Mounted by the integration page through components/app/settings/
- * built-in-app-pages.tsx, the one hook a built in app has into the generic
- * detail page.
+ * Mounted by the integration page (components/app/settings/integration-
+ * detail.tsx) through the built in apps' plug-in API (components/app/
+ * settings/integration-apps.tsx, ./integration-view.tsx): the page draws the
+ * header and these tabs, and the body below is ReviewsManageBody.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -41,9 +42,9 @@ import { RequestsView } from "./requests-view"
 import { AnalyticsView } from "./analytics-view"
 import { SettingsView } from "./settings-view"
 import { ReviewsWidgetsTab } from "./widgets-slot"
+import { MANAGE_VIEWS, type ManageView } from "./views"
 
-export const MANAGE_VIEWS = ["overview", "reviews", "requests", "widgets", "analytics", "settings"] as const
-export type ManageView = (typeof MANAGE_VIEWS)[number]
+export { MANAGE_VIEWS, type ManageView }
 
 const VIEW_LABEL: Record<ManageView, () => string> = {
   overview: () => tt("Overview"),
@@ -76,13 +77,72 @@ function writeView(view: ManageView) {
     const url = new URL(window.location.href)
     if (view === "overview") url.searchParams.delete(VIEW_PARAM)
     else url.searchParams.set(VIEW_PARAM, view)
-    /* A review or a status the bell asked for is for the first view only. */
-    url.searchParams.delete("review")
-    url.searchParams.delete("status")
     if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url.toString())
   } catch {
     /* An address that cannot be written: the view still changes. */
   }
+}
+
+export interface ReviewsManageBodyProps {
+  view: ManageView
+  onGo: (view: ManageView) => void
+  /** Turned on or off from Settings: the integration page's status and badge follow. */
+  onAppChanged?: (on: boolean) => void
+  /** What the Settings view draws under the app's own settings (the integration page's About, Your data, Turn off). */
+  settingsExtra?: React.ReactNode
+}
+
+/**
+ * The open view's body, with no tabs of its own: the integration page
+ * (components/app/settings/integration-detail.tsx, through ./integration-view.tsx)
+ * draws the tabs under its header and keeps the open one in ?view=.
+ * ?review=<id> and ?status= (a link from the bell or an email) are read once,
+ * for the Reviews view.
+ */
+export function ReviewsManageBody({ view, onGo, onAppChanged, settingsExtra }: ReviewsManageBodyProps) {
+  const [focus, setFocus] = React.useState<{ review: string | null; status: ReviewTab | null }>({ review: null, status: null })
+  const [seen, setSeen] = React.useState(false)
+  React.useEffect(() => {
+    const a = readAddress()
+    setFocus({ review: a.review, status: a.status })
+    setSeen(true)
+    if ((a.review || a.status) && !a.view) onGo("reviews")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  /* A review or a status the bell asked for is for the first view it opens only. */
+  const go = React.useCallback(
+    (next: ManageView, opts?: { status?: ReviewTab }) => {
+      setFocus({ review: null, status: opts?.status ?? null })
+      clearFocusParams()
+      onGo(next)
+    },
+    [onGo],
+  )
+  return (
+    <div data-reviews-manage="" data-reviews-view={view}>
+      {view === "overview" ? <OverviewView onGo={go} /> : null}
+      {view === "reviews" && seen ? <ReviewsView key={`${focus.status}-${focus.review}`} initialTab={focus.status ?? "all"} highlight={focus.review} /> : null}
+      {view === "requests" ? <RequestsView /> : null}
+      {view === "widgets" ? <ReviewsWidgetsTab /> : null}
+      {view === "analytics" ? <AnalyticsView /> : null}
+      {view === "settings" ? <SettingsView onAppChanged={onAppChanged} extra={settingsExtra} /> : null}
+    </div>
+  )
+}
+
+function clearFocusParams() {
+  try {
+    const url = new URL(window.location.href)
+    url.searchParams.delete("review")
+    url.searchParams.delete("status")
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url.toString())
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+export function manageViewLabel(v: ManageView): string {
+  return VIEW_LABEL[v]()
 }
 
 export interface ReviewsManageProps {
@@ -90,24 +150,20 @@ export interface ReviewsManageProps {
   onAppChanged?: (on: boolean) => void
 }
 
+/** The same page on its own, with its own tabs (the probes draw it this way; the app draws it inside the integration page). */
 export function ReviewsManage({ onAppChanged }: ReviewsManageProps) {
   const [view, setView] = React.useState<ManageView>("overview")
-  const [focus, setFocus] = React.useState<{ review: string | null; status: ReviewTab | null }>({ review: null, status: null })
-  /* The address is read once the page is in the browser, so the server and the first frame agree. */
   React.useEffect(() => {
     const a = readAddress()
-    setFocus({ review: a.review, status: a.status })
     if (a.view) setView(a.view)
-    else if (a.review || a.status) setView("reviews")
   }, [])
-  const go = React.useCallback((next: ManageView, opts?: { status?: ReviewTab }) => {
+  const go = React.useCallback((next: ManageView) => {
     setView(next)
-    setFocus({ review: null, status: opts?.status ?? null })
     writeView(next)
   }, [])
 
   return (
-    <div className="space-y-4 sm:space-y-5" data-reviews-manage="" data-reviews-view={view}>
+    <div className="space-y-4 sm:space-y-5">
       <nav aria-label={tt("Storelib Reviews")} className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
         <div role="tablist" className="flex min-w-max gap-1 border-b border-[#e5e7eb] sm:min-w-0">
           {MANAGE_VIEWS.map((v) => (
@@ -115,9 +171,7 @@ export function ReviewsManage({ onAppChanged }: ReviewsManageProps) {
               key={v}
               type="button"
               role="tab"
-              id={`reviews-tab-${v}`}
               aria-selected={view === v}
-              aria-controls="reviews-view"
               onClick={() => go(v)}
               data-reviews-nav={v}
               className={cn(
@@ -130,15 +184,7 @@ export function ReviewsManage({ onAppChanged }: ReviewsManageProps) {
           ))}
         </div>
       </nav>
-
-      <div id="reviews-view" role="tabpanel" aria-labelledby={`reviews-tab-${view}`}>
-        {view === "overview" ? <OverviewView onGo={go} /> : null}
-        {view === "reviews" ? <ReviewsView initialTab={focus.status ?? "all"} highlight={focus.review} /> : null}
-        {view === "requests" ? <RequestsView /> : null}
-        {view === "widgets" ? <ReviewsWidgetsTab /> : null}
-        {view === "analytics" ? <AnalyticsView /> : null}
-        {view === "settings" ? <SettingsView onAppChanged={onAppChanged} /> : null}
-      </div>
+      <ReviewsManageBody view={view} onGo={go} onAppChanged={onAppChanged} />
     </div>
   )
 }

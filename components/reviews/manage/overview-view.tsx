@@ -15,7 +15,7 @@ import { tt } from "@/lib/i18n/text"
 import { Stars } from "@/components/reviews/stars"
 import { StatusBadge, buttonSecondary } from "@/app/app/orders/order-parts"
 import type { RequestFunnel, ReviewTab, ReviewsSummary } from "@/lib/reviews/manage"
-import type { ManageView } from "./reviews-manage"
+import type { ManageView } from "./views"
 import { CARD, CARD_HEAD, Distribution, Figure, H3, MUTED, Placeholder, formatCount, shortDate, useRead } from "./parts"
 
 interface Overview {

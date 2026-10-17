@@ -25,12 +25,12 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { api } from "@/components/physical/ui"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
-import { PreviewFrame } from "@/components/app/settings/customer-emails-panel"
+import { EmailFrame } from "./email-frame"
 import { COPY_LIMITS, DEFAULT_COPY, type CopyField, type EmailCopy } from "@/lib/emails/customer-custom"
 import type { ManagedRequest, RequestShown } from "@/lib/reviews/manage"
 import { StatusBadge, buttonPrimary, buttonSecondary } from "@/app/app/orders/order-parts"
 import { Pill, usePill } from "@/app/app/coupons/coupon-parts"
-import { CARD, CARD_HEAD, H3, MUTED, Placeholder, SEG, Sheet, shortDate, useRead } from "./parts"
+import { CARD, CARD_HEAD, H3, MUTED, Placeholder, SEG, Sheet, shortDate, useRead, errorOf } from "./parts"
 
 type Filter = "all" | "scheduled" | "sent" | "opened" | "submitted" | "skipped"
 
@@ -236,7 +236,7 @@ function AskSheet({ onClose, onSent }: { onClose: () => void; onSent: () => void
       return
     }
     const reason = (r.ok ? r.data.reason : (r.data as { reason?: string } | undefined)?.reason) ?? ""
-    setResult((x) => ({ ...x, [o.id]: { ok: false, text: WHY[reason]?.() ?? (r.ok ? tt("It was not sent.") : r.error) } }))
+    setResult((x) => ({ ...x, [o.id]: { ok: false, text: WHY[reason]?.() ?? (r.ok ? tt("It was not sent.") : errorOf(r)) } }))
   }
   const already = (s: string | null) => (s === "reviewed" ? tt("Reviewed") : s === "sent" || s === "reminded" ? tt("Asked") : s === "skipped" || s === "failed" ? tt("Not sent before") : s === "scheduled" ? tt("Scheduled") : null)
   return (
@@ -323,7 +323,7 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
         if (r.ok) {
           setPreview(r.data)
           setPreviewError(null)
-        } else setPreviewError(r.error)
+        } else setPreviewError(errorOf(r))
       })
     }, 450)
     return () => window.clearTimeout(t)
@@ -351,7 +351,7 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
     setSaving(true)
     const r = await api<{ copy: EmailCopy | null }>("/api/app/reviews/request-email", { method: "PUT", body: { kind, copy: reset ? null : words } })
     setSaving(false)
-    if (!r.ok) return onError(r.error)
+    if (!r.ok) return onError(errorOf(r))
     loaded.set((d) => (d ? { ...d, copy: { ...d.copy, [kind]: r.data.copy } } : d))
     setDraft((d) => (d ? { ...d, [kind]: fill(r.data.copy, kind) } : d))
     onSaved(reset ? tt("Standard words back") : tt("Email saved"))
@@ -434,7 +434,7 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
               {tt("Subject")}: <span className="font-medium text-[#1a1a2e]">{preview?.subject ?? ""}</span>
             </p>
             <div className="mt-2" data-email-preview="">
-              {preview ? <PreviewFrame title={tt("Email preview")} html={preview.html} /> : <Placeholder className="h-[560px]" />}
+              {preview ? <EmailFrame title={tt("Email preview")} html={preview.html} /> : <Placeholder className="h-[560px]" />}
             </div>
             {previewError ? <p className="mt-2 text-[13px] text-[#b42318]">{previewError}</p> : null}
             <p className="mt-2 text-[12px] text-[#9ca3af]">{tt("A sample with your store's name, logo and colour.")}</p>

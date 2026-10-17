@@ -2,18 +2,23 @@
 
 /**
  * ===========================================================================
- *  SETTINGS › INTEGRATIONS
+ *  THE INTEGRATIONS MARKETPLACE (/app/integrations and Settings › Integrations)
  * ===========================================================================
- * Every service a store can connect (lib/integrations/catalog.ts), as a
- * directory: a search, Request integration, the categories as pills with
- * how many each holds, Installed, and a card for each with its own mark and
- * a badge for where it stands (Storelib for a built in one, Installed,
- * Needs attention, Error, Coming soon). A card opens the integration's own page:
- * About, At a glance, Data ownership and Install, with Back to integrations.
+ * Every service a store can connect (lib/integrations/catalog.ts) and
+ * Storelib's own apps, as a marketplace (round K4): a search, Request
+ * integration, the pills (All, Installed, Storelib apps and the categories,
+ * each with how many it holds for what is typed and filtered), a Filter menu
+ * (Status, Made by), and a grid of cards: three across on a computer, two on
+ * a tablet, a list on a phone. Each card has its mark, its name, its category,
+ * two lines of what it does and a badge (Installed, Built in, Available,
+ * Coming soon, Needs attention). Search, pill and filters work together, at
+ * once (lib/integrations/directory-filter.ts).
  *
- * The page is kept in the address (?tab=integrations&integration=meta-pixel)
- * so a link to it opens it, and Back (its button, the browser's or a phone's
- * swipe) goes back to the list exactly where it was.
+ * A card opens the integration's own page (./integration-detail.tsx), kept
+ * in the address (?integration=meta-pixel) so a link to it opens it, and Back
+ * (its button, the browser's or a phone's swipe) goes back to the list
+ * exactly where it was: the same pill, search, filters (?category=&q=&status=
+ * &by=) and scroll.
  *
  * Installed means: a pixel with its ID saved, a provider with a key or an
  * address saved. Built in means it works with nothing to connect.
@@ -21,24 +26,22 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Search, Check, ArrowRight } from "lucide-react"
+import { Lightbulb, Search, Check, SlidersHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { backThen } from "@/lib/navigation/go-back"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet, prefetchGet } from "@/components/physical/ui"
-import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
+import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet, prefetchGet } from "@/components/physical/ui"
+import type { IntegrationState } from "@/components/physical/integrations-marketplace"
 import { Mark } from "@/components/app/settings/integration-mark"
-import { CATEGORY_NAMES, CATEGORY_ORDER, STATUS_LABEL, searchIntegrations, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
+import { IntegrationDetail } from "@/components/app/settings/integration-detail"
+import { CATEGORY_NAMES, CATEGORY_ORDER, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
-import { TRACKERS, type Tracking } from "@/lib/store/tracking"
-import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
-import { BUILT_IN_APP_PAGES } from "@/components/app/settings/built-in-app-pages"
-import { TrackingAppPanel } from "@/components/app/settings/tracking-app-panel"
-import { GaConnect } from "@/components/app/settings/ga-connect"
-import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
+import type { Tracking } from "@/lib/store/tracking"
+import { MARKETING_PATH, type MarketingState } from "@/components/app/settings/marketing-sync-panel"
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
-import { APP_STATE_LABEL, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
+import { activeFilterCount, inPill, passesFilters, pillCounts, readDirectoryState, visibleIn, writeDirectoryState, matchesQuery, type CardFacets, type DirectoryState, type MakerFilter, type StatusFilter } from "@/lib/integrations/directory-filter"
+import { storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 import { tt } from "@/lib/i18n/text"
 import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
 import { holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
@@ -71,24 +74,21 @@ const keptReads = (physical: boolean) => [
 ]
 
 /*
-  THE PILL IS IN THE ADDRESS (round 30): ?c=analytics. Written in place
-  (replaceState, no new history entry), so Back from an integration's page
-  or from one of Storelib's apps comes back to the same pill, and the
+  THE LIST IS IN THE ADDRESS (round 30, round K4): ?category=analytics&q=pixel
+  &status=available&by=storelib (an old ?c= still opens its pill). Written in
+  place (replaceState, no new history entry), so Back from an integration's
+  page or from one of Storelib's apps comes back to the same list, and the
   stage's scroll memory (components/app/app-stage.tsx), keyed by the
-  address, puts the list back where it was under it. All is the plain
-  address, and a visit from the sidebar has no ?c=, so it opens on All.
+  address, puts it back where it was. All with nothing typed is the plain
+  address, and a visit from the sidebar has none of it, so it opens on All.
 */
-const PILL_PARAM = "c"
-const pillFrom = (value: string | null | undefined): Filter => (value === "installed" || value === "storelib" || CATEGORY_ORDER.includes(value as IntegrationCategory) ? (value as Filter) : "all")
-function writePillParam(f: Filter) {
+function writeListState(s: DirectoryState) {
   try {
-    const url = new URL(window.location.href)
-    if (f === "all") url.searchParams.delete(PILL_PARAM)
-    else url.searchParams.set(PILL_PARAM, f)
-    if (url.href === window.location.href) return
-    window.history.replaceState(window.history.state, "", url.toString())
+    const next = writeDirectoryState(window.location.href, s)
+    if (next === window.location.href) return
+    window.history.replaceState(window.history.state, "", next)
   } catch {
-    /* An address that can't be written: the pill still changes. */
+    /* An address that can't be written: the list still changes. */
   }
 }
 
@@ -159,7 +159,11 @@ function writeIntegrationParam(id: string | null, how: "push" | "replace") {
   try {
     const url = new URL(window.location.href)
     if (id) url.searchParams.set("integration", id)
-    else url.searchParams.delete("integration")
+    else {
+      url.searchParams.delete("integration")
+      /* An app's tab on its page (./integration-apps.tsx) goes with it. */
+      url.searchParams.delete("view")
+    }
     if (url.href === window.location.href) return
     if (how === "push") window.history.pushState(null, "", url.toString())
     else window.history.replaceState(window.history.state, "", url.toString())
@@ -178,8 +182,8 @@ function takesOrders(i: Integration): boolean {
 
 /**
  * `page`: drawn on its own page (/app/integrations) rather than in Settings:
- * the store's installed integrations first, each a row to manage it, like
- * Shopify's Apps page, then everything there is to add.
+ * three cards across from 1024px. Installed is a pill, not a list of its own
+ * above the cards (round K4).
  */
 export function IntegrationsDirectory({ page = false }: { page?: boolean } = {}) {
   const physical = usePhysicalCommerceEnabled()
@@ -212,10 +216,13 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     })
   }, [physical])
   React.useEffect(() => readOwnTracking(), [readOwnTracking])
-  const [query, setQuery] = React.useState("")
   const params = useSearchParams()
-  /* The pill the address names (?c=), read on the first render: Back to the list lands on the pill it left. */
-  const [filter, setFilter] = React.useState<Filter>(() => pillFrom(params?.get(PILL_PARAM)))
+  /* The list the address names (?category=&q=&status=&by=), read on the first render: Back to the list lands where it left. */
+  const [initial] = React.useState(() => readDirectoryState(params))
+  const [query, setQuery] = React.useState(initial.q)
+  const [filter, setFilter] = React.useState<Filter>(initial.category)
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>(initial.status)
+  const [maker, setMaker] = React.useState<MakerFilter>(initial.by)
   /*
     BACK TO THE LIST IS THE LIST, AS IT WAS (round 30). Back from one of
     Storelib's apps is a return: the pill comes from the address, the cards
@@ -463,7 +470,18 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     crossfade.current = grid && !reduced() && typeof grid.animate === "function" ? stillOf(grid) : null
     filterChanged.current = true
     setFilter(f)
-    writePillParam(f)
+    writeListState({ category: f, q: query, status: statusFilter, by: maker })
+  }
+  const typeQuery = (q: string) => {
+    setQuery(q)
+    writeListState({ category: filter, q, status: statusFilter, by: maker })
+  }
+  const chooseFilters = (next: { status?: StatusFilter; by?: MakerFilter }) => {
+    const status = next.status ?? statusFilter
+    const by = next.by ?? maker
+    setStatusFilter(status)
+    setMaker(by)
+    writeListState({ category: filter, q: query, status, by })
   }
   React.useLayoutEffect(() => {
     if (!filterChanged.current) return
@@ -552,13 +570,14 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   if (current) {
     return (
       <div ref={root} data-integrations="" data-integrations-view="page" className="scroll-mt-4">
-        <IntegrationPage
+        <IntegrationDetail
           item={current}
           status={statusOf(current)}
           installed={installed(current)}
           tracking={tracking}
           trackingReady={trackingReady}
           states={states}
+          marketing={marketing}
           onTracking={(t) => {
             setTracking(t)
             /* The sidebar's Integrations group reads again (components/app/sidebar.tsx). */
@@ -629,31 +648,47 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     counted as installed in every store, sending nothing anywhere.
   */
   const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || (e.item.builtIn && e.item.kind === "app") : appState(e.id) === "on")
-  /* One test per pill, for its count and for the cards it shows alike, so the number on a pill is always the cards under it. */
-  const inPill = (e: Entry, pill: Filter) => (pill === "all" ? true : pill === "installed" ? isInstalled(e) : pill === "storelib" ? isStorelib(e) : categoryOf(e) === pill)
-  const counts = new Map<Filter, number>([
-    ["all", entries.length],
-    ["installed", entries.filter(isInstalled).length],
-    ["storelib", entries.filter(isStorelib).length],
+  /* What each card is, for the search, the pill and the filters alike (lib/integrations/directory-filter). */
+  const facetsOf = (e: Entry): CardFacets => {
+    const category = categoryOf(e)
+    if (e.kind === "app") return { id: e.id, name: e.app.name, summary: e.app.summary, category, categoryName: category ? CATEGORY_NAMES[category] : null, storelib: true, installed: isInstalled(e), standing: "built_in" }
+    const st = statusOf(e.item)
+    return { id: e.id, name: e.item.name, summary: e.item.summary, category, categoryName: CATEGORY_NAMES[e.item.category], storelib: isStorelib(e), installed: isInstalled(e), standing: st === "needs_attention" || st === "error" ? "attention" : st }
+  }
+  const facets = entries.map(facetsOf)
+  /* Which pills there are does not move as you type: a category with no card in this store has none (round 30). */
+  const held = new Map<Filter, number>([
+    ["all", facets.length],
+    ["installed", facets.filter((f) => f.installed).length],
+    ["storelib", facets.filter((f) => f.storelib).length],
   ])
-  for (const c of CATEGORY_ORDER) counts.set(c, entries.filter((e) => inPill(e, c)).length)
+  for (const c of CATEGORY_ORDER) held.set(c, facets.filter((f) => f.category === c).length)
   /*
-    THE PILLS' ORDER (round 30, the owner): All, Reviews, Analytics,
-    Installed, Storelib apps, Advertising, Email marketing, Automation, then
-    every other category as the catalog lists them (lib/integrations/
-    directory-order pillOrder). No Essentials pill (the owner: "get rid of
+    THE PILLS' ORDER (round 30, the owner; round K4): All, Installed, then
+    Reviews, Analytics, Storelib apps, Advertising, Email marketing,
+    Automation and every other category as the catalog lists them
+    (lib/integrations/directory-order pillOrder). Installed is a pill now,
+    not a list above the cards. No Essentials pill (the owner: "get rid of
     the Essential pill"): payments, shipping and taxes are under Settings.
   */
-  const pills: Filter[] = pillOrder((c) => counts.get(c) ?? 0)
-  /* A ?c= naming a category with nothing in it in this store is All. */
+  const pills: Filter[] = pillOrder((c) => held.get(c) ?? 0)
+  /* An address naming a category with nothing in it in this store is All. */
   const active: Filter = pills.includes(filter) ? filter : "all"
-  const q = query.trim()
-  const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
-  const shown = q
-    ? entries.filter(matches)
-    : entries.filter((e) => inPill(e, active))
+  const listState: DirectoryState = { category: active, q: query, status: statusFilter, by: maker }
+  /* One test per pill, for its count and for the cards it shows alike, so the number on a pill is always the cards under it with what is typed and filtered. */
+  const counts = pillCounts(facets, listState, pills)
+  const shown = entries.filter((_, i) => visibleIn(facets[i], listState))
   const showing = new Set(shown.map((e) => e.id))
   const firstShown = shown[0]?.id ?? null
+  const q = query.trim()
+  const filtersOn = activeFilterCount(listState) > 0
+  /* The Filter menu's numbers: what each choice would show in this pill with this search. */
+  const inThis = facets.filter((f) => inPill(f, active) && matchesQuery(f, q))
+  const countWith = (s: { status: StatusFilter; by: MakerFilter }) => inThis.filter((f) => passesFilters(f, s)).length
+  const filterCounts = {
+    status: { any: countWith({ status: "any", by: maker }), available: countWith({ status: "available", by: maker }), coming_soon: countWith({ status: "coming_soon", by: maker }), attention: countWith({ status: "attention", by: maker }) },
+    by: { any: countWith({ status: statusFilter, by: "any" }), storelib: countWith({ status: statusFilter, by: "storelib" }), partner: countWith({ status: statusFilter, by: "partner" }) },
+  }
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
   /*
     THE NEXT PAGE IS ALREADY HERE (round 30). One of Storelib's apps is a page
@@ -670,92 +705,85 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   }
   const warmPages = () => prefetchGet(keptReads(physical))
 
-  /* Installed by the store (not the built in ones every store has), for the page's own list at the top. */
-  const mine = page ? shownAll.filter((i) => installed(i)) : []
-
   return (
-    <div ref={root} data-integrations="" data-integrations-view="list" className="scroll-mt-4 space-y-4">
-      {page && mine.length > 0 ? (
-        <section aria-labelledby="installed-integrations" className="space-y-2.5" data-installed-integrations="">
-          <h2 id="installed-integrations" className="text-[15px] font-semibold text-[#1a1a2e]">
-            {tt("Connected")}
-          </h2>
-          <ul className={cn(CARD, "divide-y divide-[#f1f2f4] overflow-hidden")}>
-            {mine.map((i) => (
-              <li key={i.id}>
-                <button
-                  type="button"
-                  onClick={() => open(i.id)}
-                  data-integration-card={i.id}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
-                >
-                  <Mark item={i} size={36} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{i.name}</span>
-                    <span className="block truncate text-[12.5px] text-[#6b7280]">{CATEGORY_NAMES[i.category]}</span>
-                  </span>
-                  <StatusBadge status={statusOf(i)} />
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+    <div ref={root} data-integrations="" data-integrations-view="list" className="@container scroll-mt-4 space-y-3.5">
       <div className="flex gap-2">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">{tt("Search integrations")}</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={tt("Search apps and integrations")}
-            className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
+            onChange={(e) => typeQuery(e.target.value)}
+            placeholder={tt("Search by name, category or description")}
+            className="h-11 w-full rounded-xl border border-[#e5e7eb] bg-white pl-10 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:text-[14px]"
             data-integrations-search=""
           />
         </label>
-        <button type="button" className={cn(BTN_SECONDARY, "h-10 shrink-0 rounded-xl px-3.5")} onClick={() => setRequesting(true)} data-request-integration="">
-          {tt("Request")}
+        <button
+          type="button"
+          aria-label={tt("Request integration")}
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white outline-none transition-colors hover:bg-[#2b2b42] focus-visible:ring-[3px] focus-visible:ring-[#1a1a2e]/20 active:bg-[#111122] sm:w-auto sm:px-5 [-webkit-tap-highlight-color:transparent]"
+          onClick={() => setRequesting(true)}
+          data-request-integration=""
+        >
+          <Lightbulb className="h-[18px] w-[18px] sm:h-4 sm:w-4" aria-hidden />
+          {/* On a phone the bulb alone, so the search keeps its words. */}
+          <span className="hidden sm:inline">{tt("Request integration")}</span>
         </button>
       </div>
 
-      <div ref={pillsRef} hidden={!!q} className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
-        {pills.map((f) => {
-          const on = active === f
-          return (
-            <button
-              key={f}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => chooseFilter(f)}
-              data-integration-pill={f}
-              className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium [-webkit-tap-highlight-color:transparent]",
-                on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
-              )}
-            >
-              {f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}
-              <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{counts.get(f) ?? 0}</span>
-            </button>
-          )
-        })}
+      <div className="flex items-start gap-2">
+        <div ref={pillsRef} className="relative -mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={tt("Categories")} data-integration-pills="">
+          {pills.map((f) => {
+            const on = active === f
+            return (
+              <button
+                key={f}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => chooseFilter(f)}
+                data-integration-pill={f}
+                className={cn(
+                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium [-webkit-tap-highlight-color:transparent]",
+                  on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
+                )}
+              >
+                {f === "all" ? tt("All") : f === "installed" ? tt("Installed") : f === "storelib" ? tt("Storelib apps") : CATEGORY_NAMES[f]}
+                <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{counts.get(f) ?? 0}</span>
+              </button>
+            )
+          })}
+        </div>
+        <FilterMenu status={statusFilter} by={maker} onChange={chooseFilters} counts={filterCounts} />
       </div>
 
       {error ? <Notice>{error}</Notice> : null}
       {/* Isolated, so the crossfade's two layers add up inside it and nowhere else. */}
       <div ref={gridBox} className="relative isolate" data-integration-grid-box="">
         <div hidden={shown.length > 0} className={cn(CARD, "px-5 py-10 text-center")} data-integration-empty="">
-          <p className="text-[14px] font-medium text-[#1a1a2e]">{active === "installed" && !q ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
-          <button type="button" className={cn(BTN_SECONDARY, "mt-3")} onClick={() => setRequesting(true)}>
-            {tt("Request integration")}
-          </button>
+          <p className="text-[14px] font-medium text-[#1a1a2e]">{active === "installed" && !q && !filtersOn ? tt("Nothing installed yet") : tt("Nothing matches")}</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {active !== "all" && (counts.get("all") ?? 0) > 0 ? (
+              <button type="button" className={BTN_SECONDARY} onClick={() => chooseFilter("all")} data-integration-empty-all="">
+                {tt("Search all integrations")}
+              </button>
+            ) : null}
+            {filtersOn ? (
+              <button type="button" className={BTN_SECONDARY} onClick={() => chooseFilters({ status: "any", by: "any" })}>
+                {tt("Clear filters")}
+              </button>
+            ) : null}
+            <button type="button" className={BTN_SECONDARY} onClick={() => setRequesting(true)}>
+              {tt("Request integration")}
+            </button>
+          </div>
         </div>
         {/* One list for every pill, every card in it from the start: a switch only shows and hides cards, each keeping its place,
             so nothing is mounted again, and no logo loads or flashes again. On a phone it is one card of rows, a hairline between
-            the rows shown; from 640px a grid of cards. */}
-        <ul ref={gridRef} hidden={shown.length === 0} className={cn(CARD, "overflow-hidden sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none", page && "lg:grid-cols-3")} data-integration-grid="">
+            the rows shown; from 640px a grid of cards, two across, three once the list is 880px wide (a computer's /app page). */}
+        <ul ref={gridRef} hidden={shown.length === 0} className={cn(CARD, "overflow-hidden sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none @min-[880px]:grid-cols-3")} data-integration-grid="">
           {entries.map((e) => (
             <li key={e.id} hidden={!showing.has(e.id)} className={e.id === firstShown ? undefined : "border-t border-[#f1f2f4] sm:border-t-0"}>
               {e.kind === "app" ? (
@@ -768,16 +796,11 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
                   onFocus={() => warmApp(hrefOf(e.app))}
                   onTouchStart={() => warmApp(hrefOf(e.app))}
                 >
-                  <EntryBody mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
+                  <EntryBody mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} category={categoryOf(e) ? CATEGORY_NAMES[categoryOf(e)!] : tt("Storelib app")} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
                 </Link>
               ) : (
                 <button type="button" onClick={() => open(e.id)} onPointerEnter={warmPages} onFocus={warmPages} data-integration-card={e.id} className={ENTRY}>
-                  <EntryBody
-                    mark={<Mark item={e.item} />}
-                    name={e.item.name}
-                    summary={e.item.summary}
-                    badge={hasBuiltInArt(e.id) && appState(e.id) ? <AppBadge state={appState(e.id)} /> : <StatusBadge status={statusOf(e.item)} />}
-                  />
+                  <EntryBody mark={<Mark item={e.item} />} name={e.item.name} category={CATEGORY_NAMES[e.item.category]} summary={e.item.summary} badge={<StatusBadge status={statusOf(e.item)} />} />
                 </button>
               )}
             </li>
@@ -789,380 +812,139 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   )
 }
 
-type Tone = "gray" | "green" | "amber" | "red"
+type Tone = "gray" | "green" | "amber" | "red" | "slate" | "line"
 const TONE: Record<Tone, string> = {
   gray: "bg-[#f3f4f6] text-[#4b5563]",
   green: "bg-[#ecfdf3] text-[#067647]",
   amber: "bg-[#fffaeb] text-[#b54708]",
   red: "bg-[#fef3f2] text-[#b42318]",
+  slate: "bg-[#eef2f6] text-[#364152]",
+  line: "border border-[#e5e7eb] bg-white text-[#4b5563]",
 }
 function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: Tone }) {
   return (
-    <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11.5px] font-medium", TONE[tone])} data-integration-badge="">
+    <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11.5px] font-semibold", TONE[tone])} data-integration-badge="">
       {tone === "green" ? <Check className="h-3 w-3" aria-hidden /> : null}
       {children}
     </span>
   )
 }
 
-/** Available has no badge: a card with nothing on it is one you can install. */
+/** Where a card stands, in one word: Installed, Built in, Available, Coming soon, or one that needs a look. */
 function StatusBadge({ status }: { status: IntegrationStatus }) {
-  if (status === "available") return null
-  const tone: Tone = status === "built_in" ? "gray" : status === "installed" ? "green" : status === "needs_attention" ? "amber" : status === "error" ? "red" : "gray"
-  return <Badge tone={tone}>{status === "built_in" ? "Storelib" : STATUS_LABEL[status]}</Badge>
+  if (status === "installed") return <Badge tone="green">{tt("Installed")}</Badge>
+  if (status === "built_in") return <Badge tone="slate">{tt("Built in")}</Badge>
+  if (status === "needs_attention") return <Badge tone="amber">{tt("Needs attention")}</Badge>
+  if (status === "error") return <Badge tone="red">{tt("Not working")}</Badge>
+  if (status === "coming_soon") return <Badge tone="gray">{tt("Coming soon")}</Badge>
+  return <Badge tone="line">{tt("Available")}</Badge>
 }
 
 /*
-  A CARD, TWO SHAPES (round I4). On a phone a row in one list: the mark, the
-  name with its one line, the badge. From 640px a card in the grid: the mark
-  and the badge on top, the name and its line under.
+  A CARD, TWO SHAPES (round K4). On a phone a row in one list: the mark, the
+  name with its one line, the badge. From 640px a card in the grid, all the
+  same height: a quiet band at the top behind the mark, the badge at the top
+  right, the name, the category, and two lines of what it does. A hover lifts
+  it a pixel and deepens its shadow.
 */
 const ENTRY = cn(
-  "group flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-[background-color,box-shadow,border-color] duration-200 ease-out hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:bg-[#f8f9fa] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
-  "sm:h-full sm:flex-col sm:items-stretch sm:gap-3 sm:p-4 sm:hover:bg-white sm:active:bg-white",
-  "sm:rounded-2xl sm:border sm:border-[#e5e7eb]/60 sm:bg-white sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_2px_10px_-4px_rgba(17,24,39,0.10)] sm:focus-visible:ring-2 sm:focus-visible:ring-[#1a1a2e]/15",
+  "group relative flex w-full items-center gap-3 px-4 py-3 text-left outline-none transition-[background-color,box-shadow,border-color,transform] duration-200 ease-out hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:bg-[#f8f9fa] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
+  "sm:h-full sm:flex-col sm:items-stretch sm:gap-3 sm:overflow-hidden sm:p-5 sm:hover:bg-white sm:active:bg-white",
+  "sm:rounded-2xl sm:border sm:border-[#e5e7eb]/70 sm:bg-white sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:hover:-translate-y-px sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0.18)] sm:focus-visible:ring-2 sm:focus-visible:ring-[#1a1a2e]/15 motion-reduce:sm:hover:translate-y-0",
 )
 
-function EntryBody({ mark, name, summary, badge }: { mark: React.ReactNode; name: string; summary: string; badge: React.ReactNode }) {
+function EntryBody({ mark, name, category, summary, badge }: { mark: React.ReactNode; name: string; category: string; summary: string; badge: React.ReactNode }) {
   return (
     <>
-      <span className="flex shrink-0 items-start justify-between gap-3">
-        {mark}
-        <span className="hidden sm:inline-flex">{badge}</span>
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[46px] border-b border-[#f3f4f6] bg-[#f9fafb] sm:block" />
+      <span className="relative flex shrink-0 items-start justify-between gap-3">
+        <span className="rounded-[12px] sm:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_4px_10px_-4px_rgba(16,24,40,0.12)]">{mark}</span>
+        <span className="hidden sm:inline-flex sm:pt-0.5">{badge}</span>
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e]">{name}</span>
-        <span className="mt-0.5 block truncate text-[13px] leading-[18px] text-[#6b7280] sm:line-clamp-2 sm:whitespace-normal">{summary}</span>
+      <span className="relative min-w-0 flex-1">
+        <span className="block truncate text-[14.5px] font-semibold text-[#1a1a2e] sm:text-[15px]">{name}</span>
+        <span className="mt-0.5 hidden truncate text-[12.5px] text-[#6b7280] sm:block" data-integration-category="">{category}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-[19px] text-[#6b7280] sm:mt-2 sm:line-clamp-2 sm:min-h-[38px] sm:whitespace-normal sm:text-[#4b5563]">{summary}</span>
       </span>
-      <span className="shrink-0 sm:hidden">{badge}</span>
+      <span className="relative shrink-0 sm:hidden">{badge}</span>
     </>
   )
 }
 
-/** One of Storelib's own: On, Off or Set up, read off the store. Nothing while it is unknown. */
+/** One of Storelib's own that opens where it is set up: On when it is in use, Built in otherwise (Off and Set up are its own page's words). */
 function AppBadge({ state }: { state: AppState | null }) {
-  if (!state) return null
-  return (
-    <Badge tone={state === "on" ? "green" : "gray"}>
-      {APP_STATE_LABEL[state]}
-    </Badge>
+  return state === "on" ? <Badge tone="green">{tt("On")}</Badge> : <Badge tone="slate">{tt("Built in")}</Badge>
+}
+
+/** The Filter menu: Status and Made by, applied at once, kept in the address. */
+function FilterMenu({ status, by, onChange, counts }: { status: StatusFilter; by: MakerFilter; onChange: (next: { status?: StatusFilter; by?: MakerFilter }) => void; counts: { status: Record<StatusFilter, number>; by: Record<MakerFilter, number> } }) {
+  const [open, setOpen] = React.useState(false)
+  const box = React.useRef<HTMLDivElement>(null)
+  const set = activeFilterCount({ status, by })
+  React.useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false)
+    }
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("pointerdown", away)
+    document.addEventListener("keydown", key)
+    return () => {
+      document.removeEventListener("pointerdown", away)
+      document.removeEventListener("keydown", key)
+    }
+  }, [open])
+  const option = <T extends string>(group: "status" | "by", value: T, label: string, on: boolean, count: number) => (
+    <button
+      key={value}
+      type="button"
+      role="menuitemradio"
+      aria-checked={on}
+      onClick={() => onChange(group === "status" ? { status: value as StatusFilter } : { by: value as MakerFilter })}
+      className={cn("flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13.5px] transition-colors [-webkit-tap-highlight-color:transparent]", on ? "bg-[#f3f4f6] font-medium text-[#1a1a2e]" : "text-[#374151] hover:bg-[#f8f9fa]")}
+      data-integration-filter={`${group}:${value}`}
+    >
+      <span aria-hidden className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")}>
+        {on ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="tabular-nums text-[#9ca3af]">{count}</span>
+    </button>
   )
-}
-
-const STANDING: Record<IntegrationStatus, { tone: Tone; label: string; line: string }> = {
-  built_in: { tone: "gray", get label() { return tt("Built into Storelib") }, get line() { return tt("Ready to use. Nothing to connect.") } },
-  installed: { tone: "green", get label() { return tt("Connected") }, get line() { return tt("Working on your store.") } },
-  needs_attention: { tone: "amber", get label() { return tt("Needs attention") }, get line() { return tt("Connected, but the last try didn't go through.") } },
-  error: { tone: "red", get label() { return tt("Not working") }, get line() { return tt("Check its settings below.") } },
-  coming_soon: { tone: "gray", get label() { return tt("Coming soon") }, get line() { return tt("Not available to connect yet.") } },
-  available: { tone: "gray", get label() { return tt("Not connected") }, get line() { return tt("Set it up below in a minute.") } },
-}
-const DOT: Record<Tone, string> = { gray: "bg-[#9ca3af]", green: "bg-[#12b76a]", amber: "bg-[#f79009]", red: "bg-[#f04438]" }
-
-/**
- * ===========================================================================
- *  AN INTEGRATION'S OWN PAGE (round R1)
- * ===========================================================================
- * "Must look much better, Storelib styled with a little depth: cards, a
- * header with the logo, clear status, connect and disconnect actions."
- *
- *   THE HEADER      its mark on a soft tile, the name, what it does, and where
- *                   it stands as a dot and two words (Connected, Not
- *                   connected, Needs attention...) with what that means. The
- *                   one action that matters sits at the header's right on a
- *                   computer (on a phone the setup card is right under it):
- *                   Set up, Manage, Tell me when it's ready. It takes you to
- *                   the setup card and puts the cursor in its field.
- *   SET UP          first, because it is why the page was opened: the
- *                   field and Install / Save / Remove for a pixel, the
- *                   provider's own Connect, Manage and Disconnect, or Tell me
- *                   when it's ready
- *   ABOUT, DATA     what it does and what it sees, under it
- *   AT A GLANCE     beside them from 1024px, under them on a phone
- *
- * Every card has the same hairline and a soft shadow under it; nothing is a
- * card inside a card.
- */
-function IntegrationPage({
-  item,
-  status,
-  installed,
-  tracking,
-  trackingReady,
-  states,
-  onTracking,
-  onStates,
-  onApp,
-  onMarketing,
-  onBack,
-}: {
-  item: Integration
-  status: IntegrationStatus
-  installed: boolean
-  tracking: Tracking | null
-  trackingReady: boolean
-  states: IntegrationState[] | null
-  onTracking: (t: Tracking) => void
-  onStates: (s: IntegrationState[]) => void
-  onApp: (appId: string, on: boolean) => void
-  onMarketing: (m: MarketingState[]) => void
-  onBack: () => void
-}) {
-  const setupRef = React.useRef<HTMLElement>(null)
-  const standing = STANDING[status]
-  /* A built in app managed in full on this page draws its own tabs under the header (./built-in-app-pages.tsx). */
-  const OwnPage = BUILT_IN_APP_PAGES[item.id]
-  /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
-  const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
-  const providerState = item.providerId ? (states?.find((s) => s.provider === item.providerId) ?? null) : null
-  const action = item.builtIn && item.kind !== "commerce" ? null : notifyOnly ? tt("Tell me when it's ready") : installed ? tt("Manage") : tt("Set up")
-  const toSetup = () => {
-    const el = setupRef.current
-    if (!el) return
-    el.scrollIntoView({ block: "start", behavior: reduced() ? "auto" : "smooth" })
-    window.setTimeout(() => el.querySelector<HTMLElement>("input, textarea, button")?.focus({ preventScroll: true }), reduced() ? 0 : 420)
-  }
-  const tracked = item.kind === "tracker" && item.trackerId ? tracking?.[item.trackerId] ?? null : null
-  /* The header's Tell me when it's ready sends the request itself; it only scrolled to the box under it, so a press looked like nothing. */
-  const [askTick, setAskTick] = React.useState(0)
-
   return (
-    <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
+    <div ref={box} className="relative shrink-0">
       <button
         type="button"
-        onClick={onBack}
-        className="-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
-        data-integration-back=""
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium [-webkit-tap-highlight-color:transparent]", set > 0 ? "border-[#1a1a2e] bg-white text-[#1a1a2e]" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db]")}
+        data-integration-filter-button=""
       >
-        <ChevronLeft className="h-4 w-4" aria-hidden />
-        {tt("Back to integrations")}
+        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+        {tt("Filter")}
+        {set > 0 ? <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1a1a2e] px-1 text-[11px] tabular-nums text-white">{set}</span> : null}
       </button>
-
-      <header className={cn(DEPTH, "p-4 sm:p-6")} data-integration-header="">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex min-w-0 flex-1 items-start gap-4">
-            <Mark item={item} size={56} />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[20px] font-bold leading-tight tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]">{item.name}</h2>
-              <p className="mt-1 text-[14px] leading-[20px] text-[#6b7280]">{item.summary}</p>
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]" data-integration-standing={status}>
-                <span className="inline-flex items-center gap-1.5 font-medium text-[#1a1a2e]">
-                  <span aria-hidden className={cn("h-2 w-2 rounded-full", DOT[standing.tone])} />
-                  {standing.label}
-                </span>
-                <span className="text-[#6b7280]">{tracked ? `${TRACKERS[item.trackerId!].label}: ${tracked}` : standing.line}</span>
-              </div>
-            </div>
-          </div>
-          {action && !OwnPage ? (
-            /* On a phone the setup card is the very next thing on the screen, so the header keeps to the name and the status there. */
-            <button type="button" onClick={() => { if (notifyOnly) setAskTick((n) => n + 1); toSetup() }} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "hidden h-10 shrink-0 rounded-xl px-5 sm:inline-flex")} data-integration-action="">
-              {action}
-              {!installed && !notifyOnly ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+      {open ? (
+        <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-30 w-[264px] max-w-[calc(100vw-32px)] rounded-2xl border border-[#e5e7eb] bg-white p-2 shadow-[0_12px_32px_-12px_rgba(16,24,40,0.28)]" data-integration-filter-menu="">
+          <p className="px-2.5 pb-1 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Status")}</p>
+          {option("status", "any", tt("Any status"), status === "any", counts.status.any)}
+          {option("status", "available", tt("Ready to connect"), status === "available", counts.status.available)}
+          {option("status", "coming_soon", tt("Coming soon"), status === "coming_soon", counts.status.coming_soon)}
+          {counts.status.attention > 0 || status === "attention" ? option("status", "attention", tt("Needs attention"), status === "attention", counts.status.attention) : null}
+          <p className="mt-1.5 border-t border-[#f1f2f4] px-2.5 pb-1 pt-2.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Made by")}</p>
+          {option("by", "any", tt("Anyone"), by === "any", counts.by.any)}
+          {option("by", "storelib", tt("Storelib"), by === "storelib", counts.by.storelib)}
+          {option("by", "partner", tt("Other services"), by === "partner", counts.by.partner)}
+          {set > 0 ? (
+            <button type="button" onClick={() => onChange({ status: "any", by: "any" })} className="mt-1.5 flex h-9 w-full items-center justify-center rounded-lg border-t border-[#f1f2f4] text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f8f9fa]" data-integration-filter-clear="">
+              {tt("Clear filters")}
             </button>
           ) : null}
         </div>
-      </header>
-
-      {OwnPage ? (
-        <OwnPage onAppChanged={(on) => item.appId && onApp(item.appId, on)} />
-      ) : (
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="space-y-4 sm:space-y-5">
-          <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden")} aria-labelledby="integration-install" data-integration-install="">
-            <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
-              <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">{notifyOnly ? tt("Get notified") : installed ? tt("Settings") : tt("Set up")}</h3>
-            </div>
-            <div className="px-4 py-4 sm:px-6 sm:py-5">
-              {notifyOnly ? (
-                <div className="space-y-4">
-                  <NotifyMe item={item} askTick={askTick} />
-                  {/* A key saved before this was marked Coming soon: shown, so it can be removed. */}
-                  {item.kind === "commerce" && item.providerId && providerInfo(item.providerId) && providerState && providerState.status !== "disconnected" ? (
-                    <ul className="border-t border-[#f1f2f4] pt-4 [&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
-                      <IntegrationCard provider={providerInfo(item.providerId)!} state={providerState} loading={false} onSaved={onStates} />
-                    </ul>
-                  ) : null}
-                </div>
-              ) : item.kind === "app" && item.appId === "storelib_reviews" ? (
-                <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
-              ) : item.kind === "app" && item.appId === "courier_tracking" ? (
-                <TrackingAppPanel onChanged={(own) => onApp("courier_tracking", own)} />
-              ) : item.kind === "tracker" && item.trackerId === "ga4" ? (
-                /* Google Analytics: pasted, checked with a live hit, then "Receiving data" with the last event's time. */
-                <GaConnect value={tracking?.ga4 ?? null} ready={trackingReady} onSaved={onTracking} />
-              ) : item.kind === "tracker" && item.trackerId ? (
-                <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
-              ) : item.providerId && providerInfo(item.providerId) ? (
-                <ul className="[&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
-                  <IntegrationCard provider={providerInfo(item.providerId)!} state={states?.find((s) => s.provider === item.providerId) ?? null} loading={states === null} onSaved={onStates} startOpen={!item.builtIn && !installed} />
-                </ul>
-              ) : null}
-            </div>
-          </section>
-
-          {item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") && !notifyOnly ? (
-            /* The key that sends subscribers and orders, apart from the onsite ID above (lib/integrations/marketing). */
-            <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-sync" data-integration-sync="">
-              <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
-                <h3 id="integration-sync" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("Subscribers and orders")}</h3>
-              </div>
-              <div className="px-4 py-4 sm:px-6 sm:py-5">
-                <MarketingSyncPanel provider={item.trackerId} onChanged={onMarketing} />
-              </div>
-            </section>
-          ) : null}
-
-          {/*
-            LESS TO READ (round I4). "Integration pages: don't have that much text." What it does is one paragraph;
-            the rest of how it works and what data goes where is a tap away, closed by default.
-          */}
-          <section className={cn(DEPTH, "overflow-hidden")} aria-labelledby="integration-about" data-integration-about="">
-            <div className="px-4 py-4 sm:px-6 sm:py-5">
-              <h3 id="integration-about" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("What it does")}</h3>
-              <p className="mt-2 text-[14px] leading-[21px] text-[#4b5563]">{item.lead ?? item.about[0]}</p>
-              {item.paused ? (
-                <Notice tone="gray" className="mt-3">{tt("{name} is paused on Storelib for now. Anything already set up keeps its settings.", { name: item.name })}</Notice>
-              ) : null}
-            </div>
-            <details className="group border-t border-[#f1f2f4]" data-integration-details="">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa] sm:px-6 [&::-webkit-details-marker]:hidden">
-                {tt("How it works and your data")}
-                <ChevronDown className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-200 group-open:rotate-180" aria-hidden />
-              </summary>
-              <div className="space-y-4 px-4 pb-5 sm:px-6">
-                {(item.lead ? item.about : item.about.slice(1)).length > 0 ? (
-                  <div className="space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
-                    {(item.lead ? item.about : item.about.slice(1)).map((p) => (
-                      <p key={p}>{p}</p>
-                    ))}
-                  </div>
-                ) : null}
-                <div>
-                  <h4 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Data ownership")}</h4>
-                  <ul className="mt-1.5 space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
-                    {item.data.map((d) => (
-                      <li key={d} className="flex gap-2.5">
-                        <span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </details>
-          </section>
-        </div>
-
-        <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
-          <h3 id="integration-glance" className="text-[15px] font-semibold text-[#1a1a2e]">{tt("At a glance")}</h3>
-          <dl className="mt-3 divide-y divide-[#f1f2f4]">
-            <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
-              <dt className="text-[13px] text-[#6b7280]">{tt("Category")}</dt>
-              <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</dd>
-            </div>
-            {item.glance.map((g) => (
-              <div key={g.label} className="flex items-baseline justify-between gap-3 py-2">
-                <dt className="shrink-0 text-[13px] text-[#6b7280]">{g.label}</dt>
-                <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{g.value}</dd>
-              </div>
-            ))}
-          </dl>
-          {item.docsUrl ? (
-            <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "mt-3 h-10 w-full rounded-xl")}>
-              {tt("{name} help", { name: item.name })}
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-            </a>
-          ) : null}
-        </aside>
-      </div>
-      )}
-    </div>
-  )
-}
-
-function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; value: string | null; ready: boolean; onSaved: (t: Tracking) => void }) {
-  const t = TRACKERS[item.trackerId!]
-  const [typed, setTyped] = React.useState(value ?? "")
-  const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [saved, setSaved] = React.useState(false)
-  React.useEffect(() => setTyped(value ?? ""), [value])
-
-  const save = async (next: string | null) => {
-    setBusy(true)
-    setError(null)
-    setSaved(false)
-    const r = await api<{ tracking: Tracking }>("/api/store/integrations", { method: "PUT", body: { id: item.trackerId, value: next } })
-    setBusy(false)
-    if (!r.ok) return setError(r.error)
-    onSaved(r.data.tracking)
-    setSaved(true)
-  }
-
-  if (!ready) return <Notice tone="amber">{tt("Analytics and pixels need their database update (SQL part 112). Until it runs, nothing here is kept.")}</Notice>
-  return (
-    <div className="space-y-3" data-tracker-install={item.trackerId}>
-      <Field label={t.label} htmlFor={`tracker-${item.trackerId}`} hint={tt("Where to find it: {where}", { where: t.where })}>
-        <TextInput id={`tracker-${item.trackerId}`} value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t.example} autoComplete="off" spellCheck={false} inputMode="text" />
-      </Field>
-      {error ? <Notice>{error}</Notice> : null}
-      {saved && !error ? <p className="text-[13px] text-[#067647]" data-tracker-saved="">{value ? tt("Saved. {name} loads on your website from its next page view.", { name: t.name }) : tt("Removed from your website.")}</p> : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        {value ? (
-          <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save(null)}>
-            {tt("Remove")}
-          </button>
-        ) : null}
-        <button type="button" className={BTN_PRIMARY} disabled={busy || !typed.trim() || typed.trim() === value} onClick={() => void save(typed)}>
-          {busy ? tt("Saving") : value ? tt("Save") : tt("Install")}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/**
- * TELL ME WHEN IT'S READY. A Coming soon integration has nothing to install,
- * so its Install section is one press that counts the store as asking for it
- * (a request in /admin, once per store). "You're on the list" only once the
- * request is really kept.
- */
-function NotifyMe({ item, askTick = 0 }: { item: Integration; askTick?: number }) {
-  const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
-  const [error, setError] = React.useState<string | null>(null)
-  const ask = async () => {
-    if (state !== "idle") return
-    setState("sending")
-    setError(null)
-    const r = await api("/api/store/integrations/request", { method: "POST", body: { name: item.name, integrationId: item.id } })
-    if (!r.ok) {
-      setState("idle")
-      return setError(r.error)
-    }
-    setState("sent")
-  }
-  /* Pressed in the header. */
-  React.useEffect(() => {
-    if (askTick > 0) void ask()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [askTick])
-  return (
-    <div className="space-y-3" data-integration-notify={item.id}>
-      <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Not available yet. Ask for it and you'll be counted: the most asked for are built first.")}</p>
-      {error ? <Notice>{error}</Notice> : null}
-      {state === "sent" ? (
-        <p className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#067647]" data-integration-notified="">
-          <Check className="h-4 w-4" aria-hidden />
-          {tt("You're on the list for {name}.", { name: item.name })}
-        </p>
-      ) : (
-        <div className="flex justify-end">
-          <button type="button" className={BTN_PRIMARY} disabled={state === "sending"} onClick={() => void ask()}>
-            {state === "sending" ? tt("Sending") : tt("Tell me when it's ready")}
-          </button>
-        </div>
-      )}
+      ) : null}
     </div>
   )
 }

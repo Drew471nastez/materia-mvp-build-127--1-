@@ -45,7 +45,7 @@ export function ReviewsAppPanel({ onChanged, sections = ALL_SECTIONS }: { onChan
 
   React.useEffect(() => {
     void api<Loaded>("/api/store/reviews-app").then((r) => {
-      if (!r.ok) return setError(r.error)
+      if (!r.ok) return setError((r as { error?: string }).error ?? "")
       setLoaded(r.data)
       setDraft(r.data.settings)
     })
@@ -64,7 +64,7 @@ export function ReviewsAppPanel({ onChanged, sections = ALL_SECTIONS }: { onChan
     setError(null)
     const r = await api<{ settings: ReviewsAppSettings }>("/api/store/reviews-app", { method: "PUT", body: next })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError((r as { error?: string }).error ?? "")
     setLoaded((l) => (l ? { ...l, settings: r.data.settings } : l))
     setDraft(r.data.settings)
     setSaved(true)

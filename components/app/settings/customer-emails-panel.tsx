@@ -491,7 +491,7 @@ function innerOf(html: string): string {
  * screen (the Preview pane while Edit is showing) is brought up to date when
  * it comes back.
  */
-export function PreviewFrame({ title, html, paused = false }: { title: string; html: string; paused?: boolean }) {
+function PreviewFrame({ title, html, paused = false }: { title: string; html: string; paused?: boolean }) {
   const ref = React.useRef<HTMLIFrameElement>(null)
   const drawn = React.useRef<string | null>(null)
   const [height, setHeight] = React.useState(640)

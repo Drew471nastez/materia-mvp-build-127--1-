@@ -13,7 +13,7 @@ import { tt } from "@/lib/i18n/text"
 import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 import { CARD, CARD_HEAD, H3, MUTED } from "./parts"
 
-export function SettingsView({ onAppChanged }: { onAppChanged?: (on: boolean) => void }) {
+export function SettingsView({ onAppChanged, extra }: { onAppChanged?: (on: boolean) => void; extra?: React.ReactNode }) {
   return (
     <div className="space-y-4 sm:space-y-5" data-reviews-settings="">
       <section className={cn(CARD, "overflow-hidden")} aria-labelledby="reviews-settings-title">
@@ -27,6 +27,7 @@ export function SettingsView({ onAppChanged }: { onAppChanged?: (on: boolean) =>
         </div>
       </section>
       <p className={cn(MUTED, "px-1")}>{tt("When review emails go, and what they say, is under Requests.")}</p>
+      {extra}
     </div>
   )
 }

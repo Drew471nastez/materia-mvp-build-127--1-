@@ -112,7 +112,7 @@ export function useRead<T>(path: string | null): { data: T | null; error: string
       if (r.ok) {
         setData(r.data)
         setError(null)
-      } else setError(r.error)
+      } else setError(errorOf(r))
     })
     return () => {
       live = false
@@ -120,6 +120,11 @@ export function useRead<T>(path: string | null): { data: T | null; error: string
   }, [path, tick])
   const reload = React.useCallback(() => setTick((n) => n + 1), [])
   return { data, error, loading, reload, set: setData }
+}
+
+/** Why a read or a write did not go through (the result's own words). */
+export function errorOf(r: unknown): string {
+  return ((r as { error?: unknown }).error as string) || ""
 }
 
 /** A grey block the size of what is coming, only while nothing has arrived yet. */

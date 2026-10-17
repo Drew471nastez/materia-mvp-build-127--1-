@@ -24,7 +24,7 @@ import { tt } from "@/lib/i18n/text"
 import { api } from "@/components/physical/ui"
 import { IMPORT_FIELDS, MAX_IMPORT_BYTES, REQUIRED_FIELDS, guessMapping, parseCsv, type ColumnMap, type ImportField, type RowOutcome } from "@/lib/reviews/import-csv"
 import { buttonPrimary, buttonSecondary } from "@/app/app/orders/order-parts"
-import { MUTED, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead } from "./parts"
+import { MUTED, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead, errorOf } from "./parts"
 
 type Step = "file" | "map" | "check" | "done"
 
@@ -109,7 +109,7 @@ export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => voi
     setError(null)
     const r = await api<Checked>("/api/app/reviews/import", { method: "POST", body: { csv, mapping, preview: true }, timeoutMs: 60_000 })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(errorOf(r))
     setChecked(r.data)
     setOnlySkipped(false)
     setStep("check")
@@ -120,7 +120,7 @@ export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => voi
     setError(null)
     const r = await api<{ imported: number; rows: RowOutcome[] }>("/api/app/reviews/import", { method: "POST", body: { csv, mapping, fileName }, timeoutMs: 60_000 })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(errorOf(r))
     setResult({ imported: r.data.imported ?? 0, rows: r.data.rows ?? [] })
     setStep("done")
     if (r.data.imported) onDone(r.data.imported)
@@ -130,7 +130,7 @@ export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => voi
     setBusy(true)
     const r = await api<{ removed: number }>(`/api/app/reviews/import?id=${encodeURIComponent(id)}`, { method: "DELETE" })
     setBusy(false)
-    if (!r.ok) return setError(r.error)
+    if (!r.ok) return setError(errorOf(r))
     history.reload()
     onUndone()
   }

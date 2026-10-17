@@ -43,7 +43,7 @@ import { Pill, usePill } from "@/app/app/coupons/coupon-parts"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { appTimeZone } from "@/lib/i18n/format"
-import { CARD, MUTED, Placeholder, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead } from "./parts"
+import { CARD, MUTED, Placeholder, SEG, Sheet, ToolbarSelect, formatCount, shortDate, useRead, errorOf } from "./parts"
 import { ImportDialog } from "./import-dialog"
 
 const TAB_LABEL: Record<ReviewTab, () => string> = {
@@ -122,7 +122,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
     const r = await api<{ review: Record<string, unknown> }>(`/api/app/reviews/${review.id}`, { method: "PATCH", body: { action, photo } })
     if (!r.ok) {
       restore([review])
-      return say(r.error || tt("That did not save."), "error")
+      return say(errorOf(r) || tt("That did not save."), "error")
     }
     patchRow(review.id, fromServer(r.data.review ?? {}, review))
     say(
@@ -139,7 +139,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
     setBulkBusy(false)
     if (!res.ok) {
       restore(before)
-      return say(res.error || tt("That did not save."), "error")
+      return say(errorOf(res) || tt("That did not save."), "error")
     }
     for (const d of res.data.done) {
       const b = before.find((x) => x.id === d.id)
@@ -159,7 +159,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
     if (!r.ok) {
       patchRow(review.id, was)
       setReplying(review.id)
-      say(r.error || tt("The reply did not save."), "error")
+      say(errorOf(r) || tt("The reply did not save."), "error")
       return false
     }
     patchRow(review.id, { seller_reply: r.data.review?.seller_reply ?? text, seller_reply_at: r.data.review?.seller_reply_at ?? new Date().toISOString() })
@@ -173,7 +173,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
     const r = await api(`/api/reviews/${review.id}/reply`, { method: "DELETE" })
     if (!r.ok) {
       patchRow(review.id, was)
-      return say(r.error || tt("The reply was not removed."), "error")
+      return say(errorOf(r) || tt("The reply was not removed."), "error")
     }
     say(tt("Reply removed"))
   }
@@ -181,7 +181,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
   const report = async (review: ManagedReview, reason: ReportReason, note: string): Promise<boolean> => {
     const r = await api(`/api/reviews/${review.id}/report`, { method: "POST", body: { reason, note } })
     if (!r.ok) {
-      say(r.error || tt("The report did not save."), "error")
+      say(errorOf(r) || tt("The report did not save."), "error")
       return false
     }
     patchRow(review.id, { status: "hidden", hidden_by: "report", on_storelib: false })
@@ -192,7 +192,7 @@ export function ReviewsView({ initialTab = "all", highlight = null }: { initialT
   const remove = async (review: ManagedReview): Promise<boolean> => {
     const r = await api(`/api/app/reviews/${review.id}`, { method: "DELETE" })
     if (!r.ok) {
-      say(r.error || tt("That did not delete."), "error")
+      say(errorOf(r) || tt("That did not delete."), "error")
       return false
     }
     set((d) => (d ? { ...d, rows: d.rows.filter((x) => x.id !== review.id), total: Math.max(0, d.total - 1) } : d))
