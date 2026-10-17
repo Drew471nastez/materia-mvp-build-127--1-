@@ -154,6 +154,11 @@ export interface CommunityOnboarding {
   welcome?: string
   askIntro?: boolean
   showRules?: boolean
+  /** Round AF: the welcome's own heading, intro video (a YouTube, Vimeo or Loom link), button words, and whether it opens as a popup on the first visit. */
+  title?: string
+  videoUrl?: string
+  button?: string
+  style?: "card" | "popup"
   /** "dark" is the dark look. Anything else, including missing, is white. */
   appearance?: "light" | "dark"
 }

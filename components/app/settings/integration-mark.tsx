@@ -90,6 +90,9 @@ const STORELIB_TILES: Record<string, { icon: LucideIcon; tint: Tint }> = {
 /** Is one of Storelib's own, drawn as a tile. */
 export const hasBuiltInArt = (id: string | null | undefined) => !!id && id in STORELIB_TILES
 
+/** A Storelib tile's colour, for the banner on its page (./integration-detail). */
+export const tileColor = (id: string | null | undefined): string | null => (id && STORELIB_TILES[id] ? TINT[STORELIB_TILES[id].tint].top : null)
+
 /** The initial a tile falls back to: the service's name, without the words Storelib puts in front of its own. */
 export const markInitial = (name: string) => (name.replace(/^(Your own |Ship it )/, "").trim().charAt(0) || name.trim().charAt(0) || "S").toUpperCase()
 

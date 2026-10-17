@@ -65,7 +65,7 @@ const REVIEW_COLUMNS = new Set([
     verified, where it came from, who hid it, when it was published, and
     site_status (the store's say over its own website only). The
     app's reads ask again without them when the part has not run
-    (lib/reviews/storefront-server, app/app/reviews/load-reviews), and its
+    (lib/reviews/storefront-server, lib/reviews/manage-server), and its
     writes answer that the part is needed.
   */
   "title",

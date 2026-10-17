@@ -63,6 +63,17 @@ export type TranslationMap = Map<string, TranslationRow>
 /** The setting types that hold words a visitor reads. Everything else is the same in every language. */
 export const TRANSLATABLE_TYPES = new Set(["text", "textarea", "richtext", "inline_richtext", "html_text"])
 
+/**
+ * A setting whose words a visitor reads. A text box that holds a CSS value
+ * (a gradient, which the editor draws with its own gradient control) is
+ * not words: sent to a translator it came back as "gradient-liniar(...)".
+ * The editor's sidebar asks the same question, so what it offers to
+ * translate is exactly what the website lays over.
+ */
+export function isWordsField(f: Pick<SchemaField, "type"> & { id?: string; label?: string }): boolean {
+  return TRANSLATABLE_TYPES.has(f.type) && !/gradient/i.test(`${f.id ?? ""} ${f.label ?? ""}`)
+}
+
 export const MAX_TRANSLATION_LENGTH = 20_000
 
 /** A short, stable fingerprint of a piece of text (FNV-1a, 32 bits, hex): equal text, equal hash, on the server and in the browser. */
@@ -114,7 +125,7 @@ export function translatablesOf(sections: SectionInstance[], fieldsOf: FieldsOf,
   const out: Translatable[] = []
   const take = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string, where: string) => {
     for (const f of fields ?? []) {
-      if (!TRANSLATABLE_TYPES.has(f.type)) continue
+      if (!isWordsField(f)) continue
       const v = shownText(f, settings?.[f.id])
       if (v === null || !v.trim()) continue
       out.push({ key: key(f.id), source: v, label: f.label || f.id, where, multiline: f.type !== "text" })
@@ -221,7 +232,7 @@ export function localizeSections(sections: SectionInstance[], map: TranslationMa
   const over = (fields: SchemaField[] | undefined, settings: Record<string, unknown>, key: (id: string) => string) => {
     let next: Record<string, unknown> | null = null
     for (const f of fields ?? []) {
-      if (!TRANSLATABLE_TYPES.has(f.type)) continue
+      if (!isWordsField(f)) continue
       const shown = shownText(f, settings?.[f.id])
       if (shown === null) continue
       const v = valueFor(map, key(f.id), opts, shown)

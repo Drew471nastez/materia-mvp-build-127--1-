@@ -17,7 +17,14 @@
  *                  on the website as they wrote it, never replaced by
  *                  Storelib AI. Editing it, or Keep as is, settles it.
  *   Draft          translated automatically, not on the website until approved
- *   Done           on the website
+ *   Auto           Storelib AI's, on the website
+ *   Edited         the merchant's own, on the website; never replaced
+ *   Kept as written  marked Don't translate (Settings › Glossary): the
+ *                  original shows in every language
+ *
+ * Quick actions on a row: Keep as is (Needs review), and Use automatic on
+ * one the merchant wrote (Needs review or Edited), which asks Storelib AI
+ * for that one text and replaces theirs only once it has come back.
  *
  * "Translate the rest" drafts the ones to translate and Storelib AI's
  * changed ones, never one a person wrote or edited. Save keeps what was
@@ -36,7 +43,7 @@ import { TranslateBar, useRollingNumber } from "./translate-progress"
 
 type Status = "missing" | "outdated" | "draft" | "done"
 /** What the row says: the server's status, with the merchant's own outdated ones as Needs review. */
-type Shown = Status | "review"
+type Shown = Status | "review" | "auto" | "edited" | "kept"
 interface Item {
   key: string
   source: string
@@ -49,6 +56,8 @@ interface Item {
   ai: boolean
   /** The merchant's own, its original changed since (lib/markets/translate.ts needsReview). */
   review?: boolean
+  /** Kept untranslated on purpose (lib/markets/translation-rules.ts isExcluded). */
+  excluded?: boolean
 }
 interface Group {
   id: string
@@ -68,11 +77,14 @@ const STATUS: Record<Shown, { label: string; tone: "gray" | "amber" | "blue" | "
   review: { get label() { return tt("Needs review") }, tone: "amber" },
   draft: { get label() { return tt("Draft") }, tone: "blue" },
   done: { get label() { return tt("Done") }, tone: "green" },
+  auto: { get label() { return tt("Auto") }, tone: "blue" },
+  edited: { get label() { return tt("Edited") }, tone: "green" },
+  kept: { get label() { return tt("Kept as written") }, tone: "gray" },
 }
 
 const DOT: Record<"gray" | "amber" | "blue" | "green", string> = { gray: "bg-[#d1d5db]", amber: "bg-[#f59e0b]", blue: "bg-[#8b5cf6]", green: "bg-[#10b981]" }
 
-type Filter = "todo" | "review" | "all"
+type Filter = "todo" | "review" | "edited" | "all"
 
 /** How long one AI press is waited for: the route stops starting batches at 85s and is allowed 120s in all. */
 const DRAFT_WAIT_MS = 125_000
@@ -83,9 +95,10 @@ const DRAFT_WAIT_MS = 125_000
 */
 const loadedCache = new Map<string, Loaded>()
 
-const shownStatus = (i: Item): Shown => (i.review ? "review" : i.status)
-/** What Translate the rest can do: missing, or Storelib AI's with a changed original. Never the merchant's own. */
-const aiCanDo = (i: Item) => i.status === "missing" || (i.status === "outdated" && !i.review)
+const isEdited = (i: Item) => !i.ai && !!i.value && i.status === "done" && !i.review
+const shownStatus = (i: Item): Shown => (i.review ? "review" : i.excluded && (!i.value || i.ai) ? "kept" : i.status === "done" ? (i.ai ? "auto" : "edited") : i.status)
+/** What Translate the rest can do: missing, or Storelib AI's with a changed original. Never the merchant's own, never one kept as written. */
+const aiCanDo = (i: Item) => !i.excluded && (i.status === "missing" || (i.status === "outdated" && !i.review))
 
 /** The words of a rich text original, for reading above the field. */
 const plain = (html: string) => html.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h[1-6])>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim()
@@ -135,8 +148,10 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   const changed = Object.keys(edits).filter((k) => edits[k] !== byKey.get(k)?.value)
   const drafts = items.filter((i) => i.status === "draft")
   const reviews = items.filter((i) => i.review)
+  const edited = items.filter(isEdited)
+  const todoCount = items.filter((i) => aiCanDo(i)).length
   /* The last one settled while on Needs review: back to the rest of the list. */
-  const filterShown: Filter = filter === "review" && reviews.length === 0 ? "todo" : filter
+  const filterShown: Filter = (filter === "review" && reviews.length === 0) || (filter === "edited" && edited.length === 0) ? "todo" : filter
   const pending = changed.length + [...approve].filter((k) => !changed.includes(k)).length
 
   const save = async (alsoApprove: string[] = []) => {
@@ -163,6 +178,24 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
     setBusy(null)
     setNote(tt("Saved"))
     window.setTimeout(() => setNote(null), 1800)
+  }
+
+  /* One text at a time: Use automatic, Reset to automatic. */
+  const [rowBusy, setRowBusy] = React.useState<string | null>(null)
+  const takeAutomatic = async (i: Item) => {
+    if (!locale) return
+    setRowBusy(i.key)
+    setError(null)
+    const r = await api<{ values: Record<string, unknown> }>(`/api/store/translations/auto`, { method: "POST", body: { locale, items: [{ key: i.key, source: i.source, rich: i.rich }], replaceManual: true }, timeoutMs: 60_000 })
+    setRowBusy(null)
+    if (!r.ok) return setError(r.error)
+    if (!r.data.values?.[i.key]) return setError(tt("Couldn't translate that right now. Your text stays as it is."))
+    setEdits((x) => {
+      const n = { ...x }
+      delete n[i.key]
+      return n
+    })
+    await load(locale)
   }
 
   /*
@@ -226,7 +259,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
   const shown = jobRunning && job && job.total > 0 ? { done: job.done, total: job.total } : (data?.progress ?? { done: 0, total: 0 })
   const rolled = useRollingNumber(shown.done)
   const shownGroups = (data?.groups ?? [])
-    .map((g) => ({ ...g, items: g.items.filter((i) => (filterShown === "review" ? i.review || i.key in edits : filterShown === "all" || (i.status !== "done" && !i.review) || i.key in edits)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => (filterShown === "review" ? i.review || i.key in edits : filterShown === "edited" ? isEdited(i) || i.key in edits : filterShown === "all" || aiCanDo(i) || (i.status === "draft" && !i.review) || i.key in edits)) }))
     .filter((g) => g.items.length)
 
   return (
@@ -291,7 +324,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
               ) : null}
               <div className="ml-auto flex items-center gap-1 rounded-lg bg-[#f1f2f4] p-0.5" role="tablist" aria-label={tt("Show")}>
                 {/* Needs review only while there is one: the merchant's own translations whose original changed. */}
-                {(reviews.length ? (["todo", "review", "all"] as Filter[]) : (["todo", "all"] as Filter[])).map((f) => (
+                {(["todo", ...(reviews.length ? ["review"] : []), ...(edited.length ? ["edited"] : []), "all"] as Filter[]).map((f) => (
                   <button
                     key={f}
                     type="button"
@@ -301,7 +334,7 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                     data-translate-filter={f}
                     className={cn("h-8 rounded-md px-3 text-[13px] font-medium transition-colors", filterShown === f ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
                   >
-                    {f === "todo" ? tt("To do") : f === "review" ? tt("Needs review ({count})", { count: reviews.length }) : tt("All")}
+                    {f === "todo" ? (todoCount ? tt("To do ({count})", { count: todoCount }) : tt("To do")) : f === "review" ? tt("Needs review ({count})", { count: reviews.length }) : f === "edited" ? tt("Edited ({count})", { count: edited.length }) : tt("All")}
                   </button>
                 ))}
               </div>
@@ -347,6 +380,12 @@ export function TranslateSheet({ locale, defaultLanguage, waiting = false, publi
                         <span className={cn("h-1.5 w-1.5 rounded-full", DOT[st.tone])} aria-hidden="true" />
                         {st.label}
                       </span>
+                      {i.review || isEdited(i) ? (
+                        /* Storelib AI's translation of this one text in place of the merchant's, only once it has come back (POST /api/store/translations/auto). */
+                        <button type="button" className="text-[12.5px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline disabled:opacity-50" disabled={!!busy || rowBusy === i.key} onClick={() => void takeAutomatic(i)} data-use-automatic={i.key}>
+                          {rowBusy === i.key ? tt("Translating") : i.review ? tt("Use automatic") : tt("Reset to automatic")}
+                        </button>
+                      ) : null}
                       {i.status === "draft" || i.review ? (
                         /* A draft approved as it is, or the merchant's own kept as it is for the changed original (saved with it, so it is no longer outdated). */
                         <label className="flex items-center gap-1.5 text-[12.5px] text-[#4b5563]" data-keep-translation={i.review ? i.key : undefined}>

@@ -156,4 +156,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "194", file: "194_community_scheduled_posts.sql", sha256: "2e9c7de668bfb4a99aa3afe878ee06710cc3a8f1d2694bd6fd3c31d58b642c12" },
   { part: "200", file: "200_learn_access_types.sql", sha256: "9959b7a0fcad7ce8025c05e4d4f168319aeba2b57b48d8fcc5d1823b35e0a38b" },
   { part: "202", file: "202_community_deletion_and_setup.sql", sha256: "b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92" },
+  { part: "212", file: "212_checkout_text_overrides.sql", sha256: "ba6d49d827ec612e877a4c9caa5b2ed2d486f62a6c4d7120f39146c9eba81b50" },
+  { part: "213", file: "213_translation_rules.sql", sha256: "99085c8146d594da4765cc420c5a3e2ef6530aa28d97b40ba305aef322700e9e" },
+  { part: "215", file: "215_reviews_manage.sql", sha256: "50c6777de9bf2236675c3392cc0795455e9366cfa28b85a429ef3d6f1fc62eca" },
+  { part: "216", file: "216_review_widget_configs.sql", sha256: "0798f57a409af7bf17ec74d261e7e1be6de2e89d6d377319e3bc14be73afd992" },
 ]

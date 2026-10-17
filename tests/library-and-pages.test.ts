@@ -294,7 +294,7 @@ async function main() {
   console.log("\nAFTER: on a phone the sheet comes up on the new section's settings")
   // ═════════════════════════════════════════════════════════════════════════
   {
-    const add = editor.slice(editor.indexOf("const addSection = (type: string, presetIndex = 0, replaceConfirmed = false) => {"), editor.indexOf("// Add custom page"))
+    const add = editor.slice(editor.indexOf("const addSection = ("), editor.indexOf("// Add custom page"))
     check("adding selects the section and puts the sidebar on it, whichever tab it was on",
       /setSelectedPanel\(\{ type: "section", sectionId: newSection\.id \}\)\s*\n[\s\S]{0,240}setPageBrowserOpen\(false\)\s*\n\s*setSidebarMode\("sections"\)/.test(add))
     check("on a phone the canvas brings it into the room above the risen sheet", /bottomInset: isMobileView \? sheetCoverAbovePeek\(document\.documentElement\.style\) : undefined/.test(add))

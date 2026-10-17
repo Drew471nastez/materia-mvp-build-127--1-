@@ -85,7 +85,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
-import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
+import { APP_SECTION_CATEGORIES, appSectionCategory, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -927,7 +927,11 @@ export const SectionLibrary = memo(function SectionLibrary({
           under Created, 143 cards in one list. Each is filed by its kind
           instead, from what the theme says about it (section-categories.ts).
         */
-        const category = compatInstallId && schema.imported
+        /* Storelib's own apps' sections (Storelib Reviews and its widgets) under Apps, in either kind of theme (section-categories.ts). */
+        const app = own_ ? null : appSectionCategory(type)
+        const category = app
+          ? app
+          : compatInstallId && schema.imported
           ? classifyImportedSection({
               type,
               name: schema.name,
@@ -938,7 +942,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               groups: schema.enabled_on?.groups,
             })
           : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
-        const label = (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
+        const label = (app ? APP_SECTION_CATEGORIES.find((c) => c.id === app)?.label : undefined) ?? (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,
@@ -962,8 +966,9 @@ export const SectionLibrary = memo(function SectionLibrary({
     for (const e of entries) counts.set(e.category, (counts.get(e.category) ?? 0) + 1)
     /* An imported theme's kinds in their own order (section-categories.ts); Storelib's in the theme's. */
     const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
-    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY)
-    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
+    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
+    const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
+    const apps = APP_SECTION_CATEGORIES.filter((c) => counts.has(c.id)).map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: "apps" as const }))
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
@@ -972,7 +977,9 @@ export const SectionLibrary = memo(function SectionLibrary({
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ]
+      /* Apps last, under their own heading: Storelib Reviews' widgets. */
+      ...apps,
+    ] as { key: string; label: string; count: number; group?: "apps" }[]
   }, [entries, compatInstallId])
 
   /**
@@ -1295,7 +1302,9 @@ export const SectionLibrary = memo(function SectionLibrary({
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
-            <div className="flex w-max gap-2">{categories.map(chip)}</div>
+            <div className="flex w-max items-center gap-2">
+              {categories.map((cat, i) => (cat.group === "apps" && categories[i - 1]?.group !== "apps" ? [<span key="apps-heading" data-library-group="apps" className="ml-1 shrink-0 text-[12px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</span>, chip(cat)] : chip(cat)))}
+            </div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
           <div
@@ -1328,11 +1337,13 @@ export const SectionLibrary = memo(function SectionLibrary({
       </div>
       <div className="flex min-h-0 flex-1">
         <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label={tt("Categories")}>
-          {categories.map((cat) => {
+          {categories.map((cat, i) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
+            const heading = cat.group === "apps" && categories[i - 1]?.group !== "apps"
             return (
+              <div key={cat.key}>
+              {heading ? <p data-library-group="apps" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</p> : null}
               <button
-                key={cat.key}
                 type="button"
                 aria-pressed={on}
                 onClick={() => {
@@ -1348,6 +1359,7 @@ export const SectionLibrary = memo(function SectionLibrary({
                 {/* How many each holds, so a long theme's list says where the most is. */}
                 <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
+              </div>
             )
           })}
         </nav>

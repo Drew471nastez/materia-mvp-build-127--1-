@@ -3,7 +3,9 @@
  * `?view=` picks one:
  *
  *   product         the reviews block on a product page (components/reviews/reviews-list)
- *   seller          the seller's Reviews list in /app (app/app/reviews/reviews-client)
+ *   seller          Storelib Reviews' own page (components/reviews/manage), on the
+ *                   view `&manage=` names (reviews when left out); the probe's
+ *                   server answers /api/app/reviews/*
  *   receipt         the receipt's review card for a guest, from the review
  *                   request email's fourth star (?rate=4)
  *   receipt-own     the same card once they have reviewed: theirs, the seller's reply, Edit and Delete
@@ -16,12 +18,12 @@ import { createRoot } from "react-dom/client"
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { LibraryReview } from "@/components/reviews/library-review"
-import { ReviewsClient } from "@/app/app/reviews/reviews-client"
+import { ReviewsManage } from "@/components/reviews/manage/reviews-manage"
 import { ReviewsPanel } from "@/components/storefront/reviews-panel"
 import { ReviewForm } from "@/components/reviews/review-form"
 
 const params = new URLSearchParams(location.search)
-const view = params.get("view") || "product"
+const view = params.get("probe") || params.get("view") || "product"
 const dark = params.get("theme") === "dark"
 const origin = location.origin
 const days = (n: number) => new Date(Date.parse("2026-09-27T10:00:00Z") - n * 86_400_000).toISOString()
@@ -177,17 +179,14 @@ function Page() {
     )
   }
   if (view === "seller") {
-    const rows = [
-      ...REVIEWS.map((r) => ({ ...r, edited_at: r.edited_at ?? null, status: "published", reviewer_name: r.reviewer_name ?? null, seller_reply: r.seller_reply ?? null, seller_reply_at: r.seller_reply_at ?? null })),
-      { id: "r5", product_id: "p2", rating: 1, content: "Scam, the seller is a thief, call me on 0722 000 000.", created_at: days(3), edited_at: null, status: "hidden", reviewer_name: null, seller_reply: null, seller_reply_at: null, buyer: { display_name: "anon123", avatar_url: null } },
-    ]
-    const products = [
-      { id: "p1", title: "Notion Budget", slug: "notion-budget", thumbnail_url: null },
-      { id: "p2", title: "Lightroom Presets Vol. 2", slug: "presets-2", thumbnail_url: null },
-    ]
+    /* The page reads its view from ?view=, which this harness uses itself: ?manage= is handed over as the address the page sees. */
+    const manage = params.get("manage") || "reviews"
+    if (new URLSearchParams(location.search).get("view") !== manage) history.replaceState(null, "", `?view=${manage}&probe=seller`)
     return (
-      <div className="h-screen">
-        <ReviewsClient initialReviews={rows as never} products={products} ready />
+      <div className="min-h-screen bg-[#f8f9fa] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1200px]">
+          <ReviewsManage />
+        </div>
       </div>
     )
   }
