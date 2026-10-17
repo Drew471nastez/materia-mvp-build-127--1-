@@ -294,7 +294,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 794 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 797 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -424,6 +424,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=true\]\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="true"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-expanded\:bg-\[\#eef0f2\]:not([data-own-look], [data-own-look] *)[aria-expanded="true"] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-pressed\:bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *)[aria-pressed="true"] { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .aria-pressed\:bg-white:not([data-own-look], [data-own-look] *)[aria-pressed="true"] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-pressed\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-pressed="true"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .before\:bg-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *)::before { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .before\:bg-\[\#f0f1f3\]:not([data-own-look], [data-own-look] *)::before { background-color: #1f1f23; }
@@ -861,6 +862,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]\/70:not([data-own-look], [data-own-look] *) { color: rgba(236,236,238,0.7); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a1a2e\]\/80:not([data-own-look], [data-own-look] *) { color: rgba(236,236,238,0.8); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1a4fb5\]:not([data-own-look], [data-own-look] *) { color: hsla(219,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1d4ed8\]:not([data-own-look], [data-own-look] *) { color: hsla(224,75%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1d6b45\]:not([data-own-look], [data-own-look] *) { color: hsla(151,57%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-\[\#1f2937\]:not([data-own-look], [data-own-look] *) { color: hsla(215,28%,72%,1); }
@@ -941,6 +943,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:shadow-\[inset_0_0_0_2px_\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus-visible { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.019); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:shadow-\[0_0_0_4px_rgba\(255\,255\,255\,0\.08\)\]:not([data-own-look], [data-own-look] *):focus { box-shadow: 0 0 0 4px rgba(255,255,255,0.006); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_-1px_0_\#fff\]:not([data-own-look], [data-own-look] *) { box-shadow: 0 -1px 0 rgba(255,255,255,0.009); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1\.5px_\#1a1a2e\]:not([data-own-look], [data-own-look] *) { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.019); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1\.5px_\#fff\,0_1px_3px_rgba\(17\,24\,39\,0\.3\)\]:not([data-own-look], [data-own-look] *) { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.009),0 1px 3px rgba(17,24,39,0.3); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1px_\#1a1a2e\]:not([data-own-look], [data-own-look] *) { box-shadow: 0 0 0 1px rgba(255,255,255,0.019); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[0_0_0_1px_\#e5e7eb\,0_1px_2px_rgba\(15\,23\,42\,0\.05\)\]:not([data-own-look], [data-own-look] *) { box-shadow: 0 0 0 1px rgba(255,255,255,0.009),0 1px 2px rgba(15,23,42,0.05); }

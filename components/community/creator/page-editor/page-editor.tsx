@@ -2,30 +2,49 @@
 
 /**
  * ===========================================================================
- *  THE PAGE EDITOR (round 33)
+ *  THE PAGE EDITOR (round 33, rebuilt round 26)
  * ===========================================================================
- * /app/community/<slug>/page. The owner: "the Page editor should be the
- * best: show the actual community page as it looks to visitors, with
- * subtle Edit buttons on each editable block that open the right editor in
- * a side panel (desktop) or bottom sheet (phone), changes reflected live,
- * one Save bar."
+ * /app/community/<slug>/page. The owner, round 26: "currently not
+ * responsive, occupies too much space, overly complicated; the preview
+ * cramped, the editor awkwardly split. A large live preview; a compact
+ * organized editing panel; collapse/hide the panel; full width preview;
+ * desktop/mobile preview switch; simple field groups; no horizontal
+ * overflow; loading/save/success/error feedback. On mobile a dedicated
+ * editing panel or drawer and a usable full width preview. Avoid nested
+ * scroll containers. Preview as visitor."
  *
- *   THE PAGE      the About page itself (components/community/public/
- *                 sales-page.tsx), drawn from the draft (./draft.ts
+ *   THE STAGE     the About page itself (components/community/public/
+ *                 sales-page.tsx) drawn from the draft (./draft.ts
  *                 previewData) into a frame 1440px or 390px wide
- *                 (./preview-frame.tsx), Computer or Phone above it. A
- *                 press on a part opens its editor; the part being edited
- *                 keeps an outline.
- *   THE PANEL     from 1024px, beside the page: the list of the parts with
- *                 what each holds now, or the one open (./panels.tsx) under
- *                 a way back to the list. Below 1024px the list is under the
- *                 page and a part opens in the bottom sheet, the page still
- *                 showing above it.
- *   SAVE          one bar for everything: in the row above the page from
- *                 1024px; on a phone and a tablet the /app save bar
- *                 (../parts EditorFoot), which rises only with a change.
- *                 Save sends what changed (./draft.ts changedBody), waits
- *                 for uploads and for a link that is not an address yet.
+ *                 (./preview-frame.tsx), under one row of controls: Computer
+ *                 or Phone, As a visitor, the state of the save, Full screen,
+ *                 the panel, Save and Publish. It is as tall as the screen
+ *                 below the admin's tabs (measured once, useStage), and stays
+ *                 there while the panel beside it scrolls with the page: the
+ *                 only scroll inside it is the page's own.
+ *   THE PANEL     from 1024px, beside the stage, 380px: the six groups
+ *                 (./panels.tsx), one open at a time, in the page's own
+ *                 scroll (no second scroll box). Hidden with one press, the
+ *                 stage then takes the whole width. Below 1024px the groups
+ *                 are a drawer over the bottom of the screen, the page still
+ *                 showing above it, opened by Edit page in the bar at the
+ *                 foot or by a tap on a part of the page.
+ *   FULL SCREEN   the stage alone over the whole window (Escape leaves).
+ *   AS A VISITOR  the page as somebody signed out sees it: no outlines, no
+ *                 Edit badges, no placeholders for empty parts; the gallery
+ *                 and the questions work, links and Join do not.
+ *   SAVE          one Save for everything, which sends only what changed
+ *                 (./draft.ts changedBody) and waits for uploads, for a link
+ *                 that is not an address yet, and for anything ./draft.ts
+ *                 draftProblems names (opening the group it is in). Saving,
+ *                 Saved with a check, Unsaved changes, or what went wrong,
+ *                 always beside it. Ctrl or Cmd S saves. Leaving with changes
+ *                 asks first.
+ *   PUBLISH       a draft community has Publish beside Save (Save and
+ *                 publish while something is unsaved): the same request as
+ *                 the bar's Publish (PATCH { publish: true },
+ *                 lib/communities/server/creator.ts setPublished), after the
+ *                 save.
  *
  * THE BUTTON'S COLOUR FROM THE LOGO. Picking "Your colour" reads the logo
  * into a 48px canvas (through the image optimiser, the site's own origin,
@@ -33,52 +52,115 @@
  * (lib/communities/page-look.ts dominantColour); a new logo reads it again.
  */
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronDown, Eye, Maximize2, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen, Pencil, Smartphone, Sun } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
-import { DEFAULT_LOOK, dominantColour, type PageLook } from "@/lib/communities/page-look"
+import { dominantColour } from "@/lib/communities/page-look"
 import { htmlToPlainText } from "@/lib/rich-text/html"
-import { toEditorHtml } from "@/lib/rich-text/html"
+import { getMainDomain } from "@/lib/url-helpers"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { JoinSurface } from "@/components/community/public/join-controls"
 import type { SalesPageData } from "@/components/community/public/types"
-import { coverItem } from "../logic"
-import { EditorFoot, Segmented, buttonPrimary, buttonSecondary, card, errorText, send, useToast } from "../parts"
+import { COMMUNITY_STATE_WORD, buttonPrimary, buttonSecondary, card, communityState, errorText, send, useToast } from "../parts"
 import type { CommunityHead, SettingsData } from "../view-types"
-import { PAGE_BLOCKS, changedBody, isPageBlock, previewData, type PageBlock, type PageDraft } from "./draft"
-import { BLOCK_INFO, BlockPanel } from "./panels"
+import { GROUP_BLOCKS, PAGE_BLOCKS, PAGE_GROUPS, changedBody, draftOf, draftProblems, groupOf, isPageBlock, previewData, type DraftProblem, type PageBlock, type PageDraft, type PageGroup } from "./draft"
+import { BLOCK_INFO, GROUP_INFO, GroupFields, groupSummary, type PanelProps } from "./panels"
 import { PreviewDocument, PreviewFrame, type Device } from "./preview-frame"
 import { PreviewChrome } from "./preview-chrome"
 
-function draftOf(head: CommunityHead, data: SettingsData): PageDraft {
-  return {
-    name: head.name,
-    tagline: data.tagline ?? "",
-    descriptionHtml: toEditorHtml(data.descriptionHtml ?? data.description),
-    logoUrl: head.logoUrl,
-    coverUrl: head.coverUrl,
-    gallery: data.gallery,
-    benefits: data.benefits,
-    faq: data.faq,
-    links: data.links,
-    look: data.pageLook ?? DEFAULT_LOOK,
-  }
-}
+/*
+  The panel beside the stage from 1280px. At 1024 it left the page 350px wide, which is the cramped preview the owner
+  saw; below 1280 the groups are a drawer instead and the page has the whole width.
+*/
+const WIDE = "(min-width: 1280px)"
 
 function useWide(): boolean {
   return React.useSyncExternalStore(
     (f) => {
-      const mq = window.matchMedia("(min-width: 1024px)")
+      const mq = window.matchMedia(WIDE)
       mq.addEventListener("change", f)
       return () => mq.removeEventListener("change", f)
     },
-    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => window.matchMedia(WIDE).matches,
     () => true,
   )
+}
+
+/**
+ * THE STAGE'S HEIGHT, MEASURED ONCE AND SHARED (CLAUDE.md: "measure it once"). The pane the admin scrolls in
+ * (community-shell.tsx .orders-pane), the row of tabs that sticks at its top, and on a phone the bar at the foot, read
+ * from the page itself and handed to CSS as two numbers on the editor: --pe-top (where the stage sticks, under the
+ * tabs) and --pe-stage-h (its height). On a computer the stage fills the pane under the tabs once the bar with the
+ * name has scrolled away; on a phone and a tablet, where nothing else is on the screen, it fills what is left as the
+ * page opens, so the card is whole without a scroll.
+ */
+/** How much of the screen the phone's drawer takes; the page shows in what is left above it. */
+const SHEET_SHARE = 0.52
+
+function useStage(root: React.RefObject<HTMLDivElement | null>, wide: boolean, drawer: boolean) {
+  React.useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const pane = el.closest<HTMLElement>(".orders-pane") ?? (document.scrollingElement as HTMLElement | null)
+    if (!pane) return
+    /*
+      THE DRAWER OPEN (round 26): the page is what the creator is changing, so it stays in sight above the drawer. The bar
+      with the community's name scrolls away (the tabs stay), the row of controls steps aside, and the stage is as tall
+      as what is left between the tabs and the drawer; the part being edited is brought into that space
+      (./preview-frame.tsx focus). Closed, the pane goes back to the top.
+    */
+    const header = pane.querySelector<HTMLElement>("[data-community-header]")?.offsetHeight ?? 0
+    if (!wide) pane.scrollTo({ top: drawer ? header : 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+    let raf = 0
+    const read = () => {
+      raf = 0
+      if (!el.getClientRects().length) return
+      const tabs = pane.querySelector<HTMLElement>("[data-community-tabs-bar]")
+      const tabsH = tabs?.offsetHeight ?? 0
+      const paneRect = pane.getBoundingClientRect()
+      const paneH = pane.clientHeight || window.innerHeight
+      let h: number
+      if (wide) {
+        h = paneH - tabsH - 12 - 16
+      } else {
+        const stage = el.querySelector<HTMLElement>("[data-page-stage]")
+        const bar = el.querySelector<HTMLElement>("[data-page-phone-bar]")
+        /* Where the stage starts in the pane's content, and so on the screen with the pane at the top or scrolled past the bar. */
+        const top = stage ? stage.getBoundingClientRect().top - paneRect.top + pane.scrollTop : tabsH
+        if (drawer) {
+          const vv = window.visualViewport
+          const sheetTop = (vv ? vv.offsetTop + vv.height : window.innerHeight) * (1 - SHEET_SHARE)
+          h = sheetTop - (paneRect.top + top - header) - 8
+        } else {
+          const barTop = bar ? bar.getBoundingClientRect().top - paneRect.top : paneH - 16
+          h = barTop - top - 12
+        }
+      }
+      el.style.setProperty("--pe-top", `${tabsH + 12}px`)
+      el.style.setProperty("--pe-stage-h", `${Math.round(Math.max(wide ? 420 : drawer ? 120 : 300, h))}px`)
+    }
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(read)
+    }
+    read()
+    const ro = new ResizeObserver(soon)
+    ro.observe(pane)
+    const tabs = pane.querySelector<HTMLElement>("[data-community-tabs-bar]")
+    if (tabs) ro.observe(tabs)
+    window.addEventListener("resize", soon)
+    window.visualViewport?.addEventListener("resize", soon)
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener("resize", soon)
+      window.visualViewport?.removeEventListener("resize", soon)
+    }
+  }, [root, wide, drawer])
 }
 
 /** The logo's commonest saturated colour, or null (no logo, or nothing but greys in it). */
@@ -106,76 +188,75 @@ async function logoColour(url: string): Promise<string | null> {
   }
 }
 
-/** What a part holds now, for its row in the list. */
-function summary(block: PageBlock, d: PageDraft, defaultJoin: string): string {
-  switch (block) {
-    case "cover": {
-      const v = coverItem(d.gallery)
-      return v ? tt("A video") : d.coverUrl ? (d.look.coverX === 50 && d.look.coverY === 50 ? tt("A picture") : tt("A picture, moved")) : tt("None yet")
-    }
-    case "gallery": {
-      const n = d.gallery.length - (coverItem(d.gallery) ? 1 : 0)
-      return n ? tt("{n, plural, one {# picture or video} other {# pictures and videos}}", { n }) : tt("None yet")
-    }
-    case "logo":
-      return d.logoUrl ? tt("Added") : tt("None yet")
-    case "name":
-      return d.name
-    case "tagline":
-      return d.tagline || tt("None yet")
-    case "description":
-      return htmlToPlainText(d.descriptionHtml).replace(/\s+/g, " ").trim().slice(0, 80) || tt("None yet")
-    case "links": {
-      const n = d.links.length
-      return n ? tt("{n, plural, one {# link} other {# links}}", { n }) : tt("None yet")
-    }
-    case "benefits": {
-      const n = d.benefits.filter((b) => b.trim()).length
-      return n ? tt("{n, plural, one {# line} other {# lines}}", { n }) : tt("None yet")
-    }
-    case "join":
-      return d.look.joinLabel.trim() || defaultJoin
-    case "faq": {
-      const n = d.faq.length
-      return n ? tt("{n, plural, one {# question} other {# questions}}", { n }) : tt("None yet")
-    }
-  }
-}
-
 /** The page inside the frame: its bar, its columns, the About page drawn from the draft. */
-function FramedPage({ data }: { data: SalesPageData }) {
+function FramedPage({ data, visitor }: { data: SalesPageData; visitor: boolean }) {
   const doc = React.useContext(PreviewDocument)
   return (
     <JoinSurface.Provider value={doc?.body ?? null}>
       <PreviewChrome community={data.community}>
-        <CommunitySalesPage data={data} editing />
+        <CommunitySalesPage data={data} editing={!visitor} />
       </PreviewChrome>
     </JoinSurface.Provider>
   )
 }
 
-export function PageEditor({ head, data, preview, creatorId }: { head: CommunityHead; data: SettingsData; preview: SalesPageData | null; creatorId: string }) {
+/** The group a field named by the server's answer is in (a refused save opens it). */
+function groupOfField(field: string | undefined): PageGroup | null {
+  if (!field) return null
+  const key = field.split(".")[0]
+  const map: Record<string, PageBlock> = { name: "name", tagline: "tagline", summary: "summary", logoUrl: "logo", coverUrl: "cover", gallery: "gallery", descriptionHtml: "description", description: "description", benefits: "benefits", faq: "faq", links: "links", memberLinks: "memberLinks", pageLook: "join", seoTitle: "search", seoDescription: "search", discoveryEnabled: "search" }
+  return map[key] ? groupOf(map[key]) : null
+}
+
+function problemText(p: DraftProblem): string {
+  if (p.block === "summary") return tt("The short description is over 160 characters.")
+  if (p.block === "memberLinks") return p.code === "name" ? tt("Member link {n} needs a name.", { n: p.index + 1 }) : tt("Member link {n} needs a web address or a Storelib page.", { n: p.index + 1 })
+  return p.code === "money" ? tt("The join button cannot name a price, a currency or a billing period.") : tt("Joining costs money, so the button cannot say free.")
+}
+
+type SaveState = "idle" | "saving" | "saved" | "publishing"
+
+const iconButton = "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#4b5563] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 aria-pressed:bg-white aria-pressed:text-[#1a1a2e] aria-pressed:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.08)] sm:h-9 sm:w-9 [-webkit-tap-highlight-color:transparent]"
+
+export function PageEditor({ head, data, preview, creatorId, clicks = null }: { head: CommunityHead; data: SettingsData; preview: SalesPageData | null; creatorId: string; /** Round 26: how often members opened each member link, when it is counted. */ clicks?: Record<string, number> | null }) {
   const router = useRouter()
   const toast = useToast()
   const wide = useWide()
+  const root = React.useRef<HTMLDivElement>(null)
   const start = React.useMemo(() => draftOf(head, data), [head, data])
   const [saved, setSaved] = React.useState(start)
   const [d, setD] = React.useState(start)
-  const [open, setOpen] = React.useState<PageBlock | null>(null)
+  const [group, setGroup] = React.useState<PageGroup | null>("basics")
+  const [seen, setSeen] = React.useState<ReadonlySet<PageGroup>>(() => new Set(["basics"]))
+  const [picked, setPicked] = React.useState<PageBlock | null>(null)
   const [focus, setFocus] = React.useState<{ block: string } | null>(null)
   const [device, setDevice] = React.useState<Device>("desktop")
-  const [busy, setBusy] = React.useState(false)
+  const [visitor, setVisitor] = React.useState(false)
+  const [dark, setDark] = React.useState(false)
+  const [panel, setPanel] = React.useState(true)
+  const [full, setFull] = React.useState(false)
+  const [sheet, setSheet] = React.useState(false)
+  useStage(root, wide, !wide && sheet)
+  const [phase, setPhase] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const [uploads, setUploads] = React.useState<{ cover: boolean; gallery: boolean }>({ cover: false, gallery: false })
   const [badLinks, setBadLinks] = React.useState(0)
   const [brandBusy, setBrandBusy] = React.useState(false)
   const uploading = uploads.cover || uploads.gallery
+  const busy = phase === "saving" || phase === "publishing"
   const body = React.useMemo(() => changedBody(saved, d), [saved, d])
   const dirty = Object.keys(body).length > 0
+  const state = communityState(head)
+  const canPublish = state === "draft" && head.can.manage_settings === true
+  const fieldsReady = data.pageFieldsReady === true
+  const free = preview ? preview.join.kind === "join_free" || preview.join.option?.kind === "free" : head.access === "free"
+  const paid = preview ? preview.join.kind === "checkout" || preview.join.option?.kind === "paid" || head.access === "paid" || head.access === "product" : head.access === "paid" || head.access === "product"
+  const problems = React.useMemo(() => draftProblems(d, { paid }), [d, paid])
 
-  /* A phone opens on the phone's page. */
+  /* A phone or a tablet opens on the phone's page; the page's look starts as the dashboard's. */
   React.useEffect(() => {
-    if (!window.matchMedia("(min-width: 1024px)").matches) setDevice("phone")
+    if (!window.matchMedia(WIDE).matches) setDevice("phone")
+    if (document.documentElement.hasAttribute("data-sl-dark")) setDark(true)
   }, [])
   /* The server drew the page again (a save, a change elsewhere) while nothing was changed here: start from it. */
   const dirtyRef = React.useRef(dirty)
@@ -185,6 +266,22 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
     setSaved(start)
     setD(start)
   }, [start])
+  /* Saved, with its check, for a moment. */
+  React.useEffect(() => {
+    if (phase !== "saved") return
+    const t = window.setTimeout(() => setPhase("idle"), 2400)
+    return () => window.clearTimeout(t)
+  }, [phase])
+  /* Leaving with changes asks first (a reload, a closed tab, an address typed). */
+  React.useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty])
 
   const set = React.useCallback(<K extends keyof PageDraft>(k: K, v: PageDraft[K]) => {
     setD((x) => ({ ...x, [k]: v }))
@@ -213,26 +310,112 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
   const videos = data.galleryVideos
   const shown = React.useMemo(() => (preview ? previewData(preview, d, videos) : null), [preview, d, videos])
   const defaultJoin = preview?.join.label || tt("Join")
+  const summaryHint = React.useMemo(() => {
+    const t = d.tagline.trim() || htmlToPlainText(d.descriptionHtml).replace(/\s+/g, " ").trim()
+    return Array.from(t).slice(0, 160).join("")
+  }, [d.tagline, d.descriptionHtml])
 
-  const pick = React.useCallback((b: string) => {
-    if (!isPageBlock(b)) return
-    setOpen(b)
+  /* ── Opening a group, from its header or from a part of the page ── */
+  const scrollTo = React.useRef<PageBlock | null>(null)
+  const openGroup = React.useCallback((g: PageGroup | null, block?: PageBlock) => {
+    setGroup(g)
+    if (g) setSeen((s) => (s.has(g) ? s : new Set(s).add(g)))
+    if (block) scrollTo.current = block
   }, [])
-  const choose = (b: PageBlock) => {
-    setOpen(b)
-    setFocus({ block: b })
+  /* The field asked for, brought into view in the panel or the drawer once its group is drawn. */
+  React.useEffect(() => {
+    const b = scrollTo.current
+    if (!b) return
+    scrollTo.current = null
+    const t = window.setTimeout(() => {
+      const el = root.current?.ownerDocument.getElementById(`pe-field-${b}`)
+      if (!el || !el.getClientRects().length) return
+      /*
+        Only the box the field is in moves: the drawer's list on a phone, the admin's pane beside the stage on a computer
+        (to just under its tabs). scrollIntoView would also move the drawer itself and the page around the frame.
+      */
+      const box = el.closest<HTMLElement>("[data-page-sheet-body]") ?? el.closest<HTMLElement>(".orders-pane")
+      if (!box) return
+      const under = box.matches(".orders-pane") ? (box.querySelector<HTMLElement>("[data-community-tabs-bar]")?.offsetHeight ?? 0) + 12 : 0
+      const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - under
+      box.scrollTo({ top: Math.max(0, box.scrollTop + delta), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+    }, wide ? 0 : 340)
+    return () => window.clearTimeout(t)
+  })
+  const pick = React.useCallback(
+    (b: string) => {
+      if (!isPageBlock(b)) return
+      setPicked(b)
+      openGroup(groupOf(b), b)
+      setFull(false)
+      if (window.matchMedia(WIDE).matches) setPanel(true)
+      else {
+        setSheet(true)
+        /* Once the stage has made room above the drawer, the part is brought into it. */
+        window.setTimeout(() => setFocus({ block: b }), 380)
+      }
+    },
+    [openGroup],
+  )
+  const toggleGroup = (g: PageGroup) => {
+    if (group === g) return openGroup(null)
+    openGroup(g)
+    const first = GROUP_BLOCKS[g].find((b) => b !== "memberLinks" && b !== "search") ?? null
+    setPicked(first)
+    if (first) setFocus({ block: first })
   }
 
-  const save = async () => {
-    if (badLinks) return setError(tt("A link is not an address yet. Fix it or remove it."))
-    if (!dirty) return
-    setBusy(true)
+  /* ── Save and publish ── */
+  const save = async (): Promise<boolean> => {
+    if (uploading) return false
+    if (!d.name.trim()) {
+      openGroup("basics", "name")
+      setError(tt("A community needs a name."))
+      return false
+    }
+    if (badLinks) {
+      openGroup("links", "links")
+      setError(tt("A link is not an address yet. Fix it or remove it."))
+      return false
+    }
+    if (problems.length) {
+      const first = problems[0]
+      openGroup(groupOf(first.block), first.block)
+      if (!wide) setSheet(true)
+      setError(problemText(first))
+      return false
+    }
+    if (!dirty) return true
+    setPhase("saving")
     setError(null)
+    const sent = d
     const res = await send(`/api/app/community/${head.id}`, "PATCH", body)
-    setBusy(false)
-    if (!res.ok) return setError(errorText(res.data.error))
-    setSaved(d)
+    if (!res.ok) {
+      setPhase("idle")
+      setError(errorText(res.data.error))
+      const g = groupOfField(res.data.field)
+      if (g) openGroup(g)
+      return false
+    }
+    setSaved(sent)
+    setPhase("saved")
     toast(tt("Saved"))
+    router.refresh()
+    announceCommunityUpdated(head.id)
+    return true
+  }
+  const publish = async () => {
+    if (!canPublish || busy) return
+    if (dirty && !(await save())) return
+    setPhase("publishing")
+    setError(null)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", { publish: true })
+    if (!res.ok) {
+      setPhase("idle")
+      return setError(errorText(res.data.error, tt("It could not be published. Try again.")))
+    }
+    setPhase("saved")
+    toast(tt("Published. Your page is live."))
     router.refresh()
     announceCommunityUpdated(head.id)
   }
@@ -241,173 +424,295 @@ export function PageEditor({ head, data, preview, creatorId }: { head: Community
     setError(null)
     setBadLinks(0)
   }
+  /* Full screen takes the focus to its own way out, and gives it back to the button that opened it. */
+  React.useEffect(() => {
+    if (!full) return
+    const opener = document.activeElement as HTMLElement | null
+    const t = window.setTimeout(() => document.querySelector<HTMLElement>("[data-page-stage][data-page-full] [data-page-full-toggle]")?.focus(), 0)
+    return () => {
+      window.clearTimeout(t)
+      window.setTimeout(() => (opener && opener.isConnected ? opener : root.current?.querySelector<HTMLElement>("[data-page-full-toggle]"))?.focus(), 0)
+    }
+  }, [full])
+  /* Ctrl or Cmd S, while this section is the one on screen. */
+  const saveRef = React.useRef(save)
+  saveRef.current = save
+  React.useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && full) setFull(false)
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "s") {
+        if (!root.current?.getClientRects().length) return
+        e.preventDefault()
+        void saveRef.current()
+      }
+    }
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [full])
 
   const labels = React.useMemo(() => Object.fromEntries(PAGE_BLOCKS.map((b) => [b, BLOCK_INFO[b].title])), [])
-  const panelProps = open
-    ? {
-        block: open,
-        draft: d,
-        set,
-        setMany,
-        communityId: head.id,
-        creatorId,
-        videos,
-        galleryReady: data.galleryReady,
-        defaultJoinLabel: defaultJoin,
-        requests: preview?.join.kind === "request",
-        free: preview ? preview.join.kind === "join_free" || preview.join.option?.kind === "free" : true,
-        onError: (m: string | null) => setError(m),
-        onBusy: (what: "cover" | "gallery", b: boolean) => setUploads((u) => (u[what] === b ? u : { ...u, [what]: b })),
-        onLinks: (links: PageDraft["links"], invalid: number) => {
-          set("links", links)
-          setBadLinks(invalid)
-        },
-        brandBusy,
-        onPickBrand: () => void readBrand(d.logoUrl),
-      }
-    : null
+  const panelProps: PanelProps = {
+    head,
+    draft: d,
+    set,
+    setMany,
+    communityId: head.id,
+    creatorId,
+    videos,
+    galleryReady: data.galleryReady,
+    defaultJoinLabel: defaultJoin,
+    requests: preview?.join.kind === "request",
+    free,
+    onError: (m: string | null) => setError(m),
+    onBusy: (what: "cover" | "gallery", b: boolean) => setUploads((u) => (u[what] === b ? u : { ...u, [what]: b })),
+    onLinks: (links: PageDraft["links"], invalid: number) => {
+      set("links", links)
+      setBadLinks(invalid)
+    },
+    brandBusy,
+    onPickBrand: () => void readBrand(d.logoUrl),
+    fieldsReady,
+    clicks,
+    problems,
+    summaryHint,
+    publishing: phase === "publishing",
+    onPublish: canPublish ? () => void publish() : null,
+    origin: getMainDomain(),
+  }
 
-  const status = error ?? (uploading ? tt("Uploading") : busy ? tt("Saving") : dirty ? tt("Unsaved changes") : tt("Everything is saved"))
+  /* ── What the row says ── */
+  const status: { tone: "error" | "busy" | "dirty" | "saved" | "idle"; text: string } = error
+    ? { tone: "error", text: error }
+    : uploading
+      ? { tone: "busy", text: tt("Uploading") }
+      : phase === "saving"
+        ? { tone: "busy", text: tt("Saving") }
+        : phase === "publishing"
+          ? { tone: "busy", text: tt("Publishing") }
+          : dirty
+            ? { tone: "dirty", text: tt("Unsaved changes") }
+            : phase === "saved"
+              ? { tone: "saved", text: tt("Saved") }
+              : { tone: "idle", text: COMMUNITY_STATE_WORD[state] }
+  const dot = { error: "bg-[#d92d20]", busy: "bg-[#e8a400] animate-pulse motion-reduce:animate-none", dirty: "bg-[#e8a400]", saved: "bg-[#22a06b]", idle: state === "published" ? "bg-[#22a06b]" : "bg-[#9ca3af]" }[status.tone]
+  const statusLine = (
+    <p role="status" aria-live="polite" className={cn("flex min-w-0 items-center gap-2 text-[13px] leading-5", status.tone === "error" ? "text-[#b42318]" : status.tone === "dirty" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")} data-page-status={status.tone}>
+      <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", dot)} />
+      <span className="truncate">{status.text}</span>
+    </p>
+  )
+  const saveLabel = phase === "saving" ? tt("Saving") : phase === "saved" && !dirty ? tt("Saved") : tt("Save")
+  const publishLabel = phase === "publishing" ? tt("Publishing") : dirty ? tt("Save and publish") : tt("Publish")
 
-  const list = (
-    <ul className="divide-y divide-[#f1f2f4]" data-page-parts="">
-      {PAGE_BLOCKS.map((b) => (
-        <li key={b}>
-          <button
-            type="button"
-            onClick={() => choose(b)}
-            data-page-part={b}
-            aria-current={open === b ? "true" : undefined}
-            className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2 text-left outline-none transition-colors duration-100 hover:bg-[#f8f9fa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent] sm:px-5"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14.5px] font-medium leading-5 text-[#1a1a2e]">{BLOCK_INFO[b].title}</span>
-              <span className="mt-0.5 block truncate text-[13px] leading-[18px] text-[#6b7280]">{summary(b, d, defaultJoin)}</span>
-            </span>
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af]" />
-          </button>
-        </li>
+  const deviceSwitch = (
+    <div role="radiogroup" aria-label={tt("Preview on")} className="inline-flex shrink-0 rounded-[10px] bg-[#eef0f2] p-0.5" data-page-device="">
+      {(
+        [
+          { value: "desktop" as const, label: tt("Computer"), Icon: Monitor },
+          { value: "phone" as const, label: tt("Phone"), Icon: Smartphone },
+        ]
+      ).map(({ value, label, Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={device === value}
+          aria-label={label}
+          title={label}
+          onClick={() => setDevice(value)}
+          data-page-device-option={value}
+          className={cn(
+            "inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-2.5 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-8",
+            device === value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+          )}
+        >
+          <Icon aria-hidden className="h-4 w-4" />
+          <span className="max-md:hidden xl:max-2xl:hidden">{label}</span>
+        </button>
       ))}
-    </ul>
+    </div>
   )
 
-  const panel = panelProps ? (
-    <div data-page-panel={panelProps.block}>
-      <p className="text-[13.5px] leading-5 text-[#6b7280]">{BLOCK_INFO[panelProps.block].line}</p>
-      <div className="mt-4">
-        <BlockPanel {...panelProps} />
-      </div>
-      {error ? (
-        <p role="alert" className="mt-3 text-[13px] text-[#b42318]" data-page-panel-error="">
-          {error}
-        </p>
+  const toolbar = (
+    <div className="flex h-11 min-w-0 shrink-0 items-center gap-1.5 sm:gap-2" data-page-toolbar="">
+      {deviceSwitch}
+      <button type="button" onClick={() => setVisitor((v) => !v)} aria-pressed={visitor} className={cn(iconButton, "w-auto gap-1.5 px-2.5 text-[13px] font-medium sm:w-auto")} data-page-visitor="" title={tt("See the page as a visitor who is not signed in")}>
+        <Eye aria-hidden className="h-4 w-4" />
+        <span className="xl:max-2xl:hidden">{tt("As a visitor")}</span>
+      </button>
+      <button type="button" onClick={() => setDark((v) => !v)} aria-pressed={dark} aria-label={dark ? tt("Show the page in the light look") : tt("Show the page in the dark look")} title={dark ? tt("Show the page in the light look") : tt("Show the page in the dark look")} className={iconButton} data-page-look="">
+        {dark ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
+      </button>
+      <div className="min-w-0 flex-1 px-1 max-sm:hidden">{wide || full ? statusLine : null}</div>
+      <span className="flex-1 sm:hidden" />
+      <button type="button" onClick={() => setFull((f) => !f)} aria-pressed={full} aria-label={full ? tt("Leave full screen") : tt("Full screen preview")} title={full ? tt("Leave full screen") : tt("Full screen preview")} className={iconButton} data-page-full-toggle="">
+        {full ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Maximize2 aria-hidden className="h-4 w-4" />}
+      </button>
+      {wide && !full ? (
+        <button type="button" onClick={() => setPanel((p) => !p)} aria-pressed={!panel} aria-expanded={panel} aria-controls="pe-side" aria-label={panel ? tt("Hide the editing panel") : tt("Show the editing panel")} title={panel ? tt("Hide the editing panel") : tt("Show the editing panel")} className={iconButton} data-page-panel-toggle="">
+          {panel ? <PanelRightClose aria-hidden className="h-4 w-4" /> : <PanelRightOpen aria-hidden className="h-4 w-4" />}
+        </button>
+      ) : null}
+      {wide || full ? (
+        <div className="flex shrink-0 items-center gap-1.5 pl-1" data-page-save="">
+          {dirty && !busy ? (
+            <button type="button" onClick={reset} className={buttonSecondary} data-page-discard="">
+              {tt("Discard")}
+            </button>
+          ) : null}
+          <button type="button" onClick={() => void save()} disabled={!dirty || busy || uploading} className={cn(canPublish ? buttonSecondary : buttonPrimary, "min-w-[72px] justify-center disabled:cursor-default disabled:opacity-50")} data-page-save-button="" aria-busy={phase === "saving" || undefined}>
+            {saveLabel}
+          </button>
+          {canPublish ? (
+            <button type="button" onClick={() => void publish()} disabled={busy || uploading} className={cn(buttonPrimary, "justify-center")} data-page-publish="">
+              {publishLabel}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
-  ) : null
+  )
+
+  const stage = (
+    <div
+      className={cn("flex min-w-0 flex-col gap-2", full ? "fixed inset-0 z-[90] bg-[#f8f9fa] p-3 pt-[max(12px,env(safe-area-inset-top))] sm:p-4" : wide ? "sticky top-[var(--pe-top,64px)] h-[var(--pe-stage-h,calc(100dvh-160px))] flex-1" : "h-[var(--pe-stage-h,calc(100dvh-260px))]")}
+      data-page-stage=""
+      data-page-full={full ? "" : undefined}
+      role={full ? "dialog" : undefined}
+      aria-modal={full ? true : undefined}
+      aria-label={full ? tt("Preview of your page") : undefined}
+    >
+      {!wide && sheet && !full ? null : toolbar}
+      <section className={cn(card, "min-h-0 flex-1 overflow-hidden")} aria-label={tt("Your page")} data-page-preview-card="">
+        {shown ? (
+          <PreviewFrame device={device} selected={visitor ? null : picked} labels={labels} onPick={pick} focus={focus} visitor={visitor} dark={dark}>
+            <FramedPage data={shown} visitor={visitor} />
+          </PreviewFrame>
+        ) : (
+          <p className="p-6 text-[14px] text-[#6b7280]">{tt("The page could not be read. Reload to try again.")}</p>
+        )}
+      </section>
+    </div>
+  )
+
+  const groups = (
+    <div className="divide-y divide-[#f1f2f4]" data-page-groups="">
+      {PAGE_GROUPS.map((g) => {
+        const open = group === g
+        const issues = problems.filter((p) => groupOf(p.block) === g).length
+        return (
+          <section key={g} data-page-group={g} data-open={open ? "" : undefined}>
+            <h3>
+              <button
+                type="button"
+                onClick={() => toggleGroup(g)}
+                aria-expanded={open}
+                aria-controls={`pe-group-${g}`}
+                className="flex min-h-[56px] w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors duration-100 hover:bg-[#f8f9fa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:px-5 [-webkit-tap-highlight-color:transparent]"
+                data-page-group-button={g}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14.5px] font-semibold leading-5 text-[#1a1a2e]">{GROUP_INFO[g].title}</span>
+                  {open ? null : <span className="mt-0.5 block truncate text-[12.5px] leading-[18px] text-[#6b7280]">{groupSummary(g, d)}</span>}
+                </span>
+                {issues ? <span aria-label={tt("Needs a fix")} title={tt("Needs a fix")} className="h-2 w-2 shrink-0 rounded-full bg-[#d92d20]" data-page-group-issue="" /> : null}
+                <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-[rotate] duration-150 motion-reduce:transition-none", open && "rotate-180")} />
+              </button>
+            </h3>
+            {/* Drawn the first time it opens, then kept (hidden while closed), so an upload or a half typed link in a closed group carries on. */}
+            {seen.has(g) ? (
+              <div id={`pe-group-${g}`} role="region" aria-label={GROUP_INFO[g].title} hidden={!open} className="px-4 pb-5 sm:px-5" data-page-group-body={g}>
+                <GroupFields {...panelProps} group={g} />
+              </div>
+            ) : null}
+          </section>
+        )
+      })}
+    </div>
+  )
 
   return (
-    <div data-page-editor="" data-device={device} className="space-y-3 lg:space-y-4">
-      {/* The row above the page: which screen, and from 1024px the one Save for everything. */}
-      <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2" data-page-toolbar="">
-        <Segmented
-          value={device}
-          onChange={setDevice}
-          label={tt("Preview on")}
-          options={[
-            { value: "desktop", label: tt("Computer") },
-            { value: "phone", label: tt("Phone") },
-          ]}
-        />
-        <p className={cn("hidden min-w-0 flex-1 items-center gap-2 truncate text-[13.5px] lg:flex", error ? "text-[#b42318]" : "text-[#6b7280]")} role="status" data-page-status={error ? "error" : dirty ? "dirty" : "saved"}>
-          <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty || uploading ? "bg-[#e8a400]" : "bg-[#22a06b]")} />
-          <span className="truncate">{status}</span>
-        </p>
-        <div className="ml-auto hidden items-center gap-2 lg:flex" data-page-save="">
-          <button type="button" onClick={reset} disabled={!dirty || busy} className={cn(buttonSecondary, "disabled:cursor-default disabled:opacity-50")}>
-            {tt("Cancel")}
-          </button>
-          <button type="button" onClick={() => void save()} disabled={!dirty || busy || uploading} className={cn(buttonPrimary, "min-w-[72px] justify-center")} data-page-save-button="">
-            {busy ? tt("Saving") : tt("Save")}
-          </button>
-        </div>
-      </div>
-
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:gap-5">
-        <section className={cn(card, "h-[min(76dvh,760px)] overflow-hidden lg:h-[max(540px,calc(var(--vv-h,100dvh)-272px))]")} aria-label={tt("Your page")} data-page-preview-card="">
-          {shown ? (
-            <PreviewFrame device={device} selected={open} labels={labels} onPick={pick} focus={focus}>
-              <FramedPage data={shown} />
-            </PreviewFrame>
-          ) : (
-            <p className="p-6 text-[14px] text-[#6b7280]">{tt("The page could not be read. Reload to try again.")}</p>
-          )}
-        </section>
-
-        {/* From 1024px: the parts, or the one open, beside the page. */}
-        {wide ? <aside className={cn(card, "hidden overflow-hidden lg:flex lg:h-[max(540px,calc(var(--vv-h,100dvh)-272px))] lg:flex-col")} data-page-side="">
-          {open ? (
-            <>
-              <div className="flex shrink-0 items-center gap-1 border-b border-[#f1f2f4] px-2 py-2">
-                <button type="button" onClick={() => setOpen(null)} className="inline-flex h-9 items-center gap-1 rounded-lg pl-1.5 pr-2.5 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors duration-100 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-page-back="">
-                  <ChevronLeft aria-hidden className="h-[18px] w-[18px]" />
-                  {tt("All parts")}
+    <div ref={root} data-page-editor="" data-device={device} data-visitor={visitor ? "" : undefined} data-panel={wide ? (panel ? "open" : "hidden") : "drawer"} className="min-w-0">
+      {wide ? (
+        <div className="flex items-start gap-4 xl:gap-5">
+          {full ? <div className="sticky top-[var(--pe-top,64px)] h-[var(--pe-stage-h,calc(100dvh-160px))] min-w-0 flex-1" /> : null}
+          {full ? createPortal(stage, document.body) : stage}
+          {panel ? (
+            <aside id="pe-side" className={cn(card, "w-[360px] shrink-0 overflow-hidden xl:w-[380px]")} aria-label={tt("Edit page")} data-page-side="">
+              <div className="flex items-center gap-2 border-b border-[#f1f2f4] py-2 pl-4 pr-2 sm:pl-5">
+                <h2 className="min-w-0 flex-1 text-[15px] font-semibold leading-6 text-[#1a1a2e]">{tt("Edit page")}</h2>
+                <button type="button" onClick={() => setPanel(false)} className={iconButton} aria-label={tt("Hide the editing panel")} title={tt("Hide the editing panel")}>
+                  <PanelRightClose aria-hidden className="h-4 w-4" />
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-4" data-page-side-body="">
-                <h2 className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{BLOCK_INFO[open].title}</h2>
-                <div className="mt-0.5">{panel}</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="shrink-0 px-5 pb-2 pt-4">
-                <h2 className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{tt("Your page")}</h2>
-                <p className="mt-0.5 text-[13.5px] leading-5 text-[#6b7280]">{tt("Press any part of the page to change it, or pick it here.")}</p>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pb-2">{list}</div>
-            </>
-          )}
-        </aside> : null}
-      </div>
-
-      {/* Below 1024px: the parts under the page, each opening in the bottom sheet; the save bar rises with a change. */}
-      {!wide ? (
+              {groups}
+              {error ? (
+                <p role="alert" className="border-t border-[#f1f2f4] px-4 py-3 text-[13px] text-[#b42318] sm:px-5" data-page-panel-error="">
+                  {error}
+                </p>
+              ) : null}
+            </aside>
+          ) : null}
+        </div>
+      ) : (
         <>
-          <section className={cn(card, "overflow-hidden lg:hidden")} data-page-parts-card="">
-            <div className="px-4 pb-1 pt-3.5 sm:px-5">
-              <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e]">{tt("Your page")}</h2>
-              <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280]">{tt("Tap any part of the page to change it, or pick it here.")}</p>
+          {full ? <div className="h-[var(--pe-stage-h,calc(100dvh-260px))]" /> : null}
+          {full ? createPortal(stage, document.body) : stage}
+          {/* Below 1024px: the bar at the foot (Edit page, the state, Save), and the groups in a drawer over the page. */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-[max(calc(var(--app-nav-top,0px)+10px),calc(env(safe-area-inset-bottom)+10px))] z-40 flex justify-center px-3 md:bottom-[max(16px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6" data-page-phone-bar="">
+            <div role="region" aria-label={tt("Save")} className="pointer-events-auto flex h-[52px] w-full min-w-0 max-w-[560px] items-center gap-2 rounded-[14px] border border-[#e5e7eb]/80 bg-white pl-1.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)]">
+              <button type="button" onClick={() => setSheet(true)} aria-expanded={sheet} className={cn(buttonSecondary, "h-10 shrink-0 gap-1.5 px-3 text-[14px]")} data-page-open-sheet="">
+                <Pencil aria-hidden className="h-4 w-4" />
+                {tt("Edit page")}
+              </button>
+              <div className="min-w-0 flex-1 px-1">{statusLine}</div>
+              {canPublish && !dirty ? (
+                <button type="button" onClick={() => void publish()} disabled={busy || uploading} className={cn(buttonPrimary, "h-10 shrink-0 justify-center px-4 text-[14px]")} data-page-publish="">
+                  {publishLabel}
+                </button>
+              ) : (
+                <button type="button" onClick={() => void save()} disabled={!dirty || busy || uploading} className={cn(buttonPrimary, "h-10 min-w-[76px] shrink-0 justify-center px-4 text-[14px] disabled:cursor-default disabled:opacity-50")} data-page-save-button="">
+                  {saveLabel}
+                </button>
+              )}
             </div>
-            {list}
-          </section>
+          </div>
           <BottomSheet
-            isOpen={!!open}
-            onClose={() => setOpen(null)}
-            label={open ? BLOCK_INFO[open].title : tt("Your page")}
+            isOpen={sheet}
+            onClose={() => setSheet(false)}
+            label={tt("Edit page")}
             hideFrom={null}
             fill
             aboveKeyboard
-            maxHeight="calc(var(--vv-h, 100dvh) * 0.62)"
+            scrim="clear"
+            maxHeight={`calc(var(--vv-h, 100dvh) * ${SHEET_SHARE})`}
+            className="md:mx-auto md:max-w-[620px]"
           >
-            {open ? (
-              <div className="flex min-h-0 flex-1 flex-col" data-page-sheet={open}>
-                <div className="shrink-0 px-5 pb-2 pt-1">
-                  <h2 className="text-[18px] font-semibold leading-6 text-[#1a1a2e]">{BLOCK_INFO[open].title}</h2>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4" data-page-sheet-body="">
-                  {panel}
-                </div>
-                <div className="shrink-0 border-t border-[#f1f2f4] px-5 pb-[calc(12px+env(safe-area-inset-bottom,0px))] pt-3">
-                  <button type="button" onClick={() => setOpen(null)} className={cn(buttonPrimary, "h-11 w-full justify-center text-[15px]")} data-page-sheet-done="">
-                    {tt("Done")}
-                  </button>
-                </div>
+            <div className="flex min-h-0 flex-1 flex-col" data-page-sheet="">
+              <div className="flex shrink-0 items-center gap-2 px-4 pb-1.5 pt-0.5">
+                <h2 className="min-w-0 flex-1 text-[17px] font-semibold leading-6 text-[#1a1a2e]">{tt("Edit page")}</h2>
+                <div className="min-w-0 max-w-[50%]">{statusLine}</div>
               </div>
-            ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#f1f2f4]" data-page-sheet-body="">
+                {groups}
+              </div>
+              <div className="flex shrink-0 items-center gap-2 border-t border-[#f1f2f4] px-4 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pt-2.5">
+                {dirty && !busy ? (
+                  <button type="button" onClick={reset} className={cn(buttonSecondary, "h-11 px-4 text-[15px]")} data-page-discard="">
+                    {tt("Discard")}
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => setSheet(false)} className={cn(buttonSecondary, "h-11 flex-1 justify-center text-[15px]")} data-page-sheet-done="">
+                  {tt("See the page")}
+                </button>
+                <button type="button" onClick={() => void save()} disabled={!dirty || busy || uploading} className={cn(buttonPrimary, "h-11 min-w-[88px] justify-center px-4 text-[15px] disabled:cursor-default disabled:opacity-50")} data-page-sheet-save="">
+                  {saveLabel}
+                </button>
+              </div>
+            </div>
           </BottomSheet>
-          <EditorFoot dirty={dirty} busy={busy && !uploading} busyText={uploading ? tt("Uploading") : undefined} error={error && !open ? error : null} onSave={() => void save()} onCancel={reset} />
         </>
-      ) : null}
+      )}
     </div>
   )
 }

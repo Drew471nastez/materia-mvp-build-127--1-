@@ -77,42 +77,44 @@ const HOST = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d{1,5}
  * path on this site; "example.com/x" becomes https://example.com/x; http and
  * https addresses are kept as the browser reads them.
  */
-export function memberLinkUrl(raw: unknown): { ok: true; url: string } | { ok: false; error: string } {
-  if (typeof raw !== "string") return { ok: false, error: "Add an address." }
+export type MemberLinkUrlError = "empty" | "long" | "spaces" | "relative" | "scheme" | "format" | "invalid" | "host" | "password"
+
+export function memberLinkUrl(raw: unknown): { ok: true; url: string } | { ok: false; error: string; code: MemberLinkUrlError } {
+  if (typeof raw !== "string") return { ok: false, error: "Add an address.", code: "empty" }
   const text = raw.trim()
-  if (!text) return { ok: false, error: "Add an address." }
-  if (text.length > MEMBER_LINK_URL_MAX) return { ok: false, error: "That address is too long." }
-  if (HAS_CONTROL.test(text) || /\s/.test(text) || text.includes("\\")) return { ok: false, error: "An address has no spaces." }
+  if (!text) return { ok: false, error: "Add an address.", code: "empty" }
+  if (text.length > MEMBER_LINK_URL_MAX) return { ok: false, error: "That address is too long.", code: "long" }
+  if (HAS_CONTROL.test(text) || /\s/.test(text) || text.includes("\\")) return { ok: false, error: "An address has no spaces.", code: "spaces" }
   /* A page on this site: one slash, then the path. "//host" would leave the site, so it is not one. */
   if (text.startsWith("/")) {
-    if (text.startsWith("//")) return { ok: false, error: "Start with https:// or with one / for a page on Storelib." }
+    if (text.startsWith("//")) return { ok: false, error: "Start with https:// or with one / for a page on Storelib.", code: "relative" }
     try {
       const u = new URL(text, "https://storelib.invalid")
-      if (u.origin !== "https://storelib.invalid") return { ok: false, error: "Start with https:// or with one / for a page on Storelib." }
+      if (u.origin !== "https://storelib.invalid") return { ok: false, error: "Start with https:// or with one / for a page on Storelib.", code: "relative" }
       return { ok: true, url: `${u.pathname}${u.search}${u.hash}` }
     } catch {
-      return { ok: false, error: "That is not an address." }
+      return { ok: false, error: "That is not an address.", code: "invalid" }
     }
   }
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(text)
   let candidate = text
   if (scheme) {
     const s = scheme[1].toLowerCase()
-    if (s !== "http" && s !== "https") return { ok: false, error: "Only web addresses (https://) can be links." }
+    if (s !== "http" && s !== "https") return { ok: false, error: "Only web addresses (https://) can be links.", code: "scheme" }
   } else if (HOST.test(text)) {
     candidate = `https://${text}`
   } else {
-    return { ok: false, error: "Use a full address, like https://example.com, or a page on Storelib, like /learn." }
+    return { ok: false, error: "Use a full address, like https://example.com, or a page on Storelib, like /learn.", code: "format" }
   }
   let u: URL
   try {
     u = new URL(candidate)
   } catch {
-    return { ok: false, error: "That is not an address." }
+    return { ok: false, error: "That is not an address.", code: "invalid" }
   }
-  if (u.protocol !== "https:" && u.protocol !== "http:") return { ok: false, error: "Only web addresses (https://) can be links." }
-  if (!u.hostname || !u.hostname.includes(".")) return { ok: false, error: "That address has no website in it." }
-  if (u.username || u.password) return { ok: false, error: "An address with a password in it cannot be a link." }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return { ok: false, error: "Only web addresses (https://) can be links.", code: "scheme" }
+  if (!u.hostname || !u.hostname.includes(".")) return { ok: false, error: "That address has no website in it.", code: "host" }
+  if (u.username || u.password) return { ok: false, error: "An address with a password in it cannot be a link.", code: "password" }
   return { ok: true, url: u.href }
 }
 
@@ -178,7 +180,7 @@ export function checkMemberLinks(raw: unknown): { ok: true; value: MemberLink[] 
     if (!label) return { ok: false, error: `Link ${i + 1} needs a name.`, field: `memberLinks.${i}.label` }
     if (Array.from(label).length > MEMBER_LINK_LABEL_MAX) return { ok: false, error: `A link's name is up to ${MEMBER_LINK_LABEL_MAX} characters.`, field: `memberLinks.${i}.label` }
     const url = memberLinkUrl(r.url)
-    if (!url.ok) return { ok: false, error: `Link ${i + 1}: ${url.error}`, field: `memberLinks.${i}.url` }
+    if ("error" in url) return { ok: false, error: `Link ${i + 1}: ${url.error}`, field: `memberLinks.${i}.url` }
     if (r.icon !== undefined && r.icon !== null && !isIcon(r.icon)) return { ok: false, error: "Pick an icon from the list.", field: `memberLinks.${i}.icon` }
   }
   return { ok: true, value: cleanMemberLinks(raw) }
