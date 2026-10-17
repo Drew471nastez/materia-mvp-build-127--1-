@@ -56,6 +56,9 @@
  *   node scripts/check-editor-perf.mjs
  *   CPU=4 node scripts/check-editor-perf.mjs        the CPU slowed 4x
  *   EDITOR_BUNDLE=<file> node scripts/check-editor-perf.mjs   reuse a bundle (one built from another commit, to compare)
+ *   STYLESHEET=<file>    a compiled stylesheet instead of this checkout's (scripts/probe-css.mjs output)
+ *   PROFILE=<name>       a CPU profile of the interactions whose name matches
+ *   TRACE=<name>         the style and layout passes of those; TRACE_INV=1 adds what invalidated them
  *   JSON=<file>          also write the numbers as JSON
  *   SWITCHES=50          page switches for the memory run
  */
@@ -311,7 +314,10 @@ function printTrace(ev) {
 }
 
 async function main() {
-  const { bundle, css } = await import("./editor-probe-harness.mjs")
+  const harness = await import("./editor-probe-harness.mjs")
+  const bundle = harness.bundle
+  /* STYLESHEET=<file>: a compiled stylesheet to measure instead of this checkout's (an older one, to compare). */
+  const css = process.env.STYLESHEET ? readFileSync(process.env.STYLESHEET, "utf8") : harness.css
   const { interFaces } = await import("./probe-css.mjs")
   const out = mkdtempSync(join(tmpdir(), "editor-perf-"))
   writeFileSync(join(out, "editor-probe.js"), readFileSync(bundle))
@@ -411,6 +417,51 @@ async function main() {
 
     /* ── Nobody touching anything: what the editor does by itself once it is open ── */
     await measure("idle 12s after open", async () => { await sleep(12000) }, { quiet: 300 })
+
+    /* ── One element added and taken away, and what the style pass after it costs ──
+       Every React commit that adds or removes a node pays this, so it is the
+       floor under every interaction. Twelve times in each place, a frame
+       apart, the style forced at once so the time is that pass alone; the
+       trace gives the number of elements the browser restyled for it. */
+    await js(() => window.__pt.quiet(400, 8000))
+    await page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] })
+    const inserted = await js(async () => {
+      const where = {
+        sidebar: document.querySelector("[data-wb-sidebar-scroll]"),
+        canvas: document.querySelector("#wb-preview-root [data-section-box]"),
+        body: document.body,
+      }
+      const out = {}
+      for (const [k, host] of Object.entries(where)) {
+        if (!host) { out[k] = null; continue }
+        const add = [], remove = []
+        for (let i = 0; i < 12; i++) {
+          await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)))
+          const d = document.createElement("div")
+          d.textContent = "x"
+          performance.mark(`ins-${k}-${i}`)
+          let t0 = performance.now()
+          host.appendChild(d)
+          void getComputedStyle(d).color
+          add.push(performance.now() - t0)
+          t0 = performance.now()
+          d.remove()
+          void getComputedStyle(host).color
+          remove.push(performance.now() - t0)
+        }
+        const med = (a) => +a.slice().sort((x, y) => x - y)[a.length >> 1].toFixed(2)
+        out[k] = { add: med(add), remove: med(remove) }
+      }
+      return out
+    })
+    {
+      const ev = JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents
+      const counts = ev.filter((e) => e.name === "UpdateLayoutTree" && e.ph === "X" && e.args?.elementCount).map((e) => e.args.elementCount).sort((a, b) => a - b)
+      const nodes = await js(() => document.getElementsByTagName("*").length)
+      report.insertion = { ...inserted, elementsMedian: counts[counts.length >> 1] ?? 0, elementsMax: counts[counts.length - 1] ?? 0, passes: counts.length, documentElements: nodes }
+      const f = (o) => (o ? `${o.add}ms add, ${o.remove}ms remove` : "none")
+      console.log(`  insert one node   sidebar ${f(inserted.sidebar)}; canvas ${f(inserted.canvas)}; body ${f(inserted.body)}; restyled per pass median ${report.insertion.elementsMedian}, max ${report.insertion.elementsMax} of ${nodes} elements (${counts.length} passes)`)
+    }
 
     /* ── Selecting sections in the canvas ── */
     const hero = await js(() => { const b = window.__pt.sectionBox("hero_centered"); return b && window.__pt.centreOf(b) })

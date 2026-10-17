@@ -6114,15 +6114,25 @@ html[data-ghost-tap-guard] [data-buyer-tab-bar] {
  * (Safari before 18.2) keeps the bar itself instead, and only where a
  * scrollbar takes room at all (a mouse or trackpad): a phone's bar overlays
  * and keeps nothing.
+ *
+ * CLASSES, NOT `html:has([data-account-settings])` and
+ * `html:has([data-page="account"])`. Those made <html> the subject of a
+ * :has(), and Chromium answered every insertion and removal in every page
+ * of the app by restyling half the document: in the website builder 1,227
+ * of about 2,200 elements, 35 to 45ms for each node added or taken away,
+ * which nearly every commit pays (scripts/check-editor-perf.mjs, "insert
+ * one node"). Without these two rules the same insertion restyled 275. The
+ * account layout and the settings set the classes from their first paint
+ * (components/platform/html-class.tsx), so the gutter holds exactly as long.
  */
-html:has([data-account-settings]),
-html:has([data-page="account"]) {
+html.with-account-settings,
+html.with-page-account {
   scrollbar-gutter: stable;
 }
 @supports not (scrollbar-gutter: stable) {
   @media (pointer: fine) {
-    html:has([data-account-settings]),
-    html:has([data-page="account"]) {
+    html.with-account-settings,
+    html.with-page-account {
       overflow-y: scroll;
     }
   }
