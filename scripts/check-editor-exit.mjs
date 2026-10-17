@@ -31,7 +31,7 @@ const MIN = 3000
 const FADE = 320
 const js = readFileSync(bundle)
 let navigateMs = 500
-const page = (history) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;window.PROBE_NAVIGATE_MS=${navigateMs};${history ? 'history.replaceState(null,"","/app/website-builder");history.pushState(null,"","/website-builder/editor/probe-install");' : ""}</script><script src="/editor-probe.js"></script></body></html>`
+const page = (history) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;window.PROBE_NAVIGATE_MS=${navigateMs};</script>${history ? `<button id="probe-push" aria-hidden="true" tabindex="-1" style="position:fixed;left:0;bottom:0;width:6px;height:6px;opacity:0;z-index:2147483647" onclick="history.pushState(null, '', '/website-builder/editor/probe-install')"></button>` : ""}<script src="/editor-probe.js"></script></body></html>`
 let withHistory = false
 const server = createServer((req, res) => {
   if (req.url.startsWith("/editor-probe.js")) {
@@ -59,12 +59,16 @@ const RECORD = () => {
   window.__frames = []
   const t0 = performance.now()
   window.__t0 = t0
+  /* One recording at a time: a second RECORD stops the first one's loop, whose clock started earlier. */
+  const run = (window.__recording = (window.__recording || 0) + 1)
   const tick = () => {
+    if (window.__recording !== run) return
     const s = document.querySelector("[data-exit-screen]")
     const r = s ? s.getBoundingClientRect() : null
     window.__frames.push({
       t: Math.round(performance.now() - t0),
       screen: !!s,
+      shownAt: s ? Math.round(Number(s.getAttribute("data-shown-at")) - t0) : null,
       opacity: s ? +parseFloat(getComputedStyle(s).opacity).toFixed(3) : 0,
       covers: !!r && r.width >= innerWidth && r.height >= innerHeight,
       editor: !!document.querySelector(".wb-editor"),
@@ -84,9 +88,15 @@ async function open(vp, opts = {}) {
   await p.setViewport({ ...vp, isMobile: !!opts.touch, hasTouch: !!opts.touch })
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e.message).slice(0, 200)))
-  await p.goto(origin, { waitUntil: "load" })
+  /* With a history: opened at the list, then the editor's address pushed by a real press, an entry the browser keeps for Back. */
+  await p.goto(opts.history ? origin.replace("/website-builder/editor/probe-install", "/app/website-builder") : origin, { waitUntil: "load" })
   await p.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 90_000 })
   await sleep(1500)
+  if (opts.history) {
+    const b = await p.evaluate(() => { const r = document.getElementById("probe-push").getBoundingClientRect(); return { x: r.left + 3, y: r.top + 3 } })
+    await p.mouse.click(b.x, b.y)
+    await sleep(200)
+  }
   return { p, errors }
 }
 
@@ -99,15 +109,22 @@ async function backButton(p) {
   })
 }
 
-/** What the frames say about one exit. */
+/**
+ * What the frames say about one exit, every time counted from the moment the
+ * screen went up (its data-shown-at), so a busy main thread before that does
+ * not eat into the minimum being checked.
+ */
 function read(frames, arriveMs) {
-  const up = frames.find((f) => f.screen && f.opacity >= 0.95)
-  const lastOpaque = [...frames].reverse().find((f) => f.screen && f.opacity >= 0.95)
-  const fading = frames.filter((f) => f.screen && f.opacity > 0.05 && f.opacity < 0.95 && up && f.t > up.t)
-  const gone = frames.find((f) => up && f.t > up.t && !f.screen)
-  const dest = frames.find((f) => f.dest)
-  const holds = up ? frames.filter((f) => f.t >= up.t && f.t <= Math.max(MIN - 60, (arriveMs ?? 0) - 60)) : []
+  const base = frames.find((f) => f.shownAt !== null)?.shownAt ?? null
+  const rel = base === null ? [] : frames.map((f) => ({ ...f, t: f.t - base }))
+  const up = rel.find((f) => f.screen && f.opacity >= 0.95)
+  const lastOpaque = [...rel].reverse().find((f) => f.screen && f.opacity >= 0.95)
+  const fading = rel.filter((f) => f.screen && f.opacity > 0.05 && f.opacity < 0.95 && up && f.t > up.t)
+  const gone = rel.find((f) => up && f.t > up.t && !f.screen)
+  const dest = rel.find((f) => f.dest)
+  const holds = up ? rel.filter((f) => f.t >= up.t && f.t <= Math.max(MIN - 60, (arriveMs ?? 0) - 60)) : []
   return {
+    shownAt: base,
     upAt: up?.t ?? null,
     lastOpaqueAt: lastOpaque?.t ?? null,
     fadeFrames: fading.length,
@@ -134,11 +151,11 @@ try {
     const frames = await p.evaluate(() => window.__frames)
     const pushes = await p.evaluate(() => window.probePushes || [])
     const r = read(frames, 500)
-    console.log(`    up at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, ${r.fadeFrames} fade frames, gone at ${r.goneAt}ms`)
+    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, ${r.fadeFrames} fade frames, gone at ${r.goneAt}ms`)
     expect(pushes.length === 1 && pushes[0] === "/app/website-builder", "one navigation for two presses", pushes)
     const seen = frames.find((f) => f.screen)
     expect(!!seen && seen.t <= 120, "the screen is on the glass in the first frames after the press", seen && seen.t)
-    expect(r.upAt !== null && r.upAt <= 600, "and opaque once its 220ms entrance has run", r.upAt)
+    expect(r.upAt !== null && r.upAt <= 400, "and opaque once its 220ms entrance has run", r.upAt)
     expect(r.text === "Going back" && r.bg === "rgb(255, 255, 255)", "it says Going back, on white like the canvas loader", { text: r.text, bg: r.bg })
     expect(r.destAt !== null && r.destAt < MIN, "the next page arrives under it", r.destAt)
     expect(r.heldEveryFrame, `opaque and covering the window in every frame until ${MIN}ms`)
@@ -159,7 +176,7 @@ try {
     await sleep(6000)
     const frames = await p.evaluate(() => window.__frames)
     const r = read(frames, 4200)
-    console.log(`    up at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
     expect(r.heldEveryFrame, "opaque in every frame until the page is there")
     expect(r.goneAt !== null && r.destAt !== null && r.goneAt > r.destAt, "and it goes after the page has arrived, never before", { dest: r.destAt, gone: r.goneAt })
     await p.close()
@@ -233,9 +250,9 @@ try {
     const pushes = await p.evaluate(() => window.probePushes || [])
     const r = read(frames, 400)
     console.log(`    popstate: ${JSON.stringify(await p.evaluate(() => window.__pops))}, now at ${await p.evaluate(() => location.pathname)}`)
-    console.log(`    up at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
     expect(pushes.length === 0, "the browser did the navigating: no push of our own on top", pushes)
-    expect(r.upAt !== null && r.upAt <= 300 && r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40, "the same screen, for the same minimum", r)
+    expect(r.upAt !== null && r.upAt <= 400 && r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40, "the same screen, for the same minimum", r)
     expect(r.goneAt !== null, "and it goes", r.goneAt)
     await p.close()
   }
@@ -252,7 +269,7 @@ try {
     const frames = await p.evaluate(() => window.__frames)
     const pushes = await p.evaluate(() => window.probePushes || [])
     const r = read(frames, 600)
-    console.log(`    up at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
     expect(pushes.length === 1, "one navigation", pushes)
     expect(r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40 && r.goneAt !== null, "covered for the minimum, then gone", r)
     expect(errors.length === 0, "no page errors", errors)

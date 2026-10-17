@@ -24,6 +24,35 @@
  * calls and repeats of the same call) and memory after 50 page switches
  * (heap after a forced collection, DOM nodes, listeners).
  *
+ * Round V3, the same machine and load for each pair (scratchpad run-after.sh:
+ * the bundle before the change, then after, back to back, two runs at 1x and
+ * two at 4x). Render counts are exact and repeat; times on this shared
+ * machine moved by up to 2x between runs, so a time is claimed only where both
+ * runs agree.
+ *
+ *                               before            after
+ *   API calls on open           17 (ai-models 2x) 16, none repeated
+ *   type 20 keys, renders (1x)  14,942 / 15,721   14,561 / 14,581
+ *     library cards rendered    969 / 1,020       0
+ *     sections rendered         77 / 80           60 (the footer no longer, per key)
+ *   switch a page, library cards 51               0
+ *   toggle / duplicate / delete  4 / 2 / 2        3 / 1 / 1 sections rendered
+ *   idle 12s after open (1x)    blocking 1,227 / 1,768ms, 48 / 55 long tasks
+ *                                                 758 / 1,092ms, 32 / 41 long tasks
+ *   memory, 50 page switches    +0.7 to +0.9MB heap, DOM nodes and listeners flat, before and after
+ *
+ * Not improved, measured: selecting a section (about 200 to 300ms blocking
+ * at 1x, 1.5s at 4x), startup (first canvas 1.2s at 1x, 5 to 6s at 4x) and
+ * the slider (already drawn by the live layer). Worse at 1x in both runs: a
+ * page switch, blocking 151 / 198ms before and 302 / 434ms after (the first
+ * after bundle is this round alone, the second also carries main's merge,
+ * nine more library cards); at 4x it was 3,030 / 1,869ms before and 2,259 /
+ * 1,997ms after, so it is not settled either way. Every DOM insertion in the
+ * editor restyles about 1,180 elements (35 to 45ms at 1x): each of the
+ * stylesheet's :has() rules alone is enough, and on a blank page with the
+ * same stylesheet the same insertion is 0.3ms, so it is the editor's DOM
+ * with those rules. Found, not fixed: the rules are app wide.
+ *
  *   node scripts/check-editor-perf.mjs
  *   CPU=4 node scripts/check-editor-perf.mjs        the CPU slowed 4x
  *   EDITOR_BUNDLE=<file> node scripts/check-editor-perf.mjs   reuse a bundle (one built from another commit, to compare)

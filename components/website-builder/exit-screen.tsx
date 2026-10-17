@@ -38,6 +38,8 @@ function get(): ExitHold | null {
       node = document.createElement("div")
       node.className = "wb-exit-screen"
       node.setAttribute("data-exit-screen", "")
+      /* When it went up, for scripts/check-editor-exit.mjs to count the minimum from. */
+      node.setAttribute("data-shown-at", String(Math.round(performance.now())))
       document.body.appendChild(node)
       root = createRoot(node)
       root.render(<BuilderLoader tone="light" lines={[tt("Going back")]} />)
