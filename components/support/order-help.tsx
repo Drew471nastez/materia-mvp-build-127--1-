@@ -75,8 +75,8 @@ export function OrderHelp({
   storeName: string
   openCase?: { link: string; status: string } | null
   className?: string
-  /** Settings › Store details: how else to reach the shop. */
-  contact?: { email: string | null; phone: string | null } | null
+  /** Settings › Store details: how else to reach the shop. `emailHref`: a mailto with the letter already started (lib/physical/seller-mailto.ts). */
+  contact?: { email: string | null; phone: string | null; emailHref?: string | null } | null
   cancel?: HelpShortcut | null
   returns?: HelpShortcut | null
 }) {
@@ -205,7 +205,7 @@ export function OrderHelp({
       {contact && (contact.email || contact.phone) ? (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-[#eef0f2] pt-3 text-[13.5px]" data-help-contact="">
           {contact.email ? (
-            <a href={`mailto:${contact.email}`} className="inline-flex min-w-0 items-center gap-1.5 text-[#1a1a2e] [overflow-wrap:anywhere] hover:underline">
+            <a href={contact.emailHref || `mailto:${contact.email}`} className="inline-flex min-w-0 items-center gap-1.5 text-[#1a1a2e] [overflow-wrap:anywhere] hover:underline">
               <Mail className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
               {contact.email}
             </a>

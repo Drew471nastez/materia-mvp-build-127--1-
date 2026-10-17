@@ -22,7 +22,7 @@ import { queueCancelledEmail, queueOrderUpdatedEmail, queueRefundEmail, queueRet
 import { addressLines, readAddress } from "./address"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod, sellerNextStep } from "./fulfillment"
-import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
+import { CANCEL_DECLINED, CANCEL_REQUESTED, CANCELLED_BY_BUYER, FORWARDED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
 import { normaliseTrackingNumber } from "./carriers"
 import { trackingAvailable, trackingNumberChanged } from "./tracking/accounts-server"
 import { cleanNote } from "./notes"
@@ -664,8 +664,8 @@ export async function updateAddress(db: Db, creatorId: string, checkoutId: strin
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
 
-/** Nothing shipped yet: the order is cancelled and its stock goes back. Money is refunded separately. */
-export async function cancelOrder(db: Db, creatorId: string, checkoutId: string, reason: unknown): Promise<Outcome> {
+/** Nothing shipped yet: the order is cancelled and its stock goes back. Money is refunded separately. `by` the buyer (./buyer-cancel-server.ts): the seller is emailed. */
+export async function cancelOrder(db: Db, creatorId: string, checkoutId: string, reason: unknown, by: "creator" | "buyer" = "creator"): Promise<Outcome> {
   const order = await loadOrder(db, { creatorId, checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
   if (order.cancelledAt) return { ok: true, order }
@@ -674,8 +674,8 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   const now = new Date().toISOString()
   /* Cash on delivery not collected: no money ever moved, so its lines stop being a sale. "failed" is what every figure already leaves out (lib/orders/order-view isSale, the analytics SQL), and the order reads Voided (paymentOf). A card order is cancelled and then refunded instead. */
   if (order.payment === "cod_due") await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
-  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
-  await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
+  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? (by === "buyer" ? CANCELLED_BY_BUYER : "Cancelled by the shop"), fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
+  await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `${by === "buyer" ? "The buyer cancelled this order" : "Order cancelled"}${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: by, key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
@@ -712,14 +712,15 @@ export async function requestBuyerCancel(db: Db, receiptToken: string, input: { 
 
 /**
  * The cancel request's entries alone, newest first. An order read by its token (the buyer's page) carries no
- * timeline, since the shop's own notes are on it; these two are the buyer's business, so they are read apart.
+ * timeline, since the shop's own notes are on it; these two are the buyer's business, so they are read apart,
+ * with whether it went to a partner (./buyer-cancel.ts cancelMode).
  */
 export async function cancelEvents(db: Db, checkoutId: string): Promise<OrderEvent[]> {
   const { data } = await db
     .from("commerce_order_events")
     .select("id, kind, message, actor, created_at, detail")
     .eq("checkout_id", checkoutId)
-    .in("kind", [CANCEL_REQUESTED, CANCEL_DECLINED])
+    .in("kind", [CANCEL_REQUESTED, CANCEL_DECLINED, FORWARDED])
     .order("created_at", { ascending: false })
     .limit(10)
   return ((data ?? []) as { id: number; kind: string; message: string | null; actor: OrderEvent["actor"]; created_at: string; detail: Record<string, unknown> | null }[]).map((r) => ({ id: r.id, kind: r.kind, message: r.message ?? "", actor: r.actor, createdAt: r.created_at, detail: r.detail }))

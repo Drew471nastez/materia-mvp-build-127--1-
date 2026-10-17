@@ -342,23 +342,33 @@ async function moreJourneys(j: Journey, c: Ctx) {
   const { seller } = c
   const subjects = (email: string) => j.net.to(email).map((m) => m.subject)
 
-  section("13. Cancellation before shipping: the buyer asks, the shop cancels and refunds")
+  /*
+    Changed on purpose (round 27, B27): the buyer's Cancel order no longer only asks. On an order that only ships and
+    went nowhere yet it cancels and refunds it on the spot (lib/physical/buyer-cancel-server.ts), through the same
+    Stripe refund the Orders page makes; the ask-then-Cancel-and-refund path stays for forwarded orders (tests/buyer27).
+  */
+  section("13. Cancellation before shipping: the buyer cancels, it is cancelled and refunded at once")
   const b1 = "cancel@example.com"
   const before = { ...c.level("Green") }
   const o1 = await buy(j, c, { email: b1, items: [{ productId: c.mugId, variantId: c.vId("Green"), quantity: 1 }] })
   check("a Green mug bought: 1 of 2 committed", o1.co?.status === "paid" && c.level("Green").committed === before.committed + 1, { co: o1.co?.status, level: c.level("Green"), start: o1.start.json })
-  const ask = await j.call(`POST /api/physical/order-status/${o1.co!.receipt_token}/cancel`, { body: { reason: "Ordered the wrong colour" } })
-  await j.cron()
-  check("the buyer's cancel request reaches the seller, once", ask.status === 200 && j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)) && /cancel/i.test(m.subject)).length === 1, { ask: ask.json, seller: j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t))).map((m) => m.subject) })
   const line1 = j.rows("orders").find((o) => o.checkout_id === o1.co!.id)!
-  /* As the order page's Cancel and refund does it (components/physical/order-panel.tsx, app/app/orders/order-detail.tsx refundAll): cancel, then refund each line, then the order catches up. */
-  const cx1 = await j.call(`POST /api/physical/orders/${o1.co!.id}`, { as: seller, body: { action: "cancel", reason: "Cancelled at the buyer's request" } })
-  const rf1 = await j.call("POST /api/stripe/refund", { as: seller, body: { orderId: line1.id, reason: "cancelled" } })
-  const nr1 = await j.call(`POST /api/physical/orders/${o1.co!.id}`, { as: seller, body: { action: "refunded" } })
+  const cx1 = await j.call(`POST /api/physical/order-status/${o1.co!.receipt_token}/cancel`, { body: { reason: "Ordered the wrong colour" } })
+  /* Stripe's own event for the refund arrives after, as it does live: applied once. */
   await j.webhook("charge.refunded", j.world.charges.get(o1.paid!.charge!.id)!)
   await j.cron()
   const co1 = j.rows("commerce_checkouts").find((x) => x.id === o1.co!.id)!
-  check("refunded in full and cancelled: the Green mug's stock is free again", rf1.status === 200 && nr1.status === 200 && cx1.status === 200 && co1.status === "refunded" && !!co1.cancelled_at && c.level("Green").committed === before.committed && c.level("Green").on_hand === before.on_hand, { rf1: rf1.json, nr1: nr1.json?.error, cx1: cx1.json?.error, status: co1.status, cancelled: co1.cancelled_at, level: c.level("Green") })
+  check("the buyer's Cancel order answers cancelled, and the order is cancelled and refunded in full", cx1.status === 200 && cx1.json?.done === "cancelled" && co1.status === "refunded" && !!co1.cancelled_at && co1.refunded_cents === co1.total_cents, { cx1: cx1.json, status: co1.status, cancelled: co1.cancelled_at, refunded: co1.refunded_cents, total: co1.total_cents })
+  check("refunded in full and cancelled: the Green mug's stock is free again", c.level("Green").committed === before.committed && c.level("Green").on_hand === before.on_hand, { level: c.level("Green") })
+  const refunds1 = [...j.world.refunds.values()].filter((r) => r.payment_intent === o1.paid!.intent.id)
+  check("  one Stripe refund of the whole line, the seller's transfer reversed, tagged as the buyer's cancel", refunds1.length === 1 && refunds1[0].amount === line1.amount_cents && !!refunds1[0].transfer_reversal && refunds1[0].metadata?.cancelled_by === "buyer", refunds1)
+  const row1 = j.rows("orders").find((o) => o.id === line1.id)!
+  check("  the line reads refunded with its amount", row1.status === "refunded" && row1.refund_amount_cents === line1.amount_cents, { status: row1.status, refunded: row1.refund_amount_cents })
+  const again1 = await j.call(`POST /api/physical/order-status/${o1.co!.receipt_token}/cancel`, { body: {} })
+  await j.cron()
+  check("a second press: already cancelled, no second refund", again1.status === 200 && again1.json?.done === "cancelled" && [...j.world.refunds.values()].filter((r) => r.payment_intent === o1.paid!.intent.id).length === 1)
+  const sellerMail1 = j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)) && /cancel/i.test(m.subject))
+  check("the seller is told the buyer cancelled, once", sellerMail1.length === 1, j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t))).map((m) => m.subject))
   const s1 = subjects(b1)
   check("the buyer gets: the confirmation, one refund email and one cancellation email", s1.filter((x) => /confirmed/i.test(x)).length === 1 && s1.filter((x) => /refund/i.test(x)).length === 1 && s1.filter((x) => /cancel/i.test(x)).length === 1 && s1.length === 3, s1)
 

@@ -245,7 +245,8 @@ async function main() {
     /* Changed on purpose: in the buyer's language (ct). */
     check("Cancel order and Return items are offered in the same panel", /cancel=\{cancel === "can_request" \? \{ kind: "cancel", label: ct\("Cancel order"\)/.test(view) && /returns=\{canReturn \? \{ kind: "return", label: ct\("Return items"\)/.test(view))
     check("  choosing Cancel or Return as the topic points to that flow", /reason === "cancel" \? cancel : reason === "return" \? returns/.test(help))
-    check("the shop's email and phone are in it", /contact=\{\{ email: shop\.email, phone: shop\.phone \?\? null \}\}/.test(view) && /mailto:\$\{contact\.email\}/.test(help) && /tel:\$\{contact\.phone/.test(help))
+    /* Changed on purpose (round 27, B27): the email opens a letter already started (lib/physical/seller-mailto.ts). */
+    check("the shop's email and phone are in it", /contact=\{\{ email: shop\.email, phone: shop\.phone \?\? null, emailHref: mailHref \}\}/.test(view) && /mailto:\$\{contact\.email\}/.test(help) && /tel:\$\{contact\.phone/.test(help))
     check("the receipt (downloads) has it too, with the shop's email", /<OrderHelp kind="digital"[^>]*contact=\{\{ email: receipt\.seller\.supportEmail/.test(read("app/receipt/[token]/receipt-view.tsx")))
     const caseView = read("app/order-help/[id]/case-view.tsx")
     check("the conversation page: photos, and Ask Storelib for help only when the rule allows", /CasePhotoStrip/.test(caseView) && /escalation\.can \?/.test(caseView) && /Ask Storelib for help/.test(caseView))

@@ -8,14 +8,22 @@
  * it, it is theirs to decide, and the buyer replies to their order email
  * instead.
  *
- * Pressing it never cancels by itself. It writes one entry on the order's
- * timeline, "order.cancel_requested" by the buyer, which emails the seller
+ * Pressing it cancels at once (cancelMode "now", ./buyer-cancel-server.ts):
+ * every paid line is refunded in full, the stock goes back on sale, the buyer
+ * gets the Order cancelled and refund emails and the seller is emailed that
+ * the buyer cancelled. The order is still the seller's untouched, so nothing
+ * of theirs is lost.
+ *
+ * It asks the shop instead (cancelMode "ask") when cancelling on the spot
+ * could cost the seller: the order was already sent to a print partner, a
+ * shipping app or a webhook ("fulfillment.forwarded"), or it holds a download
+ * the buyer already has. Then it writes one entry on the order's timeline,
+ * "order.cancel_requested" by the buyer, which emails the seller
  * (lib/physical/events-server.ts sellerEmailFor). The seller answers from the
- * order: Cancel and refund (the order's own Cancel order, then the Orders
- * page's own refund, so the buyer gets the Order cancelled email and the
- * refund email exactly as when the seller cancels), or Keep order, which
- * writes "order.cancel_declined". One request per order: the entry is keyed
- * by the order, so a second press or a script asks nothing twice.
+ * order: Cancel and refund, or Keep order, which writes
+ * "order.cancel_declined". One request per order: the entry is keyed by the
+ * order, so a second press or a script asks nothing twice. A refund that
+ * cannot be made on the spot also falls back to asking.
  *
  * Kept as timeline entries rather than columns, so it needs no database
  * change. Pure: the order page, the seller's panel, the route and the tests
@@ -24,10 +32,14 @@
 
 export const CANCEL_REQUESTED = "order.cancel_requested"
 export const CANCEL_DECLINED = "order.cancel_declined"
+/** The order went to a partner or an app to fulfil (lib/integrations/fulfilment, lib/physical/jobs-server). */
+export const FORWARDED = "fulfillment.forwarded"
 export const CANCEL_REASON_MAX = 300
 
 /** The reason the order is cancelled with when the seller says yes. */
 export const CANCELLED_AT_BUYERS_REQUEST = "Cancelled at the buyer's request"
+/** The reason an order the buyer cancelled themselves carries. */
+export const CANCELLED_BY_BUYER = "Cancelled by the buyer"
 
 export interface CancelOrderFacts {
   status: string
@@ -36,6 +48,16 @@ export interface CancelOrderFacts {
   refundedCents: number
   lines: { requiresShipping: boolean; fulfilled: number }[]
   shipments: { status: string }[]
+}
+
+/**
+ * How Cancel order works for an order the buyer may cancel: "now" cancels and
+ * refunds it on the spot; "ask" asks the shop (see above): it went to a
+ * partner or an app already, or a line is a download the buyer already has.
+ */
+export function cancelMode(o: { lines: { requiresShipping: boolean }[]; events: Pick<Event, "kind">[] }): "now" | "ask" {
+  if (o.events.some((e) => e.kind === FORWARDED)) return "ask"
+  return o.lines.every((l) => l.requiresShipping) ? "now" : "ask"
 }
 
 type Event = { kind: string; createdAt: string; message?: string; detail?: Record<string, unknown> | null }

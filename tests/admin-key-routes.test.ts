@@ -127,7 +127,9 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "onepage/download/[token]/route.ts": "the download token is the credential",
   "coupons/validate/route.ts": "a buyer checking a code at checkout, and it answers yes or no",
   "physical/checkout/complete/route.ts": "Stripe's return after paying for a physical order: keyed by the Checkout Session id, which Stripe re-reads and must be paid; it only writes that session's own order once (lib/physical/checkout-server)",
-  "physical/order-status/[token]/cancel/route.ts": "a buyer asking to cancel an order that hasn't shipped: the order's random receipt token is the credential, rate limited per address and per order; it only writes one request the shop then answers, never a cancel or a refund",
+  /* Changed on purpose (round 27, B27): Cancel order cancels and refunds on the spot under the shop's rules (lib/physical/buyer-cancel-server.ts). */
+  "physical/order-status/[token]/cancel/route.ts": "a buyer cancelling an order that hasn't shipped: the order's random receipt token is the credential, rate limited per address and per order; only while the shop lets buyers cancel and the order is Unfulfilled, it cancels and refunds that one order to its own payment (or asks the shop), once",
+  "physical/order-status/[token]/route.ts": "the buyer's order page asking whether its order changed: the order's random receipt token is the credential, and it answers a fingerprint only, never a field of the order",
   "physical/order-status/[token]/return/route.ts": "a buyer asking to return items: the order's random receipt token is the credential, rate limited; it only opens a return request the shop then approves",
   "physical/storefront/shop/route.ts": "what a shop's own website already shows every visitor about delivery and returns (whether returns are taken, their window, the order value that ships free); no rates, locations or addresses; ?mine=1 checks the owner",
   "physical/storefront/product/route.ts": "a published physical product's options, prices and whether each can be bought, for its public page; never costs, SKUs, locations or exact stock",
