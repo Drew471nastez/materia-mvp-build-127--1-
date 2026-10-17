@@ -646,11 +646,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
             </div>
           ) : null}
 
-          {shownSection === "traffic" ? (
-            <div className="mt-3">
-              <GaLine ga={r?.ga ?? null} />
-            </div>
-          ) : null}
+          {shownSection === "traffic" ? <GaLine ga={r?.ga ?? null} /> : null}
         </div>
       </ReportComparedContext.Provider>
     </CompareContext.Provider>
@@ -1058,7 +1054,7 @@ function GaLine({ ga }: { ga: CommunityReport["ga"] | null }) {
   if (!ga?.id) return null
   const seen = ga.seenAt ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(Date.parse(ga.seenAt)) : null
   return (
-    <p className="px-1 text-[12.5px] leading-snug text-[#6b7280]" data-ga="connected">
+    <p className="mt-3 px-1 text-[12.5px] leading-snug text-[#6b7280]" data-ga="connected">
       {seen ? tt("This community's pages and joins go to {id}. Last data {time}.", { id: ga.id, time: seen }) : tt("This community's pages and joins go to {id}.", { id: ga.id })}{" "}
       <a href={GA_SETUP} className="inline-flex h-10 items-center text-[#1a1a2e] underline-offset-2 hover:underline sm:h-auto">
         {tt("Manage")}
