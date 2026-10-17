@@ -7681,17 +7681,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
 
                   <>
-                    {group.id === "branding" ? (
-                      <BrandingTabPanel
-                        settingsDraft={settingsDraft}
-                        updateSetting={updateSetting}
-                      />
-                    ) : (
+                    {/* Logo and brand: its own panel, then the group's other fields, a theme's own among them, as General settings draws it. */}
+                    {(
                       [
+                        group.id === "branding" ? (
+                          <BrandingTabPanel
+                            key="branding-panel"
+                            settingsDraft={settingsDraft}
+                            updateSetting={updateSetting}
+                          />
+                        ) : null,
                         group.id === "social" ? (
                           <SocialLinksEditor key="social-links" values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                         ) : null,
-                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <div key={field.id}>
