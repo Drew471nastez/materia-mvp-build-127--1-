@@ -52,6 +52,7 @@
 import { unstable_cache } from "next/cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { readPublicRow } from "@/lib/security/public-rows"
+import { excludingCommunityProducts } from "@/lib/communities/listing"
 
 /** The backstop, in seconds. Tag invalidation is the fast path. */
 export const PRODUCT_CACHE_TTL = 60
@@ -306,16 +307,54 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
         questions and custom fields into the data cache and back on every
         product page, to draw four cards. All of these are columns the
         Explore catalogue already names, so no database lacks one.
+
+        ROUND AG, THE OWNER: "a community's extra pricing plans show as separate products". A community sells each plan
+        through a product of its own, and every one of them was a card. Now the ordinary products are read without
+        those (lib/communities/listing excludingCommunityProducts), and each of the creator's public communities is one
+        card of its own: its name and cover, the price of its cheapest plan, linking through one plan's address (which
+        opens the community, app/(marketing)/p/[slug]).
       */
-      const { data } = await supabase
-        .from("products")
-        .select(MORE_FROM_CREATOR_COLUMNS)
+      const plainRead = excludingCommunityProducts((exclude) => {
+        let q = supabase
+          .from("products")
+          .select(MORE_FROM_CREATOR_COLUMNS)
+          .eq("creator_id", creatorId)
+          .eq("status", "published")
+          .neq("type", "physical")
+          .neq("id", excludeProductId)
+        if (exclude) q = q.is("community_id", null)
+        return q.limit(4)
+      })
+      const communitiesRead = supabase
+        .from("communities")
+        .select("id, name, tagline, cover_url, logo_url")
         .eq("creator_id", creatorId)
         .eq("status", "published")
-        .neq("type", "physical")
-        .neq("id", excludeProductId)
-        .limit(4)
-      return (data ?? []) as unknown as CachedProductRow[]
+        .eq("visibility", "public")
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .limit(2)
+      const [{ data: plain }, { data: communities, error: communitiesError }] = await Promise.all([plainRead, communitiesRead])
+      const cards: CachedProductRow[] = []
+      const list = communitiesError ? [] : ((communities ?? []) as Array<{ id: string; name: string | null; tagline: string | null; cover_url: string | null; logo_url: string | null }>)
+      if (list.length) {
+        const { data: planRows } = await supabase
+          .from("products")
+          .select(`${MORE_FROM_CREATOR_COLUMNS}, community_id`)
+          .in("community_id", list.map((c) => c.id))
+          .eq("status", "published")
+          .neq("id", excludeProductId)
+        const plans = ((planRows ?? []) as unknown as Array<CachedProductRow & { community_id: string }>).filter((p) => !!p.slug)
+        for (const c of list) {
+          const mine = plans.filter((p) => p.community_id === c.id)
+          if (!mine.length) continue
+          const paid = mine.filter((p) => (p.price_cents ?? 0) > 0).sort((a, b) => (a.price_cents ?? 0) - (b.price_cents ?? 0))
+          const pick = paid[0] ?? mine[0]
+          cards.push({ ...pick, title: c.name || pick.title, thumbnail_url: c.cover_url || c.logo_url || pick.thumbnail_url, description: c.tagline ?? pick.description, compare_at_cents: null, kind: "community" })
+        }
+      }
+      for (const p of (plain ?? []) as unknown as CachedProductRow[]) if (cards.length < 4) cards.push(p)
+      return cards.slice(0, 4)
     },
     ["more-from-creator", creatorId, excludeProductId],
     { revalidate: PRODUCT_CACHE_TTL, tags: [creatorTag(creatorId)] },

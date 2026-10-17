@@ -18,3 +18,92 @@ DELETE FROM auth.identities i USING auth.users u WHERE i.user_id = u.id AND u.em
 UPDATE auth.identities i SET identity_data = jsonb_set(coalesce(i.identity_data, '{}'::jsonb), '{email}', to_jsonb(u.email)), updated_at = now() FROM auth.users u WHERE i.user_id = u.id AND u.email LIKE 'deleted-%@deleted.storelib.invalid' AND i.provider = 'email' AND coalesce(i.identity_data->>'email', '') <> u.email;
 -- No closed account stays in a community's member list.
 DELETE FROM public.community_members m USING auth.users u WHERE m.user_id = u.id AND u.email LIKE 'deleted-%@deleted.storelib.invalid' AND m.role <> 'owner';
+
+-- A product photo whose name has a space is stored in pages and rows as %20. The cleanup now also looks for that form,
+-- so it never takes such a photo for one nothing uses (same function as part 18, one check added to each image rule).
+create or replace function public.storage_cleanup_candidates(p_limit integer default 200, p_image_from_days integer default 32)
+returns table (bucket_id text, name text, reason text)
+language plpgsql
+stable
+security definer
+set search_path = public, storage
+as $$
+begin
+  if to_regclass('public.digital_assets') is null or to_regclass('public.product_bundles') is null then
+    return;
+  end if;
+  return query
+  with imports as (
+    select o.bucket_id::text, o.name::text, 'theme-import'::text as reason, o.created_at
+      from storage.objects o
+     where o.bucket_id = 'digital-products'
+       and o.name ~ '^[0-9a-fA-F-]{36}/theme-imports/[0-9a-fA-F-]{36}\.zip$'
+       and o.created_at < now() - interval '1 day'
+     order by o.created_at
+     limit p_limit
+  ),
+  digital as (
+    select o.bucket_id::text, o.name::text, 'digital-orphan'::text, o.created_at
+      from storage.objects o
+     where o.bucket_id in ('digital-products', 'product-files')
+       and (o.name like '%/digital-products/%' or o.name like 'products/%')
+       and o.created_at < now() - interval '3 days'
+       and not exists (
+         select 1 from public.digital_assets da
+          where da.file_path in (o.name, o.bucket_id || '/' || o.name)
+       )
+       and not exists (
+         select 1 from public.digital_assets da
+          where da.file_path like '%://%' and position(o.name in da.file_path) > 0
+       )
+     order by o.created_at
+     limit p_limit
+  ),
+  bundles as (
+    select o.bucket_id::text, o.name::text, 'bundle-orphan'::text, o.created_at
+      from storage.objects o
+     where o.bucket_id = 'digital-products'
+       and o.name like '%/bundles/%.zip'
+       and o.created_at < now() - interval '3 days'
+       and not exists (select 1 from public.product_bundles pb where pb.zip_path = o.name)
+     order by o.created_at
+     limit p_limit
+  ),
+  descriptions as (
+    select o.bucket_id::text, o.name::text, 'description-image'::text, o.created_at
+      from storage.objects o
+     where o.bucket_id = 'product-images'
+       and o.name like '%\_description\_%' escape '\'
+       and o.created_at < now() - interval '14 days'
+       and o.created_at > now() - make_interval(days => greatest(p_image_from_days, 15))
+       and not public.storage_object_referenced(o.bucket_id, o.name)
+       and not public.storage_object_referenced(o.bucket_id, replace(o.name, ' ', '%20'))
+     order by o.created_at
+     limit p_limit
+  ),
+  removed as (
+    select o.bucket_id::text, o.name::text, 'removed-image'::text, o.created_at
+      from storage.objects o
+     where o.bucket_id = 'product-images'
+       and o.name ~ '^[0-9a-fA-F-]{36}/([0-9a-fA-F-]{36}|temp)/'
+       and o.name not like '%\_description\_%' escape '\'
+       and o.created_at < now() - interval '30 days'
+       and o.created_at > now() - make_interval(days => greatest(p_image_from_days, 31))
+       and not public.storage_object_referenced(o.bucket_id, o.name)
+       and not public.storage_object_referenced(o.bucket_id, replace(o.name, ' ', '%20'))
+     order by o.created_at
+     limit p_limit
+  )
+  select c.bucket_id, c.name, c.reason
+    from (
+      select * from imports
+      union all select * from digital
+      union all select * from bundles
+      union all select * from descriptions
+      union all select * from removed
+    ) c
+   order by c.created_at
+   limit p_limit;
+end;
+$$;
+

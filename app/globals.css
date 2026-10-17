@@ -8475,3 +8475,8 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
 @media (prefers-reduced-motion: reduce) {
   .rail-tip-in { animation: none; }
 }
+
+/* Round AG: a picture that could not be loaded any way (lib/media/image-fallback.ts) leaves its frame's background, not a broken icon. Unlayered, so no utility undoes it. */
+img[data-img-broken] {
+  visibility: hidden !important;
+}

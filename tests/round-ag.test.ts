@@ -5,6 +5,7 @@
  *   PREVIEW    the owner's Preview opens the page and the plans as a visitor sees them, buying nothing
  *   PLANS UI   each plan a card with an Edit panel; a new plan takes its trial and benefits at once
  *   ACCOUNTS   admin delete asks "Are you sure?" only; a deleted email can sign up again; no "Former account" members
+ *   CREATORS   no language dropdown; More from shows a community once; a failed picture never shows a broken icon
  *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
@@ -96,8 +97,19 @@ async function main() {
   check("the share button no longer shrinks under the press (the menu stays put)", !/active:scale/.test(share))
   check("signed out on Explore, the footer's mark goes to storelib.com", /home=\{!signedIn\}/.test(code("components/marketing/conditional-footer.tsx")) && /home \? "\/" : "\/explore"/.test(code("components/storefront/seller-footer.tsx")))
 
+  console.log("\nCreator pages and pictures")
+  const lang = code("components/storefront/creator-language.tsx")
+  check("no language dropdown on a creator page (the offer card stays)", !/<select/.test(lang) && /<LanguageSuggest/.test(lang))
+  const more = code("lib/commerce/product-page-cache.ts")
+  check("More from: plain products without a community's plans, and each community once", /excludingCommunityProducts\(/.test(more) && /if \(exclude\) q = q\.is\("community_id", null\)/.test(more) && /from\("communities"\)/.test(more) && /title: c\.name \|\| pick\.title/.test(more))
+  const { IMAGE_FALLBACK_SCRIPT } = await import("@/lib/media/image-fallback")
+  check("a failed picture: the original, then this host's /media/, then hidden", /\/_next\/image\?/.test(IMAGE_FALLBACK_SCRIPT) && /location\.origin\+u\.pathname/.test(IMAGE_FALLBACK_SCRIPT) && /data-img-broken/.test(IMAGE_FALLBACK_SCRIPT) && /data-img-retry/.test(IMAGE_FALLBACK_SCRIPT))
+  check("  in <head> on every page, and hidden pictures leave no icon", /__html: IMAGE_FALLBACK_SCRIPT/.test(read("app/layout.tsx")) && /img\[data-img-broken\] \{\s*visibility: hidden !important;/.test(read("app/globals.css")))
+  check("  the script parses", (() => { try { new Function(IMAGE_FALLBACK_SCRIPT); return true } catch { return false } })())
+  check("the cleanup also looks for a name with spaces as %20", /replace\(o\.name, ' ', '%20'\)/.test(read("supabase/migrations/20270201_round_ag.sql")))
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 
