@@ -21,6 +21,7 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-par
 import { BuyerCaseThread, BuyerCasesList } from "./buyer-cases"
 import type { CaseSummary } from "@/lib/support/cases"
 import { tt } from "@/lib/i18n/text"
+import { useVisibleInterval } from "@/lib/support/use-case-live"
 
 const TONE: Record<TicketStatus, "blue" | "amber" | "gray"> = { open: "blue", waiting: "amber", resolved: "gray" }
 const AREA = cn(FIELD, "h-auto min-h-[132px] py-2.5 leading-[21px] sm:h-auto")
@@ -58,6 +59,8 @@ export function SupportClient() {
     void load()
     void loadCases()
   }, [load, loadCases])
+  /* The buyers' list stays current while it is on screen: a new case or message shows within a minute, at once on coming back to the tab. An open thread is live on its own (buyer-cases.tsx). */
+  useVisibleInterval(loadCases, 60_000, view === "buyers" && !caseId)
 
   const go = (id: string | null) => router.replace(id ? `/app/support?view=storelib&ticket=${id}` : "/app/support?view=storelib", { scroll: false })
   const goCase = (id: string | null) => router.replace(id ? `/app/support?case=${id}` : "/app/support", { scroll: false })

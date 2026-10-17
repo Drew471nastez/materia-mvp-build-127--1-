@@ -14,7 +14,7 @@ import { join, relative } from "node:path"
 
 const ROOT = join(new URL(".", import.meta.url).pathname, "..", "..")
 /* Folders, and single files the checkout's pages draw from elsewhere. */
-const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "app/review", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx"]
+const DIRS = ["app/checkout", "lib/checkout", "app/receipt", "app/review", "app/order-help", "components/physical/tracking-timeline.tsx", "components/support/order-help.tsx", "components/support/case-photos.tsx"]
 const OUT = join(ROOT, "lib/markets/checkout-words.generated.ts")
 
 const walk = (dir) =>

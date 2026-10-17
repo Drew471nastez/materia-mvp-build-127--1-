@@ -154,7 +154,7 @@ for (const size of SIZES) {
     await page.screenshot({ path: join(shots, `${size.tag}-case.png`), fullPage: true })
     await page.click("[data-case-ask-storelib]")
     await wait(300)
-    await pressText(page, "Ask Storelib for help")
+    await page.click("[data-case-escalate]")
     await wait(800)
     check("Asked: Storelib has it, and the shop has been told", (await text(page)).includes("Storelib has your case"))
     check("Conversation: nothing wider than the screen", (await overflow(page)) <= 0, await overflow(page))
