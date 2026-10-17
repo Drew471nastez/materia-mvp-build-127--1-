@@ -5,15 +5,19 @@ import { runStorageCleanup } from "@/lib/storage/cleanup"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { recordCronRun } from "@/lib/observability/report"
 import { sweepCommunityOrphans } from "@/lib/communities/server/orphans"
+import { sweepRemovedLibraryFiles } from "@/lib/files/cleanup-removed"
 
 /**
  * GET /api/cron/storage-cleanup
  *
  * Removes files nothing refers to any more (lib/storage/cleanup.ts): abandoned
  * theme packages, unfinished uploads, description pictures and product photos
- * that were taken out, stale download ZIPs, and community pictures and files
- * taken out of drafts two weeks ago (lib/communities/server/orphans.ts). Then gives older product files
- * their first check and a SHA-256, a few a run, and trims the security log.
+ * that were taken out, stale download ZIPs, community pictures and files
+ * taken out of drafts two weeks ago (lib/communities/server/orphans.ts), and
+ * pictures taken out of a store's Files library thirty days ago that nothing
+ * points at any more (lib/files/cleanup-removed.ts). Then gives older product
+ * files their first check and a SHA-256, a few a run, and trims the security
+ * log.
  *
  * Query, for a person running it by hand with the secret:
  *   ?dry=1        say what would go, remove nothing
@@ -56,7 +60,12 @@ async function runJob(request: Request) {
     /* Community pictures and files taken out of drafts and never posted (lib/communities/server/orphans.ts). */
     const communityOrphans = await sweepCommunityOrphans(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
     if (communityOrphans.errors.length > 0) console.error("[storage-cleanup] community uploads:", communityOrphans.errors.join("; "))
-    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans }, { headers: { "Cache-Control": "no-store" } })
+    /* Pictures taken out of a Files library thirty days ago, and only the ones
+       both reference gates say nothing points at (lib/files/cleanup-removed.ts).
+       `ready: false` means SQL part 222 has not run: nothing to collect. */
+    const removedFiles = await sweepRemovedLibraryFiles(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1", budgetMs: 60_000 })
+    if (removedFiles.errors.length > 0) console.error("[storage-cleanup] removed library files:", removedFiles.errors.join("; "))
+    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans, removedFiles }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })

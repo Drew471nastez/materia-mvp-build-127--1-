@@ -96,6 +96,11 @@ export function describeActivity(e: Pick<ActivityEntry, "action" | "subjectLabel
       return named("Removed {s}")
     case "file.deleted":
       return named("Deleted the file {s}")
+    /* Taken out of Files, with the object kept for whatever still uses it (lib/files/assets.ts). */
+    case "file.removed":
+      return named("Removed {s} from Files")
+    case "file.restored":
+      return named("Put {s} back in Files")
     case "offer.added":
       return named("Added the offer {s}")
     case "offer.updated":

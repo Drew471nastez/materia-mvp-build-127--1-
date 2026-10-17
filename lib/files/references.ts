@@ -1,0 +1,330 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  WHERE A PICTURE IS ACTUALLY USED
+ * ===========================================================================
+ * Files removed a picture by deleting the storage object, which is the only
+ * copy. A logo taken out of Files vanished from the store header, the
+ * receipts, the checkout and the published website in the same second.
+ *
+ * This answers the question the delete never asked: who still points at this
+ * object? Two gates, and both have to agree before any bytes go:
+ *
+ *   1. THIS FILE, by name. A written down list of every surface that stores
+ *      a picture's address, with the table, the columns and how that table
+ *      narrows to one store. It can say WHERE ("Store logo", "Website",
+ *      "Product photos"), which is what the person deleting needs to read
+ *      before they press the button, and it is pinned surface by surface in
+ *      tests/files-retention.test.ts so a change to one cannot quietly break
+ *      another.
+ *
+ *   2. public.storage_object_referenced (SQL part 18), in the database. It
+ *      walks the catalogue instead of a list: every table in `public` with
+ *      an owner column, the whole row as text, matched against the path. It
+ *      is the backstop, because a surface nobody added to the list below is
+ *      still a row with the path in it. It errs one way only: anything it
+ *      cannot read counts as in use.
+ *
+ * So a surface missing from the list below can cost a name in the UI. It
+ * cannot cost a file: `collectable` below needs gate 2 to say no as well,
+ * and a database without gate 2 collects nothing at all.
+ *
+ * MATCHING. A row holds the address, not the path: Storelib's own
+ * `https://storelib.com/media/<bucket>/<path>`, an older
+ * `https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>`,
+ * or, in a theme's own file, a bare path. All three contain the path, so the
+ * path is what is looked for, in the forms an address can carry it (as it is,
+ * and percent encoded the way the storage client writes it). Never the file
+ * name alone: two stores both having `logo.png` is not a reference.
+ */
+
+import { posterPathFor } from "@/lib/media/video"
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
+export interface Owner {
+  userId: string
+  creatorId: string
+}
+
+/** How a surface's rows narrow to one store. */
+type Scope =
+  /** The table has the column itself: `creator_id`, `user_id`, or `id` for creators and profiles. */
+  | { kind: "own"; column: string; owner: "creator" | "user" }
+  /** The table points at a parent that has it: product_variants.product_id to products.creator_id. */
+  | { kind: "via"; column: string; parent: string; parentColumn: string; parentOwner: "creator" | "user" }
+
+export interface Surface {
+  /** Stable key, used by the tests and the API. */
+  key: string
+  /** What the person reads: a place in their store, not a table name. */
+  label: string
+  table: string
+  /** The columns that can hold an address. A JSON column is searched whole. */
+  columns: string[]
+  scope: Scope
+  /** At most this many rows read for one question. */
+  limit?: number
+}
+
+/**
+ * EVERY SURFACE THAT STORES A PICTURE'S ADDRESS, as read out of the app
+ * (`.from("<table>").select(...)` and the payloads written back). Grouped by
+ * the place the owner would name, so two tables behind one screen share a
+ * label.
+ */
+export const SURFACES: readonly Surface[] = [
+  /* Settings › Store details: the picture on receipts, order emails and the checkout header (lib/store/settings-server.ts, lib/checkout/brand-server.ts). */
+  { key: "store-logo", label: "Store logo, receipts and emails", table: "store_settings", columns: ["logo_url", "checkout", "legal"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 4 },
+  /* The published website's theme: Branding › Logo, the favicon, the share image, and every section setting (lib/checkout/brand-server.ts, lib/website-builder). */
+  { key: "website-theme", label: "Website theme", table: "store_theme_settings", columns: ["settings", "draft_settings"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 40 },
+  /* The website's pages and their sections. */
+  { key: "website-sections", label: "Website sections", table: "store_theme_pages", columns: ["sections", "draft_sections"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 200 },
+  { key: "website-install", label: "Website", table: "store_theme_installs", columns: ["sections", "settings", "draft_sections", "draft_settings", "snapshot_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
+  /* A theme's own files: an imported theme keeps its asset map and its CSS here, both of which can name a picture. */
+  { key: "website-files", label: "Website files", table: "store_theme_custom_files", columns: ["content", "draft_content"], scope: { kind: "via", column: "install_id", parent: "store_theme_installs", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
+  /* The store builder's own surface (the creator page and the storefront header). */
+  { key: "store-builder", label: "Store page", table: "store_builder_configs", columns: ["draft_config", "published_config", "sections", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 10 },
+  { key: "creator-page", label: "Store page", table: "creators", columns: ["avatar_url", "cover_url", "draft_config", "published_config"], scope: { kind: "own", column: "id", owner: "creator" }, limit: 2 },
+  /* Sites: the newer website surface and the files published with it. */
+  { key: "site", label: "Website", table: "sites", columns: ["settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
+  { key: "site-assets", label: "Website files", table: "site_assets", columns: ["url"], scope: { kind: "via", column: "site_id", parent: "sites", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
+  { key: "site-files", label: "Website files", table: "site_files", columns: ["content"], scope: { kind: "via", column: "site_id", parent: "sites", parentColumn: "creator_id", parentOwner: "creator" }, limit: 400 },
+  /* Products: the thumbnail, the gallery (which also holds videos), each variant's own picture, and the product page's sections. */
+  { key: "product-thumbnail", label: "Product photos", table: "products", columns: ["thumbnail_url", "gallery_urls", "description"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 2000 },
+  { key: "product-variant", label: "Product photos", table: "product_variants", columns: ["image_url"], scope: { kind: "via", column: "product_id", parent: "products", parentColumn: "creator_id", parentOwner: "creator" }, limit: 2000 },
+  { key: "product-page", label: "Product page", table: "product_page_configs", columns: ["draft_config", "published_config"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  { key: "collection", label: "Collections", table: "product_collections", columns: ["image_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  { key: "offer", label: "Offers", table: "store_offers", columns: ["image_url", "config"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
+  /* Checkout: the store's own checkout words, which can carry a picture, and the icons a reworded block names. */
+  { key: "checkout-text", label: "Checkout", table: "checkout_text_overrides", columns: ["text", "values", "overrides"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
+  /* Courses and lessons: a cover and a lesson's video. */
+  { key: "course", label: "Courses", table: "courses", columns: ["thumbnail_url", "image_url", "cover_url"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  { key: "course-lesson", label: "Course lessons", table: "course_lessons", columns: ["video_path", "video_url", "thumbnail_url", "content"], scope: { kind: "via", column: "course_id", parent: "courses", parentColumn: "creator_id", parentOwner: "creator" }, limit: 1000 },
+  /* Memberships: a post's pictures. */
+  { key: "membership-post", label: "Membership posts", table: "membership_posts", columns: ["images", "body", "thumbnail_url"], scope: { kind: "via", column: "product_id", parent: "products", parentColumn: "creator_id", parentOwner: "creator" }, limit: 1000 },
+  /* The person behind the store: their photo and cover, which the checkout header falls back to. */
+  { key: "profile", label: "Your photo", table: "profiles", columns: ["avatar_url", "cover_url"], scope: { kind: "own", column: "id", owner: "user" }, limit: 2 },
+  { key: "onepage", label: "One page", table: "onepages", columns: ["avatar_url", "draft_blocks", "published_blocks", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 40 },
+  /* Communities: the logo and cover of each one they own, their spaces and their events. */
+  { key: "community", label: "Community", table: "communities", columns: ["logo_url", "cover_url"], scope: { kind: "own", column: "owner_user_id", owner: "user" }, limit: 100 },
+  { key: "community-space", label: "Community spaces", table: "community_spaces", columns: ["icon"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 400 },
+  { key: "community-event", label: "Community events", table: "community_events", columns: ["cover_url"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 400 },
+  { key: "community-post", label: "Community posts", table: "community_feed_posts", columns: ["media", "body"], scope: { kind: "via", column: "community_id", parent: "communities", parentColumn: "owner_user_id", parentOwner: "user" }, limit: 1000 },
+  /* Email: a campaign's own pictures and the branding in it. */
+  { key: "email-campaign", label: "Email campaigns", table: "email_campaigns", columns: ["body", "rendered_html", "settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  { key: "email-flow", label: "Email automations", table: "email_flows", columns: ["trigger_config", "steps"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
+  /* Published writing. */
+  { key: "blog", label: "Blog posts", table: "blog_posts", columns: ["cover_image_url", "content", "body"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 400 },
+  /* Reviews widgets: a saved look can name a picture. */
+  { key: "review-widget", label: "Review widgets", table: "review_widget_configs", columns: ["settings"], scope: { kind: "own", column: "creator_id", owner: "creator" }, limit: 200 },
+]
+
+/** The forms an address can carry a path in. Never the file name alone. */
+export function needlesFor(path: string): string[] {
+  const out = new Set<string>([path])
+  try {
+    const encoded = encodeURI(path)
+    out.add(encoded)
+    /* The storage client leaves # and ? as they are, and the library fixes them after (lib/files/library.ts toFile). */
+    out.add(encoded.replace(/#/g, "%23").replace(/\?/g, "%3F"))
+  } catch {
+    /* a path encodeURI refuses is matched as it is */
+  }
+  return [...out]
+}
+
+/** Whether a value of any shape holds one of the paths. */
+export function holdsPath(value: unknown, needles: readonly string[]): boolean {
+  if (value === null || value === undefined) return false
+  let text: string
+  if (typeof value === "string") text = value
+  else if (typeof value === "number" || typeof value === "boolean") return false
+  else {
+    try {
+      text = JSON.stringify(value)
+    } catch {
+      return false
+    }
+  }
+  if (!text) return false
+  return needles.some((n) => text.includes(n))
+}
+
+export interface Use {
+  key: string
+  /** The place the owner would name. */
+  label: string
+  /** How many rows of this surface hold it. */
+  count: number
+}
+
+export interface UsesResult {
+  /** One entry per label, largest first. */
+  uses: Use[]
+  /** The rows found, over every surface. */
+  total: number
+  /** A surface that could not be read: its rows are unknown, so the answer is not complete. */
+  unreadable: string[]
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : "")
+
+async function soft<T>(read: () => PromiseLike<{ data: unknown; error?: unknown }>): Promise<{ rows: T[]; ok: boolean }> {
+  try {
+    const { data, error } = await read()
+    if (error) return { rows: [], ok: false }
+    return { rows: (Array.isArray(data) ? data : data ? [data] : []) as T[], ok: true }
+  } catch {
+    return { rows: [], ok: false }
+  }
+}
+
+/** The ids of the parent rows a `via` surface hangs off, this store's own. */
+async function parentIds(db: Db, surface: Surface & { scope: Extract<Scope, { kind: "via" }> }, owner: Owner): Promise<{ ids: string[]; ok: boolean }> {
+  const id = surface.scope.parentOwner === "creator" ? owner.creatorId : owner.userId
+  const { rows, ok } = await soft<{ id: string }>(() => db.from(surface.scope.parent).select("id").eq(surface.scope.parentColumn, id).limit(600))
+  return { ids: rows.map((r) => str(r.id)).filter(Boolean), ok }
+}
+
+/** One thing being asked about: an id to answer under, and the paths an address could carry. */
+interface Target {
+  id: string
+  needles: string[]
+}
+
+/** The paths one file is asked about: itself, and a video's first frame, which is part of it. */
+export function targetFor(bucket: string, path: string): string[] {
+  return [...new Set([...needlesFor(path), ...(bucket === "store-builder-images" ? needlesFor(posterPathFor(path)) : [])])]
+}
+
+/**
+ * One surface read ONCE, however many files are being asked about, so Select
+ * and Delete of a hundred files is still one query per surface and not a
+ * hundred. Answers how many of its rows hold each target.
+ */
+async function surfaceHits(db: Db, surface: Surface, owner: Owner, targets: readonly Target[]): Promise<{ counts: Map<string, number>; ok: boolean }> {
+  const cols = ["id", ...surface.columns].join(", ")
+  const limit = surface.limit ?? 400
+  const counts = new Map<string, number>()
+  let rows: Record<string, unknown>[] = []
+  if (surface.scope.kind === "own") {
+    const scope = surface.scope
+    const id = scope.owner === "creator" ? owner.creatorId : owner.userId
+    if (!id) return { counts, ok: true }
+    const read = await soft<Record<string, unknown>>(() => db.from(surface.table).select(cols).eq(scope.column, id).limit(limit))
+    if (!read.ok) return { counts, ok: false }
+    rows = read.rows
+  } else {
+    const scope = surface.scope
+    const { ids, ok: parentOk } = await parentIds(db, surface as Surface & { scope: typeof scope }, owner)
+    if (!parentOk) return { counts, ok: false }
+    if (ids.length === 0) return { counts, ok: true }
+    const read = await soft<Record<string, unknown>>(() => db.from(surface.table).select(cols).in(scope.column, ids).limit(limit))
+    if (!read.ok) return { counts, ok: false }
+    rows = read.rows
+  }
+  for (const row of rows) {
+    /* The row's own columns joined once, not once per file asked about. */
+    const text = surface.columns.map((c) => textOf(row[c])).filter(Boolean).join("\n")
+    if (!text) continue
+    for (const t of targets) if (t.needles.some((n) => text.includes(n))) counts.set(t.id, (counts.get(t.id) ?? 0) + 1)
+  }
+  return { counts, ok: true }
+}
+
+function textOf(value: unknown): string {
+  if (value === null || value === undefined) return ""
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return ""
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * WHERE EACH OF THESE PICTURES IS USED, by name, over every surface above.
+ * Every surface is read once for the whole list.
+ *
+ * Fails open towards "in use": a surface that cannot be read is named in
+ * `unreadable`, and a caller deciding whether bytes may go treats that as a
+ * reason to keep them (`collectable` below).
+ */
+export async function findUsesMany(
+  db: Db,
+  owner: Owner,
+  files: readonly { id: string; bucket: string; path: string }[],
+  surfaces: readonly Surface[] = SURFACES,
+): Promise<Map<string, UsesResult>> {
+  const targets: Target[] = files.map((f) => ({ id: f.id, needles: targetFor(f.bucket, f.path) }))
+  const out = new Map<string, UsesResult>()
+  for (const t of targets) out.set(t.id, { uses: [], total: 0, unreadable: [] })
+  if (targets.length === 0) return out
+  const results = await Promise.all(surfaces.map(async (s) => ({ surface: s, ...(await surfaceHits(db, s, owner, targets)) })))
+  const byLabel = new Map<string, Map<string, Use>>()
+  for (const t of targets) byLabel.set(t.id, new Map())
+  for (const r of results) {
+    if (!r.ok) {
+      for (const t of targets) out.get(t.id)!.unreadable.push(r.surface.key)
+      continue
+    }
+    for (const [id, count] of r.counts) {
+      const result = out.get(id)
+      if (!result || count === 0) continue
+      result.total += count
+      const labels = byLabel.get(id)!
+      const held = labels.get(r.surface.label)
+      if (held) held.count += count
+      else labels.set(r.surface.label, { key: r.surface.key, label: r.surface.label, count })
+    }
+  }
+  for (const [id, labels] of byLabel) {
+    out.get(id)!.uses = [...labels.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  }
+  return out
+}
+
+/** Where one picture is used. */
+export async function findUses(db: Db, owner: Owner, bucket: string, path: string, surfaces: readonly Surface[] = SURFACES): Promise<UsesResult> {
+  const out = await findUsesMany(db, owner, [{ id: "one", bucket, path }], surfaces)
+  return out.get("one") ?? { uses: [], total: 0, unreadable: [] }
+}
+
+/**
+ * THE DATABASE'S OWN ANSWER (SQL part 18): every table in `public` with an
+ * owner column, the whole row as text against the path. Three answers:
+ *
+ *   true     something points at it
+ *   false    nothing does
+ *   null     the question could not be asked (the function is not there, or
+ *            it failed). Not an answer, and never read as "no".
+ */
+export async function referencedInDatabase(db: Db, bucket: string, path: string): Promise<boolean | null> {
+  try {
+    const { data, error } = await db.rpc("storage_object_referenced", { p_bucket: bucket, p_name: path })
+    if (error) return null
+    return typeof data === "boolean" ? data : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * MAY THESE BYTES GO? Only when both gates say nothing points at the object:
+ * the list above found nothing and could read every surface, and the
+ * database's own catalogue walk answered a plain no. Anything else keeps the
+ * file, including a database that has not run part 18.
+ */
+export async function collectable(db: Db, owner: Owner, bucket: string, path: string): Promise<{ ok: boolean; reason: string; uses: UsesResult }> {
+  const uses = await findUses(db, owner, bucket, path)
+  if (uses.total > 0) return { ok: false, reason: "in-use", uses }
+  if (uses.unreadable.length > 0) return { ok: false, reason: "unreadable", uses }
+  const inDatabase = await referencedInDatabase(db, bucket, path)
+  if (inDatabase === null) return { ok: false, reason: "no-reference-check", uses }
+  if (inDatabase) return { ok: false, reason: "in-use-elsewhere", uses }
+  return { ok: true, reason: "unreferenced", uses }
+}
