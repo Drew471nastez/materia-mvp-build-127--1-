@@ -90,11 +90,13 @@ export function describeThemeForAuthoring(input: ThemeContextInput): string {
     )
   }
 
+  /* A font role is its family's name (lib/storelib-theme/typography.ts, ThemeFonts). Read as { family }, this line was never printed. */
   const fonts = typo.fonts as unknown as Record<string, unknown>
   const fontLine = ["heading", "body", "accent"]
     .map((role) => {
-      const f = fonts?.[role] as { family?: string } | undefined
-      return f?.family ? `${role} ${f.family}` : ""
+      const f = fonts?.[role]
+      const family = typeof f === "string" ? f : (f as { family?: string } | undefined)?.family
+      return family ? `${role} ${family}` : ""
     })
     .filter(Boolean)
     .join(", ")
@@ -109,11 +111,14 @@ export function describeThemeForAuthoring(input: ThemeContextInput): string {
    * is the tell: a site of 4px buttons with one section of pills reads as
    * two websites.
    */
-  const radius = settings["button_radius"] ?? settings["buttons_radius"] ?? settings["radius"]
+  /* Theme settings › Buttons saves button_shape and button_border_radius; the older names are read too. */
+  const radius = settings["button_border_radius"] ?? settings["button_radius"] ?? settings["buttons_radius"] ?? settings["radius"]
   const style = settings["button_style"] ?? settings["buttons_style"]
+  const shape = settings["button_shape"]
   const buttonBits = [
     typeof style === "string" && style ? `style ${style}` : "",
-    typeof radius === "number" || typeof radius === "string" ? `radius ${radius}` : "",
+    typeof shape === "string" && shape ? `shape ${shape}` : "",
+    typeof radius === "number" || typeof radius === "string" ? `radius ${radius}${typeof radius === "number" ? "px" : ""}` : "",
   ].filter(Boolean)
   if (buttonBits.length) {
     blocks.push(`BUTTONS ON THIS SITE: ${buttonBits.join(", ")}. Match them rather than inventing a button.`)

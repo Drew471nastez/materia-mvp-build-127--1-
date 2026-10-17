@@ -3161,6 +3161,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * shape as `sectionsRef` and `undoRef` below.
    */
   const pushUndoRef = useRef<() => void>(() => {})
+  /** The assistant's edits ask through this one: held while its run's single step stands (undo-run.ts, aiStep). */
+  const aiPushUndoRef = useRef<() => void>(() => {})
 
   const applyAiOp = useCallback((op: ThemeOp) => {
     /**
@@ -3186,9 +3188,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * away their own work instead of the model's.
      *
      * Debounced, because a single instruction arrives as a run of operations
-     * and thirty of them should not fill a thirty-step history.
+     * and thirty of them should not fill a thirty-step history. And held for
+     * a whole assistant run, whose operations arrive seconds apart: the run
+     * took its one step when it started (startAiRun), so Undo takes back the
+     * whole run at once (lib/website-builder/undo-run.ts).
      */
-    pushUndoRef.current()
+    aiPushUndoRef.current()
 
     if (op.kind === "update_theme") {
       /* What the sidebar's own write carries along (updateSetting): the favicon in both places it lives, and the logo into the header section. */
@@ -3560,6 +3565,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * this page or does nothing at all.
    */
   pushUndoRef.current = debouncedPushUndo
+  aiPushUndoRef.current = undoRun.aiStep
 
   const clearHistory = useCallback(() => {
     endUndoRun()
@@ -4654,8 +4660,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setUndoStack(prev => [...prev.slice(-30), before])
       setRedoStack([])
       if (runId) aiRuns.current.set(runId, { page: currentPageRef.current, before })
+      /* That snapshot is the run's one step: its operations, however far apart, add none (undo-run.ts, hold). */
+      undoRun.hold()
     },
-    [snapshotNow],
+    [snapshotNow, undoRun],
   )
   const undoAiRun = useCallback(
     (runId: string) => {
@@ -8960,6 +8968,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   const aiRunFinished = useCallback(
     (ids: string[]) => {
+      /* The run is over: its one undo step is complete, and the next change is a step of its own (lib/website-builder/undo-run.ts). */
+      undoRun.release()
       /* A section placed this moment is on the page from the next render: looked for again a frame later. */
       const settle = (again: boolean) => {
         const order = sectionsRef.current.map((s) => s.id)
@@ -8973,7 +8983,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       settle(true)
     },
-    [revealSection],
+    [revealSection, undoRun],
   )
   useEffect(() => {
     if (aiSettledIds.length === 0) return

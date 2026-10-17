@@ -1172,13 +1172,18 @@ section("Undo cannot reach a page you are not on")
    * before it, so pressing it threw away their own work instead of the
    * model's.
    */
+  /* V round: through the run's own step (undo-run.ts, aiStep), held while an assistant run lasts so the whole run is one step. */
   check(
     "an AI edit records an undo step like every other edit",
-    /const applyAiOp = useCallback[\s\S]{0,1400}pushUndoRef\.current\(\)/.test(editor),
+    /const applyAiOp = useCallback[\s\S]{0,1600}aiPushUndoRef\.current\(\)/.test(editor),
   )
   check(
     "and it is the debounced one, so one instruction is one step",
-    /pushUndoRef\.current = debouncedPushUndo/.test(editor),
+    /pushUndoRef\.current = debouncedPushUndo/.test(editor) && /aiPushUndoRef\.current = undoRun\.aiStep/.test(editor),
+  )
+  check(
+    "and a whole assistant run is one step: held from its start, released when it finishes",
+    /const startAiRun = useCallback[\s\S]{0,600}undoRun\.hold\(\)/.test(editor) && /const aiRunFinished = useCallback[\s\S]{0,300}undoRun\.release\(\)/.test(editor),
   )
 }
 

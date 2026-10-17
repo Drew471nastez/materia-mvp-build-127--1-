@@ -672,6 +672,8 @@ const SUITES = [
   "tests/db-indexes.test.ts",
   /* Phones: the front page's globe loaded on approach, read ahead on the device's plan, polling paused in the background, native listeners taken off */
   "tests/mobile-perf.test.ts",
+  /* V round, the builder's AI: the theme brief cached per version, invented schema keys and unread settings refused, phone layouts checked without a browser, honest repair, follow ups scoped, one Undo step a run, calls and tokens on a budget */
+  "tests/ai-quality-v.test.ts",
 ]
 
 /**

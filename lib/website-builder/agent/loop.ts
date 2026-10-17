@@ -69,6 +69,7 @@ import { describeQuality, pageAgentRules } from "@/lib/storelib-ai"
 import { builderAgentRules } from "@/lib/agent-rules"
 import { pageAgentReference } from "@/lib/storelib-ai/reference"
 import { sectionAdvice } from "@/lib/storelib-ai/integration"
+import type { QualityFinding } from "@/lib/storelib-ai/quality"
 import { skillContext } from "@/lib/agent-skills"
 import type { AgentQuestion } from "@/lib/sites/agent/questions"
 import { failureKind, plainRunError } from "@/lib/sites/agent/plain-errors"
@@ -78,9 +79,11 @@ import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type Sectio
 import { makeCodedCopy } from "./coded-copy"
 import { kindOfSource } from "@/lib/storelib-theme/section-groups"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
-import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
+import { CREATIVE_BRIEF, DESIGN_RUBRIC, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
+import { followUpTarget } from "./follow-up"
+import { themeBrief, themeBriefStats } from "./theme-brief"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
 import { describeAccountMemory } from "@/lib/ai-memory/store"
@@ -1005,8 +1008,21 @@ export async function* themeAgent(
 ): AsyncGenerator<ThemeAgentEvent, ThemeAgentResult> {
   const { provider, model, prompt, page, addable, signal } = input
   const images = input.images ?? []
+  /**
+   * A FOLLOW UP WITH NOTHING SELECTED ("make it cleaner", "change the
+   * layout") is about the section the last run changed (./follow-up.ts): it
+   * is treated as selected, and writes to anything else are refused, unless
+   * the words reach wider.
+   */
+  const follow = followUpTarget({ intent: input.intent, prompt, brief: input.memory ? readBrief(input.state.settings) : null, sections: input.state.sections, selectedSectionId: input.selectedSectionId })
+  const selectedSectionId = input.selectedSectionId ?? follow?.id
   /** Only meaningful with a section actually selected. */
-  const locked = input.lockToSelection ? input.selectedSectionId : undefined
+  const locked = input.lockToSelection ? input.selectedSectionId : follow?.scoped ? follow.id : undefined
+  /** A refusal under the lock, in the follow up's own words when that is why the run is held to one section. */
+  const scopedOut = (what: string, lockText: string) =>
+    follow?.scoped && !input.lockToSelection
+      ? `This message follows your last change, to the section [${follow.id}], so ${what} is not part of it. Nothing was changed. Change that section in place; if the creator meant more, say so in one sentence.`
+      : lockText
   const maxTurns = input.maxTurns ?? MAX_TURNS
   const maxReviews = input.maxReviews ?? MAX_REVIEWS
   const newId = input.newId ?? ((type: string) => `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
@@ -1050,6 +1066,14 @@ export async function* themeAgent(
   const codeRefusals = new Map<string, number>()
   /** Per section type, how many writes the compiler (or a failed draw) refused: see MAX_CODE_ATTEMPTS. */
   const codeFailures = new Map<string, number>()
+  /**
+   * Files a write was refused for and never kept since, with the first thing
+   * wrong: a run that ends with one of these did not do what it was asked,
+   * whatever its closing sentence says (the end of the run).
+   */
+  const refusedCode = new Map<string, string>()
+  /** Files kept only because the quality checks had sent them back twice already, with what is still wrong. */
+  const stillWrong = new Map<string, string>()
   /** Sections whose blocks this run added to or removed from. */
   const filled = new Set<string>()
   /**
@@ -1086,8 +1110,8 @@ export async function* themeAgent(
    * model edits a section's settings without ever having seen that its content
    * lives in blocks.
    */
-  const selected = input.selectedSectionId
-    ? state.sections.find((s) => s.id === input.selectedSectionId)
+  const selected = selectedSectionId
+    ? state.sections.find((s) => s.id === selectedSectionId)
     : undefined
   /**
    * WHERE ITS CODE LIVES, AND WHOSE IT IS (./selected-section): the
@@ -1098,7 +1122,7 @@ export async function* themeAgent(
   const originOf = (type: string): SectionOrigin =>
     input.code?.origin ? input.code.origin(type) : input.code?.read(type) != null ? "own" : "product"
   const selectedContext: SelectedSectionContext | null =
-    input.selected !== undefined ? input.selected : resolveSelectedSection(state.sections, input.selectedSectionId, originOf)
+    input.selected !== undefined && !follow ? input.selected : resolveSelectedSection(state.sections, selectedSectionId, originOf)
 
   const history = input.history ?? []
 
@@ -1172,6 +1196,8 @@ export async function* themeAgent(
 
   /** The opening turn is the plan; everything after it is commentary. */
   let plannedYet = false
+  /** The model's own opening plan, kept with the change in the project's memory as what it decided. */
+  let openingPlan = ""
 
   /**
    * =========================================================================
@@ -1269,6 +1295,29 @@ export async function* themeAgent(
           .join("\n\n")
       : ""
 
+  /**
+   * THE OPEN SECTION'S FILE, SENT WITH THE REQUEST when the change is plainly
+   * to its code: Code a section, or a change to how it behaves. Without it the
+   * first turn was always read_section_code, a round trip that resends
+   * everything above it, for a file the server already had in hand. Only the
+   * creator's own file (the one the code tools may change), and only when it
+   * is small enough to be worth it; recorded as read, so a read_section_code
+   * of it is answered with a note.
+   */
+  const codeAsk = !!intent && (intent.kind === "FUNCTIONAL_CHANGE" || intent.also.includes("FUNCTIONAL_CHANGE") || (intent.kind === "SECTION_REDESIGN" && !intent.rebuild))
+  const openSource = input.code && selected && selectedContext?.origin === "own" && (input.codeFocus || codeAsk) ? input.code.read(selected.type) : null
+  const attachSource = openSource !== null && openSource.length <= OPEN_SOURCE_MAX
+  if (attachSource && selected) reads.set(`read_section_code:${selected.type}`, ATTACHED)
+  /**
+   * THE THEME, READ ONCE PER VERSION (./theme-brief.ts): what its tokens are
+   * on this site, the sections the creator wrote, the store on this page.
+   * Only where the run can write code, which is where those values are
+   * decided; the palette and the spacing rhythm are in the house style.
+   */
+  const codeBrief = input.code ? themeBrief({ settings: state.settings, sources: sourcesNow, sections: state.sections, for: "page" }) : null
+  if (codeBrief) trace("theme-brief", { version: codeBrief.version, chars: codeBrief.text.length, ...themeBriefStats() })
+  if (follow) trace("follow-up", { section: follow.id, scoped: follow.scoped })
+
   const turns: AgentTurn[] = [
     {
       role: "user",
@@ -1287,16 +1336,22 @@ export async function* themeAgent(
         describeHouseStyle(readHouseStyle(state, [], schemas)),
         /* Compact: the indentation of a pretty-printed dump was a third of its tokens. */
         `THEME SETTINGS\n${compactSettings(state.settings)}`,
+        codeBrief?.text ?? "",
         /* Only where the code tools are: where a sidebar setting comes from, and which part of the file to change for one. */
         input.code ? describeSchemaRules({ imported: isCompatSource(sourcesNow["layout/theme.storelib"]), settingsSchema: !!input.code.readSettingsSchema && !locked }) : "",
-        selected && locked
+        selected && follow
+          ? `THIS MESSAGE IS ABOUT YOUR LAST CHANGE, to ${selected.name?.trim() || typeName(schemas, selected.type)} [${selected.id}]. "it", "this" and "the layout" mean this section. Change it in place: its settings, its blocks or its code. Do not add a new section or make it again, and leave every other section as it is; writes to anything else are refused. If the creator plainly meant something else, say so in one sentence.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
+          : selected && locked
           ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change: its settings, its blocks, its name, its code. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected
             ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another. A change they ask for is a change to THIS section, not a new section.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
             : "",
         selected && input.codeFocus
-          ? "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE: read_section_code on its type, then edit_section_code (write_section_code only for a new layout). If it is Storelib's built in section, call copy_section_to_code on it first WITHOUT asking: choosing Code a section is their agreement. Keep every setting id and block it has, and give anything new a setting."
+          ? attachSource
+            ? "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE. Its whole file is below as it is now: change it with edit_section_code, exact find and replace for only the lines that change (write_section_code only for a new layout). Do not read it again. Keep every setting id and block it has, and give anything new a setting."
+            : "THE CREATOR CHOSE CODE A SECTION. Make this change in this section's CODE: read_section_code on its type, then edit_section_code (write_section_code only for a new layout). If it is Storelib's built in section, call copy_section_to_code on it first WITHOUT asking: choosing Code a section is their agreement. Keep every setting id and block it has, and give anything new a setting."
           : "",
+        attachSource && selected ? `THE OPEN SECTION'S FILE, the whole of sections/${selected.type}.storelib as it is now (read for you; change it with edit_section_code):\n\n${openSource}` : "",
         store ? `STORE, read for you just now:\n${describeStore(store)}` : "",
         /* What was just said, so a follow-up or an answer means what it meant. */
         describeRecent(history),
@@ -1517,7 +1572,7 @@ export async function* themeAgent(
           selfChecked = true
           checkingStep = { id: "self-check", label: images.length ? "Comparing it with your picture" : "Checking every part you asked for" }
           yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "running" }
-          turns.push({ role: "user", content: selfCheckNote(images.length > 0) })
+          turns.push({ role: "user", content: selfCheckNote(images.length > 0, wroteCode || added.size > 0) })
           continue
         }
 
@@ -1538,7 +1593,8 @@ export async function* themeAgent(
       if (turn.text.trim()) {
         if (!plannedYet) {
           plannedYet = true
-          yield { type: "plan", text: turn.text.trim() }
+          openingPlan = turn.text.trim()
+          yield { type: "plan", text: openingPlan }
         } else {
           yield { type: "thinking", text: turn.text.trim() }
         }
@@ -1702,7 +1758,7 @@ export async function* themeAgent(
         }
         if (call.name === "edit_menu") {
           if (locked) {
-            results.push({ id: call.id, output: "Only the open section may change in this edit, and a menu is the whole site's. Say in your reply that changing the menu needs the lock cleared first." })
+            results.push({ id: call.id, output: scopedOut("changing the menu", "Only the open section may change in this edit, and a menu is the whole site's. Say in your reply that changing the menu needs the lock cleared first.") })
             yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
             continue
           }
@@ -1727,7 +1783,7 @@ export async function* themeAgent(
         */
         if (call.name === "set_color_scheme") {
           if (locked) {
-            results.push({ id: call.id, output: "Only the open section may change in this edit, and a colour scheme is the whole site's. Change this section's own colours, and say that the palette needs the lock cleared." })
+            results.push({ id: call.id, output: scopedOut("changing the palette", "Only the open section may change in this edit, and a colour scheme is the whole site's. Change this section's own colours, and say that the palette needs the lock cleared.") })
             yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
             continue
           }
@@ -1801,7 +1857,10 @@ export async function* themeAgent(
         /* A read of something this run already read, unchanged since: a note, not the text again. */
         const readKey = READ_TOOLS.has(call.name) ? `${call.name}:${readTarget(call.argumentsJson)}` : ""
         if (readKey && reads.has(readKey)) {
-          results.push({ id: call.id, output: `You read this earlier in this run and nothing has changed it since. Use that result.` })
+          results.push({
+            id: call.id,
+            output: reads.get(readKey) === ATTACHED ? "Its whole file is in the first message (THE OPEN SECTION'S FILE) and nothing has changed it since. Use that." : `You read this earlier in this run and nothing has changed it since. Use that result.`,
+          })
           yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           continue
         }
@@ -1840,7 +1899,7 @@ export async function* themeAgent(
             continue
           }
           if (locked) {
-            results.push({ id: call.id, output: "Only the open section may change in this edit, so the theme settings stay as they are." })
+            results.push({ id: call.id, output: scopedOut("changing the theme settings", "Only the open section may change in this edit, so the theme settings stay as they are.") })
             yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
             continue
           }
@@ -1890,7 +1949,7 @@ export async function* themeAgent(
             const said = trail.next(progress("writing", writingLabel(fileLabel(codeType))))
             if (said) yield said
             if (locked) {
-              results.push({ id: call.id, output: "Only the open section may change in this edit, so no section can be added. Do what you can inside it." })
+              results.push({ id: call.id, output: scopedOut("adding a section", "Only the open section may change in this edit, so no section can be added. Do what you can inside it.") })
               yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
               continue
             }
@@ -1913,6 +1972,7 @@ export async function* themeAgent(
             if (created.ok === false) {
               if (created.reason === "quality") codeRefusals.set(codeType, (codeRefusals.get(codeType) ?? 0) + 1)
               else if (created.reason !== "args") codeFailures.set(codeType, failures + 1)
+              if (created.reason !== "args") refusedCode.set(`sections/${codeType}.storelib`, firstFinding(created.output))
               results.push({ id: call.id, output: created.output })
               trace("repair", { tool: call.name, type: codeType, reason: created.reason, feedback: created.output.slice(0, 400) })
               yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
@@ -1924,6 +1984,11 @@ export async function* themeAgent(
             wroteCode = true
             forget("read_section_type:")
             yield { type: "code", path: created.path, source: created.source }
+            refusedCode.delete(created.path)
+            if ((codeRefusals.get(codeType) ?? 0) >= QUALITY_REFUSALS) {
+              const strictly = checkSectionSource({ path: created.path, type: codeType, source: created.source, before: null, strict: true })
+              if (strictly.ok === false) stillWrong.set(created.path, `${created.path}: ${firstFinding(strictly.feedback)}`)
+            }
             const label = `Added ${typeName(schemas, codeType)}`
             state = applyOp(state, created.op, schemas)
             ops.push(created.op)
@@ -1978,6 +2043,18 @@ export async function* themeAgent(
           const path = `sections/${codeType}.storelib`
           const said = trail.next(progress("writing", writingLabel(fileLabel(codeType))))
           if (said) yield said
+          /*
+            THE LOCK REACHES THE CODE TOOLS TOO. A file is every section of its
+            type, so under the lock only the open section's own type may be
+            written; another type's file was writable here, which let a locked
+            edit change sections the creator never opened.
+          */
+          const lockedType = locked ? state.sections.find((x) => x.id === locked)?.type : undefined
+          if (locked && codeType !== lockedType) {
+            results.push({ id: call.id, output: scopedOut(`changing ${path}`, `Only the open section may change in this edit, and ${path} is another section's file. Nothing was saved. Change the open section's own code (${lockedType ? `sections/${lockedType}.storelib` : "its file"}) or its settings.`) })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+            continue
+          }
           const prepared = prepareCodeWrite(call.name, call.argumentsJson, code, originOf)
           if (prepared.ok === false) {
             results.push({ id: call.id, output: prepared.output })
@@ -2009,6 +2086,7 @@ export async function* themeAgent(
           if (checked.ok === false) {
             if (checked.reason === "quality") codeRefusals.set(codeType, qualitySent + 1)
             else codeFailures.set(codeType, failures + 1)
+            refusedCode.set(path, firstFinding(checked.feedback))
             trace("repair", { tool: call.name, type: codeType, reason: checked.reason, feedback: checked.feedback.slice(0, 400) })
             const spent = checked.reason !== "quality" && failures + 1 >= MAX_CODE_ATTEMPTS
             results.push({
@@ -2038,12 +2116,22 @@ export async function* themeAgent(
           const keptSource = kept.source ?? prepared.source
           const imported = isCompatSource(keptSource)
           /* Kept, and what it should still have: a colour setting per element it draws (lib/storelib-ai/integration.ts). */
-          const advice = imported ? [] : sectionAdvice(prepared.source)
+          const advice = imported ? [] : [...sectionAdvice(prepared.source), ...((checked as { notes?: QualityFinding[] }).notes ?? [])]
           const unshown = kept.notes?.length ? ` The builder cannot show all of its schema:\n${kept.notes.slice(0, 6).map((n) => `- ${n}`).join("\n")}\n` : ""
           results.push({
             id: call.id,
             output: `${path} ${imported ? "reads" : "compiled"} and is kept. It is saved when this edit finishes, and the canvas draws it now.${imported && keptSource !== prepared.source ? " Its builder settings were made again from the theme's schema under \"shopify\"." : ""}${unshown}${advice.length ? ` Still worth doing in this file:\n${describeQuality(advice)}\n` : " "}If the change was meant to be visible, say what you changed in one sentence when you finish.`,
           })
+          refusedCode.delete(path)
+          /*
+            Let through after QUALITY_REFUSALS sends back: kept (a working file is not thrown away), and what is
+            still wrong with it is said in the reply, never hidden behind a success.
+          */
+          if (!imported && qualitySent >= QUALITY_REFUSALS) {
+            const strictly = checkSectionSource({ path, type: codeType, source: prepared.source, before: prepared.before, strict: true })
+            if (strictly.ok === false) stillWrong.set(path, `${path}: ${firstFinding(strictly.feedback)}`)
+            else stillWrong.delete(path)
+          } else stillWrong.delete(path)
           // The canvas has to be told, the same way an operation tells it.
           yield progress("saving", savingLabel(fileLabel(codeType)))
           done.push(`Rewrote ${fileLabel(codeType)}`)
@@ -2072,7 +2160,7 @@ export async function* themeAgent(
           if (said) yield said
         }
 
-        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
+        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas, follow?.scoped && !input.lockToSelection ? "follow-up" : "lock")
         if (readKey && !refused) reads.set(readKey, output)
         if (op) {
           /* What was read of this section is no longer what it holds. */
@@ -2200,7 +2288,24 @@ export async function* themeAgent(
    * within its budget stays in the reply, in a sentence, so "done" never
    * stands in front of a check that failed.
    */
-  if (input.projectCheck && status === "succeeded" && unresolved.length && (ops.length > 0 || wroteCode)) {
+  /*
+    A FILE THAT NEVER PASSED ITS CHECKS IS NOT A CHANGE THAT WAS MADE.
+    Refused (compile, the strict gate, a failed draw) and never kept since:
+    nothing of it was saved. A run whose only work that was is a failure, said
+    in words, whatever its closing sentence claimed; with other work done, it
+    is the one thing still not right. A file let through after two quality
+    send-backs is kept and its remaining problem is said the same way.
+  */
+  const codeProblems = [...[...refusedCode].map(([path, why]) => `${path} did not pass its checks, so it was not saved: ${why}`), ...stillWrong.values()]
+  if (codeProblems.length) {
+    trace("code-unresolved", { problems: codeProblems.map((p) => p.slice(0, 240)) })
+    for (const p of codeProblems) if (!unresolved.includes(p)) unresolved.push(p)
+    if (status === "succeeded" && !asked && ops.length === 0 && !wroteCode && pagesWritten.length === 0 && refusedCode.size) {
+      status = "failed"
+      error = `Nothing was saved. ${[...refusedCode.keys()].map((p) => fileLabel(p.replace(/^sections\/|\.storelib$/g, ""))).join(" and ")} did not pass ${refusedCode.size > 1 ? "their" : "its"} checks: ${[...refusedCode.values()][0]}`
+    }
+  }
+  if (status === "succeeded" && unresolved.length && (ops.length > 0 || wroteCode) && (input.projectCheck || codeProblems.length)) {
     const first = unresolved[0].replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0].slice(0, 200)
     message = `${message ? `${message} ` : ""}One thing is still not right: ${first}${unresolved.length > 1 ? ` (and ${unresolved.length - 1} more)` : ""}`
   }
@@ -2223,6 +2328,9 @@ export async function* themeAgent(
       page,
       schemas,
       notes,
+      /* Which sections, by id, so a follow up means the one just changed (./follow-up.ts); and what it decided. */
+      ids: [...touched].filter((id) => state.sections.some((x) => x.id === id && x.type !== "header" && x.type !== "footer")),
+      decided: plan?.palette.direction || openingPlan.split("\n")[0] || undefined,
     })
     const op = briefOp(brief, next)
     if (op) {
@@ -2253,12 +2361,14 @@ export async function* themeAgent(
  * element asked for, and every part of the picture, on the page now, or fixed
  * with the tools before it answers.
  */
-export function selfCheckNote(withPicture: boolean): string {
-  return [
+export function selfCheckNote(withPicture: boolean, designed = false): string {
+  const read = [
     "BEFORE YOU FINISH, READ YOUR WORK BACK against the request" + (withPicture ? " and the picture" : "") + ".",
     "List to yourself every element the creator named" + (withPicture ? ", and every part of the picture: its layout, spacing, colours, type, imagery and words" : "") + ". For each, it is on the page now, in the section it belongs to, looking as asked.",
     "If anything is missing, plainer than asked, or different, fix it now with the tools. If everything is there, reply with your one closing sentence saying what you changed and where.",
   ].join(" ")
+  /* A section built or coded this run is also scored as a design (./creative-section.ts). */
+  return designed ? `${read}\n\n${DESIGN_RUBRIC}` : read
 }
 
 /** The tools that only read. A second identical read in a run is answered from the first. */
@@ -2288,6 +2398,18 @@ function finishedLooksLike(type: string, schemas?: SchemaMap): string {
 }
 
 const READ_TOOLS = new Set(["read_section", "read_section_type", "read_section_code"])
+
+/** The first thing a refusal says is wrong, as one line: its first numbered or listed finding, else its first sentence. */
+export function firstFinding(feedback: string): string {
+  const lines = feedback.split("\n").map((l) => l.trim()).filter(Boolean)
+  const item = lines.find((l) => /^(\d+\.|-)\s/.test(l))
+  return (item ?? lines[0] ?? "").replace(/^(\d+\.|-)\s+/, "").slice(0, 220)
+}
+
+/** How big the open section's file may be to go with the request rather than be read: about 6,000 tokens. */
+export const OPEN_SOURCE_MAX = 24_000
+/** What `reads` holds for a file sent with the request. */
+const ATTACHED = "\u0000attached"
 
 /**
  * ONE MODEL CALL, WITH ONE SECOND CHANCE WHEN THE PROVIDER WAS ONLY BUSY.
@@ -2670,7 +2792,7 @@ async function createSection(
   },
 ): Promise<
   | { ok: true; path: string; source: string; op: Extract<ThemeOp, { kind: "add_section" }>; extra: ThemeOp[]; output: string }
-  | { ok: false; reason: "args" | "compile" | "quality" | "render" | "kept"; output: string }
+  | { ok: false; reason: "args" | "compile" | "quality" | "render" | "structure" | "kept"; output: string }
 > {
   let args: Record<string, unknown> = {}
   try {
@@ -2728,7 +2850,8 @@ async function createSection(
         .filter((sec) => !sec.hidden && (sec.type === kind || kindOfSource(ctx.sources[`sections/${sec.type}.storelib`] ?? "", sec.type) === kind))
         .map((sec) => ({ kind: "set_section_visibility" as const, id: sec.id, hidden: true }))
     : []
-  const advice = sectionAdvice(source)
+  /* What the drawn section still shows (lib/storelib-ai/structural.ts): notes, beside the advice. */
+  const advice = [...sectionAdvice(source), ...((drawn as { notes?: QualityFinding[] }).notes ?? [])]
   return {
     ok: true,
     path,
@@ -2754,6 +2877,13 @@ function execute(
   locked?: string,
   /** Every type this install can see, theirs included. See ./schemas. */
   schemas?: SchemaMap,
+  /**
+   * Why `locked` is set: the creator's lock, or a follow up about the last
+   * section changed (./follow-up.ts). A follow up may still move, hide or
+   * remove that section, and is told in its own words why anything else is
+   * refused, never to "clear the lock" it never set.
+   */
+  scope: "lock" | "follow-up" = "lock",
   /**
    * `failed` is set by the paths that REFUSED, rather than inferred by the
    * caller reading this output. A step's tick used to be decided by matching
@@ -2798,9 +2928,13 @@ function execute(
       update_theme: "changing the theme, which applies to every page",
       set_section_visibility: "hiding or showing a section",
     }
-    if (wholePage[name]) {
+    const ownPlace = scope === "follow-up" && id === locked && (name === "move_section" || name === "remove_section" || name === "set_section_visibility")
+    if (wholePage[name] && !ownPlace) {
       return {
-        output: `${lockedName} is the only thing open, so ${wholePage[name]} is not available in this edit. Do what you can inside ${lockedName}, and tell the creator in your reply that ${wholePage[name]} needs the lock cleared first.`,
+        output:
+          scope === "follow-up"
+            ? `This message follows your last change, to ${lockedName}, so ${wholePage[name]} is not part of it. Nothing was changed. Change ${lockedName} in place; if the creator meant more than that, say so in one sentence.`
+            : `${lockedName} is the only thing open, so ${wholePage[name]} is not available in this edit. Do what you can inside ${lockedName}, and tell the creator in your reply that ${wholePage[name]} needs the lock cleared first.`,
         failed: true,
       }
     }
@@ -2809,7 +2943,10 @@ function execute(
       typeof args.sectionId === "string" ? args.sectionId : name === "read_section" ? "" : id
     if (target && target !== locked) {
       return {
-        output: `${lockedName} is the only section you may change in this edit. Nothing was changed. Use read_section if you need to look at another one.`,
+        output:
+          scope === "follow-up"
+            ? `This message follows your last change, to ${lockedName}. Nothing was changed: leave the other sections as they are. If the creator meant a different section, ask which.`
+            : `${lockedName} is the only section you may change in this edit. Nothing was changed. Use read_section if you need to look at another one.`,
         failed: true,
       }
     }
