@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 202: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 213: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3635,6 +3635,11 @@ ALTER TABLE public.community_setup_progress ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_setup_progress FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_setup_progress TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('202', '202_community_deletion_and_setup.sql', 'b6e795089e00c8b3518e66167fcc8517cd53837addd43ace41876e99108a1c92') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 213_translation_rules.sql
+/* A store's own rules for automatic translation (Settings > Markets and languages > Glossary; lib/markets/translation-rules.ts). `store_localization.translation_rules` (part 136's table): a glossary (terms kept as written in every language, like a brand name, or with a fixed translation per language), the texts never translated automatically, by key (Don't translate), and whether product names are left as written. Only Storelib AI reads it: a translation the merchant wrote is never changed by a rule. An object, empty for every store until one is saved, capped in size. Server only, as the table already is: every read and write goes through the app's server, which checks the store's owner. No rows change. Skips itself with a notice where the table is not there (run 136 first). Until it runs, translating works as before with no glossary, and saving one says this part is needed. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_localization') IS NULL THEN RAISE NOTICE 'translation rules: store_localization is not there yet, run part 136 first.'; ELSE ALTER TABLE public.store_localization ADD COLUMN IF NOT EXISTS translation_rules jsonb NOT NULL DEFAULT '{}'::jsonb; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'store_localization_translation_rules_check') THEN ALTER TABLE public.store_localization ADD CONSTRAINT store_localization_translation_rules_check CHECK (jsonb_typeof(translation_rules) = 'object' AND pg_column_size(translation_rules) <= 262144); END IF; REVOKE ALL ON public.store_localization FROM PUBLIC, anon, authenticated; END IF; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('213', '213_translation_rules.sql', '99085c8146d594da4765cc420c5a3e2ef6530aa28d97b40ba305aef322700e9e') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

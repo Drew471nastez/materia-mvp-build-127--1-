@@ -37,6 +37,7 @@ const SUITES = [
   "tests/order-currency.test.ts",
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
+  "tests/translations-k3.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
