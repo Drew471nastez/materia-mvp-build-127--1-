@@ -126,6 +126,27 @@ console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it
   check("the sticky buy bar's price is formatted, not recursive", body.length > 0 && !/barPriceText\(/.test(body) && /formatPrice\(product\.price_cents, currency\)/.test(body))
 }
 
+/* "More from this creator" draws a community as a card, and a community has
+   no category, so the pill fell through to the product's own kind and read
+   "Membership" beside the community's name. The owner asked for that one
+   pill to go. Every other card keeps its category pill, including the
+   product's own page, so the check is that the opt-out exists, is used for a
+   membership ONLY in that row, and that nothing else turned its pill off. */
+{
+  const card = read("components/explore/product-card.tsx")
+  const fallsBackToKind = /const badgeText = product\.categoryName \|\| product\.categories\?\.\[0\]\?\.name \|\| product\.category \|\| \(categoryBadge \? product\.type : ""\)/
+  check("the pill is a category, and the product's kind is its fallback only when the pill is asked for", fallsBackToKind.test(card))
+  check("and no pill is drawn when there is nothing to say", /\{badgeText \? \(/.test(card) && /\{badgeText\}\s*<\/Badge>/.test(card))
+
+  const row = read("components/store-builder/unified-section-renderer.tsx")
+  check("More from this creator turns it off for a community and leaves every other kind alone", /categoryBadge=\{product\.type !== "membership"\}/.test(row))
+  /* The product's own page still says what it is: that badge is a different one, from its own section. */
+  check("the product's own page keeps its badge", /const categoryBadgeText = product\?\.categories\?\.\[0\]\?\.name \|\| productType/.test(row))
+
+  const storefront = read("components/storefront/storefront-product-card.tsx")
+  check("the storefront card passes the choice through rather than deciding for itself", /categoryBadge = true/.test(storefront) && /categoryBadge=\{categoryBadge\}/.test(storefront))
+}
+
 membershipPrices().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

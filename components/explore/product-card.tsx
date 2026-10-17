@@ -138,6 +138,15 @@ interface ProductCardProps {
     badgeBackgroundColor?: string
     badgeTextColor?: string
   }
+  /**
+   * The category pill beside the title. False where it would say nothing a
+   * reader needs: "More from this creator" on a product page draws a
+   * community as a card, and a community has no category, so the pill fell
+   * through to the product's own kind and read "Membership" beside a
+   * community's name (the owner: "remove that unnecessary badge"). Every
+   * other place keeps its pill.
+   */
+  categoryBadge?: boolean
 }
 
 export const ProductCard = memo(function ProductCard({
@@ -149,7 +158,14 @@ export const ProductCard = memo(function ProductCard({
   discoverLayout = true,
   showCreator = true,
   surface,
+  categoryBadge = true,
 }: ProductCardProps) {
+  /* The pill says what KIND OF THING this is for a shopper: its category.
+     The product's own `type` is the fallback only because most products have
+     a category; a community has none, so without this the pill read
+     "Membership". No category and no pill asked for means no pill. */
+  const badgeText = product.categoryName || product.categories?.[0]?.name || product.category || (categoryBadge ? product.type : "")
+
   /* A card on one store's page (its creator page) is in that store's currency when the row does not say (components/platform/price-currency). */
   const pageCurrency = usePageCurrency()
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
@@ -446,6 +462,7 @@ export const ProductCard = memo(function ProductCard({
           */}
           <div className="flex items-start justify-between gap-2">
             <h3 className="flex-1 min-w-0 line-clamp-2 text-[17px] font-medium leading-tight break-words" title={product.title} data-product-title="" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
+            {badgeText ? (
             <Badge
               variant="secondary"
               className="shrink min-w-0 max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap text-xs capitalize"
@@ -455,8 +472,9 @@ export const ProductCard = memo(function ProductCard({
                   : undefined
               }
             >
-              {product.categoryName || product.categories?.[0]?.name || product.category || product.type}
+              {badgeText}
             </Badge>
+            ) : null}
           </div>
           <div className="mt-auto pt-4">
             <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{priceLabel.main}</span>

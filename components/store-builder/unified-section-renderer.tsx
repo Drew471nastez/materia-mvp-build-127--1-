@@ -4937,6 +4937,10 @@ function UnifiedMoreFromSellerSection({
               }}
               creatorName={creatorName}
               surface={surface}
+              /* A community in this row has no category, and "Membership"
+                 beside its name says nothing a reader needs (the owner).
+                 Every other kind keeps its pill. */
+              categoryBadge={product.type !== "membership"}
             />
           )
 

@@ -54,6 +54,8 @@ export interface StorefrontProductCardProps {
   isOwner?: boolean
   /** The colours the page's theme gives a card. See ProductCard. */
   surface?: NonNullable<React.ComponentProps<typeof ProductCard>["surface"]>
+  /** The category pill beside the title. See ProductCard categoryBadge. */
+  categoryBadge?: boolean
 }
 
 export function StorefrontProductCard({
@@ -64,10 +66,12 @@ export function StorefrontProductCard({
   priority = false,
   isOwner = false,
   surface,
+  categoryBadge = true,
 }: StorefrontProductCardProps) {
   const card = (
     <ProductCard
       surface={surface}
+      categoryBadge={categoryBadge}
       priority={priority}
       discoverLayout={false}
       /**
