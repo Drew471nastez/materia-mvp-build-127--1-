@@ -692,6 +692,8 @@ function compatAnswers(pathname: string, request: NextRequest): boolean {
   if (pathname === "/receipt" || pathname.startsWith("/receipt/")) return false
   /* A review request link is Storelib Reviews' page on every host (app/review/[token]). */
   if (pathname.startsWith("/review/")) return false
+  /* A buyer's conversation with the shop is Storelib's page on every host (app/order-help/[id]). */
+  if (pathname.startsWith("/order-help/")) return false
   /*
     THE VISITOR'S ACCOUNT is drawn by the theme itself, on this host, with
     no frame (lib/storelib-theme/compat/site.ts, accountPage): sign in, the
@@ -1639,6 +1641,8 @@ async function routeRequest(request: NextRequest) {
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
       /* A Storelib Reviews request link: its own page, on the website's host (app/review/[token]). */
       if (pathname.startsWith("/review/")) return NextResponse.next()
+      /* A buyer's conversation with the shop about an order: its own page, on the website's host, where its emails send the buyer (app/order-help, lib/support/cases-server.ts). */
+      if (pathname.startsWith("/order-help/")) return NextResponse.next()
       /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
       if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
         const domain = await websiteDomainOf(subdomain)

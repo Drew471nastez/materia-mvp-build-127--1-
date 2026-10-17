@@ -4,7 +4,7 @@ import { isUuid } from "@/lib/physical/auth"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { appUrl } from "@/lib/notify/urls"
 import { readCaseReply } from "@/lib/support/cases"
-import { buyerAct, getCaseForBuyer } from "@/lib/support/cases-server"
+import { buyerAct, getCaseForBuyer, getCaseUpdatesForBuyer, readAfter } from "@/lib/support/cases-server"
 import { readCaseRequest } from "@/lib/support/case-photos-server"
 
 export const runtime = "nodejs"
@@ -16,6 +16,7 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
  * A buyer's own case, read and written with its private link's secret (`k`).
  *
  *   GET ?k=                                           the case and its thread
+ *   GET ?k=&after=<message id>                        the case and the messages after that one (a page keeping up)
  *   POST { k, action: "reply", body }                 a message to the store (and Storelib, once it is in);
  *                                                     as a form, with up to four `photos`
  *   POST { k, action: "escalate", body? }             ask Storelib to step in
@@ -23,11 +24,18 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
-  const k = new URL(request.url).searchParams.get("k") ?? ""
+  const q = new URL(request.url).searchParams
+  const k = q.get("k") ?? ""
   if (!isUuid(id)) return json({ error: "Not found." }, 404)
+  const after = readAfter(q.get("after"))
+  if (after) {
+    const fresh = await getCaseUpdatesForBuyer(createAdminClient(), id, k, after)
+    if (!fresh.ok) return json({ error: fresh.error }, fresh.status)
+    return json({ case: fresh.case, messages: fresh.messages, escalation: fresh.escalation })
+  }
   const out = await getCaseForBuyer(createAdminClient(), id, k)
   if (!out.ok) return json({ error: out.error }, out.status)
-  return json({ case: out.case, messages: out.messages, escalation: out.escalation, store: { name: out.store.name, logoUrl: out.store.logoUrl, email: out.store.email, phone: out.store.phone, websiteUrl: out.store.websiteUrl } })
+  return json({ case: out.case, messages: out.messages, escalation: out.escalation, store: { name: out.store.name, logoUrl: out.store.logoUrl, email: out.store.email, phone: out.store.phone, websiteUrl: out.order.storeUrl } })
 }
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -45,6 +53,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (!words) return json({ error: "Write your message first." }, 400)
     out = await buyerAct(db, id, k, { kind: "reply", body: words, photos }, origin)
   } else if (body?.action === "escalate") {
+    /* Asking Storelib in is rarer than writing: a tighter limit by address, on top of the rule and the gate (lib/support/cases.ts). */
+    const slow = await rateLimit({ bucket: "order-help-escalate", subjects: [addressSubject(request)], windows: [{ limit: 3, seconds: 3600 }, { limit: 6, seconds: 86_400 }], message: "Storelib has your requests. Give it a moment to read them." })
+    if (slow) return slow
     out = await buyerAct(db, id, k, { kind: "escalate", body: readCaseReply(body.body) }, origin)
   } else if (body?.action === "resolve") {
     out = await buyerAct(db, id, k, { kind: "resolve" }, origin)

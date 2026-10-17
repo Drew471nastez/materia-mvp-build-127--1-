@@ -8,7 +8,8 @@
  * strips its location before it is kept.
  */
 import * as React from "react"
-import { ImagePlus, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ImagePlus, X } from "lucide-react"
+import { createPortal } from "react-dom"
 import { CASE_PHOTO_TYPES, MAX_CASE_PHOTOS, MAX_CASE_PHOTO_BYTES } from "@/lib/support/cases"
 import { tt } from "@/lib/i18n/text"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
@@ -127,20 +128,107 @@ export function CasePhotoPicker({ state, disabled, ct }: { state: ReturnType<typ
   )
 }
 
-/** A message's photos in a thread: small, each opening full size in a new tab. */
-export function CasePhotoStrip({ photos, dark }: { photos?: { url: string; name: string }[]; dark?: boolean }) {
+/**
+ * A message's photos in a thread: small squares, each opening full size in
+ * a viewer over the page (arrows and Escape on a keyboard, the original a
+ * link away). A click with a modifier key opens the original in a new tab
+ * as a link does. `ct` on a buyer's page, tt() in the dashboard.
+ */
+export function CasePhotoStrip({ photos, dark, ct }: { photos?: { url: string; name: string }[]; dark?: boolean; ct?: CheckoutT }) {
+  const [open, setOpen] = React.useState<number | null>(null)
   if (!photos?.length) return null
   return (
-    <ul className="mt-2 flex flex-wrap gap-2" data-message-photos="">
-      {photos.map((p) => (
-        <li key={p.url}>
-          <a href={p.url} target="_blank" rel="noreferrer" className="block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.name} className={`h-20 w-20 rounded-lg object-cover ${dark ? "border border-white/20" : "border border-[#e5e7eb]"}`} />
-          </a>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="mt-2 flex flex-wrap gap-2" data-message-photos="">
+        {photos.map((p, i) => (
+          <li key={p.url}>
+            <a
+              href={p.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                e.preventDefault()
+                setOpen(i)
+              }}
+              className={`block overflow-hidden rounded-[10px] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 ${dark ? "focus-visible:ring-white/70" : "focus-visible:ring-[#1a1a2e]/40"}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.name} loading="lazy" decoding="async" className={`h-20 w-20 rounded-[10px] object-cover sm:h-24 sm:w-24 ${dark ? "border border-white/20" : "border border-[#e5e7eb]"}`} />
+            </a>
+          </li>
+        ))}
+      </ul>
+      {open !== null ? <PhotoViewer photos={photos} index={open} onIndex={setOpen} onClose={() => setOpen(null)} ct={ct} /> : null}
+    </>
+  )
+}
+
+function PhotoViewer({ photos, index, onIndex, onClose, ct }: { photos: { url: string; name: string }[]; index: number; onIndex: (i: number) => void; onClose: () => void; ct?: CheckoutT }) {
+  const label = {
+    close: ct ? ct("Close") : tt("Close"),
+    previous: ct ? ct("Previous photo") : tt("Previous photo"),
+    next: ct ? ct("Next photo") : tt("Next photo"),
+    original: ct ? ct("Open the original") : tt("Open the original"),
+  }
+  const many = photos.length > 1
+  const go = React.useCallback((step: number) => onIndex((index + step + photos.length) % photos.length), [index, onIndex, photos.length])
+  const closeRef = React.useRef<HTMLButtonElement>(null)
+  React.useEffect(() => {
+    const was = document.activeElement as HTMLElement | null
+    closeRef.current?.focus()
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = overflow
+      was?.focus?.()
+    }
+  }, [])
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+      else if (many && e.key === "ArrowRight") go(1)
+      else if (many && e.key === "ArrowLeft") go(-1)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [go, many, onClose])
+  const p = photos[index]
+  if (!p || typeof document === "undefined") return null
+  const round = "grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={p.name} className="fixed inset-0 z-[200] flex flex-col bg-[rgba(10,10,14,0.92)] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]" onClick={onClose} data-photo-viewer="">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-3 py-2 text-white sm:px-5" onClick={(e) => e.stopPropagation()}>
+        <a href={p.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-[13.5px] text-white/80 underline-offset-4 hover:text-white hover:underline">
+          {photos.length > 1 ? `${index + 1} / ${photos.length} · ` : ""}
+          {label.original}
+        </a>
+        <button ref={closeRef} type="button" onClick={onClose} aria-label={label.close} className={round}>
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-4 sm:px-16">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={p.url} alt={p.name} className="max-h-full max-w-full rounded-[8px] object-contain" onClick={(e) => e.stopPropagation()} />
+        {many ? (
+          <>
+            <button type="button" aria-label={label.previous} onClick={(e) => {
+                e.stopPropagation()
+                go(-1)
+              }} className={`${round} absolute left-2 top-1/2 -translate-y-1/2 sm:left-4`}>
+              <ChevronLeft className="h-5 w-5" aria-hidden />
+            </button>
+            <button type="button" aria-label={label.next} onClick={(e) => {
+                e.stopPropagation()
+                go(1)
+              }} className={`${round} absolute right-2 top-1/2 -translate-y-1/2 sm:right-4`}>
+              <ChevronRight className="h-5 w-5" aria-hidden />
+            </button>
+          </>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
   )
 }
 
