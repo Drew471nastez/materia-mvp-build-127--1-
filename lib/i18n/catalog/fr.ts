@@ -8972,7 +8972,22 @@ const words: Record<string, string> = {
  "{year} Earnings Summary": "Récapitulatif des gains {year}",
  "{year} Tax Year": "Année fiscale {year}",
  "“{label}” may": "« {label} » peut",
- "↻ Refresh thumbnail": "↻ Actualiser la miniature"
+ "↻ Refresh thumbnail": "↻ Actualiser la miniature",
+ "Kept by {name}": "Gardé par {name}",
+ "a connected agent": "un agent connecté",
+ "Your Claude key. Doesn't use your AI edits": "Votre clé Claude. N’utilise pas vos modifications IA",
+ "Remembered:": "Retenu :",
+ "Connected agent": "Agent connecté",
+ "Storelib AI and your connected agents read these before every change. Say “remember this” in the chat, or add one here.": "Storelib AI et vos agents connectés les lisent avant chaque modification. Dites « retiens ceci » dans le chat, ou ajoutez-en une ici.",
+ "AI Memory did not load.": "La mémoire IA ne s’est pas chargée.",
+ "AI Memory is not set up on this Storelib yet.": "La mémoire IA n’est pas encore configurée sur ce Storelib.",
+ "Something to remember for this website": "Une chose à retenir pour ce site",
+ "We write in a warm, plain voice. Never use gradients.": "Nous écrivons d’un ton chaleureux et simple. Jamais de dégradés.",
+ "Correct this note": "Corriger cette note",
+ "This website": "Ce site",
+ "Every website": "Tous les sites",
+ "Edit: {note}": "Modifier : {note}",
+ "Delete: {note}": "Supprimer : {note}"
 }
 
 export default words

@@ -232,6 +232,10 @@ export interface ThemeAgentResult {
   visual?: { ran: number; findings: number; ms: number; score?: number }
   /** Notes the creator wants kept on every website (remember, scope "everywhere"): the caller keeps them (lib/ai-memory). */
   remembered?: string[]
+  /** With `siteMemory`: notes for this website (remember, scope "website"), for the caller to keep in AI Memory. */
+  rememberedSite?: string[]
+  /** Short ids of memory notes the creator asked to forget (the forget tool): the caller deletes them. */
+  forgotten?: string[]
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
 }
@@ -314,7 +318,7 @@ export function describeSchemaRules(opts: { imported: boolean; settingsSchema: b
   return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept. The theme settings are Storelib's own and the same on every Storelib theme: change their values with update_theme. There is no theme settings schema to edit here, so a setting of the site's own goes in the section that uses it.`
 }
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean; settingsSchema?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; settingsSchema?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -678,6 +682,21 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
               additionalProperties: false,
             },
           },
+          ...(opts.forget
+            ? [
+                {
+                  name: "forget",
+                  description:
+                    "Delete one note from AI MEMORY, by the id in square brackets beside it, only when the creator says it is wrong or no longer true, or asks you to forget it.",
+                  parameters: {
+                    type: "object" as const,
+                    properties: { id: { type: "string", description: "The 8 character id shown beside the note." } },
+                    required: ["id"],
+                    additionalProperties: false,
+                  },
+                },
+              ]
+            : []),
         ]
       : []),
     /* The site's navigation: the Main menu the header shows (./menu-edits). */
@@ -988,6 +1007,15 @@ export interface ThemeAgentInput {
    * turn, and passing it (even empty) lets remember keep a note "everywhere", which comes back in result.remembered.
    */
   accountMemory?: string[]
+  /**
+   * AI MEMORY AS ONE BLOCK (lib/ai-memory/store.ts describeMemory): this website's notes and the creator's everywhere
+   * ones, with the short ids the forget tool takes. Shown instead of `accountMemory`'s block when given. With
+   * `siteMemory`, a note kept for this website goes back in result.rememberedSite rather than into the brief.
+   */
+  memoryText?: string
+  siteMemory?: boolean
+  /** The block the creator has selected inside the selected section, by its path key and type. */
+  focusBlock?: { id: string; type: string } | null
   /** Hold the finished page to the whole-project check before finishing (./project-check.ts). */
   projectCheck?: boolean
   /**
@@ -1117,6 +1145,10 @@ export async function* themeAgent(
   /* Other pages written as drafts in this run (build_page): work, like an operation on the open page. */
   const pagesWritten: { key: string; title: string; created: boolean }[] = []
   const everywhere = !!input.memory && Array.isArray(input.accountMemory)
+  /* AI Memory kept per website, and forgetting (lib/ai-memory): the caller writes both. */
+  const rememberedSite: string[] = []
+  const forgotten: string[] = []
+  const forgettable = !!input.memory && !!input.siteMemory && /\[[0-9a-f]{8}\]/.test(input.memoryText ?? "")
   const t0 = Date.now()
   const trace = (kind: string, data: Record<string, unknown> = {}) => {
     try {
@@ -1277,7 +1309,8 @@ export async function* themeAgent(
         /* What the page cannot say: the business, the direction, what each section is for. */
         brief ? describeProject(state, brief, schemas) : "",
         /* What the creator asked to keep on every website of theirs (lib/ai-memory). */
-        everywhere ? describeAccountMemory(input.accountMemory ?? []) : "",
+        input.memoryText !== undefined ? input.memoryText : everywhere ? describeAccountMemory(input.accountMemory ?? []) : "",
+        input.focusBlock && input.selected ? `SELECTED BLOCK: ${input.focusBlock.type} (${input.focusBlock.id}) inside ${input.selected.name}. The request is about that block unless it says otherwise.` : "",
         /**
          * BEFORE the theme settings and before the request, because it is the
          * frame everything else is read in. A model told what the page has
@@ -1351,7 +1384,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1785,6 +1818,7 @@ export async function* themeAgent(
             /* nothing to keep */
           }
           if (note && scope === "everywhere") remembered.push(note)
+          else if (note && input.memory && input.siteMemory) rememberedSite.push(note)
           else if (note && input.memory) notes.push(note)
           results.push({
             id: call.id,
@@ -1795,6 +1829,19 @@ export async function* themeAgent(
                 : "Kept. It will be shown to you on later messages about this website.",
           })
           yield { type: "step", id: call.id, label: stepLabel, state: note ? "done" : "failed" }
+          continue
+        }
+        if (call.name === "forget") {
+          let id = ""
+          try {
+            id = String((JSON.parse(call.argumentsJson || "{}") as { id?: unknown }).id ?? "").replace(/[^0-9a-f]/gi, "").slice(0, 8).toLowerCase()
+          } catch {
+            /* nothing to forget */
+          }
+          const shown = id.length === 8 && (input.memoryText ?? "").includes(`[${id}]`)
+          if (shown && !forgotten.includes(id)) forgotten.push(id)
+          results.push({ id: call.id, output: shown ? "Forgotten once this run ends." : "There is no note with that id in AI MEMORY." })
+          yield { type: "step", id: call.id, label: stepLabel, state: shown ? "done" : "failed" }
           continue
         }
 
@@ -2245,7 +2292,7 @@ export async function* themeAgent(
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, pages: pagesWritten }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten }
 }
 
 /**

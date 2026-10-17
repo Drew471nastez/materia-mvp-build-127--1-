@@ -5,6 +5,7 @@ import { AgentConnectionRow, useAgentConnections } from "@/components/website-bu
 import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
 import { InlineButton } from "./connection-row"
 import { OwnAiSettings } from "./own-ai"
+import { AiMemorySettings } from "./ai-memory"
 import { OwnDatabaseSettings } from "./own-database"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
@@ -51,6 +52,9 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
 
       {/* First: the one that needs nothing installed, and is what the chat's Connect AI button is usually after. */}
       <OwnAiSettings />
+
+      {/* What Storelib AI and connected agents remember for this website (lib/ai-memory). */}
+      <AiMemorySettings installId={ctx.installId} />
 
       <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">{tt("Or code in your own tools")}</h2>
       <p className="mt-1 text-[13.5px] leading-snug text-white/50 md:text-[13px]">

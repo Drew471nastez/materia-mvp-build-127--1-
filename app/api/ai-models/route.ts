@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server"
 import { currentCreatorId } from "@/lib/creators/current"
 import { readKeys } from "@/lib/ai-keys/store"
-import { claudeModels } from "@/lib/sites/agent/claude-models"
-import { enginesWithClaudeModels } from "@/lib/website-builder/ask-engines"
+import { ENGINES } from "@/lib/website-builder/ask-engines"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+/**
+ * The models Ask Storelib offers: the fixed list in lib/website-builder/ask-engines.ts,
+ * and whether Claude can answer for this creator at all (Storelib's key or their own).
+ * The chat draws the same list without asking; this is for anything outside it.
+ */
 export async function GET() {
   const creatorId = await currentCreatorId()
   if (!creatorId) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
   const keys = await readKeys(creatorId).catch(() => ({} as Awaited<ReturnType<typeof readKeys>>))
-  const key = keys.anthropic || process.env.ANTHROPIC_API_KEY
-  let models: Awaited<ReturnType<typeof claudeModels>> = []
-  let unavailable = false
-  if (key) {
-    try { models = await claudeModels(key) } catch { unavailable = true }
-  }
-  return NextResponse.json({ engines: enginesWithClaudeModels(models), claudeConfigured: !!key, unavailable }, { headers: { "Cache-Control": "private, no-store" } })
+  const configured = !!(keys.anthropic || process.env.ANTHROPIC_API_KEY)
+  return NextResponse.json({ engines: ENGINES, claudeConfigured: configured }, { headers: { "Cache-Control": "private, no-store" } })
 }

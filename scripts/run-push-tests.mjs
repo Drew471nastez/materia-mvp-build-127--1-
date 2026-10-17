@@ -431,6 +431,8 @@ const SUITES = [
   "tests/ask-pictures.test.ts",
   "tests/ask-answer-actions.test.ts",
   "tests/ask-images-u.test.ts",
+  /* V round: one box routed by the server, the four Claude models at medium effort, AI Memory for Storelib AI and MCP (scripts/check-ask-dock.mjs ONLY=labels,models,unified measures the chip and the menu). */
+  "tests/ask-unified-v.test.ts",
   "tests/ask-sounds.test.ts",
   "tests/ask-voice-mobile.test.ts",
   "tests/ai-reference.test.ts",
