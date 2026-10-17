@@ -82,7 +82,7 @@ async function main() {
     const panel = read("components/physical/order-panel.tsx")
     check("the order panel guesses from the number as it is typed, and starts an empty shipment on the first guess", /guessCarrier\(v\)/.test(panel) && /firstCarrier\(prefs, \{ country, guessed: guessCarrier\(ship\.tracking\) \}\)/.test(panel) && /if \(!loaded \|\| picked\.current \|\| ship\.choice\) return/.test(panel))
     check("an order the shop delivers itself still starts on no tracking", /order\.delivery\?\.kind === "local" \? NO_TRACKING : ""/.test(panel))
-    check("the carrier a shipment went with is remembered for the next order", (panel.match(/rememberCarrier\(carriers\.save, carriers\.prefs\.ready, shipBody\(ship\)\.carrier\)/g) ?? []).length === 2)
+    check("the carrier a shipment went with is remembered for the next order", (panel.match(/rememberCarrier\(carriers\.save, carriers\.prefs\.ready, shipBody\((?:first\.)?ship\)\.carrier\)/g) ?? []).length === 2)
   }
 
   console.log("\nPICKER")

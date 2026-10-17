@@ -106,7 +106,7 @@ async function main() {
   const mixed = mergeItemQuantities([{ orderId: A, quantity: 1, restock: true }, { orderId: B, quantity: 0, restock: true }, { orderId: A, quantity: 1.7, restock: false }, { orderId: B, quantity: -3, restock: true }])
   check("nothing, less than nothing and fractions are not items; the first entry's restock choice stays", mixed.length === 1 && mixed[0].quantity === 2 && mixed[0].restock === true, mixed)
   const orders = code("lib/physical/orders-server.ts")
-  check("fulfilling and returning both count a line once", (orders.match(/mergeItemQuantities\(input\.items/g) ?? []).length === 2)
+  check("fulfilling and returning both count a line once", (orders.match(/mergeItemQuantities\((?:input\.items|\(Array\.isArray\(p\.items\))/g) ?? []).length === 2)
 
   /* ── Paid event tickets: one payment, one ticket ─────────────────────── */
   console.log("\nA ticket is paid for once")

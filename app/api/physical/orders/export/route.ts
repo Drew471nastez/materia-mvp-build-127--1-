@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { sellerOrderNumbers } from "@/lib/orders/order-number-server"
-import { physicalCaller } from "@/lib/physical/auth"
+import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { countryName } from "@/lib/checkout/countries"
 import { orderNumber } from "@/lib/physical/status"
 
@@ -14,11 +14,19 @@ function cell(value: unknown): string {
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
-/** Orders still to ship (or all, with ?all=1), one row per item, for a warehouse or a spreadsheet. */
+/** Orders still to ship (or all, with ?all=1; only some, with ?ids=), one row per item, for a warehouse or a spreadsheet. */
 export async function GET(request: Request) {
   const c = await physicalCaller("orders")
   if (c instanceof NextResponse) return c
-  const all = new URL(request.url).searchParams.get("all") === "1"
+  const params = new URL(request.url).searchParams
+  const all = params.get("all") === "1"
+  /* Only these orders (the Orders list's Export, Selected): checkout ids, or line ids the list opens orders by. */
+  const asked = (params.get("ids") ?? "").split(",").filter(isUuid).slice(0, 500)
+  let only: string[] | null = null
+  if (asked.length) {
+    const { data: rows } = await c.db.from("orders").select("id, checkout_id, products!inner(creator_id)").in("id", asked).eq("products.creator_id", c.creatorId)
+    only = [...new Set([...asked, ...((rows ?? []) as { checkout_id: string | null }[]).map((r) => r.checkout_id).filter((x): x is string => !!x)])]
+  }
   let q = c.db
     .from("commerce_checkouts")
     .select("id, paid_at, buyer_name, buyer_email, buyer_phone, shipping_address, shipping_rate, lines, fulfillment_status, buyer_note")
@@ -27,6 +35,7 @@ export async function GET(request: Request) {
     .order("paid_at", { ascending: true })
     .limit(5000)
   if (!all) q = q.in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
+  if (only) q = q.in("id", only)
   const { data } = await q
   const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note", "Buyer reference"]
   const rows: string[] = [header.join(",")]

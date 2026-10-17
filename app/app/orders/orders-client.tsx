@@ -59,6 +59,7 @@ import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import { DEFAULT_PRESET, RANGE_COOKIE, firstDayOf, rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { OrdersList } from "./orders-list"
 import { ExportOrders } from "./export-dialog"
+import { BulkFulfilSheet, ImportTrackingSheet, printSelectedSlips } from "./bulk-actions"
 import { markRow, moveOrder, stillOrder } from "./order-motion"
 import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
@@ -694,6 +695,16 @@ export function OrdersClient(props: OrdersClientProps) {
      there. The Export button opens it and, on a computer, closes it again. */
   const [exporting, setExporting] = React.useState(false)
   const onExport = useStable(() => setExporting((open) => !open))
+  /* Many orders at once (./bulk-actions.tsx): Mark as fulfilled and Packing slips for the ticked ones, a tracking CSV for any. */
+  const [bulk, setBulk] = React.useState<"fulfil" | "import" | null>(null)
+  const onFulfil = useStable(() => setBulk("fulfil"))
+  const onImport = useStable(() => setBulk("import"))
+  const onSlips = useStable(() => void printSelectedSlips([...selected]).then((e) => e && onNotice(e)))
+  const afterBulk = (message: string) => {
+    onNotice(message)
+    /* The list reads its page again (not every order), so the fulfilled ones move on. */
+    reread()
+  }
   const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || (query.fulfillment ?? "any") !== "any" || query.view !== "all"
 
   /* Under a settled order the list is hidden by the stage (app/globals.css,
@@ -734,6 +745,9 @@ export function OrdersClient(props: OrdersClientProps) {
           onSelect={onSelect}
           onOpen={onOpen}
           onExport={onExport}
+          onFulfil={onFulfil}
+          onSlips={onSlips}
+          onImport={onImport}
           products={props.products}
           stripeConnected={props.stripeConnected}
           now={now}
@@ -784,7 +798,11 @@ export function OrdersClient(props: OrdersClientProps) {
         selected={selected}
         timeZone={timeZone}
         onDone={onNotice}
+        ships={listing.summary.ships}
       />
+
+      <BulkFulfilSheet ids={bulk === "fulfil" ? [...selected] : []} open={bulk === "fulfil"} onClose={() => setBulk(null)} onDone={afterBulk} />
+      <ImportTrackingSheet open={bulk === "import"} onClose={() => setBulk(null)} onDone={afterBulk} />
 
       <div
         aria-live="polite"

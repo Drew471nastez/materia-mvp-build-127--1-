@@ -10,7 +10,10 @@ import {
   Columns3,
   Download,
   ListFilter,
+  PackageCheck,
+  Printer,
   Search,
+  Upload,
   X,
 } from "lucide-react"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
@@ -34,6 +37,7 @@ import {
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
 import { fromLabel, sourceText } from "@/lib/orders/order-source"
 import { HelpLabel } from "@/components/app/help-label"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import {
   Checkbox,
@@ -55,6 +59,7 @@ import {
   PaneBar,
 } from "./order-parts"
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
+import { packingSlipsHref } from "./bulk-actions"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { CarrierLogo } from "@/components/physical/carrier-logo"
@@ -86,6 +91,10 @@ export interface OrdersListProps {
   onSelect: (ids: string[], on: boolean) => void
   onOpen: (id: string) => void
   onExport: () => void
+  /** Mark the ticked orders fulfilled, print their packing slips, or import tracking from a CSV (./bulk-actions.tsx); for a store that ships. */
+  onFulfil?: () => void
+  onSlips?: () => void
+  onImport?: () => void
   products: Array<{ id: string; title: string }>
   stripeConnected: boolean
   now: number
@@ -101,6 +110,20 @@ export function OrdersList(props: OrdersListProps) {
       {/* The top bar: the same bar, the pane's full width, as an order's own. */}
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Orders")}</h1>
+        {summary.ships && props.onImport ? (
+          <button
+            type="button"
+            className={cn(buttonSecondary, "relative ml-auto before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden")}
+            onClick={() => props.onImport?.()}
+            data-orders-import=""
+            aria-haspopup="dialog"
+            aria-label={tt("Import tracking")}
+            title={tt("Import tracking from a CSV")}
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">{tt("Import tracking")}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           /* 32px to see, 44px to tap on a phone: the reach is a box around it. */
@@ -313,8 +336,38 @@ function OrdersTable(props: OrdersListProps) {
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-[#1a1a2e]">{tt("{size} selected", { size: selected.size })}</span>
                       <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onExport()}>
-                        {tt("Export selected")}
+                        <span className="hidden sm:inline">{tt("Export selected")}</span>
+                        <span className="sm:hidden">{tt("Export")}</span>
                       </button>
+                      {ships && props.onFulfil && props.onSlips ? (
+                        <>
+                          {/* Beside Export on a computer; under one Actions button on a phone, where the bar has no room for three. */}
+                          <span className="hidden items-center gap-3 sm:flex">
+                            <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onFulfil?.()} data-bulk-fulfil="" aria-haspopup="dialog">
+                              {tt("Mark as fulfilled")}
+                            </button>
+                            <button type="button" className={cn(buttonSecondary, "h-7 px-2.5 text-[12px]")} onClick={() => props.onSlips?.()} data-bulk-slips="">
+                              {tt("Packing slips")}
+                            </button>
+                          </span>
+                          <span className="sm:hidden">
+                            <ResponsiveActionMenu
+                              title={tt("{size} selected", { size: selected.size })}
+                              items={[
+                                { label: tt("Mark as fulfilled"), icon: <PackageCheck className="h-4 w-4" />, onClick: () => props.onFulfil?.() },
+                                /* A link on a phone: the slips open as a page with Back and Print (a print from a frame is blocked there). */
+                                { label: tt("Packing slips"), icon: <Printer className="h-4 w-4" />, href: packingSlipsHref([...selected]) },
+                              ]}
+                              trigger={
+                                <button type="button" className={cn(buttonSecondary, "h-7 gap-1 px-2.5 text-[12px]")} data-bulk-more="">
+                                  {tt("Actions")}
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                </button>
+                              }
+                            />
+                          </span>
+                        </>
+                      ) : null}
                       <button
                         type="button"
                         className="h-7 rounded-lg px-2 text-[12px] font-medium text-[#4b5563] hover:bg-[#ececef]"
