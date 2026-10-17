@@ -111,6 +111,7 @@ import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "..
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
+import { featuredSet } from "./featured-members"
 import { communityRoom, loadPolicies, madeWithinLimit, pendingDeletions, type PendingDeletion } from "./creator-policies"
 import { deletionScheduled, paidMemberships, scheduleDeletion, type DeletionDeps } from "./community-deletion"
 import { factsFrom, setupExtras } from "./setup-checklist"
@@ -1720,10 +1721,18 @@ function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "stat
 }
 
 async function memberViews(db: Db, communityId: string, rows: ListMember[], withEmail: boolean): Promise<MemberRowView[]> {
-  const [people, tiers, acted] = await Promise.all([
+  /*
+    The featured members are one small read for the whole page (at most
+    FEATURED_MAX rows, round 34), not a column on the list: the two columns
+    are added by run-now part 222, and asking for one the database does not
+    have yet would fail every member read. Before the part runs the set is
+    empty and no row says the word.
+  */
+  const [people, tiers, acted, featured] = await Promise.all([
     peopleOf(db, rows.map((r) => r.user_id), { email: withEmail }),
     db.from("community_tiers").select("id, name").eq("community_id", communityId).limit(50),
     takenAway(db, communityId, rows),
+    featuredSet(db, communityId),
   ])
   const tierName = new Map(((tiers.data as { id: string; name: string }[] | null) ?? []).map((t) => [t.id, t.name]))
   return rows.map((r) => {
@@ -1747,6 +1756,7 @@ async function memberViews(db: Db, communityId: string, rows: ListMember[], with
       lastActiveAt: r.last_active_at,
       mutedUntil: r.muted_until && Date.parse(r.muted_until) > Date.now() ? r.muted_until : null,
       approved: Boolean(r.approved_by),
+      featured: featured.has(r.user_id),
       acted: acted.get(r.user_id) ?? null,
     }
   })

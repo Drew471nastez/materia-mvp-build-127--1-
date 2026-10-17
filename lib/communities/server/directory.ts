@@ -20,6 +20,7 @@ import type { MemberProfileView } from "@/components/community/member/view-types
 import { ensureUsernames } from "@/lib/profile/ensure-username"
 import { isCountryCode, placeLine } from "../location"
 import { missing, reasonOf, type Db } from "./db"
+import { featuredSet } from "./featured-members"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -254,11 +255,19 @@ async function tierNames(db: Db, tierIds: (string | null)[]): Promise<Map<string
 
 async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[]): Promise<MemberView[]> {
   if (!rows.length) return []
-  const [profiles, stores, levels, tiers] = await Promise.all([
+  /*
+    The featured members are one bounded read for the whole page (round 34,
+    at most FEATURED_MAX rows), not a column on the list: the two columns are
+    added by run-now part 222, and asking for one the database does not have
+    would fail every directory read. Before the part runs the set is empty
+    and no row says the word.
+  */
+  const [profiles, stores, levels, tiers, featured] = await Promise.all([
     profilesOf(db, rows.map((r) => r.user_id)),
     storefrontsOf(db, rows.map((r) => r.user_id)),
     levelNames(db, communityId),
     tierNames(db, rows.map((r) => r.tier_id)),
+    featuredSet(db, communityId),
   ])
   return rows.map((r) => {
     const p = profiles.get(r.user_id)
@@ -279,6 +288,7 @@ async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[])
       lastActiveAt: r.last_active_at,
       hasStorefront: stores.has(r.user_id),
       location: placeLine(p?.location_city, p?.location_country),
+      featured: featured.has(r.user_id),
     }
   })
 }

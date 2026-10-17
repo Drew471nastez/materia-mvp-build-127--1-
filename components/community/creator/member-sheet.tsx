@@ -119,6 +119,7 @@ export function MemberSheet({
               {active && m.role !== "member" ? <StatusBadge tone="neutral">{ROLE_LABEL[m.role]}</StatusBadge> : null}
               {m.mutedUntil ? <StatusBadge tone="attention">{tt("Muted until {date}", { date: shortDate(m.mutedUntil) })}</StatusBadge> : null}
               {m.source === "manual" ? <StatusBadge tone="neutral">{tt("Complimentary")}</StatusBadge> : null}
+              {m.featured ? <StatusBadge tone="neutral">{tt("Featured")}</StatusBadge> : null}
             </div>
           </div>
         </div>

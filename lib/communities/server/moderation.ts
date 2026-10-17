@@ -13,7 +13,9 @@ import "server-only"
  *             has its body blanked in the same update, because the realtime
  *             stream delivers the row as it is written.
  *   MEMBERS   mute for a while, suspend, ban, remove, approve or decline a
- *             request to join, change a role.
+ *             request to join, change a role, and feature a member
+ *             (round 34, ./featured-members.ts: the one action here that
+ *             takes nothing away, so the rank rule does not apply to it).
  *   REPORTS   the queue with what was reported beside each report, and its
  *             resolution.
  *   AUDIT     the community's log, newest first.
@@ -33,6 +35,8 @@ import { notifyMember } from "./notify"
 import { sendCommunityEmail } from "./email"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { staffPermissions } from "./creator-roles"
+import { setMemberFeatured } from "./featured-members"
+import { FEATURE_MEMBER_ACTION } from "../featured-members"
 
 export type Outcome<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number }
 
@@ -219,7 +223,7 @@ export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<
 
 /* ── Members ────────────────────────────────────────────────────────────── */
 
-export const MEMBER_ACTIONS = ["mute", "unmute", "suspend", "unsuspend", "ban", "unban", "remove", "reinstate", "approve", "reject", "role"] as const
+export const MEMBER_ACTIONS = ["mute", "unmute", "suspend", "unsuspend", "ban", "unban", "remove", "reinstate", "approve", "reject", "role", "feature", "unfeature"] as const
 export type MemberAction = (typeof MEMBER_ACTIONS)[number]
 
 export function memberActionNeeds(action: MemberAction): CommunityAction {
@@ -239,6 +243,9 @@ export function memberActionNeeds(action: MemberAction): CommunityAction {
     case "approve":
     case "reject":
       return "approve_member"
+    case "feature":
+    case "unfeature":
+      return FEATURE_MEMBER_ACTION
     default:
       return "change_role"
   }
@@ -429,6 +436,17 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
   if (!isUuid(a.userId)) return no(404, "not_found")
   const may = await actorMay(db, a.community.id, a.actor, memberActionNeeds(a.action))
   if (!may.ok) return no(403, "forbidden")
+  /*
+    FEATURING TAKES NOTHING AWAY (round 34), so the two rules that stop
+    somebody acting against a person do not apply to it: an admin may
+    recognise another admin, and the owner may recognise themselves. Its own
+    rules are in ./featured-members.ts.
+  */
+  if (a.action === "feature" || a.action === "unfeature") {
+    const done = await setMemberFeatured(db, { community: a.community, actor: { ...a.actor, perms: may.perms }, userId: a.userId, on: a.action === "feature" })
+    if (!done.ok) return no(done.status, done.error)
+    return { ok: true, member: await memberOf(db, a.community.id, a.userId) }
+  }
   if (a.userId === a.actor.userId) return no(409, "You cannot do that to yourself.")
   const target = await memberOf(db, a.community.id, a.userId)
   if (!target) return no(404, "not_found")

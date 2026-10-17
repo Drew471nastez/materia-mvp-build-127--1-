@@ -82,6 +82,7 @@ import { MemberCover } from "./member-cover"
 import { ActivityBoard } from "./activity-board"
 import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
+import { FeaturedMark } from "./featured-mark"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
 
@@ -225,6 +226,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
           <h1 className="flex min-w-0 items-center gap-2 text-[20px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px] lg:text-[26px]" data-member-profile-name="">
             <span className="min-w-0 truncate">{person.name}</span>
             {person.role ? <RoleBadge role={person.role} /> : null}
+            <FeaturedMark on={person.featured} />
           </h1>
           <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13.5px] leading-5 text-[#6b7280]" data-member-profile-meta="">
             {person.username ? <span className="truncate">@{person.username}</span> : null}

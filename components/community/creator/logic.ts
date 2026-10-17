@@ -959,7 +959,7 @@ export interface MemberChoice {
   label: string
   /** The same press in fewer words, where a phone's row has no room for the whole label. */
   shortLabel?: string
-  action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "reinstate" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge"
+  action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "reinstate" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge" | "feature" | "unfeature"
   role?: Role
   hours?: number
   confirm?: boolean
@@ -981,11 +981,24 @@ export interface ChoiceActor {
  * `actor.can`, and never to somebody ranked the same or above: canActOn).
  * Nothing for themselves or the owner.
  */
-export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Role; status: string; source: string; mutedUntil: string | null; approved?: boolean; acted?: MemberActionTaken | null }): MemberChoice[] {
-  if (m.userId === actor.userId || m.role === "owner") return []
-  if (!canActOn(actor.role, m.role)) return []
+export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Role; status: string; source: string; mutedUntil: string | null; approved?: boolean; featured?: boolean; acted?: MemberActionTaken | null }): MemberChoice[] {
   const c = actor.can
   const out: MemberChoice[] = []
+  /*
+    FEATURING TAKES NOTHING AWAY (round 34, lib/communities/featured-members.ts),
+    so the two rules below it do not apply: it is offered on anybody who is
+    here, whatever their rank, the owner and this person themselves included,
+    and the server applies the same rule (server/featured-members.ts).
+  */
+  if (c.feature && m.status === "active") {
+    out.push(
+      m.featured
+        ? { key: "unfeature", label: tt("Stop featuring"), action: "unfeature", section: "Recognise" }
+        : { key: "feature", label: tt("Feature in the community"), shortLabel: tt("Feature"), action: "feature", section: "Recognise" },
+    )
+  }
+  if (m.userId === actor.userId || m.role === "owner") return out
+  if (!canActOn(actor.role, m.role)) return out
   if (m.status === "pending") {
     if (c.approve_member && !m.approved) {
       out.push({ key: "approve", label: tt("Approve"), action: "approve" })
@@ -1077,6 +1090,10 @@ export function memberDoneText(choice: MemberChoice, name: string): string {
       return tt("{name} was removed", { name })
     case "end_complimentary":
       return tt("Complimentary access ended")
+    case "feature":
+      return tt("{name} is featured", { name })
+    case "unfeature":
+      return tt("{name} is no longer featured", { name })
     default:
       return tt("Saved")
   }
