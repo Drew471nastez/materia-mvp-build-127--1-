@@ -110,7 +110,7 @@ export async function memberLinkClicks(communityId: string, opts: { linkIds?: st
   const out: Record<string, number> = {}
   for (const id of ids) out[id] = 0
   if (ids.length === 0) return out
-  const since = opts.sinceDays ? clickDay((opts.now ?? Date.now()) - opts.sinceDays * 86_400_000) : null
+  const since = opts.sinceDays !== undefined && opts.sinceDays >= 0 ? clickDay((opts.now ?? Date.now()) - opts.sinceDays * 86_400_000) : null
   await Promise.all(
     ids.map(async (id) => {
       try {
