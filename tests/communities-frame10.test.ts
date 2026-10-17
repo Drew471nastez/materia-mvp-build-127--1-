@@ -33,7 +33,7 @@ import { tabsFollowTarget, TABS_STILL_MS } from "@/components/community/member/n
 import { PRESS_PROPS } from "@/components/community/member/ui"
 import { shareLinkLine } from "@/components/community/member/invite-sheet"
 import { communityMetadata, inviteMetadata, previewImages, shareCoverUrl, type SeoFacts } from "@/components/community/public/seo"
-import { bothIntervals, priceParts } from "@/components/community/public/join-controls"
+import { bothIntervals, priceParts } from "@/components/community/public/join-words"
 import { aboutFigures, sinceLabel } from "@/components/community/public/about-facts"
 import type { JoinOption } from "@/components/community/public/types"
 import type { SearchIndex } from "@/components/community/member/view-types"

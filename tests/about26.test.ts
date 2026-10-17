@@ -18,7 +18,7 @@
 import { readCode } from "./_source"
 import { decideJoin } from "@/components/community/public/join-state"
 import { aboutFacts, aboutRow, canShareCommunity, cardSummary, SUMMARY_MAX } from "@/components/community/public/about-facts"
-import { buttonLabel } from "@/components/community/public/join-controls"
+import { buttonLabel } from "@/components/community/public/join-words"
 import { JOIN_TRIAL_LABEL, joinButtonLabel } from "@/lib/communities/format"
 import type { JoinOption } from "@/components/community/public/types"
 import { deletionNotice } from "@/lib/communities/server/public"
