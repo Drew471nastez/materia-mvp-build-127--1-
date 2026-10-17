@@ -77,8 +77,18 @@ function section(title: string) {
 }
 
 /* The record only runs where there is a window; a bare one is enough here. */
-const g = globalThis as unknown as { window?: unknown }
+const g = globalThis as unknown as { window?: unknown; location?: unknown }
 if (!g.window) g.window = globalThis
+/*
+  A WINDOW HAS AN ADDRESS. window is globalThis here, so the section below
+  that sets one and puts back what it found was putting back nothing, and the
+  next call to read the path (waitsWithSpinner asking whether the page being
+  opened is another section of the community already on screen) read
+  undefined and took this suite down with it. A page outside
+  /app/community is the baseline, so that rule answers no, exactly as it does
+  in a browser on any other page.
+*/
+if (!g.location) g.location = { href: "https://storelib.com/app", origin: "https://storelib.com", pathname: "/app", search: "" }
 
 section("A navigation, from start to landing")
 {
@@ -406,7 +416,8 @@ section("Pages drawn over the whole shell")
       // (the capacitor :has() twin is gone on purpose, see the check above)
       && !/html\.capacitor:has\(\[data-page-layer-phone\]\)/.test(phoneOnlyRules)
       && /html\.capacitor\.has-phone-page-layer::before \{\s*display: none;/.test(phoneOnlyRules)
-      && /html\.capacitor\.has-phone-page-layer \{\s*background-color: #f8f9fa;/.test(phoneOnlyRules))
+      /* The page colour is one token now (--sl-page), with the colour it always was as its fallback. */
+      && /html\.capacitor\.has-phone-page-layer \{\s*background-color: var\(--sl-page, #f8f9fa\);/.test(phoneOnlyRules))
   const stage = code("components/app/app-stage.tsx")
   check("the slow page's surface stands aside only for a layer that is over the shell now, not for the editor in it",
     /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
@@ -582,7 +593,9 @@ section("Sheets")
   check("a release velocity is read over the last 100ms of event times, not one noisy pair of events",
     /releaseVelocity\(samplesRef\.current, eventTime\(e\)\)/.test(sheet) && /samples\.push\(\{ t: eventTime\(e\), y \}\)/.test(sheet))
   check("a sheet that edits the page behind it can leave that page undimmed, and still close on a tap",
-    /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(sheet) && /onClick=\{requestClose\}/.test(sheet))
+    /scrim === "clear" \? "bg-transparent" : SCRIM/.test(sheet) && /onClick=\{requestClose\}/.test(sheet)
+      /* The dim itself is one constant for every layer that draws one (components/ui/scrim). */
+      && /export const SCRIM = "bg-black\/40"/.test(read("components/ui/scrim.ts")))
   check("a fresh open can wait for its pictures to decode, never longer than 120ms",
     /const IMAGE_WAIT_MS = 120/.test(sheet) && /img\.decode\(\)\.catch/.test(sheet) && /openTokenRef\.current !== token/.test(sheet))
   check("the parent is told when the sheet is actually gone, on both ways out",
