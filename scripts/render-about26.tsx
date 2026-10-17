@@ -178,9 +178,21 @@ function App() {
       </div>
     )
   }
+  /* ?shrink=1: the gallery goes from two pictures to one and back in place, as the Page editor does while a picture is removed (W5's note). */
+  const [shown, setShown] = React.useState(data)
+  React.useEffect(() => {
+    if (params.get("shrink") !== "1") return
+    const two = { ...data, community: { ...data.community, gallery: data.community.gallery.slice(0, 2) } }
+    const one = { ...data, community: { ...data.community, gallery: data.community.gallery.slice(0, 1) } }
+    setShown(two)
+    const steps = [one, two, one, data]
+    const timers = steps.map((d, i) => window.setTimeout(() => setShown(d), 400 * (i + 1)))
+    window.setTimeout(() => ((window as unknown as { __shrunk?: boolean }).__shrunk = true), 400 * (steps.length + 1))
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [])
   return (
     <CommunityPublicFrame topBar={topBar} card={{ community: shell, card: { ...card, faces: [], more: 0 } }}>
-      <CommunitySalesPage data={data} />
+      <CommunitySalesPage data={shown} />
     </CommunityPublicFrame>
   )
 }

@@ -252,7 +252,13 @@ export function CommunityGallery({ communityId, name, items, cover = null }: { c
         data-gallery-main={items[at].type}
         data-gallery-index={at}
       >
-        <MediaSwiper className="h-full w-full" onSwiper={onSwiper} onIndexChange={moved} enabled={count > 1}>
+        {/*
+          A NEW ENGINE WHEN THE NUMBER OF SLIDES CHANGES (round 26, W5's note): in the Page editor a picture removed or
+          added changes the slides in place, and Swiper updating itself across that (two to one disables it as well)
+          could read a slide list it no longer had ("reading 'querySelectorAll'"). Keyed by the count, the old engine is
+          destroyed whole and a fresh one is moved to the clamped index; on a visitor's page the count never changes.
+        */}
+        <MediaSwiper key={count} className="h-full w-full" onSwiper={onSwiper} onIndexChange={moved} enabled={count > 1}>
           {items.map((g, i) => {
             const key = keyOf(g)
             const live = playing?.key === key && i === at

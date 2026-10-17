@@ -34,7 +34,7 @@ const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${JSON.stringify(got)})`}`)
   if (!ok) broken++
 }
-/* PART=pages|desk-share|phone-share|member runs one part (a busy machine times a long run out). */
+/* PART=pages|desk-share|shrink|phone-share|member runs one part (a busy machine times a long run out). */
 const PART = process.env.PART || "all"
 const part = (name) => PART === "all" || PART === name
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -279,6 +279,17 @@ export const notFound = () => {}
       expect(!!code && code.w >= 160 && code.src.startsWith("data:image/png"), "the QR code draws", code)
       await p.screenshot({ path: join(shots, "share-qr.png") })
     }
+    await p.close()
+  }
+
+  /* ── The gallery's slide count changes in place (two to one and back): no error, the frame still draws ─ */
+  if (part("shrink")) {
+    console.log("\ngallery count changes, 1440")
+    const { p, errors } = await open("/community/clay-studio/about?case=paid&shrink=1", DESK)
+    await p.waitForFunction(() => window.__shrunk === true, { timeout: 20_000 }).catch(() => null)
+    const after = await p.evaluate(() => ({ slides: document.querySelectorAll("[data-gallery-slide]").length, thumbs: document.querySelectorAll("[data-gallery-thumb]").length }))
+    expect(errors.length === 0, "the slide count changing in place throws nothing", errors.slice(0, 2))
+    expect(after.slides === 4 && after.thumbs === 4, "the gallery ends with its four pictures and four thumbnails", after)
     await p.close()
   }
 
