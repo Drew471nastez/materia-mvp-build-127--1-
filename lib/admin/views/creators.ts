@@ -228,7 +228,7 @@ export type PayoutDb = {
   method: string | null
   failure_message: string | null
   failure_code: string | null
-  creator: { id: string; slug: string | null } | null
+  creator: { id: string; slug: string | null } | { id: string; slug: string | null }[] | null
 }
 
 export const PAYOUT_COLUMNS =

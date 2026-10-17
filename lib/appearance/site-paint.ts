@@ -116,7 +116,8 @@ const pct = (a: number) => `${+(a * 100).toFixed(4)}%`
  * colour mixed with transparent). Anything that is not a literal colour, and any colour with no dark step (a blue
  * button), comes back unchanged.
  */
-export function sitePaint<T extends string | null | undefined>(c: T, role: PaintRole): T {
+export function sitePaint<T extends string | null | undefined>(c: T, role: PaintRole): T extends string ? string : T
+export function sitePaint(c: string | null | undefined, role: PaintRole): string | null | undefined {
   const rgba = parseColour(c)
   if (!rgba) return c
   const [r, g, b, a] = rgba
@@ -124,21 +125,22 @@ export function sitePaint<T extends string | null | undefined>(c: T, role: Paint
     const v = paintVar(rgba, role)
     if (!v) return c
     const solid = `#${[r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("")}`
-    return `color-mix(in srgb, var(--sl-pp-${v}, ${solid}) ${pct(a)}, transparent)` as T
+    return `color-mix(in srgb, var(--sl-pp-${v}, ${solid}) ${pct(a)}, transparent)`
   }
   /* What it looks like on the light page: over white. */
   const seen: Rgba = a < 1 ? [r * a + 255 * (1 - a), g * a + 255 * (1 - a), b * a + 255 * (1 - a), 1] : rgba
   const v = paintVar(seen, role)
   if (!v) return c
-  return `var(--sl-pp-${v}, ${String(c).trim()})` as T
+  return `var(--sl-pp-${v}, ${String(c).trim()})`
 }
 
 /** A colour that has a step of its own in the dark look (PAINT_VARS), as written in the light one. */
 export const paintAs = (step: PaintVar, c: string) => `var(--sl-pp-${step}, ${c})`
 
 /** paint(c, role) for a page that follows the look, the colour unchanged for one that does not. */
-export type Paint = <T extends string | null | undefined>(c: T, role: PaintRole) => T
-export const noPaint: Paint = (c) => c
+export type Paint = typeof sitePaint
+export function noPaint<T extends string | null | undefined>(c: T, role: PaintRole): T extends string ? string : T
+export function noPaint(c: string | null | undefined, _role: PaintRole): string | null | undefined { return c }
 export const paintFor = (site: boolean): Paint => (site ? sitePaint : noPaint)
 
 /**

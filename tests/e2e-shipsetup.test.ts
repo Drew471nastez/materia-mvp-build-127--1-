@@ -21,6 +21,7 @@
 import "./_journey/env"
 import { Journey, type Person } from "./_journey/harness"
 import { EU_COUNTRIES } from "@/lib/physical/quick-setup"
+import { MemoryDb, PgError } from "./_journey/postgrest"
 
 let passed = 0
 let failed = 0
@@ -32,6 +33,30 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const section = (t: string) => console.log(`\n${t}\n`)
 
 async function main() {
+  section("0. The database model rolls back a whole failed statement")
+  const db = new MemoryDb()
+  const original = { id: "original", name: "Before" }
+  db.rows("shipping_zones").push(original)
+  try {
+    db.insert("shipping_zones", [{ id: "new", name: "New" }, { id: "original", name: "Duplicate" }], {})
+    check("a duplicate in the second row refuses the batch", false)
+  } catch (error) {
+    check("a duplicate in the second row refuses the batch", error instanceof PgError && error.code === "23505")
+  }
+  check("the earlier row was not left behind", db.rows("shipping_zones").length === 1 && db.rows("shipping_zones")[0] === original)
+  db.extraTables.add("trigger_audit")
+  db.beforeWrite.shipping_zones = (row, memory) => {
+    memory.rows("trigger_audit").push({ name: row.name })
+    if (row.name === "Refuse") throw new PgError("P0001", "Rejected by trigger")
+  }
+  try {
+    db.insert("shipping_zones", [{ id: "original", name: "Changed" }, { id: "other", name: "Refuse" }], { resolution: "merge" })
+    check("a later trigger failure refuses the upsert", false)
+  } catch (error) {
+    check("a later trigger failure refuses the upsert", error instanceof PgError && error.code === "P0001")
+  }
+  check("the earlier update and trigger writes roll back too", original.name === "Before" && db.rows("shipping_zones").length === 1 && db.rows("trigger_audit").length === 0)
+
   const j = await Journey.start()
 
   const store = async (email: string, slug: string, country: string): Promise<{ person: Person; creatorId: string }> => {
@@ -94,7 +119,7 @@ async function main() {
   const usBody = { country: "US", home: { priceCents: 599, minDays: 3, maxDays: 5 }, abroad: { priceCents: 2500, minDays: 7, maxDays: 21 } }
   const [a, b] = await Promise.all([j.call("POST /api/physical/shipping/quick-setup", { as: us.person, body: usBody }), j.call("POST /api/physical/shipping/quick-setup", { as: us.person, body: usBody })])
   const usZones = zonesOf(us.creatorId)
-  check("two presses at once: both answer, one setup stays", a.status === 200 && b.status === 200 && usZones.length === 2 && ratesOf(us.creatorId).length === 2, { a: a.json, b: b.json, zones: usZones.map((z) => [z.name, z.countries, z.rest_of_world]), rates: ratesOf(us.creatorId).length })
+  check("two presses at once: both answer, one setup stays", a.status === 200 && b.status === 200 && usZones.length === 2 && ratesOf(us.creatorId).length === 2, { statuses: [a.status, b.status], zoneCount: usZones.length, rateCount: ratesOf(us.creatorId).length, zones: usZones.map((z) => [z.name, z.countries, z.rest_of_world]), a: a.json, b: b.json })
   check("outside the EU, abroad is the rest of the world", usZones.some((z) => z.rest_of_world === true) && usZones.some((z) => (z.countries ?? []).join() === "US"))
 
   section("5. A store that set something up by hand keeps it")

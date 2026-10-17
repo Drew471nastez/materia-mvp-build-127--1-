@@ -18,8 +18,8 @@ type Block = { id: string; type: string; settings: Record<string, unknown> }
 
 declare global {
   interface Window {
-    __blocks: Block[]
-    __settings: ThemeSettingsValues
+    __settingsPolishBlocks: Block[]
+    __settingsPolishSettings: ThemeSettingsValues
     __puts: { page_key: string; sections: SectionInstance[] }[]
     __pages: Record<string, { sections: SectionInstance[]; updated_at: string }>
     __saved: string[]
@@ -72,7 +72,7 @@ const START: Block[] = [
   { id: "about", type: "nav_link", settings: { label: "About", url: "/about" } },
   { id: "contact", type: "nav_link", settings: { label: "Contact", url: "/contact" } },
 ]
-window.__blocks = START
+window.__settingsPolishBlocks = START
 
 function App() {
   const section = (new URLSearchParams(location.search).get("section") as SettingsSection | null) ?? "navigation"
@@ -82,11 +82,11 @@ function App() {
   } as ThemeSettingsValues)
   const [blocks, setBlocks] = React.useState<Block[]>(START)
   const commit = (next: Block[]) => {
-    window.__blocks = next
+    window.__settingsPolishBlocks = next
     setBlocks(next)
   }
   React.useEffect(() => {
-    window.__settings = settings
+    window.__settingsPolishSettings = settings
   }, [settings])
   const header: SectionInstance = { ...HEADER, blocks: blocks as SectionInstance["blocks"] }
   return (

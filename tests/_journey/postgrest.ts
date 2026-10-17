@@ -218,6 +218,33 @@ export class MemoryDb {
   /* ── writes ─────────────────────────────────────────────────────────── */
 
   insert(table: string, payload: Row | Row[], opts: { onConflict?: string[] | null; resolution?: "merge" | "ignore" | null; missingDefault?: boolean; columns?: string[] | null }): Row[] {
+    // One PostgREST insert is one PostgreSQL statement, including a batch or
+    // upsert. A later constraint failure rolls back earlier rows and trigger
+    // writes in that statement. Keep existing row references alive on rollback
+    // because journey fixtures can hold them. Sequences are not rolled back.
+    const snapshot = Object.entries(this.tables).map(([name, rows]) => ({
+      name, rows, entries: rows.map((row) => ({ row, value: structuredClone(row) })),
+    }))
+    const violations = this.checkViolations.length
+    try {
+      return this.insertRows(table, payload, opts)
+    } catch (error) {
+      const names = new Set(snapshot.map(({ name }) => name))
+      for (const name of Object.keys(this.tables)) if (!names.has(name)) delete this.tables[name]
+      for (const { name, rows, entries } of snapshot) {
+        for (const { row, value } of entries) {
+          for (const key of Object.keys(row)) delete row[key]
+          Object.assign(row, value)
+        }
+        rows.splice(0, rows.length, ...entries.map(({ row }) => row))
+        this.tables[name] = rows
+      }
+      this.checkViolations.length = violations
+      throw error
+    }
+  }
+
+  private insertRows(table: string, payload: Row | Row[], opts: { onConflict?: string[] | null; resolution?: "merge" | "ignore" | null; missingDefault?: boolean; columns?: string[] | null }): Row[] {
     this.checkTable(table, "insert")
     if (this.appendOnly.has(table) && opts.resolution === "merge") {
       /* An upsert that would update is refused by the trigger only when it meets a row; checked below. */

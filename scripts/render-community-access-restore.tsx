@@ -59,7 +59,7 @@ const head: CommunityHead = {
   openReports: 0,
 }
 
-const paidTier: TierView = {
+const paidTier: TierView = { trialDays: 0,
   id: "t-paid",
   name: "Studio",
   description: "The weekly critique and the archive.",

@@ -6,7 +6,7 @@
  * on the server, hydrates it in Chromium and measures it.
  */
 import React from "react"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "./fixtures/orders-client"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const g = globalThis as unknown as { __probeNow: number; __probeTz: string }

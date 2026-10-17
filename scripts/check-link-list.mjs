@@ -41,9 +41,9 @@ const expect = (ok, what, got) => {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const topOrder = (p) => p.evaluate(() => window.__blocks.filter((b) => !b.settings.parent_id).map((b) => b.id).join(","))
-const kidsOf = (p, id) => p.evaluate((id) => window.__blocks.filter((b) => b.settings.parent_id === id).map((b) => b.id).join(","), id)
-const saves = (p) => p.evaluate(() => ({ ...window.__saves }))
+const topOrder = (p) => p.evaluate(() => window.__linkListBlocks.filter((b) => !b.settings.parent_id).map((b) => b.id).join(","))
+const kidsOf = (p, id) => p.evaluate((id) => window.__linkListBlocks.filter((b) => b.settings.parent_id === id).map((b) => b.id).join(","), id)
+const saves = (p) => p.evaluate(() => ({ ...window.__linkListSaves }))
 
 /** The centre of an element, in the viewport. */
 const centre = (p, sel) => p.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, top: r.top, bottom: r.bottom } })
@@ -140,7 +140,7 @@ async function phone(browser, width) {
   const mid = await touchDrag(p, home, about.bottom - 4, {
     during: () => p.evaluate(() => {
       const row = document.querySelector('[data-link-row="home"]')
-      return { transform: row.style.transform, z: row.style.zIndex, saves: window.__saves.header, sheetScroll: document.getElementById("scroller").scrollTop }
+      return { transform: row.style.transform, z: row.style.zIndex, saves: window.__linkListSaves.header, sheetScroll: document.getElementById("scroller").scrollTop }
     }),
   })
   expect(/translate3d\(0px, [1-9]/.test(mid.transform) && mid.z === "20", "the row lifts and follows the finger", mid)
@@ -193,7 +193,7 @@ async function phone(browser, width) {
   await p.$$eval('[data-link-row="about"] [data-link-panel] button', (bs) => bs.find((b) => b.textContent.trim() === "Add link to About").click())
   await sleep(150)
   const added = await p.evaluate(() => {
-    const kid = window.__blocks.find((b) => b.settings.parent_id === "about")
+    const kid = window.__linkListBlocks.find((b) => b.settings.parent_id === "about")
     const open = kid && document.querySelector(`[data-link-row="${kid.id}"] [data-link-panel] input`)
     return { kid: kid?.settings.label, open: open ? open.value : null }
   })
@@ -206,7 +206,7 @@ async function phone(browser, width) {
 
   /* ── a finger drags Instagram right: it goes under Home, the link above it ── */
   await sleep(250)
-  const flat = () => p.evaluate(() => window.__blocks.filter((b) => b.type === "nav_link").map((b) => b.id).join(","))
+  const flat = () => p.evaluate(() => window.__linkListBlocks.filter((b) => b.type === "nav_link").map((b) => b.id).join(","))
   const instaGrip = await centre(p, gripOf("insta"))
   const sideways = async (from, dx) => {
     await p.touchscreen.touchStart(from.x, from.y)
@@ -224,7 +224,7 @@ async function phone(browser, width) {
   }
   const held = await sideways(instaGrip, 34)
   expect(/translate3d\(20px, 0px/.test(held.transform) && held.intent === "in", "held right, the row moves one step in and says it will nest", held)
-  const nested = await p.evaluate(() => window.__blocks.find((b) => b.id === "insta").settings.parent_id)
+  const nested = await p.evaluate(() => window.__linkListBlocks.find((b) => b.id === "insta").settings.parent_id)
   expect(nested === "home", "let go, Instagram is a sub-link of Home", nested)
   expect((await flat()).endsWith("home,insta"), "and it follows Home in the saved list", await flat())
 
@@ -235,16 +235,16 @@ async function phone(browser, width) {
   expect(outLabel === "Move out of Home", "an opened sub-link offers Move out of Home", outLabel)
   await p.tap('[data-link-row="insta"] [data-link-unnest]')
   await sleep(150)
-  const out = await p.evaluate(() => ({ has: "parent_id" in window.__blocks.find((b) => b.id === "insta").settings }))
+  const out = await p.evaluate(() => ({ has: "parent_id" in window.__linkListBlocks.find((b) => b.id === "insta").settings }))
   expect(!out.has && (await topOrder(p)).endsWith("home,insta"), "and it comes back out, right after Home", { ...out, order: await topOrder(p) })
 
   /* ── Shop has sub-links, so it cannot go under About: three levels are not drawn ── */
   await sleep(250)
   const shopGrip = await centre(p, gripOf("shop"))
-  await p.evaluate(() => { window.__before = window.__saves.header })
+  await p.evaluate(() => { window.__before = window.__linkListSaves.header })
   const refused = await sideways(shopGrip, 40)
   void refused
-  expect(await p.evaluate(() => !window.__blocks.find((b) => b.id === "shop").settings.parent_id && window.__saves.header === window.__before), "a link with sub-links does not nest", await p.evaluate(() => window.__saves.header - window.__before))
+  expect(await p.evaluate(() => !window.__linkListBlocks.find((b) => b.id === "shop").settings.parent_id && window.__linkListSaves.header === window.__before), "a link with sub-links does not nest", await p.evaluate(() => window.__linkListSaves.header - window.__before))
 
   /* ── a menu, by finger ── */
   await p.$$eval("#menus button", (bs) => bs.find((b) => b.getAttribute("aria-expanded") !== null && /Footer/.test(b.textContent)).click())
@@ -267,7 +267,7 @@ async function phone(browser, width) {
   const box = await p.$eval("#scroller", (el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom } })
   const g = await centre(p, gripOf("home"))
   await touchDrag(p, g, box.bottom - 12, { hold: 1500 })
-  const scrolled = await p.evaluate(() => ({ top: document.getElementById("scroller").scrollTop, order: window.__blocks.filter((b) => !b.settings.parent_id).map((b) => b.id) }))
+  const scrolled = await p.evaluate(() => ({ top: document.getElementById("scroller").scrollTop, order: window.__linkListBlocks.filter((b) => !b.settings.parent_id).map((b) => b.id) }))
   expect(scrolled.top > 60, "held at the bottom edge, the list scrolls", scrolled.top)
   expect(scrolled.order.indexOf("home") >= 6, "and the row lands further down than the screen showed", scrolled.order.indexOf("home"))
 

@@ -15,9 +15,9 @@ import type { NavBlock } from "@/lib/website-builder/nav-links"
 
 declare global {
   interface Window {
-    __blocks: NavBlock[]
+    __linkListBlocks: NavBlock[]
     __menus: unknown
-    __saves: { header: number; menus: number }
+    __linkListSaves: { header: number; menus: number }
   }
 }
 
@@ -41,8 +41,8 @@ const START: NavBlock[] = [
     ? Array.from({ length: 10 }, (_, i) => ({ id: `extra${i}`, type: "nav_link", settings: { label: `Extra ${i + 1}`, url: "/contact" } }))
     : []),
 ]
-window.__blocks = START
-window.__saves = { header: 0, menus: 0 }
+window.__linkListBlocks = START
+window.__linkListSaves = { header: 0, menus: 0 }
 window.__menus = {
   footer: { title: "Footer", links: [{ title: "Shop", url: "/products" }, { title: "About", url: "/about" }, { title: "Contact", url: "/contact" }] },
 }
@@ -50,8 +50,8 @@ window.__menus = {
 function Header() {
   const [blocks, setBlocks] = useState<NavBlock[]>(START)
   const commit = (next: NavBlock[]) => {
-    window.__blocks = next
-    window.__saves.header++
+    window.__linkListBlocks = next
+    window.__linkListSaves.header++
     setBlocks(next)
   }
   let n = 0
@@ -61,8 +61,8 @@ function Header() {
     onUpdateBlockSetting: (id, key, value) =>
       setBlocks((prev) => {
         const next = prev.map((b) => (b.id === id ? { ...b, settings: { ...b.settings, [key]: value } } : b))
-        window.__blocks = next
-        window.__saves.header++
+        window.__linkListBlocks = next
+        window.__linkListSaves.header++
         return next
       }),
     onAddBlock: (type, settings) => commit([...blocks, { id: `new${Date.now()}${n++}`, type, settings: { ...(settings ?? {}) } }]),
@@ -77,7 +77,7 @@ function Menus() {
     value: menus,
     onChange: (next) => {
       window.__menus = next
-      window.__saves.menus++
+      window.__linkListSaves.menus++
       setMenus(next)
     },
   })

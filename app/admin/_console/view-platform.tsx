@@ -14,6 +14,7 @@ import { PhysicalCommercePanel } from "./panel-physical-commerce"
 import { ViewHeader } from "./shell"
 import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, Button, Facts, reasonFor, type Column } from "./ui"
 import type { PersonRow } from "@/lib/admin/types"
+import type { Action } from "./actions"
 
 type Go = (r: Partial<Route>) => void
 type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void }
@@ -236,7 +237,7 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
 
 /* ── People ───────────────────────────────────────────────────────────── */
 
-export function PeopleView({ data, go, query, onQuery, act }: Common & { data: PeoplePayload }) {
+export function PeopleView({ data, go, query, onQuery, act }: Common & { data: PeoplePayload; act: (action: Action) => void }) {
   const p = data.problems
   const [person, setPerson] = React.useState<PersonRow | null>(null)
   React.useEffect(() => {

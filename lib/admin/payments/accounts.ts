@@ -63,7 +63,7 @@ export async function getPaymentAccountDetail(db: Db, creatorId: string) {
         charges_enabled: acct.charges_enabled,
         payouts_enabled: acct.payouts_enabled,
         details_submitted: acct.details_submitted,
-        disabled_reason: acct.disabled_reason,
+        disabled_reason: acct.requirements?.disabled_reason ?? null,
         business_type: acct.business_type,
         capabilities: acct.capabilities,
         requirements: {

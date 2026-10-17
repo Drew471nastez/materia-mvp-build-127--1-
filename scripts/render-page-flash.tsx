@@ -27,7 +27,7 @@ import { ProductsClient } from "@/app/app/products/products-client"
 import { PayoutsClient } from "@/app/app/payouts/payouts-client"
 import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
 import { SettingsFormNew } from "@/components/app/settings-form-new"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "./fixtures/orders-client"
 import CustomersPage from "@/app/app/customers/page"
 import { buildReports, type ViewRow } from "@/lib/analytics/reports"
 import { resolveValue, todayIn } from "@/lib/date-range/range"
@@ -121,6 +121,7 @@ function Emails() {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
       <EmailsHome
+        physical={false} messages={[]} messagesAvailable onOpenMessage={noop} onToggleRead={noop} onDeleteMessage={noop} onOpenContact={noop}
         tab={tab} onTab={setTab} loading={loading}
         subscribers={[]} checkoutBuyersCount={0} search="" onSearch={noop} onExportSubscribers={noop} onCopyEmail={noop} onRemoveSubscriber={noop}
         flows={[]} onToggleFlow={noop} onDeleteFlow={noop} onDuplicateFlow={noop}
