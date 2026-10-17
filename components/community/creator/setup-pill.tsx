@@ -28,6 +28,7 @@ import { ArrowRight, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { APP_CONFIRMED, INTRO_WATCHED, PILL_HIDDEN, skipKey, type SetupChecklistView, type SetupStepView } from "@/lib/communities/setup-keys"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const SLUG = /^\/app\/community\/([^/?#]+)/
 const REFRESH_MS = 8_000
@@ -223,9 +224,7 @@ export function CommunitySetupPill({ pathname, hidden = false }: { pathname: str
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <span aria-hidden className="mt-2.5 block h-1 overflow-hidden rounded-full bg-[#eef0f2]">
-              <span className="block h-full rounded-full bg-[#8b5cf6] transition-[width] duration-500 ease-out" style={{ width: `${list.percent}%` }} />
-            </span>
+            <FillBar quiet value={list.percent} size="thin" tone="violet" ms={500} className="mt-2.5" />
           </header>
           <ol className="min-h-0 flex-1 divide-y divide-[#f1f2f4] overflow-y-auto overscroll-contain px-4" data-community-setup-list="">
             {left.map((s, i) => (

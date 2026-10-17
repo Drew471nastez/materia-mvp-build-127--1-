@@ -14,6 +14,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import type { PhysicalStep } from "@/lib/home/physical-setup"
 import { useReadiness } from "@/components/physical/readiness-client"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export function PhysicalSetupCard() {
   const physical = usePhysicalCommerceEnabled()
@@ -63,9 +64,7 @@ export function PhysicalSetupCard() {
           <p className="mt-0.5 text-[13px] text-[#6b7280]">{blockers.length ? tt("Payments first: buyers can't pay until they are set up.") : tt("Five steps and your store can take orders it ships.")}</p>
         </div>
       </div>
-      <div className="mx-5 mt-3 h-[5px] overflow-hidden rounded-full bg-[#eef0f3]" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done} aria-label={tt("Physical setup progress")}>
-        <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${(done / steps.length) * 100}%` }} />
-      </div>
+      <FillBar value={done} max={steps.length} label={tt("Physical setup progress")} ms={500} className="mx-5 mt-3" />
       <ul className="mt-3 px-2 pb-3">
         {ordered.map((s) => (
           <li key={s.id} data-physical-step={s.id} data-done={s.done ? "" : undefined}>

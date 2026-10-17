@@ -15,6 +15,7 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
@@ -46,13 +47,6 @@ export function useRollingNumber(to: number, ms = 700): number {
 }
 
 export function TranslateBar({ done, total, running, tone = "violet", className, label }: { done: number; total: number; running: boolean; tone?: "violet" | "ink"; className?: string; label?: string }) {
-  const share = total > 0 ? Math.min(100, (done / total) * 100) : 0
-  /* A sliver while the first batch is out, so a running job never looks empty. */
-  const width = running ? Math.max(3, share) : share
-  return (
-    <div className={cn("relative h-1.5 overflow-hidden rounded-full bg-[#eef0f2]", className)} role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label={label}>
-      <div className={cn("relative h-full overflow-hidden rounded-full transition-[width] duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", tone === "violet" ? "bg-[#8b5cf6]" : "bg-[#1a1a2e]")} style={{ width: `${width}%` }}>
-      </div>
-    </div>
-  )
+  /* A sliver while the first batch is out, so a running job never looks empty. The job writes in steps of forty, so the fill takes longer than the shared default. */
+  return <FillBar value={done} max={Math.max(1, total)} label={label} tone={tone} ms={1200} floor={running ? 3 : 0} className={className} />
 }

@@ -5,10 +5,10 @@ import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Plus, X, AlertCircle, GripVertical } from "lucide-react"
 import Image from "next/image"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface DraggableGalleryUploadProps {
   folder: string
@@ -276,7 +276,7 @@ export function DraggableGalleryUpload({
           >
             {uploading ? (
               <div className="flex flex-col items-center gap-1">
-                <Progress value={progress} className="h-1 w-12" />
+                <FillBar quiet value={progress} size="thin" className="w-12" />
                 <span className="text-xs text-muted-foreground">{progress}%</span>
               </div>
             ) : (

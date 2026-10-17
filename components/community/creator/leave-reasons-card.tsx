@@ -18,6 +18,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { Section } from "./parts"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) {
   const { total, counts, notes } = summary
@@ -38,9 +39,7 @@ export function LeaveReasonsCard({ summary }: { summary: LeaveReasonsSummary }) 
                       {c.count ? <span className="text-[#9ca3af]"> · {share}%</span> : null}
                     </span>
                   </div>
-                  <div aria-hidden className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-                    <div className="h-full rounded-full bg-[#1a1a2e]" style={{ width: `${share}%` }} />
-                  </div>
+                  <FillBar quiet value={share} className="mt-1.5" />
                 </li>
               )
             })}

@@ -38,6 +38,7 @@ import type { CreatorMembershipScreen, FeedPost, MemberView, PostRow } from "@/l
 import { PostView, fileSize } from "./post-view"
 import { StatusLabel } from "./status-line"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 type Tab = "updates" | "members" | "settings"
 const WIDTH = "max-w-[980px]"
@@ -200,9 +201,7 @@ function Composer({ screen, onPosted }: { screen: CreatorMembershipScreen; onPos
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={u.url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-white">
-                        <span className="block h-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${u.progress}%` }} />
-                      </span>
+                      <FillBar quiet value={u.progress} size="thin" on="dark-media" ms={200} className="absolute inset-x-2 bottom-2 w-auto" />
                     )}
                     {u.error ? <span className="absolute inset-0 grid place-items-center bg-[#fef2f2]/90 px-1 text-center text-[11px] text-[#991b1b]">{tt("Failed")}</span> : null}
                     <button type="button" onClick={() => setUploads((x) => x.filter((y) => y.key !== u.key))} aria-label={tt("Remove {name}", { name: u.name })} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white hover:bg-black/75">

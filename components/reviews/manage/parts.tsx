@@ -10,6 +10,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { api } from "@/components/physical/ui"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { FillBar } from "@/components/ui/fill-bar"
 
 /* The integration page's card (components/app/settings/integrations-directory DEPTH): a hairline, a contact shadow and a soft one under it. */
 export const CARD = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
@@ -80,9 +81,7 @@ export function Distribution({ rows, total }: { rows: { stars: number; count: nu
       {rows.map((r) => (
         <li key={r.stars} className="grid grid-cols-[14px_minmax(0,1fr)_40px] items-center gap-2 text-[12.5px] text-[#6b7280]">
           <span className="tabular-nums">{r.stars}</span>
-          <span className="h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-            <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-300 ease-out" style={{ width: `${(r.count / most) * 100}%` }} />
-          </span>
+          <FillBar quiet value={r.count} max={most} />
           <span className="text-right tabular-nums" title={total ? `${Math.round((r.count / total) * 100)}%` : undefined}>
             {formatCount(r.count)}
           </span>

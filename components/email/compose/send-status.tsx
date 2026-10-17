@@ -12,6 +12,7 @@ import { outstanding, wentOut, type CampaignStatus, type RecipientCounts } from 
 import { buttonPrimary, buttonSecondary, card } from "./ui"
 import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const n = (v: number) => v.toLocaleString(appLocale())
 
@@ -73,9 +74,7 @@ export function SendStatus({
         </p>
         <p className="mt-0.5 text-[13px] text-[#6b7280]">{audienceLabel}</p>
         {running ? (
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#eef0f2]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={done} aria-label={tt("Sent so far")}>
-            <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-500" style={{ width: `${Math.max(3, done)}%` }} />
-          </div>
+          <FillBar value={done} label={tt("Sent so far")} floor={3} ms={500} className="mt-4" />
         ) : null}
       </div>
       {rows.length ? (

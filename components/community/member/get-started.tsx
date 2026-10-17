@@ -23,6 +23,7 @@ import { checklistWindow, type ChecklistView } from "@/lib/communities/onboardin
 import type { ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { CARD } from "./ui"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const HIDDEN_KEY = (id: string) => `storelib:first-steps-hidden:${id}`
 
@@ -86,9 +87,7 @@ export function GetStarted({ communityId, viewer }: { communityId: string; viewe
           {all ? "Close" : "Hide"}
         </button>
       </div>
-      <div aria-hidden className="mx-4 h-1 overflow-hidden rounded-full bg-[#eef0f2] sm:mx-5">
-        <div className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-300 ease-out motion-reduce:transition-none" style={{ width: `${Math.round((list.done / Math.max(1, list.total)) * 100)}%` }} />
-      </div>
+      <FillBar quiet value={list.done} max={Math.max(1, list.total)} size="thin" className="mx-4 sm:mx-5" />
       <ol className="mt-2 divide-y divide-[#f1f2f4] pb-1">
         {list.items.map((item) => {
           const external = !!item.href && /^https:\/\//.test(item.href)

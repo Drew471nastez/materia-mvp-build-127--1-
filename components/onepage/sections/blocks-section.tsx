@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import {
+import { FillBar } from "@/components/ui/fill-bar"
   Plus,
   GripVertical,
   Trash2,
@@ -703,12 +704,7 @@ function EmailCaptureEditor({
           {/* Upload Progress */}
           {uploading && (
             <div className="space-y-1">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                <div
-                  className="h-full rounded-full bg-violet-500 transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
+              <FillBar quiet value={uploadProgress} tone="violet" />
               <p className="text-center text-xs text-muted-foreground">
                 {uploadProgress}% uploaded
               </p>

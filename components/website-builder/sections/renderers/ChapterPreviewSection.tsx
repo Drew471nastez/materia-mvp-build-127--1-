@@ -6,6 +6,7 @@
 import { Lock, Clock, FileText } from "lucide-react"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 import { stableHtml } from "../stable-html"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export function ChapterPreviewSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -42,9 +43,7 @@ export function ChapterPreviewSection({ section, theme, isEditing, isSelected, o
           </div>
           {bool(s.show_progress_bar, true) && (
             <div className="mb-6">
-              <div className="w-full h-1 rounded" style={{ background: borderColor }}>
-                <div className="h-full rounded" style={{ width: `${progress}%`, background: color }} />
-              </div>
+              <FillBar quiet value={progress} size="thin" trackStyle={{ background: borderColor }} fillStyle={{ background: color }} />
               <div className="text-xs opacity-60 mt-1">{progress}% read</div>
             </div>
           )}

@@ -35,6 +35,7 @@ import { useConfirm } from "./confirm-sheet"
 import { tt } from "@/lib/i18n/text"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
 import { isBlankHtml, toEditorHtml } from "@/lib/rich-text/html"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const TOOL =
   "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
@@ -931,9 +932,7 @@ function Progress({ up, bare }: { up: Uploading; bare?: boolean }) {
             {up.retrying ? tt("Connection lost, trying again") : up.total >= 5 * 1024 * 1024 ? tt("{value} of {total}", { value: bytes(up.sent) || "0 KB", total: bytes(up.total) }) : `${percent}%`}
           </span>
         </span>
-        <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-[#f1f2f4]">
-          <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-300 ease-out" style={{ width: `${percent}%` }} />
-        </span>
+        <FillBar quiet value={percent} className="mt-1.5" />
       </span>
       <button type="button" className={TOOL} onClick={onStop} aria-label={tt("Stop uploading {name}", { name })}>
         <X className="h-4 w-4" />

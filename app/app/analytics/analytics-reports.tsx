@@ -38,6 +38,7 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatCurrency } from "@/lib/markets/money"
+import { ROW_FILL } from "@/components/ui/fill-bar"
 
 /** The funnel's steps, in steps of the accent every /app screen uses. */
 const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
@@ -187,7 +188,7 @@ function Row({ r, max, format, lead, previous }: { r: ListRow; max: number; form
         <div
           aria-hidden
           data-bar=""
-          className="absolute inset-y-0 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] transition-[width,filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:brightness-[0.975]"
+          className={cn(ROW_FILL, "inset-y-0")}
           style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }}
         />
         <div className="relative flex min-w-0 items-center gap-2 pl-1">

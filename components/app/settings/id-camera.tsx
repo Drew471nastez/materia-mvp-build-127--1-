@@ -31,6 +31,7 @@ import { armAskSounds, playAskSound } from "@/lib/website-builder/ask-sounds"
 import { triggerHaptic } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 /** An ID card is 85.6 by 54 mm; a passport's photo page is close enough to frame the same way. */
 const CARD_RATIO = 85.6 / 54
@@ -306,9 +307,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
                 hint === "ready" ? "border-[#4ade80]" : "border-white/85",
               )}
             />
-            <div className="pointer-events-none absolute inset-x-6 bottom-3 h-1 overflow-hidden rounded-full bg-white/20">
-              <div className="h-full rounded-full bg-[#4ade80] transition-[width] duration-100 ease-linear" style={{ width: `${Math.round(progress * 100)}%` }} />
-            </div>
+            <FillBar quiet value={progress} max={1} size="thin" tone="positive" on="light-media" ms={100} className="pointer-events-none absolute inset-x-6 bottom-3 w-auto" />
           </div>
           <p aria-live="polite" className="absolute inset-x-0 bottom-6 z-10 px-6 text-center text-[15px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
             {phase === "starting" ? tt("Starting the camera") : side === "front" ? (hint === "ready" ? HINT_WORDS.ready : tt("{hintWords}. Fit the front of your ID in the frame.", { hintWords: HINT_WORDS[hint] })) : hint === "ready" ? HINT_WORDS.ready : tt("{hintWords}. Now the back.", { hintWords: HINT_WORDS[hint] })}

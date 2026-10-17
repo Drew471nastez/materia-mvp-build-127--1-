@@ -50,6 +50,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import SectionRenderer from "../sections/SectionRenderer"
 import { useSiteMotion } from "./use-site-motion"
 import { splitGroups } from "@/lib/storelib-theme/section-groups"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export type SectionRole = "header" | "body" | "footer" | "overlay"
 
@@ -322,16 +323,16 @@ function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
       data-free-shipping-bar=""
     >
       <span>{said.text}</span>
-      <span
-        aria-hidden="true"
-        className="mx-auto mt-1.5 block h-1 max-w-xs overflow-hidden rounded-full"
-        style={{ background: "var(--theme-border)" }}
-      >
-        <span
-          className="block h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${progress * 100}%`, background: "var(--theme-primary)" }}
-        />
-      </span>
+      <FillBar
+        quiet
+        value={progress}
+        max={1}
+        size="thin"
+        ms={500}
+        className="mx-auto mt-1.5 max-w-xs"
+        trackStyle={{ background: "var(--theme-border)" }}
+        fillStyle={{ background: "var(--theme-primary)" }}
+      />
     </div>
   )
 }

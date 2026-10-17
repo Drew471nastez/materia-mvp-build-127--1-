@@ -25,6 +25,7 @@ import { CardMark, CheckMark, ChoiceMark } from "./choice-marks"
 import { WallpaperPattern } from "./wallpaper-layers"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt, msg } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 type Goal = "general" | "artist" | "digital" | "business"
 
@@ -1326,14 +1327,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
               : "sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
           )}>
-            {/* Progress bar - centered, 8px height, more border radius */}
-            <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
-              <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#1a1a2e] transition-all duration-500 ease-out rounded-full"
-                  style={{ width: `${progressWidth}%` }}
-                />
-              </div>
+            <div className="flex shrink-0 justify-center pt-4 sm:pt-8">
+              <FillBar quiet value={progressWidth} ms={500} className="w-[160px] sm:w-[200px]" />
             </div>
 
             <div className={cn(

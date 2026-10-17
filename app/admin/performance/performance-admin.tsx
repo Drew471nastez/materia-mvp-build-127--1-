@@ -28,6 +28,7 @@ import {
 
 import { ago, date, num } from "../_console/format"
 import { Banner, Button, C, DataList, Filters, Panel, cx, type Column } from "../_console/ui"
+import { FillBar } from "@/components/ui/fill-bar"
 
 /**
  * ===========================================================================
@@ -330,9 +331,7 @@ function HealthPanel({ report }: { report: PerfReport }) {
 function Meter({ score }: { score: number }) {
   const b = scoreBand(score)
   return (
-    <span aria-hidden className="block h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-      <span className="block h-full rounded-full" style={{ width: `${Math.max(2, score)}%`, background: ratingColour(b) }} />
-    </span>
+    <FillBar quiet value={score} floor={2} className="bg-white/[0.06]" fillStyle={{ background: ratingColour(b) }} />
   )
 }
 

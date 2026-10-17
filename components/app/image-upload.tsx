@@ -5,7 +5,6 @@ import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { X, ImageIcon, AlertCircle, Video, Pencil } from "lucide-react"
 import Image from "next/image"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
@@ -13,6 +12,7 @@ import { DEFAULT_COVER_CROP, coverEditorSrc, isDefaultCrop, type CoverCrop } fro
 import { CoverCropFrame } from "@/components/app/cover-crop-frame"
 import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface ImageUploadProps {
   bucket: "product-images" | "avatars" | "covers" | "store-builder-images"
@@ -726,12 +726,7 @@ export function ImageUpload({
             live preview, which is its own state: see PendingVeil.) */}
         {uploading && !pending && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 backdrop-blur-[1px]">
-            <div className="h-1 w-2/3 overflow-hidden rounded-full bg-white/25">
-              <div
-                className="h-full rounded-full bg-white transition-[width] duration-200 ease-out"
-                style={{ width: `${Math.max(progress, 8)}%` }}
-              />
-            </div>
+            <FillBar value={progress} label={tt("Uploading…")} size="thin" tone="light" on="light-media" floor={8} ms={200} className="w-2/3" />
             <span className="text-xs font-medium text-white/90">{tt("Uploading…")}</span>
           </div>
         )}
@@ -805,7 +800,7 @@ export function ImageUpload({
         />
         {uploading ? (
           <div className="flex flex-col items-center gap-2 p-4">
-            <Progress value={progress} className="h-2 w-32" />
+            <FillBar quiet value={progress} size="thick" className="w-32" />
             <p className="text-sm text-muted-foreground">{tt("Uploading... {progress}%", { progress })}</p>
           </div>
         ) : (

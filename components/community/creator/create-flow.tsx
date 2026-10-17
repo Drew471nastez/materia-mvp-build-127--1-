@@ -50,6 +50,7 @@ import { DESCRIPTION_CHARS, type CommunityType, type PriceInterval } from "./log
 import { ChoiceCards, EditorCard, Notice, PicturePick, PriceInput, Segmented, errorText, field, label, send } from "./parts"
 import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const TYPES: { value: CommunityType; title: string; detail: string }[] = [
   { value: "free", get title() { return tt("Free") }, get detail() { return tt("Anyone can join.") } },
@@ -423,10 +424,8 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
             <NextButton busy={busy} last={last} onPress={forward} />
           </div>
         </div>
-        <span aria-hidden className="mx-auto block h-[3px] max-w-[760px] app-gutter sm:px-6">
-          <span className="block h-full overflow-hidden rounded-full bg-[#e5e7eb]">
-            <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-300 ease-out" style={{ width: `${((draft.step + 1) / WIZARD_STEPS.length) * 100}%` }} />
-          </span>
+        <span aria-hidden className="mx-auto block max-w-[760px] app-gutter sm:px-6">
+          <FillBar quiet value={draft.step + 1} max={WIZARD_STEPS.length} size="thin" />
         </span>
       </div>
 

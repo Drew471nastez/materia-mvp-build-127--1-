@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import {
   Upload,
   X,
@@ -26,6 +25,7 @@ import { precheckUpload, userMessage } from "@/lib/security/uploads"
 import { uploadRowState, uploadStatusLabel, useUploadChecking } from "@/lib/storage/upload-state"
 import { plainError } from "@/app/app/products/new/file-uploads"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface UploadedFile {
   id?: string
@@ -463,7 +463,7 @@ function UploadRow({
       </div>
 
       {/* Real progress bar */}
-      <Progress value={upload.progress} className="h-1.5" />
+      <FillBar quiet value={upload.progress} />
 
       {/* Error message */}
       {upload.error && (

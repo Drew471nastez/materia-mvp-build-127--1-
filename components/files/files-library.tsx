@@ -116,6 +116,7 @@ import { VIDEO_ACCEPT, durationText } from "@/lib/media/video"
 import { isVideoFile, putObject, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
 import { tt, msg } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export interface LibraryFile {
   id: string
@@ -833,9 +834,7 @@ function PendingTile({ row }: { row: Pending }) {
         ) : (
           <Film className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
         )}
-        <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-black/10">
-          <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-200 ease-out" style={{ width: `${Math.round(Math.max(0.06, row.progress) * 100)}%` }} />
-        </span>
+        <FillBar quiet value={Math.round(row.progress * 100)} size="thin" on="dark-media" floor={6} ms={200} className="absolute inset-x-2 bottom-2 w-auto" />
       </span>
     </li>
   )

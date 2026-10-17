@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import {
+import { FillBar } from "@/components/ui/fill-bar"
   Plus,
   GripVertical,
   Trash2,
@@ -857,12 +858,7 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
                         <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-violet-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
+                    <FillBar quiet value={uploadProgress} tone="violet" />
                   </div>
                 )}
 

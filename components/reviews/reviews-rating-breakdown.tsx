@@ -5,6 +5,7 @@ import { percentOf } from "@/lib/reviews/rules"
 import { Stars } from "./stars"
 import { tint } from "@/lib/appearance/site-paint"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
+import { FillBar } from "@/components/ui/fill-bar"
 
 /**
  * The product's rating in one block: the average, its stars, how many
@@ -74,12 +75,7 @@ export function ReviewsRatingBreakdown({
               <span className="w-3 shrink-0 text-right tabular-nums" style={{ color: textColor ? tint(paint(textColor, "ink"), "cc") : paint("#4b5563", "ink") }}>
                 {rating}
               </span>
-              <span className="h-2 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: paint(cardBorderColor || "#eef0f3", "line") }}>
-                <span
-                  className="block h-full rounded-full transition-[width] duration-500 ease-out"
-                  style={{ width: `${percent}%`, backgroundColor: bar }}
-                />
-              </span>
+              <FillBar quiet value={percent} size="thick" ms={500} className="flex-1" trackStyle={{ backgroundColor: paint(cardBorderColor || "#eef0f3", "line") }} fillStyle={{ backgroundColor: bar }} />
               <span className="w-6 shrink-0 text-right tabular-nums" style={{ color: textColor ? tint(paint(textColor, "ink"), "99") : paint("#6b7280", "ink") }}>
                 {count}
               </span>

@@ -24,6 +24,7 @@ import { lengthInWords } from "@/lib/courses/progress"
 import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { PlaceIcon } from "@/components/community/member/place-icons"
 import { lessonsLabel, opensOnLabel, type ClassroomCourse } from "./model"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export function ClassroomLibrary({ courses, timeZone, manageHref = null }: { courses: ClassroomCourse[]; timeZone?: string; /** The creator side's classroom, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
@@ -122,16 +123,7 @@ function CourseCard({ course, timeZone }: { course: ClassroomCourse; timeZone?: 
             </p>
           ) : (
             <div className="flex items-center gap-2.5" data-progress={course.percent}>
-              <div
-                className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef1]"
-                role="progressbar"
-                aria-valuenow={course.percent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`${course.title} progress`}
-              >
-                <div className="h-full rounded-full bg-[#1a1a2e]" style={{ width: `${course.percent}%` }} />
-              </div>
+              <FillBar value={course.percent} label={`${course.title} progress`} className="flex-1" />
               <span className="w-9 shrink-0 text-right text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{course.percent}%</span>
             </div>
           )}

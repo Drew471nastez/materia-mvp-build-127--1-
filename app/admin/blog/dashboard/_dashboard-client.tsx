@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface Post {
   id: string
@@ -344,9 +345,7 @@ export default function BlogDashboardClient() {
                             <span className="text-xs text-neutral-700 truncate max-w-[70%]" title={item.name}>{label}</span>
                             <span className="text-xs font-semibold text-neutral-900">{item.count.toLocaleString()}</span>
                           </div>
-                          <div className="h-1 bg-neutral-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-neutral-800 rounded-full" style={{ width: `${pct}%` }} />
-                          </div>
+                          <FillBar quiet value={pct} size="thin" />
                         </div>
                       )
                     })}

@@ -104,6 +104,7 @@ import { useReasons } from "@/lib/store/use-reasons";
 import type { StorelibStatusView } from "@/lib/payments/stripe/status";
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { FillBar } from "@/components/ui/fill-bar"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2314,15 +2315,7 @@ function TaxDocumentsSection({
                             {fmtUsd(threshold)} {tt("threshold")}
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              yearData.grossCents >= threshold ? "bg-[#16a34a]" : "bg-[#8b5cf6]",
-                            )}
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
+                        <FillBar quiet value={progressPct} tone={yearData.grossCents >= threshold ? "positive" : "violet"} />
                       </div>
 
                       {/* Transaction count progress */}
@@ -2335,15 +2328,7 @@ function TaxDocumentsSection({
                             {tt("{txThreshold} threshold", { txThreshold })}
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              yearData.transactionCount >= txThreshold ? "bg-[#16a34a]" : "bg-[#8b5cf6]",
-                            )}
-                            style={{ width: `${txProgressPct}%` }}
-                          />
-                        </div>
+                        <FillBar quiet value={txProgressPct} tone={yearData.transactionCount >= txThreshold ? "positive" : "violet"} />
                       </div>
                     </div>
 

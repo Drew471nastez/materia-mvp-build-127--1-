@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils"
 import { noteProgramOpened } from "./learn-history"
 import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
@@ -158,9 +159,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
             </p>
           ) : (
             <div className="flex items-center gap-2.5" data-progress={p.percent}>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100} aria-label={tt("{title} progress", { title: p.title })}>
-                <div className="h-full origin-left rounded-full bg-[#1a1a2e]" style={{ scale: `${Math.max(0, Math.min(100, p.percent)) / 100} 1` }} />
-              </div>
+              <FillBar value={p.percent} label={tt("{title} progress", { title: p.title })} className="flex-1" />
               <span className="w-9 shrink-0 text-right text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{p.percent}%</span>
             </div>
           )}

@@ -31,6 +31,7 @@ import { acceptLabel, fileBadge, fileFits, inputAccept } from "@/lib/storelib-th
 import { cn } from "@/lib/utils"
 import { INPUT, PROBLEM } from "./styles"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 /** An address a link can point at: https, http, or a path on this site. */
 function isFileAddress(value: string): boolean {
@@ -197,9 +198,7 @@ export function FilePickerControl({
             )}
           </div>
           {uploading && (
-            <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-black/[0.06]">
-              <span className="block h-full bg-[#1a1a2e] transition-[width] duration-200" style={{ width: `${progress}%` }} />
-            </span>
+            <FillBar quiet value={progress} size="thin" on="dark-media" ms={200} className="absolute inset-x-2 bottom-2 w-auto" />
           )}
         </div>
       ) : (

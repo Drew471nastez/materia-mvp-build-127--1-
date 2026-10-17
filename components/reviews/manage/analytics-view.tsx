@@ -27,6 +27,7 @@ import { CHART_COLORS } from "@/components/app/analytics-chart"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { changePercent, type Bucket, type PeriodTotals, type RequestFunnel, type SeriesPoint } from "@/lib/reviews/manage"
 import { CARD, CARD_HEAD, Distribution, H3, MUTED, Placeholder, formatCount, useRead } from "./parts"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface Analytics {
   from: string
@@ -181,9 +182,7 @@ export function AnalyticsView() {
               steps.map((s) => (
                 <div key={s.label} className="grid grid-cols-[84px_minmax(0,1fr)_64px] items-center gap-3 text-[13px]">
                   <span className="text-[#4b5563]">{s.label}</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-[#f1f2f4]">
-                    {s.value !== null ? <span className="block h-full rounded-full" style={{ width: `${f.sent ? Math.min(100, (s.value / f.sent) * 100) : 0}%`, background: VIOLET }} /> : null}
-                  </span>
+                  <FillBar quiet value={s.value !== null && f.sent ? s.value : 0} max={f.sent || 100} size="thick" fillStyle={{ background: VIOLET }} />
                   <span className="text-right tabular-nums text-[#1a1a2e]">{s.value === null ? <span className="text-[#9ca3af]" title={tt("Not reported by the mail provider yet")}>{tt("n/a")}</span> : formatCount(s.value)}</span>
                 </div>
               ))

@@ -44,6 +44,7 @@ import { AUTO_SCROLL, HANDLE_TOUCH, liftTick, useHoldToDragSensors } from "./hol
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { durationText, videoDuration, videoPosterUrl } from "@/lib/media/video"
 import { tt } from "@/lib/i18n/text"
+import { FillBar } from "@/components/ui/fill-bar"
 
 const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" || item?.type === "video" ? "video" : "photo")
 
@@ -299,19 +300,14 @@ function PendingTile({ pending, shape = "wide", cover = false }: { pending: Pend
         <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <span className="absolute inset-y-0 -left-1/2 w-1/2 animate-[media-sheen_1.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent motion-reduce:hidden" />
         </span>
-        <span
-          role="progressbar"
-          aria-label={pending.preview ? tt("Uploading photo") : tt("Uploading video")}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(pending.progress)}
-          className="absolute inset-x-2.5 bottom-2.5 h-[3px] overflow-hidden rounded-full bg-white/35 shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
-        >
-          <span
-            className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-white transition-transform duration-300 ease-out motion-reduce:transition-none"
-            style={{ transform: `scaleX(${p.toFixed(3)})` }}
-          />
-        </span>
+        <FillBar
+          value={Math.round(pending.progress)}
+          label={pending.preview ? tt("Uploading photo") : tt("Uploading video")}
+          size="thin"
+          tone="light"
+          on="light-media"
+          className="absolute inset-x-2.5 bottom-2.5 w-auto shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
+        />
       </div>
     </div>
   )

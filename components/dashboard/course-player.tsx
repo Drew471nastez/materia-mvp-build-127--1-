@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { ArrowLeft, Check, ChevronDown, ChevronRight, PlayCircle, FileText, Users } from "lucide-react"
 import type { Product, Creator, CourseModule, CourseLesson, CourseProgress, Profile } from "@/lib/types"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface CoursePlayerProps {
   product: Product
@@ -121,9 +122,7 @@ export function CoursePlayer({
               <span className="text-muted-foreground">Progress</span>
               <span className="font-medium">{progressPercent}%</span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
-            </div>
+            <FillBar quiet value={progressPercent} className="mt-2" />
           </div>
         </div>
 

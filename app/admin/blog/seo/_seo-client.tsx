@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { onePageUrl, onePageUrlDisplay } from "@/lib/onepage/address"
+import { FillBar } from "@/components/ui/fill-bar"
 
 interface Creator {
   id: string
@@ -452,9 +453,7 @@ export default function SeoAdminClient() {
                   <div className="text-xs text-neutral-400 mt-1">out of 100</div>
                 </div>
               </div>
-              <div className="mt-4 w-full bg-neutral-100 rounded-full h-2">
-                <div className={`h-2 rounded-full ${overallScore >= 90 ? "bg-emerald-500" : "bg-amber-400"}`} style={{ width: `${overallScore}%` }} />
-              </div>
+              <FillBar quiet value={overallScore} size="thick" tone={overallScore >= 90 ? "positive" : "warning"} className="mt-4" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

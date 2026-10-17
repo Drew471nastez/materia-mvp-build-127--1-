@@ -93,6 +93,7 @@ import { askCommunityReport, communityAsk, keptCommunityReport, sameReport, warm
 import type { ActivityMetric, CommunityReport, ContentMetric, Figure, GrowthMetric, Line, MoneyMetric, ReportRow, TrafficMetric } from "@/lib/communities/analytics-report"
 import type { AnalyticsView, CommunityHead } from "./view-types"
 import { Notice } from "./parts"
+import { ROW_FILL } from "@/components/ui/fill-bar"
 
 /* ── Words ───────────────────────────────────────────────────────────── */
 
@@ -1012,7 +1013,7 @@ function PostList({ posts, slug }: { posts: CommunityReport["topPosts"]; slug: s
             <div
               aria-hidden
               data-bar=""
-              className="absolute inset-y-1 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] group-hover:brightness-[0.975]"
+              className={cn(ROW_FILL, "inset-y-1")}
               style={{ width: `${Math.max(2, ((p.reactions + p.comments) / max) * 100)}%` }}
             />
             <a href={`/community/${slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="relative flex h-10 min-w-0 items-center pl-2.5 text-[13px] text-[#303036] hover:underline" title={p.title}>
