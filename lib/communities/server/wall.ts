@@ -197,15 +197,15 @@ function appBase(community: Pick<CommunityRow, "id" | "slug">, viewer: Pick<View
 }
 
 /** The creator side's settings, for somebody who may change them; null hides the card's Settings. */
-export function settingsHrefFor(community: Pick<CommunityRow, "id" | "slug">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
+export function settingsHrefFor(community: Pick<CommunityRow, "id" | "slug">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role" | "perms">): string | null {
   const app = appBase(community, viewer)
-  return app && can(viewer.active ? viewer.role : null, "manage_settings") ? `${app}/settings` : null
+  return app && can(viewer.active ? viewer.role : null, "manage_settings", viewer.perms) ? `${app}/settings` : null
 }
 
 /** The creator side's new event form, for somebody who may run events here; null hides the composer's Event. */
-export function eventHrefFor(community: Pick<CommunityRow, "id" | "slug" | "events_enabled">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role">): string | null {
+export function eventHrefFor(community: Pick<CommunityRow, "id" | "slug" | "events_enabled">, viewer: Pick<Viewer, "isOwner" | "isCreatorAccount" | "active" | "role" | "perms">): string | null {
   const app = appBase(community, viewer)
-  return app && community.events_enabled && can(viewer.active ? viewer.role : null, "manage_events") ? `${app}/events?new=1` : null
+  return app && community.events_enabled && can(viewer.active ? viewer.role : null, "manage_events", viewer.perms) ? `${app}/events?new=1` : null
 }
 
 /** All of the wall's side columns for one member, in one go. */

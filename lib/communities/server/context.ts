@@ -223,11 +223,27 @@ export async function requireMember(db: Db, communityId: string, userId: string 
   if (!communityOpen(community)) return answer(403, "suspended")
   if (!userId) return answer(401, "sign_in")
   const viewer = await viewerContext(db, community, userId)
-  if (!viewer.active) return answer(403, viewer.banned ? "banned" : viewer.status === "pending" ? "pending" : "not_member")
-  if (viewer.mutedUntil && MUTED_ACTIONS.includes(action)) return answer(403, "muted", { until: viewer.mutedUntil })
-  if ((community.status === "archived" || community.archived_at) && ARCHIVED_READ_ONLY.includes(action)) return answer(403, "archived")
-  if (!can(viewer.role, action, viewer.perms)) return answer(403, "forbidden")
+  const refusal = memberRefusal(viewer, community, action)
+  if (refusal) return answer(403, refusal.error, refusal.until ? { until: refusal.until } : {})
   return { ok: true, viewer, community }
+}
+
+/**
+ * WHY A MEMBER ROUTE SAYS NO, as one rule with nothing to read: the step
+ * requireMember takes once it knows who is asking, and the step the role
+ * test walks every route with (tests/communities-roles-r34.test.ts). Null
+ * means the gate lets them through.
+ */
+export function memberRefusal(
+  viewer: Pick<Viewer, "active" | "banned" | "status" | "mutedUntil" | "role" | "perms">,
+  community: Pick<CommunityRow, "status" | "archived_at">,
+  action: CommunityAction,
+): { error: string; until?: string } | null {
+  if (!viewer.active) return { error: viewer.banned ? "banned" : viewer.status === "pending" ? "pending" : "not_member" }
+  if (viewer.mutedUntil && MUTED_ACTIONS.includes(action)) return { error: "muted", until: viewer.mutedUntil }
+  if ((community.status === "archived" || community.archived_at) && ARCHIVED_READ_ONLY.includes(action)) return { error: "archived" }
+  if (!can(viewer.role, action, viewer.perms)) return { error: "forbidden" }
+  return null
 }
 
 export interface CreatorCommunityGate {
@@ -257,13 +273,36 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
   const viewer = await viewerContext(db, community, ctx.userId)
   const ownsIt = community.creator_id === ctx.creatorId || community.owner_user_id === ctx.userId
   const role: Role | null = ownsIt ? "owner" : viewer.role
-  if (!role || role === "member") return answer(404, "not_found")
-  if (!can(role, action, viewer.perms)) return answer(403, "forbidden")
-  /*
-    A COMMUNITY STORELIB SUSPENDED REACHES NOBODY NEW (round 27 review). Its owner and staff can still open it, read what is
-    in it, remove things and leave it, but nothing that goes out to people: no invitations sent, no posts or
-    announcements, no events. Only publishing refused this before, so a taken down community could still send invites.
-  */
-  if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return answer(403, "suspended")
-  return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
+  const refusal = creatorRefusal(role, action, viewer.perms, community)
+  if (refusal) return answer(refusal.status, refusal.error)
+  return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role: role as Role }
+}
+
+/**
+ * WHY A CREATOR ROUTE SAYS NO, as one rule with nothing to read: the step
+ * requireCreatorCommunity takes once it knows the asking person's role, and
+ * the step the role test walks every route with
+ * (tests/communities-roles-r34.test.ts), so what a moderator reaches when
+ * they call an admin route themselves is measured rather than assumed.
+ *
+ * A plain member, or nobody, is answered 404: a community's admin side does
+ * not say it is there. Then the role's own permission (can(), with the
+ * owner's own choices for this community), and last:
+ *
+ * A COMMUNITY STORELIB SUSPENDED REACHES NOBODY NEW (round 27 review). Its
+ * owner and staff can still open it, read what is in it, remove things and
+ * leave it, but nothing that goes out to people: no invitations sent, no
+ * posts or announcements, no events. Only publishing refused this before, so
+ * a taken down community could still send invites.
+ */
+export function creatorRefusal(
+  role: Role | null,
+  action: CommunityAction,
+  perms: RolePermissions | null | undefined,
+  community: Pick<CommunityRow, "status" | "suspended_at">,
+): { status: number; error: string } | null {
+  if (!role || role === "member") return { status: 404, error: "not_found" }
+  if (!can(role, action, perms)) return { status: 403, error: "forbidden" }
+  if ((community.suspended_at || community.status === "suspended") && SUSPENDED_REFUSES.includes(action)) return { status: 403, error: "suspended" }
+  return null
 }

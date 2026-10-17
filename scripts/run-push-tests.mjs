@@ -687,6 +687,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* Round 34: what every community route and section page demands, who gets through it, and a moderator calling an admin endpoint himself (lib/communities/route-permissions.ts) */
+  "tests/communities-roles-r34.test.ts",
 ]
 
 /**
