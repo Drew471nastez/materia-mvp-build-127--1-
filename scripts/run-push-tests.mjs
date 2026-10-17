@@ -689,6 +689,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* Round 34: what every community route and section page demands, who gets through it, and a moderator calling an admin endpoint himself (lib/communities/route-permissions.ts) */
   "tests/communities-roles-r34.test.ts",
+  /* Round 34: every administrative member action over a real database, featured members, and what a member facing read never says (lib/communities/DATA-SAFETY.md section 3b) */
+  "tests/communities-members-r34.test.ts",
 ]
 
 /**

@@ -70,6 +70,41 @@ says what it would remove without removing anything.
 A picture removed after 14 days shows as missing in a draft that is brought
 back later; never in anything posted.
 
+## 3b. What a member never sees about another member
+
+The owner, round 34: "Do not publicly reveal private purchases, private
+enrollment, billing details, or personal information without permission."
+
+Everything one member can ask the browser for about another goes through
+three reads, and none of them selects a private column:
+
+| Read | Columns | Where |
+| --- | --- | --- |
+| The directory and search | `id, user_id, role, status, tier_id, level, points, bio, joined_at, last_active_at` plus the name, handle, picture and (part 98) the place they said | `server/directory.ts` `MEMBER_LITE`, `listMembers` |
+| The card on a name | the same, through `authorViews` | `server/people.ts` `personCard` |
+| A member's profile | the same, plus their badges here and their posts here that the viewer may read | `server/directory.ts` `memberProfile`, `server/member-profile.ts` `loadMemberProfile` |
+
+So an email, a Stripe customer or subscription, an order, what anybody paid,
+and a program they bought are in none of them. A tier's NAME is shown (it is
+the benefit they joined for, the way a role is); the order, the payment and
+the amount behind it are not. A private course they are enrolled in is not
+named: the profile lists their posts, and a post is only listed when the
+viewer may read the space it is in.
+
+An email comes out in one place only: the creator's own Members list and its
+CSV export, and only for somebody the `manage_members` permission reaches
+(`app/api/app/community/[id]/members/route.ts` decides `withEmail` from
+`can()`, and every export is written to the audit log). `peopleOf` reads the
+email column only when its caller asks for one.
+
+Featuring a member (round 34) says one word and nothing else: no count, no
+rank, no order, and nothing about why.
+
+`tests/communities-members-r34.test.ts` runs all three reads over rows that
+carry a planted email, Stripe ids, an order and a private course, and fails
+when any key or any value of the answer matches them. The checker is proved
+on a planted answer first.
+
 ## 4. What is checked before anybody sees it
 
 All server side, in `server/safety.ts` `screenWrite` (posts, comments, chat
