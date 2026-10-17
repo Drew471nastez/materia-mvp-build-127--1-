@@ -31,6 +31,7 @@
 import manifest from "../../themes/default/manifest.json"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS, STRUCTURE_SECTIONS } from "./section-schemas"
 import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
+import { builtInSettingsSchemaText } from "@/lib/storelib-theme/theme-config"
 import type { PageKey, ThemeFileNode } from "./types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isStorelibSection } from "./storelib-runtime"
@@ -216,8 +217,8 @@ export function getDefaultFileContent(path: string, themeName: string = "Storeli
   }
 
   if (path === "config/settings_schema.json") {
-    // The real thing: twelve groups, seventy-two fields.
-    return JSON.stringify(THEME_SETTINGS_GROUPS, null, 2)
+    /* Storelib's own groups, in Shopify's shape: what a theme's own file starts from (lib/storelib-theme/theme-config.ts). */
+    return builtInSettingsSchemaText()
   }
 
   if (path === "config/settings_data.json") {

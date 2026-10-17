@@ -33,6 +33,8 @@ const ts = require("typescript")
 export const SCOPE_INCLUDE = [
   /^app\/app\/.*\.tsx?$/,
   /^components\/app\/.*\.tsx?$/,
+  /* Storelib Reviews managed on its integration page (round K5). */
+  /^components\/reviews\/manage\/.*\.tsx?$/,
   /^components\/website-builder\/.*\.tsx?$/,
   /* The community's admin, the email composer, the OnePage editor, shipping and the rest /app draws. */
   /^components\/community\/(creator|learn)\/.*\.tsx?$/,

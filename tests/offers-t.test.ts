@@ -72,17 +72,23 @@ check("no name, no offer", !readOffer({ kind: "bundle", title: "  ", productIds:
 
 console.log("\nWired in")
 const pricing = read("lib/physical/checkout-pricing-server.ts")
-check("the checkout applies them on the server, to the cart it priced, before any code", /const \{ offers \} = await loadOffers\(db, creatorId, \{ activeOnly: true \}\)/.test(pricing) && /applyOffers\(lines\.map/.test(pricing) && pricing.indexOf("applyOffers(") < pricing.indexOf("const typed ="))
-check("a code applies to what's left, adding to the offer's discount", /lineDiscounts\(c, lines\.map\(\(l\) => Math\.max\(0, l\.unitCents \* l\.quantity - l\.discountCents\)\), applies\)/.test(pricing) && /lines\[i\]\.discountCents \+= d/.test(pricing))
+/* Changed on purpose (round V): the lines go to applyOffers with their collections and pay what you want marks (offerLines). */
+check("the checkout applies them on the server, to the cart it priced, before any code", /const \{ offers \} = await loadOffers\(db, creatorId, \{ activeOnly: true \}\)/.test(pricing) && /applyOffers\(offerLines, offers/.test(pricing) && pricing.indexOf("applyOffers(") < pricing.indexOf("const typed ="))
+/* Changed on purpose (round V): the code comes off what's left through stackWithCode, which also keeps each offer's rule for codes (tests/offers-v.test.ts checks the arithmetic). */
+check("a code applies to what's left, adding to the offer's discount", /stackWithCode\(offerLines, offers, \(remaining\) => \(\{ discounts: Number\(c\.discount_value\) > 0 \? lineDiscounts\(c, remaining, applies\)/.test(pricing) && /l\.discountCents = Math\.min\(l\.unitCents \* l\.quantity, stacked\.discounts\[i\] \+ discounts\[i\]\)/.test(pricing))
 const quote = read("app/api/physical/checkout/quote/route.ts")
-check("the checkout page hears what it got and what it could add", /offers: priced\.offers\.map/.test(quote) && /suggestions: await suggestionCards/.test(quote))
-check("bundles for a product page only while the cart exists", /physicalApiGate\(\)/.test(read("app/api/offers/bundles/route.ts")))
+/* Changed on purpose (round V): a free shipping offer saves nothing off the items, so only offers that saved something are lines. */
+check("the checkout page hears what it got and what it could add", /offers: priced\.offers\.filter\(\(o\) => o\.savedCents > 0\)\.map/.test(quote) && /suggestions: await suggestionCards/.test(quote))
+/* Changed on purpose (round V): offers apply in the basket of downloads too, so the product page's are a store's whatever it sells. */
+check("bundles for a product page: a store's own, published, not behind the physical switch", !/physicalApiGate\(\)/.test(read("app/api/offers/bundles/route.ts")) && /product\.status !== "published"/.test(read("app/api/offers/bundles/route.ts")))
 const store = read("app/api/store/offers/route.ts")
-check("a store edits its own, with physical commerce on, and it's in the activity log", /physicalCaller\(\)/.test(store) && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))
+/* Changed on purpose (round V): the owner check alone (shopCaller), as collections have it. */
+check("a store edits its own, and it's in the activity log", /shopCaller\(\)/.test(store) && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))
 check("every product an offer names must be the store's", /One of those products isn't in your store any more/.test(read("lib/offers/offers-server.ts")))
 check("the product page and website product section show bundles", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
 check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
-check("Products has Upsells and bundles beside Coupons while physical commerce is on", /if \(physicalCommerce\) mainNavItems\.find\([\s\S]{0,200}\{ href: "\/app\/offers", label: "Upsells and bundles" \}/.test(read("components/app/sidebar.tsx")))
+/* Changed on purpose (round V): for every store. */
+check("Products has Upsells and bundles beside Coupons", /mainNavItems\.find\([\s\S]{0,200}\{ href: "\/app\/offers", label: "Upsells and bundles" \}/.test(read("components/app/sidebar.tsx")))
 const sql = read("supabase/sql/run-now/116_store_offers.sql")
 check("SQL: the migration is the same part, owner reads, only the server writes", sql === read("supabase/migrations/20261211_store_offers.sql") && /store_offers_owner_read/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(sql))
 check("SQL: the shapes are held by the database too", /cardinality\(product_ids\) BETWEEN 2 AND 5/.test(sql) && /discount_value BETWEEN 1 AND 90/.test(sql))

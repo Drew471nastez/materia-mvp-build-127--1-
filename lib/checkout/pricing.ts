@@ -23,6 +23,8 @@ import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { applyOffers, stackWithCode, type AppliedOffer, type Offer, type OfferLine } from "@/lib/offers/offers"
+import { loadOffers, offerLinesFor } from "@/lib/offers/offers-read"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -264,7 +266,12 @@ export type PricedCart =
       /** The lines' products that have a sales limit: each takes a held copy when the payment starts (lib/checkout/sales-limit). */
       limited: string[]
       subtotalCents: number
+      /** Everything off: the offers' part and the code's. */
       discountCents: number
+      /** The upsells' and bundles' part of discountCents (lib/offers). */
+      offerCents: number
+      /** The upsells and bundles this basket got. */
+      offers: AppliedOffer[]
       totalCents: number
       coupon: CouponRow | null
       couponLabel: string | null
@@ -359,6 +366,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
 
   const byId = new Map<string, CartProduct>((products as CartProduct[]).map((p) => [p.id, p]))
   const lines: CartPricedLine[] = []
+  /* Whether each line's price is an amount the buyer named (pay what you want): never discounted by an offer. */
+  const namedPrice: boolean[] = []
   const dropped: string[] = []
   const ownedList: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] = []
   const shipsAny = (products as CartProduct[]).some((p) => p.type === "physical")
@@ -401,13 +410,38 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
 
     const quantity = product.type === "digital" ? 1 : want.quantity
     lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0 }, product })
+    namedPrice.push(!!(variant ?? product).pay_what_you_want)
   }
 
   const creatorIds = [...new Set((products as CartProduct[]).map((p) => p.creator_id))]
   const subtotalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
+
+  /*
+    EACH STORE'S UPSELLS AND BUNDLES (lib/offers), on its own lines, from the
+    prices just read, before any code: a complete bundle's discount, a
+    checkout offer's product at its offer price. A cart that ships is priced
+    by the physical checkout it goes on to, which applies them the same way.
+  */
+  const now = new Date()
+  const offerGroups: { creatorId: string; idx: number[]; offers: Offer[]; lines: OfferLine[] }[] = []
+  let appliedOffers: AppliedOffer[] = []
+  if (ships.length === 0) {
+    for (const creatorId of [...new Set(lines.map((l) => l.product.creator_id))]) {
+      const idx = lines.map((l, i) => (l.product.creator_id === creatorId ? i : -1)).filter((i) => i >= 0)
+      const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+      if (offers.length === 0) continue
+      const offerLines = await offerLinesFor(db, creatorId, offers, idx.map((i) => ({ productId: lines[i].item.productId, unitCents: lines[i].item.priceCents, quantity: lines[i].item.quantity, payWhatYouWant: namedPrice[i] })))
+      const r = applyOffers(offerLines, offers, { now })
+      r.discounts.forEach((d, k) => (lines[idx[k]].item.discountCents = d))
+      appliedOffers.push(...r.applied)
+      offerGroups.push({ creatorId, idx, offers, lines: offerLines })
+    }
+  }
+  let offerCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
+
   const priced = (coupon: CouponRow | null, couponLabel: string | null) => {
     const discountCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
-    return { ok: true as const, lines, dropped, ownedAny: ownedList.length > 0, owned: ownedList, ships, creatorIds, limited, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
+    return { ok: true as const, lines, dropped, ownedAny: ownedList.length > 0, owned: ownedList, ships, creatorIds, limited, subtotalCents, discountCents, offerCents, offers: appliedOffers, totalCents: subtotalCents - discountCents, coupon, couponLabel }
   }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
@@ -427,13 +461,36 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     coupon = await findCoupon(db, creatorId, code)
     if (coupon) break
   }
-  const checked = checkCouponLines(
-    coupon,
-    lines.map((l) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: l.item.priceCents * l.item.quantity })),
-    /* Its amounts said in the store's own currency, which its prices are in. */
-    { currency: coupon ? (await readStoreCurrency(db, coupon.creator_id)).currency : undefined },
-  )
-  if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
-  checked.discounts.forEach((d, i) => (lines[i].item.discountCents = d))
-  return priced(checked.coupon, checked.label)
+  /* Its amounts said in the store's own currency, which its prices are in. */
+  const currency = coupon ? (await readStoreCurrency(db, coupon.creator_id)).currency : undefined
+  /* The code comes off what each line costs after its offers, so the two together never take a line below zero. */
+  const check = (cents: number[]) => checkCouponLines(coupon, lines.map((l, i) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: cents[i] })), { currency })
+  const group = coupon ? offerGroups.find((g) => g.creatorId === coupon!.creator_id) : undefined
+  if (!group) {
+    const checked = check(lines.map((l) => Math.max(0, l.item.priceCents * l.item.quantity - l.item.discountCents)))
+    if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
+    checked.discounts.forEach((d, i) => (lines[i].item.discountCents += d))
+    return priced(checked.coupon, checked.label)
+  }
+  /* That store has offers: by each one's rule for codes, whichever saves more when one doesn't combine (lib/offers stackWithCode). */
+  let label: string | null = null
+  let found: CouponRow | null = null
+  const stacked = stackWithCode(group.lines, group.offers, (remaining) => {
+    const cents = lines.map((l) => Math.max(0, l.item.priceCents * l.item.quantity - l.item.discountCents))
+    group.idx.forEach((i, k) => (cents[i] = remaining[k]))
+    const r = check(cents)
+    if (r.ok === false) return { error: (r as { error: string }).error }
+    const ok = r as Extract<typeof r, { ok: true }>
+    label = ok.label
+    found = ok.coupon
+    /* A code is one store's, so its discounts outside the group are nothing. */
+    return { discounts: group.idx.map((i) => ok.discounts[i]) }
+  }, { now })
+  if (stacked.error) return { ok: false, status: 400, error: stacked.error }
+  group.idx.forEach((i, k) => (lines[i].item.discountCents = Math.min(lines[i].item.priceCents * lines[i].item.quantity, stacked.discounts[k] + stacked.codeDiscounts[k])))
+  const groupOffers = new Set(group.offers.map((o) => o.id))
+  appliedOffers = [...appliedOffers.filter((a) => !groupOffers.has(a.offerId)), ...stacked.applied]
+  /* The offers' part: the other stores' as they were, this store's as stacked. */
+  offerCents = lines.reduce((n, l, i) => (group.idx.includes(i) ? n : n + l.item.discountCents), 0) + stacked.discounts.reduce((n, d) => n + d, 0)
+  return priced(found, label)
 }

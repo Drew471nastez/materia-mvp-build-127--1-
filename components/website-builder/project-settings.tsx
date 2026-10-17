@@ -15,6 +15,7 @@ import { NavigationSettings } from "@/components/website-builder/website-setting
 import { PageSettings } from "@/components/website-builder/website-settings/pages"
 import { PolicySettings } from "@/components/website-builder/website-settings/policies"
 import { PublishingSettings } from "@/components/website-builder/website-settings/publishing"
+import { PerformanceSettings } from "@/components/website-builder/website-settings/performance"
 import { SeoSettings } from "@/components/website-builder/website-settings/seo"
 import {
   SETTINGS_GROUP_LABELS,
@@ -137,7 +138,7 @@ export function ProjectSettings({
   onUnpublished?: () => void
   onNavigate?: (href: string) => void
   /** The header, the footer and the editor's writers for them: Navigation. */
-  navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved">
+  navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved" | "preview">
 }) {
   const [section, setSection] = useState<SettingsSection>("general")
   /** A phone shows the list until a subject is picked. */
@@ -405,6 +406,7 @@ export function ProjectSettings({
           {section === "policies" && <PolicySettings ctx={ctx} />}
           {section === "apps" && <AppsSettings ctx={ctx} />}
           {section === "publishing" && <PublishingSettings ctx={ctx} />}
+          {section === "performance" && <PerformanceSettings ctx={ctx} />}
           {section === "backups" && <BackupSettings ctx={ctx} />}
           {section === "connections" && <ConnectionsSettings ctx={ctx} />}
         </div>

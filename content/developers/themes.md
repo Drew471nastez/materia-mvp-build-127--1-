@@ -27,7 +27,7 @@ Each website's menu in the library also has **Edit code**, **Rename** and **Expo
 
 ## Theme settings
 
-Every theme setting lives in one object, saved as a draft while you work and copied to the live object when you publish. The builder's Theme panel shows them in groups, and [Using the website builder](/developers/website-builder#theme-settings) draws every one with its default. By group, with the id each is stored under:
+Every theme setting lives in one object, saved as a draft while you work and copied to the live object when you publish. The builder's Theme panel shows them in groups, and [Using the website builder](/developers/website-builder#theme-settings) draws every one with its default. A theme can reorder, regroup and add to them in its own `config/settings_schema.json`, see [Theme settings as files](#theme-settings-as-files). Storelib's own, by group, with the id each is stored under:
 
 @[theme-setting-index]
 
@@ -228,7 +228,49 @@ In the database the same page is a plain list, and blocks a list inside each sec
 
 ### config/settings.json
 
-The theme settings object, exactly as the builder stores it, with every media URL that travelled replaced by `asset://` and the SHA-256 of the file. An import stores the file in the importing account and writes its new URL back in place of the reference.
+The theme settings object, exactly as the builder stores it, with every media URL that travelled replaced by `asset://` and the SHA-256 of the file. An import stores the file in the importing account and writes its new URL back in place of the reference. A package may carry `config/settings_data.json` instead, or as well, in Shopify's shape; see below.
+
+## Theme settings as files
+
+A theme's global settings work the way a Shopify theme's do: `config/settings_schema.json` says what they are, `config/settings_data.json` holds their values. Change either in the code editor, over MCP, from Storelib AI or with a push to the linked repository, and Theme settings in the builder follow at once.
+
+### config/settings_schema.json
+
+What the theme settings are, in Shopify's format: a list of groups, each a name and its settings.
+
+```json
+[
+  {
+    "name": "Layout",
+    "settings": [
+      { "type": "range", "id": "page_width", "label": "Max page width", "min": 900, "max": 1800, "step": 20, "unit": "px", "default": 1400 },
+      { "type": "header", "content": "Cards" },
+      { "type": "range", "id": "border_radius", "label": "Card corner radius", "min": 0, "max": 24, "step": 1, "unit": "px", "default": 8 }
+    ]
+  },
+  {
+    "name": "Promo strip",
+    "settings": [
+      { "type": "toggle", "id": "promo_show", "label": "Show the promo strip", "default": true },
+      { "type": "text", "id": "promo_text", "label": "Words", "default": "Free shipping over $50" },
+      { "type": "color", "id": "promo_color", "label": "Background", "default": "#1a1a2e" }
+    ]
+  }
+]
+```
+
+A theme without this file has Storelib's groups. With it, the file is laid over them:
+
+- **Groups and settings appear in the file's order.** A group of Storelib's matches by its name (Layout, Typography, Buttons...) or its `id`; one the file does not list comes after the file's groups, and a Storelib setting the file does not list comes after the ones it does, in its own group. Nothing of Storelib's goes missing.
+- **A theme may add groups and settings of its own**, of any [control type](/developers/schema#every-control-type), with `header` and `paragraph` to arrange them. A section reads one as `theme.settings.<id>`, so `{{ theme.settings.promo_text }}`.
+- **A theme may change a Storelib setting's** `label`, `default`, `min`, `max`, `step`, `unit`, `info`, `placeholder` and `visible_if`, and relabel or reorder a select's options. Its `id`, `type` and group stay, because the theme's stylesheet reads it as it is.
+- **Refused, with the line:** a type that does not exist, a setting without an `id` or a `label`, an id used twice, a range whose default is outside it, a select whose default is not an option, a Storelib setting moved to another group or given another type. Typography takes fonts only; Colors and Menus take nothing new.
+
+A default the file adds, or moves, is written under every value nobody has set yet, so the live site draws it too. A value somebody chose is never changed by a new default.
+
+### config/settings_data.json
+
+The theme settings' values, `{ "current": { "page_width": 1400, "promo_show": true } }`. It is not a stored copy: in the code editor and over MCP it is the values the sidebar shows, read when you open it and written when you save it, so the sidebar and the file never disagree. What a save sets is set, `null` puts a setting back to its default, and what it leaves out stays as it is. Each value is checked against its setting (a range takes a number inside it, a select one of its options) and refused with its line. `{ "current": "Name", "presets": { "Name": { ... } } }` takes that preset's values. In a GitHub repository and a theme package the values are `config/settings.json`, and a `config/settings_data.json` there is taken the same way.
 
 ## Versions
 
@@ -236,6 +278,6 @@ The theme settings object, exactly as the builder stores it, with every media UR
 
 ## What the site reads, and what it does not
 
-A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way store themes usually are: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` and `blocks/*.storelib` change what a page draws.
+A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way store themes usually are: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. `config/settings_schema.json` and `config/settings_data.json` are the theme settings, above: saving either changes Theme settings in the builder at once. The others are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib`, `blocks/*.storelib` and the two theme settings files change what a page draws.
 
 A section's CSS is always scoped to that section; see [Styling](/developers/styling). CSS for the whole site goes in Theme settings › Custom CSS, above.

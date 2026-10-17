@@ -32,13 +32,14 @@ import { localDeliveryOptions } from "./local-delivery"
 import { quoteDelivery, pickOption, unshippableMessage, type Quote } from "./rates"
 import { countryName } from "@/lib/checkout/countries"
 import { physicalTotals, type PhysicalTotals, type TaxSettings } from "./totals"
-import { applyOffers, suggestionsFor, type AppliedOffer, type Offer } from "@/lib/offers/offers"
-import { loadOffers } from "@/lib/offers/offers-server"
+import { applyOffers, stackWithCode, suggestionsFor, type AppliedOffer, type Offer } from "@/lib/offers/offers"
+import { loadOffers, offerLinesFor } from "@/lib/offers/offers-server"
 import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { shopMoneyIn } from "@/lib/store/shop-money"
+import { canSell, sellsWhenOut } from "./inventory-rules"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -301,7 +302,7 @@ export async function priceCheckout(
       continue
     }
     const unit = Math.round(raw)
-    const policy: "deny" | "continue" = v.inventory_policy === "continue" || p.continue_selling ? "continue" : "deny"
+    const policy: "deny" | "continue" = sellsWhenOut(v.inventory_policy, p.continue_selling) ? "continue" : "deny"
     /* Where it ships from: its own location, else the one with enough available, else the default. */
     const own = v.fulfillment_location_id ?? p.fulfillment_location_id ?? null
     /* Printed when it sells at a location that holds no stock (Printful, Printify): never short for lack of stock there (./partner.ts). */
@@ -316,7 +317,7 @@ export async function priceCheckout(
       continue
     }
     const available = locationId ? (levelOf.get(`${v.id}:${locationId}`) ?? 0) : 0
-    if (tracked && policy === "deny" && available < item.quantity) {
+    if (!canSell({ tracked, keepSelling: policy === "continue", available, quantity: item.quantity })) {
       stockIssues.push({ productId: p.id, variantId: v.id, title: v.name && v.name !== "Default" ? `${p.title}, ${v.name}` : p.title, available: Math.max(0, available) })
       continue
     }
@@ -356,12 +357,16 @@ export async function priceCheckout(
     A line's discountCents is then the offers' part, and a code adds its own on what's left.
   */
   const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
-  const fromOffers = applyOffers(lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity })), offers)
+  const now = new Date()
+  /* A pay what you want amount counts toward a set but is never discounted (lib/offers); a product's trigger collections are read only when an offer names some. */
+  const pwyw = (l: PricedLine) => l.type !== "physical" && !!((l.variantId ? digitalVariants.get(l.variantId) : null) ?? byId.get(l.productId))?.pay_what_you_want
+  const offerLines = await offerLinesFor(db, creatorId, offers, lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, payWhatYouWant: pwyw(l) })))
+  const fromOffers = applyOffers(offerLines, offers, { now })
   fromOffers.discounts.forEach((d, i) => (lines[i].discountCents = d))
-  const base = { ok: true as const, creatorId, lines, dropped, needsOption, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
+  const base = { ok: true as const, creatorId, lines, dropped, needsOption, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(offerLines, offers, { placement: "checkout", now }) }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
-  if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: false }
+  if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: fromOffers.freeShipping }
   const code = normaliseCode(typed)
   if (!code) return { ok: false, status: 400, error: "That code is not valid." }
   const coupon = (await findCoupon(db, creatorId, code)) as (CouponRow & { free_shipping?: boolean; physical_only?: boolean; per_customer_limit?: number | null; collection_ids?: string[] | null }) | null
@@ -405,13 +410,18 @@ export async function priceCheckout(
       .eq("buyer_email", req.buyerEmail.toLowerCase().trim())
     if ((count ?? 0) >= c.per_customer_limit) return { ok: false, status: 400, error: "You have already used this code." }
   }
-  /* On what each line costs after its offers, so a code and a bundle together never take a line below zero. */
-  const discounts = Number(c.discount_value) > 0 ? lineDiscounts(c, lines.map((l) => Math.max(0, l.unitCents * l.quantity - l.discountCents)), applies) : lines.map(() => 0)
-  discounts.forEach((d, i) => (lines[i].discountCents += d))
+  /*
+    The code on what each line costs after its offers, so a code and a bundle together never take a line below zero.
+    An offer that doesn't combine with codes: the buyer gets whichever saves more, and a code that loses says why (lib/offers stackWithCode).
+  */
+  const stacked = stackWithCode(offerLines, offers, (remaining) => ({ discounts: Number(c.discount_value) > 0 ? lineDiscounts(c, remaining, applies) : remaining.map(() => 0) }), { now })
+  if (stacked.error) return { ok: false, status: 400, error: stacked.error }
+  const discounts = stacked.codeDiscounts
+  lines.forEach((l, i) => (l.discountCents = Math.min(l.unitCents * l.quantity, stacked.discounts[i] + discounts[i])))
   const freeShipping = c.free_shipping === true
   if (!freeShipping && discounts.every((d) => d <= 0)) return { ok: false, status: 400, error: "That code takes nothing off this order." }
   const label = [Number(c.discount_value) > 0 ? couponLabel(c, (await readStoreCurrency(db, creatorId)).currency) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")
-  return { ...base, coupon: c, couponLabel: label, freeShipping }
+  return { ...base, offers: stacked.applied, coupon: c, couponLabel: label, freeShipping: freeShipping || stacked.freeShipping }
 }
 
 export interface CheckoutQuote {

@@ -139,14 +139,14 @@ async function main() {
   // ---------------------------------------------------------------------------
   {
     const body = panel.slice(panel.indexOf("const pickSuggestion = React.useCallback"), panel.indexOf("viewingRef.current = !!viewing"))
-    /* A tap goes the way the box's mode sends a message (dispatch): the page assistant, or in Code section the writer or the open section's code. */
+    /* A typed message, and a suggestion once it is sent from the box, go where the server's router says (dispatch, lib/website-builder/ask-route.ts). */
     const dispatch = panel.slice(panel.indexOf("const dispatch = React.useCallback("), panel.indexOf("const submit = React.useCallback("))
-    check("a tap sends the suggestion, rather than copying it into the box to be sent again", /dispatch\(text, \[\], mode\)/.test(body) && !/setDraft\(/.test(body))
-    check("in Code section it writes the section", /if \(into === "code"\) \{[\s\S]{0,300}else void writeOne\(prompt, images, quiet\)/.test(dispatch))
-    check("during a run it waits its turn, like a typed message", /if \(busy \|\| writing\) \{\s*\n\s*setQueued\(\{ text, mode \}\)/.test(body))
+    check("a tap fills the box with the suggestion, ready to send or change", /setDraft\(text\)/.test(body) && !/dispatch\(/.test(body) && /field\.focus\(/.test(body))
+    check("the router decides: a new kind of section goes to the writer, everything else to the page assistant", /await decideRoute\(installId,/.test(dispatch) && /if \(route\.agent === "writer"\) void writeOne\(prompt, images, quiet\)/.test(dispatch) && /else void send\(prompt, images, quiet, \{ codeFocus: route\.codeFocus, lock: route\.lock \}\)/.test(dispatch))
+    check("suggestions are offered only while the box is empty", (panel.match(/items=\{composerEmpty \? suggestions : \[\]\}/g) ?? []).length === 2 && /const composerEmpty = empty && attached\.length === 0/.test(panel))
     check(
-      "and whatever is typed in the box, and its pictures, stay there",
-      !/setAttached\(/.test(body) && /setAttached\(\[\]\)\s*\n\s*setAttachError\(null\)\s*\n\s*dispatch\(prompt, images, mode\)/.test(panel),
+      "and whatever is typed in the box, and its pictures, are not touched by a tap",
+      !/setAttached\(/.test(body) && /setAttached\(\[\]\)\s*\n\s*setAttachError\(null\)\s*\n\s*void dispatch\(prompt, images\)/.test(panel),
     )
     check("both chip rows are wired to it", (panel.match(/onPick=\{pickSuggestion\}/g) ?? []).length === 2)
   }
@@ -194,11 +194,11 @@ async function main() {
   {
     check(
       "the whoosh as a message goes, unless it already had one when it was queued",
-      (panel.match(/if \(!quiet\) playAskSound\("sent"\)/g) ?? []).length === 2 && /dispatchRef\.current\(next\.text, \[\], next\.mode, true\)/.test(panel),
+      (panel.match(/if \(!quiet\) playAskSound\("sent"\)/g) ?? []).length === 2 && /dispatchRef\.current\(next\.text, \[\], true\)/.test(panel) && /sendRef\.current\(next\.text, \[\], true\)/.test(panel),
     )
     check(
-      "and as one is queued, and as a section is asked for",
-      (panel.match(/setQueued\(\{ text(: prompt)?, mode(: "change")? \}\)\s*\n\s*playAskSound\("sent"\)/g) ?? []).length === 3 &&
+      "and as one is queued (a typed message, an answer), and as a section is asked for",
+      (panel.match(/setQueued\(\{ text(: prompt)?(, direct: true)? \}\)\s*\n\s*playAskSound\("sent"\)/g) ?? []).length === 2 &&
         /if \(!quiet\) playAskSound\("sent"\)\s*\n\s*setWriting\(true\)/.test(panel),
     )
     check(

@@ -4,28 +4,19 @@
  * ===========================================================================
  *  WHICH MODEL ANSWERS, WITH ITS OWN MARK
  * ===========================================================================
- * "When I'm switching the AI, there should be the actual original icons of
- * them, smooth and clean."
- *
- * The marks are the companies' own single colour marks, the same paths the
- * Connections panel draws (components/website-builder/connection-marks.tsx):
- * OpenAI's knot in black (and Claude's starburst in its terracotta, for the
- * day Claude is offered again). They sit on the trigger and beside each
- * choice.
+ * The four Claude models Ask Storelib offers (lib/website-builder/ask-engines.ts),
+ * each with Claude's starburst in its terracotta and one line on what it is
+ * best for. How hard it thinks is not a choice: every run asks for medium.
  *
  * A popover above the button on a computer, and on a phone the shared bottom
  * sheet (components/ui/bottom-sheet.tsx), which moves and closes like every
- * other sheet in the app. The models, each with a line on what it is best
- * for, and the Strength they think at are lib/website-builder/ask-engines.ts.
+ * other sheet in the app.
  *
- * STRENGTH sits under the models as three segments, drawn like the chat's
- * own Change page / Code section switch (./ask-parts), with one line under
- * it for the one that is on. Choosing one leaves the menu open.
- *
- * YOUR OWN AI. A model the creator's own account answers (their OpenAI key:
- * components/website-builder/use-own-ai.ts) says so beside its name, "Your key", and the trigger carries a small green dot;
- * those edits do not use the plan's AI edits. Under the models, one line
- * goes to Connections to set it up, or says it is on.
+ * YOUR OWN AI. A model the creator's own Claude key answers
+ * (components/website-builder/use-own-ai.ts) says so beside its name, "Your
+ * key", and the trigger carries a small green dot; those edits do not use
+ * the plan's AI edits. Under the models, one line goes to Connections to set
+ * it up, or says it is on.
  *
  * THE ONE MENU ASK STORELIB HAS, so it also holds Ask Storelib's one
  * preference: Sounds, on or off, under the models, drawn as every switch in
@@ -50,12 +41,6 @@ export interface EngineOption {
   provider: "anthropic" | "openai"
 }
 
-export interface StrengthOption {
-  id: string
-  label: string
-  detail: string
-}
-
 /** Claude's own colour, from its brand: the terracotta of the starburst. */
 export const CLAUDE_TERRACOTTA = "#D97757"
 
@@ -71,9 +56,6 @@ export function ModelPicker({
   engines,
   value,
   onChange,
-  strengths,
-  strength,
-  onStrengthChange,
   open,
   onOpenChange,
   phone,
@@ -85,10 +67,6 @@ export function ModelPicker({
   engines: readonly EngineOption[]
   value: string
   onChange: (id: string) => void
-  /** How hard the model thinks; the row is drawn when a handler is given. */
-  strengths?: readonly StrengthOption[]
-  strength?: string
-  onStrengthChange?: (id: string) => void
   open: boolean
   onOpenChange: (open: boolean) => void
   phone: boolean
@@ -103,9 +81,6 @@ export function ModelPicker({
   const chosen = engines.find((e) => e.id === value) ?? engines[0]
   const chosenOwn = own?.[chosen.id] ?? null
   const anyOwn = !!own && Object.values(own).some(Boolean)
-  const levels = onStrengthChange && strengths?.length ? strengths : null
-  const level = levels ? (levels.find((s) => s.id === strength) ?? levels[Math.floor(levels.length / 2)]) : null
-  const levelIndex = levels && level ? levels.indexOf(level) : 0
 
   const rows = (
     <ul role="listbox" aria-label={tt("Model")} data-ask-model-menu="" className={cn("max-h-[min(45dvh,360px)] overflow-y-auto overscroll-contain", phone ? "px-2 pb-2" : "p-1")}>
@@ -163,47 +138,6 @@ export function ModelPicker({
     </ul>
   )
 
-  const strengthRow = levels && level && (
-    <div data-ask-strength={level.id} className={cn("border-t border-[#e5e7eb]/70", phone ? "mx-2 px-3 pb-3 pt-2.5" : "mx-1 px-2.5 pb-2.5 pt-2")}>
-      <span id="ask-strength-label" className={cn("block text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>
-        {tt("Strength")}
-      </span>
-      {/* Its own line, full width: three labels beside the word do not fit the 268px popover. */}
-      <div
-        role="radiogroup"
-        aria-labelledby="ask-strength-label"
-        className="relative mt-1.5 grid rounded-full bg-black/[0.045] p-0.5"
-        style={{ gridTemplateColumns: `repeat(${levels.length}, minmax(0, 1fr))` }}
-      >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0.5 left-0.5 rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.1)] transition-transform duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-          style={{ width: `calc((100% - 4px) / ${levels.length})`, transform: `translateX(${levelIndex * 100}%)` }}
-        />
-        {levels.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={option.id === level.id}
-            data-ask-strength-option={option.id}
-            onClick={() => onStrengthChange?.(option.id)}
-            className={cn(
-              "relative whitespace-nowrap rounded-full font-medium transition-colors duration-200",
-              phone ? "h-9 px-3 text-[13px]" : "h-7 px-2.5 text-[12px]",
-              option.id === level.id ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <p aria-live="polite" className={cn("mt-1.5 leading-snug text-[#6b7280]", phone ? "text-[13px]" : "text-[11.5px]")}>
-        {level.detail}
-      </p>
-    </div>
-  )
-
   const ownRow = onOwnAi && (
     <div className={cn("border-t border-[#e5e7eb]/70", phone ? "mx-2 pt-1.5" : "mx-1 pt-1")}>
       <button
@@ -223,7 +157,7 @@ export function ModelPicker({
             {anyOwn ? tt("Your own AI is on") : tt("Use your own AI")}
           </span>
           <span className={cn("block leading-snug text-[#6b7280]", phone ? "text-[13px]" : "text-[11.5px]")}>
-            {anyOwn ? tt("Those edits don't use your AI edits. Manage") : tt("Your OpenAI key. Doesn't use your AI edits")}
+            {anyOwn ? tt("Those edits don't use your AI edits. Manage") : tt("Your Claude key. Doesn't use your AI edits")}
           </span>
         </span>
         <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 -rotate-90 text-[#9ca3af]" strokeWidth={2} />
@@ -260,7 +194,7 @@ export function ModelPicker({
         onClick={() => onOpenChange(!open)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`Model: ${chosen.label}${level ? tt(", {label} strength", { label: level.label }) : ""}${chosenOwn ? tt(", on {value}", { value: chosenOwn.toLowerCase() }) : ""}`}
+        aria-label={`Model: ${chosen.label}${chosenOwn ? tt(", on {value}", { value: chosenOwn.toLowerCase() }) : ""}`}
         title={tt("Which model answers")}
         className={cn(
           "relative flex items-center gap-1.5 rounded-full text-[13px] text-[#1a1a2e]/80 transition-colors hover:bg-black/[0.05] hover:text-[#1a1a2e]",
@@ -287,7 +221,6 @@ export function ModelPicker({
           )}
         >
           {rows}
-          {strengthRow}
           {ownRow}
           {soundsRow}
         </div>
@@ -295,7 +228,6 @@ export function ModelPicker({
       {phone && (
         <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title={tt("Model")} hideFrom={null}>
           {rows}
-          {strengthRow}
           {ownRow}
           {soundsRow}
         </BottomSheet>

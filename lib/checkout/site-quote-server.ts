@@ -92,6 +92,8 @@ export interface SiteQuote {
   /** `taxLabel`: the tax line's words, "VAT 19%" (lib/tax/rules taxLabel). */
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string; codFeeCents?: number }
   offers?: { title: string; savedCents: number }[]
+  /** The store's checkout offers this order qualifies for, to add in one press (lib/offers; components/offers/checkout-suggestions.tsx). */
+  suggestions?: { offerId: string; title: string; label: string | null; offerPriceCents: number; product: { id: string; title: string; slug: string; imageUrl: string | null; type: string; priceCents: number; variants: { id: string; name: string; priceCents: number }[] } }[]
   /** Something in it is a physical product (Settings › Checkout's "physical orders" fields), whether or not it ships. */
   physical?: boolean
   /** The countries the shop ships this cart to (Settings › Shipping), or null for anywhere. Only when something ships. */
@@ -177,11 +179,13 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
   if (decision.kind === "refuse" || priced.ok === false) {
     return { ok: false, status: decision.kind === "refuse" ? decision.status : 400, error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }
   }
-  const [names, tax, choices] = await Promise.all([
+  const [names, tax, choices, suggestions] = await Promise.all([
     variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v)),
     digitalCartTax(db, creatorId, priced, body, requestCountry),
     /* A line named its own price (pay what you want) keeps it: nothing to change it to. */
     variantChoices(db, priced.lines.filter((l) => l.item.variantId && !namedOwnPrice(body).has(l.item.productId)).map((l) => l.item.productId)),
+    /* The store's checkout offers this basket qualifies for, shown at the checkout (lib/offers): the same rule the physical checkout suggests by. */
+    checkoutSuggestions(db, creatorId, priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, unitCents: l.item.priceCents }))),
   ])
   return {
     ok: true,
@@ -210,9 +214,20 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
       delivery: { ok: true, options: [], selectedId: null, needsCountry: false },
       pickups: [],
       totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: priced.totalCents + (tax.included ? 0 : tax.taxCents), taxLabel: tax.label },
+      offers: priced.offers.filter((o) => o.savedCents > 0).map((o) => ({ title: o.title, savedCents: o.savedCents })),
+      suggestions,
       choices,
     },
   }
+}
+
+/** The checkout offers a basket qualifies for at the checkout, as cards to add (lib/offers suggestionsFor). */
+async function checkoutSuggestions(db: Db, creatorId: string, lines: { productId: string; quantity: number; unitCents: number }[]) {
+  const [{ loadOffers, offerLinesFor, suggestionCards }, { suggestionsFor }] = await Promise.all([import("@/lib/offers/offers-server"), import("@/lib/offers/offers")])
+  const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+  if (offers.length === 0 || lines.length === 0) return []
+  const withCollections = await offerLinesFor(db, creatorId, offers, lines)
+  return suggestionCards(db, creatorId, suggestionsFor(withCollections, offers, { placement: "checkout" }))
 }
 
 /** Products whose line in the request names its own price (pay what you want): those keep their option. */
@@ -377,7 +392,8 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         hours: o.pickup?.hours ?? null,
       })),
       totals: q.totals,
-      offers: priced.offers.map((o) => ({ title: o.title, savedCents: o.savedCents })),
+      offers: priced.offers.filter((o) => o.savedCents > 0).map((o) => ({ title: o.title, savedCents: o.savedCents })),
+      suggestions: await (await import("@/lib/offers/offers-server")).suggestionCards(db, creatorId, priced.suggestions),
       physical: priced.lines.some((l) => l.type === "physical") || priced.stockIssues.length > 0,
       shipsTo,
       short: priced.stockIssues.map((s) => ({

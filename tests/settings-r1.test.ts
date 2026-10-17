@@ -88,7 +88,9 @@ function wiring() {
   check("Back returns to where the list was, set before the frame is painted", /box\.scrollTop = at\.scroll/.test(dir) && /React\.useLayoutEffect/.test(dir))
   /* Changed on purpose (the owner: the pills were "buggy and glitchy"): the cards no longer fade up from 0.4 on every press, they are simply there. */
   check("a category keeps the pills where they are, and the cards are there at once", /box\.scrollTop \+= now - want/.test(dir) && !/translate3d\(0, 6px, 0\)/.test(dir))
-  check("the page has a header with the mark, where it stands, and the action", /data-integration-header=""/.test(dir) && /data-integration-standing=\{status\}/.test(dir) && /data-integration-action=""/.test(dir))
+  /* The page has its own file since round K4 (components/app/settings/integration-detail.tsx). */
+  const pageUi = read("components/app/settings/integration-detail.tsx")
+  check("the page has a header with the mark, where it stands, and the action", /data-integration-header=""/.test(pageUi) && /data-integration-standing=\{status\}/.test(pageUi) && /data-integration-action=""/.test(pageUi))
 
   console.log("\nActivity, Store details, Plan\n")
   const activity = read("components/app/settings/activity-panel.tsx")

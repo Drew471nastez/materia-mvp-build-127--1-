@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sellersReview } from "@/lib/reviews/access"
 import { refreshReviewStats } from "@/lib/reviews/store"
-import { isVerifiedReview, readPhotos, readSiteStatus } from "@/lib/reviews/app-settings"
-import { removeReviewPhotos, syncReviewPhotos } from "@/lib/reviews/photos-server"
+import { isVerifiedReview, readPhotos } from "@/lib/reviews/app-settings"
+import { removeReviewPhotos } from "@/lib/reviews/photos-server"
+import { isModeration, type ModeratedRow } from "@/lib/reviews/manage"
+import { forgetReviewsManage, moderateReview } from "@/lib/reviews/manage-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -42,6 +44,8 @@ export const dynamic = "force-dynamic"
  *
  * The ratings are counted again after anything that changes what is
  * published, and the pages that show them (the website's too) are cleared.
+ * What each action changes is decided once (lib/reviews/manage
+ * planModeration), so this route and the bulk one cannot drift apart.
  */
 const HEADERS = { "Cache-Control": "no-store" }
 const answer = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: HEADERS })
@@ -67,56 +71,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   } catch {
     return answer({ error: "Bad request" }, 400)
   }
-  const review = found.review as typeof found.review & { status?: string | null; hidden_by?: string | null; photos?: unknown; verified?: unknown; site_status?: unknown }
-  const verified = isVerifiedReview(review)
-  const now = new Date().toISOString()
-  let change: Record<string, unknown>
-  switch (body.action) {
-    case "publish": {
-      if (review.status === "hidden" && review.hidden_by !== "seller") {
-        return answer({ error: "Storelib is looking at the report on this review. It comes back if Storelib restores it." }, 409)
-      }
-      /* Verified: shown on the website again. Storelib's status is only touched to undo a store's hide or wait from before this rule. */
-      change = verified
-        ? { site_status: "shown", ...(review.status === "published" ? {} : { status: "published", hidden_by: null, hidden_at: null, hidden_reason: null, published_at: now }) }
-        : { status: "published", hidden_by: null, hidden_at: null, hidden_reason: null, published_at: now }
-      break
-    }
-    case "hide":
-      if (verified) {
-        if (review.status === "hidden" && review.hidden_by !== "seller") return answer({ ok: true, review: { id: review.id, status: "hidden", hidden_by: review.hidden_by ?? null, site_status: readSiteStatus(review.site_status), verified } })
-        change = { site_status: "hidden", ...(review.status === "published" ? {} : { status: "published", hidden_by: null, hidden_at: null, hidden_reason: null, published_at: now }) }
-        break
-      }
-      if (review.status === "hidden") return answer({ ok: true, review: { id: review.id, status: "hidden", hidden_by: review.hidden_by ?? null, verified } })
-      change = { status: "hidden", hidden_by: "seller", hidden_at: now, hidden_reason: "seller" }
-      break
-    case "feature":
-      change = { featured: true }
-      break
-    case "unfeature":
-      change = { featured: false }
-      break
-    case "remove_photo":
-    case "restore_photo": {
-      const photos = readPhotos(review.photos)
-      const path = typeof body.photo === "string" ? body.photo : ""
-      if (!photos.some((p) => p.path === path)) return answer({ error: "That photo is not on this review." }, 404)
-      change = { photos: photos.map((p) => (p.path === path ? { ...p, status: body.action === "remove_photo" ? "removed" : "approved" } : p)) }
-      break
-    }
-    default:
-      return answer({ error: "Bad request" }, 400)
-  }
-  const { data, error } = await db.from("reviews").update({ ...change, updated_at: now }).eq("id", review.id).select("id, status, site_status, verified, featured, photos, hidden_by").single()
-  if (error || !data) {
-    const code = String((error as { code?: string } | null)?.code ?? "")
-    const missing = code === "42703" || code === "PGRST204" || code === "23514"
-    return answer({ error: missing ? "Moderation turns on after the database update (SQL part 134)." : "That did not save. Try again." }, missing ? 409 : 500)
-  }
-  await syncReviewPhotos(db, data)
-  await refreshReviewStats(db, { productId: review.product_id, creatorId: review.creator_id, productSlug: found.product.slug })
-  return answer({ ok: true, review: data })
+  if (!isModeration(body.action)) return answer({ error: "Bad request" }, 400)
+  const out = await moderateReview(db, found.review as ModeratedRow & { product_id: string; creator_id: string }, body.action, body.photo)
+  if (!out.ok) return answer({ error: out.error }, out.status)
+  if (out.changed) await refreshReviewStats(db, { productId: found.review.product_id, creatorId: found.review.creator_id, productSlug: found.product.slug })
+  return answer({ ok: true, review: out.review })
 }
 
 export async function DELETE(_request: NextRequest, { params }: Params) {
@@ -131,6 +90,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { error } = await db.from("reviews").delete().eq("id", review.id)
   if (error) return answer({ error: "That did not delete. Try again." }, 500)
   await removeReviewPhotos(db, paths)
+  forgetReviewsManage(review.creator_id)
   await refreshReviewStats(db, { productId: review.product_id, creatorId: review.creator_id, productSlug: found.product.slug })
   return answer({ ok: true })
 }

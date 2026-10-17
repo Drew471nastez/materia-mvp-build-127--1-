@@ -4,7 +4,7 @@ Every database change the app is waiting on, in four files for the Supabase SQL
 editor. Written for the last fortnight and checked against the whole
 repository, so nothing any session shipped is left out.
 
-That is every part in `supabase/sql/run-now/` (01 to 202, then the storage
+That is every part in `supabase/sql/run-now/` (01 to 231, then the storage
 policies and the check). Part 45 is the older one: three changes from 18 to 22
 September, in the website builder's agent, that this list never carried. Every
 other part was written 24 to 27 September.

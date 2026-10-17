@@ -305,6 +305,8 @@ All 27 of them.
 | `map` | Turns an address, or a Google Maps link, into a Google map for `embed`. |
 | `asset` | Turns `asset://<hash>` into the URL this account serves it from. |
 | `alpha: 0.5` | The same colour at the given alpha. Hex only. |
+| `review_widget` | A Storelib Reviews widget drawn from the section's settings and the page's reviews: `{{ settings \| review_widget }}`. The engine builds and escapes the markup. Only `sections/reviews_widget.storelib` needs it. |
+| `review_widget_css` | That widget's stylesheet, printed in the section's `<style>` block and scoped to it: `{{ settings \| review_widget_css }}`. |
 | `date: "short"` | A `datetime` for people to read: `long` (14 March 2026), `short`, `time`, `long_time`, `iso`. Read as written, never moved to another time zone. |
 | `strip_html` | The words of some markup, on one line. For an alt text made from rich text. |
 | `lines` | Each line of a text with something on it, trimmed, as a list of at most 100. For a `textarea` typed one item per line: `{% for line in block.settings.features \| lines %}`. |

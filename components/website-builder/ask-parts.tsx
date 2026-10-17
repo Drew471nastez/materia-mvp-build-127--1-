@@ -10,15 +10,15 @@
  *   CONNECT AI     Claude's and OpenAI's marks and two words, in the top
  *                  row: people can bring their own AI (Claude Code, Codex)
  *                  to this website. Opens Website settings, Connections.
- *   THE MODES      Change page, or Code section. Two halves of one control
- *                  with a thumb that slides between them, on transform.
+ *   REMEMBERED     "Remembered: ..." under an answer that kept a note in
+ *                  AI Memory, with Undo.
  *   SUGGESTIONS    up to three things to ask, from where the creator is
  *                  (lib/website-builder/ask-suggestions.ts). One row; on a
  *                  phone it scrolls sideways rather than wrapping.
  *   A QUESTION     the run stopped to ask: the question, why, and its
  *                  answers to tap, which wrap rather than scroll so every
  *                  one is in view. Once answered, the one sent is marked.
- *   THE SCOPE      "Only Hero": the edit is limited to the selected section.
+ *   THE SCOPE      "Editing: Hero": the edit is limited to the selection.
  */
 
 import * as React from "react"
@@ -28,7 +28,7 @@ import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-
 import { chosenOption, type AskQuestion } from "@/lib/website-builder/ask-activity"
 import { optionAction, readImageUrl, type QuestionAction } from "@/lib/sites/agent/questions"
 import { cn } from "@/lib/utils"
-import { tt, msg } from "@/lib/i18n/text"
+import { tt } from "@/lib/i18n/text"
 
 export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: () => void }) {
   return (
@@ -56,74 +56,30 @@ export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: (
   )
 }
 
-export type AskMode = "change" | "code"
-
-/** Code a section first: it is the box's default (theme-chat.tsx), so it sits where the eye starts. */
-export const MODES: readonly (readonly [AskMode, string])[] = [
-  ["code", msg("Code section")],
-  ["change", msg("Change page")],
-] as const
-
-/** Which half the thumb sits under. */
-export function modeIndex(mode: AskMode): number {
-  return Math.max(0, MODES.findIndex(([key]) => key === mode))
-}
-
-export function ModeSwitch({
-  mode,
-  onChange,
-  phone,
-  reducedMotion,
-}: {
-  mode: AskMode
-  onChange: (mode: AskMode) => void
-  phone: boolean
-  reducedMotion: boolean
-}) {
+/**
+ * WHAT IT KEPT IN AI MEMORY, under the answer: "Remembered: never use
+ * gradients", with Undo, which deletes the note (lib/ai-memory). Once undone
+ * the line says so and offers nothing more.
+ */
+export function RememberedLine({ content, undone, onUndo, phone }: { content: string; undone: boolean; onUndo: () => void; phone: boolean }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label={tt("What to ask for")}
-      data-ask-modes=""
-      data-mode={mode}
-      className="relative grid shrink-0 grid-cols-2 rounded-full bg-black/[0.045] p-0.5"
-      /* The arrow keys move between the two, as in any radio group. */
-      onKeyDown={(event) => {
-        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
-        event.preventDefault()
-        const next = MODES[(modeIndex(mode) + 1) % MODES.length][0]
-        onChange(next)
-        ;(event.currentTarget.querySelector(`[data-ask-mode="${next}"]`) as HTMLElement | null)?.focus()
-      }}
-    >
-      <span
-        aria-hidden
-        data-ask-mode-thumb=""
-        className="pointer-events-none absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-white shadow-[0_1px_2px_rgba(15,23,42,0.1)]"
-        style={{
-          transform: modeIndex(mode) === 1 ? "translateX(100%)" : "none",
-          transition: reducedMotion ? "none" : "transform 260ms cubic-bezier(0.32, 0.72, 0, 1)",
-        }}
-      />
-      {MODES.map(([key, label]) => (
+    <p data-ask-remembered={undone ? "undone" : "kept"} className={cn("flex min-w-0 items-baseline gap-1.5 leading-snug text-[#6b7280]", phone ? "text-[13.5px]" : "text-[12.5px]")}>
+      <span className={cn("min-w-0 flex-1", undone && "line-through decoration-[#9ca3af]")}>
+        <span className="font-medium text-[#1a1a2e]/80">{tt("Remembered:")}</span> {content}
+      </span>
+      {undone ? (
+        <span className="shrink-0">{tt("Undone")}</span>
+      ) : (
         <button
-          key={key}
           type="button"
-          role="radio"
-          aria-checked={mode === key}
-          tabIndex={mode === key ? 0 : -1}
-          data-ask-mode={key}
-          onClick={() => onChange(key)}
-          className={cn(
-            "relative whitespace-nowrap rounded-full font-medium transition-colors duration-200",
-            phone ? "h-9 px-3 text-[13px] after:absolute after:-inset-y-1 after:inset-x-0 after:content-['']" : "h-7 px-3 text-[12px]",
-            mode === key ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-          )}
+          data-ask-remembered-undo=""
+          onClick={onUndo}
+          className="relative shrink-0 font-medium text-[#1a1a2e]/75 underline-offset-2 after:absolute after:-inset-2 after:content-[''] hover:text-[#1a1a2e] hover:underline"
         >
-          {tt(label)}
+          {tt("Undo")}
         </button>
-      ))}
-    </div>
+      )}
+    </p>
   )
 }
 

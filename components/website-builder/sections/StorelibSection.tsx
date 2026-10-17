@@ -29,6 +29,7 @@ import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/con
 import { useSiteWishlist } from "../site-wishlist"
 import { useSectionScript } from "./section-sandbox"
 import { useOverlayHooks } from "./overlay-hooks"
+import { enhanceReviewWidgets } from "@/lib/reviews/widgets/enhance"
 import { morphInto } from "@/lib/website-builder/morph-html"
 import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
 
@@ -232,6 +233,11 @@ export function StorelibSection({
 
   /* Back to top and a popup: the page's scroll and the visitor's memory, which a section's script cannot reach (overlay-hooks.ts). */
   useOverlayHooks(scriptRoot, { sectionId: section.id, inCanvas: !!(isEditing || insideEditor || inEditor), html: onPage })
+  /* Storelib Reviews widgets: a carousel's Previous and Next and its own movement, which its markup reads without (lib/reviews/widgets/enhance.ts). */
+  useEffect(() => {
+    if (!scriptRoot || !onPage.includes("data-slw-carousel")) return
+    return enhanceReviewWidgets(scriptRoot)
+  }, [scriptRoot, onPage])
 
   if (out.ok === false) {
     if (!isEditing && !insideEditor) return null

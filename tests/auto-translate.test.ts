@@ -149,7 +149,7 @@ async function main() {
   const sheet = read("components/app/settings/translate-sheet.tsx")
   check("the Translate sheet lists them under Needs review, opened there from the count", /review: \{ get label\(\) \{ return tt\("Needs review"\) \}/.test(sheet) && /setFilter\(focus === "review" \? "review" : "todo"\)/.test(sheet) && /focus=\{sheetFocus\}/.test(panel))
   check("  Keep as is saves it for the new original, an edit makes it theirs as before", /i\.review \? tt\("Keep as is"\) : tt\("Approve"\)/.test(sheet))
-  check("  Translate the rest never offers to redo them", /const aiCanDo = \(i: Item\) => i\.status === "missing" \|\| \(i\.status === "outdated" && !i\.review\)/.test(sheet) && /items\.some\(aiCanDo\)/.test(sheet))
+  check("  Translate the rest never offers to redo them", /* Changed on purpose (round K3): nor one kept as written. */ /const aiCanDo = \(i: Item\) => !i\.excluded && \(i\.status === "missing" \|\| \(i\.status === "outdated" && !i\.review\)\)/.test(sheet) && /items\.some\(aiCanDo\)/.test(sheet))
   const route = read("app/api/store/translations/route.ts")
   check("  counted per language by the server, as translated and live", /if \(needsReview\(map\.get\(t\.key\), t\.source\)\) \{\s*row\.done\+\+\s*row\.review\+\+/.test(route) && /review: needsReview\(row, t\.source\)/.test(route))
   check("the builder's preview hides Storelib AI's outdated ones as the website does, and keeps the merchant's", /s: "ai" as const/.test(route) && /source: x\.s === "ai" \? \("ai" as const\) : \("manual" as const\)/.test(read("components/website-builder/use-preview-language.ts")))

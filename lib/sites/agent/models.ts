@@ -70,6 +70,37 @@ export const MODEL_RATES: Record<string, ModelRate> = {
    * input rate and a write 1.25x — which happen to be the same shape as the
    * OpenAI ones.
    */
+  /*
+    The four Ask Storelib offers (lib/website-builder/ask-engines.ts). Opus 5.5
+    reads its cache at $0.20, a twentieth of its input rate, where the others
+    read at a tenth. Haiku 5.5 is $0.10 / $0.50 up to 100K input tokens and
+    $0.50 / $2.50 above; the lower rate is kept here because an Ask Storelib
+    turn sits well under that.
+  */
+  "claude-opus-5-5": {
+    id: "claude-opus-5-5",
+    inputPerMTok: 4,
+    outputPerMTok: 20,
+    cachedInputMultiplier: 0.05,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
+  "claude-sonnet-5-5": {
+    id: "claude-sonnet-5-5",
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    cachedInputMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
+  "claude-haiku-5-5": {
+    id: "claude-haiku-5-5",
+    inputPerMTok: 0.1,
+    outputPerMTok: 0.5,
+    cachedInputMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+    maxOutputTokens: 128_000,
+  },
   "claude-sonnet-5": {
     id: "claude-sonnet-5",
     inputPerMTok: 2,

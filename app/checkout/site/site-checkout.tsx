@@ -60,6 +60,7 @@ import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
 import { VariantEdit } from "../parts/variant-edit"
+import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { CheckoutPhone } from "../parts/phone-input"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
@@ -69,6 +70,7 @@ import { FAIL_COPY, WAIT_MS, requestJson } from "@/lib/net/request"
 import { checkoutMsg, lowerLabel } from "@/lib/markets/checkout-words"
 import { estimateText, useCheckoutLang, useCountryName, useCt } from "../parts/words"
 import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
+import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 export interface SiteCheckoutProps {
@@ -1066,7 +1068,26 @@ export function SiteCheckout({
     setError(null)
     commitItems(setLineVariant(items, line, variantId), { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.storeCents ?? to.priceCents } })
   }
-  const discountCents = t?.discountCents ?? 0
+  /* A checkout offer taken: into the order, and this browser's cart too when the whole cart is what is paid for. */
+  const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {
+    if (!items || !editable) return
+    const variantId = sg.product.type === "physical" ? (v?.id ?? null) : null
+    setLimitNote(null)
+    setError(null)
+    if (wholeCart) {
+      try {
+        const key = cartStorageKey(shopId)
+        const line: CartLine = { productId: sg.product.id, variantId, title: sg.product.title, variantName: v && sg.product.variants.length > 1 ? v.name : null, priceCents: v?.priceCents ?? sg.product.priceCents, thumbnailUrl: sg.product.imageUrl, slug: sg.product.slug, digital: sg.product.type !== "physical", physical: sg.product.type === "physical", quantity: 1 }
+        window.localStorage.setItem(key, serializeCart([...parseCart(window.localStorage.getItem(key)), line]))
+      } catch {
+        /* storage refused: the order still has it */
+      }
+    }
+    commitItems([...items.filter((x) => !(x.productId === sg.product.id && (x.variantId ?? null) === variantId)), { productId: sg.product.id, variantId, quantity: 1 }])
+  }
+  /* The summary's rows from the server's quote, adding up to its total: the offers apart from the code's discount (lib/checkout/summary-rows). */
+  const rows = quote ? summaryRows(quote) : null
+  const discountCents = rows?.discount ?? 0
   const shippingPaid = t ? t.shippingCents - t.shippingDiscountCents : 0
   const details = quote ? (
     <div className="space-y-6">
@@ -1143,6 +1164,8 @@ export function SiteCheckout({
           </li>
         ))}
       </ul>
+      {/* The store's checkout offers this order qualifies for (lib/offers): one press puts it in the order, and the quote prices it again on the server. */}
+      <CheckoutSuggestions suggestions={editable ? (quote.suggestions ?? []) : []} onAdd={addSuggestion} busy={quoting} />
       <div className="border-t border-black/[0.07] pt-5">
         <Totals
           part="top"
@@ -1175,12 +1198,12 @@ export function SiteCheckout({
             />
           }
         />
-        {(quote.offers ?? []).length > 0 || ships || (t && t.taxCents > 0 && !t.taxIncluded) ? (
+        {(rows?.offers ?? []).length > 0 || ships || (t && t.taxCents > 0 && !t.taxIncluded) ? (
           <dl className="mt-3 space-y-3 text-[14px]">
-            {(quote.offers ?? []).map((o) => (
+            {(rows?.offers ?? []).map((o) => (
               <div key={o.title} className="flex justify-between gap-4" data-offer-saving="">
                 <dt className="truncate text-[#6b7280]">{o.title}</dt>
-                <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.savedCents)}</dd>
+                <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.cents)}</dd>
               </div>
             ))}
             {ships ? (

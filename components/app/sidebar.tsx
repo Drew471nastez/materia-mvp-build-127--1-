@@ -17,6 +17,7 @@ import {
   Sparkles,
   Store,
   Globe,
+  HelpCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -50,6 +51,7 @@ import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-na
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { tt } from "@/lib/i18n/text"
+import { APP_HELP_HREF } from "@/components/app/mobile-account-menu"
 import dynamic from "next/dynamic"
 
 /* Round 33: a community's own setup pill, loaded only on a community's pages (components/community/creator/setup-pill.tsx). */
@@ -365,8 +367,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products/collections", label: tt("Collections") },
   )
   mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: tt("Files") })
-  /* Upsells and bundles beside Coupons: they apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
-  if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: tt("Upsells and bundles") })
+  /* Upsells and bundles beside Coupons, for every shop: they apply in the basket checkout of downloads and the cart checkout of things that ship alike (app/app/offers). */
+  mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: tt("Upsells and bundles") })
 
   /*
     INTEGRATIONS, ALWAYS THERE. A row to the Integrations page
@@ -434,7 +436,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * from md up, where the rail beside the page already has a Settings row
    * (and the bar a gear), so a third way to the same page was a line of the
    * menu spent on nothing. The phone's sheet keeps it (mobile-account-menu).
-   * No Help either, on any size.
+   *
+   * HELP IS BACK, AS A PAGE IN THE APP (round K). It used to open the public
+   * /help in a new tab, which is why it left. Now it is /app/help, the same
+   * Help Center inside this shell, with a back arrow to the page the menu was
+   * opened on. It is its own row after Language, right above Sign Out
+   * (APP_HELP_HREF below): the places you go come first, then the two rows
+   * about you and the app (Language, Help), then leaving.
    */
   const profileDropdownItems = [
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
@@ -734,6 +742,18 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span>{t("settings.language")}</span>
                 </button>
+                <Link
+                  href={APP_HELP_HREF}
+                  prefetch={false}
+                  onMouseEnter={() => warmAccountPage(APP_HELP_HREF)}
+                  onFocus={() => warmAccountPage(APP_HELP_HREF)}
+                  onClick={() => setHeaderProfileOpen(false)}
+                  data-account-help=""
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                >
+                  <HelpCircle className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>{tt("Help")}</span>
+                </Link>
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {

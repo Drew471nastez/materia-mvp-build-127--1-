@@ -10,6 +10,8 @@ import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 import { timed } from "@/lib/perf/server-timing"
 import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib-reviews"
+import { THEME_DATA_FILE, THEME_SCHEMA_FILE } from "@/lib/storelib-theme/theme-config"
+import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -165,8 +167,11 @@ async function handleGET(req: Request, { params }: Params) {
       ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (data ?? [])
     const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
+    /* The theme's own Theme settings, when it has a config/settings_schema.json: the sidebar draws its groups from it (lib/storelib-theme/theme-config.ts). */
+    const schemaRow = await supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const settingsSchema = schemaRow.error || !schemaRow.data ? null : (sourceMap([schemaRow.data as { path: string; content: string; draft_content?: string | null }])[THEME_SCHEMA_FILE] ?? null)
     /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
-    return NextResponse.json({ files: withStorelibReviewsSection(files) })
+    return NextResponse.json({ files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
   }
 
   // List all custom files if no path
@@ -189,6 +194,17 @@ async function handleGET(req: Request, { params }: Params) {
    */
   if (searchParams.get("versions") === "1") {
     return NextResponse.json({ versions: await listVersions(supabase, installId, path) })
+  }
+
+  /*
+    THE THEME'S VALUES, NOW. config/settings_data.json is the install's theme
+    settings as a file (lib/storelib-theme/theme-config.ts), never a stored
+    copy that could fall behind the sidebar.
+  */
+  if (path === THEME_DATA_FILE) {
+    const data = await settingsDataFor(supabase, installId)
+    if (!data) return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+    return NextResponse.json({ path, content: data.text, is_custom: true, updated_at: null, unpublished: false })
   }
 
   // Try custom file first

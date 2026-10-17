@@ -302,7 +302,7 @@ export async function writeSection(opts: {
    */
   theme?: ThemeContextInput
   signal?: AbortSignal
-  /** How hard it thinks: the creator's Strength for Code a section (lib/website-builder/ask-engines.ts). */
+  /** How hard it thinks: medium for every Ask Storelib run (lib/website-builder/ask-engines.ts, EFFORT). */
   effort?: ProviderRequest["effort"]
   /** Groups this website's requests for the provider's prompt cache. */
   cacheKey?: string
@@ -318,6 +318,8 @@ export async function writeSection(opts: {
   onEvent?: (event: WriteEvent) => void
   /** What the creator asked Storelib AI to remember on every website (lib/ai-memory/store.ts). */
   accountMemory?: string[]
+  /** AI Memory as one block, this website's notes and the everywhere ones (lib/ai-memory/store.ts describeMemory). Used instead of `accountMemory` when given. */
+  memoryText?: string
 }): Promise<WriteResult> {
   const system = writeSectionSystem()
   const images = opts.images ?? []
@@ -337,7 +339,7 @@ export async function writeSection(opts: {
      * told afterwards what the colours are has already chosen them.
      */
     opts.theme ? describeThemeForAuthoring(opts.theme) : "",
-    describeAccountMemory(opts.accountMemory ?? []),
+    opts.memoryText !== undefined ? opts.memoryText : describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",
       content: "the site described above and the creator's own business",

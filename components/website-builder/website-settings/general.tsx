@@ -12,6 +12,7 @@ import { activeLocale, tt } from "@/lib/i18n/text"
 import { languageName } from "@/lib/markets/locales"
 import { currencyWord } from "@/lib/markets/money"
 import { countryName } from "@/lib/checkout/countries"
+import { PreviewLocaleSelects, hasPreviewChoices } from "@/components/website-builder/preview-locale-switch"
 
 export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   const [draft, setDraft] = useState(ctx.name)
@@ -164,8 +165,14 @@ function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fal
   )
   const value = (text: string) => <span className="text-[13px] text-white/70">{text}</span>
   return (
-    <Card title={tt("Languages and currencies")} footer={tt("The editor, the preview and your website all open in your default language and your store currency. Switch them with your theme's own selectors on the page, as visitors do.")}>
+    <Card title={tt("Languages and currencies")} footer={tt("Visitors open your website in your default language and store currency, and switch with your theme's own selectors.")}>
       <div data-wb-localization="">
+        {/* WHAT THE BUILDER SHOWS: the canvas's language and prices, and the language the sidebar's text settings write. Never the live website. */}
+        {ctx.preview && hasPreviewChoices(ctx.preview) ? (
+          <Row label={tt("Show the editor in")} hint={tt("Only changes the builder. In another language, the sidebar edits that language's text.")} stack>
+            <PreviewLocaleSelects model={ctx.preview} tone="dark" />
+          </Row>
+        ) : null}
         <Row label={tt("Default language")} hint={manage("/app/settings?tab=markets")} inline>
           {value(data === null ? "" : defaultLanguage ? languageName(defaultLanguage, activeLocale()) : tt("Set for your store"))}
         </Row>

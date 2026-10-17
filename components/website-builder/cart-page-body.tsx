@@ -33,7 +33,8 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
-import { useCartMoney, useStorefront, useWord } from "./theme/storefront-context"
+import { useAmountMoney, useCartMoney, useStorefront, useWord } from "./theme/storefront-context"
+import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
@@ -50,13 +51,16 @@ export interface CartPalette {
 interface AppliedCode {
   code: string
   label: string
+  /** Everything off: the offers' part and the code's. */
   discountCents: number
+  /** The store's upsells and bundles' part (lib/offers). */
+  offerCents: number
   subtotalCents: number
   totalCents: number
 }
 
 export function CartPageBody({ palette, radius }: { palette: CartPalette; radius: number }) {
-  const { lines, ready, setQty, remove, clear, count, shopId } = useSiteCart()
+  const { lines, ready, setQty, remove, clear, count, shopId, add } = useSiteCart()
   /* Amounts as the product cards show them and checkout adds them up: the visitor's market's currency, or the store's. */
   const cartMoney = useCartMoney()
   /* Back from checkout lands on this cart, in the page's language. */
@@ -79,7 +83,12 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   /** The reason is about a code the page applied itself (from the link, or again after the basket changed): said quietly. */
   const [codeQuiet, setCodeQuiet] = useState(false)
   const items = JSON.stringify(checkoutItems(lines))
-  const amounts = cartMoney(lines, applied ? { subtotalCents: applied.subtotalCents, discountCents: applied.discountCents } : null)
+  /* The store's upsells and bundles for this cart (components/offers/cart-offers.tsx): what it gets now and what it could add. With a code on, the code's check prices them too. */
+  const offers = useCartOffers(lines, shopId, ready)
+  const offerCents = applied ? applied.offerCents : (offers?.offerCents ?? 0)
+  const amounts = cartMoney(lines, applied ? { subtotalCents: applied.subtotalCents, discountCents: applied.discountCents } : offerCents > 0 ? { subtotalCents: lines.reduce((n, l) => n + l.priceCents * l.quantity, 0), discountCents: offerCents } : null)
+  const amountMoney = useAmountMoney()
+  const unitMoney = (cents: number) => cartMoney([{ priceCents: cents, quantity: 1 }]).lines[0]
 
   const applyCode = useCallback(
     async (typed: string, quiet: boolean) => {
@@ -104,6 +113,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           code: data.code || value,
           label: data.label || "",
           discountCents: Number(data.discountCents) || 0,
+          offerCents: Number(data.offerCents) || 0,
           subtotalCents: Number(data.subtotalCents) || 0,
           totalCents: Math.max(0, Number(data.totalCents) || 0),
         })
@@ -308,6 +318,11 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           })}
         </ul>
 
+        {/* Upsells shown in the cart and bundles it holds part of (lib/offers). */}
+        <div className="mt-6 max-w-[520px] empty:hidden">
+          <CartOfferSuggestions data={offers} onAdd={(added) => added.forEach((l) => add(l))} money={unitMoney} colors={{ text: palette.heading, muted: palette.text, border: palette.border, buttonBg: palette.buttonBg, buttonText: palette.buttonText }} radius={radius} />
+        </div>
+
         <div className="mt-8 flex flex-col items-end gap-4">
           <div className="w-full sm:w-[300px]">
             <CodeField
@@ -328,16 +343,26 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           </div>
 
           <dl className="w-full space-y-2 sm:w-[300px]">
-            {applied ? (
+            {applied || offerCents > 0 ? (
               <>
                 <div className="flex items-baseline justify-between">
                   <dt className="text-[15px] opacity-70">{w("subtotal")}</dt>
                   <dd className="text-[15px] tabular-nums">{amounts.subtotal}</dd>
                 </div>
-                <div className="flex items-baseline justify-between">
-                  <dt className="text-[15px] opacity-70">Discount ({applied.code})</dt>
-                  <dd className="text-[15px] tabular-nums">&minus;{amounts.discount}</dd>
-                </div>
+                {/* Each bundle and upsell the cart gets: by the code's check when a code is on, else by the cart's own. */}
+                <CartOfferSavings data={applied ? null : offers} money={amountMoney} className="space-y-2 text-[15px]" />
+                {applied && applied.offerCents > 0 ? (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-[15px] opacity-70">Bundles and offers</dt>
+                    <dd className="text-[15px] tabular-nums">&minus;{amountMoney(applied.offerCents)}</dd>
+                  </div>
+                ) : null}
+                {applied ? (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-[15px] opacity-70">Discount ({applied.code})</dt>
+                    <dd className="text-[15px] tabular-nums">&minus;{applied.offerCents > 0 ? amountMoney(applied.discountCents - applied.offerCents) : amounts.discount}</dd>
+                  </div>
+                ) : null}
                 <div className="flex items-baseline justify-between pt-1">
                   <dt className="text-[15px] opacity-70">{w("total")}</dt>
                   <dd className="text-[22px] font-bold tabular-nums" style={{ color: palette.heading }}>

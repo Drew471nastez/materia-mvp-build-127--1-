@@ -1,45 +1,22 @@
 /**
  * ===========================================================================
- *  CODE A SECTION, FROM THE CHAT'S SIDE
+ *  A NEW SECTION, FROM THE CHAT'S SIDE
  * ===========================================================================
- * "Code a section" is the box's first mode. What it does with a message:
+ * When the server's router (lib/website-builder/agent/router.ts) sends a
+ * message to the section writer (app/api/website-builder/themes/[installId]/
+ * sections/code): planned, written, drawn, read back against the request
+ * and the picture, refined once. The chat draws its steps under "New
+ * section: <name>", the canvas holds a spot with the same label, and when it
+ * is done the section is put on the page, the canvas glides to it and rings
+ * it once. The chat says one line, with View code beside it: no file in the
+ * thread. An edit to the open section's code goes to the page assistant with
+ * `codeFocus` instead (lib/website-builder/agent/loop.ts).
  *
- *   A NEW SECTION   the writer (app/api/website-builder/themes/[installId]/
- *                   sections/code): planned, written, drawn, read back
- *                   against the request and the picture, refined once. The
- *                   chat draws its steps under "New section: <name>", the
- *                   canvas holds a spot with the same label, and when it is
- *                   done the section is put on the page, the canvas glides
- *                   to it and rings it once. The chat says one line, with
- *                   View code beside it: no file in the thread.
- *   AN EDIT         the open section's own code, through the page assistant
- *                   with `codeFocus` (lib/website-builder/agent/loop.ts),
- *                   under "Editing <name>".
- *
- * Which of the two is `codeTarget`, from the words and the selection. The
- * rest is the stream and its ending, kept here and pure so
- * tests/ask-images-u.test.ts can drive them without a browser.
+ * The stream and its ending, kept here and pure so tests/ask-images-u.test.ts
+ * can drive them without a browser.
  */
 
 import { IMAGE_ACTION_LABELS, type ImageTarget } from "@/lib/sites/agent/questions"
-
-export type CodeTarget = "new" | "edit"
-
-/** Words that ask for a section that is not on the page yet. */
-const NEW_SECTION =
-  /\b(new|another|extra|second)\s+section\b|\b(add|create|build|make|write|design|code|copy|recreate|replicate|clone)\b(\s+me)?\s+(a|an|one|this|that|the)?\s*[^.?!]{0,40}\bsection\b|^\s*(a|an)\b[^.?!]{0,80}\bsection\b|\bsection\s+(like|from)\s+(this|the|my)\s+(image|picture|screenshot|photo)\b/i
-
-/**
- * A NEW SECTION, OR THE OPEN ONE. With no section open, or with the scope
- * cleared, it is always a new one. With one open and kept in scope (the
- * "Editing: Pricing" chip), it is that section, unless the words plainly ask
- * for a section of their own: "add a section like this", "build me a hero
- * with a flag section", "a section with my portrait and a flag".
- */
-export function codeTarget(prompt: string, ctx: { selectedId?: string | null; locked: boolean }): CodeTarget {
-  if (!ctx.selectedId || !ctx.locked) return "new"
-  return NEW_SECTION.test(prompt) ? "new" : "edit"
-}
 
 /** One line the writer streams: a step in the page assistant's shapes, a stage, or the answer. */
 export type WriterLine = Record<string, unknown> & { type?: string }

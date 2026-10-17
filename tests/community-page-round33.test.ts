@@ -79,16 +79,17 @@ console.log("\nROW: the facts under the name")
 {
   const c = { visibility: "public" as const, options: [] }
   const row = aboutRow(c, { members: 1284, online: 12, admins: 3 }, { kind: "free", priceLine: "Free" })
-  check("who it is for, members, online, the price, the admins", row.map((f) => `${f.value}${f.word ? ` ${f.word}` : ""}`).join(" | ") === "Public | 1,284 members | 12 online | Free | 3 admins", row)
+  /* Changed on purpose (round 26, the owner): the admins moved from this row to the info card. */
+  check("who it is for, members, online, the price; no admins", row.map((f) => `${f.value}${f.word ? ` ${f.word}` : ""}`).join(" | ") === "Public | 1,284 members | 12 online | Free", row)
   const quiet = aboutRow({ visibility: "private", options: [] }, { members: 1, online: 0, admins: null }, null)
   check("online and admins only when known and above zero; one member", quiet.map((f) => f.key).join() === "visibility,members,price" && quiet[1].word === "member")
   const paid = aboutRow(c, { members: 9, online: null, admins: 1 }, { kind: "paid", priceLine: "$19/month" })
-  check("a paid tier's price, one admin", paid.find((f) => f.key === "price")?.value === "$19/month" && paid.find((f) => f.key === "admins")?.word === "admin")
+  check("a paid tier's price", paid.find((f) => f.key === "price")?.value === "$19/month" && !paid.some((f) => (f.key as string) === "admins"))
 }
 
 console.log("\nDRAFT: the preview and Save")
 {
-  const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: "/c.jpg", gallery: [], benefits: ["A"], faq: [], links: [], look: DEFAULT_LOOK }
+  const start: PageDraft = { name: "Clay", tagline: "Pots", descriptionHtml: "<p>Hi</p>", logoUrl: null, coverUrl: "/c.jpg", gallery: [], benefits: ["A"], faq: [], links: [], look: DEFAULT_LOOK, summary: "", memberLinks: [], seoTitle: "", seoDescription: "", discoveryEnabled: true }
   check("nothing changed sends nothing", Object.keys(changedBody(start, { ...start })).length === 0)
   const now: PageDraft = { ...start, name: "Clay Club", descriptionHtml: "<p><br></p>", look: { ...DEFAULT_LOOK, coverY: 20 }, links: [{ label: "Instagram", url: "https://www.instagram.com/clay" }] }
   const body = changedBody(start, now)
@@ -110,8 +111,9 @@ console.log("\nSOURCE: the route, the description, Membership, the signed out me
   check("the server cleans it with the product description's sanitizer, refused over the same size", /if \(b\.descriptionHtml !== undefined\)/.test(server) && /descriptionTooLong\(html\)/.test(server) && /sanitizeDescription\(html\)/.test(server))
   const sales = code("components/community/public/sales-page.tsx")
   check("the About page draws sanitized HTML, and older plain text as text", /dangerouslySetInnerHTML=\{\{ __html: c\.descriptionHtml \}\}/.test(sales) && /whitespace-pre-wrap[^"]*" data-community-description=""/.test(sales) && /looksLikeHtml\(raw\) \? sanitizeDescription\(raw\)/.test(code("lib/communities/server/public.ts")))
-  check("no Membership section under two members", /&& c\.memberCount >= 2/.test(sales))
-  check("the links are drawn as icons on the About page", /<SocialLinks links=\{links\} \/>/.test(sales) && /links: socialLinksOf\(community\.links\)/.test(code("lib/communities/server/public.ts")))
+  /* Changed on purpose (round 26, the owner): no Membership section at all, and the icons are drawn in the info card (and with who runs it below 1280px). */
+  check("no Membership section", !/data-community-membership/.test(sales) && !/<PricingCard /.test(sales))
+  check("the links are drawn as icons on the About page", /<SocialLinks links=\{links\} size=/.test(sales) && /links: socialLinksOf\(community\.links\)/.test(code("lib/communities/server/public.ts")))
   const join = code("components/community/public/join-controls.tsx")
   check("the creator's words and style only on a button that joins, asks or pays; the questions before joining untouched", /return kind === "join_free" \|\| kind === "request" \|\| kind === "checkout"/.test(join) && /if \(asked\.length\) \{/.test(join) && /<JoinQuestionFields/.test(join))
   const guest = navigatorModel({ signedIn: false, communitiesOn: true, recent: [] } as never).actions

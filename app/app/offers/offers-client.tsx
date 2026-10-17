@@ -1,373 +1,383 @@
 "use client"
 
 /**
- * UPSELLS AND BUNDLES: a store's offers (lib/offers, /api/store/offers).
+ * ===========================================================================
+ *  PRODUCTS › UPSELLS AND BUNDLES
+ * ===========================================================================
+ * The store's offers (lib/offers), drawn the way Coupons and Collections are
+ * (../coupons/coupons-client.tsx, ../products/collections): the same bar,
+ * column, gutters and white card; the views as tabs with their counts and a
+ * search in the card's toolbar; on a phone one row per offer, the whole row
+ * one press into it; from 768px a light table with what each one is, its
+ * discount, where it shows and where it stands. The page arrives with its
+ * rows (./page.tsx reads them on the server), so it lands whole.
  *
- *   Bundle          two to five products bought together, with a discount on
- *                   each complete set. Shown on each product's page with
- *                   "Add all to cart".
- *   Checkout offer  one product suggested in the checkout, for any order or
- *                   when the cart holds certain products, with an optional
- *                   discount on it.
+ *   Bundle   two to five products bought together, for less
+ *   Upsell   one product suggested on a product page, in the cart or at
+ *            the checkout, when the cart qualifies
  *
- * Each offer can be switched off without deleting it. The checkout works the
- * discount out on the server whenever a cart qualifies, before any code.
+ * The order of the list is the order they apply in: a unit already in an
+ * earlier offer is never discounted again, so Move up and Move down decide.
+ * No numbers about how each one sells are shown: nothing counts them yet,
+ * and a figure nobody measured would be made up.
+ *
+ * An offer opens in the editor (./offer-editor.tsx), a dialog on a computer
+ * and the app's shared bottom sheet on a phone, over this list. Questions
+ * (discard the changes, delete it) are asked once the editor has gone, as
+ * the collections page asks them.
  */
-import * as React from "react"
-import { Check, Package, Plus, Search, ShoppingCart, Trash2 } from "lucide-react"
-import { toast } from "sonner"
-import { cn } from "@/lib/utils"
-import { Switch } from "@/components/ui/switch"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Empty, Field, Modal, Notice, Pill, TextInput, api, money } from "@/components/physical/ui"
-import { MAX_BUNDLE, MAX_PERCENT, bundlePrice, discountLabel, offerUnitPrice, type DiscountType, type Offer, type OfferKind } from "@/lib/offers/offers"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-parts"
-import { tt } from "@/lib/i18n/text"
 
-interface Product {
-  id: string
-  title: string
-  type: string
-  published: boolean
-  priceCents: number
-  imageUrl: string | null
+import * as React from "react"
+import { Plus, Search } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
+import { accentDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { pressMark } from "@/lib/press-mark"
+import { offerState, type Offer, type OfferKind, type OfferState } from "@/lib/offers/offers"
+import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, StatusBadge } from "../orders/order-parts"
+import { useConfirm } from "../products/new/confirm-sheet"
+import { Pill, usePill } from "../coupons/coupon-parts"
+import { OfferEditor } from "./offer-editor"
+import type { bodyOf } from "./offer-draft"
+import { KIND_WORD, OfferThumbs, STATE_TONE, STATE_WORD, contentsText, datesText, discountText, placesText, type OfferCollection, type OfferProduct } from "./offer-parts"
+
+/* The products page's own measures, as Collections takes them, so the three pages are one place. */
+const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
+const PAGE_WIDTH = "max-w-[1200px] lg:max-w-[1323px]"
+const PAGE_GUTTER = "lg:px-[35px]"
+const PAGE_BAR = "lg:min-h-[73px] lg:pb-[9px] lg:pt-[15px]"
+const PRESS = "relative max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
+/** New offer: the products page's violet New product, the one violet button here. */
+const NEW_LOOK = cn(accentDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
+/** How long the computer's dialog takes to fade out (components/ui/dialog.tsx), before a question takes its place. */
+export const DIALOG_LEAVE_MS = 200
+
+type View = "all" | "active" | "scheduled" | "off"
+const VIEWS: { value: View; label: () => string }[] = [
+  { value: "all", label: () => tt("All") },
+  { value: "active", label: () => tt("Active") },
+  { value: "scheduled", label: () => tt("Scheduled") },
+  { value: "off", label: () => tt("Off") },
+]
+const viewOf = (s: OfferState): Exclude<View, "all"> => (s === "active" ? "active" : s === "scheduled" ? "scheduled" : "off")
+
+type Answer = { ok: true; offer?: Offer } | { ok: false; error: string }
+async function send(method: string, body: unknown): Promise<Answer> {
+  try {
+    const res = await fetch("/api/store/offers", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
+    return { ok: true, offer: data?.offer as Offer | undefined }
+  } catch {
+    return { ok: false, error: tt("No connection. Try again in a moment.") }
+  }
 }
 
-type Draft = { id: string | null; kind: OfferKind; title: string; productIds: string[]; triggerIds: string[]; anyOrder: boolean; discountType: DiscountType; amount: string; active: boolean }
-
-const blank = (kind: OfferKind): Draft => ({ id: null, kind, title: kind === "bundle" ? tt("Buy it together") : tt("Add to your order"), productIds: [], triggerIds: [], anyOrder: true, discountType: "percent", amount: "10", active: true })
-
-export function OffersClient() {
-  const [offers, setOffers] = React.useState<Offer[] | null>(null)
-  const [products, setProducts] = React.useState<Product[]>([])
-  const [ready, setReady] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [draft, setDraft] = React.useState<Draft | null>(null)
-
-  const load = React.useCallback(async () => {
-    const r = await api<{ offers: Offer[]; products: Product[]; ready: boolean }>("/api/store/offers")
-    if ("error" in r) return setError(r.error)
-    setOffers(r.data.offers)
-    setProducts(r.data.products)
-    setReady(r.data.ready)
-  }, [])
-  React.useEffect(() => {
-    void load()
-  }, [load])
-
+export function OffersClient({
+  initialOffers,
+  products,
+  collections,
+  currency,
+  ready,
+  settingsReady,
+  physical,
+}: {
+  initialOffers: Offer[]
+  products: OfferProduct[]
+  collections: OfferCollection[]
+  currency: string
+  /** SQL part 116 has run. */
+  ready: boolean
+  /** SQL part 230 has run. */
+  settingsReady: boolean
+  physical: boolean
+}) {
+  const [list, setList] = React.useState(initialOffers)
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+  const [notice, say] = usePill()
+  const [ask, confirmSheet] = useConfirm()
+  const [view, setView] = React.useState<View>("all")
+  const [query, setQuery] = React.useState("")
 
-  const toggle = async (o: Offer, active: boolean) => {
-    setOffers((list) => list?.map((x) => (x.id === o.id ? { ...x, active } : x)) ?? null)
-    const r = await api<{ offer: Offer }>("/api/store/offers", { method: "PUT", body: { ...o, active } })
-    if ("error" in r) {
-      toast.error(r.error)
-      setOffers((list) => list?.map((x) => (x.id === o.id ? { ...x, active: !active } : x)) ?? null)
+  /* One clock for the render, so an offer does not change view between two rows. */
+  const [now] = React.useState(() => new Date())
+  const rows = React.useMemo(() => list.map((o) => ({ offer: o, state: offerState(o, now) })), [list, now])
+  const counts = React.useMemo(() => {
+    const out: Record<View, number> = { all: rows.length, active: 0, scheduled: 0, off: 0 }
+    for (const r of rows) out[viewOf(r.state)]++
+    return out
+  }, [rows])
+  const words = query.trim().toLowerCase()
+  const shown = rows.filter((r) => (view === "all" || viewOf(r.state) === view) && (!words || r.offer.title.toLowerCase().includes(words) || r.offer.productIds.some((id) => byId.get(id)?.title.toLowerCase().includes(words))))
+
+  /* The editor: which offer (null for a new one), and whether it is up. It stays mounted while a question is asked, so it comes back as it was. */
+  const [editing, setEditing] = React.useState<{ key: number; offer: Offer | null; kind: OfferKind } | null>(null)
+  const [open, setOpen] = React.useState(false)
+  const afterClose = React.useRef<(() => void) | null>(null)
+  const start = (offer: Offer | null, kind: OfferKind = "bundle") => {
+    afterClose.current = null
+    setEditing({ key: Date.now(), offer, kind: offer?.kind ?? kind })
+    setOpen(true)
+  }
+  const close = (then?: () => void) => {
+    afterClose.current = then ?? (() => setEditing(null))
+    setOpen(false)
+  }
+  const closed = React.useCallback(() => {
+    const then = afterClose.current
+    afterClose.current = null
+    then?.()
+  }, [])
+  const requestClose = (dirty: boolean) => {
+    if (!dirty) return close()
+    close(async () => {
+      const yes = await ask({ title: tt("Discard changes?"), body: tt("Your edits to this offer will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") })
+      if (yes) setEditing(null)
+      else setOpen(true)
+    })
+  }
+
+  const save = async (id: string | null, body: ReturnType<typeof bodyOf>): Promise<string | null> => {
+    const r = await send(id ? "PUT" : "POST", id ? { ...body, id } : body)
+    if (r.ok === false) return (r as { error: string }).error
+    const saved = (r as { offer?: Offer }).offer
+    if (saved) setList((l) => (id ? l.map((x) => (x.id === id ? saved : x)) : [...l, saved]))
+    close()
+    say(id ? tt("{value} saved", { value: body.title.trim() }) : tt("{value} created", { value: body.title.trim() }))
+    return null
+  }
+
+  const setActive = async (o: Offer, active: boolean) => {
+    setList((l) => l.map((x) => (x.id === o.id ? { ...x, active } : x)))
+    const r = await send("PUT", { ...o, active })
+    if (r.ok === false) {
+      setList((l) => l.map((x) => (x.id === o.id ? { ...x, active: o.active } : x)))
+      return say((r as { error: string }).error, "error")
+    }
+    say(active ? tt("{title} is on", { title: o.title }) : tt("{title} is off", { title: o.title }))
+  }
+
+  const move = async (o: Offer, by: -1 | 1) => {
+    const at = list.findIndex((x) => x.id === o.id)
+    const to = at + by
+    if (at < 0 || to < 0 || to >= list.length) return
+    const next = [...list]
+    next.splice(at, 1)
+    next.splice(to, 0, o)
+    const before = list
+    setList(next)
+    const r = await send("PATCH", { order: next.map((x) => x.id) })
+    if (r.ok === false) {
+      setList(before)
+      say((r as { error: string }).error, "error")
     }
   }
 
-  const edit = (o: Offer) =>
-    setDraft({ id: o.id, kind: o.kind, title: o.title, productIds: o.productIds, triggerIds: o.triggerIds, anyOrder: o.triggerIds.length === 0, discountType: o.discountType, amount: o.discountType === "fixed" ? (o.discountValue / 100).toFixed(2) : o.discountType === "percent" ? String(o.discountValue) : "", active: o.active })
+  const remove = (o: Offer) => {
+    const go = async () => {
+      const yes = await ask({ title: tt("Delete {title}?", { title: o.title }), body: tt("It stops showing and applying at once. Orders already placed keep their discount. To stop it for now instead, turn it off."), confirm: tt("Delete"), cancel: tt("Keep it") })
+      if (!yes) return editing ? setOpen(true) : undefined
+      setEditing(null)
+      const r = await send("DELETE", { id: o.id, title: o.title })
+      if (r.ok === false) return say((r as { error: string }).error, "error")
+      setList((l) => l.filter((x) => x.id !== o.id))
+      say(tt("{title} deleted", { title: o.title }))
+    }
+    if (open) close(go)
+    else void go()
+  }
+
+  const actionsFor = (o: Offer, i: number) => [
+    { label: tt("Edit"), onClick: () => start(o) },
+    { label: o.active ? tt("Turn off") : tt("Turn on"), onClick: () => void setActive(o, !o.active) },
+    /* The order they apply in: the first one only moves down, the last only up. */
+    ...[
+      ...(i > 0 ? [{ label: tt("Move up"), onClick: () => void move(o, -1) }] : []),
+      ...(i >= 0 && i < list.length - 1 ? [{ label: tt("Move down"), onClick: () => void move(o, 1) }] : []),
+    ].map((item, k) => (k === 0 ? { ...item, separatorBefore: true } : item)),
+    { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => remove(o) },
+  ]
+  const missingIn = (o: Offer) => o.productIds.some((id) => !byId.has(id))
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-offers="">
-      <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
-        <h1 className="min-w-0 text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[28px] sm:leading-9">{tt("Upsells and bundles")}</h1>
-        <button type="button" className={cn(BTN_PRIMARY, "shrink-0 gap-1.5 whitespace-nowrap")} onClick={() => setDraft(blank("bundle"))} data-offer-new="" disabled={!ready} aria-label={tt("Create offer")}>
-          <Plus className="h-4 w-4" aria-hidden />
-          <span className="sm:hidden">{tt("Create")}</span>
-          <span className="hidden sm:inline">{tt("Create offer")}</span>
-        </button>
+      <Pill notice={notice} />
+      <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
+        <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Upsells and bundles")}</h1>
+        {list.length > 0 && ready ? (
+          <button type="button" data-offer-new="" className={NEW_LOOK} onClick={() => start(null)}>
+            <Plus aria-hidden className="h-4 w-4" />
+            {tt("New offer")}
+          </button>
+        ) : null}
       </PaneBar>
-      <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <p className="mb-3 text-[13.5px] leading-5 text-[#6b7280]">{tt("Sell more to people already buying. A bundle shows on each of its products' pages; a checkout offer shows in the checkout. Discounts come off at checkout, before any code.")}</p>
-        {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {!ready ? <Notice tone="amber" className="mb-3">{tt("Upsells and bundles need SQL part 116 (supabase/sql/run-now/116_store_offers.sql). Run it in Supabase and come back.")}</Notice> : null}
-        {offers === null ? (
-          <div className="min-h-[240px]" aria-busy="true" />
-        ) : offers.length === 0 ? (
-          <section className={cn(card, "p-2")}>
-            <Empty
-              title={tt("No offers yet")}
-              action={
-                ready ? (
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button type="button" className={BTN_PRIMARY} onClick={() => setDraft(blank("bundle"))}>
-                      {tt("Create a bundle")}
-                    </button>
-                    <button type="button" className={BTN_SECONDARY} onClick={() => setDraft(blank("checkout"))}>
-                      {tt("Create a checkout offer")}
-                    </button>
-                  </div>
-                ) : null
-              }
-            >
-              {tt("Pair products people buy together at a better price, or suggest one more thing right before they pay.")}
-            </Empty>
-          </section>
-        ) : (
-          <ul className="space-y-2.5" data-offer-list="">
-            {offers.map((o) => {
-              const items = o.productIds.map((id) => byId.get(id)).filter(Boolean) as Product[]
-              const missing = items.length !== o.productIds.length
-              return (
-                <li key={o.id} className={cn(card, "flex items-center gap-3 px-4 py-3.5")} data-offer={o.id}>
-                  <button type="button" onClick={() => edit(o)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                    <span className="flex shrink-0 -space-x-2">
-                      {items.slice(0, 3).map((p) => (
-                        <Thumb key={p.id} p={p} className="h-10 w-10 ring-2 ring-white" />
-                      ))}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-medium text-[#1a1a2e]">{o.title}</span>
-                      <span className="block truncate text-[12.5px] text-[#6b7280]">
-                        {o.kind === "bundle" ? tt("{length} products together", { length: o.productIds.length }) : tt("Offers {value}", { value: items[0]?.title ?? tt("a product") })} · {discountLabel(o)}
-                      </span>
-                      {missing ? <span className="block text-[12px] text-[#b45309]">{tt("A product in it was deleted. Edit it to fix.")}</span> : null}
-                    </span>
-                  </button>
-                  <Pill tone={o.kind === "bundle" ? "blue" : "gray"} className="hidden shrink-0 sm:inline-flex">
-                    {o.kind === "bundle" ? tt("Bundle") : tt("Checkout")}
-                  </Pill>
-                  <Switch checked={o.active} onCheckedChange={(v) => void toggle(o, v)} aria-label={o.active ? tt("Switch off {title}", { title: o.title }) : tt("Switch on {title}", { title: o.title })} />
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-      {draft ? (
-        <Editor
-          draft={draft}
-          products={products}
-          onClose={() => setDraft(null)}
-          onSaved={(o, isNew) => {
-            setOffers((list) => (isNew ? [...(list ?? []), o] : (list ?? []).map((x) => (x.id === o.id ? o : x))))
-            setDraft(null)
-          }}
-          onDeleted={(id) => {
-            setOffers((list) => (list ?? []).filter((x) => x.id !== id))
-            setDraft(null)
-          }}
-        />
-      ) : null}
-    </div>
-  )
-}
 
-function Thumb({ p, className }: { p: Pick<Product, "imageUrl" | "type">; className?: string }) {
-  return p.imageUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={p.imageUrl} alt="" className={cn("rounded-lg border border-[#eceef1] bg-[#f8f9fa] object-cover", className)} />
-  ) : (
-    <span className={cn("grid place-items-center rounded-lg border border-[#eceef1] bg-[#f3f4f6] text-[#9ca3af]", className)}>
-      <Package className="h-4 w-4" aria-hidden />
-    </span>
-  )
-}
-
-function Editor({ draft: start, products, onClose, onSaved, onDeleted }: { draft: Draft; products: Product[]; onClose: () => void; onSaved: (o: Offer, isNew: boolean) => void; onDeleted: (id: string) => void }) {
-  const [d, setD] = React.useState<Draft>(start)
-  const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
-  const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }))
-  const byId = new Map(products.map((p) => [p.id, p]))
-  const chosen = d.productIds.map((id) => byId.get(id)).filter(Boolean) as Product[]
-
-  const value = d.discountType === "fixed" ? Math.round(Number(d.amount.replace(",", ".")) * 100) : d.discountType === "percent" ? Math.round(Number(d.amount)) : 0
-  const preview = (() => {
-    if (d.kind === "bundle") {
-      if (chosen.length < 2) return null
-      const { fullCents, priceCents } = bundlePrice({ discountType: d.discountType, discountValue: value || 0 }, chosen.map((p) => p.priceCents))
-      return priceCents < fullCents ? tt("Together {amount}, instead of {amount2}.", { amount: money(priceCents), amount2: money(fullCents) }) : tt("Together {amount}.", { amount: money(fullCents) })
-    }
-    const p = chosen[0]
-    if (!p) return null
-    const at = offerUnitPrice({ discountType: d.discountType, discountValue: value || 0 }, p.priceCents)
-    return at < p.priceCents ? tt("Buyers add it for {amount}, instead of {amount2}.", { amount: money(at), amount2: money(p.priceCents) }) : tt("Buyers add it for {amount}.", { amount: money(p.priceCents) })
-  })()
-
-  const save = async () => {
-    setBusy(true)
-    setError(null)
-    const body = { id: d.id, kind: d.kind, title: d.title, productIds: d.productIds, triggerIds: d.kind === "checkout" && !d.anyOrder ? d.triggerIds : [], discountType: d.discountType, discountValue: value, active: d.active }
-    const r = await api<{ offer: Offer }>("/api/store/offers", { method: d.id ? "PUT" : "POST", body })
-    setBusy(false)
-    if ("error" in r) return setError(r.error)
-    toast.success(d.id ? tt("Saved") : tt("Offer created"))
-    onSaved(r.data.offer, !d.id)
-  }
-
-  const remove = async () => {
-    if (!d.id) return
-    setBusy(true)
-    const r = await api("/api/store/offers", { method: "DELETE", body: { id: d.id, title: d.title } })
-    setBusy(false)
-    if ("error" in r) return setError(r.error)
-    toast.success(tt("Offer removed"))
-    onDeleted(d.id)
-  }
-
-  const pickProduct = (id: string) => {
-    if (d.kind === "checkout") return set({ productIds: [id], triggerIds: d.triggerIds.filter((t) => t !== id) })
-    if (d.productIds.includes(id)) return set({ productIds: d.productIds.filter((x) => x !== id) })
-    if (d.productIds.length >= MAX_BUNDLE) return toast.error(tt("A bundle has up to {maxBundle} products.", { maxBundle: MAX_BUNDLE }))
-    set({ productIds: [...d.productIds, id] })
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={d.id ? tt("Edit offer") : tt("Create offer")}
-      wide
-      footer={
-        <>
-          {d.id ? (
-            <button type="button" className={cn(BTN_DANGER, "mr-auto gap-1.5")} onClick={() => void remove()} disabled={busy}>
-              <Trash2 className="h-4 w-4" aria-hidden />
-              {tt("Remove")}
-            </button>
-          ) : null}
-          <button type="button" className={BTN_SECONDARY} onClick={onClose}>
-            {tt("Cancel")}
-          </button>
-          <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy} data-offer-save="">
-            {busy ? tt("Saving") : tt("Save")}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5" data-offer-editor="">
-        {error ? <Notice>{error}</Notice> : null}
-        {!d.id ? (
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={tt("Kind of offer")}>
-            {(
-              [
-                ["bundle", Package, tt("Bundle"), tt("Products bought together, for less")],
-                ["checkout", ShoppingCart, tt("Checkout offer"), tt("One more thing, suggested before they pay")],
-              ] as const
-            ).map(([k, Icon, name, line]) => (
-              <button
-                key={k}
-                type="button"
-                role="radio"
-                aria-checked={d.kind === k}
-                onClick={() => setD({ ...blank(k), discountType: d.discountType, amount: d.amount })}
-                className={cn("flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors", d.kind === k ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#fafafa]")}
-                data-offer-kind={k}
-              >
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#4b5563]" aria-hidden />
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{name}</span>
-                  <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{line}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        <Field label={tt("Name buyers see")} htmlFor="offer-title">
-          <TextInput id="offer-title" value={d.title} maxLength={80} onChange={(e) => set({ title: e.target.value })} />
-        </Field>
-
-        <Field label={d.kind === "bundle" ? tt("Products in the bundle (2 to {maxBundle})", { maxBundle: MAX_BUNDLE }) : tt("Product to offer")} hint={d.kind === "bundle" ? tt("{length} chosen", { length: d.productIds.length }) : undefined}>
-          <ProductPicker products={products} chosen={d.productIds} onPick={pickProduct} single={d.kind === "checkout"} name="offer-products" />
-        </Field>
-
-        {d.kind === "checkout" ? (
-          <Field label={tt("Show it when")}>
-            <div className="space-y-2">
-              <div className="inline-flex rounded-lg border border-[#e5e7eb] p-0.5" role="radiogroup" aria-label={tt("Show it when")}>
-                {[
-                  [true, tt("Any order")],
-                  [false, tt("The cart has certain products")],
-                ].map(([v, label]) => (
-                  <button key={String(v)} type="button" role="radio" aria-checked={d.anyOrder === v} onClick={() => set({ anyOrder: v as boolean })} className={cn("h-9 rounded-md px-3 text-[13px] font-medium", d.anyOrder === v ? "bg-[#1a1a2e] text-white" : "text-[#4b5563]")}>
-                    {label as string}
-                  </button>
-                ))}
-              </div>
-              {!d.anyOrder ? <ProductPicker products={products.filter((p) => !d.productIds.includes(p.id))} chosen={d.triggerIds} onPick={(id) => set({ triggerIds: d.triggerIds.includes(id) ? d.triggerIds.filter((x) => x !== id) : [...d.triggerIds, id].slice(0, 20) })} name="offer-triggers" /> : null}
-            </div>
-          </Field>
-        ) : null}
-
-        <Field label={tt("Discount")} hint={d.kind === "bundle" ? (d.discountType === "fixed" ? tt("Off each complete set.") : tt("Off every product in each complete set.")) : tt("Off one of it.")}>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-[#e5e7eb] p-0.5" role="radiogroup" aria-label={tt("Discount type")}>
-              {(
-                [
-                  ["percent", tt("Percent")],
-                  ["fixed", tt("Amount")],
-                  ["none", tt("None")],
-                ] as const
-              ).map(([t, label]) => (
-                <button key={t} type="button" role="radio" aria-checked={d.discountType === t} onClick={() => set({ discountType: t, amount: t === "percent" ? "10" : t === "fixed" ? "5.00" : "" })} className={cn("h-9 rounded-md px-3 text-[13px] font-medium", d.discountType === t ? "bg-[#1a1a2e] text-white" : "text-[#4b5563]")} data-discount-type={t}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {d.discountType !== "none" ? (
-              <label className="relative w-[120px]">
-                <span className="sr-only">{d.discountType === "percent" ? tt("Percent off") : tt("Amount off")}</span>
-                {d.discountType === "fixed" ? <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">$</span> : null}
-                <TextInput id="offer-amount" inputMode="decimal" value={d.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^0-9.,]/g, "") })} className={d.discountType === "fixed" ? "pl-7" : "pr-8"} />
-                {d.discountType === "percent" ? <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">%</span> : null}
-              </label>
-            ) : null}
-          </div>
-          {d.discountType === "percent" && (value < 1 || value > MAX_PERCENT) ? <p className="mt-1.5 text-[12.5px] text-[#b42318]">{tt("1 to")} {MAX_PERCENT} {tt("percent.")}</p> : null}
-        </Field>
-
-        {preview ? (
-          <p className="rounded-xl bg-[#f3f4f6] px-3.5 py-2.5 text-[13.5px] text-[#1a1a2e]" data-offer-preview="">
-            {preview}
+      <div className={cn("mx-auto pb-24 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
+        {!ready ? (
+          <p data-sql-needed="" className="mb-3 mt-1 rounded-xl bg-[#fff8e6] px-4 py-3 text-[14px] leading-5 text-[#5c4300] md:text-[13px]">
+            {tt("Upsells and bundles need SQL part 116 (supabase/sql/run-now/116_store_offers.sql). Run it in Supabase and come back.")}
           </p>
         ) : null}
 
-        <label className="flex items-center justify-between gap-3">
-          <span className="text-[14px] font-medium text-[#1a1a2e]">{tt("On")}</span>
-          <Switch checked={d.active} onCheckedChange={(v) => set({ active: v })} aria-label={tt("Offer on")} />
-        </label>
-      </div>
-    </Modal>
-  )
-}
+        <section aria-label={tt("Upsells and bundles")} data-offers-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
+          {list.length === 0 ? (
+            <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
+              <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{tt("No offers yet")}</p>
+              <p className="mt-1 max-w-[360px] text-[14px] leading-5 text-[#6b7280] md:text-[13px] lg:text-[14.5px]">{tt("Sell two or more products together for less, or suggest one more thing before someone pays.")}</p>
+              {ready ? (
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <button type="button" data-offer-create="bundle" onClick={() => start(null, "bundle")} className={cn(NEW_LOOK, "max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
+                    {tt("Create bundle")}
+                  </button>
+                  <button type="button" data-offer-create="checkout" onClick={() => start(null, "checkout")} className={cn(secondaryDepth, PRESS, "h-8 rounded-lg px-3 text-[13px] max-md:h-10 max-md:px-4 max-md:text-[14px]", BAR_BUTTON_SIZE)}>
+                    {tt("Create upsell")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-2 border-b border-[#eef0f2] px-2 py-2 md:h-12 md:flex-row md:items-center md:py-0">
+                <div role="tablist" aria-label={tt("Views")} className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
+                  {VIEWS.map((option) => {
+                    const selected = view === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={selected}
+                        data-view={option.value}
+                        onClick={() => setView(option.value)}
+                        className={cn("inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[14px] font-medium transition-colors duration-100 md:h-8 md:rounded-lg md:text-[13px]", selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]")}
+                      >
+                        {option.label()}
+                        <span className="tabular-nums text-[#9ca3af]">{counts[option.value]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <label className="relative block md:w-[240px]">
+                  <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search offers")} aria-label={tt("Search offers")} data-offer-search="" className="h-10 w-full rounded-[10px] border border-[#e3e5e8] bg-white pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] md:h-8 md:rounded-lg md:text-[13px] [&::-webkit-search-cancel-button]:hidden" />
+                </label>
+              </div>
 
-function ProductPicker({ products, chosen, onPick, single = false, name }: { products: Product[]; chosen: string[]; onPick: (id: string) => void; single?: boolean; name: string }) {
-  const [q, setQ] = React.useState("")
-  const words = q.toLowerCase().trim()
-  const shown = products.filter((p) => !words || p.title.toLowerCase().includes(words)).slice(0, 100)
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#e5e7eb]" data-product-picker={name}>
-      <label className="relative block border-b border-[#f1f2f4]">
-        <span className="sr-only">{tt("Search products")}</span>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
-        <input type="search" data-no-autofocus="" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tt("Search products")} className="h-10 w-full bg-white pl-9 pr-3 text-[16px] outline-none sm:text-[14px]" />
-      </label>
-      <ul className="max-h-[240px] divide-y divide-[#f5f5f6] overflow-y-auto" role={single ? "radiogroup" : "group"} aria-label={tt("Products")}>
-        {shown.length === 0 ? <li className="px-3.5 py-4 text-[13px] text-[#6b7280]">{tt("No products match.")}</li> : null}
-        {shown.map((p) => {
-          const on = chosen.includes(p.id)
-          return (
-            <li key={p.id}>
-              <button type="button" role={single ? "radio" : "checkbox"} aria-checked={on} onClick={() => onPick(p.id)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[#fafafa]" data-pick={p.id}>
-                <span aria-hidden className={cn("grid h-5 w-5 shrink-0 place-items-center border", single ? "rounded-full" : "rounded-md", on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db] bg-white")}>
-                  {on ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
-                </span>
-                <Thumb p={p} className="h-9 w-9" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
-                  <span className="block text-[12px] text-[#6b7280]">
-                    {money(p.priceCents)}
-                    {!p.published ? tt(" · Not published") : ""}
-                  </span>
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+              {shown.length === 0 ? (
+                <p className="px-6 py-12 text-center text-[14px] text-[#6b7280] md:text-[13px]">{words ? tt("No offer matches that.") : tt("Nothing here right now.")}</p>
+              ) : (
+                <>
+                  {/* A PHONE: one row per offer, the whole row the press, its menu at the end. */}
+                  <ul aria-label={tt("Upsells and bundles")} data-list="" className="md:hidden">
+                    {shown.map(({ offer: o, state }) => {
+                      const dates = datesText(o, state)
+                      const i = list.indexOf(o)
+                      return (
+                        <li key={o.id} data-row={o.id} className="relative flex min-h-[72px] items-center gap-3 py-2.5 pl-3 pr-1.5 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[64px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]">
+                          <button type="button" data-row-open="" aria-label={o.title} onClick={() => start(o)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                          <OfferThumbs offer={o} byId={byId} />
+                          <span className="pointer-events-none min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate text-[14px] font-medium leading-[18px] text-[#1a1a2e]">{o.title}</span>
+                              {state !== "active" ? <StatusBadge tone={STATE_TONE[state]}>{STATE_WORD[state]()}</StatusBadge> : null}
+                            </span>
+                            <span className="mt-1 block truncate text-[12.5px] leading-4 text-[#6b7280]">
+                              {KIND_WORD[o.kind]()} · <span className="text-[#1a1a2e]">{discountText(o, currency)}</span> · {contentsText(o, byId)}
+                              {dates ? ` · ${dates}` : ""}
+                            </span>
+                            {missingIn(o) ? <span className="mt-0.5 block text-[12px] text-[#92400e]">{tt("A product in it was deleted. Edit it to fix.")}</span> : null}
+                          </span>
+                          <ResponsiveActionMenu title={o.title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title: o.title })} className="relative z-[1] h-11 w-11 rounded-xl" />} items={actionsFor(o, i)} />
+                        </li>
+                      )
+                    })}
+                  </ul>
+
+                  {/* A COMPUTER: the table. The whole row opens it. */}
+                  <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table lg:text-[14px]">
+                    <thead>
+                      <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13px]">
+                        <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px]">{tt("Offer")}</th>
+                        <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">{tt("Type")}</th>
+                        <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 font-medium">{tt("Discount")}</th>
+                        <th scope="col" className="hidden w-[24%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell">{tt("Shown on")}</th>
+                        <th scope="col" className="w-[132px] border-b border-[#eef0f2] px-3 font-medium">{tt("Status")}</th>
+                        <th scope="col" className="w-[56px] border-b border-[#eef0f2] pr-3" aria-label={tt("Actions")} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map(({ offer: o, state }) => {
+                        const dates = datesText(o, state)
+                        const i = list.indexOf(o)
+                        return (
+                          <tr
+                            key={o.id}
+                            data-row={o.id}
+                            onClick={(e) => {
+                              const target = e.target as HTMLElement
+                              if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
+                              start(o)
+                            }}
+                            className="group h-14 cursor-pointer lg:h-[62px] [tr+&>td]:border-t [tr+&>td]:border-[#f1f2f4]"
+                          >
+                            <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[18px]">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <OfferThumbs offer={o} byId={byId} />
+                                <span className="min-w-0">
+                                  <button type="button" onClick={() => start(o)} className="block max-w-full cursor-pointer truncate text-left font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
+                                    {o.title}
+                                  </button>
+                                  <span className="block truncate text-[12px] text-[#6b7280] lg:text-[12.5px]">{missingIn(o) ? <span className="text-[#92400e]">{tt("A product in it was deleted. Edit it to fix.")}</span> : contentsText(o, byId)}</span>
+                                </span>
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb]">{KIND_WORD[o.kind]()}</td>
+                            <td className="truncate whitespace-nowrap bg-white px-3 text-[#1a1a2e] group-hover:bg-[#fafafb]">{discountText(o, currency)}</td>
+                            <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell">{placesText(o)}</td>
+                            <td className="bg-white px-3 group-hover:bg-[#fafafb]">
+                              <span className="flex flex-col items-start gap-0.5">
+                                <StatusBadge tone={STATE_TONE[state]}>{STATE_WORD[state]()}</StatusBadge>
+                                {dates ? <span className="truncate text-[11.5px] text-[#6b7280]">{dates}</span> : null}
+                              </span>
+                            </td>
+                            <td className="bg-white pr-3 text-right group-hover:bg-[#fafafb]">
+                              <ResponsiveActionMenu title={o.title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title: o.title })} />} items={actionsFor(o, i)} />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </>
+              )}
+              <div data-footer="" className="hidden h-10 items-center border-t border-[#eef0f2] px-4 md:flex lg:h-[44px] lg:px-[18px]">
+                <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13px]">{tt("{n, plural, one {# offer} other {# offers}}", { n: list.length })}</span>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      {editing ? (
+        <OfferEditor
+          key={editing.key}
+          open={open}
+          offer={editing.offer}
+          kind={editing.kind}
+          products={products}
+          collections={collections}
+          currency={currency}
+          physical={physical}
+          settingsReady={settingsReady}
+          onRequestClose={requestClose}
+          onSave={save}
+          onDelete={remove}
+          onClosed={closed}
+          leaveMs={DIALOG_LEAVE_MS}
+        />
+      ) : null}
+      {confirmSheet}
     </div>
   )
 }

@@ -32,7 +32,9 @@ import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { safeThemePath, saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { AgentIdentity } from "./tokens"
-import { AGENT_WRITABLE, agentMayWrite } from "./protected"
+import { AGENT_WRITABLE, agentMayWrite, isThemeConfigFile } from "./protected"
+import { THEME_DATA_FILE, THEME_SCHEMA_FILE, builtInSettingsSchemaText } from "@/lib/storelib-theme/theme-config"
+import { settingsDataFor } from "@/lib/website-builder/theme-config-store"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -72,7 +74,12 @@ export async function listFiles(db: Db, installId: string): Promise<OpResult<{
 
   const files = new Map<string, FileEntry>()
   for (const path of Object.keys(DEFAULT_THEME_SOURCES)) files.set(path, { path, origin: "theme", writable: false, unpublished: false })
+  /* Theme settings as files, Shopify's two: what they are (Storelib's until the theme has its own) and their values. */
+  files.set(THEME_SCHEMA_FILE, { path: THEME_SCHEMA_FILE, origin: "theme", writable: true, unpublished: false })
+  files.set(THEME_DATA_FILE, { path: THEME_DATA_FILE, origin: "yours", writable: true, unpublished: false })
   for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
+    /* The values are the install's settings, never a stored copy of the file. */
+    if (row.path === THEME_DATA_FILE) continue
     const source = editorContent(row)
     if (typeof source !== "string" || source.trim() === "") continue
     files.set(row.path, {
@@ -87,7 +94,7 @@ export async function listFiles(db: Db, installId: string): Promise<OpResult<{
     value: {
       framework: { engine: ENGINE_VERSION, schema: SECTION_SCHEMA_VERSION },
       docs: DOCS_URL,
-      writable: "sections/<type>.storelib, except the built-in sections (writable: false); write a new section instead",
+      writable: "sections/<type>.storelib and blocks/<type>.storelib, except the built-in ones (writable: false), write a new one instead; and the theme settings: config/settings_schema.json (what they are) and config/settings_data.json (their values)",
       files: [...files.values()].sort((a, b) => a.path.localeCompare(b.path)),
     },
   }
@@ -100,6 +107,12 @@ export async function readFile(db: Db, installId: string, path: string): Promise
   updated_at: string | null
 }>> {
   if (!safeThemePath(path)) return { ok: false, status: 400, error: "Invalid path" }
+  /* The values, as they are now: the same ones the sidebar shows. */
+  if (path === THEME_DATA_FILE) {
+    const data = await settingsDataFor(db, installId)
+    if (!data) return { ok: false, status: 500, error: "Could not read the theme settings" }
+    return { ok: true, value: { path, source: data.text, origin: "yours", updated_at: null } }
+  }
   const { data, error } = await db
     .from("store_theme_custom_files")
     .select("path, content, draft_content, updated_at")
@@ -113,7 +126,7 @@ export async function readFile(db: Db, installId: string, path: string): Promise
       return { ok: true, value: { path, source, origin: "yours", updated_at: data.updated_at ?? null } }
     }
   }
-  const shipped = (DEFAULT_THEME_SOURCES as Record<string, string>)[path]
+  const shipped = path === THEME_SCHEMA_FILE ? builtInSettingsSchemaText() : (DEFAULT_THEME_SOURCES as Record<string, string>)[path]
   if (typeof shipped === "string") return { ok: true, value: { path, source: shipped, origin: "theme", updated_at: null } }
   return { ok: false, status: 404, error: `There is no ${path} in this theme` }
 }
@@ -181,24 +194,31 @@ export async function writeSection(
   /* Every agent write, over MCP or HTTP, meets the same gate: it compiles,
      passes the quality checks, and plugs into the theme like a native section
      (lib/storelib-ai/integration.ts). A file that fails is not saved. */
-  const checked = validateSection(source, { path, expectType: path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, ""), strict: true })
-  if (checked.ok === false && checked.reason === "quality") return { ok: false, status: 422, error: `${path} was not saved.\n${checked.feedback}` }
+  /* A theme settings file is checked by its own reader, in the save (lib/storelib-theme/theme-config.ts). */
+  const config = isThemeConfigFile(path)
+  const checked = config ? null : validateSection(source, { path, expectType: path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, ""), strict: true })
+  if (checked && checked.ok === false && checked.reason === "quality") return { ok: false, status: 422, error: `${path} was not saved.\n${checked.feedback}` }
   const saved = await saveThemeFile(db, who.installId, path, source, { baseUpdatedAt })
   if (saved.ok === false) return { ok: false, status: saved.status, error: publicError(saved.status, saved.error), errors: saved.errors }
 
   /* The log is how an open builder hears about it. Never allowed to fail the
      write it records: the file is saved either way. */
   try {
+    /* New values are the settings rewritten: an open builder reads them again, as it does after a push. */
+    const values = path === THEME_DATA_FILE
     const row = {
       install_id: who.installId,
       token_id: who.tokenId,
       agent_name: who.name,
-      path,
-      action: saved.created ? "created" : "updated",
+      path: values ? "settings" : path,
+      action: values ? "page" : saved.created ? "created" : "updated",
+      ...(values ? { detail: { replaced: true } } : {}),
     }
     /* `detail` arrived with RUN_AGENT_MCP.sql; without it the row is written as it always was. */
     const first = log.placed ? await db.from("theme_agent_activity").insert({ ...row, detail: { placed: true } }) : await db.from("theme_agent_activity").insert(row)
     if (first?.error && log.placed) await db.from("theme_agent_activity").insert(row)
+    /* Without `detail`, the values change is still a line the builder reads (as a file it then loads again). */
+    else if (first?.error && values) await db.from("theme_agent_activity").insert({ install_id: row.install_id, token_id: row.token_id, agent_name: row.agent_name, path, action: "updated" })
   } catch {
     /* the table may not exist yet; the save stands */
   }

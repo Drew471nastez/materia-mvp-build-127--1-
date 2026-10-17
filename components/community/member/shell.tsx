@@ -25,6 +25,7 @@ import { viewerView } from "@/lib/communities/server/context"
 import { topBarData } from "@/lib/communities/server/public"
 import { admin } from "@/lib/communities/server/db"
 import { wallData } from "@/lib/communities/server/wall"
+import { memberLinksForViewer } from "@/lib/communities/server/member-shortcuts"
 import type { CommunityRow } from "@/lib/communities/types"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { shellData, toShellCommunity } from "./data"
@@ -33,10 +34,11 @@ import { ShellFrame } from "./shell-frame"
 import type { ShellSection } from "./view-types"
 
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
-  const [data, topBar, wall] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer)])
+  /* The member links (round 26): read here, for a member or staff only, and never by the visitor's shell below. */
+  const [data, topBar, wall, memberLinks] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer), memberLinksForViewer(community, viewer)])
   return (
     <>
-      <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active} chatSpaces={data.spaces.filter((s) => s.kind === "chat").map((s) => s.slug)}>
+      <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active} chatSpaces={data.spaces.filter((s) => s.kind === "chat").map((s) => s.slug)} memberLinks={memberLinks}>
         {children}
       </ShellFrame>
       <MediaLinks communityId={community.id} />

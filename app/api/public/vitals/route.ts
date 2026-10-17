@@ -2,63 +2,85 @@
  * ===========================================================================
  *  WHERE A PUBLISHED SITE'S SPEED MEASUREMENTS LAND
  * ===========================================================================
- * One beacon per page load from components/website-builder/site-vitals.tsx:
- * a site id and up to three numbers. Public by necessity (visitors have no
- * session), under /api/public/ because that is the prefix the proxy keeps
- * for exactly this kind of endpoint.
+ * One beacon per page view from lib/perf/site-vitals-inline.ts, posted to
+ * the page's own host at SITE_BEACON_PATH (/api/public/sv, which re-exports
+ * this). Public by necessity (visitors have no session), under /api/public/
+ * because that is the prefix the proxy keeps for exactly this kind of
+ * endpoint. Website settings › Performance reads what it stores.
  *
- * WHAT IS KEPT, and it is all that is kept: the site, the three numbers,
- * phone or computer, and the day. No address, no cookie, no user agent, no
- * time of day. Nothing is set on the response.
+ * WHICH SITE: the host the request arrived on, never the body
+ * (lib/website-builder/rum-site.ts). A beacon from a host that is not a
+ * published website is nothing.
+ *
+ * WHAT IS KEPT, and it is all that is kept: the path with ids taken out,
+ * the kind of page, phone or computer (from the browser's signature and the
+ * viewport width), the browser's family, the country the edge reported
+ * (x-vercel-ip-country), the connection type and the numbers, checked one
+ * by one (lib/website-builder/web-performance.ts cleanRumBeacon). No
+ * address, no cookie, no user agent, no identifier. Nothing is set on the
+ * response.
  *
  * WHAT IS REFUSED, quietly (a 204 whatever happened, so a script learns
- * nothing by trying):
- *   a body that is not a site id and a believable number (web-vitals.ts),
- *   a site that is not published, a bot, one address sending too many,
- *   and anything past the day's sample for that site (the database keeps at
- *   most SAMPLE_CAP page loads per site, per device, per day, which is plenty
- *   for a 75th percentile and keeps the table the same size however busy
- *   the site is).
+ * nothing by trying): a body that is not a believable beacon, a host that
+ * is not a published site, a bot, one address sending too many, one site
+ * sending more than a server instance takes a minute. Past the day's full
+ * sample the database keeps one page view in ten, then one in a hundred,
+ * each with its weight (record_site_rum, part 210).
  *
- * BEFORE THE SQL IS RUN (supabase/sql/RUN_SITE_VITALS.sql) the insert fails,
- * the route remembers that for ten minutes and stops asking, and the website
- * page says it is collecting data.
+ * BEFORE THE SQL IS RUN (supabase/sql/run-now/210_site_web_performance.sql)
+ * the write fails, the route remembers that for ten minutes and stops
+ * asking, and the Performance tab says it is not set up yet.
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isBotAgent, parseUserAgent } from "@/lib/analytics/user-agent"
-import { cleanBeacon, deviceClassOf } from "@/lib/website-builder/web-vitals"
+import { rumSiteOfHost } from "@/lib/website-builder/rum-site"
+import {
+  FAR_SAMPLE_RATE,
+  FULL_SAMPLE_UNTIL,
+  MAX_BEACON_BYTES,
+  MID_SAMPLE_RATE,
+  MID_SAMPLE_UNTIL,
+  browserFamilyOf,
+  cleanRumBeacon,
+  countryOf,
+  deviceClassFor,
+} from "@/lib/website-builder/web-performance"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-/** Page loads kept per site, per device, per day. */
-const SAMPLE_CAP = 1000
-const MAX_BODY = 2048
+const MAX_BODY = MAX_BEACON_BYTES
 
 /** Beacons per address per minute, per server instance. Counted in memory:
-    a per-page-view database write to count page views would double the cost
-    of the thing being limited. */
+    a database write to count page views would double the cost of the thing
+    being limited. The address is a key in this map for a minute and is never
+    written anywhere. */
 const PER_MINUTE = 30
-const hits = new Map<string, { n: number; until: number }>()
+/** Beacons per site per minute, per server instance: a flood aimed at one site stops here. */
+const SITE_PER_MINUTE = 600
 
-function allowed(address: string | null, now: number): boolean {
-  if (!address) return true
-  if (hits.size > 5000) {
-    for (const [k, v] of hits) if (v.until < now) hits.delete(k)
-    if (hits.size > 5000) hits.clear()
+function underLimit(store: Map<string, { n: number; until: number }>, key: string | null, limit: number, now: number): boolean {
+  if (!key) return true
+  if (store.size > 5000) {
+    for (const [k, v] of store) if (v.until < now) store.delete(k)
+    if (store.size > 5000) store.clear()
   }
-  const seen = hits.get(address)
+  const seen = store.get(key)
   if (!seen || seen.until < now) {
-    hits.set(address, { n: 1, until: now + 60_000 })
+    store.set(key, { n: 1, until: now + 60_000 })
     return true
   }
   seen.n += 1
-  return seen.n <= PER_MINUTE
+  return seen.n <= limit
+}
+const hits = new Map<string, { n: number; until: number }>()
+const siteHits = new Map<string, { n: number; until: number }>()
+
+function allowed(address: string | null, now: number): boolean {
+  return underLimit(hits, address, PER_MINUTE, now)
 }
 
-/** Which sites are published, remembered for five minutes per instance. */
-const sites = new Map<string, { creatorId: string | null; until: number }>()
 let missingUntil = 0
 
 const quiet = () => new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } })
@@ -66,7 +88,8 @@ const quiet = () => new NextResponse(null, { status: 204, headers: { "Cache-Cont
 export async function POST(req: NextRequest) {
   const now = Date.now()
   if (now < missingUntil) return quiet()
-  if (isBotAgent(req.headers.get("user-agent"))) return quiet()
+  const agent = req.headers.get("user-agent")
+  if (isBotAgent(agent)) return quiet()
 
   const address = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip")
   if (!allowed(address ?? null, now)) return quiet()
@@ -79,37 +102,39 @@ export async function POST(req: NextRequest) {
   } catch {
     return quiet()
   }
-  const beacon = cleanBeacon(raw)
+  const beacon = cleanRumBeacon(raw)
   if (!beacon) return quiet()
 
   const admin = createAdminClient()
+  const site = await rumSiteOfHost(admin, req.headers.get("host"), now)
+  if (!site) return quiet()
+  if (!underLimit(siteHits, site.installId, SITE_PER_MINUTE, now)) return quiet()
 
-  let site = sites.get(beacon.installId)
-  if (!site || site.until < now) {
-    const { data } = await admin
-      .from("store_theme_installs")
-      .select("creator_id, status")
-      .eq("id", beacon.installId)
-      .maybeSingle()
-    const row = data as { creator_id?: string; status?: string } | null
-    site = { creatorId: row?.status === "published" ? row.creator_id ?? null : null, until: now + 5 * 60_000 }
-    if (sites.size > 5000) sites.clear()
-    sites.set(beacon.installId, site)
-  }
-  if (!site.creatorId) return quiet()
-
-  const { error } = await admin.rpc("record_site_vital", {
-    p_install: beacon.installId,
+  const parsed = parseUserAgent(agent)
+  const { error } = await admin.rpc("record_site_rum", {
+    p_install: site.installId,
     p_creator: site.creatorId,
-    p_device: deviceClassOf(parseUserAgent(req.headers.get("user-agent")).device),
+    p_path: beacon.path,
+    p_type: beacon.pageType,
+    p_device: deviceClassFor(parsed.device, beacon.width),
+    p_browser: browserFamilyOf(parsed.browser),
+    p_country: countryOf(req.headers.get("x-vercel-ip-country")),
+    p_conn: beacon.connection,
+    p_kind: beacon.kind,
     p_lcp: beacon.lcp,
     p_inp: beacon.inp,
     p_cls: beacon.cls,
-    p_cap: SAMPLE_CAP,
+    p_fcp: beacon.fcp,
+    p_ttfb: beacon.ttfb,
+    p_nav: beacon.nav,
+    p_full: FULL_SAMPLE_UNTIL,
+    p_mid: MID_SAMPLE_UNTIL,
+    p_mid_rate: MID_SAMPLE_RATE,
+    p_far_rate: FAR_SAMPLE_RATE,
   })
   if (error) {
     /* The function is not there yet: stop asking for a while. */
-    if (/record_site_vital|does not exist|PGRST202|42883/i.test(`${error.code ?? ""} ${error.message}`)) missingUntil = now + 10 * 60_000
+    if (/record_site_rum|does not exist|PGRST202|42883/i.test(`${error.code ?? ""} ${error.message}`)) missingUntil = now + 10 * 60_000
     else console.warn("[vitals] not recorded:", error.message)
   }
   return quiet()

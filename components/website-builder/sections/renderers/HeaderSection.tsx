@@ -25,8 +25,9 @@ import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { followSitePage } from "@/lib/website-builder/site-navigation"
 import { useSiteCart } from "../../site-cart"
-import { useCartMoney, useStorefront, useWord } from "../../theme/storefront-context"
+import { useAmountMoney, useCartMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
+import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
 import { lineKey } from "@/lib/website-builder/cart"
 import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
@@ -785,11 +786,16 @@ function CartDrawerInner({
   positionClass: string
   frameStyle: CSSProperties
 }) {
-  const { lines, setQty, remove, count, shopId, clear } = useSiteCart()
+  const { lines, setQty, remove, count, shopId, clear, add, live } = useSiteCart()
   /* The shop's own words, in the page's language (lib/markets/ui-words.ts). */
   const w = useWord()
+  /* The store's upsells and bundles for this cart (components/offers/cart-offers.tsx): what it gets, and what it could add. Asked only while the bag is open on a live site. */
+  const offers = useCartOffers(lines, shopId, open && live && !scopedToPreview)
   /* Amounts in the visitor's market's currency, as the product cards show them and checkout adds them up (lib/markets/cart-money). */
-  const amounts = useCartMoney()(lines)
+  const cartMoney = useCartMoney()
+  const amounts = cartMoney(lines, offers && offers.offerCents > 0 ? { subtotalCents: lines.reduce((n, l) => n + l.priceCents * l.quantity, 0), discountCents: offers.offerCents } : null)
+  const amountMoney = useAmountMoney()
+  const unitMoney = (cents: number) => cartMoney([{ priceCents: cents, quantity: 1 }]).lines[0]
   /* Back from checkout lands on the cart in the page's language. */
   const cartPath = cartPathFor(useStorefront().language)
   /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
@@ -972,14 +978,19 @@ function CartDrawerInner({
                 )
               })}
             </ul>
+            {/* Upsells shown in the cart and bundles it holds part of (lib/offers). */}
+            <div className="mt-2 empty:hidden">
+              <CartOfferSuggestions data={offers} onAdd={(added) => added.forEach((l) => add(l))} money={unitMoney} colors={{ text: scheme.heading, muted: scheme.paragraph, border: scheme.inset_border }} />
+            </div>
           </div>
         )}
 
         {lines.length > 0 && (
           <div className="shrink-0 px-4 pt-3 pb-4 border-t" style={{ borderColor: scheme.inset_border }}>
+            <CartOfferSavings data={offers} money={amountMoney} className="mb-1.5 space-y-1 text-[13px]" />
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] opacity-70">{w("subtotal")}</span>
-              <span className="text-[18px] font-semibold tabular-nums">{amounts.subtotal}</span>
+              <span className="text-[18px] font-semibold tabular-nums">{offers && offers.offerCents > 0 ? amounts.total : amounts.subtotal}</span>
             </div>
             <a
               href="/cart"
