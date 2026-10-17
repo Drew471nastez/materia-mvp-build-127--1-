@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
+import { BundleOffers } from "@/components/offers/bundle-offers"
+import { basketCheckoutHref } from "@/lib/checkout/basket-link"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 
 interface PurchaseStatusWrapperProps {
@@ -505,6 +507,25 @@ function DigitalPurchaseStatus({
             </p>
           )}
           {notPurchasedExtraContent}
+          {/*
+            The store's bundles with this download in, and the upsells it shows (lib/offers). This page has no cart, so
+            Buy together and Buy both go straight to the basket checkout with this product and the others, where
+            the server prices the set and applies the offer.
+          */}
+          {creatorId && !sales?.soldOut ? (
+            <BundleOffers
+              productId={productId}
+              chosen={isBuyDisabled ? null : { variantId: selectedVariant?.id ?? "", variantName: selectedVariant?.name ?? null, priceCents: currentPrice, imageUrl: null }}
+              onAdd={(lines) => {
+                const items = [{ productId, variantId: selectedVariant?.id ?? null, quantity: 1, ...(isPwywActive && getCustomPriceCents() ? { customPriceCents: getCustomPriceCents() as number } : {}) }, ...lines.filter((l) => l.productId !== productId).map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: 1 }))]
+                window.location.href = basketCheckoutHref({ base: window.location.origin, shopId: creatorId, items, back: window.location.href })
+              }}
+              ink={themeColors?.cardTextColor}
+              muted={themeColors?.cardPriceColor}
+              accent={buyButtonBgColor || themeColors?.accentColor || "#1a1a2e"}
+              labels={{ addAll: "Buy together", add: "Buy both" }}
+            />
+          ) : null}
         </>
       )}
 

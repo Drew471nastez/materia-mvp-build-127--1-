@@ -81,7 +81,7 @@ import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
-import { mainProductSection, withDeliveryBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
+import { mainProductSection, withDeliveryBlock, withOffersBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
 import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
 import { CHROMELESS_PAGES, chromeOf, withoutChrome, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import {
@@ -3773,6 +3773,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     loaded = loaded.map((s) => withProductBlocks(s))
     /* Delivery and pickup on a product section saved before the block existed, in the sidebar as on the live page; removed by the creator, it stays removed (lib/website-builder/product-page.ts withDeliveryBlock). */
     loaded = loaded.map((s) => withDeliveryBlock(s))
+    /* Bundles and upsells the same way, so the sidebar has the block the live page draws (withOffersBlock). */
+    loaded = loaded.map((s) => withOffersBlock(s))
     /* Storelib Reviews on, with "Add to product pages": the stars under the title and the reviews under the product, as the live page draws them, here to move or remove (lib/website-builder/product-page.ts withProductReviews). */
     if (page === "product" && !importedTheme.current) loaded = withProductReviews(loaded, data.reviews_on === true)
 

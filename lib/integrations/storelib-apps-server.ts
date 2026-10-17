@@ -48,7 +48,7 @@ export async function readAppFacts(db: Db, creatorId: string, physical: boolean)
     read(db.from("theme_agent_tokens").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).is("revoked_at", null)),
     physical ? safe(loadProfiles(db, creatorId)) : Promise.resolve(null),
     physical ? safe(loadLocations(db, creatorId)) : Promise.resolve(null),
-    physical ? safe(loadOffers(db, creatorId, { activeOnly: true })) : Promise.resolve(null),
+    safe(loadOffers(db, creatorId, { activeOnly: true })),
   ])
 
   /* GitHub: a repository linked to one of the store's websites. */

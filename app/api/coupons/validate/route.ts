@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
         code: cart.coupon.code,
         label: cart.couponLabel,
         discountCents: cart.discountCents,
+        /* The store's upsells and bundles' part of discountCents (lib/offers): the code's own is what's left. */
+        offerCents: cart.offerCents,
         subtotalCents: cart.subtotalCents,
         totalCents: cart.totalCents,
         lines: cart.lines.map((l) => ({ productId: l.item.productId, variantId: l.item.variantId, discountCents: l.item.discountCents })),
