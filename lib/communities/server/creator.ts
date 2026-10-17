@@ -1,4 +1,5 @@
 import "server-only"
+import { welcomeVideoSrc } from "@/lib/communities/post-media"
 
 /**
  * ===========================================================================
@@ -769,7 +770,16 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
     /* The look lives beside the welcome steps, so saving one never drops the other. */
     const look = communityAppearance(c.onboarding)
-    patch.onboarding = { ...keptSafety(c.onboarding), ...keptLook(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+    /* Round AF: the welcome's heading, video and button, and popup or card. A video link Storelib cannot embed is refused, never kept to break later. */
+    const videoUrl = typeof o.videoUrl === "string" ? o.videoUrl.trim().slice(0, 500) : ""
+    if (videoUrl && !welcomeVideoSrc(videoUrl)) return no(400, "Use a YouTube, Vimeo or Loom link for the welcome video.", "videoUrl")
+    const extra = {
+      title: typeof o.title === "string" ? o.title.trim().slice(0, 80) : "",
+      videoUrl,
+      button: typeof o.button === "string" ? o.button.trim().slice(0, 30) : "",
+      style: o.style === "popup" ? ("popup" as const) : ("card" as const),
+    }
+    patch.onboarding = { ...keptSafety(c.onboarding), ...keptLook(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false, ...extra }
   }
   /* Round 33: the cover's focus and the join button (../page-look.ts), beside the welcome steps, everything else kept. */
   if (b.pageLook !== undefined) {
