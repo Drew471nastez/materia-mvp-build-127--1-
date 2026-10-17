@@ -463,6 +463,7 @@ const SUITES = [
   "tests/scrim-blur.test.ts",
   "tests/app-shell-motion.test.ts",
   "tests/app-nav-groups.test.ts",
+  "tests/notification-catalog.test.ts",
   "tests/fill-bar.test.ts",
   "tests/app-top-corners.test.ts",
   "tests/app-page-reads.test.ts",
