@@ -97,7 +97,7 @@ async function main() {
   check("the sheet waits for the press, not the 25s a save gets", /timeoutMs: DRAFT_WAIT_MS/.test(sheet) && /const DRAFT_WAIT_MS = 125_000/.test(sheet))
   check("and cannot press twice", /* Changed on purpose (checkout, currency and translation overhaul): nor while its job runs. */ /disabled=\{!!busy \|\| jobRunning\} data-translate-ai/.test(sheet))
   const texts = read("lib/markets/server.ts")
-  check("the texts' independent reads start together", /const menusRead = storeMenusOrNull/.test(texts) && /await productsRead/.test(texts) && /await collectionsRead/.test(texts))
+  check("the texts' independent reads start together", /const menusRead = storeMenusOrNull/.test(texts) && /* Changed on purpose (round V8): the products read beside the ones shown as written. */ /await (productsRead|Promise\.all\(\[productsRead,)/.test(texts) && /await collectionsRead/.test(texts))
   check("and beside the languages in the sheet's read", /const textsRead = asked && /.test(read("app/api/store/translations/route.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

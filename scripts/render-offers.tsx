@@ -1,15 +1,23 @@
 /*
- * Upsells and bundles against a stubbed API, for scripts/check-offers.mjs:
- * the store's page (`window.__panel = "admin"`), a product page's bundle
- * block (`"bundle"`) and the checkout's Add to your order (`"checkout"`).
+ * Upsells and bundles against a stubbed API, for scripts/check-offers-page.mjs:
+ *
+ *   "admin"      the store's page, /app/offers, with the rows the server
+ *                would have read (window.__data)
+ *   "bundle"     a product page's bundles and upsells (components/offers/bundle-offers.tsx)
+ *   "checkout"   the checkout's Add to your order
+ *   "cart"       the cart's savings and suggestions (components/offers/cart-offers.tsx)
  */
 import * as React from "react"
 import { createRoot } from "react-dom/client"
 import { OffersClient } from "@/app/app/offers/offers-client"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
+import { CartOfferSavings, CartOfferSuggestions, type CartOffersData } from "@/components/offers/cart-offers"
+import type { Offer } from "@/lib/offers/offers"
+import type { OfferCollection, OfferProduct } from "@/app/app/offers/offer-parts"
 
-type W = Window & { __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __added?: unknown[] }
+type Data = { offers: Offer[]; products: OfferProduct[]; collections: OfferCollection[]; currency: string; ready: boolean; settingsReady: boolean; physical: boolean }
+type W = Window & { __panel?: string; __api?: Record<string, unknown>; __data?: Data; __cart?: CartOffersData; __sent?: { method: string; path: string; body: unknown }[]; __added?: unknown[] }
 const w = window as W
 w.__sent = []
 w.__added = []
@@ -34,7 +42,13 @@ function Root() {
   if (w.__panel === "bundle")
     return (
       <div style={{ maxWidth: 440, margin: "0 auto", padding: 16, background: "#fff" }}>
-        <BundleOffers productId="a" chosen={{ variantId: "av", variantName: null, priceCents: 3200, imageUrl: null }} onAdd={(lines) => w.__added!.push(...lines)} />
+        <BundleOffers
+          productId="a"
+          chosen={{ variantId: "av", variantName: null, priceCents: 3200, imageUrl: null }}
+          onAdd={(lines) => w.__added!.push(...lines)}
+          palette={{ heading: "#123456", price: "#aa0000", badgeBg: "#ffeeaa", badgeText: "#553300", buttonBg: "#0a7d55", buttonText: "#ffffff" }}
+          buttonStyle="fill"
+        />
       </div>
     )
   if (w.__panel === "checkout")
@@ -43,9 +57,17 @@ function Root() {
         <CheckoutSuggestions suggestions={SUGGESTIONS} onAdd={(s, v) => w.__added!.push({ product: s.product.id, variant: v?.id ?? null })} />
       </div>
     )
+  if (w.__panel === "cart")
+    return (
+      <div style={{ maxWidth: 400, margin: "0 auto", padding: 16, background: "#fff", color: "#111" }}>
+        <CartOfferSuggestions data={w.__cart ?? null} onAdd={(lines) => w.__added!.push(...lines)} money={(c) => `$${(c / 100).toFixed(2)}`} colors={{ text: "#111111", muted: "#666666", border: "#e5e5e5" }} />
+        <CartOfferSavings data={w.__cart ?? null} money={(c) => `$${(c / 100).toFixed(2)}`} className="mt-4 space-y-1 text-[13px]" />
+      </div>
+    )
+  const d = w.__data!
   return (
     <div style={{ height: "100vh" }}>
-      <OffersClient />
+      <OffersClient initialOffers={d.offers} products={d.products} collections={d.collections} currency={d.currency} ready={d.ready} settingsReady={d.settingsReady} physical={d.physical} />
     </div>
   )
 }

@@ -587,11 +587,11 @@ export async function deleteThemeChat(installId: string, target: DeleteTarget, c
 }
 
 /**
- * The model names a report may carry: the switch's own ids
- * (lib/website-builder/ask-engines.ts), nothing else. The Claude ids stay so
- * an answer given before Storelib AI moved to ChatGPT can still be reported.
+ * The model names a report may carry: the menu's own ids
+ * (lib/website-builder/ask-engines.ts), nothing else. The older ids stay so
+ * an answer given on an earlier list can still be reported.
  */
-export const REPORTABLE_ENGINES = ["openai", "openai-strong", "claude", "claude-opus"] as const
+export const REPORTABLE_ENGINES = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-4-8", "openai", "openai-strong", "claude", "claude-opus"] as const
 
 export type ReportResult =
   | { ok: true }

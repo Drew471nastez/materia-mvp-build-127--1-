@@ -26,6 +26,7 @@
  */
 import { checkSectionQuality, describeQuality, qualityErrors, type QualityFinding } from "@/lib/storelib-ai/quality"
 import { checkSectionIntegration } from "@/lib/storelib-ai/integration"
+import { checkRenderedSection } from "@/lib/storelib-ai/structural"
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
@@ -41,6 +42,9 @@ import type { SectionInstance, ThemeSettingsValues } from "../types"
  * while somebody waits.
  */
 export const MAX_CODE_ATTEMPTS = 3
+
+/** The findings that are facts about the file, held even on a lenient pass: invented schema keys, a layout no phone fits. */
+const HARD = /^(schema-key|schema-capability|schema-animation|structure-)/
 
 /** How many findings are quoted back. More than this and the model fixes none of them well. */
 const MAX_FINDINGS = 8
@@ -64,11 +68,15 @@ export function plainCompileErrors(errors: readonly Pick<ThemeError, "line" | "m
 }
 
 export type SourceCheck =
-  | { ok: true }
+  /**
+   * `notes`: what the drawn HTML still shows worth fixing (lib/storelib-ai/structural.ts, checkRenderedSection):
+   * a picture with no size, a text colour hard to read on its scheme. Never a refusal; handed back with the save.
+   */
+  | { ok: true; notes?: QualityFinding[] }
   | {
       ok: false
-      /** Which gate refused it. */
-      reason: "compile" | "quality" | "render"
+      /** Which gate refused it. "structure": a fact a lenient pass still holds (HARD). */
+      reason: "compile" | "quality" | "render" | "structure"
       /** For the model: what to fix, in plain words. */
       feedback: string
       /** The compiler's own findings, when it was the compiler. */
@@ -113,25 +121,44 @@ export function checkSectionSource(input: {
     }
   }
 
-  if (!input.lenient) {
+  /*
+    LENIENT LETS A HEURISTIC GO, NEVER A FACT. After two send-backs a quality
+    finding is let through, because some of them read text and can be wrong.
+    A key Storelib does not read and a box no phone can fit are not opinions
+    (lib/storelib-ai/schema-keys.ts, structural.ts): those still refuse, as
+    "structure", which counts toward the file's MAX_CODE_ATTEMPTS.
+  */
+  if (!input.lenient || input.strict === true) {
     const findingsOf = (text: string): QualityFinding[] =>
-      qualityErrors(input.strict === false ? checkSectionQuality(text) : [...checkSectionQuality(text), ...checkSectionIntegration(text)])
+      qualityErrors(input.strict === false ? checkSectionQuality(text) : [...checkSectionQuality(text), ...checkSectionIntegration(text)]).filter((f) => !input.lenient || HARD.test(f.id))
     const had = new Set(input.before ? findingsOf(input.before).map((f) => f.id) : [])
     const introduced = findingsOf(input.source).filter((f) => !had.has(f.id))
     if (introduced.length) {
       return {
         ok: false,
-        reason: "quality",
+        reason: input.lenient ? "structure" : "quality",
         feedback: `${input.path} compiles, but it was not saved because it would be wrong on a real page:\n${describeQuality(introduced)}\n\nFix those and send it again, keeping everything else exactly as it is.`,
       }
     }
   }
 
   const overrides = { ...(input.sources ?? {}), [input.path]: input.source }
+  let notes: QualityFinding[] = []
+  let read = false
   for (const instance of input.instances ?? []) {
     if (instance.type !== input.type) continue
     try {
       const drawn = renderStorelibSection(instance, (input.theme ?? {}) as unknown as ThemeSettingsValues, { template: "index", in_editor: true }, overrides)
+      /* The first instance drawn is read for what a phone and a slow connection show: notes, never a refusal. */
+      if (drawn.ok === true && !read) {
+        read = true
+        notes = checkRenderedSection({ html: drawn.html, css: drawn.css, schemaSettings: compiled.value.schema.settings, theme: input.theme ?? null })
+        /* Only what this edit brought: a note the file had already earned is not news. */
+        if (input.before && notes.length) {
+          const had = new Set(renderedNoteIds(input.before, input.path, instance, input.theme, overrides))
+          notes = notes.filter((n) => !had.has(n.id))
+        }
+      }
       if (drawn.ok === false) {
         return {
           ok: false,
@@ -149,7 +176,19 @@ export function checkSectionSource(input: {
       }
     }
   }
-  return { ok: true }
+  return notes.length ? { ok: true, notes } : { ok: true }
+}
+
+/** The notes the file's earlier version already drew, so an edit is told only what it added. */
+function renderedNoteIds(before: string, path: string, instance: SectionInstance, theme: Record<string, unknown> | undefined, overrides: Record<string, string>): string[] {
+  try {
+    const compiled = compileSection(before, { file: path })
+    const drawn = renderStorelibSection(instance, (theme ?? {}) as unknown as ThemeSettingsValues, { template: "index", in_editor: true }, { ...overrides, [path]: before })
+    if (compiled.ok === false || drawn.ok === false) return []
+    return checkRenderedSection({ html: drawn.html, css: drawn.css, schemaSettings: compiled.value.schema.settings, theme: theme ?? null }).map((n) => n.id)
+  } catch {
+    return []
+  }
 }
 
 /**

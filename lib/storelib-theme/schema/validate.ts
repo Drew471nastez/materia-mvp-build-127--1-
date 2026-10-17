@@ -14,6 +14,7 @@
  * builds a new object from an allowlist of fields.
  */
 import { z } from "zod"
+import { fromProblem } from "../collection-binding"
 
 import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
 import { VIDEO_HOSTS } from "../values"
@@ -637,6 +638,11 @@ function settingChecks(err: (path: string, message: string) => void, sectionValu
           const problem = acceptEntryProblem(entry)
           if (problem) err(`${p}.accept`, problem)
         }
+      }
+      /* A setting that is the picked collection's picture or title until somebody sets one (../collection-binding.ts). */
+      if (f.from !== undefined) {
+        const problem = fromProblem(f as unknown as { id: string; type: string; from?: unknown }, list as unknown as { id: string; type: string }[])
+        if (problem) err(`${p}.from`, problem)
       }
       if (canonical === "focal_point" && f.image !== undefined) {
         const target = list.find((o) => o.id === f.image)

@@ -90,6 +90,7 @@ export function toolStepLabel(name: string, argumentsJson: string, names: StepNa
     case "read_design_patterns": return "Looking at design patterns"
     case "read_storelib_docs": return "Reading the Storelib docs"
     case "remember": return "Noting that for later"
+    case "forget": return "Forgetting that note"
     case "read_menus": return "Reading the menus"
     case "list_pages": return "Reading the site's pages"
     case "build_page": return typeof args.title === "string" && args.title.trim() ? `Building the ${args.title.trim().slice(0, 40)} page` : typeof args.page === "string" && args.page.trim() ? `Building the ${args.page.trim().replace(/[-_]+/g, " ").slice(0, 40)} page` : "Building a page"

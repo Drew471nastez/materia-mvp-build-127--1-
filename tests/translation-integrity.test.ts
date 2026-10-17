@@ -60,7 +60,7 @@ async function main() {
   check("the description, translated and plain like the card's own (never HTML in a card)", s.description === "Grès tourné à la main.\nVa au lave-vaisselle.", s.description)
   check("the price untouched", s.price === "$40.00")
   /* Changed on purpose (translation coverage): an imported theme's card is laid over in compat-fields.ts compatCardIn, which the live site and the canvas both call. */
-  check("the live site's cards use the same function as the editor's", /const worded = localizeCards\(\[c\], map, opts\)\[0\]/.test(read("lib/markets/live.ts")) && /localizeCards\(\[\{ id: c\.id, settings: c\.settings \}\], map, opts\)/.test(read("lib/markets/compat-fields.ts")) && /const worded = compatCardIn\(c, map, opts\)/.test(read("lib/markets/compat.ts")))
+  check("the live site's cards use the same function as the editor's", /* Changed on purpose (round V8): and the products shown as written in every language. */ /const worded = localizeCards\(\[c\], map, opts(, original)?\)\[0\]/.test(read("lib/markets/live.ts")) && /localizeCards\(\[\{ id: c\.id, settings: c\.settings \}\], map, opts\)/.test(read("lib/markets/compat-fields.ts")) && /const worded = (original\.has\(c\.id\) \? c : )?compatCardIn\(c, map, opts\)/.test(read("lib/markets/compat.ts")))
 
   console.log("\nCollections in the page's language")
   const live = read("lib/markets/live.ts")

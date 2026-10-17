@@ -112,7 +112,47 @@ ${CREATIVE_EXAMPLE}`
  * The same rules in brief, for the page assistant, which writes code less
  * often and pays for its prompt on every turn: no example, the facts only.
  */
-export const CREATIVE_BRIEF = `WHEN YOU WRITE A SECTION'S CODE, BUILD EVERY PART THAT WAS ASKED FOR, never a plainer stand in: shapes, flags, icons and simple outlines as inline <svg> coloured from CSS classes whose variables come from color settings (a flag's colours are colour settings defaulting to its real hex values); motion as the CSS the design needs (a shimmer is a gradient band moved with translateX on an overlay span, a glow a pulsing box-shadow), prefers-reduced-motion a courtesy, never SMIL; layers with position: relative and absolute children; a photo the creator will provide as an image_picker with default "" and an in-editor placeholder of the same shape, then ask_creator for it with "Upload image" and "Paste image URL". Before you finish, list to yourself every element the creator named and check each is on the page.`
+export const CREATIVE_BRIEF = `WHEN YOU WRITE A SECTION'S CODE, design it: one heading size doing the work, body 16 to 18px at most 65 characters wide, one spacing scale (8, 16, 24, 32, 48, 64, 96), one primary action, an asymmetric split or a list before three identical cards, one column on a phone with the wide layout inside @container, and every visible word, picture, link and colour a setting the markup reads. BUILD EVERY PART THAT WAS ASKED FOR, never a plainer stand in: shapes, flags, icons and simple outlines as inline <svg> coloured from CSS classes whose variables come from color settings (a flag's colours are colour settings defaulting to its real hex values); motion as the CSS the design needs (a shimmer is a gradient band moved with translateX on an overlay span, a glow a pulsing box-shadow), prefers-reduced-motion a courtesy, never SMIL; layers with position: relative and absolute children; a photo the creator will provide as an image_picker with default "" and an in-editor placeholder of the same shape, then ask_creator for it with "Upload image" and "Paste image URL". Before you finish, list to yourself every element the creator named and check each is on the page.`
+
+/**
+ * ===========================================================================
+ *  CRAFT, IN NUMBERS, AND WHAT A DESIGNED VERSION OF A COMMON ASK LOOKS LIKE
+ * ===========================================================================
+ * lib/storelib-ai/design.ts names the habits that make a page look machine
+ * made. Naming them stops them; it does not say what to do instead, and a
+ * model told only what to avoid writes the same three cards with less
+ * decoration. So these are the defaults a designer starts from, as numbers,
+ * and five of the asks that come in most, each as the generic answer and the
+ * designed one. The section writer reads all of it (stable text, cached);
+ * DESIGN_RUBRIC is what both surfaces score their work against before they
+ * answer (reviewRequest, and selfCheckNote in ./loop.ts).
+ */
+export const DESIGN_CRAFT = `CRAFT, IN NUMBERS. Defaults for every decision nobody has made yet:
+- TYPE. One heading size per section does the work. Body 16 to 18px at line-height 1.5 to 1.7, running at most about 65 characters wide (max-width: 36rem on paragraphs). Headings at line-height 1.05 to 1.2. A large heading is sized with clamp() so a long word fits a phone: font-size: clamp(32px, 6cqi, 64px). Letter-spacing only on small uppercase labels.
+- SPACE. One scale: 4, 8, 12, 16, 24, 32, 48, 64, 96. Space inside a group is smaller than space between groups, so what belongs together reads together. The section's own top and bottom come from its padding settings.
+- HIERARCHY. One thing a visitor reads first and one action they take. A second action is quieter (an outline or a text link), never a second primary button.
+- LAYOUT FROM THE CONTENT. Two things side by side, three or four as a grid, more as a list or a slider with a clear rhythm. An odd count stays odd. An asymmetric split (5fr 7fr, an offset picture) reads designed; everything centred reads generated.
+- PICTURES. A fixed frame (aspect-ratio) with object-fit: cover, so mixed photos line up. Corners match the site's buttons and cards.
+- INTERACTION. Every link and button has a hover and a visible :focus-visible outline. Transitions of 150 to 250ms on transform and opacity only.
+- PHONE. One column first; the wide layout inside @container (min-width: 760px). Touch targets 44px tall. Nothing wider than 100%.
+
+WORKED EXAMPLES, THE GENERIC ANSWER AND THE DESIGNED ONE:
+- FEATURES. Generic: three icon cards, a title and two lines each. Designed: a split, one sharp claim in the heading size on the left; on the right four benefits as a list, each a bold first phrase and one sentence, divided by hairline borders. One column on a phone.
+- TESTIMONIALS. Generic: three identical cards with five stars. Designed: one quote large, in the heading font, with the person's name and what they bought; two shorter ones beside it in body size. Real quotes only; without them, slots the creator fills.
+- PRICING. Generic: three equal boxes, the middle one glowing. Designed: the plans as columns of one table, names and prices on one baseline, the recommended plan marked by a filled button and a one word label, features as rows the eye can run across. Stacked cards on a phone.
+- HERO. Generic: a centred headline, a subheading, two buttons on a gradient. Designed: the headline says what is sold and to whom, one primary button, the product or the person in a real picture taking half the width, and one line of proof under the button when there is real proof.
+- FAQ. Generic: five one-line answers. Designed: the six questions buyers ask before paying (delivery, refunds, what is included, who it is for), answers of two or three sentences, the first open, in a narrow column beside a heading and a contact link.`
+
+/** What both surfaces score their own work against before they answer. */
+export const DESIGN_RUBRIC = `SCORE IT BEFORE YOU ANSWER, each line pass or fix:
+1. Asked for: every element the creator named is there, none swapped for a plainer one.
+2. Hierarchy: one clear first read and one primary action.
+3. Type: sizes from one scale, body readable, the longest heading fits 390px.
+4. Space: one spacing scale; groups tight inside and apart from each other.
+5. Phone: one column at 390px, nothing sideways, touch targets 44px.
+6. Settings: every visible word, picture, link and colour has a setting, and every setting changes something.
+7. Native: colour scheme, theme fonts and buttons where they fit; live menus, products and checkout.
+8. Not generic: no decoration without a reason, no filler copy, no three cards because three is usual.`
 
 /** The rules for reading a picture closely, for both surfaces. */
 export const IMAGE_FIDELITY_RULES = `WHEN A PICTURE IS ATTACHED, IT IS THE SPECIFICATION. Look at it before anything else and build it closely: the same layout and column widths, the same order, the same spacing rhythm, the same weight and size relationships in the type, the same colours (as colour settings defaulting to what you see when no scheme of this site is close), the same corner radii, borders and shadows, the same imagery in the same places, and the words you can read in it as the starting copy. Swap another business's name, logo and prices for this creator's own; keep everything else as you see it. Before you write, describe what you see; after you write, compare your section with the picture part by part and fix what differs.`
@@ -205,16 +245,24 @@ export function writeRequest(): string {
 
 /* ── the self check ───────────────────────────────────────────────────── */
 
-/** After the file compiles and draws: each element, present or missing, and one refined file if anything is. */
-export function reviewRequest(plan: SectionPlan | null, hasImages: boolean): string {
+/**
+ * After the file compiles and draws: each element, present or missing, the
+ * design rubric, and what the checks noted about the drawn section (a picture
+ * with no size, a colour hard to read), then one refined file if anything is
+ * missing or weak.
+ */
+export function reviewRequest(plan: SectionPlan | null, hasImages: boolean, notes: string[] = []): string {
   const list = plan?.elements.length ? plan.elements.map((e) => `- ${e}`).join("\n") : "- every thing the creator named in the request"
   return [
     "STEP 3 OF 3: CHECK YOUR FILE BEFORE IT IS KEPT. It compiles and draws. Now read it against the request" + (hasImages ? " and the picture" : "") + ", element by element:",
     list,
     hasImages ? "- the layout, spacing, colours, type and imagery of the picture" : "",
     "",
+    DESIGN_RUBRIC,
+    notes.length ? `\nTHE CHECKS ALSO FOUND, in the section as drawn:\n${notes.slice(0, 6).map((n) => `- ${n}`).join("\n")}` : "",
+    "",
     "Answer in one of two ways:",
-    "  OK, then one line per element saying where it is in the file. Only when every element is there and nothing differs.",
+    "  OK, then one line per element saying where it is in the file. Only when every element is there, nothing differs and every rubric line passes.",
     "  Otherwise the whole corrected file and nothing else, starting with `<template>`. Change only what is missing or wrong; keep the setting ids and everything that already works.",
   ]
     .filter((l) => l !== "")

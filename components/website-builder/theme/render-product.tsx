@@ -28,7 +28,7 @@ import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
-import { withDeliveryBlock, withMainProduct, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
+import { withDeliveryBlock, withMainProduct, withOffersBlock, withProductBlocks, withProductReviews } from "@/lib/website-builder/product-page"
 import { productRating, type StorefrontReviews } from "@/lib/reviews/storefront"
 import { productSectionData } from "@/lib/products/product-section-data"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -395,7 +395,7 @@ export async function renderProduct(
   /* With Storelib Reviews on, the stars under the title and the reviews under the product, unless the page has its own (product-page.ts withProductReviews). */
   const reviewsOn = reviewsHere?.enabled === true && reviewsHere.product_page === true
   const rating = productRating(reviewsHere)
-  const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map((s) => (s.type === "product" ? withDeliveryBlock(withProductBlocks(s)) : s))
+  const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map((s) => (s.type === "product" ? withOffersBlock(withDeliveryBlock(withProductBlocks(s))) : s))
   const stars = rating ? { rating } : {}
   const sections: SectionInstance[] = withProductReviews(placed, reviewsOn).map(s =>
     s.type === "product"

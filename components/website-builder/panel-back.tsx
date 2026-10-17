@@ -31,11 +31,17 @@ export function PanelBack({
   onBack,
   children,
   className,
+  action,
 }: {
   onBack: () => void
   /** The panel's name, and anything under it. Part of the press area. */
   children: React.ReactNode
   className?: string
+  /**
+   * At the right end of the row, raised over the press area: a section's
+   * menu. Its right edge sits on the row's own padding.
+   */
+  action?: React.ReactNode
 }) {
   return (
     <div data-panel-back="" className={cn("relative flex min-h-[52px] shrink-0 items-center gap-1.5 border-b border-border px-2 md:min-h-[40px] md:gap-1 md:px-2.5", className)}>
@@ -64,6 +70,7 @@ export function PanelBack({
         </span>
       </button>
       <div className="min-w-0 flex-1">{children}</div>
+      {action ? <div className="relative z-[1] flex shrink-0 items-center">{action}</div> : null}
     </div>
   )
 }

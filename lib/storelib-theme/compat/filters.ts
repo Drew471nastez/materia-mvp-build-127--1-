@@ -10,7 +10,7 @@
  * wrong kind: a theme that pipes a nil into `money` prints nothing, as on
  * Shopify, rather than taking the page down.
  */
-import { NEXT_IMAGE_WIDTHS, isOptimizableImage } from "@/lib/images/optimized-url"
+import { NEXT_IMAGE_WIDTHS, SITE_PICTURE_QUALITY, isOptimizableImage } from "@/lib/images/optimized-url"
 import { isOwnMedia } from "@/lib/storage/media-url"
 import { LFloat, OUTPUT, isBlank, prop, toList, toOutput, truthy, type Ctx, type FilterFn } from "./runtime"
 import { shopifyGlobalAssetUrl } from "./shopify-global-assets"
@@ -156,11 +156,13 @@ function sized(src: string, width: unknown, height?: unknown): string {
     it names, and a file twice that wide was a phone downloading four times
     the pixels it drew. Storelib's own uploads (storelib.com/media/…) are
     resized too; they went out at their full size.
-    75 is a quality next.config.mjs serves: any other is a 400, not a picture.
+    SITE_PICTURE_QUALITY (90) is a quality next.config.mjs serves: any
+    other is a 400, not a picture. A website's photographs are never
+    re-encoded softer than that.
   */
   const pixels = Math.min(3840, Math.max(16, w || h))
   const file = NEXT_IMAGE_WIDTHS.find((x) => x >= pixels) ?? NEXT_IMAGE_WIDTHS[NEXT_IMAGE_WIDTHS.length - 1]
-  return `/_next/image?url=${encodeURIComponent(src)}&w=${file}&q=75`
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${file}&q=${SITE_PICTURE_QUALITY}`
 }
 
 function imageAttrs(v: unknown): { width?: number; height?: number; alt?: string } {
@@ -195,7 +197,16 @@ function imageTag(input: unknown, kwargs: Record<string, unknown>, ctx?: Ctx): s
   const widthsRaw = kwargs.widths !== undefined ? str(kwargs.widths) : ""
   const widths = widthsRaw ? widthsRaw.split(",").map((x) => Math.trunc(Number(x.trim()))).filter((x) => x > 0) : [352, 832, 1200, 1600, 2400]
   const base = src
-  const srcset = kwargs.srcset === null ? "" : widths.map((w) => `${sized(base, w)} ${w}w`).join(", ")
+  /*
+    ONE FILE IS NOT A SET. A picture the optimizer cannot size (a data: or
+    blob: address, an SVG, a GIF, a host it does not fetch) came back as
+    itself at every width, and five copies of it went into the srcset. A
+    country selector draws a flag that way for each of 250 countries, twice:
+    808KB of the 1.8MB front page of a live imported site was those copies.
+    Its src alone draws exactly the same picture.
+  */
+  const sizedSet = kwargs.srcset === null ? [] : widths.map((w) => [sized(base, w), w] as const)
+  const srcset = sizedSet.every(([u]) => u === base) ? "" : sizedSet.map(([u, w]) => `${u} ${w}w`).join(", ")
   const parts = [`src="${attr(src)}"`]
   if (srcset) parts.push(`srcset="${attr(srcset)}"`)
   const alt = kwargs.alt !== undefined ? str(kwargs.alt) : meta.alt ?? ""

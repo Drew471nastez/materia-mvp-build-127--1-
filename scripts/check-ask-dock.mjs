@@ -18,8 +18,8 @@
  *              old glow, put back, is measured to add plenty)
  *   COST       the canvas scrolled under the folded pill with the CPU
  *              slowed four times, with the rings and without
- *   LABELS     at 360, 390 and 430: the mode row is one row, the mode labels
- *              and the placeholders fit on one line in both modes, the
+ *   LABELS     at 360, 390 and 430: the scope row is one row, with the chip
+ *              on and cleared, the placeholders fit on one line, the
  *              header with Connect AI does not overflow, suggestion chips do
  *              not wrap
  *   STATES     a made up run, line by line: the one line says each stage,
@@ -40,9 +40,12 @@
  *   HISTORY    grouped by day, opened, continued, a new chat, one deleted in
  *              place, the open one deleted, all deleted; and before the
  *              database update, one plain sentence
- *   MODELS     ChatGPT's two models with OpenAI's mark, a saved Claude choice read
- *              as the default, Strength in the same menu;
+ *   MODELS     the four Claude models with Claude's mark, an older saved
+ *              choice read as Opus 5.5, no Strength anywhere;
  *              a popover on a computer, the shared bottom sheet on a phone
+ *   UNIFIED    no modes: the selection's "Editing: <Name>" chip comes and
+ *              goes with the canvas, a suggestion fills the box, and Enter
+ *              asks the router before the run
  *   PICTURES   a large photo is shrunk to 1568 on its long edge with a ring
  *              while it is, a PDF and a HEIC say why not, a fifth picture is
  *              refused, paste and drop work, a recorded video becomes
@@ -189,6 +192,12 @@ try { Object.defineProperty(navigator, "clipboard", { configurable: true, value:
       var rows = list().conversations;
       var conv = which ? find(which) : (rows[0] ? find(rows[0].id) : null);
       return json({ conversation: conv ? { id: conv.id, title: conv.title } : null, earlier: false, history: "ready", messages: conv ? conv.messages : [] });
+    }
+    /* The router (lib/website-builder/ask-route.ts): the page assistant, the chip as it is, unless a probe set window.__route. */
+    if (url.indexOf("/agent/decide") >= 0) {
+      var asked = JSON.parse(init.body);
+      (window.__decides = window.__decides || []).push(asked);
+      return json(window.__route || { agent: "page", target: asked.scoped ? "section" : "page", lock: !!asked.scoped, codeFocus: false });
     }
     if (url.indexOf("/agent") >= 0) {
       var body = JSON.parse(init.body);
@@ -554,9 +563,10 @@ async function labels(browser, width) {
   const p = await page(browser, { width, height: 780, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "agent=auto&empty=1", "#phone")
   await sleep(500)
   const read = () => p.evaluate(() => {
-    const row = document.querySelector("[data-ask-mode-row]")
+    const row = document.querySelector("[data-ask-scope-row]")
     const kids = [...row.children].map((c) => { const r = c.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), right: Math.round(r.right) } })
-    const modes = [...document.querySelectorAll("[data-ask-mode]")].map((b) => ({ text: b.textContent, fits: b.scrollWidth <= b.clientWidth + 0.5, h: Math.round(b.getBoundingClientRect().height) }))
+    const modes = [...document.querySelectorAll("[data-ask-mode]")].map((b) => ({ text: b.textContent }))
+    const scopeEl = document.querySelector("[data-ask-scope]")
     const field = document.querySelector("[data-chat-composer] textarea")
     const fs = getComputedStyle(field)
     const cv = document.createElement("canvas").getContext("2d")
@@ -571,6 +581,8 @@ async function labels(browser, width) {
       rowH: Math.round(row.getBoundingClientRect().height), rowW: Math.round(row.getBoundingClientRect().right), sheetW: document.documentElement.clientWidth,
       oneRow: kids.every((k) => Math.abs(k.top - kids[0].top) <= 4),
       modes,
+      scope: scopeEl ? scopeEl.getAttribute("data-ask-scope") : null,
+      scopeText: scopeEl ? scopeEl.textContent.trim() : "",
       placeholder: field.placeholder, fieldH: Math.round(field.getBoundingClientRect().height), fontSize: fs.fontSize,
       placeholderFits: cv.measureText(field.placeholder).width <= room,
       headerFits: header.scrollWidth <= header.clientWidth + 0.5, titleW: Math.round(title.width), titleWhole, titleText: titleEl.textContent,
@@ -579,31 +591,69 @@ async function labels(browser, width) {
     }
   })
   const change = await read()
-  expect(change.oneRow && change.rowH <= 44 && change.rowW <= change.sheetW, `Change page: the mode row is one row, ${change.rowH}px tall`, { rowH: change.rowH, right: change.rowW, width: change.sheetW })
-  expect(change.modes.every((m) => m.fits && m.h <= 36), "both mode labels fit on one line", change.modes)
+  expect(change.oneRow && change.rowH <= 44 && change.rowW <= change.sheetW, `the scope row is one row, ${change.rowH}px tall`, { rowH: change.rowH, right: change.rowW, width: change.sheetW })
+  expect(change.modes.length === 0 && change.scope === "locked" && /Editing:\s*Hero/.test(change.scopeText), `no mode switch: the selected section's chip says "${change.scopeText}" by itself`, { modes: change.modes.length, scope: change.scope })
   expect(change.placeholderFits && change.fieldH <= 44, `and the placeholder "${change.placeholder}" is one line: the box is ${change.fieldH}px`, { fits: change.placeholderFits, h: change.fieldH })
   expect(change.fontSize === "16px", "the field is 16px, so iOS does not zoom the page to it", change.fontSize)
   expect(change.connect && change.headerFits && change.titleWhole, `Connect AI with both marks sits in the header, which does not overflow, and "${change.titleText}" is whole`, { titleW: change.titleW, fits: change.headerFits })
-  expect(change.chips.length >= 1 && change.chips.length <= 3 && change.chipsOneRow && change.chipsFlat, "at most three suggestions, one row, none wrapping", change.chips.map((c) => c.t))
-  await p.screenshot({ path: join(shots, `${P}${label}-change.png`) })
+  expect(change.chips.length >= 2 && change.chips.length <= 4 && change.chipsOneRow && change.chipsFlat, "two to four suggestions, one row, none wrapping", change.chips.map((c) => c.t))
+  await p.screenshot({ path: join(shots, `${P}${label}-scoped.png`) })
 
-  /* The switch: its thumb slides on transform, the row does not move. */
-  const before = await p.$eval("[data-ask-mode-row]", (r) => r.getBoundingClientRect().top)
-  const moving = await p.evaluate(async (ANIM) => {
-    const animated = eval(ANIM)
-    document.querySelector('[data-ask-mode="code"]').click()
-    const props = new Set()
-    const t0 = performance.now()
-    await new Promise((done) => { const tick = () => { for (const x of animated(document.querySelector("[data-ask-modes]"))) props.add(x); if (performance.now() - t0 < 300) requestAnimationFrame(tick); else done() }; requestAnimationFrame(tick) })
-    return [...props]
-  }, ANIMATED)
-  await sleep(200)
-  const code = await read()
-  const after = await p.$eval("[data-ask-mode-row]", (r) => r.getBoundingClientRect().top)
-  expect(moving.length > 0 && moving.every((x) => ["transform", "color"].includes(x)), "Code section: the thumb slides on transform", moving)
-  expect(Math.abs(after - before) < 0.5, "and the mode row stays where it was", { before, after })
-  expect(code.modes.every((m) => m.fits) && code.oneRow && code.placeholderFits && code.fieldH <= 44, `and "${code.placeholder}" is one line too`, { fits: code.placeholderFits, h: code.fieldH, oneRow: code.oneRow })
-  await p.screenshot({ path: join(shots, `${P}${label}-code.png`) })
+  /* The chip's x clears it to the whole page; the row stays where it was and the box does not move. */
+  const before = await p.$eval("[data-ask-scope-row]", (r) => r.getBoundingClientRect().top)
+  const fieldBefore = await p.$eval("[data-chat-composer] textarea", (f) => Math.round(f.getBoundingClientRect().top))
+  await p.tap('[data-ask-scope="locked"] button')
+  await sleep(250)
+  const cleared = await read()
+  const after = await p.$eval("[data-ask-scope-row]", (r) => r.getBoundingClientRect().top)
+  const fieldAfter = await p.$eval("[data-chat-composer] textarea", (f) => Math.round(f.getBoundingClientRect().top))
+  expect(cleared.scope === "page" && cleared.oneRow, `cleared, the chip offers "${cleared.scopeText}" on the same row`, { scope: cleared.scope })
+  expect(Math.abs(after - before) < 0.5 && fieldAfter === fieldBefore, "and nothing moves", { before, after, fieldBefore, fieldAfter })
+  expect(cleared.placeholderFits && cleared.fieldH <= 44, `and "${cleared.placeholder}" is one line too`, { fits: cleared.placeholderFits, h: cleared.fieldH })
+  await p.screenshot({ path: join(shots, `${P}${label}-page.png`) })
+  if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
+  await p.close()
+}
+
+/*
+  ── ONE BOX: THE CHIP, THE ROUTER, THE SUGGESTIONS ─────────────────────
+  "One intelligent assistant, no modes." On a computer: selecting a section
+  in the canvas puts "Editing: <Name>" in the composer by itself and
+  deselecting takes it away; a message goes to /agent/decide first with the
+  selection and the chip, and then where it says; a tap on a suggestion
+  fills the box (and the suggestions step aside while it has words).
+*/
+async function unified(browser) {
+  console.log("\none box, desktop-1440")
+  const p = await page(browser, { width: 1440, height: 900 }, "agent=auto&empty=1", "#desktop")
+  await p.click("[data-ask-pill] textarea")
+  await sleep(450)
+  const chip = () => p.evaluate(() => { const c = document.querySelector("[data-ask-scope]"); return c ? { state: c.getAttribute("data-ask-scope"), text: c.textContent.trim(), h: Math.round(c.getBoundingClientRect().height) } : null })
+  const noModes = await p.evaluate(() => !document.querySelector("[data-ask-modes]") && !document.querySelector("[data-ask-mode]") && !document.querySelector("[data-ask-strength]"))
+  expect(noModes, "no mode switch and no Strength anywhere in the chat")
+  const on = await chip()
+  expect(on && on.state === "locked" && /Editing:\s*Hero/.test(on.text), "with Hero selected in the canvas, the composer says Editing: Hero", on)
+  await p.evaluate(() => window.__setSelected(undefined))
+  await sleep(250)
+  const off = await chip()
+  expect(off === null, "deselected, the chip goes", off)
+  await p.evaluate(() => window.__setSelected("s3"))
+  await sleep(250)
+  const faq = await chip()
+  expect(faq && faq.state === "locked" && /Editing:\s*FAQ/.test(faq.text), "selecting another section names it, without a press", faq)
+  /* A suggestion fills the box, and the suggestions step aside while it has words. */
+  const chips = await p.$$eval("[data-ask-suggestion]", (c) => c.map((x) => x.textContent))
+  expect(chips.length >= 2 && chips.length <= 4, "two to four suggestions for the selected FAQ", chips)
+  await p.click("[data-ask-suggestion]")
+  await sleep(250)
+  const filled = await p.evaluate(() => ({ value: document.querySelector("[data-chat-composer] textarea").value, chips: document.querySelectorAll("[data-ask-suggestion]").length, focused: document.activeElement === document.querySelector("[data-chat-composer] textarea"), posts: window.__posts.length }))
+  expect(filled.value === chips[0] && filled.chips === 0 && filled.focused && filled.posts === 0, "a tap fills the box with it, focused, sends nothing, and the suggestions step aside", filled)
+  /* Enter: the router is asked first, with the selection and the chip, then the page assistant gets the chip's answer. */
+  await p.keyboard.press("Enter")
+  await sleep(1500)
+  const sent = await p.evaluate(() => ({ decides: (window.__decides || []).map((d) => ({ prompt: d.prompt, sel: d.selectedSectionId, scoped: d.scoped })), posts: window.__posts.map((x) => x.prompt) }))
+  expect(sent.decides.length === 1 && sent.decides[0].sel === "s3" && sent.decides[0].scoped === true && sent.posts.length === 1 && sent.posts[0] === chips[0], "Enter asks the router with the selection and the chip, then the run goes", sent)
+  await p.screenshot({ path: join(shots, `${P}unified-desktop.png`) })
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 }
@@ -1055,7 +1105,7 @@ async function history(browser, vp, hash) {
 async function models(browser) {
   console.log("\nmodels and Connect AI")
   const p = await page(browser, { width: 1440, height: 900 }, "agent=auto", "#desktop")
-  /* A browser that chose Claude Opus before Storelib AI moved to ChatGPT. */
+  /* A browser that chose an older model, before the list was the four Claude models. */
   await p.evaluate(() => { localStorage.setItem("storelib.theme-chat.engine", "claude-opus"); localStorage.removeItem("storelib.theme-chat.strength") })
   await p.reload()
   await sleep(900)
@@ -1065,28 +1115,18 @@ async function models(browser) {
   await p.click("[data-ask-model]")
   await sleep(250)
   const rows = await p.$$eval("[data-ask-model-option]", (o) => o.map((x) => { const s = x.querySelector("svg"); return { id: x.getAttribute("data-ask-model-option"), color: getComputedStyle(s).color, h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]") } }))
-  /* ChatGPT only for now (lib/website-builder/ask-engines.ts); this page was opened with a saved "claude-opus" choice. */
-  expect(trigger.svg >= 1 && trigger.color === "rgb(0, 0, 0)" && /Luna/.test(trigger.text), "a saved Claude choice opens on the everyday ChatGPT model, with OpenAI's mark", trigger)
-  expect(rows.length === 2 && rows.every((r) => r.color === "rgb(0, 0, 0)") && rows.map((r) => r.id).join(",") === "openai,openai-strong" && rows.every((r) => !r.inSheet), "on a computer a popover: two ChatGPT models, OpenAI's mark on each", rows)
+  const TERRACOTTA = "rgb(217, 119, 87)"
+  expect(trigger.svg >= 1 && trigger.color === TERRACOTTA && /Opus 5\.5/.test(trigger.text), "an older saved choice opens on Claude Opus 5.5, with Claude's mark", trigger)
+  expect(rows.map((r) => r.id).join(",") === "claude-opus-5-5,claude-sonnet-5-5,claude-haiku-5-5,claude-opus-4-8" && rows.every((r) => r.color === TERRACOTTA && !r.inSheet), "on a computer a popover: the four Claude models, in order, Claude's mark on each", rows)
   const best = await p.$$eval("[data-ask-model-option]", (o) => o.map((x) => x.textContent))
   expect(best.every((t) => /Best for /.test(t)), "each model says what it is best for", best)
-  /* Strength: three segments on their own line, the line under them for the one that is on. */
-  const strength = await p.$eval("[data-ask-strength]", (s) => {
-    const box = s.getBoundingClientRect()
-    const menu = s.parentElement.getBoundingClientRect()
-    const segs = [...s.querySelectorAll("[data-ask-strength-option]")].map((b) => ({ id: b.getAttribute("data-ask-strength-option"), on: b.getAttribute("aria-checked"), w: Math.round(b.getBoundingClientRect().width), clipped: b.scrollWidth > b.clientWidth }))
-    return { on: s.getAttribute("data-ask-strength"), segs, inside: box.right <= menu.right + 0.5 && box.left >= menu.left - 0.5, text: s.textContent }
-  })
-  expect(strength.on === "standard" && strength.segs.map((x) => x.id).join(",") === "light,standard,deep" && strength.segs.every((x) => !x.clipped) && strength.inside, "Strength is Light, Standard and Deep, Standard on, nothing clipped inside the popover", strength)
-  measures.strengthSegments = strength.segs.map((x) => x.w)
+  const noStrength = await p.evaluate(() => !document.querySelector("[data-ask-strength]") && !document.querySelector("[data-ask-strength-option]") && !/Strength/.test(document.querySelector("[data-ask-model-menu]").parentElement.textContent))
+  expect(noStrength, "and no Strength: every run thinks at medium on the server")
   await p.screenshot({ path: join(shots, `${P}models-desktop.png`) })
-  await p.click('[data-ask-strength-option="deep"]')
-  await sleep(300)
-  const deep = await p.evaluate(() => ({ on: document.querySelector("[data-ask-strength]")?.getAttribute("data-ask-strength"), open: !!document.querySelector("[data-ask-model-option]"), saved: localStorage.getItem("storelib.theme-chat.strength") }))
-  expect(deep.on === "deep" && deep.open && deep.saved === "deep", "choosing Deep keeps the menu open and is remembered", deep)
-  await p.click('[data-ask-model-option="openai-strong"]')
+  await p.click('[data-ask-model-option="claude-sonnet-5-5"]')
   await sleep(200)
-  expect((await p.$eval("[data-ask-model]", (b) => b.textContent)).includes("Terra"), "choosing the stronger model puts it on the trigger")
+  const picked = await p.evaluate(() => ({ trigger: document.querySelector("[data-ask-model]").textContent, saved: localStorage.getItem("storelib.theme-chat.engine"), strength: localStorage.getItem("storelib.theme-chat.strength") }))
+  expect(/Sonnet 5\.5/.test(picked.trigger) && picked.saved === "claude-sonnet-5-5" && picked.strength === null, "choosing Sonnet 5.5 puts it on the trigger and remembers it, and nothing about strength is stored", picked)
   await p.click("[data-ask-connect]")
   expect((await p.evaluate(() => window.__connect)) === 1, "Connect AI asks the editor to open Connections")
   await p.close()
@@ -1095,14 +1135,13 @@ async function models(browser) {
   await q.tap("[data-ask-model]")
   await sleep(700)
   const sheet = await q.$$eval("[data-ask-model-option]", (o) => o.map((x) => ({ h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]"), svg: x.querySelectorAll("svg").length })))
-  expect(sheet.length === 2 && sheet.every((r) => r.inSheet && r.h >= 44 && r.svg >= 1), "on a phone the shared bottom sheet, rows of 44px or more, each with its mark", sheet)
-  const phoneStrength = await q.$$eval("[data-ask-strength-option]", (o) => o.map((x) => ({ h: Math.round(x.getBoundingClientRect().height), inSheet: !!x.closest("[data-app-sheet]"), clipped: x.scrollWidth > x.clientWidth })))
-  expect(phoneStrength.length === 3 && phoneStrength.every((r) => r.inSheet && r.h >= 36 && !r.clipped), "and Strength in the same sheet, 36px segments, nothing clipped", phoneStrength)
+  expect(sheet.length === 4 && sheet.every((r) => r.inSheet && r.h >= 44 && r.svg >= 1), "on a phone the shared bottom sheet, four rows of 44px or more, each with its mark", sheet)
+  expect(await q.evaluate(() => !document.querySelector("[data-ask-strength-option]")), "and no Strength in the sheet either")
   await q.screenshot({ path: join(shots, `${P}models-phone.png`) })
-  await q.tap('[data-ask-model-option="openai-strong"]')
+  await q.tap('[data-ask-model-option="claude-haiku-5-5"]')
   await sleep(700)
   const chosen = await q.evaluate(() => ({ trigger: document.querySelector("[data-ask-model]").textContent, open: !!document.querySelector('[data-app-sheet="open"]') }))
-  expect(/Terra/.test(chosen.trigger) && !chosen.open, "choosing the stronger model closes the sheet and names it", chosen)
+  expect(/Haiku 5\.5/.test(chosen.trigger) && !chosen.open, "choosing Haiku 5.5 closes the sheet and names it", chosen)
   if (q.__errors.length) expect(false, "no errors on the page", q.__errors)
   await q.close()
 }
@@ -1337,6 +1376,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     }
     if (want("history")) { await history(browser, { width: 1440, height: 900 }, "#desktop"); await history(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "#phone") }
     if (want("models")) await models(browser)
+    if (want("unified")) await unified(browser)
     if (want("pictures")) await pictures(browser)
     if (want("voice")) await voice(browser)
     if (want("keyboard")) await keyboard(browser)

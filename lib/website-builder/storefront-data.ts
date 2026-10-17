@@ -374,12 +374,25 @@ export function withDynamicSources(
 ): SectionInstance[] {
   let touched = false
   const out = sections.map((s) => {
-    const next = sectionWithSources(s, schemaOf(s.type), ctx)
+    const schema = schemaOf(s.type)
+    /*
+      THE SAME SECTION, FILLED THE SAME WAY, IS THE SAME OBJECT. A section with
+      a placeholder in it (a footer's "{{ shop.name }}") came back as a new
+      object every time the page was drawn, so the canvas drew it again for
+      every key typed in another section (scripts/check-editor-perf.mjs: the
+      footer ran once per key). Kept per section object, schema and context,
+      so a change to any of the three fills it again.
+    */
+    const hit = filled.get(s)
+    const next = hit && hit.schema === schema && hit.ctx === ctx ? hit.out : sectionWithSources(s, schema, ctx)
+    if (next !== s) filled.set(s, { schema, ctx, out: next })
     if (next !== s) touched = true
     return next
   })
   return touched ? out : sections
 }
+/** Each section's filled copy, by the section object it was filled from (withDynamicSources). */
+const filled = new WeakMap<SectionInstance, { schema: SectionSchema | undefined; ctx: DynamicContext; out: SectionInstance }>()
 
 function fillSettings(
   settings: Record<string, unknown> | undefined,

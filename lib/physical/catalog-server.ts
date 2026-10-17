@@ -29,6 +29,7 @@ import { readMethod } from "./fulfillment"
 import type { FulfillmentMethod, InventoryLevel, Location, PhysicalVariant, ProductOption } from "./types"
 import { madeToOrder } from "./partner"
 import { applyInventory } from "./inventory-server"
+import { sellsWhenOut } from "./inventory-rules"
 import { missingColumn, readOrderLimit } from "./order-limit"
 
 export interface PhysicalProductData {
@@ -79,7 +80,7 @@ export function variantFromRow(r: Record<string, any>, product: Record<string, a
     weightGrams: r.weight_grams ?? product.weight_grams ?? null,
     imageUrl: r.image_url ?? null,
     trackInventory: r.track_inventory ?? product.track_inventory ?? true,
-    inventoryPolicy: r.inventory_policy === "continue" || (r.inventory_policy == null && product.continue_selling) ? "continue" : "deny",
+    inventoryPolicy: sellsWhenOut(r.inventory_policy, product.continue_selling) ? "continue" : "deny",
     requiresShipping: true,
     taxable: r.taxable ?? product.taxable ?? true,
     active: r.active !== false,
@@ -362,6 +363,7 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
         locationId,
         onHand: delta,
         reason: level ? "count" : "initial",
+        refType: "product",
         actor: "creator",
         note: "Set in the product editor",
       })

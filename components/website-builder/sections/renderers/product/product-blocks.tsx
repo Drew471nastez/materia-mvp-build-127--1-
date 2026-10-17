@@ -51,6 +51,8 @@ import {
 import { deliveryLine, pickupLine } from "@/lib/physical/delivery-lines"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
 import { useStorefront, useWord } from "../../../theme/storefront-context"
+import type { CartLine } from "@/lib/website-builder/cart"
+import { OffersBlock } from "./offers-block"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -81,6 +83,8 @@ export interface ProductCtx {
   buttonRadius: CSSProperties
   /** A price as the shop prints it, with the currency code when the theme shows codes. */
   money: (cents: number) => string
+  /** For the Bundles and upsells block (./offers-block.tsx): this product as chosen, and a way to put several lines in the cart. */
+  offers?: { chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null; addLines: (lines: CartLine[]) => void }
 }
 
 type S = Record<string, unknown>
@@ -865,6 +869,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   divider: Divider,
   files: Files,
   custom_code: CustomCode,
+  offers: OffersBlock,
 }
 
 /** One block, in its wrapper: the canvas selects it by `data-block-id`, and its spacing is its own. */

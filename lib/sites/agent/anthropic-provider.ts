@@ -21,6 +21,7 @@ import "server-only"
 import Anthropic from "@anthropic-ai/sdk"
 
 import { rateFor } from "./models"
+import { effortSupported } from "@/lib/website-builder/ask-engines"
 import type {
   AgentProvider,
   AgentTurn,
@@ -275,7 +276,12 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
       ...(modelInfo?.capabilities
         ? modelInfo.capabilities.thinking.types.adaptive.supported ? { thinking: { type: "adaptive" as const } } : {}
         : /claude-(?:sonnet-5|opus-(?:5|4-[678])|sonnet-4-6|fable|mythos)/.test(request.model) ? { thinking: { type: "adaptive" as const } } : {}),
-      ...(request.effort && (modelInfo?.capabilities ? modelInfo.capabilities.effort?.[request.effort]?.supported : !/haiku|sonnet-4-5|opus-4-5/.test(request.model)) ? { output_config: { effort: request.effort } } : {}),
+      /*
+        EFFORT, where the model takes it: what the account's Models API says
+        when it was read, otherwise the catalogue (lib/website-builder/ask-engines.ts,
+        effortSupported). Ask Storelib always asks for "medium".
+      */
+      ...(request.effort && (modelInfo?.capabilities ? modelInfo.capabilities.effort?.[request.effort]?.supported : effortSupported(request.model)) ? { output_config: { effort: request.effort } } : {}),
     },
     { signal: request.signal },
   )
