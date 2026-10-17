@@ -156,7 +156,7 @@ async function main() {
     const linkField = lib.slice(lib.indexOf("export function CopyLinkField"), lib.indexOf("/** The type a person reads"))
     check("a wide window on a computer: the picture beside a 340px column", /w-\[min\(1040px,calc\(100vw-48px\)\)\]/.test(details) && /w-\[340px\] shrink-0 flex-col/.test(details))
     check("the sheet on a phone, the same parts one under the other", /phone \? \(\s*<div className="flex min-h-0 flex-1 flex-col" data-file-details="phone">/.test(details) && /<SheetDialog/.test(details))
-    check("the link: the address cut with an ellipsis, beside a Copy button that never shrinks", /min-w-0 flex-1 truncate/.test(linkField) && /min-w-\[84px\] shrink-0 items-center justify-center gap-1\.5 whitespace-nowrap/.test(linkField))
+    check("the link: the address cut with an ellipsis, beside a Copy button that never shrinks", /min-w-0 flex-1 truncate/.test(linkField) && /min-w-\[92px\] shrink-0 items-center justify-center gap-1\.5 whitespace-nowrap/.test(linkField))
     check("  Copy says Copied for a moment, and a failure says so", /copied \? "Copied" : "Copy"/.test(linkField) && /setTimeout\(\(\) => setCopied\(false\), 1600\)/.test(linkField) && /The link could not be copied\./.test(linkField))
     check("  and copies the file's own address", /<CopyLinkField url=\{f\.url\} \/>/.test(details) && /navigator\.clipboard\.writeText\(text\)/.test(lib))
     check("alt text for pictures, saved through PATCH /api/files and kept on the file", /<AltText file=\{f\} onSaved=\{onAlt\} \/>/.test(details) && /method: "PATCH", body: \{ bucket: file\.bucket, path: file\.path, alt:/.test(lib) && /x\.id === f\.id \? \{ \.\.\.x, alt \}/.test(lib))

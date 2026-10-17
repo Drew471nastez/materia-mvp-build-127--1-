@@ -436,7 +436,6 @@ export function AdjustModal({ row, locations, defaultLocation, lowStockDefault, 
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const key = React.useRef(actionKey())
-  const amountRef = React.useRef<HTMLInputElement>(null)
 
   /* Another location: its own units on order. */
   React.useEffect(() => setOnOrder(String((row.levels.find((l) => l.locationId === locationId) ?? { incoming: 0 }).incoming)), [locationId, row.levels])
@@ -460,7 +459,7 @@ export function AdjustModal({ row, locations, defaultLocation, lowStockDefault, 
   const chooseMode = (m: AdjustMode) => {
     setMode(m)
     if (!REASONS_FOR[m].includes(reason as never)) setReason(REASONS_FOR[m][0])
-    amountRef.current?.focus({ preventScroll: true })
+    document.querySelector<HTMLInputElement>("[data-adjust-amount]")?.focus({ preventScroll: true })
   }
   const step = (by: number) => {
     const n = readUnits(amount) ?? 0
@@ -563,7 +562,7 @@ export function AdjustModal({ row, locations, defaultLocation, lowStockDefault, 
                   <button type="button" aria-label={tt("One less")} onClick={() => step(-1)} className="grid h-11 w-10 shrink-0 place-items-center rounded-l-lg border border-r-0 border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f7f7f8] sm:h-10">
                     <Minus className="h-4 w-4" />
                   </button>
-                  <NumberInput ref={amountRef} value={amount} onChange={setAmount} placeholder={mode === "set" ? String(level.onHand) : "0"} className="rounded-none text-center" aria-label={mode === "set" ? tt("On hand") : tt("Quantity")} data-adjust-amount="" />
+                  <NumberInput value={amount} onChange={setAmount} placeholder={mode === "set" ? String(level.onHand) : "0"} className="rounded-none text-center" aria-label={mode === "set" ? tt("On hand") : tt("Quantity")} data-adjust-amount="" />
                   <button type="button" aria-label={tt("One more")} onClick={() => step(1)} className="grid h-11 w-10 shrink-0 place-items-center rounded-r-lg border border-l-0 border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f7f7f8] sm:h-10">
                     <Plus className="h-4 w-4" />
                   </button>

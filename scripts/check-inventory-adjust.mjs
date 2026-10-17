@@ -77,6 +77,13 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 const problems = []
 const expect = (ok, what) => { if (!ok) problems.push(what) }
 const results = []
+/* A new number in the quantity field: focused, all of it selected, typed over. */
+async function retype(page, value) {
+  await page.focus("[data-adjust-amount]")
+  await page.evaluate(() => document.querySelector("[data-adjust-amount]").select())
+  await page.keyboard.type(value)
+  await wait(120)
+}
 
 for (const vp of [{ width: 390, height: 844, phone: true }, { width: 1280, height: 800 }]) {
   const page = await browser.newPage()
@@ -92,12 +99,12 @@ for (const vp of [{ width: 390, height: 844, phone: true }, { width: 1280, heigh
   await wait(450)
   const measure = () => page.evaluate(() => {
     const m = document.querySelector("[data-adjust-modal]")
-    const box = (m.closest("[role='dialog']") || m.closest("[data-sheet-panel]") || m).getBoundingClientRect()
+    const box = (m.closest("[role='dialog']") || m.closest("[data-modal-sheet]") || m).getBoundingClientRect()
     const h = (sel) => { const el = document.querySelector(sel); return el ? Math.round(el.getBoundingClientRect().height * 10) / 10 : null }
     const top = (sel) => { const el = document.querySelector(sel); return el ? Math.round(el.getBoundingClientRect().top) : null }
     const amount = document.querySelector("[data-adjust-amount]")
     const steppers = [...amount.parentElement.querySelectorAll("button")].map((b) => Math.round(b.getBoundingClientRect().height * 10) / 10)
-    const sideways = [...m.querySelectorAll("*")].filter((el) => el.scrollWidth > el.clientWidth + 1 && !["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName) && getComputedStyle(el).overflowX !== "visible").length
+    const sideways = [...m.querySelectorAll("*")].filter((el) => el.scrollWidth > el.clientWidth + 1 && !["INPUT", "SELECT", "TEXTAREA"].includes(el.tagName) && getComputedStyle(el).overflowX !== "visible" && getComputedStyle(el).textOverflow !== "ellipsis").length
     const scroller = m.closest("[data-modal-sheet-body]") || m.parentElement
     return {
       box: { x: Math.round(box.left), y: Math.round(box.top), w: Math.round(box.width), h: Math.round(box.height) },
@@ -139,25 +146,17 @@ for (const vp of [{ width: 390, height: 844, phone: true }, { width: 1280, heigh
   expect(/12\s*17/.test(added.levels) && !added.saveOff, `${vp.width}: Add 5 showed "${added.levels}"`)
   /* Remove 13: refused in words. */
   await page.click("[data-adjust-modes] button:nth-child(2)")
-  await page.click("[data-adjust-amount]", { clickCount: 3 })
-  await page.keyboard.press("Backspace")
-  await page.keyboard.type("13")
-  await wait(100)
+  await retype(page, "13")
   const removed = await measure()
   expect(/Only 12 on hand here\./.test(removed.error) && removed.saveOff, `${vp.width}: Remove 13 said "${removed.error}", Save off ${removed.saveOff}`)
   /* Set to 1 with 2 committed: a warning. */
   await page.click("[data-adjust-modes] button:nth-child(3)")
-  await page.click("[data-adjust-amount]", { clickCount: 3 })
-  await page.keyboard.press("Backspace")
-  await page.keyboard.type("1")
-  await wait(100)
+  await retype(page, "1")
   const counted = await measure()
   expect(/1 sold unit won.t be on the shelf/.test(counted.warning), `${vp.width}: Set to 1 warned "${counted.warning}"`)
   /* Back to Add 5, a note, Save. */
   await page.click("[data-adjust-modes] button:nth-child(1)")
-  await page.click("[data-adjust-amount]", { clickCount: 3 })
-  await page.keyboard.press("Backspace")
-  await page.keyboard.type("5")
+  await retype(page, "5")
   await page.click("[data-adjust-note]")
   await page.keyboard.type("Box 4 from the supplier")
   const had = posts.length

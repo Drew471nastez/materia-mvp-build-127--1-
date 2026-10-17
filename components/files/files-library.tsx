@@ -1069,7 +1069,14 @@ export function FilesLibrary({
 
   const closeDetails = React.useCallback(() => setOpen(null), [])
   /* A picture's alt text saved: kept on the file, so the view and the next opening show it. */
-  const onAlt = React.useCallback((f: LibraryFile, alt: string | null) => setFiles((list) => list?.map((x) => (x.id === f.id ? { ...x, alt } : x)) ?? null), [setFiles])
+  const onAlt = React.useCallback(
+    (f: LibraryFile, alt: string | null) => {
+      setFiles((list) => list?.map((x) => (x.id === f.id ? { ...x, alt } : x)) ?? null)
+      /* The open view holds its own copy of the file: it reads the saved words too. */
+      setOpen((o) => (o && o.id === f.id ? { ...o, alt } : o))
+    },
+    [setFiles],
+  )
 
   /* Open in Files lands on /app/files?file=<id>: that file's details, once the list is in. */
   React.useEffect(() => {
@@ -1664,7 +1671,7 @@ export function CopyLinkField({ url }: { url: string }) {
         type="button"
         onClick={() => void copy()}
         className={cn(
-          "inline-flex h-8 min-w-[84px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40",
+          "inline-flex h-8 min-w-[92px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40",
           copied ? "bg-[#ecfdf3] text-[#166534]" : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9ebee]",
         )}
         aria-live="polite"

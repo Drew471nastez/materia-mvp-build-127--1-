@@ -3,7 +3,7 @@
  *  FILES' DETAIL VIEW, MEASURED (round V)
  * ===========================================================================
  * scripts/render-file-modal.tsx mounts the real Files library. This serves
- * it thirty pictures (the repository's own), answers /api/files,
+ * it 120 pictures (the repository's own), answers /api/files,
  * /api/files/usage and /_next/image, then at 390x844 (a phone, touch, 3x),
  * 768x1024 and 1280x800:
  *
@@ -61,7 +61,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 const SOURCES = ["public/images/brand/storelib-og-v2.jpg", "public/modern-tech-product.png", "public/images/onepage-themes/nature.webp", "public/images/onepage-themes/fusion.webp", "public/images/design-mode/storelib.png", "public/product-launch-email-template.png"].filter((p) => existsSync(join(root, p)))
 const typeOf = (p) => (p.endsWith(".png") ? "image/png" : p.endsWith(".webp") ? "image/webp" : "image/jpeg")
 /* The first file has a long name, so its address is longer than the field. */
-const files = Array.from({ length: 30 }, (_, i) => {
+const files = Array.from({ length: 120 }, (_, i) => {
   const name = i === 0 ? `1760000000000-summer-collection-hero-banner-final-final-v3-${i}.jpg` : `photo-${i}.jpg`
   const path = `u1/files/${i}-${name}`
   return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name, url: `https://storelib.com/media/store-builder-images/${path}`, bytes: 240000 + i * 1000, type: "image/jpeg", createdAt: new Date(Date.UTC(2026, 9, 1) - i * 3600e3).toISOString(), source: i % 2 ? "Website" : "Library" }
@@ -134,7 +134,8 @@ for (const vp of [{ width: 390, height: 844, phone: true }, { width: 768, height
     }
   })
   expect(grid.asked >= grid.tile * (vp.phone ? 3 : 2) * 0.66, `${vp.width}: the tile asked for a ${grid.asked}px copy for a ${grid.tile}px tile`)
-  expect(grid.lazy > 0 && grid.eager <= 12, `${vp.width}: lazy after the first rows`)
+  /* Eager: the first rows, and each pill's first screen fetched ahead (WARM, 24 a pill, three pills here). */
+  expect(grid.lazy > 0 && grid.eager <= 72, `${vp.width}: lazy after the first rows (${grid.eager} eager)`)
 
   /* Open the first file. */
   await page.click("[data-file-tile] button[data-file]")
@@ -153,7 +154,7 @@ for (const vp of [{ width: 390, height: 844, phone: true }, { width: 768, height
     const details = document.querySelector("[data-file-details]")
     const box = (details.closest("[data-slot='dialog-content']") || details.closest("[data-sheet-panel]") || details).getBoundingClientRect()
     const stage = document.querySelector("[data-file-stage]").getBoundingClientRect()
-    const scrollers = [...details.querySelectorAll("*")].filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible" && el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")
+    const scrollers = [...details.querySelectorAll("*")].filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== "visible" && getComputedStyle(el).textOverflow !== "ellipsis" && el.tagName !== "INPUT" && el.tagName !== "TEXTAREA")
     return {
       button: Math.round(btn.getBoundingClientRect().width * 10) / 10,
       natural: Math.round(natural * 10) / 10,
@@ -195,8 +196,10 @@ for (const vp of [{ width: 390, height: 844, phone: true }, { width: 768, height
   const had = patches.length
   await page.click("[data-file-alt] textarea")
   await page.keyboard.type("A linen shirt on a chair")
-  await page.click("[data-file-alt-save]")
+  const typed = await page.evaluate(() => ({ value: document.querySelector("[data-file-alt] textarea")?.value, button: !!document.querySelector("[data-file-alt-save]") }))
+  if (typed.button) await page.click("[data-file-alt-save]")
   await page.waitForSelector("[data-file-alt-saved]", { timeout: 4000 }).catch(() => null)
+  if (process.env.DEBUG) console.log(vp.width, JSON.stringify({ typed, patches: patches.slice(had), toasts: await page.evaluate(() => window.__toasts ?? []) }))
   const altSaved = patches.length > had && patches[patches.length - 1].alt === "A linen shirt on a chair" && (await page.$("[data-file-alt-saved]")) !== null
   expect(altSaved, `${vp.width}: alt text was not saved`)
 
