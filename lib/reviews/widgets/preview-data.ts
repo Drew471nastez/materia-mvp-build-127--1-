@@ -30,7 +30,7 @@ export function samplePhoto(i: number): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-const EXTRA_SAMPLES: Omit<StorefrontReview, "id" | "iso" | "date" | "product_id" | "product_title" | "product_url" | "product_image">[] = [
+const EXTRA_SAMPLES: Pick<StorefrontReview, "rating" | "title" | "body" | "author" | "initial" | "verified" | "featured" | "photos" | "has_photos" | "reply">[] = [
   { rating: 5, title: "Lovely quality", body: "Looks even better in person. Packed with care and arrived quickly.", author: "Lena W.", initial: "L", verified: true, featured: false, photos: [], has_photos: false, reply: "" },
   { rating: 4, title: "Very happy", body: "Great value. Took a few days to arrive but worth the wait.", author: "Omar H.", initial: "O", verified: true, featured: false, photos: [], has_photos: false, reply: "" },
   { rating: 5, title: "", body: "Second time ordering. Still just as good.", author: "Chloe B.", initial: "C", verified: false, featured: false, photos: [], has_photos: false, reply: "" },

@@ -289,11 +289,14 @@ export function readOnlySchemaRefusal(path: string): string | null {
   return null
 }
 
+const COVERAGE_ADVICE = /^(?:setting-unread|block-setting-unread|setting-missing)\b/
+
 /** The quality findings a built-in already has are not the edit's fault: only new ones refuse a copy of it. */
 function newQualityErrors(source: string, original: string | undefined, path: string, type: string) {
   const checked = validateSection(source, { path, expectType: type, strict: true })
   if (checked.ok !== false || checked.reason !== "quality") return null
-  const errors = checked.findings.filter((f) => f.severity === "error")
+  /* Settings coverage (lib/storelib-ai/settings-coverage.ts) is advice on a push, not a refusal: someone working in their own repository adds a setting and uses it a commit later. Storelib AI and MCP agents are still held to it. */
+  const errors = checked.findings.filter((f) => f.severity === "error" && !COVERAGE_ADVICE.test(f.id))
   if (original === undefined) return errors[0] ?? null
   const before = validateSection(original, { path, expectType: type, strict: true })
   const had = new Set(before.ok === false && before.reason === "quality" ? before.findings.filter((f) => f.severity === "error").map((f) => f.id) : [])

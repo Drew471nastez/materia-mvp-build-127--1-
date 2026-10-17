@@ -363,7 +363,7 @@ function Body({
      * waits and why in place when the link cannot be made, never a blank
      * about:blank tab (lib/website-builder/opening-tab.ts).
      */
-    const tab = openOpeningTab("Getting the preview of your drafts.")
+    const tab = openOpeningTab(tt("Getting the preview of your drafts."))
     setPreviewBusy(true)
     setPreviewNote(null)
     try {

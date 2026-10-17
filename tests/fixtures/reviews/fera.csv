@@ -1,0 +1,2 @@
+id,external_product_id,product_name,rating,heading,body,customer_name,customer_email,created_at,is_verified,state,media_urls
+fe-1,999,Linen Apron,5,Superb,Very good,Quinn,quinn@example.com,2024-09-01T00:00:00Z,true,approved,https://fera.example.com/m.jpg

@@ -1,6 +1,7 @@
 "use client"
 
 import { openOpeningTab } from "./opening-tab"
+import { tt } from "@/lib/i18n/text"
 
 /**
  * OPEN A WEBSITE THAT IS NOT PUBLISHED YET. "Open the live page" on an
@@ -16,7 +17,7 @@ import { openOpeningTab } from "./opening-tab"
  * well as here (./opening-tab.ts).
  */
 export async function openInstallPreview(installId: string, websiteUrl: string): Promise<string | null> {
-  const tab = openOpeningTab("Getting the preview of your drafts.")
+  const tab = openOpeningTab(tt("Getting the preview of your drafts."))
   try {
     const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/preview`, {
       method: "POST",

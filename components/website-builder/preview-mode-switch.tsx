@@ -249,8 +249,13 @@ export function CodePane({
    */
   const latestOpen = useRef({ path: codeFilePath ?? null, at: codeFileAt?.at ?? "top", n: codeFileAt?.n ?? 0 })
   latestOpen.current = { path: codeFilePath ?? null, at: codeFileAt?.at ?? "top", n: codeFileAt?.n ?? 0 }
+  /* The frame's file and place, fixed at its first render: later files open inside it (sendOpen), never by reloading it. */
   const srcRef = useRef<string | null>(null)
   const srcAsk = useRef(0)
+  if (srcRef.current === null) {
+    srcRef.current = codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}${codeFileAt?.at === "schema" ? "&at=schema" : ""}` : ""
+    srcAsk.current = codeFileAt?.n ?? 0
+  }
   const sendOpen = useCallback(() => {
     const ask = latestOpen.current
     if (!ask.path || ask.n <= srcAsk.current) return
@@ -507,13 +512,7 @@ export function CodePane({
         <iframe
           ref={frameRef}
           title={tt("Code editor")}
-          src={(() => {
-            if (srcRef.current === null) {
-              srcRef.current = `/website-builder/code/${installId}?embedded=1${codeFilePath ? `&path=${encodeURIComponent(codeFilePath)}${codeFileAt?.at === "schema" ? "&at=schema" : ""}` : ""}`
-              srcAsk.current = codeFileAt?.n ?? 0
-            }
-            return srcRef.current
-          })()}
+          src={`/website-builder/code/${installId}?embedded=1${srcRef.current ?? ""}`}
           onLoad={() => setLoaded(true)}
           className={cn(
             "h-full w-full border-0 bg-white transition-opacity duration-300",

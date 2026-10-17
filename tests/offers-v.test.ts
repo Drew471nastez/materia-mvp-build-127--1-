@@ -395,7 +395,8 @@ async function main() {
   console.log("\nThe /app page")
   {
     const page = read("app/app/offers/page.tsx")
-    check("read on the server (no fetch after it lands), a deferred skeleton for a slow answer", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(page) && existsSync(join(root, "app/app/offers/loading.tsx")) && /skeleton-deferred/.test(read("app/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
+    /* Changed on purpose: no route loading boundary, like every /app page (tests/page-performance.test.ts): the page you are on stays while this one loads. */
+    check("read on the server (no fetch after it lands), and no route loading boundary", /offersArea\(createAdminClient\(\), creator\.id as string\)/.test(page) && !existsSync(join(root, "app/app/offers/loading.tsx")) && !/requirePhysicalPage/.test(page))
     const client = read("app/app/offers/offers-client.tsx")
     check("the list: views with counts, a search, phone rows, a table, a menu per row", /role="tablist"/.test(client) && /data-offer-search=""/.test(client) && /md:hidden/.test(client) && /md:table/.test(client) && /<ResponsiveActionMenu/.test(client))
     check("no made up numbers: nothing about views, accepts or revenue", !/revenue|accepts|accepted|conversion|impressions/i.test(client.replace(/\/\*[\s\S]*?\*\//g, "")))
