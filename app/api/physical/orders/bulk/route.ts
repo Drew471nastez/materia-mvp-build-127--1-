@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 
 /**
  * Many orders at once, from the Orders list (lib/physical/bulk-fulfil-server.ts):
- *   load     the selected orders, what each has left to ship or why it can't be (`slips`: the whole order, for packing slips)
+ *   load     the selected orders, what each has left to ship or why it can't be
  *   fulfil   mark each fulfilled with what it has left, its own carrier and tracking; answered order by order
  *   preview  what a tracking CSV would do, row by row; writes nothing
  *   import   the CSV's orders without an error, each fulfilled in its parcels
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     case "load": {
       const ids = (Array.isArray(body.ids) ? body.ids : []).filter(isUuid).slice(0, BULK_MAX_ORDERS)
       if (ids.length === 0) return physicalJson({ error: "Choose at least one order." }, 400)
-      return physicalJson({ orders: await loadBulk(c.db, c.creatorId, ids, { slips: body.slips === true }) })
+      return physicalJson({ orders: await loadBulk(c.db, c.creatorId, ids) })
     }
     case "fulfil": {
       if (!key) return physicalJson({ error: "Bad request." }, 400)

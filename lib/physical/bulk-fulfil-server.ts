@@ -33,12 +33,12 @@ export interface BulkOrderView {
   checkoutId: string | null
   number: string
   buyerName: string | null
+  /** The shipping country (ISO), so its usual carriers come first in the picker. */
+  country: string | null
   /** Its items still to ship. */
   lines: { orderId: string; title: string; variantName: string | null; sku: string | null; open: number; imageUrl: string | null }[]
   /** Why it is left out; null when it can be fulfilled. */
   refused: string | null
-  /** The whole order, for a packing slip. Only on `load` with slips. */
-  order?: PhysicalOrder
 }
 
 export interface BulkResult {
@@ -79,39 +79,39 @@ async function numbersFor(db: Db, creatorId: string) {
   }
 }
 
-async function resolve(db: Db, creatorId: string, id: string): Promise<PhysicalOrder | null> {
+export async function resolveOrder(db: Db, creatorId: string, id: string): Promise<PhysicalOrder | null> {
   const direct = await loadOrder(db, { creatorId, checkoutId: id })
   if (direct) return direct
   const checkoutId = await checkoutOfOrderRow(db, creatorId, id)
   return checkoutId ? loadOrder(db, { creatorId, checkoutId }) : null
 }
 
-function viewOf(id: string, order: PhysicalOrder | null, number: (c: string) => string, withOrder: boolean): BulkOrderView {
-  if (!order) return { id, checkoutId: null, number: "", buyerName: null, lines: [], refused: "Not found, or not an order that ships." }
+function viewOf(id: string, order: PhysicalOrder | null, number: (c: string) => string): BulkOrderView {
+  if (!order) return { id, checkoutId: null, number: "", buyerName: null, country: null, lines: [], refused: "Not found, or not an order that ships." }
   return {
     id,
     checkoutId: order.id,
     number: number(order.id),
     buyerName: order.buyerName ?? (order.address as Record<string, string> | null)?.name ?? null,
+    country: typeof order.address?.country === "string" ? order.address.country : null,
     lines: order.lines
       .filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
       .map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, sku: l.sku, open: l.quantity - l.fulfilled, imageUrl: l.imageUrl })),
     refused: bulkRefusal(order),
-    ...(withOrder ? { order } : {}),
   }
 }
 
-/** The selected orders, each with what is left to ship or why it can't be (and the whole order, for packing slips). */
-export async function loadBulk(db: Db, creatorId: string, ids: string[], opts: { slips?: boolean } = {}): Promise<BulkOrderView[]> {
+/** The selected orders, each with what is left to ship or why it can't be. */
+export async function loadBulk(db: Db, creatorId: string, ids: string[]): Promise<BulkOrderView[]> {
   const number = await numbersFor(db, creatorId)
   const out: BulkOrderView[] = []
   const seen = new Set<string>()
   for (const id of ids.slice(0, BULK_MAX_ORDERS)) {
-    const order = await resolve(db, creatorId, id)
+    const order = await resolveOrder(db, creatorId, id)
     /* Two lines of one cart picked in the list are one order here. */
     if (order && seen.has(order.id)) continue
     if (order) seen.add(order.id)
-    out.push(viewOf(id, order, number, !!opts.slips))
+    out.push(viewOf(id, order, number))
   }
   return out
 }
@@ -130,7 +130,7 @@ export async function bulkFulfil(
   const results: BulkResult[] = []
   const seen = new Set<string>()
   for (const entry of input.orders.slice(0, BULK_MAX_ORDERS)) {
-    const order = await resolve(db, creatorId, entry.id)
+    const order = await resolveOrder(db, creatorId, entry.id)
     if (!order) {
       results.push({ id: entry.id, checkoutId: null, number: "", ok: false, error: "Not found, or not an order that ships.", units: 0, parcels: 0 })
       continue

@@ -699,7 +699,7 @@ export function OrdersClient(props: OrdersClientProps) {
   const [bulk, setBulk] = React.useState<"fulfil" | "import" | null>(null)
   const onFulfil = useStable(() => setBulk("fulfil"))
   const onImport = useStable(() => setBulk("import"))
-  const onSlips = useStable(() => void printSelectedSlips([...selected]).then(onNotice))
+  const onSlips = useStable(() => void printSelectedSlips([...selected]).then((e) => e && onNotice(e)))
   const afterBulk = (message: string) => {
     onNotice(message)
     /* The list reads its page again (not every order), so the fulfilled ones move on. */

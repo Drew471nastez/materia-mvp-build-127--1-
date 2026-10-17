@@ -9886,7 +9886,10 @@ const words: Record<string, string> = {
  "{orders} will be marked fulfilled, {items} in all. Each ships in one parcel with everything it has left.": "{orders} saranno segnati come evasi, {items} in tutto. Ognuno parte in un pacco con tutto ciò che gli resta.",
  "{printed} printed. {skipped} had nothing left to pack.": "{printed} stampati. {skipped} non avevano più nulla da imballare.",
  "{rows} with a problem. An order with a problem on any row is left out whole.": "{rows} con un problema. Un ordine con un problema in una riga qualsiasi resta fuori per intero.",
- "{verb} {items} in {n} parcels": "{verb} {items} in {n} pacchi"
+ "{verb} {items} in {n} parcels": "{verb} {items} in {n} pacchi",
+ "Each order with a carrier needs its tracking number. Change the carrier on any order below.": "Ogni ordine con un corriere ha bisogno del suo numero di tracciamento. Cambia il corriere su qualsiasi ordine qui sotto.",
+ "The packing slips could not be made. Try again.": "Non è stato possibile creare le distinte di imballaggio. Riprova.",
+ "{orders} still need a carrier or a tracking number.": "{orders} hanno ancora bisogno di un corriere o di un numero di tracciamento."
 }
 
 export default words

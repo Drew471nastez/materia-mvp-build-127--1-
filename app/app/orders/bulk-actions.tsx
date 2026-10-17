@@ -14,11 +14,10 @@ import * as React from "react"
 import { FileUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
-import { CARRIERS } from "@/lib/physical/status"
 import { IMPORT_MAX_BYTES } from "@/lib/physical/bulk-fulfil"
-import { BTN_PRIMARY, BTN_SECONDARY, Modal, Notice, SelectInput, Toggle, actionKey, api } from "@/components/physical/ui"
-import { TrackingFields } from "@/components/physical/order-panel"
-import { printPackingSlips, type SlipLine, type SlipOrder } from "@/components/physical/packing-slip"
+import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, Toggle, actionKey, api } from "@/components/physical/ui"
+import { TrackingFields, shipBody, shipProblems, type Ship } from "@/components/physical/order-panel"
+import { CarrierPicker } from "@/components/physical/carrier-picker"
 
 /* The answers of app/api/physical/orders/bulk, as the page reads them. */
 interface BulkLine {
@@ -35,7 +34,7 @@ interface BulkOrder {
   buyerName: string | null
   lines: BulkLine[]
   refused: string | null
-  order?: SlipOrder & { lines: (SlipLine & { orderId: string; fulfilled: number; requiresShipping: boolean })[] }
+  country: string | null
 }
 interface BulkResult {
   id: string
@@ -68,21 +67,21 @@ const BULK_WAIT_MS = 120_000
 const itemsLabel = (n: number) => tt("{n, plural, one {# item} other {# items}}", { n })
 const ordersLabel = (n: number) => tt("{n, plural, one {# order} other {# orders}}", { n })
 
-function useBulkOrders(ids: string[], open: boolean, slips = false) {
+function useBulkOrders(ids: string[], open: boolean) {
   const [state, setState] = React.useState<{ orders: BulkOrder[] | null; error: string | null }>({ orders: null, error: null })
   const want = open ? ids.join(",") : ""
   React.useEffect(() => {
     if (!want) return
     let live = true
     setState({ orders: null, error: null })
-    void api<{ orders: BulkOrder[] }>("/api/physical/orders/bulk", { method: "POST", body: { action: "load", ids: want.split(","), slips } }).then((r) => {
+    void api<{ orders: BulkOrder[] }>("/api/physical/orders/bulk", { method: "POST", body: { action: "load", ids: want.split(",") } }).then((r) => {
       if (!live) return
       setState(r.ok ? { orders: r.data.orders, error: null } : { orders: null, error: r.error })
     })
     return () => {
       live = false
     }
-  }, [want, slips])
+  }, [want])
   return state
 }
 
@@ -114,24 +113,20 @@ function Results({ results }: { results: BulkResult[] }) {
   )
 }
 
-interface RowDraft {
-  carrier: string
-  other: string
-  tracking: string
-  url: string
-}
-
 /**
- * MARK AS FULFILLED, for the orders ticked in the list. Each order is
- * listed with what it still has to ship and a tracking number of its own
- * (optional); one carrier can be picked for all of them first and changed
- * on any one. Orders that can't be fulfilled this way are listed apart with
- * the reason and left as they are.
+ * MARK AS FULFILLED, for the orders ticked in the list. Each order is listed
+ * with what it still has to ship and its own carrier and tracking number (the
+ * order page's TrackingFields, the same tracking number rule); one carrier
+ * can be picked for all of them first and changed on any one. Orders that
+ * can't be fulfilled this way are listed apart with the reason and left as
+ * they are.
  */
 export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[]; open: boolean; onClose: () => void; onDone: (message: string) => void }) {
   const { orders, error: loadError } = useBulkOrders(ids, open)
   const [shared, setShared] = React.useState("")
-  const [rows, setRows] = React.useState<Record<string, RowDraft>>({})
+  const [sharedOther, setSharedOther] = React.useState("")
+  const [rows, setRows] = React.useState<Record<string, Ship>>({})
+  const [check, setCheck] = React.useState(false)
   const [notify, setNotify] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -142,7 +137,9 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
     setWasOpen(open)
     if (open) {
       setShared("")
+      setSharedOther("")
       setRows({})
+      setCheck(false)
       setResults(null)
       setError(null)
       key.current = actionKey()
@@ -151,26 +148,23 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
   const going = (orders ?? []).filter((o) => !o.refused)
   const left = (orders ?? []).filter((o) => o.refused)
   const units = going.reduce((n, o) => n + o.lines.reduce((m, l) => m + l.open, 0), 0)
-  const blank = (): RowDraft => ({ carrier: shared, other: "", tracking: "", url: "" })
-  const row = (id: string): RowDraft => rows[id] ?? blank()
-  /* From the rows as they are now: a number typed and the carrier guessed from it land in the same render. */
-  const patch = (id: string, p: Partial<RowDraft>) => setRows((all) => ({ ...all, [id]: { ...(all[id] ?? blank()), ...p } }))
+  const blank = (): Ship => ({ choice: shared, other: sharedOther, url: "", tracking: "" })
+  const row = (id: string): Ship => rows[id] ?? blank()
+  /* From the rows as they are now: a number typed and the carrier guessed from it land together. */
+  const patch = (id: string, p: Partial<Ship>) => setRows((all) => ({ ...all, [id]: { ...(all[id] ?? blank()), ...p } }))
+  const unready = going.filter((o) => Object.keys(shipProblems(row(o.id))).length > 0).length
 
   const submit = async () => {
+    if (unready) {
+      setCheck(true)
+      return
+    }
     setBusy(true)
     setError(null)
     const r = await api<{ results: BulkResult[] }>("/api/physical/orders/bulk", {
       method: "POST",
       timeoutMs: BULK_WAIT_MS,
-      body: {
-        action: "fulfil",
-        key: key.current,
-        notifyBuyer: notify,
-        orders: going.map((o) => {
-          const d = row(o.id)
-          return { id: o.id, carrier: (d.carrier === "Other" ? d.other.trim() : d.carrier) || null, trackingNumber: d.tracking.trim() || null, trackingUrl: d.carrier === "Other" ? d.url.trim() || null : null }
-        }),
-      },
+      body: { action: "fulfil", key: key.current, notifyBuyer: notify, orders: going.map((o) => ({ id: o.id, ...shipBody(row(o.id)) })) },
     })
     setBusy(false)
     if (!r.ok) return setError(r.error)
@@ -195,7 +189,7 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
             <button type="button" className={BTN_SECONDARY} onClick={onClose}>
               {tt("Cancel")}
             </button>
-            <button type="button" className={BTN_PRIMARY} disabled={busy || going.length === 0} onClick={submit} data-bulk-submit="">
+            <button type="button" className={BTN_PRIMARY} disabled={busy || going.length === 0} onClick={() => void submit()} data-bulk-submit="">
               {busy ? tt("Saving…") : going.length ? tt("Mark {orders} fulfilled", { orders: ordersLabel(going.length) }) : tt("Mark as fulfilled")}
             </button>
           </>
@@ -221,33 +215,27 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
             {left.length ? <span className="text-[#6b7280]"> {tt("{orders} can't be and stay as they are.", { orders: ordersLabel(left.length) })}</span> : null}
           </p>
           {going.length ? (
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-[#1a1a2e]">{tt("Carrier for every order")}</span>
-                <SelectInput
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" data-bulk-carrier="">
+              <Field label={tt("Carrier for every order")} htmlFor="bulk-carrier">
+                <CarrierPicker
+                  id="bulk-carrier"
                   value={shared}
-                  data-bulk-carrier=""
+                  country={going[0]?.country ?? null}
+                  otherName={sharedOther}
+                  onOtherName={setSharedOther}
                   onChange={(v) => {
                     setShared(v)
                     /* Every order takes it; any one can be changed after. */
-                    setRows((all) => Object.fromEntries(going.map((o) => [o.id, { ...(all[o.id] ?? { other: "", tracking: "", url: "" }), carrier: v }])))
+                    setRows((all) => Object.fromEntries(going.map((o) => [o.id, { ...(all[o.id] ?? { other: "", url: "", tracking: "" }), choice: v, other: sharedOther }])))
                   }}
-                >
-                  <option value="">{tt("Choose a carrier")}</option>
-                  {CARRIERS.map((c) => (
-                    <option key={c} value={c}>
-                      {c === "Other" ? tt("Other") : c}
-                    </option>
-                  ))}
-                </SelectInput>
-              </label>
-              <p className="text-[12.5px] leading-[18px] text-[#6b7280] sm:max-w-[220px] sm:pb-2.5">{tt("Tracking numbers are optional. Change the carrier on any order below.")}</p>
+                />
+              </Field>
+              <p className="text-[12.5px] leading-[18px] text-[#6b7280] sm:max-w-[240px] sm:pb-2.5">{tt("Each order with a carrier needs its tracking number. Change the carrier on any order below.")}</p>
             </div>
           ) : null}
           {going.length ? (
             <ol className="space-y-2.5" data-bulk-orders="">
               {going.map((o) => {
-                const d = row(o.id)
                 const count = o.lines.reduce((n, l) => n + l.open, 0)
                 return (
                   <li key={o.id} className="rounded-xl border border-[#eceef1] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-bulk-order={o.number}>
@@ -261,17 +249,7 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
                     <p className="mt-0.5 truncate text-[12.5px] text-[#6b7280]">{o.lines.map((l) => `${l.open} × ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`).join(", ")}</p>
                     <div className="mt-2.5">
                       {/* Remounted when the shared carrier changes, so a typed number never guesses over it. */}
-                      <TrackingFields
-                        key={shared}
-                        tracking={d.tracking}
-                        setTracking={(v) => patch(o.id, { tracking: v })}
-                        carrier={d.carrier}
-                        setCarrier={(v) => patch(o.id, { carrier: v })}
-                        other={d.other}
-                        setOther={(v) => patch(o.id, { other: v })}
-                        url={d.url}
-                        setUrl={(v) => patch(o.id, { url: v })}
-                      />
+                      <TrackingFields key={shared} ship={row(o.id)} set={(p) => patch(o.id, p)} country={o.country} check={check} />
                     </div>
                   </li>
                 )
@@ -292,6 +270,7 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
             </div>
           ) : null}
           {going.length ? <Toggle label={tt("Email each buyer")} description={tt("One email per order with its tracking link, or saying it's on the way.")} checked={notify} onChange={setNotify} /> : null}
+          {check && unready ? <Notice>{tt("{orders} still need a carrier or a tracking number.", { orders: ordersLabel(unready) })}</Notice> : null}
           {error ? <Notice>{error}</Notice> : null}
         </div>
       )}
@@ -299,17 +278,38 @@ export function BulkFulfilSheet({ ids, open, onClose, onDone }: { ids: string[];
   )
 }
 
-/** Packing slips for the ticked orders, one page each, in one print. */
-export async function printSelectedSlips(ids: string[]): Promise<string> {
-  const r = await api<{ orders: BulkOrder[] }>("/api/physical/orders/bulk", { method: "POST", body: { action: "load", ids, slips: true } })
-  if (!r.ok) return r.error
-  const slips = r.data.orders
-    .filter((o) => o.order && o.lines.length > 0)
-    .map((o) => ({ order: { ...o.order!, number: o.number }, lines: o.lines.map((l) => ({ title: l.title, variantName: l.variantName, sku: l.sku, quantity: l.open })) }))
-  if (slips.length === 0) return tt("None of these orders has anything left to pack.")
-  printPackingSlips(slips)
-  const skipped = r.data.orders.length - slips.length
-  return skipped ? tt("{printed} printed. {skipped} had nothing left to pack.", { printed: ordersLabel(slips.length), skipped: ordersLabel(skipped) }) : tt("Packing slips for {orders}", { orders: ordersLabel(slips.length) })
+/** The Orders list's Packing slips: every ticked order's slip in one page (app/api/physical/orders/packing-slips). */
+export function packingSlipsHref(ids: string[]): string {
+  return `/api/physical/orders/packing-slips?ids=${ids.slice(0, 100).map(encodeURIComponent).join(",")}`
+}
+
+/**
+ * Prints the ticked orders' slips on a computer without leaving the list: the page is read, put in a frame out of
+ * sight, and printed once it is in. A phone opens the page itself instead (a print from a frame, or a window opened
+ * after a sheet closes, is what a phone's browser blocks). Null when it printed, else what went wrong.
+ */
+export async function printSelectedSlips(ids: string[]): Promise<string | null> {
+  const res = await fetch(packingSlipsHref(ids), { credentials: "same-origin", cache: "no-store" }).catch(() => null)
+  if (!res) return tt("The packing slips could not be made. Try again.")
+  if (res.status === 404) return tt("None of these orders has anything left to pack.")
+  if (!res.ok) return tt("The packing slips could not be made. Try again.")
+  const html = await res.text()
+  document.querySelectorAll("iframe[data-packing-slips-frame]").forEach((f) => f.remove())
+  const frame = document.createElement("iframe")
+  frame.setAttribute("data-packing-slips-frame", "")
+  frame.setAttribute("aria-hidden", "true")
+  frame.tabIndex = -1
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none"
+  frame.onload = () => {
+    const w = frame.contentWindow
+    if (!w) return
+    w.addEventListener("afterprint", () => window.setTimeout(() => frame.remove(), 0))
+    w.focus()
+    w.print()
+  }
+  frame.srcdoc = html
+  document.body.appendChild(frame)
+  return null
 }
 
 /**

@@ -65,9 +65,9 @@ const bundle = readFileSync(join(out, "probe.js"))
 const C = (n) => `${n}`.repeat(8) + "-" + `${n}`.repeat(4) + "-4" + `${n}`.repeat(3) + "-8" + `${n}`.repeat(3) + "-" + `${n}`.repeat(12)
 const R = (n) => `a1a1a1a1-0000-4000-8000-00000000000${n}`
 const bulkOrders = {
-  [R(1)]: { id: R(1), checkoutId: C(1), number: "#1005", buyerName: "Ada Lind", lines: [{ orderId: "l1", title: "Desk lamp", variantName: null, sku: "LAMP", open: 2, imageUrl: null }], refused: null },
-  [R(3)]: { id: R(3), checkoutId: C(3), number: "#1003", buyerName: "Cid Moreau", lines: [], refused: "Already fulfilled." },
-  [R(4)]: { id: R(4), checkoutId: C(4), number: "#1002", buyerName: "Dot Rivera", lines: [{ orderId: "l4", title: "Desk lamp", variantName: "Brass", sku: "LAMP-B", open: 1, imageUrl: null }, { orderId: "l4b", title: "Linen shade", variantName: null, sku: "SHADE", open: 1, imageUrl: null }], refused: null },
+  [R(1)]: { id: R(1), checkoutId: C(1), number: "#1005", buyerName: "Ada Lind", country: "DE", lines: [{ orderId: "l1", title: "Desk lamp", variantName: null, sku: "LAMP", open: 2, imageUrl: null }], refused: null },
+  [R(3)]: { id: R(3), checkoutId: C(3), number: "#1003", buyerName: "Cid Moreau", country: "DE", lines: [], refused: "Already fulfilled." },
+  [R(4)]: { id: R(4), checkoutId: C(4), number: "#1002", buyerName: "Dot Rivera", country: "DE", lines: [{ orderId: "l4", title: "Desk lamp", variantName: "Brass", sku: "LAMP-B", open: 1, imageUrl: null }, { orderId: "l4b", title: "Linen shade", variantName: null, sku: "SHADE", open: 1, imageUrl: null }], refused: null },
 }
 /* The Orders page's rows: five orders that ship, one of them already fulfilled. */
 const H = 3_600_000
@@ -88,6 +88,7 @@ const line = (orderId, title, quantity, extra = {}) => ({ orderId, productId: "p
 const freshOrder = () => ({ id: C(7), creatorId: "me", status: "paid", fulfillmentStatus: "unfulfilled", returnStatus: "none", currency: "EUR", buyerEmail: "bea@example.com", buyerName: "Bea Buyer", buyerPhone: null, itemsSubtotalCents: 13500, discountCents: 0, shippingCents: 500, shippingDiscountCents: 0, taxCents: 0, taxIncluded: false, taxLabel: "Tax", totalCents: 14000, refundedCents: 0, platformFeeCents: 0, payment: "card", cashCollectedAt: null, couponCode: null, address, delivery: { name: "Standard", priceCents: 500, minDays: 1, maxDays: 3 }, deliveryMethod: "ship", pickup: null, processingAt: null, deliveredAt: null, buyerNote: null, cartAttributes: {}, merchantNote: null, receiptToken: "t", paidAt: new Date().toISOString(), createdAt: new Date().toISOString(), cancelledAt: null, lines: [line("lamp", "Desk lamp", 3, { sku: "LAMP" }), line("shade", "Linen shade", 1, { sku: "SHADE", unitCents: 1500 })], shipments: [], returns: [], events: [] })
 let order = freshOrder()
 const posts = []
+const slipAsks = []
 const preview = { error: null, counts: { orders: 1, parcels: 2, units: 2, errors: 2, rows: 4 }, orders: [], rows: [
   { line: 2, order: "#1005", carrier: "DHL", tracking: "00340434160000000201", trackingUrl: "", sku: "LAMP", quantity: 1, error: null, checkoutId: C(1), number: "#1005", ships: "1 × Desk lamp", units: 1 },
   { line: 3, order: "#1005", carrier: "DPD", tracking: "01234567890201", trackingUrl: "", sku: "LAMP", quantity: 1, error: null, checkoutId: C(1), number: "#1005", ships: "1 × Desk lamp", units: 1 },
@@ -98,8 +99,15 @@ const preview = { error: null, counts: { orders: 1, parcels: 2, units: 2, errors
 const page = `<!doctype html><html class="light app-layout" lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0}</style></head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};localStorage.setItem("storelib_timezone","Europe/Berlin");window.__LISTING__=${JSON.stringify(LISTING)}</script><script src="/probe.js"></script></body></html>`
 const server = createServer((req, res) => {
   const json = (body, status = 200) => setTimeout(() => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)) }, 120)
+  /* The carriers' logos, from public/ as the site serves them. */
+  if (req.url.startsWith("/carriers/") && /^\/carriers\/[a-z0-9-]+\.webp$/.test(req.url) && existsSync(join(root, "public", req.url))) { res.writeHead(200, { "content-type": "image/webp" }); return res.end(readFileSync(join(root, "public", req.url))) }
   if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
   const read = (then) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => then(b ? JSON.parse(b) : {})) }
+  if (req.url.startsWith("/api/physical/orders/packing-slips")) {
+    slipAsks.push(new URL(req.url, "http://x").searchParams.get("ids") ?? "")
+    res.writeHead(200, { "content-type": "text/html" })
+    return res.end("<!doctype html><html lang=en><head><title>Packing slips</title></head><body><main class=paper>slips</main></body></html>")
+  }
   if (req.url.startsWith("/api/physical/orders/bulk")) {
     return read((b) => {
       posts.push(b)
@@ -155,6 +163,22 @@ const offSide = (p) => p.evaluate((sel) => {
   return [...scope.querySelectorAll("*")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && (r.right > innerWidth + 1 || r.left < -1) && !clipped(el) }).slice(0, 4).map((el) => `${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(el.getBoundingClientRect().right)}`)
 }, SURFACE)
 const typeInto = async (p, handle, value) => { await handle.click({ clickCount: 3 }); await handle.type(value) }
+/* The carrier picker (components/physical/carrier-picker.tsx): a popover on a computer, a sheet on a phone; searched, then chosen. */
+const pickCarrier = async (p, scope, query, id, phone) => {
+  const field = await p.waitForSelector(`${scope} [data-carrier-field]`, { visible: true })
+  if (phone) await field.tap()
+  else await field.click()
+  await p.waitForSelector(phone ? '[data-carrier-list="phone"]' : "[data-carrier-popover]", { visible: true })
+  await sleep(phone ? 500 : 150)
+  const search = await p.waitForSelector("[data-carrier-search]", { visible: true })
+  if (phone) await search.tap()
+  await search.type(query)
+  await sleep(300)
+  const option = await p.waitForSelector(`[data-carrier-option="${id}"]`, { visible: true })
+  if (phone) await option.tap()
+  else await p.keyboard.press("Enter")
+  await sleep(phone ? 800 : 250)
+}
 
 for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   console.log(`\n${name} ${vp.width}x${vp.height}`)
@@ -183,12 +207,21 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   expect(await p.evaluate(() => !!document.querySelector("[data-orders-import]")), "Import tracking is in the top bar")
   await p.screenshot({ path: join(shots, `bf-${name}-selected.png`) })
 
+  /* PACKING SLIPS, on a computer: printed from a frame, every ticked order in one page */
+  if (name === "desk") {
+    slipAsks.length = 0
+    await p.evaluate(() => document.querySelector("[data-bulk-slips]").click())
+    await sleep(600)
+    const framed = await p.evaluate(() => !!document.querySelector("iframe[data-packing-slips-frame]"))
+    expect(slipAsks.length === 1 && slipAsks[0].split(",").length === 3 && framed, "Packing slips asks for one page of the three ticked orders and prints it from a frame", { asks: slipAsks, framed })
+  }
+
   /* BULK */
   if (name === "phone") {
     await p.evaluate(() => document.querySelector("[data-bulk-more]").click())
     await sleep(500)
-    const rowsInSheet = await p.evaluate(() => [...document.querySelectorAll("button")].filter((b) => b.getClientRects().length && /^(Mark as fulfilled|Packing slips)$/.test(b.innerText.trim())).length)
-    expect(rowsInSheet === 2, "on a phone, Actions opens a sheet with Mark as fulfilled and Packing slips", rowsInSheet)
+    const rowsInSheet = await p.evaluate(() => [...document.querySelectorAll("button, a")].filter((b) => b.getClientRects().length && /^(Mark as fulfilled|Packing slips)$/.test(b.innerText.trim())).map((b) => b.getAttribute("href") ?? "button"))
+    expect(rowsInSheet.length === 2 && rowsInSheet.some((h) => /^\/api\/physical\/orders\/packing-slips\?ids=.+,.+,.+/.test(h)), "on a phone, Actions opens a sheet with Mark as fulfilled, and Packing slips as a page for every ticked order", rowsInSheet)
     await p.screenshot({ path: join(shots, `bf-${name}-actions.png`) })
     await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.getClientRects().length && b.innerText.trim() === "Mark as fulfilled").click())
   } else await p.evaluate(() => document.querySelector("[data-bulk-fulfil]").click())
@@ -200,13 +233,18 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   expect(listed.join() === "#1005,#1002", "each order to fulfil is listed", listed)
   const left = await text(p, "[data-bulk-left]")
   expect(/#1003/.test(left) && /Already fulfilled/.test(left), "the refused one is apart, with its reason", left.replace(/\s+/g, " "))
-  await p.select("select[data-bulk-carrier]", "DHL Express")
-  await sleep(200)
-  const firstTracking = await p.$('[data-bulk-order="#1005"] input[placeholder="Optional"]')
+  await pickCarrier(p, "[data-bulk-carrier]", "dhl", "dhl", name === "phone")
+  const firstTracking = await p.$('[data-bulk-order="#1005"] [data-tracking-number]')
   await typeInto(p, firstTracking, "00340434160000000101")
   await sleep(200)
-  const carriers = await p.evaluate(() => [...document.querySelectorAll("[data-bulk-order] select")].map((s) => s.value))
-  expect(carriers.every((c) => c === "DHL Express"), "one carrier picked for every order, and a typed number keeps it", carriers)
+  const carriers = await p.evaluate(() => [...document.querySelectorAll("[data-bulk-order] [data-carrier-field]")].map((s) => s.dataset.carrierField))
+  expect(carriers.length === 2 && carriers.every((c) => c === "dhl"), "one carrier picked for every order, and a typed number keeps it", carriers)
+  /* The tracking number rule: an order with a carrier and no number holds the press back, and says so. */
+  await p.evaluate(() => document.querySelector("[data-bulk-submit]").click())
+  await sleep(300)
+  expect(!posts.some((x) => x.action === "fulfil") && /1 order still need/.test(await text(p, "[data-bulk-sheet]")), "a carrier without its number is not sent: the sheet says which still need one", (await text(p, "[data-bulk-sheet]")).slice(-200))
+  await typeInto(p, await p.$('[data-bulk-order="#1002"] [data-tracking-number]'), "00340434160000000102")
+  await sleep(200)
   expect((await offSide(p)).length === 0, "nothing in the sheet runs off the side", await offSide(p))
   await p.screenshot({ path: join(shots, `bf-${name}-bulk.png`) })
   const submit = await text(p, "[data-bulk-submit]")
@@ -215,7 +253,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await p.waitForSelector("[data-bulk-results]")
   await sleep(300)
   const sent = posts.find((x) => x.action === "fulfil")
-  expect(!!sent && sent.orders.length === 2 && sent.orders[0].carrier === "DHL Express" && sent.orders[0].trackingNumber === "00340434160000000101" && sent.orders[1].carrier === "DHL Express" && !sent.orders[1].trackingNumber && sent.notifyBuyer === true && typeof sent.key === "string", "Mark posts each order with its carrier and number, and one key", sent)
+  expect(!!sent && sent.orders.length === 2 && sent.orders[0].carrier === "DHL" && sent.orders[0].trackingNumber === "00340434160000000101" && sent.orders[1].carrier === "DHL" && sent.orders[1].trackingNumber === "00340434160000000102" && sent.notifyBuyer === true && typeof sent.key === "string", "Mark posts each order with its carrier and number, and one key", sent)
   expect(/2 orders marked fulfilled, 4 items in all/.test(await text(p, "[data-bulk-results]")), "the answer says what happened", await text(p, "[data-bulk-results]"))
   await p.screenshot({ path: join(shots, `bf-${name}-bulk-done.png`) })
   await p.evaluate(() => document.querySelector("[data-bulk-done]").click())
@@ -270,14 +308,13 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await sleep(150)
   const split = await q.evaluate(() => [...document.querySelectorAll("[data-parcel]")].map((p) => p.querySelector("p")?.innerText.replace(/\s+/g, " ")))
   expect(/3 items/.test(split[0] ?? "") === false && /2 items/.test(split[0] ?? "") && /2 items/.test(split[1] ?? ""), "units move from parcel 1 to parcel 2", split)
-  const fields = await q.$$('[data-parcel] input[placeholder="Optional"]')
+  await pickCarrier(q, '[data-parcel="1"]', "dhl", "dhl", name === "phone")
+  const fields = await q.$$("[data-parcel] [data-tracking-number]")
   await typeInto(q, fields[0], "00340434161234567890")
   await typeInto(q, fields[1], "1Z999AA10123456784")
   await sleep(200)
-  await q.select('[data-parcel="1"] select', "DHL Paket")
-  await sleep(150)
-  const pc = await q.evaluate(() => [...document.querySelectorAll("[data-parcel] select")].map((s) => s.value))
-  expect(pc[0] === "DHL Paket" && pc[1] === "UPS", "each parcel its own carrier: one picked, one guessed from its number", pc)
+  const pc = await q.evaluate(() => [...document.querySelectorAll("[data-parcel] [data-carrier-field]")].map((s) => s.dataset.carrierField))
+  expect(pc[0] === "dhl" && pc[1] === "ups", "each parcel its own carrier: one picked, one guessed from its number", pc)
   expect((await text(q, "[data-fulfil-submit]")) === "Fulfill 4 items in 2 parcels", "the button names the parcels", await text(q, "[data-fulfil-submit]"))
   expect((await offSide(q)).length === 0, "nothing in the dialog runs off the side", await offSide(q))
   await q.evaluate(() => document.querySelector("[data-parcels]").scrollIntoView({ block: "start" }))
@@ -286,7 +323,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await sleep(600)
   const fp = posts.find((x) => x.action === "fulfil" && Array.isArray(x.parcels))
   const units = (p) => p.items.reduce((n, i) => n + i.quantity, 0)
-  expect(!!fp && fp.parcels.length === 2 && units(fp.parcels[0]) === 2 && units(fp.parcels[1]) === 2 && fp.parcels[0].carrier === "DHL Paket" && fp.parcels[1].carrier === "UPS" && fp.parcels[1].trackingNumber === "1Z999AA10123456784" && typeof fp.key === "string", "Fulfill posts both parcels with their own tracking, one key", fp)
+  expect(!!fp && fp.parcels.length === 2 && units(fp.parcels[0]) === 2 && units(fp.parcels[1]) === 2 && fp.parcels[0].carrier === "DHL" && fp.parcels[1].carrier === "UPS" && fp.parcels[1].trackingNumber === "1Z999AA10123456784" && typeof fp.key === "string", "Fulfill posts both parcels with their own tracking, one key", fp)
   expect(errors.length === 0, "no script errors", errors)
   await q.close()
 }

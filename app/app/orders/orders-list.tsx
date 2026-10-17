@@ -59,6 +59,7 @@ import {
   PaneBar,
 } from "./order-parts"
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
+import { packingSlipsHref } from "./bulk-actions"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { CarrierLogo } from "@/components/physical/carrier-logo"
@@ -354,7 +355,8 @@ function OrdersTable(props: OrdersListProps) {
                               title={tt("{size} selected", { size: selected.size })}
                               items={[
                                 { label: tt("Mark as fulfilled"), icon: <PackageCheck className="h-4 w-4" />, onClick: () => props.onFulfil?.() },
-                                { label: tt("Packing slips"), icon: <Printer className="h-4 w-4" />, onClick: () => props.onSlips?.() },
+                                /* A link on a phone: the slips open as a page with Back and Print (a print from a frame is blocked there). */
+                                { label: tt("Packing slips"), icon: <Printer className="h-4 w-4" />, href: packingSlipsHref([...selected]) },
                               ]}
                               trigger={
                                 <button type="button" className={cn(buttonSecondary, "h-7 gap-1 px-2.5 text-[12px]")} data-bulk-more="">
