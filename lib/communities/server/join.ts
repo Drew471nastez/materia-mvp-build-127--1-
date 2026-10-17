@@ -122,7 +122,7 @@ async function tellOwner(db: Db, c: CommunityRow, userId: string): Promise<void>
  * The press of the sales page's button, for a signed in person. `interval`
  * picks the paid tier's checkout when it offers both.
  */
-export async function joinCommunity(db: Db, communityId: string, userId: string, input: { note?: unknown; interval?: unknown; answers?: unknown } = {}): Promise<JoinAnswer> {
+export async function joinCommunity(db: Db, communityId: string, userId: string, input: { note?: unknown; interval?: unknown; answers?: unknown; tierId?: unknown } = {}): Promise<JoinAnswer> {
   const community = await loadCommunity(db, { id: communityId })
   if (!community) return refuse(404, "not_found", "This community could not be found.")
   const closed = closedAnswer(community)
@@ -157,7 +157,15 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
     community.creator_id ? db.from("creators").select("stripe_account_id, stripe_onboarding_status, charges_enabled").eq("id", community.creator_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
   const options = optionsFor(community.slug, tiers, products, plans, creatorTakesPayments(creator.data))
-  const option = primaryOption(options, community.access, true)
+  /*
+    THE PLAN THEY PICKED (round AF, the plan picker): a plan of this community on sale now, free or one that can be bought.
+    Anything else (an archived plan, another community's, a paid plan with no price) is refused rather than swapped for
+    another plan, so nobody is put on a plan they did not choose.
+  */
+  const asked = typeof input.tierId === "string" && input.tierId ? input.tierId : null
+  const chosen = asked ? options.find((o) => o.tierId === asked) ?? null : null
+  if (asked && (!chosen || (chosen.kind === "paid" && !chosen.checkout))) return refuse(409, "plan_unavailable", "That plan isn't available. Choose another.")
+  const option = chosen ?? primaryOption(options, community.access, true)
   if (!option) return refuse(409, "unavailable", "Joining isn't open yet.")
 
   const member = viewer.member

@@ -107,6 +107,7 @@ export const EMAIL_POLICY: Record<NotificationType, EmailClass> = {
   MEMBERSHIP_PAYMENT_FAILED: "essential",
   MEMBERSHIP_CANCELED: "essential",
   MEMBERSHIP_ENDED: "essential",
+  MEMBERSHIP_PLAN_CHANGED: "essential",
 
   /* A member of a community */
   COMMUNITY_WELCOME: "essential",

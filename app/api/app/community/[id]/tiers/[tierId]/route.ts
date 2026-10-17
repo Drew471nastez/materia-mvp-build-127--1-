@@ -3,16 +3,16 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
-import { archiveTier, setDefaultTier, updateTier, type TierPatch } from "@/lib/communities/server/tiers"
+import { archiveTier, moveTier, setDefaultTier, updateTier, type TierPatch } from "@/lib/communities/server/tiers"
 import { checkBenefits, checkPrice, isUuid } from "@/components/community/creator/logic"
-import { LENGTHS } from "@/lib/communities/limits"
+import { LENGTHS, TRIAL_MAX_DAYS } from "@/lib/communities/limits"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
  * PATCH /api/app/community/<id>/tiers/<tierId>
- *   { name?, description?, benefits?, monthlyPrice?, yearlyPrice?, price?, archived?, makeDefault? }
+ *   { name?, description?, benefits?, monthlyPrice?, yearlyPrice?, price?, trialDays?, archived?, makeDefault?, move?: "up" | "down" }
  * A recurring price is saved through the memberships engine (saveMembership:
  * a new Stripe price; members keep what they joined at); a one time price is
  * the product's. An empty monthly or yearly price ("") removes that one.
@@ -33,6 +33,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (typeof body.archived === "boolean") {
     const done = await archiveTier(db, { community: gate.community, tierId, actorId: gate.ctx.userId, archived: body.archived })
+    if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+    return NextResponse.json({ ok: true }, { headers: noStore })
+  }
+  if (body.move === "up" || body.move === "down") {
+    const done = await moveTier(db, { community: gate.community, tierId, direction: body.move, actorId: gate.ctx.userId })
     if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
     return NextResponse.json({ ok: true }, { headers: noStore })
   }
@@ -62,6 +67,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (!p.ok) return bad(p.error, key)
       patch[field] = p.value.cents
     }
+  }
+  if (body.trialDays !== undefined) {
+    const days = body.trialDays === null || body.trialDays === "" ? 0 : Number(body.trialDays)
+    if (!Number.isInteger(days) || days < 0 || days > TRIAL_MAX_DAYS) return bad(`A free trial is 0 to ${TRIAL_MAX_DAYS} days.`, "trialDays")
+    patch.trialDays = days
   }
   if (body.price !== undefined) {
     const p = checkPrice(body.price, "once")
