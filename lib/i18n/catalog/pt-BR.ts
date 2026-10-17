@@ -9041,7 +9041,7 @@ const words: Record<string, string> = {
  "Visitors open your website in your default language and store currency, and switch with your theme's own selectors.": "Os visitantes abrem seu site no idioma padrão e na moeda da loja, e trocam pelos seletores do seu tema.",
  "Show the editor in": "Mostrar o editor em",
  "Only changes the builder. In another language, the sidebar edits that language's text.": "Só muda o editor. Em outro idioma, a barra lateral edita o texto desse idioma.",
- "Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.": "Editando {name}. O texto que você muda aqui é salvo só para {name}. Cores, imagens e layout são iguais em todos os idiomas."
+ "Editing {name}. Text you change here is saved for {name} only. Colors, images and layout are the same in every language.": "Editando {name}. O texto que você muda aqui é salvo só para {name}. Cores, imagens e layout são iguais em todos os idiomas.",
  "Checkout text": "Textos do checkout",
  "Change the words on your checkout, like the pay button or the headings, in each of your languages.": "Mude os textos do seu checkout, como o botão de pagamento ou os títulos, em cada um dos seus idiomas.",
  "Edit checkout text": "Editar textos do checkout",
