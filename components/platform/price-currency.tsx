@@ -1,18 +1,22 @@
 "use client"
 
 /**
- * The currency a page's prices are in, when the page is one store's: its
- * product page, its creator page, its OnePage. A product's `price_cents` is
- * in its store's currency (lib/store/selling-currency), so the native pages
- * that draw it are told which, once, here, and every price inside reads it:
- * a lei store's 49 is 49 lei, never $49.
+ * The currency a page's prices are in, said once at the top of the page so
+ * every price inside reads the same answer.
  *
- * Nothing set: the platform's currency, as every price was before. It only
- * says what a number is in. What a visitor sees it as (the marketplace's own
- * display preference, components/locale-provider) is unchanged.
+ * Which answer belongs to which page is lib/pricing/surface-currency: a
+ * creator's own website is in the currency their store chose, and Storelib's
+ * own pages (Explore, /u, /p, /l, communities) are in STORELIB_CURRENCY
+ * whatever any store chose. Nothing set: Storelib's, because a page that
+ * never said is Storelib's.
+ *
+ * It only says what a number is in. What a visitor sees it as (the
+ * marketplace's own display preference, components/locale-provider) is
+ * unchanged, and no amount is converted here.
  */
 import { createContext, useContext, type ReactNode } from "react"
-import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 
 const Ctx = createContext<string | null>(null)
 
@@ -25,12 +29,12 @@ export function usePageCurrency(): string | null {
   return useContext(Ctx)
 }
 
-/** The currency this page's prices are in: the store's, else the platform's. */
+/** The currency this page's prices are in: the store's on a storefront, else Storelib's. */
 export function usePriceCurrency(): string {
-  return useContext(Ctx) ?? SHOP_CURRENCY
+  return useContext(Ctx) ?? STORELIB_CURRENCY
 }
 
-/** shopMoney in this page's store currency: "49 lei" on a lei store's page, "$49.00" elsewhere. */
+/** An amount in this page's currency: "49.00 lei" on a lei store's website, "$49.00" on Storelib's own pages. */
 export function usePageMoney(): (cents: number, opts?: { grouping?: boolean }) => string {
   const currency = usePriceCurrency()
   return (cents, opts) => shopMoneyIn(cents, currency, opts)

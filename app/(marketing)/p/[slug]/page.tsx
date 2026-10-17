@@ -3,6 +3,7 @@ import { personName } from "@/lib/profile/display-name"
 import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { shopMoneyIn } from "@/lib/store/shop-money"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
@@ -877,9 +878,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-  /* In the store's own currency, the one checkout charges (lib/store/selling-currency). */
-  const storeCurrency = await cachedStoreCurrency(product.creator_id)
-  const formatPrice = (cents: number) => shopMoneyIn(cents, storeCurrency, { grouping: true })
+  /*
+    In Storelib's currency, the one this page's checkout charges
+    (lib/pricing/surface-currency). This page is storelib.com's, so what the
+    creator's own website sells in does not reach it: a store that moves to
+    lei moves its website's prices, not the ones Storelib quotes. The number
+    is the row's, never converted.
+
+    A thing that ships is the exception, and the layout says why: only the
+    shipped checkout can take it, and that one charges the store's currency
+    because the shipping rates are in it.
+  */
+  const pageCurrency = product.type === "physical" ? await cachedStoreCurrency(product.creator_id) : STORELIB_CURRENCY
+  const formatPrice = (cents: number) => shopMoneyIn(cents, pageCurrency, { grouping: true })
   /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
   const listed = listPrice({
     price_cents: product.price_cents,
@@ -1692,7 +1703,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     offers: {
       "@type": "Offer",
       price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
-      priceCurrency: storeCurrency,
+      priceCurrency: pageCurrency,
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
       availability: soldOut(product) || salesView?.soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
       url: canonicalUrl,

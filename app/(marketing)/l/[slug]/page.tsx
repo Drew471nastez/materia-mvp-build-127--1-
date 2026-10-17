@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { PriceCurrency } from "@/components/platform/price-currency"
-import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
@@ -304,8 +304,10 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
   return (
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
-      {/* Its products are its seller's, in the seller's store currency (components/platform/price-currency). */}
-      <PriceCurrency currency={transformedOnepage.seller_id ? await cachedStoreCurrency(transformedOnepage.seller_id) : null}>
+      {/* A OnePage is hosted on storelib.com and sells through Storelib's own
+          checkout, so its prices are Storelib's currency whatever the
+          seller's website sells in (lib/pricing/surface-currency). */}
+      <PriceCurrency currency={STORELIB_CURRENCY}>
         <PublicOnePage onepage={transformedOnepage} />
       </PriceCurrency>
       {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}

@@ -3,6 +3,7 @@ import { loadProductBySlug, loadStoreConfig } from "@/lib/commerce/product-page-
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import type { ThemePreset } from "@/lib/store-builder/types"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { PriceCurrency } from "@/components/platform/price-currency"
 
@@ -16,8 +17,16 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
 
   // Quick query to get just the theme preset for skeleton loading
   let themePreset: ThemePreset = "default"
-  /* The currency its store sells in: every price on the page is in it (components/platform/price-currency). */
-  let currency: string | null = null
+  /*
+    A THING THAT SHIPS IS THE ONE EXCEPTION. Everything else on this page is
+    priced in Storelib's currency, because Storelib's own checkout takes it
+    (lib/pricing/surface-currency). A thing that ships can only be bought
+    through the shipped checkout, and that one prices the shipping rates, the
+    local delivery and the cash on delivery fee in the currency the store
+    chose, so it charges that currency wherever the buyer came from. The page
+    says what will actually be taken rather than a tidier symbol.
+  */
+  let shipsIn: string | null = null
 
   try {
     /*
@@ -30,9 +39,13 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
     const { product } = await loadProductBySlug(slug)
 
     if (product?.creator_id) {
-      const [config, sells] = await Promise.all([loadStoreConfig(product.creator_id, "product"), cachedStoreCurrency(product.creator_id)])
+      const ships = (product as { type?: string | null }).type === "physical"
+      const [config, sells] = await Promise.all([
+        loadStoreConfig(product.creator_id, "product"),
+        ships ? cachedStoreCurrency(product.creator_id) : Promise.resolve(null),
+      ])
       themePreset = config?.published_config?.globalSettings?.themePreset || "default"
-      currency = sells
+      shipsIn = sells
     }
   } catch (error) {
     // Silently fall back to default theme on error
@@ -52,7 +65,10 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
         "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
-      <PriceCurrency currency={currency}>{children}</PriceCurrency>
+      {/* A product page on storelib.com is Storelib's page: its prices are
+          Storelib's currency, not the store's website currency
+          (lib/pricing/surface-currency), unless it ships (above). */}
+      <PriceCurrency currency={shipsIn ?? STORELIB_CURRENCY}>{children}</PriceCurrency>
     </div>
   )
 }

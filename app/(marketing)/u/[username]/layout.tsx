@@ -1,7 +1,7 @@
 import type React from "react"
 
-import { loadCreatorForUser, loadProfileByUsername, loadShopThemePreset } from "@/lib/commerce/creator-page-data"
-import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { loadShopThemePreset } from "@/lib/commerce/creator-page-data"
+import { STORELIB_CURRENCY } from "@/lib/pricing/surface-currency"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
@@ -36,16 +36,8 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
   const { username } = await params
 
   let themePreset: ThemePreset = "default"
-  /* The currency the creator's store sells in: every price on the page is in it (components/platform/price-currency). */
-  let currency: string | null = null
   try {
-    const [preset, sells] = await Promise.all([
-      loadShopThemePreset(username),
-      /* The same request scoped reads the preset makes, so this costs one cached read. */
-      loadProfileByUsername(username).then((p) => (p?.id ? loadCreatorForUser(p.id) : null)).then((c) => (c?.id ? cachedStoreCurrency(c.id) : null)),
-    ])
-    themePreset = preset as ThemePreset
-    currency = sells
+    themePreset = (await loadShopThemePreset(username)) as ThemePreset
   } catch (error) {
     /* A creator page with a default-coloured skeleton is fine. A creator page
        that does not render because its skeleton could not be tinted is not. */
@@ -68,7 +60,10 @@ export default async function ShopLayout({ children, params }: ShopLayoutProps) 
         "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
-      <PriceCurrency currency={currency}>{children}</PriceCurrency>
+      {/* A creator page is Storelib's page, not the creator's website: its prices
+          are Storelib's currency whatever the store sells in on its own site
+          (lib/pricing/surface-currency). */}
+      <PriceCurrency currency={STORELIB_CURRENCY}>{children}</PriceCurrency>
     </div>
   )
 }

@@ -31,7 +31,7 @@ import { rowsOwn } from "@/lib/checkout/owned"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
-import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { checkoutSurfaceCurrency } from "@/lib/pricing/surface-currency-server"
 import { CheckoutCurrency } from "./parts/ui"
 
 interface CheckoutPageProps {
@@ -222,6 +222,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
+  const requestHost = (await headers()).get("host")
   const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await Promise.all([
     creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
     /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
@@ -231,8 +232,15 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     headers(),
     /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
     creator?.id ? loadStoreName(checkoutAdmin(), creator.id) : Promise.resolve(null),
-    /* The currency the store sells in: its prices are in it and Pay charges it (lib/store/selling-currency). */
-    readStoreCurrency(checkoutAdmin(), creator?.id),
+    /*
+      The currency this checkout shows and Pay charges, by the surface it is
+      on (lib/pricing/surface-currency): Storelib's on storelib.com, which is
+      where a creator page, a OnePage, an Explore card and a community tier
+      send the buyer, and the store's own only when this same creator's
+      website is serving the checkout on its own host. The route decides the
+      same way, so the summary and the PaymentIntent cannot disagree.
+    */
+    checkoutSurfaceCurrency(checkoutAdmin(), { host: requestHost, creatorId: creator?.id ?? null }),
   ])
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 

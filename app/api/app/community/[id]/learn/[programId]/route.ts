@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { STORELIB_CHARGE_CURRENCY } from "@/lib/pricing/surface-currency"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -27,8 +28,8 @@ export async function PATCH(request: Request, { params }: Params) {
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  const { platformChargeCurrency } = await import("@/lib/payments/fees/currency-rules")
-  const done = await updateProgram(gate.ctx.admin, { communityId: gate.community.id, programId, actorId: gate.ctx.userId, input: body, currency: platformChargeCurrency() })
+  /* A program is priced in Storelib's currency, never a store's (lib/pricing/surface-currency). */
+  const done = await updateProgram(gate.ctx.admin, { communityId: gate.community.id, programId, actorId: gate.ctx.userId, input: body, currency: STORELIB_CHARGE_CURRENCY })
   if (done.ok === false) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true }, { headers: noStore })
 }
