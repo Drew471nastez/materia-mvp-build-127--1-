@@ -28,6 +28,8 @@ import { defaultPlacement, editorAddress, readPlacement } from "../lib/reviews/w
 import { previewReviews } from "../lib/reviews/widgets/preview-data"
 import { fieldsFor } from "../lib/reviews/widgets/fields"
 import { appSectionCategory, classifyImportedSection } from "../lib/website-builder/section-categories"
+import { customAddableSections, customSectionSchemas } from "../lib/website-builder/storelib-schemas"
+import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "../lib/website-builder/section-schemas"
 import { UI_WORDS } from "../lib/markets/ui-words"
 import { compileSection } from "../lib/storelib-theme/storelib/compile"
 import { renderSection } from "../lib/storelib-theme/render"
@@ -249,6 +251,10 @@ function libraryChecks() {
   console.log("\nAdd a section: Apps › Reviews")
   check("Storelib theme widget and reviews sections are app sections", ["reviews_widget", "reviews_product", "reviews_badge"].every((t) => appSectionCategory(t) === "reviews"))
   check("an imported theme's Storelib sections are app sections", appSectionCategory("storelib-review-widget") === "reviews" && appSectionCategory("storelib-reviews") === "reviews")
+  const compatFiles = withStorelibReviewsSection({ "layout/theme.storelib": wrapCompatTemplate("<html><body>{{ content_for_layout }}</body></html>") })
+  const compatSchemas = customSectionSchemas(compatFiles)
+  check("an imported theme offers the Reviews widget in Add section, a card per widget", customAddableSections(compatSchemas).includes("storelib-review-widget") && (compatSchemas["storelib-review-widget"]?.presets ?? []).length === WIDGET_TYPES.length, Object.keys(compatSchemas))
+  check("a Storelib theme offers it too, a card per widget", ADDABLE_SECTIONS.includes("reviews_widget") && (SECTION_SCHEMAS.reviews_widget?.presets ?? []).length === WIDGET_TYPES.length)
   check("a theme's own testimonials stay the theme's", appSectionCategory("testimonials") === null && classifyImportedSection({ type: "testimonials", name: "Testimonials" }) === "testimonials")
   const lib = read("components/website-builder/editor/section-library.tsx")
   check("the library files them before the theme's classifier, and lists Apps last under a heading", /const app = own_ \? null : appSectionCategory\(type\)/.test(lib) && /\.\.\.apps,/.test(lib) && /data-library-group="apps"/.test(lib))
