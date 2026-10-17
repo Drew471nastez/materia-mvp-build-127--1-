@@ -156,7 +156,7 @@ async function main() {
     check("an inert kit without `staff`: a member's composer draws none of it", /const on = !!staff && staff\.ready/.test(kit))
     const composer = code("components/community/member/composer.tsx")
     check("the composer takes `staff` and routes Schedule through the kit", /staff = null/.test(composer) && /useStaffSchedule\(staff,/.test(composer) && /if \(kit\.item \|\| kit\.when\)/.test(composer))
-    check("a scheduled post opened never writes over the kept draft", /if \(!open \|\| editing \|\| kit\.item\) return/.test(composer) && /restoreKept\(\)/.test(composer))
+    check("a scheduled post opened never writes over the kept draft", /if \(!open \|\| editing\) return\s*if \(kit\.item\) return/.test(composer) && /restoreFrom\(readDraft\(key\)\)/.test(composer))
     const feed = code("components/community/creator/feed-section.tsx")
     check("only the admin's Posts passes `staff`", /staff=\{staff\}/.test(feed) && !/staff=/.test(code("components/community/member/feed.tsx")) && !/staff=/.test(code("components/community/member/compose-anywhere.tsx")))
   }

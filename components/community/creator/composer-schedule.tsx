@@ -350,7 +350,7 @@ export function useStaffSchedule(staff: ComposerStaff | null | undefined, bridge
             </button>
           </div>
           <div className="p-3 sm:p-3.5">
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,132px)] gap-2 sm:grid-cols-[minmax(0,220px)_140px]">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,150px)] gap-2 sm:grid-cols-[minmax(0,220px)_140px]">
               <label className="block min-w-0">
                 <span className="mb-1 block text-[12.5px] font-medium text-[#6b7280]">{tt("Day")}</span>
                 <input type="date" value={day} min={today} max={lastDay} required onChange={(e) => setParts(e.target.value, time)} aria-invalid={bad || undefined} className={FIELD} data-composer-schedule-day="" />

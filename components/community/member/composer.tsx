@@ -541,9 +541,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const refocus = useRef(false)
   const openRef = useRef(false)
 
-  /* The kept draft put into the fields; true when there was one. */
-  const restoreKept = (): boolean => {
-    const d = readDraft(key)
+  /* A kept draft put into the fields; true when there was one. */
+  const restoreFrom = (d: Draft | null): boolean => {
     if (!d || !(d.title || d.body || d.poll || d.media.length)) return false
     setTitle(d.title)
     setBody(d.body)
@@ -558,7 +557,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. (Never into Edit post.) */
   useEffect(() => {
     if (editing) return
-    if (restoreKept() && !window.matchMedia("(max-width: 639px)").matches) setOpen(true)
+    const d = readDraft(key)
+    if (restoreFrom(d) && !window.matchMedia("(max-width: 639px)").matches) setOpen(true)
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const media = items.map((u) => u.media).filter((m): m is PostMedia => !!m)
@@ -612,7 +612,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       }
       staffItem.current = false
       resetFields()
-      restoreKept()
+      restoreFrom(readDraft(key))
     },
     openEditor: () => staffHands.current.openEditor(),
     setBusy,
@@ -623,7 +623,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   /* Every change kept, a moment after typing stops (a new post only: an edit is the post's own). */
   useEffect(() => {
-    if (!open || editing || kit.item) return
+    if (!open || editing) return
+    /* A scheduled post or draft open here is the server's, not this browser's kept draft (round 26). */
+    if (kit.item) return
     const t = window.setTimeout(() => {
       try {
         const all = linkMedia ? [...media, linkMedia] : media
@@ -855,21 +857,24 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   */
   useLayer("composer", sheet, sheetRef)
 
-  const clear = useCallback(() => {
+  /*
+    Emptied: a new post, with what this browser keeps of it. Round 26: a scheduled post or draft open here (the staff kit)
+    gives the fields back to what was being written before it instead, kept draft and all.
+  */
+  const clear = () => {
+    if (staffItem.current) {
+      staffItem.current = false
+      kit.release()
+      resetFields()
+      restoreFrom(readDraft(key))
+      return
+    }
     resetFields()
     try {
       window.localStorage.removeItem(key)
     } catch {
       /* nothing kept */
     }
-  }, [resetFields, key])
-  /* Cancel or Leave: a new post is emptied; a scheduled post or draft gives the fields back to what was being written. */
-  const clearOrRestore = () => {
-    if (!staffItem.current) return clear()
-    staffItem.current = false
-    kit.release()
-    resetFields()
-    restoreKept()
   }
 
   /* Edit post: what happens once the editor has gone (saved, or closed without saving). */
@@ -988,7 +993,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         clearAfter.current = true
         return shut()
       }
-      clearOrRestore()
+      clear()
       setSheetIn(false)
       setOpen(false)
     },
@@ -1065,7 +1070,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       /* Cancel or Leave: emptied now that nothing of it is on screen. */
       if (clearAfter.current) {
         clearAfter.current = false
-        clearOrRestore()
+        clear()
       }
       /* Closed from inside the editor on a computer (Cancel, Escape, Post): the caret comes back to the field it opened from. */
       if (refocus.current) {
@@ -1248,7 +1253,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     composer held to another space (a space's own page) leaves it to one that is not.
   */
   useComposeRequests((req) => {
-    if (editing || leaving.current || kit.item) return false
+    if (editing || leaving.current) return false
+    /* A scheduled post or draft open here is not given up for a new post (round 26). */
+    if (kit.item) return false
     const asked = req.spaceSlug ? spaces.find((s) => s.slug === req.spaceSlug) : undefined
     if (req.spaceSlug && fixedSpaceId && asked?.id !== fixedSpaceId) return false
     if (asked && !fixedSpaceId) setSpaceId(asked.id)
@@ -1275,11 +1282,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       setSent(true)
       afterClose.current = () => {
         setSent(false)
-        if (staffItem.current) {
-          staffItem.current = false
-          resetFields()
-          restoreKept()
-        } else clear()
+        clear()
         then()
       }
       window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
@@ -1617,9 +1620,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           </div>
         ) : null
       ) : away && phone ? null : (
-        <div
-          ref={cardRef}
-          className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`}
+        <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`}
           data-composer={inPlace ? "open" : "closed"}
           /*
             ROUND 26: ESCAPE IS CANCEL IN PLACE TOO (it was only for Edit post): with something written it asks first, and the
@@ -1690,19 +1691,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                     <span className="flex min-w-0">{spacePicker}</span>
                   </div>
                   {fields}
+                  {/* Save draft for the people who run it (round 26): under the fields, the toolbar has no room for it beside the tools. */}
+                  {kit.on ? <div className="mt-3 flex">{kit.draftButton(`${CANCEL_BTN} -ml-2.5 px-2.5 text-[15px]`)}</div> : null}
                 </>
               ) : null}
             </div>
             {/* On the keyboard when it is up: the sheet pads its content by the keyboard's room. */}
             <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-1.5 pt-1.5" data-composer-toolbar="">
-              {filled ? (
-                <div className="flex min-w-0 items-center">
-                  {tools}
-                  {kit.on ? <span className="ml-auto flex shrink-0 items-center border-l border-[#f0f1f3] pl-1.5">{kit.draftButton(`${CANCEL_BTN} px-2.5`)}</span> : null}
-                </div>
-              ) : (
-                <div className="h-10" aria-hidden />
-              )}
+              {filled ? tools : <div className="h-10" aria-hidden />}
             </div>
           </div>
         </MobileEditorSheet>

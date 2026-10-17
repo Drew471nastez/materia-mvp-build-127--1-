@@ -364,7 +364,7 @@ export const isNativePlatform = () => false
             const s = document.querySelector("[data-composer='sheet']")
             const box = s?.closest("[data-mobile-bottom-sheet]") ?? s
             const r = box?.getBoundingClientRect()
-            return { up: !!s, top: r ? Math.round(r.top) : null, title: !!s?.querySelector("[data-composer-title]"), schedule: !!s?.querySelector("[data-composer-tool='schedule']"), draft: !!s?.querySelector("[data-composer-draft]"), sideways: Math.round(document.documentElement.scrollWidth - innerWidth) }
+            return { up: !!s, top: r ? Math.round(r.top) : null, title: !!s?.querySelector("[data-composer-title]"), schedule: !!s?.querySelector("[data-composer-toolbar] [data-composer-tool='schedule']"), draft: !!s?.querySelector("[data-composer-draft]"), sideways: Math.round(document.documentElement.scrollWidth - innerWidth) }
           })
           await p.screenshot({ path: join(shots, `open-${tag}.png`) })
           await p.evaluate(() => ((window.__frames = []), (window.__rec = true)))
@@ -373,7 +373,7 @@ export const isNativePlatform = () => false
           const gone = await p.evaluate(() => !document.querySelector("[data-composer='sheet']"))
           numbers[`move-${tag}`] = { sheet, behindOpen: steps(fo, "list"), behindClose: steps(fc, "list"), film: [o.frames, c.frames] }
           expect(sheet.up && sheet.title && sheet.top !== null && sheet.top < 140, `${tag}: the sheet is up with its fields (top ${sheet.top}px)`, sheet)
-          expect(sheet.schedule && sheet.draft && sheet.sideways <= 0, `${tag}: the clock and Save draft are in its toolbar, nothing sideways`, sheet)
+          expect(sheet.schedule && sheet.draft && sheet.sideways <= 0, `${tag}: the clock in its toolbar, Save draft in the sheet, nothing sideways`, sheet)
           expect(numbers[`move-${tag}`].behindOpen === 0 && numbers[`move-${tag}`].behindClose === 0, `${tag}: nothing behind the sheet moves while it rises and goes`, numbers[`move-${tag}`])
           expect(gone, `${tag}: Cancel with nothing written puts it away`, gone)
         }
@@ -575,6 +575,7 @@ export const isNativePlatform = () => false
       await p.type("[data-composer='sheet'] textarea", "From the bus.")
       await p.tap("[data-composer='sheet'] [data-composer-tool='schedule']")
       await sleep(400)
+      if (process.env.DEBUG) console.log("    after the clock:", await p.evaluate(() => { const b = document.querySelector("[data-composer='sheet'] [data-composer-tool='schedule']"); const r = b?.getBoundingClientRect(); return { pressed: b?.getAttribute("aria-pressed"), r: r && [Math.round(r.left), Math.round(r.top), Math.round(r.width)], hit: r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.outerHTML.slice(0, 120) : null, panel: !!document.querySelector("[data-composer-schedule]") } }))
       await setInput(p, "[data-composer='sheet'] [data-composer-schedule-day]", tomorrow)
       await setInput(p, "[data-composer='sheet'] [data-composer-schedule-time]", "08:00")
       await sleep(300)
