@@ -357,6 +357,8 @@ const SUITES = [
   "tests/web-vitals.test.ts",
   /* Website settings › Performance: real-user speed for every published website, the lab test, run-now part 210 */
   "tests/web-performance-v.test.ts",
+  /* Website settings › Performance, round W: the quick check when Google's test cannot run, the switches, a new period without a flash */
+  "tests/performance-tab-w.test.ts",
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",

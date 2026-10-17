@@ -813,6 +813,20 @@ export function directionOf(now: number | null, before: number | null): "better"
   return change < 0 ? "better" : "worse"
 }
 
+/**
+ * The Core Web Vitals as one rating, the way Search Console and Shopify
+ * rate a site: the worst of the three. INP may be missing (Safari does not
+ * report it, and a site with few taps has none); LCP and CLS may not, so
+ * without either there is no rating.
+ */
+export function overallRating(s: Pick<Summary, "metrics">): PerfRating | null {
+  const lcp = s.metrics.lcp.rating
+  const cls = s.metrics.cls.rating
+  if (!lcp || !cls) return null
+  const rated = [lcp, cls, s.metrics.inp.rating].filter((r): r is PerfRating => !!r)
+  return rated.reduce<PerfRating>((w, r) => (rankOf(r) > rankOf(w) ? r : w), "good")
+}
+
 export interface ReportInput {
   range: PerfRange
   now: number
