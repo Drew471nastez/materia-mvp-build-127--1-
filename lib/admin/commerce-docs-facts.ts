@@ -101,7 +101,7 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   company: "Company name",
   phone: "Phone number",
   address2: "Address line 2",
-  buyerCancel: "Let buyers ask to cancel",
+  buyerCancel: "Let buyers cancel",
   cashOnDelivery: "Cash on delivery",
   /* Cash on delivery's options, by the names its card gives them (they follow its row). */
   codCountries: "Where",
