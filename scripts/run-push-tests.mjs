@@ -570,6 +570,7 @@ const SUITES = [
   "tests/push-bridge.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
+  "tests/communities-plans-af.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",

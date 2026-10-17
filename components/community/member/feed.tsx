@@ -38,6 +38,7 @@
  *
  * FeedView is the same list with no chips, for a caller that draws its own.
  */
+import { MembershipSheet } from "@/components/community/membership/sheet"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -94,6 +95,10 @@ export interface OnboardingView {
   welcome: string | null
   rules: { title: string; body: string }[]
   introHref: string | null
+  title?: string | null
+  videoEmbed?: string | null
+  button?: string | null
+  popup?: boolean
 }
 
 /** What the composer needs besides the spaces, which follow the list on screen. */
@@ -891,18 +896,25 @@ export function FeedView({ communityId, slug, viewer, initial, spaceId = null, m
 }
 
 /** The welcome a new member sees once: the creator's words, the rules, and a nudge to say hello. */
-function Onboarding({ communityId, data }: { communityId: string; data: OnboardingView }) {
+export function Onboarding({ communityId, data }: { communityId: string; data: OnboardingView }) {
   const [gone, setGone] = useState(false)
   if (gone) return null
+  /* Once: closing it, either button or the X, marks the welcome seen on the server (onboarded_at), so no other device shows it again. */
   const done = async () => {
     setGone(true)
     const r = await api(`${apiBase(communityId)}/me`, { method: "PATCH", body: { onboarded: true } })
     if (!r.ok) toast(r.error)
   }
-  return (
-    <section className={`${CARD} p-5 sm:p-6`} data-onboarding="">
-      <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Welcome to {data.name}</h2>
-      {data.welcome ? <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-[#4b5563]">{data.welcome}</p> : null}
+  const heading = data.title || `Welcome to ${data.name}`
+  const agree = data.button || (data.rules.length ? "I agree, let's go" : "Got it")
+  const body = (
+    <>
+      {data.videoEmbed ? (
+        <div className="mt-3 aspect-video w-full overflow-hidden rounded-xl bg-[#111113]" data-onboarding-video="">
+          <iframe src={data.videoEmbed} title={heading} className="h-full w-full" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" referrerPolicy="strict-origin-when-cross-origin" />
+        </div>
+      ) : null}
+      {data.welcome ? <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-[#4b5563]">{data.welcome}</p> : null}
       {data.rules.length ? (
         <ol className="mt-4 space-y-2.5 border-t border-[#f0f1f3] pt-4">
           {data.rules.map((r, i) => (
@@ -916,6 +928,37 @@ function Onboarding({ communityId, data }: { communityId: string; data: Onboardi
           ))}
         </ol>
       ) : null}
+    </>
+  )
+  if (data.popup) {
+    return (
+      <MembershipSheet
+        open
+        onClose={() => void done()}
+        title={heading}
+        marker="welcome"
+        footer={(phone) => {
+          const go = (
+            <button key="go" type="button" onClick={() => void done()} className={`${BTN_PRIMARY} ${phone ? "h-11 w-full text-[15px]" : ""}`}>
+              {agree}
+            </button>
+          )
+          const intro = data.introHref ? (
+            <Link key="intro" href={data.introHref} onClick={() => void done()} className={phone ? `${BTN_SECONDARY} h-11 w-full text-[15px]` : BTN_GHOST}>
+              Introduce yourself
+            </Link>
+          ) : null
+          return phone ? [go, intro] : [intro, go]
+        }}
+      >
+        <div data-onboarding="popup">{body}</div>
+      </MembershipSheet>
+    )
+  }
+  return (
+    <section className={`${CARD} p-5 sm:p-6`} data-onboarding="">
+      <h2 className="text-[19px] font-semibold text-[#1a1a2e]">{heading}</h2>
+      {body}
       <div className="mt-5 flex flex-wrap gap-2">
         {data.introHref ? (
           <Link href={data.introHref} onClick={() => void done()} className={BTN_PRIMARY}>
@@ -923,7 +966,7 @@ function Onboarding({ communityId, data }: { communityId: string; data: Onboardi
           </Link>
         ) : null}
         <button type="button" onClick={done} className={data.introHref ? BTN_GHOST : BTN_PRIMARY}>
-          {data.rules.length ? "I agree, let's go" : "Got it"}
+          {agree}
         </button>
       </div>
     </section>
