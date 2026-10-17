@@ -20,7 +20,9 @@ export async function POST(request: Request) {
   const raw = body?.ids
   const ids = Array.isArray(raw) ? [...new Set(raw.filter(isUuid))].slice(0, 100) : []
   if (ids.length === 0) return physicalJson({ error: "Bad request." }, 400)
-  const { error } = await c.db.from("orders").update({ seller_seen_at: new Date().toISOString() }).in("id", ids).eq("creator_id", c.creatorId).is("seller_seen_at", null)
+  /* The service role (shopCaller's own client), scoped to this store's rows. */
+  const db = c.db
+  const { error } = await db.from("orders").update({ seller_seen_at: new Date().toISOString() }).in("id", ids).eq("creator_id", c.creatorId).is("seller_seen_at", null)
   if (error) return physicalJson({ ok: false, waiting: /seller_seen_at|column|42703|PGRST204/i.test(error.message ?? "") })
   return physicalJson({ ok: true })
 }

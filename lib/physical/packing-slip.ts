@@ -92,7 +92,7 @@ export interface SlipStore {
 }
 
 /**
- * The whole page. `back` is where the page's Back goes on a phone (the order on the Orders page); the bar with
+ * The whole page. `back` is where the page's Back goes (the order on the Orders page); the bar with
  * Print and Back is never printed.
  */
 export function packingSlipHtml(order: SlipOrder, lines: SlipLine[], store: SlipStore, o: { tt: Tt; lang: string; timeZone?: string | null; back: string; shipmentLabel?: string | null }): string {
@@ -151,7 +151,7 @@ footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:
 @media (max-width:560px){.paper{margin:0 0 24px;border-radius:0;box-shadow:none;padding:20px 16px}header{flex-direction:column;gap:12px}.doc{text-align:left}.cols{grid-template-columns:1fr;gap:16px}}
 @media print{html,body{background:#fff}.bar{display:none}.paper{max-width:none;margin:0;padding:0;border-radius:0;box-shadow:none}@page{margin:14mm}tr{break-inside:avoid}}
 </style></head><body>
-<div class="bar" data-slip-bar><a href="${esc(o.back)}" onclick="if(history.length>1){history.back();return false}">${esc(tt("Back"))}</a><button type="button" onclick="window.print()">${esc(tt("Print"))}</button></div>
+<div class="bar" data-slip-bar><a href="${esc(o.back)}">${esc(tt("Back"))}</a><button type="button" onclick="window.print()">${esc(tt("Print"))}</button></div>
 <main class="paper" data-packing-slip>
 <header><div class="store">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<b>${esc(store.name)}</b></div><div class="doc"><div class="k">${esc(tt("Packing slip"))}</div><div class="ref">${esc(tt("Order {number}", { number: ref }))}</div><div class="muted">${esc(when)}</div>${o.shipmentLabel ? `<div class="muted">${esc(o.shipmentLabel)}</div>` : ""}</div></header>
 <div class="cols"><section>${to}</section><section>${how ? `<h2>${esc(pickup ? tt("Delivery") : tt("Shipping method"))}</h2><p>${esc(how)}</p>` : ""}</section></div>
