@@ -381,7 +381,7 @@ section("It is reachable, and it works on a file longer than the window")
       /if \(visible\) \{\s*\n\s*setHidden\(false\)/.test(pane),
   )
       /* V round: the frame's address is fixed when first drawn; a later file is opened inside it (storelib:open-file). */
-      return /srcRef\.current = `\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{codeFilePath \? `&path=/.test(pane)
+      return /srcRef\.current = codeFilePath \? `&path=/.test(pane) && /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{srcRef\.current \?\? ""\}`\}/.test(pane)
     })(),
   )
 }
