@@ -564,6 +564,7 @@ const SUITES = [
   "tests/push-bridge.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
+  "tests/communities-plans-af.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",
@@ -713,6 +714,12 @@ const STRICT_SUITES = [
     above: it runs lib/communities/server/creator.ts.
   */
   "tests/cards26.test.ts",
+  /*
+    Round 26 (W5): the Page editor rebuilt, the short description and member links (SQL part 220), a join button that
+    never states a price, every field saved and read back through creator.ts (strict, as above); scripts/
+    check-page-editor26.mjs measures the editor.
+  */
+  "tests/editor26.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

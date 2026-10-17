@@ -58,6 +58,14 @@ export const POLL_OPTIONS_MIN = 2
 export const POLL_OPTIONS_MAX = 10
 export const MAX_SPACES = 50
 export const MAX_TIERS = 10
+/**
+ * Plans on sale at once (round AF): up to three, as the plan picker draws
+ * them. A community that already had more keeps them; a fourth cannot be
+ * added or brought back until one is archived.
+ */
+export const MAX_ACTIVE_TIERS = 3
+/** A free trial on a paid plan: none, or 1 to 90 days (lib/memberships/plan.ts). */
+export const TRIAL_MAX_DAYS = 90
 export const MAX_LEVELS = 20
 export const MAX_MEDIA_PER_POST = 10
 export const MAX_RULES = 20

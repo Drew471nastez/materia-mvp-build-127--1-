@@ -24,5 +24,5 @@ export default async function CommunityPageEditorPage({ params }: { params: Prom
 
 async function pageBody(ctx: CreatorPageContext) {
   const r = await pageEditorReads(ctx)
-  return <PageEditor head={r.head} data={r.data} preview={r.preview} creatorId={r.creatorId} />
+  return <PageEditor head={r.head} data={r.data} preview={r.preview} creatorId={r.creatorId} clicks={r.clicks} />
 }
