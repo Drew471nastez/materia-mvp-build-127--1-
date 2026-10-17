@@ -295,7 +295,7 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                       <CommunityGallery communityId={c.id} name={c.name} items={c.gallery} cover={cover} />
                       {share ? (
                         <div className="absolute right-3 top-3 z-30 xl:hidden" data-share-on="gallery">
-                          <CommunityShareButton slug={c.slug} name={c.name} />
+                          <CommunityShareButton slug={c.slug} name={c.name} onCover />
                         </div>
                       ) : null}
                     </div>

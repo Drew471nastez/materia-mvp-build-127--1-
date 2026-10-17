@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 808 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 811 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -598,6 +598,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/40:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.4); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/50:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.5); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/70:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.7); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/75:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.75); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/80:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.8); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/85:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.85); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-white\/90:not([data-own-look], [data-own-look] *) { background-color: rgba(24,24,27,0.9); }
@@ -1027,6 +1028,8 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/row\:bg-\[\#f0eeff\]:not([data-own-look], [data-own-look] *):is(:where(.group\/row):hover *) { background-color: hsla(247,60%,50%,0.16); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/row\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/row):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/share\:bg-\[\#f6f7f8\]:not([data-own-look], [data-own-look] *):is(:where(.group\/share):hover *) { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/share\:bg-white:not([data-own-look], [data-own-look] *):is(:where(.group\/share):hover *) { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/share\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/share):hover *) { color: #ececee; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:bg-\[\#fafafb\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/shop\:border-\[\#d2d5da\]:not([data-own-look], [data-own-look] *):is(:where(.group\/shop):hover *) { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/tile\:bg-black\/20:not([data-own-look], [data-own-look] *):is(:where(.group\/tile):hover *) { background-color: rgba(53,53,60,0.2); }

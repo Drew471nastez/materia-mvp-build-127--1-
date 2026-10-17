@@ -803,7 +803,7 @@ function PoweredBy() {
  */
 export function JoinCard({ facts = null, summary = null, links = null, share = false }: { facts?: React.ReactNode; summary?: React.ReactNode; links?: React.ReactNode; share?: boolean }) {
   const { community, join } = useJoin()
-  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} /> : null
+  const shareButton = share ? <CommunityShareButton slug={community.slug} name={community.name} onCover={!!community.coverUrl} /> : null
   return (
     <aside data-join-card="" className="hidden xl:block">
       <div className="sticky top-[calc(var(--community-top,65px)+24px)]" data-join-card-sticky="">
@@ -832,7 +832,6 @@ export function JoinCard({ facts = null, summary = null, links = null, share = f
               {shareButton && !community.coverUrl ? <div className="shrink-0 self-start">{shareButton}</div> : null}
             </div>
             {summary ? <div className="mt-3.5">{summary}</div> : null}
-            {links ? <div className="mt-3.5">{links}</div> : null}
             {join.kind === "open" ? (
               <p className="mt-4 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
             ) : (
@@ -846,6 +845,12 @@ export function JoinCard({ facts = null, summary = null, links = null, share = f
               <JoinNote />
               <Status />
             </div>
+            {/* Round 27, the owner: the website and social pages under the button (Join, or Open community for a member), not above the price. */}
+            {links ? (
+              <div className="mt-4 [&_[data-community-links]]:justify-center" data-join-card-links="">
+                {links}
+              </div>
+            ) : null}
             {facts ? (
               <div className="-mb-2 mt-4 border-t border-[#eef0f2] pt-1" data-join-card-facts="">
                 {facts}
