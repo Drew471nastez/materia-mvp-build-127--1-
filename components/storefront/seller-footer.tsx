@@ -71,7 +71,7 @@ const LINKS_ROW: Record<Layout, string> = {
   responsive: "flex w-full flex-wrap items-baseline justify-center gap-x-4 gap-y-1 sm:w-auto sm:justify-end sm:gap-x-6",
 }
 
-export function SellerFooter({ isMobile, surface, headerWidth = false }: SellerFooterProps = {}) {
+export function SellerFooter({ isMobile, surface, headerWidth = false, home = false }: SellerFooterProps & { /** Round AG: the mark goes to storelib.com itself (Explore, signed out), not Explore. */ home?: boolean } = {}) {
   /**
    * An inline colour only when there is one, so an unthemed footer keeps
    * exactly the classes it had rather than being handed a second opinion.
@@ -80,7 +80,7 @@ export function SellerFooter({ isMobile, surface, headerWidth = false }: SellerF
   const text = tone(surface?.textColor)
   const muted = tone(surface?.mutedColor)
 
-  const storelibHref = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
+  const storelibHref = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}${home ? "/" : "/explore"}`
 
   const handleStorelibClick = (e: { preventDefault: () => void }) => {
     if (isNativeApp()) {

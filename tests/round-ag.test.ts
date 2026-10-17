@@ -5,6 +5,7 @@
  *   PREVIEW    the owner's Preview opens the page and the plans as a visitor sees them, buying nothing
  *   PLANS UI   each plan a card with an Edit panel; a new plan takes its trial and benefits at once
  *   ACCOUNTS   admin delete asks "Are you sure?" only; a deleted email can sign up again; no "Former account" members
+ *   SMALL      Get notified card, a community read that never ends, Explore's mode, the search X, the share bump, the footer
  *
  * Run with:  npm run test:push
  */
@@ -78,8 +79,25 @@ async function main() {
   check("the SQL makes the function for the server only and frees accounts deleted before", /SECURITY DEFINER SET search_path = ''/.test(agSql) && /GRANT EXECUTE ON FUNCTION public\.storelib_release_auth_identities\(uuid\) TO service_role/.test(agSql) && /DELETE FROM auth\.identities i USING auth\.users u/.test(agSql) && /NOT EXISTS \(SELECT 1 FROM public\.profiles p WHERE p\.id = u\.id\)/.test(agSql))
   check("it only ever releases a closed account", /NOT LIKE 'deleted-%@deleted\.storelib\.invalid' THEN RAISE EXCEPTION/.test(agSql))
 
+  console.log("\nSmall fixes")
+  const push = code("components/notifications/web-push-prompt.tsx")
+  check("Get notified: bottom right from 1024px, above the tab bar on a phone, a real first notification", /lg:bottom-6 lg:right-6/.test(push) && /--push-bottom/.test(push) && /showNotification\(/.test(push) && /void confirmOn\(communityName\)/.test(push))
+  const cache = code("lib/communities/client/place-cache.ts")
+  check("a community read gives up after a while and is tried again (no endless spinner after sleep)", /setTimeout\(\(\) => ctrl\?\.abort\(\), PLACE_READ_TIMEOUT_MS\)/.test(cache) && /name === "AbortError"/.test(cache))
+  const { retryable, PLACE_READ_TIMEOUT_MS } = await import("@/lib/communities/client/place-cache")
+  check("  an abort is retried; the wait is bounded", retryable({ name: "AbortError", message: "The operation was aborted." }) && PLACE_READ_TIMEOUT_MS > 0 && PLACE_READ_TIMEOUT_MS <= 15_000)
+  const explorePage = code("app/(marketing)/explore/page.tsx")
+  check("Explore opens on products; no lasting cookie decides it", /cookie: null/.test(explorePage) && !/cookies\(\)/.test(explorePage))
+  const modeLib = code("lib/explore/discover-mode-cookie.ts")
+  check("  the choice lives in this tab only, and the old cookie is cleared", /sessionStorage\.setItem/.test(modeLib) && /max-age=0/.test(modeLib))
+  check("  back on /explore in the same tab keeps communities", /readDiscoverModeSession\(\) === "communities"/.test(code("components/explore/explore-page-client.tsx")))
+  check("the browser's own X never shows beside a search field's", /input\[type="search"\]::-webkit-search-cancel-button/.test(read("app/globals.css")))
+  const share = code("components/product/share-button.tsx")
+  check("the share button no longer shrinks under the press (the menu stays put)", !/active:scale/.test(share))
+  check("signed out on Explore, the footer's mark goes to storelib.com", /home=\{!signedIn\}/.test(code("components/marketing/conditional-footer.tsx")) && /home \? "\/" : "\/explore"/.test(code("components/storefront/seller-footer.tsx")))
+
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

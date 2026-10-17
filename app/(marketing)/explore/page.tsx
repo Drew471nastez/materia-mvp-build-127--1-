@@ -24,8 +24,6 @@ import { exploreCommunities } from "@/lib/communities/server/explore"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery, communityServerSort, discoverModeFor } from "@/lib/explore/communities-mode"
 import type { CommunitiesFirstPage } from "@/components/explore/explore-communities-results"
-import { cookies } from "next/headers"
-import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
@@ -246,10 +244,9 @@ export default async function ExplorePage({
     console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
     return [] as any[]
   })
-  const [discoverModeSwitcherEnabled, communitiesOn, cookieStore] = await Promise.all([
+  const [discoverModeSwitcherEnabled, communitiesOn] = await Promise.all([
     isExploreDiscoverModeSwitcherEnabled(),
     communitiesEnabled(),
-    cookies(),
   ])
   /*
     COMMUNITIES, WHILE THEY ARE SWITCHED ON, and only then: communities mode
@@ -261,8 +258,8 @@ export default async function ExplorePage({
     for the same pill, word and order the page opens on, beside the
     catalogue rather than after it.
   */
-  const cookieMode = parseDiscoverModeCookie(cookieStore.get(DISCOVER_MODE_COOKIE)?.value)
-  const initialDiscoverMode = discoverModeFor({ communitiesOn, type: params?.type ?? null, cookie: cookieMode })
+  /* Round AG: a visit opens on products unless the address asks; the tab's own memory is read by the page (lib/explore/discover-mode-cookie). */
+  const initialDiscoverMode = discoverModeFor({ communitiesOn, type: params?.type ?? null, cookie: null })
   const communityResultsPromise: Promise<CommunityCard[]> =
     communitiesOn && searchQuery && initialDiscoverMode === "products" ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
   /* A subcategory from the More picker, inside its category: communities are found by its parent narrowed by its words (lib/communities/server/explore.ts). */

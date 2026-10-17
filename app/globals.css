@@ -1130,6 +1130,9 @@ html.capacitor body {
      inside a type=search field in the platform's accent colour, and on a
      dark header that is a blue cross beside the magnifier. Nothing native
      is drawn in this field; the theme draws its own. */
+  /* Round AG: every search field, not only the header's. Explore's field drew the browser's X beside its own on focus (two
+     X's); Storelib's fields clear with their own button. */
+  input[type="search"]::-webkit-search-cancel-button,
   .hdr-search-field::-webkit-search-decoration,
   .hdr-search-field::-webkit-search-cancel-button,
   .hdr-search-field::-webkit-search-results-button,

@@ -24,6 +24,7 @@
  *
  * Mount: <WebPushPrompt communityName={community.name} joinedAt={member.joinedAt} />
  */
+import * as React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { BellRing, Check, X } from "lucide-react"
 import { WebPushError, enableWebPush, webPushSupported } from "@/lib/push/web-client"
@@ -66,6 +67,21 @@ function writeSnooze(at: number): void {
 }
 
 type Phase = "hidden" | "shown" | "asking" | "on" | "blocked" | "error"
+
+/** The first notification, from this browser's own worker, so the person sees one arrive the moment they allow them. */
+async function confirmOn(communityName: string): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker.ready
+    await reg.showNotification(`You'll hear from ${communityName.trim() || "this community"}`, {
+      body: "Notifications are on in this browser. Replies, mentions and new posts show up like this.",
+      badge: "/icon-light-32x32.png",
+      tag: "storelib-push-on",
+      data: { url: window.location.pathname },
+    })
+  } catch {
+    /* The card already says it is on; a browser that will not show one now still gets pushes. */
+  }
+}
 
 export function WebPushPrompt({
   communityName,
@@ -116,6 +132,8 @@ export function WebPushPrompt({
       const now = await enableWebPush()
       if (now === "on") {
         setPhase("on")
+        /* Round AG: proof that it works, a notification of its own straight away (shown by the same worker a push is). */
+        void confirmOn(communityName)
         closing.current = window.setTimeout(() => close(false), 1800)
       } else if (now === "blocked") {
         setPhase("blocked")
@@ -126,7 +144,7 @@ export function WebPushPrompt({
       setError(e instanceof WebPushError ? e.message : "That did not work. Try again in a moment.")
       setPhase("error")
     }
-  }, [close])
+  }, [close, communityName])
 
   if (phase === "hidden") return null
   const name = communityName.trim() || "this community"
@@ -138,13 +156,14 @@ export function WebPushPrompt({
       className={cn(
         "transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
         entered ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0 motion-reduce:translate-y-0",
-        placement === "floating" ? "fixed inset-x-4 z-40 mx-auto max-w-[420px] sm:left-auto sm:right-6 sm:mx-0 sm:w-[380px]" : "w-full",
+        /* A phone: full width less 12px, above the tab bar. From 1024px (no tab bar) the bottom right corner, 24px in. */
+        placement === "floating" ? "fixed inset-x-3 bottom-[var(--push-bottom)] z-40 mx-auto max-w-[420px] sm:left-auto sm:right-5 sm:mx-0 sm:w-[372px] lg:bottom-6 lg:right-6" : "w-full",
         className,
       )}
-      style={placement === "floating" ? { bottom: `calc(${bottom}px + env(safe-area-inset-bottom, 0px))` } : undefined}
+      style={placement === "floating" ? ({ "--push-bottom": `calc(${bottom}px + env(safe-area-inset-bottom, 0px))` } as React.CSSProperties) : undefined}
     >
-      <div className="relative flex gap-3 rounded-2xl border border-[#e5e7eb]/70 bg-white p-3.5 pr-12 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-4 sm:pr-12">
-        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#1a1a2e]">
+      <div className="relative flex gap-3.5 rounded-[18px] border border-[#e5e7eb]/80 bg-white p-4 pr-11 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-12px_rgba(15,23,42,0.22)]">
+        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f4f5f7] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.06)]">
           {phase === "on" ? <Check className="h-[18px] w-[18px] text-[#15803d]" strokeWidth={2} /> : <BellRing className="h-[18px] w-[18px]" strokeWidth={1.75} />}
         </span>
         <div className="min-w-0 flex-1">
@@ -166,7 +185,7 @@ export function WebPushPrompt({
                 </p>
               ) : null}
               {phase !== "blocked" ? (
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3.5 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => void turnOn()}
@@ -194,7 +213,7 @@ export function WebPushPrompt({
           onClick={() => close(phase !== "on")}
           aria-label="Close"
           data-web-push-close=""
-          className="absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#9ca3af] transition-colors hover:bg-[#f3f4f6] hover:text-[#4b5563]"
+          className="absolute right-1 top-1 inline-flex h-10 w-10 items-center justify-center rounded-xl text-[#9ca3af] transition-colors hover:bg-[#f3f4f6] hover:text-[#4b5563]"
         >
           <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
         </button>
