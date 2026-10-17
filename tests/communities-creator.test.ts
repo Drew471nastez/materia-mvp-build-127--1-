@@ -314,7 +314,8 @@ async function main() {
   check("Moderation has the reports, the resolved ones, the restricted people, the rules and the audit log", /"reports" \| "resolved" \| "restricted" \| "rules" \| "audit"/.test(modSrc) && /<RulesEditor/.test(modSrc) && /<Restricted/.test(modSrc))
   check("the rules are saved through the settings route with checkRules first", /checkRules\(rules\)/.test(modSrc) && /send\(`\/api\/app\/community\/\$\{head\.id\}`, "PATCH", \{ rules: checked\.value \}\)/.test(modSrc))
   check("only the owner and admins edit the rules; a moderator reads them", /const canEdit = head\.can\.manage_settings === true/.test(modSrc) && can("moderator", "review_reports") && !can("moderator", "manage_settings"))
-  check("removing reported content goes through the moderation route", /send\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
+  /* Round 34: the same call, now asking for the open count back with it (`send<{ open?: number }>`). */
+  check("removing reported content goes through the moderation route", /send(<[^>]*>)?\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
   check("an author action from a report resolves the report", /fromReport\.current = r/.test(modSrc) && /setStatus\(r, "resolved"/.test(modSrc))
   const modPage = code("app/app/community/[id]/moderation/page.tsx")
   /* Changed on purpose (round 32): the page's reads moved to lib/communities/server/admin-sections.ts, so the page can stream them under a Suspense boundary. */
