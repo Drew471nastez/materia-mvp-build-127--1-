@@ -689,6 +689,13 @@ function TierCard({ head, tier, products, owner, canDefault, first = true, last 
           </span>
         ) : null}
       </div>
+      {tier.subscribers && (tier.subscribers.paying || tier.subscribers.trialing || tier.subscribers.trialsEnded) ? (
+        <p className="mt-1 text-[12.5px] tabular-nums text-[#6b7280]" data-tier-subscribers="">
+          {tt("{n} paying", { n: tier.subscribers.paying })}
+          {tier.subscribers.trialing ? ` · ${tt("{n} on a free trial", { n: tier.subscribers.trialing })}` : ""}
+          {tier.subscribers.trialsEnded ? ` · ${tt("{c} of {n} ended trials now paying", { c: tier.subscribers.trialsConverted, n: tier.subscribers.trialsEnded })}` : ""}
+        </p>
+      ) : null}
       {owner ? (
         <>
           <div className={cn("mt-3 grid gap-3", tier.billing === "recurring" ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>

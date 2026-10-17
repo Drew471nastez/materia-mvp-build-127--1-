@@ -24,6 +24,7 @@ import { Check, Loader2 } from "lucide-react"
 import { api, apiBase, type ApiResult } from "@/components/community/member/api"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD_RAISED, FIELD } from "@/components/community/member/ui"
 import { CANCEL_NOTE_MAX, CANCEL_REASONS, formatDay, formatMoney, membershipStatusLine, type CancelReason, type CommunityMembershipView } from "@/lib/communities/membership-policy"
+import { ChangePlan } from "./change-plan"
 import { MembershipSheet } from "./sheet"
 
 /* One read for the page: the plan's buttons and the contact form ask together and share the answer for a few seconds. */
@@ -203,6 +204,7 @@ export function CancelMembership({
             {busy === "resume" ? "Resuming" : "Resume membership"}
           </button>
         ) : null}
+        <ChangePlan communityId={communityId} view={view} locale={locale} className={`${BTN_SECONDARY} order-last`} onChanged={(next) => { setJustCancelled(false); apply(next) }} />
         {view.canCancel ? (
           <button
             type="button"
@@ -230,7 +232,7 @@ export function CancelMembership({
           <h2 id="membership-plan-title" className="text-[13px] font-medium text-[#6b7280]">
             {view.kind === "subscription" ? "Your plan" : "Your membership"}
           </h2>
-          <p className="mt-0.5 truncate text-[17px] font-semibold tabular-nums text-[#1a1a2e]">{price ?? view.communityName}</p>
+          <p className="mt-0.5 truncate text-[17px] font-semibold tabular-nums text-[#1a1a2e]" data-membership-plan-name="">{view.planName && price ? `${view.planName} · ${price}` : (price ?? view.communityName)}</p>
         </div>
         {view.manageUrl ? (
           <Link href={view.manageUrl} className={`${BTN_GHOST} -mr-2 -mt-1 min-h-10`} data-membership-billing="">
@@ -261,6 +263,7 @@ export function CancelMembership({
               {busy === "resume" ? "Resuming" : "Resume membership"}
             </button>
           ) : null}
+          <ChangePlan communityId={communityId} view={view} locale={locale} onChanged={(next) => { setJustCancelled(false); apply(next) }} />
           {view.canCancel ? (
             <button
               type="button"

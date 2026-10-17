@@ -20,6 +20,10 @@ import type { JoinOption } from "@/components/community/public/types"
 import { joinButtonLabel } from "@/lib/communities/format"
 import { MAX_ACTIVE_TIERS, MAX_TIERS, TRIAL_MAX_DAYS } from "@/lib/communities/limits"
 import { yearlySaving } from "@/lib/memberships/state"
+import { canChangePlan, changeKind, nextChargeAt, previewAmounts, prorationFor, subscriberCounts } from "@/lib/communities/plan-change"
+import { applyPlanChange, planChoices, previewPlanChange, type PlanChangeDeps } from "@/lib/communities/server/plan-change"
+import { confirmLabel, previewSentence } from "@/components/community/membership/change-plan"
+import { fakeDb } from "./_fake-db"
 import { untt } from "./i18n-source"
 
 let passed = 0
@@ -128,8 +132,126 @@ async function main() {
   console.log("\nThe join route takes the plan picked")
   check("the join route passes the plan on", /tierId: body\.tierId/.test(code("app/api/community/[communityId]/join/route.ts")))
 
+
+  console.log("\nChanging plan: the rules")
+  const std$ = { productId: "p-std", amountCents: 9800, interval: "month" as const }
+  check("more per month is an upgrade, less a downgrade, another interval its own kind", changeKind(std$, { productId: "p-pre", amountCents: 199700, interval: "month" }) === "upgrade" && changeKind({ productId: "p-pre", amountCents: 199700, interval: "month" }, std$) === "downgrade" && changeKind(std$, { productId: "p-std", amountCents: 90000, interval: "year" }) === "interval" && changeKind(std$, std$) === "same")
+  check("upgrades and interval changes are invoiced now, downgrades credited, trials neither", prorationFor("upgrade", false) === "always_invoice" && prorationFor("interval", false) === "always_invoice" && prorationFor("downgrade", false) === "create_prorations" && prorationFor("upgrade", true) === "none")
+  check("only a paying or trialing membership not set to end can change", canChangePlan({ status: "active" }) && canChangePlan({ status: "trialing" }) && !canChangePlan({ status: "past_due" }) && !canChangePlan({ status: "active", cancel_at_period_end: true }) && !canChangePlan(null))
+  check("the preview's numbers: an invoice now is paid now", previewAmounts("always_invoice", { amount_due: 150000, total: 150000 }).dueNowCents === 150000)
+  check("a downgrade's credit is its proration lines, nothing paid now", JSON.stringify(previewAmounts("create_prorations", { amount_due: 9800, total: 9800, lines: { data: [{ amount: -150000, proration: true }, { amount: 140000, parent: { subscription_item_details: { proration: true } } }, { amount: 9800 }] } })) === JSON.stringify({ dueNowCents: 0, creditCents: 10000 }))
+  check("next charge: after the trial, a year from today on annual, else the period's end", nextChargeAt("upgrade", "month", { status: "trialing", trial_end: "2026-10-24T00:00:00Z" }) === "2026-10-24T00:00:00Z" && nextChargeAt("downgrade", "month", { status: "active", current_period_end: "2026-11-01T00:00:00Z" }) === "2026-11-01T00:00:00Z" && (nextChargeAt("interval", "year", { status: "active" }, new Date(2026, 9, 17, 12)) ?? "").startsWith("2027-10-17"))
+  const pv = { kind: "upgrade" as const, toName: "Premium", interval: "month" as const, amountCents: 199700, currency: "usd", dueNowCents: 150000, creditCents: 0, nextChargeAt: "2026-11-01T12:00:00Z", trialing: false }
+  check("the member reads what is paid today and then", previewSentence(pv) === "You pay $1,500 today, the difference for the rest of this period. Then $1,997/month from Nov 1, 2026.", previewSentence(pv))
+  check("a downgrade reads nothing today and the credit", /^Nothing to pay today\. \$100 for the time you have not used comes off your next bill\./.test(previewSentence({ ...pv, kind: "downgrade", dueNowCents: 0, creditCents: 10000 })))
+  check("a trial reads that it carries on", /^Your free trial carries on\./.test(previewSentence({ ...pv, trialing: true })))
+  check("the confirm button says what happens", confirmLabel("upgrade", "Premium", "month") === "Upgrade to Premium" && confirmLabel("interval", "Standard", "year") === "Switch to annual" && confirmLabel("downgrade", "Standard", "month") === "Switch to Standard")
+
+  console.log("\nChanging plan: against a database, with Stripe stood in")
+  const C = "c0000000-0000-4000-8000-0000000000af"
+  const U = "a0000000-0000-4000-8000-0000000000af"
+  const STD = "d0000000-0000-4000-8000-0000000000a1"
+  const PRE = "d0000000-0000-4000-8000-0000000000a2"
+  const community = { id: C, slug: "salajan", name: "Salajan", creator_id: "cr1", owner_user_id: "owner" } as never
+  const world = (m: Record<string, unknown> = {}) =>
+    fakeDb({
+      community_tiers: [
+        { id: "t-std", community_id: C, name: "Standard", description: null, kind: "paid", billing: "recurring", product_id: STD, position: 1, is_default: false, archived_at: null, benefits: [] },
+        { id: "t-pre", community_id: C, name: "Premium", description: null, kind: "paid", billing: "recurring", product_id: PRE, position: 2, is_default: false, archived_at: null, benefits: [] },
+      ],
+      products: [
+        { id: STD, type: "membership", status: "published", title: "Standard", price_cents: 9800, community_id: C, creator_id: "cr1" },
+        { id: PRE, type: "membership", status: "published", title: "Premium", price_cents: 199700, community_id: C, creator_id: "cr1" },
+      ],
+      membership_plans: [
+        { product_id: STD, creator_id: "cr1", monthly_price_cents: 9800, yearly_price_cents: 90000, currency: "usd", trial_days: 7, benefits: [], included_product_ids: [] },
+        { product_id: PRE, creator_id: "cr1", monthly_price_cents: 199700, yearly_price_cents: null, currency: "usd", trial_days: 0, benefits: [], included_product_ids: [] },
+      ],
+      creators: [{ id: "cr1", user_id: "owner", stripe_account_id: "acct_1", stripe_onboarding_status: "connected", charges_enabled: true }],
+      memberships: [{ id: "m1", product_id: STD, creator_id: "cr1", buyer_id: U, buyer_email: "a@b.c", title: "Standard", stripe_subscription_id: "sub_1", billing_interval: "month", amount_cents: 9800, currency: "usd", status: "active", cancel_at_period_end: false, current_period_end: "2026-11-01T12:00:00Z", trial_end: null, created_at: "2026-10-01T00:00:00Z", ...m }],
+      community_audit_log: [],
+    })
+  const person = { id: U, email: "a@b.c", emailConfirmed: true }
+  const calls: { update?: Record<string, unknown>; previewed: number; reconciled: number } = { previewed: 0, reconciled: 0 }
+  const deps = (over: Partial<PlanChangeDeps> = {}): PlanChangeDeps => ({
+    retrieve: async () => ({ id: "sub_1", customer: "cus_1", status: "active", items: { data: [{ id: "si_1", price: { id: "price_std_m" } }] } }),
+    preview: async () => {
+      calls.previewed++
+      return { amount_due: 150000, total: 150000 }
+    },
+    update: async (_id, params) => {
+      calls.update = params
+      return {}
+    },
+    ensurePrice: async (plan, _product, interval) => ({ priceId: `price_${plan.product_id}_${interval}`, amountCents: (interval === "year" ? plan.yearly_price_cents : plan.monthly_price_cents) ?? 0 }),
+    sync: async () => null,
+    reconcile: async () => {
+      calls.reconciled++
+      return null
+    },
+    ...over,
+  })
+  {
+    const db = world()
+    const ch = (await planChoices(db as never, community, person)) as { ok: boolean; value?: { canChange: boolean; plans: { tierId: string; current: unknown }[] } }
+    check("the member sees both plans, theirs marked, and can change", !!ch.ok && !!ch.value?.canChange && ch.value.plans.length === 2 && ch.value.plans.find((p) => p.tierId === "t-std")?.current !== null)
+    const pre = (await previewPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean; value?: { kind: string; dueNowCents: number; nextChargeAt: string | null } }
+    check("upgrade preview: Stripe's amount due now, nothing changed", !!pre.ok && pre.value?.kind === "upgrade" && pre.value.dueNowCents === 150000 && !calls.update && db.tables.memberships[0].product_id === STD)
+    const done = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean }
+    const u = calls.update as { items?: { id: string; price: string }[]; proration_behavior?: string; payment_behavior?: string; metadata?: { product_id?: string } } | undefined
+    check("upgrade: the one item moves to the new price, invoiced now, refused rather than left unpaid", !!done.ok && u?.items?.[0]?.id === "si_1" && u.items[0].price === `price_${PRE}_month` && u.proration_behavior === "always_invoice" && u.payment_behavior === "error_if_incomplete")
+    check("the subscription's metadata and the membership row now name the new plan", u?.metadata?.product_id === PRE && db.tables.memberships[0].product_id === PRE && db.tables.memberships[0].title === "Premium")
+    check("the member's tier is brought in step, and the change audited", calls.reconciled === 1 && db.tables.community_audit_log.some((r) => (r as { action?: string }).action === "membership.upgraded"))
+  }
+  {
+    calls.update = undefined
+    const db = world()
+    const same = (await applyPlanChange(db as never, community, person, { tierId: "t-std", interval: "month" }, deps())) as { ok: boolean; error?: string }
+    check("the plan they already have is refused", !same.ok && same.error === "same_plan" && !calls.update)
+    const noYear = (await previewPlanChange(db as never, community, person, { tierId: "t-pre", interval: "year" }, deps())) as { ok: boolean; error?: string }
+    check("an interval the plan does not sell is refused", !noYear.ok && noYear.error === "interval_unavailable")
+    const yearly = (await previewPlanChange(db as never, community, person, { tierId: "t-std", interval: "year" }, deps())) as { ok: boolean; value?: { kind: string; proration: string } }
+    check("monthly to annual on the same plan: its own kind, invoiced now", !!yearly.ok && yearly.value?.kind === "interval" && yearly.value.proration === "always_invoice")
+    const bad = (await applyPlanChange(db as never, community, person, { tierId: "nope", interval: "month" }, deps())) as { ok: boolean; error?: string }
+    check("a plan not on sale here is refused", !bad.ok && bad.error === "plan_unavailable")
+  }
+  {
+    calls.update = undefined
+    calls.previewed = 0
+    const db = world({ status: "trialing", trial_end: "2026-10-24T12:00:00Z" })
+    const t = (await previewPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean; value?: { dueNowCents: number; trialing: boolean; nextChargeAt: string | null } }
+    check("during a trial: nothing charged, Stripe not even asked, the trial's end is the next charge", !!t.ok && t.value?.dueNowCents === 0 && t.value.trialing && calls.previewed === 0 && t.value.nextChargeAt === "2026-10-24T12:00:00Z")
+    await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps())
+    const tu = calls.update as { proration_behavior?: string; payment_behavior?: string } | undefined
+    check("and the change during a trial prorates nothing", tu?.proration_behavior === "none" && tu.payment_behavior === undefined)
+  }
+  {
+    const pd = (await applyPlanChange(world({ status: "past_due" }) as never, community, person, { tierId: "t-pre", interval: "month" }, deps())) as { ok: boolean; error?: string }
+    check("past due: update the card first", !pd.ok && pd.error === "past_due")
+    const ending = (await planChoices(world({ cancel_at_period_end: true }) as never, community, person)) as { ok: boolean; value?: { canChange: boolean; reason: string | null } }
+    check("set to end: resume first", !!ending.ok && ending.value?.canChange === false && /Resume/.test(ending.value.reason ?? ""))
+    const db = world()
+    const declined = (await applyPlanChange(db as never, community, person, { tierId: "t-pre", interval: "month" }, deps({ update: async () => { throw Object.assign(new Error("Your card was declined."), { type: "StripeCardError", raw: { message: "Your card was declined." } }) } }))) as { ok: boolean; status?: number; message?: string }
+    check("a declined upgrade changes nothing, and says so", !declined.ok && declined.status === 402 && /Nothing changed/.test(declined.message ?? "") && db.tables.memberships[0].product_id === STD)
+  }
+  {
+    const now = Date.parse("2026-10-17T12:00:00Z")
+    const counts = subscriberCounts([
+      { product_id: "p", status: "active", trial_end: null },
+      { product_id: "p", status: "trialing", trial_end: "2026-10-20T00:00:00Z" },
+      { product_id: "p", status: "active", trial_end: "2026-10-01T00:00:00Z" },
+      { product_id: "p", status: "canceled", trial_end: "2026-10-02T00:00:00Z" },
+      { product_id: "p", status: "past_due", trial_end: null },
+    ], now).get("p")
+    check("creators see per plan: paying, on a trial, and ended trials now paying", JSON.stringify(counts) === JSON.stringify({ paying: 3, trialing: 1, trialsEnded: 2, trialsConverted: 1 }), counts)
+    check("the plan card draws them", /data-tier-subscribers/.test(read("components/community/creator/settings-section.tsx")))
+  }
+  const planRoute = code("app/api/community/[communityId]/membership/plan/route.ts")
+  check("the plan route: switch first, then who is asking, rate limited, never cached", (planRoute.match(/const off = await requireCommunitiesOn\(\)\s*if \(off\) return off[\s\S]*?await person\(\)/g) ?? []).length === 2 && /viewerContext\(/.test(planRoute) && /rateLimit\(/.test(planRoute) && /no-store/.test(planRoute))
+  check("Change plan sits on the member's plan card", /<ChangePlan /.test(code("components/community/membership/cancel-membership.tsx")))
+
   console.log("\nCopy")
-  const mine = ["components/community/public/join-flow.tsx", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts"]
+  const mine = ["components/community/public/join-flow.tsx", "lib/communities/server/plan-checkout.ts", "app/api/community/[communityId]/checkout/route.ts", "lib/communities/plan-change.ts", "lib/communities/server/plan-change.ts", "components/community/membership/change-plan.tsx", "app/api/community/[communityId]/membership/plan/route.ts"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

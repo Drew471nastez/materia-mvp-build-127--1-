@@ -30,6 +30,7 @@ import { createMembershipProduct, ownedMembership, saveMembership, slugFrom } fr
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { priceLine } from "../format"
+import { subscriberCounts } from "../plan-change"
 import { MAX_ACTIVE_TIERS, MAX_TIERS } from "../limits"
 import { TIER_COLUMNS, type CommunityRow, type TierRow } from "../types"
 import { htmlToText, textToHtml, type PriceInterval } from "@/components/community/creator/logic"
@@ -66,6 +67,11 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
     sellIds.length ? db.from("products").select("id, status, price_cents").in("id", sellIds) : Promise.resolve({ data: [] }),
     Promise.all(tierIds.map((id) => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).eq("tier_id", id).eq("status", "active"))),
   ])
+  /* Round AF: per plan, who pays, who is on a free trial, and how many ended trials became paying. */
+  const { data: subRows } = sellIds.length
+    ? await db.from("memberships").select("product_id, status, trial_end").in("product_id", sellIds).in("status", ["active", "trialing", "past_due", "canceled"]).limit(10000)
+    : { data: [] }
+  const subsOf = subscriberCounts((subRows as { product_id: string; status: string; trial_end: string | null }[] | null) ?? [])
   const linkRows = (links.data as { tier_id: string; product_id: string }[] | null) ?? []
   const otherIds = [...new Set(linkRows.filter((l) => !sellIds.includes(l.product_id)).map((l) => l.product_id))]
   const { data: others } = otherIds.length ? await db.from("products").select("id, title, type").in("id", otherIds) : { data: [] }
@@ -95,6 +101,7 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
       benefits: Array.isArray(t.benefits) ? t.benefits : [],
       trialDays: t.billing === "recurring" ? Number(plan?.trial_days ?? 0) : 0,
       members: counts[i]?.count ?? 0,
+      subscribers: t.product_id && t.billing === "recurring" ? (subsOf.get(t.product_id) ?? { paying: 0, trialing: 0, trialsEnded: 0, trialsConverted: 0 }) : null,
       accessProducts: linkRows
         .filter((l) => l.tier_id === t.id && l.product_id !== t.product_id)
         .map((l) => otherById.get(l.product_id))
