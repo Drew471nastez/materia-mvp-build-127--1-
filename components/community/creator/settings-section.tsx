@@ -51,11 +51,12 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ExternalLink, Plus, X } from "lucide-react"
 import { ChoicePicker } from "@/components/ui/choice-list"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
+import { MAX_ACTIVE_TIERS, MAX_BENEFITS } from "@/lib/communities/limits"
 import type { NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
 import { accessChoiceOf, settingsTabAsked, settingsTabOf, type PriceInterval, type SettingsTab } from "./logic"
@@ -539,24 +540,33 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
       <JoinQuestionsPanel head={head} />
 
       <EditorCard
-        title={tt("Tiers")}
-        hint={tt("What people join on. A paid tier is sold through Storelib checkout, with the price on its product.")}
+        title={tt("Plans")}
+        hint={tt("Up to {max} plans on sale at once. With more than one, Join opens a page to pick a plan.", { max: MAX_ACTIVE_TIERS })}
         action={
           owner ? (
-            <button type="button" onClick={() => setAdding(true)} className={buttonSecondary} data-tier-add="">
-              <Plus aria-hidden className="h-4 w-4" />
-              {tt("Add tier")}
-            </button>
+            <div className="flex items-center gap-2">
+              <a href={`/community/${head.slug}?join=plans`} target="_blank" rel="noreferrer" className={cn(buttonSecondary, "border-transparent shadow-none")} data-plans-preview="">
+                <ExternalLink aria-hidden className="h-4 w-4" />
+                {tt("Preview")}
+              </a>
+              {live.length < MAX_ACTIVE_TIERS ? (
+                <button type="button" onClick={() => setAdding(true)} className={buttonSecondary} data-tier-add="">
+                  <Plus aria-hidden className="h-4 w-4" />
+                  {tt("Add plan")}
+                </button>
+              ) : null}
+            </div>
           ) : null
         }
       >
         {live.length === 0 ? <p className="text-[13.5px] text-[#6b7280]">{tt("No tiers yet.")}</p> : (
           <div className="-my-1 divide-y divide-[#f1f2f4]">
             {live.map((t) => (
-              <TierCard key={t.id} head={head} tier={t} products={data.products} owner={owner} canDefault={live.length > 1} />
+              <TierCard key={t.id} head={head} tier={t} products={data.products} owner={owner} canDefault={live.length > 1} first={t.id === live[0]?.id} last={t.id === live[live.length - 1]?.id} />
             ))}
           </div>
         )}
+        {owner && live.length >= MAX_ACTIVE_TIERS ? <p className="text-[12.5px] text-[#6b7280]" data-plans-full="">{tt("{max} plans are on sale, the most there can be. Stop selling one to add another.", { max: MAX_ACTIVE_TIERS })}</p> : null}
         {archived.length ? (
           <div className="border-t border-[#f1f2f4] pt-3">
             <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]">{tt("Not sold any more")}</p>
@@ -598,11 +608,11 @@ function TierRestore({ head, tier }: { head: CommunityHead; tier: TierView }) {
   )
 }
 
-function TierCard({ head, tier, products, owner, canDefault }: { head: CommunityHead; tier: TierView; products: SettingsData["products"]; owner: boolean; canDefault: boolean }) {
+function TierCard({ head, tier, products, owner, canDefault, first = true, last = true }: { head: CommunityHead; tier: TierView; products: SettingsData["products"]; owner: boolean; canDefault: boolean; first?: boolean; last?: boolean }) {
   const router = useRouter()
   const toast = useToast()
   const base = `/api/app/community/${head.id}/tiers/${tier.id}`
-  const start = { name: tier.name, monthly: dollars(tier.monthlyCents), yearly: dollars(tier.yearlyCents), price: dollars(tier.priceCents) }
+  const start = { name: tier.name, description: tier.description ?? "", benefits: tier.benefits.join("\n"), trial: String(tier.trialDays ?? 0), monthly: dollars(tier.monthlyCents), yearly: dollars(tier.yearlyCents), price: dollars(tier.priceCents) }
   const [s, setS] = React.useState(start)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -613,9 +623,12 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
   const save = async () => {
     const body: Record<string, unknown> = {}
     if (s.name !== start.name) body.name = s.name
+    if (s.description !== start.description) body.description = s.description
+    if (s.benefits !== start.benefits) body.benefits = s.benefits.split("\n").map((b) => b.trim()).filter(Boolean)
     if (tier.billing === "recurring") {
       if (s.monthly !== start.monthly) body.monthlyPrice = s.monthly
       if (s.yearly !== start.yearly) body.yearlyPrice = s.yearly
+      if (s.trial !== start.trial) body.trialDays = Number(s.trial)
     }
     if (tier.billing === "one_time" && s.price !== start.price) body.price = s.price
     setBusy(true)
@@ -623,7 +636,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
     const res = await send(base, "PATCH", body)
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error))
-    toast(tier.billing === "recurring" && (body.monthlyPrice !== undefined || body.yearlyPrice !== undefined) ? tt("Price saved. Members keep the price they joined at.") : tt("Saved"))
+    toast(tier.billing === "recurring" && (body.monthlyPrice !== undefined || body.yearlyPrice !== undefined) ? tt("Price saved. Members keep the price they joined at.") : body.trialDays !== undefined ? tt("Saved. The trial applies to people who join from now on.") : tt("Saved"))
     router.refresh()
   }
 
@@ -662,8 +675,19 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">{tt("Off sale")}</StatusBadge> : null}
         </p>
         <span className="text-[13px] tabular-nums text-[#6b7280]">
-          {tier.priceLine || tt("No price")} · {tt("{n, plural, one {# member} other {# members}}", { n: tier.members })}
+          {tier.priceLine || tt("No price")}
+          {tier.trialDays > 0 ? ` · ${tt("{n}-day trial", { n: tier.trialDays })}` : ""} · {tt("{n, plural, one {# member} other {# members}}", { n: tier.members })}
         </span>
+        {owner && !(first && last) ? (
+          <span className="flex items-center" data-tier-move="">
+            <button type="button" disabled={first} aria-label={tt("Move {name} up", { name: tier.name })} onClick={() => void patch({ move: "up" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
+              <ArrowUp aria-hidden className="h-4 w-4" />
+            </button>
+            <button type="button" disabled={last} aria-label={tt("Move {name} down", { name: tier.name })} onClick={() => void patch({ move: "down" }, tt("Moved"))} className="grid h-10 w-10 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f3f4f6] disabled:opacity-30 sm:h-8 sm:w-8">
+              <ArrowDown aria-hidden className="h-4 w-4" />
+            </button>
+          </span>
+        ) : null}
       </div>
       {owner ? (
         <>
@@ -699,6 +723,49 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
               </div>
             ) : null}
           </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor={`t-d-${tier.id}`} className={label}>
+                {tt("Short description")}
+              </label>
+              <textarea id={`t-d-${tier.id}`} value={s.description} rows={3} maxLength={500} onChange={(e) => setS({ ...s, description: e.target.value.slice(0, 500) })} placeholder={tt("Who this plan is for")} className={cn(field, "min-h-[88px] resize-y py-2.5 text-[16px] sm:text-[14px]")} data-tier-description="" />
+            </div>
+            <div>
+              <label htmlFor={`t-b-${tier.id}`} className={label}>
+                {tt("What members get, one per line")}
+              </label>
+              <textarea id={`t-b-${tier.id}`} value={s.benefits} rows={3} onChange={(e) => setS({ ...s, benefits: e.target.value.split("\n").slice(0, MAX_BENEFITS).join("\n") })} placeholder={tt("Full community access\nWeekly live calls")} className={cn(field, "min-h-[88px] resize-y py-2.5 text-[16px] sm:text-[14px]")} data-tier-benefits="" />
+            </div>
+          </div>
+          {tier.billing === "recurring" ? (
+            <div className="mt-3">
+              <p id={`t-t-${tier.id}`} className={label}>
+                {tt("Free trial")}
+              </p>
+              <div role="radiogroup" aria-labelledby={`t-t-${tier.id}`} className="mt-1 flex flex-wrap gap-1.5" data-tier-trial="">
+                {[...new Set([0, 3, 7, 14, 30, Number(start.trial)])].sort((a, b) => a - b).map((d) => {
+                  const on = s.trial === String(d)
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setS({ ...s, trial: String(d) })}
+                      className={cn(
+                        "inline-flex h-10 items-center rounded-full border px-3.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 sm:h-8",
+                        on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8f9fa]",
+                      )}
+                      data-trial-days={d}
+                    >
+                      {d === 0 ? tt("No trial") : tt("{n} days", { n: d })}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1 text-[12px] text-[#6b7280]">{tt("A card is taken at sign up and charged when the trial ends, unless they cancel.")}</p>
+            </div>
+          ) : null}
           {tier.kind === "paid" ? (
             <div className="mt-3">
               <p className="text-[12.5px] font-medium text-[#4b5563]">{tt("Also let in buyers of")}</p>
@@ -740,7 +807,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
             ) : null}
             {dirty ? (
               <button type="button" onClick={() => void save()} disabled={busy} className={cn(buttonPrimary, "h-10 px-4 sm:h-8")} data-tier-save="">
-                {busy ? tt("Saving") : tt("Save tier")}
+                {busy ? tt("Saving") : tt("Save plan")}
               </button>
             ) : null}
           </div>

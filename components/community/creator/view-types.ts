@@ -170,6 +170,8 @@ export interface TierView {
   priceCents: number | null
   priceLine: string
   benefits: string[]
+  /** A recurring plan's free trial in days, 0 for none. */
+  trialDays: number
   members: number
   /** Other products that also give this tier (community_access_products). */
   accessProducts: { id: string; title: string; type: string }[]

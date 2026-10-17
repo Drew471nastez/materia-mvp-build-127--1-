@@ -238,7 +238,7 @@ async function main() {
     check("a private paid community says the price beside Invite only", privatePaid.kind === "invite_only" && privatePaid.label === "Invite only · $19/month")
     check("and the note says what it costs", /\$19\/month/.test(privatePaid.note ?? "") && /invite link/.test(privatePaid.note ?? ""))
     const invited = decideJoin(facts({ community: { access: "paid" }, options: [paid], viewer: { invited: true } }))
-    check("somebody holding an invite gets the ordinary way to pay", invited.kind === "checkout" && invited.label === "Join for $19/month")
+    check("somebody holding an invite gets the ordinary way to pay", invited.kind === "checkout" && invited.label === "Join $19/month")
     const approvedOne = decideJoin(facts({ options: [free], viewer: { approved: true } }))
     check("an approved request opens the free way in too", approvedOne.kind === "join_free")
     check("a public paid community is untouched", decideJoin(facts({ community: { access: "paid", visibility: "public" }, options: [paid] })).kind === "checkout")

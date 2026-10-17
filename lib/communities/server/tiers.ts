@@ -30,7 +30,7 @@ import { createMembershipProduct, ownedMembership, saveMembership, slugFrom } fr
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { priceLine } from "../format"
-import { MAX_TIERS } from "../limits"
+import { MAX_ACTIVE_TIERS, MAX_TIERS } from "../limits"
 import { TIER_COLUMNS, type CommunityRow, type TierRow } from "../types"
 import { htmlToText, textToHtml, type PriceInterval } from "@/components/community/creator/logic"
 import type { PickProduct, TierView } from "@/components/community/creator/view-types"
@@ -62,7 +62,7 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
   const sellIds = tiers.map((t) => t.product_id).filter((x): x is string => Boolean(x))
   const [links, plans, products, counts] = await Promise.all([
     db.from("community_access_products").select("tier_id, product_id").in("tier_id", tierIds),
-    sellIds.length ? db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency").in("product_id", sellIds) : Promise.resolve({ data: [] }),
+    sellIds.length ? db.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents, currency, trial_days").in("product_id", sellIds) : Promise.resolve({ data: [] }),
     sellIds.length ? db.from("products").select("id, status, price_cents").in("id", sellIds) : Promise.resolve({ data: [] }),
     Promise.all(tierIds.map((id) => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).eq("tier_id", id).eq("status", "active"))),
   ])
@@ -70,7 +70,7 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
   const otherIds = [...new Set(linkRows.filter((l) => !sellIds.includes(l.product_id)).map((l) => l.product_id))]
   const { data: others } = otherIds.length ? await db.from("products").select("id, title, type").in("id", otherIds) : { data: [] }
   const otherById = new Map(((others as { id: string; title: string; type: string }[] | null) ?? []).map((p) => [p.id, p]))
-  const planOf = new Map(((plans.data as { product_id: string; monthly_price_cents: number | null; yearly_price_cents: number | null; currency: string | null }[] | null) ?? []).map((p) => [p.product_id, p]))
+  const planOf = new Map(((plans.data as { product_id: string; monthly_price_cents: number | null; yearly_price_cents: number | null; currency: string | null; trial_days?: number | null }[] | null) ?? []).map((p) => [p.product_id, p]))
   const productOf = new Map(((products.data as { id: string; status: string; price_cents: number | null }[] | null) ?? []).map((p) => [p.id, p]))
   return tiers.map((t, i) => {
     const plan = t.product_id ? planOf.get(t.product_id) : undefined
@@ -93,6 +93,7 @@ export async function loadTiers(db: Db, communityId: string): Promise<TierView[]
       priceCents: once,
       priceLine: priceLine({ kind: t.kind, billing: t.billing, monthlyCents: monthly, yearlyCents: yearly, priceCents: once, currency: plan?.currency ?? "usd" }),
       benefits: Array.isArray(t.benefits) ? t.benefits : [],
+      trialDays: t.billing === "recurring" ? Number(plan?.trial_days ?? 0) : 0,
       members: counts[i]?.count ?? 0,
       accessProducts: linkRows
         .filter((l) => l.tier_id === t.id && l.product_id !== t.product_id)
@@ -117,12 +118,13 @@ export async function pickableProducts(db: Db, creatorId: string): Promise<PickP
     .map((p) => ({ id: p.id, title: p.title || "Untitled", type: p.type, status: p.status, cover: p.thumbnail_url }))
 }
 
-async function nextPosition(db: Db, communityId: string): Promise<{ position: number; count: number; hasDefault: boolean }> {
+async function nextPosition(db: Db, communityId: string): Promise<{ position: number; count: number; total: number; hasDefault: boolean }> {
   const { data } = await db.from("community_tiers").select("position, is_default, archived_at").eq("community_id", communityId).limit(100)
   const rows = (data as { position: number; is_default: boolean; archived_at: string | null }[] | null) ?? []
   return {
     position: rows.reduce((m, r) => Math.max(m, r.position + 1), 0),
     count: rows.filter((r) => !r.archived_at).length,
+    total: rows.length,
     hasDefault: rows.some((r) => r.is_default),
   }
 }
@@ -143,7 +145,8 @@ export interface NewPaidTier {
  */
 export async function createPaidTier(db: Db, t: NewPaidTier): Promise<TierResult<{ tierId: string; productId: string }>> {
   const slot = await nextPosition(db, t.community.id)
-  if (slot.count >= MAX_TIERS) return failed(`A community has up to ${MAX_TIERS} tiers.`, 400)
+  if (slot.count >= MAX_ACTIVE_TIERS) return failed(`A community sells up to ${MAX_ACTIVE_TIERS} plans at once. Archive one to add another.`, 400)
+  if (slot.total >= MAX_TIERS) return failed(`A community has up to ${MAX_TIERS} plans, archived ones included.`, 400)
   const live = t.community.status === "published"
   const title = t.name && t.name !== t.community.name ? `${t.community.name}: ${t.name}` : t.community.name
   const descriptionText = t.description?.trim() || t.community.tagline || htmlToText(t.community.description) || ""
@@ -265,6 +268,8 @@ export interface TierPatch {
   yearlyCents?: number | null
   /** A one time tier. */
   priceCents?: number
+  /** A recurring tier's free trial: 0 for none, up to TRIAL_MAX_DAYS. New members only; members already in keep their terms. */
+  trialDays?: number
 }
 
 /**
@@ -282,7 +287,7 @@ export async function updateTier(db: Db, u: { creatorId: string; community: Comm
   const before: Record<string, unknown> = {}
 
   if (tier.kind === "paid" && tier.product_id) {
-    if (tier.billing === "recurring" && (u.patch.monthlyCents !== undefined || u.patch.yearlyCents !== undefined || u.patch.benefits !== undefined)) {
+    if (tier.billing === "recurring" && (u.patch.monthlyCents !== undefined || u.patch.yearlyCents !== undefined || u.patch.benefits !== undefined || u.patch.trialDays !== undefined)) {
       const product = await ownedMembership(db, u.creatorId, tier.product_id)
       if (!product) return failed("The product that sells this tier is not yours any more.", 409)
       const { data: plan } = await db.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, included_product_ids").eq("product_id", product.id).maybeSingle()
@@ -291,6 +296,7 @@ export async function updateTier(db: Db, u: { creatorId: string; community: Comm
       if (monthly === null && yearly === null) return failed("Keep a monthly or a yearly price.", 400, "price")
       before.monthly = plan?.monthly_price_cents ?? null
       before.yearly = plan?.yearly_price_cents ?? null
+      before.trialDays = plan?.trial_days ?? 0
       const saved = await saveMembership(db, u.creatorId, product, {
         title: product.title,
         description: htmlToText(product.description),
@@ -298,7 +304,7 @@ export async function updateTier(db: Db, u: { creatorId: string; community: Comm
         plan: {
           monthlyPriceCents: monthly,
           yearlyPriceCents: yearly,
-          trialDays: Number(plan?.trial_days ?? 0),
+          trialDays: u.patch.trialDays !== undefined ? u.patch.trialDays : Number(plan?.trial_days ?? 0),
           benefits: u.patch.benefits ?? (Array.isArray(tier.benefits) ? tier.benefits : []),
           includedProductIds: Array.isArray(plan?.included_product_ids) ? plan.included_product_ids : [],
         },
@@ -327,7 +333,7 @@ export async function updateTier(db: Db, u: { creatorId: string; community: Comm
     targetType: "tier",
     targetId: tier.id,
     targetLabel: (rowPatch.name as string | undefined) ?? tier.name,
-    detail: { before, after: { monthly: u.patch.monthlyCents, yearly: u.patch.yearlyCents, price: u.patch.priceCents, name: u.patch.name } },
+    detail: { before, after: { monthly: u.patch.monthlyCents, yearly: u.patch.yearlyCents, price: u.patch.priceCents, name: u.patch.name, trialDays: u.patch.trialDays } },
   })
   return { ok: true }
 }
@@ -340,6 +346,10 @@ export async function archiveTier(db: Db, a: { community: CommunityRow; tierId: 
   const tier = await tierOf(db, a.community.id, a.tierId)
   if (!tier) return failed("That tier is not in this community.", 404)
   if (tier.is_default && a.archived) return failed("This is the tier people join on. Make another tier the default first.", 409)
+  if (!a.archived && tier.archived_at) {
+    const slot = await nextPosition(db, a.community.id)
+    if (slot.count >= MAX_ACTIVE_TIERS) return failed(`A community sells up to ${MAX_ACTIVE_TIERS} plans at once. Archive one to bring this back.`, 409)
+  }
   const { error } = await db.from("community_tiers").update({ archived_at: a.archived ? new Date().toISOString() : null }).eq("id", tier.id)
   if (error) return failed("The tier could not be saved. Try again.")
   if (tier.product_id) {
@@ -349,6 +359,28 @@ export async function archiveTier(db: Db, a: { community: CommunityRow; tierId: 
       .eq("id", tier.product_id)
   }
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: a.archived ? "tier.archived" : "tier.restored", targetType: "tier", targetId: tier.id, targetLabel: tier.name })
+  return { ok: true }
+}
+
+/**
+ * Moves a plan one place up or down among the community's plans on sale, the
+ * order the plan picker and the About page list them in. Swaps the two
+ * positions; archived plans keep theirs.
+ */
+export async function moveTier(db: Db, a: { community: CommunityRow; tierId: string; direction: "up" | "down"; actorId: string }): Promise<TierResult> {
+  const { data } = await db.from("community_tiers").select("id, position, archived_at, name").eq("community_id", a.community.id).order("position", { ascending: true }).limit(100)
+  const live = ((data as { id: string; position: number; archived_at: string | null; name: string }[] | null) ?? []).filter((r) => !r.archived_at)
+  const at = live.findIndex((r) => r.id === a.tierId)
+  if (at < 0) return failed("That tier is not in this community.", 404)
+  const other = live[a.direction === "up" ? at - 1 : at + 1]
+  if (!other) return { ok: true }
+  const mine = live[at]
+  /* Two plans that share a position (older rows) are told apart first, so the swap always moves something. */
+  const [p1, p2] = mine.position === other.position ? (a.direction === "up" ? [other.position, other.position + 1] : [other.position + 1, other.position]) : [other.position, mine.position]
+  const first = await db.from("community_tiers").update({ position: p1 }).eq("id", mine.id)
+  const second = first.error ? first : await db.from("community_tiers").update({ position: p2 }).eq("id", other.id)
+  if (first.error || second.error) return failed("The order could not be saved. Try again.")
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "tier.moved", targetType: "tier", targetId: mine.id, targetLabel: mine.name, detail: { direction: a.direction } })
   return { ok: true }
 }
 
