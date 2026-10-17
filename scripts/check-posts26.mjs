@@ -316,7 +316,7 @@ export const isNativePlatform = () => false
           await p.evaluate(() => ((window.__frames = []), (window.__rec = true)))
           const o = await film(p, `open-${tag}`, () => p.click("[data-composer-open]"), { ms: 700, rate: 0.25 })
           const fo = await p.evaluate(() => ((window.__rec = false), window.__frames.slice()))
-          await p.keyboard.press("Escape")
+          await p.click("[data-feed-writer] [data-composer-cancel]")
           await sleep(800)
           await p.evaluate(() => ((window.__frames = []), (window.__rec = true)))
           await p.click("[data-composer-open]")
@@ -326,7 +326,8 @@ export const isNativePlatform = () => false
           const focusIn = await p.evaluate(() => !!document.activeElement?.closest("[data-composer]") && document.activeElement.matches("[data-composer-title]"))
           await p.screenshot({ path: join(shots, `open-${tag}.png`) })
           await p.evaluate(() => ((window.__frames = []), (window.__rec = true)))
-          const c = await film(p, `close-${tag}`, () => p.keyboard.press("Escape"), { ms: 700 })
+          /* CLOSE_BY=cancel for a checkout whose writer has no Escape in place (the base before round 26). */
+          const c = await film(p, `close-${tag}`, () => (process.env.CLOSE_BY === "cancel" ? p.click("[data-feed-writer] [data-composer-cancel]") : p.keyboard.press("Escape")), { ms: 700 })
           const fc = await p.evaluate(() => ((window.__rec = false), window.__frames.slice()))
           if (process.env.DEBUG) for (const [nm, f] of [["open", fo], ["open1x", fo1], ["close", fc]]) console.log(`    ${tag} ${nm}:`, f.map((x, i) => `${i ? Math.round(x.t - f[i - 1].t) : 0}ms:${x.list}${x.anim ? "*" : ""}`).join(" "))
           const back = await p.evaluate(() => ({ state: document.querySelector("[data-feed-writer] [data-composer]")?.getAttribute("data-composer"), focus: document.activeElement?.hasAttribute("data-composer-open") }))
