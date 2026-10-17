@@ -383,8 +383,14 @@ export const notFound = () => {}
         await swipe(g, s0.vh * 0.4, 5)
       }, `drawer-${name}`, { cols: 4, width: name === "390" ? 260 : 300 })
       console.log(`        frame sheet from ${n} screencast frames`)
+      const under = await p.evaluate(() => { const h = document.querySelector("[data-page-drawer-handle]").getBoundingClientRect(); const e = document.elementFromPoint(h.left + h.width / 2, h.top + h.height / 2); return { h: { x: Math.round(h.left), y: Math.round(h.top), w: Math.round(h.width), hh: Math.round(h.height) }, el: e ? e.tagName + " " + (e.getAttributeNames().filter((n) => n.startsWith("data-")).join(",")) + " " + String(e.className).slice(0, 60) : null } })
+      if (process.env.DEBUG_TAP) {
+        console.log("        under the grip:", JSON.stringify(under))
+        await p.evaluate(() => { const w = window; w.__clicks = []; for (const t of ["pointerdown", "pointerup", "click", "touchstart", "touchend"]) document.addEventListener(t, (e) => w.__clicks.push(t + ":" + (e.target.closest?.("[data-page-drawer-handle]") ? "handle" : e.target.tagName) + (e.defaultPrevented ? ":prevented" : "")), true) })
+      }
       await p.tap("[data-page-drawer-handle]")
       await sleep(700)
+      if (process.env.DEBUG_TAP) console.log("        events:", JSON.stringify(await p.evaluate(() => ({ ev: window.__clicks, y: document.querySelector("[data-page-sheet]").dataset.y }))))
       const s4 = await state()
       expect(s4.detent === "half", "a tap on the grip steps it from the foot to half", s4)
       await p.tap("[data-page-drawer-handle]")

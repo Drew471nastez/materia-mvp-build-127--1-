@@ -26,6 +26,13 @@
  *                         stop (snapTarget, snapMotion) on the compositor
  *   A TAP ON THE GRIP     steps it: the foot to half, half to nearly all,
  *                         and back to half; Escape inside it lowers it
+ *   A TAP IS TAKEN ON THE LIFT  (chip-hit.ts's rule, the community's tabs'):
+ *                         measured, Chromium sent no click at all for a
+ *                         finger's tap on the grip after a drag (pointerup
+ *                         and touchend came, click never did), so the tap
+ *                         did nothing. A finger that lifts within the tap's
+ *                         slop on a button in the head presses it there and
+ *                         then; a click that still follows is let go.
  *   NEVER MODAL           nothing dims the page and nothing covers it but
  *                         the drawer itself, so a press on another part of
  *                         the page opens that part, the drawer staying up
@@ -43,7 +50,8 @@ import { tt } from "@/lib/i18n/text"
 import { DETENTS, TOP_GAP, drawerOffsets, type Detent } from "./layout"
 
 export type { Detent } from "./layout"
-import { curveCss, dragPosition, releaseVelocity, snapMotion, snapTarget, tapTarget, DRAG_THRESHOLD_PX, type Sample } from "@/components/website-builder/sheet-gestures"
+import { curveCss, dragPosition, isTap, releaseVelocity, snapMotion, snapTarget, tapTarget, DRAG_THRESHOLD_PX, type Sample } from "@/components/website-builder/sheet-gestures"
+import { CLICK_AFTER_MS } from "@/components/community/member/chip-hit"
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -152,6 +160,12 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     if (!g || !el) return
     let id: number | null = null
     let startY = 0
+    let startX = 0
+    let startT = 0
+    let touch = false
+    let pressed: HTMLButtonElement | null = null
+    /* The button pressed on a finger's lift, and when: its own click, if the browser still sends one, is let go. */
+    let took: { el: HTMLElement; at: number } | null = null
     let startAt = 0
     let at = 0
     let dragging = false
@@ -160,6 +174,10 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       if (e.button !== 0 || id !== null) return
       id = e.pointerId
       startY = e.clientY
+      startX = e.clientX
+      startT = e.timeStamp
+      touch = e.pointerType !== "mouse"
+      pressed = (e.target as Element | null)?.closest?.("button") ?? null
       /* Caught mid glide: from where it is, which the running animation says. */
       if (anim.current) {
         const y = currentY(el)
@@ -193,7 +211,15 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     const up = (e: PointerEvent) => {
       if (e.pointerId !== id) return
       id = null
-      if (!dragging) return
+      if (!dragging) {
+        /* A finger's tap on a button in the head: pressed here, on the lift (A TAP IS TAKEN ON THE LIFT, above). */
+        const still = isTap({ distance: Math.hypot(e.clientX - startX, e.clientY - startY), ms: e.timeStamp - startT, cancelled: e.type === "pointercancel" })
+        if (touch && still && pressed && g.contains(pressed) && !pressed.disabled) {
+          took = { el: pressed, at: performance.now() }
+          pressed.click()
+        }
+        return
+      }
       dragging = false
       el.removeAttribute("data-dragging")
       /* The press that ended a drag is not also a press on whatever it began on (Save, the grip). */
@@ -213,11 +239,20 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       /* The editor hears about it once the glide is on the screen: its render never shares the first frames of the move. */
       if (next !== detent) requestAnimationFrame(() => requestAnimationFrame(() => onDetentRef.current(next)))
     }
+    /* The browser's own click after a tap already taken on the lift: let go, so nothing is pressed twice. */
+    const late = (c: MouseEvent) => {
+      if (!c.isTrusted || !took || performance.now() - took.at > CLICK_AFTER_MS || !took.el.contains(c.target as Node)) return
+      took = null
+      c.stopPropagation()
+      c.preventDefault()
+    }
+    g.addEventListener("click", late, true)
     g.addEventListener("pointerdown", down)
     g.addEventListener("pointermove", move)
     g.addEventListener("pointerup", up)
     g.addEventListener("pointercancel", up)
     return () => {
+      g.removeEventListener("click", late, true)
       g.removeEventListener("pointerdown", down)
       g.removeEventListener("pointermove", move)
       g.removeEventListener("pointerup", up)

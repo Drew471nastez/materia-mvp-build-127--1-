@@ -152,6 +152,7 @@ async function main() {
     check("the row of controls follows its own width (container queries) and wraps rather than cut", /@container/.test(editor) && /flex-wrap/.test(editor) && !/xl:max-2xl:hidden/.test(editor))
     const drawer = code("components/community/creator/page-editor/drawer.tsx")
     check("the drawer: pointer events, a transform written on the move, the builder's snap and release, never modal", /addEventListener\("pointermove", move\)/.test(drawer) && /el\.style\.transform = `translate3d\(0, \$\{at\}px, 0\)`/.test(drawer) && /snapTarget\(/.test(drawer) && /snapMotion\(/.test(drawer) && /releaseVelocity\(/.test(drawer) && !/aria-modal/.test(drawer) && !/scrim/i.test(drawer.replace(/\/\*[\s\S]*?\*\//g, "")))
+    check("a finger's tap on the drawer's head is taken on the lift, and a click that still follows is let go", /isTap\(\{ distance: Math\.hypot/.test(drawer) && /pressed\.click\(\)/.test(drawer) && /performance\.now\(\) - took\.at > CLICK_AFTER_MS/.test(drawer))
     check("the drawer stays clear of the navigation pill and the keyboard", /var\(--app-nav-top/.test(drawer) && /var\(--kb-inset/.test(drawer))
     const frame = code("components/community/creator/page-editor/preview-frame.tsx")
     check("while it moves the box is only transformed, on its own layer; at rest laid out again", /b\.style\.willChange = "transform"/.test(frame) && /b\.style\.transform = `translate3d\(\$\{tx\}px, 0, 0\) scale\(\$\{k\}\)`/.test(frame) && /window\.setTimeout\(settleNow, SETTLE_MS\)/.test(frame))
