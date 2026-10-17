@@ -8170,15 +8170,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const previewLang = usePreviewLanguage(installId)
   const previewMap = previewLang.map
+  /* Products › Translations › Always show the original: drawn as written in every language, as the website draws them (lib/markets/live.ts). */
+  const previewOriginals = previewLang.originals
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
     const found = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
     /* Its title and description in the language previewed, as the live product page lays them over (lib/markets/live.ts product). */
-    const p = found && previewMap ? localizeRecord(found as unknown as Record<string, unknown>, `product:${found.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof found : found
+    const p = found && previewMap && !previewOriginals.has(found.id) ? localizeRecord(found as unknown as Record<string, unknown>, `product:${found.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof found : found
     return p
       ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
-  }, [currentPage, products, selectedProductPage, selectedProductId, previewMap])
+  }, [currentPage, products, selectedProductPage, selectedProductId, previewMap, previewOriginals])
   const canvasDynamic = useMemo(
     () => dynamicContext({
       /* The brand headline, description and search engine text a placeholder fills in, in the language previewed, as the live site's theme is (localizeTheme). */
@@ -8315,7 +8317,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return previewPricing ? ({ ...localized, [DISPLAY_CURRENCY_KEY]: previewPricing.currency } as ThemeSettingsValues) : localized
   }, [canvasThemeSettings, previewMap, previewPricing])
   const canvasMenusShown = useMemo(() => (previewMap ? (localizeMenus(canvasMenus as never, previewMap, { approvedOnly: true }) as typeof canvasMenus) : canvasMenus), [canvasMenus, previewMap])
-  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true })), [catalogCardsForCanvas, previewMap, cardsInMarket])
+  const catalogCardsShown = useMemo(() => cardsInMarket(localizeCards(catalogCardsForCanvas, previewMap, { approvedOnly: true, fresh: true }, previewOriginals)), [catalogCardsForCanvas, previewMap, cardsInMarket, previewOriginals])
   /* Each collection's name and description in the language previewed, and its products as the page's cards, as the live site's dressPage draws them. */
   const collectionCardsShown = useMemo(() => {
     const cards = builderCollections?.cards
@@ -8325,43 +8327,58 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         id,
         {
           ...(previewMap ? (localizeRecord(c as unknown as Record<string, unknown>, `collection:${c.id}`, ["title", "description"], previewMap, { approvedOnly: true, fresh: true }) as unknown as typeof c) : c),
-          products: cardsInMarket(localizeCards(c.products as unknown as ProductCard[], previewMap, { approvedOnly: true, fresh: true })) as unknown as typeof c.products,
+          products: cardsInMarket(localizeCards(c.products as unknown as ProductCard[], previewMap, { approvedOnly: true, fresh: true }, previewOriginals)) as unknown as typeof c.products,
         },
       ]),
     )
-  }, [builderCollections, previewMap, previewPricing, cardsInMarket])
+  }, [builderCollections, previewMap, previewPricing, cardsInMarket, previewOriginals])
   const canvasData = useMemo(
     () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsShown, menus: canvasMenusShown, communities: builderCommunities?.cards, collections: collectionCardsShown, reviews: canvasReviews, words: previewLang.words }),
     [canvasDynamic, catalogCardsShown, canvasMenusShown, builderCommunities, collectionCardsShown, canvasReviews, previewLang.words],
   )
-  /* What the canvas draws: the page with its placeholders filled. Never saved. */
-  const drawnSections = useMemo(
-    () => withThemeBreadcrumbs(
-      withDynamicSources(searchListsTheShop(canvasSections), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
-      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
-      templateForPage(currentPage),
-    ),
-    [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
-  )
-  /* The page in the language previewed: the text settings with an approved translation, read with the same schemas the website reads. */
-  const drawnInLanguage = useMemo(
+  /*
+    The page in the language previewed: the text settings with an approved
+    translation, read with the same schemas the website reads, BEFORE its
+    placeholders are filled, as the website lays them over (published-site.ts:
+    localizer.sections, then dressPage). Filled first, a translation of
+    "Get {{ product.title }}" was drawn with its braces showing, and Storelib
+    AI's was compared with the filled words, read as outdated and hidden.
+  */
+  const sectionsInLanguage = useMemo(
     () =>
       previewMap
         ? localizeSections(
-            drawnSections,
+            canvasSections,
             previewMap,
             (t) => schemaFor(t, storelibSources, librarySchemas)?.fields,
             /* The section's own blocks, else the theme's (a heading in a Blocks section), as the website lays them over (custom-schemas.ts textFieldsFrom). */
             (st, bt) => schemaFor(st, storelibSources, librarySchemas)?.blocks?.find((b) => b.type === bt)?.fields ?? blockCatalog[bt]?.fields,
             { approvedOnly: true, fresh: true },
-          ).map((s) => {
-            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx). */
+          )
+        : canvasSections,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canvasSections, previewMap, storelibSources, librarySchemas, blockCatalog],
+  )
+  /* What the canvas draws: the page with its placeholders filled, from the product and the theme in the language previewed. Never saved. */
+  const drawnSections = useMemo(
+    () => withThemeBreadcrumbs(
+      withDynamicSources(searchListsTheShop(sectionsInLanguage), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
+      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
+      templateForPage(currentPage),
+    ),
+    [sectionsInLanguage, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
+  )
+  const drawnInLanguage = useMemo(
+    () =>
+      previewMap
+        ? drawnSections.map((s) => {
+            /* The product page's product: its options and variants' names, as the live page lays them (render-product.tsx), unless it shows its own words everywhere. */
             const data = (s.settings as Record<string, unknown> | undefined)?._product_data
-            return data ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
+            const own = data && typeof data === "object" && previewOriginals.has(String((data as Record<string, unknown>).id))
+            return data && !own ? { ...s, settings: { ...s.settings, _product_data: localizeOptions(data, previewMap, { approvedOnly: true, fresh: true }) } } : s
           })
         : drawnSections,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnSections, previewMap, storelibSources, librarySchemas, blockCatalog],
+    [drawnSections, previewMap, previewOriginals],
   )
   /* And the product page's product in the market previewed, as the website hands it over (components/website-builder/theme/render-product.tsx, _product_data.display). */
   /* The product's real stars for the Star rating block, as the website hands them over (lib/reviews/storefront.ts productRating): none while it has only sample reviews. */
@@ -8376,7 +8393,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return display ? { ...sec, settings: { ...sec.settings, _product_data: { ...(data as Record<string, unknown>), display } } } : { ...sec, settings: { ...sec.settings, _product_data: data } }
     })
   }, [drawnInLanguage, previewPricing, moneyLocale, canvasRating])
-  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true })), [shopCards, previewMap, cardsInMarket])
+  const shopCardsShown = useMemo(() => cardsInMarket(localizeCards(shopCards, previewMap, { approvedOnly: true, fresh: true }, previewOriginals)), [shopCards, previewMap, cardsInMarket, previewOriginals])
   const compatLanguage = useMemo(
     /* The default language too: an English theme on a store whose default is Spanish is drawn in Spanish, as the live site draws it. */
     () => (previewLang.locale || previewMap ? { locale: previewLang.locale ?? previewLang.defaultLanguage, defaultLanguage: previewLang.defaultLanguage, languages: previewLang.languages, map: previewMap } : null),

@@ -140,7 +140,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
           if (r.ok) return mark(key, undefined)
           /* Not saved: what was there before is put back, and the field says why. */
           patch(key, before ?? null)
-          mark(key, undefined, r.error)
+          mark(key, undefined, (r as { error: string }).error)
         })
       }
       const old = timers.current.get(key)
@@ -159,7 +159,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
       void send("/api/store/translations", "PUT", { locale, items: [{ key, value: row.v, source, approved: true, rich }] }).then((r) => {
         if (r.ok) return mark(key, undefined)
         patch(key, row)
-        mark(key, undefined, r.error)
+        mark(key, undefined, (r as { error: string }).error)
       })
     },
     [locale, patch],
@@ -176,7 +176,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
       }
       mark(key, "translating")
       void send("/api/store/translations/auto", "POST", { locale, items: [{ key, source, rich }], replaceManual: replace }).then((r) => {
-        if (!r.ok) return mark(key, undefined, r.error)
+        if (!r.ok) return mark(key, undefined, (r as { error: string }).error)
         const values = (r.data.values ?? {}) as Values
         if (values[key]) {
           patch(key, values[key])
@@ -206,7 +206,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
         const r = await send("/api/store/translations/rules", "PUT", { rules: { ...got.rules, noTranslate: [...list] } })
         if (!r.ok) {
           setExcludedHere((x) => ({ ...x, [key]: !on }))
-          return mark(key, undefined, r.error)
+          return mark(key, undefined, (r as { error: string }).error)
         }
         /* Storelib AI's translation of it is gone on the server: the original shows. The merchant's own stays. */
         if (on && rawRef.current[key]?.s === "ai") patch(key, null)

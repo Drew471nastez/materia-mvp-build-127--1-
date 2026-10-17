@@ -701,6 +701,8 @@ const SUITES = [
   "tests/seo26.test.ts",
   /* V round, the builder's AI: the theme brief cached per version, invented schema keys and unread settings refused, phone layouts checked without a browser, honest repair, follow ups scoped, one Undo step a run, calls and tokens on a budget */
   "tests/ai-quality-v.test.ts",
+  /* Round V8: the website's words in each language, edited in the builder's sidebar in that language, a product's own Translations, one read per language (SQL part 211; scripts/check-translation-switch.mjs measures the sidebar) */
+  "tests/translations-v.test.ts",
 ]
 
 /**

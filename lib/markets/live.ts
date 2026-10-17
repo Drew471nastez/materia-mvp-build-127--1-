@@ -25,7 +25,7 @@ import { textFieldsFrom } from "@/lib/website-builder/custom-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
-import { localizationTag, marketsMissing, cachedTranslations } from "./server"
+import { localizationTag, marketsMissing, cachedTranslations, cachedOriginalProducts } from "./server"
 import { localizedPath, normalizeLocale } from "./locales"
 import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRecord, localizeSections, localizeTheme, translationMap, valueFor, type TranslationMap } from "./translate"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -193,9 +193,21 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
     defaultLanguageScope); one written in its default has only the shop's
     built-in words translated, so only those are there to lay over.
   */
-  const rows = code ? await cachedTranslations(creatorId, code).catch(() => []) : await cachedTranslations(creatorId, langs.defaultLanguage).catch(() => [])
+  /*
+    ONE READ OF THE LANGUAGE PER PAGE. Its rows are held in the data cache
+    under the store and the language (server.ts cachedTranslations) and
+    dropped by tag when a translation is saved, so every part of a page and
+    every page after it lays over the same copy. The products the store
+    shows in their own words are held the same way, beside it.
+  */
+  const [rows, originalIds] = await Promise.all([
+    cachedTranslations(creatorId, code ?? langs.defaultLanguage).catch(() => []),
+    cachedOriginalProducts(creatorId).catch(() => [] as string[]),
+  ])
   if (!code && !pricing && rows.length === 0) return null
   const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
+  /* Products › Translations › Always show the original: none of its own words, nor its options', are laid over. */
+  const original = new Set(originalIds)
   const opts = { approvedOnly: true, fresh: true }
   const moneyLocale = code ?? langs.defaultLanguage
   const words: Record<string, string> = {}
@@ -217,7 +229,7 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       return localizeSections(list, map, fieldsOf, blockFieldsOf, opts)
     },
     product(p) {
-      if (map.size === 0 || typeof p.id !== "string") return p
+      if (map.size === 0 || typeof p.id !== "string" || original.has(p.id)) return p
       return localizeRecord(p, `product:${p.id}`, PRODUCT_FIELDS.filter((f) => typeof p[f] === "string") as never, map, opts)
     },
     collection(c) {
@@ -232,13 +244,15 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       return pricing ? { ...out, [DISPLAY_CURRENCY_KEY]: pricing.currency } : out
     },
     options(data) {
+      const id = data && typeof data === "object" ? (data as Record<string, unknown>).id : null
+      if (typeof id === "string" && original.has(id)) return data
       return localizeOptions(data, map, opts)
     },
     cards(list) {
       if (map.size === 0 && !pricing) return list
       return list.map((c) => {
         /* The title, and the description a card shows, laid over exactly as the editor's preview lays them (translate.ts localizeCards). */
-        const worded = localizeCards([c], map, opts)[0]
+        const worded = localizeCards([c], map, opts, original)[0]
         /* In the market's currency, as the builder's canvas draws a market (pricing.ts pricesInMarket). */
         return pricing ? { ...worded, settings: pricesInMarket(worded.settings, pricing, moneyLocale) } : worded
       })

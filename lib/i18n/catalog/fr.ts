@@ -9571,7 +9571,15 @@ const words: Record<string, string> = {
  "{metric} on desktop is {value}": "{metric} sur ordinateur est de {value}",
  "{metric} on mobile is {value}": "{metric} sur mobile est de {value}",
  "{metric} on {pages} on desktop is {value}": "{metric} sur {pages} sur ordinateur est de {value}",
- "{metric} on {pages} on mobile is {value}": "{metric} sur {pages} sur mobile est de {value}"
+ "{metric} on {pages} on mobile is {value}": "{metric} sur {pages} sur mobile est de {value}",
+ "Could not save. Try again.": "Impossible d'enregistrer. Réessayez.",
+ "Could not save. Check the connection.": "Impossible d'enregistrer. Vérifiez la connexion.",
+ "Everything here is already translated.": "Tout est déjà traduit ici.",
+ "Translations": "Traductions",
+ "Always show in {language}": "Toujours afficher en {language}",
+ "{language} changed after this was translated.": "{language} a changé après cette traduction.",
+ "Outdated": "Obsolète",
+ "Translate automatically": "Traduire automatiquement"
 }
 
 export default words
