@@ -100,7 +100,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   /* Don't translate switched here, before the next read brings the rules back. */
   const [excludedHere, setExcludedHere] = useState<Record<string, boolean>>({})
-  const timers = useRef(new Map<string, { timer: number; run: () => void }>())
+  const timers = useRef(new Map<string, { timer: number; run: () => void; before: Values[string] | undefined }>())
   const { patch } = lang
   const rawRef = useRef(lang.raw)
   rawRef.current = lang.raw
@@ -127,9 +127,11 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
   const write = useCallback(
     (key: string, value: string, source: string, rich: boolean) => {
       if (!locale) return
-      const before = rawRef.current[key]
+      const now = rawRef.current[key]
       /* A control that hands back what it was given (a rich text editor settling its markup) is not an edit. */
-      if ((before?.v ?? "") === value) return
+      if ((now?.v ?? "") === value) return
+      /* What was saved before this run of typing began: what a failed save puts back. */
+      const before = timers.current.has(key) ? timers.current.get(key)!.before : now
       patch(key, value.trim() ? { v: value, h: sourceHash(source) } : null)
       const run = () => {
         timers.current.delete(key)
@@ -143,7 +145,7 @@ export function useTranslationEditor(lang: PreviewLanguage): TranslationEditing 
       }
       const old = timers.current.get(key)
       if (old) window.clearTimeout(old.timer)
-      timers.current.set(key, { timer: window.setTimeout(run, SAVE_AFTER_MS), run })
+      timers.current.set(key, { timer: window.setTimeout(run, SAVE_AFTER_MS), run, before })
     },
     [locale, patch],
   )

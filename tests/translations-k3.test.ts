@@ -60,7 +60,7 @@ async function main() {
   const sidebar = read("components/website-builder/editor/translation-editing.tsx")
   check("an edit is saved as the merchant's own (no ai flag), for the original as it is now", /items: \[\{ key, value, source, approved: true, rich \}\]/.test(sidebar) && !/items: \[\{ key, value, source, approved: true, rich, ai/.test(sidebar))
   check("it lands on the canvas at once and is saved after a short pause, one text per write", /patch\(key, value\.trim\(\) \? \{ v: value, h: sourceHash\(source\) \} : null\)/.test(sidebar) && /const SAVE_AFTER_MS = 600/.test(sidebar) && /pagehide/.test(sidebar))
-  check("a control echoing what it was given is not an edit (never turns Auto into Edited by itself)", /if \(\(before\?\.v \?\? ""\) === value\) return/.test(sidebar))
+  check("a control echoing what it was given is not an edit (never turns Auto into Edited by itself)", /if \(\(now\?\.v \?\? ""\) === value\) return/.test(sidebar))
   check("a failed save puts back what was there and says why", /patch\(key, before \?\? null\)\s*mark\(key, undefined, r\.error\)/.test(sidebar))
   const press = read("lib/markets/translation-press.ts")
   check("Reset to automatic replaces the merchant's own only on their press, and only with a translation that came back", /keepManual: !opts\.replaceManual/.test(press) && /if \(drafts\.size === 0\) return \{ ok: false/.test(press) && /replaceManual: replace/.test(sidebar))
@@ -172,6 +172,8 @@ async function main() {
   check("the rules are saved by the server for the caller's own store", /saveTranslationRules\(c\.db, c\.creatorId, body\.rules\)/.test(read("app/api/store/translations/rules/route.ts")))
   const sql = read("supabase/sql/run-now/213_translation_rules.sql")
   check("part 213: one column on part 136's server only table, checked, idempotent", /ADD COLUMN IF NOT EXISTS translation_rules jsonb NOT NULL DEFAULT '\{\}'::jsonb/.test(sql) && /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'store_localization_translation_rules_check'\)/.test(sql) && /REVOKE ALL ON public\.store_localization FROM PUBLIC, anon, authenticated/.test(sql) && /p213_translation_rules/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  const widget = read("lib/markets/widget-words.ts")
+  check("one small API for widgets' words (K6): storeLanguages, translateUiString(s), over the live site's cached rows", /export async function storeLanguages/.test(widget) && /export async function translateUiString\(/.test(widget) && /export async function translateUiStrings/.test(widget) && /cachedTranslations\(creatorId, code\)/.test(widget) && /import "server-only"/.test(widget))
   check("K6 and others read languages through the existing helpers (no second list)", /export function editorLanguages/.test(read("lib/markets/model.ts")) && /export function publishedLanguages/.test(read("lib/markets/model.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
