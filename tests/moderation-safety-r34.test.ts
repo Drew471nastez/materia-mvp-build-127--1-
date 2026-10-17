@@ -31,7 +31,7 @@ import { stripComments } from "./_source"
 import { EMBED_HOSTS, appleMusicEmbedUrl, embedSource, safeFrameSrc } from "@/lib/onepage/embed-source"
 import { actOnContent, actOnMember, escalateReport, openReportCount, updateReport } from "@/lib/communities/server/moderation"
 import { MUTED_ACTIONS } from "@/lib/communities/server/context"
-import { checkReport } from "@/lib/communities/server/reports"
+import { checkReport, createReport } from "@/lib/communities/server/reports"
 import { REVIEW_LIMITS } from "@/lib/reviews/rules"
 import { SHARED_EMAIL_DOMAINS, domainVelocityCounts, isDisposableEmail } from "@/lib/security/spam-signals"
 import type { CommunityRow } from "@/lib/communities/types"
@@ -160,6 +160,21 @@ async function main() {
   check("a note longer than the column is refused, and 500 characters is fine", !long.ok && status(long) === 400 && atTheEdge.ok && (atTheEdge as { value: { note: string | null } }).value.note?.length === 500)
   const upper = checkReport({ targetType: "post", targetId: POST.toUpperCase(), reason: "spam" })
   check("the id is stored one way, so two presses are one report", upper.ok && (upper as { value: { targetId: string } }).value.targetId === POST)
+
+  /* A report filed for real, through createReport, against the same stub. */
+  const rdb = queue()
+  const asMember = { userId: UID(10), role: "member", active: true, tierId: null, ownedProductIds: [], level: 1 } as never
+  rdb.tables.community_members.push({ id: "m9", community_id: CID, user_id: UID(10), status: "active", role: "member", source: "free", tier_id: null })
+  const filed = await createReport({ db: rdb, community: { id: CID, slug: "makers", name: "Makers", status: "published" }, viewer: asMember } as never, { targetType: "member", targetId: AUTHOR, reason: "spam", note: "selling followers" })
+  check("a member's report lands in the queue, open", filed.ok && rdb.tables.community_reports.some((r: Record<string, unknown>) => r.reporter_id === UID(10) && r.status === "open" && r.reason === "spam"))
+  const illegal = await createReport({ db: rdb, community: { id: CID, slug: "makers", name: "Makers", status: "published" }, viewer: asMember } as never, { targetType: "member", targetId: MOD, reason: "illegal", note: null })
+  const illegalRow = rdb.tables.community_reports.find((r: Record<string, unknown>) => r.reason === "illegal") as Record<string, unknown> | undefined
+  check("a report of something illegal is in Storelib's queue the moment it is filed", illegal.ok && illegalRow?.escalated === true)
+  check("and the audit log says who sent it on", rdb.tables.community_audit_log.some((x: Record<string, unknown>) => x.action === "report.escalated" && x.actor_kind === "system"))
+  const yourself = await createReport({ db: rdb, community: { id: CID, slug: "makers", name: "Makers", status: "published" }, viewer: asMember } as never, { targetType: "member", targetId: UID(10), reason: "spam", note: null })
+  check("nobody reports themselves", !yourself.ok && status(yourself) === 400)
+  const signedOut = await createReport({ db: rdb, community: { id: CID, slug: "makers", name: "Makers", status: "published" }, viewer: { ...(asMember as object), userId: null } } as never, { targetType: "member", targetId: AUTHOR, reason: "spam", note: null })
+  check("and nobody signed out reports anybody", !signedOut.ok && status(signedOut) === 401)
 
   /* ── A restriction refuses at the server ─────────────────────────────── */
   console.log("\nrestrictions, at the server")
