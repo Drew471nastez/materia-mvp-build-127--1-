@@ -39,6 +39,7 @@ import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { shopMoneyIn } from "@/lib/store/shop-money"
+import { canSell, sellsWhenOut } from "./inventory-rules"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -301,7 +302,7 @@ export async function priceCheckout(
       continue
     }
     const unit = Math.round(raw)
-    const policy: "deny" | "continue" = v.inventory_policy === "continue" || p.continue_selling ? "continue" : "deny"
+    const policy: "deny" | "continue" = sellsWhenOut(v.inventory_policy, p.continue_selling) ? "continue" : "deny"
     /* Where it ships from: its own location, else the one with enough available, else the default. */
     const own = v.fulfillment_location_id ?? p.fulfillment_location_id ?? null
     /* Printed when it sells at a location that holds no stock (Printful, Printify): never short for lack of stock there (./partner.ts). */
@@ -316,7 +317,7 @@ export async function priceCheckout(
       continue
     }
     const available = locationId ? (levelOf.get(`${v.id}:${locationId}`) ?? 0) : 0
-    if (tracked && policy === "deny" && available < item.quantity) {
+    if (!canSell({ tracked, keepSelling: policy === "continue", available, quantity: item.quantity })) {
       stockIssues.push({ productId: p.id, variantId: v.id, title: v.name && v.name !== "Default" ? `${p.title}, ${v.name}` : p.title, available: Math.max(0, available) })
       continue
     }

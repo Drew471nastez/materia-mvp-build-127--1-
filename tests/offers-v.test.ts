@@ -287,7 +287,7 @@ async function main() {
     check("only the store's own, and only rows that are offers", offers.length === 1 && offers[0].id === uuid(100) && settings === true, offers)
     const old = fakeDb({ store_offers: [offerRow({})] }, { no213: true })
     const before = await loadOffers(old, "c1")
-    check("before part 213 runs: read without its columns, with their defaults, and said so", before.offers.length === 1 && before.settings === false && before.offers[0].placements!.join() === "product,cart" && before.offers[0].combinesWithCodes === true, before)
+    check("before part 230 runs: read without its columns, with their defaults, and said so", before.offers.length === 1 && before.settings === false && before.offers[0].placements!.join() === "product,cart" && before.offers[0].combinesWithCodes === true, before)
     const lines = await offerLinesFor(fakeDb({ product_collections: [{ id: COLL, creator_id: "c1", kind: "manual" }], product_collection_items: [{ collection_id: COLL, product_id: A }] }), "c1", [upsell({ triggerCollectionIds: [COLL] })], [line(A, 1), line(C, 1)])
     check("a cart's products get the trigger collections they're in", lines[0].collectionIds?.join() === COLL && (lines[1].collectionIds ?? []).length === 0, lines)
     const other = await offerLinesFor(fakeDb({ product_collections: [{ id: COLL, creator_id: "c2", kind: "manual" }], product_collection_items: [{ collection_id: COLL, product_id: A }] }), "c1", [upsell({ triggerCollectionIds: [COLL] })], [line(A, 1)])
@@ -295,7 +295,7 @@ async function main() {
   }
 
   /* ─────────────────────────────── server only: saving ─────────────────────────────── */
-  console.log("\nSaving: the owner's own products and collections, and part 213 said plainly")
+  console.log("\nSaving: the owner's own products and collections, and part 230 said plainly")
   let server: typeof import("@/lib/offers/offers-server") | null = null
   try {
     server = await import("@/lib/offers/offers-server")
@@ -325,9 +325,9 @@ async function main() {
     check("an order naming ids that aren't the store's moves only its own", db.writes.filter((w) => w.op === "update" && w.row && "position" in w.row).every((w) => w.filters.includes("creator_id=c1") && !w.filters.includes(`id=${uuid(555)}`)))
     const old = fakeDb({ products: [product(A, "c1", 1), product(B, "c1", 1)], store_offers: [] }, { no213: true })
     const plain = await server.saveOffer(old, "c1", null, o)
-    check("before part 213: an offer with no new setting still saves", plain.ok === true, plain)
+    check("before part 230: an offer with no new setting still saves", plain.ok === true, plain)
     const needs = await server.saveOffer(old, "c1", null, { ...o, endsAt: "2026-12-01T00:00:00.000Z" })
-    check("  one with a date says to run part 213, in words", needs.ok === false && /SQL part 213/.test((needs as { error: string }).error) && (needs as { status: number }).status === 503)
+    check("  one with a date says to run part 230, in words", needs.ok === false && /SQL part 230/.test((needs as { error: string }).error) && (needs as { status: number }).status === 503)
     const stock = fakeDb({
       products: [product(A, "c1", 0, { type: "physical", track_inventory: true }), product(B, "c1", 3000)],
       product_variants: [{ id: uuid(60), product_id: A, name: "Small", price_cents: 2000, active: true, track_inventory: true, inventory_policy: "deny" }, { id: uuid(61), product_id: A, name: "Large", price_cents: 2200, active: true, track_inventory: true, inventory_policy: "deny" }],
@@ -404,15 +404,15 @@ async function main() {
     check("in the menu for every store, beside Coupons", /mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\([\s\S]{0,200}\{ href: "\/app\/offers", label: tt\("Upsells and bundles"\) \}/.test(read("components/app/sidebar.tsx")) && !/if \(physicalCommerce\) mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\(/.test(read("components/app/sidebar.tsx")))
   }
 
-  console.log("\nSQL part 213")
+  console.log("\nSQL part 230")
   {
-    const sql = read("supabase/sql/run-now/213_store_offers_settings.sql")
+    const sql = read("supabase/sql/run-now/230_store_offers_settings.sql")
     check("the migration is the same part", sql === read("supabase/migrations/20270201_v10_store_offers_settings.sql"))
     check("safe to run again: every column if not exists", (sql.match(/ADD COLUMN IF NOT EXISTS/g) ?? []).length === 7)
     check("free shipping is a discount type the database takes", /CHECK \(discount_type IN \('percent', 'fixed', 'free_shipping', 'none'\)\)/.test(sql))
     check("owner reads, only the server writes", /ENABLE ROW LEVEL SECURITY/.test(sql) && /c\.user_id = auth\.uid\(\)/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(sql))
     check("existing offers keep what they did: shown everywhere, combining with codes", /placements text\[\] NOT NULL DEFAULT ARRAY\['product', 'cart', 'checkout'\]/.test(sql) && /combines_with_codes boolean NOT NULL DEFAULT true/.test(sql))
-    check("listed in the README and the check after", /213_store_offers_settings\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p213_store_offers_settings/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("listed in the README and the check after", /230_store_offers_settings\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p230_store_offers_settings/.test(read("supabase/sql/run-now/99_check_after.sql")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

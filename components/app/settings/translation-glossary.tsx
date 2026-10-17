@@ -94,7 +94,7 @@ export function GlossarySheet({ open, languages, onClose }: { open: boolean; lan
       }
     >
       <div className="space-y-4" data-glossary="">
-        {!ready ? <Notice tone="amber">{tt("The glossary needs a database update. Run SQL part 213 in Supabase, then try again.")}</Notice> : null}
+        {!ready ? <Notice tone="amber">{tt("The glossary needs a database update. Run SQL part 230 in Supabase, then try again.")}</Notice> : null}
         {error ? <Notice>{error}</Notice> : null}
         <p className="text-[13.5px] leading-[20px] text-[#6b7280]">{tt("Automatic translation keeps these words as written, or always uses your translation. Translations you write yourself are never changed.")}</p>
         <Toggle id="keep-product-names" label={tt("Keep product names as written")} description={tt("Product titles stay the same in every language.")} checked={keepNames} onChange={setKeepNames} />

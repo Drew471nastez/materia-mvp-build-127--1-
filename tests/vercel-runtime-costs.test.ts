@@ -121,8 +121,16 @@ console.log("\n3. Speed beacons: one in four, counts scaled back up")
   check("the method note names both rates", /% of page loads and \$\{Math\.round\(SERVER_SAMPLE_RATE \* 100\)\}% of timed API calls are measured/.test(admin))
   check("the dice are still rolled before the collector is downloaded", /if \(Math\.random\(\) >= CLIENT_SAMPLE_RATE\) return/.test(read("components/perf/perf-beacon.tsx")))
 
-  const exact = ["lib/analytics/page-tracker.ts", "lib/analytics/collect.ts", "lib/analytics/collect-route.ts", "app/api/track-view/route.ts", "app/api/track-event/route.ts", "components/website-builder/site-vitals.tsx", "app/api/public/vitals/route.ts"]
-  check("creators' visitor analytics and their websites' Web Vitals are not sampled", exact.every((f) => !/SAMPLE_RATE|Math\.random\(\)/.test(code(f))))
+  const exact = ["lib/analytics/page-tracker.ts", "lib/analytics/collect.ts", "lib/analytics/collect-route.ts", "app/api/track-view/route.ts", "app/api/track-event/route.ts", "components/website-builder/site-vitals.tsx", "lib/perf/site-vitals-inline.ts"]
+  check("creators' visitor analytics are not sampled, and their websites' page views are all sent", exact.every((f) => !/SAMPLE_RATE|Math\.random\(\)/.test(code(f))))
+  /*
+    Website settings › Performance (part 210): every page view of a site's
+    day is kept up to a thousand, then one in ten, then one in a hundred, by
+    the database, and each kept row carries its weight so the counts the tab
+    shows are the page views that arrived (tests/web-performance-v.test.ts).
+    The route rolls no dice of its own.
+  */
+  check("a website's speed is sampled only by the database past a full day's sample, with weights", !/Math\.random\(\)/.test(code("app/api/public/vitals/route.ts")) && /p_full: FULL_SAMPLE_UNTIL/.test(code("app/api/public/vitals/route.ts")))
   check("a scheduled job's run is recorded every time", /export function timedJob[\s\S]*?\{\s*try \{\s*push\(/.test(read("lib/perf/server-timing.ts")))
 }
 

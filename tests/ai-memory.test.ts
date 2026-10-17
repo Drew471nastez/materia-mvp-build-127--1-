@@ -176,9 +176,9 @@ async function agentChecks() {
 function wiringChecks() {
   console.log("\nWired through\n")
   const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
-  check("the agent route reads the creator's memory through their own client", /listMemories\(supabase as unknown as MemoryDb, creatorId, MEMORY_IN_TURN\)/.test(route))
-  check("  passes it to the run only when the table is there", /account\.ready \? account\.memories\.map/.test(route) && /accountMemory,/.test(route))
-  check("  and keeps what the run asked to remember, marked as the assistant's", /result\.remembered/.test(route) && /addMemory\([^)]*"assistant"\)/.test(route))
+  check("the agent route reads the creator's memory, this website's and everywhere, through their own client", /const memoryDb = supabase as unknown as MemoryDb/.test(route) && /memoriesForSite\(memoryDb, creatorId, installId\)/.test(route))
+  check("  passes it to the run only when the table is there", /memory\.ready \? memory\.account\.map/.test(route) && /accountMemory,/.test(route) && /memoryText,/.test(route) && /siteMemory: memory\.ready/.test(route))
+  check("  and keeps what the run asked to remember, as the assistant's (lib/ai-memory/keep.ts)", /keepRunMemory\(memoryDb, \{ creatorId, installId \}, result,/.test(route) && /source: MemorySource = "assistant"/.test(read("lib/ai-memory/keep.ts")))
   const api = read("app/api/ai-memory/route.ts")
   check("the memory API never uses the service role", !/createAdminClient/.test(api) && !/createAdminClient/.test(read("app/api/ai-memory/[id]/route.ts")))
   const form = read("components/app/settings-form-new.tsx")
@@ -195,8 +195,8 @@ function wiringChecks() {
   check("  and the chat sends the next part on its own, a few times at most", /CONTINUE_PROMPT/.test(chat) && /MAX_CONTINUES = 3/.test(chat))
   const loop = read("lib/website-builder/agent/loop.ts")
   const code = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
-  check("Code a section reads the same memory, through the creator's own client", /listMemories\(supabase as unknown as MemoryDb/.test(code) && /accountMemory: accountMemory\.ready/.test(code))
-  check("  and the writer shows it before the request", /describeAccountMemory\(opts\.accountMemory \?\? \[\]\)/.test(read("lib/website-builder/agent/write-section.ts")))
+  check("the section writer reads the same memory, through the creator's own client", /memoriesForSite\(supabase as unknown as MemoryDb/.test(code) && /accountMemory: memory\.ready/.test(code) && /memoryText: memory\.ready \? describeMemory\(memory\) : undefined/.test(code))
+  check("  and the writer shows it before the request", /opts\.memoryText !== undefined \? opts\.memoryText : describeAccountMemory\(opts\.accountMemory \?\? \[\]\)/.test(read("lib/website-builder/agent/write-section.ts")))
   check("delete means every match, not hiding", /DELETE MEANS DELETE/.test(loop) && !/PREFER HIDING TO DELETING/.test(loop))
 }
 

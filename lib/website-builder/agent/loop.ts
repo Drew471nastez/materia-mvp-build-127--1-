@@ -78,6 +78,8 @@ import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type Sectio
 import { makeCodedCopy } from "./coded-copy"
 import { kindOfSource } from "@/lib/storelib-theme/section-groups"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { themeSettingsGroupsFor } from "@/lib/storelib-theme/theme-config"
+import type { ThemeSettingsGroup } from "../types"
 import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
@@ -232,6 +234,10 @@ export interface ThemeAgentResult {
   visual?: { ran: number; findings: number; ms: number; score?: number }
   /** Notes the creator wants kept on every website (remember, scope "everywhere"): the caller keeps them (lib/ai-memory). */
   remembered?: string[]
+  /** With `siteMemory`: notes for this website (remember, scope "website"), for the caller to keep in AI Memory. */
+  rememberedSite?: string[]
+  /** Short ids of memory notes the creator asked to forget (the forget tool): the caller deletes them. */
+  forgotten?: string[]
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
 }
@@ -311,10 +317,10 @@ export function describeSchemaRules(opts: { imported: boolean; settingsSchema: b
   if (opts.imported) {
     return `SETTINGS IN THE SIDEBAR, IN THIS IMPORTED THEME. Its section and block files are <template compat="shopify"> markup in the theme's own template language, then <schema>. Inside <schema>, the "shopify" object is the theme's own schema, the one the page is drawn with: add, change or remove settings, blocks and presets THERE, in the theme's own format ({"type", "id", "label", "default"}; a "t:" label is a key in the theme's locale). The rest of <schema> is the builder's panel, made again from "shopify" whenever the file is kept, so never edit it by hand. Keep every existing setting id: the creator's content is stored under it. A new setting needs a default the page can draw with.${opts.settingsSchema ? " The theme settings (colours, type, layout for the whole site) are the theme's settings schema: read_theme_settings_schema, then edit_theme_settings_schema, written as the theme writes it; Theme settings in the builder are made from it. Their values are the creator's, under shopify in THEME SETTINGS." : ""}`
   }
-  return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept. The theme settings are Storelib's own and the same on every Storelib theme: change their values with update_theme. There is no theme settings schema to edit here, so a setting of the site's own goes in the section that uses it.`
+  return `SETTINGS IN THE SIDEBAR. A section's panel is its <schema>: to give the creator a new control, add a setting to "settings" (or to a block's "settings") with edit_section_code, with an id, a label and a default; to take one away, remove it; blocks and presets the same way. Keep every existing id, since the creator's content is stored under it. The panel and the page follow as soon as the file is kept.${opts.settingsSchema ? ` The theme settings (the whole site's colours, type, layout) are config/settings_schema.json, Shopify's format: a list of groups { "name", "settings": [ { "type", "id", "label", "default", "min", "max", "step", "unit", "options", "info" } ] }. To add a theme setting, reorder or regroup them, or change a label, default or range, read_theme_settings_schema, then edit_theme_settings_schema. Storelib's own settings keep their id, type and group. A section reads a setting the theme added as theme.settings.<id>. Change a value with update_theme.` : " The theme settings' values change with update_theme."}`
 }
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean; settingsSchema?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; forget?: boolean; pages?: boolean; settingsSchema?: boolean; themeGroups?: ThemeSettingsGroup[] } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -585,13 +591,13 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "read_theme_settings_schema",
             description:
-              "Read this imported theme's settings schema: the theme settings the whole site uses (colours, type, layout), as the theme wrote them. A list of groups, each { \"name\", \"settings\": [...] }. Read it before changing a theme setting.",
+              "Read the theme's settings schema, config/settings_schema.json: the theme settings the whole site uses (colours, type, layout), as the theme writes them. A list of groups, each { \"name\", \"settings\": [...] }. Read it before changing a theme setting.",
             parameters: { type: "object" as const, properties: {}, required: [], additionalProperties: false },
           },
           {
             name: "edit_theme_settings_schema",
             description:
-              "Change this imported theme's settings schema with exact find-and-replace edits, the way edit_section_code does: add, change or remove a theme setting or a group, written as the theme writes it. Theme settings in the builder are made from it when the edit is saved, and a setting the builder has no control for is named back to you. Keep every existing setting id: the creator's values are stored under them.",
+              "Change the theme's settings schema with exact find-and-replace edits, the way edit_section_code does: add, reorder, regroup or change a theme setting or a group, written as the theme writes it. Theme settings in the builder follow it when the edit is saved, and a problem is named back to you with its line. Keep every existing setting id: the creator's values are stored under them.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -623,7 +629,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     },
     {
       name: "update_theme",
-      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings()}\n${describeThemeExtras()}`,
+      description: `Change whole-theme settings — colours, fonts, buttons, layout, animation. These apply to EVERY page, so use them when the request is about the site as a whole rather than one section. The ids you may write, by group:\n${describeThemeSettings(opts.themeGroups)}\n${describeThemeExtras()}`,
       parameters: {
         type: "object",
         properties: {
@@ -678,6 +684,21 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
               additionalProperties: false,
             },
           },
+          ...(opts.forget
+            ? [
+                {
+                  name: "forget",
+                  description:
+                    "Delete one note from AI MEMORY, by the id in square brackets beside it, only when the creator says it is wrong or no longer true, or asks you to forget it.",
+                  parameters: {
+                    type: "object" as const,
+                    properties: { id: { type: "string", description: "The 8 character id shown beside the note." } },
+                    required: ["id"],
+                    additionalProperties: false,
+                  },
+                },
+              ]
+            : []),
         ]
       : []),
     /* The site's navigation: the Main menu the header shows (./menu-edits). */
@@ -988,6 +1009,15 @@ export interface ThemeAgentInput {
    * turn, and passing it (even empty) lets remember keep a note "everywhere", which comes back in result.remembered.
    */
   accountMemory?: string[]
+  /**
+   * AI MEMORY AS ONE BLOCK (lib/ai-memory/store.ts describeMemory): this website's notes and the creator's everywhere
+   * ones, with the short ids the forget tool takes. Shown instead of `accountMemory`'s block when given. With
+   * `siteMemory`, a note kept for this website goes back in result.rememberedSite rather than into the brief.
+   */
+  memoryText?: string
+  siteMemory?: boolean
+  /** The block the creator has selected inside the selected section, by its path key and type. */
+  focusBlock?: { id: string; type: string } | null
   /** Hold the finished page to the whole-project check before finishing (./project-check.ts). */
   projectCheck?: boolean
   /**
@@ -1026,6 +1056,9 @@ export async function* themeAgent(
   let schemas = schemaMapFor(input.sources)
   /** This install's files as this run has them: what it wrote replaces what it read. */
   const sourcesNow: Record<string, string> = { ...(input.sources ?? {}) }
+  /* A Storelib theme's Theme settings as this run has them: its config/settings_schema.json over Storelib's, read again after every edit of it. */
+  const themeGroupsNow = (): ThemeSettingsGroup[] | undefined =>
+    input.code?.readSettingsSchema && !isCompatSource(sourcesNow["layout/theme.storelib"]) ? themeSettingsGroupsFor(input.code.readSettingsSchema()) : undefined
 
   let state: ThemeState = { sections: [...input.state.sections], settings: { ...input.state.settings } }
   /** Whether any section's source was rewritten, so the caller can reload it. */
@@ -1117,6 +1150,10 @@ export async function* themeAgent(
   /* Other pages written as drafts in this run (build_page): work, like an operation on the open page. */
   const pagesWritten: { key: string; title: string; created: boolean }[] = []
   const everywhere = !!input.memory && Array.isArray(input.accountMemory)
+  /* AI Memory kept per website, and forgetting (lib/ai-memory): the caller writes both. */
+  const rememberedSite: string[] = []
+  const forgotten: string[] = []
+  const forgettable = !!input.memory && !!input.siteMemory && /\[[0-9a-f]{8}\]/.test(input.memoryText ?? "")
   const t0 = Date.now()
   const trace = (kind: string, data: Record<string, unknown> = {}) => {
     try {
@@ -1277,7 +1314,8 @@ export async function* themeAgent(
         /* What the page cannot say: the business, the direction, what each section is for. */
         brief ? describeProject(state, brief, schemas) : "",
         /* What the creator asked to keep on every website of theirs (lib/ai-memory). */
-        everywhere ? describeAccountMemory(input.accountMemory ?? []) : "",
+        input.memoryText !== undefined ? input.memoryText : everywhere ? describeAccountMemory(input.accountMemory ?? []) : "",
+        input.focusBlock && input.selected ? `SELECTED BLOCK: ${input.focusBlock.type} (${input.focusBlock.id}) inside ${input.selected.name}. The request is about that block unless it says otherwise.` : "",
         /**
          * BEFORE the theme settings and before the request, because it is the
          * frame everything else is read in. A model told what the page has
@@ -1351,7 +1389,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1785,6 +1823,7 @@ export async function* themeAgent(
             /* nothing to keep */
           }
           if (note && scope === "everywhere") remembered.push(note)
+          else if (note && input.memory && input.siteMemory) rememberedSite.push(note)
           else if (note && input.memory) notes.push(note)
           results.push({
             id: call.id,
@@ -1795,6 +1834,19 @@ export async function* themeAgent(
                 : "Kept. It will be shown to you on later messages about this website.",
           })
           yield { type: "step", id: call.id, label: stepLabel, state: note ? "done" : "failed" }
+          continue
+        }
+        if (call.name === "forget") {
+          let id = ""
+          try {
+            id = String((JSON.parse(call.argumentsJson || "{}") as { id?: unknown }).id ?? "").replace(/[^0-9a-f]/gi, "").slice(0, 8).toLowerCase()
+          } catch {
+            /* nothing to forget */
+          }
+          const shown = id.length === 8 && (input.memoryText ?? "").includes(`[${id}]`)
+          if (shown && !forgotten.includes(id)) forgotten.push(id)
+          results.push({ id: call.id, output: shown ? "Forgotten once this run ends." : "There is no note with that id in AI MEMORY." })
+          yield { type: "step", id: call.id, label: stepLabel, state: shown ? "done" : "failed" }
           continue
         }
 
@@ -2072,7 +2124,7 @@ export async function* themeAgent(
           if (said) yield said
         }
 
-        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas)
+        const { output, op, failed: refused } = execute(call.name, call.argumentsJson, state, newId, locked, schemas, themeGroupsNow())
         if (readKey && !refused) reads.set(readKey, output)
         if (op) {
           /* What was read of this section is no longer what it holds. */
@@ -2245,7 +2297,7 @@ export async function* themeAgent(
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, pages: pagesWritten }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten }
 }
 
 /**
@@ -2761,6 +2813,8 @@ function execute(
    * silently stops working the day somebody rewords the sentence — and then
    * every refused call shows a tick and the list quietly lies.
    */
+  /** The theme's own Theme settings, when its config/settings_schema.json adds to Storelib's. */
+  themeGroups?: ThemeSettingsGroup[],
 ): { output: string; op?: ThemeOp; failed?: true } {
   let args: Record<string, unknown>
   try {
@@ -3135,7 +3189,7 @@ function execute(
         delete settings.typography_styles
       }
       const checked: SettingsCheck = Object.keys(settings).length
-        ? checkSettings([...themeFieldsFor(), ...themeExtraFields(state.settings as Record<string, unknown>)], settings, "The theme")
+        ? checkSettings([...themeFieldsFor(themeGroups), ...themeExtraFields(state.settings as Record<string, unknown>)], settings, "The theme")
         : { settings: {}, notes: [] }
       if (checked.error) return { output: checked.error }
       if (typography) {

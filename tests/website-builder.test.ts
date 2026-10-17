@@ -1375,8 +1375,8 @@ section("A form that says it worked, did")
   const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
   const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
-  check("the mode row is with the box you type into", /<ModeSwitch/.test(composer))
-  check("and not only in the empty state", !/<ModeSwitch/.test(empty))
+  check("the scope chip is with the box you type into, and there is no mode switch", /<ScopeChip/.test(composer) && !/<ModeSwitch/.test(chat))
+  check("and not only in the empty state", !/<ScopeChip/.test(empty))
   /*
     THE WRITER IS A RUN IN THE THREAD NOW (U round), like a change to the
     page: its steps, its line, its answer or its error are an exchange, so
@@ -1394,7 +1394,7 @@ section("A form that says it worked, did")
   check("a failed section can be asked for again in one press", /if \(exchange\.kind === "code" && !exchange\.codeFocus\) void writeOne\(exchange\.prompt, images\)/.test(chat) && /Try again/.test(chat))
   check("it asks the writer for its stages as they happen", /Accept: "application\/x-ndjson"/.test(chat))
 
-  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{suggestions\}/.test(empty))
+  check("the empty state keeps the part that is only useful when empty: what to ask", /<SuggestionChips items=\{composerEmpty \? suggestions : \[\]\}/.test(empty))
 }
 
 /**

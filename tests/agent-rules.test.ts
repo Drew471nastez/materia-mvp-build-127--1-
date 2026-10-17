@@ -37,8 +37,12 @@ async function main() {
   for (const ok of ["sections/price_table.storelib", "sections/hero_custom.storelib", "sections/page_links.storelib"]) {
     check(`may write a new section, ${ok}`, agentMayWrite(ok).ok)
   }
-  for (const no of ["templates/home.json", "config/settings_schema.json", "layout/theme.storelib", "snippets/button.json", "assets/styles.css", "theme.json", "sections/../config/x.storelib"]) {
+  for (const no of ["templates/home.json", "config/settings.json", "config/x.json", "layout/theme.storelib", "snippets/button.json", "assets/styles.css", "theme.json", "sections/../config/x.storelib"]) {
     check(`may not write the theme's core, ${no}`, !agentMayWrite(no).ok)
+  }
+  /* Theme settings as files, the way a Shopify theme has them, are an agent's to change: each is checked when it is saved (lib/storelib-theme/theme-config.ts). */
+  for (const ok of ["config/settings_schema.json", "config/settings_data.json"]) {
+    check(`may write the theme settings, ${ok}`, agentMayWrite(ok).ok)
   }
   const shipped = Object.keys(DEFAULT_THEME_SOURCES).filter((p) => /^sections\/.*\.storelib$/.test(p))
   check(`none of the ${shipped.length} built-in .storelib sections can be written`, shipped.length > 20 && shipped.every((p) => !agentMayWrite(p).ok))

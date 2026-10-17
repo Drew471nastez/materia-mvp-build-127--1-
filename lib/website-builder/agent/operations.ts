@@ -29,6 +29,7 @@
 import { SECTION_ANIMATION_OPTIONS, isChromeType } from "../section-anchors"
 import { nameOf, schemaOf, type SchemaMap } from "./schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
+import type { ThemeSettingsGroup } from "../types"
 import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
 import { blockAt, countAll, freshBlocks, insertAt, moveAt, removeAt, resolvePath, updateAt } from "../block-tree"
 import { addableBlocks, themeBlockCatalog } from "../storelib-schemas"
@@ -773,8 +774,8 @@ export function themeFieldIds(): string[] {
  * "there is a field called `body_font` and it is a font", not what the font
  * happens to be right now — it is given the current values separately.
  */
-export function describeThemeSettings(): string {
-  return THEME_SETTINGS_GROUPS.map((group) => {
+export function describeThemeSettings(groups: ThemeSettingsGroup[] = THEME_SETTINGS_GROUPS): string {
+  return groups.map((group) => {
     const fields = (group.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type))
     if (fields.length === 0) return null
     return [`${group.label}`, ...fields.map((f) => `  ${describeField(f)}`)].join("\n")
@@ -783,9 +784,9 @@ export function describeThemeSettings(): string {
     .join("\n")
 }
 
-/** The theme's own controls, for checkSettings. */
-export function themeFieldsFor(): SchemaField[] {
-  return THEME_SETTINGS_GROUPS.flatMap((group) =>
+/** The theme's own controls, for checkSettings: Storelib's, or the theme's config/settings_schema.json over them (lib/storelib-theme/theme-config.ts). */
+export function themeFieldsFor(groups: ThemeSettingsGroup[] = THEME_SETTINGS_GROUPS): SchemaField[] {
+  return groups.flatMap((group) =>
     (group.fields ?? []).filter((f) => !NOT_A_SETTING.has(f.type)),
   )
 }

@@ -33,6 +33,7 @@ import { SHOPIFY_LICENSE_NOTICE, conversionSummary, convertShopifyTheme, isShopi
 import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
+import { THEME_SCHEMA_FILE, packageThemeConfig } from "@/lib/storelib-theme/theme-config"
 import { readEntryCapped } from "@/lib/storelib-theme/package"
 import {
   MAX_BYTES,
@@ -294,8 +295,19 @@ export async function POST(req: Request) {
      * here, before a row exists: script, event handlers and javascript:
      * URLs are dropped rather than stored and dealt with later.
      */
+    /*
+      The values: config/settings.json, with a Shopify-named
+      config/settings_data.json over it when the package has one, and the
+      defaults its own config/settings_schema.json gives. A schema that does
+      not read refuses the package with its lines (lib/storelib-theme/theme-config.ts).
+    */
+    const config = packageThemeConfig(pkg.files)
+    if (config.ok === false) {
+      const errors = (config as { errors: { line?: number; message: string }[] }).errors
+      return NextResponse.json({ error: `config/settings_schema.json did not read: ${errors.slice(0, 3).map((e) => `${e.line ? `line ${e.line}: ` : ""}${e.message}`).join("; ")}` }, { status: 422 })
+    }
     const settings = sanitizeThemeSettings(
-      rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>,
+      rewriteUrls((config as { settings: Record<string, unknown> }).settings, refToUrl) as Record<string, unknown>,
     )
     /* The package's own section files say which of their settings are rich text. */
     const own = ownSectionFields(Object.entries(pkg.files).map(([path, content]) => ({ path, content })))
@@ -334,6 +346,9 @@ export async function POST(req: Request) {
       .filter(([path]) => path.endsWith(".storelib"))
       .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
       .map(([path, content]) => ({ install_id: created.id, path, content }))
+    /* Its own Theme settings travel as the file they are. */
+    const ownSchema = (config as { schema: string | null }).schema
+    if (ownSchema) rows.push({ install_id: created.id, path: THEME_SCHEMA_FILE, content: ownSchema })
     const filled = await fillInstall(admin, created.id, settings, pages, rows)
     if (filled) return filled
 

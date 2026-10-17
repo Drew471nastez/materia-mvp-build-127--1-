@@ -287,11 +287,24 @@ control for keeps its value on the page, and the commit comment names it.`
 A section's settings, blocks and presets are its \`<schema>\`: add, change or
 remove one there and the section's panel in the builder follows when the push
 comes in. Keep each setting's id, because the creator's content is stored
-under it. The theme settings in \`config/settings_schema.json\` are
-Storelib's own, the same on every Storelib theme: change their values in
-\`config/settings.json\`, and give a section a new setting in its own
-\`<schema>\` rather than adding one there. A change to that file, or to a
-\`sections/<type>.json\`, is refused and the commit says so.`}
+under it.
+
+## Theme settings
+
+The theme settings, the ones the whole site uses, work the way a Shopify
+theme's do. \`config/settings_schema.json\` says what they are: a list of
+groups, \`{ "name": "Layout", "settings": [ { "type": "range", "id":
+"page_width", "label": "Max page width", "min": 900, "max": 1800, "step": 20,
+"unit": "px", "default": 1280 } ] }\`. Reorder groups and settings, add a
+group or a setting of your own, change a label, default, range, unit or info,
+and the builder's Theme settings follow when the push comes in. Storelib's
+own settings keep their id, type and group (the theme's stylesheet reads
+them); one you leave out of the file is still there, after the ones you list.
+A section reads a setting you add as \`theme.settings.<id>\`. The values are
+in \`config/settings.json\`; a \`config/settings_data.json\` in Shopify's
+shape, \`{ "current": { ... } }\`, is taken the same way, and what it leaves
+out stays as it is. A file that does not read is refused with its line. A
+change to a \`sections/<type>.json\` is refused and the commit says so.`}
 
 README.md, AGENTS.md, CLAUDE.md and storelib.json are rewritten by Storelib,
 so a change to them is not kept. Deleting a section file here does not remove
@@ -327,6 +340,9 @@ same way.
 1. **Inspect.** Read the section files here and the site at
    https://mcp.storelib.com if you are connected to it (storelib_read_project,
    storelib_search_components). If a section already does the job, use it.
+   Over MCP, storelib_memory_read says what the creator asked to be
+   remembered (brand voice, likes, things to avoid); follow it, and keep
+   anything new they tell you with storelib_memory_remember.
 2. **Plan.** Say in a few lines what will change and where.
 3. **Implement.** The smallest change that does it. Change only the lines the
    task needs, and keep every setting id so the creator's content stays.

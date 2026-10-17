@@ -10,7 +10,10 @@
  *
  *   README.md, AGENTS.md, CLAUDE.md, storelib.json   written by Storelib
  *   config/settings.json        the theme's settings          (read back)
- *   config/settings_schema.json what those settings are       (reference)
+ *   config/settings_schema.json what those settings are       (read back:
+ *                               the theme's own groups over
+ *                               Storelib's, see lib/storelib-
+ *                               theme/theme-config.ts)
  *   templates/<page>.json       each page's own sections      (read back)
  *   sections/*-group.json       the header, footer, overlay   (read back)
  *   sections/*.storelib         every section, built-in too   (read back)
@@ -45,6 +48,8 @@ export const MAX_PATH_LENGTH = 240
 
 export const SETTINGS_PATH = "config/settings.json"
 export const SETTINGS_SCHEMA_PATH = "config/settings_schema.json"
+/** Shopify's name for the values file: taken as config/settings.json is, with what it leaves out kept. */
+export const SETTINGS_DATA_PATH = "config/settings_data.json"
 export const MANIFEST_PATH = "storelib.json"
 export const GENERATED = new Set(["README.md", "AGENTS.md", "CLAUDE.md", MANIFEST_PATH])
 const GROUP_FILES: Record<string, "header" | "footer" | "overlay"> = {
@@ -107,7 +112,10 @@ export function roleOf(path: string, opts: { compat: boolean }): RepoRole {
   if (!safeRepoThemePath(path)) return "outside"
   if (GENERATED.has(path)) return "generated"
   if (path === SETTINGS_PATH) return "settings"
-  if (path === SETTINGS_SCHEMA_PATH && !opts.compat) return "reference"
+  /* Shopify's name for the values file, read into the same settings (lib/storelib-theme/theme-config.ts). */
+  if (path === SETTINGS_DATA_PATH && !opts.compat) return "settings"
+  /* The theme's own Theme settings, over Storelib's: read back like any theme file. */
+  if (path === SETTINGS_SCHEMA_PATH && !opts.compat) return "theme-file"
   if (GROUP_FILES[path]) return "group"
   if (TEMPLATE.test(path)) return "template"
   if (SOURCE.test(path)) return "source"
@@ -161,7 +169,7 @@ export interface ThemeSnapshot {
   defaults: Record<string, string>
   /** Built-in sections drawn by Storelib itself (no .storelib): their schemas, to read. */
   referenceSchemas?: Record<string, unknown>
-  /** settings_schema.json for a native theme, to read. */
+  /** Storelib's own settings_schema.json for a native theme, written when the theme has none of its own. */
   settingsSchema?: unknown
   /** An imported theme's pictures, by their name in assets/, fetched for the export. */
   media?: Record<string, Uint8Array>
@@ -226,7 +234,7 @@ export function themeFiles(
   for (const [path, text] of Object.entries(snap.defaults)) put({ path, text, role: roleOf(path, compat) })
   for (const [path, text] of Object.entries(snap.files)) {
     const role = roleOf(path, compat)
-    if (role === "outside" || role === "generated" || GROUP_FILES[path] || path === SETTINGS_PATH || TEMPLATE.test(path)) {
+    if (role === "outside" || role === "generated" || GROUP_FILES[path] || role === "settings" || TEMPLATE.test(path)) {
       /* A saved row that would collide with what Storelib writes from the pages or settings is not the theme's truth. */
       if (role !== "outside") continue
       skipped.push({ path, reason: "Not a path a theme file can have in the repository" })
@@ -246,7 +254,8 @@ export function themeFiles(
     if (!/^[a-z0-9_-]{1,64}$/.test(type)) continue
     put({ path: `sections/${type}.json`, text: json(schema), role: "reference" })
   }
-  if (!snap.compat && snap.settingsSchema !== undefined) put({ path: SETTINGS_SCHEMA_PATH, text: json(snap.settingsSchema), role: "reference" })
+  /* The theme's own file when it has one (put above, with its other files); Storelib's groups, to start from, when it has none. */
+  if (!snap.compat && snap.settingsSchema !== undefined && !(SETTINGS_SCHEMA_PATH in snap.files)) put({ path: SETTINGS_SCHEMA_PATH, text: json(snap.settingsSchema), role: "theme-file" })
 
   /* The settings and the pages, as the builder has them. */
   put({ path: SETTINGS_PATH, text: json(snap.settings ?? {}), role: "settings" })
@@ -298,8 +307,8 @@ export function themeFiles(
     docs: "https://storelib.com/developers",
     reads_back: snap.compat
       ? ["config/settings.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "snippets/*.storelib", "layout/*.storelib", "shopify/** (pictures excepted)"]
-      : ["config/settings.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "assets/*", "locales/*"],
-    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json", "shopify/config/settings_panel.json"] : ["config/settings_schema.json", "sections/<type>.json"])],
+      : ["config/settings.json", "config/settings_data.json", "config/settings_schema.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "assets/*", "locales/*"],
+    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json", "shopify/config/settings_panel.json"] : ["sections/<type>.json"])],
     edited_built_ins: overrides.map((o) => o.path),
     left_out: skipped.map((s) => s.path).sort(),
   }
@@ -470,8 +479,8 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["shopify/assets/<pictures>", "The theme's pictures and videos, to look at. Upload a new one in Storelib's Files.", "No"],
       ]
     : [
-        ["config/settings.json", "The theme's settings: colours, fonts, logo, menus. The ids are in config/settings_schema.json.", "Yes"],
-        ["config/settings_schema.json", "What each theme setting is. Storelib's theme settings are the same on every Storelib theme, so this is for reading: change values in config/settings.json, and give a section a new setting in its own `<schema>`.", "No"],
+        ["config/settings.json", "The theme settings' values: colours, fonts, logo, menus. A `config/settings_data.json` in Shopify's shape, `{ \"current\": { ... } }`, is taken the same way, and what it leaves out stays as it is.", "Yes"],
+        ["config/settings_schema.json", "What the theme settings are: groups of settings in Shopify's format. Reorder groups and settings, add your own, change a label, a default or a range, and Theme settings in the builder follow. A Storelib setting keeps its id, type and group. A section reads a setting you add as `theme.settings.<id>`.", "Yes"],
         ["templates/<page>.json", "Each page's own sections, their settings and blocks, in order. `home.json` is the home page.", "Yes"],
         ["sections/header-group.json, footer-group.json", "The header and footer, once, for every page.", "Yes"],
         ["sections/*.storelib", "Every section: Storelib's built-in ones and this site's own.", "Yes"],

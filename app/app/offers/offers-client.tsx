@@ -89,7 +89,7 @@ export function OffersClient({
   currency: string
   /** SQL part 116 has run. */
   ready: boolean
-  /** SQL part 213 has run. */
+  /** SQL part 230 has run. */
   settingsReady: boolean
   physical: boolean
 }) {

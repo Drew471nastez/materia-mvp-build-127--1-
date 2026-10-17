@@ -105,11 +105,12 @@ async function main() {
 
   console.log("\nWhat an agent may write")
 
-  for (const ok of ["sections/price_table.storelib", "sections/faq_v2.storelib", "sections/hero-split.storelib"]) {
+  /* The two theme settings files are Shopify's way of changing Theme settings, checked on save (lib/storelib-theme/theme-config.ts). */
+  for (const ok of ["sections/price_table.storelib", "sections/faq_v2.storelib", "sections/hero-split.storelib", "config/settings_schema.json", "config/settings_data.json"]) {
     check(`may write ${ok}`, canWrite(ok))
   }
   for (const no of [
-    "templates/index.json", "config/settings_data.json", "layout/theme.storelib", "snippets/x.storelib",
+    "templates/index.json", "config/settings.json", "config/other.json", "layout/theme.storelib", "snippets/x.storelib",
     "sections/../config/x.storelib", "/sections/x.storelib", "sections/Pricing.storelib", "sections/x.liquid",
     "sections/a/b.storelib", "sections/.storelib", "sections\\x.storelib",
   ]) {
