@@ -301,7 +301,7 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
     ) : null
 
   return (
-    <JoinProvider community={c} join={join} askWhy={!!data.askWhy}>
+    <JoinProvider community={c} join={join} askWhy={!!data.askWhy} preview={!!data.preview}>
       <div data-community-sales={c.slug} className="bg-[#f8f9fa]">
         {notice ? (
           <div role="status" className="border-b border-[#f0e2b6] bg-[#fdf7e7] px-4 py-2.5 text-center text-[13.5px] text-[#6b5409]">

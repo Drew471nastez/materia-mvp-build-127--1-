@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { trialDaysOf } from "@/lib/memberships/plan"
 import { headers } from "next/headers"
 import { buyerCountry, buyerIp, membershipTaxForSubscription } from "@/lib/tax/membership"
 import { createClient } from "@/lib/supabase/server"
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
       const sub = await stripe.subscriptions.retrieve(pending.stripe_subscription_id, { expand: ["latest_invoice.confirmation_secret", "pending_setup_intent"] })
       const intent = sub.status === "incomplete" || sub.status === "trialing" ? intentOf(sub) : null
       if (intent) {
-        return NextResponse.json({ membershipId: pending.id, subscriptionId: sub.id, type: intent.type, clientSecret: intent.clientSecret, amountCents: amount, trialDays: intent.type === "setup" ? plan.trial_days : 0 })
+        return NextResponse.json({ membershipId: pending.id, subscriptionId: sub.id, type: intent.type, clientSecret: intent.clientSecret, amountCents: amount, trialDays: intent.type === "setup" ? trialDaysOf(plan.trial_days) : 0 })
       }
     } catch {
       /* gone or unreadable: a new one below */
@@ -159,7 +160,7 @@ export async function POST(request: Request) {
     return communityTrialUsed(admin as never, gate.community.id, { id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at })
   }
   const hadTrial = rows.some((m) => m.status !== "incomplete") || (await communityTrial())
-  const trialDays = !hadTrial && plan.trial_days > 0 ? plan.trial_days : 0
+  const trialDays = !hadTrial ? trialDaysOf(plan.trial_days) : 0
   const name = `${firstName} ${lastName}`.trim()
 
   try {

@@ -189,6 +189,8 @@ export interface SalesPageData {
   extras?: AboutExtras | null
   /** Leaving asks why (round 12): true once part 98 has made community_leave_reasons, for a member who can leave. */
   askWhy?: boolean
+  /** Round AG: the owner's preview of the page and its plans as a visitor sees them. Nothing in it charges or joins. */
+  preview?: boolean
 }
 
 /** A row in /library/communities. */

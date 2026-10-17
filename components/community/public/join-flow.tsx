@@ -123,9 +123,12 @@ export function PlanPicker({
   onPick,
   pending,
   error,
+  preview = null,
 }: {
   community: PublicCommunityView
   plans: JoinOption[]
+  /** Round AG: the owner's preview, a line saying so (and what a pick would do). */
+  preview?: string | null
   onClose: () => void
   onPick: (plan: JoinOption) => void
   /** The plan whose press is on its way (a free join). */
@@ -154,6 +157,11 @@ export function PlanPicker({
           <h1 id="plan-picker-title" className="text-center text-[26px] font-semibold tracking-[-0.01em] text-[#1a1a2e] sm:text-[30px]">
             Select your plan
           </h1>
+          {preview ? (
+            <p role="status" aria-live="polite" className="mx-auto mt-4 w-fit max-w-[560px] rounded-full border border-[#e5e7eb] bg-white px-4 py-2 text-center text-[13px] text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.05)]" data-plans-preview-note="">
+              {preview}
+            </p>
+          ) : null}
           {error ? (
             <p role="alert" className="mx-auto mt-4 max-w-[520px] rounded-xl bg-[#fef2f2] px-4 py-3 text-center text-[14px] text-[#991b1b]">
               {error}

@@ -224,7 +224,7 @@ export function enterCommunity(slug: string, router: { refresh: () => void }) {
   router.refresh()
 }
 
-export function JoinProvider({ community, join, askWhy = false, children }: { community: PublicCommunityView; join: JoinStateView; /** Leaving asks why (round 12): only once part 98 has made the table (lib/communities/server/leave-reasons.ts). */ askWhy?: boolean; children: React.ReactNode }) {
+export function JoinProvider({ community, join, askWhy = false, preview = false, children }: { community: PublicCommunityView; join: JoinStateView; /** Leaving asks why (round 12): only once part 98 has made the table (lib/communities/server/leave-reasons.ts). */ askWhy?: boolean; /** Round AG: the owner's preview; a pick says what would happen and does nothing. */ preview?: boolean; children: React.ReactNode }) {
   const router = useRouter()
   const params = useSearchParams()
   const [interval, setInterval] = React.useState<Interval>(() => (join.option?.checkout?.month || !join.option?.checkout?.year ? "month" : "year"))
@@ -240,6 +240,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const pickedRef = React.useRef<JoinOption | null>(null)
   pickedRef.current = pickedPlan
   const [pickPending, setPickPending] = React.useState<string | null>(null)
+  const [previewNote, setPreviewNote] = React.useState<string | null>(null)
   /*
     Round AG: SOMEBODY ALREADY IN on a free plan picks from the paid plans (an upgrade); everybody else from the plans the
     join offers. One list, so the picker, the checkout's "All plans" and an arrival from signing in read the same.
@@ -274,7 +275,14 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const [questions, setQuestions] = React.useState<JoinQuestion[] | null>(null)
   const [invalid, setInvalid] = React.useState<string | null>(null)
 
-  const go = React.useCallback((href: string) => goJoinAuth(router, href), [router])
+  /* In the owner's preview nothing leaves the page: a press that would sign in or pay shows the plans instead. */
+  const go = React.useCallback(
+    (href: string) => {
+      if (preview) return void openFlow(plans.length ? { kind: "plans" } : null)
+      goJoinAuth(router, href)
+    },
+    [router, preview, openFlow, plans.length],
+  )
 
   /* The questions, asked once as the page arrives for somebody who can join, so a press opens them at once. */
   const canAsk = join.signedIn && (join.kind === "join_free" || join.kind === "request" || join.kind === "checkout")
@@ -412,6 +420,10 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const pick = React.useCallback(
     async (plan: JoinOption) => {
       if (busy || phase !== "idle" || !plan.tierId) return
+      if (preview) {
+        setPreviewNote(plan.kind === "free" ? `Visitors join ${plan.name} here, after signing in.` : `Visitors go to checkout for ${plan.name} here. Nothing is charged in a preview.`)
+        return
+      }
       setPicked(plan)
       pickedRef.current = plan
       setError(null)
@@ -456,7 +468,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
       const offers = planIntervals(plan)
       openFlow({ kind: "pay", planId: plan.tierId, interval: offers.includes(interval) ? interval : offers[0] ?? "month" })
     },
-    [busy, phase, join.signedIn, join.kind, community.slug, go, questions, loadQuestions, openFlow, joinNow, interval],
+    [busy, phase, preview, join.signedIn, join.kind, community.slug, go, questions, loadQuestions, openFlow, joinNow, interval],
   )
 
   /* The flow in the address on arrival (a refresh, a shared link, back from signing in with a pick). */
@@ -473,7 +485,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
     }
     const at = flowFrom(window.location.search)
     if (!at) return
-    if (at.kind === "plans" && plans.length < 2) return openFlow(null, true)
+    if (at.kind === "plans" && plans.length < (preview ? 1 : 2)) return openFlow(null, true)
     if (at.kind === "pay" && !join.signedIn) return openFlow(plans.length > 1 ? { kind: "plans" } : null, true)
     if (at.kind === "pay") {
       const plan = plans.find((p) => p.tierId === at.planId) ?? (join.option?.tierId === at.planId ? join.option : null)
@@ -563,7 +575,7 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
       {children}
       <RequestDialog />
       <LeaveDialog />
-      {flow?.kind === "plans" && plans.length > 1 ? <PlanPicker community={community} plans={plans} onClose={closeFlow} onPick={(p) => void pick(p)} pending={pickPending} error={error} /> : null}
+      {flow?.kind === "plans" && plans.length > (preview ? 0 : 1) ? <PlanPicker community={community} plans={plans} onClose={closeFlow} onPick={(p) => void pick(p)} pending={pickPending} error={error} preview={preview ? previewNote ?? "Preview: this is what visitors see when they press Join." : null} /> : null}
       {flow?.kind === "pay" && join.signedIn ? (
         <CommunityCheckout
           community={community}
