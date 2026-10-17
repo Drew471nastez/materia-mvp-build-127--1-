@@ -82,14 +82,23 @@ export async function ensurePrice(admin: Db, plan: PlanRow, product: { id: strin
   return { priceId: price.id, amountCents: amount }
 }
 
-/** The platform fee for one payment of this amount, as the one time checkout computes it, and as the percent Stripe takes. */
+/**
+ * The platform fee for one payment of this amount, as the one time checkout
+ * computes it, and as the percent Stripe takes.
+ *
+ * `given` is the currency the payment is actually in: the plan's own for a
+ * first charge, the invoice's for a renewal. Storelib's when neither says
+ * (lib/pricing/surface-currency), so the fee rules and the charge are never
+ * in two different currencies.
+ */
 export async function membershipFee(
   admin: Db,
   creatorId: string,
   amountCents: number,
-  currency: string | null | undefined = STORELIB_CHARGE_CURRENCY,
+  given?: string | null,
 ): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency || STORELIB_CHARGE_CURRENCY)
+  const currency = given || STORELIB_CHARGE_CURRENCY
+  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency)
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 
