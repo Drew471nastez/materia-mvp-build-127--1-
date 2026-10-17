@@ -3,17 +3,11 @@
 /**
  * The creator page's languages (lib/markets/creator-page-language.ts).
  *
- * ROUND AG, THE OWNER: no language selector on creator pages. The page still opens in the visitor's language when the
- * creator translated it (?lang=, or the sl_lang choice), and the offer card at the top still appears when Show visitors
- * their own language found a near match; the dropdown at the foot of the page is gone.
+ * The owner asked for both of these to go: no floating "View this site in ...?" card (round 27) and no language
+ * selector at the foot of the page (round AG). The page still opens in the visitor's language when the creator
+ * translated it: ?lang=, the sl_lang choice, or Show visitors their own language picking silently on the server.
+ * Nothing is drawn here; the component stays so the page's call sites keep one place to bring a control back.
  */
-import { LanguageSuggest } from "@/components/website-builder/theme/language-suggest"
-
-export function CreatorLanguage({ code, defaultLanguage, languages, suggest }: { code: string; defaultLanguage: string; languages: { code: string; name: string }[]; suggest: string | null }) {
-  if (languages.length < 2 || !suggest) return null
-  return (
-    <div data-creator-language="" className="contents">
-      <LanguageSuggest conf={{ current: code, defaultLanguage, languages: languages.map((l) => l.code), address: "query", suggest }} />
-    </div>
-  )
+export function CreatorLanguage(_props: { code: string; defaultLanguage: string; languages: { code: string; name: string }[] }) {
+  return null
 }

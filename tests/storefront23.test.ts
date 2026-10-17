@@ -421,7 +421,7 @@ async function main() {
     check("never a form post", !page("/cart", "", "POST") && !page("/contact", "", "POST"))
     check("the address keeps the path and the query", domainAddress("www.posturex.com", "/products/a", "?variant=2") === "https://www.posturex.com/products/a?variant=2" && domainAddress("www.posturex.com", "/", "") === "https://www.posturex.com/")
     const proxy = read("proxy.ts")
-    check("the proxy asks only on a site's page, after the API and review pass through", /if \(pathname\.startsWith\("\/review\/"\)\) return NextResponse\.next\(\)\n\s*\/\*[^\n]*\*\/\n\s*if \(sendsToDomain\(/.test(proxy))
+    check("the proxy asks only on a site's page, after the API and review pass through", /if \(pathname\.startsWith\("\/review\/"\)\) return NextResponse\.next\(\)\n(\s*\/\*[^\n]*\*\/\n\s*if \(pathname\.startsWith\("\/order-help\/"\)\) return NextResponse\.next\(\)\n)?\s*\/\*[^\n]*\*\/\n\s*if \(sendsToDomain\(/.test(proxy)) /* Changed on purpose (round 27, H27): order help passes through on a website's host too. */
     check("only the primary website domain, live with HTTPS, and a temporary redirect", /\.eq\("purpose", "website"\)\s*\.eq\("is_primary", true\)\s*\.eq\("status", "active"\)/.test(proxy) && /row\.ssl_status !== "failed"/.test(proxy) && /NextResponse\.redirect\(domainAddress\(domain, pathname, search\), \{ status: 302 \}\)/.test(proxy))
     check("a read that fails keeps serving the Storelib address", /if \(failed\) return hit\?\.host \?\? null/.test(proxy) && /if \(error\) return hit\?\.host \?\? null/.test(proxy))
     const ws = read("components/website-builder/website-settings/domains.tsx")

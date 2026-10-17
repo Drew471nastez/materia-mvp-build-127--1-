@@ -772,19 +772,20 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       {/* While Edit post is open in place its own Save is the one on screen: the footer (with the bookmark's "Save") waits. */}
       <footer className={`mt-2 flex items-center gap-0.5 border-t border-[#f0f1f3] px-0.5 pt-1.5 sm:mt-3 sm:gap-1 sm:px-0 ${editing ? "sm:hidden" : ""}`}>
         {likeButton}
+        {/* Round 27 (I6): closed, "Comment" is not offered as words (the count stays), so "Comments closed" keeps one line on a phone instead of squeezing into two. */}
         {onComment ? (
-          <button type="button" onClick={onComment} className={`${BTN_GHOST} gap-2`} data-comment-button="">
+          <button type="button" onClick={onComment} aria-label={post.locked && !post.commentCount ? "Comments" : undefined} className={`${BTN_GHOST} gap-2`} data-comment-button="">
             <MessageCircle className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-            <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span>
+            {post.commentCount > 0 || !post.locked ? <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span> : null}
           </button>
         ) : (
-          <Link prefetch={false} href={`${href}#comments`} className={`${BTN_GHOST} gap-2`} data-comment-button="">
+          <Link prefetch={false} href={`${href}#comments`} aria-label={post.locked && !post.commentCount ? "Comments" : undefined} className={`${BTN_GHOST} gap-2`} data-comment-button="">
             <MessageCircle className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-            <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span>
+            {post.commentCount > 0 || !post.locked ? <span className="tabular-nums">{post.commentCount > 0 ? post.commentCount : "Comment"}</span> : null}
           </Link>
         )}
         {post.locked ? (
-          <span className="ml-1 inline-flex items-center gap-1 text-[12.5px] text-[#6b7280]">
+          <span className="ml-1 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[12.5px] text-[#6b7280]" data-comments-closed-mark="">
             <Lock className="h-3.5 w-3.5" aria-hidden />
             Comments closed
           </span>

@@ -52,11 +52,13 @@ export async function POST(request: Request) {
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
+  /* The city, once typed: carrier calculated rates in most of Europe need it (lib/integrations/shipping/checkout-rates-server.ts). */
+  const city = typeof body.city === "string" && body.city.trim() ? body.city.trim().slice(0, 120) : null
   /* What each line could be changed to (a size, an edition), read beside the delivery quote. A line at its own price keeps it. */
   /* Cash on delivery chosen: its fee is in the total shown, as the order will keep it (Settings › Checkout). */
   const codFeeCents = await codFeeFor(db, priced.creatorId, body, country)
   const [q, choices] = await Promise.all([
-    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId, { codFeeCents }),
+    quoteCheckout(db, priced, country ? { country, region, postalCode, city } : null, body.deliveryOptionId, { codFeeCents }),
     variantChoices(db, items.filter((i) => typeof i.customPriceCents !== "number").map((i) => i.productId)),
   ])
   return physicalJson({

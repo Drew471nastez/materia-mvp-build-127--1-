@@ -713,7 +713,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   return (
     <div ref={paneRef} data-compose="" className="orders-pane page-scroll flex h-full flex-col overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter [scroll-padding-bottom:72px]">
-      <PaneBar width={LIST_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
+      <PaneBar width={LIST_WIDTH} sticky className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
           <button type="button" onClick={back} aria-label={tt("Back to emails")} className={cn(iconButton, "h-9 w-9")}>
             <ArrowLeft className="h-5 w-5" />

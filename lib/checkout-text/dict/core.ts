@@ -16,6 +16,8 @@
  * must have.
  */
 
+import { ORDER_PAGE_WORDS } from "./order-page"
+
 /** The sentences every curated language must have: what a buyer sees on almost every checkout. */
 export const CORE_SENTENCES: readonly string[] = [
   "Pay {shop}", "Pay {amount}", "Secure checkout", "Back to {site}", "Back", "Details", "Hide details", "Order summary",
@@ -162,5 +164,7 @@ const pl: Record<string, string> = {
   "Terms": "Regulamin", "Privacy": "Prywatność", "Powered by": "Obsługiwane przez", "I agree to the [Terms and Conditions] and the [Refund policy]": "Akceptuję [Regulamin] i [Zasady zwrotów]", "Tick the box to agree to the Terms and Conditions.": "Zaznacz pole, aby zaakceptować Regulamin.",
 }
 
-/** The curated checkout words of each language but Romanian (./ro.ts). */
-export const CORE_DICTIONARIES: Readonly<Record<string, Record<string, string>>> = { es, fr, de, it, pt, "pt-BR": ptBR, nl, pl }
+/** The curated checkout words of each language but Romanian (./ro.ts), with the buyer's order pages after paying (./order-page.ts; these win where both have a sentence). */
+export const CORE_DICTIONARIES: Readonly<Record<string, Record<string, string>>> = Object.fromEntries(
+  Object.entries({ es, fr, de, it, pt, "pt-BR": ptBR, nl, pl }).map(([lang, words]) => [lang, { ...ORDER_PAGE_WORDS[lang], ...words }]),
+)

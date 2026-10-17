@@ -213,6 +213,8 @@ export function PhysicalCheckout({
 
   /* The server's prices, asked again when anything that changes them changes. The postal code counts once it names an area: it only decides local delivery. */
   const postalForQuote = postalKey(address.postalCode).length >= 3 ? postalKey(address.postalCode) : ""
+  /* Asked with the city once it is two letters or more: carrier rates in most of Europe need it, and each keystroke before that would only ask again. */
+  const cityForQuote = address.city.trim().length >= 2 ? address.city.trim() : ""
   const ask = React.useRef(0)
   React.useEffect(() => {
     if (!items || !shopId) return
@@ -228,7 +230,7 @@ export function PhysicalCheckout({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           /* Paying on delivery is asked with it: the total then has the shop's fee in it, as the order will. */
-          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) }),
+          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, city: cityForQuote, deliveryOptionId: optionId, email, ...(byCash && config.cashOnDelivery ? { cashOnDelivery: true } : {}) }),
         })
         const data = await res.json().catch(() => ({}))
         if (n !== ask.current) return
@@ -258,7 +260,7 @@ export function PhysicalCheckout({
     }, quote ? 200 : 0)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId, byCash])
+  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, cityForQuote, optionId, byCash])
 
   /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
   const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {

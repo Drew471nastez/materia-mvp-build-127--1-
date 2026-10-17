@@ -227,13 +227,26 @@ function aheadOf(communityId: string, postId: string): { data: CommentsPageData;
   return have?.data ? { data: have.data, fresh: Date.now() - have.at < AHEAD_FRESH_MS } : null
 }
 
-/** The room a list of `expected` comments takes, so the space is there before the words are. */
-export function commentsRoom(expected: number): number {
+/** The one line that stands where the box would when nobody can comment here ("Comments are closed on this post."). */
+export const CLOSED_LINE_PX = 20
+
+/**
+ * The room a list of `expected` comments takes, so the space is there before the words are.
+ *
+ * ROUND 27 (I6, the owner: "when I open a post and it says comments closed, it's shrinking"). The room always counted the
+ * box and its "is writing..." band (68px). A post with its comments closed has neither, only the line saying so, so the
+ * opened panel stood 29px taller while the comments were read and then shrank to its real size
+ * (scripts/check-posts27-member.mjs closed). `closed` counts the line and the gap under it instead.
+ */
+export function commentsRoom(expected: number, closed = false): number {
   const n = Math.min(Math.max(0, expected), 4)
   /* A phone's column is narrower, so a comment wraps onto more lines. */
   const narrow = typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches
+  const rows = n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 0
+  /* Closed: the line (20), then a gap (16) and the rows, or the "No comments yet." line (23). */
+  if (closed) return CLOSED_LINE_PX + 16 + (n ? rows : 23)
   /* The box (44) and the band under it where "is writing..." shows (24), then one comment's bubble and its row of actions (100, 112 on a phone) a gap (16) apart; or the one line saying there are none. */
-  return 44 + 24 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
+  return 44 + 24 + (n ? rows : 20)
 }
 
 /*
@@ -285,10 +298,11 @@ function CommentsSkeleton({ expected, className = "", instant = false }: { expec
  * The kept room while a post's sheet or panel is still moving (post-overlay.tsx), before the section is drawn: the outline of
  * the comments where the rows will stand (under the box's room, or from the top when the box is pinned to the sheet's foot).
  */
-export function CommentsPlaceholder({ expected, pinComposer = false }: { expected: number; pinComposer?: boolean }) {
+export function CommentsPlaceholder({ expected, pinComposer = false, closed = false }: { expected: number; pinComposer?: boolean; /** Nobody can comment here (round 27): the room of the line saying so, not of the box. */ closed?: boolean }) {
+  const shut = closed && !pinComposer
   return (
-    <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="">
-      <CommentsSkeleton expected={expected} className={pinComposer ? "mt-4" : "pt-[92px]"} />
+    <div style={{ minHeight: commentsRoom(expected, shut) }} aria-hidden data-comments-loading="">
+      <CommentsSkeleton expected={expected} className={pinComposer ? "mt-4" : shut ? "pt-9" : "pt-[92px]"} />
     </div>
   )
 }
@@ -700,7 +714,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         <TypingLine names={typing.writers.map((w) => w.name)} />
       </div>
     ) : (
-      <p className="text-[13.5px] text-[#6b7280]" data-comments-closed="">
+      <p className="text-[13.5px] leading-5 text-[#6b7280]" data-comments-closed="">
         {visitor ? "Join the community to comment." : post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}
       </p>
     )
@@ -734,7 +748,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           </div>
         ) : (
           /* The room the comments will take, with their outline in it (CommentsSkeleton); they rise into it. */
-          <div style={{ minHeight: pinComposer ? commentsRoom(expected) : commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="">
+          <div style={{ minHeight: pinComposer ? commentsRoom(expected) : open ? commentsRoom(expected) - 44 : commentsRoom(expected, true) - CLOSED_LINE_PX }} aria-label="Loading comments" data-comments-loading="">
             <CommentsSkeleton expected={expected} className={listGap} instant={fadeIn} />
           </div>
         )

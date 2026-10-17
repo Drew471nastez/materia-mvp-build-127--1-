@@ -146,7 +146,8 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   console.log("\nThe physical order page: the same\n")
   const page = read("app/checkout/physical/order/[token]/page.tsx")
   const osv = read("app/checkout/physical/order/[token]/order-status-view.tsx")
-  check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: store\.name, avatar: store\.logoUrl, email: store\.email, phone: store\.phone, websiteUrl: store\.websiteUrl, legal: store\.legal \}\}/.test(page))
+  /* Changed on purpose (round 27, B27): the logo as the website draws it (checkoutBrand, then Store details'), and Visit store is the live website the order came from (lib/physical/store-link.ts), never the creator page. */
+  check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: brand\.name \|\| store\.name, avatar: brand\.imageUrl \?\? store\.logoUrl, avatarKind: brand\.imageUrl \? brand\.kind : store\.logoUrl \? "logo" : null, email: store\.email, phone: store\.phone, websiteUrl: storeUrl \|\| null, legal: store\.legal \}\}/.test(page))
   /* Changed on purpose: in the buyer's language (ct). */
   check("  its tax line by name, its currency, its date, and Sold by", /taxLabel: order\.taxLabel/.test(page) && /currency: order\.currency/.test(page) && /order\.totals\.taxLabel \? ct\(order\.totals\.taxLabel\) : ct\("Tax"\)/.test(osv) && /\{day\(order\.createdAt, lang\)\}/.test(osv) && /data-order-seller/.test(osv))
   /* Changed on purpose: written the page language's way (ct). */

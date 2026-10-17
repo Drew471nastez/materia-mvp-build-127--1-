@@ -34,7 +34,7 @@
  * arrive already checked (escape.ts actionUrl / sameSiteUrl).
  */
 import type { TemplateFamily } from "../types"
-import { emailDocument, emailKit, EMAIL_LOGO_URL as SHARED_LOGO_URL, type EmailKit } from "@/lib/emails/layout"
+import { emailDocument, emailKit, EMAIL_LOGO_URL as SHARED_LOGO_URL, ITEM_PX, type EmailKit } from "@/lib/emails/layout"
 
 /**
  * The Storelib logo every platform email uses (lib/email.tsx too): a PNG,
@@ -68,7 +68,8 @@ export interface SummaryRow {
 export interface OrderSummary {
   title: string
   subtitle?: string | null
-  lines: { title: string; detail?: string | null; amount: string }[]
+  /** imageUrl: the item's picture, https and already sized for an inbox (ITEM_PX); none draws a letter tile. */
+  lines: { title: string; detail?: string | null; amount: string; imageUrl?: string | null }[]
   totals: SummaryRow[]
   payout?: SummaryRow[]
   sections?: { title: string; rows: Fact[] }[]
@@ -147,12 +148,16 @@ export function showsUnsubscribe(family: TemplateFamily, unsubscribeUrl?: string
 
 /** The drawn size the product picture is fetched at (lib/notify/templates/index.ts sizes it). */
 export const MEDIA_PX = 64
+/** The drawn size of an order line's picture: the shared layout's item thumbnail. */
+export { ITEM_PX }
 
 /** An order: its number and time, one row per item, the totals, what the seller receives, then small fact sections. */
 function orderBlocks(k: EmailKit, o: OrderSummary): string[] {
   const out: string[] = [k.section(o.title)]
   if (o.subtitle) out.push(k.small(o.subtitle, { below: 4 }))
-  out.push(k.items(o.lines.map((l) => ({ title: l.title, detail: l.detail ?? null, amount: l.amount })), { pictures: false }))
+  /* Pictures when any item has one; an item without one gets a letter tile beside the others, never a broken image. */
+  const pictures = o.lines.some((l) => !!l.imageUrl)
+  out.push(k.items(o.lines.map((l) => ({ title: l.title, detail: l.detail ?? null, amount: l.amount, imageUrl: l.imageUrl ?? null })), { pictures }))
   out.push(k.totals(o.totals, { below: o.payout?.length ? 0 : 24 }))
   if (o.payout?.length) out.push(k.totals(o.payout))
   for (const sec of o.sections ?? []) {
@@ -163,12 +168,18 @@ function orderBlocks(k: EmailKit, o: OrderSummary): string[] {
   return out
 }
 
+/**
+ * The footer's small links. An email about one order or payment (a new
+ * order, a return asked for) is transactional: it has no Unsubscribe, only
+ * the settings where order emails are turned off. Reminders, digests and
+ * lifecycle mail carry the Unsubscribe link their sender gives.
+ */
 function footerLinks(input: LayoutInput): Link[] {
-  if (!showsUnsubscribe(input.family, input.unsubscribeUrl)) return []
+  if (!FAMILY_STYLES[input.family].unsubscribable) return []
   const links: Link[] = []
   if (input.preferencesUrl) links.push({ label: "Notification settings", url: input.preferencesUrl })
   /* A buyer's link turns off one kind of email, so it says which one rather than "Unsubscribe". */
-  links.push({ label: input.unsubscribeLabel || "Unsubscribe", url: input.unsubscribeUrl as string })
+  if (showsUnsubscribe(input.family, input.unsubscribeUrl)) links.push({ label: input.unsubscribeLabel || "Unsubscribe", url: input.unsubscribeUrl as string })
   return links
 }
 

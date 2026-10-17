@@ -124,7 +124,8 @@ async function main() {
   check("sent after all: the request is no longer open", openCancelRequest({ ...asked, shipments: [{ status: "shipped" }] }) === null)
   check("a reason is kept plain and short", cleanCancelReason("  <b>too\nlate</b>  ") === "b too late /b" && (cleanCancelReason("x".repeat(500)) ?? "").length === 300 && cleanCancelReason(42) === null)
   check("the shop's switch defaults on and reads back", DEFAULT_CHECKOUT.buyerCancel === true && checkoutConfig({ buyerCancel: false }).buyerCancel === false && checkoutConfig(null).buyerCancel === true)
-  check("  and Settings › Checkout has it", /Let buyers ask to cancel/.test(read("components/app/settings/checkout-panel.tsx")) && /change\(\{ buyerCancel: v \}\)/.test(read("components/app/settings/checkout-panel.tsx")))
+  /* Changed on purpose (round 27, B27): the switch lets buyers cancel (tests/buyer27.test.ts). */
+  check("  and Settings › Checkout has it", /Let buyers cancel/.test(read("components/app/settings/checkout-panel.tsx")) && /change\(\{ buyerCancel: v \}\)/.test(read("components/app/settings/checkout-panel.tsx")))
 
   const TOKEN = "tok_abcdefghijklmnopqrstu"
   const CO = "44444444-4444-4444-8444-444444444444"
@@ -207,7 +208,7 @@ async function main() {
   check("a help article for Printful and Printify", !!pod)
   for (const words of ["private token", "API token", "Connected to Printful", "same SKU", "Send orders straight to production", "draft", "tracking number", "Coming soon", "Tell me when it's ready", "never shows as sold out"]) check(`  it says "${words}"`, podText.includes(words))
   check("  and the integrations article says Send a test and points to it", /Send a test/.test(articleText(helpArticle("physical-products", "integrations")!)) && /printful-and-printify/.test(JSON.stringify(helpArticle("physical-products", "integrations"))))
-  check("the cancel article covers a buyer's request with the order's own words", ["Cancel requested", "Cancel and refund", "Keep order", "Let buyers ask to cancel"].every((w) => articleText(helpArticle("physical-products", "cancel-a-physical-order")!).includes(w)))
+  check("the cancel article covers a buyer's request with the order's own words", ["Cancel requested", "Cancel and refund", "Keep order", "Let buyers cancel"].every((w) => articleText(helpArticle("physical-products", "cancel-a-physical-order")!).includes(w)))
   const docs = JSON.stringify(COMMERCE_DOCS)
   for (const words of ["/api/integrations/webhooks/<printful or printify>/<token>", "COMMERCE_SECRETS_KEY", "SUPABASE_SERVICE_ROLE_KEY", "/api/cron/physical", "order.cancel_requested", "Delivery problem", "pickup_hours", "local_delivery_codes", "store_settings.legal", "Business details", "Send a test"]) check(`the admin guide says ${words}`, docs.includes(words))
 

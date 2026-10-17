@@ -18,13 +18,25 @@
  * a security or receipt email.
  */
 import { emailImageSrc } from "@/lib/email-campaigns/sender"
+import { mediaUrl } from "@/lib/storage/media-url"
 import type { InAppContent, NotificationType, RenderedEmail, TemplateContext } from "../types"
 import { CATALOG, DATA_KEYS, Data, factsOf, type Audience, type Message } from "./catalog"
 import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, safeImageUrl, sameSiteUrl } from "./escape"
-import { MEDIA_PX, renderHtml, renderText, type LayoutInput } from "./layout"
+import { ITEM_PX, MEDIA_PX, renderHtml, renderText, type LayoutInput, type OrderSummary } from "./layout"
 
 export { DATA_KEYS, PATHS, formatMoney, formatDate } from "./catalog"
 export { FAMILY_STYLES, EMAIL_LOGO_URL } from "./layout"
+
+/** A picture for an inbox: https only, at Storelib's own address (never the storage host), resized through the image endpoint; null for anything else. */
+export function inboxPicture(url: unknown, drawnPx: number): string | null {
+  return safeImageUrl(emailImageSrc(mediaUrl(safeImageUrl(url)), drawnPx))
+}
+
+/** An order's items with each picture made fit for an inbox (ITEM_PX). */
+function sizedOrder(o: OrderSummary | null | undefined): OrderSummary | null {
+  if (!o) return null
+  return { ...o, lines: o.lines.map((l) => ({ ...l, imageUrl: inboxPicture(l.imageUrl, ITEM_PX) })) }
+}
 
 function message(type: NotificationType, data: Record<string, unknown>, ctx: TemplateContext): Message {
   const entry = CATALOG[type]
@@ -79,8 +91,9 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     paragraphs: m.paragraphs.filter((p) => p && p.trim()),
     facts: factsOf(m),
     /* The product's own picture, sized for an inbox and https only; anything else draws the letter tile. */
-    media: m.media && m.media.title ? { title: m.media.title, subtitle: m.media.subtitle ?? null, imageUrl: safeImageUrl(emailImageSrc(safeImageUrl(m.media.imageUrl), MEDIA_PX)) } : null,
-    order: m.order ?? null,
+    media: m.media && m.media.title ? { title: m.media.title, subtitle: m.media.subtitle ?? null, imageUrl: inboxPicture(m.media.imageUrl, MEDIA_PX) } : null,
+    /* Each item's own picture, sized the same way. */
+    order: sizedOrder(m.order),
     action: link(m.action),
     rate: m.rate ? { label: m.rate.label, links: m.rate.paths.map((path, i) => link({ label: `${i + 1} ${i === 0 ? "star" : "stars"}`, path })).filter((l): l is { label: string; url: string } => l !== null) } : null,
     secondary: replyUrl && m.reply ? { label: m.reply.label, url: replyUrl } : null,

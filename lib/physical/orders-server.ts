@@ -22,7 +22,7 @@ import { queueCancelledEmail, queueOrderUpdatedEmail, queueRefundEmail, queueRet
 import { addressLines, readAddress } from "./address"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod, sellerNextStep } from "./fulfillment"
-import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
+import { CANCEL_DECLINED, CANCEL_REQUESTED, CANCELLED_BY_BUYER, FORWARDED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
 import { normaliseTrackingNumber } from "./carriers"
 import { trackingAvailable, trackingNumberChanged } from "./tracking/accounts-server"
 import { cleanNote } from "./notes"
@@ -410,7 +410,8 @@ export async function fulfilItems(
   if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
   let url = pickup ? null : cleanText(input.trackingUrl, 500)
   if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
-  url = url ?? trackingUrl(carrier, tracking)
+  /* The shipping country picks a carrier's own national tracking page where it runs one (DPD in Romania). */
+  url = url ?? trackingUrl(carrier, tracking, typeof order.address?.country === "string" ? order.address.country : null)
   const key = cleanText(input.key, 120)
   const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
   /* Where it ships from: one of the chosen lines' own locations, never an id taken on trust from the request. */
@@ -508,7 +509,13 @@ export async function updateShipment(
     if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
     let url = "trackingUrl" in input ? cleanText(input.trackingUrl, 500) : null
     if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
-    url = url ?? trackingUrl(carrier, tracking) ?? (tracking === f.tracking_number ? f.tracking_url : null)
+    /* The shipping country, for a carrier's own national tracking page (DPD in Romania). */
+    let country: string | null = null
+    if (!url && tracking && f.checkout_id) {
+      const { data: co } = await db.from("commerce_checkouts").select("shipping_address").eq("id", f.checkout_id).maybeSingle()
+      country = typeof co?.shipping_address?.country === "string" ? co.shipping_address.country : null
+    }
+    url = url ?? trackingUrl(carrier, tracking, country) ?? (tracking === f.tracking_number ? f.tracking_url : null)
     Object.assign(patch, { carrier, tracking_number: tracking, tracking_url: url })
   }
   const to = typeof input.status === "string" ? (input.status as ShipmentStatus) : null
@@ -598,7 +605,8 @@ export async function updateShipment(
       in one place (events-server, jobs-server queueDeliveryProblem), once per
       time it fails. Unticked notify rides along on that entry's detail.
     */
-    else if (trackingChanged && !to && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
+    /* A delivered parcel whose number is corrected afterwards: the record is fixed, the buyer, who has it already, is not told it is "on the way". */
+    else if (trackingChanged && !to && f.status !== "delivered" && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
       /* A first number on a shipment sent without one reads as "on the way"; a changed one says it changed. */
       await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, f.tracking_number ? "tracking" : "shipped", `email:tracking:${fulfillmentId}:${patch.tracking_number}`)
     }
@@ -664,8 +672,8 @@ export async function updateAddress(db: Db, creatorId: string, checkoutId: strin
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
 
-/** Nothing shipped yet: the order is cancelled and its stock goes back. Money is refunded separately. */
-export async function cancelOrder(db: Db, creatorId: string, checkoutId: string, reason: unknown): Promise<Outcome> {
+/** Nothing shipped yet: the order is cancelled and its stock goes back. Money is refunded separately. `by` the buyer (./buyer-cancel-server.ts): the seller is emailed. */
+export async function cancelOrder(db: Db, creatorId: string, checkoutId: string, reason: unknown, by: "creator" | "buyer" = "creator"): Promise<Outcome> {
   const order = await loadOrder(db, { creatorId, checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
   if (order.cancelledAt) return { ok: true, order }
@@ -674,8 +682,8 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   const now = new Date().toISOString()
   /* Cash on delivery not collected: no money ever moved, so its lines stop being a sale. "failed" is what every figure already leaves out (lib/orders/order-view isSale, the analytics SQL), and the order reads Voided (paymentOf). A card order is cancelled and then refunded instead. */
   if (order.payment === "cod_due") await db.from("orders").update({ status: "failed" }).eq("checkout_id", checkoutId).eq("payment_method", COD_PAYMENT_METHOD)
-  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
-  await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
+  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? (by === "buyer" ? CANCELLED_BY_BUYER : "Cancelled by the shop"), fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
+  await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `${by === "buyer" ? "The buyer cancelled this order" : "Order cancelled"}${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: by, key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
@@ -712,14 +720,15 @@ export async function requestBuyerCancel(db: Db, receiptToken: string, input: { 
 
 /**
  * The cancel request's entries alone, newest first. An order read by its token (the buyer's page) carries no
- * timeline, since the shop's own notes are on it; these two are the buyer's business, so they are read apart.
+ * timeline, since the shop's own notes are on it; these two are the buyer's business, so they are read apart,
+ * with whether it went to a partner (./buyer-cancel.ts cancelMode).
  */
 export async function cancelEvents(db: Db, checkoutId: string): Promise<OrderEvent[]> {
   const { data } = await db
     .from("commerce_order_events")
     .select("id, kind, message, actor, created_at, detail")
     .eq("checkout_id", checkoutId)
-    .in("kind", [CANCEL_REQUESTED, CANCEL_DECLINED])
+    .in("kind", [CANCEL_REQUESTED, CANCEL_DECLINED, FORWARDED])
     .order("created_at", { ascending: false })
     .limit(10)
   return ((data ?? []) as { id: number; kind: string; message: string | null; actor: OrderEvent["actor"]; created_at: string; detail: Record<string, unknown> | null }[]).map((r) => ({ id: r.id, kind: r.kind, message: r.message ?? "", actor: r.actor, createdAt: r.created_at, detail: r.detail }))

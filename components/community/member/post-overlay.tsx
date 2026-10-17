@@ -352,7 +352,8 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, withPage, 
             onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
           />
         ) : (
-          <CommentsPlaceholder expected={post.commentCount} pinComposer={pinComposer} />
+          /* Round 27 (I6): a post nobody can comment on keeps the room of the line saying so, not of the box. */
+          <CommentsPlaceholder expected={post.commentCount} pinComposer={pinComposer} closed={readOnly || !viewer.can.comment || (post.locked && !viewer.can.lock)} />
         )}
       </section>
     </>

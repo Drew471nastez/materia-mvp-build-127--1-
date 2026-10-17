@@ -112,7 +112,8 @@ export async function liveCarrierQuotes(
   }
   const answered = await Promise.all(
     providers.map(async (id) => {
-      const key = `${input.creatorId}|${id}|${to.country}|${to.region ?? ""}|${String(to.postalCode).toUpperCase()}|${Math.ceil(parcel.grams / 50)}|${pkg?.id ?? ""}`
+      /* The city is part of the key: an answer asked without one (often nothing, in Europe) is never kept for the address once it has one. */
+      const key = `${input.creatorId}|${id}|${to.country}|${to.region ?? ""}|${String(to.postalCode).toUpperCase()}|${to.city.trim().toLowerCase()}|${Math.ceil(parcel.grams / 50)}|${pkg?.id ?? ""}`
       const hit = kept.get(key)
       if (hit && Date.now() - hit.at < KEEP_MS) return [id, hit.rates] as const
       const cred = await connectedKey(db, input.creatorId, id)

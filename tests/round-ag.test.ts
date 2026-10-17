@@ -104,7 +104,8 @@ async function main() {
 
   console.log("\nCreator pages and pictures")
   const lang = code("components/storefront/creator-language.tsx")
-  check("no language dropdown on a creator page (the offer card stays)", !/<select/.test(lang) && /<LanguageSuggest/.test(lang))
+  /* Changed on purpose (round 27, the owner): the floating offer card is gone from the creator page too. */
+  check("no language dropdown on a creator page, and no offer card either", !/<select/.test(lang) && !/<LanguageSuggest/.test(lang))
   const more = code("lib/commerce/product-page-cache.ts")
   check("More from: plain products without a community's plans, and each community once", /excludingCommunityProducts\(/.test(more) && /if \(exclude\) q = q\.is\("community_id", null\)/.test(more) && /from\("communities"\)/.test(more) && /title: c\.name \|\| pick\.title/.test(more))
   const { IMAGE_FALLBACK_SCRIPT } = await import("@/lib/media/image-fallback")

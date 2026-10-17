@@ -538,7 +538,8 @@ section("The sidebar advertises nothing that does not exist")
   check("  a row's picture is drawn on desktop and phone alike", /child\.thumb \?/.test(r("components/app/sidebar-desktop-nav.tsx")) && /child\.thumb \?/.test(r("components/app/sidebar-mobile-nav.tsx")))
   /* Changed on purpose (round K4, Andrew: "remove the large Connected heading and horizontal installed section; Installed becomes a pill filter"): yours are the Installed pill, right after All. */
   check("the page: the same directory as Settings, yours under the Installed pill beside All", /<IntegrationsDirectory page \/>/.test(r("app/app/integrations/integrations-client.tsx")) && !/data-installed-integrations=""/.test(r("components/app/settings/integrations-directory.tsx")) && /\["all", "installed",/.test(r("lib/integrations/directory-order.ts")))
-  check("  links that went to Settings › Integrations open the page", /"\/app\/integrations\?integration=storelib-reviews"/.test(r("app/app/reviews/page.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
+  /* Changed on purpose (round 27): /app/reviews is Storelib Reviews' own page now, not a way to Integrations. */
+  check("  links that went to Settings › Integrations open the page", /only="storelib-reviews"/.test(r("app/app/reviews/reviews-client.tsx")) && /door\("\/app\/integrations", "Integrations"\)/.test(r("components/website-builder/website-settings/commerce.tsx")))
 }
 
 /*

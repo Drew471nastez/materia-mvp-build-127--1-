@@ -43,27 +43,30 @@ const LABEL: Record<ManageView, () => string> = {
 
 const isView = (v: string): v is ManageView => (MANAGE_VIEWS as readonly string[]).includes(v)
 
-function ReviewsIntegrationBody({ tab, setTab, sections, Layout, onChanged }: IntegrationAppBodyProps) {
+function ReviewsIntegrationBody({ tab, warm, setTab, sections, Layout, onChanged }: IntegrationAppBodyProps) {
   const view: ManageView = isView(tab) ? tab : "overview"
   const body = (
     <ReviewsManageBody
       view={view}
+      warm={warm && isView(warm) ? warm : null}
       onGo={setTab}
       onAppChanged={onChanged}
       settingsExtra={
-        view === "settings" ? (
-          <>
-            {sections.status}
-            {sections.danger}
-            {sections.overview}
-            {sections.data}
-          </>
-        ) : null
+        <>
+          {sections.status}
+          {sections.danger}
+          {sections.overview}
+          {sections.data}
+        </>
       }
     />
   )
-  /* At a glance beside the settings, as the page has it for every integration; the other views use the full width. */
-  return view === "settings" ? <Layout main={body} aside={sections.glance} /> : body
+  /*
+    At a glance beside the settings, as the page has it for every integration; the other views use the full width.
+    One tree for every tab (round 27): the body was drawn bare on five tabs and inside the layout on Settings, so going
+    to Settings or leaving it built the whole page again, every tab's reads and grey boxes with it.
+  */
+  return <Layout main={body} aside={view === "settings" ? sections.glance : undefined} />
 }
 
 export const reviewsIntegrationView: IntegrationAppView = {

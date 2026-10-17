@@ -11,11 +11,15 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * GET  /api/app/community/<id>/scheduled-posts -> { ready, rows, spaces }
+ * GET  /api/app/community/<id>/scheduled-posts -> { ready, media, rows, spaces }
  *      Drafts and scheduled posts, then what went up or failed lately, and
- *      the spaces the signed in person may post in (round 32).
- * POST /api/app/community/<id>/scheduled-posts { spaceId, title, body, publishAt | null }
- *      -> { post }. publishAt null keeps it as a draft.
+ *      the spaces the signed in person may post in (round 32). `media` is
+ *      false before run-now part 222 (round 27).
+ * POST /api/app/community/<id>/scheduled-posts { spaceId, title, body, publishAt | null, media?, poll? }
+ *      -> { post }. publishAt null keeps it as a draft. `media` is the post
+ *      route's list (pictures, a video, files, GIFs, videos by link, a link
+ *      card), `poll` { question, options, multiple, closesInDays: 1 | 3 | 7 | null }
+ *      (lib/communities/scheduled-posts.ts).
  * Anybody on the team who may post (requireCreatorCommunity "post").
  */
 export async function GET(_request: Request, { params }: Params) {

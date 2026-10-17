@@ -483,13 +483,13 @@ function useFieldInView(box: React.RefObject<HTMLElement | null>, on: boolean) {
  * the phone's Settings page (a layer under the app's header and nav pill)
  * was under both. Both halves are portalled to the body.
  */
-export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
+export function Modal({ open, onClose, title, children, footer, wide, closeButton = true }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; /** False: the phone sheet has no X; a pull down, a tap above it or the footer's Cancel closes it. */ closeButton?: boolean }) {
   const phone = useModalPhone()
-  if (phone) return <ModalSheet open={open} onClose={onClose} title={title} footer={footer} wide={wide}>{children}</ModalSheet>
+  if (phone) return <ModalSheet open={open} onClose={onClose} title={title} footer={footer} wide={wide} closeButton={closeButton}>{children}</ModalSheet>
   return <ModalDialog open={open} onClose={onClose} title={title} footer={footer} wide={wide}>{children}</ModalDialog>
 }
 
-function ModalSheet({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
+function ModalSheet({ open, onClose, title, children, footer, wide, closeButton = true }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; closeButton?: boolean }) {
   const body = React.useRef<HTMLDivElement>(null)
   useFieldInView(body, open)
   return (
@@ -502,11 +502,13 @@ function ModalSheet({ open, onClose, title, children, footer, wide }: { open: bo
       aboveKeyboard
       maxHeight={wide ? "calc(var(--vv-h, 100dvh) * 0.92)" : "calc(var(--vv-h, 100dvh) * 0.88)"}
       header={
-        <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-2" data-modal-sheet-head="">
+        <div className={cn("flex items-center justify-between gap-3 px-4 pb-1", closeButton ? "pt-2" : "min-h-11 pt-1")} data-modal-sheet-head="">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
-          <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
-            <X className="h-4 w-4" />
-          </button>
+          {closeButton ? (
+            <button type="button" data-close="" data-sheet-close="" aria-label={tt("Close")} className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
       }
     >

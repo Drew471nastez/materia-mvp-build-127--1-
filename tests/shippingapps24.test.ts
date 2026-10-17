@@ -558,6 +558,16 @@ console.log("\nCarrier calculated rates at checkout\n")
   const down = await liveCarrierQuotes(db, { creatorId: CREATOR, profiles: [profile], destination: { country: "US", postalCode: "11201" }, grams: 800, currency: "usd" })
   check("Shippo down: left out, never guessed", down.size === 0)
 
+  /* Most European carriers price nothing without a city: the buyer's city reaches the provider, and an answer asked
+     before it was typed is never reused once it is (lib/integrations/shipping/checkout-rates-server.ts). */
+  forgetCarrierQuotes()
+  reset([hit("POST", /goshippo\.com\/shipments\/$/, 201, { ...shippoShipment("storelib:checkout"), rates: [] })])
+  const noCity = await liveCarrierQuotes(db, { creatorId: CREATOR, profiles: [profile], destination: { country: "US", region: "NY", postalCode: "11201" }, grams: 800, currency: "usd" })
+  reset([hit("POST", /goshippo\.com\/shipments\/$/, 201, shippoShipment("storelib:checkout"))])
+  const withCity = await liveCarrierQuotes(db, { creatorId: CREATOR, profiles: [profile], destination: { country: "US", region: "NY", postalCode: "11201", city: "Brooklyn", line1: "1 Court St" }, grams: 800, currency: "usd" })
+  check("the buyer's city and street reach the carrier, and an answer from before the city is not reused", noCity.size === 0 && withCity.get("live") === 758 && calls[0]?.body.address_to.city === "Brooklyn" && calls[0]?.body.address_to.street1 === "1 Court St")
+  check("  the checkout passes the city through, from both quote routes", /city: address\.city \?\? null/.test(read("lib/physical/checkout-pricing-server.ts")) && /\{ country, region, postalCode, city \}/.test(read("app/api/physical/checkout/quote/route.ts")) && /\{ country, region, postalCode, city \}/.test(read("lib/checkout/site-quote-server.ts")) && /city: cityForQuote/.test(read("app/checkout/physical/physical-checkout.tsx")) && /city: cityForQuote/.test(read("app/checkout/site/site-checkout.tsx")))
+
   reset([])
   const flatOnly = { ...profile, zones: [{ ...profile.zones[0], rates: [profile.zones[0].rates[0]] }] }
   const noCall = await liveCarrierQuotes(db, { creatorId: CREATOR, profiles: [flatOnly], destination: { country: "US", postalCode: "11201" }, grams: 800, currency: "usd" })

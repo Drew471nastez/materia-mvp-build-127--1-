@@ -447,7 +447,7 @@ export interface CheckoutQuote {
 export async function quoteCheckout(
   db: Db,
   priced: Extract<PricedCheckout, { ok: true }>,
-  address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null,
+  address: (Pick<Address, "country" | "region"> & { postalCode?: string | null; city?: string | null; line1?: string | null }) | null,
   optionId?: unknown,
   /** Paying on delivery: its fee (Settings › Checkout), in the total the buyer is shown and the order keeps. */
   pay: { codFeeCents?: number } = {},
@@ -464,7 +464,8 @@ export async function quoteCheckout(
       const carrierQuotes = await liveCarrierQuotes(db, {
         creatorId: priced.creatorId,
         profiles,
-        destination: { country: address.country, region: address.region ?? null, postalCode: address.postalCode ?? null },
+        /* The city and street too when the buyer has typed them: most European carriers price nothing without a city. */
+        destination: { country: address.country, region: address.region ?? null, postalCode: address.postalCode ?? null, city: address.city ?? null, line1: address.line1 ?? null },
         grams: priced.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.weightGrams) * l.quantity, 0),
         /* Carriers price in the store's own currency, as its rates and the charge are. */
         currency: store.currency.toLowerCase(),

@@ -57,6 +57,8 @@ export interface TimelineEvent {
   link?: { href: string; label: string }
   /** A note the shop wrote: `text` is the note, drawn as written. */
   note?: boolean
+  /** A parcel handed to a carrier: its logo is the entry's mark instead of the truck. */
+  carrier?: string | null
 }
 
 export interface OrderActivity {
@@ -272,6 +274,7 @@ export function physicalEvents(p: PhysicalHistory): TimelineEvent[] {
       link: !p.pickup && s.trackingUrl ? { href: s.trackingUrl, label: tt("Track") } : undefined,
       tone: "success",
       glyph: "shipped",
+      carrier: p.pickup ? null : s.carrier,
     })
     if (s.status === "delivered" && s.deliveredAt) {
       events.push({ id: `delivered-${s.id}`, at: s.deliveredAt, text: p.pickup ? tt("{count} picked up", { count: count(n) }) : tt("{count} delivered", { count: count(n) }), tone: "success", glyph: "delivered" })

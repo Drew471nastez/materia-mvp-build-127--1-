@@ -6,7 +6,7 @@ import { AppStage } from "./app-stage"
 import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
-import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import { keyboardInsetOrFloor, writeRootLater } from "@/lib/ui/keyboard-safe-sheet"
 import AppColdStart from "@/app/app/cold-start"
 import { revealAppFromDark } from "@/lib/appearance/client"
 import { revealIntoApp } from "@/lib/navigation/into-app-still"
@@ -149,7 +149,8 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
       // Keyboard appearance / disappearance (width unchanged).
       // Keyboard height = total window height minus visible-viewport height minus any scroll offset
       const kbHeight = keyboardInsetOrFloor(Math.max(0, window.innerHeight - vv.offsetTop - vv.height))
-      root.style.setProperty("--keyboard-inset-height", `${kbHeight}px`)
+      /* Round 27: with the other keyboard numbers on <html>, in one write a frame (keyboard-safe-sheet.ts writeRootLater). */
+      writeRootLater({ vars: { "--keyboard-inset-height": `${kbHeight}px` } })
 
       // iOS WKWebView scrolls the visual viewport up when the keyboard opens so
       // the focused input stays in view. On /app pages html has overflow:hidden,

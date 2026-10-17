@@ -67,8 +67,17 @@
  * Seen once in a visit (`resizes`), it is known from the next focus on, so the
  * box is not lifted for a frame before the web view shrinks.
  *
+ * ROUND 27: KEYS DOWN, THE CARET KEPT. The keyboard can go down while the
+ * field keeps the caret (its own hide key, an iPad's, the app's plugin
+ * saying keyboardWillHide). Every row that stood in a number for a platform
+ * that says nothing (the table, the floor, the plugin's last height) then
+ * kept the box up where the keys had been. Once the platform has said they
+ * went (`gone`, visible-box.ts keyboardGone), the room is what the visible
+ * part says, until the keys are asked for again.
+ *
  * Pure: no DOM, no React. tests/communities-post17.test.ts holds the table,
- * tests/community-mobile-r8.test.ts the resized web view.
+ * tests/community-mobile-r8.test.ts the resized web view, tests/posts27.test.ts
+ * the keys going down under a kept caret.
  */
 import { keyboardInsetFrom } from "@/lib/ui/keyboard-safe-sheet"
 
@@ -101,6 +110,8 @@ export interface KeyboardFacts {
   fullH?: number
   /** This visit has already seen the web view resized for a keyboard. */
   resizes?: boolean
+  /** Round 27: the platform said the keys went down while the field kept the caret (visible-box.ts keyboardGone). */
+  gone?: boolean
 }
 
 /** Shorter than any keyboard, taller than any browser toolbar: a fixed box this much shorter than it was is a resized web view. */
@@ -128,6 +139,8 @@ export function keyboardPlan(env: KeyboardEnv, m: KeyboardFacts): KeyboardPlan {
   const top = Math.max(0, Math.round(m.vvTop))
   if (!m.typing || env === "computer") return { top, foot: "tabs", source: "screen", atFocus: false, holdScroll: false }
   const reported = keyboardInsetFrom({ layoutHeight: m.layoutH, innerHeight: m.innerH, vvTop: m.vvTop, vvHeight: m.vvH })
+  /* ROUND 27: the keys went down under a field that kept the caret: what the visible part says, never a keyboard height kept from before (the box left floating where the keys had been). */
+  if (m.gone) return { top, foot: reported, source: "visual", atFocus: false, holdScroll: false }
   /* ROUND R8: the iOS app's web view made the room itself (resized now, or seen to resize earlier in this visit): what the visible part says, never a keyboard height on top, and its scroll left alone. */
   if ((env === "ios-app" || env === "ios-app-plugin") && (m.resizes || webViewResized(m))) return { top, foot: reported, source: "visual", atFocus: false, holdScroll: false }
   if (env === "ios-app-plugin" && m.native > 0) return { top, foot: Math.max(0, Math.round(m.native - top)), source: "native", atFocus: true, holdScroll: true }

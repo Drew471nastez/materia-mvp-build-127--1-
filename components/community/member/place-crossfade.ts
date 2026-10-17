@@ -24,6 +24,18 @@ import { copyInView } from "@/lib/navigation/in-view-copy"
  * on the compositor; nothing in the bar, the columns or the tab bar moves.
  * Back and Forward put a place back as it was, with no motion, as before,
  * and reduced motion has neither.
+ *
+ * WHAT STUCK STAYS WHERE IT WAS (round 27, the owner: "switching between the
+ * community and Learn, the header glitches, flashes and bumps"). Filmed in
+ * the real app (scripts/check-community-header27.mjs): with the feed
+ * scrolled, its row of space chips is stuck right under the bar; in the
+ * copy it was not stuck any more, so for the 120ms of the fade it jumped up
+ * by the page's scroll, behind the bar, its dark pill showing as a sliver
+ * under the bar's edge: the bar seemed to glitch and bump. Now everything
+ * that is stuck when the place is copied (position: sticky, where it is not
+ * at its place in the flow) is marked, and in the copy it is unstuck and put
+ * back exactly where it stood on the screen, so the copy is the screen as it
+ * was, and fades as one.
  */
 
 /** The place coming in: from nothing, 4px under, on an ease out that is not front loaded. */
@@ -41,8 +53,13 @@ export const STILL_FRESH_MS = 1500
 /** On the copy, so no query for a place, a seed or a spinner ever finds it. */
 export const PLACE_STILL_ATTR = "data-place-still"
 
+/** On the original while it is copied, and on the copy after: which of the copy's elements were stuck, and where. */
+const PIN_ATTR = "data-still-pin"
+
 export interface PlaceStill {
   node: HTMLElement
+  /** What was stuck in the window when it was copied: its place on screen then, by its PIN_ATTR in the copy. */
+  pins: { id: string; top: number; left: number }[]
   /** Where the place stood in the window when it was copied, and the page's scroll then. */
   left: number
   top: number
@@ -59,14 +76,28 @@ export function takePlaceStill(el: HTMLElement | null | undefined): PlaceStill |
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return null
   const r = el.getBoundingClientRect()
   if (r.width < 1 || r.height < 1 || r.bottom <= 0 || r.top >= window.innerHeight) return null
+  /* Sticky parts in the window (a class says sticky, the style confirms it): only a few elements are asked, never the whole feed. */
+  const pins: PlaceStill["pins"] = []
+  const marked: HTMLElement[] = []
+  el.querySelectorAll<HTMLElement>('[class*="sticky"]').forEach((s) => {
+    const b = s.getBoundingClientRect()
+    /* A row of no height of its own counts too: what it holds overflows it (the feed's floating row under the bar). */
+    if (b.bottom < 0 || b.top >= window.innerHeight || getComputedStyle(s).position !== "sticky") return
+    const id = String(pins.length)
+    s.setAttribute(PIN_ATTR, id)
+    marked.push(s)
+    pins.push({ id, top: b.top, left: b.left })
+  })
   try {
     const node = copyInView(el, window.innerHeight, MARKS)
     node.setAttribute(PLACE_STILL_ATTR, "")
     node.setAttribute("aria-hidden", "true")
     node.inert = true
-    return { node, left: r.left, top: r.top, width: r.width, scrollY: window.scrollY, at: performance.now() }
+    return { node, pins, left: r.left, top: r.top, width: r.width, scrollY: window.scrollY, at: performance.now() }
   } catch {
     return null
+  } finally {
+    for (const s of marked) s.removeAttribute(PIN_ATTR)
   }
 }
 
@@ -100,6 +131,18 @@ export function playPlaceCrossfade(still: PlaceStill | null, host: HTMLElement |
   if (Math.abs(got.left - still.left) > 0.5 || Math.abs(got.top - clip) > 0.5) {
     box.style.left = `${Math.round(still.left - (got.left - still.left))}px`
     box.style.top = `${Math.round(clip - (got.top - clip))}px`
+  }
+  /*
+    Unstuck in the copy and put back where it stood on the screen: a stuck part stays on the screen whatever the page's
+    scroll did since, so that is where the copy has to show it (WHAT STUCK STAYS WHERE IT WAS, above).
+  */
+  for (const pin of still.pins) {
+    const c = still.node.querySelector<HTMLElement>(`[${PIN_ATTR}="${pin.id}"]`)
+    if (!c) continue
+    c.style.position = "relative"
+    c.style.top = "0px"
+    const at = c.getBoundingClientRect()
+    c.style.translate = `${Math.round(pin.left - at.left)}px ${Math.round(pin.top - at.top)}px`
   }
   let over = false
   const done = () => {

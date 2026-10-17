@@ -86,6 +86,14 @@ export function ResolutionCenter() {
     if (tab === "requests") void loadTickets(status)
   }, [tab, status, loadTickets])
 
+  /* How many buyer cases wait on Storelib, on the tab before it is opened: a buyer waiting should never be found by chance. */
+  React.useEffect(() => {
+    if (tab === "cases") return
+    void call<{ counts: { storelib: number } }>("/api/admin/cases?view=storelib").then((r) => {
+      if (!("error" in r)) setCaseCount(r.data.counts.storelib)
+    })
+  }, [tab])
+
   React.useEffect(() => {
     if (tab !== "disputes" || cases) return
     void call<{ cases: Case[] }>("/api/admin/payments/disputes").then((r) => {
@@ -125,7 +133,7 @@ export function ResolutionCenter() {
             }}
             options={[
               { id: "requests", label: counts ? `Requests (${counts.open})` : "Requests" },
-              { id: "cases", label: caseCount !== null ? `Buyer cases (${caseCount})` : "Buyer cases" },
+              { id: "cases", label: caseCount ? `Buyer cases (${caseCount})` : "Buyer cases" },
               { id: "disputes", label: "Disputes" },
             ]}
           />

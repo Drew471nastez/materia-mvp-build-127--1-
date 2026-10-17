@@ -247,7 +247,7 @@ export function EmailsHome(props: EmailsHomeProps) {
   const router = useRouter()
   return (
     <>
-      <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
+      <PaneBar width={LIST_WIDTH} sticky className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
           <div className="flex min-w-0 items-center gap-2">

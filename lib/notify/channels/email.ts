@@ -76,7 +76,8 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
       baseUrl: o.baseUrl(),
       recipientName: recipientName ?? null,
       unsubscribeUrl: unsubscribe,
-      preferencesUrl: entry.recipient === "creator" && o.preferencesUrl ? o.preferencesUrl() : null,
+      /* Only mail the person can turn off points at the settings; required service mail has neither link. */
+      preferencesUrl: optional && entry.recipient === "creator" && o.preferencesUrl ? o.preferencesUrl() : null,
       when: null,
     }
     let rendered: RenderedEmail

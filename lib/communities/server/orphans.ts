@@ -43,11 +43,16 @@ import "server-only"
  * Videos are not swept here: a community video can be in a post, the
  * gallery, an event or a lesson, and the video library (./videos.ts) is
  * where its owner removes one.
+ *
+ * SCHEDULED POSTS AND DRAFTS CARRY THEM TOO (round 27, run-now part 222). A
+ * post scheduled weeks ahead, or a team draft, keeps its pictures and files
+ * in `community_scheduled_posts.media` until it goes up; they are used, and
+ * kept, like a post's. A database without that table or column has none.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { STORAGE_BUCKET } from "@/lib/storage/plans"
 import { COMMUNITY_FILES_FOLDER, PICTURE_BUCKET } from "../post-media"
-import { reasonOf } from "./db"
+import { missing, reasonOf } from "./db"
 
 export const ORPHANS = {
   graceDays: 14,
@@ -98,12 +103,16 @@ async function referencesSince(admin: SupabaseClient, communityId: string, autho
   const by = `author_id.eq.${authorId},author_id.is.null`
   /* Written or edited since: one "or" a query, so the post reads are two (by the member, by deleted accounts). */
   const fresh = `created_at.gte."${sinceIso}",edited_at.gte."${sinceIso}"`
-  const [mine, orphaned, comments, messages] = await Promise.all([
+  const [mine, orphaned, comments, messages, waiting] = await Promise.all([
     admin.from("community_feed_posts").select("title, body_text, media").eq("community_id", communityId).eq("author_id", authorId).or(fresh).limit(5000),
     admin.from("community_feed_posts").select("title, body_text, media").eq("community_id", communityId).is("author_id", null).or(fresh).limit(5000),
     admin.from("community_feed_comments").select("body, media").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
     admin.from("community_messages").select("body, attachments").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
+    /* Scheduled posts and drafts, by anyone on the team (round 27): a picture is in its uploader's folder, whoever's post it is. */
+    admin.from("community_scheduled_posts").select("media").eq("community_id", communityId).gte("updated_at", sinceIso).limit(5000),
   ])
+  /* Before parts 194 and 222 there are none; any other failure keeps everything. */
+  if (waiting.error && !missing(waiting.error)) return null
   /* A missing media column (a database before part 96) reads again without it. */
   let commentRows = comments.data as unknown[] | null
   if (comments.error && /media/.test(comments.error.message ?? "")) {
@@ -113,8 +122,9 @@ async function referencesSince(admin: SupabaseClient, communityId: string, autho
   } else if (comments.error) return null
   if (mine.error || orphaned.error || messages.error) return null
   /* A read that came back full may have left a reference out: keep everything rather than guess. */
-  if ([mine.data, orphaned.data, commentRows, messages.data].some((d) => Array.isArray(d) && d.length >= 5000)) return null
-  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? []])
+  const waitingRows = waiting.error ? [] : (waiting.data ?? [])
+  if ([mine.data, orphaned.data, commentRows, messages.data, waitingRows].some((d) => Array.isArray(d) && d.length >= 5000)) return null
+  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? [], waitingRows])
 }
 
 /** Pictures uploaded for a community and never used. */
@@ -222,6 +232,9 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
           admin.from("community_feed_comments").select("id").eq("community_id", c.id).contains("media", carries).limit(1),
           admin.from("community_messages").select("id").eq("community_id", c.id).contains("attachments", carries).limit(1),
         ])
+        /* A scheduled post or a draft carrying it (round 27, part 222); before that part there are none. */
+        const scheduled = await admin.from("community_scheduled_posts").select("id").eq("community_id", c.id).contains("media", carries).limit(1)
+        if (!(scheduled.error && missing(scheduled.error))) reads.push(scheduled)
         if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
           continue

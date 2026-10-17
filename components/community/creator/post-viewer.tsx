@@ -230,7 +230,8 @@ function AdminPost({ post, update, onComment, head, viewer, spaces, hands }: { p
       {/* Every action in sight: they wrap onto a second line on a phone rather than hide past its edge. */}
       <div className="flex min-w-0 flex-wrap items-center gap-1.5 border-b border-[#f0f1f3] px-4 py-2.5 sm:px-5" data-viewer-actions="" data-post-viewer={post.id}>
         {actions}
-        <Link href={hands.communityHref(post)} prefetch={false} className={cn(LINK, "ml-auto")} data-viewer-community="">
+        {/* Round 27 (I1): in a new tab, so the admin and the post open here stay where they are. */}
+        <Link href={hands.communityHref(post)} prefetch={false} target="_blank" rel="noopener" className={cn(LINK, "ml-auto")} data-viewer-community="">
           {tt("View in community")}
         </Link>
       </div>

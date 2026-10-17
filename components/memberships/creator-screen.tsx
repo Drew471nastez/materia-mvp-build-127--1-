@@ -703,7 +703,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
       </SettingsSection>
 
       {/* The page's actions, kept in reach at the foot of the screen. */}
-      <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]">
+      <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-app-foot="up">
         <div className={cn(card, "flex flex-wrap items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
           <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
             {error ? error.text : note ? note : dirty ? tt("Unsaved changes") : status === "published" ? tt("On sale") : tt("Draft")}
@@ -763,7 +763,7 @@ export function CreatorMembershipScreenView({ screen: initial, initialTab, isNew
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-creator-membership="" data-tab={tab}>
-      <PaneBar width={WIDTH} className="flex min-h-[64px] items-center gap-2 pb-2 pt-3">
+      <PaneBar width={WIDTH} sticky className="flex min-h-[64px] items-center gap-2 pb-2 pt-3">
         <Link href="/app/memberships" aria-label={tt("Memberships")} className="-ml-1.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1a1a2e] hover:bg-[#eceef1]">
           <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
         </Link>

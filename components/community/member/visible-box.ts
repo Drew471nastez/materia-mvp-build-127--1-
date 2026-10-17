@@ -110,6 +110,7 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
         published,
         fullH: box.fullH,
         resizes: box.resizes,
+        gone: typing && keyboardGone(),
         scrollY: Math.round(window.scrollY),
       }
       const plan = keyboardPlan(env, facts)
@@ -119,7 +120,7 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
         held = hold
         holdNativeScroll(hold)
       }
-      const key = `${plan.top}|${plan.foot}|${plan.source}|${typing}|${layoutH}|${facts.vvH}|${facts.vvTop}|${facts.scrollY}|${box.fullH}|${box.resizes}`
+      const key = `${plan.top}|${plan.foot}|${plan.source}|${typing}|${layoutH}|${facts.vvH}|${facts.vvTop}|${facts.scrollY}|${box.fullH}|${box.resizes}|${facts.gone}`
       if (key === last) return
       last = key
       apply(plan, facts)
@@ -215,6 +216,24 @@ export function appKeyboardRoom(within: Element | null): number | null {
 */
 let seenKeys = { w: 0, k: 0 }
 let watchingKeys = false
+/*
+  ROUND 27 (I7): THE KEYS WENT DOWN UNDER A FIELD THAT KEPT THE CARET. The owner: "when I write a post and I close the
+  keyboard, it leaves the bar with the attachment icons, emoji icon, GIF up there, it freezes up there." The room above is
+  for the moment between a focus and the platform's first word about the keys. It was handed out for as long as a field in
+  the sheet had the focus, so when the keys went down and the field kept the caret (the keyboard's own hide, an iPad's key,
+  the app's keyboardWillHide), the visible part grew back to the whole screen, which reads as "nothing reported", and the
+  sheet took the remembered keyboard instead: the toolbar stayed where the keys had been (scripts/check-posts27-member.mjs,
+  "kept" and "plugin": the bar at 464 on an 844 screen with no keys under it). Now the platform's word that the keys have
+  gone (the visible part growing back after it had reported them, or the plugin's hide) stands until the keys are asked for
+  again: a new focus, a finger on the field that has the caret, or a report of the keys.
+*/
+let keysUp = false
+let keysGone = false
+/** The keys went down while a field kept the caret, and nothing has asked for them since. */
+export function keyboardGone(): boolean {
+  watchKeys()
+  return keysGone
+}
 function watchKeys(): void {
   if (watchingKeys || typeof window === "undefined" || !window.visualViewport) return
   watchingKeys = true
@@ -226,9 +245,51 @@ function watchKeys(): void {
     /* A web view that shrank for the keyboard has made the room itself: nothing to remember. */
     if (box.resizes || webViewResized({ layoutH, fullH: box.fullH })) return
     const k = Math.round(layoutH - vv.height)
-    if (k > RESIZED_MIN_PX && Math.abs(vv.scale - 1) < 0.01) seenKeys = { w: window.innerWidth, k }
+    if (k > RESIZED_MIN_PX && Math.abs(vv.scale - 1) < 0.01) {
+      seenKeys = { w: window.innerWidth, k }
+      keysUp = true
+      keysGone = false
+    } else if (keysUp && k <= RESIZED_MIN_PX) {
+      keysUp = false
+      keysGone = true
+    }
   }
   vv.addEventListener("resize", read)
+  const ask = () => {
+    keysUp = false
+    keysGone = false
+    goneOn = null
+  }
+  /*
+    A new focus asks for the keys. Not the field getting the focus back with the window (another app or tab, then this
+    one): the keys do not come back with it, and the field is still the one they went down under.
+  */
+  let goneOn: Element | null = null
+  document.addEventListener("focusin", (e) => {
+    if (keysGone && e.target === goneOn) return
+    ask()
+  }, true)
+  document.addEventListener("focusout", (e) => {
+    if (keysGone && !document.hasFocus()) goneOn = e.target as Element
+  }, true)
+  /* A finger on the field that already has the caret brings the keys back with no focus event. */
+  document.addEventListener("touchend", (e) => {
+    const f = document.activeElement
+    if (takesKeyboard(f) && e.target instanceof Node && f?.contains(e.target)) ask()
+  }, true)
+  /*
+    The plugin says the keys are going before they move. A web view that reports nothing will never say it itself, so the
+    sheets are told (a resize of the visible part, which every one of them listens to, as ViewportVars does for its floor);
+    one that still shows the keys reports its own change once they are down.
+  */
+  watchNativeKeyboard(() => {
+    if (nativeKeyboardHeight() > 0) return ask()
+    if (!takesKeyboard(document.activeElement)) return
+    keysUp = false
+    keysGone = true
+    const layoutH = layoutHeight(document.querySelector<HTMLElement>("[data-viewport-probe]"))
+    if (layoutH - vv.height <= RESIZED_MIN_PX) vv.dispatchEvent(new Event("resize"))
+  })
 }
 
 /** The keyboard last reported in this visit at this width, in CSS px, or 0. */
@@ -254,6 +315,8 @@ export function sheetKeyboardRoom(within: Element | null): number | null {
   const layoutH = layoutHeight(document.querySelector<HTMLElement>("[data-viewport-probe]"))
   const box = noteFixedBox(layoutH)
   if (box.resizes || webViewResized({ layoutH, fullH: box.fullH })) return null
+  /* Round 27: the platform said the keys went down and the field kept the caret: no room (keysGone above). */
+  if (keysGone) return 0
   const native = nativeKeyboardHeight()
   if (env === "ios-app-plugin" && native > 0) return native
   const seen = keyboardSeen()

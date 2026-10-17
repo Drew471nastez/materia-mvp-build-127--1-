@@ -166,6 +166,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "217", file: "217_round_ag.sql", sha256: "5494ba3b379376963ca17f8181293734a233882a8ee84089a52931722481b4d9" },
   { part: "220", file: "220_community_summary_and_member_links.sql", sha256: "cfe2288f90605cd9accfd06f3a80edb536dfdee0dda1b14f80baa15a655bbac7" },
   { part: "221", file: "221_community_member_link_clicks.sql", sha256: "b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee" },
+  { part: "222", file: "222_community_scheduled_post_media.sql", sha256: "9fdb6056abf29d9fb2ecf2a6bd5e70257b3a04507cfcd28d1423235bb18264d7" },
+  { part: "224", file: "224_orders_seller_seen.sql", sha256: "68d352cd6bde1e10053beb52a11a5336d0fe3acf4e57fb20b92eb62ea1537cb9" },
   { part: "230", file: "230_store_offers_settings.sql", sha256: "9715ba52c7854fed848def4e4eb70b8570a650dc69bd1481ceeeec7901dcc062" },
   { part: "231", file: "231_ai_memory_sources.sql", sha256: "b84c2855cfbbe2742da0936b0723e71662cc91fda99ccd3f80deba9f166a7153" },
   { part: "232", file: "232_review_imports_from_apps.sql", sha256: "bd1804b3c359fdd1760274c721c67704d7e70f6ea566aeda76cf786031df9b5b" },

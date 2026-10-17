@@ -57,6 +57,7 @@ import {
 import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { CarrierLogo } from "@/components/physical/carrier-logo"
 import type { OrdersSummary } from "@/lib/orders/paged"
 
 export interface OrdersListProps {
@@ -384,7 +385,10 @@ function OrdersTable(props: OrdersListProps) {
                         }}
                         className="font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0 focus-visible:underline"
                       >
+                        {/* Nobody on the store has opened it yet (SQL part 224): a small dot in the cell's own padding, so the number never moves when it goes. */}
+                        {order.unseen ? <span aria-hidden data-unseen="" title={tt("New: not opened yet")} className="-ml-[9px] mr-[3px] inline-block h-1.5 w-1.5 -translate-y-[1.5px] rounded-full bg-[#8b5cf6] align-middle" /> : null}
                         #{order.number}
+                        {order.unseen ? <span className="sr-only">{tt(", not opened yet")}</span> : null}
                       </a>
                     </td>
                     {columns.map((c) => (
@@ -468,7 +472,16 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
       return <PaymentBadge status={order.payment} />
     case "fulfillment":
       /* A parcel: where it is (Unfulfilled to Delivered, or Returned). A download keeps its two words. */
-      return order.shipping ? <ShipBadge stage={order.shipping.stage} problem={order.shipping.problem} /> : <FulfillmentBadge status={order.fulfillment} />
+      if (!order.shipping) return <FulfillmentBadge status={order.fulfillment} />
+      /* Once a parcel is out, its carrier's own logo beside the badge (lib/physical/carriers.ts): who has it, at a glance. */
+      return order.shipping.carrier && !order.shipping.pickup && order.shipping.stage !== "unfulfilled" && order.shipping.stage !== "cancelled" ? (
+        <span className="inline-flex items-center gap-1.5" data-carrier={order.shipping.carrier}>
+          <CarrierLogo carrier={order.shipping.carrier} size={18} />
+          <ShipBadge stage={order.shipping.stage} problem={order.shipping.problem} />
+        </span>
+      ) : (
+        <ShipBadge stage={order.shipping.stage} problem={order.shipping.problem} />
+      )
     case "items":
       return <span>{itemsLabel(order.itemCount)}</span>
     case "delivery":

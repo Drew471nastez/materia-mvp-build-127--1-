@@ -998,6 +998,7 @@ export function EditorFoot({
       data-editor-foot=""
       data-state={state}
       data-foot={up ? "up" : "down"}
+      data-app-foot={up ? "up" : "down"}
       aria-hidden={!up || undefined}
       data-foot-kind={editor ? "editor" : "form"}
       style={slot ? { translate: `0 -${slot * FOOT_STEP_PX}px` } : undefined}

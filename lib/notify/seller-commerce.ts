@@ -28,7 +28,8 @@
  *
  * Pure: the tests draw exactly what is sent.
  */
-import { renderHtml, renderText, type Fact, type LayoutInput, type SummaryRow } from "./templates/layout"
+import { ITEM_PX, renderHtml, renderText, type Fact, type LayoutInput, type SummaryRow } from "./templates/layout"
+import { inboxPicture } from "./templates/index"
 import { PATHS, formatMoney } from "./templates/catalog"
 import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, sameSiteUrl } from "./templates/escape"
 import type { TemplateFamily } from "./types"
@@ -77,7 +78,8 @@ export interface PhysicalSaleFacts {
   subtotalCents: number | null
   discountCents: number | null
   totalCents: number | null
-  lines: { title: string; variantName: string | null; quantity: number; amountCents: number; fulfilment: string }[]
+  /** imageUrl: the line's picture as checkout kept it (the variant's photo, else the product's), unsized. */
+  lines: { title: string; variantName: string | null; quantity: number; amountCents: number; fulfilment: string; imageUrl: string | null }[]
   /** Paid in cash on delivery (lib/physical/cash-on-delivery.ts): the money is the seller's to collect, never on its way to their balance. */
   cashDue?: boolean
 }
@@ -131,6 +133,7 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
       quantity,
       amountCents: Math.max(0, unit * quantity - (cents(l.discount_cents) ?? 0)),
       fulfilment: physical ? FULFIL_LABEL[methodOf(l)] : "Download",
+      imageUrl: typeof l.image_url === "string" && /^https:\/\//.test(l.image_url) ? l.image_url.slice(0, 1000) : null,
     }
   })
   const kinds = [...new Set((pickup ? ["pickup"] : shipped.map(methodOf)) as string[])]
@@ -192,10 +195,14 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
   if (sub !== null && total !== null) {
     const adds = sub - (off ?? 0) + (ship ?? 0) + (facts.taxIncluded ? 0 : tax ?? 0) === total
     if (adds) {
-      out.lines = facts.lines.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, amountCents: l.amountCents, fulfilment: facts.fulfilment.length > 1 ? l.fulfilment : null }))
+      /* Who fulfils each line when they differ, and a download always says so (nothing to pack); each line's picture: the checkout's (the variant's photo), else the product's from the order rows by name. */
+      const before = (Array.isArray(data.lines) ? data.lines : []) as { title?: unknown; imageUrl?: unknown }[]
+      const pictureOf = (title: string) => before.find((b) => b.title === title && typeof b.imageUrl === "string")?.imageUrl ?? null
+      out.lines = facts.lines.map((l) => ({ title: l.title, variantName: l.variantName, quantity: l.quantity, amountCents: l.amountCents, fulfilment: facts.fulfilment.length > 1 || l.fulfilment === "Download" ? l.fulfilment : null, imageUrl: l.imageUrl ?? pictureOf(l.title) }))
       out.subtotalCents = sub
       out.discountCents = off && off > 0 ? off : null
-      out.shippingCents = ship
+      /* Collected in person: no shipping row unless the store charged for it. */
+      out.shippingCents = facts.kind === "pickup" && !ship ? null : ship
       out.taxCents = tax && tax > 0 ? tax : null
       out.taxIncluded = facts.taxIncluded
       out.amountCents = total
@@ -229,7 +236,8 @@ export interface SellerCommerceInput {
   buyerReference?: string | null
   buyerName?: string | null
   buyerEmail?: string | null
-  lines?: { title: string; variantName?: string | null; quantity?: number | null }[]
+  /** imageUrl: the item's picture (https, any size: it is sized for the inbox here). */
+  lines?: { title: string; variantName?: string | null; quantity?: number | null; imageUrl?: string | null }[]
   /** What the buyer or the carrier said: a return's reason, a cancellation's, the carrier's message. */
   reason?: string | null
   /** The buyer's own words with a return. */
@@ -246,15 +254,26 @@ export interface SellerCommerceInput {
 
 export interface SellerCommerceContext {
   baseUrl: string
-  /** The one-click opt out of sales emails, for the order emails; none on low stock, which Locations turns off. */
-  unsubscribeUrl?: string | null
+  /** Notification settings, in the footer. Every email here is about one order or the stock: transactional, never an Unsubscribe link. */
   preferencesUrl?: string | null
 }
 
 const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`
 
-function itemFacts(lines: SellerCommerceInput["lines"]): Fact[] {
-  return (lines ?? []).slice(0, 20).map((l) => ({ label: [str(l.title, 120), str(l.variantName, 60)].filter(Boolean).join(", ") || "Item", value: `Qty ${Math.max(1, Math.round(Number(l.quantity) || 1))}` }))
+/** The order's items as the email lists them: each with its picture (a letter tile without one), its option and quantity. */
+function itemsBlock(title: string, lines: SellerCommerceInput["lines"]): LayoutInput["order"] {
+  const list = (lines ?? []).slice(0, 20)
+  if (!list.length) return null
+  return {
+    title,
+    lines: list.map((l) => ({
+      title: str(l.title, 120) || "Item",
+      detail: [str(l.variantName, 60), `Qty ${Math.max(1, Math.round(Number(l.quantity) || 1))}`].filter(Boolean).join(" \u00b7 "),
+      amount: "",
+      imageUrl: inboxPicture(l.imageUrl, ITEM_PX),
+    })),
+    totals: [] as SummaryRow[],
+  }
 }
 
 /** The whole email: subject, HTML and text, in Storelib's notification layout. */
@@ -279,21 +298,22 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
   let facts: Fact[] = []
   let action: { label: string; url: string } | null = null
   let note: string | null = "You get these because order emails are on in your notification settings. You can turn them off there and still see every order in the app."
-  let unsubscribe = ctx.unsubscribeUrl ?? null
   let order_: LayoutInput["order"] = null
   switch (kind) {
     case "return_requested":
       subject = `Return requested for ${order}`
       heading = "A buyer asked to return items"
       paragraphs = [`${buyer} asked to return ${count ? plural(count, "item") : "items"} from ${order}. Review it, then approve it with your return instructions or decline it with a reason. The buyer is emailed either way.`]
-      facts = [...itemFacts(m.lines), { label: "Reason", value: str(m.reason, 160) }, { label: "Buyer's note", value: str(m.note, 400) }].filter((f) => f.value)
+      facts = [{ label: "Reason", value: str(m.reason, 160) }, { label: "Buyer's note", value: str(m.note, 400) }].filter((f) => f.value)
+      order_ = itemsBlock("Items to return", m.lines)
       action = link("Review and approve", orderPath)
       break
     case "cancel_requested":
       subject = `Cancel request for ${order}`
       heading = "A buyer asked to cancel an order"
       paragraphs = [`${buyer} asked to cancel ${order} before it shipped. Don't send it yet. Open the order to cancel and refund it, or keep it and let them know. Nothing is cancelled until you do.`]
-      facts = [...itemFacts(m.lines), { label: "Reason", value: str(m.reason, 160) }, { label: "Order total", value: money(m.totalCents) }].filter((f) => f.value)
+      facts = [{ label: "Reason", value: str(m.reason, 160) }, { label: "Order total", value: money(m.totalCents) }].filter((f) => f.value)
+      order_ = itemsBlock("Items", m.lines)
       action = link("Review request", orderPath)
       break
     case "order_cancelled":
@@ -301,28 +321,32 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       subject = `${number.length > 1 ? `Order ${number}` : "An order"} was cancelled`
       heading = "An order was cancelled"
       paragraphs = [`${buyer} cancelled ${order} before it shipped. Don't send it. ${typeof m.refundedCents === "number" && m.refundedCents > 0 ? `${money(m.refundedCents)} was refunded to them.` : "If they were charged, refund them from the order."}`]
-      facts = [...itemFacts(m.lines), { label: "Reason", value: str(m.reason, 160) }, { label: "Order total", value: money(m.totalCents) }].filter((f) => f.value)
+      facts = [{ label: "Reason", value: str(m.reason, 160) }, { label: "Order total", value: money(m.totalCents) }].filter((f) => f.value)
+      order_ = itemsBlock("Cancelled items", m.lines)
       action = link("View order", orderPath)
       break
     case "delivery_exception":
       subject = `Delivery problem with ${order}`
       heading = "A parcel couldn't be delivered"
       paragraphs = [`The carrier reported a problem delivering ${order}. Check the tracking, then contact the buyer or the carrier so it reaches them.`]
-      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, { label: "What the carrier said", value: str(m.reason, 200) }, ...itemFacts(m.lines)].filter((f) => f.value)
+      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, { label: "What the carrier said", value: str(m.reason, 200) }].filter((f) => f.value)
+      order_ = itemsBlock("Items", m.lines)
       action = link("View order", orderPath)
       break
     case "delivery_unconfirmed":
       subject = `Delivery not confirmed for ${order}`
       heading = "A parcel was never marked delivered"
       paragraphs = [`${order} shipped 60 days ago and its tracking never said it arrived. Check with the carrier or ask the buyer, then mark it delivered or report a delivery problem on the order.`]
-      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }, ...itemFacts(m.lines)].filter((f) => f.value)
+      facts = [{ label: "Carrier", value: str(m.carrier, 60) }, { label: "Tracking number", value: str(m.trackingNumber, 60) }].filter((f) => f.value)
+      order_ = itemsBlock("Items", m.lines)
       action = link("View order", orderPath)
       break
     case "payment_failed":
       subject = `Payment failed for ${order}`
       heading = "A payment didn't go through"
       paragraphs = [`The payment for ${order} failed${m.reason ? `: ${str(m.reason, 160)}` : ""}. Don't ship it until it is paid. The stock it held was released.`]
-      facts = [{ label: "Amount", value: money(m.totalCents) }, ...itemFacts(m.lines)].filter((f) => f.value)
+      facts = [{ label: "Amount", value: money(m.totalCents) }].filter((f) => f.value)
+      order_ = itemsBlock("Items", m.lines)
       action = link("View order", orderPath)
       break
     case "low_stock": {
@@ -339,7 +363,6 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       }
       action = link("Open Inventory", "/app/inventory?filter=low")
       note = "You get these because low stock emails are on in Settings › Locations. Turn them off there."
-      unsubscribe = null
       break
     }
   }
@@ -359,9 +382,9 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
     note,
     reason: "You get this because you sell on Storelib.",
     homeUrl: `${canonicalOrigin(ctx.baseUrl)}/`,
-    unsubscribeUrl: sameSiteUrl(ctx.baseUrl, unsubscribe),
-    unsubscribeLabel: unsubscribe ? "Turn off order emails" : null,
-    preferencesUrl: sameSiteUrl(ctx.baseUrl, ctx.preferencesUrl),
+    unsubscribeUrl: null,
+    /* Low stock is turned off in Locations, not in Notifications: no settings link there. */
+    preferencesUrl: kind === "low_stock" ? null : sameSiteUrl(ctx.baseUrl, ctx.preferencesUrl),
   }
   return { subject: input.subject, html: renderHtml(input), text: renderText(input) }
 }
