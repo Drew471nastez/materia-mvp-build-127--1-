@@ -734,6 +734,12 @@ const STRICT_SUITES = [
     check-page-editor26.mjs measures the editor.
   */
   "tests/editor26.test.ts",
+  /*
+    Round 27 (E27): the Page editor at every width (side or drawer by its own width, the panel dragged, the drawer's
+    places), its outlines, the creator's own Privacy and Terms saved and read back through creator.ts (strict, as
+    above), the About card's icons and Share; scripts/check-page-editor27.mjs measures the editor and its frame rates.
+  */
+  "tests/editor27.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
