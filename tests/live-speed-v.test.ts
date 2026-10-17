@@ -273,6 +273,17 @@ async function favicon() {
   check("an imported theme's live page carries the site's icon", /icon: siteIconUrl\(settings as Record<string, unknown>\) \|\| undefined/.test(code("lib/website-builder/compat-site.ts")) && /withSiteIcon\(/.test(code("lib/storelib-theme/compat/site.ts")))
 }
 
+async function platformPrefetch() {
+  console.log("\nStorelib's own pages are not read ahead on a creator's website")
+  const src = read("components/shared/prefetch-links.tsx")
+  /* Measured on the live site after the V round: drwew.storelib.com's home fetched /explore, /privacy, /login and /signup, four 404s on every visit. */
+  check("the root layout's read ahead stops on a creator's host", /if \(onCreatorSite\(window\.location\.hostname\)\) return/.test(src))
+  const body = src.slice(src.indexOf("export function onCreatorSite"), src.indexOf("export function PrefetchLinks"))
+  const onCreatorSite = new Function("process", `return ${body.replace(/^export /, "").replace(/: string/g, "").replace(/\): boolean/, ")")}`)({ env: {} }) as (h: string) => boolean
+  check("  a subdomain and an own domain are creator sites", onCreatorSite("drwew.storelib.com") && onCreatorSite("shop.example.com"))
+  check("  Storelib, www, a preview and localhost are not", !onCreatorSite("storelib.com") && !onCreatorSite("www.storelib.com") && !onCreatorSite("x-y.vercel.app") && !onCreatorSite("localhost"))
+}
+
 async function openingTab() {
   section("A tab opened for the website never sits on about:blank")
   const written: string[] = []
@@ -326,6 +337,7 @@ async function main() {
   await renderers()
   await favicon()
   await openingTab()
+  await platformPrefetch()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
