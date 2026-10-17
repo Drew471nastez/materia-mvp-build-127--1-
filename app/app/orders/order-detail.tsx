@@ -54,6 +54,8 @@ import {
 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { CarrierLogo } from "@/components/physical/carrier-logo"
+import { carrierOf } from "@/lib/physical/carriers"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
@@ -876,15 +878,22 @@ function Timeline({
               <li key={row.key} data-timeline-event="" className="relative grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-x-3 pb-3.5">
                 {i > firstEvent ? <span aria-hidden className={cn(RAIL, "top-0 h-[11px]")} /> : null}
                 {i < lastEvent ? <span aria-hidden className={cn(RAIL, "bottom-0 top-[11px]")} /> : null}
-                <span
-                  aria-hidden
-                  className={cn(
-                    "relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-full border bg-white shadow-[0_1px_1px_rgba(17,24,39,0.05)]",
-                    GLYPH_TONE[event.tone],
-                  )}
-                >
-                  <Glyph className="h-3 w-3" strokeWidth={2.25} />
-                </span>
+                {/* A parcel a carrier we know has: its logo on the rail instead of the truck (lib/physical/carriers.ts). */}
+                {event.carrier && carrierOf(event.carrier) ? (
+                  <span aria-hidden className="relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-white shadow-[0_0_0_2px_#f3f4f6,0_1px_1px_rgba(17,24,39,0.05)]" data-timeline-carrier="">
+                    <CarrierLogo carrier={event.carrier} size={22} decorative />
+                  </span>
+                ) : (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "relative z-[1] flex h-[22px] w-[22px] items-center justify-center rounded-full border bg-white shadow-[0_1px_1px_rgba(17,24,39,0.05)]",
+                      GLYPH_TONE[event.tone],
+                    )}
+                  >
+                    <Glyph className="h-3 w-3" strokeWidth={2.25} />
+                  </span>
+                )}
                 <div className="min-w-0 pt-[2px]">
                   {event.note ? (
                     <>

@@ -66,6 +66,8 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     buyer_notified_at: order.buyer_notified_at ?? null,
     buyer_email_last_error: order.buyer_email_last_error ?? null,
     variant_name: order.variant_name ?? null,
+    /* Opened yet (SQL part 224): kept absent where the column is not there, so an older database reads every order as seen. */
+    ...("seller_seen_at" in order ? { seller_seen_at: order.seller_seen_at ?? null } : {}),
     source: order.source ?? null,
     source_detail: order.source_detail ?? null,
     /* Settings › Taxes: the tax in the amount (parts 110 and 129), absent on an older database. */
@@ -167,19 +169,24 @@ export async function attachCheckouts(admin: any, creatorId: string, rows: Order
     type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; tax_cents?: number | null; shipping_rate: { name?: string; tax_label?: string; tax_included?: boolean } | null; provider?: string | null; cod_collected_at?: string | null; currency?: string | null }
     const byCheckout = new Map<string, Checkout>()
     const problems = new Set<string>()
+    /* The carrier of each order's latest parcel, for its logo on the list (components/physical/carrier-logo). */
+    const carriers = new Map<string, string>()
     for (let i = 0; i < checkoutIds.length; i += 500) {
       const slice = checkoutIds.slice(i, i + 500)
-      const [{ data }, failed] = await Promise.all([
+      const [{ data }, parcels] = await Promise.all([
         /* The provider, for cash on delivery: whether its cash is in is asked for below, for those orders only. */
         admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, tax_cents, shipping_rate, provider, currency").eq("creator_id", creatorId).in("id", slice),
-        /* A parcel the carrier (or the seller) marked as a delivery problem: the list says so, as the buyer's page does. */
-        Promise.resolve(admin.from("fulfillments").select("checkout_id").in("checkout_id", slice).eq("status", "failed")).then(
-          (r: { data: { checkout_id: string }[] | null }) => r.data ?? [],
-          () => [] as { checkout_id: string }[],
+        /* Every parcel that is not cancelled, oldest first: one the carrier (or the seller) marked as a delivery problem says so on the list, as the buyer's page does, and the last one with a carrier names it. */
+        Promise.resolve(admin.from("fulfillments").select("checkout_id, status, carrier").in("checkout_id", slice).neq("status", "cancelled").order("created_at", { ascending: true })).then(
+          (r: { data: { checkout_id: string; status: string; carrier: string | null }[] | null }) => r.data ?? [],
+          () => [] as { checkout_id: string; status: string; carrier: string | null }[],
         ),
       ])
       for (const c of (data ?? []) as Checkout[]) byCheckout.set(c.id, c)
-      for (const f of failed) problems.add(f.checkout_id)
+      for (const f of parcels) {
+        if (f.status === "failed") problems.add(f.checkout_id)
+        if (f.carrier?.trim()) carriers.set(f.checkout_id, f.carrier.trim())
+      }
     }
     /* Cash on delivery: whether the cash is in, read only for those orders (the column is SQL part 174's; no such order exists before it). */
     const cashIds = [...byCheckout.values()].filter((c) => c.provider === "cod").map((c) => c.id)
@@ -198,6 +205,7 @@ export async function attachCheckouts(admin: any, creatorId: string, rows: Order
       r.physical_pickup = c.delivery_method === "pickup"
       r.physical_method = typeof c.shipping_rate?.name === "string" ? c.shipping_rate.name : null
       r.physical_problem = problems.has(c.id)
+      r.physical_carrier = carriers.get(c.id) ?? null
       r.physical_cash_due = c.provider === "cod" && !c.cod_collected_at
       /* The checkout's currency is what was charged (an order line can say "usd" from before lines kept it). */
       if (currencyCode(c.currency)) r.currency = orderCurrency(c.currency)

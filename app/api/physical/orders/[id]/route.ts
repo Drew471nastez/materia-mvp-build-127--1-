@@ -7,6 +7,7 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { setTrackingAuto } from "@/lib/physical/tracking/accounts-server"
+import { trackingRuleProblem } from "@/lib/physical/carriers"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -61,6 +62,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     (body.action === "comment" ? await rateLimit({ bucket: "physical-order-note", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 30, seconds: 300 }, { limit: 400, seconds: 86400 }], message: "That is a lot of notes at once. Wait a minute and try again." }) : null)
   if (limited) return limited
   const items = Array.isArray(body.items) ? (body.items as { orderId: string; quantity: number; restock?: boolean }[]).filter((i) => isUuid(i?.orderId)) : []
+
+  /*
+    THE TRACKING NUMBER RULE (lib/physical/carriers.ts): a shipment the seller names a carrier for carries its number,
+    because the buyer follows the parcel with it. No carrier is how the seller says there is nothing to track (Local
+    delivery / no tracking). Only for what the seller types here; partners and label apps report through their own paths.
+  */
+  if (body.action === "fulfil" || (body.action === "shipment" && ("carrier" in body || "trackingNumber" in body))) {
+    const rule = trackingRuleProblem(typeof body.carrier === "string" ? body.carrier : null, typeof body.trackingNumber === "string" ? body.trackingNumber : null)
+    if (rule) return physicalJson({ error: rule }, 400)
+  }
 
   let result
   switch (body.action) {

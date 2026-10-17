@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 221: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 224: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3681,6 +3681,11 @@ ALTER TABLE public.community_member_link_clicks ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.community_member_link_clicks FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_member_link_clicks TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('221', '221_community_member_link_clicks.sql', 'b95b7142884f1f94d6ab3b5339d8b9b1dc8f593f163caad51bd6cfc87ab6eeee') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 224_orders_seller_seen.sql
+/* Orders the seller has not opened yet (round 27): `orders.seller_seen_at`, when someone on the store first opened the order on the Orders page, which puts a small dot on an order nobody has opened. Added once, with every order already there counted as seen at that moment (a default read when the column is made, then dropped, so no row is rewritten and the table is not held), so the dot is on orders that come in from now on, not on a store's whole history. A second run changes nothing. Written by the server only, as the rest of an order. Needs nothing else. Until it runs, the Orders page shows no dot and opening an order changes nothing. Safe to run again. */
+DO $$ BEGIN IF to_regclass('public.orders') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'seller_seen_at') THEN ALTER TABLE public.orders ADD COLUMN seller_seen_at timestamptz DEFAULT now(); ALTER TABLE public.orders ALTER COLUMN seller_seen_at DROP DEFAULT; END IF; END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('224', '224_orders_seller_seen.sql', '68d352cd6bde1e10053beb52a11a5336d0fe3acf4e57fb20b92eb62ea1537cb9') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;
