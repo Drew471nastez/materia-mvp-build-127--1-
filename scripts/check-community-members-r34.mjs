@@ -28,11 +28,15 @@
  *             asks again for nobody
  *   DARK      every surface and every word in the sheet and the list reads
  *             against its own background in the dark look
+ *   MESSAGES  the member's own choice about who may message them: two
+ *             choices, the narrow one keeping the people who run the
+ *             community, each a press of at least 40px on a phone, in both
+ *             looks at both widths
  *
  * Pictures go to SHOTS_DIR (.round34-member-shots by default); look at them,
  * then delete the folder.
  *
- *   node scripts/check-community-members-r34.mjs [LIST FEATURED SHEET READ DARK]
+ *   node scripts/check-community-members-r34.mjs [LIST FEATURED SHEET READ DARK MESSAGES]
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -415,6 +419,37 @@ export const isNativePlatform = () => false
       expect(white === 0, `${width}: no white surface left in the sheet`, white)
       console.log(`        ${await shot(p, `member-dark-${width}`)}`)
       await p.close()
+    }
+  }
+  /* ── Who may message me ─────────────────────────────────────────────── */
+
+  if (want("MESSAGES")) {
+    console.log("\nMESSAGES  the member's own choice about who may message them\n")
+    for (const width of [1280, 390]) {
+      for (const dark of [false, true]) {
+        const look = dark ? "dark" : "light"
+        const { p, errors } = await open("messages", width, dark)
+        expect(errors.length === 0, `${width} ${look}: the Membership page draws with no error`, errors.slice(0, 2))
+        const choices = await p.evaluate(() => [...document.querySelectorAll("[data-message-choice]")].map((el) => ({ key: el.getAttribute("data-message-choice"), on: el.getAttribute("aria-checked") === "true", h: Math.round(el.getBoundingClientRect().height), words: (el.textContent || "").trim().slice(0, 60) })))
+        expect(choices.length === 2 && choices[0].key === "everyone" && choices[1].key === "staff", `${width} ${look}: two choices, and only two`, choices.map((c) => c.key))
+        expect(choices.filter((c) => c.on).length === 1 && choices[1].on, `${width} ${look}: the one they chose is the one marked`, choices.map((c) => c.on))
+        expect(choices.every((c) => c.h >= 40), `${width} ${look}: each choice is a press of 40px or more`, choices.map((c) => c.h))
+        const nobody = await p.evaluate(() => (document.querySelector("[data-membership-messages]")?.textContent || "").toLowerCase())
+        expect(!/\bnobody\b|\bno one\b/.test(nobody), `${width} ${look}: no choice shuts the community out of reaching them`, nobody.slice(0, 80))
+        const overflow = await p.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }))
+        expect(overflow.doc <= overflow.win + 1, `${width} ${look}: nothing past the screen's edge`, overflow)
+        if (dark) {
+          const whiteCards = await p.evaluate(() =>
+            [...document.querySelectorAll("[data-membership-messages-section], [data-membership-messages-section] *")].filter((el) => {
+              const m = getComputedStyle(el).backgroundColor.match(/\d+/g)
+              return m && Number(m[0]) > 240 && Number(m[1]) > 240 && Number(m[2]) > 240 && (m[3] === undefined || Number(m[3]) > 0.5)
+            }).length,
+          )
+          expect(whiteCards === 0, `${width} dark: no white surface left in the Messages card`, whiteCards)
+        }
+        console.log(`        ${await shot(p, `messages-${look}-${width}`)}`)
+        await p.close()
+      }
     }
   }
 } finally {

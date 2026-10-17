@@ -22,3 +22,20 @@
 ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS featured_at timestamptz;
 ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS featured_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS community_members_featured_idx ON public.community_members (community_id, featured_at DESC) WHERE featured_at IS NOT NULL;
+
+/* ---------------------------------------------------------------------------
+   WHO MAY MESSAGE A MEMBER (round 34)
+   ---------------------------------------------------------------------------
+   The owner, on a member's profile: "restrict incoming messages". The
+   member's own choice, per community: everyone here, or only the people who
+   run it. Nothing stored means everyone, which is what every row means
+   today. There is no "nobody": a community has to be able to reach its own
+   members, so the narrow choice keeps the owner, the admins and the
+   moderators (lib/communities/message-privacy.ts).
+
+   The server applies it when a conversation is opened and again on every
+   message (lib/communities/server/direct.ts), so narrowing it closes the
+   conversations already open.
+   --------------------------------------------------------------------------- */
+ALTER TABLE public.community_members ADD COLUMN IF NOT EXISTS dm_from text;
+DO $do$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'community_members_dm_from_check' AND conrelid = 'public.community_members'::regclass) THEN ALTER TABLE public.community_members ADD CONSTRAINT community_members_dm_from_check CHECK (dm_from IS NULL OR dm_from IN ('everyone', 'staff')) NOT VALID; END IF; END $do$;

@@ -33,6 +33,7 @@ import { listNotifications } from "@/lib/communities/server/mentions"
 import { loadSalesPage } from "@/lib/communities/server/public"
 import { aboutExtras } from "@/lib/communities/server/about"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
+import { dmFromOf } from "@/lib/communities/server/message-privacy"
 import { eventHrefFor } from "@/lib/communities/server/wall"
 import { loadCoursePlayer } from "@/lib/courses/load"
 import { loadMemberProfile } from "@/lib/communities/server/member-profile"
@@ -153,7 +154,12 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     }
     case "membership": {
       if (!viewer.userId) return missing
-      const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, db, { light: true }), leaveReasonsReady(db)])
+      const [load, askWhy, dmFrom] = await Promise.all([
+        loadSalesPage(community.slug, viewer.userId, db, { light: true }),
+        leaveReasonsReady(db),
+        /* Their own choice about who may message them: its own small read, the default before run-now part 222. */
+        dmFromOf(db, community.id, viewer.userId),
+      ])
       if (!load) return missing
       const m = viewer.member
       const facts: MembershipFacts = {
@@ -163,6 +169,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         expiresAt: m?.expires_at ?? null,
         planName: load.data.join.option && m?.tier_id && load.data.join.option.tierId === m.tier_id ? load.data.join.option.name : (load.data.community.options.find((o) => o.tierId && o.tierId === m?.tier_id)?.name ?? null),
         notifyLevel: m?.notify_level ?? "important",
+        dmFrom,
       }
       return ok({ kind: "membership", community: load.data.community, join: load.data.join, askWhy: askWhy && load.data.join.canLeave, facts })
     }

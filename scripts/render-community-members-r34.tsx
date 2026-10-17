@@ -10,6 +10,8 @@
  *                    drawn for members rather than for the creator. This is
  *                    the half that has a dark look: /app is never served
  *                    dark (scripts/gen-theme-dark.mjs skips it).
+ *   ?case=messages   the member's own Membership page, for the Messages
+ *                    choice added in round 34.
  *   the dark look    set on <html> by the page the checker serves
  *
  * The detail the sheet asks for once it is open is answered here by a
@@ -20,6 +22,9 @@ import { createRoot } from "react-dom/client"
 import { allowedActions } from "@/lib/communities/permissions"
 import { MembersSection } from "@/components/community/creator/members-section"
 import { MemberRow } from "@/components/community/member/members"
+import { MembershipPage } from "@/components/community/member/membership"
+import { decideJoin } from "@/components/community/public/join-state"
+import type { PublicCommunityView } from "@/components/community/public/types"
 import type { CommunityHead, MemberRowView } from "@/components/community/creator/view-types"
 import type { Role } from "@/lib/communities/types"
 import type { MemberDetail } from "@/lib/communities/member-detail"
@@ -151,8 +156,51 @@ function Directory() {
   )
 }
 
+/** The member's own Membership page, where they say who may message them. */
+function Membership() {
+  const studio = {
+    id: ID,
+    slug: "morning-writers",
+    name: "The Morning Writers",
+    tagline: "Write 500 words before breakfast, together.",
+    description: null,
+    logoUrl: null,
+    coverUrl: null,
+    status: "published",
+    access: "paid",
+    visibility: "public",
+    benefits: [],
+    rules: [],
+    faq: [],
+    creator: { name: "Ana Popescu", username: "ana", avatarUrl: null, href: "/ana" },
+    options: [],
+    accessProducts: [],
+    reviews: null,
+    url: "/community/morning-writers",
+    address: "storelib.com/community/morning-writers",
+    gallery: [],
+    stats: { members: 1284, online: null, admins: 2 },
+  } as unknown as PublicCommunityView
+  const join = decideJoin({
+    community: { slug: studio.slug, status: studio.status, access: studio.access, approvalRequired: false, suspended: false, archived: false, creatorName: "Ana Popescu" },
+    viewer: { signedIn: true, active: true, status: "active", role: "member", isOwner: false, banned: false, approved: false, source: "subscription", membershipId: "m1" } as never,
+    options: [],
+    accessProducts: [],
+    canTakePayments: true,
+  } as never)
+  return (
+    <div className="min-h-svh bg-[#f8f9fa]">
+      <main className="mx-auto w-full max-w-[720px] px-4 py-6 sm:py-10">
+        <MembershipPage community={studio} join={join} askWhy facts={{ role: "member", source: "subscription", joinedAt: ago(140), expiresAt: ahead(11), planName: "Lifetime", notifyLevel: "important", dmFrom: "staff" }} />
+      </main>
+    </div>
+  )
+}
+
 function App() {
-  if (new URLSearchParams(location.search).get("case") === "directory") return <Directory />
+  const picked = new URLSearchParams(location.search).get("case")
+  if (picked === "directory") return <Directory />
+  if (picked === "messages") return <Membership />
   return (
     <Frame>
       <div className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">

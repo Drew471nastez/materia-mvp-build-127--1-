@@ -444,7 +444,11 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
   */
   if (a.action === "feature" || a.action === "unfeature") {
     const done = await setMemberFeatured(db, { community: a.community, actor: { ...a.actor, perms: may.perms }, userId: a.userId, on: a.action === "feature" })
-    if (!done.ok) return no(done.status, done.error)
+    /* Read as its refused half: this file is compiled without strictNullChecks by one of the suites, which does not narrow a union on `ok`. */
+    if (!done.ok) {
+      const refused = done as { status: number; error: string }
+      return no(refused.status, refused.error)
+    }
     return { ok: true, member: await memberOf(db, a.community.id, a.userId) }
   }
   if (a.userId === a.actor.userId) return no(409, "You cannot do that to yourself.")

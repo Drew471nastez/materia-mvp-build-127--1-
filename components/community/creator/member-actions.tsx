@@ -62,7 +62,7 @@ const SECTION_TITLE: Record<string, string> = {
   get Access() { return tt("Access") },
   get Points() { return tt("Points") },
   get Moderate() { return tt("Moderate") },
-  get Recognise() { return tt("Recognise") },
+  get Featured() { return tt("Featured") },
 }
 export const sectionTitle = (key: string): string => SECTION_TITLE[key] ?? key
 

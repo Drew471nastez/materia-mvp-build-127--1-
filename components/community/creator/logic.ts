@@ -993,8 +993,8 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
   if (c.feature && m.status === "active") {
     out.push(
       m.featured
-        ? { key: "unfeature", label: tt("Stop featuring"), action: "unfeature", section: "Recognise" }
-        : { key: "feature", label: tt("Feature in the community"), shortLabel: tt("Feature"), action: "feature", section: "Recognise" },
+        ? { key: "unfeature", label: tt("Stop featuring"), action: "unfeature", section: "Featured" }
+        : { key: "feature", label: tt("Feature in the community"), shortLabel: tt("Feature"), action: "feature", section: "Featured" },
     )
   }
   if (m.userId === actor.userId || m.role === "owner") return out

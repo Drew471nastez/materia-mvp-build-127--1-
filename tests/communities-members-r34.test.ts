@@ -25,6 +25,8 @@
  *   DETAIL      what a member opened shows: their activity, their access in
  *               one line, and the programs only somebody who may manage
  *               members is sent.
+ *   MESSAGES    a member's own choice about who may message them here, and
+ *               the server applying it on the way in and on every message.
  *   PRIVACY     every shape the browser can ask for about another member,
  *               searched through every key and every value for an email, a
  *               payment, an order, a Stripe id and a private enrolment.
@@ -42,6 +44,9 @@ import { actOnMember, memberActionNeeds } from "@/lib/communities/server/moderat
 import { listMembers as directoryMembers, memberProfile } from "@/lib/communities/server/directory"
 import { personCard } from "@/lib/communities/server/people"
 import { engagementLine, subscriptionLine } from "@/lib/communities/member-detail"
+import { DM_CHOICES, DM_FROM, DEFAULT_DM_FROM, mayMessage, parseDmFrom } from "@/lib/communities/message-privacy"
+import { dmFromOf, mayMessageMember } from "@/lib/communities/server/message-privacy"
+import { checkMe } from "@/lib/communities/server/directory"
 import { memberDetail } from "@/lib/communities/server/member-detail"
 import { parseMemberQuery } from "@/components/community/creator/logic"
 import type { CommunityRow } from "@/lib/communities/types"
@@ -192,7 +197,9 @@ const missingColumn = { code: "42703", message: 'column community_members.featur
 
 async function actions() {
   console.log("\nEvery administrative action, on the server\n")
-  const actor = (userId: string, role: "owner" | "admin" | "moderator" | "member") => ({ userId, role, perms: null })
+  function actor(userId: string, role: "owner" | "admin" | "moderator" | "member") {
+    return { userId, role, perms: null }
+  }
 
   {
     /* A free community: approval lets them straight in. */
@@ -481,12 +488,45 @@ async function detail() {
   }
 }
 
+/* ── Who may message them ──────────────────────────────────────────────── */
+
+async function messages() {
+  console.log("\nWho may message a member here\n")
+  check("the choices are the two, and anything else is everyone", DM_FROM.join() === "everyone,staff" && DEFAULT_DM_FROM === "everyone" && parseDmFrom("staff") === "staff" && parseDmFrom("nobody") === "everyone" && parseDmFrom(null) === "everyone" && parseDmFrom(7) === "everyone")
+  check("the narrow choice keeps the people who run the community", mayMessage("staff", "owner") && mayMessage("staff", "admin") && mayMessage("staff", "moderator") && !mayMessage("staff", "member") && !mayMessage("staff", null))
+  check("the open choice lets any member through", mayMessage("everyone", "member") && mayMessage("everyone", "moderator"))
+  check("and there is no choice that shuts the owner out", DM_CHOICES.length === 2 && DM_CHOICES.every((c) => mayMessage(c.key, "owner")))
+
+  {
+    const db = fakeDb(rows())
+    db.tables.community_members.find((m) => m.user_id === PAYING)!.dm_from = "staff"
+    check("the choice is read from their own row", (await dmFromOf(db as never, CID, PAYING)) === "staff" && (await dmFromOf(db as never, CID, MEMBER)) === "everyone")
+    check("a member is turned down and a moderator is not", !(await mayMessageMember(db as never, CID, PAYING, "member")) && (await mayMessageMember(db as never, CID, PAYING, "moderator")))
+    check("and somebody who never chose takes messages from anybody", await mayMessageMember(db as never, CID, MEMBER, "member"))
+  }
+  {
+    /* Before run-now part 222 the column is not there: everybody messages everybody, exactly as now. */
+    const db = fakeDb(rows(), { failWith: { community_members: { code: "42703", message: "column community_members.dm_from does not exist" } } })
+    check("before the database update nothing changes", (await dmFromOf(db as never, CID, PAYING)) === "everyone" && (await mayMessageMember(db as never, CID, PAYING, "member")))
+  }
+  {
+    const ok = checkMe({ dmFrom: "staff" })
+    const bad = checkMe({ dmFrom: "nobody" })
+    check("a member saves their own choice, and only a real one", ok.ok === true && ok.value.dm_from === "staff" && bad.ok === false)
+    check("and it is saved on their own row only", /\.eq\("community_id", communityId\)[\s\S]{0,80}\.eq\("user_id", userId\)/.test(readCode("lib/communities/server/directory.ts")))
+  }
+  const direct = readCode("lib/communities/server/direct.ts")
+  check("the server asks when a conversation is opened and again on every message", (direct.match(/mayMessageMember\(/g) ?? []).length === 2)
+  check("a refused message is a 403 with words, not a silent drop", /status: 403/.test(direct) && /DM_REFUSED/.test(direct))
+}
+
 async function main() {
   await actions()
   await featured()
   lists()
   await privacy()
   await detail()
+  await messages()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log("\nFailures:")

@@ -20,6 +20,7 @@ import type { MemberProfileView } from "@/components/community/member/view-types
 import { ensureUsernames } from "@/lib/profile/ensure-username"
 import { isCountryCode, placeLine } from "../location"
 import { missing, reasonOf, type Db } from "./db"
+import { DM_FROM, type DmFrom } from "../message-privacy"
 import { featuredSet } from "./featured-members"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -529,15 +530,24 @@ export interface MePatch {
   email_events?: boolean
   bio?: string | null
   onboarded_at?: string
+  /** Who may message them here (round 34, ../message-privacy.ts). Written only by run-now part 222's column. */
+  dm_from?: DmFrom
 }
 
-/** What a member may change about themselves here: how much they hear, their short bio, and that they have seen the welcome. */
+/**
+ * What a member may change about themselves here: how much they hear, who
+ * may message them, their short bio, and that they have seen the welcome.
+ */
 export function checkMe(raw: unknown, now = Date.now()): { ok: true; value: MePatch } | { ok: false; error: string } {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const patch: MePatch = {}
   if (r.notifyLevel !== undefined) {
     if (!NOTIFY.includes(r.notifyLevel as (typeof NOTIFY)[number])) return { ok: false, error: "Choose what to hear about." }
     patch.notify_level = r.notifyLevel as (typeof NOTIFY)[number]
+  }
+  if (r.dmFrom !== undefined) {
+    if (!(DM_FROM as readonly string[]).includes(r.dmFrom as string)) return { ok: false, error: "Choose who may message you." }
+    patch.dm_from = r.dmFrom as DmFrom
   }
   if (typeof r.emailAnnouncements === "boolean") patch.email_announcements = r.emailAnnouncements
   if (typeof r.emailEvents === "boolean") patch.email_events = r.emailEvents
@@ -553,6 +563,13 @@ export function checkMe(raw: unknown, now = Date.now()): { ok: true; value: MePa
 
 export async function updateMe(db: Db, communityId: string, userId: string, patch: MePatch): Promise<boolean> {
   const { error } = await db.from("community_members").update(patch).eq("community_id", communityId).eq("user_id", userId).eq("status", "active")
-  if (error && !missing(error)) console.error(`[communities] member settings: ${reasonOf(error)}`)
+  if (error) {
+    /*
+      Only the message choice needs run-now part 222's column. Before it has
+      run, saving it says so and everything else on the page keeps saving.
+    */
+    if (missing(error) && patch.dm_from !== undefined) return false
+    if (!missing(error)) console.error(`[communities] member settings: ${reasonOf(error)}`)
+  }
   return !error
 }

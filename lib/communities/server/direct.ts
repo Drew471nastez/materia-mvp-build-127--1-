@@ -10,8 +10,12 @@ import "server-only"
  * (requireMember with "chat"), and only while:
  *
  *   the community has chat switched on (the creator's one Chat switch covers
- *     chat spaces and member messages), and
- *   both people are active members who are not banned.
+ *     chat spaces and member messages),
+ *   both people are active members who are not banned, and
+ *   the person being written to takes messages from the writer (round 34,
+ *     ../message-privacy.ts: their own choice, asked when the conversation
+ *     is opened and again on every message, so narrowing it closes the
+ *     conversations already open).
  *
  * The browser listens to realtime for the rows of its own conversations
  * (the policy in part 83 lets only the two members read them) and treats a
@@ -23,6 +27,7 @@ import "server-only"
  * `ready: false`, and the shell does not draw the chat button at all.
  */
 import { LENGTHS } from "../limits"
+import { DM_REFUSED } from "../message-privacy"
 import type { AuthorView, CommunityRow } from "../types"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
@@ -31,6 +36,7 @@ import { cleanText, refused, type Checked } from "./feed"
 import { touchMember } from "./activity"
 import { pushDirectMessage, pushSoon } from "@/lib/notifications/push-bridge"
 import { screenWrite } from "./safety"
+import { mayMessageMember } from "./message-privacy"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const DM_PAGE = 50
@@ -146,6 +152,8 @@ export async function openConversation(db: Db, community: CommunityRow, viewer: 
   if (typeof otherId !== "string" || !UUID.test(otherId)) return { ok: false, error: "That member is not here.", status: 400 }
   if (otherId === viewer.userId) return { ok: false, error: "You cannot message yourself.", status: 400 }
   if (!(await activeMember(db, community.id, otherId))) return { ok: false, error: "That member is no longer in this community.", status: 404 }
+  /* Their own choice about who may message them (round 34, ../message-privacy.ts). Asked here and again on every message. */
+  if (!(await mayMessageMember(db, community.id, otherId, viewer.role))) return { ok: false, error: DM_REFUSED, status: 403 }
   const pair = pairOf(viewer.userId, otherId)
   const found = await db.from("community_conversations").select("id").eq("community_id", community.id).eq("user_a", pair.user_a).eq("user_b", pair.user_b).maybeSingle()
   if (found.error) {
@@ -285,6 +293,8 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   const other = otherOf(conversation, viewer.userId)
   if (!(await activeMember(db, community.id, other))) return { ok: false, error: "That member is no longer in this community.", status: 403 }
+  /* Asked again: a conversation opened before they narrowed it does not stay open. */
+  if (!(await mayMessageMember(db, community.id, other, viewer.role))) return { ok: false, error: DM_REFUSED, status: 403 }
   const screen = await screenWrite({ db, community, viewer }, "dm", { text: body })
   if (!screen.ok) return refused(screen)
   const { data, error } = await db
