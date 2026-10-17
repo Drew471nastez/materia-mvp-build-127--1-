@@ -40,6 +40,7 @@ import { stripe } from "@/lib/stripe"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { feePercentFor, type BillingInterval } from "./state"
 import type { Db, PlanRow } from "./server"
+import { STORELIB_CHARGE_CURRENCY } from "@/lib/pricing/surface-currency"
 
 /** The Stripe price for this plan's amount and interval: the kept one while the amount is unchanged, else a new one. */
 export async function ensurePrice(admin: Db, plan: PlanRow, product: { id: string; title: string | null }, interval: BillingInterval): Promise<{ priceId: string; amountCents: number }> {
@@ -63,7 +64,10 @@ export async function ensurePrice(admin: Db, plan: PlanRow, product: { id: strin
   const price = await stripe.prices.create(
     {
       product: stripeProductId,
-      currency: plan.currency || "usd",
+      /* The plan's own price record, which is Storelib's currency for every
+         membership and community tier (lib/pricing/surface-currency): what a
+         creator's own website sells in never reaches it. */
+      currency: plan.currency || STORELIB_CHARGE_CURRENCY,
       unit_amount: amount,
       recurring: { interval },
       metadata: { kind: "membership", product_id: product.id },
@@ -83,9 +87,9 @@ export async function membershipFee(
   admin: Db,
   creatorId: string,
   amountCents: number,
-  currency = "usd",
+  currency: string | null | undefined = STORELIB_CHARGE_CURRENCY,
 ): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency)
+  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency || STORELIB_CHARGE_CURRENCY)
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 

@@ -162,7 +162,10 @@ export async function POST(request: Request) {
 
   try {
     const price = await ensurePrice(admin, plan, product, interval)
-    const fee = await membershipFee(admin, creator.id, price.amountCents)
+    /* The fee in the currency the subscription's Stripe price is in (plan.currency,
+       Storelib's for every community and membership: lib/pricing/surface-currency),
+       so the fee rules and the charge cannot be in two different currencies. */
+    const fee = await membershipFee(admin, creator.id, price.amountCents, plan.currency)
     const customerId = await buyerCustomer(admin, { email, name, userId: user?.id ?? null })
     if (paymentMethodId) await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
     const created = await createSubscription({
