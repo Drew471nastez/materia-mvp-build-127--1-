@@ -90,7 +90,14 @@ async function main() {
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER \+ PLACE_KEYFRAMES\}<\/style>/.test(frame))
     /* Changed on purpose: from 1280px About's sheet takes every column and the left column steps aside for it (xl:col-span-full, lg:block xl:hidden), as tests/communities-shell.test.ts pins; the left column lands only when entering (226342ba1). */
-    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame) && /lg:col-start-1 lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\} \$\{landing \? LAND : ""\}/.test(frame))
+    /*
+      Changed on purpose (round 26): the tab row is drawn at every width on every place, so the bar's height is no longer
+      64 + 1 on a computer. The ask this check guards is the one that is left: About is under the SAME bar as every other
+      place, so the frame carries one height for every place (no `about ?` anywhere near --community-top, no second
+      guess), in the same container, with the tab row not conditioned on About.
+    */
+    const tops = frame.match(/\[--community-top:\d+px\]/g) || []
+    check("About sits in the same columns under the same bar (one bar height for every place, no narrower frame)", !/tabsOnDesktop=\{about\}/.test(frame) && tops.length === 2 && !/about[^\n]{0,80}--community-top/.test(frame) && !/about \?[^\n]{0,80}max-w-\[/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame) && /lg:col-start-1 lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\} \$\{landing \? LAND : ""\}/.test(frame), tops)
     check("entering from outside, the side columns come in by opacity; the middle never fades (round 19: no flash on the first post)", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /\$\{landing \? LAND : ""\}/.test(frame) && !/LAND_LATE/.test(frame))
   }
 

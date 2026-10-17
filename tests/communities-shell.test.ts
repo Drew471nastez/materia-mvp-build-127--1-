@@ -68,6 +68,9 @@ import { fakeDb } from "./_fake-db"
 import { memberHref } from "@/components/community/member/person-href"
 import { personHref } from "@/lib/profile/person-href"
 import { navEntries, sectionFromPath, tabFor } from "@/components/community/member/nav"
+/* The real address builders, so a check about an order or a place is not a check about the shape of a URL. */
+import { placeHref } from "@/lib/communities/client/places"
+import { postPath } from "@/lib/communities/post-url"
 import { contributorsDetail } from "@/components/community/member/wall"
 import { SEARCH_DEBOUNCE_MS, SEARCH_MIN_CHARS, searchOptions, stepOption } from "@/components/community/member/search"
 import { ACTIVITY_SCAN, WALL_CONTRIBUTORS, WALL_FACES, eventHrefFor, mostActive, rankRows, recentFaces, settingsHrefFor, topContributors, upcomingEvent } from "@/lib/communities/server/wall"
@@ -186,7 +189,8 @@ async function main() {
     check("round 7: on a phone it sits LEFT of the picture (order-first), from 768px back after the name; one navigator", /<div className="order-first flex shrink-0 md:order-none[^"]*" data-community-hamburger="">\s*<PlaceNavigator /.test(render) && (render.match(/<PlaceNavigator /g) || []).length === 1)
     /* Changed on purpose (round 26): the tab row is under the bar at every width in the member area (tabsOnDesktop), with no extra padding from 1024px. */
     check("round 7: taller, not fat: a 56px row on a phone and a tablet, 64px from 1024px, the tabs a row of their own under it", /data-community-top-lead=""/.test(bar) && /"flex h-14 min-w-0 flex-1 items-center gap-1\.5 min-\[400px\]:gap-2 md:gap-3 lg:h-16"/.test(bar) && /flex h-14 shrink-0 items-center[^"]*lg:h-16/.test(bar) && /"order-last -mx-4 mt-0 min-w-0 basis-\[calc\(100%\+2rem\)\] pb-0 pt-0.5 sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
-    check("round 7: the community's picture a bit bigger (36px on a phone, 40px from 768px), the bell and Messages 24px glyphs", /<CommunityMark community=\{community\} size=\{36\} \/>/.test(bar) && /<CommunityMark community=\{community\} size=\{40\} \/>/.test(bar) && /\[&_svg\.lucide-bell\]:h-6 \[&_svg\.lucide-bell\]:w-6/.test(bar) && /<ChatLine size=\{24\} \/>/.test(bar))
+    /* The mark takes other props as well now (round 24 reads it with priority), so the sizes are read inside their own breakpoint's span rather than from the whole tag. */
+    check("round 7: the community's picture a bit bigger (36px on a phone, 40px from 768px), the bell and Messages 24px glyphs", /<span className="flex md:hidden">\s*<CommunityMark community=\{community\} size=\{36\}[^>]*\/>/.test(bar) && /<span className="hidden md:flex">\s*<CommunityMark community=\{community\} size=\{40\}[^>]*\/>/.test(bar) && /\[&_svg\.lucide-bell\]:h-6 \[&_svg\.lucide-bell\]:w-6/.test(bar) && /<ChatLine size=\{24\} \/>/.test(bar))
     check("round 7: By <creator> on a computer only", /<p className="hidden truncate[^"]*md:block" data-community-by="">/.test(bar))
     const ui = code("components/community/member/ui.ts")
     const plain = /export const PLAIN_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
@@ -225,7 +229,12 @@ async function main() {
     check("the bell is Storelib's own, for anybody signed in", /import \{ NotificationBell \} from "@\/components\/notifications\/notification-bell"/.test(bar) && /\{me \? <NotificationBell /.test(bar) && !existsSync("components/community/member/bell-slot.tsx"))
     check("the bell keeps the two realtime exports it reads from the member area", /export async function realtimeAuth\(/.test(read("components/community/member/realtime.ts")) && /export const INBOX_EVENT = /.test(read("components/community/member/realtime.ts")))
     check("the bar sits below the status bar in the phone app", /pt-\[env\(safe-area-inset-top\)\]/.test(bar))
-    check("its height is measured once and shared as --community-top", /frame\.style\.setProperty\("--community-top", h\)/.test(bar) && /html\.style\.setProperty\("--community-top", h\)/.test(bar))
+    /*
+      Round 21 writes through one `put(el, h)` (only where the value differs) instead of two setProperty calls, so the height
+      is read in one place and written on the frame and on <html> from that one reading. The check reads that shape: one
+      measurement (`${Math.round(px)}px`, once in the file), handed to both.
+    */
+    check("its height is measured once and shared as --community-top", /const put = \(el: HTMLElement, h: string\) => \{[\s\S]{0,400}el\.style\.setProperty\("--community-top", h\)/.test(bar) && /put\(frame, h\)/.test(bar) && /put\(html, h\)/.test(bar) && (bar.match(/\$\{Math\.round\(px\)\}px/g) || []).length === 1 && /const set = \(px: number\) => \{/.test(bar))
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame wires Messages to the existing panel and its unread count", /useUnreadMessages\(community\.id, viewer\.userId, unreadMessages\)/.test(frame) && /<MessagesPanel communityId=\{community\.id\}/.test(frame) && /const onMessages = useCallback\(\(\) => setChat/.test(frame) && /onMessages=\{onMessages\}/.test(frame))
     check("Message on a person's card or a member row opens the panel", /window\.addEventListener\(MESSAGES_EVENT, on\)/.test(frame))
@@ -257,7 +266,8 @@ async function main() {
     /* Changed on purpose (round 26): with the tab row under the bar from 1024px the member frame's guess there is 107 (64 + 2 + 40 + 1), measured by scripts/check-community-round26.mjs. */
     check("round 11: the frame's first guess at the header's height (99 below 1024px; 107 from 1024px with the tab row; a visitor 57 and 65)", /\[--community-top:99px\] lg:\[--community-top:107px\]/.test(frameCode) && !/105px/.test(frameCode) && /\[--community-top:57px\] lg:\[--community-top:65px\]/.test(code("components/community/public/public-frame.tsx")))
     const chips = code("components/community/member/space-chips.tsx")
-    check("chips: All, then every space the member may see; round 9, ask 16: no Saved chip (Saved posts is in the sort menu and the \"...\" menu)", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && !/data-space-chip="saved"|\/saved`/.test(chips))
+    /* Round 15: a space chip's address comes from the one place builder (lib/communities/client/places.ts placeHref), so it is read through that function rather than as a template in the chip. */
+    check("chips: All, then every space the member may see; round 9, ask 16: no Saved chip (Saved posts is in the sort menu and the \"...\" menu)", /<Link href=\{base\} aria-current=\{allOn \? "page" : undefined\} data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{placeHref\(slug, \{ kind: "space", slug: s\.slug \}\)\}/.test(chips) && /data-space-chip=\{s\.slug\}/.test(chips) && placeHref("club", { kind: "space", slug: "gen" }) === "/community/club/space/gen" && !/data-space-chip="saved"|\/saved`|text="Saved|placeHref\(slug, \{ kind: "saved"/.test(chips))
     /* Round 7: the feed, a feed space and Saved are one feed (CommunityFeed) that draws the chips itself; a chat space keeps its own row of chips. */
     const spacePage = code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")
     /* Round 15: places are drawn by the community's shell from the one place loader (lib/communities/server/places.ts, components/community/member/place-host.tsx, place-views.tsx); the same intent, at its new home. */
@@ -588,13 +598,24 @@ async function main() {
     /* Round 26 (W6): the creator's member links sit under the card, quiet text, still no places there. */
     check("round 27: the left column is the community card (and, round 26, the member links under it), never the places (the places are the tab row)", /data-community-left="">\s*\{wall \? <WallCommunityCard community=\{community\} card=\{wall\.card\} membersHref=\{membersHref\} \/> : null\}[\s{}]*\{memberLinks\.length \? <MemberLinks [^>]*variant="column"[^>]*\/> : null\}\s*<\/div>/.test(frame) && !/<WallPlaces/.test(frame))
     check("round 9: the right column is the next event, then the top contributors (Most active), sticking under the bar", /data-community-right=""[\s\S]{0,400}\{upcoming \? <WallUpcoming [^\n]*\n\s*\{contributors && !onLeaderboard \? <WallContributorsCard /.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,107px\)\+24px\)\]/.test(frame))
-    check("round 9: each card only when it has something, and the same on every place, so the side columns never change between places", /const upcoming = wall\?\.upcoming \?\? null/.test(frame) && /const contributors = wall\?\.contributors \?\? null/.test(frame) && !/feedish|rightColumnFor/.test(frame) && /\{upcoming \|\| contributors \? \(/.test(frame))
+    /*
+      Read as a shape rather than as one spelling of the condition: the right column's wrapper is drawn exactly when one of
+      its cards is (the gate is the two cards' own conditions, or-ed), so a card that gained a condition of its own (the
+      contributors are not drawn on the leaderboard) cannot leave an empty column behind. The same on every place: no
+      per-place branch (feedish, rightColumnFor).
+    */
+    const right = frame.slice(frame.indexOf('data-community-right=""'))
+    const gate = /\{([^?{}\n]+)\? \(\s*<div className="space-y-3 xl:sticky/.exec(right)?.[1] ?? ""
+    const cards = [...right.matchAll(/\{([^?{}\n]+)\? <Wall(\w+) /g)].map((m) => m[1])
+    const bare = (s: string) => s.replace(/[()\s]/g, "")
+    check("round 9: each card only when it has something, and the same on every place, so the side columns never change between places", /const upcoming = wall\?\.upcoming \?\? null/.test(frame) && /const contributors = wall\?\.contributors \?\? null/.test(frame) && !/feedish|rightColumnFor/.test(frame) && cards.length === 2 && !!gate && bare(gate) === cards.map(bare).join("||"), { gate, cards })
     check("from 1024px to 1279px everything stacks in the left column: the card, then the event and the contributors", /lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch \$\{wideCenter \? "" : "lg:block"\}/.test(frame) && /lg:grid-rows-\[auto_1fr\]/.test(frame) && /lg:row-span-2 lg:row-start-1 \$\{lessonPage \? "lg:col-span-full lg:col-start-1" : about \? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter \? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"\}/.test(frame))
     /* Round 15: places are drawn by the community's shell from the one place loader (lib/communities/server/places.ts, components/community/member/place-host.tsx, place-views.tsx); the same intent, at its new home. */
     check("a lesson is the whole page: no community card or places beside it, the player across every column", /const lessonPage = shown\.kind === "program"/.test(frame) && /lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\}/.test(frame))
     check("the leaderboard keeps the three columns, so the right card never makes an extra one", !/onLeaderboard \? "xl:grid-cols-\[280px_minmax\(0,1fr\)\]"/.test(frame) && /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]"/.test(frame))
     /* Round 11, ask 20: About is a place in the same columns (the left column stays from 1280px); its sheet takes the middle and the right. */
-    check("round 11: About sits in the same columns, its sheet across the middle and the right from 1280px", !/\{about \? \(\s*<div className=\{ARRIVE\} data-community-body="">/.test(frame) && /\$\{about \? ABOUT_BOX : ""\}/.test(frame) && /data-community-place=\{about \? "about" : wideCenter && !about \? "lesson" : undefined\}/.test(frame))
+    /* The place's name on the columns is now one list of every place (round 15 and after), and the body's class is a plain expression rather than a template: About is still read as its own place in the same columns, with its own box. */
+    check("round 11: About sits in the same columns, its sheet across the middle and the right from 1280px", !/\{about \? \(\s*<div className=\{ARRIVE\} data-community-body="">/.test(frame) && /about \? ABOUT_BOX : ""/.test(frame) && /data-community-body=""/.test(frame) && /data-community-place=\{about \? "about" :/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame))
     check("a program lesson player takes the middle and right columns too, so the video is not squeezed", /const wideCenter = about \|\| lessonPage \|\| profilePage \|\| shown\.kind === "learn" \|\| shown\.kind === "calendar" \|\| shown\.kind === "event"/.test(frame))
     /* Round 15: the host lands a place the member moved to (a fade from 35% and a 6px rise, 180ms, on the compositor); the feed's lists are one slot, so a space switched in place never remounts. */
     /* Changed on purpose (round 31): the arrival is a crossfade (place-crossfade.ts): the place left goes out while the next comes up from nothing, opacity and a rise only, none for reduced motion. */
@@ -727,7 +748,17 @@ async function main() {
     check("the pattern is quoted for the filter", likePattern("glaze tip") === '"%glaze tip%"')
     check("a snippet around the match, or the start when it is near", snippetAround("short text about glaze", "glaze") === "short text about glaze" && snippetAround(`${"word ".repeat(60)}glaze here`, "glaze").startsWith("...") && snippetAround(`${"word ".repeat(60)}glaze here`, "glaze").includes("glaze"))
     check("the client steps through results and wraps", stepOption(-1, 3, "ArrowDown") === 0 && stepOption(2, 3, "ArrowDown") === 0 && stepOption(0, 3, "ArrowUp") === 2 && stepOption(-1, 0, "ArrowDown") === -1 && stepOption(1, 3, "End") === 2)
-    check("results in drawn order: posts, members, spaces, each to its page", searchOptions({ q: "x", posts: [{ id: "p1" } as never], members: [{ id: "m1", href: "/@m" } as never], spaces: [{ id: "s1", slug: "gen" } as never] }, "club").map((o) => o.href).join() === "/community/club/post/p1,/@m,/community/club/space/gen")
+    /*
+      The order, and that each result goes to its own kind of page. The addresses are the real builders' (a post's is
+      lib/communities/post-url.ts postPath since round 20's readable links, a space's is places.ts placeHref, a member
+      brings its own), so the format of a URL can change without breaking an ordering check.
+    */
+    {
+      const results = { q: "x", posts: [{ id: "p1", title: "Glaze tip", snippet: "Test tiles first." }], members: [{ id: "m1", href: "/@m" }], spaces: [{ id: "s1", slug: "gen" }] }
+      const opts = searchOptions(results as never, "club")
+      const want = [postPath("club", { id: "p1", title: "Glaze tip", bodyText: "Test tiles first." }), "/@m", placeHref("club", { kind: "space", slug: "gen" })]
+      check("results in drawn order: posts, members, spaces, each to its page", opts.map((o) => o.group).join() === "posts,members,spaces" && opts.map((o) => o.href).join() === want.join() && /\/post\//.test(opts[0].href) && /\/space\//.test(opts[2].href), opts.map((o) => o.href))
+    }
 
     const C = "c0000000-0000-4000-8000-0000000000e1"
     const OPEN = "b0000000-0000-4000-8000-0000000000e1"
@@ -875,9 +906,17 @@ async function main() {
     check("a chip switches in place: a plain click is kept from loading a page, a new tab is not", /* Round 15: the click after a release that already acted is the same tap (chip-hit.ts CLICK_AFTER_MS). */ /if \(!inPlace\(e\)\) return\s*e\.preventDefault\(\)\s*if \(performance\.now\(\) - tookAt < CLICK_AFTER_MS\) return\s*onPick\(pick\)/.test(chips) && /e\.button === 0 && !e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(chips))
     check("a chat space stays a page of its own", /s\.kind === "chat" \? \{\} : switching\(/.test(chips))
     check("and the switching chips are not prefetched as pages (the list comes from the API, once)", /prefetch: false/.test(chips))
-    check("the address follows with pushState (Next's router keeps up), and Back is read from it", /window\.history\.pushState\(null, "", href\)/.test(feed) && /window\.addEventListener\("popstate", on\)/.test(feed) && /targetFromPath\(livePath \|\| pathname, slug, spaces, start\)/.test(feed))
+    /* targetFromPath also reads the query now (?space= on a phone, round 15), so the address it is given is read without pinning the argument list. */
+    check("the address follows with pushState (Next's router keeps up), and Back is read from it", /window\.history\.pushState\(null, "", href\)/.test(feed) && /window\.addEventListener\("popstate", on\)/.test(feed) && /const livePath = typeof window === "undefined" \? pathname : window\.location\.pathname/.test(feed) && /targetFromPath\(livePath \|\| pathname, slug, spaces, start[,)]/.test(feed))
     check("a cached list on the very next render (read during render, not after an effect)", /* Round 21: the feed's own copy first, the cache for a list not on screen yet. */ /const listed = shown\.key === key \? shown\.view : null\s*const asked = listed \?\? readView\(key\)/.test(feed))
-    check("an uncached space keeps the posts on screen; the spinner is only when nothing is there", /const held = shown\.view\.posts\.length \? shown\.view : null/.test(feed) && /const cached = asked \?\? listed \?\? held/.test(feed) && /const view = cached \?\? EMPTY_LIST/.test(feed) && /const waiting = !asked && view\.posts\.length === 0/.test(feed) && /readView\(viewKey\(communityId, targetFromId\(targetId\), sort\)\)/.test(feed) && /spinner && posts\.length === 0 \? \(\s*<PlaceSpinner compact label="Loading posts" \/>/.test(feed) && !/data-feed-list-stale/.test(feed) && !/Skeleton/.test(feed))
+    /*
+      Read as the fall back order rather than as one spelling of it: the list read for this key wins, and the posts already
+      on screen (`held`) are the last resort, so a space with no cached list never clears the feed. The key is the LIST's
+      (round 16: the chip goes first and the list follows two frames later), not the chip's.
+    */
+    const fallBack = /const cached = ([^\n]+)/.exec(feed)?.[1]?.trim() ?? ""
+    const steps = fallBack.split("??").map((s) => s.trim())
+    check("an uncached space keeps the posts on screen; the spinner is only when nothing is there", /const held = shown\.view\.posts\.length \? shown\.view : null/.test(feed) && steps.length >= 2 && steps[0] === "asked" && steps[steps.length - 1] === "held" && /const view = cached \?\? EMPTY_LIST/.test(feed) && /const waiting = !asked && view\.posts\.length === 0/.test(feed) && /const key = viewKey\(communityId, listTarget, listSort\)/.test(feed) && /const asked = listed \?\? readView\(key\)/.test(feed) && /spinner && posts\.length === 0 \? \(\s*<PlaceSpinner compact label="Loading posts" \/>/.test(feed) && !/data-feed-list-stale/.test(feed) && !/Skeleton/.test(feed), fallBack)
     check("round 15: only the list that takes the spinner's place eases in (from 0); a list over another list is simply there", /const drawnKey = cached \? key : shown\.key/.test(feed) && /if \(!fromSpinner \|\| !el/.test(feed) && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: ARRIVE_MS, easing: ARRIVE_EASE \}\)/.test(feed) && /prefers-reduced-motion: reduce/.test(feed))
     check("round 9: the feed reads the first page of All and every feed space ahead as soon as it is on screen, a few at a time, never a chat space", /requestAnimationFrame\(\(\) => \{\s*void prefetchViews\(communityId, aheadTargets, "default", \(\) => stopped\)/.test(feed) && /spaces\.filter\(\(s\) => s\.kind !== "chat"\)/.test(feed))
     check("asked for ahead: a pointer resting on a chip, a finger landing, the keyboard", /onPointerEnter: onIntent \? \(e: React\.PointerEvent\) => e\.pointerType === "mouse" && onIntent\(pick\)/.test(chips) && /* Round 10: the finger landing also marks the chip pressed (ui.ts press). */ /onPointerDown: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{[\s\S]{0,260}pressChip\(e\.currentTarget\)[\s\S]{0,260}onIntent\?\.\(pick\)/.test(chips) && /onFocus: onIntent/.test(chips) && /prefetchView\(communityId, next/.test(feed))
