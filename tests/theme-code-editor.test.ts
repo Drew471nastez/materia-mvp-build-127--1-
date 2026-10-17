@@ -268,7 +268,7 @@ section("It is reachable, and it works on a file longer than the window")
   )
   check(
     "on a phone the code editor is its own page: the builder saves the draft, then navigates to the code route with a way back",
-    /const openCode = async \(path\?: string \| null\) => \{/.test(editor) &&
+    /const openCode = async \(path\?: string \| null, opts: \{ at\?: "top" \| "schema"; sectionId\?: string \} = \{\}\) => \{/.test(editor) &&
       /if \(!isMobileView\) \{\s*\n\s*setPreviewMode\("code"\)/.test(editor) &&
       /const ok = await saveDraft\(\{ quiet: true \}\)\s*\n\s*if \(!ok\) return/.test(editor) &&
       /router\.push\(`\/website-builder\/code\/\$\{installId\}\?\$\{q\.toString\(\)\}`\)/.test(editor) &&
@@ -332,7 +332,9 @@ section("It is reachable, and it works on a file longer than the window")
   check(
     "and the code page's Back goes to the builder when it came from there, with no question: unsaved edits are held and offered back",
     /const fromEditor =[\s\S]*?get\("back"\) === "editor"/.test(codeSrc) &&
-      /const backHref = fromEditor \? `\/website-builder\/editor\/\$\{installId\}` : "\/app\/website-builder"/.test(codeSrc) &&
+      /* V round: and back onto the section it was opened from (lib/website-builder/code-return.ts). */
+      /const backHref = fromEditor\s*\?\s*backToEditorHref\(installId, [^)]*\)\s*:\s*"\/app\/website-builder"/.test(codeSrc) &&
+      /return `\/website-builder\/editor\/\$\{encodeURIComponent\(installId\)\}/.test(readFileSync(join(root, "lib/website-builder/code-return.ts"), "utf8")) &&
       // No confirm on the way out; the press itself is handled above, where
       // the arrow becomes a spinner.
       !/window\.confirm/.test(codeSrc) &&
@@ -378,7 +380,8 @@ section("It is reachable, and it works on a file longer than the window")
       // and it is shown again before the fade-in, so the fade still plays
       /if \(visible\) \{\s*\n\s*setHidden\(false\)/.test(pane),
   )
-      return /src=\{`\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{codeFilePath \? `&path=/.test(pane)
+      /* V round: the frame's address is fixed when first drawn; a later file is opened inside it (storelib:open-file). */
+      return /srcRef\.current = `\/website-builder\/code\/\$\{installId\}\?embedded=1\$\{codeFilePath \? `&path=/.test(pane)
     })(),
   )
 }

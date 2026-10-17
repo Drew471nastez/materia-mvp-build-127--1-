@@ -470,7 +470,7 @@ async function main() {
     check("  and each checks the variant and the location are the shop's", (sql.match(/IF owner IS NULL OR owner IS DISTINCT FROM p_creator OR loc_owner IS NULL OR loc_owner IS DISTINCT FROM p_creator THEN/g) ?? []).length === 2 && (sql.match(/WHERE id = p_transfer AND creator_id = p_creator FOR UPDATE;/g) ?? []).length === 3)
     check("file_details: RLS on, the owner reads, only the server writes", /ALTER TABLE public\.file_details ENABLE ROW LEVEL SECURITY;/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.file_details FROM authenticated;/.test(sql) && /c\.user_id = \(SELECT auth\.uid\(\)\)/.test(sql))
     const runNow = raw("supabase/sql/run-now/214_inventory_and_files.sql")
-    check("part 214 in run-now is the migration, one statement per line", runNow.trim().split("\n").length === 33 && runNow.includes("CREATE OR REPLACE FUNCTION public.physical_transfer_receive(") && !runNow.includes("\n\n"))
+    check("part 214 in run-now is the migration, one statement per line, each note on its own line", runNow.trim().split("\n").filter((l) => !/^\/\*.*\*\/$/.test(l)).length === 32 && runNow.includes("CREATE OR REPLACE FUNCTION public.physical_transfer_receive(") && !runNow.includes("\n\n"))
     check("  and listed in the run-now README", /\| `214_inventory_and_files\.sql` \|/.test(raw("supabase/sql/run-now/README.md")))
   }
 
