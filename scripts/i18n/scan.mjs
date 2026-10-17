@@ -42,7 +42,7 @@ export const SCOPE_INCLUDE = [
   /^components\/email\/compose\/.*\.tsx?$/,
   /^components\/onepage\/(onepage-editor|seo-panel|onboarding-modal|date-time-field|extra-blocks|color-picker|link-stats-chart|editor-kit)\.tsx$/,
   /^components\/onepage\/tabs\/.*\.tsx$/,
-  /^components\/physical\/(analytics-card|buy-label|carrier-picker|coupon-options|integrations-marketplace|order-panel|partner-links|product-cards|readiness-banner|readiness-checklist|shipping-app-facts|shipping-settings|ui|variant-options|variant-table)\.tsx$/,
+  /^components\/physical\/(analytics-card|buy-label|carrier-live|carrier-picker|coupon-options|integrations-marketplace|order-panel|partner-links|product-cards|readiness-banner|readiness-checklist|shipping-app-facts|shipping-settings|ui|variant-options|variant-table)\.tsx$/,
   /^components\/memberships\/(creator-list|creator-screen|post-view)\.tsx$/,
   /^components\/files\/files-library\.tsx$/,
   /^components\/sites\/(new-site-flow|sites-dashboard)\.tsx$/,

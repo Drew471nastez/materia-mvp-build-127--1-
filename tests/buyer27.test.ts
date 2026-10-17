@@ -292,7 +292,7 @@ async function main() {
 
     const known = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "fan courier", size: 40 }))
     const unknown = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "Curier Local SRL", size: 40 }))
-    check("a carrier as the seller wrote it is still its mark; one we don't know gets a plain parcel mark, never a remote image", /data-carrier-logo="fan-courier"/.test(known) && /src="\/carriers\/fan-courier\.webp"/.test(known) && /data-carrier-logo="other"/.test(unknown) && !/<img/.test(unknown) && !/src="https?:/.test(known + unknown))
+    check("a carrier as the seller wrote it is still its mark; one we don't know gets a plain parcel mark, never a remote image", /data-carrier-logo="fan-courier"/.test(known) && /url\(\/carriers\/fan-courier\.webp\)/.test(known) /* pin moved on purpose: the tile is a background over its letters (carrier picker), still the local file */ && /data-carrier-logo="other"/.test(unknown) && !/<img/.test(unknown) && !/src="https?:/.test(known + unknown))
 
     const view = read("app/checkout/physical/order/[token]/order-status-view.tsx")
     check("the return stepper: minus, the number, plus, never past what can go back, big enough to press", /function Stepper/.test(view) && /disabled=\{value >= max\}/.test(view) && /disabled=\{value <= 0\}/.test(view) && /h-10 w-10/.test(view) && !/<select value=\{qty/.test(view))

@@ -42,6 +42,12 @@ export interface Carrier {
   trackIn?: Record<string, string>
   /** The logo, a 96px tile in /public. */
   logo: string
+  /**
+   * The carrier's own official name where it differs from the short one every seller types ("United States
+   * Postal Service" for USPS, "Poșta Română" for Posta Romana). Shown under the name in the picker and matched by
+   * carrierOf(), so a value saved as the official name still finds its carrier. A plain fact, never a service.
+   */
+  official?: string
   /** The carrier's own tracking page for one number (already URL-encoded). */
   url: (q: string) => string
 }
@@ -82,7 +88,18 @@ const ROWS: Row[] = [
 
 const fill = (template: string, q: string) => template.replace("{n}", q)
 
-export const CARRIER_LIST: Carrier[] = ROWS.map((r, i) => ({ ...r, rank: i + 1, logo: `/carriers/${r.id}.webp`, url: (q: string) => fill(r.track, q) }))
+/** Official names, where the one sellers type is a short form of it. */
+const OFFICIAL: Record<string, string> = {
+  usps: "United States Postal Service",
+  ups: "United Parcel Service",
+  gls: "General Logistics Systems",
+  "fan-courier": "FAN Courier Express",
+  "posta-romana": "Poșta Română",
+  "la-poste": "La Poste",
+  hermes: "Hermes Germany",
+}
+
+export const CARRIER_LIST: Carrier[] = ROWS.map((r, i) => ({ ...r, rank: i + 1, logo: `/carriers/${r.id}.webp`, ...(OFFICIAL[r.id] ? { official: OFFICIAL[r.id] } : {}), url: (q: string) => fill(r.track, q) }))
 
 /**
  * What a seller shipping to a country reaches for first, most used first. A country not here gets the carriers that
@@ -128,12 +145,27 @@ const key = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
 
-/** The carrier a seller's words (or an id) name, or null when it is one we do not know. A name wins over an alias. */
+/** A name's letters and digits, accents folded: how two ways of writing a carrier are compared. */
+export const carrierKey = key
+
+/** The carrier a seller's words (or an id) name, or null when it is one we do not know. A name wins over an alias; the official name counts as a name. */
 export function carrierOf(name: string | null | undefined): Carrier | null {
   const raw = (name ?? "").trim()
   const k = key(raw)
   if (!k) return null
-  return CARRIER_LIST.find((c) => c.id === raw.toLowerCase()) ?? CARRIER_LIST.find((c) => key(c.name) === k) ?? CARRIER_LIST.find((c) => c.aliases.includes(k)) ?? null
+  return CARRIER_LIST.find((c) => c.id === raw.toLowerCase()) ?? CARRIER_LIST.find((c) => key(c.name) === k || (!!c.official && key(c.official) === k)) ?? CARRIER_LIST.find((c) => c.aliases.includes(k)) ?? null
+}
+
+/**
+ * THE CARRIER A PARCEL TO THIS COUNTRY MOST LIKELY GOES WITH, when the shop has said nothing (no default, nothing
+ * shipped yet): the country's first pick (POPULAR_IN), else the busiest carrier that names it. Null for a country
+ * none of them names: the seller is asked rather than handed the busiest carrier worldwide.
+ */
+export function nationalCarrierFor(country: string | null | undefined): Carrier | null {
+  const cc = (country ?? "").trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(cc)) return null
+  const first = POPULAR_IN[cc]?.[0]
+  return (first ? CARRIER_LIST.find((c) => c.id === first) : null) ?? CARRIER_LIST.find((c) => c.countries.includes(cc)) ?? null
 }
 
 /**

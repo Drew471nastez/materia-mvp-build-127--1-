@@ -19,6 +19,16 @@ import { Truck } from "lucide-react"
 import { carrierOf } from "@/lib/physical/carriers"
 import { cn } from "@/lib/utils"
 
+/** A carrier's letters: its first two words' first letters ("FAN Courier" is FC, "Speedy Bob" is SB). */
+export function initialsOf(name: string): string {
+  return name
+    .split(/[\s/.-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("")
+}
+
 export function CarrierLogo({
   carrier,
   size = 24,
@@ -37,29 +47,31 @@ export function CarrierLogo({
   const radius = Math.max(4, Math.round(size * 0.24))
   const box = { width: size, height: size, borderRadius: radius }
   if (known) {
+    /*
+      THE TILE OVER ITS OWN LETTERS. The carrier's initials are drawn first and the logo over them, as a background
+      image: one that fails to load (a deploy that dropped a file, a blocked request) paints nothing, so the letters
+      stay, where an <img> leaves a broken picture or an empty framed box (measured, scripts/check-carrier-select.mjs).
+      Every tile in public/carriers is opaque, so a logo that loads hides the letters completely. The name is on the
+      tile itself (role="img"), read once whether or not the file arrived.
+    */
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={known.logo}
-        alt={decorative ? "" : known.name}
-        width={size}
-        height={size}
-        loading="lazy"
-        decoding="async"
-        draggable={false}
+      <span
+        role={decorative ? undefined : "img"}
+        aria-label={decorative ? undefined : known.name}
+        aria-hidden={decorative ? true : undefined}
         data-carrier-logo={known.id}
-        style={box}
-        className={cn("inline-block shrink-0 select-none bg-white object-cover outline outline-1 -outline-offset-1 outline-black/[0.07]", className)}
-      />
+        style={{ ...box, fontSize: Math.max(9, Math.round(size * 0.38)) }}
+        className={cn("relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden bg-[#f1f2f4] font-semibold leading-none text-[#4b5563] outline outline-1 -outline-offset-1 outline-black/[0.07]", className)}
+      >
+        <span aria-hidden="true" data-carrier-logo-letters="">
+          {initialsOf(known.name)}
+        </span>
+        <span aria-hidden="true" data-carrier-logo-image={known.logo} className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${known.logo})` }} />
+      </span>
     )
   }
   const name = (carrier ?? "").trim()
-  const initials = name
-    .split(/[\s/.-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("")
+  const initials = initialsOf(name)
   return (
     <span
       role={decorative || !name ? undefined : "img"}
@@ -67,7 +79,7 @@ export function CarrierLogo({
       aria-hidden={decorative || !name ? true : undefined}
       data-carrier-logo={name ? "other" : "none"}
       style={{ ...box, fontSize: Math.max(9, Math.round(size * 0.38)) }}
-      className={cn("inline-flex shrink-0 select-none items-center justify-center bg-[#f1f2f4] font-semibold leading-none text-[#6b7280] outline outline-1 -outline-offset-1 outline-black/[0.05]", className)}
+      className={cn("inline-flex shrink-0 select-none items-center justify-center bg-[#f1f2f4] font-semibold leading-none text-[#4b5563] outline outline-1 -outline-offset-1 outline-black/[0.05]", className)}
     >
       {initials || <Truck style={{ width: Math.round(size * 0.55), height: Math.round(size * 0.55) }} strokeWidth={1.75} />}
     </span>

@@ -15,35 +15,51 @@
  *                   thumb can hit, no close button: a pull down or a tap
  *                   above it closes it, as every sheet in /app
  *
- * The list, from lib/physical/carriers.ts: the carriers people use most in
- * the order's shipping country first (Popular in Romania: FAN Courier,
- * Sameday, Cargus...), then every other carrier by name, then Other (a
- * carrier of the seller's own, by name) and Local delivery / no tracking.
- * A search that finds nothing offers the words typed as an Other carrier.
+ * The list, in this order (./carrier-live.tsx has what belongs to the shop):
  *
- * The value is a carrier's id, "other", "none" or "" (nothing chosen yet).
+ *   Starred            the carriers the shop starred (the star on any row)
+ *   Connected          the carriers on its own Shippo, EasyPost or ShipStation
+ *                      account, as the provider lists them
+ *   Your carriers      carriers it added itself, with their tracking link
+ *   Popular in <x>     from lib/physical/carriers.ts: the carriers people use
+ *                      most in the order's shipping country (Popular in
+ *                      Romania: FAN Courier, Sameday, Cargus...)
+ *   All carriers       every other carrier by name
+ *   then Other (a name of the seller's own, for this order), Local delivery /
+ *   no tracking, Add a carrier, and Make <carrier> the default.
+ *
+ * A carrier is listed once, in the first group that has it. The search reads
+ * names, official names and aliases, best match first ("us" is USPS, "fdx" is
+ * FedEx); one that finds nothing offers the words typed as an Other carrier.
+ * It opens at once with the static list; the shop's stars and its connected
+ * carriers fold in when they arrive.
+ *
+ * The value is a carrier's id, "other", "none" or "" (nothing chosen yet). A
+ * carrier with no id (the shop's own, or one only its provider names) is
+ * chosen as "other" with its name.
  */
 
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { Check, ChevronDown, PenLine, Search } from "lucide-react"
+import { Check, ChevronDown, PenLine, Plus, Search, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { countryName } from "@/lib/checkout/countries"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { CARRIER_LIST, NO_TRACKING, OTHER_CARRIER, carrierChoices, type Carrier } from "@/lib/physical/carriers"
+import { CARRIER_LIST, NO_TRACKING, OTHER_CARRIER, carrierChoices, carrierKey, carrierOf, type Carrier } from "@/lib/physical/carriers"
+import { isFavourite, rankBy, toggleFavourite } from "@/lib/physical/carrier-prefs"
 import { CarrierLogo } from "./carrier-logo"
+import { AddCarrierForm, useCarrierPrefs, useConnected } from "./carrier-live"
 import { FIELD, useModalPhone } from "./ui"
 
-type Option = { value: string; name: string; sub?: string; carrier?: Carrier }
+/** `star` is the carrier's name as it is starred and set as the default; the extras (Other, no tracking, the actions) have none. */
+type Option = { value: string; name: string; sub?: string; carrier?: Carrier; aside?: string; star?: string }
 
-const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
+/** A carrier with no id of ours is chosen by its name: "name:Curier Local". */
+const NAMED = "name:"
+const ADD = "__add"
+const DEFAULT = "__default"
 
 function regionName(cc: string): string {
   try {
@@ -81,40 +97,94 @@ export function CarrierPicker({
   const phone = useModalPhone()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
+  /* Adding a carrier of the shop's own: the form in place of the list, with the words searched for as its name. */
+  const [adding, setAdding] = React.useState<string | null>(null)
+  const [saveError, setSaveError] = React.useState<string | null>(null)
   const trigger = React.useRef<HTMLButtonElement>(null)
+  const { prefs, save } = useCarrierPrefs()
+  const connected = useConnected()
 
   const { popular, rest } = React.useMemo(() => carrierChoices(country), [country])
   const cc = (country ?? "").trim().toUpperCase()
-  const q = fold(query)
-  const match = (c: Carrier) => !q || fold(c.name).includes(q) || c.aliases.some((a) => a.includes(q)) || c.id.replace(/-/g, "").includes(q)
+  const q = query.trim()
+  const chosenName = carrierOfChoice(value)?.name ?? (value === OTHER_CARRIER ? (otherName ?? "").trim() : "")
   const groups = React.useMemo(() => {
-    const opt = (c: Carrier): Option => ({ value: c.id, name: c.name, carrier: c })
-    const top = popular.filter(match).map(opt)
-    const all = rest.filter(match).map(opt)
-    const typed = query.trim()
+    const seen = new Set<string>()
+    const scored = (list: Option[]): Option[] => {
+      const fresh = list.filter((o) => {
+        const k = carrierKey(o.star ?? o.name)
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+      return rankBy(fresh, q, (o) => ({ name: o.name, official: o.carrier?.official ?? null, aliases: [...(o.carrier?.aliases ?? []), o.carrier?.id.replace(/-/g, "") ?? ""] }))
+    }
+    const aside = (c: Carrier) => (c.countries.length ? c.countries.slice(0, 2).join(" ") + (c.countries.length > 2 ? ` +${c.countries.length - 2}` : "") : undefined)
+    const opt = (c: Carrier, sub?: string): Option => ({ value: c.id, name: c.name, carrier: c, sub: sub ?? (c.official && carrierKey(c.official) !== carrierKey(c.name) ? c.official : undefined), aside: aside(c), star: c.name })
+    const named = (name: string, sub?: string): Option => {
+      const c = carrierOf(name)
+      return c ? opt(c, sub) : { value: NAMED + name, name, sub, star: name }
+    }
+    const own = (u: string | null) => (u ? tt("Tracking on {site}", { site: hostOf(u) }) : tt("Your carrier, no tracking link"))
+    /* Mutations happen in order: a carrier lands in the first group that names it. */
+    const starred = scored(prefs.favourites.map((n) => {
+      const mine = prefs.custom.find((c) => carrierKey(c.name) === carrierKey(n))
+      return mine ? named(mine.name, own(mine.urlTemplate)) : named(n)
+    }))
+    const linked = scored((connected?.carriers ?? []).map((c) => named(c.carrier, c.services.length ? tt("{provider}, {n, plural, one {# service} other {# services}}", { provider: c.provider.name, n: c.services.length }) : c.provider.name)))
+    const mine = scored(prefs.custom.map((c) => named(c.name, own(c.urlTemplate))))
+    const top = scored(popular.map((c) => opt(c)))
+    const all = scored(rest.map((c) => opt(c)))
+    const found = starred.length + linked.length + mine.length + top.length + all.length
     const extra: Option[] = [
-      { value: OTHER_CARRIER, name: top.length + all.length === 0 && typed ? tt("Use \"{name}\"", { name: typed.slice(0, 40) }) : tt("Other carrier"), sub: tt("Type its name, and its tracking link if it has one") },
+      { value: OTHER_CARRIER, name: found === 0 && q ? tt("Use \"{name}\"", { name: q.slice(0, 40) }) : tt("Other carrier"), sub: tt("Type its name, and its tracking link if it has one") },
       { value: NO_TRACKING, name: tt("Local delivery / no tracking"), sub: tt("You deliver it, or it has no tracking number") },
+      ...(prefs.ready ? [{ value: ADD, name: q && !carrierOf(q) && found === 0 ? tt("Add “{value}” as a carrier", { value: q.slice(0, 40) }) : tt("Add a carrier"), sub: tt("Saved with its tracking link for every order") }] : []),
+      ...(prefs.ready && chosenName && !q
+        ? [{ value: DEFAULT, name: prefs.defaultCarrier && carrierKey(prefs.defaultCarrier) === carrierKey(chosenName) ? tt("{name} is your default", { name: chosenName }) : tt("Make {name} the default", { name: chosenName }), sub: tt("New orders start with it") }]
+        : []),
     ]
     return [
+      ...(starred.length ? [{ title: tt("Starred"), options: starred }] : []),
+      ...(linked.length ? [{ title: tt("Connected"), options: linked }] : []),
+      ...(mine.length ? [{ title: tt("Your carriers"), options: mine }] : []),
       ...(top.length ? [{ title: cc ? tt("Popular in {country}", { country: regionName(cc) }) : tt("Popular"), options: top }] : []),
       ...(all.length ? [{ title: q ? tt("More carriers") : tt("All carriers"), options: all }] : []),
       { title: "", options: extra },
     ]
-  }, [popular, rest, q, query, cc]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [popular, rest, q, cc, prefs, connected, chosenName])
   const flat = groups.flatMap((g) => g.options)
   const [active, setActive] = React.useState(0)
   React.useEffect(() => setActive(0), [q])
 
   const choose = (v: string) => {
-    if (v === OTHER_CARRIER && query.trim() && flat.length === 2) onOtherName?.(query.trim().slice(0, 40))
+    if (v === ADD) {
+      setSaveError(null)
+      setAdding(q && !carrierOf(q) ? q.slice(0, 40) : "")
+      return
+    }
+    if (v === DEFAULT) {
+      const isDefault = !!prefs.defaultCarrier && carrierKey(prefs.defaultCarrier) === carrierKey(chosenName)
+      void save({ defaultCarrier: isDefault ? null : chosenName }).then(setSaveError)
+      return
+    }
+    if (v.startsWith(NAMED)) {
+      onOtherName?.(v.slice(NAMED.length).slice(0, 40))
+      onChange(OTHER_CARRIER)
+      setOpen(false)
+      return
+    }
+    if (v === OTHER_CARRIER && q && flat.filter((o) => o.star).length === 0) onOtherName?.(q.slice(0, 40))
     onChange(v)
     setOpen(false)
   }
+  const star = (name: string) => void save({ favourites: toggleFavourite(prefs.favourites, name) }).then(setSaveError)
   const show = (on: boolean) => {
     setOpen(on)
     if (on) {
       setQuery("")
+      setAdding(null)
+      setSaveError(null)
       const i = flat.findIndex((o) => o.value === value)
       setActive(i < 0 ? 0 : i)
     }
@@ -140,20 +210,38 @@ export function CarrierPicker({
     </button>
   )
 
-  const list = (size: "desk" | "phone") => (
-    <CarrierList
-      size={size}
-      groups={groups}
-      flat={flat}
-      value={value}
-      active={active}
-      setActive={setActive}
-      query={query}
-      setQuery={setQuery}
-      onChoose={choose}
-      onEscape={() => setOpen(false)}
-    />
-  )
+  const list = (size: "desk" | "phone") =>
+    adding !== null ? (
+      <div className={size === "desk" ? "" : "pb-[max(env(safe-area-inset-bottom,0px),12px)]"}>
+        <AddCarrierForm
+          initialName={adding}
+          compact={size === "phone"}
+          onCancel={() => setAdding(null)}
+          onSave={async (c) => {
+            const e = await save({ addCarrier: c })
+            if (!e) choose(NAMED + c.name)
+            return e
+          }}
+        />
+      </div>
+    ) : (
+      <CarrierList
+        size={size}
+        groups={groups}
+        flat={flat}
+        value={value}
+        chosenName={chosenName}
+        active={active}
+        setActive={setActive}
+        query={query}
+        setQuery={setQuery}
+        onChoose={choose}
+        onEscape={() => setOpen(false)}
+        favourites={prefs.ready ? prefs.favourites : null}
+        onStar={star}
+        saveError={saveError}
+      />
+    )
 
   if (phone) {
     return (
@@ -189,23 +277,33 @@ function CarrierList({
   groups,
   flat,
   value,
+  chosenName,
   active,
   setActive,
   query,
   setQuery,
   onChoose,
   onEscape,
+  favourites,
+  onStar,
+  saveError,
 }: {
   size: "desk" | "phone"
   groups: { title: string; options: Option[] }[]
   flat: Option[]
   value: string
+  /** The chosen carrier's name, for a row picked by its name (the shop's own, a provider's). */
+  chosenName: string
   active: number
   setActive: (n: number) => void
   query: string
   setQuery: (q: string) => void
   onChoose: (v: string) => void
   onEscape: () => void
+  /** The shop's starred carriers; null while they cannot be saved (part 233 not run, or not read yet): no stars drawn. */
+  favourites: string[] | null
+  onStar: (name: string) => void
+  saveError: string | null
 }) {
   const desk = size === "desk"
   const listId = React.useId()
@@ -289,12 +387,13 @@ function CarrierList({
       >
         {groups.map((g, gi) => (
           <div key={gi} role="group" aria-label={g.title || undefined} className={cn(gi > 0 && !g.title && "mt-1 border-t border-[#f0f1f3] pt-1")}>
-            {g.title ? <p className={cn("font-medium text-[#6b7280]", desk ? "px-2 pb-1 pt-1.5 text-[12px]" : "px-3 pb-1 pt-2 text-[12.5px]")}>{g.title}</p> : null}
+            {g.title ? <p className={cn("font-medium text-[#646b78]", desk ? "px-2 pb-1 pt-1.5 text-[12px]" : "px-3 pb-1 pt-2 text-[12.5px]")}>{g.title}</p> : null}
             {g.options.map((o) => {
               index++
               const i = index
-              const selected = o.value === value
-              const extra = o.value === OTHER_CARRIER || o.value === NO_TRACKING
+              const selected = o.value === value || (o.value.startsWith(NAMED) && value === OTHER_CARRIER && carrierKey(o.name) === carrierKey(chosenName))
+              const extra = !o.star
+              const starred = !!o.star && !!favourites && isFavourite(favourites, o.star)
               return (
                 <div
                   key={o.value}
@@ -306,29 +405,74 @@ function CarrierList({
                   onPointerMove={desk ? () => active !== i && setActive(i) : undefined}
                   onClick={() => onChoose(o.value)}
                   className={cn(
-                    "flex cursor-pointer select-none items-center rounded-lg [-webkit-tap-highlight-color:transparent]",
+                    /*
+                      A ROW OUT OF SIGHT IS NOT PAINTED (content-visibility), so its logo is neither fetched nor decoded
+                      until it is scrolled to: the open costs the rows on screen, not all thirty. Measured on a phone four
+                      times slower (scripts/check-carrier-select.mjs): 285ms to the first rows without it, about 100 with.
+                    */
+                    "flex cursor-pointer select-none items-center rounded-lg [-webkit-tap-highlight-color:transparent] [content-visibility:auto]",
+                    desk ? "[contain-intrinsic-size:auto_40px]" : "[contain-intrinsic-size:auto_52px]",
                     desk ? "min-h-10 gap-2.5 px-2 py-1" : "min-h-[52px] gap-3 px-3 py-1.5 active:bg-[#f1f2f4]",
                     desk && i === active && "bg-[#f1f2f4]",
                   )}
                 >
-                  {extra && o.value === OTHER_CARRIER ? (
-                    <span className={cn("inline-flex shrink-0 items-center justify-center rounded-[24%] bg-[#f1f2f4] text-[#6b7280]", desk ? "h-6 w-6" : "h-7 w-7")}>
-                      <PenLine className={desk ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={1.75} />
+                  {extra && o.value !== NO_TRACKING ? (
+                    <span className={cn("inline-flex shrink-0 items-center justify-center rounded-[24%] bg-[#f1f2f4] text-[#646b78]", desk ? "h-6 w-6" : "h-7 w-7")}>
+                      {o.value === ADD ? <Plus className={desk ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={1.9} /> : o.value === DEFAULT ? <Check className={desk ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={1.9} /> : <PenLine className={desk ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={1.75} />}
                     </span>
                   ) : (
-                    <CarrierLogo carrier={o.carrier?.id ?? null} size={desk ? 24 : 28} decorative />
+                    <CarrierLogo carrier={o.carrier?.id ?? (o.star ? o.name : null)} size={desk ? 24 : 28} decorative />
                   )}
                   <span className="min-w-0 flex-1">
                     <span className={cn("block truncate", desk ? "text-[13.5px]" : "text-[16px]", selected ? "font-semibold" : "font-medium")}>{o.name}</span>
-                    {o.sub ? <span className={cn("block truncate text-[#6b7280]", desk ? "text-[12px] leading-4" : "text-[13px] leading-[18px]")}>{o.sub}</span> : null}
+                    {o.sub ? <span className={cn("block truncate text-[#646b78]", desk ? "text-[12px] leading-4" : "text-[13px] leading-[18px]")}>{o.sub}</span> : null}
                   </span>
+                  {o.aside ? (
+                    <span className={cn("shrink-0 tabular-nums tracking-[0.02em] text-[#646b78]", desk ? "text-[11.5px]" : "text-[12.5px]")} data-carrier-country="">
+                      {o.aside}
+                    </span>
+                  ) : null}
                   {selected ? <Check aria-hidden className={cn("shrink-0 text-[#1a1a2e]", desk ? "h-4 w-4" : "h-5 w-5")} strokeWidth={2.25} /> : null}
+                  {o.star && favourites ? (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-pressed={starred}
+                      aria-label={starred ? tt("Unstar {name}", { name: o.name }) : tt("Star {name}", { name: o.name })}
+                      data-carrier-star={o.star}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onStar(o.star!)
+                      }}
+                      className={cn(
+                        "-mr-1 grid shrink-0 place-items-center rounded-md outline-none transition-[opacity,color] duration-100",
+                        desk ? "h-7 w-7 hover:bg-[#e8e9ec]" : "h-10 w-10",
+                        starred ? "text-[#1a1a2e]" : cn("text-[#b4b7bf] hover:text-[#4b5563]", desk && i !== active && "opacity-0"),
+                      )}
+                    >
+                      <Star className={desk ? "h-[14px] w-[14px]" : "h-4 w-4"} fill={starred ? "currentColor" : "none"} strokeWidth={1.9} />
+                    </button>
+                  ) : null}
                 </div>
               )
             })}
           </div>
         ))}
+        {saveError ? (
+          <p className={cn("text-[#b42318]", desk ? "px-2 pb-1 pt-1 text-[12px]" : "px-3 pb-2 pt-1 text-[13px]")} data-carrier-save-error="">
+            {saveError}
+          </p>
+        ) : null}
       </div>
     </div>
   )
+}
+
+/** A link's host, without www: where the buyer follows a shop's own carrier. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url.replace("{tracking}", "x")).hostname.replace(/^www\./, "")
+  } catch {
+    return url
+  }
 }
