@@ -536,6 +536,8 @@ export async function translateOpen(texts: string[], from: string, to: string, o
   const keep = (opts.keep ?? []).filter((k) => k && k.trim().length >= 2)
   const unique = [...new Set(texts)]
   const done = await recall(from, to, unique)
+  /* Remembered from any store: one that translated a word this store keeps as written (its name, a glossary term) is asked again instead. */
+  for (const [t, v] of done) if (!keep.every((k) => !t.includes(k) || v.includes(k))) done.delete(t)
   const remembered = done.size
   /* Nothing to translate in it (a price, a code, a mark): it is its own translation. */
   for (const t of unique) if (!done.has(t) && wordsOf(cut(t, keep)).length === 0) done.set(t, t)
