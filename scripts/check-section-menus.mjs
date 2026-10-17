@@ -23,7 +23,7 @@
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
-import { mkdtempSync, readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -34,12 +34,46 @@ const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const css = await probeCss(root)
 const out = mkdtempSync(join(tmpdir(), "storelib-sectionmenus-"))
+/* Add section draws real sections, whose compiler reaches for node's crypto and a router: small browser stand ins, as scripts/editor-probe-harness.mjs has. */
+const STUBS = {
+  "navigation.js": `export const usePathname = () => "/website-builder/editor/probe"
+export const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {}, back() {} })
+export const useSearchParams = () => new URLSearchParams()
+export const useParams = () => ({ installId: "probe" })
+export const redirect = () => {}
+export const notFound = () => {}
+`,
+  "link.jsx": `import React from "react"
+export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
+export const useLinkStatus = () => ({ pending: false })
+`,
+  "image.jsx": `import React from "react"
+export default function Image({ src, alt, fill, priority, unoptimized, sizes, quality, placeholder, blurDataURL, loader, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src && src.src, alt, ...rest }) }
+`,
+  "node-crypto.js": `export function createHash() {
+  let acc = ""
+  return { update(s) { acc += String(s); return this }, digest() { let h = 0x811c9dc5; for (let i = 0; i < acc.length; i++) { h ^= acc.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, "0").repeat(4) } }
+}
+export function randomUUID() { return crypto.randomUUID() }
+export default { createHash, randomUUID }
+`,
+  "node-empty.js": `export const readFileSync = () => "", existsSync = () => false, readdirSync = () => []
+export const join = (...p) => p.join("/"), dirname = (p) => p.split("/").slice(0, -1).join("/"), basename = (p) => p.split("/").pop()
+export default {}
+`,
+}
+for (const [name, body] of Object.entries(STUBS)) writeFileSync(join(out, name), body)
 execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-section-menus.tsx"),
   "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(out, "probe.js")}`,
-  '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
-  '--define:process.env.NODE_ENV="production"', `--alias:@=${root}`, "--loader:.css=empty"],
+  '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true,versions:{},platform:"browser",cwd:function(){return "/"},nextTick:function(f){setTimeout(f,0)}};globalThis.process=process;',
+  '--define:process.env.NODE_ENV="production"', '--define:process.env.NEXT_PUBLIC_SUPABASE_URL="https://placeholder.supabase.co"', '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY="placeholder"',
+  `--alias:next/navigation=${join(out, "navigation.js")}`, `--alias:next/link=${join(out, "link.jsx")}`, `--alias:next/image=${join(out, "image.jsx")}`,
+  `--alias:node:crypto=${join(out, "node-crypto.js")}`, `--alias:crypto=${join(out, "node-crypto.js")}`,
+  `--alias:node:fs=${join(out, "node-empty.js")}`, `--alias:fs=${join(out, "node-empty.js")}`, `--alias:node:path=${join(out, "node-empty.js")}`, `--alias:path=${join(out, "node-empty.js")}`,
+  `--alias:@=${root}`, "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
   { stdio: ["ignore", "ignore", "inherit"] })
 const js = readFileSync(join(out, "probe.js"))
+if (process.env.BUNDLE_ONLY) { console.log(`bundled, ${js.length} bytes`); process.exit(0) }
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><style>body{margin:0;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="root"></div><script src="/probe.js"></script></body></html>`
 const server = createServer((req, res) => {
   if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }

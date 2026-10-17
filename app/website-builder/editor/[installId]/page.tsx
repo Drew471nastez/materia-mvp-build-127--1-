@@ -100,7 +100,6 @@ import {
 import { ReplaceChromeConfirm } from "@/components/website-builder/editor/replace-chrome-confirm"
 import { PanelMenuButton, SectionActionConfirm } from "@/components/website-builder/editor/section-panel-menu"
 import { useSectionClipboard } from "@/components/website-builder/editor/use-section-clipboard"
-import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { blockFromClip, clipNoun, copyBlock, copySection, copySettings, decodeClip, encodeClip, pasteBlockCheck, pasteSectionCheck, pasteSettingsPlan, sectionFromClip, type Clip, type SectionClip } from "@/lib/website-builder/section-clipboard"
 import { sectionCodeTarget } from "@/lib/website-builder/section-code-target"
 import { makeCodedCopy } from "@/lib/website-builder/agent/coded-copy"
