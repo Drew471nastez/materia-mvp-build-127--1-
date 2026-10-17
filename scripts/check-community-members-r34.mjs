@@ -140,8 +140,10 @@ export const isNativePlatform = () => false
     await p.setViewport(VIEWS[width])
     await p.evaluateOnNewDocument(PRELUDE)
     const errors = []
-    p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
-    p.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 200)))
+    /* The stand-in page names Inter by its built file:// address when a build is lying about; Chromium refusing to fetch it is the probe's own noise, not the page's. */
+    const noise = (t) => /Not allowed to load local resource|net::ERR_FILE_NOT_FOUND|Failed to load resource/.test(t)
+    p.on("pageerror", (e) => !noise(String(e)) && errors.push(String(e).slice(0, 300)))
+    p.on("console", (m) => m.type() === "error" && !noise(m.text()) && errors.push(m.text().slice(0, 200)))
     await p.setRequestInterception(true)
     const html = page(dark)
     p.on("request", (r) => {
