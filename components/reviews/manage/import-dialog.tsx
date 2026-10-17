@@ -387,8 +387,6 @@ export function ImportDialog({ onClose, onDone, onUndone }: { onClose: () => voi
             if (f) void choose(f)
           }}
         />
-
-      </div>
     </Sheet>
       {undoing ? <UndoDialog record={undoing} onClose={() => setUndoing(null)} onUndo={() => undo(undoing)} /> : null}
     </>
