@@ -86,7 +86,7 @@ export function OfferThumbs({ offer, byId }: { offer: Pick<Offer, "productIds">;
         const p = byId.get(id)
         return (
           <span key={id} className={cn("rounded-[10px] ring-2 ring-white", i > 0 && "hidden sm:inline-flex")} style={{ zIndex: 3 - i }}>
-            <ProductThumb src={p?.imageUrl ?? null} title={p?.title ?? "?"} />
+            <ProductThumb src={p?.imageUrl ?? null} title={p?.title ?? ""} />
           </span>
         )
       })}

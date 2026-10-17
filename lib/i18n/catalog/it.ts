@@ -9578,7 +9578,8 @@ const words: Record<string, string> = {
  "Always show in {language}": "Mostra sempre in {language}",
  "{language} changed after this was translated.": "{language} è cambiato dopo questa traduzione.",
  "Outdated": "Non aggiornata",
- "Translate automatically": "Traduci automaticamente"
+ "Translate automatically": "Traduci automaticamente",
+ "Getting the preview of your drafts.": "Caricamento dell’anteprima delle tue bozze."
 }
 
 export default words
