@@ -53,6 +53,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { tt } from "@/lib/i18n/text"
 import { APP_HELP_HREF } from "@/components/app/mobile-account-menu"
 import dynamic from "next/dynamic"
+import { afterToggle, openGroups } from "@/lib/ui/nav-groups"
 
 /* Round 33: a community's own setup pill, loaded only on a community's pages (components/community/creator/setup-pill.tsx). */
 const CommunitySetupPill = dynamic(() => import("@/components/community/creator/setup-pill").then((m) => m.CommunitySetupPill), { ssr: false })
@@ -145,6 +146,9 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
 let settingsWarmedAt = 0
 
 const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
+
+/** Which nav groups this reader opened or closed by hand, for this tab only. The route decides every group they never touched. */
+const GROUP_CHOICE_KEY = "storelib:app-nav-groups"
 
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false, teamRole = null, teamStores = [] }: SidebarProps) {
   const pathname = usePathname()
@@ -409,16 +413,42 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .map((item) => (item.children ? { ...item, children: item.children.filter((c) => memberSees(teamRole, c.href)) } : item))
     : mainNavItems
 
-  // Expandable groups (parent nav items with children).
-  // Always collapsed on mount — user opens manually via the chevron. No
-  // auto-expand based on pathname (we tried this and it made the default
-  // state inconsistent between page loads).
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  /*
+    A GROUP IS OPEN WHEN THE PAGE YOU ARE ON IS INSIDE IT.
+
+    Every group used to start closed, so arriving on Coupons from a link or
+    a refresh showed Products shut over the page being read, and the row
+    that was lit was not on screen. Opening by route alone was tried once
+    and dropped, because it fought the chevron: a group the reader had just
+    closed opened itself again on the next render.
+
+    Both can be true. The route says what is open; a press on the chevron
+    says what this reader wants for that one group, and that answer is kept
+    for the tab, so a refresh lands exactly where they were. The route is
+    known before anything is drawn, so the group holding the page you are
+    on is open in the first paint and nothing opens itself afterwards.
+  */
+  const [groupChoice, setGroupChoice] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try {
+      const kept = window.sessionStorage.getItem(GROUP_CHOICE_KEY)
+      if (kept) setGroupChoice(JSON.parse(kept) as Record<string, boolean>)
+    } catch {
+      /* A private window keeps nothing; the route decides on its own. */
+    }
+  }, [])
+  const expandedGroups = openGroups(navItems, pathname, groupChoice)
+  /* What is open as the reader sees it now, so the chevron can turn it over without the toggle depending on the route. */
+  const openNow = useRef(expandedGroups)
+  openNow.current = expandedGroups
   const toggleGroup = useCallback((href: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(href)) next.delete(href)
-      else next.add(href)
+    setGroupChoice((prev) => {
+      const next = afterToggle(prev, href, openNow.current.has(href))
+      try {
+        window.sessionStorage.setItem(GROUP_CHOICE_KEY, JSON.stringify(next))
+      } catch {
+        /* Kept for this visit only. */
+      }
       return next
     })
   }, [])
@@ -628,6 +658,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .sidebar-nav {
           scrollbar-width: thin;
           scrollbar-color: transparent transparent;
+          /*
+            The room for the scrollbar is always there, whether or not there
+            is anything to scroll. Without this the bar appeared the moment a
+            group opened, took its width out of the rows, and every label in
+            the sidebar moved a few pixels sideways while the group was still
+            opening.
+          */
+          scrollbar-gutter: stable;
         }
         .sidebar-nav:hover {
           scrollbar-color: rgba(0, 0, 0, 0.12) transparent;

@@ -313,9 +313,10 @@ section("A row is the same size in every state")
      * put back without the compiler saying so.
      */
     (() => {
+      /* The shipped list itself: from where it is made to where it is narrowed to this team member's rows. */
       const list = shellSource.slice(
         shellSource.indexOf("const mainNavItems"),
-        shellSource.indexOf("// Expandable groups"),
+        shellSource.indexOf("const navItems: NavItemData[]"),
       )
       const icons = [...list.matchAll(/icon: ([\w.]+)/g)].map((m) => m[1])
       return (
