@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createHmac, timingSafeEqual } from "node:crypto"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { emailDomain, isDisposableEmail, scoreSignup } from "@/lib/security/spam-signals"
+import { domainVelocityCounts, emailDomain, isDisposableEmail, scoreSignup } from "@/lib/security/spam-signals"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -133,9 +133,18 @@ export async function POST(request: NextRequest) {
    * the request is Supabase's, so its address says nothing about who is
    * signing up. What is left is the address they used, and a hundred accounts
    * on one domain in an hour is the shape of a farm whatever the handles say.
+   *
+   * EXCEPT ON THE DOMAINS EVERYBODY SHARES (lib/security/spam-signals
+   * SHARED_EMAIL_DOMAINS). This counted gmail.com with the rest, so on a busy
+   * hour the twenty sixth person signing up with a Gmail address, and every
+   * one after them, was told "This signup could not be completed" and could
+   * not make an account at all. Twenty five accounts an hour on one small
+   * domain is a farm; twenty five on Gmail is a Tuesday. The scoring, the
+   * disposable list and the page guard's per address counting are unchanged:
+   * only this one rule skips those providers.
    */
   const domain = emailDomain(email)
-  if (domain) {
+  if (domain && domainVelocityCounts(email)) {
     const admin = createAdminClient()
     const { count } = await admin
       .from("signup_attempts")

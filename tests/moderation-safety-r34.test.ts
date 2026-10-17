@@ -33,6 +33,7 @@ import { actOnContent, actOnMember, escalateReport, openReportCount, updateRepor
 import { MUTED_ACTIONS } from "@/lib/communities/server/context"
 import { checkReport } from "@/lib/communities/server/reports"
 import { REVIEW_LIMITS } from "@/lib/reviews/rules"
+import { SHARED_EMAIL_DOMAINS, domainVelocityCounts, isDisposableEmail } from "@/lib/security/spam-signals"
 import type { CommunityRow } from "@/lib/communities/types"
 
 let passed = 0
@@ -308,6 +309,23 @@ async function main() {
   check("a page the server reads for a picture cannot hold the function open", scrapers.every((s) => /AbortSignal\.timeout\(SCRAPE_TIMEOUT_MS\)/.test(s)))
   const onepage = code("components/onepage/public-onepage.tsx")
   check("the published page builds the player's address through the same check", /appleMusicEmbedUrl\(url\)/.test(onepage) && !/replace\('music\.apple\.com'/.test(onepage))
+
+  /* ── Signing up: the rule that could lock real people out ────────────── */
+  console.log("\nsigning up")
+  /*
+    The Supabase before-user-created hook refuses a signup when 25 accounts
+    were attempted on the same email domain in the last hour. It counted
+    gmail.com with the rest, so on any busy hour the twenty sixth person
+    signing up with a Gmail address could not make an account.
+  */
+  const everybody = ["someone@gmail.com", "someone@outlook.com", "someone@hotmail.com", "someone@yahoo.com", "someone@icloud.com", "someone@proton.me", "someone@gmx.de", "someone@orange.fr", "someone@wp.pl", "someone@qq.com"]
+  check("the domains ordinary people share are not counted as a farm", everybody.every((e) => !domainVelocityCounts(e)), everybody.filter((e) => domainVelocityCounts(e)).join(", "))
+  check("a domain nobody shares still is", ["a@acme-mail-7731.xyz", "a@my-shop.co", "a@university.edu"].every((e) => domainVelocityCounts(e)))
+  check("and no throwaway provider is on that list", [...SHARED_EMAIL_DOMAINS].every((d) => !isDisposableEmail(`a@${d}`)), [...SHARED_EMAIL_DOMAINS].filter((d) => isDisposableEmail(`a@${d}`)).join(", "))
+  check("an address with no domain is not counted either way", !domainVelocityCounts("nonsense") && !domainVelocityCounts(null))
+  const hook = code("app/api/auth/hooks/before-user-created/route.ts")
+  check("the hook asks before it counts", /if \(domain && domainVelocityCounts\(email\)\)/.test(hook))
+  check("the scoring and the disposable list are untouched by it", /isDisposableEmail\(email\)/.test(hook) && /scoreSignup\(\{ email, handle \}\)/.test(hook) && hook.indexOf("isDisposableEmail(email)") < hook.indexOf("domainVelocityCounts(email)"))
 
   /* ── Reviews: a write is counted ─────────────────────────────────────── */
   console.log("\nreviews")

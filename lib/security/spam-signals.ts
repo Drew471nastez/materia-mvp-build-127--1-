@@ -302,6 +302,44 @@ export function emailDomain(email: string | null | undefined): string {
     .toLowerCase()
 }
 
+/**
+ * THE DOMAINS ORDINARY PEOPLE SHARE. Counting signups per email domain says
+ * something about `acme-mail-7731.xyz`: a hundred accounts on it in an hour
+ * is a farm. It says nothing at all about gmail.com, where a hundred
+ * accounts in an hour is a good morning. A velocity rule that does not know
+ * the difference stops being a spam rule the moment the platform is busy,
+ * and what it stops is real people signing up with the address nearly
+ * everybody has.
+ *
+ * So these are left out of per-domain velocity (never out of the scoring,
+ * the disposable list, or the per-address counting, which is about one
+ * person and not one provider).
+ */
+export const SHARED_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
+  "gmail.com", "googlemail.com",
+  "outlook.com", "hotmail.com", "hotmail.co.uk", "live.com", "msn.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.co.jp", "ymail.com",
+  "icloud.com", "me.com", "mac.com",
+  "aol.com", "proton.me", "protonmail.com", "gmx.com", "gmx.de", "gmx.net",
+  "web.de", "mail.com", "zoho.com", "yandex.ru", "yandex.com",
+  "qq.com", "163.com", "126.com", "naver.com", "hanmail.net", "daum.net",
+  "orange.fr", "free.fr", "laposte.net", "wanadoo.fr", "sfr.fr",
+  "libero.it", "virgilio.it", "alice.it", "tiscali.it",
+  "terra.com.br", "uol.com.br", "bol.com.br", "globo.com",
+  "wp.pl", "o2.pl", "interia.pl", "onet.pl", "op.pl",
+  "t-online.de", "freenet.de", "seznam.cz", "abv.bg", "mail.ru", "rambler.ru",
+  "rediffmail.com", "sina.com", "hotmail.fr", "hotmail.it", "hotmail.es",
+  "live.co.uk", "live.fr", "btinternet.com", "sky.com", "comcast.net",
+  "verizon.net", "att.net", "bellsouth.net", "cox.net", "charter.net",
+  "shaw.ca", "rogers.com", "telus.net", "bigpond.com", "optusnet.com.au",
+])
+
+/** Whether counting signups on this domain means anything (false for the providers most people use). */
+export function domainVelocityCounts(email: string | null | undefined): boolean {
+  const domain = emailDomain(email)
+  return Boolean(domain) && !SHARED_EMAIL_DOMAINS.has(domain)
+}
+
 export function isDisposableEmail(email: string | null | undefined): boolean {
   const domain = emailDomain(email)
   if (!domain) return false
