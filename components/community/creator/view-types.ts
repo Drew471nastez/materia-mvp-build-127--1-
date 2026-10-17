@@ -33,6 +33,7 @@ import type {
 } from "@/lib/communities/types"
 import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
 import type { PageLook } from "@/lib/communities/page-look"
+import type { MemberLink } from "@/lib/communities/member-links"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
@@ -190,6 +191,12 @@ export interface SettingsData {
   /** Round 33: the cover's focus and the join button (lib/communities/page-look.ts). */
   pageLook?: PageLook
   tagline: string | null
+  /** Round 26: the short description on the community's card (communities.summary, run-now part 220), or null for none. */
+  summary?: string | null
+  /** Round 26: up to four shortcuts members see inside the community (communities.member_links, never public). */
+  memberLinks?: MemberLink[]
+  /** Round 26: false until run-now part 220 has run; the editor then shows the two fields above as waiting. */
+  pageFieldsReady?: boolean
   category: string | null
   rules: CommunityRule[]
   faq: CommunityFaq[]
