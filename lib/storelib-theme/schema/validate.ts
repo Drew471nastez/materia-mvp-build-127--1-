@@ -641,7 +641,7 @@ function settingChecks(err: (path: string, message: string) => void, sectionValu
       }
       /* A setting that is the picked collection's picture or title until somebody sets one (../collection-binding.ts). */
       if (f.from !== undefined) {
-        const problem = fromProblem(f as { id: string; type: string; from?: unknown }, list)
+        const problem = fromProblem(f as unknown as { id: string; type: string; from?: unknown }, list as unknown as { id: string; type: string }[])
         if (problem) err(`${p}.from`, problem)
       }
       if (canonical === "focal_point" && f.image !== undefined) {

@@ -129,7 +129,7 @@ const READ = `(() => {
       placeholder: box ? box.getAttribute("placeholder") : null,
       on: sw ? sw.getAttribute("aria-checked") === "true" : null,
       picture: img ? img.getAttribute("src").slice(0, 24) : null,
-      bound: bound ? bound.dataset.boundField + ":" + (bound.querySelector("p, button:last-child")?.textContent ?? "") : null,
+      bound: bound ? bound.dataset.boundField + ":" + (bound.querySelector(":scope > p, :scope > button")?.textContent ?? "") : null,
     }
   })
   return {
@@ -147,7 +147,7 @@ const check = (label, ok, detail) => {
 const line = (rows) => rows.map((r) => `${r.id}${r.slider !== null ? `=${r.slider}` : r.on !== null ? `=${r.on}` : r.box !== null ? `="${r.box}"${r.placeholder ? `(${r.placeholder})` : ""}` : ""}`).join(", ")
 const byId = (rows, id) => rows.find((r) => r.id === id)
 
-await js("window.__panelRoot = document.querySelector('#section > div')")
+await js("(window.__panelRoot = document.querySelector('#section > div'), true)")
 const a = await js(READ)
 await shot("before")
 const storedBefore = await js("window.__storedValues()")
