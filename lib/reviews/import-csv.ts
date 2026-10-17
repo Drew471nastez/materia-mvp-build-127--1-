@@ -1,78 +1,31 @@
 /**
  * ===========================================================================
- *  STORELIB REVIEWS: REVIEWS BROUGHT IN FROM A SPREADSHEET
+ *  STORELIB REVIEWS: A CSV IMPORTED IN ONE GO
  * ===========================================================================
- * A CSV of reviews from another app (Judge.me's and Shopify Product Reviews'
- * exports both work) or typed by hand. One row a review. The columns are
- * found by name, in any order, under any of the names those apps use:
+ * The short way in, kept for a plain `{ csv }` post to the import route: the
+ * file is read by the review import engine (lib/reviews/import), its app
+ * detected and its columns mapped automatically, with no mapping step and
+ * no product assignment. A row whose product is not the store's, whose
+ * rating is not one to five, or that has no words is skipped and counted.
  *
- *   product    product_handle, handle, product, product_id, product_title
- *   rating     rating, stars, score
- *   body       body, review, content, text, review_body
- *   title      title, review_title
- *   name       reviewer_name, author, name
- *   date       review_date, date, created_at
- *
- * A row is matched to one of the store's own products by its id, its
- * address (slug) or its exact title; a row that matches none, or has no
- * whole rating from one to five, or no words, is skipped and counted. An
- * imported review is never "Verified buyer": nothing here proves a purchase.
+ * The import screen (Reviews › Import) uses the engine directly: it shows
+ * the mapping, lets the creator assign unmatched products, and sends the
+ * rows in chunks.
  *
  * Pure: the route does the reading and the writing.
  */
-import { MAX_BODY_CHARS, MAX_TITLE_CHARS, cleanLine, cleanReviewText, publicName } from "./app-settings"
+import { publicName } from "./app-settings"
+import { autoMapping, detectPlatform, PRODUCT_FIELDS, type PlatformId } from "./import/platforms"
+import { parseDelimited, readImportFile } from "./import/parse"
+import { planReviews, ROW_ERRORS, type ImportRow } from "./import/plan"
 
 export const MAX_IMPORT_ROWS = 2000
 export const MAX_IMPORT_BYTES = 4 * 1024 * 1024
 
 /** RFC 4180, as spreadsheets write it: quoted fields, "" inside quotes, CRLF or LF. */
 export function parseCsv(text: string): string[][] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let field = ""
-  let quoted = false
-  const src = text.replace(/^﻿/, "")
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i]
-    if (quoted) {
-      if (ch === '"') {
-        if (src[i + 1] === '"') {
-          field += '"'
-          i++
-        } else quoted = false
-      } else field += ch
-      continue
-    }
-    if (ch === '"' && field === "") quoted = true
-    else if (ch === ",") {
-      row.push(field)
-      field = ""
-    } else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && src[i + 1] === "\n") i++
-      row.push(field)
-      field = ""
-      if (row.some((c) => c.trim() !== "")) rows.push(row)
-      row = []
-      if (rows.length > MAX_IMPORT_ROWS + 1) break
-    } else field += ch
-  }
-  if (field !== "" || row.length) {
-    row.push(field)
-    if (row.some((c) => c.trim() !== "")) rows.push(row)
-  }
-  return rows
+  return parseDelimited(text, ",", MAX_IMPORT_ROWS).rows
 }
-
-const NAMES: Record<string, string[]> = {
-  product: ["product_handle", "handle", "product", "product_id", "product_title", "product_url"],
-  rating: ["rating", "stars", "score", "review_score"],
-  body: ["body", "review", "content", "text", "review_body", "review_content"],
-  title: ["title", "review_title"],
-  name: ["reviewer_name", "author", "name", "customer_name"],
-  date: ["review_date", "date", "created_at", "submitted_at"],
-}
-
-const key = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
 
 export interface ImportProduct {
   id: string
@@ -93,45 +46,33 @@ export interface ImportPlan {
   reviews: ImportedReview[]
   skipped: { row: number; why: "no_product" | "bad_rating" | "no_words" }[]
   missingColumns: string[]
+  /** The rows as the engine read them, for the route to write. */
+  rows: ImportRow[]
+  platform: PlatformId
 }
 
 export function planImport(text: string, products: ImportProduct[]): ImportPlan {
-  const rows = parseCsv(text)
-  const header = (rows[0] ?? []).map(key)
-  const col = (what: string) => header.findIndex((h) => NAMES[what].includes(h))
-  const at = { product: col("product"), rating: col("rating"), body: col("body"), title: col("title"), name: col("name"), date: col("date") }
-  const missingColumns = (["product", "rating", "body"] as const).filter((c) => at[c] < 0)
-  if (missingColumns.length) return { reviews: [], skipped: [], missingColumns }
+  const table = readImportFile(text, "reviews.csv", MAX_IMPORT_ROWS)
+  const headers = table?.headers ?? []
+  const platform = detectPlatform(headers).platform
+  const mapping = autoMapping(headers, platform)
+  const missingColumns = [
+    ...(PRODUCT_FIELDS.every((f) => mapping[f] < 0) ? ["product"] : []),
+    ...(mapping.rating < 0 ? ["rating"] : []),
+    ...(mapping.body < 0 ? ["body"] : []),
+  ]
+  if (!table || missingColumns.length) return { reviews: [], skipped: [], missingColumns: missingColumns.length ? missingColumns : ["product", "rating", "body"], rows: [], platform }
 
-  const byId = new Map(products.map((p) => [p.id.toLowerCase(), p.id]))
-  const bySlug = new Map(products.filter((p) => p.slug).map((p) => [String(p.slug).toLowerCase(), p.id]))
-  const byTitle = new Map(products.filter((p) => p.title).map((p) => [String(p.title).trim().toLowerCase(), p.id]))
-  const match = (raw: string): string | null => {
-    const v = raw.trim().toLowerCase()
-    if (!v) return null
-    const handle = v.replace(/^https?:\/\/[^/]+/, "").replace(/^\/?(products|p)\//, "").replace(/[/?#].*$/, "")
-    return byId.get(v) ?? bySlug.get(v) ?? bySlug.get(handle) ?? byTitle.get(v) ?? null
+  const plan = planReviews(table, mapping, { platform, products })
+  const skipped: ImportPlan["skipped"] = [
+    ...plan.errors.map((e) => ({ row: e.line, why: e.error === ROW_ERRORS.rating ? ("bad_rating" as const) : ("no_words" as const) })),
+    ...plan.unmatched.flatMap((g) => g.lines.map((row) => ({ row, why: "no_product" as const }))),
+  ].sort((a, b) => a.row - b.row)
+  return {
+    reviews: plan.rows.map((r) => ({ productId: r.productId, rating: r.rating, title: r.title, content: r.body, name: publicName(r.author), createdAt: r.date })),
+    skipped,
+    missingColumns: [],
+    rows: plan.rows,
+    platform,
   }
-
-  const reviews: ImportedReview[] = []
-  const skipped: ImportPlan["skipped"] = []
-  rows.slice(1, MAX_IMPORT_ROWS + 1).forEach((r, i) => {
-    const line = i + 2
-    const productId = match(r[at.product] ?? "")
-    if (!productId) return void skipped.push({ row: line, why: "no_product" })
-    const rating = Number(String(r[at.rating] ?? "").trim())
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return void skipped.push({ row: line, why: "bad_rating" })
-    const content = cleanReviewText(r[at.body], MAX_BODY_CHARS)
-    if (!content) return void skipped.push({ row: line, why: "no_words" })
-    const date = at.date >= 0 ? Date.parse(String(r[at.date] ?? "").trim()) : NaN
-    reviews.push({
-      productId,
-      rating,
-      title: at.title >= 0 ? cleanLine(r[at.title], MAX_TITLE_CHARS) : "",
-      content,
-      name: at.name >= 0 ? publicName(r[at.name]) : null,
-      createdAt: Number.isFinite(date) && date < Date.now() + 86_400_000 ? new Date(date).toISOString() : null,
-    })
-  })
-  return { reviews, skipped, missingColumns: [] }
 }

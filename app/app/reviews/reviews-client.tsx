@@ -12,6 +12,8 @@ import { MAX_REPLY_CHARS, REPORT_REASONS, RATING_WORDS, reviewerOf, summarize, t
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonPrimary, buttonSecondary, card } from "../orders/order-parts"
 import { Pill, usePill } from "../coupons/coupon-parts"
 import type { SellerProduct, SellerReview } from "./load-reviews"
+import { ImportFlow } from "./import-flow"
+import { platformLabel } from "@/lib/reviews/import/platforms"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -44,7 +46,8 @@ import { appLocale, zoned } from "@/lib/i18n/format"
  * and in its ratings, and it cannot be deleted (report it instead). A
  * visitor's or an imported review is the store's own, hidden everywhere and
  * deletable. A review hidden by a report stays Storelib's to bring back.
- * Import takes a CSV of reviews from another app.
+ * Import takes another app's export (import-flow.tsx): Judge.me, Yotpo,
+ * Loox and the rest, mapped, matched to products, and undone in one step.
  *
  * `?review=<id>` (the bell and the new review email link here) brings that
  * review into view with a short grey tint.
@@ -329,10 +332,10 @@ export function ReviewsClient({
       {reporting ? <ReportDialog review={reporting} onClose={() => setReporting(null)} onReport={(reason, note) => report(reporting, reason, note)} /> : null}
       {deleting ? <DeleteDialog review={deleting} onClose={() => setDeleting(null)} onDelete={() => remove(deleting)} /> : null}
       {importing ? (
-        <ImportDialog
+        <ImportFlow
           onClose={() => setImporting(false)}
-          onDone={(n) => {
-            say(tt("{n, plural, one {# review} other {# reviews}} imported", { n }))
+          onChanged={(message) => {
+            say(message)
             router.refresh()
           }}
         />
@@ -347,6 +350,14 @@ function Chevron() {
       <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
+}
+
+/* An imported review says where it came from (part 212), and whether that app called it a verified purchase. */
+function sourceWord(review: SellerReview): string {
+  const app = review.source === "import" && review.import_platform && review.import_platform !== "other" ? platformLabel(review.import_platform) : null
+  if (app && review.import_verified) return tt("Verified purchase on {app}", { app })
+  if (app) return tt("Imported from {app}", { app })
+  return SOURCE_WORD[review.source] ?? tt("Not verified")
 }
 
 const SOURCE_WORD: Record<string, string> = { get import() { return tt("Imported") }, get site() { return tt("From your website") }, get request() { return tt("From a review email") }, get website() { return tt("From your website") } }
@@ -421,7 +432,7 @@ function ReviewRow({
                   {review.edited_at ? tt(" · Edited") : ""}
                 </span>
                 <span aria-hidden className="max-sm:hidden">·</span>
-                <span className="max-sm:basis-full" data-review-verified={review.verified ? "yes" : "no"}>{review.verified ? tt("Verified buyer") : SOURCE_WORD[review.source] ?? tt("Not verified")}</span>
+                <span className="max-sm:basis-full" data-review-verified={review.verified ? "yes" : "no"}>{review.verified ? tt("Verified buyer") : sourceWord(review)}</span>
               </p>
             </div>
             {items.length ? (
@@ -524,66 +535,6 @@ function DeleteDialog({ review, onClose, onDelete }: { review: SellerReview; onC
           >
             {busy ? tt("Deleting") : tt("Delete")}
           </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: (n: number) => void }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const run = async (file: File) => {
-    setBusy(true)
-    setError(null)
-    const csv = await file.text().catch(() => "")
-    const res = await fetch("/api/app/reviews/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) }).catch(() => null)
-    const data = res ? await res.json().catch(() => ({})) : {}
-    setBusy(false)
-    if (!res?.ok) return setError(data.error || tt("The file did not import."))
-    setResult({ imported: data.imported ?? 0, skipped: data.skippedCount ?? 0 })
-    if (data.imported) onDone(data.imported)
-  }
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="import-title">
-      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
-      <div className="relative w-full rounded-t-2xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5" data-reviews-import-dialog="">
-        <h3 id="import-title" className="text-[17px] font-semibold text-[#1a1a2e]">
-          {tt("Import reviews")}
-        </h3>
-        {result ? (
-          <p className="mt-2 text-[14px] text-[#374151]">
-            {tt("{imported} imported", { imported: result.imported })}{result.skipped ? tt(", {skipped} skipped (no matching product, or no rating or words)", { skipped: result.skipped }) : ""}.
-          </p>
-        ) : (
-          <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
-            {tt("A CSV with a row per review and columns for the product (its address or title), the rating and the review. Judge.me exports and the usual product reviews CSV work as they are. Imported reviews are not marked Verified buyer.")}
-          </p>
-        )}
-        {error ? <p className="mt-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,text/csv"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            e.target.value = ""
-            if (f) void run(f)
-          }}
-        />
-        <div className="mt-5 flex gap-2">
-          <button type="button" onClick={onClose} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
-            {result ? tt("Done") : tt("Cancel")}
-          </button>
-          {!result ? (
-            <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-              {busy ? tt("Importing") : tt("Choose CSV")}
-            </button>
-          ) : null}
         </div>
       </div>
     </div>

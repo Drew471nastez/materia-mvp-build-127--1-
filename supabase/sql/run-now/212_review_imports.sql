@@ -1,0 +1,22 @@
+/* Review imports from other apps (Reviews › Import, round V): `review_imports`, one row per import a store ran, with the app it came from (Judge.me, Yotpo, Loox, Stamped.io, Okendo, Shopify Product Reviews, Reviews.io, Trustpilot, Google, Etsy, Amazon, WooCommerce, Fera, Ali Reviews, Rivyo or other), the file's name, how many rows it read and how many it imported, found already there, skipped or could not read, the first errors by row, and when it finished or was undone. The store can read its own imports; only the server writes them. On `reviews`: `import_id` (the import that wrote it, so Undo deletes that import's reviews and nothing else), `import_key` (the app's own id for the review, as "judgeme:123"; one per store, so the same file imported twice adds nothing), `content_hash` (the review's product, stars, words, name and day, so the same review exported by two apps is found too), `import_platform`, `import_verified` (the app said it was a verified purchase: the store's website can say so, Storelib's own ratings still count verified buyers of Storelib only) and `videos` (web addresses of a review's videos, at most two). The new columns are not readable by the public (part 134 grants reviews column by column). Run after part 134. Changes no review. Until it runs, Import still works without its history, Undo or the duplicate check by id, and says this part is needed. */
+CREATE TABLE IF NOT EXISTS public.review_imports (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, created_by uuid, platform text NOT NULL DEFAULT 'other' CHECK (char_length(platform) BETWEEN 1 AND 40), file_name text CHECK (file_name IS NULL OR char_length(file_name) <= 200), status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'done', 'undone')), total_rows integer NOT NULL DEFAULT 0 CHECK (total_rows >= 0), imported integer NOT NULL DEFAULT 0 CHECK (imported >= 0), duplicates integer NOT NULL DEFAULT 0 CHECK (duplicates >= 0), skipped integer NOT NULL DEFAULT 0 CHECK (skipped >= 0), errors integer NOT NULL DEFAULT 0 CHECK (errors >= 0), error_lines jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(error_lines) = 'array' AND pg_column_size(error_lines) < 16384), undone_count integer, created_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz, undone_at timestamptz);
+CREATE INDEX IF NOT EXISTS review_imports_creator ON public.review_imports (creator_id, created_at DESC);
+ALTER TABLE public.review_imports ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.review_imports FROM anon, authenticated;
+GRANT SELECT ON public.review_imports TO authenticated;
+GRANT ALL ON public.review_imports TO service_role;
+DROP POLICY IF EXISTS review_imports_owner_read ON public.review_imports;
+CREATE POLICY review_imports_owner_read ON public.review_imports FOR SELECT TO authenticated USING (creator_id IN (SELECT c.id FROM public.creators c WHERE c.user_id = (SELECT auth.uid())));
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS import_id uuid REFERENCES public.review_imports(id) ON DELETE SET NULL;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS import_key text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS content_hash text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS import_platform text;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS import_verified boolean NOT NULL DEFAULT false;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS videos jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.reviews DROP CONSTRAINT IF EXISTS reviews_import_values_check;
+ALTER TABLE public.reviews ADD CONSTRAINT reviews_import_values_check CHECK (char_length(coalesce(import_key, '')) <= 200 AND char_length(coalesce(content_hash, '')) <= 64 AND char_length(coalesce(import_platform, '')) <= 40 AND jsonb_typeof(videos) = 'array' AND jsonb_array_length(videos) <= 2 AND pg_column_size(videos) < 4096) NOT VALID;
+CREATE UNIQUE INDEX IF NOT EXISTS reviews_import_key_once ON public.reviews (creator_id, import_key) WHERE import_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS reviews_content_hash ON public.reviews (creator_id, content_hash) WHERE content_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS reviews_import_id ON public.reviews (import_id) WHERE import_id IS NOT NULL;
+REVOKE SELECT (import_id, import_key, content_hash, import_platform, import_verified, videos) ON public.reviews FROM anon, authenticated;
+notify pgrst, 'reload schema';

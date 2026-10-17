@@ -1,0 +1,2 @@
+product_id,product_handle,star,author,country,content,created_at,photos,status
+1,linen-apron,5,Ivan,RU,Good apron,2024-09-10,https://ali.example.com/p1.jpg https://ali.example.com/p2.jpg,published

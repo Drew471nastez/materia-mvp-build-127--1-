@@ -32,16 +32,20 @@ type Db = any
 
 const BUYER = "buyer:profiles!buyer_id(display_name)"
 const COLUMNS = `id, product_id, rating, title, content, created_at, reviewer_name, verified, featured, photos, seller_reply, ${BUYER}`
+/* With review imports (part 212): the imported app's verified purchase, and videos. */
+const IMPORT_COLUMNS = `id, product_id, rating, title, content, created_at, reviewer_name, verified, featured, photos, seller_reply, import_verified, videos, ${BUYER}`
 const OLD_COLUMNS = `id, product_id, rating, content, created_at, reviewer_name, seller_reply, ${BUYER}`
 const SHOP_LIMIT = 48
-const PRODUCT_LIMIT = 50
+/* A product page sends this many of its reviews; the section's Show more, filter by stars and sort work on them with no script. */
+const PRODUCT_LIMIT = 100
 
 async function readRows(db: Db, key: "creator_id" | "product_id", value: string, limit: number): Promise<StorefrontReviewRow[]> {
   const run = (cols: string, site: boolean) => {
     const q = db.from("reviews").select(cols).eq(key, value).eq("status", "published")
     return (site ? q.eq("site_status", "shown") : q).order("created_at", { ascending: false }).limit(limit)
   }
-  let res = await run(COLUMNS, true)
+  let res = await run(IMPORT_COLUMNS, true)
+  if (res.error && missingColumn(res.error)) res = await run(COLUMNS, true)
   if (res.error && missingColumn(res.error)) res = await run(OLD_COLUMNS, false)
   if (res.error) return []
   return (res.data ?? []) as StorefrontReviewRow[]
@@ -125,7 +129,7 @@ export async function storefrontReviews(creatorId: string, product?: { id: strin
     shopRatings: shop.ratings,
     products,
     product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null,
-    limit: 24,
+    limit: PRODUCT_LIMIT,
   })
 }
 

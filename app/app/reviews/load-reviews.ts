@@ -32,6 +32,9 @@ export interface SellerReview {
   featured: boolean
   verified: boolean
   source: string
+  /** The app an imported review came from (part 212), and whether it said verified purchase. */
+  import_platform?: string | null
+  import_verified?: boolean
   reviewer_name: string | null
   seller_reply: string | null
   seller_reply_at: string | null
@@ -58,7 +61,10 @@ export async function loadSellerReviews() {
     admin.from("reviews").select(columns).eq("creator_id", creator.id).order("created_at", { ascending: false }).limit(LIMIT)
   const buyer = "buyer:profiles!buyer_id(display_name, avatar_url)"
   /* With Storelib Reviews' columns (part 134); without them, as part 52 left the table; before that, the oldest shape. */
-  let res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, title, photos, featured, verified, source, hidden_by, site_status, ${buyer}`)
+  const part134 = `id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, title, photos, featured, verified, source, hidden_by, site_status, ${buyer}`
+  /* With review imports (part 212): which app an imported review came from, and whether that app called it a verified purchase. */
+  let res = await read(`${part134.replace(`, ${buyer}`, "")}, import_platform, import_verified, ${buyer}`)
+  if (res.error && missingColumn(res.error)) res = await read(part134)
   const appReady = !(res.error && missingColumn(res.error))
   if (!appReady) res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, ${buyer}`)
   /* Before run-now part 52: no status, reply or name columns. The list still shows, without replies. */
@@ -79,6 +85,8 @@ export async function loadSellerReviews() {
       featured: r.featured === true,
       verified: r.verified !== false,
       source: typeof r.source === "string" ? r.source : "storelib",
+      import_platform: typeof r.import_platform === "string" ? r.import_platform : null,
+      import_verified: r.import_verified === true,
       reviewer_name: r.reviewer_name ?? null,
       seller_reply: r.seller_reply ?? null,
       seller_reply_at: r.seller_reply_at ?? null,
