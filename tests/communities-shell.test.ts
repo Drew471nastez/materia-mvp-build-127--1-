@@ -70,7 +70,7 @@ import { personHref } from "@/lib/profile/person-href"
 import { navEntries, sectionFromPath, tabFor } from "@/components/community/member/nav"
 /* The real address builders, so a check about an order or a place is not a check about the shape of a URL. */
 import { placeHref } from "@/lib/communities/client/places"
-import { postPath } from "@/lib/communities/post-url"
+import { parsePostParam, postPath } from "@/lib/communities/post-url"
 import { contributorsDetail } from "@/components/community/member/wall"
 import { SEARCH_DEBOUNCE_MS, SEARCH_MIN_CHARS, searchOptions, stepOption } from "@/components/community/member/search"
 import { ACTIVITY_SCAN, WALL_CONTRIBUTORS, WALL_FACES, eventHrefFor, mostActive, rankRows, recentFaces, settingsHrefFor, topContributors, upcomingEvent } from "@/lib/communities/server/wall"
@@ -754,10 +754,13 @@ async function main() {
       brings its own), so the format of a URL can change without breaking an ordering check.
     */
     {
-      const results = { q: "x", posts: [{ id: "p1", title: "Glaze tip", snippet: "Test tiles first." }], members: [{ id: "m1", href: "/@m" }], spaces: [{ id: "s1", slug: "gen" }] }
+      const pid = "a1b2c3d4-0000-4000-8000-0000000000e1"
+      const results = { q: "x", posts: [{ id: pid, title: "Glaze tip", snippet: "Test tiles first." }], members: [{ id: "m1", href: "/@m" }], spaces: [{ id: "s1", slug: "gen" }] }
       const opts = searchOptions(results as never, "club")
-      const want = [postPath("club", { id: "p1", title: "Glaze tip", bodyText: "Test tiles first." }), "/@m", placeHref("club", { kind: "space", slug: "gen" })]
-      check("results in drawn order: posts, members, spaces, each to its page", opts.map((o) => o.group).join() === "posts,members,spaces" && opts.map((o) => o.href).join() === want.join() && /\/post\//.test(opts[0].href) && /\/space\//.test(opts[2].href), opts.map((o) => o.href))
+      const want = [postPath("club", { id: pid, title: "Glaze tip", bodyText: "Test tiles first." }), "/@m", placeHref("club", { kind: "space", slug: "gen" })]
+      /* And the post's address is one the post route can read back (parsePostParam), so "to its page" is the real route, not a string that looks like one. */
+      const back = parsePostParam(opts[0].href.split("/post/")[1] ?? "")
+      check("results in drawn order: posts, members, spaces, each to its page", opts.map((o) => o.group).join() === "posts,members,spaces" && opts.map((o) => o.href).join() === want.join() && back?.kind === "short" && back.short === "a1b2c3d4" && /\/space\//.test(opts[2].href), opts.map((o) => o.href))
     }
 
     const C = "c0000000-0000-4000-8000-0000000000e1"
