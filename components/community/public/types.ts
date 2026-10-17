@@ -35,6 +35,8 @@ export interface JoinOption {
   /** "Free", "$19/month", "$49", or "" while a paid tier has no price. */
   priceLine: string
   benefits: string[]
+  /** A recurring plan's free trial in days (0 for none); a returning member is not given it again (app/api/memberships/checkout). */
+  trialDays?: number
   /** Checkout addresses, built on the server; null when this tier cannot be bought right now. */
   checkout: { month: string | null; year: string | null; once: string | null } | null
 }
@@ -137,6 +139,11 @@ export interface JoinStateView {
   label: string
   /** The tier the button is for. */
   option: JoinOption | null
+  /**
+   * Round AF: the plans to choose from when there is more than one this person could take (free, or on sale with a
+   * price); the press opens the plan picker instead of joining or paying. Empty with one plan or none.
+   */
+  plans?: JoinOption[]
   /** Where the button goes when it is a link (open, product, a signed out visitor to sign in). */
   href: string | null
   /** A short line under the button: "Request sent. You'll get access once it's approved." */

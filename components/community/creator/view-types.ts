@@ -170,6 +170,10 @@ export interface TierView {
   priceCents: number | null
   priceLine: string
   benefits: string[]
+  /** A recurring plan's free trial in days, 0 for none. */
+  trialDays: number
+  /** Round AF: a recurring plan's subscriptions: paying, on a trial, trials ended and of those now paying. Null for free and one time plans. */
+  subscribers?: { paying: number; trialing: number; trialsEnded: number; trialsConverted: number } | null
   members: number
   /** Other products that also give this tier (community_access_products). */
   accessProducts: { id: string; title: string; type: string }[]

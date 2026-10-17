@@ -129,6 +129,8 @@ const ENTRIES: Record<NotificationType, Entry> = {
   MEMBERSHIP_RENEWAL_REMINDER: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   MEMBERSHIP_PAYMENT_FAILED: E({ category: "sales", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "action_required", defaultOn: true, cooldownSeconds: 12 * HOUR }),
   MEMBERSHIP_CANCELED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  /* Round AF: the member moved to another plan or between monthly and annual (lib/communities/server/plan-change.ts). */
+  MEMBERSHIP_PLAN_CHANGED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   MEMBERSHIP_ENDED: E({ category: "sales", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 
   /* ── A member of a community ──────────────────────────────────────── */

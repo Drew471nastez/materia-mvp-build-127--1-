@@ -146,7 +146,17 @@ export async function POST(request: Request) {
   }
 
   /* A free trial is for a first membership of this product. Known for a signed in account; a guest's email is not asked (it would say whether that address was ever a member). */
-  const hadTrial = rows.some((m) => m.status !== "incomplete")
+  /*
+    AND ONE PER COMMUNITY (round AF). A community sells each plan through its own product, so a person could take Standard's
+    trial and then Premium's. Any membership of any of the community's plans ends it (lib/communities/server/plan-checkout.ts).
+    A community's checkout is always signed in (checkoutGate above).
+  */
+  const communityTrial = async () => {
+    if (!(plan.trial_days > 0 && gate.community && user)) return false
+    const { communityTrialUsed } = await import("@/lib/communities/server/plan-checkout")
+    return communityTrialUsed(admin as never, gate.community.id, { id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at })
+  }
+  const hadTrial = rows.some((m) => m.status !== "incomplete") || (await communityTrial())
   const trialDays = !hadTrial && plan.trial_days > 0 ? plan.trial_days : 0
   const name = `${firstName} ${lastName}`.trim()
 
