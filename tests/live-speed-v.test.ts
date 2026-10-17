@@ -233,7 +233,8 @@ async function links() {
 
 async function renderers() {
   section("Only the sections a page draws are downloaded")
-  const registry = code("components/website-builder/sections/registry.ts")
+  /* Read whole: its header comment names "./renderers/*", which a comment stripper would take for the start of a block. */
+  const registry = read("components/website-builder/sections/registry.ts")
   const lazyCount = (registry.match(/= lazySection\(\(\) => import\("\.\/renderers\//g) ?? []).length
   check("the legacy renderers are fetched on demand", lazyCount >= 40, lazyCount)
   check("the header, the footer and the product section stay in the bundle", /import \{ HeaderSection \} from "\.\/renderers\/HeaderSection"/.test(registry) && /import \{ FooterSection \} from "\.\/renderers\/FooterSection"/.test(registry) && /import \{ ProductSection \} from "\.\/renderers\/ProductSection"/.test(registry))

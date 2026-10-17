@@ -251,6 +251,42 @@ async function openingTab(browser: Browser) {
   }
 }
 
+/* ── 5. One photograph at the old quality and the new ─────────────────── */
+
+/*
+  What Next's optimizer does with a website's picture (node_modules/next/dist/
+  server/image-optimizer.js): resized to the width asked for, then AVIF at
+  quality - 20, effort 3, or WebP at the quality. Run here with the same
+  sharp on a real product photograph from a live site, at 75 (before) and
+  SITE_PICTURE_QUALITY (after).
+*/
+async function photoBytes() {
+  console.log("\nOne photograph, through the optimizer's own settings")
+  const url = process.env.PHOTO_URL ?? "https://storelib.com/media/product-images/8a88f2c0-f0f5-4935-96ad-8b6ff2127a8f/temp/1791753643271_HeavyweightTshirt_Natural_02.webp"
+  let original: Buffer
+  try {
+    const r = await fetch(url)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    original = Buffer.from(await r.arrayBuffer())
+  } catch (e) {
+    return console.log(`        could not read ${url}: ${(e as Error).message}`)
+  }
+  const sharp = (await import("sharp")).default
+  const { SITE_PICTURE_QUALITY } = await import("../lib/images/optimized-url")
+  const meta = await sharp(original).metadata()
+  const width = 1080
+  const encode = async (q: number) => ({
+    avif: (await sharp(original).rotate().resize(width, undefined, { withoutEnlargement: true }).avif({ quality: Math.max(q - 20, 1), effort: 3 }).toBuffer()).length,
+    webp: (await sharp(original).rotate().resize(width, undefined, { withoutEnlargement: true }).webp({ quality: q }).toBuffer()).length,
+  })
+  const before = await encode(75)
+  const after = await encode(SITE_PICTURE_QUALITY)
+  console.log(`        original ${meta.width}x${meta.height} ${meta.format}, ${kb(original.length)}; at ${width}px wide:`)
+  console.log(`        before (q75): AVIF ${kb(before.avif)}, WebP ${kb(before.webp)}`)
+  console.log(`        after (q${SITE_PICTURE_QUALITY}): AVIF ${kb(after.avif)}, WebP ${kb(after.webp)}`)
+  check("the new quality keeps more of the picture (more bytes, never fewer)", after.avif >= before.avif && after.webp >= before.webp, { before, after })
+}
+
 async function main() {
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-dev-shm-usage"] })
   try {
@@ -258,6 +294,7 @@ async function main() {
     await script()
     await importedPage()
     await openingTab(browser)
+    await photoBytes()
   } finally {
     await browser.close()
   }
