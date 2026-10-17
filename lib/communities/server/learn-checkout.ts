@@ -64,7 +64,13 @@ export interface CheckoutDeps {
   ready: (creatorId: string) => Promise<boolean>
   /** The platform's fee on this amount (lib/billing/platform-fee-server). */
   fee: (amountCents: number, creatorId: string, currency: string) => Promise<PlatformFee>
-  /** The currency every Storelib charge is made in (lib/payments/fees/currency-rules). */
+  /**
+   * The currency a community charges in: Storelib's
+   * (lib/pricing/surface-currency STORELIB_CHARGE_CURRENCY), never the
+   * creator's store currency. A program or ticket whose price record says
+   * another currency is refused rather than charged in this one, so the
+   * amount shown, the amount taken and the record always agree.
+   */
   chargeCurrency: string
 }
 
