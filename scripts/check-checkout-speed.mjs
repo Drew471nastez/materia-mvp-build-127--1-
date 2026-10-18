@@ -14,6 +14,8 @@
  *             summary priced)
  *   stripeAsked  when the page asked for Stripe.js (its request started)
  *   stripeJs  Stripe.js arrived (the response ended)
+ *   mounted   the page handed Stripe its card form (the form's frame asked for):
+ *             everything before it is this page's own scripts and Stripe.js
  *   frame     Stripe's card form frame drawn taller than its loader
  *   ready     the payment form can take a card: the page's own
  *             data-payment-ready (Stripe's onReady), else `frame` on a
@@ -169,6 +171,10 @@ async function measure(url, profile, arm = null) {
     const stripeJs = stripeJsAt ? Math.round(stripeJsAt.responseEnd) : 0
     const stripeAsked = stripeJsAt ? Math.round(stripeJsAt.startTime) : 0
     const frame = Math.round(m.iframeTall)
+    const startOf = (re) => {
+      const e = res.find((x) => re.test(x.name))
+      return e ? Math.round(e.startTime) : 0
+    }
     const ready = m.ready ? Math.round(m.ready) : frame
     return {
       ttfb: Math.round(n.responseStart),
@@ -178,6 +184,7 @@ async function measure(url, profile, arm = null) {
       price: Math.round(m.price),
       stripeAsked,
       stripeJs,
+      mounted: startOf(/js\.stripe\.com\/v3\/elements-inner-(accessory|payment)/),
       frame,
       ready,
       readySignal: m.ready ? "page" : ready ? "frame" : "none",
@@ -208,7 +215,7 @@ for (const url of URLS) {
   console.log(`\n${url}`)
   for (const [name, profile] of Object.entries(PROFILES)) {
     if (process.env.ONLY && process.env.ONLY !== name) continue
-    const keys = ["ttfb", "fcp", "lcp", "shell", "price", "stripeAsked", "stripeJs", "frame", "ready", "cls", "requests"]
+    const keys = ["ttfb", "fcp", "lcp", "shell", "price", "stripeAsked", "stripeJs", "mounted", "frame", "ready", "cls", "requests"]
     for (const arm of process.env.AB === "1" ? (process.env.ARMS || "A,B").split(",") : [null]) {
       const runs = []
       for (let i = 0; i < RUNS; i++) runs.push(await measure(url, profile, arm))

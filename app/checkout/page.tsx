@@ -82,19 +82,23 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   */
   const userRead = early(currentUserForRequest().then((c) => c.user))
   const ownedEarly = early(
-    userRead.then((u) => (u ? supabase.from("entitlements").select("id, variant_id").eq("buyer_id", u.id).eq("product_id", productId) : { data: null })),
+    userRead.then(async (u): Promise<{ data: { id: string; variant_id: string | null }[] | null }> => {
+      if (!u) return { data: null }
+      const { data } = await supabase.from("entitlements").select("id, variant_id").eq("buyer_id", u.id).eq("product_id", productId)
+      return { data: (data as { id: string; variant_id: string | null }[] | null) ?? null }
+    }),
   )
   const variantEarly = early(
-    variantId
-      ? Promise.resolve(
-          supabase
-            .from("product_variants")
-            .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
-            .eq("id", variantId)
-            .eq("product_id", productId)
-            .single(),
-        )
-      : Promise.resolve({ data: null }),
+    (async (): Promise<{ data: unknown }> => {
+      if (!variantId) return { data: null }
+      const { data } = await supabase
+        .from("product_variants")
+        .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
+        .eq("id", variantId)
+        .eq("product_id", productId)
+        .single()
+      return { data }
+    })(),
   )
   const variantsEarly = early(
     Promise.resolve(

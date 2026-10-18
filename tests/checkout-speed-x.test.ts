@@ -176,7 +176,7 @@ async function main() {
     const asked = /body: JSON\.stringify\(\{ shopId, items, couponCode: appliedCode, country: address\.country, region: address\.region, postalCode: postalForQuote, city: cityForQuote, deliveryOptionId: optionId, email,/.test(client)
     check("the server asks with the same fields the page sends", asked && JSON.stringify(bodyKeys) === JSON.stringify(["city", "country", "couponCode", "deliveryOptionId", "email", "items", "postalCode", "region", "shopId"]), bodyKeys)
     check("the page starts with the server's order on screen", /useState<Quote \| null>\(\(initialQuote\?\.quote as Quote \| undefined\) \?\? null\)/.test(client) && /useState<LinkItem\[\] \| null>\(initialQuote\?\.items \?\? null\)/.test(client))
-    check("and takes it instead of its first ask only while nothing differs", /sameAsFirstQuote\(served,/.test(client) && /first\.current = null/.test(client))
+    check("and takes it instead of its first ask only while nothing differs", /sameAsFirstQuote\(served,/.test(client) && /serverQuote\.current = null/.test(client))
 
     const items = [{ productId: "11111111-1111-4111-8111-111111111111", variantId: null, quantity: 1 }]
     const first = { items, country: "RO" }

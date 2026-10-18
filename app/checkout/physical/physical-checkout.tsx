@@ -221,7 +221,7 @@ export function PhysicalCheckout({
   const cityForQuote = address.city.trim().length >= 2 ? address.city.trim() : ""
   const ask = React.useRef(0)
   /* The server's answer for the cart in the link, until anything the page would ask with changes (lib/physical/first-quote). */
-  const first = React.useRef(initialQuote)
+  const serverQuote = React.useRef(initialQuote)
   React.useEffect(() => {
     if (!items || !shopId) return
     if (items.length === 0) {
@@ -243,7 +243,7 @@ export function PhysicalCheckout({
         }
       } else if (mode === "ship" && got.delivery.selectedId !== optionId) setOptionId(got.delivery.selectedId)
     }
-    const served = first.current
+    const served = serverQuote.current
     if (served) {
       const got = served.quote as Quote
       if (mode === "ship" && sameAsFirstQuote(served, got.delivery?.selectedId ?? null, { items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, city: cityForQuote, deliveryOptionId: optionId, cash: byCash && config.cashOnDelivery })) {
@@ -251,7 +251,7 @@ export function PhysicalCheckout({
         take(got)
         return
       }
-      first.current = null
+      serverQuote.current = null
     }
     const n = ++ask.current
     setQuoting(true)
