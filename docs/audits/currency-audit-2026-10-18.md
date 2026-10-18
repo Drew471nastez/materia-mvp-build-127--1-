@@ -586,3 +586,19 @@ Your answers to section 10, as built:
 ### Found, not changed
 
 - **Revenue chart, partial refunds.** An order with any refund drops out of gross entirely and only its refund is subtracted. This happens in every currency and predates this work. Proposed fix: count the order's gross, and subtract the refunded part.
+
+## 13. Round AO: before activation
+
+The launch checklist is `docs/launch/marketplace-usd-launch-checklist.md`. `MARKETPLACE_USD` stays off.
+
+- **Suspicious Explore prices.** `supabase/sql/RUN_CURRENCY_RON.sql` multiplies every price by 4.6 and expects the platform to switch to lei straight after. Live Explore shows the platform in dollars, so a multiplied price may now be charged in dollars at 4.6 times. Its alternative, `RUN_CURRENCY_RON_NATIVE.sql`, says prices were always lei. Which ran, and when, is in `platform_migrations`.
+  - `scripts/price-audit.mjs` proves each product from its own history, without assuming a currency or a price. It confirms a product only when an order from before the multiplication was charged exactly today's price / 4.6, in the currency the store still sells in, with no price edit since.
+  - `scripts/price-restore.mjs` restores only those, with an approver named. It records every change in `price_corrections` (part 245) first, never overwrites a price that moved, can be undone, and never touches orders.
+  - Tested in `tests/round-ao` against the journey database over HTTP.
+- **Partial refunds.** The Payouts revenue chart dropped a partly refunded sale from gross and took the refund off anyway. It now uses `lineMoney` (the rule Analytics, Home and the database total already used). The seller's net falls by the refunded share of what they were paid, matching `reverse_transfer`.
+- **SQL 244 and 245 runbook.** `supabase/sql/runbooks/am-ao-1..3`. Rehearsed:
+  - lock timeout honoured;
+  - 50 ms;
+  - fingerprints identical before and after.
+- **Connect.** Onboarding requests the recipient agreement first for creators outside the platform's country. Stripe says those accounts get no cross-border payouts. `scripts/connect-audit.mjs` lists every account's agreement, country, capabilities and payout eligibility (read only). Nothing changed.
+- **Real Stripe test mode.** `scripts/stripe-test-purchase.mjs` covers the USD destination charge, settlement, transfer, the creator's currency, the partial refund and the proportional reversal. It refuses live keys. It needs a test key and test accounts, which this environment does not have.

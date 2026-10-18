@@ -157,6 +157,9 @@ async function main() {
   const chart2 = await j.call("GET /api/stripe/revenue-chart?timeframe=last_7&tz=UTC", { as: seller })
   const refundLei = Math.round((500 / RATES.USD) * RATES.RON)
   check(`the $5.00 refund is counted in lei at its day's rate (${(refundLei / 100).toFixed(2)})`, chart2.status === 200 && chart2.json?.currency === "ron" && Math.abs((chart2.json?.totalRefunds ?? 0) - refundLei) <= 2, chart2.json && { refunds: chart2.json.totalRefunds, expected: refundLei })
+  /* A part refund leaves the sale standing: its gross still counts, only the refunded part comes off (lineMoney). The chart used to drop the sale. */
+  check("  the partly refunded sale still counts in gross: 49.00 + its lei, never dropped", Math.abs((chart2.json?.totalGross ?? 0) - (LEI + back)) <= 2, { gross: chart2.json?.totalGross, expected: LEI + back })
+  check("  and the seller's net falls only by the refunded share of what they were paid", (chart2.json?.total ?? 0) > 0 && (chart2.json?.total ?? 0) < (chart.json?.total ?? 0) && (chart.json?.total ?? 0) - (chart2.json?.total ?? 0) < refundLei, { before: chart.json?.total, after: chart2.json?.total, refundLei })
   const refundLedger = j.rows("ledger_events").find((e) => e.event_type === "refund" && e.order_id === mpOrder?.id)
   check("the refund is on the ledger as paid back: $5.00", refundLedger?.currency === "usd" && refundLedger?.amount_cents === 500, refundLedger && [refundLedger.currency, refundLedger.amount_cents, refundLedger.description])
 

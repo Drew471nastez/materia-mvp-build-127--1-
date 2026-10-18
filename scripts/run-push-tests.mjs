@@ -776,6 +776,8 @@ const STRICT_SUITES = [
   "tests/e2e-store-currency.test.ts",
   /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */
   "tests/e2e-marketplace-usd.test.ts",
+  /* Round AO: the price audit and restore scripts, as separate processes over HTTP against the journey database (tests/_journey) */
+  "tests/round-ao.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
   /* More currencies: a lei store with euros for Germany and France, a visitor's card, cart, selector, card and cash checkout, order and emails all in the same euros; zloty shown and charged in lei (tests/_journey) */
