@@ -956,7 +956,7 @@ export function LiveProductCreatorBar({
     bar is dark in both looks and is left as it is.
   */
   const paint = useSitePaint()
-  const barPaint = <T extends string | undefined>(c: T, role: "bg" | "ink" | "line"): T => (isDarkBackground ? c : paint(c, role))
+  const barPaint = <T extends string | undefined>(c: T, role: "bg" | "ink" | "line") => (isDarkBackground ? c : paint(c, role))
   /*
     ═══════════════════════════════════════════════════════════════════════
      WHITE LETTERS ON A NEAR WHITE DISC

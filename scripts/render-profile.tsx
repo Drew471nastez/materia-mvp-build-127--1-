@@ -82,7 +82,7 @@ const card = (id: string, name: string, tagline: string, logo: string | null, co
 })
 const communities = [card("clay-studio", "Clay Studio", "A working studio for people learning wheel throwing at home.", LOGO, COVER, 1240, "$19/month"), card("night-runners", "Night Runners", "Easy miles after dark, every Tuesday.", LOGO2, null, 86, null)]
 
-const base: MemberProfileData = {
+const base: MemberProfileData = { socials: [],
   userId: "00000000-0000-4000-8000-0000000000b2",
   name: "Sam Rivera",
   username: "sam-rivera",

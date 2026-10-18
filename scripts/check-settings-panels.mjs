@@ -101,7 +101,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
       if (t === "Save") { await b.click(); break }
     }
     await wait(200)
-    const sent = await page.evaluate(() => window.__sent)
+    const sent = await page.evaluate(() => window.__settingsPanelsSent)
     const put = sent.find((s) => s.method === "PUT" && s.path === "/api/store/settings")
     say(!!put && put.body.storeName === "Angus Farm" && put.body.phone === "+40 751 048 522" && put.body.phoneCountry === "RO" && put.body.supportEmail === "hello@angus.ro", `Save sends the name, the email and the phone with its code: ${JSON.stringify(put?.body)}`)
   }
@@ -117,7 +117,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     await page.evaluate(() => [...document.querySelectorAll('[data-segmented="Phone number"] button')].find((b) => b.textContent === "Required").click())
     await page.evaluate(() => [...document.querySelectorAll('[data-segmented="Company name"] button')].find((b) => b.textContent === "Optional").click())
     await wait(800)
-    const sent = await page.evaluate(() => window.__sent.filter((s) => s.method === "PUT"))
+    const sent = await page.evaluate(() => window.__settingsPanelsSent.filter((s) => s.method === "PUT"))
     say(sent.length === 1 && sent[0].body.checkout.phone === "required" && sent[0].body.checkout.company === "optional", `two quick changes are one save, with both: ${JSON.stringify(sent.map((s) => s.body))}`)
     const line = await page.$eval("[data-checkout-saved]", (el) => el.textContent)
     say(/Saved/.test(line), `and it says so: "${line}"`)
@@ -173,7 +173,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     say(m.over <= 0 && m.cut.length === 0, `the form fits (${m.over}px over${m.cut.length ? `, cut: ${m.cut.join(" | ")}` : ""})`)
     await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Add reason" && b.closest("[role=dialog]"))?.click())
     await wait(250)
-    const sent = await page.evaluate(() => window.__sent.filter((x) => x.path === "/api/store/reasons"))
+    const sent = await page.evaluate(() => window.__settingsPanelsSent.filter((x) => x.path === "/api/store/reasons"))
     const now = await page.evaluate(() => [...document.querySelectorAll('[data-reasons="return"] [data-reason]')].map((li) => li.getAttribute("data-reason")))
     say(sent.length === 1 && sent[0].method === "POST" && sent[0].body.kind === "return" && sent[0].body.label === "Too big", `Add sends the kind and the name: ${JSON.stringify(sent[0]?.body)}`)
     say(now.at(-2) === "too_big" && now.at(-1) === "other", `the new reason sits above Other: ${now.join(", ")}`)
@@ -199,7 +199,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
   say(/2 off/.test(list[0].text), `a channel says how many products are off it: "${list[0].text.slice(0, 60)}"`)
   await page.select("#channel-default", OWN.id)
   await wait(150)
-  const patch = await page.evaluate(() => window.__sent.filter((x) => x.method === "PATCH"))
+  const patch = await page.evaluate(() => window.__settingsPanelsSent.filter((x) => x.method === "PATCH"))
   say(patch.length === 1 && patch[0].body.defaultKey === "11111111-1111-4111-8111-111111111111", `New products: one channel is saved: ${JSON.stringify(patch[0]?.body)}`)
   if (name === "a phone") {
     await page.click("[data-create-channel]")
@@ -257,7 +257,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     await page.type("#tracker-ga4", "ua-123")
     await page.evaluate(() => [...document.querySelectorAll("[data-tracker-install] button")].find((b) => /Install|Save/.test(b.textContent)).click())
     await wait(200)
-    const sent = await page.evaluate(() => window.__sent.filter((x) => x.path === "/api/store/integrations"))
+    const sent = await page.evaluate(() => window.__settingsPanelsSent.filter((x) => x.path === "/api/store/integrations"))
     say(sent.length === 1 && sent[0].body.id === "ga4" && sent[0].body.value === "ua-123", `Install sends the ID as typed; the server checks it: ${JSON.stringify(sent[0]?.body)}`)
   }
 
@@ -303,7 +303,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
   say(fd.over <= 0 && fd.cut.length === 0, `the details fit (${fd.over}px over${fd.cut.length ? `, cut: ${fd.cut.join(" | ")}` : ""})`)
   await page.evaluate(() => [...document.querySelectorAll("[data-file-details] button")].find((b) => /Delete/.test(b.textContent)).click())
   await wait(150)
-  const gone = await page.evaluate(() => ({ sent: window.__sent.filter((x) => x.path === "/api/files"), left: document.querySelectorAll("[data-file]").length }))
+  const gone = await page.evaluate(() => ({ sent: window.__settingsPanelsSent.filter((x) => x.path === "/api/files"), left: document.querySelectorAll("[data-file]").length }))
   say(gone.sent.length === 1 && gone.sent[0].method === "DELETE" && gone.sent[0].body.path === "c/p/c.svg" && gone.left === 2, `Delete sends the file and takes it off the grid: ${JSON.stringify(gone.sent[0]?.body)}, ${gone.left} left`)
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/files-${vp.width}.png` })
 
@@ -342,7 +342,7 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
   say(shown.more, "Show more is there while there are more")
   await page.evaluate(() => [...document.querySelectorAll("[data-activity-filters] button")].find((b) => b.textContent === "Orders").click())
   await wait(150)
-  const asked = await page.evaluate(() => (window.__gets ?? []).filter((u) => u.startsWith("/api/store/activity")))
+  const asked = await page.evaluate(() => (window.__settingsPanelsGets ?? []).filter((u) => u.startsWith("/api/store/activity")))
   say(asked.length === 2 && asked[0] === "/api/store/activity" && asked[1] === "/api/store/activity?group=orders", `the Orders filter asks for orders only: ${asked.join(" then ")}`)
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/activity-${vp.width}.png`, fullPage: true })
 

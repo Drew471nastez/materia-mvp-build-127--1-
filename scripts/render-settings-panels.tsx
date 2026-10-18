@@ -2,7 +2,7 @@
  * Round T's settings panels against a stubbed API, for
  * scripts/check-settings-panels.mjs. `window.__panel` picks one;
  * `window.__api` answers by path (GET), and every PUT/POST/DELETE is
- * recorded in `window.__sent` and answered with `window.__api[path]`.
+ * recorded in `window.__settingsPanelsSent` and answered with `window.__api[path]`.
  */
 import { createRoot } from "react-dom/client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
@@ -33,17 +33,17 @@ function TotalsProbe({ included }: { included: boolean }) {
   )
 }
 
-type W = Window & { __gets?: string[]; __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => React.ReactElement> }
+type W = Window & { __settingsPanelsGets?: string[]; __panel?: string; __api?: Record<string, unknown>; __settingsPanelsSent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => React.ReactElement> }
 const w = window as W
-w.__sent = []
+w.__settingsPanelsSent = []
 const realFetch = window.fetch.bind(window)
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
   const path = url.replace(/^https?:\/\/[^/]+/, "").split("?")[0]
   const method = (init?.method || "GET").toUpperCase()
   if (!path.startsWith("/api/")) return realFetch(input, init)
-  if (method !== "GET") w.__sent!.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : null })
-  else (w.__gets ??= []).push(url.replace(/^https?:\/\/[^/]+/, ""))
+  if (method !== "GET") w.__settingsPanelsSent!.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : null })
+  else (w.__settingsPanelsGets ??= []).push(url.replace(/^https?:\/\/[^/]+/, ""))
   const body = w.__api?.[`${method} ${path}`] ?? w.__api?.[path] ?? {}
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }

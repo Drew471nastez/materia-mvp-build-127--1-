@@ -90,7 +90,7 @@ async function main() {
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER \+ PLACE_KEYFRAMES\}<\/style>/.test(frame))
     /* Changed on purpose: from 1280px About's sheet takes every column and the left column steps aside for it (xl:col-span-full, lg:block xl:hidden), as tests/communities-shell.test.ts pins; the left column lands only when entering (226342ba1). */
-    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame) && /lg:col-start-1 lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\} \$\{landing \? LAND : ""\}/.test(frame))
+    check("About keeps the shared 107px desktop bar with tabs, and its sheet spans the shared columns", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:107px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-full xl:col-start-1"/.test(frame) && /lg:col-start-1 lg:row-start-1 \$\{lessonPage \? "" : about \? "lg:block xl:hidden" : "lg:block"\} \$\{landing \? LAND : ""\}/.test(frame))
     check("entering from outside, the side columns come in by opacity; the middle never fades (round 19: no flash on the first post)", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /\$\{landing \? LAND : ""\}/.test(frame) && !/LAND_LATE/.test(frame))
   }
 

@@ -15,7 +15,7 @@ export default function AccountDetailPage() {
   const load = React.useCallback(() => {
     if (!id) return
     void adminPaymentsRead<Record<string, unknown>>(`/api/admin/payments/accounts/${id}`).then((r) => {
-      if (r && "error" in r) setError(r.error)
+      if (r && "error" in r && typeof r.error === "string") setError(r.error)
       else {
         setError(null)
         setData(r)

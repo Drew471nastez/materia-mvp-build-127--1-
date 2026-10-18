@@ -24,7 +24,6 @@ const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000).toISOString
 
 function row(partial: Partial<PostRow> & { id: string }): PostRow {
   return {
-    id: partial.id,
     community_id: "c1",
     space_id: null,
     author_id: partial.author_id ?? "u1",

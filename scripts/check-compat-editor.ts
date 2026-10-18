@@ -108,7 +108,7 @@ async function main() {
     /* A theme with no sections (Shopify's Skeleton) is its layout's blocks and its templates: its header is what must be on the page. */
     const header = await frame.evaluate(() => { const h = document.querySelector("header, [data-block-id='header'], .header, #shopify-section-header"); const r = h?.getBoundingClientRect(); return r ? { h: Math.round(r.height), text: (h as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 60) } : null })
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/compat-editor-first.png` })
-    check("the theme's header is on the page", !!header && header.h > 20, header)
+    check("the theme's header is on the page", !!header && header.h > 20, JSON.stringify(header))
     if (drawn.sections === 0) {
       const main = await frame.evaluate(() => (document.querySelector("main") as HTMLElement | null)?.innerText.replace(/\s+/g, " ").trim().slice(0, 80) ?? "")
       const saved = await page.evaluate(() => (window as unknown as { probeCalls?: string[] }).probeCalls?.filter((c) => /sections/.test(c)).slice(0, 3))

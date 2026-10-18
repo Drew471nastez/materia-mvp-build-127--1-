@@ -10,12 +10,12 @@ import CheckoutPageClient from "@/app/checkout/checkout-client"
 
 declare global {
   interface Window {
-    __calls?: { url: string; body: unknown }[]
+    __commerceProbeCalls?: { url: string; body: unknown }[]
   }
 }
 
 function stubFetch() {
-  const calls: { url: string; body: unknown }[] = (window.__calls = [])
+  const calls: { url: string; body: unknown }[] = (window.__commerceProbeCalls = [])
   const json = (body: unknown, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {

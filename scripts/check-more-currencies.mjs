@@ -156,11 +156,11 @@ for (const [label, vp] of [
   await wait(300)
   say(await page.evaluate(() => document.querySelector("[data-scope=rest]")?.getAttribute("aria-checked") === "true" && !document.querySelector("[data-market-regions]")), "reais open on All other countries, with no country list to tick")
   await shot("more-currencies-rest", vp)
-  await page.evaluate(() => (window.__sent.length = 0))
+  await page.evaluate(() => (window.__settingsPanelsSent.length = 0))
   const done = await page.evaluateHandle(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Done"))
   await done.click()
   await wait(400)
-  const sent = await page.evaluate(() => window.__sent.filter((s) => s.method === "PUT" && s.path === "/api/store/markets").map((s) => s.body.localization.markets.find((m) => m.id === "brl")))
+  const sent = await page.evaluate(() => window.__settingsPanelsSent.filter((s) => s.method === "PUT" && s.path === "/api/store/markets").map((s) => s.body.localization.markets.find((m) => m.id === "brl")))
   say(sent.length === 1 && sent[0].rest === true && sent[0].countries.length === 0, `saved as a flag with no list: ${JSON.stringify(sent[0] && { rest: sent[0].rest, countries: sent[0].countries.length })}`)
 }
 
