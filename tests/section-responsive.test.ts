@@ -1033,7 +1033,8 @@ check(
     !/pt-1\.5 pb-1\.5/.test(editor) &&
     // both top corners, on all three: a card with one square top corner and
     // one round one reads as a mistake
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
+    /* Changed on purpose (round Z1): the sidebar card is its own width (flex-none), so folding or dragging it lays out only the canvas. */
+    /className="flex-none flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
     // Ask Storelib is no longer the third card on the shelf: on a computer
     // it floats over the canvas as a pill (theme-chat.tsx, variant "dock")
     !/<div className="h-full overflow-hidden bg-white rounded-t-\[20px\]">/.test(editor) &&

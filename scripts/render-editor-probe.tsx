@@ -11,6 +11,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import StoreEditorPage from "@/app/website-builder/editor/[installId]/page"
 import { EditorToaster } from "@/components/ui/editor-toaster"
+import { SlimScrollRail } from "@/components/website-builder/editor/slim-scroll-rail"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -198,6 +199,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
+  /* PROBE_APP_STATES: what Settings › Integrations says is on (scripts/check-editor-details-z1.mjs, Add section's App embeds marks). */
+  const appStates = (window as unknown as { PROBE_APP_STATES?: Record<string, string> }).PROBE_APP_STATES
+  if (appStates && /\/api\/store\/integrations\/apps/.test(url)) return json({ states: appStates, hrefs: {} })
   return json({})
 }
 
@@ -210,7 +214,9 @@ appRoot.render(
   React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
     React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) }),
     /* The toasts, as app/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
-    React.createElement(EditorToaster)),
+    React.createElement(EditorToaster),
+    /* PROBE_RAIL: the sidebar's drawn scrollbar, as the layout mounts it (scripts/check-editor-details-z1.mjs). */
+    (window as unknown as { PROBE_RAIL?: boolean }).PROBE_RAIL ? React.createElement(SlimScrollRail) : null),
 )
 
 /**

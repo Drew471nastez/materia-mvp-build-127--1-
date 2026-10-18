@@ -1077,9 +1077,10 @@ html.capacitor body {
     scrollbar-color: transparent transparent;
   }
 
+  /* 8px with a 1px clear border each side: a 6px thumb, near the editor's drawn one (slim-scroll-rail). */
   .wb-slim-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   .wb-slim-scroll::-webkit-scrollbar-track {
@@ -1090,6 +1091,8 @@ html.capacitor body {
     /* Transparent until the pointer is in the panel. A thumb that is always
        drawn is a second border down the side of every list. */
     background-color: transparent;
+    border: 1px solid transparent;
+    background-clip: padding-box;
     border-radius: 999px;
     transition: background-color 180ms ease-out;
   }
@@ -1423,7 +1426,8 @@ html.capacitor body {
     z-index: 60;
     pointer-events: none;
     border-radius: 4px;
-    box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.85);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.85);
+    /* 2px, with the section rings (sections/_shared.tsx): whole pixels on a 1x and a 2x screen. */
     transition: opacity 120ms ease-out;
   }
   .wb-hover-chip {
@@ -8553,8 +8557,8 @@ dialog:focus,
 }
 [data-sheet-scroll]::-webkit-scrollbar,
 [data-wb-sidebar-scroll]::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 [data-sheet-scroll]::-webkit-scrollbar-track,
 [data-wb-sidebar-scroll]::-webkit-scrollbar-track {
@@ -8563,6 +8567,8 @@ dialog:focus,
 [data-sheet-scroll]::-webkit-scrollbar-thumb,
 [data-wb-sidebar-scroll]::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.45);
+  border: 1px solid transparent;
+  background-clip: padding-box;
   border-radius: 999px;
 }
 

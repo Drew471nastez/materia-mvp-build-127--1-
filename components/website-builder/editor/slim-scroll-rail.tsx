@@ -22,6 +22,14 @@ const LINGER_MS = 900
 /* How long after the pointer leaves the panel the bar starts to fade. */
 const OUT_MS = 120
 const MIN_THUMB = 28
+/**
+ * The thumb's width, and its gap from the panel's right edge. It was 4px
+ * (6 under the pointer), which the owner found "too slim"; 7 is easy to see
+ * and to grab and still quieter than the platform's own bar. One width at
+ * rest and under the pointer: a thumb that widens moves its left edge.
+ */
+export const THUMB_PX = 7
+const THUMB_INSET = 2
 const SELECTOR = ".wb-slim-scroll"
 
 export function SlimScrollRail() {
@@ -52,7 +60,7 @@ export function SlimScrollRail() {
       const h = Math.max(MIN_THUMB, (el.clientHeight / el.scrollHeight) * box.height)
       const y = box.top + (el.scrollTop / room) * (box.height - h)
       thumb.style.height = `${h}px`
-      thumb.style.transform = `translate3d(${box.right - 6}px, ${y}px, 0)`
+      thumb.style.transform = `translate3d(${box.right - THUMB_PX - THUMB_INSET}px, ${y}px, 0)`
       thumb.style.opacity = "1"
     }
     const schedule = () => {
@@ -144,8 +152,8 @@ export function SlimScrollRail() {
       ref={thumbRef}
       aria-hidden
       data-slim-scroll-thumb=""
-      className="pointer-events-auto fixed left-0 top-0 z-[60] w-[4px] cursor-default rounded-full bg-[rgba(100,116,139,0.32)] opacity-0 transition-[opacity,background-color,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[6px] hover:bg-[rgba(71,85,105,0.55)] data-[dragging]:w-[6px] data-[dragging]:bg-[rgba(71,85,105,0.6)] motion-reduce:transition-none"
-      style={{ transform: "translate3d(-20px, 0, 0)" }}
+      className="pointer-events-auto fixed left-0 top-0 z-[60] cursor-default rounded-full bg-[rgba(100,116,139,0.30)] opacity-0 transition-[opacity,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[rgba(71,85,105,0.5)] data-[dragging]:bg-[rgba(71,85,105,0.58)] motion-reduce:transition-none"
+      style={{ width: THUMB_PX, transform: "translate3d(-20px, 0, 0)" }}
     />
   )
 }

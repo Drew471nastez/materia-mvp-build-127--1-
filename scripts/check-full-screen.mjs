@@ -48,7 +48,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /** FULL_SCREEN_MS in the editor: how long the fold takes. */
 const FOLD_MS = 320
 /**
- * The steepest slope of the fold's easing, cubic-bezier(0.4, 0, 0.2, 1), as a
+ * The steepest slope of the fold's easing, cubic-bezier(0.32, 0.72, 0, 1)
+ * (lib/website-builder/canvas-switch.ts CANVAS_SWITCH_EASE, round Z1), as a
  * multiple of its average: computed from the curve, not guessed. A step
  * faster than that (with 5% for rounding a width to a tenth of a pixel) is
  * the canvas jumping ahead of its own animation.
@@ -59,7 +60,7 @@ const EASE_PEAK = (() => {
   let prev = { x: 0, y: 0 }
   for (let i = 1; i <= 20000; i++) {
     const t = i / 20000
-    const p = { x: bz(0.4, 0.2, t), y: bz(0, 1, t) }
+    const p = { x: bz(0.32, 0, t), y: bz(0.72, 1, t) }
     if (p.x > prev.x) peak = Math.max(peak, (p.y - prev.y) / (p.x - prev.x))
     prev = p
   }
@@ -96,8 +97,8 @@ const STATE = () => ({
   fold: document.querySelector("[data-wb-sidebar-fold]")?.getAttribute("data-wb-sidebar-fold"),
   foldWidth: Math.round(document.querySelector("[data-wb-sidebar-fold]")?.getBoundingClientRect().width ?? -1),
   canvas: Math.round(document.getElementById("wb-preview-root").getBoundingClientRect().width),
-  pressed: document.querySelector("[data-wb-full-screen-switch]")?.getAttribute("aria-pressed"),
-  switchVisible: !!document.querySelector("[data-wb-full-screen-switch]")?.getBoundingClientRect().width,
+  pressed: document.querySelector("[data-wb-full-toggle]")?.getAttribute("aria-pressed"),
+  switchVisible: !!document.querySelector("[data-wb-full-toggle]")?.getBoundingClientRect().width,
   deviceVisible: !!document.querySelector("[data-wb-device-switch]")?.getBoundingClientRect().width,
   toolbar: !!document.querySelector(".wb-section-toolbar"),
   rings: document.querySelectorAll("#wb-preview-root span.wb-ring").length,
@@ -146,11 +147,9 @@ try {
   const before = await page.evaluate(STATE)
   expect(before.fold === "open" && before.foldWidth > 200 && before.switchVisible && before.pressed === "false", "the switch sits beside desktop / phone, off", before)
 
-  /* One icon cycles desktop, phone, large: phone first, then the click that is filmed goes to Large. */
-  await page.click("[data-wb-full-screen-switch]")
-  await sleep(500)
+  /* Changed on purpose (round Z1): full screen is its own toggle beside the size (no longer a third stop of one cycling icon, and no longer data-wb-full-screen-switch), so one press goes in. */
   const filmIn = page.evaluate(FILM, 700)
-  await page.click("[data-wb-full-screen-switch]")
+  await page.click("[data-wb-full-toggle]")
   const inFrames = await filmIn
   const foldIn = read(inFrames, "fold", -1)
   const canvasIn = read(inFrames, "canvas", 1)
@@ -164,7 +163,8 @@ try {
   */
   const curvePeak = (d) => (d / FOLD_MS) * EASE_PEAK * 1.05
   expect(canvasIn.peakSpeed <= curvePeak(canvasIn.distance), "smoothly: the canvas never moves faster than the fold's own curve", { peakSpeed: canvasIn.peakSpeed, curvePeak: Math.round(curvePeak(canvasIn.distance) * 100) / 100, biggestStep: canvasIn.biggest, longestFrameMs: canvasIn.longestFrameMs })
-  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + canvasIn.longestFrameMs + 40, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
+  /* Round Z1: the film starts before the press and the fold is played from the commit, so up to two frames of press are allowed before its 320ms. */
+  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + canvasIn.longestFrameMs + 80, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
   const on = await page.evaluate(STATE)
   expect(on.canvas >= 1440 - 16, "the site fills the editor's width", on.canvas)
   expect(on.pressed === "true" && on.switchVisible && on.deviceVisible, "the switches stay on the bar, the full screen one pressed", on)
@@ -191,7 +191,7 @@ try {
   console.log("\nphone editor, 390x844")
   const phone = await browser.newPage()
   await open(phone, { width: 390, height: 844 }, true)
-  const p = await phone.evaluate(() => ({ button: !!document.querySelector("[data-wb-full-screen-switch]") }))
+  const p = await phone.evaluate(() => ({ button: !!document.querySelector("[data-wb-full-toggle]") }))
   expect(!p.button, "not offered on a phone, where the canvas already fills the screen", p)
   await phone.close()
 } finally {
