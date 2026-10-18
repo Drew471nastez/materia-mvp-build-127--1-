@@ -15,7 +15,7 @@ import {
 } from "@/lib/website-builder/policy-editing"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
-import { Card, Lead, PageTitle, Row, buttonClass, textLinkClass } from "./parts"
+import { Card, Lead, PageTitle, Row, buttonClass, textLinkClass, DarkScope } from "./parts"
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 
@@ -164,7 +164,7 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 md:px-6" data-policy={page.key}>
         <div className="min-w-[180px] flex-1">
           <h2 className="text-[15px] font-semibold text-white md:text-[14.5px]">{page.title}</h2>
-          <p className="mt-0.5 text-[13px] leading-snug text-white/45" data-policy-status="">
+          <p className="mt-0.5 text-[13px] leading-snug text-white/50" data-policy-status="">
             {load.state === "loading" && !live ? tt("Loading…") : load.state === "error" && !live ? load.message : status}
           </p>
         </div>
@@ -200,7 +200,7 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
       </div>
 
       <Reveal open={open} id={panelId} className="border-t border-white/[0.07]">
-        <div className="dark px-4 pb-4 pt-4 md:px-6" data-policy-editor={page.key}>
+        <DarkScope className="px-4 pb-4 pt-4 md:px-6" data-policy-editor={page.key}>
           {live && !liveBody ? (
             <p className="text-[14px] text-white/55">{tt("This page has no text section to write in. Add one in the builder.")}</p>
           ) : (
@@ -215,7 +215,7 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
           )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px]">
             <span
-              className={cn("min-h-5", typeof save === "object" ? "text-red-300" : "text-white/45")}
+              className={cn("min-h-5", typeof save === "object" ? "text-red-300" : "text-white/50")}
               aria-live="polite"
               data-policy-save={typeof save === "object" ? "error" : save}
             >
@@ -235,7 +235,7 @@ function PolicyCard({ ctx, page, optional = false }: { ctx: SettingsContext; pag
               </button>
             )}
           </div>
-        </div>
+        </DarkScope>
       </Reveal>
     </Card>
   )

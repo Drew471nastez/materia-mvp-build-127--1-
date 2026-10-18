@@ -40,6 +40,8 @@ const SUITES = [
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",
   "tests/languages-checkout-w.test.ts",
+  /* Round X3: light or dark in Website Settings (the shared choice), the quieter language chip, Copy under the creator's message, a product's translations one language at a time; scripts/check-ui-polish-x.mjs measures them. */
+  "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",

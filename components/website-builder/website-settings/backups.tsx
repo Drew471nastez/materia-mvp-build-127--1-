@@ -228,7 +228,7 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
 
       <Card title={tt("Restore points")} footer={tt("The newest 30 are kept. A backup identical to the one before it is not saved twice.")}>
         {backups === null ? (
-          <div className="flex items-center justify-center py-12 text-white/45">
+          <div className="flex items-center justify-center py-12 text-white/50">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : backups.length === 0 ? (

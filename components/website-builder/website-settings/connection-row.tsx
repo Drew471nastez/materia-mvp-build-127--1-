@@ -33,11 +33,11 @@ import { tt } from "@/lib/i18n/text"
 export type ConnectionTone = "off" | "on" | "waiting" | "attention" | "none"
 
 const TONE: Record<ConnectionTone, string> = {
-  off: "text-white/45",
+  off: "text-white/50",
   on: "text-emerald-300",
   waiting: "text-white/60",
   attention: "text-amber-200",
-  none: "text-white/40",
+  none: "text-white/50",
 }
 
 export function ConnectionRow({
@@ -128,7 +128,7 @@ export function ConnectionRow({
                 <>
                   {" "}
                   <span aria-hidden className="shrink-0 text-white/25 max-md:hidden">·</span>{" "}
-                  <span className="min-w-0 truncate text-white/45 max-md:basis-full">{detail}</span>
+                  <span className="min-w-0 truncate text-white/50 max-md:basis-full">{detail}</span>
                 </>
               )}
             </p>

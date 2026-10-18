@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
-import { BrowserTabPreview, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
+import { BrowserTabPreview, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass, DarkScope } from "./parts"
 import { siteStoreName, siteTabTitle } from "@/lib/website-builder/tab-title"
 import { siteIconUrl } from "@/lib/website-builder/site-icon"
 import type { SettingsContext } from "./types"
@@ -72,7 +72,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
               className={inputClass + " md:w-full"}
             />
             <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-[12.5px] text-white/45" data-tab-example="">{tt("Other pages read like “{example}”", { example: preview.example })}</p>
+              <p className="min-w-0 truncate text-[12.5px] text-white/50" data-tab-example="">{tt("Other pages read like “{example}”", { example: preview.example })}</p>
               <Counter value={title} max={60} />
             </div>
           </div>
@@ -102,9 +102,9 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
         <Row label={tt("Social image")} hint={tt("Shown when a link to your website is shared. 1200 × 630 works everywhere.")} stack>
           <div className="flex max-w-[420px] flex-col gap-3">
             <SharePreview image={image} title={preview.title} description={preview.description} address={ctx.websiteUrlDisplay} />
-            <div className="dark">
+            <DarkScope>
               <WbImagePicker value={image} onChange={(url) => ctx.onSettingChange("seo_og_image", url ?? "")} layout="row" folder="logos" />
-            </div>
+            </DarkScope>
           </div>
         </Row>
         <Row
@@ -134,13 +134,13 @@ function SharePreview({ image, title, description, address }: { image?: string; 
         {shown ? (
           <img src={shown} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailed(shown)} />
         ) : (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-white/45">
+          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-white/50">
             {tt("No picture yet. Your logo or first hero picture is used instead.")}
           </p>
         )}
       </div>
       <div className="border-t border-white/[0.06] px-4 py-3">
-        <p className="truncate text-[11.5px] uppercase tracking-wide text-white/40">{address || "yourname.storelib.com"}</p>
+        <p className="truncate text-[11.5px] uppercase tracking-wide text-white/50">{address || "yourname.storelib.com"}</p>
         <p className="mt-0.5 truncate text-[14px] font-semibold text-white/90">{title}</p>
         <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-white/55">{description}</p>
       </div>

@@ -9957,7 +9957,12 @@ const words: Record<string, string> = {
  "Save term": "Salva termine",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Una lingua è sul tuo sito una volta pubblicata. Tradurla fino in fondo la pubblica per te. Ciò che non è ancora tradotto appare nella tua lingua predefinita.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "Il glossario lascia il tuo marchio e i nomi dei prodotti come sono, o traduce una parola a modo tuo. Le traduzioni che scrivi tu non vengono mai cambiate.",
- "Words and phrases": "Parole e frasi"
+ "Words and phrases": "Parole e frasi",
+ "Translated": "Tradotto",
+ "Leave a field empty to show it in {language}.": "Lascia un campo vuoto per mostrarlo in {language}.",
+ "Could not copy": "Impossibile copiare",
+ "Copy your message": "Copia il tuo messaggio",
+ "Dark mode": "Modalità scura"
 }
 
 export default words

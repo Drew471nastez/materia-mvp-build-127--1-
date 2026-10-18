@@ -109,19 +109,19 @@ function TerminalGuide({ os }: { os: Os }) {
           const plus = "key" in part && prev && "key" in prev
           return (
             <Fragment key={i}>
-              {plus && <span className="text-white/35">+</span>}
+              {plus && <span className="text-white/50">+</span>}
               {"key" in part && <Keycap>{part.key}</Keycap>}
               {"type" in part && (
                 <span>
                   {tt("type")} <span className="font-medium text-white">{part.type}</span>
                 </span>
               )}
-              {"then" in part && <span aria-hidden className="px-0.5 text-white/35">→</span>}
+              {"then" in part && <span aria-hidden className="px-0.5 text-white/50">→</span>}
             </Fragment>
           )
         })}
       </div>
-      {guide.aside && <p className="mt-2 text-[13px] text-white/45">{guide.aside}</p>}
+      {guide.aside && <p className="mt-2 text-[13px] text-white/50">{guide.aside}</p>}
     </div>
   )
 }
@@ -294,11 +294,11 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
             <CommandBlock key={line.label} label={lines.length > 1 ? line.label : undefined} value={line.value} disabled={!fresh} />
           ))}
         </div>
-        <p className="mt-2.5 text-[13px] leading-relaxed text-white/45">
+        <p className="mt-2.5 text-[13px] leading-relaxed text-white/50">
           {fresh ? tt("Your key is in this line. It is shown only this once.") : tt("Making your key")}
         </p>
         {tool === "claude" && fresh && (
-          <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+          <p className="mt-1 text-[13px] leading-relaxed text-white/50">
             <Rich text={tt("Added Storelib before? Run {command} first.")} parts={{ command: <Code>{CLAUDE_REMOVE_OLD}</Code> }} />
           </p>
         )}
@@ -327,7 +327,7 @@ function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnect
             <p className="truncate text-[14px] text-white/85">
               {tt("Key")} <span className="font-mono text-[13px] text-white/70">{c.prefix}…</span>
             </p>
-            <p className="mt-0.5 truncate text-[13px] text-white/45">
+            <p className="mt-0.5 truncate text-[13px] text-white/50">
               {keyLine(c)}
             </p>
           </div>
