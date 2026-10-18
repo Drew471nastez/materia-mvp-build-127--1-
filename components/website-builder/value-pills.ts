@@ -210,6 +210,9 @@ export function replacePill(pill: HTMLElement, expr: string): HTMLElement {
   return next
 }
 
+/** The lines of a rich text field. */
+const LINES = "p,h1,h2,h3,h4,li,blockquote" // i18n-ignore: a selector
+
 /** Where a new pill goes when the field never had a caret: the end of its last line, inside the line. */
 function endOf(root: HTMLElement): Range {
   let node: Node = root
@@ -228,7 +231,7 @@ function endOf(root: HTMLElement): Range {
 export function insertPill(root: HTMLElement, at: Range | null, expr: string, focus: boolean): HTMLElement {
   const range = at && root.contains(at.startContainer) && root.contains(at.endContainer) ? at.cloneRange() : endOf(root)
   /* A caret on the field itself, outside every line of a rich text field, goes into the line. */
-  if (range.startContainer === root && root.querySelector("p, h1, h2, h3, h4, li, blockquote")) {
+  if (range.startContainer === root && root.querySelector(LINES)) {
     const r = endOf(root)
     range.setStart(r.startContainer, r.startOffset)
     range.collapse(true)
