@@ -31,6 +31,9 @@ import type {
   TokenUsage,
 } from "./types"
 
+/** Anthropic's limit on tools marked `strict` in one request; more is a 400 for the whole request. */
+export const MAX_STRICT_TOOLS = 20
+
 let client: Anthropic | null = null
 
 export class MissingAnthropicKeyError extends Error {
@@ -250,7 +253,7 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
        */
       /* With a breakpoint on the last block: see requestMessages. */
       messages: requestMessages(request.turns),
-      tools: request.tools.map((tool) => ({
+      tools: request.tools.map((tool, i) => ({
         name: tool.name,
         description: tool.description,
         input_schema: tool.parameters as Anthropic.Tool.InputSchema,
@@ -260,7 +263,9 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
          * agents already declares `additionalProperties: false` and
          * `required`, which is what this needs to be accepted.
          */
-        ...(!modelInfo?.capabilities || modelInfo.capabilities.structured_outputs.supported ? { strict: true } : {}),
+        /* Anthropic accepts at most MAX_STRICT_TOOLS strict tools a request ("Too many strict tools (26)" was a 400 on every
+           Storelib AI run): the first ones, in the order the agent lists them, are strict, the rest are checked by the executor. */
+        ...((!modelInfo?.capabilities || modelInfo.capabilities.structured_outputs.supported) && i < MAX_STRICT_TOOLS ? { strict: true } : {}),
       })),
       /**
        * Adaptive thinking. On Sonnet 5 and Opus 5 this is the only on-mode —
