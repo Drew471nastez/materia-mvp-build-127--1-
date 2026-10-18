@@ -34,7 +34,9 @@ import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { PLAN_CURRENCY, productPriceCurrency } from "@/lib/money/product-currency"
-import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, marketplaceAmounts } from "@/lib/money/marketplace"
+import { MARKETPLACE_CURRENCY, marketplaceAmounts } from "@/lib/money/marketplace"
+import { curatedWords } from "@/lib/checkout-text/words"
+import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { marketplaceRates, marketplaceUsdFor } from "@/lib/money/marketplace-server"
 import { CheckoutCurrency } from "./parts/ui"
 import { stripeEarly } from "./parts/stripe-early"
@@ -288,7 +290,10 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     const p = usd(priceRow)
     const v = selectedVariant ? usd(selectedVariant) : null
     const all = (allVariants ?? []).map(usd)
-    if (!fx || !p || (selectedVariant && !v) || all.some((x) => x === null)) return <RatesPaused backTo={`/p/${encodeURIComponent(product.slug)}`} />
+    if (!fx || !p || (selectedVariant && !v) || all.some((x) => x === null)) {
+      const { headers } = await import("next/headers")
+      return <RatesPaused backTo={`/p/${encodeURIComponent(product.slug)}`} language={(await headers()).get("accept-language")} />
+    }
     priceRow = p
     if (v) selectedVariant = v
     shownVariants = all as typeof allVariants
@@ -496,13 +501,19 @@ export default async function CheckoutPage(props: CheckoutPageProps) {
   )
 }
 
-/** A marketplace purchase while no fresh exchange rate exists: said plainly, with the way back. Never a price in another currency. */
-function RatesPaused({ backTo }: { backTo: string }) {
+/**
+ * A marketplace purchase while no fresh exchange rate exists: said plainly, with the way back. Never a price in another currency.
+ * In the buyer's browser language where Storelib has checked checkout words for it (lib/checkout-text/dict), else English.
+ */
+function RatesPaused({ backTo, language }: { backTo: string; language: string | null }) {
+  const lang = (language ?? "").split(",")[0]?.split(";")[0]?.trim() ?? ""
+  const words = curatedWords(lang)
+  const say = (sentence: string) => words[sentence] ?? sentence
   return (
-    <main data-checkout-paused="" className="flex min-h-[60vh] items-center justify-center px-4">
+    <main data-checkout-paused="" lang={Object.keys(words).length ? lang : "en"} className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-sm text-center">
-        <p className="text-[15px] font-medium text-[#1a1a2e]">{RATES_PAUSED_MESSAGE}</p>
-        <a href={backTo} className="mt-4 inline-block text-[13px] text-[#6b7280] underline underline-offset-4">Back to the product</a>
+        <p className="text-[15px] font-medium text-[#1a1a2e]">{say(checkoutMsg("Prices on Storelib are being updated. Try again in a few minutes."))}</p>
+        <a href={backTo} className="mt-4 inline-block text-[13px] text-[#6b7280] underline underline-offset-4">{say(checkoutMsg("Back to the product"))}</a>
       </div>
     </main>
   )

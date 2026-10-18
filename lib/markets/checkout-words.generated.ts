@@ -1,5 +1,7 @@
 /* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under app/checkout and lib/checkout and app/receipt and app/review and app/order-help and components/physical/tracking-timeline.tsx and components/support/order-help.tsx and components/support/case-photos.tsx and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */
 export const CHECKOUT_SENTENCES: readonly string[] = [
+  "Prices on Storelib are being updated. Try again in a few minutes.",
+  "Back to the product",
   "Type the email you bought it with above, then press this again.",
   "That didn't go through. Try again in a moment.",
   "Bought this before?",
@@ -322,6 +324,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "{min} to {max} business days",
   "Up to {count} business days",
   "From {count} business days",
+  "This order is too large to pay in one go. Remove an item and try again.",
   "Thanks, {name}",
   "Thanks for your order",
   "Waiting for your payment",
