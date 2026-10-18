@@ -313,11 +313,17 @@ export function checkBusiness(raw: unknown): BusinessCheck {
 /* ─── Where it is kept ────────────────────────────────────────────────── */
 
 /**
- * Into and out of a PaymentIntent's metadata, one key a field. Stripe keeps
- * 500 characters a value, which every limit above stays inside (one JSON
- * value for the whole address could pass it once quotes were escaped), and
- * the payment is the record that outlives any table: an invoice can always
- * be drawn from it.
+ * Into and out of a PaymentIntent's metadata. Stripe keeps 50 keys and 500
+ * characters a value, and the payment is the record that outlives any table:
+ * an invoice can always be drawn from it.
+ *
+ * Written in THREE keys (who, street, place), each a JSON list whose worst
+ * case, every character a quote escaped to two, stays under 500 with the
+ * limits above. One key a field used eight of the 50, and a business buying
+ * with a code and a held copy then passed Stripe's limit. A field set that
+ * would not fit (it cannot with the limits above) is written the old way,
+ * one key a field, never cut. Both ways are read back, so a payment made
+ * before the change still makes its invoice.
  */
 const META_KEYS: Record<keyof BusinessDetails, string> = {
   company: "business_company",
@@ -330,12 +336,49 @@ const META_KEYS: Record<keyof BusinessDetails, string> = {
   region: "business_region",
 }
 
+const PACKED = { who: "business", street: "business_street", place: "business_place" } as const
+const PACKED_PARTS: Record<keyof typeof PACKED, (keyof BusinessDetails)[]> = {
+  who: ["company", "taxId", "country"],
+  street: ["line1", "line2"],
+  place: ["city", "postalCode", "region"],
+}
+const VALUE_LIMIT = 500
+
 export function businessToMetadata(b: BusinessDetails): Record<string, string> {
+  const packed: Record<string, string> = {}
+  for (const part of Object.keys(PACKED) as (keyof typeof PACKED)[]) {
+    packed[PACKED[part]] = JSON.stringify(PACKED_PARTS[part].map((k) => b[k] ?? ""))
+  }
+  if (Object.values(packed).every((v) => v.length <= VALUE_LIMIT)) return packed
   return Object.fromEntries((Object.keys(META_KEYS) as (keyof BusinessDetails)[]).map((k) => [META_KEYS[k], b[k] ?? ""]))
 }
 
+function unpackBusiness(meta: Record<string, string | undefined>): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {}
+  for (const part of Object.keys(PACKED) as (keyof typeof PACKED)[]) {
+    const raw = meta[PACKED[part]]
+    if (typeof raw !== "string") {
+      if (part === "who") return null
+      continue
+    }
+    let list: unknown
+    try {
+      list = JSON.parse(raw)
+    } catch {
+      return null
+    }
+    if (!Array.isArray(list)) return null
+    const values: unknown[] = list
+    PACKED_PARTS[part].forEach((k, i) => (out[k] = typeof values[i] === "string" ? values[i] : ""))
+  }
+  return out
+}
+
 export function businessFromMetadata(meta: Record<string, string | undefined> | null | undefined): BusinessDetails | null {
-  if (!meta?.business_company) return null
+  if (!meta) return null
+  const packed = unpackBusiness(meta)
+  if (packed) return businessFromFields(packed)
+  if (!meta.business_company) return null
   return businessFromFields(Object.fromEntries((Object.keys(META_KEYS) as (keyof BusinessDetails)[]).map((k) => [k, meta[META_KEYS[k]]])))
 }
 

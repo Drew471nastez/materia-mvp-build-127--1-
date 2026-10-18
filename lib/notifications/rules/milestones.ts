@@ -55,7 +55,7 @@ export const salesMilestone: Rule = {
         period: "",
         title: n === 1 ? "Your first sale" : `Your ${ordinal(n)} sale`,
         message: first
-          ? `${productName(first.productTitle)} sold for ${money(first.amountCents, first.currency)}.`
+          ? money(first.amountCents, first.currency) ? `${productName(first.productTitle)} sold for ${money(first.amountCents, first.currency)}.` : `${productName(first.productTitle)} sold.`
           : `That is ${n} sales since your first on ${shortDate(sales.times[0], zone)}.`,
         href: "/app/orders",
         area: "Milestone",
