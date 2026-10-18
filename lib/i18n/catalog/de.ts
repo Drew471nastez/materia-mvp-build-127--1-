@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "Die Bestellung zahlt die Stufe, die ihre Summe erreicht. Eine Stufe mit 0 ist ab dort kostenloser Versand.",
+ "The order pays the step its weight reaches, your default package included.": "Die Bestellung zahlt die Stufe, die ihr Gewicht erreicht, deine Standardverpackung eingerechnet.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Jeder Artikel zahlt die Stufe, die sein eigenes Gewicht erreicht, dann wird addiert.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Live berechnet von deinem Shippo- oder EasyPost-Konto für die Adresse des Käufers. Entfällt, wenn es nicht rechtzeitig antwortet.",
+ "free": "kostenlos",
+ "each": "pro Stück",
+ "Local delivery and pickup": "Lokale Lieferung und Abholung",
+ "For products that ship differently, like heavy or fragile items.": "Für Produkte, die anders versendet werden, etwa schwere oder zerbrechliche Artikel.",
+ "New zone": "Neue Zone",
+ "Every country not in another zone of this profile.": "Jedes Land, das in keiner anderen Zone dieses Profils ist.",
+ "States you leave out aren't shipped to, unless another zone has them.": "Ausgelassene Bundesstaaten werden nicht beliefert, außer eine andere Zone enthält sie.",
+ "Delete the {name} rate?": "Tarif {name} löschen?",
+ "Name at checkout": "Name an der Kasse",
+ "Live carrier rates appear here once {apps} is connected.": "Live-Tarife von Versanddiensten erscheinen hier, sobald {apps} verbunden ist.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Ein Servicecode, etwa usps_priority. Leer: der günstigste.",
+ "Always free": "Immer kostenlos",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Verbinde Shippo oder EasyPost unter Einstellungen › Integrationen, um Tarife zu sehen.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Lege unter Einstellungen › Versand › Pakete ein Standardpaket fest, um Tarife zu sehen.",
  "Add a carrier": "Versanddienst hinzufügen",

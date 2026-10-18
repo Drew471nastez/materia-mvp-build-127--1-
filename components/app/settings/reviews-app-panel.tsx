@@ -21,7 +21,7 @@
  * had are the page's Overview now.
  */
 import * as React from "react"
-import { BTN_PRIMARY, BTN_SECONDARY, Field, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
+import { CancelButton, Field, FormActions, Notice, SaveButton, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { cn } from "@/lib/utils"
 import { REVIEWS_APP_DEFAULTS, cleanHexColor, type ReviewsAppSettings } from "@/lib/reviews/app-settings"
 import { tt } from "@/lib/i18n/text"
@@ -68,6 +68,7 @@ export function ReviewsAppPanel({ onChanged, sections = ALL_SECTIONS }: { onChan
     setLoaded((l) => (l ? { ...l, settings: r.data.settings } : l))
     setDraft(r.data.settings)
     setSaved(true)
+    window.setTimeout(() => setSaved(false), 1600)
     onChanged?.(r.data.settings)
   }
 
@@ -206,18 +207,11 @@ export function ReviewsAppPanel({ onChanged, sections = ALL_SECTIONS }: { onChan
       </div>
       ) : null}
 
-      {error ? <Notice>{error}</Notice> : null}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {saved && !dirty ? <span className="mr-auto text-[13px] text-[#067647]">{tt("Saved")}</span> : null}
-        {dirty ? (
-          <button type="button" className={BTN_SECONDARY} disabled={busy} onClick={() => setDraft(loaded.settings)}>
-            {tt("Discard")}
-          </button>
-        ) : null}
-        <button type="button" className={BTN_PRIMARY} disabled={busy || !dirty} onClick={() => void save()} data-reviews-app-save="">
-          {busy ? tt("Saving") : tt("Save")}
-        </button>
-      </div>
+      {/* The settings' own Save (components/physical/ui SaveButton): greyed until something changed, a spinner while it saves, Saved after. */}
+      <FormActions error={error}>
+        <CancelButton label={tt("Discard")} disabled={busy || !dirty} onClick={() => setDraft(loaded.settings)} />
+        <SaveButton state={busy ? "saving" : saved && !dirty ? "saved" : "idle"} disabled={!dirty} onClick={() => void save()} data-reviews-app-save="" />
+      </FormActions>
     </div>
   )
 }

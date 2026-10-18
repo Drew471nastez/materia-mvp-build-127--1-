@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "Zamówienie płaci za próg, który osiąga jego suma. Próg 0 to darmowa wysyłka od tego miejsca.",
+ "The order pays the step its weight reaches, your default package included.": "Zamówienie płaci za próg, który osiąga jego waga, łącznie z domyślną paczką.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Każdy produkt płaci za próg, który osiąga jego waga, a potem kwoty się sumuje.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Cena na żywo z Twojego konta Shippo lub EasyPost dla adresu kupującego. Pomijana, gdy nie odpowie na czas.",
+ "free": "za darmo",
+ "each": "za sztukę",
+ "Local delivery and pickup": "Dostawa lokalna i odbiór",
+ "For products that ship differently, like heavy or fragile items.": "Dla produktów wysyłanych inaczej, na przykład ciężkich lub delikatnych.",
+ "New zone": "Nowa strefa",
+ "Every country not in another zone of this profile.": "Każdy kraj, którego nie ma w innej strefie tego profilu.",
+ "States you leave out aren't shipped to, unless another zone has them.": "Do pominiętych stanów nie wysyłasz, chyba że ma je inna strefa.",
+ "Delete the {name} rate?": "Usunąć stawkę {name}?",
+ "Name at checkout": "Nazwa przy kasie",
+ "Live carrier rates appear here once {apps} is connected.": "Stawki przewoźnika na żywo pojawią się tu, gdy połączysz {apps}.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Kod usługi, na przykład usps_priority. Puste: najtańsza.",
+ "Always free": "Zawsze za darmo",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Połącz Shippo lub EasyPost w Ustawienia › Integracje, aby zobaczyć stawki.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Ustaw domyślną paczkę w Ustawienia › Wysyłka › Paczki, aby zobaczyć stawki.",
  "Add a carrier": "Dodaj przewoźnika",

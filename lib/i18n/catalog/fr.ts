@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "La commande paie la tranche atteinte par son total. Une tranche à 0 offre la livraison à partir de là.",
+ "The order pays the step its weight reaches, your default package included.": "La commande paie la tranche atteinte par son poids, emballage par défaut compris.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Chaque article paie la tranche atteinte par son propre poids, puis tout est additionné.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Prix en direct de votre compte Shippo ou EasyPost pour l'adresse de l'acheteur. Omis s'il ne répond pas à temps.",
+ "free": "gratuit",
+ "each": "chacun",
+ "Local delivery and pickup": "Livraison locale et retrait",
+ "For products that ship differently, like heavy or fragile items.": "Pour les produits expédiés autrement, comme les articles lourds ou fragiles.",
+ "New zone": "Nouvelle zone",
+ "Every country not in another zone of this profile.": "Tous les pays qui ne sont pas dans une autre zone de ce profil.",
+ "States you leave out aren't shipped to, unless another zone has them.": "Les États laissés de côté ne sont pas livrés, sauf si une autre zone les contient.",
+ "Delete the {name} rate?": "Supprimer le tarif {name} ?",
+ "Name at checkout": "Nom au paiement",
+ "Live carrier rates appear here once {apps} is connected.": "Les tarifs transporteur en direct apparaissent ici une fois {apps} connecté.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Un code de service, comme usps_priority. Vide : le moins cher.",
+ "Always free": "Toujours gratuit",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Connectez Shippo ou EasyPost dans Paramètres › Intégrations pour voir les tarifs.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Choisissez un colis par défaut dans Paramètres › Expédition › Colis pour voir les tarifs.",
  "Add a carrier": "Ajouter un transporteur",

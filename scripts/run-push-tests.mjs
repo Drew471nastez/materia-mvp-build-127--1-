@@ -809,6 +809,13 @@ const STRICT_SUITES = [
     above), the About card's icons and Share; scripts/check-page-editor27.mjs measures the editor and its frame rates.
   */
   "tests/editor27.test.ts",
+  /*
+    Round Y3: Settings › Shipping in Storelib's own forms (no grey band behind Cancel and Save), one SaveButton and
+    FormActions for every settings form, the summary's "from" and carrier zones, and a carrier rate's free over in the
+    free shipping banner; scripts/check-shipping-settings.mjs measures the page at 390 and 1280. Strict, as it imports
+    components/physical/shipping-settings.tsx (as tests/shipsetup.test.ts does).
+  */
+  "tests/shipping-settings-y3.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
