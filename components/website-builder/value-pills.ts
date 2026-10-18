@@ -30,7 +30,7 @@ export const stripZw = (s: string) => s.replace(ZW_ALL, "")
 
 /** The pill's look. Inline, so the markup a rich text field holds carries it without a stylesheet. */
 export const PILL_STYLE =
-  "display:inline-block;padding:0 6px;margin:0 1px;border-radius:6px;background:#eceef1;color:#374151;font-size:0.92em;font-weight:500;line-height:1.5;white-space:nowrap;max-width:100%;vertical-align:baseline;cursor:pointer;-webkit-tap-highlight-color:transparent"
+  "display:inline-block;padding:0 6px;margin:0 1px;border-radius:6px;background:#eceef1;color:#374151;font-size:0.92em;font-weight:500;line-height:1.2;white-space:nowrap;max-width:100%;vertical-align:baseline;cursor:pointer;-webkit-tap-highlight-color:transparent"
 
 /** What a value is called on its pill: a known source by its own name, anything else by its last two words. */
 export function pillLabel(expr: string): string {
