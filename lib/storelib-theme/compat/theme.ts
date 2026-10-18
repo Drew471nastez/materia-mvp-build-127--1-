@@ -401,6 +401,9 @@ function defaultLocalePath(files: Record<string, string>, schema: boolean): stri
   return null
 }
 
+/** See renderDocument: a container the page focused itself shows no focus ring. */
+export const FOCUS_RING_FIX = `<style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style>`
+
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
@@ -1191,6 +1194,16 @@ export class CompatTheme {
       drawn = /<\/body>/i.test(drawn) ? drawn.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${rest}</body>`) : `${drawn}${rest}`
     }
     let html = this.finish(drawn)
+    /*
+      NO BLUE RING ON A BOX THE PAGE FOCUSED ITSELF. A theme's popup, drawer
+      or modal moves focus to its own container (tabindex="-1") as it opens,
+      and a section link focuses the section it lands on. Before the visitor
+      has clicked anything the browser counts that as keyboard focus and
+      draws its blue ring round the whole box until the next click. A box
+      nobody can tab to has no use for it; links, buttons and fields keep
+      their own rings untouched.
+    */
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${FOCUS_RING_FIX}</head>`) : `${FOCUS_RING_FIX}${html}`
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`
     if (head.extraBodyEnd) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${head.extraBodyEnd}</body>`) : `${html}${head.extraBodyEnd}`

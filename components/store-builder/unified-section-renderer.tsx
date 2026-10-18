@@ -82,6 +82,8 @@ import { imagesOnly } from "@/lib/media/video"
 export interface ProductData {
   id: string
   slug?: string
+  /** Where the card goes when it is not a product page: a free community's own page. */
+  href?: string
   title: string
   thumbnail_url?: string | null
   price_cents: number
@@ -186,6 +188,7 @@ export interface UnifiedSectionProps {
 // NOTE: Only use product.slug — product.id is a UUID and will never resolve on
 // the /p/[slug] route, causing a 404 "lost" navigation in Capacitor.
 const getProductHref = (product: ProductData): string => {
+  if (product.href && product.href.startsWith("/")) return product.href
   return product.slug ? `/p/${product.slug}` : "#"
 }
 
@@ -4925,6 +4928,7 @@ function UnifiedMoreFromSellerSection({
               product={{
                 id: product.id,
                 slug: product.slug,
+                href: product.href,
                 title: product.title,
                 thumbnail_url: product.thumbnail_url,
                 price_cents: product.price_cents,

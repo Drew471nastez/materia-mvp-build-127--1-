@@ -186,7 +186,7 @@ console.log("\nFull screen, the third way of looking\n")
   /* The owner, October 2026: "a fullscreen button next to the desktop and mobile switch". It is back, beside the size, and goes into the same fold. */
   check("and a full screen button beside it, into the same fold", /data-wb-full-toggle=""/.test(page) && /onClick=\{\(\) => toggleCanvasFullScreen\(!fullView\)\}/.test(page))
   check("remembered for the session", /const FULL_SCREEN_KEY = "wb:full-screen"/.test(page) && /window\.sessionStorage\.setItem\(FULL_SCREEN_KEY, "1"\)/.test(page))
-  check("the sidebar folds by its width and opacity, not by unmounting", /maxWidth: fullView \? 0 : sidebarWidth/.test(page) && /opacity: fullView \? 0 : 1/.test(page) && /transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
+  check("the sidebar folds by its width and opacity, not by unmounting", /maxWidth: fullView \? 0 : sidebarWidth/.test(page) && /opacity: fullView \? 0 : 1/.test(page) && /* Changed on purpose (round AJ: the width snaps once and the canvas glides by transform, no width animated a frame at a time) */ /translateX\(\$\{fullView \? by : -by\}px\)/.test(page) && !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
   check("Escape leaves it", /if \(e\.key !== "Escape" \|\| e\.defaultPrevented\) return[\s\S]{0,300}setFullScreen\(false\)/.test(page))
   check("no rings, toolbar, hover or Ask pill over the site", /inspectorEnabled=\{canvasInspecting && !fullSettled\}/.test(page) && /canvasInspecting && !fullView && !isMobileView/.test(page) && /suspended=\{[^}]*\|\| fullView\}/.test(page))
 }

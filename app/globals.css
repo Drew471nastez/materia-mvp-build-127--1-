@@ -8525,3 +8525,38 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
 img[data-img-broken] {
   visibility: hidden !important;
 }
+
+/*
+  Round AJ: no blue ring round a box the page focused itself. A popup, drawer
+  or modal focuses its own container as it opens and a section link focuses
+  the section it lands on; before any click the browser takes that for
+  keyboard focus and rings the whole box. Nobody can tab to these, so the
+  ring goes; links, buttons and fields keep theirs.
+*/
+[tabindex="-1"]:focus,
+dialog:focus,
+[role="dialog"]:focus,
+[aria-modal="true"]:focus {
+  outline: none !important;
+}
+
+/* Round AJ: every scroller of the builder's sidebar and sheets is slim, even one drawn without .wb-slim-scroll. */
+[data-sheet-scroll],
+[data-wb-sidebar-scroll] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+[data-sheet-scroll]::-webkit-scrollbar,
+[data-wb-sidebar-scroll]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-sheet-scroll]::-webkit-scrollbar-track,
+[data-wb-sidebar-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-sheet-scroll]::-webkit-scrollbar-thumb,
+[data-wb-sidebar-scroll]::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}

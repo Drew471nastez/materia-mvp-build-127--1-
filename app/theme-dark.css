@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 833 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 836 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -873,6 +873,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/5:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.012); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-neutral-200:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-white:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .ring-white\/10:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-white\/15:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-white\/25:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-white\/30:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.035); }
@@ -1184,8 +1185,10 @@ html[data-sl-dark] [data-own-look] {
 @media (hover:hover) and (hover: hover) and (pointer: fine) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:group-hover\/chip\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/chip):hover *) { color: #ececee; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:group-hover\/pill\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/pill):hover *) { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#e8e9ec\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f5f6f7\]:not([data-own-look], [data-own-look] *):hover { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *):hover { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):hover { color: hsla(215,14%,72%,1); }
 }
 @media (hover:hover) and (pointer:fine) and (hover: hover) and (pointer: fine) {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)_and_\(pointer\:fine\)\]\:hover\:bg-\[\#1a1a2e\]\/\[0\.04\]:not([data-own-look], [data-own-look] *):hover { background-color: rgba(53,53,60,0.04); }

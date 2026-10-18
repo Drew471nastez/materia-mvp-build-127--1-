@@ -24,6 +24,8 @@ import { getProductInternalPath } from "@/lib/url-helpers"
 export interface StorefrontCardProduct {
   id: string
   slug?: string
+  /** Where the card goes when it is not a product page (a free community). */
+  href?: string
   title: string
   thumbnail_url?: string | null
   price_cents: number
@@ -80,6 +82,7 @@ export function StorefrontProductCard({
         id: product.id,
         title: product.title,
         slug: product.slug || "",
+        href: product.href ?? null,
         price_cents: product.price_cents,
         compare_at_cents: product.compare_at_cents ?? null,
         pay_what_you_want: product.pay_what_you_want ?? null,

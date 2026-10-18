@@ -9957,7 +9957,21 @@ const words: Record<string, string> = {
  "Save term": "Salvar termo",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Um idioma aparece no seu site quando é publicado. Traduzir até o fim publica para você. O que ainda não foi traduzido aparece no seu idioma padrão.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "O glossário mantém sua marca e os nomes dos produtos como estão, ou traduz uma palavra do seu jeito. As traduções que você escreve nunca são alteradas.",
- "Words and phrases": "Palavras e frases"
+ "Words and phrases": "Palavras e frases",
+ "App embeds": "Incorporações de apps",
+ "Your apps' sections appear here once this theme can show them": "As seções dos seus apps aparecem aqui quando este tema puder exibi-las",
+ "All integrations": "Todas as integrações",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Conecte o GitHub, ou sua própria chave do Claude ou da OpenAI. As alterações ficam como rascunho até você publicar.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "O Storelib AI está incluído no seu plano. Com sua própria chave, as edições contam na sua conta.",
+ "Code from your computer": "Código do seu computador",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "Sua própria chave de API",
+ "Period: last {period}": "Período: últimos {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Abra a aba DNS do domínio e desative primeiro o redirecionamento.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "Em Gerenciar registros DNS, edite o registro A e o CNAME www da Wix em vez de adicionar novos.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Abra a zona DNS. Deixe o subdomínio vazio para o próprio domínio.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "Na zona hospedada do domínio, deixe o nome do registro vazio para o próprio domínio.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Use o globo azul para gerenciar o DNS e exclua primeiro os registros de estacionamento."
 }
 
 export default words

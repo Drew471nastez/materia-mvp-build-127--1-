@@ -9957,7 +9957,21 @@ const words: Record<string, string> = {
  "Save term": "Zapisz termin",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Język pojawia się na Twojej stronie po opublikowaniu. Przetłumaczenie go do końca publikuje go za Ciebie. To, co nie jest jeszcze przetłumaczone, wyświetla się w Twoim języku domyślnym.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "Słownik zostawia Twoją markę i nazwy produktów bez zmian albo tłumaczy słowo po Twojemu. Tłumaczenia, które piszesz sam, nigdy nie są zmieniane.",
- "Words and phrases": "Słowa i frazy"
+ "Words and phrases": "Słowa i frazy",
+ "App embeds": "Osadzenia aplikacji",
+ "Your apps' sections appear here once this theme can show them": "Sekcje Twoich aplikacji pojawią się tutaj, gdy ten motyw będzie mógł je wyświetlić",
+ "All integrations": "Wszystkie integracje",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Połącz GitHub lub własny klucz Claude albo OpenAI. Zmiany pozostają szkicami do publikacji.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "Storelib AI jest w Twoim planie. Z własnym kluczem zmiany są liczone na Twoim koncie.",
+ "Code from your computer": "Kod z Twojego komputera",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "Twój własny klucz API",
+ "Period: last {period}": "Okres: ostatnie {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Otwórz kartę DNS domeny i najpierw wyłącz przekierowanie.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "W Zarządzaj rekordami DNS edytuj rekord A i CNAME www od Wix zamiast dodawać nowe.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Otwórz strefę DNS. Zostaw subdomenę pustą dla samej domeny.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "W strefie hostowanej domeny zostaw nazwę rekordu pustą dla samej domeny.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Użyj niebieskiego globusa do zarządzania DNS i najpierw usuń rekordy parkowania."
 }
 
 export default words

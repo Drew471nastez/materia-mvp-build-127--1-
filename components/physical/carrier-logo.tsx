@@ -66,7 +66,7 @@ export function CarrierLogo({
         <span aria-hidden="true" data-carrier-logo-letters="">
           {initialsOf(known.name)}
         </span>
-        <span aria-hidden="true" data-carrier-logo-image={known.logo} className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${known.logo})` }} />
+        {known.logo ? <span aria-hidden="true" data-carrier-logo-image={known.logo} className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${known.logo})` }} /> : null}
       </span>
     )
   }

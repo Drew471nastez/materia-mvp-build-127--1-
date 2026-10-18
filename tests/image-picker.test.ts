@@ -139,9 +139,9 @@ function main() {
 
   console.log("\nThe favicon takes an upload only")
   const general = read("components/website-builder/website-settings/general.tsx")
-  check("Website settings' favicon turns the files library off",
-    /* Round I: in its own compact layout, a small tile and its actions (layout "icon"). */
-    /aspectRatio="favicon"\s*\n\s*layout="icon"\s*\n\s*folder="logos"\s*\n\s*library=\{false\}/.test(general))
+  check("Website settings' favicon can come from your files",
+    /* Changed on purpose (round AJ, the owner: choose the favicon from your own files). Round I: in its own compact layout (layout "icon"). */
+    /aspectRatio="favicon"\s*\n\s*layout="icon"\s*\n\s*folder="logos"\s*\n\s*\/>/.test(general))
   check("the picker can drop Your files from the empty field",
     /\{library && <button[\s\S]{0,1200}Your files\s*\n\s*<\/button>\}/.test(picker))
   check("and from Change, which then opens the file dialog straight away",

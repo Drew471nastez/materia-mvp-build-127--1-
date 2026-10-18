@@ -277,7 +277,7 @@ export function sectionMarkup(theme: CompatTheme, page: CompatPage, section: Sto
 */
 type Heights = Record<string, number>
 const heightMemory = new Map<string, Heights>()
-const heightsKey = (installId: string, renderWidth: number) => `wb-compat-preview-h:${installId}:${renderWidth}`
+const heightsKey = (installId: string, renderWidth: number) => `wb-compat-preview-h2:${installId}:${renderWidth}`
 function rememberedHeights(installId: string, renderWidth: number): Heights {
   const k = heightsKey(installId, renderWidth)
   let hit = heightMemory.get(k)
@@ -630,7 +630,16 @@ class PreviewSheet {
     w.style.minHeight = "0px"
     w.style.paddingTop = ""
     placedAt.delete(w)
-    const h = Math.ceil(w.scrollHeight)
+    /*
+      ITS OWN BOX, NOT WHAT SPILLS OUT OF IT. A header holds a menu drawer, a
+      search overlay or a mega menu laid out a whole window tall and hidden
+      off to the side; scrollHeight counted all of it, so a 90px header got a
+      card as tall as a hero. The box's own height is what the section takes
+      on a page; only a section whose box is empty (everything in it
+      positioned) falls back to what it holds.
+    */
+    const own = w.offsetHeight
+    const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const root = w.querySelector<HTMLElement>(".shopify-section") ?? w
     const shows = h > 8 && Array.from(root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")).some((el) => {
       const r = el.getBoundingClientRect()

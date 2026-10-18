@@ -299,7 +299,7 @@ function main() {
         const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
         return /from\("theme_github_links"\)\.select\("repo_full_name, updated_at"\)/.test(route) && !/installationToken|installationRepos|github-sync\/github/.test(route)
       })())
-  check("  and a phone reaches it from the menu, by the same mark", /isMobileView\s*\?\s*\[\{\s*label: connection\.online \? connection\.label : "GitHub",\s*icon: <ConnectionMarkIcon kind=\{connection\.kind\}/.test(editor))
+  check("  and a phone reaches it from the menu, by the same mark", /* Changed on purpose (round AJ: GitHub in the Actions menu on every screen, with its repository) */ /label: githubRepo \? "GitHub" : "Connect GitHub",\s*hint: githubRepo \?\? "Recommended",\s*icon: <ConnectionMarkIcon kind="github"/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
     /settingsSectionFrom\(url\.searchParams\.get\("settings"\)\)/.test(editor) && /history\.replaceState/.test(editor) &&
       /if \(value === "advanced" \|\| value === "agents"\) return "connections"/.test(read("components/website-builder/website-settings/types.ts")))

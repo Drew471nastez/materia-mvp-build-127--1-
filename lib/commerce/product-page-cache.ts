@@ -49,6 +49,7 @@
  * that instant, and the TTL is what limits the damage when the tag is
  * missed.
  */
+import { communityPath } from "@/components/community/public/paths"
 import { unstable_cache } from "next/cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
 import { readPublicRow } from "@/lib/security/public-rows"
@@ -327,7 +328,7 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
       })
       const communitiesRead = supabase
         .from("communities")
-        .select("id, name, tagline, cover_url, logo_url")
+        .select("id, slug, name, tagline, cover_url, logo_url")
         .eq("creator_id", creatorId)
         .eq("status", "published")
         .eq("visibility", "public")
@@ -336,7 +337,7 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
         .limit(2)
       const [{ data: plain }, { data: communities, error: communitiesError }] = await Promise.all([plainRead, communitiesRead])
       const cards: CachedProductRow[] = []
-      const list = communitiesError ? [] : ((communities ?? []) as Array<{ id: string; name: string | null; tagline: string | null; cover_url: string | null; logo_url: string | null }>)
+      const list = communitiesError ? [] : ((communities ?? []) as Array<{ id: string; slug: string | null; name: string | null; tagline: string | null; cover_url: string | null; logo_url: string | null }>)
       if (list.length) {
         const { data: planRows } = await supabase
           .from("products")
@@ -347,7 +348,14 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
         const plans = ((planRows ?? []) as unknown as Array<CachedProductRow & { community_id: string }>).filter((p) => !!p.slug)
         for (const c of list) {
           const mine = plans.filter((p) => p.community_id === c.id)
-          if (!mine.length) continue
+          /*
+            ROUND AJ: A FREE COMMUNITY IS A CARD TOO. One with no paid plan has no product to link through, so it was
+            left out; its card now goes straight to the community's own page (communityPath), free to join.
+          */
+          if (!mine.length) {
+            if (c.slug) cards.push({ id: `community:${c.id}`, slug: null, href: communityPath(c.slug), title: c.name || "", thumbnail_url: c.cover_url || c.logo_url, price_cents: 0, compare_at_cents: null, sales_count: null, description: c.tagline, kind: "community", type: "community" })
+            continue
+          }
           const paid = mine.filter((p) => (p.price_cents ?? 0) > 0).sort((a, b) => (a.price_cents ?? 0) - (b.price_cents ?? 0))
           const pick = paid[0] ?? mine[0]
           cards.push({ ...pick, title: c.name || pick.title, thumbnail_url: c.cover_url || c.logo_url || pick.thumbnail_url, description: c.tagline ?? pick.description, compare_at_cents: null, kind: "community" })

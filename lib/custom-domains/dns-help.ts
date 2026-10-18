@@ -21,7 +21,7 @@ import { tt } from "@/lib/i18n/text"
 
 /* ── Registrars ──────────────────────────────────────────────────────── */
 
-export type RegistrarId = "godaddy" | "namecheap" | "cloudflare" | "squarespace" | "porkbun" | "hostinger" | "other"
+export type RegistrarId = "godaddy" | "namecheap" | "cloudflare" | "squarespace" | "porkbun" | "hostinger" | "ionos" | "wix" | "ovh" | "route53" | "namesilo" | "hetzner" | "infomaniak" | "other"
 
 export interface Registrar {
   id: RegistrarId
@@ -84,6 +84,60 @@ export const REGISTRARS: readonly Registrar[] = [
     apex: "@",
     get ttl() { return tt("Default") },
     get note() { return tt("Delete Hostinger's own A record on @ and CNAME on www before adding these.") },
+  },
+  {
+    id: "ionos",
+    name: "IONOS",
+    dnsUrl: () => "https://my.ionos.com/domains",
+    apex: "@",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Open the domain's DNS tab, and turn off its forwarding first.") },
+  },
+  {
+    id: "wix",
+    name: "Wix",
+    dnsUrl: () => "https://manage.wix.com/account/domains",
+    apex: "",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.") },
+  },
+  {
+    id: "ovh",
+    name: "OVHcloud",
+    dnsUrl: () => "https://www.ovh.com/manager/#/web/domain",
+    apex: "",
+    get ttl() { return tt("Default") },
+    get note() { return tt("Open DNS zone. Leave the subdomain empty for the domain itself.") },
+  },
+  {
+    id: "route53",
+    name: "Amazon Route 53",
+    dnsUrl: () => "https://console.aws.amazon.com/route53/v2/hostedzones",
+    apex: "",
+    ttl: "300",
+    get note() { return tt("In the domain's hosted zone, leave Record name empty for the domain itself.") },
+  },
+  {
+    id: "namesilo",
+    name: "NameSilo",
+    dnsUrl: () => "https://www.namesilo.com/account_domains.php",
+    apex: "",
+    ttl: "3600",
+    get note() { return tt("Use the blue globe to manage DNS, and delete its parking records first.") },
+  },
+  {
+    id: "hetzner",
+    name: "Hetzner",
+    dnsUrl: () => "https://dns.hetzner.com/",
+    apex: "@",
+    get ttl() { return tt("Default") },
+  },
+  {
+    id: "infomaniak",
+    name: "Infomaniak",
+    dnsUrl: () => "https://manager.infomaniak.com/v3/domain",
+    apex: "",
+    get ttl() { return tt("Default") },
   },
   {
     id: "other",

@@ -140,7 +140,7 @@ async function main() {
   {
     check("Add section's plus sits in a raised key", /group-hover\/add:shadow/.test(src("components/website-builder/editor/tree-parts.tsx")))
     const list = src("components/website-builder/editor/sections-list.tsx")
-    check("the insert line fades out at both ends", /linear-gradient\(90deg,transparent_0%/.test(list))
+    check("the insert line fades out at both ends", /* round AJ: shared with blocks, tree-parts.tsx */ /linear-gradient\(90deg,transparent_0%/.test(src("components/website-builder/editor/tree-parts.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
