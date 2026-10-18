@@ -15,6 +15,8 @@ try {
   assert.equal(failed.status, 1, "failed process cannot be treated as zero type errors")
   assert.match(failed.stderr, /TypeScript did not complete/)
   assert.equal(run("echo 'new-file.ts(1,1): error TS2322: wrong type'\nexit 2").status, 1, "new diagnostics still fail the ratchet")
+  assert.equal(run("echo 'error TS6053: File missing.ts not found'\nexit 2").status, 1, "missing inputs cannot pass the per-file baseline")
+  assert.equal(run("echo 'error TS5023: Unknown compiler option'\nexit 1").status, 1, "invalid compiler options fail closed too")
   assert.equal(run("kill -TERM $$").status, 1, "terminated compiler fails closed")
-  console.log("Typecheck process checks: clean exit, failed process, new errors, and termination passed")
+  console.log("Typecheck process checks: clean exit, failed process, new errors, missing inputs, invalid options, and termination passed")
 } finally { rmSync(scratch, { recursive: true, force: true }) }

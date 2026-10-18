@@ -311,6 +311,15 @@ export class MemoryDb {
     const rows = this.rows(table)
     const gone = rows.filter((r) => filters.every((f) => matches(f, this.withGenerated(table, r))))
     this.tables[table] = rows.filter((r) => !gone.includes(r))
+    const ids = gone.map((row) => row.id).filter((id) => id !== null && id !== undefined)
+    if (ids.length) {
+      for (const child of this.model.values()) {
+        for (const column of child.cascadeDeletes) {
+          if (child.references.get(column) !== table) continue
+          this.delete(child.name, [{ path: column, op: "in", value: `(${ids.map((id) => JSON.stringify(String(id))).join(",")})`, not: false }])
+        }
+      }
+    }
     return gone
   }
 

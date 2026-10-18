@@ -56,6 +56,12 @@ async function main() {
     check("a later trigger failure refuses the upsert", error instanceof PgError && error.code === "P0001")
   }
   check("the earlier update and trigger writes roll back too", original.name === "Before" && db.rows("shipping_zones").length === 1 && db.rows("trigger_audit").length === 0)
+  delete db.beforeWrite.shipping_zones
+  db.rows("shipping_rates").push({ id: "rate", zone_id: original.id })
+  db.rows("shipping_rates").push({ id: "other-rate", zone_id: "other-zone" })
+  check("the cascade is declared by the real shipping SQL", db.model.get("shipping_rates")?.cascadeDeletes.has("zone_id") === true)
+  db.delete("shipping_zones", [{ path: "id", op: "eq", value: original.id, not: false }])
+  check("deleting a zone cascades only its rates", db.rows("shipping_rates").length === 1 && db.rows("shipping_rates")[0].id === "other-rate")
 
   const j = await Journey.start()
 

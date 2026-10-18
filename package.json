@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.33.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && next build",
+    "build": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && node scripts/gen-theme-dark.mjs && node --max-old-space-size=5120 node_modules/next/dist/bin/next build",
     "dev": "node scripts/build-sql-catalog.mjs && node scripts/build-sites-assets.mjs && next dev",
     "lint": "eslint .",
     "start": "next start",

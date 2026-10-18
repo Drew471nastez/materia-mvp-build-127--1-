@@ -32,10 +32,19 @@ try {
   }
 }
 const now = {}
+const unlocated = []
 for (const line of output.split("\n")) {
   const m = line.match(/^(.+?)\(\d+,\d+\): error TS\d+/)
+  // Missing inputs and invalid compiler options have no source location.
+  // They must not disappear merely because they cannot use a per-file budget.
+  if (!m && /(?:^|\s)error TS\d+:/.test(line)) unlocated.push(line)
   /* .next/ is what a local build leaves behind; CI checks a fresh checkout, which has none. */
   if (m && !m[1].startsWith(".next/")) now[m[1]] = (now[m[1]] ?? 0) + 1
+}
+if (unlocated.length) {
+  console.error("TypeScript reported validation errors without a source location. The baseline was not changed.")
+  console.error(unlocated.join("\n"))
+  process.exit(1)
 }
 const total = Object.values(now).reduce((a, b) => a + b, 0)
 const sorted = Object.fromEntries(Object.entries(now).sort(([a], [b]) => a.localeCompare(b)))
