@@ -22,7 +22,7 @@ import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import { firstQuoteBody } from "@/lib/physical/first-quote"
 import { stripeEarly } from "../parts/stripe-early"
 import { ShopBar } from "../parts/shop-bar"
-import { Suspense } from "react"
+import { Suspense, use } from "react"
 import type * as React from "react"
 
 export const dynamic = "force-dynamic"
@@ -157,14 +157,15 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
 }
 
 /** The checkout, once the cart in the link is priced (firstQuote); without one, the page prices it itself as before. */
-async function PricedCheckout({
+function PricedCheckout({
   currency,
   quoteRead,
   items,
   country,
   ...props
 }: Omit<React.ComponentProps<typeof PhysicalCheckout>, "initialQuote"> & { currency: string; quoteRead: Promise<Record<string, unknown> | null>; items: LinkItem[]; country: string }) {
-  const quote = await quoteRead
+  /* Suspends until the quote is in (React's use), so the Suspense above shows the bar meanwhile. */
+  const quote = use(quoteRead)
   return (
     <CheckoutCurrency currency={currency}>
       <PhysicalCheckout {...props} initialQuote={quote ? { items, country, quote } : null} />

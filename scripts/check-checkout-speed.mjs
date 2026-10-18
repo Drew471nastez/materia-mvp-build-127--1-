@@ -184,6 +184,8 @@ async function measure(url, profile, arm = null) {
       price: Math.round(m.price),
       stripeAsked,
       stripeJs,
+      /* The physical checkout's own ask for its prices, when the page made one (start-end). */
+      quoteAsk: (() => { const e = res.find((x) => /\/api\/physical\/checkout\/quote/.test(x.name)); return e ? `${Math.round(e.startTime)}-${Math.round(e.responseEnd)}` : null })(),
       mounted: startOf(/js\.stripe\.com\/v3\/elements-inner-(accessory|payment)/),
       frame,
       ready,

@@ -169,7 +169,7 @@ async function main() {
     check("only for a cart in the link, started before the shop's reads", page.indexOf("const quoteRead = ") > 0 && page.indexOf("const quoteRead = ") < page.indexOf("checkoutBrand(db, shop)"))
     check("the buyer's address goes with it for the rate limit", /"x-forwarded-for", "x-real-ip"/.test(page))
     const suspenseAt = page.indexOf("<Suspense")
-    check("the shop's bar is sent at once and the priced order streams in after it", suspenseAt > 0 && /<ShopBar brand=\{brand\} backTo=\{null\} shopUrl=\{shopUrl\} \/>/.test(page) && /const quote = await quoteRead/.test(page.slice(page.indexOf("async function PricedCheckout"))))
+    check("the shop's bar is sent at once and the priced order streams in after it", suspenseAt > 0 && /<ShopBar brand=\{brand\} backTo=\{null\} shopUrl=\{shopUrl\} \/>/.test(page) && /const quote = use\(quoteRead\)/.test(page.slice(page.indexOf("function PricedCheckout"))))
     check("a redirect to the website's own checkout is still decided before anything is sent", page.indexOf("redirect(legacyBasketTarget(") > 0 && page.indexOf("redirect(legacyBasketTarget(") < suspenseAt)
     check("a failed answer leaves the page to ask as before", /if \(!res\.ok\) return null/.test(page) && /catch \{\n\s*return null/.test(page))
     const bodyKeys = Object.keys(firstQuoteBody("s", [], "RO")).sort()
