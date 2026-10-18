@@ -61,6 +61,7 @@
   and fades as one element: one compositor layer, transform and opacity.
 */
 
+import { AskMemoryButton } from "@/components/website-builder/ask-memory"
 import * as React from "react"
 import { createPortal } from "react-dom"
 import {
@@ -2655,6 +2656,8 @@ function ThemeChatPanel({
           <ConnectAiButton phone={phone} onClick={onConnectAi} />
         </span>
       )}
+      {/* What the AI remembers for this website, one tap away and out of the way (ask-memory.tsx). */}
+      {view !== "history" ? <AskMemoryButton installId={installId} className={iconButton} /> : null}
       <button
         type="button"
         data-ask-new=""

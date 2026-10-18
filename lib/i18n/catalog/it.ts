@@ -9957,7 +9957,27 @@ const words: Record<string, string> = {
  "Save term": "Salva termine",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Una lingua è sul tuo sito una volta pubblicata. Tradurla fino in fondo la pubblica per te. Ciò che non è ancora tradotto appare nella tua lingua predefinita.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "Il glossario lascia il tuo marchio e i nomi dei prodotti come sono, o traduce una parola a modo tuo. Le traduzioni che scrivi tu non vengono mai cambiate.",
- "Words and phrases": "Parole e frasi"
+ "Words and phrases": "Parole e frasi",
+ "App embeds": "Incorporamenti app",
+ "Your apps' sections appear here once this theme can show them": "Le sezioni delle tue app appaiono qui quando questo tema può mostrarle",
+ "All integrations": "Tutte le integrazioni",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Collega GitHub o la tua chiave Claude o OpenAI. Le modifiche restano bozze finché non pubblichi.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "Storelib AI è incluso nel tuo piano. Con la tua chiave, le modifiche vengono conteggiate sul tuo account.",
+ "Code from your computer": "Codice dal tuo computer",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "La tua chiave API",
+ "Period: last {period}": "Periodo: ultimi {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Apri la scheda DNS del dominio e disattiva prima l'inoltro.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "In Gestisci record DNS, modifica il record A e il CNAME www di Wix invece di aggiungerne di nuovi.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Apri la zona DNS. Lascia vuoto il sottodominio per il dominio stesso.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "Nella zona ospitata del dominio, lascia vuoto il nome del record per il dominio stesso.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Usa il globo blu per gestire il DNS ed elimina prima i record di parcheggio.",
+ "AI memory": "Memoria dell'IA",
+ "What Storelib AI keeps in mind for this website.": "Ciò che Storelib AI tiene a mente per questo sito.",
+ "Could not load. Try again in a moment.": "Impossibile caricare. Riprova tra un momento.",
+ "Nothing yet. Add something below, or the AI keeps notes as you work.": "Ancora niente. Aggiungi qualcosa qui sotto, oppure l'IA prende appunti mentre lavori.",
+ "Forget this": "Dimentica questo",
+ "Add something to remember": "Aggiungi qualcosa da ricordare"
 }
 
 export default words

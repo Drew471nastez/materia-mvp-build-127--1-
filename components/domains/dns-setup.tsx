@@ -32,6 +32,8 @@ import { copyText } from "@/lib/platform/copy-text"
 import { apexOf, type DnsRecord } from "@/lib/custom-domains/hostname"
 import { REGISTRARS, hostFor, registrarById, type RecordCheck, type RegistrarId } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { RegistrarMark } from "@/components/app/settings/registrar-mark"
 
 export type DomainTone = "light" | "dark"
 
@@ -215,27 +217,44 @@ export function DnsSetup({ domain, records, checks, status, checking, onCheck, c
               <label htmlFor={selectId} className={cn("text-[13px]", t.muted)}>
                 Bought at
               </label>
-              <select
-                id={selectId}
-                value={registrar.id}
-                onChange={(e) => setRegistrarId(e.target.value as RegistrarId)}
-                data-dns-registrar=""
-                className={cn(
-                  "h-11 min-w-0 max-w-full cursor-pointer appearance-none rounded-lg border bg-no-repeat pl-3 pr-8 text-[16px] outline-none transition-colors @xl:h-9 @xl:text-[14px]",
-                  t.select,
-                )}
-                style={{
-                  backgroundPosition: "right 8px center",
-                  backgroundSize: "16px 16px",
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='${t.chevron}'%3E%3Cpath d='M5.5 7.5 10 12l4.5-4.5'/%3E%3C/svg%3E")`,
-                }}
-              >
-                {REGISTRARS.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              {/* A real list rather than the system's, so each provider shows its own mark beside its name, as in Settings › Domains. */}
+              <Select value={registrar.id} onValueChange={(v) => setRegistrarId(v as RegistrarId)}>
+                <SelectTrigger
+                  id={selectId}
+                  data-dns-registrar=""
+                  className={cn(
+                    "h-11 min-w-0 max-w-full cursor-pointer gap-2 rounded-lg border pl-3 pr-2.5 text-[16px] outline-none transition-colors data-[size=default]:h-11 @xl:h-9 @xl:text-[14px] @xl:data-[size=default]:h-9 sm:min-w-[190px] [&>svg:last-child]:opacity-70",
+                    t.select,
+                  )}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent
+                  align="start"
+                  className={cn(
+                    "max-h-[320px] rounded-xl p-1 shadow-[0_12px_32px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]",
+                    tone === "dark" ? "border-white/10 bg-[#1f1f1f] text-white" : "border-[#e5e7eb] bg-white text-[#1a1a2e]",
+                  )}
+                >
+                  {REGISTRARS.map((r) => (
+                    <SelectItem
+                      key={r.id}
+                      value={r.id}
+                      data-registrar-option={r.id}
+                      className={cn(
+                        "h-10 cursor-pointer gap-2.5 rounded-lg pl-2.5 text-[14px] data-[state=checked]:font-medium sm:h-9 sm:text-[13px]",
+                        tone === "dark" ? "text-white/85 focus:bg-white/[0.08] focus:text-white" : "text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e]",
+                      )}
+                    >
+                      {/* A dark mark on a dark list sits on a small light tile, so every logo reads in its own colour. */}
+                      <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-md", tone === "dark" ? "bg-white" : "bg-[#f8f9fa] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]")}>
+                        <RegistrarMark id={r.id} className="size-3.5" />
+                      </span>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {registrar.dnsUrl && (
                 <a
                   href={registrar.dnsUrl(apex)}

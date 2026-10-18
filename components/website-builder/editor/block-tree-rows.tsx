@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils"
 import { blockChoices, type BlockChoice } from "./add-block-button"
 import type { BlockSchema } from "@/lib/website-builder/types"
 import { useReorder } from "./controls/use-reorder"
-import { TREE_NAME, TREE_ROW, TREE_STEP, TreeAddRow, TreeSpacer, TreeTwisty, rowIndent } from "./tree-parts"
+import { TREE_NAME, TREE_ROW, TREE_STEP, TreeAddRow, TreeInsertLine, TreeSpacer, TreeTwisty, foldAway, rowIndent } from "./tree-parts"
 import { tt } from "@/lib/i18n/text"
 
 export interface TreeBlock {
@@ -67,6 +67,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
   children,
   hasChildren,
   add,
+  insertLine,
 }: {
   /** The blocks this level holds that can be moved. */
   blocks: B[]
@@ -99,6 +100,8 @@ export function BlockTreeLevel<B extends TreeBlock>({
   hasChildren?: (block: B) => boolean
   /** The Add block row for this level, drawn after its rows. */
   add?: React.ReactNode
+  /** The line between two movable rows that adds a block there: before row `index` of `blocks`. */
+  insertLine?: (index: number) => React.ReactNode
 }) {
   const [open, setOpen] = React.useState<ReadonlySet<string>>(() => new Set())
   /* A block selected from anywhere (the canvas, Add, Duplicate) opens every row it sits inside. */
@@ -230,7 +233,9 @@ export function BlockTreeLevel<B extends TreeBlock>({
               data-block-remove=""
               onClick={(e) => {
                 e.stopPropagation()
-                onRemove(key, block)
+                /* Folds away first, as a section's row does (tree-parts foldAway). */
+                const wrap = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-tree-block]")
+                foldAway(wrap, () => onRemove(key, block))
               }}
               className={cn(
                 "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-[background-color,scale] duration-150 active:scale-90 max-sm:h-8 max-sm:w-8",
@@ -243,6 +248,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
           )}
         </div>
         {expanded && children && <div data-tree-children={key}>{children(block)}</div>}
+        {!still && !lifted && insertLine && i < blocks.length - 1 ? insertLine(i + 1) : null}
       </div>
     )
   }
@@ -283,4 +289,19 @@ export function TreeAddBlock({
   const button = <TreeAddRow data-add-block="" data-tree-add-block={depth} depth={depth} label={text} onClick={choices.length === 1 ? () => onAdd(choices[0]) : undefined} />
   if (choices.length === 1) return button
   return <ResponsiveActionMenu title={tt("Add block")} align="start" menuWidth="w-60" items={items} trigger={button} />
+}
+
+
+/**
+ * THE LINE BETWEEN TWO BLOCKS THAT ADDS ONE THERE, the same line as between
+ * two sections. One kind of block here adds it at once; several open the
+ * Add block menu (a sheet on a phone), and the choice lands at this spot.
+ */
+export function TreeInsertBlock({ options, depth, onAdd }: { options: readonly BlockSchema[]; depth: number; onAdd: (choice: BlockChoice) => void }) {
+  const choices = React.useMemo(() => blockChoices(options), [options])
+  const items = React.useMemo<ActionMenuItem[]>(() => choices.map((c) => ({ label: c.label, onClick: () => onAdd(c) })), [choices, onAdd])
+  if (choices.length === 0) return null
+  const line = <TreeInsertLine data-insert-block="" depth={depth} label={tt("Add a block here")} onClick={choices.length === 1 ? () => onAdd(choices[0]) : () => {}} />
+  if (choices.length === 1) return line
+  return <ResponsiveActionMenu title={tt("Add block")} align="start" menuWidth="w-60" items={items} trigger={line} />
 }

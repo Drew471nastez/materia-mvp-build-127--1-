@@ -9957,7 +9957,27 @@ const words: Record<string, string> = {
  "Save term": "Begriff speichern",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Eine Sprache ist auf deiner Website, sobald sie veröffentlicht ist. Wird sie bis zum Ende übersetzt, wird sie für dich veröffentlicht. Was noch nicht übersetzt ist, erscheint in deiner Standardsprache.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "Das Glossar lässt deine Marke und Produktnamen wie geschrieben oder übersetzt ein Wort so, wie du willst. Übersetzungen, die du selbst schreibst, werden nie geändert.",
- "Words and phrases": "Wörter und Ausdrücke"
+ "Words and phrases": "Wörter und Ausdrücke",
+ "App embeds": "App-Einbettungen",
+ "Your apps' sections appear here once this theme can show them": "Die Abschnitte deiner Apps erscheinen hier, sobald dieses Theme sie anzeigen kann",
+ "All integrations": "Alle Integrationen",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Verbinde GitHub oder deinen eigenen Claude- oder OpenAI-Schlüssel. Änderungen bleiben Entwürfe, bis du veröffentlichst.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "Storelib AI ist in deinem Tarif enthalten. Mit deinem eigenen Schlüssel laufen die Änderungen stattdessen über dein Konto.",
+ "Code from your computer": "Code von deinem Computer",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "Dein eigener API-Schlüssel",
+ "Period: last {period}": "Zeitraum: letzte {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Öffne den DNS-Tab der Domain und schalte zuerst die Weiterleitung aus.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "Bearbeite unter „DNS-Einträge verwalten“ den A-Eintrag und den www-CNAME von Wix, statt neue hinzuzufügen.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Öffne die DNS-Zone. Lass die Subdomain für die Domain selbst leer.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "Lass in der gehosteten Zone der Domain den Eintragsnamen für die Domain selbst leer.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Verwalte DNS über den blauen Globus und lösche zuerst die Parking-Einträge.",
+ "AI memory": "KI-Gedächtnis",
+ "What Storelib AI keeps in mind for this website.": "Was Storelib AI sich für diese Website merkt.",
+ "Could not load. Try again in a moment.": "Konnte nicht geladen werden. Versuch es gleich noch einmal.",
+ "Nothing yet. Add something below, or the AI keeps notes as you work.": "Noch nichts. Füge unten etwas hinzu, oder die KI macht sich beim Arbeiten Notizen.",
+ "Forget this": "Vergessen",
+ "Add something to remember": "Etwas zum Merken hinzufügen"
 }
 
 export default words

@@ -3596,7 +3596,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               </div>
 
               {/* A saved product on a website in more than one language: its words in each (product-translations-card.tsx). Drawn only when there is another language. */}
-              {editProductId ? <ProductTranslationsCard productId={editProductId} cardClass={CARD} titleClass={CARD_TITLE} /> : null}
+              {/* Physical products only: a digital product or a course is sold from its own page, where the words stay the creator's own (round AJ, the owner: less to think about). */}
+              {editProductId && productType === "physical" ? <ProductTranslationsCard productId={editProductId} cardClass={CARD} titleClass={CARD_TITLE} /> : null}
           </div>
         </div>
       </div>

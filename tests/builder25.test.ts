@@ -69,7 +69,7 @@ function main() {
   {
     const schemes = read("components/website-builder/editor/controls/color-scheme-control.tsx")
     check("no cards two to a row", !/grid-cols-2/.test(schemes) && !/role="radiogroup"/.test(schemes))
-    check("one row as tall as the sidebar's selects: swatch, name, chevron", /data-scheme-field=""/.test(schemes) && /className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background/.test(schemes) && /<Swatch scheme=\{chosen\} \/>/.test(schemes) && /<ChevronDown/.test(schemes))
+    check("one row as tall as the sidebar's selects: swatch, name, chevron", /data-scheme-field=""/.test(schemes) && /* Changed on purpose (round AJ: Edit inside the field, the chevron when there is no Edit) */ /"flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background/.test(schemes) && /<Swatch scheme=\{chosen\} \/>/.test(schemes) && /<ChevronDown/.test(schemes))
     check("the list opens the way the font field's does: from the field at a computer, the sheet on a phone", /<FieldPopover\s*\n\s*float/.test(schemes) && /role="listbox"/.test(schemes) && /role="option"/.test(schemes) && /data-scheme-row=\{i\}/.test(schemes))
     check("  one scheme a line, the chosen one ticked, arrows and Enter", /flex h-10 cursor-pointer items-center gap-2\.5 rounded-lg px-1\.5/.test(schemes) && /\{on \? <Check/.test(schemes) && /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(schemes))
     check("a swatch is the scheme's background, Aa in its text colour, a dot of its button", /style=\{\{ background: scheme\.background, color: scheme\.text \}\}/.test(schemes) && /style=\{\{ background: scheme\.accent \}\}/.test(schemes))

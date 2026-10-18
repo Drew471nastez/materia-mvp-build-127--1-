@@ -20,7 +20,7 @@
  * "Aa" in its text colour and a dot of its button colour.
  */
 import * as React from "react"
-import { Check, ChevronDown, Pencil } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
@@ -54,24 +54,11 @@ export function ColorSchemeControl({ value, onChange, fallback, label }: { value
   const schemes = list ?? nativeSchemes(env?.themeSettings ?? null)
   if (schemes.length === 0) return <p className={NOTE}>This theme saved no colour schemes to pick from. It draws this section with its own.</p>
   const current = schemes.some((s) => s.id === value) ? value : schemes.some((s) => s.id === fallback) ? fallback! : schemes[0].id
+  /* Every scheme can be edited from here: Edit sits inside the field, at its right, and opens Theme settings at this scheme. */
+  const edit = env?.openColorSchemes ? () => env.openColorSchemes?.(current) : undefined
   return (
-    <div className="flex items-center gap-1.5" data-scheme-row="">
-      <div className="min-w-0 flex-1">
-        <SchemeSelect list={schemes} current={current} onChange={onChange} label={label ?? "Color scheme"} />
-      </div>
-      {/* Every scheme can be edited from here: Theme settings opens at this one, rather than leaving it to be found. */}
-      {env?.openColorSchemes ? (
-        <button
-          type="button"
-          onClick={() => env.openColorSchemes?.(current)}
-          aria-label={`Edit ${schemes.find((s) => s.id === current)?.name ?? "color scheme"}`}
-          title="Edit"
-          data-scheme-edit=""
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--wb-chrome-border,#e5e7eb)] text-[var(--wb-chrome-fg-3,#6b7280)] transition-colors hover:bg-[var(--wb-chrome-hover,#f3f4f6)] hover:text-[var(--wb-chrome-fg,#1a1a2e)] max-sm:h-11 max-sm:w-11"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
+    <div data-scheme-row="">
+      <SchemeSelect list={schemes} current={current} onChange={onChange} label={label ?? "Color scheme"} onEdit={edit} />
     </div>
   )
 }
@@ -86,7 +73,7 @@ function nativeSchemes(theme: Record<string, unknown> | null): Scheme[] {
   })
 }
 
-function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; current: string; onChange: (v: string) => void; label: string }) {
+function SchemeSelect({ list, current, onChange, label, onEdit }: { list: Scheme[]; current: string; onChange: (v: string) => void; label: string; onEdit?: () => void }) {
   const [open, setOpen] = React.useState(false)
   const [active, setActive] = React.useState(-1)
   const listRef = React.useRef<HTMLDivElement>(null)
@@ -107,7 +94,7 @@ function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; curr
   }
 
   return (
-    <div data-theme-schemes="">
+    <div data-theme-schemes="" className="relative">
       <FieldPopover
         float
         open={open}
@@ -138,11 +125,14 @@ function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; curr
                 choose(list[active].id)
               }
             }}
-            className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background pl-1.5 pr-2 text-left transition-colors hover:border-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 max-sm:h-11"
+            className={cn(
+              "flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background pl-1.5 text-left transition-colors hover:border-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 max-sm:h-11",
+              onEdit ? "pr-[64px]" : "pr-2",
+            )}
           >
             <Swatch scheme={chosen} />
             <span className="min-w-0 flex-1 truncate text-[13px] text-foreground max-sm:text-[15px]">{chosen.name}</span>
-            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />
+            {onEdit ? null : <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />}
           </button>
         }
       >
@@ -152,7 +142,7 @@ function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; curr
           role="listbox"
           aria-label={label}
           onMouseDown={(e) => e.preventDefault()}
-          className="max-h-[320px] overflow-y-auto p-1"
+          className="max-h-[320px] overflow-y-auto p-1 [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d1d5db]"
         >
           {list.map((s, i) => {
             const on = s.id === current
@@ -178,6 +168,17 @@ function SchemeSelect({ list, current, onChange, label }: { list: Scheme[]; curr
           })}
         </div>
       </FieldPopover>
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${chosen.name}`}
+          data-scheme-edit=""
+          className="absolute right-1.5 top-1/2 h-6 -translate-y-1/2 rounded-[6px] bg-white px-2.5 text-[12px] font-medium text-[#374151] shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_1px_2px_rgba(16,24,40,0.06)] transition-[box-shadow,color] hover:text-[#1a1a2e] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.2),0_1px_3px_rgba(16,24,40,0.08)] active:translate-y-[calc(-50%+1px)] max-sm:h-8 max-sm:px-3 max-sm:text-[13px]"
+        >
+          Edit
+        </button>
+      ) : null}
     </div>
   )
 }

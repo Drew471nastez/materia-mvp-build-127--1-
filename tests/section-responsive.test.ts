@@ -1469,7 +1469,7 @@ check(
   /<GroupLabel>\{GROUP_LABELS\.header\}<\/GroupLabel>[\s\S]{0,240}?<AddSectionButton onClick=\{\(\) => onAdd\(null, "header"\)\} \/>/.test(sectionsList) &&
     /data-section-drag-list=""[\s\S]*?\n\s*\)\}\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
     /<AddSectionButton onClick=\{\(\) => onAdd\(null, "footer"\)\} \/>/.test(sectionsList) &&
-    /* Round AH: a right click on the line opens its own menu too. */ /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} onMenu=\{insertMenuAt\(0\)\} \/>/.test(sectionsList) &&
+    /* Changed on purpose (round AJ: the top of the page is an Add section row under the Page heading, the owner's ask). */ /<TreeAddRow data-add-section-top="" label=(\{tt\()?"Add section"(\)\})? onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(sectionsList) &&
     /* The Overlay group, when the theme has a floating section, has the fourth. */
     (sectionsList.match(/<AddSectionButton /g) ?? []).length === 4 &&
     /\{overlayAddable && <AddSectionButton onClick=\{\(\) => onAdd\(null, "overlay"\)\} \/>\}/.test(sectionsList) &&
@@ -1895,7 +1895,7 @@ check(
   // and a hairline between Header, Template and Footer drawn at rest, so on a
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
-    /* Changed on purpose (round AH, dark grey with depth, not purple; round AI, a grey line that fades out at its ends). */ /linear-gradient\(90deg,transparent_0%[^"]*#6b7280/.test(sectionsList) && !/8b5cf6/.test(sectionsList) &&
+    /* Changed on purpose (round AH, dark grey with depth, not purple; round AI, a grey line that fades out at its ends; round AJ, the line is shared with blocks in tree-parts.tsx). */ /linear-gradient\(90deg,transparent_0%[^"]*#6b7280/.test(readFileSync("components/website-builder/editor/tree-parts.tsx", "utf8")) && !/8b5cf6/.test(sectionsList) &&
     /* Header, page, Footer, and the Overlay group when it shows. */
     (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 3,
 )
@@ -2838,7 +2838,7 @@ check(
   // The window between the two strings holds the wrapper's class list and
   // the paragraph explaining why the fade is desktop-only; it was 700 and
   // that paragraph is what pushed it past.
-  /"(?:wb-canvas-frame )?relative overflow-hidden transition-all duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
+  /* Changed on purpose (round AJ: no transition-all on the canvas card, its width snaps and it glides) */ /"(?:wb-canvas-frame )?relative overflow-hidden transition-\[opacity,box-shadow,border-radius\] duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(

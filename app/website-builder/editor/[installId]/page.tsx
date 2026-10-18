@@ -16,7 +16,7 @@ import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
+  ArrowLeft, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -34,7 +34,7 @@ import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
-import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
+import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
@@ -2433,7 +2433,7 @@ function blockDefaults(def: BlockSchema | undefined): Record<string, unknown> {
  */
 interface BlockOps {
   update: (key: string, field: string, value: unknown, staticType?: string) => void
-  add: (choice: BlockChoice, parentKey: string | null) => void
+  add: (choice: BlockChoice, parentKey: string | null, index?: number) => void
   duplicate: (key: string) => void
   remove: (key: string) => void
   reorder: (next: BlockInstance[], parentKey: string | null) => void
@@ -2577,6 +2577,15 @@ function BlockTreeFor({
         !full && parent.length < MAX_BLOCK_DEPTH ? (
           <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} />
         ) : null
+      }
+      insertLine={
+        !full && parent.length < MAX_BLOCK_DEPTH
+          ? (i) => {
+              /* Before the i-th movable block: its place among all the level's blocks, static ones included. */
+              const at = siblings.findIndex((x) => x.id === dynamic[i]?.id)
+              return <TreeInsertBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey, at < 0 ? undefined : at)} />
+            }
+          : undefined
       }
     />
   )
@@ -3415,6 +3424,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
+  /*
+    THE CANVAS GLIDES, IT IS NOT RESIZED FRAME BY FRAME. Full screen used to
+    animate the sidebar's width and the device switch the card's width, so
+    every frame of the 320ms laid out every section on the page again (the
+    owner: "very laggy, like 10fps"). Now the layout changes once, and the
+    card is moved from where it was to where it is by a transform, which the
+    compositor runs at the screen's own rate. A device switch, where the card
+    changes shape, settles in with a short fade and scale instead.
+  */
+  const canvasFrameRef = useRef<HTMLDivElement | null>(null)
+  const lastGlide = useRef<{ device: string; full: boolean } | null>(null)
+  useLayoutEffect(() => {
+    const el = canvasFrameRef.current
+    const prev = lastGlide.current
+    lastGlide.current = { device, full: fullView }
+    if (!el || !prev) return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || typeof el.animate !== "function") return
+    if (prev.full !== fullView) {
+      /* The card's left edge moved by the sidebar and its 6px seam: it starts where it was and slides there. */
+      const by = sidebarWidth + 6
+      el.animate([{ transform: `translateX(${fullView ? by : -by}px)` }, { transform: "translateX(0)" }], { duration: FULL_SCREEN_MS, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+    } else if (prev.device !== device) {
+      el.animate([{ opacity: 0.55, transform: "scale(0.985)" }, { opacity: 1, transform: "none" }], { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+    }
+  }, [fullView, device]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
     the whole browser full screen, only the editor canvas"). The sidebar folds
@@ -5311,7 +5345,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     sectionId: string,
     blockType: string,
     initialSettings: Record<string, unknown> = {},
-    opts: { parent?: string | null; preset?: SectionPreset } = {},
+    opts: { parent?: string | null; preset?: SectionPreset; index?: number } = {},
   ) => {
     const section = sectionsRef.current.find(s => s.id === sectionId)
     if (!section) return
@@ -5359,7 +5393,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!room.ok) { toast.error(room.reason); return }
     pushUndo()
     setSections(prev => prev.map(s =>
-      s.id === sectionId ? { ...s, blocks: insertBlockAt(s.blocks, parent, newBlock) } : s
+      s.id === sectionId ? { ...s, blocks: insertBlockAt(s.blocks, parent, newBlock, parent === asked ? opts.index : undefined) } : s
     ))
     setSelectedBlockId(pathKey([...parent, newBlock.id]))
     setIsDirty(true)
@@ -7220,6 +7254,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => clearTimeout(t)
   }, [agentConnected, focusKey, installId])
   const connection = useMemo(() => pickConnection(connectionsBrief), [connectionsBrief])
+  /** The linked repository, owner/name, for the Actions menu's GitHub line. */
+  const githubRepo = (connectionsBrief?.github?.repo as string | null | undefined) ?? null
   const connectionButtonRef = useRef<HTMLButtonElement>(null)
   /** A line in the notice is only a way in when its section is on the open page. */
   const liveShown = useMemo<LiveBatch | null>(
@@ -7790,7 +7826,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       }}
                       canHide={isStorelibSection(s.type, storelibSources)}
                       ops={{
-                        add: (choice, parentKey) => addBlock(s.id, choice.type, {}, { parent: parentKey, preset: choice.preset }),
+                        add: (choice, parentKey, index) => addBlock(s.id, choice.type, {}, { parent: parentKey, preset: choice.preset, index }),
                         reorder: (next, parentKey) => reorderBlocks(s.id, next, parentKey),
                         toggleHidden: (key, staticType) => toggleBlockHidden(s.id, key, staticType),
                         remove: (key) => removeBlock(s.id, key),
@@ -9443,6 +9479,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     },
     openConnections,
     openConnection,
+    openGitHub,
     handleUndo,
     handleRedo,
     requestExit,
@@ -9474,19 +9511,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         icon: <SlidersHorizontal className="h-4 w-4" />,
         onClick: () => actionCalls.current.openSettings(),
       },
+      /*
+        TWO WAYS TO CONNECT, NOT FOUR: GitHub (with its repository when it
+        is linked, so the state is right there) and your own AI key. Claude
+        Code and Codex are one fold away inside Connections.
+      */
       {
-        label: "Connect Claude Code or Codex",
-        icon: <Plug className="h-4 w-4" />,
+        label: githubRepo ? "GitHub" : "Connect GitHub",
+        hint: githubRepo ?? "Recommended",
+        icon: <ConnectionMarkIcon kind="github" className="h-4 w-4" />,
+        onClick: () => actionCalls.current.openGitHub(),
+      },
+      {
+        label: "Your own AI",
+        hint: "Claude or OpenAI key",
+        icon: <KeyRound className="h-4 w-4" />,
         onClick: () => actionCalls.current.openConnections(),
       },
-      /* The bar's connection mark, for a phone, whose bar has no room. */
-      ...(isMobileView
-        ? [{
-            label: connection.online ? connection.label : "GitHub",
-            icon: <ConnectionMarkIcon kind={connection.kind} className="h-4 w-4" />,
-            onClick: () => actionCalls.current.openConnection(),
-          }]
-        : []),
       {
         label: "Undo",
         icon: <Undo2 className="h-4 w-4" />,
@@ -9522,7 +9563,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl, siteLive, installId])
+  }, [inCode, githubRepo, websiteUrl, siteLive, installId])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -10356,7 +10397,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         {!isMobileView ? (
           <div
             ref={sidebarFoldRef}
-            className={cn("relative flex-shrink-0 flex h-full", fullView ? "overflow-hidden" : "overflow-visible")}
+            className="relative flex-shrink-0 flex h-full overflow-visible"
             data-wb-sidebar-fold={fullView ? "folded" : "open"}
             aria-hidden={fullView || undefined}
             /* Full screen folds the sidebar by its own width, so the canvas grows into the room rather than jumping. */
@@ -10365,7 +10406,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               opacity: fullView ? 0 : 1,
               /* And the 6px seam beside it, so the canvas meets the edge. */
               marginRight: fullView ? -6 : 0,
-              transition: `max-width ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), margin-right ${FULL_SCREEN_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+              /* The width snaps (one layout, not one a frame); the canvas glides over by transform (canvasGlide) while the panel fades. */
+              transition: `opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+              pointerEvents: fullView ? "none" : undefined,
             }}
             {...(fullView ? { inert: true } : {})}
           >
@@ -10637,12 +10680,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               It carries the card's size and shape; the scroller inside it is
               simply 100% of it. See scripts/check-canvas-corner.mjs. */}
           <div
+            ref={canvasFrameRef}
             className={cn(
               /* wb-canvas-frame: the window every section on the page sees.
                  A section's `position: fixed` menu, its 100vh and its width
                  queries all answer to this card, never to the editor around
                  it (app/globals.css, lib/storelib-theme/storelib/css.ts). */
-              "wb-canvas-frame relative overflow-hidden transition-all duration-300",
+              /* Never `transition-all`: a width animated here laid every section out again on every frame (10fps on a full page). The size snaps once and the card glides by transform (canvasGlide). */
+              "wb-canvas-frame relative overflow-hidden transition-[opacity,box-shadow,border-radius] duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.
               //

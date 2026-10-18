@@ -183,7 +183,7 @@ async function main() {
     /\{SOURCES\.map\(/.test(panel) && /platform\.openai\.com/.test(panel) && /It is checked before it is kept\./.test(panel))
 
   section("Where the creator finds it")
-  check("Connections opens on Your own AI", /<OwnAiSettings \/>/.test(read("components/website-builder/website-settings/connections.tsx")))
+  check("Connections opens on Your own AI", /* Changed on purpose (round AJ: one list, GitHub first and recommended, then your own Claude and OpenAI keys) */ /<OwnAiRows/.test(read("components/website-builder/website-settings/connections.tsx")))
   const picker = read("components/website-builder/ask-model-picker.tsx")
   check("the model menu says which models are on their account", /data-ask-model-own=""/.test(picker) && /data-ask-own-ai=/.test(picker))
   check("and the chat feeds it", /own=\{ownByEngine\}/.test(read("components/website-builder/theme-chat.tsx")))

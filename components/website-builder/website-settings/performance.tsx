@@ -33,7 +33,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
-import { ArrowDown, ArrowUp, ExternalLink, Loader2 } from "lucide-react"
+import { ArrowDown, ArrowUp, CalendarDays, Check, ChevronDown, ExternalLink, Loader2 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { activeLanguage, tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -107,9 +108,55 @@ function rangeLabel(r: PerfRange): string {
   return r === "24h" ? tt("24 hours") : r === "7d" ? tt("7 days") : r === "30d" ? tt("30 days") : tt("90 days")
 }
 
-function rangeShort(r: PerfRange): string {
-  return r === "24h" ? tt("24h") : r === "7d" ? tt("7d") : r === "30d" ? tt("30d") : tt("90d")
+/**
+ * THE PERIOD, AS ANALYTICS PICKS IT: one button that says the period, with
+ * a calendar mark, opening a short list with a check on the one shown. The
+ * website settings' dark surface, the analytics picker's shape.
+ */
+function PeriodPicker({ value, onChange }: { value: PerfRange; onChange: (r: PerfRange) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-perf-period=""
+          aria-label={tt("Period: last {period}", { period: rangeLabel(value) })}
+          className="inline-flex h-9 items-center gap-2 self-start rounded-lg border border-white/10 bg-white/[0.06] px-3 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_1px_2px_rgba(0,0,0,0.3)] transition-colors hover:bg-white/[0.09] data-[state=open]:bg-white/[0.12] md:h-8 md:text-[13px]"
+        >
+          <CalendarDays aria-hidden className="h-3.5 w-3.5 text-white/60" strokeWidth={1.9} />
+          {tt("Last {period}", { period: rangeLabel(value) })}
+          <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 text-white/50 transition-transform duration-200", open && "rotate-180")} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={6} className="w-[200px] rounded-xl border border-white/10 bg-[#1f1f1f] p-1 text-white shadow-[0_16px_40px_-10px_rgba(0,0,0,0.6)]">
+        <div role="radiogroup" aria-label={tt("Period")}>
+          {RANGES.map((r) => {
+            const on = r === value
+            return (
+              <button
+                key={r}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                data-perf-range={r}
+                onClick={() => {
+                  onChange(r)
+                  setOpen(false)
+                }}
+                className={cn("flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[13px] transition-colors", on ? "bg-white/[0.09] text-white" : "text-white/75 hover:bg-white/[0.06] hover:text-white")}
+              >
+                <span className="min-w-0 flex-1">{tt("Last {period}", { period: rangeLabel(r) })}</span>
+                {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} /> : null}
+              </button>
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }
+
 
 function pageTypeLabel(key: string): string {
   switch (key) {
@@ -883,13 +930,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
 
   const filters = (
     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5 md:mt-6" data-perf-filters="">
-      <Segmented
-        name="range"
-        value={range}
-        onChange={setRange}
-        label={tt("Period")}
-        options={RANGES.map((r) => ({ id: r, label: rangeShort(r), title: tt("Last {period}", { period: rangeLabel(r) }) }))}
-      />
+      <PeriodPicker value={range} onChange={setRange} />
       <Segmented
         name="device"
         value={device}

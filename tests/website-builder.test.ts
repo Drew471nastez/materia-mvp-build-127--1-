@@ -1022,7 +1022,7 @@ section("Add Section is derived from the files, one card per preset")
   check("the cards are declared once, at the top level, and memoised", /^const LibraryCard = memo\(function LibraryCard\(/m.test(librarySrc) && !/^\s+const SectionCard = \(/m.test(librarySrc))
   check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(librarySrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(librarySrc) && /words\.every\(\(w\) => e\.haystack\.includes\(w\)\)/.test(librarySrc))
   /* First, not last: what somebody made themselves is what they come back for. */
-  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{libraryOwnTypes\}/.test(editorSrc) && /const libraryOwnTypes = useMemo\(\(\) => Object\.keys\(customSchemas\)/.test(editorSrc))
+  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /* Changed on purpose (round AJ: App embeds first, then the creator's own) */ /\{ key: APP_EMBEDS, label: "App embeds", count: embedCount, group: "embeds" as const \},\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{libraryOwnTypes\}/.test(editorSrc) && /const libraryOwnTypes = useMemo\(\(\) => Object\.keys\(customSchemas\)/.test(editorSrc))
   check("and the chosen preset is the one that lands on the page", /* The signature gained a fourth, optional argument (round K6: Add to website's placement), written over several lines. */ /const addSection = \(\s*type: string,\s*presetIndex = 0,\s*replaceConfirmed = false,/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
@@ -1641,7 +1641,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tick under the finger as it opens", /hapticTap\("soft"\)\s*setSheetOpen\(true\)/.test(menu))
   check("the editor's Actions list is memoised on what it says, and calls through a ref",
     /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
-      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl(, siteLive, installId)?(, previewLangs, previewLocaleShown(, previewMarketNext, previewMarketNextCurrency)?)?\]\)/.test(editor) &&
+      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /* Changed on purpose (round AJ: GitHub and your own AI, no connection mark of its own) */ /\}, \[inCode, githubRepo, websiteUrl, siteLive, installId\]\)/.test(editor) &&
       /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",
