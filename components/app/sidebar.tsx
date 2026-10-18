@@ -32,7 +32,7 @@ import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 import { BusinessSwitcher, type BusinessRow, type TeamStoreRow } from "@/components/app/business-switcher"
 import { memberSees, type MemberRole } from "@/lib/team/roles"
-import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
+import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA, groupForRoute } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 /* The header draws it directly; the bar below does not carry it any more. */
@@ -47,7 +47,7 @@ import { isNativeApp, nativeLogOut } from "@/lib/native-bridge"
 import { openStorelibPage, warmStorelibPages } from "@/lib/navigation/cross-section"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, isPhoneShell, prefetchAppPage, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { STEP_ASIDE, STEP_ASIDE_MOTION, useFootBarUp } from "@/lib/ui/foot-bars"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -411,10 +411,26 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     : mainNavItems
 
   // Expandable groups (parent nav items with children).
-  // Always collapsed on mount — user opens manually via the chevron. No
-  // auto-expand based on pathname (we tried this and it made the default
-  // state inconsistent between page loads).
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  /*
+    THE OPEN GROUP FOLLOWS THE PAGE (round AK). The owner: opening Products
+    opens its list, going to Analytics closes it again, without folding
+    anything by hand. The group whose row or one of whose rows is the page
+    being shown (or being opened, on the click: useShownPath) is the open
+    one, and every other group closes. It is read from the address, so a
+    refresh or a link straight to /app/coupons opens Products the same way,
+    on the server's first frame too. The chevron still opens or closes a
+    group by hand until the next page.
+  */
+  const shownPath = useShownPath()
+  const shownSearch = useShownSearch()
+  const routeGroup = groupForRoute(navItems, shownPath, shownSearch)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(routeGroup ? [routeGroup] : []))
+  /* Set while rendering, not in an effect: an effect would draw one frame with the old group open, then fold it. */
+  const [groupFor, setGroupFor] = useState<string | null>(routeGroup)
+  if (groupFor !== routeGroup) {
+    setGroupFor(routeGroup)
+    setExpandedGroups(new Set(routeGroup ? [routeGroup] : []))
+  }
   const toggleGroup = useCallback((href: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
@@ -628,39 +644,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   return (
     <>
       <style jsx global>{`
-        .sidebar-nav {
-          scrollbar-width: thin;
-          scrollbar-color: transparent transparent;
-        }
-        .sidebar-nav:hover {
-          scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
-        }
-        .sidebar-nav::-webkit-scrollbar {
-          width: 3px;
-        }
-        .sidebar-nav::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .sidebar-nav::-webkit-scrollbar-thumb {
-          background-color: transparent;
-          border-radius: 999px;
-        }
-        .sidebar-nav:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, 0.12);
-        }
-        .sidebar-nav::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(0, 0, 0, 0.22);
-        }
-        /* Dark scrollbar for mobile sidebar */
-        .sidebar-nav-dark:hover {
-          scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-        }
-        .sidebar-nav-dark:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.15);
-        }
-        .sidebar-nav-dark::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255, 255, 255, 0.25);
-        }
+        /* The rail's scrollbar is in app/globals.css (round AK: it needs @property). */
       `}</style>
 
       {/* Desktop Header Bar — dark bar with concave bottom corners.

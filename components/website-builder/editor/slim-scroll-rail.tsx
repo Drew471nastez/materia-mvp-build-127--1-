@@ -19,6 +19,8 @@
 import * as React from "react"
 
 const LINGER_MS = 900
+/* How long after the pointer leaves the panel the bar starts to fade. */
+const OUT_MS = 120
 const MIN_THUMB = 28
 const SELECTOR = ".wb-slim-scroll"
 
@@ -50,19 +52,30 @@ export function SlimScrollRail() {
       const h = Math.max(MIN_THUMB, (el.clientHeight / el.scrollHeight) * box.height)
       const y = box.top + (el.scrollTop / room) * (box.height - h)
       thumb.style.height = `${h}px`
-      thumb.style.transform = `translate3d(${box.right - 7}px, ${y}px, 0)`
+      thumb.style.transform = `translate3d(${box.right - 6}px, ${y}px, 0)`
       thumb.style.opacity = "1"
     }
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(place)
     }
+    /*
+      Round AK: the bar stays while the pointer is in its panel and glides
+      out when the pointer leaves, instead of fading after a fixed linger
+      with the pointer still there (the owner: "appear very smooth when I
+      hover the sidebar, and smooth out when I hover out").
+    */
+    let inside = false
+    const fadeLater = (ms: number) => {
+      window.clearTimeout(hide)
+      hide = window.setTimeout(() => {
+        if (!drag && !inside && !thumb.matches(":hover")) thumb.style.opacity = "0"
+      }, ms)
+    }
     const show = (el: HTMLElement) => {
       current = el
       schedule()
       window.clearTimeout(hide)
-      hide = window.setTimeout(() => {
-        if (!drag && !thumb.matches(":hover")) thumb.style.opacity = "0"
-      }, LINGER_MS)
+      if (!inside) fadeLater(LINGER_MS)
     }
 
     const onScroll = (e: Event) => {
@@ -70,8 +83,22 @@ export function SlimScrollRail() {
       if (el?.matches(SELECTOR)) show(el)
     }
     const onOver = (e: PointerEvent) => {
-      const el = (e.target as Element | null)?.closest?.(SELECTOR) as HTMLElement | null
-      if (el) show(el)
+      if (e.pointerType !== "mouse") return
+      const target = e.target as Element | null
+      if (target === thumb) return
+      const el = target?.closest?.(SELECTOR) as HTMLElement | null
+      if (el) {
+        inside = true
+        show(el)
+      } else if (inside) {
+        inside = false
+        fadeLater(OUT_MS)
+      }
+    }
+    const onLeaveWindow = (e: PointerEvent) => {
+      if (e.relatedTarget) return
+      inside = false
+      fadeLater(OUT_MS)
     }
     const onDown = (e: PointerEvent) => {
       if (!current) return
@@ -95,6 +122,7 @@ export function SlimScrollRail() {
 
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("pointerover", onOver, { passive: true })
+    document.addEventListener("pointerout", onLeaveWindow, { passive: true })
     window.addEventListener("resize", schedule)
     thumb.addEventListener("pointerdown", onDown)
     thumb.addEventListener("pointermove", onMove)
@@ -104,6 +132,7 @@ export function SlimScrollRail() {
       html.classList.remove("slim-rail")
       document.removeEventListener("scroll", onScroll, { capture: true })
       document.removeEventListener("pointerover", onOver)
+      document.removeEventListener("pointerout", onLeaveWindow)
       window.removeEventListener("resize", schedule)
       window.clearTimeout(hide)
       if (frame) cancelAnimationFrame(frame)
@@ -115,7 +144,7 @@ export function SlimScrollRail() {
       ref={thumbRef}
       aria-hidden
       data-slim-scroll-thumb=""
-      className="pointer-events-auto fixed left-0 top-0 z-[60] w-[5px] cursor-default rounded-full bg-[rgba(100,116,139,0.45)] opacity-0 transition-[opacity,background-color,width] duration-200 hover:w-[6px] hover:bg-[rgba(71,85,105,0.65)] data-[dragging]:bg-[rgba(71,85,105,0.7)] motion-reduce:transition-none"
+      className="pointer-events-auto fixed left-0 top-0 z-[60] w-[4px] cursor-default rounded-full bg-[rgba(100,116,139,0.32)] opacity-0 transition-[opacity,background-color,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:w-[6px] hover:bg-[rgba(71,85,105,0.55)] data-[dragging]:w-[6px] data-[dragging]:bg-[rgba(71,85,105,0.6)] motion-reduce:transition-none"
       style={{ transform: "translate3d(-20px, 0, 0)" }}
     />
   )

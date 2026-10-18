@@ -126,6 +126,7 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
     <div
       data-nav-submenu={open ? "open" : "closed"}
       aria-hidden={!open}
+      inert={!open}
       style={{
         display: "grid",
         gridTemplateRows: open ? "1fr" : "0fr",

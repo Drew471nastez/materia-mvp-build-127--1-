@@ -74,14 +74,20 @@ export interface WritingAnchor {
  */
 export function writingAnchor(
   sections: SectionInstance[],
-  opts: { chosenIndex?: number | null; selectedId?: string | null } = {},
+  opts: { chosenIndex?: number | null; selectedId?: string | null; prompt?: string } = {},
 ): WritingAnchor {
   let index: number
   const selected = opts.selectedId ? sections.findIndex((s) => s.id === opts.selectedId) : -1
+  /* Asked to go under or over the open section, in so many words. */
+  const near = opts.prompt ? /\b(?:below|under|after|beneath|underneath)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "after" : /\b(?:above|before|over)\s+(?:this|that|it|the selected)\b/i.test(opts.prompt) ? "before" : null : null
+  /* At the end, said in words. */
+  const atEnd = !!opts.prompt && /\b(?:at|to)\s+the\s+(?:end|bottom)\b|\bbottom of the page\b|\blast section\b/i.test(opts.prompt)
   if (opts.chosenIndex != null) index = clampToBody(sections, opts.chosenIndex)
-  else if (selected !== -1 && groupOf(sections[selected]) === "template") {
-    index = clampToBody(sections, selected + 1)
-  } else index = bodyRange(sections).max
+  else if (near && selected !== -1 && groupOf(sections[selected]) === "template") {
+    index = clampToBody(sections, near === "after" ? selected + 1 : selected)
+  } else if (atEnd) index = bodyRange(sections).max
+  /* Round AK, the owner: a new section the AI writes goes first on the page, where it is seen being written, unless a spot was picked or named. */
+  else index = bodyRange(sections).min
   const above = sections[index - 1]
   return { afterId: above ? above.id : null, index }
 }
