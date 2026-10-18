@@ -9984,7 +9984,27 @@ const words: Record<string, string> = {
  "Leave a field empty to show it in {language}.": "Lass ein Feld leer, um es auf {language} zu zeigen.",
  "Could not copy": "Kopieren nicht möglich",
  "Copy your message": "Deine Nachricht kopieren",
- "Dark mode": "Dunkelmodus"
+ "Dark mode": "Dunkelmodus",
+ "App embeds": "App-Einbettungen",
+ "Your apps' sections appear here once this theme can show them": "Die Abschnitte deiner Apps erscheinen hier, sobald dieses Theme sie anzeigen kann",
+ "All integrations": "Alle Integrationen",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Verbinde GitHub oder deinen eigenen Claude- oder OpenAI-Schlüssel. Änderungen bleiben Entwürfe, bis du veröffentlichst.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "Storelib AI ist in deinem Tarif enthalten. Mit deinem eigenen Schlüssel laufen die Änderungen stattdessen über dein Konto.",
+ "Code from your computer": "Code von deinem Computer",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "Dein eigener API-Schlüssel",
+ "Period: last {period}": "Zeitraum: letzte {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Öffne den DNS-Tab der Domain und schalte zuerst die Weiterleitung aus.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "Bearbeite unter „DNS-Einträge verwalten“ den A-Eintrag und den www-CNAME von Wix, statt neue hinzuzufügen.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Öffne die DNS-Zone. Lass die Subdomain für die Domain selbst leer.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "Lass in der gehosteten Zone der Domain den Eintragsnamen für die Domain selbst leer.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Verwalte DNS über den blauen Globus und lösche zuerst die Parking-Einträge.",
+ "AI memory": "KI-Gedächtnis",
+ "What Storelib AI keeps in mind for this website.": "Was Storelib AI sich für diese Website merkt.",
+ "Could not load. Try again in a moment.": "Konnte nicht geladen werden. Versuch es gleich noch einmal.",
+ "Nothing yet. Add something below, or the AI keeps notes as you work.": "Noch nichts. Füge unten etwas hinzu, oder die KI macht sich beim Arbeiten Notizen.",
+ "Forget this": "Vergessen",
+ "Add something to remember": "Etwas zum Merken hinzufügen"
 }
 
 export default words

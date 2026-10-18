@@ -2142,7 +2142,10 @@ export function FilesLibraryChooser({
   max,
   selectedUrl,
   kind = "image",
+  dark = false,
 }: {
+  /** Opened from a dark surface (Website settings): the window is drawn dark too, with the app's dark palette (app/theme-dark.css). */
+  dark?: boolean
   open: boolean
   onClose: () => void
   onPick?: (url: string, hint?: PickHint) => void
@@ -2188,12 +2191,15 @@ export function FilesLibraryChooser({
       phone={phone}
       label={title}
       showCloseButton={false}
-      className="flex h-[min(700px,calc(100dvh-64px))] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.45),0_2px_8px_rgba(17,24,39,0.08)] sm:max-w-none"
+      className={cn(
+        "flex h-[min(700px,calc(100dvh-64px))] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border-0 p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.45),0_2px_8px_rgba(17,24,39,0.08)] sm:max-w-none",
+        dark ? "bg-[#18181b] ring-1 ring-white/10" : "bg-white",
+      )}
       /* The scrim Storelib's other windows use (components/physical/ui), a little deeper for a window of pictures. */
       dialog={{ overlayClassName: "bg-[rgba(17,24,39,0.42)]" }}
       sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, keepMounted: true }}
     >
-      <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind}>
+      <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind} data-community-theme={dark ? "dark" : undefined}>
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-4">
           <SheetDialogTitle className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">{title}</SheetDialogTitle>
           <button type="button" onClick={onClose} aria-label={tt("Close")} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">

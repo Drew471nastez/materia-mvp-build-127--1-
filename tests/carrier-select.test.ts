@@ -76,7 +76,7 @@ async function main() {
     check("then the saved default", JSON.stringify(preselectCarrier(shop, { country: "RO" })) === JSON.stringify({ carrier: "DPD", because: "default" }))
     check("then the carrier last used", JSON.stringify(preselectCarrier(prefs({ lastCarrier: "GLS" }), { country: "RO" })) === JSON.stringify({ carrier: "GLS", because: "last" }))
     check("then the country's first pick: RO FAN Courier, US USPS, GB Royal Mail, CA Canada Post", ["RO:FAN Courier", "US:USPS", "GB:Royal Mail", "CA:Canada Post"].every((p) => preselectCarrier(EMPTY_CARRIER_PREFS, { country: p.split(":")[0] })?.carrier === p.split(":")[1]))
-    check("a country no carrier names: nothing, never the busiest carrier worldwide", preselectCarrier(EMPTY_CARRIER_PREFS, { country: "JP" }) === null && nationalCarrierFor("xx") === null && nationalCarrierFor("") === null)
+    check("a country no carrier names: nothing, never the busiest carrier worldwide", /* Changed on purpose (round AJ: Japan has its carriers now; Antarctica has none) */ preselectCarrier(EMPTY_CARRIER_PREFS, { country: "AQ" }) === null && nationalCarrierFor("xx") === null && nationalCarrierFor("") === null)
     check("a default naming a carrier the shop deleted does not preselect", preselectCarrier(prefs({ defaultCarrier: "Van Man" }), { country: "US" })?.carrier === "USPS")
     check("the shop's own carrier can be its default", preselectCarrier(prefs({ defaultCarrier: "Van Man", custom: [{ id: "vanman", name: "Van Man", urlTemplate: null }] }))?.carrier === "Van Man")
     const panel = read("components/physical/order-panel.tsx")

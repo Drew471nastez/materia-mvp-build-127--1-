@@ -23,6 +23,8 @@ interface ProductCardProps {
     id: string
     title: string
     slug: string
+    /** A card that is not a product page (a free community): where it goes instead. Same-site paths only. */
+    href?: string | null
     description?: string | null
     price_cents: number
     compare_at_cents?: number | null
@@ -271,7 +273,7 @@ export const ProductCard = memo(function ProductCard({
   // creator.slug may differ from profile.username or be a UUID → broken URL.
   const creatorUsername = product.creator?.profile?.username || ""
   const creatorAvatarUrl = product.creator?.profile?.avatar_url
-  const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
+  const baseProductUrl = product.href && product.href.startsWith("/") ? product.href : getProductUrl(creatorUsername, product.slug || "")
   const productUrl = discoverLayout
     ? `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
     : baseProductUrl

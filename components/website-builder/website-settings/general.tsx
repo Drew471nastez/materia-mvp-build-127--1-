@@ -107,7 +107,6 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               aspectRatio="favicon"
               layout="icon"
               folder="logos"
-              library={false}
             />
           </DarkScope>
         </Row>

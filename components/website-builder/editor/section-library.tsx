@@ -84,7 +84,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { createPortal, flushSync } from "react-dom"
-import { Search, X } from "lucide-react"
+import { ArrowUpRight, Blocks, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
@@ -97,7 +97,7 @@ import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
-import { appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/app-sections"
+import { STORELIB_SECTION_APPS, appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/app-sections"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
 import { useAppStates } from "./use-app-states"
 
@@ -836,6 +836,15 @@ const EAGER_CARDS = 3
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
 
+/**
+ * APP EMBEDS, first in the list. Every section and widget a Storelib app
+ * puts on a website (Reviews, Offers, Email, Wishlist), together, the way
+ * Shopify's editor keeps App embeds apart from a theme's sections, so
+ * nobody has to know which category an app's section is filed under. With
+ * the apps themselves above the cards, one tap from managing them.
+ */
+const APP_EMBEDS = "app-embeds"
+
 /* An imported theme is laid out at a desktop width, as Shopify's own editor shows its sections. */
 const COMPAT_RENDER_WIDTH = 1200
 
@@ -995,13 +1004,16 @@ export const SectionLibrary = memo(function SectionLibrary({
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
+    const embedCount = entries.filter((e) => e.app).length
     return [
+      /* App embeds first, always, with or without an app section in this theme: it is also the way to the apps. */
+      { key: APP_EMBEDS, label: tt("App embeds"), count: embedCount, group: "embeds" as const },
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
       /* Apps second, under their own heading, so a phone's row shows them without a scroll. */
       ...apps,
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ] as { key: string; label: string; count: number; group?: "apps" }[]
+    ] as { key: string; label: string; count: number; group?: "apps" | "embeds" }[]
   }, [entries, compatInstallId])
 
   /**
@@ -1015,7 +1027,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     const words = needle.split(/\s+/).filter(Boolean)
     const set = new Set<LibraryEntry>()
     for (const e of entries) {
-      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || e.category === activeCategory
+      const ok = words.length ? words.every((w) => e.haystack.includes(w)) : !activeCategory || (activeCategory === APP_EMBEDS ? !!e.app : e.category === activeCategory)
       if (ok) set.add(e)
     }
     return set
@@ -1221,7 +1233,9 @@ export const SectionLibrary = memo(function SectionLibrary({
     ? tt("Nothing matches “{value}”", { value: query.trim() })
     : activeCategory === CUSTOM_SECTION_CATEGORY
       ? tt("Write a section in the code editor and it appears here")
-      : tt("No sections in this category")
+      : activeCategory === APP_EMBEDS
+        ? tt("Your apps' sections appear here once this theme can show them")
+        : tt("No sections in this category")
 
   /**
    * AN APP THAT IS OFF, said once over its cards, with the way to turn it
@@ -1232,7 +1246,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   const appStates = useAppStates(open && hasApps)
   const appsOff = useMemo(() => {
     const seen = new Map<string, SectionApp>()
-    for (const e of entries) if (e.app && e.app.id === activeCategory && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
+    for (const e of entries) if (e.app && (e.app.id === activeCategory || activeCategory === APP_EMBEDS) && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
     return [...seen.values()]
   }, [entries, appStates, activeCategory])
   const appsNotice = !searching && appsOff.length > 0 ? (
@@ -1254,6 +1268,37 @@ export const SectionLibrary = memo(function SectionLibrary({
           </div>
         )
       })}
+    </div>
+  ) : null
+
+  /* Above the cards in App embeds: the apps themselves, each a tap from its own page, and every integration after them. */
+  const embedsStrip = !searching && activeCategory === APP_EMBEDS ? (
+    <div data-app-embeds="" className="mb-4">
+      <div className="flex flex-wrap gap-2">
+        {STORELIB_SECTION_APPS.map((app) => {
+          const Icon = ICON_MAP[app.icon]
+          return (
+            <a
+              key={app.id}
+              href={app.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-app-embed={app.id}
+              className="group/app flex min-h-12 min-w-[140px] flex-1 basis-[calc(50%-4px)] items-center gap-2.5 rounded-xl bg-white px-3 py-2 shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.05)] transition-[box-shadow,translate] duration-150 sm:basis-[calc(25%-6px)] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.14)] [-webkit-tap-highlight-color:transparent] max-sm:hover:translate-y-0"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#4b5563] shadow-[inset_0_-1px_0_rgba(16,24,40,0.06)]">
+                {Icon ? <Icon className="h-3.5 w-3.5" strokeWidth={1.9} /> : <Blocks className="h-3.5 w-3.5" strokeWidth={1.9} />}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#1a1a2e]">{tt(app.label)}</span>
+              <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-colors group-hover/app:text-[#4b5563]" />
+            </a>
+          )
+        })}
+      </div>
+      <a href="/app/integrations" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[12.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+        {tt("All integrations")}
+        <ArrowUpRight aria-hidden className="h-3 w-3" />
+      </a>
     </div>
   ) : null
 
@@ -1376,6 +1421,7 @@ export const SectionLibrary = memo(function SectionLibrary({
             data-library-scroll=""
             className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-4 [scrollbar-gutter:stable]"
           >
+            {embedsStrip}
             {appsNotice}
             {grid}
           </div>
@@ -1422,10 +1468,12 @@ export const SectionLibrary = memo(function SectionLibrary({
                   on ? "bg-[#f3f4f6] font-medium text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f8f9fa] hover:text-[#1a1a2e]",
                 )}
               >
+                {cat.group === "embeds" ? <Blocks aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.9} /> : null}
                 <span className="truncate">{cat.label}</span>
                 {/* How many each holds, so a long theme's list says where the most is. */}
                 <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
+              {cat.group === "embeds" ? <div aria-hidden className="mx-3 my-2 h-px bg-[#f0f1f3]" /> : null}
               </div>
             )
           })}
@@ -1443,6 +1491,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               {shown.size === 1 ? tt("1 section") : tt("{size} sections", { size: shown.size })} {tt("matching “{value}”", { value: query.trim() })}
             </p>
           )}
+          {embedsStrip}
           {appsNotice}
           {grid}
         </div>

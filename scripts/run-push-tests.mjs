@@ -215,6 +215,8 @@ const SUITES = [
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
+  /* Track X2: checkout speed (the server reads side by side, Stripe from the head, the physical cart priced first; scripts/check-checkout-speed.mjs times it). */
+  "tests/checkout-speed-x.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
   "tests/sell-intent.test.ts",
@@ -602,6 +604,7 @@ const SUITES = [
   "tests/round-ag.test.ts",
   "tests/round-ah.test.ts",
   "tests/round-ai.test.ts",
+  "tests/round-aj.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",

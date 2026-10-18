@@ -668,6 +668,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   timer.mark("moreProducts")
   timer.done()
 
+  /* A card that is not a product page carries its own address (a free community's, product-page-cache); not a column. */
+  const cardLink = (row: object): string | undefined => ("href" in row && typeof row.href === "string" ? row.href : undefined)
   const moreProductsData: ProductData[] =
     moreProducts.map((p) => ({
       id: p.id,
@@ -680,6 +682,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       description: p.description,
       /* A membership's card says "/month" (lib/pricing/list-price). */
       type: (p as { type?: string | null }).type ?? undefined,
+      /* A free community has no product to link through: its card goes to the community (product-page-cache). */
+      href: cardLink(p),
     }))
 
   // Apply theme colors to all sections from the product page config

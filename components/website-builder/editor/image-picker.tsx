@@ -44,6 +44,7 @@ import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { isLoadableAddress, shopImageName } from "@/lib/website-builder/picture-address"
 import { cn } from "@/lib/utils"
+import { tt } from "@/lib/i18n/text"
 import { FilesLibraryChooser, prefetchLibrary, type PickHint } from "@/components/files/files-library"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 
@@ -309,7 +310,13 @@ export function WbImagePicker({
   }, [bucket, folder, handleFile, max, onAddMany])
 
   const pick = () => { if (!uploading) inputRef.current?.click() }
-  const choose = () => { if (!uploading) setLibraryOpen(true) }
+  /* Opened from a dark surface (Website settings), the files window is dark as well. */
+  const [chooserDark, setChooserDark] = useState(false)
+  const choose = () => {
+    if (uploading) return
+    setChooserDark(!!inputRef.current?.closest(".dark, [data-community-theme='dark']"))
+    setLibraryOpen(true)
+  }
   /*
     THE LIBRARY IS ASKED FOR BEFORE IT IS OPENED. Once, when the editor is
     idle after a picture field first shows (a second field asks nothing:
@@ -371,6 +378,7 @@ export function WbImagePicker({
         onChange={e => { const list = Array.from(e.target.files ?? []); if (list.length) void handleFiles(list); e.target.value = "" }}
       />
       {library && <FilesLibraryChooser
+        dark={chooserDark}
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
         selectedUrl={url ?? null}
@@ -540,6 +548,12 @@ export function WbImagePicker({
                 <button type="button" disabled={uploading} onClick={pick} className={cn(textButton, "text-foreground hover:bg-black/[0.05] dark:text-white/90 dark:hover:bg-white/[0.07]")} data-wb-image-upload="">
                   {uploading ? "Uploading" : shown ? "Replace" : "Upload"}
                 </button>
+                {/* Or one already in your files: the favicon and the logo tiles too, not only the big pickers. */}
+                {library && !uploading && (
+                  <button type="button" onClick={choose} className={cn(textButton, "text-foreground hover:bg-black/[0.05] dark:text-white/90 dark:hover:bg-white/[0.07]")} data-wb-image-files="">
+                    {tt("From files")}
+                  </button>
+                )}
                 {shown && !uploading && (
                   <button
                     type="button"

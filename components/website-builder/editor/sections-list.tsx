@@ -54,7 +54,7 @@ import { ArrowDown, ArrowUp, ClipboardPaste, Code2, Copy, CopyPlus, Eye, EyeOff,
 
 import { cn } from "@/lib/utils"
 import { useReorder } from "./controls/use-reorder"
-import { ROW_PAD, TREE_NAME, TREE_ROW, TreeAddRow, TreeSpacer, TreeTwisty } from "./tree-parts"
+import { ROW_PAD, TREE_NAME, TREE_ROW, TreeAddRow, TreeInsertLine, TreeSpacer, TreeTwisty, foldAway } from "./tree-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup } from "@/lib/storelib-theme/section-groups"
 import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
@@ -149,28 +149,7 @@ export function AddSectionButton({ onClick, label = tt("Add section") }: { onCli
  * with a soft shadow and a raised disc, the way Storelib's own controls sit.
  */
 function InsertSectionDivider({ onClick, onMenu }: { onClick: () => void; onMenu?: (x: number, y: number) => void }) {
-  return (
-    <div
-      data-insert-section=""
-      role="button"
-      tabIndex={-1}
-      aria-label={tt("Add a section here")}
-      className="group/ins relative flex h-1.5 cursor-pointer select-none items-center justify-center"
-      onClick={onClick}
-      onContextMenu={(e) => {
-        if (!onMenu) return
-        e.preventDefault()
-        onMenu(e.clientX, e.clientY)
-      }}
-    >
-      {/* The line fades out at both ends and in from nothing, so it reads as a soft seam, not a rule. */}
-      <div className="pointer-events-none absolute inset-x-0 h-px scale-x-90 bg-[linear-gradient(90deg,transparent_0%,rgba(107,114,128,0.55)_22%,#6b7280_50%,rgba(107,114,128,0.55)_78%,transparent_100%)] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-x-100 group-hover/ins:opacity-100" />
-      <div className="pointer-events-none absolute inset-x-6 h-[3px] rounded-full bg-[radial-gradient(closest-side,rgba(16,24,40,0.10),transparent)] opacity-0 blur-[1px] transition-opacity duration-200 group-hover/ins:opacity-100" />
-      <div className="pointer-events-none relative z-10 flex h-4 w-4 scale-75 items-center justify-center rounded-full bg-[#3f4249] text-white opacity-0 shadow-[0_0_0_2px_#fff,0_1px_3px_rgba(16,24,40,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-100 group-hover/ins:opacity-100">
-        <Plus className="h-2.5 w-2.5" strokeWidth={3} />
-      </div>
-    </div>
-  )
+  return <TreeInsertLine data-insert-section="" label={tt("Add a section here")} onClick={onClick} onMenu={onMenu} />
 }
 
 /** A small square action on a row. 24px under a pointer. */
@@ -496,6 +475,12 @@ export function SectionsList({
   onPaste,
 }: SectionsListProps) {
   const groups = splitGroups(sections)
+  /** Delete, after the row has folded away (tree-parts foldAway), from its bin and from its menu alike. */
+  const listRoot = React.useRef<HTMLDivElement | null>(null)
+  const removeSmooth = (id: string) => {
+    const row = listRoot.current?.querySelector<HTMLElement>(`[data-section-row-wrap="${CSS.escape(id)}"]`) ?? null
+    foldAway(row, () => onRemove(id))
+  }
   /** The one menu, and the row it is for. */
   const [menu, setMenu] = React.useState<{ id: string; place: ActionMenuPlace } | null>(null)
   /** The insert line's own menu (a right click on it), and where among the page's sections it adds. */
@@ -548,14 +533,14 @@ export function SectionsList({
       const chrome = role !== "overlay" && isKind(s, role, kindOfType) ? role : undefined
       const t = tree(s)
       return (
-        <div key={s.id}>
+        <div key={s.id} data-section-row-wrap={s.id}>
           <SectionRow
             section={s}
             displayName={nameOf(s)}
             isSelected={selectedId === s.id}
             onSelect={() => onSelect(s.id)}
             onToggleHide={() => onToggleHide(s.id)}
-            onRemove={() => onRemove(s.id)}
+            onRemove={() => removeSmooth(s.id)}
             chrome={chrome}
             fixed
             expandable={t.expandable}
@@ -584,7 +569,7 @@ export function SectionsList({
         onDuplicate,
         onMove,
         onToggleHide,
-        onRemove,
+        onRemove: removeSmooth,
         onCopy,
         paste,
         onPasteAfter: onPaste && openAt >= 0 ? () => onPaste(openAt + 1) : undefined,
@@ -601,7 +586,7 @@ export function SectionsList({
     : NO_ITEMS
 
   return (
-    <div data-sections-list="" className="space-y-0.5">
+    <div ref={listRoot} data-sections-list="" className="space-y-0.5">
       <ActionMenuAt at={menu?.place ?? null} items={items} title={open ? nameOf(open) : undefined} onClose={closeMenu} />
       <ActionMenuAt at={insertMenu?.place ?? null} items={insertItems} onClose={closeInsert} />
       <div data-section-group="header">
@@ -619,7 +604,8 @@ export function SectionsList({
           <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">{tt("No sections on this page yet.")}</p>
         ) : (
           <>
-            <InsertSectionDivider onClick={() => onAdd(0, "template")} onMenu={insertMenuAt(0)} />
+            {/* Add section right under the Page heading too, so a long page never sends you to its end to add one; it adds at the top. */}
+            <TreeAddRow data-add-section-top="" label={tt("Add section")} onClick={() => onAdd(0, "template")} />
             <div ref={listRef} data-section-drag-list="">
               {body.map((s, i) => {
                 const t = tree(s)
@@ -633,6 +619,7 @@ export function SectionsList({
                   */
                   <div
                     key={s.id}
+                    data-section-row-wrap={s.id}
                     data-reorder-row=""
                     data-section-lifted={lifted ? "" : undefined}
                     style={rowStyle(i)}
@@ -644,7 +631,7 @@ export function SectionsList({
                       isSelected={selectedId === s.id}
                       onSelect={() => onSelect(s.id)}
                       onToggleHide={() => onToggleHide(s.id)}
-                      onRemove={() => onRemove(s.id)}
+                      onRemove={() => removeSmooth(s.id)}
                       dragHandleProps={gripProps(i)}
                       expandable={t.expandable}
                       expanded={t.expanded}

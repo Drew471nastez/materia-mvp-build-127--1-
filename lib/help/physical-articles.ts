@@ -1979,7 +1979,7 @@ const ARTICLES: Article[] = [
     body: [
       { type: "p", text: "Every shipment can carry a tracking number. Storelib turns it into a link to the carrier's own tracking page, and puts that link in the buyer's email and on their order page." },
       { type: "h", text: "Carriers Storelib knows" },
-      { type: "p", text: "For these, the tracking link is made for you: DHL Express, UPS, FedEx, USPS, DHL (Paket, Parcel and eCommerce), DPD, GLS, Amazon Logistics, Royal Mail, Evri, TNT, La Poste / Colissimo, Hermes, PostNL, Poste Italiane, Correos, InPost, Canada Post, Australia Post, FAN Courier, Sameday, Cargus, Posta Romana, PostNord, Aramex, An Post and Purolator. A parcel to Romania sent with DPD gets DPD Romania's own page." },
+      { type: "p", text: "For these, the tracking link is made for you: DHL Express, UPS, FedEx, USPS, DHL (Paket, Parcel and eCommerce), DPD, GLS, Amazon Logistics, Royal Mail, Evri, TNT, La Poste / Colissimo, Hermes, PostNL, Poste Italiane, Correos, InPost, Canada Post, Australia Post, FAN Courier, Sameday, Cargus, Posta Romana, PostNord, Aramex, An Post, Purolator, Deutsche Post, Poczta Polska, Packeta, Swiss Post, Austrian Post, bpost, Chronopost, Mondial Relay, SEUR, CTT, BRT, SDA, Yodel, Parcelforce, Posti, Omniva, Česká pošta, Magyar Posta, Econt, Speedy, ACS Courier, ELTA Hellenic Post, Nova Poshta, Ukrposhta, OnTrac, Estafeta, Correios, Japan Post, Yamato Transport, SF Express, China Post, Singapore Post, Ninja Van, J&T Express, India Post, Delhivery, Blue Dart, NZ Post, Sendle, Emirates Post, SMSA Express and SPL Saudi Post. A parcel to Romania sent with DPD gets DPD Romania's own page." },
       {
         type: "list",
         items: [

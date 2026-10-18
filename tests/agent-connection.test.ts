@@ -251,7 +251,7 @@ async function main() {
       advanced.indexOf("<GitHubSyncPanel") < advanced.indexOf('tool="claude"') && !/How to connect/.test(advanced))
   check("  and another tool that speaks MCP only once it is asked for, or has a key",
     /const showOther = open === "other" \|\| \(agents\.connections !== null && agents\.byTool\.other\.length > 0\)/.test(advanced))
-  check("  one line open at a time", /useState<ConnectionId \| null>/.test(advanced) && /open=\{open === "claude"\}/.test(advanced) && /open=\{open === "github"\}/.test(advanced))
+  check("  one line open at a time", /useState<ConnectionId \| null>/.test(advanced) && /open=\{open === "claude"\}/.test(advanced) && /* Changed on purpose (round AJ) */ /open=\{openGitHub\}/.test(advanced))
   check("each line has one button while closed: Connect, Manage, or none when it cannot be used",
     /\{open \? "Done" : action\}/.test(row) && (row.match(/<button/g) ?? []).length === 2 /* the row's, and a note's inline one */)
   {

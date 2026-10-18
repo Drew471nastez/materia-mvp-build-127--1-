@@ -255,7 +255,7 @@ console.log("\nSettings › Domains, drawn: nothing to set up before a domain is
 console.log("\nWhere the records go: the provider picker")
 {
   const ids = REGISTRARS.map((r) => r.id).join()
-  check("GoDaddy, Namecheap, Cloudflare, Squarespace, Porkbun, Hostinger and somewhere else", ids === "godaddy,namecheap,cloudflare,squarespace,porkbun,hostinger,other", ids)
+  check("GoDaddy, Namecheap, Cloudflare, Squarespace, Porkbun, Hostinger and somewhere else", /* Changed on purpose (round AJ: more providers, each with its mark) */ ids === "godaddy,namecheap,cloudflare,squarespace,porkbun,hostinger,ionos,wix,ovh,route53,namesilo,hetzner,infomaniak,other", ids)
   check("the Name column is @ for the domain itself, and empty where Porkbun wants it empty",
     hostFor(registrarById("godaddy"), { name: "@" }) === "@" && hostFor(registrarById("porkbun"), { name: "@" }) === "" && hostFor(registrarById("porkbun"), { name: "www" }) === "www" && hostFor(registrarById("namecheap"), { name: "_vercel" }) === "_vercel")
   check("each named provider links to its DNS page for the registrable domain",
@@ -315,7 +315,7 @@ console.log("\nThe DNS set up, on both screens")
 {
   const setup = code("components/domains/dns-setup.tsx")
   check("a provider picker that rewrites the Name column and links to its DNS page",
-    /<select/.test(setup) && /REGISTRARS\.map/.test(setup) && /hostFor\(registrar, r\)/.test(setup) && /registrar\.dnsUrl\(apex\)/.test(setup))
+    /* Changed on purpose (round AJ: a real list with each provider's mark, not the system's select) */ /<Select value=\{registrar\.id\}/.test(setup) && /<RegistrarMark id=\{r\.id\}/.test(setup) && /REGISTRARS\.map/.test(setup) && /hostFor\(registrar, r\)/.test(setup) && /registrar\.dnsUrl\(apex\)/.test(setup))
   check("Type, Name, Value, TTL and Status", ["Type", "Name", "Value", "TTL", "Status"].every((h) => new RegExp(`role="columnheader">${h}<`).test(setup)))
   check("a copy button per value, 44px until the table has room", /data-dns-copy=""/.test(setup) && /h-11 w-11 shrink-0[^"]*@xl:h-8 @xl:w-8/.test(setup))
   check("three steps: add, wait, check", /Add these records where you bought/.test(setup) && /Wait for them to show/.test(setup) && /n=\{3\}/.test(setup))

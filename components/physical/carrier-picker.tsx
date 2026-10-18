@@ -390,7 +390,7 @@ function CarrierList({
         id={listId}
         role="listbox"
         aria-label={tt("Carriers")}
-        className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain", desk ? "p-1.5" : "px-2 pb-[max(env(safe-area-inset-bottom,0px),12px)]")}
+        className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-color:rgba(148,163,184,0.45)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(148,163,184,0.45)] [&::-webkit-scrollbar-track]:bg-transparent", desk ? "p-1.5" : "px-2 pb-[max(env(safe-area-inset-bottom,0px),12px)]")}
       >
         {groups.map((g, gi) => (
           <div key={gi} role="group" aria-label={g.title || undefined} className={cn(gi > 0 && !g.title && "mt-1 border-t border-[#f0f1f3] pt-1")}>
@@ -409,7 +409,8 @@ function CarrierList({
                   aria-selected={selected}
                   data-index={i}
                   data-carrier-option={o.value}
-                  onPointerMove={desk ? () => active !== i && setActive(i) : undefined}
+                  /* A mouse lights the row it is over; a finger never does (a touch leaves no grey behind on the row it lifted from). */
+                  onPointerMove={desk ? (e) => e.pointerType === "mouse" && active !== i && setActive(i) : undefined}
                   onClick={() => onChoose(o.value)}
                   className={cn(
                     /*
@@ -454,8 +455,8 @@ function CarrierList({
                       }}
                       className={cn(
                         "-mr-1 grid shrink-0 place-items-center rounded-md outline-none transition-[opacity,color] duration-100",
-                        desk ? "h-7 w-7 hover:bg-[#e8e9ec]" : "h-10 w-10",
-                        starred ? "text-[#1a1a2e]" : cn("text-[#b4b7bf] hover:text-[#4b5563]", desk && i !== active && "opacity-0"),
+                        desk ? "h-7 w-7 [@media(hover:hover)]:hover:bg-[#e8e9ec]" : "h-10 w-10",
+                        starred ? "text-[#1a1a2e]" : cn("text-[#b4b7bf] [@media(hover:hover)]:hover:text-[#4b5563]", desk && i !== active && "opacity-0"),
                       )}
                     >
                       <Star className={desk ? "h-[14px] w-[14px]" : "h-4 w-4"} fill={starred ? "currentColor" : "none"} strokeWidth={1.9} />

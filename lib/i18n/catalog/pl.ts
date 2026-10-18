@@ -9984,7 +9984,27 @@ const words: Record<string, string> = {
  "Leave a field empty to show it in {language}.": "Zostaw pole puste, aby pokazać je w języku: {language}.",
  "Could not copy": "Nie udało się skopiować",
  "Copy your message": "Skopiuj swoją wiadomość",
- "Dark mode": "Tryb ciemny"
+ "Dark mode": "Tryb ciemny",
+ "App embeds": "Osadzenia aplikacji",
+ "Your apps' sections appear here once this theme can show them": "Sekcje Twoich aplikacji pojawią się tutaj, gdy ten motyw będzie mógł je wyświetlić",
+ "All integrations": "Wszystkie integracje",
+ "Connect GitHub, or your own Claude or OpenAI key. Changes stay as drafts until you publish.": "Połącz GitHub lub własny klucz Claude albo OpenAI. Zmiany pozostają szkicami do publikacji.",
+ "Storelib AI is included in your plan. Your own key makes its edits count on your account instead.": "Storelib AI jest w Twoim planie. Z własnym kluczem zmiany są liczone na Twoim koncie.",
+ "Code from your computer": "Kod z Twojego komputera",
+ "Claude Code, Codex, MCP": "Claude Code, Codex, MCP",
+ "Your own API key": "Twój własny klucz API",
+ "Period: last {period}": "Okres: ostatnie {period}",
+ "Open the domain's DNS tab, and turn off its forwarding first.": "Otwórz kartę DNS domeny i najpierw wyłącz przekierowanie.",
+ "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "W Zarządzaj rekordami DNS edytuj rekord A i CNAME www od Wix zamiast dodawać nowe.",
+ "Open DNS zone. Leave the subdomain empty for the domain itself.": "Otwórz strefę DNS. Zostaw subdomenę pustą dla samej domeny.",
+ "In the domain's hosted zone, leave Record name empty for the domain itself.": "W strefie hostowanej domeny zostaw nazwę rekordu pustą dla samej domeny.",
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Użyj niebieskiego globusa do zarządzania DNS i najpierw usuń rekordy parkowania.",
+ "AI memory": "Pamięć AI",
+ "What Storelib AI keeps in mind for this website.": "Co Storelib AI pamięta o tej stronie.",
+ "Could not load. Try again in a moment.": "Nie udało się wczytać. Spróbuj za chwilę.",
+ "Nothing yet. Add something below, or the AI keeps notes as you work.": "Na razie nic. Dodaj coś poniżej albo AI będzie notować w trakcie pracy.",
+ "Forget this": "Zapomnij to",
+ "Add something to remember": "Dodaj coś do zapamiętania"
 }
 
 export default words

@@ -226,7 +226,7 @@ async function main() {
     const session = code("app/api/checkout/stripe-session/route.ts")
     check("the single product checkout charges the store's currency, held to its minimum", /readStoreCurrency\(admin, creator\.id\)/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session) && /minimumChargeMinor\(storeCurrency\)/.test(session) && !/platformChargeCurrency\(/.test(session))
     const page = code("app/checkout/page.tsx")
-    check("and its page draws the store's currency", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /readStoreCurrency\(checkoutAdmin\(\), creator\?\.id\)/.test(page))
+    check("and its page draws the store's currency", /<CheckoutCurrency currency=\{store\.currency\}>/.test(page) && /* Changed on purpose (track X2): asked with the store's other reads, by the product's store. */ /readStoreCurrency\(checkoutAdmin\(\), storeId \?\? undefined\)/.test(page))
     const client = code("app/checkout/checkout-client.tsx")
     check("its own minimum check is the store currency's", /minimumChargeMinor\(chargeCurrency\)/.test(client) && !/MIN_CHARGE_CENTS/.test(client))
     for (const f of ["app/(marketing)/p/[slug]/layout.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {

@@ -59,6 +59,42 @@ function statusOf(key: OwnKey | undefined): { tone: ConnectionTone; status: stri
   return { tone: "on", status: "Connected", detail: used ? tt("ends {hint} · used {used}", { hint: key.hint, used }) : tt("ends {hint}", { hint: key.hint }), action: tt("Manage") }
 }
 
+/**
+ * The Claude and OpenAI rows alone, for Connections' one list (after GitHub):
+ * the same rows OwnAiSettings draws, without its heading and card.
+ */
+export function OwnAiRows({ open, onOpen }: { open: string | null; onOpen: (id: string | null) => void }) {
+  const own = useOwnAi()
+  const byId = (id: OwnSource) => own.keys.find((k) => k.source === id)
+  if (!own.setUp) return null
+  return (
+    <>
+      {SOURCES.map((s) => {
+        const key = byId(s.id)
+        const st = statusOf(key)
+        const id = `own-${s.id}`
+        return (
+          <ConnectionRow
+            key={s.id}
+            id={id}
+            mark={s.mark}
+            name={s.name}
+            status={st.status}
+            detail={st.detail ?? (key ? undefined : tt("Your own API key"))}
+            tone={st.tone}
+            loading={!own.loaded}
+            action={st.action}
+            open={open === id}
+            onToggle={() => onOpen(open === id ? null : id)}
+          >
+            {() => <SourceBody source={s} current={key} onDone={() => onOpen(null)} />}
+          </ConnectionRow>
+        )
+      })}
+    </>
+  )
+}
+
 export function OwnAiSettings() {
   const own = useOwnAi()
   const [open, setOpen] = useState<OwnSource | null>(null)

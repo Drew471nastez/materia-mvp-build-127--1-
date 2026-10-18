@@ -127,3 +127,82 @@ export function TreeAddRow({
     </button>
   )
 }
+
+/**
+ * THE LINE BETWEEN TWO ROWS THAT ADDS SOMETHING THERE: between two sections,
+ * or two blocks. Quiet at rest, a hair of grey that is barely there, so the
+ * list still reads as rows; under the pointer the line fades in from the
+ * middle out and the same raised white key Add section wears rises in its
+ * centre. Its hit area is taller than it looks (12px), so it is easy to
+ * catch without the gap between rows growing. A right click opens `onMenu`.
+ */
+export function TreeInsertLine({
+  onClick,
+  onMenu,
+  label,
+  depth = 0,
+  ...rest
+}: {
+  onClick: () => void
+  onMenu?: (x: number, y: number) => void
+  label: string
+  /** 0 between sections, 1 between a section's blocks: the line starts at that row's indent. */
+  depth?: number
+} & Omit<React.HTMLAttributes<HTMLDivElement>, "onClick">) {
+  return (
+    <div
+      role="button"
+      tabIndex={-1}
+      aria-label={label}
+      title={label}
+      className="group/ins relative -my-1 flex h-3 cursor-pointer select-none items-center justify-center [-webkit-tap-highlight-color:transparent]"
+      style={{ paddingLeft: depth ? rowIndent(depth) : undefined }}
+      onClick={onClick}
+      onContextMenu={(e) => {
+        if (!onMenu) return
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY)
+      }}
+      {...rest}
+    >
+      <div
+        className="pointer-events-none absolute right-0 h-px scale-x-90 bg-[linear-gradient(90deg,transparent_0%,rgba(107,114,128,0.55)_22%,#6b7280_50%,rgba(107,114,128,0.55)_78%,transparent_100%)] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-x-100 group-hover/ins:opacity-100"
+        style={{ left: depth ? rowIndent(depth) : 0 }}
+      />
+      <span className="pointer-events-none relative z-10 flex h-[18px] w-[18px] scale-75 items-center justify-center rounded-[6px] bg-white text-[#4b5563] opacity-0 shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_2px_5px_rgba(16,24,40,0.14),inset_0_-1px_0_rgba(16,24,40,0.05)] transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-100 group-hover/ins:opacity-100 group-active/ins:scale-95">
+        <Plus className="h-3 w-3" strokeWidth={2.75} />
+      </span>
+    </div>
+  )
+}
+
+/**
+ * A ROW THAT LEAVES FOLDS AWAY. Deleting from the sidebar used to drop the
+ * row in the same frame, so the list jumped and the eye never saw what went.
+ * The row now fades and folds its height to nothing over 220ms, then the
+ * delete happens. Without motion preferred, it goes at once.
+ */
+export function foldAway(el: HTMLElement | null, then: () => void) {
+  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  if (!el || reduced) {
+    then()
+    return
+  }
+  const h = el.getBoundingClientRect().height
+  el.style.height = `${h}px`
+  el.style.overflow = "hidden"
+  el.style.pointerEvents = "none"
+  void el.offsetHeight
+  el.style.transition = "height 220ms cubic-bezier(0.32,0.72,0,1), opacity 160ms ease-out, transform 220ms cubic-bezier(0.32,0.72,0,1)"
+  el.style.height = "0px"
+  el.style.opacity = "0"
+  el.style.transform = "translateX(-6px)"
+  window.setTimeout(() => {
+    then()
+    /* Still here a moment later (the delete asked first, or was refused): the row comes back as it was. */
+    window.setTimeout(() => {
+      if (!el.isConnected) return
+      for (const k of ["height", "overflow", "pointerEvents", "transition", "opacity", "transform"] as const) el.style[k] = ""
+    }, 60)
+  }, 220)
+}
