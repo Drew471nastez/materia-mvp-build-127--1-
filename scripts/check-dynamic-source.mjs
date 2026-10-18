@@ -333,48 +333,43 @@ try {
     const chipIn = await page.evaluate(() => {
       const f = document.querySelector('[data-probe-field="eyebrow"]')
       const box = f.querySelector("[data-chip-input]")
-      return box ? { text: box.textContent, chip: box.querySelector("[data-chip]")?.dataset.chip, note: !!f.querySelector("[data-dynamic-note]") } : null
+      return box ? { text: box.textContent.replace(/​/g, ""), chip: box.querySelector("[data-value]")?.dataset.value, note: !!f.querySelector("[data-dynamic-note]") } : null
     })
     expect(chipIn?.chip === "product.title" && /^Feat\s?Product title\s?ured$/.test(chipIn.text) && !chipIn.note, "the source sits in the sentence as a chip with its name", chipIn)
     const refocus = await page.evaluate(() => (document.activeElement?.hasAttribute("data-chip-input") ? "CHIPS" : document.activeElement?.tagName))
     expect(vp.phone ? refocus === "BUTTON" : refocus === "CHIPS", vp.phone ? "focus goes back to the button, so no keyboard comes up" : "focus goes back to the text box after what went in", refocus)
     await shoot("inserted")
 
-    /* ── A whole source is a chip with an x ─────────────────── */
+    /*
+      ── Words that are one source keep their box, with a pill in it ──
+      It used to be swapped for a chip with an x and nowhere to type, which
+      is the "typing stops" the owner reported. Only a picture, a link or a
+      number is connected as a whole (scripts/check-value-pills.mjs types
+      after the pill).
+    */
     const chip = await page.evaluate(() => {
       const f = document.querySelector('[data-probe-field="title"]')
-      const b = f.querySelector("[data-dynamic-bound]")
-      const heading = document.querySelector('[data-probe-field="heading"] input').getBoundingClientRect()
-      return b ? { text: b.textContent, h: b.getBoundingClientRect().height, inputH: heading.height, x: !!b.querySelector('button[aria-label="Disconnect Product title"]'), input: !!f.querySelector("input") } : null
+      const box = f.querySelector("[data-chip-input]")
+      return { bound: !!f.querySelector("[data-dynamic-bound]"), box: !!box, pill: box?.querySelector("[data-value]")?.textContent ?? null }
     })
-    expect(chip && chip.text === "Product title" && chip.x && !chip.input, "a text setting that is one source shows a chip with its name and an x, not the braces", chip)
-    expect(chip && Math.abs(chip.h - chip.inputH) < 0.5, "the chip's field is the height of a text box", chip && { chip: chip.h, input: chip.inputH })
+    expect(!chip.bound && chip.box && chip.pill === "Product title", "a text setting that is one source keeps its box, the source a pill in it", chip)
     const img = await page.evaluate(() => document.querySelector('[data-probe-field="image"] [data-dynamic-bound]')?.textContent)
-    expect(img === "Product image", "a picture connected to the product's reads as a chip too", img)
+    expect(img === "Product image", "a picture connected to the product's reads as a chip with an x", img)
     await page.evaluate(() => document.querySelector('[data-probe-field="title"]').scrollIntoView({ block: "center" }))
     await sleep(300)
     await shoot("chip")
     const titleBefore = await geometry(page, "title")
-    const xSel = '[data-probe-field="title"] button[aria-label="Disconnect Product title"]'
-    if (vp.phone) {
-      /* From the ::before box, because the sheet's middle stop leaves part of the field below the screen. */
-      const xHit = await page.evaluate((sel) => {
-        const b = document.querySelector(sel)
-        const r = b.getBoundingClientRect()
-        const cs = getComputedStyle(b, "::before")
-        const h = r.height - parseFloat(cs.top) - parseFloat(cs.bottom)
-        const w = r.width - parseFloat(cs.left) - parseFloat(cs.right)
-        const box = b.closest("[data-dynamic-bound]").getBoundingClientRect()
-        const top = r.top + parseFloat(cs.top)
-        return { h, w, over: +Math.max(box.top - top, top + h - box.bottom).toFixed(2), inField: top >= box.top - 1 && top + h <= box.bottom + 1 }
-      }, xSel)
-      expect(xHit.h >= 44 && xHit.w >= 44 && xHit.inField, "the x answers over 44px under a thumb, inside the field", xHit)
-      await page.tap(xSel)
-    } else await page.click(xSel)
+    const pillSel = '[data-probe-field="title"] [data-value]'
+    if (vp.phone) await page.tap(pillSel)
+    else await page.click(pillSel)
+    await sleep(200)
+    const removeSel = '[data-probe-field="title"] [data-pill-remove]'
+    if (vp.phone) await page.tap(removeSel)
+    else await page.click(removeSel)
     await sleep(200)
     const titleAfter = await geometry(page, "title")
     const cleared = await page.evaluate(() => window.__values.title)
-    expect(cleared === "" && titleAfter.input && titleAfter.input.y === titleBefore.input.y, "the x disconnects: the text box comes back in the same place, empty", { value: cleared, before: titleBefore.input, after: titleAfter.input })
+    expect(cleared === "" && titleAfter.input && titleAfter.input.y === titleBefore.input.y, "the pill's Remove clears it: the same box in the same place, empty", { value: cleared, before: titleBefore.input, after: titleAfter.input })
     await shoot("disconnected")
 
     /* ── EVERY OPTION, EXERCISED ────────────────────────────

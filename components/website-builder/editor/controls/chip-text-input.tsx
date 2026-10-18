@@ -2,15 +2,15 @@
 
 /**
  * ===========================================================================
- *  WORDS WITH SHOP DATA IN THEM, AS CHIPS
+ *  WORDS WITH SHOP DATA IN THEM, AS PILLS
  * ===========================================================================
  * A text setting can hold a source among its words: "Welcome to
- * {{ shop.name }}". The field used to show exactly that, braces and dots,
- * with a line under it spelling the sentence back ("On the page: Welcome to
- * Shop name"). The owner asked for what Shopify and Notion do instead: the
- * source sits in the sentence as a small grey chip with its name, the words
- * around it stay ordinary editable text, and the chip comes out with
- * Backspace or its own x.
+ * {{ shop.name }}". The field used to show exactly that, braces and dots.
+ * The owner asked for what Shopify and Notion do instead: the source sits in
+ * the sentence as a small grey pill with its name, the words around it stay
+ * ordinary editable text, Backspace takes the pill out whole, and a click on
+ * it offers another value or Remove (dynamic-source-field.tsx draws that
+ * list). The pill itself, and its keys, are value-pills.ts.
  *
  * ONE STRING IN, ONE STRING OUT. The value is still the plain string with
  * `{{ id }}` placeholders that the renderers read (lib/storelib-theme/
@@ -18,20 +18,33 @@
  * when the value changes from outside (an insert, an undo), and read back
  * into the string on every input, so the two never drift.
  *
- * WHERE THE CARET IS is counted in the string, a chip being as long as its
+ * WHERE THE CARET IS is counted in the string, a pill being as long as its
  * placeholder, so "insert at the caret" (insertPlaceholder) keeps working.
+ *
+ * GROWS, NEVER SIDEWAYS. One line or many, the words wrap, and the box grows
+ * a line at a time up to about ten lines, then scrolls up and down only.
  */
 import * as React from "react"
 
 import { dynamicSource, placeholderFor } from "@/lib/storelib-theme/dynamic"
 import { cn } from "@/lib/utils"
-import { tt } from "@/lib/i18n/text"
+import {
+  ZWSP,
+  caretAfter,
+  copyWithPills,
+  ensureCaretRoom,
+  isPill,
+  pillKeyDown,
+  pillNode,
+  pillsFromText,
+  stripZw,
+} from "@/components/website-builder/value-pills"
 
 const TOKEN = /\{\{\s*([a-z_]+(?:\.[a-z_]+){1,2})\s*\}\}/g
 
 type Piece = { text: string } | { id: string; label: string }
 
-/** The value as words and chips. A placeholder for a source nobody knows stays words, so nothing is lost. */
+/** The value as words and pills. A placeholder for a source nobody knows stays words, so nothing is lost. */
 export function chipPieces(value: string): Piece[] {
   const out: Piece[] = []
   let last = 0
@@ -47,34 +60,13 @@ export function chipPieces(value: string): Piece[] {
   return out
 }
 
-const CHIP =
-  "mx-[1px] inline-flex select-none items-center gap-0.5 whitespace-nowrap rounded-[6px] bg-[#eceef1] py-px pl-1.5 pr-0.5 align-baseline text-[12px] font-medium leading-[18px] text-[#374151] max-sm:text-[14px] max-sm:leading-[22px]"
-
-function chipNode(id: string, label: string): HTMLElement {
-  const chip = document.createElement("span")
-  chip.contentEditable = "false"
-  chip.dataset.chip = id
-  chip.className = CHIP
-  const name = document.createElement("span")
-  name.textContent = label
-  const x = document.createElement("button")
-  x.type = "button"
-  x.tabIndex = -1
-  x.dataset.chipRemove = ""
-  x.setAttribute("aria-label", tt("Remove {label}", { label }))
-  x.className = "inline-flex h-4 w-4 items-center justify-center rounded-[4px] text-[#9ca3af] hover:bg-[#dfe1e5] hover:text-[#374151] max-sm:h-5 max-sm:w-5"
-  x.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
-  chip.append(name, x)
-  return chip
-}
-
-/** The string the DOM says. A chip is its placeholder; a line break inside a multi-line field is "\n". */
+/** The string the DOM says. A pill is its placeholder; a line break inside a multi-line field is "\n". */
 function serialize(root: HTMLElement): string {
   let out = ""
   const walk = (node: Node) => {
     for (const child of node.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) out += child.textContent ?? ""
-      else if (child instanceof HTMLElement && child.dataset.chip) out += placeholderFor(child.dataset.chip)
+      if (child.nodeType === Node.TEXT_NODE) out += stripZw(child.textContent ?? "")
+      else if (isPill(child)) out += placeholderFor(child.dataset.value ?? "")
       else if (child instanceof HTMLBRElement) out += "\n"
       else if (child instanceof HTMLElement) {
         /* A browser wraps a new line in a <div>: it starts a line. */
@@ -91,9 +83,10 @@ function serialize(root: HTMLElement): string {
 function build(root: HTMLElement, value: string) {
   root.replaceChildren()
   for (const p of chipPieces(value)) {
-    if ("id" in p) root.append(chipNode(p.id, p.label))
+    if ("id" in p) root.append(pillNode(p.id))
     else root.append(document.createTextNode(p.text))
   }
+  ensureCaretRoom(root)
 }
 
 /** The caret as an offset in the string. */
@@ -108,34 +101,45 @@ function caretOffset(root: HTMLElement): number | null {
   return serialize(probe).length
 }
 
-/** Put the caret at an offset in the string, after a chip if it lands on one. */
+/** Put the caret at an offset in the string, after a pill if it lands on one. The place holder spaces count as nothing. */
 function placeCaret(root: HTMLElement, offset: number) {
   let left = offset
   const sel = window.getSelection()
   if (!sel) return
   const range = document.createRange()
+  const put = () => {
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }
   for (const child of root.childNodes) {
-    const len = child.nodeType === Node.TEXT_NODE ? (child.textContent ?? "").length : child instanceof HTMLElement && child.dataset.chip ? placeholderFor(child.dataset.chip).length : 0
-    if (left <= len && child.nodeType === Node.TEXT_NODE) {
-      range.setStart(child, left)
-      range.collapse(true)
-      sel.removeAllRanges()
-      sel.addRange(range)
-      return
+    if (child.nodeType === Node.TEXT_NODE) {
+      const raw = child.textContent ?? ""
+      const len = stripZw(raw).length
+      if (left <= len) {
+        /* The offset in the node's own characters, stepping over the place holders. */
+        let i = 0
+        let seen = 0
+        while (i < raw.length && (seen < left || raw[i] === ZWSP)) {
+          if (raw[i] !== ZWSP) seen++
+          i++
+        }
+        range.setStart(child, i)
+        return put()
+      }
+      left -= len
+    } else if (isPill(child)) {
+      const len = placeholderFor(child.dataset.value ?? "").length
+      if (left <= len) {
+        caretAfter(child)
+        return
+      }
+      left -= len
     }
-    if (left <= len) {
-      range.setStartAfter(child)
-      range.collapse(true)
-      sel.removeAllRanges()
-      sel.addRange(range)
-      return
-    }
-    left -= len
   }
   range.selectNodeContents(root)
   range.collapse(false)
-  sel.removeAllRanges()
-  sel.addRange(range)
+  put()
 }
 
 export interface ChipTextInputHandle {
@@ -182,6 +186,9 @@ export const ChipTextInput = React.forwardRef<
   const read = () => {
     const root = el.current
     if (!root) return
+    /* A placeholder typed or pasted in braces becomes its pill where it stands, the caret after it. */
+    const made = pillsFromText(root, TOKEN, (id) => !!dynamicSource(id))
+    if (made && document.activeElement === root) caretAfter(made)
     const next = serialize(root)
     emitted.current = next
     setEmpty(next === "")
@@ -207,27 +214,30 @@ export const ChipTextInput = React.forwardRef<
         onMouseUp={tellCaret}
         onBlur={tellCaret}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !multiline) e.preventDefault()
+          if (e.key === "Enter" && !multiline) {
+            e.preventDefault()
+            return
+          }
+          if (el.current) pillKeyDown(e, el.current)
+        }}
+        onCopy={(e) => {
+          if (el.current) copyWithPills(e, el.current)
+        }}
+        onCut={(e) => {
+          if (el.current) copyWithPills(e, el.current, true)
         }}
         onPaste={(e) => {
-          /* Words only: a pasted page's markup is not a setting. */
+          /* Words only: a pasted page's markup is not a setting. Braces in them come back as pills (read, above). */
           e.preventDefault()
           const text = e.clipboardData.getData("text/plain")
           document.execCommand("insertText", false, multiline ? text : text.replace(/\s*\n\s*/g, " "))
-        }}
-        onClick={(e) => {
-          const x = (e.target as HTMLElement).closest("[data-chip-remove]")
-          if (!x) return
-          e.preventDefault()
-          x.closest("[data-chip]")?.remove()
-          read()
         }}
         className={cn(
           "w-full rounded-md border border-border bg-background px-2.5 py-[6px] text-[13px] leading-[18px] text-foreground transition-colors",
           "focus:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10",
           "max-sm:min-h-11 max-sm:py-[10px] max-sm:text-[16px] max-sm:leading-[22px]",
-          /* One line or many, the words wrap: a chip is never cut off at the edge of a narrow sidebar. */
-          "whitespace-pre-wrap break-words",
+          /* One line or many, the words wrap and the box grows: never a sideways scroll. About ten lines, then up and down only. */
+          "whitespace-pre-wrap break-words [overflow-wrap:anywhere] overflow-x-hidden overflow-y-auto wb-slim-scroll max-h-[196px] max-sm:max-h-[236px]",
           multiline ? "min-h-[72px]" : "min-h-8",
         )}
       />

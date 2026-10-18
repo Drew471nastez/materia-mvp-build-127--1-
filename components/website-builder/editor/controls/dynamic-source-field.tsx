@@ -86,6 +86,7 @@ import {
   type DynamicSource,
 } from "@/lib/storelib-theme/dynamic"
 import { ChipTextInput, type ChipTextInputHandle } from "./chip-text-input"
+import { caretAfter, editableOf, insertPill, isPill, markPill, pillLabel, removePill, replacePill } from "@/components/website-builder/value-pills"
 import { useEditorFieldEnv } from "./context"
 import { NOTE } from "./styles"
 import { tt, msg } from "@/lib/i18n/text"
@@ -118,6 +119,11 @@ export function DynamicSourceField({
   const body = React.useRef<HTMLDivElement>(null)
   const chips = React.useRef<ChipTextInputHandle>(null)
   const wasChipped = React.useRef(false)
+  /** The caret's last place in a box that draws pills. */
+  const range = React.useRef<Range | null>(null)
+  /** The pill a click opened the list for: a pick replaces it, Remove takes it out. */
+  const replacing = React.useRef<HTMLElement | null>(null)
+  const [replacingId, setReplacingId] = React.useState<string | null>(null)
   /** Where the caret was in the field's text box, so an insert lands there. */
   const caret = React.useRef<number | null>(null)
   /* Read on every selection change and again as the text box loses focus to the button. */
@@ -142,10 +148,36 @@ export function DynamicSourceField({
     return () => cancelAnimationFrame(id)
   }, [open])
 
+  /* Where the caret was in a box that draws pills (words, rich text, a heading), so an insert lands there. */
+  React.useEffect(() => {
+    const keep = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      const root = editableOf(sel.anchorNode)
+      if (root && body.current?.contains(root)) range.current = sel.getRangeAt(0).cloneRange()
+    }
+    document.addEventListener("selectionchange", keep)
+    return () => document.removeEventListener("selectionchange", keep)
+  }, [])
+
+  /* The list closed: the pill it was changing is no longer the one. */
+  React.useEffect(() => {
+    if (open) return
+    markPill(replacing.current, false)
+    replacing.current = null
+    setReplacingId(null)
+  }, [open])
+
   const whole = !!target && targetIsWhole(target)
   const text = typeof value === "string" ? value : ""
-  /* A text setting that is one source and nothing else reads as connected, too. */
-  const bound = whole ? wholeSource(value) : wholeSource(text)
+  /*
+    Only a picture, a link or a number is connected as a whole. A text
+    setting that is one source and nothing else used to read as connected
+    too: the box was swapped for a chip with an x, and there was nowhere to
+    type. "Shop name" and then " sale" is a sentence, so words always keep
+    their box, with the source as a pill in it.
+  */
+  const bound = whole ? wholeSource(value) : null
   /*
     NOT ON A SLIDER. A range takes a number source, but nobody sets a
     padding to the number of products, and a button at the end of every
@@ -175,11 +207,39 @@ export function DynamicSourceField({
   /** Anything of this setting's value that comes from the shop, whole or among words. */
   const connected = !!bound || named.length > 0
 
+  /** The box this field types into, when it draws pills: a contentEditable, not an input. */
+  const editable = () => body.current?.querySelector<HTMLElement>('[contenteditable]:not([contenteditable="false"])') ?? null
+
   const pick = (s: DynamicSource) => {
     setOpen(false)
     if (whole) {
       onChange(placeholderFor(s.id))
       requestAnimationFrame(refocus)
+      return
+    }
+    /* A pill clicked: this one in its place. */
+    const old = replacing.current
+    if (old?.isConnected) {
+      markPill(old, false)
+      replacing.current = null
+      const made = replacePill(old, s.id)
+      if (!phone) {
+        editableOf(made.parentNode)?.focus({ preventScroll: true })
+        caretAfter(made)
+      }
+      return
+    }
+    /*
+      A box that draws pills takes the pill at its caret, on the DOM, and
+      saves itself from there. A rich text value used to have the
+      placeholder added to the END of its markup, after the last </p>: the
+      pill landed outside every line, the caret could not get past it, and
+      typing stopped.
+    */
+    const box = editable()
+    if (box) {
+      insertPill(box, range.current, s.id, !phone)
+      if (phone) refocus()
       return
     }
     /* Connected already: the new source replaces the old, as it does for a picture. */
@@ -274,8 +334,13 @@ export function DynamicSourceField({
   )
 
   const source = bound ? dynamicSource(bound) : undefined
-  /* The sentence spelled back under a rich text field; chips already say it in a plain one. */
-  const parts = named.length > 0 && !chipped ? placeholderParts(text) : []
+  /*
+    The sentence spelled back under a field that still shows braces (a code
+    box). Words, rich text and headings draw their sources as pills, which
+    already say it.
+  */
+  const drawsPills = chipped || kind === "richtext" || kind === "inline_richtext"
+  const parts = named.length > 0 && !drawsPills ? placeholderParts(text) : []
 
   return (
     <div data-dynamic-field="">
@@ -300,6 +365,24 @@ export function DynamicSourceField({
               ref={body}
               onSelect={(e) => keepCaret(e.target)}
               onBlur={(e) => keepCaret(e.target)}
+              onClick={(e) => {
+                /*
+                  A PILL IS PRESSED: its list opens to change it, with Remove
+                  at the top. A press anywhere else in the words closes a
+                  list that was open for a pill.
+                */
+                const pill = (e.target as HTMLElement).closest<HTMLElement>("[data-value]")
+                if (pill && isPill(pill) && editableOf(pill.parentNode) && body.current?.contains(pill)) {
+                  e.preventDefault()
+                  markPill(replacing.current, false)
+                  replacing.current = pill
+                  markPill(pill, true)
+                  setReplacingId(pill.dataset.value ?? null)
+                  setOpen(true)
+                  return
+                }
+                if (replacing.current) setOpen(false)
+              }}
             >
               {bound ? (
                 <div
@@ -343,6 +426,28 @@ export function DynamicSourceField({
           aria-label={tt("Shop data")}
           onKeyDown={onListKey}
         >
+          {replacingId && (
+            <div className="border-b border-border pb-1" data-pill-menu="">
+              <button
+                type="button"
+                role="option"
+                aria-selected={false}
+                data-pill-remove=""
+                className="block w-full px-3 py-1.5 max-sm:min-h-12 text-left text-[13px] max-sm:text-[15px] font-medium text-[#b91c1c] transition-colors hover:bg-red-50 focus-visible:bg-red-50 focus-visible:outline-none"
+                onClick={() => {
+                  const pill = replacing.current
+                  setOpen(false)
+                  if (pill?.isConnected) {
+                    const root = editableOf(pill.parentNode)
+                    removePill(pill)
+                    if (!phone) root?.focus({ preventScroll: true })
+                  }
+                }}
+              >
+                {tt("Remove {value}", { value: pillLabel(replacingId) })}
+              </button>
+            </div>
+          )}
           {Object.entries(groups).map(([group, items]) => (
             <div key={group} className="py-1" role="group" aria-label={group}>
               <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]" aria-hidden>{group}</p>
@@ -351,7 +456,7 @@ export function DynamicSourceField({
                   key={s.id}
                   type="button"
                   role="option"
-                  aria-selected={bound === s.id}
+                  aria-selected={bound === s.id || replacingId === s.id}
                   className="block w-full px-3 py-1.5 max-sm:min-h-12 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none aria-selected:bg-muted/40"
                   onClick={() => pick(s)}
                 >

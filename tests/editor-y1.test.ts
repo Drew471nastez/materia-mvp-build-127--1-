@@ -88,9 +88,10 @@ console.log("\nFIELDS: the sidebar's text never scrolls sideways")
   const area = readCode("components/website-builder/auto-textarea.tsx")
   check("rich text wraps a long word or address", /min-w-0 overflow-y-auto overflow-x-hidden \[overflow-wrap:anywhere\]/.test(rich))
   check("its toolbar wraps onto a second line in the sidebar instead of scrolling", /page \? "max-sm:px-1 max-sm:py-0\.5" : "flex-wrap"/.test(rich))
-  check("a value chip never runs past the field", /white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis/.test(rich))
+  /* The chip is the shared pill now (value-pills.ts), used by every text box. */
+  check("a value chip never runs past the field", /white-space:nowrap;max-width:100%/.test(readCode("components/website-builder/value-pills.ts")) && /pillHtml\(expr\.trim\(\)\)/.test(rich))
   check("an inline heading wraps rather than scrolling (it was one line that scrolled sideways)", /whitespace-normal \[overflow-wrap:anywhere\] overflow-x-hidden/.test(inline) && !/whitespace-nowrap overflow-x-auto/.test(inline))
-  check("and Enter still adds no second line", /if \(e\.key === "Enter"\) e\.preventDefault\(\)/.test(inline))
+  check("and Enter still adds no second line", /if \(e\.key === "Enter"\) \{\s*e\.preventDefault\(\)/.test(inline))
   check("a textarea wraps too", /w-full min-w-0 resize-none overflow-x-hidden \[overflow-wrap:anywhere\]/.test(area))
 }
 

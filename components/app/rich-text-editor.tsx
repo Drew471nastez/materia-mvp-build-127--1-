@@ -1288,6 +1288,8 @@ export function RichTextEditor({
             dragHeight != null ? "overflow-y-auto" : grow ? null : "max-h-[320px] overflow-y-auto sm:max-h-[480px]",
             "[overscroll-behavior-y:auto] [touch-action:pan-x_pan-y]",
             "[overflow-wrap:anywhere] [-webkit-user-select:text] [user-select:text]",
+            /* Taller, never wider: a long address, a wide picture or a code line wraps or fits instead of scrolling the field sideways. */
+            "overflow-x-hidden [&_img]:max-w-full [&_pre]:whitespace-pre-wrap [&_table]:max-w-full",
           )}
           style={dragHeight != null ? { minHeight, height: dragHeight, maxHeight: "none" } : { minHeight }}
         />
