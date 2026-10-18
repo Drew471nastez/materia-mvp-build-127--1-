@@ -107,7 +107,8 @@ export function AutoTextarea({
       ref={ref}
       rows={1}
       className={cn(
-        "w-full resize-none px-3 py-2 text-sm border border-border rounded-lg bg-background",
+        /* Wraps an unbroken word or address rather than scrolling sideways. */
+        "w-full min-w-0 resize-none overflow-x-hidden [overflow-wrap:anywhere] px-3 py-2 text-sm border border-border rounded-lg bg-background",
         "focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors",
         className,
       )}

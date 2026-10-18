@@ -1,24 +1,32 @@
 /**
  * ===========================================================================
- *  LEAVING THE BUILDER: THE GOING BACK SCREEN, FRAME BY FRAME
+ *  LEAVING THE BUILDER: GOING BACK, IN THE CANVAS, FRAME BY FRAME
  * ===========================================================================
- * The owner: "when exiting the website builder editor it's too direct
+ * The owner, first: "when exiting the website builder editor it's too direct
  * sometimes; it should show at least 3 seconds of a going back screen".
+ * Then: that screen went over the whole window in white, and it belongs in
+ * the canvas area, smoothly, the way it was.
  *
  * The real editor (scripts/render-editor-probe.tsx), served at its own
  * address, with a navigation that arrives PROBE_NAVIGATE_MS after it starts
  * (the editor unmounted, a destination drawn in its place). Every frame from
- * the press is sampled: is the screen there, how opaque, does it cover the
- * window, is the editor or the destination under it. Then:
+ * the press is sampled: is the Going back screen there, how opaque, the box
+ * it covers against the canvas's and the window's, whether the bar and the
+ * sidebar are still drawn beside it, and whether the editor or the
+ * destination is on the page. Then:
  *
- *   A  Back in the bar, pressed twice, a quick destination (500ms):
- *      one push, the screen up within a frame or two and opaque until
- *      EXIT_MIN_MS, the destination arriving under it, then a fade, then gone
+ *   A  Back in the bar, pressed twice, a quick destination (500ms): one
+ *      push, sent once the screen has been up EXIT_MIN_MS; the screen over
+ *      the canvas only, opaque from its 220ms entrance until the editor is
+ *      replaced, the bar and the sidebar drawn in every one of those frames;
+ *      never a frame covering the window
  *   B  a slow destination (4.2s): the screen stays until it is there
  *   C  unsaved changes: the question first, no screen and no push; Discard
  *      then leaves the same way
- *   D  the browser's Back with nothing to lose: the same screen, no push
- *   E  a phone, 390 x 844, a tap on Back
+ *   D  the browser's Back with nothing to lose: the browser goes, no screen
+ *      of ours over anything, no push
+ *   E  a phone, 390 x 844, a tap on Back: the screen in the canvas, the bar
+ *      above it
  *
  *   node scripts/check-editor-exit.mjs
  */
@@ -28,7 +36,6 @@ import puppeteer from "puppeteer-core"
 import { CHROMIUM, bundle, css } from "./editor-probe-harness.mjs"
 
 const MIN = 3000
-const FADE = 320
 const js = readFileSync(bundle)
 let navigateMs = 500
 const page = (history) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;window.PROBE_NAVIGATE_MS=${navigateMs};</script>${history ? `<button id="probe-push" aria-hidden="true" tabindex="-1" style="position:fixed;left:0;bottom:0;width:6px;height:6px;opacity:0;z-index:2147483647" onclick="history.pushState(null, '', '/website-builder/editor/probe-install')"></button>` : ""}<script src="/editor-probe.js"></script></body></html>`
@@ -54,29 +61,43 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ONLY = process.env.ONLY ?? "ABCDE"
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 
-/* Every frame from now: the screen, its opacity and cover, and what is under it. */
+/* Every frame from now: the screen, what it covers, and what is beside it. */
 const RECORD = () => {
   window.__frames = []
   const t0 = performance.now()
   window.__t0 = t0
-  /* One recording at a time: a second RECORD stops the first one's loop, whose clock started earlier. */
+  window.__pushAt = null
+  addEventListener("probe:push", () => { if (window.__pushAt === null) window.__pushAt = Math.round(performance.now() - t0) }, { once: true })
   const run = (window.__recording = (window.__recording || 0) + 1)
   const tick = () => {
     if (window.__recording !== run) return
-    const s = document.querySelector("[data-exit-screen]")
+    const s = document.querySelector("[data-exit-canvas]")
     const r = s ? s.getBoundingClientRect() : null
+    const main = s ? s.parentElement.getBoundingClientRect() : null
+    const bar = document.querySelector(".wb-editor header")
+    const sidebar = document.querySelector("[data-wb-sidebar-fold]")
+    /* Anything fixed over the whole window with a light fill: the white sheet this replaced, or one like it. */
+    const sheet = [...document.body.querySelectorAll("body > div, [data-exit-screen]")].some((el) => {
+      const cs = getComputedStyle(el)
+      if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) < 0.05) return false
+      const er = el.getBoundingClientRect()
+      return er.width >= innerWidth && er.height >= innerHeight && /rgb\(25[0-5], 25[0-5], 25[0-5]\)/.test(cs.backgroundColor)
+    })
     window.__frames.push({
       t: Math.round(performance.now() - t0),
       screen: !!s,
-      shownAt: s ? Math.round(Number(s.getAttribute("data-shown-at")) - t0) : null,
       opacity: s ? +parseFloat(getComputedStyle(s).opacity).toFixed(3) : 0,
-      covers: !!r && r.width >= innerWidth && r.height >= innerHeight,
+      inCanvas: !!r && !!main && Math.abs(r.left - main.left) < 1 && Math.abs(r.right - main.right) < 1 && Math.abs(r.top - main.top) < 1 && Math.abs(r.bottom - main.bottom) < 1,
+      coversWindow: !!r && r.width >= innerWidth && r.height >= innerHeight,
+      sheet,
+      bar: !!bar && bar.getBoundingClientRect().height > 30 && !(r && r.top <= bar.getBoundingClientRect().top),
+      sidebar: !!sidebar && sidebar.getBoundingClientRect().width > 100,
       editor: !!document.querySelector(".wb-editor"),
       dest: !!document.getElementById("probe-destination"),
       text: s ? (s.textContent || "").trim() : "",
       bg: s ? getComputedStyle(s).backgroundColor : "",
     })
-    if (performance.now() - t0 < 6500) requestAnimationFrame(tick)
+    if (performance.now() - t0 < 8500) requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
 }
@@ -109,28 +130,29 @@ async function backButton(p) {
   })
 }
 
-/**
- * What the frames say about one exit, every time counted from the moment the
- * screen went up (its data-shown-at), so a busy main thread before that does
- * not eat into the minimum being checked.
- */
-function read(frames, arriveMs) {
-  const base = frames.find((f) => f.shownAt !== null)?.shownAt ?? null
-  const rel = base === null ? [] : frames.map((f) => ({ ...f, t: f.t - base }))
-  const up = rel.find((f) => f.screen && f.opacity >= 0.95)
-  const lastOpaque = [...rel].reverse().find((f) => f.screen && f.opacity >= 0.95)
-  const fading = rel.filter((f) => f.screen && f.opacity > 0.05 && f.opacity < 0.95 && up && f.t > up.t)
-  const gone = rel.find((f) => up && f.t > up.t && !f.screen)
-  const dest = rel.find((f) => f.dest)
-  const holds = up ? rel.filter((f) => f.t >= up.t && f.t <= Math.max(MIN - 60, (arriveMs ?? 0) - 60)) : []
+/** What the frames say about one exit, counted from the first frame the screen is in. */
+function read(frames, pushAt) {
+  const first = frames.find((f) => f.screen)
+  const base = first?.t ?? null
+  const up = frames.find((f) => f.screen && f.opacity >= 0.95)
+  const gone = frames.find((f) => first && f.t > first.t && !f.editor)
+  const dest = frames.find((f) => f.dest)
+  const withScreen = frames.filter((f) => f.screen)
+  const opaque = up ? frames.filter((f) => f.t >= up.t && f.editor) : []
   return {
-    shownAt: base,
+    firstAt: base,
     upAt: up?.t ?? null,
-    lastOpaqueAt: lastOpaque?.t ?? null,
-    fadeFrames: fading.length,
-    goneAt: gone?.t ?? null,
+    pushAt,
+    editorGoneAt: gone?.t ?? null,
     destAt: dest?.t ?? null,
-    heldEveryFrame: holds.length > 0 && holds.every((f) => f.screen && f.opacity >= 0.95 && f.covers),
+    /* From fully in until the editor is replaced, every frame. */
+    heldEveryFrame: opaque.length > 0 && opaque.every((f) => f.screen && f.opacity >= 0.95),
+    inCanvasEveryFrame: withScreen.length > 0 && withScreen.every((f) => f.inCanvas && !f.coversWindow),
+    chromeEveryFrame: withScreen.length > 0 && withScreen.every((f) => f.bar),
+    sidebarEveryFrame: withScreen.length > 0 && withScreen.every((f) => f.sidebar),
+    sheetFrames: frames.filter((f) => f.sheet).length,
+    /* Between the editor and the page behind: a frame with neither. */
+    emptyFrames: frames.filter((f) => !f.editor && !f.dest).length,
     text: up?.text ?? "",
     bg: up?.bg ?? "",
   }
@@ -150,18 +172,18 @@ try {
     await sleep(5000)
     const frames = await p.evaluate(() => window.__frames)
     const pushes = await p.evaluate(() => window.probePushes || [])
-    const r = read(frames, 500)
-    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, ${r.fadeFrames} fade frames, gone at ${r.goneAt}ms`)
+    const r = read(frames, await p.evaluate(() => window.__pushAt))
+    console.log(`    in the canvas at ${r.firstAt}ms, opaque at ${r.upAt}ms, push at ${r.pushAt}ms, editor replaced at ${r.editorGoneAt}ms, destination at ${r.destAt}ms`)
     expect(pushes.length === 1 && pushes[0] === "/app/website-builder", "one navigation for two presses", pushes)
-    const seen = frames.find((f) => f.screen)
-    expect(!!seen && seen.t <= 120, "the screen is on the glass in the first frames after the press", seen && seen.t)
+    expect(r.firstAt !== null && r.firstAt <= 120, "the screen is in the canvas in the first frames after the press", r.firstAt)
     expect(r.upAt !== null && r.upAt <= 400, "and opaque once its 220ms entrance has run", r.upAt)
     expect(r.text === "Going back" && r.bg === "rgb(255, 255, 255)", "it says Going back, on white like the canvas loader", { text: r.text, bg: r.bg })
-    expect(r.destAt !== null && r.destAt < MIN, "the next page arrives under it", r.destAt)
-    expect(r.heldEveryFrame, `opaque and covering the window in every frame until ${MIN}ms`)
-    expect(r.lastOpaqueAt !== null && r.lastOpaqueAt >= MIN - 40, `still opaque at ${MIN}ms (the owner's minimum)`, r.lastOpaqueAt)
-    expect(r.fadeFrames >= 3, "then it fades rather than cuts", r.fadeFrames)
-    expect(r.goneAt !== null && r.goneAt <= MIN + FADE + 250, "and is gone once the fade is over", r.goneAt)
+    expect(r.inCanvasEveryFrame, "it covers the canvas and nothing else, in every frame: never the window")
+    expect(r.chromeEveryFrame && r.sidebarEveryFrame, "the bar and the sidebar are drawn beside it in every frame")
+    expect(r.sheetFrames === 0, "no white sheet over the whole window, in any frame", r.sheetFrames)
+    expect(r.pushAt !== null && r.pushAt >= MIN - 20, `the push goes once it has been up ${MIN}ms (the owner's minimum)`, r.pushAt)
+    expect(r.heldEveryFrame, "opaque in every frame until the editor is replaced")
+    expect(r.destAt !== null && r.editorGoneAt !== null && r.emptyFrames === 0, "and the page behind replaces the editor in one frame, nothing between", { gone: r.editorGoneAt, dest: r.destAt, empty: r.emptyFrames })
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }
@@ -173,12 +195,12 @@ try {
     const at = await backButton(p)
     await p.evaluate(RECORD)
     await p.mouse.click(at.x, at.y)
-    await sleep(6000)
+    await sleep(8000)
     const frames = await p.evaluate(() => window.__frames)
-    const r = read(frames, 4200)
-    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque frame ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
-    expect(r.heldEveryFrame, "opaque in every frame until the page is there")
-    expect(r.goneAt !== null && r.destAt !== null && r.goneAt > r.destAt, "and it goes after the page has arrived, never before", { dest: r.destAt, gone: r.goneAt })
+    const r = read(frames, await p.evaluate(() => window.__pushAt))
+    console.log(`    opaque at ${r.upAt}ms, push at ${r.pushAt}ms, destination at ${r.destAt}ms`)
+    expect(r.heldEveryFrame && r.inCanvasEveryFrame, "in the canvas and opaque in every frame until the page is there")
+    expect(r.destAt !== null && r.pushAt !== null && r.destAt >= r.pushAt + 4000, "the page arrives after its own wait, the screen up all the while", r)
     await p.close()
   }
 
@@ -206,12 +228,11 @@ try {
     const typed = await p.evaluate(() => [...document.querySelectorAll("[data-wb-sidebar-scroll] input, [data-wb-sidebar-scroll] textarea")].some((x) => / now$/.test(x.value || "")))
     expect(typed, "the word is in the field")
     const at = await backButton(p)
-    await p.evaluate(RECORD)
     await p.mouse.click(at.x, at.y)
     await sleep(700)
     const asked = await p.evaluate(() => ({
       dialog: [...document.querySelectorAll("h2, h3, p, div")].some((e) => /^(Save changes before leaving\?|Leave without saving\?)$/.test((e.textContent || "").trim())),
-      screen: !!document.querySelector("[data-exit-screen]"),
+      screen: !!document.querySelector("[data-exit-canvas]"),
       pushes: (window.probePushes || []).length,
     }))
     expect(asked.dialog && !asked.screen && asked.pushes === 0, "the leave question shows, with no screen and no navigation yet", asked)
@@ -225,13 +246,13 @@ try {
     if (discard) {
       await p.evaluate(RECORD)
       await p.mouse.click(discard.x, discard.y)
-      await sleep(4200)
+      await sleep(4600)
       const frames = await p.evaluate(() => window.__frames)
       const pushes = await p.evaluate(() => window.probePushes || [])
-      const r = read(frames, 500)
-      console.log(`    after Discard: up at ${r.upAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+      const r = read(frames, await p.evaluate(() => window.__pushAt))
+      console.log(`    after Discard: up at ${r.upAt}ms, push at ${r.pushAt}ms, editor replaced at ${r.editorGoneAt}ms`)
       expect(pushes.length === 1, "Discard leaves, once", pushes)
-      expect(r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40, "through the same screen, for the same minimum", r.lastOpaqueAt)
+      expect(r.heldEveryFrame && r.inCanvasEveryFrame && r.pushAt >= MIN - 20, "through the same screen in the canvas, for the same minimum", r)
     }
     await p.close()
   }
@@ -242,18 +263,16 @@ try {
     const { p } = await open({ width: 1280, height: 900 }, { navigateMs: 400, history: true })
     const where = await p.evaluate(() => location.pathname)
     expect(where === "/website-builder/editor/probe-install", "the editor is on top of /app/website-builder in the history", where)
-    await p.evaluate(() => { window.__pops = []; addEventListener("popstate", () => window.__pops.push(location.pathname)) })
     await p.evaluate(RECORD)
     await p.evaluate(() => history.back())
-    await sleep(4300)
+    await sleep(1500)
     const frames = await p.evaluate(() => window.__frames)
     const pushes = await p.evaluate(() => window.probePushes || [])
-    const r = read(frames, 400)
-    console.log(`    popstate: ${JSON.stringify(await p.evaluate(() => window.__pops))}, now at ${await p.evaluate(() => location.pathname)}`)
-    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+    const r = read(frames, null)
+    console.log(`    now at ${await p.evaluate(() => location.pathname)}, destination at ${r.destAt}ms`)
     expect(pushes.length === 0, "the browser did the navigating: no push of our own on top", pushes)
-    expect(r.upAt !== null && r.upAt <= 400 && r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40, "the same screen, for the same minimum", r)
-    expect(r.goneAt !== null, "and it goes", r.goneAt)
+    expect(r.firstAt === null && r.sheetFrames === 0, "and nothing of ours is laid over the page, in any frame", { screen: r.firstAt, sheet: r.sheetFrames })
+    expect(r.destAt !== null && r.emptyFrames === 0, "the page behind replaces the editor in one frame", { dest: r.destAt, empty: r.emptyFrames })
     await p.close()
   }
 
@@ -268,10 +287,11 @@ try {
     await sleep(4300)
     const frames = await p.evaluate(() => window.__frames)
     const pushes = await p.evaluate(() => window.probePushes || [])
-    const r = read(frames, 600)
-    console.log(`    (from the screen going up, ${r.shownAt}ms after the press) opaque at ${r.upAt}ms, destination at ${r.destAt}ms, last opaque ${r.lastOpaqueAt}ms, gone at ${r.goneAt}ms`)
+    const r = read(frames, await p.evaluate(() => window.__pushAt))
+    console.log(`    in the canvas at ${r.firstAt}ms, opaque at ${r.upAt}ms, push at ${r.pushAt}ms, editor replaced at ${r.editorGoneAt}ms`)
     expect(pushes.length === 1, "one navigation", pushes)
-    expect(r.heldEveryFrame && r.lastOpaqueAt >= MIN - 40 && r.goneAt !== null, "covered for the minimum, then gone", r)
+    expect(r.heldEveryFrame && r.inCanvasEveryFrame && r.chromeEveryFrame, "in the canvas under the bar for the minimum, then the page behind", r)
+    expect(r.sheetFrames === 0 && r.emptyFrames === 0, "no white sheet over the window, no empty frame", { sheet: r.sheetFrames, empty: r.emptyFrames })
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }

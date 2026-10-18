@@ -9,14 +9,15 @@
  * this holds the pure parts and the shape of the code:
  *
  *   EXIT      the hold's timing on a fake clock (EXIT_MIN_MS is 3000), one
- *             exit per press, the leave question asked before any of it
+ *             exit per press, the leave question asked before any of it,
+ *             the screen in the canvas rather than over the window (Y1)
  *   KEYS      a memo keyed by what it reads, not by the whole page
  *   WARM-UP   the section library's previews measured in batches
  *
  * Run with:  npx tsx tests/editor-perf-v.test.ts
  */
 import { readCode, readSource } from "./_source"
-import { EXIT_FADE_MS, EXIT_MIN_MS, createExitHold, exitRevealIn } from "@/lib/website-builder/exit-hold"
+import { EXIT_FADE_IN_MS, EXIT_MIN_MS, createExitHold, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { dynamicContext, withDynamicSources } from "@/lib/website-builder/storefront-data"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -70,84 +71,69 @@ function holdWithLog() {
   const clock = fakeClock()
   const log: string[] = []
   const hold = createExitHold({
-    now: clock.now,
     after: clock.after,
     clear: clock.clear,
     show: () => log.push(`show@${clock.now()}`),
-    fade: () => log.push(`fade@${clock.now()}`),
-    remove: () => log.push(`remove@${clock.now()}`),
+    go: () => log.push(`go@${clock.now()}`),
   })
   return { clock, log, hold }
 }
 
-console.log("\nEXIT: at least three seconds of Going back")
+console.log("\nEXIT: at least three seconds of Going back, in the canvas")
 {
   check("the minimum is the owner's three seconds", EXIT_MIN_MS === 3000)
-  check("and the fade matches the stylesheet's", EXIT_FADE_MS === 320 && /\.wb-exit-screen \{[\s\S]*?transition: opacity 320ms/.test(readSource("app/globals.css")))
-  check("time left is counted from the press", exitRevealIn(1000, 1500) === 2500 && exitRevealIn(1000, 4500) === 0 && exitRevealIn(0, 0, 3000) === 3000)
+  check("and the entrance matches the stylesheet's", EXIT_FADE_IN_MS === 220 && /\.wb-exit-canvas \{\s*animation: wb-exit-in 220ms/.test(readSource("app/globals.css")))
+  check("the editor gives up on a way out after the minimum, the ceiling and two seconds", exitWatchdogMs(8000) === 13_000 && exitWatchdogMs(8000, 1000) === 11_000)
 
   {
     const { clock, log, hold } = holdWithLog()
     check("the press puts it up", hold.start() === true && log[0] === "show@0" && hold.phase() === "holding")
     check("a second press while it is up is the same exit", hold.start() === false && log.length === 1)
-    clock.advance(500)
-    hold.arrived()
-    clock.advance(2400)
-    check("a quick page arriving at 500ms leaves it up until 3000ms", log.length === 1 && hold.phase() === "holding", log)
-    clock.advance(100)
-    check("at 3000ms it starts to fade", log[1] === "fade@3000" && hold.phase() === "fading", log)
-    clock.advance(EXIT_FADE_MS)
-    check("and is taken away once the fade is over", log[2] === `remove@${3000 + EXIT_FADE_MS}` && hold.phase() === "done" && clock.pending() === 0, log)
-    check("a second arrival does nothing", (hold.arrived(), log.length === 3))
-  }
-  {
-    const { clock, log, hold } = holdWithLog()
-    hold.start()
-    clock.advance(4200)
-    check("a slow page: nothing moves before it is there", log.length === 1 && hold.phase() === "holding")
-    hold.arrived()
-    clock.advance(0)
-    check("and once it is, the fade starts at once (the minimum is long over)", log[1] === "fade@4200", log)
+    clock.advance(2999)
+    check("nothing is pushed before 3000ms", log.length === 1 && hold.phase() === "holding", log)
+    clock.advance(1)
+    check("at 3000ms it navigates, once", log[1] === "go@3000" && hold.phase() === "gone" && clock.pending() === 0, log)
+    check("and a press after that is still the same exit", hold.start() === false && log.length === 2)
   }
   {
     const { clock, log, hold } = holdWithLog()
     hold.start()
     clock.advance(800)
     hold.cancel()
-    check("an exit that did not happen takes the screen away at once", log[1] === "remove@800" && hold.phase() === "done" && clock.pending() === 0, log)
-    check("and the next press puts it up again", hold.start() === true && log[2] === "show@800")
-    hold.arrived()
-    hold.cancel()
-    check("a cancel during the hold stops the reveal timer too", clock.pending() === 0 && hold.phase() === "done")
+    clock.advance(5000)
+    check("an exit that did not happen never navigates", log.length === 1 && hold.phase() === "idle" && clock.pending() === 0, log)
+    check("and the next press puts it up again", hold.start() === true && log[1] === "show@5800")
   }
   {
     const { log, hold } = holdWithLog()
-    hold.arrived()
     hold.cancel()
-    check("arrived or cancel with nothing up does nothing", log.length === 0 && hold.phase() === "idle")
+    check("cancel with nothing up does nothing", log.length === 0 && hold.phase() === "idle")
   }
 
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
   const leaveFor = editor.slice(editor.indexOf("const leaveFor = useCallback("), editor.indexOf("}, [router])", editor.indexOf("const leaveFor = useCallback(")))
-  check("one push per exit: leaveFor stands down once its push has gone, before the screen or the push",
-    /if \(exitPushed\.current\) return\s*\n\s*exitPushed\.current = true\s*\n\s*exitScreen\.start\(\)/.test(leaveFor) && leaveFor.indexOf("exitPushed.current = true") < leaveFor.indexOf("router.push(href)"))
-  check("the push still goes on the press, so the page behind loads while the screen is up", /\}, LEAVING_SEEN_MS\)/.test(leaveFor))
+  check("one push per exit: leaveFor stands down once its exit has started",
+    /if \(exitPushed\.current\) return\s*\n\s*exitPushed\.current = true/.test(leaveFor) && leaveFor.indexOf("exitPushed.current = true") < leaveFor.indexOf("router.push(href)"))
+  check("the screen goes up on the press, and the push once it has been up EXIT_MIN_MS", /setLeaving\(true\)/.test(leaveFor) && /\}, EXIT_MIN_MS\)/.test(leaveFor) && leaveFor.indexOf("setLeaving(true)") < leaveFor.indexOf("router.push(href)"))
+  check("the way out is warmed on the press", /router\.prefetch\(href\)/.test(leaveFor))
   const requestExit = editor.slice(editor.indexOf("const requestExit = useCallback("), editor.indexOf("const requestExit = useCallback(") + 400)
   check("the leave question comes first: with something to lose, requestExit asks and does not leave",
     /if \(hasSomethingToLose\(\{ draft: isDirty, code: codeDirty, busy: saving \|\| publishing \}\)\) \{\s*\n\s*setPendingExit\(href\)\s*\n\s*return\s*\n\s*\}\s*\n\s*leaveFor\(href\)/.test(requestExit))
   check("the bar's Back goes through requestExit", /onClick=\{\(\) => requestExit\("\/app\/website-builder"\)\}/.test(editor))
   check("Discard and Save in the question leave through leaveFor or goBackForReal", /if \(href === BACK_EXIT\) goBackForReal\(\)\s*\n\s*else if \(href\) \{\s*\n\s*leaveAnswered\.current = true\s*\n\s*leaveFor\(href\)/.test(editor))
-  check("the browser's Back through the guard puts the screen up before going back", /exitScreen\.start\(\)\s*\n\s*backThen\(\(\) => leaveFor\("\/app\/website-builder"\)\)/.test(editor))
-  check("a plain browser Back out of the builder puts it up too, and only out of /website-builder/",
-    /if \(!guardArmed\.current && !goingBack\.current && !leavingRef\.current && !window\.location\.pathname\.startsWith\("\/website-builder\/"\)\) \{\s*\n\s*exitScreen\.start\(\)/.test(editor))
-  check("the editor going away is the arrival", /useEffect\(\(\) => \(\) => \{\s*\n\s*cancelCeiling\.current\?\.\(\)\s*\n\s*exitScreen\.arrived\(\)/.test(editor))
-  check("a revived editor takes the screen down and may leave again", /exitPushed\.current = false\s*\n\s*exitScreen\.cancel\(\)/.test(editor))
-  check("the old glass inside the editor is gone (it went with the editor, in a cut)", !/className="wb-leaving"/.test(editor) && !/createPortal/.test(editor))
-  const screen = readCode("components/website-builder/exit-screen.tsx")
-  check("the screen is its own root on <body>, so it outlives the editor", /document\.body\.appendChild\(node\)/.test(screen) && /root = createRoot\(node\)/.test(screen))
-  check("it is the entry loader's look: the squares and one line, light", /<BuilderLoader tone="light" lines=\{\[(tt\()?"Going back"\)?\]\} \/>/.test(screen) && /\.wb-exit-screen \{[\s\S]*?background: #ffffff;/.test(readSource("app/globals.css")))
-  check("a page brought back from the back/forward cache takes it down", /if \(e\.persisted\) get\(\)\?\.cancel\(\)/.test(screen))
-  check("EXIT_MIN_MS is defined once, and named as the owner's choice", /\/\*\* The owner's choice of how long the "Going back" screen stays up at the least\. \*\/\s*\nexport const EXIT_MIN_MS = 3000/.test(readSource("lib/website-builder/exit-hold.ts")) && !/EXIT_MIN_MS =/.test(editor) && !/EXIT_MIN_MS =/.test(screen))
+  check("the browser's Back through the guard leaves through leaveFor once it has stepped off the guard", /backThen\(\(\) => leaveFor\("\/app\/website-builder"\)\)/.test(editor))
+  check("a plain browser Back out of the builder lays nothing over the page that arrives",
+    /if \(!guardArmed\.current && !goingBack\.current && !leavingRef\.current && !window\.location\.pathname\.startsWith\("\/website-builder\/"\)\) return/.test(editor))
+  check("the editor going away cancels the hard load", /useEffect\(\(\) => \(\) => \{\s*\n\s*cancelCeiling\.current\?\.\(\)\s*\n\s*\}, \[\]\)/.test(editor))
+  check("a revived editor takes the screen down, drops the waiting push and may leave again", /exitPushed\.current = false\s*\n\s*cancelCeiling\.current\?\.\(\)/.test(editor))
+  check("the old glass and the white sheet on <body> are gone", !/className="wb-leaving"/.test(editor) && !/createPortal/.test(editor) && !/exitScreen/.test(editor) && !/\.wb-exit-screen/.test(readSource("app/globals.css")))
+  check("the screen is in the canvas: inside the canvas's <main>, over it and nothing else",
+    (() => {
+      const main = editor.slice(editor.indexOf("ref={canvasMainRef}"), editor.indexOf("</main>", editor.indexOf("ref={canvasMainRef}")))
+      return /\{leaving && \(\s*\n\s*<div\s*\n\s*className="wb-exit-canvas absolute inset-0 z-\[60\] flex items-center justify-center bg-white"/.test(main)
+    })())
+  check("it is the entry loader's look: the squares and one line, light", /<BuilderLoader className="wb-loading-line" tone="light" lines=\{\["Going back"\]\} \/>/.test(editor))
+  check("EXIT_MIN_MS is defined once, and named as the owner's choice", /\/\*\* The owner's choice of how long the "Going back" screen stays up at the least\. \*\/\s*\nexport const EXIT_MIN_MS = 3000/.test(readSource("lib/website-builder/exit-hold.ts")) && !/EXIT_MIN_MS =/.test(editor))
 }
 
 console.log("\nKEYS: a memo keyed by what it reads")
@@ -201,7 +187,7 @@ console.log("\nWARM-UP: the library's previews measured in batches")
 
 console.log("\nCOPY")
 {
-  const files = ["lib/website-builder/exit-hold.ts", "lib/website-builder/editor-perf.ts", "components/website-builder/exit-screen.tsx", "scripts/check-editor-perf.mjs", "scripts/check-editor-exit.mjs"]
+  const files = ["lib/website-builder/exit-hold.ts", "lib/website-builder/editor-perf.ts", "scripts/check-editor-perf.mjs", "scripts/check-editor-exit.mjs", "scripts/check-sidebar-fields.mjs", "scripts/render-sidebar-fields-probe.tsx"]
   /* The words are spelled out in pieces so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form(?!:)"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
   const bad = files.filter((f) => banned.test(readSource(f)))

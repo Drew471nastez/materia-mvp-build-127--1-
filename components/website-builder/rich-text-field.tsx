@@ -67,7 +67,7 @@ const BLOCKS = [
  */
 const VALUE_IN_TEXT = /\{\{\s*([a-zA-Z_][\w.]*(?:\s*\|\s*[\w]+(?::[^}]*)?)*)\s*\}\}/g
 const CHIP = /<span[^>]*\bdata-value="([^"]*)"[^>]*>[\s\S]*?<\/span>/g
-const CHIP_STYLE = "display:inline-flex;align-items:center;padding:0 7px;margin:0 1px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:0.86em;font-weight:500;line-height:1.6;white-space:nowrap;user-select:all;vertical-align:baseline"
+const CHIP_STYLE = "display:inline-flex;align-items:center;padding:0 7px;margin:0 1px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:0.86em;font-weight:500;line-height:1.6;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;user-select:all;vertical-align:baseline"
 
 /** What a value is called on its chip: its last two names, read as words. */
 function valueLabel(expr: string): string {
@@ -383,7 +383,11 @@ export function RichTextField({
           so the toolbar says what a press will undo. */}
       <ScrollRow
         wrapClassName={cn("border-b border-border", page ? "bg-background" : "bg-muted/30")}
-        className={cn("gap-px px-1.5 py-1 [--row-fade:36px]", page && "max-sm:px-1 max-sm:py-0.5")}
+        className={cn(
+          "gap-px px-1.5 py-1 [--row-fade:36px]",
+          /* In the sidebar the row wraps onto a second line rather than scrolling: seven controls, and none of them should be a swipe away in a 240px panel. */
+          page ? "max-sm:px-1 max-sm:py-0.5" : "flex-wrap",
+        )}
         arrowClassName={page ? "w-11 md:w-8" : "w-10 sm:w-8"}
       >
         {page ? (
@@ -490,7 +494,8 @@ export function RichTextField({
           onKeyDown={onKeyDown}
           onFocus={readActive}
           className={cn(
-            "wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm max-sm:text-[16px] outline-none",
+            /* A long web address or an unbroken word wraps where it has to, so the field never scrolls sideways. */
+            "wb-richtext wb-slim-scroll min-w-0 overflow-y-auto overflow-x-hidden [overflow-wrap:anywhere] px-3 py-2.5 text-sm max-sm:text-[16px] outline-none",
             /* No ceiling on a page: the field grows and the page scrolls, so !max-h-none outranks the sidebar's inline one. */
             page && "!max-h-none px-4 py-3 text-[15px] leading-[1.6] max-sm:text-[16px]",
           )}
