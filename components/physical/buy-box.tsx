@@ -25,6 +25,7 @@ import { useSiteCart } from "@/components/website-builder/site-cart"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { announceVariantPhoto, galleryFollowsVariants } from "@/lib/physical/variant-photo"
@@ -205,6 +206,8 @@ export function PhysicalBuyBox({
 
   const addToCart = () => {
     if (!canBuy) return
+    /* Added to cart, for Analytics (once per page here, once per visit on the server). */
+    void trackFunnelStep("buy_click", data.product.creatorId, data.product.id)
     putInCart([line()])
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2400)
@@ -212,6 +215,7 @@ export function PhysicalBuyBox({
 
   const buyNow = () => {
     if (!canBuy) return
+    void trackFunnelStep("buy_click", data.product.creatorId, data.product.id)
     window.location.href = physicalCheckoutHref(data.product.creatorId, [{ productId: data.product.id, variantId: variant!.id, quantity }], window.location.href)
   }
 

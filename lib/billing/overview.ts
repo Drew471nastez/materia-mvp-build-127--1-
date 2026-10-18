@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
+import { readPlanOverride, recordPaidPlan } from "@/lib/billing/plan-override"
 
 const FREE_PLAN = {
   id: "free",
@@ -90,6 +91,8 @@ export interface BillingOverview {
   currentPlan: unknown
   invoices: unknown[]
   paymentMethod: unknown
+  /** A plan set from /admin over what they pay for, or null. */
+  override?: string | null
 }
 
 /** Null when there is nobody signed in, or no creator to bill. */
@@ -292,6 +295,8 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
         } catch (syncError) {
           console.error("[Billing] Error syncing subscription to DB:", syncError)
         }
+        /* An admin's plan over this one keeps it as the plan clearing returns to (lib/billing/plan-override.ts). */
+        await recordPaidPlan(createAdminClient(), creator.id, livePlanId, preferredSubscription.status)
       }
 
       // If no active subscription found, check for a recently canceled one so the UI can show the notice
@@ -366,6 +371,7 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
     // Step 5: If no subscription found, sync free plan to DB
     if (!subscription) {
       currentPlan = FREE_PLAN
+      await recordPaidPlan(createAdminClient(), creator.id, "free", "active")
       try {
         await createAdminClient()
           .from("creators")
@@ -378,5 +384,16 @@ export async function loadBillingOverview(): Promise<BillingOverview | null> {
   }
 
 
-  return { plans, subscription, currentPlan, invoices, paymentMethod }
+  /*
+    A PLAN SET FROM /admin IS THE PLAN. Every check reads it from the
+    creator's columns already; this page asks Stripe instead, so it asks for
+    the override too and shows the same plan. The subscription, card and
+    invoices stay Stripe's, untouched.
+  */
+  const override = await readPlanOverride(createAdminClient(), creator.id)
+  if (override) {
+    currentPlan = (plans as { id?: string }[]).find((p) => p?.id === override.planId) ?? FALLBACK_PLANS.find((p) => p.id === override.planId) ?? currentPlan
+  }
+
+  return { plans, subscription, currentPlan, invoices, paymentMethod, override: override?.planId ?? null }
 }

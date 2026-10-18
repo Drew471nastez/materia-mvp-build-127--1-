@@ -26,12 +26,9 @@
  * question opens, so a pick finds its page already here. Nothing about a
  * pick is remembered for next time.
  *
- * NO MEMBERSHIP. Memberships are communities now: while communities are
- * switched on the last answer is Paid community, which opens the
- * community's own setup (/app/community/new). The switch is read when the
- * button's page draws (useCommunitiesEnabled), not when the question opens,
- * so the row is there on the first frame rather than arriving a moment
- * later. Off, the question has no such row at all.
+ * NO MEMBERSHIP, NO PAID COMMUNITY. Memberships are communities now, and a
+ * community is made from the Community page, so neither is an answer here
+ * (./product-kinds.ts).
  *
  * THE KEYBOARD. The dialog puts the focus on the first answer; up and down
  * (and Home, End) move between them, Enter or Space picks, Escape closes,
@@ -50,7 +47,6 @@ import { hapticTap } from "@/lib/native-bridge"
 import { openEditor, returnToProducts } from "../list-return"
 import { NEW_PRODUCT_HREF, editorHref, kindHref, kindOptions, type ProductKind } from "./product-kinds"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { tt, msg } from "@/lib/i18n/text"
 
 type Router = ReturnType<typeof useRouter>
@@ -123,19 +119,12 @@ function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
   items[next].focus()
 }
 
-export function KindList({
-  communities,
-  onChoose,
-}: {
-  /** Whether communities are switched on: Paid community is offered only then. */
-  communities: boolean
-  onChoose: (kind: ProductKind) => void
-}) {
+export function KindList({ onChoose }: { onChoose: (kind: ProductKind) => void }) {
   const physical = usePhysicalCommerceEnabled()
   return (
     <div onKeyDown={moveFocus} data-kind-list="">
       <ul className="space-y-0.5">
-        {kindOptions(physical, communities).map((o) => (
+        {kindOptions(physical).map((o) => (
           <li key={o.kind}>
             <button
               type="button"
@@ -171,8 +160,6 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
   const router = useRouter()
   const [isOpen, setOpen] = React.useState(false)
   const [phone, setPhone] = React.useState(false)
-  /* Read with the page, so the answers are complete when the question opens. */
-  const communities = useCommunitiesEnabled()
   const body = React.useRef<HTMLDivElement>(null)
   /* The control that opened it: the focus goes back there when the dialog closes (the sheet does this itself). */
   const opener = React.useRef<HTMLElement | null>(null)
@@ -237,7 +224,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
             <X className="h-4 w-4" />
           </button>
         </div>
-        <KindList communities={communities} onChoose={choose} />
+        <KindList onChoose={choose} />
       </div>
     </SheetDialog>
   )
@@ -256,10 +243,8 @@ export function asksInPlace(e: React.MouseEvent): boolean {
 
 /* ── As a page: /app/products/new with no kind ─────────────────────────── */
 
-export function NewProductKindPage({ communities: communitiesOn }: { communities?: boolean } = {}) {
+export function NewProductKindPage() {
   const router = useRouter()
-  /* The server page reads the switch and hands it over; without it, the shared request answers. */
-  const communities = useCommunitiesEnabled(communitiesOn)
   React.useEffect(() => {
     warmKinds(router)
     /* The first answer takes the focus on a computer, as in the dialog; a phone would scroll to show a ring nobody asked for. */
@@ -282,7 +267,7 @@ export function NewProductKindPage({ communities: communitiesOn }: { communities
         </button>
       </div>
       <div className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <KindList communities={communities} onChoose={choose} />
+        <KindList onChoose={choose} />
       </div>
     </div>
   )

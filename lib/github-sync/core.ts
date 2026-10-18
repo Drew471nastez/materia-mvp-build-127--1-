@@ -242,7 +242,106 @@ export function pushedBy(payload: PushPayload): string {
  * and most others read AGENTS.md; CLAUDE.md imports AGENTS.md so there is
  * one text to keep right.
  */
-export function agentsGuide(opts: { siteName: string; branch: string; root: string; kind?: "storelib" | "shopify" }): string {
+/** One file of the theme shown whole (or abridged) in AGENTS.md as the example of its folder. */
+export interface FolderExample {
+  folder: "sections" | "blocks" | "snippets" | "layout" | "templates"
+  path: string
+  text: string
+  abridged?: boolean
+}
+
+/** A page file's shape, fixed: a site's own pages change with every edit, and AGENTS.md would change with them. */
+const PAGE_EXAMPLE = `{
+  "sections": {
+    "main": { "type": "<type>", "settings": { "heading": "About us" } },
+    "logos": {
+      "type": "<another type>",
+      "settings": {},
+      "blocks": { "logo-1": { "type": "logo", "settings": {} } },
+      "block_order": ["logo-1"]
+    }
+  },
+  "order": ["main", "logos"]
+}`
+
+/**
+ * EACH FOLDER'S FORMAT, EXACTLY, WITH ONE OF THE THEME'S OWN FILES AS THE
+ * EXAMPLE. An agent that copies a real file of this theme gets the first line,
+ * the schema's place and its keys right the first time; one that writes from
+ * memory writes whatever format it saw last. The examples are chosen and
+ * abridged by the caller (lib/github-sync/format.ts folderExamples), which
+ * reads the theme; this only lays them out.
+ */
+export function formatGuide(opts: { imported: boolean; examples?: FolderExample[] }): string {
+  const ex = (folder: FolderExample["folder"]) => (opts.examples ?? []).find((e) => e.folder === folder)
+  const block = (e: FolderExample | undefined, lang: string) =>
+    e ? `\n\`${e.path}\`${e.abridged ? ", shortened where it says so" : ""}:\n\n\`\`\`${lang}\n${e.text.replace(/```/g, "``​`").trimEnd()}\n\`\`\`\n` : ""
+  const rows = opts.imported
+    ? [
+        `### sections/<type>.storelib
+
+Line 1 is exactly \`<template compat="shopify">\`. Then the section's markup in
+the theme's own template language, then a line that is only \`</template>\`.
+Then \`<schema>\`, one JSON object, \`</schema>\`. Inside it, the
+\`"shopify"\` object is the theme's own schema (\`name\`, \`settings\`,
+\`blocks\`, \`presets\`); the rest is the builder's panel, made again from
+\`"shopify"\` on every push, so write only \`"shopify"\`. A Storelib section
+(\`<template>\`, \`<style scoped>\`, \`<schema>\`, see below) is also drawn
+in this theme and is kept in that format.
+${block(ex("sections"), "html")}`,
+        `### blocks/<type>.storelib
+
+The same as a section: line 1 \`<template compat="shopify">\`, the markup,
+\`</template>\`, then \`<schema>\` with the block's settings under
+\`"shopify"\`. A block is always in the theme's format.
+${block(ex("blocks"), "html")}`,
+        `### snippets/<name>.storelib, layout/<name>.storelib
+
+Line 1 \`<template compat="shopify">\`, the markup, \`</template>\`. No schema.
+${block(ex("snippets"), "html")}`,
+      ]
+    : [
+        `### sections/<type>.storelib
+
+\`<template>\` with the markup, \`<style scoped>\` with its CSS, \`<schema>\`
+with one JSON object (\`name\`, \`settings\`, \`blocks\`, \`presets\`), and
+an optional \`<script>\`. Nothing before \`<template>\`.
+${block(ex("sections"), "html")}`,
+        `### blocks/<type>.storelib
+
+A theme block, the same parts as a section; its type starts with \`_\` when
+only sections that name it may hold it.
+${block(ex("blocks"), "html")}`,
+      ]
+  return `## The format of each folder
+
+Copy the first line and the layout of a file in the same folder. Storelib
+checks every file a push brings in, and refuses one it cannot read, naming the
+line.
+
+${rows.join("\n")}
+### templates/<page>.json, sections/header-group.json, sections/footer-group.json
+
+One JSON object: \`"sections"\`, each section by its id with \`"type"\`,
+\`"settings"\`, and \`"blocks"\` with \`"block_order"\` when it has blocks;
+and \`"order"\`, the ids in order. Every \`"type"\` must be a
+\`sections/<type>.storelib\` in this theme, added in the same push if new.
+${block(ex("templates") ?? { folder: "templates", path: "templates/about.json", text: PAGE_EXAMPLE }, "json")}
+### config/settings.json
+
+One JSON object of the theme settings' values.${opts.imported ? " The imported theme's own values are under `\"shopify\"`; keep that key." : ""}
+
+### What a push is checked for
+
+- A file name is lowercase letters, digits, \`_\` and \`-\`, ending in \`.storelib\` or \`.json\`. Other files, and anything outside these folders, are not read.
+- JSON reads, with no trailing commas or comments.
+- ${opts.imported ? "The markup parses in the theme's template language, every tag closed." : "The section compiles: every name the template or CSS reads is in the schema."}
+- Every setting id is unique in its schema, and an existing id is kept, because the creator's content is stored under it.
+- A page names only sections the theme has.
+${opts.imported ? "- A section pushed without its first line, as the theme's original file with a `{% schema %}` tag, is converted by Storelib into this format and the commit comment says so. Write it in this format to begin with.\n" : ""}`
+}
+
+export function agentsGuide(opts: { siteName: string; branch: string; root: string; kind?: "storelib" | "shopify"; examples?: FolderExample[] }): string {
   const where = opts.root ? `\`${opts.root}\`` : "this repository"
   const shopify = opts.kind === "shopify"
   return `# ${opts.siteName} on Storelib
@@ -291,8 +390,8 @@ under it.
 
 ## Theme settings
 
-The theme settings, the ones the whole site uses, work the way a Shopify
-theme's do. \`config/settings_schema.json\` says what they are: a list of
+The theme settings are the ones the whole site uses.
+\`config/settings_schema.json\` says what they are: a list of
 groups, \`{ "name": "Layout", "settings": [ { "type": "range", "id":
 "page_width", "label": "Max page width", "min": 900, "max": 1800, "step": 20,
 "unit": "px", "default": 1280 } ] }\`. Reorder groups and settings, add a
@@ -301,11 +400,12 @@ and the builder's Theme settings follow when the push comes in. Storelib's
 own settings keep their id, type and group (the theme's stylesheet reads
 them); one you leave out of the file is still there, after the ones you list.
 A section reads a setting you add as \`theme.settings.<id>\`. The values are
-in \`config/settings.json\`; a \`config/settings_data.json\` in Shopify's
-shape, \`{ "current": { ... } }\`, is taken the same way, and what it leaves
+in \`config/settings.json\`; a \`config/settings_data.json\` shaped
+\`{ "current": { ... } }\` is taken the same way, and what it leaves
 out stays as it is. A file that does not read is refused with its line. A
 change to a \`sections/<type>.json\` is refused and the commit says so.`}
 
+${formatGuide({ imported: shopify, examples: opts.examples })}
 README.md, AGENTS.md, CLAUDE.md and storelib.json are rewritten by Storelib,
 so a change to them is not kept. Deleting a section file here does not remove
 the section from the site, because a page may be using it. Files outside the

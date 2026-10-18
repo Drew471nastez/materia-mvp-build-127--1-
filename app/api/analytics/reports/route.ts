@@ -16,6 +16,8 @@ import {
   onePageLinkLabels,
   readAll,
   readLegacyOnePage,
+  readAudience,
+  readDownloads,
   readOrders,
   readSubscribers,
   rpc,
@@ -182,17 +184,18 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
 
   /* The creator and their products in one round trip, found from the session's user. */
-  const joined = await admin.from("creators").select("id, products(id, title)").eq("user_id", user.id).maybeSingle()
-  let creator = joined.data as { id: string; products?: Array<{ id: string; title: string }> } | null
+  const joined = await admin.from("creators").select("id, products(id, title, type)").eq("user_id", user.id).maybeSingle()
+  let creator = joined.data as { id: string; products?: Array<{ id: string; title: string; type?: string | null }> } | null
   let products = creator?.products ?? []
   if (joined.error || (creator && !Array.isArray(creator.products))) {
     /* The two not joined on this install: two reads, as before. */
     const { data } = await admin.from("creators").select("id").eq("user_id", user.id).single()
     creator = data
-    if (creator) products = (await admin.from("products").select("id, title").eq("creator_id", creator.id)).data ?? []
+    if (creator) products = (await admin.from("products").select("id, title, type").eq("creator_id", creator.id)).data ?? []
   }
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
   const productTitles = Object.fromEntries(products.map((p) => [p.id, p.title || "Untitled product"]))
+  const productTypes = Object.fromEntries(products.map((p) => [p.id, p.type ?? null]))
 
   /* Only the creator's own places: a website id that is not theirs is answered with nothing at all. */
   const properties = await creatorProperties(admin, creator.id, user.id)
@@ -212,7 +215,7 @@ export async function GET(request: Request) {
     mainDomain: getMainDomain(),
     part: "all",
   }
-  const { figures, all } = storeAnswer(admin, key, q, productTitles, user.id, stream)
+  const { figures, all } = storeAnswer(admin, key, q, productTitles, productTypes, user.id, stream)
   return stream ? streamed(figures, all) : answered(all, "[analytics/reports]")
 }
 
@@ -227,6 +230,7 @@ function storeAnswer(
   key: string,
   q: CountQuestion,
   productTitles: Record<string, string>,
+  productTypes: Record<string, string | null>,
   /** Who it is counted for: the page shows a kept answer only to them (lib/analytics/report-cache). */
   viewer: string,
   figuresFirst: boolean,
@@ -243,7 +247,21 @@ function storeAnswer(
     const labels = q.selector.type === "onepage" || q.selector.type === "all" ? onePageLinkLabels(admin, q.properties.onePageId) : Promise.resolve({})
     const allTime = q.selector.type === "all" && !q.product ? allTimeOf(admin, q.creatorId) : Promise.resolve(null)
     /* Nothing is left unhandled while the others are awaited. */
-    for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime]) p.catch(() => {})
+    /*
+      Systems, carts and page titles (part 253), for both periods. When the
+      visits themselves were counted from the rows, those rows already gave
+      them (wireFromRows), so nothing is read twice.
+    */
+    const audience = Promise.all([readAudience(admin, q, q.window), q.previous ? readAudience(admin, q, q.previous) : Promise.resolve({ audience: null, truncated: false })])
+    /* Downloads of the period's digital order lines, for the Digital card. */
+    const downloads = orders.then((o) => {
+      const inside = o.rows.filter((r) => {
+        const at = Date.parse(r.created_at)
+        return at >= q.window.start && at < q.window.end && productTypes[r.product_id] !== "physical"
+      })
+      return readDownloads(admin, inside.map((r) => r.id))
+    })
+    for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads]) p.catch(() => {})
 
     const base = { window: q.window, previous: q.previous, timeZone: q.timeZone, mainDomain: q.mainDomain, productTitles, selector: q.selector, properties: q.properties, product: q.product }
     if (figuresFirst) {
@@ -265,13 +283,17 @@ function storeAnswer(
         .catch(() => null)
     }
 
-    const [v, d, l, o, s, labelsById, a] = await Promise.all([quick, rest, legacy, orders, subscribers, labels, allTime])
-    const merged: ReportWire = { cur: { ...v.wire.cur, ...d.wire.cur }, prev: { ...v.wire.prev, ...d.wire.prev } }
+    const [v, d, l, o, s, labelsById, a, [audNow, audBefore], dl] = await Promise.all([quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads])
+    const fromRows = d.counted === "rows"
+    const merged: ReportWire = {
+      cur: { ...v.wire.cur, ...d.wire.cur, ...(fromRows || !audNow.audience ? {} : audNow.audience) },
+      prev: { ...v.wire.prev, ...d.wire.prev, ...(fromRows || !audBefore.audience ? {} : { os: audBefore.audience.os }) },
+    }
     const wire = foldLegacy(merged, l.legacy, q)
     return {
-      reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById }),
+      reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, productTypes, downloadsByLine: dl }),
       allTime: a,
-      truncated: v.truncated || d.truncated || l.truncated || o.truncated,
+      truncated: v.truncated || d.truncated || l.truncated || o.truncated || audNow.truncated || audBefore.truncated,
       /* Sales in another currency, each converted to the store's at its own day's rate; any no rate could convert are left out and counted. */
       conversion: o.conversion,
       viewer,

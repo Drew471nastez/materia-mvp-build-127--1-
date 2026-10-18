@@ -768,13 +768,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   // Fetch subscription plan on mount (for feature gating in Domains tab etc.)
   /* A failed read keeps the plan the server drew the page with: an error never blurs a paid store's Domains. */
+  /* Read again when an admin sets the plan while this is open (components/app/plan-watch.tsx). */
+  const [planTick, setPlanTick] = useState(0)
+  useEffect(() => {
+    const again = () => setPlanTick((t) => t + 1)
+    window.addEventListener("storelib:plan-changed", again)
+    return () => window.removeEventListener("storelib:plan-changed", again)
+  }, [])
   useEffect(() => {
     fetch("/api/billing/subscription")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setUserPlan((plan) => data?.currentPlan?.id || (data ? "free" : plan ?? "free")))
       .catch(() => setUserPlan((plan) => plan ?? "free"))
       .finally(() => setPlanLoading(false))
-  }, [])
+  }, [planTick])
 
   /* A certificate being issued is polled by the Domains panel itself, while it is open. */
 

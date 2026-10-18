@@ -340,7 +340,7 @@ async function main() {
     check("  and what the route kept goes back into the run", /const keptSource = kept\.source \?\? prepared\.source/.test(loop) && /sourcesNow\[path\] = keptSource/.test(loop))
     const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
     check("the route writes an imported theme's file through the same reading the save uses, and stages the settings schema with the run",
-      /if \(importedTheme\) return isCompatSource\(agentSources\[path\]\) \? "own" : "product"/.test(route) && /syncCompatFile\(path, source, agentSources\[path\] \?\? null/.test(route) && /journal\.stage\(SETTINGS_SCHEMA_FILE, source\)/.test(route))
+      /* Changed on purpose (round Z3): a Storelib section inside an imported theme is the creator's own too. */ /if \(importedTheme\) return isCompatSource\(agentSources\[path\]\)(?: \|\| isNativeSectionSource\(agentSources\[path\]\))? \? "own" : "product"/.test(route) && /syncCompatFile\(path, source, agentSources\[path\] \?\? null/.test(route) && /journal\.stage\(SETTINGS_SCHEMA_FILE, source\)/.test(route))
     check("the steps read as words", toolStepLabel("edit_theme_settings_schema", "{}", { section: () => null, type: (t) => t }) === "Changing the theme settings")
   }
 

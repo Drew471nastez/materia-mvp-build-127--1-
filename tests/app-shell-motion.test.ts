@@ -273,7 +273,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   /* Changed on purpose: one set of cards for every place (the OnePage's own set is gone), each a list, the funnel or a figure. */
   check("Analytics' cards draw their own shapes while they wait (rows, the funnel, a figure) and crossfade into the figures",
     !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
-      && (reports.match(/<Body blank=\{/g) ?? []).length === 8
+      /* Changed on purpose: ten, with Referrers and Operating systems (round Z6). */
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 10
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} \/>\} className=\{BODY\} contentClassName="h-full flex flex-col">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was

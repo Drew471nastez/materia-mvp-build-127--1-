@@ -3,7 +3,8 @@ import "server-only"
 import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { editorContent, recordVersion, saveDraft, type FileRow } from "@/lib/website-builder/theme-file-drafts"
+import { editorContent, type FileRow } from "@/lib/website-builder/theme-file-drafts"
+import { restoreSnapshot, type RestoreOutcome } from "@/lib/website-builder/restore-snapshot"
 
 /**
  * ===========================================================================
@@ -106,7 +107,7 @@ export function fingerprintOf(snapshot: BackupSnapshot): string {
 export async function takeBackup(
   db: SupabaseClient,
   installId: string,
-  opts: { label: string; source: BackupSource },
+  opts: { label: string; source: BackupSource; verify?: boolean; keep?: string },
 ): Promise<{ backup: BackupRow | null; skipped: boolean; error: string | null }> {
   const snapshot = await readSnapshot(db, installId)
   const fingerprint = fingerprintOf(snapshot)
@@ -141,19 +142,36 @@ export async function takeBackup(
 
   if (error) return { backup: null, skipped: false, error: error.message }
 
-  await pruneBackups(db, installId)
+  /*
+    A restore's safety copy is read back before anything is overwritten: the
+    row must be there and hold this exact state. A copy that is not provably
+    there is no copy, and the restore does not go ahead without one.
+  */
+  if (opts.verify) {
+    const { data: check, error: checkErr } = await db
+      .from("store_theme_backups")
+      .select("id, fingerprint")
+      .eq("id", (data as BackupRow).id)
+      .maybeSingle()
+    if (checkErr || !check || check.fingerprint !== fingerprint) {
+      return { backup: null, skipped: false, error: "The backup of your current draft could not be confirmed, so nothing was changed. Try again." }
+    }
+  }
+
+  await pruneBackups(db, installId, opts.keep)
   return { backup: data as BackupRow, skipped: false, error: null }
 }
 
 /** Keep the newest BACKUPS_TO_KEEP; delete the rest. */
-export async function pruneBackups(db: SupabaseClient, installId: string): Promise<void> {
+export async function pruneBackups(db: SupabaseClient, installId: string, keep?: string): Promise<void> {
   const { data } = await db
     .from("store_theme_backups")
     .select("id")
     .eq("install_id", installId)
     .order("created_at", { ascending: false })
     .range(BACKUPS_TO_KEEP, BACKUPS_TO_KEEP + 200)
-  const stale = (data ?? []).map((r) => r.id)
+  /* The backup being restored stays in the list it was picked from. */
+  const stale = (data ?? []).map((r) => r.id).filter((id) => id !== keep)
   if (stale.length === 0) return
   await db.from("store_theme_backups").delete().in("id", stale)
 }
@@ -163,55 +181,22 @@ export async function pruneBackups(db: SupabaseClient, installId: string): Promi
  * separate, deliberate step, and a restore that changed a public site by
  * itself would be a restore somebody could not preview first.
  *
- * Pages that exist now but were not in the snapshot are left alone. Deleting
- * somebody's page because an older copy did not know about it is the kind of
- * "restore" that loses work.
+ * Pages that exist now but were not in the snapshot are left alone, and so
+ * are code files written since. Deleting somebody's page because an older
+ * copy did not know about it is the kind of "restore" that loses work.
+ *
+ * The code goes back as a draft like everything else, and each file restored
+ * is a version of its own in that file's history (kind "restore"), so a
+ * restore is itself something the code editor can step back from.
+ *
+ * All or nothing, in a few bulk writes, with every row it wrote put back on
+ * a failure: ./restore-snapshot.ts says how and why.
  */
 export async function applySnapshot(
   db: SupabaseClient,
   installId: string,
   snapshot: BackupSnapshot,
-): Promise<{ error: string | null }> {
-  const { data: settingsRow } = await db
-    .from("store_theme_settings")
-    .select("id")
-    .eq("install_id", installId)
-    .maybeSingle()
-
-  const settingsWrite = settingsRow
-    ? db.from("store_theme_settings").update({ draft_settings: snapshot.settings }).eq("id", settingsRow.id)
-    : db.from("store_theme_settings").insert({ install_id: installId, settings: {}, draft_settings: snapshot.settings })
-  const { error: settingsErr } = await settingsWrite
-  if (settingsErr) return { error: settingsErr.message }
-
-  const { data: existing } = await db
-    .from("store_theme_pages")
-    .select("id, page_key")
-    .eq("install_id", installId)
-  const byKey = new Map((existing ?? []).map((p) => [String(p.page_key), p.id as string]))
-
-  for (const page of snapshot.pages) {
-    const id = byKey.get(page.page_key)
-    const { error } = id
-      ? await db.from("store_theme_pages").update({ draft_sections: page.sections }).eq("id", id)
-      : await db
-          .from("store_theme_pages")
-          .insert({ install_id: installId, page_key: page.page_key, sections: [], draft_sections: page.sections })
-    if (error) return { error: error.message }
-  }
-
-  /*
-    The code goes back as a draft, like everything else here, and each file
-    restored is a version of its own in that file's history, so a restore is
-    itself something the code editor can step back from. Files written since
-    the backup are left alone, for the same reason pages are.
-  */
-  for (const file of snapshot.files ?? []) {
-    if (typeof file?.path !== "string" || typeof file.content !== "string") continue
-    const saved = await saveDraft(db, installId, file.path, file.content)
-    if (saved.ok === false) return { error: saved.error }
-    await recordVersion(db, installId, file.path, file.content, "restore")
-  }
-
-  return { error: null }
+  opts: { deadlineAt?: number } = {},
+): Promise<RestoreOutcome> {
+  return restoreSnapshot(db, installId, snapshot, opts)
 }

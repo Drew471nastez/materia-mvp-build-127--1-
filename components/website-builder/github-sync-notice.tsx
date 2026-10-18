@@ -124,6 +124,8 @@ const ACTION_LABEL: Record<SyncAction, string> = {
   get repo() { return tt("Pick repository") },
   get open() { return tt("Open in GitHub") },
   get reset() { return tt("Put back Storelib's version") },
+  get branch() { return tt("Use a storelib branch") },
+  get follow() { return tt("Follow this branch") },
 }
 
 const DOT: Record<Tone, string> = {
@@ -274,8 +276,9 @@ export function SyncNotice({
       key: `ignored|${r.ignored.at}`,
       tone: "quiet",
       title: tt("A push to {branch} wasn't brought in", { branch: r.ignored.branch }),
-      body: tt("This site follows {value}. Merge it into {value2} on GitHub to bring it in.", { value: r.branch ?? tt("another branch"), value2: r.branch ?? tt("that branch") }),
-      primary: null,
+      /* The one action: follow the branch the push went to and bring it in now. Merging on GitHub still works too. */
+      body: tt("This site follows {value}. Follow {branch} instead to bring it in now, or merge it into {value2} on GitHub.", { value: r.branch ?? tt("another branch"), branch: r.ignored.branch, value2: r.branch ?? tt("that branch") }),
+      primary: { label: ACTION_LABEL.follow, run: () => void run("follow") },
       details: false,
     }
   }

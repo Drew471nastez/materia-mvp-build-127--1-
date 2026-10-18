@@ -1331,7 +1331,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
-  "store-builder", "stripe-done", "team", "terms", "u", "unsubscribe", "upgrade", "verify-email",
+  "store-builder", "stripe-done", "team", "terms", "theme-preview", "themes", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
 
@@ -2553,6 +2553,8 @@ async function routeRequest(request: NextRequest) {
       url.pathname === "/onepage-preview" ||
       url.pathname === "/api/store/ga-check" ||
       url.pathname.startsWith("/cover-render/") ||
+      /* The theme marketplace's live preview (app/(site)/theme-preview), framed by storelib.com/themes/<slug>. */
+      url.pathname.startsWith("/theme-preview/") ||
       url.pathname.startsWith("/website-builder/code/") ||
       url.pathname.startsWith("/u/") ||
       creatorPath ||

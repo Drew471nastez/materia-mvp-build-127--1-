@@ -54,6 +54,7 @@ import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
 import { summaryRows } from "@/lib/checkout/summary-rows"
 import { sameAsFirstQuote } from "@/lib/physical/first-quote"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 
 interface QuoteLine {
   productId: string
@@ -186,6 +187,18 @@ export function PhysicalCheckout({
   const [payment, setPayment] = React.useState<{ clientSecret: string } | null>(null)
   const [changing, setChanging] = React.useState(false)
   const bar = brand ?? { name: shopName, imageUrl: null, kind: null }
+
+  /*
+    STARTED CHECKOUT, FOR ANALYTICS: once the checkout knows what is in it,
+    each product in it, once per visit on the server. A physical checkout
+    never said so, so the funnel had no checkout step for anything shipped.
+  */
+  const quoteCreator = quote?.creatorId ?? null
+  const quoteProducts = quote ? [...new Set(quote.lines.map((l) => l.productId))].join(",") : ""
+  React.useEffect(() => {
+    if (!quoteCreator || !quoteProducts) return
+    for (const id of quoteProducts.split(",")) void trackFunnelStep("checkout_start", quoteCreator, id)
+  }, [quoteCreator, quoteProducts])
 
   /* The cart: from the address, else this browser's cart for the shop. */
   React.useEffect(() => {

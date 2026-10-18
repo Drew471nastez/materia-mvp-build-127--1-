@@ -7,9 +7,9 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
 import { EVENT, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
-import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
+import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost, sourceParamOf } from "./sources"
 import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE } from "./own-marker"
-import { isBotAgent, parseUserAgent } from "./user-agent"
+import { isBotAgent, osFromPlatformHint, parseUserAgent } from "./user-agent"
 
 /**
  * ===========================================================================
@@ -190,9 +190,26 @@ function referrerDomainOf(v: unknown, pageUrl: string | null, mainDomain: string
   return isInternalReferrer(host, mainDomain, pageHost) ? "Direct" : host
 }
 
+/**
+ * The source the landing page's address names without UTM tags (?ref=,
+ * ?source=, ?via=), for a page whose tracker did not send one itself.
+ */
+function sourceOfLanding(pageUrl: string | null): string | null {
+  if (!pageUrl) return null
+  try {
+    const q = new URL(pageUrl).searchParams
+    return q.get("utm_medium") ? null : sourceParamOf(q)
+  } catch {
+    return null
+  }
+}
+
 /* ─── The columns part 61 adds, for a database that has not run it ─── */
 
 const NEW_COLUMNS = ["property_type", "property_id", "path", "link_id", "link_url"] as const
+
+/* Until part 253 adds analytics_events.page_title, a view is written without it, and the first refusal is remembered. */
+let noTitleUntil = 0
 
 function missingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false
@@ -388,20 +405,23 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     const pageUrl = short(body.pageUrl, 1000)
     const clientApp = short(body.clientApp, 30) || detectClientAppFromUA(ua)
     const referrerDomain = referrerDomainOf(body.referrerDomain, pageUrl, deps.mainDomain)
+    const utmSource = short(body.utm_source, 200) || (short(body.utm_medium, 200) ? null : sourceOfLanding(pageUrl))
+    /* The system from the signature, else from the browser's Sec-CH-UA-Platform hint, else what the page said. */
+    const os = iPad ? "iOS" : parsed.os ?? osFromPlatformHint(req.headers.get("sec-ch-ua-platform")) ?? short(body.os, 40)
     row = {
       ...base,
       referrer_domain: referrerDomain,
       referrer: short(body.referrer, 1000),
       /* The page the visit landed on (lib/analytics-utils first touch); `path` is this page. */
       page_url: pageUrl,
-      utm_source: short(body.utm_source, 200),
+      utm_source: utmSource,
       utm_medium: short(body.utm_medium, 200),
       utm_campaign: short(body.utm_campaign, 200),
       utm_term: short(body.utm_term, 200),
       utm_content: short(body.utm_content, 200),
       device_type: deviceType,
       browser: parsed.browser ?? short(body.browser, 40),
-      os: iPad ? "iOS" : parsed.os ?? short(body.os, 40),
+      os,
       screen_width: int(body.screenWidth),
       screen_height: int(body.screenHeight),
       language: short(body.language, 20),
@@ -409,8 +429,11 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
       /* No city or region without consent: the country only. */
       city: consented ? short(req.headers.get("x-vercel-ip-city"), 100) : null,
       region: consented ? short(req.headers.get("x-vercel-ip-country-region"), 100) : null,
-      source_category: categorizeServerSource(referrerDomain, short(body.utm_source, 200), short(body.utm_medium, 200), clientApp || null),
+      source_category: categorizeServerSource(referrerDomain, utmSource, short(body.utm_medium, 200), clientApp || null),
     }
+    /* The page's own title (supabase/sql/run-now part 253): left out until it is there, so the row is the one it always was. */
+    const pageTitle = short(body.pageTitle, 200)
+    if (pageTitle && Date.now() >= noTitleUntil) row.page_title = pageTitle
   }
 
   const insert = async (r: Record<string, unknown>) => (await db.from("analytics_events").insert([r])).error as { code?: string; message?: string } | null
@@ -427,6 +450,8 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     const named = /'([a-z_]+)' column|column "?([a-z_]+)"? (?:of relation|does not exist)/i.exec(error.message ?? "")
     const col = named?.[1] ?? named?.[2]
     if (!col || !(col in row) || (NEW_COLUMNS as readonly string[]).includes(col)) break
+    /* A database without the title column (part 253) is not asked again for a while. */
+    if (col === "page_title") noTitleUntil = Date.now() + 10 * 60_000
     row = Object.fromEntries(Object.entries(row).filter(([k]) => k !== col))
     error = await insert(row)
   }

@@ -137,6 +137,8 @@ const SUITES = [
   "tests/agent-brain.test.ts",
   "tests/agent-intent.test.ts",
   "tests/agent-site-pages.test.ts",
+  /* Round Z3: Storelib AI held to 22 owner prompts (routing and intent), no token budget failure, a cut off turn asked again, a new section on an imported theme, the store's currency and reviews. */
+  "tests/agent-eval-z3.test.ts",
   "tests/coded-chrome.test.ts",
   "tests/product-source.test.ts",
   "tests/editor-stability.test.ts",
@@ -177,6 +179,8 @@ const SUITES = [
   "tests/dispute-orders.test.ts",
   "tests/anon-visit.test.ts",
   "tests/analytics-completeness.test.ts",
+  /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
+  "tests/analytics-audience.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",
@@ -354,6 +358,8 @@ const SUITES = [
   "tests/app-sidebar.test.ts",
   "tests/analytics-chart.test.ts",
   "tests/website-builder.test.ts",
+  /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
+  "tests/theme-marketplace.test.ts",
   "tests/nav-links.test.ts",
   "tests/menus-main-menu.test.ts",
   "tests/store-menus.test.ts",
@@ -364,6 +370,7 @@ const SUITES = [
   "tests/collections-ui.test.ts",
   "tests/native-google-sign-in.test.ts",
   "tests/editor-feel.test.ts",
+  "tests/value-pills-menus.test.ts",
   "tests/code-backups.test.ts",
   "tests/own-database.test.ts",
   "tests/builder-click-edit.test.ts",
@@ -415,6 +422,8 @@ const SUITES = [
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
   "tests/jobs-dupes.test.ts",
   "tests/backups.test.ts",
+  /* Round Z4: a backup restore finishes on a 504 file theme, all or nothing, and the dialog always settles. */
+  "tests/restore-backup.test.ts",
   "tests/schema-source.test.ts",
   "tests/ops-safety.test.ts",
   "tests/public-abuse.test.ts",
@@ -440,6 +449,8 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
+  /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
+  "tests/github-format-z4.test.ts",
   "tests/schema-edits-sidebar.test.ts",
   "tests/theme-config-files-v.test.ts",
   "tests/collection-binding-v.test.ts",
@@ -631,6 +642,7 @@ const SUITES = [
   /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
   "tests/editor-perf-v.test.ts",
   "tests/editor-y1.test.ts",
+  "tests/editor-z1.test.ts",
   /* V12: no :has() whose subject is the root, so an insertion restyles what it touches (scripts/check-editor-perf.mjs, "insert one node"). */
   "tests/editor-css-v.test.ts",
   "tests/communities-frame12.test.ts",
@@ -831,6 +843,8 @@ const STRICT_SUITES = [
     components/physical/shipping-settings.tsx (as tests/shipsetup.test.ts does).
   */
   "tests/shipping-settings-y3.test.ts",
+  /* Round Z7: /app polish: no "Direct" in an order's source, no Paid community in New product, the sidebar's nested rows apart and its overlay thumb, the integration cards' specks, Everywhere else's globe and the shipping save toasts (scripts/check-app-sidebar-z7.mjs, check-integrations-y2.mjs P, check-shipping-settings.mjs measure them). */
+  "tests/app-polish-z7.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 837 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 842 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -745,6 +745,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#d1d5db\]:not([data-own-look], [data-own-look] *) { text-decoration-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-\[\#d9dce1\]:not([data-own-look], [data-own-look] *) { text-decoration-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-black\/20:not([data-own-look], [data-own-look] *) { text-decoration-color: rgba(255,255,255,0.048); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .decoration-white\/40:not([data-own-look], [data-own-look] *) { text-decoration-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:bg-\[\#e5e7eb\]:not([data-own-look], [data-own-look] *):disabled { background-color: #26262b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *):disabled { background-color: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .disabled\:bg-\[\#f7f7f8\]:not([data-own-look], [data-own-look] *):disabled { background-color: #111113; }
@@ -825,6 +826,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-white\/\[0\.12\]:not([data-own-look], [data-own-look] *):focus { background-color: rgba(37,37,42,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:bg-white\/\[0\.14\]:not([data-own-look], [data-own-look] *):focus { background-color: rgba(37,37,42,0.14); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):focus { border-color: rgba(255,255,255,0.24); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:border-\[\#1a1a2e\]\/40:not([data-own-look], [data-own-look] *):focus { border-color: rgba(255,255,255,0.096); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:border-\[\#1a1a2e\]\/50:not([data-own-look], [data-own-look] *):focus { border-color: rgba(255,255,255,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:border-\[\#1a1a2e\]\/55:not([data-own-look], [data-own-look] *):focus { border-color: rgba(255,255,255,0.132); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:border-\[\#c9ccd2\]:not([data-own-look], [data-own-look] *):focus { border-color: rgba(255,255,255,0.07); }
@@ -869,6 +871,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-\[\#fafafa\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/\[0\.04\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.01); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/\[0\.06\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.014); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/\[0\.08\]:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.019); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/10:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.024); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-black\/5:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.012); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .ring-neutral-200:not([data-own-look], [data-own-look] *) { --tw-ring-color: rgba(255,255,255,0.07); }
@@ -1061,6 +1064,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#26262b\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2a2a40\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2b2b42\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#2d2d44\]:not([data-own-look], [data-own-look] *):hover { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e1e3e7\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e2e3e7\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:bg-\[\#e4e6ea\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
@@ -1153,6 +1157,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:decoration-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):hover { text-decoration-color: rgba(255,255,255,0.24); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:decoration-\[\#1a1a2e\]\/30:not([data-own-look], [data-own-look] *):hover { text-decoration-color: rgba(255,255,255,0.072); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:decoration-black\/40:not([data-own-look], [data-own-look] *):hover { text-decoration-color: rgba(255,255,255,0.096); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:decoration-white:not([data-own-look], [data-own-look] *):hover { text-decoration-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:ring-\[\#1a1a2e\]\/15:not([data-own-look], [data-own-look] *):hover { --tw-ring-color: rgba(255,255,255,0.036); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:ring-violet-200:not([data-own-look], [data-own-look] *):hover { --tw-ring-color: hsla(251,50%,40%,0.45); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:ring-white\/30:not([data-own-look], [data-own-look] *):hover { --tw-ring-color: rgba(255,255,255,0.035); }

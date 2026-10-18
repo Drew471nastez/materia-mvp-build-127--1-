@@ -198,3 +198,72 @@ export function unnestNavBlock(blocks: NavBlock[], id: string): NavBlock[] {
   return navTreeOrder(next.map((b) => (b.id === id ? { ...b, settings } : b)))
 }
 
+
+/* ── a link dragged anywhere in the tree ──────────────────────────────── */
+
+/**
+ * A menu link (named by place, "2" or "2/0") taken out of where it is and put
+ * at `index` of `parentId`'s links, or of the top level for `null`. `index`
+ * is counted without the link itself, which is how the drag counts it. Two
+ * levels: a link that has links of its own stays at the top, and a link
+ * cannot go under itself. Anything else comes back unchanged.
+ */
+export function placeMenuLink(links: MenuLink[], id: string, parentId: string | null, index: number): MenuLink[] {
+  const path = id.split("/").map(Number)
+  if (path.some((n) => !Number.isInteger(n) || n < 0) || path.length > 2) return links
+  const me = path.length === 1 ? links[path[0]] : links[path[0]]?.links?.[path[1]]
+  if (!me) return links
+  let parent = parentId === null ? null : Number(parentId)
+  if (parent !== null && (!Number.isInteger(parent) || !links[parent] || parentId!.includes("/"))) return links
+  if (parent !== null && (me.links ?? []).length > 0) return links
+  if (parent !== null && path.length === 1 && parent === path[0]) return links
+  /* Out of where it was. */
+  let next: MenuLink[] =
+    path.length === 1
+      ? links.filter((_, i) => i !== path[0])
+      : links.map((l, i) => (i === path[0] ? { ...l, links: (l.links ?? []).filter((_, j) => j !== path[1]) } : l))
+  /* A top-level link taken out from above its new parent moves that parent up by one. */
+  if (parent !== null && path.length === 1 && path[0] < parent) parent -= 1
+  if (parent === null) {
+    const at = Math.max(0, Math.min(index, next.length))
+    next = [...next.slice(0, at), me, ...next.slice(at)]
+  } else {
+    const p = parent
+    next = next.map((l, i) => {
+      if (i !== p) return l
+      const kids = [...(l.links ?? [])]
+      kids.splice(Math.max(0, Math.min(index, kids.length)), 0, me)
+      return { ...l, links: kids }
+    })
+  }
+  return next
+}
+
+/**
+ * The same for the header's own nav_link blocks, where a sub-link names its
+ * parent in `parent_id`: the parent is set (or taken off), the link goes in
+ * before the sibling now at `index`, and the list is put back in tree order.
+ */
+export function placeNavBlock(blocks: NavBlock[], id: string, parentId: string | null, index: number): NavBlock[] {
+  const me = blocks.find((b) => b.id === id && isNav(b))
+  if (!me) return blocks
+  if (parentId !== null) {
+    const parent = blocks.find((b) => b.id === parentId && isNav(b))
+    if (!parent || parentId === id || parentOf(parent)) return blocks
+    if (blocks.some((b) => isNav(b) && parentOf(b) === id)) return blocks
+  }
+  const ordered = navTreeOrder(blocks)
+  const slots = ordered.map((b, i) => (isNav(b) ? i : -1)).filter((i) => i >= 0)
+  const { parent_id: _gone, ...bare } = me.settings
+  const moved: NavBlock = { ...me, settings: parentId ? { ...bare, parent_id: parentId } : bare }
+  const links = slots.map((i) => ordered[i]).filter((b) => b.id !== id)
+  const siblings = links.filter((b) => (parentId ? parentOf(b) === parentId : !parentOf(b)))
+  const before = siblings[index]
+  const at = before ? links.indexOf(before) : links.length
+  links.splice(at, 0, moved)
+  const next = [...ordered]
+  slots.forEach((slot, k) => {
+    next[slot] = links[k]
+  })
+  return navTreeOrder(next)
+}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
@@ -141,6 +142,8 @@ export default async function UpgradePage() {
 
       hasActiveSubscription = sub?.status === "active"
     }
+    /* A plan set from /admin is the plan, whatever Stripe sells them (lib/billing/plan-override.ts). */
+    currentPlanId = effectivePlanId(currentPlanId, await readPlanOverride(createAdminClient(), creator.id))
   } catch (error) {
     console.error("Upgrade page data loading error:", error)
   }

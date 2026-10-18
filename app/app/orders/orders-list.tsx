@@ -35,7 +35,7 @@ import {
   type View,
 } from "@/lib/orders/order-view"
 import { METRICS, type MetricReading } from "@/lib/orders/metrics"
-import { fromLabel, sourceText } from "@/lib/orders/order-source"
+import { fromLabel, originFromKey, sourceText } from "@/lib/orders/order-source"
 import { HelpLabel } from "@/components/app/help-label"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { ScrollEdge } from "@/components/app/scroll-edge"
@@ -512,7 +512,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
       return order.source ? (
         <span className="whitespace-nowrap" title={sourceText(order.source, order.sourceDetail)}>
           {SOURCE_LABEL[order.source]}
-          {order.sourceDetail?.from ? <span className="text-[#6b7280]"> · {fromLabel(order.sourceDetail.from)}</span> : null}
+          {originFromKey(order.sourceDetail) ? <span className="text-[#6b7280]"> · {fromLabel(originFromKey(order.sourceDetail)!)}</span> : null}
         </span>
       ) : (
         <span className="text-[#9ca3af]" title={tt("Not recorded for this order")}>

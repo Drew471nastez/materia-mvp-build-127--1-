@@ -363,10 +363,11 @@ async function main() {
     check("the manifest calls it a shopify theme", JSON.parse(gh.text(REPO, "main", "storelib.json")!).kind === "shopify")
 
     const slideshow = gh.text(REPO, "main", "sections/slideshow.storelib")!
+    const PLAIN = DEFAULT["sections/cta_simple.storelib"].replace(/"name": "Simple CTA"/g, "\"name\": \"Plain CTA\"")
     const edited = slideshow.replace('class="slideshow"', 'class="slideshow slideshow--agent"')
     const { outcomes, after } = await pushAs(gh, db, {
       "sections/slideshow.storelib": edited,
-      "sections/plain.storelib": DEFAULT["sections/cta_simple.storelib"],
+      "sections/plain.storelib": PLAIN,
       "shopify/templates/customers/account.liquid": "<h1>{% if customer %}Account</h1>",
       "shopify/assets/base.css": "body{margin:0;color:red}",
       "shopify/assets/hero.jpg": Buffer.from([1, 2, 3]),
@@ -375,10 +376,11 @@ async function main() {
     check("sections/slideshow.storelib, the theme's own, is taken: no built-in refusal", o.saved.includes("sections/slideshow.storelib") && !o.failed.some((f) => /built-in/.test(f.error)), JSON.stringify(o.failed))
     check("  and saved as this theme's draft", tables.store_theme_custom_files.find((r) => r.path === "sections/slideshow.storelib")!.draft_content === edited)
     check("the theme's CSS is taken", o.saved.includes("shopify/assets/base.css"))
-    check("a Storelib-format section in an imported theme is refused with what to do", o.failed.some((f) => f.path === "sections/plain.storelib" && /<template compat="shopify">/.test(f.error)))
+    /* Changed on purpose (round Z4): the engine draws a Storelib section in an imported theme (renderNative), so refusing one told an agent that kept a file's own format it had the wrong one. It is taken as it is. */
+    check("a Storelib-format section in an imported theme is taken as it is", o.saved.includes("sections/plain.storelib") && tables.store_theme_custom_files.find((r) => r.path === "sections/plain.storelib")!.draft_content === PLAIN, JSON.stringify(o.failed))
     check("Liquid that does not parse is refused with its file", o.failed.some((f) => f.path === "shopify/templates/customers/account.liquid"))
     check("a changed picture is noted, with where to upload it", o.notes.some((n) => n.path === "shopify/assets/hero.jpg" && /Files/.test(n.note)))
-    check("the commit is red, the good files are in anyway", gh.repos.get(REPO)!.statuses.find((s) => s.sha === after)?.state === "failure" && o.saved.length === 2)
+    check("the commit is red, the good files are in anyway", gh.repos.get(REPO)!.statuses.find((s) => s.sha === after)?.state === "failure" && o.saved.length === 3)
     /*
       Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar). Round Z refused an imported
       section's schema from GitHub. It is taken now: the theme's own schema (under "shopify") is what the page

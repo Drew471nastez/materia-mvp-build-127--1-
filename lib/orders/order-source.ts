@@ -382,7 +382,7 @@ export function fromLabel(from: string): string {
 
 /**
  * "Website · andrewrullz.storelib.com · from Instagram",
- * "Storelib · Product page · from Google", "Storelib · Explore · Direct".
+ * "Storelib · Product page · from Google", "Storelib · Explore" (a direct visit adds nothing).
  * The channel alone when that is all that was recorded, and "Not recorded"
  * when not even that was.
  */
@@ -403,10 +403,21 @@ export function originWhere(source: OrderSource | null | undefined, origin: Orde
   return origin.surface ? SURFACE_LABEL[origin.surface] : null
 }
 
-/** "from Instagram", "Direct", or null when nothing was seen. */
+/**
+ * Where the visit came from, when that says something: "instagram", a
+ * referring site. A direct visit is the absence of one, so it reads as
+ * nothing and the line stays "Website" (the owner: "I don't want to include
+ * that direct right there").
+ */
+export function originFromKey(origin: OrderOrigin | null | undefined): string | null {
+  const from = origin?.from
+  return from && from !== "direct" ? from : null
+}
+
+/** "from Instagram", or null when nothing was seen or the visit was direct. */
 export function originFrom(origin: OrderOrigin | null | undefined): string | null {
-  if (!origin?.from) return null
-  return origin.from === "direct" ? tt("Direct") : tt("from {name}", { name: fromLabel(origin.from) })
+  const from = originFromKey(origin)
+  return from ? tt("from {name}", { name: fromLabel(from) }) : null
 }
 
 /** Everything after the channel, for a column of its own: "Product page · from Google · utm_campaign spring". */

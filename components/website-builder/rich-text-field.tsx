@@ -40,6 +40,7 @@ import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
 import { ScrollRow } from "@/components/app/rich-text/scroll-row"
 import { tt } from "@/lib/i18n/text"
+import { ZWSP, caretAfter, copyWithPills, pillHtml, pillKeyDown, pillsFromText, stripZw } from "@/components/website-builder/value-pills"
 
 /**
  * NO ASSISTANT BUTTON IN HERE.
@@ -60,37 +61,27 @@ const BLOCKS = [
 ] as const
 
 /*
- * A DYNAMIC VALUE IS A CHIP, NOT CODE. `{{ closest.collection.title }}` typed
+ * A DYNAMIC VALUE IS A PILL, NOT CODE. `{{ closest.collection.title }}` typed
  * or picked into the text reads as a small labelled pill ("Collection title")
  * while it is edited, one piece the caret moves past and Backspace removes
- * whole; what is saved is the value itself, unchanged.
+ * whole; what is saved is the value itself, unchanged. The pill and its keys
+ * are value-pills.ts, shared with the sidebar's other text boxes.
  */
-const VALUE_IN_TEXT = /\{\{\s*([a-zA-Z_][\w.]*(?:\s*\|\s*[\w]+(?::[^}]*)?)*)\s*\}\}/g
+export const VALUE_IN_TEXT = /\{\{\s*([a-zA-Z_][\w.]*(?:\s*\|\s*[\w]+(?::[^}]*)?)*)\s*\}\}/g
 const CHIP = /<span[^>]*\bdata-value="([^"]*)"[^>]*>[\s\S]*?<\/span>/g
-const CHIP_STYLE = "display:inline-flex;align-items:center;padding:0 7px;margin:0 1px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:0.86em;font-weight:500;line-height:1.6;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;user-select:all;vertical-align:baseline"
-
-/** What a value is called on its chip: its last two names, read as words. */
-function valueLabel(expr: string): string {
-  const path = expr.split("|")[0].trim().split(".").filter((p) => p && p !== "closest" && p !== "settings")
-  const words = path.slice(-2).join(" ").replace(/_/g, " ").trim()
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : expr
-}
-
-function escapeAttr(v: string): string {
-  return v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
-}
 
 export function withValueChips(html: string): string {
   if (!html.includes("{{")) return html
-  /* Only in text, never inside a tag's attributes. */
+  /* Only in text, never inside a tag's attributes. The space after each pill gives the caret somewhere to be. */
   return html.replace(/(^|>)([^<]*)/g, (_m, open: string, text: string) =>
-    open + text.replace(VALUE_IN_TEXT, (_v, expr: string) => `<span data-value="${escapeAttr(expr.trim())}" contenteditable="false" style="${CHIP_STYLE}">${escapeAttr(valueLabel(expr))}</span>`),
+    open + text.replace(VALUE_IN_TEXT, (_v, expr: string) => pillHtml(expr.trim()) + ZWSP),
   )
 }
 
 export function withoutValueChips(html: string): string {
-  if (!html.includes("data-value=")) return html
-  return html.replace(CHIP, (_m, expr: string) => `{{ ${expr.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&amp;/g, "&")} }}`)
+  const plain = stripZw(html)
+  if (!plain.includes("data-value=")) return plain
+  return plain.replace(CHIP, (_m, expr: string) => `{{ ${expr.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&amp;/g, "&")} }}`)
 }
 
 export function RichTextField({
@@ -165,38 +156,43 @@ export function RichTextField({
    * the field mid-word. The value this field last sent is skipped.
    */
   const sent = React.useRef<string | null>(null)
+  /**
+   * AND NOR IS AN OLDER ECHO. Typing faster than the editor renders sends
+   * "Hel", then "Hell", and "Hel" can come back after "Hell" left. Written
+   * in, it deleted the last letter and threw the caret to the start. Every
+   * value sent since the last one from outside is ours.
+   */
+  const recent = React.useRef<string[]>([])
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
     const incoming = value ?? ""
     if (incoming === sent.current) return
+    if (recent.current.includes(incoming)) return
+    recent.current = []
     sent.current = null
     const shown = withValueChips(incoming)
     if (el.innerHTML !== shown) el.innerHTML = shown
-    setEmpty(!el.textContent?.trim())
+    setEmpty(!stripZw(el.textContent ?? "").trim())
   }, [value])
 
   const publish = React.useCallback(() => {
     const el = ref.current
     if (!el) return
-    setEmpty(!el.textContent?.trim())
-    /* A value just typed or inserted becomes its chip at once, with the caret after it. */
-    if (VALUE_IN_TEXT.test(el.textContent ?? "")) {
-      VALUE_IN_TEXT.lastIndex = 0
-      el.innerHTML = withValueChips(el.innerHTML)
-      const sel = window.getSelection()
-      if (sel) {
-        const range = document.createRange()
-        range.selectNodeContents(el)
-        range.collapse(false)
-        sel.removeAllRanges()
-        sel.addRange(range)
-      }
-    }
-    VALUE_IN_TEXT.lastIndex = 0
+    /*
+      A value just typed or pasted in braces becomes its pill where it
+      stands, with the caret right after it. This used to rewrite the whole
+      field and put the caret at the very end, so a value pasted into the
+      middle of a sentence threw the caret out of the sentence.
+    */
+    const made = pillsFromText(el, VALUE_IN_TEXT)
+    if (made && document.activeElement === el) caretAfter(made)
+    setEmpty(!stripZw(el.textContent ?? "").trim())
     const clean = sanitizeRichText(withoutValueChips(el.innerHTML))
     if (clean !== value) {
       sent.current = clean
+      recent.current.push(clean)
+      if (recent.current.length > 64) recent.current.shift()
       onChange(clean)
     }
   }, [onChange, value])
@@ -277,6 +273,8 @@ export function RichTextField({
 
   /** The shortcuts every editor has. */
   const onKeyDown = (e: React.KeyboardEvent) => {
+    /* Beside a pill: Backspace and Delete take it whole, an arrow steps over it. */
+    if (ref.current && pillKeyDown(e, ref.current)) return
     if (!(e.metaKey || e.ctrlKey) || e.altKey) return
     const k = e.key.toLowerCase()
     if (k === "b") {
@@ -489,8 +487,18 @@ export function RichTextField({
           contentEditable
           suppressContentEditableWarning
           onInput={publish}
-          onBlur={publish}
+          onBlur={() => {
+            publish()
+            /* Out of the field, an undo from the toolbar is news again. */
+            recent.current = sent.current ? [sent.current] : []
+          }}
           onPaste={onPaste}
+          onCopy={(e) => {
+            if (ref.current) copyWithPills(e, ref.current)
+          }}
+          onCut={(e) => {
+            if (ref.current) copyWithPills(e, ref.current, true)
+          }}
           onKeyDown={onKeyDown}
           onFocus={readActive}
           className={cn(

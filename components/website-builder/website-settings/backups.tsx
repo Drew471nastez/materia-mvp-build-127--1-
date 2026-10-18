@@ -6,6 +6,7 @@ import { Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass } from "./par
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { settleRestore } from "@/lib/website-builder/restore-request"
 
 interface BackupRow {
   id: string
@@ -118,24 +119,20 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
    * leaves the question open with the reason, so it can be tried again or
    * cancelled where it was asked.
    */
-  const runRestore = async (url: string, fallback: string): Promise<boolean> => {
-    if (restoringNow.current) return false
-    restoringNow.current = true
-    setRestoring(true)
-    setRestoreError(null)
-    try {
-      const res = await fetch(url, { method: "POST" })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(json?.error || fallback)
-      return true
-    } catch (e) {
-      setRestoreError(e instanceof Error ? e.message : fallback)
-      return false
-    } finally {
-      restoringNow.current = false
-      setRestoring(false)
-    }
-  }
+  const runRestore = (url: string, fallback: string) =>
+    settleRestore({
+      url,
+      fallback,
+      busy: restoringNow,
+      setBusy: setRestoring,
+      setError: setRestoreError,
+      hold: ctx.onHoldDraft,
+      words: {
+        timeout: tt("This is taking too long, so Storelib stopped waiting. Your draft was backed up first. Reload the builder to see where it stands."),
+        offline: tt("Storelib could not be reached. Nothing was restored. Check your connection and try again."),
+        unsaved: tt("Your latest edits could not be saved yet, so nothing was restored. Try again in a moment."),
+      },
+    })
 
   const restoreRelease = async (row: ReleaseRow) => {
     if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/releases/${row.id}/restore`, tt("Could not restore this version")))) return
@@ -183,7 +180,9 @@ export function BackupSettings({ ctx }: { ctx: SettingsContext }) {
   const restore = async (row: BackupRow) => {
     if (!(await runRestore(`/api/website-builder/themes/${ctx.installId}/backups/${row.id}/restore`, tt("Could not restore this backup")))) return
     setConfirming(null)
-    ctx.onRestored?.()
+    /* The editor reloads to pick up the restored draft; anywhere else, the list shows the new safety copy. */
+    if (ctx.onRestored) ctx.onRestored()
+    else void load()
   }
 
   /* A copy is a new draft in the library, and the library's limit applies:
@@ -363,6 +362,16 @@ function ConfirmRestore({
   useEffect(() => {
     latest.current = { busy, onCancel }
   })
+  /* A large website takes a while: said once it has, so a long wait does not look like a stuck one. */
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false)
+      return
+    }
+    const t = setTimeout(() => setSlow(true), 5000)
+    return () => clearTimeout(t)
+  }, [busy])
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -419,6 +428,9 @@ function ConfirmRestore({
             </li>
           ))}
         </ul>
+        {busy && slow && !error && (
+          <p role="status" className="mt-4 text-[14px] text-white/60">{tt("Still restoring. A large website can take a minute.")}</p>
+        )}
         {error && (
           <p role="alert" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[14px] leading-snug text-red-300">
             {error}

@@ -28,9 +28,11 @@ console.log("\nWhat a backup holds\n")
 
 console.log("\nWhat a restore does with it\n")
 {
-  check("each file goes back as a draft, nothing goes live", /const saved = await saveDraft\(db, installId, file\.path, file\.content\)/.test(backups))
-  check("  and is a version in that file's history, so the restore can be stepped back from", /recordVersion\(db, installId, file\.path, file\.content, "restore"\)/.test(backups))
-  check("  an old backup without files leaves the code alone", /for \(const file of snapshot\.files \?\? \[\]\)/.test(backups))
+  /* Changed on purpose (round Z4): one file at a time never finished on a 504 file theme. The restore is bulk and all or nothing now, in lib/website-builder/restore-snapshot.ts; tests/restore-backup.test.ts runs it. */
+  const restore = read("lib/website-builder/restore-snapshot.ts")
+  check("each file goes back as a draft, nothing goes live", /return restoreSnapshot\(db, installId, snapshot, opts\)/.test(backups) && /path: f\.path, content: before \? before\.content : "", draft_content: f\.content/.test(restore))
+  check("  and is a version in that file's history, so the restore can be stepped back from", /from\("store_theme_file_versions"\)\.insert\(group\)/.test(restore) && /kind: "restore"/.test(restore))
+  check("  an old backup without files leaves the code alone", /const wanted = \(snapshot\.files \?\? \[\]\)/.test(restore))
   check("  the restore route still takes a safety copy first", read("app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts").indexOf("takeBackup(") < read("app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts").indexOf("await applySnapshot("))
 }
 

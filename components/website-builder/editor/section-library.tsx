@@ -93,11 +93,12 @@ import { StorelibLiveProvider } from "@/components/website-builder/sections/stor
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
+import { hasBuiltInArt, StorelibTile } from "@/components/app/settings/integration-mark"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
-import { STORELIB_SECTION_APPS, appForSection, appIsOn, type SectionApp } from "@/lib/website-builder/app-sections"
+import { STORELIB_SECTION_APPS, appForSection, appIsOn, installedSectionApps, type SectionApp } from "@/lib/website-builder/app-sections"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
 import { useAppStates } from "./use-app-states"
 
@@ -1002,19 +1003,20 @@ export const SectionLibrary = memo(function SectionLibrary({
     const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
     const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
     const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY && !isAppSectionCategory(id))
-    const apps = appSectionCategories().filter((c) => counts.has(c.id)).map((c) => ({ key: c.id as string, label: c.label, count: counts.get(c.id) ?? 0, group: "apps" as const }))
     const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
-    /* App embeds is its own button beside the search now (round AK), not a category. */
+    /*
+      Round Z1: no Apps group (Reviews, Email, Offers) in the list. The
+      owner: "just the button there, app embeds, next to the search". Every
+      app's sections are one press away on that button, and in All.
+    */
     return [
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
-      /* Apps second, under their own heading, so a phone's row shows them without a scroll. */
-      ...apps,
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ] as { key: string; label: string; count: number; group?: "apps" }[]
+    ] as { key: string; label: string; count: number }[]
   }, [entries, compatInstallId])
 
   /**
@@ -1255,7 +1257,8 @@ export const SectionLibrary = memo(function SectionLibrary({
    * app is on.
    */
   const hasApps = useMemo(() => entries.some((e) => e.app), [entries])
-  const appStates = useAppStates(open && hasApps)
+  /* Asked for with the library's own warm-up (`built`), so the App embeds marks are there on its first frame. */
+  const appStates = useAppStates(hasApps && (open || built))
   const appsOff = useMemo(() => {
     const seen = new Map<string, SectionApp>()
     for (const e of entries) if (e.app && (e.app.id === activeCategory || activeCategory === APP_EMBEDS) && appIsOn(e.app, appStates) === false) seen.set(e.app.id, e.app)
@@ -1291,7 +1294,6 @@ export const SectionLibrary = memo(function SectionLibrary({
   const embedCount = useMemo(() => entries.filter((e) => e.app).length, [entries])
   const embedsStrip = !searching && activeCategory === APP_EMBEDS ? (
     <div data-app-embeds="" className="mb-4">
-      <p className="mb-2 text-[12.5px] text-[#6b7280]">{tt("Sections from your apps. Manage an app on its own page.")}</p>
       <div className="flex flex-wrap gap-1.5">
         {STORELIB_SECTION_APPS.map((app) => (
           <a
@@ -1314,14 +1316,27 @@ export const SectionLibrary = memo(function SectionLibrary({
     </div>
   ) : null
 
-  /* App embeds: a toggle of its own beside the search (round AK). On, the list is the apps' sections; off, back to where it was. */
+  /*
+    App embeds: a toggle of its own beside the search (round AK). On, the
+    list is the apps' sections; off, back to where it was. Round Z1: on a
+    phone it says Apps, and on both it carries the marks of up to three of
+    the store's installed apps that put sections on a website, overlapping,
+    as Settings › Integrations draws them (integration-mark.tsx). Drawn, not
+    fetched: each is a tile of CSS and one line icon, so there is nothing
+    to load and nothing to wait for. No apps on: the word alone.
+  */
   const embedsOn = activeCategory === APP_EMBEDS && !searching
   const lastCategory = useRef<string | null>(null)
-  const embedsButton = (
+  const appsWithSections = useMemo(() => new Set(entries.flatMap((e) => (e.app ? [e.app.id] : []))), [entries])
+  const installed = useMemo(() => installedSectionApps(appsWithSections, appStates), [appsWithSections, appStates])
+  const embedsLabel = phone ? tt("Apps") : tt("App embeds")
+  const embedsButton = embedCount > 0 ? (
     <button
       type="button"
       aria-pressed={embedsOn}
       data-app-embeds-toggle=""
+      /* The marks are pictures of the apps; the name of the control is the word, and which apps they are is said once. */
+      aria-label={installed.length ? `${embedsLabel}: ${installed.map((a) => a.name).join(", ")}` : undefined}
       onClick={() => {
         setQuery("")
         if (embedsOn) setActiveCategory(lastCategory.current)
@@ -1331,16 +1346,17 @@ export const SectionLibrary = memo(function SectionLibrary({
         }
       }}
       className={cn(
-        "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] max-md:h-8 max-md:rounded-full",
+        "inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg pl-2.5 pr-3 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] md:h-9 md:text-[13px]",
+        installed.length === 0 && "pl-3",
         embedsOn
           ? "bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.2)]"
           : "bg-white text-[#374151] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.05)] hover:text-[#1a1a2e] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.18),0_1px_2px_rgba(16,24,40,0.06)]",
       )}
     >
-      {tt("App embeds")}
-      {embedCount > 0 ? <span className={cn("text-[12px] tabular-nums", embedsOn ? "text-white/60" : "text-[#9ca3af]")}>{embedCount}</span> : null}
+      {installed.length > 0 ? <AppMarks apps={installed} ring={embedsOn ? "#1a1a2e" : "#ffffff"} /> : null}
+      {embedsLabel}
     </button>
-  )
+  ) : null
 
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
@@ -1440,20 +1456,14 @@ export const SectionLibrary = memo(function SectionLibrary({
         <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone" data-library-open={open ? "" : undefined}>
           <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-0.5">
             <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add a section")}</h2>
+          </div>
+          {/* Apps beside the search, as on a computer (round Z1). */}
+          <div className="flex shrink-0 items-center gap-2 px-4 pb-3">
+            <div className="min-w-0 flex-1">{search}</div>
             {embedsButton}
           </div>
-          <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
-            <div className="flex w-max items-center gap-2">
-              {categories.map((cat, i) =>
-                cat.group === "apps" && categories[i - 1]?.group !== "apps"
-                  ? [<span key="apps-heading" data-library-group="apps" className="ml-1 shrink-0 text-[12px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</span>, chip(cat)]
-                  : /* The theme's own categories after the apps: a hairline between the two. */
-                    cat.group !== "apps" && categories[i - 1]?.group === "apps"
-                    ? [<span key="apps-end" aria-hidden data-library-group="sections" className="mx-1 h-5 w-px shrink-0 bg-[#e5e7eb]" />, chip(cat)]
-                    : chip(cat),
-              )}
-            </div>
+            <div className="flex w-max items-center gap-2">{categories.map((cat) => chip(cat))}</div>
           </div>
           <div className="h-px w-full shrink-0 bg-[#f0f1f3]" />
           <div
@@ -1491,15 +1501,10 @@ export const SectionLibrary = memo(function SectionLibrary({
       </div>
       <div className="flex min-h-0 flex-1">
         <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label={tt("Categories")}>
-          {categories.map((cat, i) => {
+          {categories.map((cat) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
-            const heading = cat.group === "apps" && categories[i - 1]?.group !== "apps"
-            /* After the apps, the theme's own sections under their own heading. */
-            const sectionsHeading = cat.group !== "apps" && categories[i - 1]?.group === "apps"
             return (
               <div key={cat.key}>
-              {heading ? <p data-library-group="apps" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Apps")}</p> : null}
-              {sectionsHeading ? <p data-library-group="sections" className="mt-3 border-t border-[#f0f1f3] px-3 pb-1 pt-3 text-[11.5px] font-medium uppercase tracking-wide text-[#9ca3af]">{tt("Sections")}</p> : null}
               <button
                 type="button"
                 aria-pressed={on}
@@ -1539,6 +1544,32 @@ export const SectionLibrary = memo(function SectionLibrary({
         </div>
       </div>
     </LibraryDialog>
+  )
+})
+
+/**
+ * UP TO THREE INSTALLED APPS, AS ROUND MARKS OVERLAPPING. Each is the app's
+ * own tile from Settings › Integrations (integration-mark.tsx), cut to a
+ * circle, with a ring in the button's own colour so each one reads apart
+ * from the one under it. A fixed 20px box each, set before anything draws,
+ * so the button never changes size or moves its word. An app with no tile
+ * of its own gets a plain grey circle rather than nothing.
+ */
+const MARK_PX = 20
+const AppMarks = memo(function AppMarks({ apps, ring }: { apps: SectionApp[]; ring: string }) {
+  return (
+    <span aria-hidden data-app-marks={apps.length} className="flex shrink-0 items-center" style={{ height: MARK_PX }}>
+      {apps.map((app, i) => (
+        <span
+          key={app.id}
+          data-app-mark={app.id}
+          className="relative block shrink-0 overflow-hidden rounded-full bg-[#e5e7eb]"
+          style={{ width: MARK_PX, height: MARK_PX, marginLeft: i === 0 ? 0 : -6, zIndex: apps.length - i, boxShadow: `0 0 0 2px ${ring}` }}
+        >
+          {app.markId && hasBuiltInArt(app.markId) ? <StorelibTile id={app.markId} size={MARK_PX} mini /> : null}
+        </span>
+      ))}
+    </span>
   )
 })
 

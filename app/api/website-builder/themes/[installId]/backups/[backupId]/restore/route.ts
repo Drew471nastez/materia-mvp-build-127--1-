@@ -5,6 +5,14 @@ import { applySnapshot, takeBackup, type BackupSnapshot } from "@/lib/website-bu
 
 type Params = { params: Promise<{ installId: string; backupId: string }> }
 
+/*
+  A restore of an imported theme writes hundreds of files. It has the whole
+  of what the platform allows, and stops itself well before that: a restore
+  the platform cut off would be one nobody could undo cleanly.
+*/
+export const maxDuration = 300
+const STOP_AFTER_MS = 240_000
+
 async function ownInstall(installId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,6 +43,7 @@ async function ownInstall(installId: string) {
  * live until the creator publishes.
  */
 export async function POST(_req: Request, { params }: Params) {
+  const startedAt = Date.now()
   const { installId, backupId } = await params
   const { error, status, supabase } = await ownInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
@@ -60,14 +69,32 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "This backup cannot be read" }, { status: 422 })
   }
 
+  /*
+    The safety copy first, read back to prove it is there (verify), and the
+    backup being restored kept out of the pruning that copy may cause.
+  */
   const safety = await takeBackup(supabase, installId, {
     label: `Before restoring "${backup.label}"`,
     source: "restore",
+    verify: true,
+    keep: backup.id,
   })
-  if (safety.error) return NextResponse.json({ error: safety.error }, { status: 500 })
+  if (safety.error) {
+    console.error("[backups/restore] safety copy failed", { installId })
+    return NextResponse.json({ error: /could not be confirmed/.test(safety.error) ? safety.error : "The backup of your current draft could not be saved, so nothing was changed. Try again." }, { status: 500 })
+  }
 
-  const applied = await applySnapshot(supabase, installId, snapshot)
-  if (applied.error) return NextResponse.json({ error: applied.error }, { status: 500 })
+  /* All of it or none of it (lib/website-builder/restore-snapshot.ts). */
+  const applied = await applySnapshot(supabase, installId, snapshot, { deadlineAt: startedAt + STOP_AFTER_MS })
+  if (applied.ok === false) {
+    const failed = applied as { error: string; rolledBack: boolean }
+    console.error("[backups/restore] not applied", { installId, rolledBack: failed.rolledBack })
+    return NextResponse.json({ error: failed.error, rolledBack: failed.rolledBack }, { status: 500 })
+  }
 
-  return NextResponse.json({ ok: true, restored: { id: backup.id, label: backup.label, created_at: backup.created_at } })
+  return NextResponse.json({
+    ok: true,
+    restored: { id: backup.id, label: backup.label, created_at: backup.created_at },
+    changed: { files: applied.files, pages: applied.pages, settings: applied.settings },
+  })
 }

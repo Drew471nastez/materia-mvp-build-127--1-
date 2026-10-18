@@ -36,6 +36,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
     group: "Platform",
     items: [
       { id: "websites", label: "Websites" },
+      { href: "/admin/themes", label: "Themes" },
       { id: "email", label: "Email" },
       { id: "audience", label: "Audience" },
       { id: "people", label: "People" },

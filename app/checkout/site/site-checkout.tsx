@@ -72,6 +72,7 @@ import { estimateText, useCheckoutLang, useCountryName, useCt } from "../parts/w
 import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
 import { summaryRows } from "@/lib/checkout/summary-rows"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -234,6 +235,16 @@ export function SiteCheckout({
   const [items, setItems] = React.useState<LinkItem[] | null>(linkItems.length ? linkItems : null)
   const [wholeCart, setWholeCart] = React.useState(linkWhole)
   const [quote, setQuote] = React.useState<SiteQuote | null>(initialQuote)
+  /*
+    STARTED CHECKOUT, FOR ANALYTICS: each product in the website's own
+    checkout, once it is known, once per visit on the server. The website's
+    checkout never said so, so its funnel stopped at Buy.
+  */
+  const quoteProducts = quote ? [...new Set(quote.lines.map((l) => l.productId))].join(",") : ""
+  React.useEffect(() => {
+    if (!shopId || !quoteProducts) return
+    for (const id of quoteProducts.split(",")) void trackFunnelStep("checkout_start", shopId, id)
+  }, [shopId, quoteProducts])
   const [quoteError, setQuoteError] = React.useState<string | null>(initialError)
   const [quoting, setQuoting] = React.useState(false)
   /* Cash on delivery chosen in the payment form: the quote is asked with it, so its fee is in the total (Settings › Checkout). */

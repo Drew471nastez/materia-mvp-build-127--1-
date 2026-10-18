@@ -100,6 +100,7 @@ import { UserIdIcon as CreatorPageBold } from "@solar-icons/react/bold/user-id"
 import { cn } from "@/lib/utils"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 import { RailToggle } from "@/components/app/rail-toggle"
+import { SidebarScrollThumb } from "@/components/app/sidebar-scroll-thumb"
 import { tt } from "@/lib/i18n/text"
 
 // ── The palette, in one place ───────────────────────────────────────────────
@@ -710,7 +711,14 @@ export function DesktopNavItem({
           </button>
         </div>
         <Collapsible open={expanded}>
-          <div className="ml-[24px] mt-px space-y-px border-l border-neutral-200 pb-1 pl-[10px]">
+          {/*
+            NOT GLUED (round Z7). The owner, on Integrations lit with Storelib
+            Reviews lit right under it: "those in the sidebar are glued". 4px
+            between the parent's pill and the first child, 3px between
+            children, 6px before the next row; the guide line starts below
+            the parent's pill, on its icon's centre (14px padding + half of 20).
+          */}
+          <div data-nav-children="" className="ml-[24px] mt-[4px] space-y-[3px] border-l border-neutral-200 pb-[6px] pl-[10px]">
             {item.children.map((child) => (
               <SubNavItem
                 key={child.href}
@@ -828,6 +836,7 @@ export function DesktopSidebarContent({
   const settingsActive = isRouteActive(pathname, "/app/settings")
   const upgradeActive = isRouteActive(pathname, UPGRADE_HREF)
   const { hovered: settingsHovered, handlers: settingsHandlers } = useHover()
+  const navRef = useRef<HTMLElement>(null)
 
   return (
     <div className="flex h-full flex-col bg-white font-sans">
@@ -855,7 +864,8 @@ export function DesktopSidebarContent({
         (components/app/rail-toggle), and Dashboard is the first thing in
         the sidebar, 12px from its top.
       */}
-      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto py-3 pl-[7px] pr-px">
+      <div data-nav-scroll-frame="" className="relative flex min-h-0 flex-1 flex-col">
+      <nav ref={navRef} className="sidebar-nav min-h-0 flex-1 overflow-y-auto py-3 pl-[7px] pr-[7px]">
         <div className="space-y-[2px]">
           {items.map((item) => (
             <DesktopNavItem
@@ -881,6 +891,8 @@ export function DesktopSidebarContent({
           </div>
         )}
       </nav>
+      <SidebarScrollThumb target={navRef} />
+      </div>
 
       {/* pb accounts for the iOS home indicator in Capacitor; env() is 0 in a
           browser, so this is a no-op there. */}

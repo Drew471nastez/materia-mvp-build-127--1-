@@ -50,9 +50,9 @@ export const CANVAS_BRIDGE = `
   */
   css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none;transition:opacity .2s cubic-bezier(.4,0,.2,1)}" +
     "@media (prefers-reduced-motion:reduce){[data-sl-box]{transition:none}}" +
-    "[data-sl-box=hover]{border:1.5px solid rgba(59,130,246,.5)}" +
-    "[data-sl-box=section]{border:1.5px solid #3b82f6}" +
-    "[data-sl-box=block]{border:1.5px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
+    "[data-sl-box=hover]{border:2px solid rgba(59,130,246,.5)}" +
+    "[data-sl-box=section]{border:2px solid #3b82f6}" +
+    "[data-sl-box=block]{border:2px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
   document.head.appendChild(css);
   var boxOf = function (kind) {
     var b = document.createElement("div");

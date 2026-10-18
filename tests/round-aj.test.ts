@@ -79,10 +79,11 @@ async function main() {
   {
     const page = code("app/website-builder/editor/[installId]/page.tsx")
     /* Y1: not its radius or shadow either (a repaint of the whole card a frame), only opacity for the code pane. */
-    check("the card never animates its width", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
-    check("the sidebar's width snaps", !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
-    /* Y1: the card is never slid from where it was (the page moved right and then left); the sidebar is laid over it and goes. */
-    check("full screen moves the sidebar, by transform, not the card", /playSidebarFold\(sidebarFoldRef\.current, sidebarRef\.current, fullView\)/.test(page) && !/translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
+    /* Changed on purpose (round Z1, the owner: "like how it was before a long time ago"): the card's size is played from where it is on screen (playCardMorph), never a CSS transition on it. */
+    check("the card has no CSS transition on its size", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
+    check("the sidebar's width has no CSS transition either: its fold is played from where it is", !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page) && /playSidebarFold\(fold, panel, at,/.test(page))
+    /* Y1: the card is never slid from where it was (the page moved right and then left). */
+    check("full screen folds the sidebar; the card is never slid", /playSidebarFold\(/.test(page) && !/translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
   }
 
   console.log("\nWebsite settings")
