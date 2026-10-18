@@ -1379,7 +1379,8 @@ section("Switching pages does not lose or misfile work")
        */
       return (
         /switchingPage\.current = true/.test(body) &&
-        /if \(switchingPage\.current\) return/.test(editor)
+        /* Round Z4: a running restore holds autosave too. */
+        /if \(switchingPage\.current(?: \|\| restoreHold\.current)?\) return/.test(editor)
       )
     })(),
   )
