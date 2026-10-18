@@ -1,6 +1,6 @@
 # Storelib money audit (18 October 2026)
 
-Read-only audit. **No money code was changed.** Everything below is a
+Read-only audit. **No money code was changed.** Superseded by `currency-audit-2026-10-18.md`, which goes deeper and plans Option A. Everything below is a
 finding or a proposal waiting for approval.
 
 The goal it was measured against:
