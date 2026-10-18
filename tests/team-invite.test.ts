@@ -80,7 +80,7 @@ async function main() {
     const out = inviteStateOf({ ...base, user: null })
     check("signed out: sign in as the invited email, knowing whether it has an account", out.kind === "signed_out" && out.email === "ana@example.com" && out.hasAccount === true)
     const wrong = inviteStateOf({ ...base, user: { id: BEN, email: "ben@example.com" } })
-    check("signed in as someone else: wrong_account, naming both", wrong.kind === "wrong_account" && wrong.email === "ana@example.com" && wrong.signedInAs === "ben@example.com")
+    check("signed in with another email: wrong_account, naming both, and the link may still be accepted", wrong.kind === "wrong_account" && wrong.email === "ana@example.com" && wrong.signedInAs === "ben@example.com" && refusalOf(wrong) === null)
     check("the email matches whatever its case", inviteStateOf(base).kind === "ready")
     check("the owner opening their own invite: own_store", inviteStateOf({ ...base, user: { id: OWNER, email: "ana@example.com" } }).kind === "own_store")
     const full = inviteStateOf({ ...base, teamSize: FREE_SEATS + 2 })
@@ -113,9 +113,12 @@ async function main() {
 
   console.log("\nAccepting")
   {
+    /* The link proves the invited inbox (GitHub, Slack, Notion): another account of its holder may take it, once (tests/team-join-x.test.ts). */
+    const other = world()
+    const byBen = await acceptInvite(other as never, TOKEN, { id: BEN, email: "ben@example.com" })
+    const afterBen = await acceptInvite(other as never, TOKEN, { id: ANA, email: "ana@example.com" })
+    check("a signed in account with another email may take the link, and then nobody else can", byBen.ok === true && afterBen.ok === false && afterBen.status === 409, { byBen, afterBen })
     const db = world()
-    const wrong = await acceptInvite(db as never, TOKEN, { id: BEN, email: "ben@example.com" })
-    check("another account cannot accept a forwarded link", wrong.ok === false && wrong.status === 403)
     const ok = await acceptInvite(db as never, TOKEN, { id: ANA, email: "ana@example.com" })
     check("the invited email accepts, and lands where the role starts", ok.ok === true && ok.creatorId === STORE && ok.home === "/app/orders", ok)
     const rows = (db as unknown as { tables?: Record<string, unknown[]> }).tables
@@ -175,7 +178,7 @@ async function main() {
   console.log("\n'Use another account' signs out for real")
   {
     const sw = read("app/api/team/join/switch/route.ts")
-    check("it is a POST from Storelib's own page only", /export async function POST/.test(sw) && !/export async function GET/.test(sw) && /origin !== new URL\(req\.url\)\.origin/.test(sw))
+    check("it is a POST from Storelib's own page only", /export async function POST/.test(sw) && !/export async function GET/.test(sw) && /fromOwnPage\(req\.headers, req\.url\)/.test(sw))
     check("  Supabase signs the session out and every sb- cookie expires on the response", /auth\.signOut\(\{ scope: "local" \}\)/.test(sw) && /c\.name\.startsWith\("sb-"\)/.test(sw) && /maxAge: 0/.test(sw))
     check("  then sign in (or create the account) as the invited email, back to the invite", /inviteSignInPath\(/.test(sw) && /readInvite\(createAdminClient\(\), token, null\)/.test(sw))
     const btn = read("components/team/join-actions.tsx")

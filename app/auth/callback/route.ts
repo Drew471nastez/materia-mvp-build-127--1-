@@ -12,6 +12,7 @@ import { hasSellerAccess, readSellerAccess } from "@/lib/account/seller-access"
 import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
+import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 
 /**
  * GET /auth/callback?code=<code>
@@ -162,6 +163,12 @@ export async function GET(request: Request) {
   const jar = await cookies()
   const carry = decodeCarry(jar.get(CARRY_COOKIE)?.value, getMainDomain())
   jar.delete(CARRY_COOKIE)
+  /* A team invite opened before signing in, when nothing else said where to go (lib/team/invite-links.ts). */
+  const invite = jar.get(INVITE_COOKIE)?.value
+  if (invite) {
+    carry.next = inviteFallbackNext(carry.next, invite)
+    jar.delete(INVITE_COOKIE)
+  }
   const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
   /* A new account sets its profile once, on its way (lib/account/welcome). A sign-in with nowhere else to go opens the remembered page. */
   const opened = destinationWithAppOpen(destinationAfterAuth(carry, access), data.user.user_metadata, carry.next)

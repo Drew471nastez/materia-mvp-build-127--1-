@@ -9957,7 +9957,29 @@ const words: Record<string, string> = {
  "Save term": "Zapisz termin",
  "A language is on your website once it is published. Translating it to the end publishes it for you. Anything not translated yet shows in your default language.": "Język pojawia się na Twojej stronie po opublikowaniu. Przetłumaczenie go do końca publikuje go za Ciebie. To, co nie jest jeszcze przetłumaczone, wyświetla się w Twoim języku domyślnym.",
  "Glossary keeps your brand and product names as written, or translates a word your way. Translations you write yourself are never changed.": "Słownik zostawia Twoją markę i nazwy produktów bez zmian albo tłumaczy słowo po Twojemu. Tłumaczenia, które piszesz sam, nigdy nie są zmieniane.",
- "Words and phrases": "Słowa i frazy"
+ "Words and phrases": "Słowa i frazy",
+ "Adds the tax your settings here call for at checkout, shows it to the buyer, and puts it on the order, the receipt and the invoice. Tax collected adds it up for you.": "Dolicza przy płatności podatek, którego wymagają Twoje ustawienia tutaj, pokazuje go kupującemu i umieszcza na zamówieniu, paragonie i fakturze. Zebrany podatek sumuje go za Ciebie.",
+ "Also {amount} from {n, plural, one {# order} other {# orders}} in {currency}, sold before your store's currency changed.": "Do tego {amount} z {n, plural, one {# zamówienia} few {# zamówień} many {# zamówień} other {# zamówienia}} w {currency}, sprzedanych przed zmianą waluty sklepu.",
+ "Buyers pay your prices and nothing more.": "Kupujący płacą Twoje ceny i nic więcej.",
+ "Charged through Storelib's Stripe account, at your rate for the buyer's country, on every renewal.": "Pobierane przez konto Stripe Storelib, według Twojej stawki dla kraju kupującego, przy każdym odnowieniu.",
+ "Charged through Storelib's Stripe account. Stripe Tax works out the rate from where the buyer is, on every renewal.": "Pobierane przez konto Stripe Storelib. Stripe Tax ustala stawkę na podstawie miejsca, w którym jest kupujący, przy każdym odnowieniu.",
+ "Charging tax in {n, plural, one {# region} other {# regions}}": "Podatek naliczany w {n, plural, one {# regionie} few {# regionach} many {# regionach} other {# regionach}}",
+ "Community plans and memberships are charged through Storelib's Stripe account, and Stripe Tax works out the rate from where the buyer is, on every renewal.": "Plany społeczności i członkostwa są pobierane przez konto Stripe Storelib, a Stripe Tax ustala stawkę na podstawie miejsca, w którym jest kupujący, przy każdym odnowieniu.",
+ "Community plans and memberships charge your rate for the buyer's country, on every renewal.": "Plany społeczności i członkostwa naliczają Twoją stawkę dla kraju kupującego, przy każdym odnowieniu.",
+ "Memberships and community plans": "Członkostwa i plany społeczności",
+ "Memberships: no tax": "Członkostwa: bez podatku",
+ "Memberships: worked out automatically": "Członkostwa: ustalany automatycznie",
+ "Memberships: your rates": "Członkostwa: Twoje stawki",
+ "Not charging tax": "Bez podatku",
+ "Not sure what applies to you? An accountant can tell you in one conversation, and the CSV is what they will ask for.": "Nie wiesz, co Cię dotyczy? Księgowy powie Ci to w jednej rozmowie, a plik CSV to właśnie to, o co poprosi.",
+ "Nothing is charged until you add a region below.": "Nic nie jest naliczane, dopóki nie dodasz regionu poniżej.",
+ "On physical and digital sales, at the rates you set below.": "Od sprzedaży fizycznej i cyfrowej, według stawek ustawionych poniżej.",
+ "On physical sales, at the rates you set below. Digital sales are not taxed (switch below).": "Od sprzedaży fizycznej, według stawek ustawionych poniżej. Sprzedaż cyfrowa nie jest opodatkowana (przełącznik poniżej).",
+ "Stripe and Airwallex": "Stripe i Airwallex",
+ "Tax is on, but no region is set": "Podatek jest włączony, ale nie ustawiono regionu",
+ "They take the payment for the total Storelib worked out, tax included. They don't work out tax on your products.": "Przyjmują płatność za kwotę wyliczoną przez Storelib, z podatkiem. Nie wyliczają podatku od Twoich produktów.",
+ "Turn on tax on digital products and add a region to charge it on memberships.": "Włącz podatek od produktów cyfrowych i dodaj region, aby naliczać go od członkostw.",
+ "You are the seller, so registering for tax where you need to, filing returns and paying the tax stay with you. Storelib does not file or pay tax for you.": "To Ty jesteś sprzedawcą, więc rejestracja podatkowa tam, gdzie trzeba, składanie deklaracji i płacenie podatku należą do Ciebie. Storelib nie składa deklaracji ani nie płaci podatku za Ciebie."
 }
 
 export default words

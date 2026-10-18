@@ -731,6 +731,11 @@ const SUITES = [
   "tests/ai-quality-v.test.ts",
   /* Round V8: the website's words in each language, edited in the builder's sidebar in that language, a product's own Translations, one read per language (SQL part 211; scripts/check-translation-switch.mjs measures the sidebar) */
   "tests/translations-v.test.ts",
+  /* Round X4: Join on a team invite works after any sign in (Origin "null" under no-referrer was refused), the invite kept across OAuth, another email may take a valid link once */
+  "tests/team-join-x.test.ts",
+  "tests/team-invite.test.ts",
+  /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
+  "tests/taxes-x.test.ts",
 ]
 
 /**

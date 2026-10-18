@@ -10,7 +10,7 @@ export const JOIN_PATH = "/team/join"
 export function inviteSignInPath(v: { token: string; email: string; hasAccount: boolean }): string {
   const params = new URLSearchParams()
   params.set("email", v.email)
-  params.set("next", `${JOIN_PATH}?token=${encodeURIComponent(v.token)}`)
+  params.set("next", invitePath(v.token))
   return `${v.hasAccount ? "/login" : "/signup"}?${params.toString()}`
 }
 
@@ -20,4 +20,35 @@ export function inviteEmailFrom(params: { get(name: string): string | null }): s
   const email = (params.get("email") ?? "").trim().toLowerCase()
   if (!next.startsWith(`${JOIN_PATH}?`) || !email) return null
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254 ? email : null
+}
+
+/**
+ * ===========================================================================
+ *  THE INVITE, KEPT ACROSS SIGN IN
+ * ===========================================================================
+ * The invite rides on `next` through every way in (the login page's query,
+ * the OAuth carry cookie /auth/start writes, the native app's storage). As a
+ * second hold, Log in to accept and Create account to accept pass through
+ * /api/team/join/sign-in, which keeps the link's token in a short lived
+ * httpOnly cookie on the platform. A sign in that arrives at /auth/callback
+ * or /auth/continue with nowhere to go (a `next` lost on the way: an email
+ * code typed in another tab, a verify step, a provider error and retry)
+ * goes back to the invite instead of the dashboard. The cookie only says
+ * which invite to open; the invite page and the accept check the token
+ * against its hash, its expiry and its single use as always.
+ */
+export const INVITE_COOKIE = "sl_team_invite"
+export const INVITE_COOKIE_MAX_AGE_SECONDS = 30 * 60
+
+const TOKEN_SHAPE = /^[A-Za-z0-9_-]{20,100}$/
+
+export function invitePath(token: string): string {
+  return `${JOIN_PATH}?token=${encodeURIComponent(token)}`
+}
+
+/** The invite to go back to after sign in, from the cookie, when nothing else said where to go. */
+export function inviteFallbackNext(next: string | null, cookieValue: string | null | undefined): string | null {
+  if (next) return next
+  const token = (cookieValue ?? "").trim()
+  return TOKEN_SHAPE.test(token) ? invitePath(token) : null
 }

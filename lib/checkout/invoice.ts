@@ -261,12 +261,15 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const rowTax = (r: OrderRow) => Math.max(0, Number(r.tax_cents) || 0)
   const rowTaxIncluded = (r: OrderRow) => r.tax_included === true
   const basketTax = rows.reduce((n, r) => n + rowTax(r), 0)
-  const taxCents = !isBasket ? Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0) : basketTax
-  const taxIncluded = !isBasket ? meta.tax_included === "true" : basketTax > 0 && rows.filter((r) => rowTax(r) > 0).every(rowTaxIncluded)
+  /* One order: the payment's own record, else the order's (a membership renewal's tax comes from its Stripe invoice onto the row, lib/memberships/sync.ts). */
+  const metaTax = Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0)
+  const singleFromRow = !isBasket && metaTax === 0 && rowTax(first) > 0
+  const taxCents = !isBasket ? metaTax || rowTax(first) : basketTax
+  const taxIncluded = !isBasket ? (singleFromRow ? rowTaxIncluded(first) : meta.tax_included === "true") : basketTax > 0 && rows.filter((r) => rowTax(r) > 0).every(rowTaxIncluded)
   const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
   /* The tax's own words: the payment's for one product, the rows' for a basket (one label when they agree), else the rate. */
   const rowLabels = [...new Set(rows.filter((r) => rowTax(r) > 0).map((r) => (typeof r.tax_label === "string" ? r.tax_label.trim() : "")).filter(Boolean))]
-  const taxLabel = (!isBasket ? (meta.tax_label || "").trim() : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
+  const taxLabel = (!isBasket ? (meta.tax_label || "").trim() || (singleFromRow ? rowLabels[0] ?? "" : "") : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
   const addedTax = taxIncluded ? 0 : taxCents
   if (!isBasket) {
     const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)

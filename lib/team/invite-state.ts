@@ -19,7 +19,12 @@
  *                  after it was sent)
  *   signed_out     a way to sign in (or create the account) as the invited
  *                  email, which is kept on the way
- *   wrong_account  signed in as somebody else: sign out and come back
+ *   wrong_account  signed in with an account whose email is not the invited
+ *                  one (a Google alias, Apple's Hide My Email address, a
+ *                  second account). The link is the proof of the inbox, the
+ *                  way GitHub, Slack and Notion take a valid invite link: it
+ *                  can be accepted by the account that is signed in, with the
+ *                  invited email shown, or the person switches account.
  *   ready          the one with Accept and Decline
  */
 import { seatLimit, type MemberRole } from "./roles"
@@ -49,8 +54,25 @@ export type InviteState =
   | { kind: "own_store"; store: InviteStore }
   | { kind: "seats_full"; store: InviteStore; role: MemberRole; limit: number }
   | { kind: "signed_out"; store: InviteStore; role: MemberRole; email: string; hasAccount: boolean }
-  | { kind: "wrong_account"; store: InviteStore; role: MemberRole; email: string; signedInAs: string | null }
+  | { kind: "wrong_account"; store: InviteStore; role: MemberRole; email: string; signedInAs: string | null; inviteId: string }
   | { kind: "ready"; store: InviteStore; role: MemberRole; email: string; inviteId: string }
+
+/** The same inbox, written either way: case and spaces never make two people. */
+export function sameEmail(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = (a ?? "").trim().toLowerCase()
+  const y = (b ?? "").trim().toLowerCase()
+  return !!x && x === y
+}
+
+/**
+ * Whether an accept may go ahead. Ready, and also wrong_account: holding an
+ * unexpired, unused link is the proof that the invited inbox was opened, so
+ * the account signed in now may take it (the page says which email it was
+ * sent to first). The link is single use, so once taken nobody else can.
+ */
+export function acceptable(state: InviteState): state is Extract<InviteState, { kind: "ready" | "wrong_account" }> {
+  return state.kind === "ready" || state.kind === "wrong_account"
+}
 
 export function tokenShapeOk(token: unknown): token is string {
   return typeof token === "string" && token.length >= 20 && token.length <= 100 && /^[A-Za-z0-9_-]+$/.test(token)
@@ -65,6 +87,8 @@ export function inviteStateOf(input: {
   user: { id: string; email: string | null } | null
   /** Whether a Storelib account has the invited email (asked only when signed out). */
   hasAccount: boolean
+  /** The signed in account is already on this store's team through another invite. */
+  alreadyMember?: boolean
   now: number
 }): InviteState {
   const { invite, store, user } = input
@@ -75,12 +99,13 @@ export function inviteStateOf(input: {
   if (invite.status === "active") return { kind: "accepted", store: shown, role: invite.role, mine: !!user && invite.user_id === user.id }
   if (invite.expires_at && Date.parse(invite.expires_at) < input.now) return { kind: "expired", store: shown, email: invite.email }
   if (!user) return { kind: "signed_out", store: shown, role: invite.role, email: invite.email, hasAccount: input.hasAccount }
-  if (!user.email || user.email.trim().toLowerCase() !== invite.email) {
-    return { kind: "wrong_account", store: shown, role: invite.role, email: invite.email, signedInAs: user.email }
-  }
   if (store.ownerUserId && store.ownerUserId === user.id) return { kind: "own_store", store: shown }
+  if (input.alreadyMember) return { kind: "accepted", store: shown, role: invite.role, mine: true }
   const limit = seatLimit(store.pro)
   if (input.teamSize > limit) return { kind: "seats_full", store: shown, role: invite.role, limit }
+  if (!sameEmail(user.email, invite.email)) {
+    return { kind: "wrong_account", store: shown, role: invite.role, email: invite.email, signedInAs: user.email, inviteId: invite.id }
+  }
   return { kind: "ready", store: shown, role: invite.role, email: invite.email, inviteId: invite.id }
 }
 
@@ -88,6 +113,7 @@ export function inviteStateOf(input: {
 export function refusalOf(state: InviteState): { status: number; error: string } | null {
   switch (state.kind) {
     case "ready":
+    case "wrong_account":
       return null
     case "invalid":
       return { status: 400, error: "This invite link is not complete. Open it from the email again." }
@@ -105,7 +131,5 @@ export function refusalOf(state: InviteState): { status: number; error: string }
       return { status: 403, error: "The team is full on this store's plan. Ask the owner to free a seat or upgrade." }
     case "signed_out":
       return { status: 401, error: "Sign in to accept the invite." }
-    case "wrong_account":
-      return { status: 403, error: `This invite was sent to ${state.email}. Sign in with that email to accept it.` }
   }
 }

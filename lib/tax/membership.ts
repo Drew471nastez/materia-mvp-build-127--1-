@@ -26,9 +26,11 @@ import "server-only"
  * is made with. Nothing here files or pays tax to any government; Storelib
  * never says it does.
  */
+import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { loadTaxForCheckout } from "./server"
-import { digitalTax } from "./rules"
+import { digitalTax, taxLabel } from "./rules"
+import { invoiceTaxFacts } from "./invoice-tax"
 
 type Db = any
 
@@ -128,4 +130,31 @@ export async function membershipTaxForSubscription(
     { idempotencyKey: `storelib-tax-rate:${sale.creatorId}:${sale.country}:${quote.rateBps}:${quote.included ? "in" : "ex"}` },
   )
   return { taxRateIds: [rate.id], source: "creator" }
+}
+
+/**
+ * A paid membership invoice's tax, for its order (lib/memberships/sync.ts):
+ * the amount and whether it was inside the price from the invoice
+ * (lib/tax/invoice-tax.ts), and the name, rate and country from the Stripe
+ * tax rate behind it, else the buyer's billing country. Null: untaxed.
+ */
+export async function membershipOrderTax(invoice: Stripe.Invoice): Promise<{ taxCents: number; included: boolean; label: string; country: string | null } | null> {
+  const facts = invoiceTaxFacts(invoice)
+  if (!facts) return null
+  let label = "Tax"
+  let country: string | null = null
+  if (facts.taxRateId) {
+    try {
+      const rate = await stripe.taxRates.retrieve(facts.taxRateId)
+      label = taxLabel(rate.display_name || null, Math.round(Number(rate.percentage || 0) * 100))
+      country = typeof rate.country === "string" && /^[A-Z]{2}$/i.test(rate.country) ? rate.country.toUpperCase() : null
+    } catch {
+      /* The amount is what matters; the name stays "Tax". */
+    }
+  }
+  if (!country) {
+    const billed = invoice.customer_address?.country
+    country = typeof billed === "string" && /^[A-Z]{2}$/i.test(billed) ? billed.toUpperCase() : null
+  }
+  return { taxCents: facts.taxCents, included: facts.included, label, country }
 }

@@ -69,8 +69,8 @@ console.log("\nEvery way in asks the server")
   check("the store a member works in is read again from the database on each request", /\.from\("store_team_members"\)\.select\("role"\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
   check("  and a role that does not have the area is denied, never shown their own account", /if \(!memberCan\(acting\.role, area\)\) return \{ kind: "denied", acting \}/.test(server))
   check("invites are stored as a hash, never the link itself", /token_hash: hashToken\(/.test(server) && !/token: token/.test(server))
-  /* The decision moved to lib/team/invite-state.ts (one table for the page and the accept); acceptInvite refuses anything but "ready". */
-  check("an invite is accepted only by the email it was sent to", /user\.email\.trim\(\)\.toLowerCase\(\) !== invite\.email/.test(read("lib/team/invite-state.ts")) && /const refused = refusalOf\(state\)/.test(server) && /state\.kind !== "ready"/.test(server))
+  /* The decision is lib/team/invite-state.ts (one table for the page and the accept). The link proves the inbox, so another account of whoever holds it may accept (tests/team-join-x.test.ts). */
+  check("an invite is accepted only with its link, as the page shows it", /!sameEmail\(user\.email, invite\.email\)/.test(read("lib/team/invite-state.ts")) && /const refused = refusalOf\(state\)/.test(server) && /!acceptable\(state\)/.test(server))
   check("  and only once: the row turns active only while it is still an invite", /\.eq\("status", "invited"\)\s*\n\s*\.select\("id"\)/.test(server))
   check("a role that is not open yet cannot be given", (server.match(/if \(!invitable\(/g) ?? []).length === 2)
   check("an owner's own team is managed from their own store only", /const store = await ownStore\(db, opts\.owner\.id\)/.test(server))
@@ -91,7 +91,7 @@ console.log("\nEvery way in asks the server")
   check("the refund route itself is untouched: the signed in account's own orders only", !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
 
   const join = read("app/api/team/join/route.ts")
-  check("accepting from the email link checks where the form came from", /origin !== new URL\(req\.url\)\.origin/.test(join))
+  check("accepting from the email link checks where the form came from", /fromOwnPage\(req\.headers, req\.url\)/.test(join))
   {
     const get = join.slice(join.indexOf("export async function GET"), join.indexOf("function back("))
     check("  and opening the old /api/team/join link goes to the invite page, changing nothing", /joinPath\(token\)/.test(get) && /308/.test(get) && !/acceptInvite|declineInvite/.test(get))

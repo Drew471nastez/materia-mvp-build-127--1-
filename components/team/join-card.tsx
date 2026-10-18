@@ -3,7 +3,6 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { AcceptDecline, JOIN_BTN_PRIMARY, JOIN_BTN_QUIET, UseAnotherAccount } from "@/components/team/join-actions"
 import { OWNER_KEEPS, ROLE_CAN, ROLE_LABEL, type MemberRole } from "@/lib/team/roles"
-import { inviteSignInPath } from "@/lib/team/invite-links"
 import type { InviteState, InviteStore } from "@/lib/team/invite-state"
 
 /**
@@ -82,27 +81,34 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
         <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
           <RoleBox role={state.role} email={state.email} />
           <div className="mt-5 space-y-2">
-            <Link href={inviteSignInPath({ token, email: state.email, hasAccount: state.hasAccount })} className={JOIN_BTN_PRIMARY} data-join="sign-in">
+            {/* Through the route that keeps the invite for after sign in, whichever way that is (app/api/team/join/sign-in). */}
+            <a href={signInHref(token, state.hasAccount)} className={JOIN_BTN_PRIMARY} data-join="sign-in">
               {state.hasAccount ? "Log in to accept" : "Create account to accept"}
-            </Link>
-            <Link href={inviteSignInPath({ token, email: state.email, hasAccount: !state.hasAccount })} className={JOIN_BTN_QUIET}>
+            </a>
+            <a href={signInHref(token, !state.hasAccount)} className={JOIN_BTN_QUIET}>
               {state.hasAccount ? "New to Storelib? Create an account" : "Already on Storelib? Log in"}
-            </Link>
+            </a>
           </div>
         </StoreCard>
       )
     case "wrong_account":
       return (
-        <StoreCard store={state.store} eyebrow="Team invite" title="This invite is for another account">
-          <p className="text-center text-[14px] leading-[21px] text-[#6b7280]">
-            The invite to {state.store.name} was sent to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.email}</span>.
-            {state.signedInAs ? <> You're signed in as <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.signedInAs}</span>.</> : null}
+        <StoreCard store={state.store} eyebrow="Team invite" title={`Join ${state.store.name}`}>
+          <RoleBox role={state.role} email={state.email} />
+          <p className="mt-4 text-center text-[13.5px] leading-5 text-[#6b7280]" data-join="other-email">
+            {state.signedInAs ? (
+              <>
+                You're signed in as <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{state.signedInAs}</span>. Joining adds this account to the team.
+              </>
+            ) : (
+              <>Joining adds the account you're signed in with to the team.</>
+            )}
           </p>
+          {note ? <Note kind={note} /> : null}
           <div className="mt-5 space-y-2">
-            <UseAnotherAccount token={token} label="Switch account" />
-            <Link href="/" className={JOIN_BTN_QUIET}>Not now</Link>
+            <AcceptDecline token={token} storeName={state.store.name} label="Join with this account" decline={false} />
+            <UseAnotherAccount token={token} label="Switch account" quiet />
           </div>
-          <p className="mt-3 text-center text-[12.5px] leading-[18px] text-[#9ca3af]">We sign you out here, then you sign in as the invited email and come straight back.</p>
         </StoreCard>
       )
     case "ready":
@@ -118,8 +124,17 @@ export function StateCard({ state, token, note, signedIn }: { state: InviteState
   }
 }
 
+export function signInHref(token: string, hasAccount: boolean): string {
+  return `/api/team/join/sign-in?token=${encodeURIComponent(token)}&to=${hasAccount ? "login" : "signup"}`
+}
+
 export function Note({ kind }: { kind: string }) {
-  const text = kind === "slow" ? "Too many tries. Wait a few minutes, then press Join again." : "That didn't go through. Try again."
+  const text =
+    kind === "slow"
+      ? "Too many tries. Wait a few minutes, then press Join again."
+      : kind === "again"
+        ? "That press didn't reach us from this page. Press Join again."
+        : "That didn't go through. Try again."
   return <p role="alert" className="mt-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#991b1b]">{text}</p>
 }
 

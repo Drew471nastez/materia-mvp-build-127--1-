@@ -3,7 +3,9 @@ import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TEAM_STORE_COOKIE, joinPath, readInvite } from "@/lib/team/server"
-import { inviteSignInPath } from "@/lib/team/invite-links"
+import { INVITE_COOKIE, INVITE_COOKIE_MAX_AGE_SECONDS, inviteSignInPath } from "@/lib/team/invite-links"
+import { fromOwnPage } from "@/lib/team/own-page"
+import { tokenShapeOk } from "@/lib/team/invite-state"
 
 /**
  * ===========================================================================
@@ -30,10 +32,14 @@ import { inviteSignInPath } from "@/lib/team/invite-links"
 export const dynamic = "force-dynamic"
 
 export async function POST(req: Request) {
-  const origin = req.headers.get("origin")
-  if (origin && origin !== new URL(req.url).origin) return NextResponse.json({ error: "Open the invite from your email." }, { status: 403 })
   const form = await req.formData().catch(() => null)
   const token = String(form?.get("token") ?? "")
+  /* Another site's form signs nobody out: it lands on the invite page, which asks again (lib/team/own-page.ts). */
+  if (!fromOwnPage(req.headers, req.url)) {
+    const to = new URL(token ? joinPath(token) : "/team/join", req.url)
+    to.searchParams.set("note", "again")
+    return NextResponse.redirect(to, 303)
+  }
 
   /* Where to after: sign in or create the account as the invited email, then back to the invite. */
   const read = await readInvite(createAdminClient(), token, null).catch(() => null)
@@ -53,6 +59,8 @@ export async function POST(req: Request) {
     if (c.name.startsWith("sb-")) res.cookies.set(c.name, "", { path: "/", maxAge: 0 })
   }
   res.cookies.set(TEAM_STORE_COOKIE, "", { path: "/", maxAge: 0 })
+  /* The invite waits for the other account's sign in (lib/team/invite-links.ts). */
+  if (tokenShapeOk(token)) res.cookies.set(INVITE_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: new URL(req.url).protocol === "https:", path: "/", maxAge: INVITE_COOKIE_MAX_AGE_SECONDS })
   res.headers.set("Cache-Control", "private, no-store")
   return res
 }

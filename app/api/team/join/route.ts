@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { requestUser } from "@/lib/businesses/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { TEAM_STORE_COOKIE, acceptInvite, declineInvite, joinPath } from "@/lib/team/server"
+import { fromOwnPage } from "@/lib/team/own-page"
+import { INVITE_COOKIE } from "@/lib/team/invite-links"
 
 /**
  * ===========================================================================
@@ -12,15 +14,18 @@ import { TEAM_STORE_COOKIE, acceptInvite, declineInvite, joinPath } from "@/lib/
  *      (app/team/join), so it goes there, token and all.
  * POST is the page's Accept and Decline. Opening the link changes nothing,
  *      so an email scanner that opens every link accepts nobody; only a
- *      press on Storelib's own page does (the Origin check below).
+ *      press on Storelib's own page does (lib/team/own-page.ts).
  *
- *      accept  for the signed in account, whose email has to be the one
- *              invited (lib/team/server.ts acceptInvite), then straight into
- *              the store where the role starts (roleHome)
+ *      accept  for the signed in account (lib/team/server.ts acceptInvite):
+ *              the invited email, or another account of whoever holds the
+ *              link, which the page names first; then straight into the
+ *              store where the role starts (roleHome)
  *      decline the invite is removed and the owner told
  *
  * Every refusal goes back to the invite page, which reads the invite again
- * and says what is wrong in its own words, with the next step.
+ * and says what is wrong in its own words, with the next step. Nothing here
+ * answers with JSON: these are form posts, and whatever the route says is
+ * what the browser shows.
  */
 export const dynamic = "force-dynamic"
 
@@ -37,11 +42,10 @@ function back(req: Request, token: string, note?: string): NextResponse {
 }
 
 export async function POST(req: Request) {
-  /* Only this page's own button: a form on another site is refused before anything is read. */
-  const origin = req.headers.get("origin")
-  if (origin && origin !== new URL(req.url).origin) return NextResponse.json({ error: "Open the invite from your email." }, { status: 403 })
   const form = await req.formData().catch(() => null)
   const token = String(form?.get("token") ?? "")
+  /* Only this page's own button: a form on another site changes nothing and lands on the invite page, which asks again. */
+  if (!fromOwnPage(req.headers, req.url)) return back(req, token, "again")
   const action = String(form?.get("action") ?? "accept")
 
   if (action === "decline") {
@@ -60,5 +64,6 @@ export async function POST(req: Request) {
   if (out.ok === false) return back(req, token, out.status >= 500 ? "failed" : undefined)
   const res = NextResponse.redirect(new URL(`${out.home}?joined=1`, req.url), 303)
   res.cookies.set(TEAM_STORE_COOKIE, out.creatorId, { httpOnly: true, sameSite: "lax", secure: true, path: "/", maxAge: 60 * 60 * 24 * 90 })
+  res.cookies.set(INVITE_COOKIE, "", { path: "/", maxAge: 0 })
   return res
 }

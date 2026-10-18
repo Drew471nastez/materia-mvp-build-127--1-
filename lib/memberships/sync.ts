@@ -367,6 +367,16 @@ export async function recordPaidInvoice(admin: Db, invoice: Stripe.Invoice, opts
   const creatorId = row.creator_id
   const productId = row.product_id
   const firstPayment = invoice.billing_reason === "subscription_create" || invoice.billing_reason === "subscription_update"
+  /* The invoice's tax on its order, as the other checkouts keep theirs, for the order page, the receipt and Settings › Taxes (lib/tax/membership.ts). Each its own write, so an older database loses only these. */
+  await step("tax", async () => {
+    const { membershipOrderTax } = await import("@/lib/tax/membership")
+    const tax = await membershipOrderTax(invoice)
+    if (!tax) return
+    const { error: taxError } = await admin.from("orders").update({ tax_cents: Math.min(tax.taxCents, total), tax_country: tax.country }).eq("id", orderId)
+    if (taxError) throw new Error(taxError.message)
+    if (tax.included) await admin.from("orders").update({ tax_included: true }).eq("id", orderId)
+    await admin.from("orders").update({ tax_label: tax.label.slice(0, 80) }).eq("id", orderId)
+  })
   await step("customer", () => recordCustomer(admin, { creatorId, email: row!.buyer_email, first: first || undefined, last: rest.join(" ") || undefined, total }))
   await step("ledger", () => recordSale(admin, { creatorId, orderId: orderId!, total, fee: feeCents, destinationPaymentId: facts?.destinationPaymentId ?? null }))
   if (firstPayment) {

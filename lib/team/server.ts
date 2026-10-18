@@ -10,7 +10,7 @@ import { teamInviteEmail } from "./invite-email"
 import { baseUrl } from "@/lib/notify/urls"
 import { isProPlan } from "@/lib/home/progress"
 import { INVITE_TTL_MS, ROLE_LABEL, invitable, isMemberRole, memberCan, resendWait, roleHome, seatLimit, teamEmail, type MemberRole, type TeamArea, type TeamRole } from "./roles"
-import { inviteStateOf, refusalOf, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
+import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
 
 /**
  * ===========================================================================
@@ -174,18 +174,24 @@ export async function readInvite(
   let store: (InviteStoreRow & { name: string }) | null = null
   let teamSize = 0
   let hasAccount = false
+  let alreadyMember = false
   if (invite) {
-    const [{ data: c }, { count }, account] = await Promise.all([
+    const [{ data: c }, { count }, account, member] = await Promise.all([
       db.from("creators").select("id, user_id, slug, display_name, avatar_url, subscription_plan_id").eq("id", invite.creator_id).maybeSingle(),
       db.from("store_team_members").select("id", { count: "exact", head: true }).eq("creator_id", invite.creator_id),
       !user && invite.status === "invited"
         ? db.from("profiles").select("id").eq("email", invite.email).limit(1).then((r: { data: unknown[] | null }) => (r.data?.length ?? 0) > 0, () => false)
+        : Promise.resolve(false),
+      /* Signed in and already on this team through another invite: one membership per person per store. */
+      user && invite.status === "invited"
+        ? db.from("store_team_members").select("id").eq("creator_id", invite.creator_id).eq("user_id", user.id).neq("id", invite.id).limit(1).then((r: { data: unknown[] | null }) => (r.data?.length ?? 0) > 0, () => false)
         : Promise.resolve(false),
     ])
     const row = c as InviteStoreRow | null
     store = row ? { ...row, name: row.display_name || row.slug || "A Storelib store" } : null
     teamSize = typeof count === "number" ? count : 0
     hasAccount = account as boolean
+    alreadyMember = member as boolean
   }
   const state = inviteStateOf({
     token,
@@ -194,24 +200,29 @@ export async function readInvite(
     teamSize,
     user,
     hasAccount,
+    alreadyMember,
     now,
   })
   return { ok: true, state, invite, ownerUserId: store?.user_id ?? null }
 }
 
 /**
- * Accept an invite, signed in. The account's email has to be the one the
- * invite was sent to: a forwarded link does not let someone else in. Once:
+ * Accept an invite, signed in. Usually the account's email is the invited
+ * one. When it is not (Google with another address, Apple's Hide My Email,
+ * a second account) the link still works for the account that is signed in:
+ * only the invited inbox received it, the page shows which email it was sent
+ * to before the press, and the owner is told which account took it. Once:
  * the row turns active only while it is still an invite, so two presses (or
- * two tabs) are one membership. The link's hash stays on the row so opening
- * it again says "already used" rather than "never sent".
+ * two tabs) are one membership and a used link lets nobody else in. The
+ * link's hash stays on the row so opening it again says "already used"
+ * rather than "never sent".
  */
 export async function acceptInvite(db: Db, token: unknown, user: { id: string; email: string | null }): Promise<Result<{ creatorId: string; role: MemberRole; storeName: string; home: string }>> {
   const read = await readInvite(db, token, user)
   if (read.ok === false) return read
   const state = read.state
   const refused = refusalOf(state)
-  if (refused || state.kind !== "ready" || !read.invite) return { ok: false, ...(refused ?? { status: 400, error: "Could not accept the invite." }) }
+  if (refused || !acceptable(state) || !read.invite) return { ok: false, ...(refused ?? { status: 400, error: "Could not accept the invite." }) }
   const { data, error: upErr } = await db
     .from("store_team_members")
     .update({ status: "active", user_id: user.id, accepted_at: new Date().toISOString() })
@@ -219,7 +230,8 @@ export async function acceptInvite(db: Db, token: unknown, user: { id: string; e
     .eq("token_hash", hashToken(token as string))
     .eq("status", "invited")
     .select("id")
-  if (upErr) return { ok: false, status: 500, error: "Could not accept the invite. Try again." }
+  /* 23505: this account is already on the team (one membership per person per store), from a race with another invite. */
+  if (upErr) return (upErr as { code?: string }).code === "23505" ? { ok: false, status: 409, error: "You're already on this team." } : { ok: false, status: 500, error: "Could not accept the invite. Try again." }
   if (!Array.isArray(data) || data.length === 0) return { ok: false, status: 409, error: "This invite has already been used." }
   /* The owner hears about it in their notifications (best effort: the accept never waits on it failing). */
   if (read.ownerUserId) {
@@ -227,7 +239,7 @@ export async function acceptInvite(db: Db, token: unknown, user: { id: string; e
       creatorId: state.store.id,
       ownerUserId: read.ownerUserId,
       title: `${state.email} joined your team`,
-      message: `They're on ${state.store.name} as ${ROLE_LABEL[state.role]}.`,
+      message: `They're on ${state.store.name} as ${ROLE_LABEL[state.role]}.${user.email && !sameEmail(user.email, state.email) ? ` They signed in as ${user.email}.` : ""}`,
     })
   }
   return { ok: true, creatorId: state.store.id, role: state.role, storeName: state.store.name, home: roleHome(state.role) }
