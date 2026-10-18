@@ -1,6 +1,7 @@
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { addDays, todayIn } from "@/lib/date-range/range"
 import { NextResponse } from "next/server"
+import { lineMoney } from "@/lib/analytics/reports"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
@@ -180,13 +181,21 @@ export async function GET(request: Request) {
           ? String(date.getUTCHours()).padStart(2, "0")
           : date.toISOString().split("T")[0]
 
-      if (order.status === "completed") {
-        const gross = order.amount_cents || 0
-        const fee = order.fee_cents || 0
-        payments.push({ date: dateKey, gross, net: gross - fee })
-      } else if (order.status === "refunded") {
-        const refundAbs = order.refund_amount_cents || order.amount_cents || 0
-        refunds.push({ date: dateKey, gross: -refundAbs, net: -refundAbs })
+      /*
+        A REFUNDED ORDER IS STILL A SALE, LESS WHAT WENT BACK (lib/analytics/
+        reports lineMoney, the rule Analytics and Home count by). The table
+        has one status, "refunded", for a partial refund and a full one alike.
+        This chart used to leave a refunded order's sale out and take its
+        refund off anyway: a 49.00 sale with 5.00 refunded read as -5.00.
+      */
+      const money = lineMoney(order as Parameters<typeof lineMoney>[0])
+      const fee = order.fee_cents || 0
+      const sellersShare = Math.max(0, money.gross - fee)
+      payments.push({ date: dateKey, gross: money.gross, net: sellersShare })
+      /* A refund takes back the seller's share in proportion (the refund route's reverse_transfer); Storelib's fee is kept (lib/payments/refunds). */
+      if (money.refunded > 0) {
+        const takenBack = money.gross > 0 ? Math.round((sellersShare * money.refunded) / money.gross) : 0
+        refunds.push({ date: dateKey, gross: -money.refunded, net: -takenBack })
       }
     }
 

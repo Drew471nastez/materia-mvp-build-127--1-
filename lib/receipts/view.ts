@@ -50,6 +50,8 @@ export interface ReceiptView {
   number: string
   createdAt: string
   currency: string
+  /** False when the order kept no currency of its own and `currency` is only the display default: no email states an amount then (lib/email.tsx). */
+  currencyKnown?: boolean
   state: AccessState
   items: ReceiptItem[]
   subtotalCents: number

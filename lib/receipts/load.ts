@@ -295,6 +295,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     number: orderNumberOf(rows[0].id),
     createdAt: String(rows[0].created_at ?? new Date(0).toISOString()),
     currency: normaliseCurrency(rows[0].currency),
+    currencyKnown: /^[a-z]{3}$/i.test(String(rows[0].currency ?? "").trim()),
     state: overallState(items.map((i) => i.state)),
     items,
     ...totals,
