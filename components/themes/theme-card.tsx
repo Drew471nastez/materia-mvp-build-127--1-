@@ -15,7 +15,9 @@
  * pointer leaving brings it back to the top quicker than it went. The
  * distance is measured from the picture itself the moment the pointer
  * arrives, so a short page moves a little and a long one all the way.
- * Reduced motion: no slide, only the label.
+ * Reduced motion: no slide, only the label. The label is shown by the
+ * same pointer event as the slide, not by a hover media query, so the two
+ * never disagree.
  *
  * ON A PHONE, A TAP IS THE PREVIEW. There is no hover on glass, so the
  * picture is a link to the theme's page, and the action stays in its row.
@@ -62,6 +64,8 @@ export function ThemeCard({
   const pan = (on: boolean) => {
     const f = frame.current
     const img = shot.current
+    /* The label follows the same mouse the slide does, so a laptop with a touch screen gets both or neither. */
+    if (f) f.dataset.hover = on ? "on" : "off"
     if (!f || !img) return
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     const distance = Math.max(0, img.getBoundingClientRect().height - f.getBoundingClientRect().height)
@@ -83,7 +87,7 @@ export function ThemeCard({
         onFocus={() => pan(true)}
         onBlur={() => pan(false)}
         data-theme-card-frame=""
-        className="relative block aspect-[4/3] overflow-hidden rounded-xl bg-[#eef0f3] outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30"
+        className="group/frame relative block aspect-[4/3] overflow-hidden rounded-xl bg-[#eef0f3] outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30"
       >
         {picture ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -107,7 +111,7 @@ export function ThemeCard({
         <span
           aria-hidden
           data-theme-card-preview=""
-          className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center opacity-0 transition-[opacity,translate] duration-200 ease-out [translate:0_6px] pointer-fine:group-hover/card:opacity-100 pointer-fine:group-hover/card:[translate:0_0] group-focus-within/card:opacity-100 group-focus-within/card:[translate:0_0]"
+          className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center opacity-0 transition-[opacity,translate] duration-200 ease-out [translate:0_6px] group-data-[hover=on]/frame:opacity-100 group-data-[hover=on]/frame:[translate:0_0] group-focus-within/card:opacity-100 group-focus-within/card:[translate:0_0]"
         >
           <span className="rounded-lg bg-white/95 px-3 py-1.5 text-[13px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.08),0_8px_24px_-12px_rgba(17,24,39,0.45)]">{tt("Preview")}</span>
         </span>

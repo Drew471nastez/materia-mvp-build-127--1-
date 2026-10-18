@@ -132,7 +132,9 @@ try {
     const phone = W <= 640
     await p.setViewport({ width: W, height: phone ? 844 : 900, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone })
     await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
-    await p.goto(url, { waitUntil: "networkidle0" })
+    /* A served page keeps a connection or two open (the header asks who is signed in): load, then a moment. */
+    await p.goto(url, { waitUntil: url.startsWith(BASE || "\u0000") ? "load" : "networkidle0", timeout: 60_000 })
+    if (BASE && url.startsWith(BASE)) await sleep(1200)
     return p
   }
 
@@ -271,6 +273,8 @@ try {
     if (process.env.SHOT_DEFAULT) {
       const p = await open(`${BASE}/theme-preview/storelib-default`, 1280)
       await sleep(800)
+      const banner = await p.evaluate(() => !!document.querySelector("[data-cookie-banner]"))
+      expect(!banner, "the preview asks nothing about cookies")
       const h = await p.evaluate(() => document.documentElement.scrollHeight)
       const png = join(out, "default.png")
       await p.screenshot({ path: png, fullPage: true })
@@ -310,7 +314,8 @@ try {
         await p.setViewport({ width: W, height: 900, isMobile: W <= 640, hasTouch: W <= 640 })
         const host = new URL(BASE).hostname
         await p.setCookie({ name: "blog_admin", value: token, domain: host, path: "/" })
-        await p.goto(`${BASE}/admin/themes`, { waitUntil: "networkidle0" })
+        await p.goto(`${BASE}/admin/themes`, { waitUntil: "load", timeout: 60_000 })
+        await sleep(1500)
         const listed = await p.$$eval("[data-admin-theme-row]", (r) => r.length).catch(() => 0)
         const newBtn = await p.$$("button")
         for (const b of newBtn) if ((await b.evaluate((e) => e.textContent)) === "New theme") { await b.click(); break }

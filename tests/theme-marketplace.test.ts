@@ -226,7 +226,7 @@ async function main() {
   const card = read("components/themes/theme-card.tsx")
   check("the card: picture, bold name, by author, action at the row's end", /aspect-\[4\/3\]/.test(card) && /font-semibold/.test(card) && /tt\("by \{author\}"/.test(card) && /\{action \? <div className="shrink-0">\{action\}<\/div> : null\}/.test(card))
   check("  scrolls the full page on a mouse's hover, by transform, and a tap is the preview", /e\.pointerType === "mouse" && pan\(true\)/.test(card) && /translate3d\(0, \$\{-distance\}px, 0\)/.test(card) && /<a\s+ref=\{frame\}\s+href=\{href\}/.test(card) && /prefers-reduced-motion: reduce/.test(card))
-  check("  the hover label is for a pointer that hovers", /pointer-fine:group-hover\/card:opacity-100/.test(card))
+  check("  the hover label follows the mouse that slides the picture", /f\.dataset\.hover = on \? "on" : "off"/.test(card) && /group-data-\[hover=on\]\/frame:opacity-100/.test(card))
   const market = read("app/(marketing)/themes/themes-marketplace.tsx")
   check("the marketplace has search, Free Paid Pro, categories and sort", /placeholder="Search themes"/.test(market) && /\{ id: "paid", label: "Paid" \}/.test(market) && /aria-label="Categories"/.test(market) && /THEME_SORTS\.map/.test(market))
   const detail = read("app/(marketing)/themes/[slug]/theme-detail.tsx")
