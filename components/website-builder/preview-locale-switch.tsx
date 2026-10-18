@@ -195,7 +195,7 @@ export function PreviewLocaleButton({ model }: { model: PreviewLocaleModel }) {
           {model.languages.length > 1 && model.markets.length > 0 ? <span className="ml-1">{currency}</span> : null}
         </span>
         {/* Another language: a small dot, the words in the sidebar are that language's. */}
-        {translating ? <span aria-hidden className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#8b5cf6]" /> : null}
+        {translating ? <span aria-hidden className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-white/80" /> : null}
       </button>
       {kept ? (
         <AnchoredPanel
