@@ -91,6 +91,33 @@ function warmSprite() {
  * (grey until then, and for a code the sprite has no flag for), so nothing
  * in the row ever moves.
  */
+/**
+ * "Everywhere else" in a list of flags: the same tile as a flag (size,
+ * corner, edge, sheen), in a quiet blue with a small globe drawn on it, so a
+ * rest-of-world zone sits in the column with its neighbours instead of
+ * showing an empty grey box (round Z7, the owner: "a light gray rectangle
+ * with nothing showing in there").
+ */
+export function WorldFlag({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      data-world-flag=""
+      className={cn(
+        "relative flex h-[14px] w-[21px] shrink-0 items-center justify-center overflow-hidden rounded-[3px] bg-[#e3ecf7] shadow-[0_0_0_0.5px_rgba(17,24,39,0.18),0_1px_2px_rgba(17,24,39,0.12)]",
+        className,
+      )}
+    >
+      <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#4b6584" strokeWidth="1" strokeLinecap="round" className="block" focusable="false">
+        <circle cx="6" cy="6" r="5" />
+        <ellipse cx="6" cy="6" rx="2.1" ry="5" />
+        <path d="M1.2 4.4h9.6M1.2 7.6h9.6" />
+      </svg>
+      <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.06)_100%)]" />
+    </span>
+  )
+}
+
 export function CountryFlag({ code, near = true, className }: { code: string; near?: boolean; className?: string }) {
   const cc = (code || "").toUpperCase()
   const [shown, setShown] = React.useState(near)

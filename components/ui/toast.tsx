@@ -71,6 +71,8 @@ const toastVariants = cva(
     'data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=end]:translate-y-[var(--radix-toast-swipe-end-y)]',
     'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:translate-y-[var(--radix-toast-swipe-move-y)] data-[swipe=move]:transition-none',
     'data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out',
+    /* Leaving eases out of its place rather than snapping (round Z7: "disappearing very smooth"): a shorter, symmetric curve than the arrival. */
+    'data-[state=closed]:duration-[260ms] data-[state=closed]:ease-[cubic-bezier(0.4,0,0.2,1)]',
     'data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-top-4',
     'data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-4',
     'md:data-[state=closed]:slide-out-to-right-4 md:data-[state=open]:slide-in-from-right-4',

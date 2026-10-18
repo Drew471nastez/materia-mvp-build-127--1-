@@ -40,7 +40,7 @@ import * as React from "react"
 import { Check, ChevronDown, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
-import { CountryFlag } from "@/components/app/settings/country-picker"
+import { CountryFlag, WorldFlag } from "@/components/app/settings/country-picker"
 import { Switch } from "@/components/ui/switch"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
@@ -768,7 +768,7 @@ function ShippingSummary({ data, onEdit }: { data: Data; onEdit: () => void }) {
                   <div className="flex min-w-0 items-center gap-2.5">
                     {/* One width for every row's flags, so the names line up. */}
                     <span className="flex w-[44px] shrink-0 -space-x-2.5" aria-hidden>
-                      {flags.length ? flags.map((c) => <CountryFlag key={c} code={c} className="ring-2 ring-white" />) : <span className="h-[15px] w-[22px] rounded-[3px] bg-[#f1f2f4]" />}
+                      {flags.length ? flags.map((c) => <CountryFlag key={c} code={c} className="ring-2 ring-white" />) : zone?.restOfWorld ? <WorldFlag className="ring-2 ring-white" /> : <span className="h-[14px] w-[21px]" />}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{capital(r.place)}</p>
@@ -1177,7 +1177,7 @@ function ZoneForm({
           state={state}
           label={initial ? tt("Save zone") : tt("Add zone")}
           disabled={!changed || (!row && countries.length === 0 && regions.length === 0)}
-          onClick={() => void run(() => onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row }))}
+          onClick={() => void run(() => onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row }), initial ? tt("Zone saved") : tt("Zone added"))}
           data-zone-save=""
         />
       </FormActions>
@@ -1185,45 +1185,15 @@ function ZoneForm({
   )
 }
 
-/** "Saved", for a moment, beside what was just saved: the form has closed, so this is where the eye looks. */
-function SavedMark() {
-  return (
-    <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#047857]" data-saved-mark="" role="status">
-      <Check className="h-3.5 w-3.5" aria-hidden strokeWidth={2.5} />
-      {tt("Saved")}
-    </span>
-  )
-}
-
-/** Marks one id as just saved for a little while. */
-function useSavedFlash(ms = 2200): [string | null, (id: string | null) => void] {
-  const [id, setId] = React.useState<string | null>(null)
-  const timer = React.useRef<number | undefined>(undefined)
-  React.useEffect(() => () => window.clearTimeout(timer.current), [])
-  const flash = React.useCallback(
-    (next: string | null) => {
-      window.clearTimeout(timer.current)
-      setId(next)
-      if (next) timer.current = window.setTimeout(() => setId(null), ms)
-    },
-    [ms],
-  )
-  return [id, flash]
-}
-
 function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; carrierApps: CarrierApp[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const money = useShopMoney()
   const [editing, setEditing] = React.useState(false)
   const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(() => (fresh && zone.rates.length === 0 ? "new" : null))
-  const [saved, flash] = useSavedFlash()
   const label = zonePlaces(zone)
-  /* The rate a save made or changed, found in what the server sent back, so its row can say Saved. */
-  const keep = (profiles: ShippingProfile[], id: string | null) => {
-    const before = new Set(zone.rates.map((r) => r.id))
-    const after = profiles.flatMap((p) => p.zones).find((z) => z.id === zone.id)?.rates ?? []
+  /* Saved: the form closes on what the server kept, and a toast says so (useSaveState). */
+  const keep = (profiles: ShippingProfile[]) => {
     onProfiles(profiles)
     setRateForm(null)
-    flash(id ?? after.find((r) => !before.has(r.id))?.id ?? null)
   }
   if (editing) {
     return (
@@ -1238,7 +1208,6 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
           if (r.ok === false) return r.error
           onProfiles(r.data.profiles)
           setEditing(false)
-          flash(zone.id)
           return null
         }}
       />
@@ -1255,11 +1224,12 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
                 <CountryFlag key={c} code={c} className="ring-2 ring-white" />
               ))}
             </span>
+          ) : zone.restOfWorld ? (
+            <WorldFlag className="ring-2 ring-white" />
           ) : null}
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
               <span className="truncate">{zone.name}</span>
-              {saved === zone.id ? <SavedMark /> : null}
             </p>
             {label !== zone.name ? <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p> : null}
           </div>
@@ -1296,27 +1266,31 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
                 onSave={async (body) => {
                   const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "PATCH", body })
                   if (res.ok === false) return res.error
-                  keep(res.data.profiles, r.id)
+                  keep(res.data.profiles)
                   return null
                 }}
               />
             </li>
           ) : (
             <li key={r.id} className="flex items-center gap-2 border-t border-[#eceef1] px-3 py-2.5 sm:gap-3 sm:px-4" data-rate={r.id}>
-              {/* The price on the name's line, so the conditions under them get the row's whole width on a phone. */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-[14px] text-[#1a1a2e]">
+              {/*
+                The price on the name's line, so the conditions under them get
+                the row's whole width on a phone. The row itself opens the rate
+                (round Z7: on a phone its pencil goes, and the conditions get
+                its 36px back instead of wrapping over three lines).
+              */}
+              <button type="button" onClick={() => setRateForm(r)} className="min-w-0 flex-1 rounded-lg text-left outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-rate-edit="">
+                <span className="flex items-baseline justify-between gap-3">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-[14px] text-[#1a1a2e]">
                     <span className="truncate">{r.name}</span>
                     {!r.active ? <span className="text-[12.5px] text-[#6b7280]">{tt("(off)")}</span> : null}
-                    {saved === r.id ? <SavedMark /> : null}
-                  </p>
+                  </span>
                   <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]" data-rate-price-shown="">{r.kind === "free" ? tt("Free") : r.kind === "carrier" ? tt("Live") : r.tiers.length > 1 ? tt("From {amount}", { amount: money(Math.min(...r.tiers.map((t) => t.priceCents))) }) : r.priceCents === 0 ? tt("Free") : money(r.priceCents)}</span>
-                </div>
-                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system, money)].filter(Boolean).join(" · ")}</p>
-              </div>
+                </span>
+                <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system, money)].filter(Boolean).join(" · ")}</span>
+              </button>
               <div className="flex shrink-0 items-center gap-0.5">
-                <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={tt("Edit {name}", { name: r.name })} onClick={() => setRateForm(r)}>
+                <button type="button" className={cn(BTN_GHOST, "w-9 px-0 max-sm:hidden")} aria-label={tt("Edit {name}", { name: r.name })} onClick={() => setRateForm(r)}>
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button
@@ -1347,7 +1321,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
             onSave={async (body) => {
               const res = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/rates", { body: { zoneId: zone.id, ...body } })
               if (res.ok === false) return res.error
-              keep(res.data.profiles, null)
+              keep(res.data.profiles)
               return null
             }}
           />
@@ -1465,7 +1439,7 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
         maxDays: maxDays || null,
         active,
       })
-    })
+    }, initial ? tt("Rate saved") : tt("Rate added"))
   }
   return (
     <div className="space-y-4" data-rate-form="">
@@ -1656,8 +1630,8 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
   /*
     SAVED, BACK TO THE LIST. The form closes on the location as the server
     kept it, drawn in its place at once (not the old row until a reload
-    lands), scrolled into view if the form was long, and marked Saved for a
-    moment so the eye finds it.
+    lands), scrolled into view if the form was long, and tinted for a moment
+    so the eye finds it; the toast says it was saved.
   */
   const saved = (l: Location, message?: string | null) => {
     setNotice(message ?? null)
@@ -1696,12 +1670,6 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
                     {l.forwarding === "email" ? <Pill tone="blue">{tt("Emails orders")}</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">{tt("Webhook")}</Pill> : partnerPill(l) ? <Pill tone={partnerPill(l)!.tone}><span data-location-partner={l.partner?.connected ? "connected" : "off"}>{partnerPill(l)!.label}</span></Pill> : null}
                     {l.pickupEnabled && l.active ? <Pill tone="green">{tt("Local pickup")}</Pill> : null}
                     {l.localDelivery?.enabled && l.active ? <Pill tone="green">{tt("Local delivery")}</Pill> : null}
-                    {savedId === l.id ? (
-                      <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#047857]">
-                        <Check className="h-3.5 w-3.5" aria-hidden />
-                        {tt("Saved")}
-                      </span>
-                    ) : null}
                   </p>
                   <p className="text-[13px] text-[#6b7280]">{[KIND_LABEL[l.kind], [l.city, l.country ? countryName(l.country) : null].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</p>
                   {l.pickupEnabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">{tt("Pickup ready in")} {PICKUP_READY_SHORT[l.pickupReady]}{l.pickupHours ? tt(" · Open {pickupHours}", { pickupHours: l.pickupHours }) : ""}</p> : null}
@@ -1980,7 +1948,7 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
               if (r.ok === false) return r.error
               onSaved(r.data.location, r.data.message ?? null)
               return null
-            })
+            }, initial ? tt("Location saved") : tt("Location added"))
           }
           data-location-save=""
         />
@@ -2130,7 +2098,7 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
               if (r.ok === false) return r.error
               onSaved(r.data.packages)
               return null
-            })
+            }, initial ? tt("Package saved") : tt("Package added"))
           }
           data-package-save=""
         />

@@ -824,6 +824,8 @@ const STRICT_SUITES = [
     components/physical/shipping-settings.tsx (as tests/shipsetup.test.ts does).
   */
   "tests/shipping-settings-y3.test.ts",
+  /* Round Z7: /app polish: no "Direct" in an order's source, no Paid community in New product, the sidebar's nested rows apart and its overlay thumb, the integration cards' specks, Everywhere else's globe and the shipping save toasts (scripts/check-app-sidebar-z7.mjs, check-integrations-y2.mjs P, check-shipping-settings.mjs measure them). */
+  "tests/app-polish-z7.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

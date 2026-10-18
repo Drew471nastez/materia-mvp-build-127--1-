@@ -57,8 +57,9 @@ async function main() {
     check("the open group follows the page shown, set while rendering (no frame with the old one open)", /groupForRoute\(navItems, shownPath, shownSearch\)/.test(shell) && /if \(groupFor !== routeGroup\)/.test(shell))
     const nav = code("components/app/sidebar-desktop-nav.tsx")
     check("a folded list is out of the Tab order", /inert=\{!open\}/.test(nav) && /inert=\{!open\}/.test(code("components/app/sidebar-mobile-nav.tsx")))
-    check("the nav keeps its scrollbar's column, so opening a group never narrows the rows", /\.sidebar-nav \{[\s\S]*?scrollbar-gutter: stable/.test(src("app/globals.css")) && /pl-\[7px\] pr-px/.test(nav))
-    check("the bar fades in and out with the pointer", /@property --sl-nav-thumb/.test(src("app/globals.css")) && /transition: --sl-nav-thumb 260ms/.test(src("app/globals.css")))
+    /* Round Z7: the platform's bar is hidden and a thumb is drawn over the edge, so there is no column to keep and opening a group cannot narrow the rows. */
+    check("the nav's bar takes no width, so opening a group never narrows the rows", /\.sidebar-nav \{[\s\S]*?scrollbar-width: none/.test(src("app/globals.css")) && /pl-\[7px\] pr-\[7px\]/.test(nav) && /<SidebarScrollThumb target=\{navRef\} \/>/.test(nav))
+    check("the bar fades in and out with the pointer", /\[data-nav-scroll-frame\]:hover > \[data-nav-thumb\]\[data-scrollable\]/.test(src("app/globals.css")) && /transition: opacity 420ms/.test(src("app/globals.css")))
   }
 
   console.log("\nThe Open in Storelib card")

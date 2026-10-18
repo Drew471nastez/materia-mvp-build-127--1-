@@ -21,8 +21,9 @@ export async function generateMetadata({ searchParams }: NewProductPageProps): P
 
 /**
  * A new product. With no kind yet (`?type=`), the question comes first: a
- * digital product or a video course, and a paid community while communities
- * are switched on (./kind-chooser.tsx, ./product-kinds.ts). The old
+ * digital product or a video course, and a physical product while that is
+ * switched on (./kind-chooser.tsx, ./product-kinds.ts). Never a paid
+ * community: that is made on the Community page. The old
  * `?type=membership` is no answer any more and asks the question again.
  * With one, the form, drawn on the server with the creator already read, so
  * it is complete on its first frame, and a course is a course on that frame
@@ -34,10 +35,9 @@ export default async function NewProductPage({ searchParams }: NewProductPagePro
   const { edit, type } = await searchParams
   if (edit) redirect(`/app/products/${encodeURIComponent(edit)}`)
   const kind = kindFromParam(type)
-  /* The question, with the communities switch read here so Paid community is there on the first frame (or not at all). */
-  const ask = async () => <NewProductKindPage communities={await communitiesEnabled().catch(() => false)} />
+  const ask = () => <NewProductKindPage />
   if (!kind) return ask()
-  /* A paid community is made in the community's own setup, only while the switch is on. */
+  /* An old ?type=community link: the community's own setup, only while the switch is on. */
   if (kind === "community") {
     if (await communitiesEnabled().catch(() => false)) redirect(NEW_COMMUNITY_HREF)
     return ask()

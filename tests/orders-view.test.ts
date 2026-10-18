@@ -39,6 +39,7 @@ import {
   originFromRequest,
   originOf,
   sourceDetailText,
+  originFromKey,
   sourceText,
   surfaceOfPath,
   tagOrderSource,
@@ -355,7 +356,10 @@ async function main() {
 
     check("the order page's line", sourceText("website", full) === "Website · andrewrullz.storelib.com · from Instagram", sourceText("website", full))
     check("a Storelib page", sourceText("storelib", { surface: "product", from: "google" }) === "Storelib · Product page · from Google")
-    check("direct reads Direct", sourceText("storelib", { surface: "explore", from: "direct" }) === "Storelib · Explore · Direct")
+    check("a direct visit adds nothing", sourceText("storelib", { surface: "explore", from: "direct" }) === "Storelib · Explore")
+    check("a website order seen as direct reads Website alone", sourceText("website", { surface: "website", from: "direct" }) === "Website")
+    check("and its detail column is empty", sourceDetailText("website", { surface: "website", from: "direct" }) === "")
+    check("the list's sub-source skips direct", originFromKey({ from: "direct" }) === null && originFromKey({ from: "instagram" }) === "instagram")
     check("the channel alone when that is all there is", sourceText("storelib", null) === "Storelib")
     check("and nothing recorded stays Not recorded", sourceText(null, null) === "Not recorded" && sourceText(undefined, { surface: "product" }) === "Not recorded")
     check("an admin's test sale says so", sourceText("storelib", { surface: "admin" }) === "Storelib · Test sale")

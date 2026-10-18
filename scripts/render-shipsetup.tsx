@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { StoreCurrencyProvider } from "@/lib/store/currency-context"
 import { ShippingSettings, type ShippingPart } from "@/components/physical/shipping-settings"
+import { Toaster } from "@/components/ui/toaster"
 
 const params = new URLSearchParams(location.search)
 const part = (params.get("part") ?? "delivery") as ShippingPart
@@ -23,6 +24,7 @@ createRoot(document.getElementById("app")!).render(
           <ShippingSettings part={part} />
         </form>
       </div>
+      <Toaster />
     </StoreCurrencyProvider>
   </PlatformSettingsProvider>,
 )

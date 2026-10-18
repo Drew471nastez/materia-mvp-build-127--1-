@@ -11,16 +11,18 @@ import { tt } from "@/lib/i18n/text"
  *                right under the title (./product-editor.tsx)
  *   physical     the product editor for a thing that ships, only while
  *                physical commerce is switched on in /admin
- *   community    a paid community: the community's own setup
- *                (/app/community/new), only while communities are
- *                switched on in /admin
+ *
+ * NOT A PAID COMMUNITY. The owner: "people create communities from the
+ * community page, not from the products page". So the question never offers
+ * one. `community` stays a kind only so an old `?type=community` link still
+ * lands in the community's own setup (/app/community/new) while communities
+ * are switched on in /admin.
  *
  * NO MEMBERSHIP ANY MORE. The owner: "memberships are communities". A
  * creator who wants people to pay every month makes a paid community, which
- * bills through the same memberships engine. The memberships a creator
- * already sells keep working at their own address (app/app/memberships), but
- * nothing here makes a new one. With communities switched off the question
- * simply has no such answer.
+ * bills through the same memberships engine, from the Community page. The
+ * memberships a creator already sells keep working at their own address
+ * (app/app/memberships), but nothing here makes a new one.
  *
  * The editors' addresses carry the kind (`?type=`), so each is its own page
  * the router can fetch ahead, and a reload opens the same editor again.
@@ -60,18 +62,10 @@ export const KIND_OPTIONS: readonly KindOption[] = [
  */
 export const PHYSICAL_KIND_OPTION: KindOption = { kind: "physical", get title() { return tt("Physical product") }, get line() { return tt("Things you ship: clothing, prints, merch, gear, with stock.") } }
 
-/**
- * Members who pay every month or year: asked only while communities are
- * switched on in /admin (lib/communities/flag.ts). Last, because it is not
- * a product in the editor: it opens the community's setup.
- */
-export const COMMUNITY_KIND_OPTION: KindOption = { kind: "community", get title() { return tt("Paid community") }, get line() { return tt("Members pay monthly or yearly to join your community.") } }
-
-/** The answers to show, for the platform switches that are on. */
-export function kindOptions(physical: boolean, communities = false): readonly KindOption[] {
+/** The answers to show, for the platform switch that is on. Never a paid community: that is made on the Community page. */
+export function kindOptions(physical: boolean): readonly KindOption[] {
   const list: KindOption[] = [...KIND_OPTIONS]
   if (physical) list.push(PHYSICAL_KIND_OPTION)
-  if (communities) list.push(COMMUNITY_KIND_OPTION)
   return list
 }
 
@@ -80,7 +74,7 @@ export function editorHref(kind: EditorKind): string {
   return `${NEW_PRODUCT_HREF}?type=${kind}`
 }
 
-/** Where an answer opens: the editor for a product, the community setup for a paid community. */
+/** Where a kind opens: the editor for a product, the community setup for an old `?type=community` link. */
 export function kindHref(kind: ProductKind): string {
   return kind === "community" ? NEW_COMMUNITY_HREF : editorHref(kind)
 }

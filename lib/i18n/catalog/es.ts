@@ -5,6 +5,14 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Zone saved": "Zona guardada",
+ "Zone added": "Zona añadida",
+ "Rate saved": "Tarifa guardada",
+ "Rate added": "Tarifa añadida",
+ "Location saved": "Ubicación guardada",
+ "Location added": "Ubicación añadida",
+ "Package saved": "Paquete guardado",
+ "Package added": "Paquete añadido",
  "The order pays the step its total reaches. A step at 0 is free shipping from there.": "El pedido paga el tramo que alcanza su total. Un tramo a 0 es envío gratis desde ahí.",
  "The order pays the step its weight reaches, your default package included.": "El pedido paga el tramo que alcanza su peso, con tu paquete predeterminado incluido.",
  "Each item pays the step its own weight reaches, then they are added up.": "Cada artículo paga el tramo que alcanza su propio peso, y luego se suman.",
