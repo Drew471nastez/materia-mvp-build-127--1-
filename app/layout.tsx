@@ -274,7 +274,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider>
           <LocaleProvider>
-            <ExploreMarketplaceRoot>
+            {ExploreMarketplaceRoot({ children: <>
               {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header.
                   Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
               <SiteAppearance />
@@ -285,7 +285,7 @@ export default function RootLayout({
                   (round 15): its Preferences tab reads the locale, and mounted outside LocaleProvider it threw "useLocale must be
                   used within LocaleProvider", which took the whole page to "Something went wrong on this page". */}
               <SettingsSubpageHost />
-            </ExploreMarketplaceRoot>
+            </> })}
           </LocaleProvider>
         </SWRProvider>
         {/* ONE buyer-protection subpage for the whole application.

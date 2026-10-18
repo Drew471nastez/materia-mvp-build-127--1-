@@ -18,17 +18,41 @@ import { execFileSync } from "node:child_process"
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 
 const BASELINE = ".github/typescript-baseline.json"
+// This graph has over 7,000 inputs and exceeds Node's default heap. Apply the
+// same ceiling used by CI to standalone runs, preserving any explicit choice
+// and unrelated Node options. A compiler crash still fails closed below.
+const nodeOptions = process.env.NODE_OPTIONS ?? ""
+const compilerEnv = {
+  ...process.env,
+  NODE_OPTIONS: /--max[-_]old[-_]space[-_]size(?:=|\s)/.test(nodeOptions) ? nodeOptions : `${nodeOptions} --max-old-space-size=6144`.trim(),
+}
 let output = ""
 try {
-  output = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
+  output = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], env: compilerEnv })
 } catch (e) {
   output = String(e.stdout ?? "") + String(e.stderr ?? "")
+  // A killed compiler, missing executable, or exhausted heap is not zero errors.
+  // Only a completed compiler with actual TS diagnostics can use the baseline.
+  if (typeof e.status !== "number" || e.signal || !/error TS\d+/.test(output)) {
+    console.error("TypeScript did not complete. Validation failed; the baseline was not changed.")
+    console.error(output.slice(-2000))
+    process.exit(1)
+  }
 }
 const now = {}
+const unlocated = []
 for (const line of output.split("\n")) {
   const m = line.match(/^(.+?)\(\d+,\d+\): error TS\d+/)
+  // Missing inputs and invalid compiler options have no source location.
+  // They must not disappear merely because they cannot use a per-file budget.
+  if (!m && /(?:^|\s)error TS\d+:/.test(line)) unlocated.push(line)
   /* .next/ is what a local build leaves behind; CI checks a fresh checkout, which has none. */
   if (m && !m[1].startsWith(".next/")) now[m[1]] = (now[m[1]] ?? 0) + 1
+}
+if (unlocated.length) {
+  console.error("TypeScript reported validation errors without a source location. The baseline was not changed.")
+  console.error(unlocated.join("\n"))
+  process.exit(1)
 }
 const total = Object.values(now).reduce((a, b) => a + b, 0)
 const sorted = Object.fromEntries(Object.entries(now).sort(([a], [b]) => a.localeCompare(b)))

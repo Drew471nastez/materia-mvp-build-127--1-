@@ -8,12 +8,12 @@ import { stripe } from "@/lib/stripe"
 
 type Db = {
   from: (table: string) => {
-    select: (cols: string, opts?: { count?: string; head?: boolean }) => {
-      limit: (n: number) => Promise<{ count: number | null; error: { message?: string } | null }>
+    select: (cols: string, opts?: { count?: "exact" | "planned" | "estimated"; head?: boolean }) => {
+      limit: (n: number) => PromiseLike<{ count: number | null; error: { message?: string } | null }>
       order: (col: string, opts: { ascending: boolean }) => {
-        limit: (n: number) => Promise<{ data: Array<Record<string, unknown>> | null; error: { message?: string } | null }>
+        limit: (n: number) => PromiseLike<{ data: Array<Record<string, unknown>> | null; error: { message?: string } | null }>
       }
-      is: (col: string, val: null) => Promise<{ count: number | null; error: { message?: string } | null }>
+      is: (col: string, val: null) => PromiseLike<{ count: number | null; error: { message?: string } | null }>
     }
   }
 }

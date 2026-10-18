@@ -70,7 +70,8 @@ function main() {
       check("and the section's own total is kept", c.value.schema.max_blocks === 5)
       check("a preset's blocks come with their type and their overrides", (() => {
         const p = c.value.schema.presets?.[0]
-        return p?.blocks?.length === 2 && p.blocks[1].settings?.label === "Second"
+        const blocks = p?.blocks
+        return Array.isArray(blocks) && blocks.length === 2 && blocks[1].settings?.label === "Second"
       })())
     }
   }

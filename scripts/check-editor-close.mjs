@@ -260,7 +260,7 @@ async function scenarioOnce(p, cdp, engine, { isNew, dirty, slowMs = 0 }) {
   const samples = await p.evaluate(() => window.__samples)
   const drop = await p.evaluate(() => ({ went: window.__drop.went, removed: window.__drop.removed, fade: window.__drop.fade ?? null }))
   const timing = await p.evaluate(() => ({
-    commit: +((window.__commits.filter((c) => c.path === "/app/products").pop()?.at ?? NaN) - window.__t0).toFixed(0),
+    commit: +((window.__layerMotionCommits.filter((c) => c.path === "/app/products").pop()?.at ?? NaN) - window.__t0).toFixed(0),
     long: window.__long.filter((l) => l.t >= window.__t0).map((l) => [+(l.t - window.__t0).toFixed(0), +l.d.toFixed(0)]),
     loaf: (window.__loaf || []).filter((l) => l.startTime >= window.__t0).map((l) => ({ at: +(l.startTime - window.__t0).toFixed(0), d: +l.duration.toFixed(0), render: +(l.startTime + l.duration - l.renderStart).toFixed(0), style: +(l.startTime + l.duration - l.styleAndLayoutStart).toFixed(0), scripts: l.scripts.map((x) => `${x.invoker}|${x.sourceFunctionName}|${x.duration.toFixed(0)}`).slice(0, 4) })),
   }))

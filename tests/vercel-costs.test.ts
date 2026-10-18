@@ -39,6 +39,9 @@ const vercel = JSON.parse(readFileSync("vercel.json", "utf8"))
 check("agent branches (claude/*, codex/*) do not deploy on every push", vercel.git?.deploymentEnabled?.["claude/*"] === false && vercel.git?.deploymentEnabled?.["codex/*"] === false)
 check("main is not turned off", vercel.git?.deploymentEnabled?.main !== false)
 check("the ignored build step is the script", vercel.ignoreCommand === "bash scripts/vercel/ignore-build.sh")
+const build = JSON.parse(readFileSync("package.json", "utf8")).scripts.build as string
+const nativeLimits = readFileSync("scripts/build-limits.env", "utf8")
+check("native build pools use explicit build-only limits, with the Node heap still bounded", build.includes("scripts/build-next.mjs") && build.includes("--max-old-space-size=4096") && readFileSync("scripts/build-next.mjs", "utf8").includes('process.loadEnvFile(new URL("./build-limits.env", import.meta.url))') && /^RAYON_NUM_THREADS=2$/m.test(nativeLimits) && /^TOKIO_WORKER_THREADS=2$/m.test(nativeLimits))
 check("every cron is still there", Array.isArray(vercel.crons) && vercel.crons.length >= 12)
 
 const run = (prev: string, cur: string) => {

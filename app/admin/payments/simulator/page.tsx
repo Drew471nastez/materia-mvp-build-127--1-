@@ -146,7 +146,7 @@ export default function SimulatorPage() {
               </thead>
               <tbody>
                 {batch.map((row) => (
-                  <tr key={String(row.priceMinor)} className={row.flags?.length ? "bg-red-500/10" : ""}>
+                  <tr key={String(row.priceMinor)} className={Array.isArray(row.flags) && row.flags.length ? "bg-red-500/10" : ""}>
                     <td className="px-3 py-1 tabular-nums">{String(row.priceMinor)}</td>
                     <td className="px-3 py-1">{String(row.tier)}</td>
                     <td className="px-3 py-1 tabular-nums">{String(row.storelibFeeMinor)}</td>

@@ -174,7 +174,7 @@ class Query {
     const rows = this.db.rows(this.table)
     const match = (r: Row) => this.filters.every((f) => f(r))
     if (this.op === "insert") {
-      const list = (Array.isArray(this.payload) ? this.payload : [this.payload]).map((r: Row) => ({ id: r.id ?? this.db.seq++, status: "pending", attempts: 0, max_attempts: 5, created_at: new Date().toISOString(), ...r }))
+      const list: Row[] = (Array.isArray(this.payload) ? this.payload : [this.payload]).map((r: Row) => ({ id: r.id ?? this.db.seq++, status: "pending", attempts: 0, max_attempts: 5, created_at: new Date().toISOString(), ...r }))
       const key = this.db.unique[this.table]
       for (const r of list) if (key && r[key] && rows.some((x) => x[key] === r[key])) return { data: null, error: { code: "23505" } }
       rows.push(...list)

@@ -20,11 +20,13 @@
  */
 import React, { startTransition, use } from "react"
 import { createRoot } from "react-dom/client"
-import { __RouteContext } from "next/navigation"
+import * as probeNavigation from "next/navigation"
+// The probe bundler supplies this context in its navigation stand-in, not Next's production module.
+const { __RouteContext } = probeNavigation as typeof probeNavigation & { __RouteContext: React.Context<{ path: string; search: string }> }
 import { ProductsClient } from "@/app/app/products/products-client"
 import { ProductEditor } from "@/app/app/products/new/product-editor"
 import type { LoadedProduct } from "@/app/app/products/new/editor-form"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "./fixtures/orders-client"
 import { PageLayer } from "@/components/app/page-layer"
 import { AppStage } from "@/components/app/app-stage"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
@@ -41,11 +43,11 @@ type W = Window & {
   __navigate: (h: string, how?: "push" | "replace") => void
   __back: () => void
   __path: string
-  __commits: Array<{ at: number; path: string }>
+  __layerMotionCommits: Array<{ at: number; path: string }>
 }
 const w = window as unknown as W
 w.__slowMs = 0
-w.__commits = []
+w.__layerMotionCommits = []
 
 /*
   PICTURES AS THE APP HAS THEM: bitmaps (JPEG), not SVG. Chromium decodes a
@@ -232,7 +234,7 @@ function Page({ path }: { path: string }) {
 function Committed({ path }: { path: string }) {
   React.useLayoutEffect(() => {
     w.__path = path
-    w.__commits.push({ at: performance.now(), path })
+    w.__layerMotionCommits.push({ at: performance.now(), path })
   }, [path])
   return null
 }

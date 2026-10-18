@@ -4,7 +4,6 @@
  * `cache` remembers nothing, and a page that leans on it (one product read
  * shared by the metadata and the page) would be counted twice.
  */
-// @ts-ignore: the real React, by path, so this module is not resolved to itself
 import * as React from "__REAL_REACT__"
 import { current } from "../context"
 

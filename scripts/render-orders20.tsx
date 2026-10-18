@@ -7,7 +7,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { OrdersClient } from "@/app/app/orders/orders-client"
+import { OrdersClient } from "./fixtures/orders-client"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import type { OrderRow } from "@/lib/orders/order-view"
 

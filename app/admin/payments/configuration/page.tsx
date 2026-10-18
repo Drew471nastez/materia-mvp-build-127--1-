@@ -11,7 +11,7 @@ export default function ConfigurationPage() {
 
   React.useEffect(() => {
     void adminPaymentsRead<Record<string, unknown>>("/api/admin/payments/configuration").then((r) => {
-      if (r && "error" in r) setError(r.error)
+      if (r && "error" in r && typeof r.error === "string") setError(r.error)
       else {
         setError(null)
         setCfg(r)

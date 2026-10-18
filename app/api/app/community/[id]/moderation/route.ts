@@ -63,6 +63,7 @@ export async function POST(request: Request, { params }: Params) {
     spaceId: typeof body.spaceId === "string" ? body.spaceId : null,
   })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
-  after(() => announceModeration(gate.ctx.admin, gate.community.id, { type: body.targetType, id: String(body.targetId ?? ""), action: body.action }).catch(() => false))
+  const { targetType, action } = body
+  after(() => announceModeration(gate.ctx.admin, gate.community.id, { type: targetType, id: String(body.targetId ?? ""), action }).catch(() => false))
   return NextResponse.json({ status: done.status }, { headers: noStore })
 }

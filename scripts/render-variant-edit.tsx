@@ -29,7 +29,7 @@ const ebook: VariantChoices = {
   ],
 }
 declare global {
-  interface Window { __picked: Record<string, string[]>; __ready?: boolean }
+  interface Window { __picked: Record<string, string[]>; __ready: boolean }
 }
 window.__picked = { hoodie: [], ebook: [] }
 

@@ -100,7 +100,7 @@ export default async function AccountActivityRoute() {
       </Suspense>
       {/* The page ends the way /@handle ends: who this person is, in facts. Streamed, so it never holds the list up. */}
       <Suspense fallback={null}>
-        <AccountAbout userId={user.id} name={name} joinedAt={user.created_at || null} />
+        {AccountAbout({ userId: user.id, name, joinedAt: user.created_at || null })}
       </Suspense>
     </>
   )

@@ -291,7 +291,7 @@ export const isNativePlatform = () => false
     await p.waitForSelector("[data-feed-list] [data-post]", { timeout: 15000 })
     await sleep(3200)
     const trace = await p.evaluate(() => window.__trace)
-    const asked = await p.evaluate(() => window.__asked)
+    const asked = await p.evaluate(() => window.__round33Asked)
     const sums = Object.fromEntries([1, 2, 3, 4].map((n) => [n, summarise(trace, n)]))
     for (const n of [1, 2, 3, 4]) console.log(`    post ${n}: ${JSON.stringify(sums[n])}`)
     await p.screenshot({ path: join(shots, `${shot}.png`) })
@@ -387,7 +387,7 @@ export const isNativePlatform = () => false
       requestAnimationFrame(tick)
     }, dragFrame.toString())
   const stopTrace = (p) => p.evaluate(() => ((window.__stop = true), window.__trace))
-  const puts = (p) => p.evaluate(() => window.__asked.filter((a) => a.method === "PUT"))
+  const puts = (p) => p.evaluate(() => window.__round33Asked.filter((a) => a.method === "PUT"))
 
   /*
     ONE TO ONE, MEASURED ON SETTLED FRAMES. A pointer event lands between two frames and the copy is drawn in the next one, so

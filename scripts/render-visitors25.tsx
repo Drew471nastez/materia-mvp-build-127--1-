@@ -173,7 +173,7 @@ function Creator() {
         {link("/explore", "Explore", "explore")}
       </main>
       {mine ? <GaRoute ids={[GA]} /> : null}
-      {mine ? <CreatorLanguage code={q.get("lang") || "en"} defaultLanguage="en" languages={[{ code: "en", name: "English" }, { code: "fr", name: "Français" }, { code: "de", name: "Deutsch" }]} suggest={q.get("suggest")} /> : null}
+      {mine ? <CreatorLanguage code={q.get("lang") || "en"} defaultLanguage="en" languages={[{ code: "en", name: "English" }, { code: "fr", name: "Français" }, { code: "de", name: "Deutsch" }]} /> : null}
     </div>
   )
 }

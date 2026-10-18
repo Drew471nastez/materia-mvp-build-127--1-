@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     if (setExplore) {
       await setExploreMarketplaceEnabled(body.exploreEnabled as boolean)
-      revalidateTag(EXPLORE_MARKETPLACE_CACHE_TAG)
+      revalidateTag(EXPLORE_MARKETPLACE_CACHE_TAG, { expire: 0 })
       await recordAdminAction(admin, {
         action: "set_explore_marketplace",
         targetType: "platform",
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
     if (setDiscoverSwitcher) {
       await setExploreDiscoverModeSwitcherEnabled(body.exploreDiscoverModeSwitcher as boolean)
-      revalidateTag(EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG)
+      revalidateTag(EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG, { expire: 0 })
       await recordAdminAction(admin, {
         action: "set_explore_discover_mode_switcher",
         targetType: "platform",
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
     if (setPhysical) {
       await setPhysicalCommerceEnabled(body.physicalCommerceEnabled as boolean)
-      revalidateTag(PHYSICAL_COMMERCE_CACHE_TAG)
+      revalidateTag(PHYSICAL_COMMERCE_CACHE_TAG, { expire: 0 })
       /* The help centre's physical products guide follows the switch at once. */
       revalidatePath("/help", "layout")
       await recordAdminAction(admin, {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
     if (setHeader) {
       await setBuyerHeaderLight(body.buyerHeaderLight as boolean)
-      revalidateTag(BUYER_HEADER_LIGHT_CACHE_TAG)
+      revalidateTag(BUYER_HEADER_LIGHT_CACHE_TAG, { expire: 0 })
       await recordAdminAction(admin, {
         action: "set_buyer_header_light",
         targetType: "platform",
