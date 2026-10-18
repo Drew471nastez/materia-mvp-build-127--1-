@@ -59,7 +59,8 @@ async function main() {
   console.log("\nThe colour scheme field")
   {
     const c = code("components/website-builder/editor/controls/color-scheme-control.tsx")
-    check("Edit sits inside the field", /data-scheme-edit=""/.test(c) && /absolute right-1\.5 top-1\/2/.test(c))
+    /* Changed on purpose (round AK: Edit only in the open list, the closed field a plain selector) */
+    check("Edit is offered for the schemes", /data-scheme-edit=""/.test(c))
     check("no separate square beside it", !/grid h-9 w-9 shrink-0 place-items-center/.test(c) && !/Pencil/.test(c))
     check("its list scrolls with a slim bar", /\[scrollbar-width:thin\]/.test(c))
   }
@@ -67,7 +68,8 @@ async function main() {
   console.log("\nAdd a section")
   {
     const lib = code("components/website-builder/editor/section-library.tsx")
-    check("App embeds is the first category, always", /\{ key: APP_EMBEDS, label: tt\("App embeds"\), count: embedCount, group: "embeds" as const \},\s*\.\.\.mine/.test(lib))
+    /* Changed on purpose (round AK: App embeds is its own button beside the search, not a category) */
+    check("App embeds is always there", /data-app-embeds-toggle=""/.test(lib))
     check("it holds every app's sections and the apps themselves", /activeCategory === APP_EMBEDS \? !!e\.app/.test(lib) && /data-app-embeds=""/.test(lib) && /STORELIB_SECTION_APPS\.map/.test(lib))
     const compat = code("components/website-builder/compat/compat-section-preview.tsx")
     check("an imported section's card is its own box, not what spills out of it", /const own = w\.offsetHeight/.test(compat) && /wb-compat-preview-h2:/.test(compat))

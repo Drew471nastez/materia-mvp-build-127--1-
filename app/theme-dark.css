@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 836 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 837 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -1008,6 +1008,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(15\,23\,42\,0\.18\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(15,23,42,0.18); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(17\,17\,19\,0\.22\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(17,17,19,0.22); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(16\,24\,40\,0\.24\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(16,24,40,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.3\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),inset 0 -1px 0 rgba(0,0,0,0.3),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.35\)\,0_1px_2px_rgba\(16\,24\,40\,0\.25\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),inset 0 -1px 0 rgba(0,0,0,0.35),0 1px 2px rgba(16,24,40,0.25); }

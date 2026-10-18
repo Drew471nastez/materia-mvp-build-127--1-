@@ -110,6 +110,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       scoped: body.scoped === true,
       bodySections: body.sections.filter((s) => s.type !== "header" && s.type !== "footer" && !s.group).length,
       addable,
+      onPage: body.sections.filter((s) => !s.group && s.type !== "header" && s.type !== "footer").map((s) => ({ type: s.type, name: s.name || undefined })),
       hasHistory: body.hasHistory,
     },
     canClassify ? routerClassifier(creatorId) : undefined,

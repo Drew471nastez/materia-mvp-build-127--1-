@@ -133,40 +133,45 @@ export function OpenInAppCardView({ card, shown = true, onQuiet }: { card: Hando
       className="pointer-events-none fixed inset-x-0 z-[71] flex justify-center px-4 [html.capacitor_&]:hidden"
       style={{ bottom: "max(calc(12px + env(safe-area-inset-bottom)), calc(var(--buyer-tabs-h, 0px) + 10px))" }}
     >
+      {/*
+        ONE SLIM ROW (round AK, the owner: "smooth, clean, not so much space").
+        The mark, what it does, the line under it, a small Open and a small
+        close that is "Keep reading here" for anyone who cannot see it.
+      */}
       <div
-        className="pointer-events-auto w-full max-w-[400px] rounded-2xl bg-white transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none shadow-[0_0_0_1px_rgba(17,24,39,0.07),0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-12px_rgba(17,24,39,0.22)]"
-        style={{ opacity: shown ? 1 : 0, translate: shown ? "0 0" : "0 14px" }}
+        className="pointer-events-auto flex w-full max-w-[360px] items-center gap-2.5 rounded-[16px] bg-white py-2 pl-2 pr-1.5 transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(16,24,40,0.05),0_10px_28px_-12px_rgba(17,24,39,0.22)]"
+        style={{ opacity: shown ? 1 : 0, translate: shown ? "0 0" : "0 10px" }}
         aria-hidden={!shown}
       >
-        <div className="flex items-center gap-3 px-3 pb-2.5 pt-3">
-          <StorelibLogo size={40} alt="" className="block h-10 w-10 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold leading-[18px] text-[#1a1a2e]">Open this page in Storelib</p>
-            <p data-open-app-card-line="" className="text-[12.5px] leading-[16px] text-[#6b7280]">
-              {said ?? card.line}
-            </p>
-          </div>
+        <StorelibLogo size={32} alt="" className="block h-8 w-8 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold leading-[17px] text-[#1a1a2e]">Open in Storelib</p>
+          <p data-open-app-card-line="" className="truncate text-[11.5px] leading-[15px] text-[#6b7280]">
+            {said ?? card.line}
+          </p>
         </div>
-        <div className="flex items-center gap-2 px-3 pb-3">
-          <button
-            type="button"
-            onClick={open}
-            data-open-app-card-open=""
-            tabIndex={shown ? 0 : -1}
-            className="h-11 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[scale,background-color] duration-100 active:scale-[0.97] active:bg-[#12121f] [-webkit-tap-highlight-color:transparent]"
-          >
-            Open
-          </button>
-          <button
-            type="button"
-            onClick={quiet}
-            data-open-app-card-quiet=""
-            tabIndex={shown ? 0 : -1}
-            className="h-11 shrink-0 rounded-xl px-3 text-[13px] font-medium text-[#6b7280] transition-colors duration-100 active:bg-[#f3f4f6] active:text-[#4b5563] [-webkit-tap-highlight-color:transparent]"
-          >
-            Keep reading here
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={open}
+          data-open-app-card-open=""
+          tabIndex={shown ? 0 : -1}
+          className="relative h-8 shrink-0 rounded-full bg-[#1a1a2e] before:absolute before:-inset-[6px] before:content-[''] px-3.5 text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.2)] transition-[scale,background-color] duration-100 active:scale-[0.96] active:bg-[#12121f] [-webkit-tap-highlight-color:transparent]"
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          onClick={quiet}
+          data-open-app-card-quiet=""
+          tabIndex={shown ? 0 : -1}
+          aria-label="Keep reading here"
+          title="Keep reading here"
+          className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#9ca3af] before:absolute before:-inset-[6px] before:content-[''] transition-colors duration-100 active:bg-[#f3f4f6] active:text-[#4b5563] [-webkit-tap-highlight-color:transparent]"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+        </button>
       </div>
     </div>
   )

@@ -162,7 +162,15 @@ function SocialToggleBadge({ on }: { on: boolean }) {
   )
 }
 /* Round AH: the ground behind the setup (see the Dialog below). */
-const ONBOARDING_GROUND = "!bg-[#eef0f3] [background-image:radial-gradient(1100px_560px_at_12%_-8%,rgba(139,92,246,0.14),transparent_62%),radial-gradient(900px_520px_at_92%_108%,rgba(26,26,46,0.14),transparent_60%),radial-gradient(rgba(16,24,40,0.05)_1px,transparent_1px)] [background-size:auto,auto,22px_22px]"
+/*
+  ROUND AK: THE STORES PEOPLE BUILD, BEHIND THE SETUP. The owner's picture
+  of storefronts made on Storelib, across the whole window, under a soft
+  vignette (radial-gradient: clear in the middle where the card stands,
+  darker toward the edges) so the white card reads first. From 640px only:
+  on a phone the setup is the whole screen and nothing behind it shows, so
+  the picture is not even fetched there.
+*/
+const ONBOARDING_GROUND = "!bg-[#0e0e11] sm:[background-image:radial-gradient(ellipse_at_50%_50%,rgba(10,10,14,0.18)_0%,rgba(10,10,14,0.5)_62%,rgba(10,10,14,0.86)_100%),url(/images/onboarding/seller-ground.webp)] sm:[background-size:cover,cover] sm:[background-position:center,center] sm:[background-repeat:no-repeat]"
 const NEXT_ON = "bg-purple-600 text-white hover:bg-purple-700 shadow-[0_1px_2px_rgba(76,29,149,0.28),0_4px_12px_-4px_rgba(124,58,237,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
 const BACK_LOOK = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#f9fafb]"
 const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-[10px] text-[14px] font-medium transition-[background-color,color,box-shadow]"
@@ -444,6 +452,29 @@ function Confetti({ show }: { show: boolean }) {
       }}
     />,
     document.body
+  )
+}
+
+/**
+ * Storelib's mark at the top left of the window, over the picture, while
+ * the setup is open (round AK). Only where the window has room around the
+ * card (1024px up); on anything narrower the card is close to the edges or
+ * is the whole screen.
+ */
+function GroundMark({ open }: { open: boolean }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted || typeof document === "undefined") return null
+  return createPortal(
+    <div
+      data-onboarding-ground-mark=""
+      aria-hidden
+      className="pointer-events-none fixed left-7 top-6 z-[2147483639] hidden transition-opacity duration-500 ease-out motion-reduce:transition-none lg:block"
+      style={{ opacity: open ? 1 : 0 }}
+    >
+      <StorelibLogo size={36} alt="" className="block h-9 w-9 shadow-[0_6px_18px_-6px_rgba(0,0,0,0.6)]" />
+    </div>,
+    document.body,
   )
 }
 
@@ -2714,6 +2745,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <p className="rounded-full bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-medium text-white shadow-[0_10px_30px_-12px_rgba(17,24,39,0.45)] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-300">{joinNote}</p>
         </div>
       ) : null}
+      {!nativeFullScreen && <GroundMark open={open} />}
       <Dialog open={open} onOpenChange={() => {}}>
         <DialogContent
           className={cn(

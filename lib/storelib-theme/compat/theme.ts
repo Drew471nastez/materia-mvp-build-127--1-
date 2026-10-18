@@ -71,6 +71,7 @@ import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
 import { compileSection } from "../storelib/compile"
+import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
 import type { CompiledSection, SectionInstanceData } from "../types"
 import { themeVars } from "@/lib/website-builder/theme-css"
@@ -121,9 +122,16 @@ export function nativeBlendVars(): string {
   if (blendVars) return blendVars
   const vars: Record<string, string> = {
     ...themeVars({} as never),
-    "--theme-font-body": "inherit",
-    "--theme-font-heading": "inherit",
-    "--theme-font-accent": "inherit",
+    /*
+      Round AK: the imported theme's own type and width, through the CSS
+      variables Shopify's themes publish (Dawn and its family: --font-*-family,
+      --page-width; Horizon: --font-*--family, --page-width). Nothing set there
+      is the inherited font and Storelib's width, as before.
+    */
+    "--theme-font-body": "var(--font-body-family, var(--font-body--family, inherit))",
+    "--theme-font-heading": "var(--font-heading-family, var(--font-heading--family, inherit))",
+    "--theme-font-accent": "var(--font-heading-family, var(--font-heading--family, inherit))",
+    "--theme-page-width": "var(--page-width, 1200px)",
     "--theme-text": "currentColor",
     "--theme-bg": "transparent",
     "--theme-primary": "#111827",
@@ -133,6 +141,8 @@ export function nativeBlendVars(): string {
   blendVars = Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(";")
   return blendVars
 }
+
+export { nativeThemeFromShopifySchemes } from "./native-schemes"
 
 /** A line of the theme's markup that is only `</template>` (an HTML template element) is guarded, so the file's own block does not end there. */
 const GUARD = "{% comment %}{% endcomment %}"
@@ -940,6 +950,15 @@ export class CompatTheme {
     return out
   }
 
+  private nativeThemeMemo: Record<string, unknown> | null = null
+  /** The theme's schemes for Storelib's sections drawn in it, read once per theme object (nativeThemeFromShopifySchemes). */
+  private nativeTheme(): Record<string, unknown> {
+    if (this.nativeThemeMemo) return this.nativeThemeMemo
+    const schemeSetting = this.settingsSchema.flatMap((g) => (Array.isArray(g.settings) ? (g.settings as O[]) : [])).find((s) => s.type === "color_scheme_group") as { id?: string } | undefined
+    this.nativeThemeMemo = nativeThemeFromShopifySchemes(schemeSetting?.id ? this.settingsValues[schemeSetting.id] : undefined)
+    return this.nativeThemeMemo
+  }
+
   private renderNative(ctx: Ctx, compiled: CompiledSection, instance: CompatSectionInstance, group?: string): RenderedSection {
     ;(ctx.registers.drawnIds as Set<string> | undefined)?.add(instance.id)
     const res = ctx.registers.res as Resources
@@ -957,7 +976,8 @@ export class CompatTheme {
         compiled,
         id: instance.id,
         instance: data,
-        theme: {},
+        /* Round AK: the theme's own colour schemes, so the section's Colour scheme setting draws the scheme it names. */
+        theme: this.nativeTheme(),
         page: { template: page?.template ?? "index", path: page?.path ?? "", in_editor: page?.designMode === true },
         products: (res?.products ?? []).map((c) => ({ id: c.id, type: "product", settings: c.settings })),
         data: { catalog },
