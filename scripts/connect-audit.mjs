@@ -19,7 +19,8 @@
  *    named by its Storelib store and counted with its paid orders)
  *
  * Verdict per account:
- *   affected        recipient agreement: no cross-border payouts (Stripe)
+ *   affected        recipient agreement on a cross-border account, or a country
+ *                   outside Stripe's cross-border region: cannot be paid out
  *   not-ready       payouts or transfers not enabled, or requirements due
  *   ok              full agreement (or none) with transfers and payouts on
  */
@@ -48,11 +49,19 @@ async function supabase(path) {
   return res.ok ? res.json() : null
 }
 
-/** The verdict for one account. Pure, so tests/round-ao proves it. */
+/** Stripe's self-serve cross-border payout region (same list as lib/payments/stripe/payout-regions.ts; tests/round-ap keeps them equal). */
+export const CROSS_BORDER_REGION = new Set([
+  "US", "GB", "CA", "CH",
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV",
+  "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO",
+])
+
+/** The verdict for one account. Pure, so tests/round-ao and round-ap prove it. */
 export function connectVerdict(a, platformCountry) {
   const agreement = a.tos_acceptance?.service_agreement ?? "full"
   const country = String(a.country ?? "").toUpperCase()
   const crossBorder = !!platformCountry && !!country && country !== platformCountry
+  const outsideRegion = crossBorder && !(CROSS_BORDER_REGION.has(platformCountry) && CROSS_BORDER_REGION.has(country))
   const transfers = a.capabilities?.transfers ?? "inactive"
   const due = [...(a.requirements?.currently_due ?? []), ...(a.requirements?.past_due ?? [])]
   const reasons = []
@@ -61,12 +70,19 @@ export function connectVerdict(a, platformCountry) {
     verdict = "affected"
     reasons.push("recipient service agreement: Stripe does not support cross-border payouts on it")
   }
+  if (outsideRegion) {
+    verdict = "affected"
+    reasons.push(`no self-serve Stripe payouts from ${platformCountry} to ${country} (only within US, UK, EEA, CA, CH)`)
+  }
+  /* Cross-border payouts work only for destination charges WITHOUT on_behalf_of.
+     The seller-statement switch (NEXT_PUBLIC_SELLER_STATEMENT_NAME) charges on_behalf_of an account that can take cards. */
+  if (crossBorder && a.capabilities?.card_payments === "active") reasons.push("cross-border account can take cards: keep NEXT_PUBLIC_SELLER_STATEMENT_NAME off, or its sales go on_behalf_of it")
   if (!a.payouts_enabled) reasons.push("payouts are not enabled")
   if (transfers !== "active") reasons.push(`transfers capability is ${transfers}`)
   if (due.length) reasons.push(`${due.length} requirement(s) due`)
   if (a.requirements?.disabled_reason) reasons.push(`disabled: ${a.requirements.disabled_reason}`)
-  if (verdict === "ok" && reasons.length) verdict = "not-ready"
-  return { id: a.id, country, agreement, crossBorder, verdict, reasons, default_currency: a.default_currency ?? null, payouts_enabled: !!a.payouts_enabled, charges_enabled: !!a.charges_enabled, transfers, card_payments: a.capabilities?.card_payments ?? null, dashboard: a.controller?.stripe_dashboard?.type ?? a.type ?? null }
+  if (verdict === "ok" && reasons.some((r) => !r.startsWith("cross-border account can take cards"))) verdict = "not-ready"
+  return { id: a.id, country, agreement, crossBorder, outsideRegion, verdict, reasons, default_currency: a.default_currency ?? null, payouts_enabled: !!a.payouts_enabled, charges_enabled: !!a.charges_enabled, transfers, card_payments: a.capabilities?.card_payments ?? null, dashboard: a.controller?.stripe_dashboard?.type ?? a.type ?? null }
 }
 
 async function main() {

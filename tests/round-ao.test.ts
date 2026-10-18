@@ -194,6 +194,8 @@ async function main() {
       amountReversed.tr_1 = Math.round(((1065 - 98) * Number(body.get("amount"))) / 1065)
       return send({ id: "re_1", status: "succeeded", currency: "usd", amount: Number(body.get("amount")) })
     }
+    if (path === "balance") return send({ available: [{ amount: 2215, currency: "ron" }] })
+    if (path === "payouts" && req.method === "POST") return send({ id: "po_1", amount: Number(body.get("amount")), currency: body.get("currency"), status: "pending" })
     send({ error: { message: `no stub for ${req.method} ${path}` } }, 404)
   })
   await new Promise<void>((r) => stripeStub.listen(0, "127.0.0.1", () => r()))
