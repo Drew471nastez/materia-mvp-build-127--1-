@@ -312,11 +312,11 @@ export function Toggle({ label, description, checked, onChange, disabled, id }: 
   const switchId = id ?? auto
   return (
     <div className="flex items-start justify-between gap-4">
-      <label htmlFor={switchId} className="min-w-0 cursor-pointer">
+      <label htmlFor={switchId} className="-my-1.5 min-w-0 cursor-pointer py-1.5">
         <span className="block text-[14px] font-medium leading-5 text-[#1a1a2e]">{label}</span>
         {description ? <span className="mt-0.5 block text-[13px] leading-[18px] text-[#6b7280]">{description}</span> : null}
       </label>
-      <Switch id={switchId} checked={checked} onCheckedChange={onChange} disabled={disabled} className="mt-0.5 shrink-0" />
+      <Switch id={switchId} checked={checked} onCheckedChange={onChange} disabled={disabled} className="relative mt-0.5 shrink-0 before:absolute before:-inset-x-2 before:-inset-y-1.5 before:content-['']" />
     </div>
   )
 }
