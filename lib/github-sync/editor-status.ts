@@ -67,7 +67,8 @@ export async function readPending(db: Db, installId: string): Promise<PendingCha
  * (send the site's version), reconnect and repo (Website settings, GitHub),
  * open (the file on GitHub), reset (a built-in back to Storelib's version).
  */
-export type SyncAction = "retry" | "pull" | "push" | "reconnect" | "repo" | "open" | "reset"
+/** `branch`: send the site to a branch of its own, storelib, and follow it. `follow`: follow the branch an agent pushed to, and bring it in. */
+export type SyncAction = "retry" | "pull" | "push" | "reconnect" | "repo" | "open" | "reset" | "branch" | "follow"
 
 export interface ReportFile {
   path: string
@@ -122,7 +123,10 @@ export function plainWords(text: string, max = 220): string {
   let t = String(text ?? "")
     .split(/\n|\s+at\s+\S+\s*\(/)[0]
     .replace(TOKEN, "[hidden]")
-    .replace(/<template compat="shopify">/gi, "the first line of the file")
+    .replace(/<template compat="shopify">/gi, "the same first line as the theme's other files")
+    /* The schema key the engine reads, said as what it is. */
+    .replace(/\b(?:in its|its|the)\s+"shopify"\s+object/gi, "the theme's own schema")
+    .replace(/\bunder\s+"shopify"/gi, "in the theme's own schema")
     .replace(/\bimported Shopify theme\b/gi, "imported theme")
     .replace(/\bShopify(?:'s)?\s+theme\b/gi, "theme")
     .replace(/\bShopify\b/gi, "the theme")
@@ -150,7 +154,8 @@ function fileCopy(kind: FileProblemKind, line: number | null): { title: string; 
     case "page":
       return { title: tt("This page file has a mistake"), fix: tt("The page kept its last version. Fix the file on GitHub and push again."), showDetail: true }
     case "wrong-kind":
-      return { title: tt("Not in this theme's format"), fix: tt("Copy the first line and the settings layout from another file in the same folder, then push again."), showDetail: false }
+      /* What the file needs is in the detail: Storelib converts every file it can (lib/github-sync/format.ts), so one refused here needs a person or an agent to say what it is. */
+      return { title: tt("Not in this theme's format"), fix: tt("Storelib converts a file when it can tell what it is. Change this one as the line below says, then push again."), showDetail: true }
     case "built-in":
       return { title: line ? tt("Has a mistake on line {line}", { line }) : tt("Changes one of Storelib's sections in a way it can't use"), fix: tt("Fix it on GitHub, or put back Storelib's version."), showDetail: true }
     case "theme-settings":
@@ -176,7 +181,7 @@ function kindOf(p: FileProblem): FileProblemKind {
   if (/over 20 MB/i.test(e)) return "too-large"
   if (/not a text file|binary file/i.test(e)) return "binary"
   if (/could not be read from GitHub/i.test(e)) return "unreadable"
-  if (/compat="shopify"|Write it as a Storelib section/i.test(e)) return "wrong-kind"
+  if (/compat="shopify"|Write it as a Storelib section|imported theme's format|could not tell which format/i.test(e)) return "wrong-kind"
   if (/<schema> block\) changed|is for reading and a change to it is not taken/i.test(e)) return "theme-settings"
   if (/^templates\/|^sections\/(header|footer|overlay)-group\.json/.test(p.path)) return "page"
   return "invalid"
@@ -221,7 +226,8 @@ function wholeProblem(kind: string, ctx: { repo: string; branch: string; directi
     case "branch-deleted":
       return { title: tt("The {branch} branch was deleted", { branch }), body: tt("Send your site to GitHub to make it again, or pick another branch."), actions: ["push", "repo"] }
     case "branch-protected":
-      return { title: tt("{branch} is protected on GitHub", { branch }), body: tt("GitHub won't let Storelib write to it. Pick a branch of its own, like storelib."), actions: ["repo"] }
+      /* One press: the site goes to a branch of its own and is followed there, so the next push is read too. */
+      return { title: tt("{branch} is protected on GitHub", { branch }), body: tt("GitHub won't let Storelib write to it. Send your site to a branch called storelib instead, and Storelib follows that one from now on."), actions: ["branch", "repo"] }
     case "moved-on":
       return { title: tt("Someone pushed while Storelib was sending"), body: tt("Try again. Their commit stays and your changes go on top."), actions: ["push"] }
     case "rate-limited":

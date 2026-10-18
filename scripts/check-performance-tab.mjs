@@ -220,7 +220,8 @@ for (const [label, viewport] of SIZES) {
       overallText: document.querySelector("[data-overall]")?.textContent.trim(),
       tiles: tiles.map((t) => ({ metric: t.dataset.metric, ...box(t), value: t.querySelector("[data-p75]")?.textContent ?? t.querySelector("[data-not-enough]")?.textContent })),
       columns: new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().left))).size,
-      minor: [...document.querySelectorAll("[data-minor] [data-metric]")].map((t) => t.textContent.trim()),
+      /* Round AK folded FCP and TTFB under More measures: opened here to find them. */
+      minor: (document.querySelector("[data-minor]") ? null : document.querySelector("[data-perf-more]")?.click(), [...document.querySelectorAll("[data-minor] [data-metric]")].map((t) => t.textContent.trim())),
       selectedTab: document.querySelector("[role=tab][aria-selected=true]")?.dataset.tab,
       chart: box(document.querySelector("[data-perf-chart]")),
       summary: box(document.querySelector("[data-perf-summary]")),
@@ -247,7 +248,7 @@ for (const [label, viewport] of SIZES) {
   expect(label === "390" ? hs.every((h) => h === 38) : hs.every((h) => h === 32), `every switch ${label === "390" ? "38" : "32"} px tall`, Object.fromEntries(Object.entries(sw).map(([k, v]) => [k, v.h])))
   expect(Object.values(sw).every((s) => s.w.length === 1 || Math.max(...s.w) - Math.min(...s.w) <= 1), "every choice in a row the same width", Object.fromEntries(Object.entries(sw).map(([k, v]) => [k, v.w])))
   expect(Object.values(sw).every((s) => s.clipped.length === 0), "every switch's label fits its button", Object.fromEntries(Object.entries(sw).map(([k, v]) => [k, v.clipped])))
-  expect(!!m.chart && m.chart.w >= (label === "390" ? 300 : 600) && m.chart.h === 200, "the chart spans its card, 200 px tall", m.chart)
+  expect(!!m.chart && m.chart.w >= (label === "390" ? 300 : 600) && m.chart.h === 160, "the chart spans its card, 160 px tall", m.chart) /* Changed on purpose (round Z4, the owner: too much height): 200 to 160. */
   expect(m.thresholds.includes("good"), "Google's Good line is drawn", m.thresholds)
   expect(!!m.table && m.table.w <= m.tableCard.w + 1, "the table fits its card", { table: m.table?.w, card: m.tableCard?.w })
   expect(m.rows === 5 && /^Show all \d+$/.test(m.showAll ?? ""), "the five busiest pages first, the rest behind Show all", { rows: m.rows, more: m.showAll })

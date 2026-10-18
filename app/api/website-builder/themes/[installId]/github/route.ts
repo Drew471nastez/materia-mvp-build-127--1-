@@ -12,6 +12,8 @@
  *           { action: "pull" }     take every section file on the branch now
  *           { action: "settings", pushOnSave?, pullOnPush? }  the two switches
  *           { action: "change-repo" }  back to the repository picker
+ *           { action: "use-branch", branch, then: "push" | "pull" }  follow
+ *           another branch of the same repository, and send or take it
  *           { action: "reset-override", path }  a built-in section or block
  *           this site has its own copy of goes back to Storelib's version
  *
@@ -96,6 +98,10 @@ function publicLink(link: GitHubLink | null) {
     lastError: link.last_error,
     pushOnSave: link.push_on_save !== false,
     pullOnPush: link.pull_on_push !== false,
+    /* The newest push to a branch this site does not follow, so the panel can offer to follow it. */
+    ignored: link.sync_state?.ignored && typeof link.sync_state.ignored.branch === "string" && link.sync_state.ignored.branch !== link.branch ? { branch: link.sync_state.ignored.branch, at: link.sync_state.ignored.at } : null,
+    /* What the last whole sync ran into (lib/github-sync/errors.ts), so the panel offers the one fix for it. */
+    problem: last && last.ok === false && typeof last.problem === "string" ? last.problem : null,
   }
 }
 
@@ -275,7 +281,37 @@ export async function POST(req: Request, { params }: Params) {
     }
   }
 
-  if (body.action === "select") {
+  /*
+    THE ONE FIX FOR TWO DEAD ENDS. A protected branch Storelib may not write
+    to, and an agent that therefore pushed to a branch of its own which this
+    site does not follow: both end with the site and the repository on
+    different branches. `use-branch` moves the link to the branch named (the
+    same repository and folder), then sends the site there (`then: "push"`,
+    which makes the branch when it is new) or brings that branch in
+    (`then: "pull"`). Nothing is deleted on either side.
+  */
+  if (body.action === "use-branch") {
+    if (!link.repo_full_name) return NextResponse.json({ error: "Pick a repository first" }, { status: 409 })
+    const next = typeof body.branch === "string" ? body.branch.trim() : ""
+    if (!validBranch(next)) return NextResponse.json({ error: "That branch name is not valid" }, { status: 400 })
+    const then = body.then === "pull" ? "pull" : "push"
+    const { ignored: _ignored, ...state } = (link.sync_state ?? {}) as NonNullable<GitHubLink["sync_state"]>
+    void _ignored
+    const { error: upErr } = await db
+      .from("theme_github_links")
+      .update({ branch: next, last_error: null, updated_at: new Date().toISOString(), ...(link.sync_state ? { sync_state: state } : {}) })
+      .eq("install_id", own.installId)
+    if (upErr) return NextResponse.json({ error: "Could not save the link" }, { status: 500 })
+    link = { ...link, branch: next, last_error: null, sync_state: link.sync_state ? state : link.sync_state }
+    if (then === "pull") {
+      try {
+        const r = await pullNow(db, cfg, link, own.name)
+        return NextResponse.json({ ok: true, branch: next, ...r, link: publicLink(link) })
+      } catch (e) {
+        return NextResponse.json({ error: explain(e, link) }, { status: 502 })
+      }
+    }
+  } else if (body.action === "select") {
     if (!validRepoName(body.repo)) return NextResponse.json({ error: "Pick a repository" }, { status: 400 })
     let token: string
     let repo

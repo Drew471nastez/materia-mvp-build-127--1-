@@ -414,6 +414,8 @@ const SUITES = [
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
   "tests/jobs-dupes.test.ts",
   "tests/backups.test.ts",
+  /* Round Z4: a backup restore finishes on a 504 file theme, all or nothing, and the dialog always settles. */
+  "tests/restore-backup.test.ts",
   "tests/schema-source.test.ts",
   "tests/ops-safety.test.ts",
   "tests/public-abuse.test.ts",
@@ -439,6 +441,8 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
+  /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
+  "tests/github-format-z4.test.ts",
   "tests/schema-edits-sidebar.test.ts",
   "tests/theme-config-files-v.test.ts",
   "tests/collection-binding-v.test.ts",

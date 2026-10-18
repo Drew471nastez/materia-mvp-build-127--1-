@@ -2824,6 +2824,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const exitPushed = useRef(false)
   /** The leave dialog was answered (Save or Discard), so the browser's own question is not asked as well. */
   const leaveAnswered = useRef(false)
+  /** A restore is running in Website Settings: autosave waits, so it cannot write the old draft over the restored one. */
+  const restoreHold = useRef(false)
   /** Reported by the code editor in its frame; see its postMessage. */
   const [codeDirty, setCodeDirty] = useState(false)
   /**
@@ -6288,7 +6290,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const timer = setTimeout(() => {
       // Checked when it FIRES, not when it was scheduled: the switch may have
       // started in between, and that is the whole window this guards.
-      if (switchingPage.current) return
+      if (switchingPage.current || restoreHold.current) return
       void saveDraft({ quiet: true })
     }, AUTOSAVE_DELAY_MS)
     return () => clearTimeout(timer)
@@ -7204,7 +7206,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
     }
     let result: { status: number; error: string | null }
-    if (action === "reset" && file) {
+    if (action === "branch") {
+      /* A protected branch: the site goes to storelib, made when it is new, and is followed there. */
+      result = await post({ action: "use-branch", branch: "storelib", then: "push" })
+    } else if (action === "follow" && syncStatus.github?.ignored?.branch) {
+      /* An agent pushed to another branch: follow it, and bring that push in now. */
+      result = await post({ action: "use-branch", branch: syncStatus.github.ignored.branch, then: "pull" })
+    } else if (action === "reset" && file) {
       /* The site's own copy goes, or, when it never took one, Storelib's text goes back to GitHub with a Push. */
       result = await post({ action: "reset-override", path: file.path })
       if (result.status === 404) result = await post({ action: "export" })
@@ -10149,7 +10157,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // The draft on the server has just been replaced. The editor's own
         // copy of it is stale in every state it holds, and reloading is the
         // one honest way to pick all of it up at once.
-        onRestored={() => window.location.reload()}
+        onRestored={() => {
+          /* Answered already: the restore replaced the draft on purpose, so the browser does not ask about leaving it. */
+          leaveAnswered.current = true
+          window.location.reload()
+        }}
+        /* A restore saves what is unsaved first, so the safety copy has it, and no autosave lands on the restored draft after. */
+        onHoldDraft={async (hold) => {
+          if (!hold) {
+            restoreHold.current = false
+            return true
+          }
+          restoreHold.current = true
+          if (!isDirty) return true
+          const ok = await saveDraft({ quiet: true })
+          if (!ok) restoreHold.current = false
+          return ok
+        }}
         /* The website's own settings, through the one writer the editor has:
            a favicon or a meta description set in Website Settings is a change
            like any other, saved with the draft, undone with Undo, and live
