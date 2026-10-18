@@ -16,26 +16,44 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (table: string) => any }
 
-const CONTEXTS = new Set(["merchant", "marketplace"])
 const SOURCES = new Set(["native", "fixed", "converted"])
+
+/**
+ * The one payment metadata key it travels in, and its shape:
+ * "marketplace|ron|4900|converted|2026-10-16|0.21730382". Only a
+ * marketplace price is written (a store's own price is the order itself).
+ */
+export const PRICING_METADATA_KEY = "pricing"
+
+export interface PricingRecord {
+  context: "merchant" | "marketplace"
+  listCurrency: string
+  listAmountCents: number
+  source: "native" | "fixed" | "converted"
+  fxAsOf: string | null
+  fxRate: number | null
+}
+
+export function encodePricing(p: PricingRecord): string {
+  return [p.context, p.listCurrency.toLowerCase(), String(p.listAmountCents), p.source, p.fxAsOf ?? "", p.fxRate === null ? "" : String(p.fxRate)].join("|").slice(0, 480)
+}
 
 /** The order's columns from the payment's metadata, each checked; null when the checkout wrote none. */
 export function orderPricingFrom(md: Record<string, string | null | undefined> | null | undefined): Record<string, string | number | null> | null {
-  if (!md) return null
-  const context = md.pricing_context ?? ""
-  if (!CONTEXTS.has(context)) return null
-  const currency = /^[A-Z]{3}$/i.test(md.list_currency ?? "") ? String(md.list_currency).toLowerCase() : null
-  const amount = Number(md.list_amount_cents)
-  const source = SOURCES.has(md.price_source ?? "") ? String(md.price_source) : null
-  const asOf = /^\d{4}-\d{2}-\d{2}$/.test(md.fx_as_of ?? "") ? String(md.fx_as_of) : null
-  const rate = Number(md.fx_rate)
+  const raw = md?.[PRICING_METADATA_KEY]
+  if (typeof raw !== "string" || !raw) return null
+  const [context, currency, amount, source, asOf, rate] = raw.split("|")
+  if (context !== "marketplace" && context !== "merchant") return null
+  const cents = Number(amount)
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(asOf ?? "") ? asOf : null
+  const r = Number(rate)
   return {
     pricing_context: context,
-    list_currency: currency,
-    list_amount_cents: Number.isInteger(amount) && amount >= 0 ? amount : null,
-    price_source: source,
-    fx_as_of: asOf,
-    fx_rate: asOf && Number.isFinite(rate) && rate > 0 ? rate : null,
+    list_currency: /^[a-z]{3}$/i.test(currency ?? "") ? currency.toLowerCase() : null,
+    list_amount_cents: Number.isInteger(cents) && cents >= 0 ? cents : null,
+    price_source: SOURCES.has(source ?? "") ? source : null,
+    fx_as_of: day,
+    fx_rate: day && rate && Number.isFinite(r) && r > 0 ? r : null,
   }
 }
 

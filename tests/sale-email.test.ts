@@ -129,7 +129,8 @@ async function main() {
     check("fee unknown: the preview says the total reaches the balance", noFee.preview === "Sam bought Lightroom Presets Vol 2. $29.00 goes to your balance.", noFee.preview)
     const none = renderEmail("NEW_SALE", { amountCents: 500 }, ctx)
     /* Changed on purpose: the fallback subject says a sale was made, as the rest of the email now does. */
-    check("nothing but an amount: a plain subject and no customer section", none.subject === "You made a sale for $5.00" && !none.text.includes("Customer") && !none.html.includes("mailto:"), none.subject)
+    /* Changed on purpose (currency round AM): an amount with no currency recorded is not written in dollars it may not be. */
+    check("nothing but an amount: a plain subject and no customer section", none.subject === "You made a sale" && !none.text.includes("Customer") && !none.html.includes("mailto:"), none.subject)
   }
 
   console.log("\nsale email: hostile input")
@@ -200,7 +201,8 @@ async function main() {
     const u = unreadable.data as Record<string, any>
     check("an unreadable order keeps the caller's figures and guesses no fee", u.amountCents === 1500 && u.subtotalCents === 2000 && u.discountCents === 500 && u.feeCents === null && u.orderNumber === "")
     const ur = renderEmail("NEW_SALE", u, ctx)
-    check("and still renders cleanly", !BAD.test(ur.html + ur.text) && ur.subject === "You sold Brand Workbook for $15.00", ur.subject)
+    /* Changed on purpose (currency round AM): no currency read, so no amount guessed in the subject; what sold is still said. */
+    check("and still renders cleanly", !BAD.test(ur.html + ur.text) && ur.subject === "You sold Brand Workbook", ur.subject)
 
     console.log("\nthe sender")
     const sent: FormData[] = []

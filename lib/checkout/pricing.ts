@@ -231,6 +231,15 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
     const fx = await marketplaceRates(db, req.pricing?.fxAsOf)
     const m = marketplaceAmounts({ ...(owner as object), type: (product as PricedProduct).type } as Parameters<typeof marketplaceAmounts>[0], listCurrency, fx)
     if (!fx || m.ok === false) return { ok: false, status: 503, error: RATES_PAUSED_MESSAGE, code: "rates_paused" }
+    /*
+      THE PRICE THE BUYER SAW, OR NONE. The page sent the rate day it showed;
+      when that day can no longer be used (it went stale while the page sat
+      open), the charge is not quietly made at a newer rate: the buyer is
+      asked to look again. A converted price only: a creator's own dollar
+      price does not move with the rate.
+    */
+    const asked = typeof req.pricing?.fxAsOf === "string" && /^\d{4}-\d{2}-\d{2}$/.test(req.pricing.fxAsOf) ? req.pricing.fxAsOf : null
+    if (asked && m.source === "converted" && fx.asOf !== asked) return { ok: false, status: 409, error: "The price was updated. Refresh the page to see it.", code: "price_changed" }
     charged = { price_cents: m.price_cents, pay_what_you_want: owner.pay_what_you_want, pwyw_min_price_cents: m.pwyw_min_price_cents }
     currency = MARKETPLACE_CURRENCY
     const perUnit = m.source === "converted" ? (fx.rates[MARKETPLACE_CURRENCY] ?? 0) / (listCurrency === "EUR" ? 1 : fx.rates[listCurrency] ?? 0) : null

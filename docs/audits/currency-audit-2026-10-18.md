@@ -481,3 +481,51 @@ All additive. Nothing deletes or rewrites a stored amount.
 - Later: fold it into the marketplace fee for converted sales.
 
 **D5. Production platform currency.** Confirm `NEXT_PUBLIC_PLATFORM_CURRENCY` in Vercel (I didn't read it), and confirm the cross-border recipient question with Stripe support (2.3).
+
+---
+
+## 11. What was built (round AM), and how to switch the marketplace on
+
+Your answers to section 10, as built:
+
+- **D1.** Physical products are sold on the store's website only, in its currency, with its shipping. They never appear on Explore, creator pages, communities, the wishlist or recommendations.
+- **D2.** With no fresh rate (older than 4 days), a marketplace purchase **pauses** with a plain message. It is never switched to the store's currency.
+- **D3.** Shared checkout links and OnePage use the store's currency. Only links from Storelib's own marketplace pages carry `ctx=mp`.
+- **D4.** Stripe's FX cost is absorbed for now.
+- **D5.** Still to confirm on your side (below).
+
+### Where each phase lives
+
+- **Phase 1 (bugs):** store-currency readers, emails, refunds, webhook, cash out, push, plan currency. No `"usd"` guesses remain in money paths (`tests/round-am.test.ts` pins them).
+- **Phase 2 (plans):** `lib/money/product-currency.ts`. Membership and community plans are dollars everywhere.
+- **Phase 3 (physical):** website only.
+- **Phase 4 (reports):**
+  - `lib/money/report-currency.ts` (pure) and `report-currency-server.ts`.
+  - Home, Analytics (with a "converted" note), Customers, the revenue chart and Payouts all report in the store's currency, each sale at its own day's ECB rate.
+  - The 1099-K figures are converted to dollars.
+  - The daily cron keeps ECB history (`refreshHistory`).
+- **Phase 5 (marketplace, off by default):**
+  - `lib/money/marketplace.ts` (pure rules) and `marketplace-server.ts` (switch, rates, list pricer, product page quote).
+  - Explore, categories, creator pages, `/p/`, the wishlist and the checkout.
+  - `priceOrder` charges the dollar quote at the rate day the page showed (`fxAsOf`).
+- **Phase 6:**
+  - Optional creator-approved dollar price (`/api/products/marketplace-price`, editor card).
+  - The Settings note, which appears only when true.
+  - The order pricing record (one metadata key, then `orders.pricing_context` and the columns after it).
+  - SQL part 244.
+  - The static rate table and `/api/fx` removed.
+  - `scripts/reconcile-order-currency.mjs` (read only).
+
+### Switching it on, in order
+
+1. **Run SQL part 244** (`supabase/sql/run-now/244_marketplace_pricing.sql`, or the run-four files). It only adds columns.
+2. **Confirm with Stripe, for the platform account:**
+   - USD charging is enabled.
+   - The USD settlement currency and its payout bank account.
+   - Destination charges in USD to connected accounts in Romania, the EU, the UK, Canada and Australia, including any cross-border restriction on the recipient agreement (section 2.3).
+3. **Confirm `NEXT_PUBLIC_PLATFORM_CURRENCY` in Vercel** (production, preview, development).
+4. **Run the reconciliation report** with production keys: `node scripts/reconcile-order-currency.mjs`. Look at every "unknown" or "differs" row. Nothing is changed by it.
+5. **Turn it on for one store first.** In Vercel, set the server-only variable `MARKETPLACE_USD` to that store's creator id. Never use a `NEXT_PUBLIC_` variable for this. Buy one product from Explore with a test card, then check:
+   - the card, product page, checkout, receipt and refund amounts;
+   - the order's `currency = usd` and its `pricing_context`.
+6. **Widen gradually:** a comma list of creator ids, then `all`. Setting it to `off` (or removing it) puts every page back on the store's own currency at once. Orders already made keep the currency they were charged in.

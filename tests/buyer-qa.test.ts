@@ -27,8 +27,9 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 async function membershipPrices() {
   console.log("\nA membership's price says what it is per, everywhere it is written")
   const usd = (c: number) => `$${(c / 100).toFixed(0)}`
-  check("a card: $9/month", listPrice({ price_cents: 900, type: "membership" }, usd).main === "$9/month")
-  check("a yearly only plan: $90/year", listPrice({ price_cents: 9000, type: "membership", price_interval: "year" }, usd).main === "$90/year")
+  /* Changed on purpose (currency round AM): a plan is always written in its own dollars, as every card price is ("$9.00"), whatever formatter the page hands over (lib/money/product-currency). */
+  check("a card: $9/month", listPrice({ price_cents: 900, type: "membership" }, usd).main === "$9.00/month")
+  check("a yearly only plan: $90/year", listPrice({ price_cents: 9000, type: "membership", price_interval: "year" }, usd).main === "$90.00/year")
   check("a one-off price is left alone", listPrice({ price_cents: 900, type: "digital" }, usd).main === "$9")
   check("free stays Free", listPrice({ price_cents: 0, type: "membership" }, usd).main === "Free")
   check("monthly first, as the product row is", planInterval({ monthly_price_cents: 900, yearly_price_cents: 9000 }) === "month" && planInterval({ monthly_price_cents: null, yearly_price_cents: 9000 }) === "year")

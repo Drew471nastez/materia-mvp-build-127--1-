@@ -34,7 +34,7 @@ import {
 } from "@/lib/money/marketplace"
 import { PLAN_CURRENCY, isPlanPriced, productPriceCurrency } from "@/lib/money/product-currency"
 import { dayOf, inReportingCurrency, needsConversion, ratesForDate, RATE_LOOKBACK_DAYS } from "@/lib/money/report-currency"
-import { orderPricingFrom } from "@/lib/money/order-pricing"
+import { PRICING_METADATA_KEY, encodePricing, orderPricingFrom } from "@/lib/money/order-pricing"
 import { formatPlatformMoney } from "@/lib/i18n/currency"
 import { listPrice } from "@/lib/pricing/list-price"
 import { money as notifyMoney } from "@/lib/notifications/format"
@@ -147,6 +147,8 @@ async function main() {
       check("and records how: the store's price, the rate day, the rate", mp.ok && mp.pricing.context === "marketplace" && mp.pricing.listCurrency === "RON" && mp.pricing.listAmountCents === 4900 && mp.pricing.fxAsOf === today && (mp.pricing.fxRate ?? 0) > 0.21 && (mp.pricing.fxRate ?? 0) < 0.22, mp.ok ? mp.pricing : mp)
       const coded = await priceOrder(fakeDb(tables()) as never, { productId: PRODUCT, couponCode: "FIVE", pricing: { context: "mp" } })
       check("a 5 lei code is $1.09 off at the same rate", coded.ok && coded.totals.discountCents === 109 && coded.totals.totalCents === 1065 - 109, coded.ok ? coded.totals : coded)
+      const moved = await priceOrder(fakeDb(tables()) as never, { productId: PRODUCT, pricing: { context: "mp", fxAsOf: daysAgo(9) } })
+      check("a page priced at a day that went stale is asked to refresh, never charged at a newer rate", moved.ok === false && moved.status === 409 && moved.code === "price_changed", moved)
       const old = tables()
       old.fx_rates = [{ as_of: daysAgo(9), rates: RATES }]
       const paused = await priceOrder(fakeDb(old) as never, { productId: PRODUCT, pricing: { context: "mp" } })
@@ -166,7 +168,7 @@ async function main() {
     const session = code("app/api/checkout/stripe-session/route.ts")
     check("stripe-session passes the page's pricing to priceOrder", /pricing: body\.pricing && typeof body\.pricing === "object"/.test(session))
     check("and charges what priceOrder priced", /const storeCurrency = priced\.currency/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session))
-    check("and writes how the price was made on the payment", /pricing_context: priced\.pricing\.context/.test(session) && /fx_as_of: priced\.pricing\.fxAsOf/.test(session))
+    check("and writes how a marketplace price was made, in one metadata key (Stripe takes 50)", /priced\.pricing\.context === "marketplace" && Object\.keys\(metadata\)\.length < 50\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session))
     check("a pause is answered with its own code", /priced\.code \? \{ code: priced\.code \}/.test(session))
     const page = code("app/checkout/page.tsx")
     check("the checkout page converts only for ?ctx=mp with the switch on", /ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && marketplaceUsdFor\(product\.creator_id\)/.test(page))
@@ -174,22 +176,31 @@ async function main() {
     const client = code("app/checkout/checkout-client.tsx")
     check("the client sends the pricing back with Pay and with a code", (client.match(/\bpricing,/g) ?? []).length >= 2)
     check("order rows note it, without ever failing the order", /tagOrderPricing\(admin, order\.id/.test(code("lib/checkout/fulfil-payment.ts")) && /tagOrderPricing\(supabaseAdmin, order\.id/.test(code("app/api/stripe/webhook/route.ts")))
-    const row = orderPricingFrom({ pricing_context: "marketplace", list_currency: "RON", list_amount_cents: "4900", price_source: "converted", fx_as_of: today, fx_rate: "0.2173" })
-    check("the order's columns, checked", !!row && row.pricing_context === "marketplace" && row.list_currency === "ron" && row.list_amount_cents === 4900 && row.fx_as_of === today && row.fx_rate === 0.2173)
-    check("nothing recorded from a payment that carries none", orderPricingFrom({}) === null && orderPricingFrom({ pricing_context: "elsewhere" }) === null)
+    const packed = encodePricing({ context: "marketplace", listCurrency: "RON", listAmountCents: 4900, source: "converted", fxAsOf: today, fxRate: 0.2173 })
+    const row = orderPricingFrom({ [PRICING_METADATA_KEY]: packed })
+    check("the order's columns, from the one key, checked", !!row && row.pricing_context === "marketplace" && row.list_currency === "ron" && row.list_amount_cents === 4900 && row.price_source === "converted" && row.fx_as_of === today && row.fx_rate === 0.2173, row)
+    check("nothing recorded from a payment that carries none", orderPricingFrom({}) === null && orderPricingFrom({ [PRICING_METADATA_KEY]: "elsewhere|x" }) === null)
+    const session2 = code("app/api/checkout/stripe-session/route.ts")
+    const mdBlock = session2.slice(session2.indexOf("const metadata: Record<string, string> = {"), session2.indexOf("Object.assign(metadata, attributionToMetadata"))
+    const fixedKeys = (mdBlock.match(/^\s+(\[[A-Z_]+\]|[a-z_]+):/gm) ?? []).length
+    check("a store-currency checkout adds no metadata key (42 fixed + 8 business + 2 holds stays where it was)", fixedKeys <= 42, fixedKeys)
   }
 
   console.log("\nThe marketplace's pages")
   {
     check("Explore prices its cards through the marketplace", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(marketing)/explore/page.tsx")) && /\.\.\.priceOf\(product\)/.test(code("app/(marketing)/explore/page.tsx")))
     check("and its categories", /marketplacePricer\(createAdminClient\(\)/.test(code("app/(marketing)/explore/[category]/page.tsx")))
-    check("a creator page's cards", /marketplacePricer\(createAdminClient\(\), \[creator\.id\]\)/.test(code("app/(marketing)/u/[username]/page.tsx")))
+    check("a creator page's cards", /marketplacePricer\(createAdminClient\(\), \[creator\.id\], /.test(code("app/(marketing)/u/[username]/page.tsx")))
     const p = code("app/(marketing)/p/[slug]/page.tsx")
     check("a product page: the product and each option at one rate day", /productPageQuote\(loaded/.test(p) && /pageQuote\.convert\(loaded\)/.test(p) && /productVariants\.map\(\(v\) => pageQuote\.convert\(/.test(p))
     check("its Buy links carry the marketplace and the rate day", /<MarketplaceQuote active=/.test(code("app/(marketing)/p/[slug]/layout.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/buy-button.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/smart-buy-button.tsx")))
     const e = entryOf({ id: "w", product_id: PRODUCT, created_at: today, products: { id: PRODUCT, title: "Pack", slug: "pack", type: "digital", price_cents: 4900, currency: "RON" } })!
     check("the wishlist writes a lei price in lei, never as dollars", /lei|RON/i.test(priceOf(e).main) && !/\$/.test(priceOf(e).main), priceOf(e))
-    check("and its Buy goes to the marketplace's checkout", /ctx=mp/.test(actionOf(e).href ?? ""))
+    check("with the switch off its Buy is the link it always was", actionOf(e).href === `/checkout?productId=${PRODUCT}`)
+    const priced = entryOf({ id: "w", product_id: PRODUCT, created_at: today, products: { id: PRODUCT, title: "Pack", slug: "pack", type: "digital", price_cents: 1065, currency: "USD", fx_as_of: today } })!
+    check("priced by the marketplace, its Buy carries the marketplace and the rate day", actionOf(priced).href === `/checkout?productId=${PRODUCT}&ctx=mp&fx=${today}`)
+    const waiting = entryOf({ id: "w", product_id: PRODUCT, created_at: today, products: { id: PRODUCT, title: "Pack", slug: "pack", type: "digital", price_cents: 4900, currency: "RON", marketplace_paused: true } })!
+    check("waiting for a rate, its Buy goes to the marketplace's checkout, which waits too", actionOf(waiting).href === `/checkout?productId=${PRODUCT}&ctx=mp`)
   }
 
   console.log("\nPhysical products are the website's only")

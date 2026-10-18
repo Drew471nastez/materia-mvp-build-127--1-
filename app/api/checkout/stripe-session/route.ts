@@ -1,3 +1,4 @@
+import { PRICING_METADATA_KEY, encodePricing } from "@/lib/money/order-pricing"
 import { personName } from "@/lib/profile/display-name"
 import { rowsOwn } from "@/lib/checkout/owned"
 import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
@@ -280,12 +281,6 @@ async function handlePOST(request: Request) {
     tax_country: tax && tax.taxCents > 0 ? tax.country ?? "" : "",
     /* "VAT 19%": what the receipt, the PDF and the order call it (lib/tax/rules taxLabel). */
     tax_label: tax && tax.taxCents > 0 ? tax.label : "",
-    /* How the price was made (lib/money/marketplace): the store's own price, or a marketplace dollar price and the rate day behind it. */
-    pricing_context: priced.pricing.context,
-    list_currency: priced.pricing.listCurrency,
-    list_amount_cents: String(priced.pricing.listAmountCents),
-    price_source: priced.pricing.source,
-    ...(priced.pricing.fxAsOf ? { fx_as_of: priced.pricing.fxAsOf, fx_rate: String(priced.pricing.fxRate ?? "") } : {}),
     buyer_country: geoInfo.country || "",
     buyer_country_code: geoInfo.countryCode || "",
     buyer_device_type: deviceInfo.deviceType || "",
@@ -297,6 +292,12 @@ async function handlePOST(request: Request) {
     agreed_at: new Date().toISOString(),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
   }
+  /*
+    A MARKETPLACE DOLLAR PRICE, AND HOW IT WAS MADE (lib/money/order-pricing),
+    in ONE key and only while Stripe's 50 keys allow: it is the order's
+    record, never what is charged. The store's own prices add nothing here.
+  */
+  if (priced.pricing.context === "marketplace" && Object.keys(metadata).length < 50) metadata[PRICING_METADATA_KEY] = encodePricing(priced.pricing)
   /* Last, and only while Stripe's 50 keys allow: the payment never waits on it. */
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 

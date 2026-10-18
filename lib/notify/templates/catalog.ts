@@ -565,7 +565,8 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   let subject = ""
   if (first) subject = total && !free ? fitSubject("Your first sale: ", title, `${moreShort} for ${total}`) : fitSubject("Your first sale: ", title, moreShort)
   else if (free) subject = fitSubject("You sold ", title, moreShort)
-  else if (total) subject = fitSubject("You sold ", title, `${moreShort} for ${total}`)
+  /* With no currency recorded the amount is not guessed (formatMoney gives nothing), but what sold is still said. */
+  else subject = fitSubject("You sold ", title, total ? `${moreShort} for ${total}` : moreShort)
   if (!subject) subject = first ? (total && !free ? `Your first sale: ${total}` : "You made your first sale") : total && !free ? `You made a sale for ${total}` : "You made a sale"
   /* An order that ships or is picked up asks for something: the subject says so, with its number. */
   const fulfil = d.record("fulfil")

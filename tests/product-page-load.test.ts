@@ -96,7 +96,8 @@ function main() {
   check("its creator and config start together", /await Promise\.all\(\[\s*\n\s*loadCreator\(product\.creator_id\),\s*\n\s*loadStoreConfig\(product\.creator_id, "shop"\),/.test(metadata))
 
   const body = page.slice(metaEnd)
-  check("the page reads the product through the loader", /const \{ product, viaHistory \} = await loadProductBySlug\(slug\)/.test(body))
+  /* Changed on purpose (currency round AM): read as `loaded`, then `product` is that row in the page's currency (lib/money/marketplace-server productPageQuote). */
+  check("the page reads the product through the loader", /const \{ product: loaded, viaHistory \} = await loadProductBySlug\(slug\)/.test(body) && /const product = pageQuote\.convert\(loaded\)/.test(body))
   check("the page looks the product up by slug nowhere itself", !/\.eq\("slug", slug\)/.test(body))
   /* The seller's other work was the page's last `products` query of its own.
      It is the same question for every visitor, so it moved into the shared
@@ -121,7 +122,7 @@ function main() {
     files resolving slug history separately is three chances to disagree
     about where an old link goes.
   */
-  check("an old slug still redirects to the current one, permanently", /if \(product && viaHistory\) \{\s*\n\s*permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(body))
+  check("an old slug still redirects to the current one, permanently", /if \(loaded && viaHistory\) \{\s*\n\s*permanentRedirect\(`\/p\/\$\{loaded\.slug\}`\)/.test(body))
   check("and only the page decides that", (page.match(/[rR]edirect\(`\/p\//g) || []).length === 1)
   check("the loader reports it rather than redirecting itself", !/\bredirect\(/.test(loaders))
 

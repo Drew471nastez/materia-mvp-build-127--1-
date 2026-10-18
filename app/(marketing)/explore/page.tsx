@@ -173,7 +173,7 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
     /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server. */
     salesStandings(createAdminClient(), products.map((p) => p.id)),
     /* Each card's price as the marketplace shows it: its store's currency, or US dollars once that store is switched over (lib/money/marketplace-server). */
-    marketplacePricer(createAdminClient(), products.map((p) => p.creator_id)),
+    marketplacePricer(createAdminClient(), products.map((p) => p.creator_id), products.map((p) => p.id)),
   ])
   const [offExplore, creators, profiles, intervals, standings, priceOf] = await together
   if (offExplore.size) products = products.filter((p) => !offExplore.has(p.id))

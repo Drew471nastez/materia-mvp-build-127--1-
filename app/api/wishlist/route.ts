@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     }
 
     /* Each price as the marketplace shows it: its store's currency, or dollars once switched over (lib/money/marketplace-server). */
-    const priceOfRow = await marketplacePricer(adminClient, shown.map((item) => (item.products as { creator_id?: string | null } | null)?.creator_id ?? null))
+    const priceOfRow = await marketplacePricer(adminClient, shown.map((item) => (item.products as { creator_id?: string | null } | null)?.creator_id ?? null), shown.map((item) => (item.products as { id?: string } | null)?.id ?? null))
     for (const item of shown) {
       let creatorInfo = null
       const profileData = item.products?.creators?.user_id ? profileByUser.get(item.products.creators.user_id) : undefined

@@ -880,7 +880,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const [intervals, standings, priceOf] = await Promise.all([
     planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id)),
     readStandings((products ?? []).map((p) => p.id)),
-    marketplacePricer(createAdminClient(), [creator.id]),
+    marketplacePricer(createAdminClient(), [creator.id], (products ?? []).map((p) => p.id)),
   ])
   const productsData: ProductData[] =
     products?.map((p) => ({

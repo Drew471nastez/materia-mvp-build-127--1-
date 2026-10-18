@@ -299,13 +299,13 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   const origin = orderOriginFrom(m, opts.request)
   const source = orderSourceFrom(m, opts.request)
   await tagOrderSource(admin, order.id, source, origin)
-  /* How its price was made: the store's own, or a marketplace dollar price and its rate day (lib/money/order-pricing). */
-  await tagOrderPricing(admin, order.id, m as Record<string, string>)
   /* First and last touch and the property, from what stripe-session checked
      and put on the payment; the property follows `source` (lib/attribution).
      Only this caller made the row, and the write is once anyway. */
   const attribution = attributionFromMetadata(m, { source, origin })
   await recordOrderAttribution(admin, order.id, attribution)
+  /* How its price was made: the store's own, or a marketplace dollar price and its rate day (lib/money/order-pricing). */
+  await tagOrderPricing(admin, order.id, m as Record<string, string>)
 
   /* Everything after the order is recorded is allowed to fail on its own:
      the buyer paid and the order exists, whatever an email server says. */

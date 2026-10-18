@@ -222,7 +222,8 @@ console.log("\nAn old address moved for good says so")
   check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
   /* The page reads the rename from lib/onepage/resolve-address now (a past username or a past page address, one resolver shared with the proxy), and carries the visitor's query; still permanent, still straight to storelib.me/<new>. */
   check("their OnePage, straight to storelib.me/<new> on storelib.me", /permanentRedirect\(`\$\{onOnePageHost \? onePageUrl\(address\.name\) : getLinksInternalPath\(address\.name\)\}\$\{query\}`\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
-  check("a renamed product", /permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+  /* Changed on purpose (currency round AM): the loaded row is `loaded`, and `product` is it in the page's currency (the marketplace's quote). */
+  check("a renamed product", /permanentRedirect\(`\/p\/\$\{loaded\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
   const c = code("app/(marketing)/c/[slug]/page.tsx")
   check("the old /c/ address, while a guess with nothing behind it stays temporary",
     /permanentRedirect\(`\/\$\{creator\.profile\.username\}`\)/.test(c) && /\bredirect\(`\/\$\{slug\}`\)/.test(c))

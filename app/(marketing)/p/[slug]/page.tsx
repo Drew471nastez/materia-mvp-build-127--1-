@@ -5,7 +5,7 @@ import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
-import { productPageQuote } from "@/lib/money/marketplace-server"
+import { productPageQuote, withApprovedDollarPrices } from "@/lib/money/marketplace-server"
 import { MARKETPLACE_CURRENCY } from "@/lib/money/marketplace"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
@@ -323,12 +323,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     page is not found rather than offering what cannot be bought here.
   */
   if (product.type === "physical") {
-    const [{ storeOriginFor }, { createAdminClient: physicalAdmin }, { getMainDomain }] = await Promise.all([
-      import("@/lib/physical/order-link-server"),
-      import("@/lib/supabase/admin"),
-      import("@/lib/url-helpers"),
-    ])
-    const origin = await storeOriginFor(physicalAdmin(), product.creator_id)
+    /* Only for a product that ships, so loaded only then; never a batch of its own (the page's one batch is below). */
+    const { storeOriginFor } = await import("@/lib/physical/order-link-server")
+    const { getMainDomain } = await import("@/lib/url-helpers")
+    const origin = await storeOriginFor(createAdminClient(), product.creator_id)
     if (origin && origin !== `https://${getMainDomain()}`) redirect(`${origin}/products/${encodeURIComponent(product.slug)}`)
     notFound()
   }
@@ -700,7 +698,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
-  const moreProducts = await moreProductsPromise
+  /* On the marketplace in dollars, each card with its creator's own dollar price when they set one, as its own page shows it. */
+  const moreProducts = pageQuote.marketplace ? await withApprovedDollarPrices(createAdminClient(), await moreProductsPromise) : await moreProductsPromise
   timer.mark("moreProducts")
   timer.done()
 

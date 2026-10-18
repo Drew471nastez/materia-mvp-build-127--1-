@@ -216,7 +216,8 @@ function main() {
   check("$9 on the free plan is 5% plus 25 cents", computeApplicationFee({ unitAmount: 900, sellerPlan: "free", currency: "USD" }) === 70 && feePercentFor(900, 70) === 7.78 && feeFromPercent(900, 7.78) === 70)
   check("$1 on the free plan: 11 cents (the small-order rate), no fixed part", feePercentFor(100, computeApplicationFee({ unitAmount: 100, sellerPlan: "free", currency: "USD" })) === 11)
   check("nothing charged, no fee", feePercentFor(0, 0) === 0 && feePercentFor(500, -3) === 0)
-  check("the checkout takes the fee from the same calculator", /calculatePlatformFeeForCheckout\(amountCents, creatorId, admin, currency\)/.test(read("lib/memberships/billing.ts")))
+  /* Changed on purpose (currency round AM): in the plan's own currency, dollars when none was given (lib/money/product-currency PLAN_CURRENCY). */
+  check("the checkout takes the fee from the same calculator", /calculatePlatformFeeForCheckout\(amountCents, creatorId, admin, currency \|\| PLAN_CURRENCY\)/.test(read("lib/memberships/billing.ts")))
   check("the subscription is paid to the creator with the fee kept", /transfer_data: \{ destination: p\.destination \}/.test(read("lib/memberships/billing.ts")) && /application_fee_percent: p\.feePercent/.test(read("lib/memberships/billing.ts")))
   check("a renewal's fee is set to exact cents while it is a draft", /invoice\.status !== "draft" \|\| invoice\.billing_reason !== "subscription_cycle"/.test(read("lib/memberships/webhook.ts")) && /application_fee_amount: fee\.cents/.test(read("lib/memberships/webhook.ts")))
 

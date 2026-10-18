@@ -81,7 +81,7 @@ export async function loadWishlist(userId: string): Promise<WishlistEntry[]> {
     admin.from("product_variants").select("product_id").in("product_id", ids),
     admin.from("entitlements").select("product_id").eq("buyer_id", userId).in("product_id", ids),
     /* Each price as the marketplace shows it: its store's currency, or dollars once switched over (lib/money/marketplace-server). */
-    marketplacePricer(admin, rows.map((r) => r.products!.creator_id as string | null)),
+    marketplacePricer(admin, rows.map((r) => r.products!.creator_id as string | null), ids),
   ])
 
   const faceOf = new Map(((profiles.data ?? []) as Array<{ id: string; display_name: string | null; username: string | null; avatar_url: string | null }>).map((p) => [p.id, p]))

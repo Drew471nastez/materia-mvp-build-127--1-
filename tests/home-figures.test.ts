@@ -168,7 +168,7 @@ console.log("\nHome: the page reads it this way")
      are counted over every order by the same rule (homeTotals, or analytics_all_time which counts the same), still through lib/home/progress. */
   check("the page reads no order rows, and counts the sales over every order, the same way",
     !/\.from\("orders"\)/.test(home) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(home) && /sales: salesTotals/.test(home) && /viewerId=\{user\.id\}/.test(home)
-      && /homeTotals\(rows\)/.test(code("lib/analytics/creator-orders.ts")) && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts"))
+      && /* Changed on purpose (currency round AM): the rows in the store's currency first. */ /homeTotals\(\(await inStoreCurrency\(admin, creatorId, rows, storeCurrency\)\)\.rows\)/.test(code("lib/analytics/creator-orders.ts")) && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts"))
       && /rows\.sales \? \{ sales: n\(rows\.sales\.sales\)/.test(code("lib/home/progress.ts")))
 }
 

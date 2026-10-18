@@ -62,16 +62,18 @@ export interface MarketplaceRowPatch {
  * dollars, converted (or the creator's approved dollar price). On with no
  * fresh rate: its own currency, marked paused, never a guessed dollar figure.
  */
-export async function marketplacePricer(db: Db, creatorIds: (string | null | undefined)[]): Promise<(row: MarketplaceSource & { creator_id?: string | null }) => MarketplaceRowPatch> {
+export async function marketplacePricer(db: Db, creatorIds: (string | null | undefined)[], productIds: (string | null | undefined)[] = []): Promise<(row: MarketplaceSource & { id?: string | null; creator_id?: string | null }) => MarketplaceRowPatch> {
   const gate = marketplaceGate()
   const currencies = await storeCurrencies(db, creatorIds)
   const anyOpen = gate.mode !== "off" && creatorIds.some((id) => gateOpenFor(gate, id))
-  const fx = anyOpen ? await marketplaceRates(db, undefined, { cached: true }) : null
+  const [fx, fixed] = anyOpen ? await Promise.all([marketplaceRates(db, undefined, { cached: true }), approvedDollarPrices(db, productIds)]) : [null, new Map<string, MarketplaceSource>()]
   return (row) => {
     const store = (row.creator_id && currencies.get(row.creator_id)) || null
     const own: MarketplaceRowPatch = { currency: store }
     if (!store || !gateOpenFor(gate, row.creator_id)) return own
-    const m = marketplaceAmounts(row, store, fx)
+    /* A list that did not read the creator's own dollar price gets it here, so a card and its product page agree. */
+    const withFixed = row.marketplace_usd_approved_at === undefined && row.id && fixed.has(row.id) ? { ...row, ...fixed.get(row.id) } : row
+    const m = marketplaceAmounts(withFixed, store, fx)
     if (m.ok === false) return { ...own, marketplace_paused: true }
     return {
       currency: m.currency,
@@ -81,6 +83,33 @@ export async function marketplacePricer(db: Db, creatorIds: (string | null | und
       fx_as_of: m.fxAsOf,
     }
   }
+}
+
+/**
+ * The creators' own approved dollar prices for these products, read apart
+ * from a list's own query (which names its columns). Before SQL part 244 the
+ * columns are not there: no fixed prices, every card converted.
+ */
+async function approvedDollarPrices(db: Db, productIds: (string | null | undefined)[]): Promise<Map<string, MarketplaceSource>> {
+  const ids = [...new Set(productIds.filter((id): id is string => typeof id === "string" && id.length > 0))]
+  const out = new Map<string, MarketplaceSource>()
+  if (!ids.length) return out
+  try {
+    for (let i = 0; i < ids.length; i += 300) {
+      const { data, error } = await db.from("products").select("id, marketplace_usd_cents, marketplace_usd_approved_at").in("id", ids.slice(i, i + 300)).not("marketplace_usd_approved_at", "is", null)
+      if (error) return out
+      for (const r of (data ?? []) as Array<{ id: string; marketplace_usd_cents: number | null; marketplace_usd_approved_at: string | null }>) out.set(r.id, { marketplace_usd_cents: r.marketplace_usd_cents, marketplace_usd_approved_at: r.marketplace_usd_approved_at })
+    }
+  } catch {
+    /* converted, as before */
+  }
+  return out
+}
+
+/** Rows with their creator's approved dollar price beside them, for a list that did not read it (a product page's More from). */
+export async function withApprovedDollarPrices<R extends { id?: string | null }>(db: Db, rows: R[]): Promise<R[]> {
+  const fixed = await approvedDollarPrices(db, rows.map((r) => r.id))
+  return fixed.size ? rows.map((r) => (r.id && fixed.has(r.id) ? { ...r, ...fixed.get(r.id) } : r)) : rows
 }
 
 /** The money fields of a product or option row the marketplace shows in dollars. */

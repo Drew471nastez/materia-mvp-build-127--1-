@@ -172,7 +172,7 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
     /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server. */
     const standings = await salesStandings(createAdminClient(), products.map((p) => p.id))
     /* Each card's price as the marketplace shows it: its store's currency, or US dollars once that store is switched over (lib/money/marketplace-server). */
-    const priceOf = await marketplacePricer(createAdminClient(), products.map((p) => p.creator_id))
+    const priceOf = await marketplacePricer(createAdminClient(), products.map((p) => p.creator_id), products.map((p) => p.id))
     // Build products with creator info
     productsWithCreators = products.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)

@@ -770,6 +770,7 @@ export const EMAIL_SENTENCES: readonly string[] = [
   "Questions about the order? Reply to this email to reach {shop}, or write to {email}.",
   "Your receipt from {shop}",
   "Order {number} from {shop}, {total}",
+  "Order {number} from {shop}",
   "{seller}. Through {platform}.",
   "Sold by {shop} through {platform}.",
   "Hi {name},",

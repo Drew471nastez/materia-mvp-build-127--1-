@@ -186,15 +186,17 @@ async function main() {
     check("shipping rates and local delivery read the store's currency", /export function useShopMoney\(\)/.test(ui) && /useStoreCurrency\(\)/.test(ui))
     const ship = code("components/physical/shipping-settings.tsx")
     check("Settings › Shipping never formats a rate in the platform's currency", !/import \{[^}]*\bmoney\b[^}]*\} from "\.\/ui"/.test(ship) && (ship.match(/const money = useShopMoney\(\)/g) ?? []).length >= 2)
-    check("the products list and its exports are in the store's currency", /function PriceOf[\s\S]{0,200}useStoreCurrency\(\)/.test(code("app/app/products/products-client.tsx")) && /formatMoney\(c, storeCurrency\)/.test(code("app/app/products/products-client.tsx")))
-    check("a customer's total spent is in the store's currency", /formatPrice\(customer\.total_spent_cents, storeCurrency\)/.test(code("app/app/customers/page.tsx")))
+    check("the products list and its exports are in the store's currency", /function PriceOf[\s\S]{0,200}useStoreCurrency\(\)/.test(code("app/app/products/products-client.tsx")) && /* Changed on purpose (currency round AM): a plan in its own dollars. */ /formatMoney\(c, productPriceCurrency\(p, storeCurrency\)\)/.test(code("app/app/products/products-client.tsx")))
+    /* Changed on purpose (currency round AM): orders in another currency converted at their own day's rate first (spentOf). */
+    check("a customer's total spent is in the store's currency", /formatPrice\(spentOf\(customer\), storeCurrency\)/.test(code("app/app/customers/page.tsx")) && /inStoreCurrency\(/.test(code("app/app/customers/page.tsx")))
     for (const f of ["components/onepage/tabs/links-tab.tsx", "components/onepage/tabs/products-tab.tsx", "components/onepage/link-stats-chart.tsx", "components/offers/bundle-offers.tsx", "components/offers/checkout-suggestions.tsx", "components/physical/buy-box.tsx", "components/email/compose/product-picker.tsx", "components/store-builder/product-page-mode-selector.tsx", "components/store-builder/sections-sidebar.tsx"]) {
       check(`${f.split("/").pop()} prints no price in the platform's currency`, !/import \{[^}]*\bshopMoney\b[^}]*\} from "@\/lib\/store\/shop-money"/.test(code(f)))
     }
     check("checkout suggestions are in the checkout's own money", /money=\{money\}/.test(code("app/checkout/site/site-checkout.tsx")) && /money=\{money\}/.test(code("app/checkout/physical/physical-checkout.tsx")))
     check("the buy box is told its store's currency", /currency,\n/.test(code("app/api/physical/storefront/product/route.ts")) && /useBoxMoney\(data\?\.currency\)/.test(code("components/physical/buy-box.tsx")))
     check("an email's product block carries the store's currency", /priceLabel\(p\.price_cents, currency\)/.test(code("components/email/compose/panels.tsx")))
-    check("a receipt that could not be read is in the store's currency", /readStoreCurrency\(admin, params\.creatorId\)/.test(code("lib/email.tsx")))
+    /* Changed on purpose (currency round AM): in the order's own currency, read from the order; none recorded, no amount guessed. */
+    check("a receipt that could not be read is in the order's own currency, never a guessed one", /\.select\("amount_cents, currency"\)\.eq\("id", params\.fallback\.orderId\)/.test(code("lib/email.tsx")) && /currency === null \? ""/.test(code("lib/email.tsx")))
 
     const { shopMoneyIn } = await import("@/lib/store/shop-money")
     check("500 in a lei store reads as lei, never dollars", /lei|RON/.test(shopMoneyIn(500, "RON")) && !/\$/.test(shopMoneyIn(500, "RON")))

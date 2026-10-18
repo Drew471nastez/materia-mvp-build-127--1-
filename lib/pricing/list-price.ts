@@ -68,6 +68,11 @@ export function usd(cents: number): string {
   return shopMoney(cents || 0, { grouping: true })
 }
 
+/** A plan's dollars, written as every price on a card is ("$9.00"). */
+function planMoney(cents: number): string {
+  return shopMoneyIn(cents || 0, PLAN_CURRENCY, { grouping: true })
+}
+
 export function listPrice(p: ListedPrice, given?: (cents: number) => string): PriceLabel {
   /*
     In the store's own currency when the row carries it: a lei store's 49 is
@@ -77,7 +82,7 @@ export function listPrice(p: ListedPrice, given?: (cents: number) => string): Pr
     never reads "9 lei".
   */
   const format = isPlanPriced(p)
-    ? (cents: number) => shopMoneyIn(cents || 0, PLAN_CURRENCY, { grouping: true })
+    ? planMoney
     : given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
   if (p.pay_what_you_want) {
     const min = Math.max(0, p.pwyw_min_price_cents ?? p.price_cents ?? 0)

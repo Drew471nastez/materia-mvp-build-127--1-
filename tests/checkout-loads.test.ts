@@ -102,7 +102,8 @@ function main() {
     check("it takes the whole price off any product", c.ok === true && c.discountCents === 999900)
     const adminFile = read("lib/checkout/admin-code.ts")
     check("it is honoured only for a signed-in admin console session, checked on the server", /import "server-only"/.test(adminFile) && /if \(!\(await adminSignedIn\(\)\)\) return null/.test(adminFile) && /isAdminAuthenticated/.test(adminFile)
-      && /const checked = \(await adminCodeCheck\(ask\)\) \?\? \(await validateCoupon\(db, ask\)\)/.test(read("lib/checkout/pricing.ts")))
+      /* Changed on purpose (currency round AM): the admin's code first, then the creator's, converted on a marketplace dollar price (marketplaceCoupon). */
+      && /const admin = await adminCodeCheck\(ask\)\n\s+const checked = admin \?\? \(couponFx \? await marketplaceCoupon\(db, ask, storeCurrency, couponFx\) : await validateCoupon\(db, ask\)\)/.test(read("lib/checkout/pricing.ts")))
     check("and the coupons file, which a client component imports, never reaches for the admin cookie", !/admin-blog-auth|next\/headers/.test(coupons))
     check("and has no row, so no hold is taken and no use counted", adminCoupon("x").id === "" && adminCoupon("x").usage_limit === null)
   }

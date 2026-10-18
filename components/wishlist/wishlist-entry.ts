@@ -28,6 +28,8 @@ export interface WishlistEntry {
   currency?: string | null
   /** The rate day a marketplace dollar price used, carried to the checkout. */
   fxAsOf?: string | null
+  /** The marketplace prices this store in dollars but no fresh rate exists: the checkout waits rather than charge its own currency. */
+  marketplacePaused?: boolean
   /** A membership's billing period: "/month" or "/year" after its price. */
   interval: PriceInterval | null
   /** The product has options (product_variants): one is chosen on its page, not here. */
@@ -86,6 +88,7 @@ export function entryOf(row: Row, extra: { plan?: Plan | null; hasOptions?: bool
     pwywMinCents: num(p.pwyw_min_price_cents),
     currency: str(p.currency),
     fxAsOf: str(p.fx_as_of),
+    marketplacePaused: p.marketplace_paused === true,
     interval,
     hasOptions: !!extra.hasOptions,
     owned: !!extra.owned,
@@ -140,8 +143,9 @@ export function actionOf(e: WishlistEntry): EntryAction {
     const href = e.type === "course" ? "/account/library/courses" : e.type === "membership" ? "/account/library" : `/account/library/products/${encodeURIComponent(e.productId)}`
     return { label: "In your library", kind: "library", href }
   }
-  /* The wishlist is the marketplace: its checkout is the marketplace's (lib/money/marketplace), at the rate day the card showed. */
-  const checkout = `/checkout?productId=${encodeURIComponent(e.productId)}&ctx=mp${e.fxAsOf ? `&fx=${encodeURIComponent(e.fxAsOf)}` : ""}`
+  /* The wishlist is the marketplace: once it prices this store in dollars (or waits for a rate), its checkout is the marketplace's, at the rate day the card showed (lib/money/marketplace). Otherwise the link is as it always was. */
+  const tag = e.fxAsOf ? `&ctx=mp&fx=${encodeURIComponent(e.fxAsOf)}` : e.marketplacePaused ? "&ctx=mp" : ""
+  const checkout = `/checkout?productId=${encodeURIComponent(e.productId)}${tag}`
   if (e.type === "membership") return { label: "Join", kind: "checkout", href: `${checkout}${e.interval ? `&interval=${e.interval}` : ""}` }
   /* A price to choose, or an option to choose: that happens on the product's page. */
   if (e.payWhatYouWant || e.hasOptions) return { label: "View", kind: "page", href: null }

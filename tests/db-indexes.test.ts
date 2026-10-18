@@ -230,7 +230,9 @@ console.log("\n5. The code")
   check("More from seller: no longer `*`", start > 0 && !fn.includes('select("*")') && fn.includes(".select(MORE_FROM_CREATOR_COLUMNS)"))
   const columns = (cache.match(/export const MORE_FROM_CREATOR_COLUMNS = "([^"]+)"/)?.[1] ?? "").split(",").map((c) => c.trim())
   const page = read("app/(marketing)/p/[slug]/page.tsx")
-  const mapped = page.slice(page.indexOf("moreProducts.map((p) => ({"), page.indexOf("}))", page.indexOf("moreProducts.map((p) => ({")))
+  /* Changed on purpose (currency round AM): each card through the page's quote (pageQuote.convert), with its own currency. */
+  const mapStart = page.indexOf("moreProducts.map((p) => pageQuote.convert({")
+  const mapped = page.slice(mapStart, page.indexOf("}) as ProductData)", mapStart))
   const used = [...new Set([...mapped.matchAll(/\bp\.(\w+)/g)].map((m) => m[1]).concat([...mapped.matchAll(/\(p as \{ (\w+)\?/g)].map((m) => m[1])))]
   check("  the card's fields are read from the rows", used.length >= 8, used.join(","))
   for (const f of used) check(`  reads ${f}, which the card draws`, columns.includes(f), columns.join(","))
