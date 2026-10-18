@@ -58,6 +58,8 @@ const SUITES = [
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
+  /* Round Y4: shipping labels across every fulfilment path (partial weight, kept labels, ship again, other orders, local delivery); scripts/check-labels-y4.mjs measures the label screens. */
+  "tests/labels-fulfil-y4.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   /* Round 27 (B27): the buyer's order pages: Cancel order cancels and refunds, live status, words, logo, Visit store, returns. */

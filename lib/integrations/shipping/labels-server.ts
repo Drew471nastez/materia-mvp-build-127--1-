@@ -24,6 +24,15 @@ import "server-only"
  *             seller's cost: nothing is charged to the buyer.
  *   void      a label not used yet is refunded by the provider and its
  *             shipment cancelled, so the items are to ship again
+ *   ship      a bought label left without a live shipment (its shipment was
+ *             cancelled, or marking the items shipped failed after the
+ *             purchase) ships them with its tracking: the order page shows
+ *             such a label with Print, Mark as shipped and Void, so money
+ *             spent on a label is never out of the seller's reach
+ *
+ * Not for a pickup order, nor one the seller delivers themselves (local
+ * delivery): neither goes with a carrier. The weight quoted is the items
+ * chosen in the dialog, so a partial shipment is priced for its own parcel.
  *
  * One label per quoted shipment: the row is claimed before the provider is
  * asked to buy, so two presses of Buy never buy two labels.
@@ -68,6 +77,8 @@ export interface LabelOrder {
   buyerEmail: string | null
   buyerPhone: string | null
   address: Record<string, any> | null
+  /** `kind` local: the seller brings it themselves, so no carrier label. */
+  delivery?: { kind?: string | null } | null
   lines: LabelOrderLine[]
   shipments: { id: string; status: string; trackingNumber: string | null }[]
 }
@@ -182,10 +193,11 @@ export async function fromPlace(db: Db, creatorId: string, locationId: string | 
   }
 }
 
-/** The items' weight as they were sold (the order line's snapshot), else the variant's weight now. Grams, for the units given. */
-export async function itemsGrams(db: Db, items: { orderId: string; quantity: number }[]): Promise<number> {
-  if (items.length === 0) return 0
-  const { data } = await db.from("orders").select("id, variant_id, product_snapshot").in("id", items.map((i) => i.orderId))
+/** One unit of each line, in grams: its weight as sold (the order line's snapshot), else the variant's weight now, else 0. */
+export async function gramsEach(db: Db, orderIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  if (orderIds.length === 0) return out
+  const { data } = await db.from("orders").select("id, variant_id, product_snapshot").in("id", orderIds)
   const rows = (data ?? []) as { id: string; variant_id: string | null; product_snapshot: Record<string, any> | null }[]
   const missing = rows.filter((r) => !(Number(r.product_snapshot?.weight_grams) > 0) && r.variant_id).map((r) => r.variant_id as string)
   const variantGrams = new Map<string, number>()
@@ -193,13 +205,17 @@ export async function itemsGrams(db: Db, items: { orderId: string; quantity: num
     const { data: vs } = await db.from("product_variants").select("id, weight_grams").in("id", missing)
     for (const v of (vs ?? []) as { id: string; weight_grams: number | null }[]) variantGrams.set(v.id, Number(v.weight_grams) || 0)
   }
-  let grams = 0
-  for (const i of items) {
-    const r = rows.find((x) => x.id === i.orderId)
-    const each = Number(r?.product_snapshot?.weight_grams) > 0 ? Number(r!.product_snapshot!.weight_grams) : r?.variant_id ? (variantGrams.get(r.variant_id) ?? 0) : 0
-    grams += Math.max(0, each) * i.quantity
+  for (const r of rows) {
+    const each = Number(r.product_snapshot?.weight_grams) > 0 ? Number(r.product_snapshot!.weight_grams) : r.variant_id ? (variantGrams.get(r.variant_id) ?? 0) : 0
+    out.set(r.id, Math.max(0, each))
   }
-  return Math.round(grams)
+  return out
+}
+
+/** The items' weight as they were sold. Grams. */
+export async function itemsGrams(db: Db, items: { orderId: string; quantity: number }[]): Promise<number> {
+  const each = await gramsEach(db, items.map((i) => i.orderId))
+  return Math.round(items.reduce((g, i) => g + (each.get(i.orderId) ?? 0) * i.quantity, 0))
 }
 
 /** A package and a weight into the parcel the carrier prices. Null when the size is missing. */
@@ -226,12 +242,42 @@ function openItems(order: LabelOrder, locationId: string | null): { orderId: str
     .filter((i) => i.quantity > 0)
 }
 
-function canShip(order: LabelOrder | null): string | null {
+export function canShip(order: LabelOrder | null): string | null {
   if (!order) return "Order not found."
   if (order.cancelledAt) return "This order was cancelled."
   if (order.status !== "paid" && order.status !== "partially_refunded") return "Only a paid order can be shipped."
   if (order.deliveryMethod === "pickup") return "This order is picked up, so it needs no label."
+  if (order.deliveryMethod === "none") return "Nothing on this order is shipped."
+  if (order.delivery?.kind === "local") return "You deliver this order yourself, so it needs no label."
   return null
+}
+
+/** The chosen items, each cut to what is still to ship on its line: a stale dialog can't ship more than is left. */
+function boundedItems(order: LabelOrder, items: { orderId: string; quantity: number }[]): { orderId: string; quantity: number }[] {
+  const left = new Map(order.lines.filter((l) => l.requiresShipping).map((l) => [l.orderId, Math.max(0, l.quantity - l.fulfilled)]))
+  const merged = new Map<string, number>()
+  for (const i of items) merged.set(i.orderId, (merged.get(i.orderId) ?? 0) + i.quantity)
+  return [...merged].map(([orderId, quantity]) => ({ orderId, quantity: Math.min(quantity, left.get(orderId) ?? 0) })).filter((i) => i.quantity > 0)
+}
+
+/** What a label was bought for, kept on its row (shipping_labels.package): the box's name, the location and the items. */
+interface LabelPlan {
+  name: string | null
+  locationId: string | null
+  items: { orderId: string; quantity: number }[]
+}
+function planOf(pkg: unknown): LabelPlan {
+  const p = pkg && typeof pkg === "object" ? (pkg as Record<string, unknown>) : {}
+  const items = (Array.isArray(p.items) ? p.items : [])
+    .map((i: any) => ({ orderId: String(i?.orderId ?? ""), quantity: Math.floor(Number(i?.quantity)) }))
+    .filter((i) => /^[0-9a-f-]{36}$/i.test(i.orderId) && i.quantity > 0)
+  return { name: typeof p.name === "string" ? p.name : null, locationId: typeof p.locationId === "string" ? p.locationId : null, items }
+}
+/** Kept under the column's 1 KB check: a long order keeps the box and the place, and ships what is left. */
+function planRow(plan: LabelPlan): Record<string, unknown> | null {
+  const row: Record<string, unknown> = { name: plan.name ? plan.name.slice(0, 80) : null, locationId: plan.locationId, items: plan.items.slice(0, 10) }
+  if (JSON.stringify(row).length > 900) delete row.items
+  return row
 }
 
 function providerWords(e: unknown, name: string): string {
@@ -248,6 +294,8 @@ export interface LabelOptions {
   defaultPackageId: string | null
   unitSystem: "metric" | "imperial"
   itemsGrams: number
+  /** One unit of each line still to ship, in grams, so the dialog's weight follows the items chosen in it. */
+  lineGrams: Record<string, number>
   from: FromPlace | null
   to: { line: string; complete: boolean }
   labels: LabelView[]
@@ -267,6 +315,7 @@ export async function labelOptions(db: Db, creatorId: string, checkoutId: string
     db.from("commerce_settings").select("default_package_id, unit_system").eq("creator_id", creatorId).maybeSingle().then((r: { data: any }) => r.data, () => null),
   ])
   const items = input.items?.length ? input.items : openItems(order, input.locationId)
+  const each = await gramsEach(db, order.lines.filter((l) => l.requiresShipping && l.quantity > l.fulfilled).map((l) => l.orderId))
   const to = toAddress(order)
   const def = packages.find((p) => p.isDefault)?.id ?? (packages.some((p) => p.id === settings?.default_package_id) ? settings.default_package_id : null)
   return {
@@ -275,7 +324,8 @@ export async function labelOptions(db: Db, creatorId: string, checkoutId: string
     packages: [...packages].sort((a, b) => Number(b.id === def) - Number(a.id === def)),
     defaultPackageId: def,
     unitSystem: settings?.unit_system === "imperial" ? "imperial" : "metric",
-    itemsGrams: await itemsGrams(db, items),
+    itemsGrams: Math.round(items.reduce((g, i) => g + (each.get(i.orderId) ?? 0) * i.quantity, 0)),
+    lineGrams: Object.fromEntries(each),
     from,
     to: { line: to ? addressLines(order.address as never).filter(Boolean).join(", ") : "The order has no complete delivery address.", complete: !!to },
     labels: listed.labels,
@@ -298,7 +348,7 @@ export async function quoteLabel(
   db: Db,
   creatorId: string,
   checkoutId: string,
-  input: { provider: unknown; locationId: string | null; packageId?: unknown; custom?: { lengthCm?: unknown; widthCm?: unknown; heightCm?: unknown } | null; grams?: unknown; storeName: string },
+  input: { provider: unknown; locationId: string | null; packageId?: unknown; custom?: { lengthCm?: unknown; widthCm?: unknown; heightCm?: unknown } | null; grams?: unknown; storeName: string; items?: { orderId: string; quantity: number }[] },
   deps: LabelDeps,
 ): Promise<QuoteResult | { error: string; status?: number }> {
   const api = labelApiFor(input.provider)
@@ -316,7 +366,9 @@ export async function quoteLabel(
   const pkg = typeof input.packageId === "string" && input.packageId ? (packages.find((p) => p.id === input.packageId) ?? null) : null
   if (typeof input.packageId === "string" && input.packageId && !pkg) return { error: "That package is not in Settings › Shipping › Packages any more." }
   const typed = Number(input.grams)
-  const grams = Number.isFinite(typed) && typed > 0 ? typed : (await itemsGrams(db, openItems(order!, input.locationId))) + (pkg?.weightGrams ?? 0)
+  /* No weight typed: the items chosen in the dialog (part of the order, for a partial shipment), plus the box. */
+  const chosen = input.items?.length ? boundedItems(order!, input.items) : openItems(order!, input.locationId)
+  const grams = Number.isFinite(typed) && typed > 0 ? typed : (await itemsGrams(db, chosen)) + (pkg?.weightGrams ?? 0)
   const parcel = parcelOf(pkg, pkg ? null : (input.custom ?? null), grams)
   if (!parcel) return { error: grams > 0 ? "Choose a package, or enter its size." : "Enter the parcel's weight: these products have none saved." }
 
@@ -338,13 +390,18 @@ export async function quoteLabel(
 
 /* ── buying it ──────────────────────────────────────────────────────────── */
 
+/** A claim older than this never finished: the request that made it is gone. */
+const STALE_CLAIM_MS = 10 * 60_000
+
+type ShipOutcome = { ok: true; order: any; label: LabelView } | { ok: false; error: string; status?: number; label?: LabelView }
+
 export async function buyLabel(
   db: Db,
   creatorId: string,
   checkoutId: string,
   input: { provider: unknown; shipmentId: unknown; rateId: unknown; locationId: string | null; items?: { orderId: string; quantity: number }[]; notifyBuyer?: boolean; packageName?: string | null },
   deps: LabelDeps,
-): Promise<{ ok: true; order: any; label: LabelView } | { ok: false; error: string; status?: number; label?: LabelView }> {
+): Promise<ShipOutcome> {
   const api = labelApiFor(input.provider)
   if (!api) return { ok: false, error: "Choose Shippo or EasyPost." }
   const shipmentId = String(input.shipmentId ?? "")
@@ -352,13 +409,20 @@ export async function buyLabel(
   if (!shipmentId || !rateId) return { ok: false, error: "Choose a rate." }
   const cred = await connectedKey(db, creatorId, api.id)
   if (!cred) return { ok: false, error: `Connect ${api.name} in Settings › Integrations first.` }
-  /* Bought already (a second press, a retried request): that label, and nothing asked of the provider. */
+  /*
+    Bought already (a second press, a retried request): that label, and nothing asked of the provider.
+    Its items are shipped now if the first try bought it but could not mark them shipped. A label of
+    another order of this store is never handed back for this one.
+  */
   const { data: was } = await db.from("shipping_labels").select("*").eq("creator_id", creatorId).eq("provider", api.id).eq("provider_shipment_id", shipmentId).maybeSingle()
+  if (was && was.checkout_id !== checkoutId) return { ok: false, error: "That label belongs to another order.", status: 409 }
+  if (was && was.status === "purchased") return finishShipping(db, creatorId, checkoutId, was, { notifyBuyer: input.notifyBuyer !== false }, deps)
   if (was && was.status !== "buying") return { ok: true, order: await deps.loadOrder(db, { creatorId, checkoutId }), label: labelView(was) }
+  if (was) return stuckClaim(was, api.name)
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   const no = canShip(order)
   if (no) return { ok: false, error: no }
-  const items = (input.items?.length ? input.items : openItems(order!, input.locationId)).filter((i) => i.quantity > 0)
+  const items = boundedItems(order!, input.items?.length ? input.items : openItems(order!, input.locationId))
   if (items.length === 0) return { ok: false, error: "Nothing is left to ship from here." }
 
   /* The price and the order, from the provider: a rate quoted for another order, or a price the browser made up, is never bought. */
@@ -373,17 +437,15 @@ export async function buyLabel(
 
   /* Claimed first: one label per quoted shipment, whoever presses Buy twice. */
   const now = new Date().toISOString()
+  const plan: LabelPlan = { name: input.packageName ? String(input.packageName) : null, locationId: input.locationId, items }
   const { data: claim, error: claimError } = await db
     .from("shipping_labels")
-    .insert({ creator_id: creatorId, checkout_id: checkoutId, provider: api.id, provider_shipment_id: shipmentId, provider_label_id: `pending:${shipmentId}`.slice(0, 120), carrier: rate.carrier, service: rate.service, cost_cents: rate.cents, currency: rate.currency, test_mode: api.isTestKey(cred.key), status: "buying", package: input.packageName ? { name: String(input.packageName).slice(0, 80) } : null, created_at: now, updated_at: now })
+    .insert({ creator_id: creatorId, checkout_id: checkoutId, provider: api.id, provider_shipment_id: shipmentId, provider_label_id: `pending:${shipmentId}`.slice(0, 120), carrier: rate.carrier, service: rate.service, cost_cents: rate.cents, currency: rate.currency, test_mode: api.isTestKey(cred.key), status: "buying", package: planRow(plan), created_at: now, updated_at: now })
     .select("*")
     .maybeSingle()
   if (claimError?.code === "23505") {
-    const { data: was } = await db.from("shipping_labels").select("*").eq("provider", api.id).eq("provider_shipment_id", shipmentId).maybeSingle()
-    if (was && was.status !== "buying" && was.creator_id === creatorId) {
-      const fresh = await deps.loadOrder(db, { creatorId, checkoutId })
-      return { ok: true, order: fresh, label: labelView(was) }
-    }
+    const { data: again } = await db.from("shipping_labels").select("*").eq("provider", api.id).eq("provider_shipment_id", shipmentId).maybeSingle()
+    if (again && again.creator_id === creatorId && again.checkout_id === checkoutId && again.status !== "buying") return { ok: true, order: await deps.loadOrder(db, { creatorId, checkoutId }), label: labelView(again) }
     return { ok: false, error: "This label is already being bought. Wait a moment.", status: 409 }
   }
   if (claimError || !claim) return { ok: false, error: claimError?.code === "42P01" || claimError?.code === "PGRST205" ? "Labels turn on after the database update (SQL part 163)." : "The label could not be saved. Nothing was bought." }
@@ -406,38 +468,91 @@ export async function buyLabel(
     .eq("id", claim.id)
     .select("*")
     .maybeSingle()
-  const label = labelView(saved ?? { ...claim, status: "purchased", label_url: bought.labelUrl, tracking_number: bought.trackingNumber, carrier })
+  const row = saved ?? { ...claim, status: "purchased", label_url: bought.labelUrl, tracking_number: bought.trackingNumber, carrier, service: bought.service, cost_cents: bought.cents, currency: bought.currency }
+  const testMode = row.test_mode === true
   await noteSync(db, cred.id, { ok: true, bump: "labels_bought" })
   await deps.addOrderEvent(db, {
     checkoutId,
     creatorId,
     kind: "label.purchased",
-    message: `${api.name} label bought: ${carrier} ${bought.service}, ${formatMinor(bought.cents, bought.currency)}. Your cost, not charged to the buyer.${label.testMode ? " Test label." : ""}`,
-    detail: { provider: api.id, label_id: label.id, cost_cents: bought.cents, currency: bought.currency, tracking_number: bought.trackingNumber, test: label.testMode },
+    message: `${api.name} label bought: ${carrier} ${bought.service}, ${formatMinor(bought.cents, bought.currency)}. Your cost, not charged to the buyer.${testMode ? " Test label." : ""}`,
+    detail: { provider: api.id, label_id: row.id, cost_cents: bought.cents, currency: bought.currency, tracking_number: bought.trackingNumber, test: testMode },
     actor: "creator",
     key: `label:${api.id}:${bought.labelId}`.slice(0, 200),
   })
+  return finishShipping(db, creatorId, checkoutId, row, { items, locationId: input.locationId, notifyBuyer: input.notifyBuyer !== false, providerTrackingUrl: bought.trackingUrl }, deps)
+}
 
+/** A claim with no label after it: a fresh one is a purchase in progress; an old one never finished, and the seller is told where to look. */
+function stuckClaim(row: Record<string, any>, providerName: string): ShipOutcome {
+  const age = Date.now() - Date.parse(String(row.updated_at ?? row.created_at ?? ""))
+  if (Number.isFinite(age) && age > STALE_CLAIM_MS) return { ok: false, error: `This label purchase did not finish. Check your ${providerName} account for a label on this order before you buy again, then get rates again.`, status: 409 }
+  return { ok: false, error: "This label is already being bought. Wait a moment.", status: 409 }
+}
+
+/**
+ * THE ITEMS SHIP WITH A BOUGHT LABEL: its carrier and tracking number on a
+ * new shipment (orders-server fulfilItems: stock, status, timeline, the
+ * buyer's shipping email), and the label tied to that shipment. Run right
+ * after a purchase, again when a retried Buy finds the label bought but its
+ * items never marked shipped, and from Mark as shipped on a label the order
+ * shows without a shipment (its shipment was cancelled, or saving it
+ * failed). Keyed on the label, so a repeat never ships twice.
+ */
+async function finishShipping(
+  db: Db,
+  creatorId: string,
+  checkoutId: string,
+  row: Record<string, any>,
+  input: { items?: { orderId: string; quantity: number }[]; locationId?: string | null; notifyBuyer: boolean; providerTrackingUrl?: string | null },
+  deps: LabelDeps,
+): Promise<ShipOutcome> {
+  const label = labelView(row)
+  const order = await deps.loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404, label }
+  const tn = String(row.tracking_number ?? "").toUpperCase()
+  const live = (o: LabelOrder | null) => (o?.shipments ?? []).filter((s) => s.status !== "cancelled")
+  /* Already on a live shipment: nothing to do. */
+  if (row.fulfillment_id && live(order).some((s) => s.id === row.fulfillment_id)) return { ok: true, order, label }
+  const no = canShip(order)
+  if (no) return { ok: false, error: no, label }
+  const plan = planOf(row.package)
+  const locationId = input.locationId ?? plan.locationId
+  const items = boundedItems(order, input.items?.length ? input.items : plan.items.length ? plan.items : openItems(order, locationId))
+  if (items.length === 0) return { ok: false, error: "Nothing is left to ship on this order. Void the label if you don't need it.", label }
+  const before = new Set(order.shipments.map((s) => s.id))
+  const previous = row.fulfillment_id ? String(row.fulfillment_id) : null
   const shipped = await deps.fulfilItems(db, creatorId, checkoutId, {
     items,
-    carrier,
-    trackingNumber: bought.trackingNumber,
+    carrier: row.carrier,
+    trackingNumber: row.tracking_number,
     /* The carrier's own page when Storelib knows the carrier; the provider's tracking page otherwise. */
-    trackingUrl: trackingUrl(carrier, bought.trackingNumber) ? null : bought.trackingUrl,
-    notifyBuyer: input.notifyBuyer !== false,
-    key: `label:${label.id}`,
-    locationId: input.locationId,
+    trackingUrl: trackingUrl(row.carrier, row.tracking_number) ? null : (input.providerTrackingUrl ?? null),
+    notifyBuyer: input.notifyBuyer,
+    /* A label whose first shipment was cancelled ships again under a key of its own. */
+    key: previous ? `label:${row.id}:after:${previous}` : `label:${row.id}`,
+    locationId,
   })
   if (shipped.ok === false) {
-    /* The label is bought and kept: print it, or void it, from the order. */
-    return { ok: false, error: `The label was bought but the items could not be marked shipped: ${shipped.error} Print it from the order, or void it there.`, label }
+    /* The label is bought and kept: the order shows it, to print, mark as shipped or void. */
+    return { ok: false, error: `The label was bought but the items could not be marked shipped: ${(shipped as { error: string }).error} It's kept on the order: print it, mark the items shipped, or void it there.`, label }
   }
-  const made = (shipped.order?.shipments ?? []).find((s: { trackingNumber: string | null; status: string }) => s.status !== "cancelled" && bought.trackingNumber && (s.trackingNumber ?? "").toUpperCase() === bought.trackingNumber.toUpperCase())
+  /* The shipment this made: the new one (with the label's number when it has one), else one already carrying that number. */
+  const after = live(shipped.order)
+  const made = after.find((s) => !before.has(s.id) && (!tn || (s.trackingNumber ?? "").toUpperCase() === tn)) ?? (tn ? after.find((s) => (s.trackingNumber ?? "").toUpperCase() === tn) : undefined)
   if (made?.id) {
-    await db.from("shipping_labels").update({ fulfillment_id: made.id, updated_at: new Date().toISOString() }).eq("id", claim.id)
+    await db.from("shipping_labels").update({ fulfillment_id: made.id, updated_at: new Date().toISOString() }).eq("id", row.id)
     label.fulfillmentId = made.id
   }
   return { ok: true, order: shipped.order, label }
+}
+
+/** Mark as shipped, on a bought label the order shows without a shipment. */
+export async function shipLabel(db: Db, creatorId: string, checkoutId: string, labelId: string, input: { notifyBuyer?: boolean }, deps: LabelDeps): Promise<ShipOutcome> {
+  const { data: row } = await db.from("shipping_labels").select("*").eq("id", labelId).eq("creator_id", creatorId).eq("checkout_id", checkoutId).maybeSingle()
+  if (!row) return { ok: false, error: "Label not found.", status: 404 }
+  if (row.status !== "purchased") return { ok: false, error: row.status === "buying" ? "This label is still being bought." : "A voided label can't ship anything." }
+  return finishShipping(db, creatorId, checkoutId, row, { notifyBuyer: input.notifyBuyer === true }, deps)
 }
 
 /* ── voiding it ─────────────────────────────────────────────────────────── */
@@ -445,8 +560,11 @@ export async function buyLabel(
 /** Statuses a parcel can still be in without having moved: a label for one is unused. */
 const UNUSED = new Set(["pending", "submitted", "shipped"])
 
-export async function voidLabel(db: Db, creatorId: string, labelId: string, deps: LabelDeps): Promise<{ ok: true; order: any; label: LabelView } | { ok: false; error: string; status?: number }> {
-  const { data: row } = await db.from("shipping_labels").select("*").eq("id", labelId).eq("creator_id", creatorId).maybeSingle()
+/** `where.checkoutId`: the order the request came from; another order's label is not found from it. */
+export async function voidLabel(db: Db, creatorId: string, labelId: string, deps: LabelDeps, where: { checkoutId?: string } = {}): Promise<{ ok: true; order: any; label: LabelView } | { ok: false; error: string; status?: number }> {
+  let q = db.from("shipping_labels").select("*").eq("id", labelId).eq("creator_id", creatorId)
+  if (where.checkoutId) q = q.eq("checkout_id", where.checkoutId)
+  const { data: row } = await q.maybeSingle()
   if (!row) return { ok: false, error: "Label not found.", status: 404 }
   if (row.status === "voided" || row.status === "void_pending") return { ok: true, order: await deps.loadOrder(db, { creatorId, checkoutId: row.checkout_id }), label: labelView(row) }
   if (row.status !== "purchased" && row.status !== "void_rejected") return { ok: false, error: "This label can't be voided." }

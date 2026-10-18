@@ -6,7 +6,7 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
 import { storeIdentity } from "@/lib/store/identity-server"
-import { buyLabel, labelOptions, listLabels, quoteLabel, voidLabel } from "@/lib/integrations/shipping/labels-server"
+import { buyLabel, labelOptions, listLabels, quoteLabel, shipLabel, voidLabel } from "@/lib/integrations/shipping/labels-server"
 import { realLabelDeps } from "@/lib/integrations/shipping/shipping-deps-server"
 
 export const runtime = "nodejs"
@@ -18,9 +18,13 @@ export const dynamic = "force-dynamic"
  *   GET   ?locationId=  the connected label apps, the packages, the weight,
  *                       from and to, and the order's labels
  *         ?only=labels  the order's labels alone
- *   POST  rates         a quote from Shippo or EasyPost, the address checked
+ *   POST  rates         a quote from Shippo or EasyPost for the chosen items,
+ *                       the address checked
  *         buy           the chosen rate, read back from the provider, bought;
  *                       the items ship with its tracking
+ *         ship          a bought label left without a shipment (its shipment
+ *                       was cancelled, or saving it failed): the items ship
+ *                       with its tracking
  *         void          a label not used yet, refunded; its shipment cancelled
  *
  * The id is the order's (its checkout) or any of its lines', as on the
@@ -69,7 +73,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (body.action === "rates") {
     const store = await storeIdentity(c.db, c.creatorId, { logoOnly: true })
     const custom = body.custom && typeof body.custom === "object" ? (body.custom as Record<string, unknown>) : null
-    const out = await quoteLabel(c.db, c.creatorId, checkoutId, { provider: body.provider, locationId: locationOf(body.locationId), packageId: body.packageId, custom, grams: body.grams, storeName: store.name }, realLabelDeps)
+    const out = await quoteLabel(c.db, c.creatorId, checkoutId, { provider: body.provider, locationId: locationOf(body.locationId), packageId: body.packageId, custom, grams: body.grams, storeName: store.name, items: itemsOf(body.items) }, realLabelDeps)
     if ("error" in out) return physicalJson({ error: out.error }, out.status ?? 400)
     return physicalJson(out)
   }
@@ -79,9 +83,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await recordActivity(c.db, c, { action: "order.fulfilled", subjectType: "order", subjectId: checkoutId, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { checkoutId })) ?? `#${orderNumberOf(checkoutId)}` })
     return physicalJson({ order: out.order, label: out.label })
   }
+  if (body.action === "ship") {
+    if (!isUuid(body.labelId)) return physicalJson({ error: "Not found." }, 404)
+    const out = await shipLabel(c.db, c.creatorId, checkoutId, body.labelId, { notifyBuyer: body.notifyBuyer === true }, realLabelDeps)
+    if (out.ok === false) return physicalJson({ error: out.error, label: out.label ?? null }, out.status ?? 400)
+    await recordActivity(c.db, c, { action: "order.fulfilled", subjectType: "order", subjectId: checkoutId, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { checkoutId })) ?? `#${orderNumberOf(checkoutId)}` })
+    return physicalJson({ order: out.order, label: out.label })
+  }
   if (body.action === "void") {
     if (!isUuid(body.labelId)) return physicalJson({ error: "Not found." }, 404)
-    const out = await voidLabel(c.db, c.creatorId, body.labelId, realLabelDeps)
+    /* Only a label of this order: the id in the address is the order the seller is looking at. */
+    const out = await voidLabel(c.db, c.creatorId, body.labelId, realLabelDeps, { checkoutId })
     if (out.ok === false) return physicalJson({ error: out.error }, out.status ?? 400)
     await recordActivity(c.db, c, { action: "order.shipment", subjectType: "order", subjectId: checkoutId, subjectLabel: (await sellerOrderNumber(c.db, c.creatorId, { checkoutId })) ?? `#${orderNumberOf(checkoutId)}` })
     return physicalJson({ order: out.order, label: out.label })

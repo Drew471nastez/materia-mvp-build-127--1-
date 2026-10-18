@@ -64,6 +64,8 @@ interface Options {
   defaultPackageId: string | null
   unitSystem: UnitSystem
   itemsGrams: number
+  /** One unit of each line, in grams: the weight follows the items chosen. Absent from an older server. */
+  lineGrams?: Record<string, number>
   from: { locationId: string; name: string; line: string; address: unknown | null } | null
   to: { line: string; complete: boolean }
   labels: LabelView[]
@@ -115,13 +117,35 @@ export async function voidLabelRequest(orderId: string, labelId: string): Promis
   return r.ok ? { ok: true, order: r.data.order, label: r.data.label } : { ok: false, error: r.error }
 }
 
+/** Mark as shipped, on a bought label the order shows without a shipment. */
+export async function shipLabelRequest(orderId: string, labelId: string, notifyBuyer: boolean): Promise<{ ok: true; order: any; label: LabelView } | { ok: false; error: string }> {
+  const r = await api<{ order: any; label: LabelView }>(labelPath(orderId), { body: { action: "ship", labelId, notifyBuyer } })
+  return r.ok ? { ok: true, order: r.data.order, label: r.data.label } : { ok: false, error: r.error }
+}
+
+/**
+ * A bought label with no live shipment: its shipment was cancelled, or the
+ * items could not be marked shipped after it was bought. The order shows it
+ * on its own, to print, ship with or void, so a paid label is never lost.
+ */
+export function labelsWithoutShipment(labels: LabelView[], shipments: { id: string; status: string }[]): LabelView[] {
+  const live = new Set(shipments.filter((s) => s.status !== "cancelled").map((s) => s.id))
+  return labels.filter((l) => (l.status === "purchased" || l.status === "void_rejected") && !(l.fulfillmentId && live.has(l.fulfillmentId)))
+}
+
+/** The parcel's weight for the items chosen: each line's own weight, else the order's total for the open items. */
+export function chosenGrams(options: Pick<Options, "itemsGrams" | "lineGrams">, items: { orderId: string; quantity: number }[]): number {
+  if (!options.lineGrams) return options.itemsGrams
+  return Math.round(items.reduce((g, i) => g + (options.lineGrams![i.orderId] ?? 0) * Math.max(0, i.quantity), 0))
+}
+
 export type ShipMode = "tracking" | "label"
 
 /**
  * The state of the label flow for one Fulfill items dialog, and the
  * footer's button for it. Reads the options once when the dialog opens.
  */
-export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBought }: { orderId: string; locationId: string | null; items: { orderId: string; quantity: number }[]; notify: boolean; enabled: boolean; onBought: (order: any, label: LabelView) => void }) {
+export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBought, onKept }: { orderId: string; locationId: string | null; items: { orderId: string; quantity: number }[]; notify: boolean; enabled: boolean; onBought: (order: any, label: LabelView) => void; onKept?: (label: LabelView) => void }) {
   const [options, setOptions] = React.useState<Options | null>(null)
   const [mode, setMode] = React.useState<ShipMode>("tracking")
   const [provider, setProvider] = React.useState<"shippo" | "easypost" | "">("")
@@ -133,6 +157,9 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
   const [busy, setBusy] = React.useState<null | "rates" | "buy">(null)
   const [error, setError] = React.useState<string | null>(null)
   const [bought, setBought] = React.useState<LabelView | null>(null)
+  /* Typed by the seller: then it stays as typed, whatever the items. */
+  const [weighed, setWeighed] = React.useState(false)
+  const itemsKey = items.map((i) => `${i.orderId}:${i.quantity}`).join(",")
 
   React.useEffect(() => {
     if (!enabled) return
@@ -145,13 +172,26 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
       const def = r.data.defaultPackageId ?? r.data.packages[0]?.id ?? ""
       setPackageId(def || CUSTOM)
       const pkg = r.data.packages.find((p) => p.id === def)
-      const grams = r.data.itemsGrams + (pkg?.weightGrams ?? 0)
+      const grams = chosenGrams(r.data, items) + (pkg?.weightGrams ?? 0)
       setWeight(grams > 0 ? String(fromGrams(grams, weightUnitFor(r.data.unitSystem)) ?? "") : "")
     })
     return () => {
       live = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once per dialog; the items' weight follows below
   }, [enabled, orderId, locationId])
+
+  /* Fewer items chosen (a partial shipment), a lighter parcel: the weight follows until the seller types one. */
+  React.useEffect(() => {
+    if (!options || weighed) return
+    const grams = chosenGrams(options, items) + (options.packages.find((p) => p.id === packageId)?.weightGrams ?? 0)
+    const next = grams > 0 ? String(fromGrams(grams, weightUnitFor(options.unitSystem)) ?? "") : ""
+    if (next === weight) return
+    setWeight(next)
+    setQuote(null)
+    setPicked("")
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsKey stands for items; the weight is read, not watched
+  }, [itemsKey, options, weighed])
 
   /* Anything that changes the parcel makes the rates shown stale. */
   const stale = () => {
@@ -182,7 +222,7 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
     setPicked("")
     const grams = toGrams(weight, wUnit)
     const custom = packageId === CUSTOM ? { lengthCm: (toMm(dims.l, dUnit) ?? 0) / 10, widthCm: (toMm(dims.w, dUnit) ?? 0) / 10, heightCm: (toMm(dims.h, dUnit) ?? 0) / 10 } : null
-    const r = await api<Quote>(labelPath(orderId), { body: { action: "rates", provider, locationId, packageId: packageId === CUSTOM ? null : packageId, custom, grams } })
+    const r = await api<Quote>(labelPath(orderId), { body: { action: "rates", provider, locationId, packageId: packageId === CUSTOM ? null : packageId, custom, grams, items: items.filter((i) => i.quantity > 0) } })
     setBusy(null)
     if (!r.ok) return setError(r.error)
     setQuote(r.data)
@@ -198,7 +238,12 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
       body: { action: "buy", provider: quote.provider, shipmentId: quote.shipmentId, rateId: picked, locationId, items: items.filter((i) => i.quantity > 0), notifyBuyer: notify, packageName: options?.packages.find((p) => p.id === packageId)?.name ?? null },
     })
     setBusy(null)
-    if (!r.ok) return setError(r.error)
+    if (r.ok === false) {
+      /* Bought, but its items could not be marked shipped: the order shows the label, to print, ship with or void. */
+      const kept = (r as { data?: Record<string, unknown> }).data?.label as LabelView | null | undefined
+      if (kept?.id) onKept?.(kept)
+      return setError((r as { error: string }).error)
+    }
     setBought(r.data.label)
     onBought(r.data.order, r.data.label)
     /* The label, to print: a new tab where the browser allows one; the Print label button otherwise. */
@@ -243,6 +288,7 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
     weight,
     setWeight: (w: string) => {
       setWeight(w)
+      setWeighed(true)
       stale()
     },
     wUnit,

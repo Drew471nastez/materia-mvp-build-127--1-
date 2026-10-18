@@ -5,6 +5,12 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Cancel this fulfillment? Its items go back to unfulfilled and back in stock. The {providerName} label stays on the order: ship with it again, or void it to get {cost} back.": "¿Cancelar esta preparación? Sus artículos vuelven a sin preparar y al stock. La etiqueta de {providerName} se queda en el pedido: envía con ella de nuevo o anúlala para recuperar {cost}.",
+ "Label not on a shipment": "Etiqueta sin envío",
+ "Its items aren't marked shipped. Ship them with it, or void it to get the money back.": "Sus artículos no están marcados como enviados. Envíalos con ella o anúlala para recuperar el dinero.",
+ "Nothing on this order is waiting for it. Void it to get the money back.": "Nada en este pedido la necesita. Anúlala para recuperar el dinero.",
+ "Items marked shipped": "Artículos marcados como enviados",
+ "Mark as shipped": "Marcar como enviado",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Conecta Shippo o EasyPost en Ajustes › Integraciones para ver tarifas.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Elige un paquete predeterminado en Ajustes › Envíos › Paquetes para ver tarifas.",
  "Add a carrier": "Añadir un transportista",
