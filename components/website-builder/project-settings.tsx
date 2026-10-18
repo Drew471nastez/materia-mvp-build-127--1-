@@ -396,7 +396,8 @@ export function ProjectSettings({
             and grew from 98.5%, which on every switch read as a bump. On a
             phone the push is the motion, and the fade is left out
             (`[data-settings-page] .wb-settings-swap` in globals.css). */}
-        <div key={section} className="wb-settings-swap mx-auto w-full max-w-[860px] px-4 pb-[max(64px,calc(env(safe-area-inset-bottom)+32px))] pt-5 md:px-12 md:pb-14 md:pt-12" aria-label={current?.label}>
+        {/* Round AK: the speed page's charts and tables a little wider on a big screen. */}
+        <div key={section} className={cn("wb-settings-swap mx-auto w-full max-w-[860px] px-4 pb-[max(64px,calc(env(safe-area-inset-bottom)+32px))] pt-5 md:px-12 md:pb-14 md:pt-12", section === "performance" && "xl:max-w-[1040px]")} aria-label={current?.label}>
           {section === "general" && <GeneralSettings ctx={ctx} />}
           {section === "domains" && <DomainSettings ctx={ctx} />}
           {section === "seo" && <SeoSettings ctx={ctx} />}

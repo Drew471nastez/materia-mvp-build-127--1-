@@ -365,6 +365,19 @@ export interface HandoffRequest {
   appSeenCookie?: string | null
   /** NEXT_PUBLIC_IOS_APP_STORE_ID. */
   appStoreId?: string | null
+  /** Whether the request carries a Storelib sign in (an sb-*-auth-token cookie). Unknown counts as signed in. */
+  signedIn?: boolean
+}
+
+/**
+ * Storelib's own front doors: the home page, Explore and the pages about
+ * selling. Round AK, the owner: a visitor who is not signed in is not asked
+ * to open these in the app; the card stays for what people share (a
+ * creator, a product, a community) and for anyone signed in.
+ */
+export function isFrontDoor(path: string): boolean {
+  const p = (path.split(/[?#]/)[0] || "/").replace(/\/+$/, "") || "/"
+  return p === "/" || /^\/(explore|sell|pricing|features|about|blog|help|login|signup|start)(\/|$)/.test(p)
 }
 
 /**
@@ -392,6 +405,7 @@ export function handoffCard(req: HandoffRequest): HandoffCard | null {
   if (!browser) return null
   const path = sitePath(req.path)
   if (!path) return null
+  if (req.signedIn === false && isFrontDoor(path)) return null
   const scheme = schemeLink(path)
   /* The app's own side has to accept the page, or the hand off would land nowhere. */
   if (openTarget(scheme) !== path) return null

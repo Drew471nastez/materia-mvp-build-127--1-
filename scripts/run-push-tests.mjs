@@ -601,6 +601,7 @@ const SUITES = [
   "tests/round-ah.test.ts",
   "tests/round-ai.test.ts",
   "tests/round-aj.test.ts",
+  "tests/round-ak.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",

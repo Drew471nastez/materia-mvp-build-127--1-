@@ -515,6 +515,19 @@ function NavIcon({
  * params has to be in the query showing (`search`, useShownSearch); the
  * whole href was compared to the path, so those rows never lit.
  */
+/**
+ * The group the page being shown belongs to: the row whose own page it is,
+ * or whose list has it (Coupons is Products'). Null on a page of no group.
+ * The sidebar opens this one and folds every other (components/app/sidebar).
+ */
+export function groupForRoute(items: ReadonlyArray<{ href: string; children?: ReadonlyArray<{ href: string }> }>, pathname: string, search: string | URLSearchParams | null = null): string | null {
+  for (const item of items) {
+    if (!item.children || item.children.length === 0) continue
+    if (isRouteActive(pathname, item.href, search) || item.children.some((c) => isRouteActive(pathname, c.href, search))) return item.href
+  }
+  return null
+}
+
 export function isRouteActive(pathname: string, href: string, search: string | URLSearchParams | null = null): boolean {
   const at = href.indexOf("?")
   const path = at < 0 ? href : href.slice(0, at)
@@ -577,7 +590,7 @@ function SubNavItem({
         onClick?.()
       }}
       {...handlers}
-      className={cn(ROW, "h-[34px] text-[13px]")}
+      className={cn(ROW, "h-[32px] text-[13px]")}
       style={rowStyle(active, hovered)}
     >
       {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
@@ -697,7 +710,7 @@ export function DesktopNavItem({
           </button>
         </div>
         <Collapsible open={expanded}>
-          <div className="ml-[24px] mt-[2px] space-y-[2px] border-l border-neutral-200 pl-[10px]">
+          <div className="ml-[24px] mt-px space-y-px border-l border-neutral-200 pb-1 pl-[10px]">
             {item.children.map((child) => (
               <SubNavItem
                 key={child.href}
@@ -766,11 +779,16 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
       */
       data-nav-submenu={open ? "open" : "closed"}
       aria-hidden={!open}
+      /* Closed, its rows are out of the Tab order too (round AK), not only hidden from readers. */
+      inert={!open}
       style={{
         display: "grid",
         gridTemplateRows: open ? "1fr" : "0fr",
         opacity: open ? 1 : 0,
-        transition: "grid-template-rows 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease",
+        /* Round AK: a softer settle, and the rows fade a touch quicker than the height so nothing is seen clipped. */
+        transition: open
+          ? "grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease-out 40ms"
+          : "grid-template-rows 220ms cubic-bezier(0.4, 0, 0.2, 1), opacity 140ms ease-in",
       }}
     >
       <div style={{ minHeight: 0, overflow: "hidden" }}>{children}</div>
@@ -837,7 +855,7 @@ export function DesktopSidebarContent({
         (components/app/rail-toggle), and Dashboard is the first thing in
         the sidebar, 12px from its top.
       */}
-      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto px-[7px] py-3">
+      <nav className="sidebar-nav min-h-0 flex-1 overflow-y-auto py-3 pl-[7px] pr-px">
         <div className="space-y-[2px]">
           {items.map((item) => (
             <DesktopNavItem
