@@ -17,7 +17,8 @@
  *                    rate, remove it, and give single products their own rate
  *                    there. How regions work is folded under the list.
  *   Tax collected    what orders collected, by country, with the CSV, and
- *                    who does what, folded.
+ *                    Who does what, a link that opens a short explanation
+ *                    (a dialog on a computer, a sheet on a phone: Modal).
  *
  * Nothing here charges anybody until "Charge tax" is on and the buyer's
  * address is in a region.
@@ -466,11 +467,45 @@ function RegionEditor({ region, overrides, products, onChange, onRemoved }: { re
 
 /* ── Round AG: the overview ───────────────────────────────────────────────── */
 
+interface TaxStatusRow {
+  key: string
+  state?: "charging" | "no_region" | "off" | "auto" | "own_rates" | "none"
+  count?: number
+  digital?: boolean
+  title: string
+  detail: string
+  tone: "on" | "off" | "auto"
+}
 interface TaxOverviewData {
-  status: { key: string; title: string; detail: string; tone: "on" | "off" | "auto" }[]
-  summary: { totalCents: number; orders: number; byCountry: { country: string | null; label: string; taxCents: number; orders: number }[] }
+  status: TaxStatusRow[]
+  summary: {
+    totalCents: number
+    orders: number
+    byCountry: { country: string | null; label: string; taxCents: number; orders: number }[]
+    otherCurrencies?: { currency: string; taxCents: number; orders: number }[]
+  }
   days: number
   currency: string
+}
+
+/** A status line in the dashboard's language (lib/tax/report.ts taxStatus decides which). The server's English when it is an older answer. */
+function statusWords(s: TaxStatusRow): { title: string; detail: string } {
+  switch (s.state) {
+    case "charging":
+      return { title: tt("Charging tax in {n, plural, one {# region} other {# regions}}", { n: s.count ?? 0 }), detail: s.digital ? tt("On physical and digital sales, at the rates you set below.") : tt("On physical sales, at the rates you set below. Digital sales are not taxed (switch below).") }
+    case "no_region":
+      return { title: tt("Tax is on, but no region is set"), detail: tt("Nothing is charged until you add a region below.") }
+    case "off":
+      return { title: tt("Not charging tax"), detail: tt("Buyers pay your prices and nothing more.") }
+    case "auto":
+      return { title: tt("Memberships: worked out automatically"), detail: tt("Community plans and memberships are charged through Storelib's Stripe account, and Stripe Tax works out the rate from where the buyer is, on every renewal.") }
+    case "own_rates":
+      return { title: tt("Memberships: your rates"), detail: tt("Community plans and memberships charge your rate for the buyer's country, on every renewal.") }
+    case "none":
+      return { title: tt("Memberships: no tax"), detail: tt("Turn on tax on digital products and add a region to charge it on memberships.") }
+    default:
+      return { title: s.title, detail: s.detail }
+  }
 }
 
 /** The overview, for the period chosen; read again when `version` (the setup) changes. */
@@ -500,31 +535,39 @@ function TaxStatus({ overview }: { overview: TaxOverviewData | null }) {
   if (!rows.length) return null
   return (
     <ul className="space-y-1.5 rounded-xl bg-[#f8f9fa] px-3.5 py-2.5" data-tax-status="">
-      {rows.map((s) => (
-        <li key={s.key} title={s.detail} className="flex items-center gap-2 text-[13px] text-[#1a1a2e]">
-          <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", s.tone === "on" ? "bg-[#16a34a]" : s.tone === "auto" ? "bg-[#2563eb]" : "bg-[#c4c7cc]")} />
-          <span className="min-w-0 truncate">{s.title}</span>
-        </li>
-      ))}
+      {rows.map((s) => {
+        const words = statusWords(s)
+        return (
+          <li key={s.key} title={words.detail} className="flex items-center gap-2 text-[13px] text-[#1a1a2e]">
+            <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", s.tone === "on" ? "bg-[#16a34a]" : s.tone === "auto" ? "bg-[#2563eb]" : "bg-[#c4c7cc]")} />
+            <span className="min-w-0 truncate">{words.title}</span>
+          </li>
+        )
+      })}
     </ul>
   )
 }
 
+/** An amount in a currency, the way the dashboard writes money. */
+function moneyIn(cents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100)
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency}`
+  }
+}
+
 /**
  * TAX COLLECTED, at the foot of the page: what the store's orders collected in
- * a period and where (lib/tax/report-model), the CSV behind it, and who does
- * what, folded. Nothing here asks for anything.
+ * a period and where (lib/tax/report-model), the CSV behind it, and Who does
+ * what, which opens a short explanation. Nothing here asks for anything.
  */
 function TaxOverview({ currency, overview }: { currency: string; overview: TaxOverviewState }) {
   const { days, setDays, data } = overview
+  const [explain, setExplain] = React.useState(false)
   const cur = (data?.currency || currency || "USD").toUpperCase()
-  const fmt = (cents: number) => {
-    try {
-      return new Intl.NumberFormat(undefined, { style: "currency", currency: cur }).format(cents / 100)
-    } catch {
-      return `${(cents / 100).toFixed(2)} ${cur}`
-    }
-  }
+  const fmt = (cents: number) => moneyIn(cents, cur)
+  const membershipsAuto = data?.status.some((s) => s.key === "memberships" && s.tone === "auto") === true
   const top = data?.summary.byCountry.slice(0, 8) ?? []
   return (
     <Card
@@ -569,19 +612,62 @@ function TaxOverview({ currency, overview }: { currency: string; overview: TaxOv
             ))}
           </ul>
         ) : null}
-        <details className="group [&_summary::-webkit-details-marker]:hidden" data-tax-responsibility="">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[13px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
-            {tt("Who does what")}
-            <ChevronRight aria-hidden className="h-3.5 w-3.5 text-[#9ca3af] transition-[rotate] duration-200 group-open:rotate-90" />
-          </summary>
-          <div className="mt-2 space-y-2 rounded-xl bg-[#f8f9fa] px-3.5 py-3 text-[13px] leading-5 text-[#4b5563]">
-            <p>{tt("At checkout Storelib adds the tax your settings above call for, shows it to the buyer, puts it on the receipt and keeps the record here. Nothing has to be set up before you can sell.")}</p>
-            <p>{tt("You are the seller of your products, so registering for tax where you need to, and filing and paying it, stays with you. Storelib does not file or pay tax for you.")}</p>
-            <p>{tt("Community plans and memberships are paid through Storelib's Stripe account. When Storelib has Stripe Tax switched on, Stripe works out their rate from where the buyer is.")}</p>
-            <p>{tt("Not sure what applies to you? An accountant can tell you in one conversation, and the CSV above is what they will ask for.")}</p>
-          </div>
-        </details>
+        {data?.summary.otherCurrencies?.length ? (
+          <p className="text-[12.5px] text-[#6b7280]" data-tax-other-currency="">
+            {data.summary.otherCurrencies
+              .map((o) => tt("Also {amount} from {n, plural, one {# order} other {# orders}} in {currency}, sold before your store's currency changed.", { amount: moneyIn(o.taxCents, o.currency), n: o.orders, currency: o.currency }))
+              .join(" ")}
+          </p>
+        ) : null}
+        <button type="button" onClick={() => setExplain(true)} className="inline-flex min-h-9 items-center gap-1 rounded-lg text-[13px] font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 [-webkit-tap-highlight-color:transparent]" data-tax-responsibility="" aria-haspopup="dialog">
+          {tt("Who does what")}
+          <ChevronRight aria-hidden className="h-3.5 w-3.5 text-[#9ca3af]" />
+        </button>
+        <WhoDoesWhat open={explain} onClose={() => setExplain(false)} membershipsAuto={membershipsAuto} />
       </div>
     </Card>
+  )
+}
+
+/**
+ * WHO DOES WHAT, opened from Tax collected: a dialog on a computer, a sheet
+ * on a phone (Modal). Each part is what the code does, never more:
+ *
+ *   Storelib     lib/tax/rules.ts at every checkout (single product, basket,
+ *                website, shipped goods), the tax on the order, the receipt
+ *                and the invoice, and Tax collected (lib/tax/report-model)
+ *   You          registering, filing and paying stay with the seller;
+ *                nothing in Storelib files or pays tax
+ *   Memberships  Storelib's Stripe account: Stripe Tax when it is on for
+ *                Storelib (lib/tax/membership.ts), else the store's own rate
+ *   Payments     Stripe, or Airwallex, charge the total the checkout worked
+ *                out; they do not work out tax for products
+ */
+function WhoDoesWhat({ open, onClose, membershipsAuto }: { open: boolean; onClose: () => void; membershipsAuto: boolean }) {
+  const parts: { who: string; what: string }[] = [
+    { who: tt("Storelib"), what: tt("Adds the tax your settings here call for at checkout, shows it to the buyer, and puts it on the order, the receipt and the invoice. Tax collected adds it up for you.") },
+    { who: tt("You"), what: tt("You are the seller, so registering for tax where you need to, filing returns and paying the tax stay with you. Storelib does not file or pay tax for you.") },
+    {
+      who: tt("Memberships and community plans"),
+      what: membershipsAuto
+        ? tt("Charged through Storelib's Stripe account. Stripe Tax works out the rate from where the buyer is, on every renewal.")
+        : tt("Charged through Storelib's Stripe account, at your rate for the buyer's country, on every renewal."),
+    },
+    { who: tt("Stripe and Airwallex"), what: tt("They take the payment for the total Storelib worked out, tax included. They don't work out tax on your products.") },
+  ]
+  return (
+    <Modal open={open} onClose={onClose} title={tt("Who does what")}>
+      <div className="space-y-4 pb-1" data-tax-who="">
+        <dl className="divide-y divide-[#f1f2f4]">
+          {parts.map((p) => (
+            <div key={p.who} className="py-3 first:pt-0 last:pb-0">
+              <dt className="text-[14px] font-semibold text-[#1a1a2e]">{p.who}</dt>
+              <dd className="mt-1 text-[14px] leading-[21px] text-[#4b5563]">{p.what}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="rounded-xl bg-[#f8f9fa] px-3.5 py-3 text-[13px] leading-5 text-[#4b5563]">{tt("Not sure what applies to you? An accountant can tell you in one conversation, and the CSV is what they will ask for.")}</p>
+      </div>
+    </Modal>
   )
 }

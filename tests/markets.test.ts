@@ -161,7 +161,7 @@ console.log("\nWired into the website\n")
   check("the menus and search engine text laid over on the live page and in its title", /localizer\.theme\(site\.themeSettings/.test(site) && /localizer\.theme\(/.test(read("app/(site)/w/[username]/render-site.tsx")) && /localizer\.theme\(ownSettings/.test(read("components/website-builder/theme/render-product.tsx")) && /inLanguage: localizer \?/.test(read("app/(site)/w/[username]/products/[slug]/page.tsx")))
   check("the Translate sheet lists the menus and the search engine text", /menuTranslatables\(/.test(read("lib/markets/server.ts")) && /seoTranslatables\(theme\)/.test(read("lib/markets/server.ts")))
   check("only approved translations, only a published language", /r\.status === "approved"/.test(live) && /langs\.others\.find/.test(live))
-  for (const route of ["page.tsx", "[page]/page.tsx", "products/page.tsx", "products/[slug]/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx"]) {
+  for (const route of ["page.tsx", "[page]/page.tsx", "products/shop-page.tsx", "products/[slug]/page.tsx", "collections/page.tsx", "collections/[handle]/collection-page.tsx", "search/page.tsx"]) {
     const src = read(`app/(site)/w/[username]/${route}`)
     check(`  ${route} reads the language from the name`, /splitSiteName|renderSite\(/.test(src))
   }
@@ -201,7 +201,7 @@ console.log("\nRound AE: no more English corners, and the builder previews every
   /* Changed on purpose (the owner: no "you'll pay in USD" notice in the cart drawer or the cart): said at checkout only. */
   check("the cart's amounts in the market's currency, as the cards are; what checkout charges in is said at checkout, not in the cart", /export function useMoney\(\)/.test(ctx) && /pricingFor\(display\.market, display\.base, display\.fx\)/.test(ctx) && !/useChargeNote\(\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && !/useChargeNote\(\)/.test(read("components/website-builder/cart-page-body.tsx")))
   check("  no hard-coded dollar sign left in the cart drawer or the cart page", !/function money\(cents: number\)/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && !/function money\(cents: number\)/.test(read("components/website-builder/cart-page-body.tsx")))
-  check("  every builder page hands the conversion over", ["cart/page.tsx", "products/page.tsx", "search/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "render-account.tsx", "render-site.tsx"].every((f) => /display: localizer\?\.display/.test(read(`app/(site)/w/[username]/${f}`))))
+  check("  every builder page hands the conversion over", ["cart/page.tsx", "products/shop-page.tsx", "search/page.tsx", "collections/page.tsx", "collections/[handle]/collection-page.tsx", "render-account.tsx", "render-site.tsx"].every((f) => /display: localizer\?\.display/.test(read(`app/(site)/w/[username]/${f}`))))
   const api = read("app/api/store/translations/route.ts")
   check("the builder's preview reads the approved values only, with each one's original", /searchParams\.get\("values"\) === "1"/.test(api) && /r\.status === "approved" && r\.value/.test(api) && /h: r\.sourceHash/.test(api))
   const hook = read("components/website-builder/use-preview-language.ts")

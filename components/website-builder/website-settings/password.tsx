@@ -108,7 +108,7 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
           inline
         >
           {state === null ? (
-            <Loader2 className="h-4 w-4 animate-spin text-white/45" aria-label={tt("Loading")} />
+            <Loader2 className="h-4 w-4 animate-spin text-white/50" aria-label={tt("Loading")} />
           ) : (
             <Toggle checked={state.enabled} onChange={toggle} label={tt("Password protect this website")} />
           )}

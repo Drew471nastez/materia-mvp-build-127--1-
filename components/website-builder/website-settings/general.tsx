@@ -5,7 +5,7 @@ import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { siteLanguage } from "@/lib/website-builder/site-language"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
-import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
+import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass, DarkScope, useSettingsLook } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
 import { activeLocale, tt } from "@/lib/i18n/text"
@@ -100,7 +100,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
             write too (lib/website-builder/favicon-sync.ts), through the same
             writer, so a change in either shows here at once.
           */}
-          <div className="dark">
+          <DarkScope>
             <WbImagePicker
               value={favicon}
               onChange={(url) => ctx.onSettingChange("favicon_url", url ?? "")}
@@ -108,7 +108,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               layout="icon"
               folder="logos"
             />
-          </div>
+          </DarkScope>
         </Row>
       </Card>
 
@@ -136,6 +136,7 @@ type MarketsAnswer = {
 }
 
 function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fallbackLanguage: string }) {
+  const look = useSettingsLook()
   const [data, setData] = useState<MarketsAnswer | null>(null)
   useEffect(() => {
     let live = true
@@ -169,7 +170,7 @@ function LocalizationCard({ ctx, fallbackLanguage }: { ctx: SettingsContext; fal
         {/* WHAT THE BUILDER SHOWS: the canvas's language and prices, and the language the sidebar's text settings write. Never the live website. */}
         {ctx.preview && hasPreviewChoices(ctx.preview) ? (
           <Row label={tt("Show the editor in")} hint={tt("Only changes the builder. In another language, the sidebar edits that language's text.")} stack>
-            <PreviewLocaleSelects model={ctx.preview} tone="dark" />
+            <PreviewLocaleSelects model={ctx.preview} tone={look} />
           </Row>
         ) : null}
         <Row label={tt("Default language")} hint={manage("/app/settings?tab=markets")} inline>

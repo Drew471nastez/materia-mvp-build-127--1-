@@ -3,6 +3,7 @@ import { physicalJson, shopCaller } from "@/lib/physical/auth"
 import { loadTaxSetup } from "@/lib/tax/server"
 import { taxOrders, taxOverview } from "@/lib/tax/report"
 import { taxCsv, taxPeriod } from "@/lib/tax/report-model"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,13 +20,14 @@ export async function GET(request: Request) {
   const days = taxPeriod(url.searchParams.get("days"))
   /* c.db is the service client (shopCaller), and the caller owns or works in this store. */
   const db = c.db
-  const [setup, creator] = await Promise.all([loadTaxSetup(db, c.creatorId), db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()])
-  const currency = ((creator?.data?.payout_currency as string | null) ?? "USD").toUpperCase()
+  /* The store's selling currency, the one its orders are charged in (lib/store/selling-currency), not the payout's. */
+  const [setup, store] = await Promise.all([loadTaxSetup(db, c.creatorId), readStoreCurrency(db, c.creatorId)])
+  const currency = (store.currency || "USD").toUpperCase()
   if (url.searchParams.get("format") === "csv") {
     const rows = await taxOrders(c.db, c.creatorId, days)
     return new NextResponse(taxCsv(rows, currency), {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="storelib-tax-${days}-days.csv"`, "Cache-Control": "no-store" },
     })
   }
-  return physicalJson({ ...(await taxOverview(c.db, c.creatorId, setup, days)), currency })
+  return physicalJson({ ...(await taxOverview(c.db, c.creatorId, setup, days, currency)), currency })
 }

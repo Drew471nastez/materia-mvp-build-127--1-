@@ -17,8 +17,8 @@ import { readInvite } from "@/lib/team/server"
  *   ready          the store, the role and what it can do; Join and Decline
  *   signed_out     Log in as the invited email (or Create account when there
  *                  is none), which comes back here
- *   wrong_account  signed in as somebody else: Use another account signs out
- *                  and opens sign in as the invited email
+ *   wrong_account  signed in with another email: Join with this account
+ *                  (the invited email is named), or Switch account
  *   accepted, expired, gone, seats_full, own_store, store_gone, invalid:
  *                  what happened and where to go
  *
@@ -29,7 +29,12 @@ export const dynamic = "force-dynamic"
 export const metadata: Metadata = {
   title: "Team invite",
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  /*
+    same-origin, not no-referrer: the token still never leaves in a Referer to
+    another site, and the page's own Join keeps its Origin. Under no-referrer
+    a browser sends a form post's Origin as "null" (lib/team/own-page.ts).
+  */
+  referrer: "same-origin",
 }
 
 type Search = Promise<{ token?: string | string[]; note?: string | string[]; declined?: string | string[] }>

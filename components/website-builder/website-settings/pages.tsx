@@ -9,7 +9,7 @@ import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { storeNameFor } from "./seo"
 import { siteTabTitle } from "@/lib/website-builder/tab-title"
 import { pageTitleFromKey } from "@/lib/website-builder/site-pages"
-import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
+import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass, DarkScope } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
 import { tt } from "@/lib/i18n/text"
 
@@ -105,15 +105,15 @@ function PageRow({
               {home && <Badge tone="neutral">{tt("Homepage")}</Badge>}
               {seo.hidden && <Badge tone="attention">{tt("Hidden from search")}</Badge>}
             </span>
-            <span className="mt-0.5 block truncate text-[13px] text-white/45">{page.path}</span>
+            <span className="mt-0.5 block truncate text-[13px] text-white/50">{page.path}</span>
           </span>
           {home ? (
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-white/70" />
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-white/50 transition-colors group-hover:text-white/70" />
           ) : (
             <ChevronDown
               aria-hidden
               className={cn(
-                "h-4 w-4 shrink-0 text-white/35 transition-[transform,rotate,color] duration-200 ease-out group-hover:text-white/70 motion-reduce:transition-none",
+                "h-4 w-4 shrink-0 text-white/50 transition-[transform,rotate,color] duration-200 ease-out group-hover:text-white/70 motion-reduce:transition-none",
                 open && "rotate-180 text-white/70",
               )}
             />
@@ -162,16 +162,16 @@ function PageRow({
           {/* The picture a link to this page shows when it is shared; the site's own social image when there is none. */}
           <div>
             <p className="text-[14px] font-medium text-white">{tt("Social image")}</p>
-            <p className="mt-0.5 text-[13px] leading-snug text-white/45">{tt("Shown when a link to this page is shared. Leave it empty to use the site's.")}</p>
-            <div className="dark mt-2 max-w-[420px]">
+            <p className="mt-0.5 text-[13px] leading-snug text-white/50">{tt("Shown when a link to this page is shared. Leave it empty to use the site's.")}</p>
+            <DarkScope className="mt-2 max-w-[420px]">
               <WbImagePicker value={seo.image || undefined} onChange={(url) => set({ image: url ?? "" })} layout="row" folder="logos" />
-            </div>
+            </DarkScope>
           </div>
 
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[14px] font-medium text-white">{tt("Show in search engines")}</p>
-              <p className="mt-0.5 text-[13px] leading-snug text-white/45">{tt("Off keeps this page out of Google and out of your sitemap.")}</p>
+              <p className="mt-0.5 text-[13px] leading-snug text-white/50">{tt("Off keeps this page out of Google and out of your sitemap.")}</p>
             </div>
             <Toggle checked={!seo.hidden} onChange={(on) => set({ hidden: !on })} label={tt("Show {name} in search engines", { name: page.name })} />
           </div>

@@ -1,0 +1,117 @@
+import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
+import type { Metadata } from "next"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { dressPage, publishedShopByName, siteCatalogue } from "@/lib/website-builder/published-site"
+import { getMainDomain } from "@/lib/url-helpers"
+import { collectionSections } from "@/lib/website-builder/shop-page"
+import { catalogPage } from "@/lib/products/catalog-filters"
+import { collectionMembers } from "@/lib/website-builder/collection-members"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { MAX_PICKED_PRODUCTS, pickedProducts } from "@/lib/website-builder/storefront-data-server"
+import { siteMetadata } from "../../render-site"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { pageNumberOf } from "@/lib/website-builder/tab-title"
+
+/** What a collection page is drawn from: the filters, the sort and the page number (lib/products/catalog-filters.ts). */
+export type CollectionAsked = Record<string, string | string[] | undefined>
+
+const HANDLE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+export async function collectionMetadata(segment: string, rawHandle: string, asked: CollectionAsked): Promise<Metadata> {
+  /*
+    THE COLLECTION'S OWN NAME. Every collection said "Collections | <store>":
+    the tab of Summer and of Sale alike. The same cached read the page makes.
+  */
+  const handle = decodeURIComponent(rawHandle).toLowerCase()
+  const found = HANDLE.test(handle) ? await publishedShopByName(splitSiteName(segment).name).catch(() => null) : null
+  const inIt = found?.kind === "site" ? await collectionMembers(found.site.creatorId, handle).catch(() => null) : null
+  const name = inIt?.collection.title?.trim()
+  /* Its own address for search engines, in each language: every collection used to name the collections index as its canonical. */
+  const path = HANDLE.test(handle) ? `/collections/${handle}` : undefined
+  return siteMetadata(segment, undefined, "collections", null, name ? { page: { kind: "collection", name }, pageNumber: pageNumberOf(asked.page), path } : { path })
+}
+
+/**
+ * ===========================================================================
+ *  ONE COLLECTION, IN THE CREATOR'S OWN CHROME
+ * ===========================================================================
+ * Shopify's collection page, at /collections/<handle>: the shop page
+ * (header, one product grid with its filters, footer) showing only the
+ * collection's published products, in the collection's own order. A
+ * collection holds any kind of product: downloads, courses, memberships,
+ * services and physical goods alike.
+ *
+ * Every link to a collection goes here: the Collection list's cards, a
+ * Featured collection's button, a menu link picked from Collections.
+ *
+ * Drawn by two routes (lib/website-builder/held-list.ts): ./page.tsx, the
+ * collection as a stranger first sees it, held a minute; and
+ * ./~list/page.tsx, with filters, a sort or a page number from the address,
+ * drawn per request.
+ */
+export async function CollectionPage({ segment, rawHandle, asked }: { segment: string; rawHandle: string; asked: CollectionAsked }) {
+  /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
+  const { name: username, locale, market } = splitSiteName(segment)
+  const handle = decodeURIComponent(rawHandle).toLowerCase()
+  if (!HANDLE.test(handle) || handle.length > 80) notFound()
+
+  const found = await publishedShopByName(username)
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/collections/${handle}`)
+  if (found.kind === "missing") notFound()
+  if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
+
+  const { site: own, productCount } = found
+  /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
+  const [localizer, language] = await Promise.all([siteLocalizer(own.creatorId, locale, market), languageChoice(own.creatorId, locale, market)])
+  /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
+  const site = localizer ? { ...own, themeSettings: localizer.theme(own.themeSettings as Record<string, unknown>) as typeof own.themeSettings } : own
+  const products = localizer && found.products ? localizer.cards(found.products) : found.products
+  /* Held with the shop for its minute (lib/website-builder/collection-members.ts). */
+  const inIt = await collectionMembers(site.creatorId, handle)
+  if (!inIt) notFound()
+
+  /*
+    The shop's cards, only the collection's, in its order. The shop list is
+    the newest 24, so a member older than that was missing from its own
+    collection: those are read by id (pickedProducts, this creator's
+    published products only).
+  */
+  const order = new Map(inIt.productIds.map((id, i) => [id, i]))
+  const catalogue = await siteCatalogue(site.creatorId).then((c) => (localizer ? localizer.cards(c) : c)).catch(() => products ?? [])
+  const pool = catalogue.length ? catalogue : products ?? []
+  const have = new Set(pool.map((p) => p.id))
+  const older = inIt.productIds.filter((id) => !have.has(id)).slice(0, MAX_PICKED_PRODUCTS)
+  const extra = older.length ? await pickedProducts(createAdminClient() as never, site.creatorId, { ids: older, slugs: [] }) : []
+  const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+
+  /* Its name and description in the page's language (lib/markets/live.ts collection). */
+  const collection = localizer ? localizer.collection(inIt.collection) : inIt.collection
+  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, collection, site.pages.collection)
+  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", collection.title, undefined, { cached: true, localizer })
+  const sections = dressed.sections
+  /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
+  const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
+  const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`, { words: localizer?.words })
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters, pagination }, data)
+
+  return (
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "collection" }}>
+      <ThemePage
+        theme={site.themeSettings}
+        sections={sections}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
+        emptyDetail="Nothing in this collection yet."
+      />
+      <TrackView creatorId={site.creatorId} />
+      <StoreTracking creatorId={site.creatorId} />
+      <SiteVitals installId={site.installId} />
+    </StorelibSourcesProvider>
+  )
+}

@@ -218,11 +218,11 @@ export function PerformanceChart({
             return (
               <div key={d} className="mt-1 flex items-baseline gap-2 whitespace-nowrap">
                 <span className="h-[2px] w-3 shrink-0 self-center rounded-full" style={{ background: DEVICE_COLOR[d] }} aria-hidden />
-                <span className={cn("text-[13px] font-semibold tabular-nums", typeof v === "number" ? "text-white" : "text-white/45")}>
+                <span className={cn("text-[13px] font-semibold tabular-nums", typeof v === "number" ? "text-white" : "text-white/50")}>
                   {typeof v === "number" ? formatPerf(metric, v) : n > 0 ? tt("Too few") : "–"}
                 </span>
                 <span className="text-[12px] text-white/60">{d === "mobile" ? tt("Mobile") : tt("Desktop")}</span>
-                <span className="ml-auto text-[11.5px] tabular-nums text-white/40">{tt("{count} measured", { count: n })}</span>
+                <span className="ml-auto text-[11.5px] tabular-nums text-white/50">{tt("{count} measured", { count: n })}</span>
               </div>
             )
           })}

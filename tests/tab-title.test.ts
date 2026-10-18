@@ -117,8 +117,8 @@ async function main() {
     const routes = "app/(site)/w/[username]"
     check("cart says 'Your cart', never 'Cart | Storelib'", /\{ page: \{ kind: "cart" \} \}/.test(read(`${routes}/cart/page.tsx`)) && !/title: "Cart"/.test(read(`${routes}/cart/page.tsx`)))
     check("search says what was searched", /kind: "search", query: q \?\? ""/.test(read(`${routes}/search/page.tsx`)))
-    check("a collection says its own name", /kind: "collection", name/.test(read(`${routes}/collections/[handle]/page.tsx`)))
-    check("the shop says its page", /pageNumber: pageNumberOf\(asked\.page\)/.test(read(`${routes}/products/page.tsx`)))
+    check("a collection says its own name", /kind: "collection", name/.test(read(`${routes}/collections/[handle]/collection-page.tsx`)))
+    check("the shop says its page", /pageNumber: pageNumberOf\(asked\.page\)/.test(read(`${routes}/products/shop-page.tsx`)))
     check("a product page", /siteTabTitle\(\{ page: \{ kind: "product", name \}, storeName: site\.brand, ownTitle \}\)/.test(read("components/website-builder/theme/render-product.tsx")))
     check("the 404", /siteTabTitle\(\{ page: \{ kind: "not-found" \}/.test(read("lib/website-builder/published-site.ts")))
     check("the checkout", /tabTitleTemplate\(brand\.name\)/.test(read("app/checkout/site/layout.tsx")) && !/·/.test(read("app/checkout/site/layout.tsx").replace(/\/\*[\s\S]*?\*\//g, "")))

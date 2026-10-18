@@ -196,7 +196,7 @@ async function main() {
     check("names only: no price or service column", !/price|cents|service(?!_role)/i.test(lines.slice(1).join("\n")))
     check("the migration is the same text", read("supabase/migrations/20270202_physical_carrier_prefs.sql") === part)
     check("the README lists it", /\| `233_physical_carrier_prefs\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
-    check("the check row has p233, whole", /\) as p233_physical_carrier_prefs;\s*$/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("the check row has p233, whole", /\) as p233_physical_carrier_prefs[,;]/.test(  /* later parts add their columns after it */ read("supabase/sql/run-now/99_check_after.sql")))
     check("built into the files the owner pastes", read("supabase/sql/run-four/3_of_4_latest.sql").includes(lines[1]) && read("supabase/sql/all-in-three/2_of_3_latest.sql").includes(lines[1]))
     check("the server says which part a save needs", /CARRIER_PREFS_SQL_PART = "233"/.test(read("lib/physical/carrier-prefs.ts")))
   }

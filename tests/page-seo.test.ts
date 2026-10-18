@@ -228,7 +228,7 @@ console.log("\nAn old address moved for good says so")
     /permanentRedirect\(`\/\$\{creator\.profile\.username\}`\)/.test(c) && /\bredirect\(`\/\$\{slug\}`\)/.test(c))
   check("a renamed creator's website, to the same page, and its shop",
     /found\.kind === "renamed"\) permanentRedirect\(pageUrl\(/.test(code("app/(site)/w/[username]/render-site.tsx")) &&
-      /found\.kind === "renamed"\) permanentRedirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}\/products`\)/.test(code("app/(site)/w/[username]/products/page.tsx")))
+      /found\.kind === "renamed"\) permanentRedirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}\/products`\)/.test(code("app/(site)/w/[username]/products/shop-page.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

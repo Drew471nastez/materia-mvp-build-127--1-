@@ -70,9 +70,20 @@ export function sectionFamilies(sections: { settings?: Record<string, unknown> }
   return out
 }
 
+/*
+  ALREADY ON EVERY PAGE. Inter is the app's own face (app/layout.tsx, through
+  next/font): its @font-face rules, named "Inter", every weight from 100 to
+  900 and every script's range, come with the page's own stylesheet from
+  Storelib's host, and its Latin file is preloaded. Asking Google for it
+  again was a second stylesheet on another host before the first paint,
+  and then a second copy of the same font. The theme's `font-family: Inter`
+  draws with the one already there.
+*/
+export const SELF_HOSTED_FAMILIES: ReadonlySet<string> = new Set(["Inter"])
+
 /** The stylesheet URL, or null when there is nothing to load. */
 export function fontStylesheetHref(theme: Record<string, unknown> | null | undefined, extra: string[] = []): string | null {
-  const families = [...new Set([...chosenFamilies(theme), ...extra.filter((f) => OFFERED_FAMILIES.has(f))])]
+  const families = [...new Set([...chosenFamilies(theme), ...extra.filter((f) => OFFERED_FAMILIES.has(f))])].filter((f) => !SELF_HOSTED_FAMILIES.has(f))
   if (families.length === 0) return null
   const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@${WEIGHTS}`).join("&")
   return `https://fonts.googleapis.com/css2?${q}&display=swap`

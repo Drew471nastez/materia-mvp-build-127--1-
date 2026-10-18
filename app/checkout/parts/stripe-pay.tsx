@@ -33,7 +33,7 @@ import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStrip
 import type { Appearance, StripeElementsOptions, StripeError } from "@stripe/stripe-js"
 import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getStripePromise, resetStripePromise } from "./stripe-loader"
+import { getStripePromise, notePaymentReady, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
 import { FIELD_SHADOW, useCheckoutCurrency, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
@@ -581,11 +581,14 @@ function StripePayInner({
           <p className="text-[13px] leading-5 text-[#6b7280]">{cash.aside}</p>
         ) : null}
         {/* Kept drawn while cash is chosen, so going back to the card is instant and keeps what was typed. */}
-        <div className={cn("min-h-[200px]", cashOn && "hidden")}>
+        {/* data-payment-ready: Stripe said the form can take a card (scripts/check-checkout-speed.mjs times it). */}
+        <div className={cn("min-h-[200px]", cashOn && "hidden")} data-payment-ready={paymentReady ? "" : undefined}>
           <PaymentElement
             onReady={() => {
               setPaymentReady(true)
               setFailed(false)
+              /* What waits for the form (the checkout's ways out, read ahead) may go now. */
+              notePaymentReady()
             }}
             /* Stripe refused this list of methods: the next one, which it takes. With none left, say so. */
             onLoadError={() => (onRefused ? onRefused() : setFailed(true))}

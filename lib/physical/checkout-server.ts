@@ -364,7 +364,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000)
   const receiptToken = randomBytes(24).toString("base64url")
   /* How the tax was worked out, kept so each order line carries its own share of it (completeCheckout taxSharesOf). */
-  const taxFacts = { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel, tax_on_shipping: priced.tax.taxOnShipping === true, tax_digital: priced.tax.digital === true }
+  const taxFacts = { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel, tax_on_shipping: priced.tax.taxOnShipping === true, tax_digital: priced.tax.digital === true, ...(totals.taxCents > 0 && q.taxCountry && /^[A-Z]{2}$/i.test(q.taxCountry) ? { tax_country: q.taxCountry.toUpperCase() } : {}) }
   const option = q.option
   const { data: checkout, error: insertError } = await db
     .from("commerce_checkouts")
@@ -1024,6 +1024,13 @@ export async function completeCheckout(
       continue
     }
     created.push({ index: i, orderId: order.id, productId: l.product_id, amountCents: amounts[i] })
+    /*
+      The line's tax on the order's own columns, as the single product and basket checkouts keep theirs, so Settings ›
+      Taxes' Tax collected and its CSV count shipped orders too (they read orders.tax_cents). It used to be in the
+      snapshot only. Its own writes, so a database without the tax columns (parts 110, 129, 153) loses only these.
+    */
+    const lineTax = taxIncluded ? (includedShares[i] ?? 0) : (taxShares[i] ?? 0)
+    if (lineTax > 0) await keepLineTax(db, order.id, { cents: Math.min(lineTax, Math.max(0, amounts[i])), country: taxCountryOf(co), included: taxIncluded, label: taxLabel })
     await tagOrderSource(db, order.id, "website", origin)
     await recordOrderAttribution(db, order.id, (co.attribution ?? null) as Attribution | null)
     /* Over the limit: a record of the money, refunded below once the sale is on the ledger, never a purchase. */
@@ -1204,3 +1211,25 @@ async function onceForOrder(
 }
 
 export type { PricedCheckout }
+
+/** Where an order's tax was worked out: as the checkout kept it, else the delivery address's country. */
+export function taxCountryOf(co: { shipping_rate?: { tax_country?: unknown } | null; shipping_address?: { country?: unknown } | null }): string | null {
+  const kept = co.shipping_rate?.tax_country
+  if (typeof kept === "string" && /^[A-Z]{2}$/i.test(kept)) return kept.toUpperCase()
+  const shipped = co.shipping_address?.country
+  return typeof shipped === "string" && /^[A-Z]{2}$/i.test(shipped) ? shipped.toUpperCase() : null
+}
+
+/** A shipped order line's tax on its order row (tax_cents, tax_country, then tax_included and tax_label), each its own write. */
+async function keepLineTax(db: Db, orderId: string, t: { cents: number; country: string | null; included: boolean; label: string | null }): Promise<void> {
+  const { error } = await db.from("orders").update({ tax_cents: t.cents, tax_country: t.country }).eq("id", orderId)
+  if (error) return void console.warn("[physical] tax not kept on the order:", error.code)
+  if (t.included) {
+    const { error: inError } = await db.from("orders").update({ tax_included: true }).eq("id", orderId)
+    if (inError) console.warn("[physical] tax_included not kept:", inError.code)
+  }
+  if (t.label) {
+    const { error: labelError } = await db.from("orders").update({ tax_label: t.label }).eq("id", orderId)
+    if (labelError) console.warn("[physical] tax_label not kept:", labelError.code)
+  }
+}

@@ -1,5 +1,6 @@
 import { MCP_HOST_LABEL, mcpHostRoute } from "@/lib/agent-access/mcp-host"
 import { pageAskedAsSubresource } from "@/lib/security/subresource-guard"
+import { heldListPath } from "@/lib/website-builder/held-list"
 import { createServerClient } from "@supabase/ssr"
 import { readVerifiedSession, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
@@ -1731,10 +1732,9 @@ async function routeRequest(request: NextRequest) {
       /* /fr/about: the page in French, or /fr/cart on to /cart (inSiteLanguage). */
       const inLanguage = isWebsite && !seoFile && !looksLikeFile ? await inSiteLanguage(subdomain, pathname, request) : null
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
+      /* The shop or a collection asked for a filter, a sort or a page: its per request twin; without one, the held page (lib/website-builder/held-list.ts). */
       url.pathname = isWebsite
-        ? inLanguage?.kind === "page"
-          ? inLanguage.path
-          : `/w/${subdomain}${pathname === "/" ? "" : pathname}`
+        ? heldListPath(inLanguage?.kind === "page" ? inLanguage.path : `/w/${subdomain}${pathname === "/" ? "" : pathname}`, url.searchParams)
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
       const rewritten = offerLanguage(NextResponse.rewrite(url), own && "suggest" in own ? own.suggest : null)
 
@@ -2210,7 +2210,7 @@ async function routeRequest(request: NextRequest) {
       if (own && "suggest" in own) domainSuggest = own.suggest
       const inLanguage = await inSiteLanguage(username, pathname, request)
       if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
-      rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
+      rewritePath = heldListPath(inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`, request.nextUrl.searchParams)
       /* The password page, as on the subdomain, for a visitor without a pass (lib/site-password/gate.ts). */
       const gate = await (domainGateAsked ?? passwordPageFor(request, username, host, pathname, search))
       if (gate.blocked) return gate.blocked
