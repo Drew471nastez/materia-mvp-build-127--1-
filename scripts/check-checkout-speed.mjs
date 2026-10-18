@@ -125,8 +125,7 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
   <head>. Everything else goes to the network through the same throttling.
   It measures the browser side of the change before it is deployed.
 */
-const HINTS =
-  '<link rel="preconnect" href="https://js.stripe.com"/><link rel="preconnect" href="https://api.stripe.com" crossorigin=""/><link rel="preconnect" href="https://m.stripe.network"/><link rel="preload" href="https://js.stripe.com/clover/stripe.js" as="script"/>'
+const HINTS = '<link rel="preload" href="https://js.stripe.com/clover/stripe.js" as="script"/>'
 const documents = new Map()
 async function documentOf(url) {
   if (!documents.has(url)) documents.set(url, await (await fetch(url)).text())

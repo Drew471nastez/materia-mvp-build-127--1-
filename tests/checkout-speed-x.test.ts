@@ -9,8 +9,8 @@
  *              once per request (layout and page), and the shop's reads start
  *              before the cart is read; the host lookup asks its independent
  *              reads together (held against a timed fake database).
- *   STRIPE     every checkout with a card form writes preconnects and a
- *              preload of Stripe.js into the head, before its Suspense; the
+ *   STRIPE     every checkout with a card form writes a preload of
+ *              Stripe.js into the head, before its Suspense; the
  *              preload's address is the one @stripe/stripe-js injects.
  *   PHYSICAL   the cart in the link is priced before the first frame through
  *              the quote route itself, and the page takes that answer instead
@@ -141,14 +141,14 @@ async function main() {
       return React.createElement("html", null, React.createElement("head"), React.createElement("body", null, "checkout"))
     }
     const html = renderToString(React.createElement(Page))
-    check("the head gets the preconnects and the script preload", html.includes(`rel="preload" href="${STRIPE_JS_URL}" as="script"`) || (html.includes('rel="preload"') && html.includes(STRIPE_JS_URL)), html.slice(0, 500))
-    check("and a connection to js.stripe.com", /rel="preconnect" href="https:\/\/js\.stripe\.com"/.test(html), html.slice(0, 500))
+    check("the head gets the script preload", html.includes(`rel="preload" href="${STRIPE_JS_URL}" as="script"`) || (html.includes('rel="preload"') && html.includes(STRIPE_JS_URL)), html.slice(0, 500))
+    check("and no preconnects to hosts only Stripe's own frames call (a partitioned socket nobody uses)", !/api\.stripe\.com|m\.stripe\.network/.test(html), html.slice(0, 500))
     const Physical = () => {
       stripeEarly({ script: false })
       return React.createElement("html", null, React.createElement("head"), React.createElement("body", null, "x"))
     }
     const phys = renderToString(React.createElement(Physical))
-    check("the physical checkout connects but does not fetch the file", /preconnect/.test(phys) && !phys.includes(STRIPE_JS_URL))
+    check("the physical checkout connects but does not fetch the file", /rel="preconnect" href="https:\/\/js\.stripe\.com"/.test(phys) && !phys.includes(STRIPE_JS_URL), phys.slice(0, 400))
     const product = read("app/checkout/page.tsx")
     const main = product.slice(product.indexOf("export default async function CheckoutPage"))
     check("the product checkout asks before its Suspense, not after its reads", main.indexOf("stripeEarly({ script: true })") > 0 && main.indexOf("stripeEarly({ script: true })") < main.indexOf("<Suspense"))

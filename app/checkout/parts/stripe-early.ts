@@ -4,10 +4,16 @@
  * ===========================================================================
  * The card form needs Stripe.js, and Stripe.js used to be asked for only
  * after this page's own scripts had arrived, run and drawn the form's
- * place: on a phone that was most of a second with the connection to
- * Stripe not even open. Called while the page renders on the server, these
- * write hints into the document's <head>, so the browser opens the
- * connections to Stripe and fetches Stripe.js beside the page's own files.
+ * place: on a phone that was two seconds and more with the connection to
+ * Stripe not even open. Called while the page renders on the server, this
+ * writes a preload into the document's <head>, so the browser opens the
+ * connection to js.stripe.com and fetches Stripe.js beside the page's own
+ * files.
+ *
+ * Only js.stripe.com. Stripe's API and metrics hosts are called from
+ * Stripe's own frames, and a browser keeps a frame's connections apart from
+ * the page's (network partitioning), so a preconnect from here would open a
+ * socket nothing uses.
  *
  * A preload only fetches. Nothing runs until stripe-loader.ts calls
  * loadStripe, which then finds the file already here: Stripe's Link
@@ -24,14 +30,11 @@ export const STRIPE_JS_URL = "https://js.stripe.com/clover/stripe.js"
 
 /**
  * `script: true` where the card form is drawn with the page (the product
- * checkout, the website checkout). The physical checkout shows Stripe only
- * after Pay, so it opens the connections and leaves the file to
+ * checkout, the website checkout): the file itself. The physical checkout
+ * shows Stripe only after Pay, so it only connects, and leaves the file to
  * physical-checkout.tsx, which loads it once the page is idle.
  */
 export function stripeEarly({ script }: { script: boolean }): void {
-  preconnect("https://js.stripe.com")
-  /* Stripe's frames call its API without cookies: the connection has to be the anonymous one to be reused. */
-  preconnect("https://api.stripe.com", { crossOrigin: "anonymous" })
-  preconnect("https://m.stripe.network")
   if (script) preload(STRIPE_JS_URL, { as: "script" })
+  else preconnect("https://js.stripe.com")
 }
