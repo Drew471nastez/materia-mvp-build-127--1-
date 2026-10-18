@@ -37,7 +37,7 @@ import { parseListingInput, safeHttpsUrl } from "../lib/themes/marketplace-admin
 import { ASSIGNABLE_PLANS, OVERRIDE_SQL_MISSING, effectivePlanId, isAssignablePlan, readPlanOverride, setPlanOverride } from "../lib/billing/plan-override"
 import { isReservedRootSegment } from "../lib/routes/reserved-segments"
 
-const root = join(__dirname, "..")
+const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 const code = (p: string) => stripComments(read(p))
 
