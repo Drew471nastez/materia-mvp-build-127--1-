@@ -243,7 +243,8 @@ export function PhysicalFulfillment({
   const [dialog, setDialog] = React.useState<Dialog>(null)
   const phone = useModalPhone()
   /* Labels bought with Shippo or EasyPost, read again whenever a shipment comes or goes: printed and voided from the shipment's card. */
-  const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? order.shipments.map((x) => `${x.id}:${x.status}`).join(",") : "")
+  /* Read on an order with no shipment too: a label bought whose items never got marked shipped is still on it. */
+  const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? ["order", ...order.shipments.map((x) => `${x.id}:${x.status}`)].join(",") : "")
 
   if (!order) {
     if (error) return <Notice className={className}>{error}</Notice>
@@ -496,7 +497,7 @@ export function PhysicalFulfillment({
                   {label.status === "void_pending" ? tt(" · void requested") : label.status === "void_rejected" ? tt(" · void refused") : ""}
                 </span>
                 {label.labelUrl && label.status === "purchased" ? (
-                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
+                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="-my-[7px] inline-flex h-8 items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
                     <Printer className="h-3.5 w-3.5" aria-hidden />
                     {tt("Print label")}
                   </a>
@@ -593,7 +594,7 @@ export function PhysicalFulfillment({
                 }}
               >
                 <Truck className="h-3.5 w-3.5" aria-hidden />
-                {tt("Mark as shipped")}
+                {tt("Ship with this label")}
               </button>
             ) : null}
           </div>
@@ -677,7 +678,7 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
     )
   }
   return (
-    <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1.5 pl-1.5 pr-1.5" data-tracking="">
+    <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1 pl-1.5 pr-1" data-tracking="">
       {/* The carrier's own logo (lib/physical/carriers.ts), a neutral mark for one we don't know. */}
       <CarrierLogo carrier={s.carrier} size={28} decorative={!!s.carrier} />
       <div className="min-w-0 flex-1">
@@ -691,13 +692,13 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
         type="button"
         aria-label={tt("Copy tracking number")}
         title={tt("Copy tracking number")}
-        className={cn(iconButton, "h-7 w-7 shrink-0")}
+        className={cn(iconButton, "h-8 w-8 shrink-0")}
         onClick={async () => onNotice?.((await copyText(s.trackingNumber!)) ? tt("Tracking number copied") : tt("Could not copy the tracking number"))}
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
       {s.trackingUrl ? (
-        <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-7 shrink-0 px-2.5 text-[12px]")}>
+        <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-8 shrink-0 px-2.5 text-[12px]")}>
           {tt("Track")}
           <ExternalLink className="h-3 w-3" />
         </a>
@@ -1125,7 +1126,7 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
         &minus;
       </button>
       <span className="min-w-[52px] text-center text-[13px] tabular-nums text-[#1a1a2e]" aria-live="polite">
-        {value} <span className="text-[#9ca3af]">{tt("of {max}", { max })}</span>
+        {value} <span className="text-[#6b7280]">{tt("of {max}", { max })}</span>
       </span>
       <button type="button" className={step} aria-label={tt("One more")} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
         +

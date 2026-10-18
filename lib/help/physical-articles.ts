@@ -1910,7 +1910,7 @@ const ARTICLES: Article[] = [
     title: "Ship your orders: from Unfulfilled to Delivered",
     summary: "What each order status means, how to fulfill items with tracking, send part of an order and print a packing slip.",
     keywords: ["fulfil", "fulfill", "fulfill items", "ship order", "tracking", "tracking number", "carrier", "mark as shipped", "delivered", "processing", "in progress", "packing slip", "partial", "split"],
-    related: ["tracking-and-order-status", "cancel-a-physical-order", "physical-order-emails"],
+    related: ["shipping-labels-and-fulfillment", "tracking-and-order-status", "cancel-a-physical-order", "physical-order-emails"],
     body: [
       { type: "figure", figure: "order-steps", caption: "Every physical order moves through four steps." },
       {
@@ -1942,7 +1942,7 @@ const ARTICLES: Article[] = [
       { type: "p", text: "What happens next: the buyer gets a shipping email with a Track your package button, the stock leaves your shelf, and the order moves to Shipped." },
       shot("order-shipped", "A fulfilled shipment: USPS with its tracking number, a Track button, the items, and a Mark as delivered button.", "A sent shipment, with its tracking."),
       { type: "h", text: "Buy a label instead" },
-      { type: "p", text: "With Shippo or EasyPost connected in Settings > Integrations, Fulfill items has Buy a label next to Add tracking. Pick the box, press Get rates, pick a rate and press Buy label. The label opens to print, the tracking number goes on the shipment by itself, and the buyer gets the shipping email. The label is charged to your Shippo or EasyPost account." },
+      { type: "p", text: `With Shippo or EasyPost connected in Settings > Integrations, Fulfill items has Buy a label next to Add tracking. Pick the box, press Get rates, pick a rate and press Buy label. The label opens to print, the tracking number goes on the shipment by itself, and the buyer gets the shipping email. The label is charged to your Shippo or EasyPost account. Printing again, voiding and every other way to ship: ${link("shipping-labels-and-fulfillment", "Shipping labels and every way to fulfill an order")}.` },
       shot("label-buy", "Fulfill items with Buy a label chosen: From and To addresses, the package, the total weight and USPS rates with their prices.", "Buy a label, inside Fulfill items."),
       { type: "h", text: "Sending an order in several parcels" },
       { type: "p", text: "Fulfill what you have now and leave the rest. The order stays Partially shipped, with what's left in the Unfulfilled card. Fulfill the rest later the same way. Each parcel gets its own tracking and its own email." },
@@ -1964,6 +1964,160 @@ const ARTICLES: Article[] = [
           "Pressing Fulfill before the parcel is posted. The buyer gets the email at once.",
           "Typing the tracking number with spaces from the receipt. That's fine: spaces are taken out for you.",
           "Turning off Send shipment details to the buyer by accident. Leave it on unless you've told the buyer yourself.",
+        ],
+      },
+    ],
+  },
+  {
+    section: "Orders and tracking",
+    slug: "shipping-labels-and-fulfillment",
+    updated: "2026-10-18",
+    title: "Shipping labels and every way to fulfill an order",
+    summary: "Buy and print a label from the order, ship by hand with or without tracking, send part of an order, deliver locally, and void a label.",
+    keywords: ["label", "labels", "shipping label", "buy label", "print label", "reprint", "void label", "refund label", "shippo", "easypost", "postage", "fulfill", "fulfillment", "manual fulfillment", "mark as shipped", "partial", "no tracking", "local delivery", "pickup", "dropship", "print on demand"],
+    related: ["ship-your-orders", "tracking-and-order-status", "units-and-packages", "fulfillment-methods", "integrations"],
+    howTo: "Buy a label",
+    body: [
+      { type: "p", text: "Every paid order that ships has an Unfulfilled card on its order page with a Fulfill items button. What you do from there depends on who sends the parcel and how. This page covers all of it, from buying a label in Storelib to a parcel you hand over yourself." },
+      { type: "h", text: "The ways an order gets fulfilled" },
+      {
+        type: "table",
+        head: ["How it ships", "What you do in Storelib", "What the buyer gets"],
+        rows: [
+          ["You post it with postage bought elsewhere", "Fulfill items, pick the carrier, type the tracking number", "The shipping email with a Track your package button"],
+          ["You buy the label in Storelib", "Fulfill items, Buy a label, pick a rate, print", "The same email. The tracking number goes on by itself"],
+          ["You post it without tracking", "Fulfill items, choose Local delivery / no tracking", "An email that it's on its way, with no tracking link"],
+          ["You deliver it yourself (Local delivery)", "Fulfill items when it leaves, Mark as delivered when it's handed over", "An email that you're bringing it"],
+          ["The buyer collects it (Local pickup)", "Mark ready for pickup, then Mark picked up", "An email with your pickup address and instructions"],
+          ["A warehouse, supplier or print partner ships it", "Usually nothing: they get the order and send the tracking back", "The shipping email when their tracking arrives"],
+          ["You print labels in ShipStation", "Nothing in Storelib: the order goes to ShipStation", "The shipping email when ShipStation reports the tracking"],
+        ],
+      },
+      { type: "p", text: `Who ships each product is set on the product and in Settings. See ${link("fulfillment-methods", "Fulfillment methods")}.` },
+
+      { type: "h", text: "Before your first label" },
+      {
+        type: "steps",
+        items: [
+          "Open Settings and choose Integrations. Open Shippo or EasyPost, paste your API key from that service and press Connect. A test key (shippo_test_ for Shippo, EZTK for EasyPost) buys free sample labels, so you can try everything first.",
+          "Check your location has its full address: Settings > Locations. The label's From address is read from it.",
+          "Save the boxes you use: Settings > Shipping and delivery, under Packages. Mark the one you use most as the default.",
+          "Give each product its weight on the product page. Storelib adds up the items and the empty box for you.",
+        ],
+      },
+      { type: "note", text: "Labels are charged to your Shippo or EasyPost account at their rates. Storelib adds nothing, and the buyer never pays for your label." },
+
+      { type: "h", text: "Buy a label" },
+      {
+        type: "steps",
+        items: [
+          "Open Orders and press the order.",
+          "On the Unfulfilled card, press Fulfill items.",
+          "Check the quantities. Lower one to send only part of the order now.",
+          "Press Buy a label at the top of the window.",
+          "Check From and To. Pick the package, or choose Custom size and type the box's size.",
+          "Check the total weight. It follows the items you chose, plus the box. Weighed it yourself? Type the real weight.",
+          "Press Get rates. The rates come back cheapest first. If Shippo or EasyPost finds something wrong with the address, it's shown above them.",
+          "Pick a rate and press Buy label.",
+        ],
+      },
+      shot("label-buy", "Fulfill items with Buy a label chosen: the items, From and To addresses, the Mug box package, a total weight of 1.52 kg, USPS rates with their prices, and a Buy label button.", "Buy a label, inside Fulfill items."),
+      { type: "p", text: "What happens next: the label opens as a PDF in a new tab, ready to print on a 4 by 6 inch label printer or plain paper. The items are marked shipped with the label's carrier and tracking number, the stock leaves your shelf, and the buyer gets the shipping email if Send shipment details to the buyer is on." },
+      shot("label-bought", "The Label bought window: USPS Ground Advantage for $8.12, the tracking number, The items are marked shipped, and a Print label button.", "Right after buying. Print label opens it again if the new tab was blocked."),
+
+      { type: "h", text: "Print a label again" },
+      { type: "p", text: "The label stays on its shipment. Press Print label under the tracking number, or Print label in the shipment's menu (the three dots). You can print it as many times as you need." },
+      shot("order-label-shipment", "A fulfilled shipment with its USPS tracking number and Track button, then Shippo label, $8.12 your cost, and a Print label link, above the items and Mark as delivered.", "A shipment with its label."),
+
+      { type: "h", text: "Fulfill without buying a label" },
+      { type: "p", text: "Bought postage at the counter, or use your own carrier account? Fulfill items works the same way without a label." },
+      {
+        type: "steps",
+        items: [
+          "Press Fulfill items. With Shippo or EasyPost connected, keep Add tracking chosen at the top.",
+          "Choose the carrier, then type the tracking number. Storelib makes the tracking link for the carriers it knows. For any other, choose Other and paste its tracking link.",
+          "No tracking number? Choose Local delivery / no tracking. The buyer is told it's on its way, without a link.",
+          "Keep Send shipment details to the buyer on and press Fulfill.",
+        ],
+      },
+      { type: "p", text: `Forgot the number? Add it later with Add tracking on the shipment. Fixing a typo: Edit tracking in the shipment's menu. More in ${link("ship-your-orders", "Ship your orders")}.` },
+
+      { type: "h", text: "Send part of an order" },
+      {
+        type: "list",
+        items: [
+          "In Fulfill items, lower the quantity of what isn't ready. Only what's left on the steppers ships.",
+          "With a label, the weight drops with the items, so the rate is for this parcel only.",
+          "The order shows Partially shipped. What's left stays on the Unfulfilled card for later, and the buyer's email says the rest follows.",
+          "Several parcels at once, each with its own tracking? Press Ship in more than one parcel. Labels are bought one parcel at a time.",
+        ],
+      },
+
+      { type: "h", text: "Local delivery and pickup" },
+      { type: "p", text: "When the buyer chose Local delivery, you bring it yourself, so there's no carrier and no label. Fulfill items starts on Local delivery / no tracking. Press Fulfill when it leaves, then Mark as delivered on the shipment when it's handed over." },
+      shot("fulfill-local-delivery", "Fulfill items for a local delivery order: the items, Carrier set to Local delivery / no tracking, the buyer's email preview saying We're delivering it to you ourselves, and Fulfill 3 items.", "A local delivery order: no label to buy."),
+      { type: "p", text: `For pickup, the card's button is Mark ready for pickup, and the buyer gets your address and instructions. Press Mark picked up when they've collected it. See ${link("local-pickup", "Local pickup")}.` },
+
+      { type: "h", text: "When a partner ships it" },
+      { type: "p", text: "Items sent by a warehouse, supplier or print partner are on a card of their own that says who ships them. They get the order by email, webhook or their own connection, and print their own label, so Buy a label isn't offered for those items. Their tracking comes back to the order and the buyer is emailed. If they send you the number instead, press Fulfill items and add it yourself." },
+
+      { type: "h", text: "Void a label" },
+      { type: "p", text: "Bought the wrong size, or the order changed? Void the label before the carrier scans it." },
+      {
+        type: "steps",
+        items: [
+          "On the shipment, open the menu (the three dots) and press Void label.",
+          "Confirm. The items go back to Unfulfilled and back in stock for this order. The buyer is not emailed.",
+          "Buy a new label with Fulfill items, or fulfill another way.",
+        ],
+      },
+      {
+        type: "list",
+        items: [
+          "Some carriers refund at once and the label shows as voided. Others refund only once they confirm it wasn't used, which can take a few days or a few weeks. The shipment shows void requested until then.",
+          "If the carrier refuses (the label was scanned, or its void window passed), the shipment shows void refused. Contact Shippo or EasyPost about that label.",
+          "A parcel already in transit can't have its label voided.",
+        ],
+      },
+
+      { type: "h", text: "A label that isn't on a shipment" },
+      { type: "p", text: "If you cancel a shipment that has a label, or the items couldn't be marked shipped right after buying, the label isn't lost. It gets its own card on the order, so you can still print it, ship with it or void it to get your money back." },
+      shot("label-loose", "A card reading Label not on a shipment: USPS Ground Advantage with its tracking number, Shippo label, $8.12 your cost, and the buttons Void label, Print label and Ship with this label.", "A paid label always stays in reach."),
+      {
+        type: "list",
+        items: [
+          "Ship with this label sends the items the label was bought for, with its tracking number. Only what's still unfulfilled ships.",
+          "The buyer is emailed only if they never heard about this parcel. A shipment cancelled and sent again with the same label isn't news to them.",
+        ],
+      },
+
+      { type: "h", text: "What the buyer sees" },
+      {
+        type: "list",
+        items: [
+          "The shipping email with the carrier, the tracking number and a Track your package button. For part of an order, it says the rest follows.",
+          "Their order page, with each shipment, a Track package button and, when Storelib follows the parcel, every carrier scan.",
+          "Out for delivery and delivered emails as the parcel moves.",
+          "Never your label's price. It's your cost, kept on the order for you.",
+        ],
+      },
+      { type: "p", text: `More in ${link("tracking-and-order-status", "Tracking and the buyer's order page")}.` },
+
+      { type: "h", text: "Common problems" },
+      {
+        type: "table",
+        head: ["What you see", "What to do"],
+        rows: [
+          ["No Buy a label button", "Connect Shippo or EasyPost in Settings > Integrations. It's also not offered for pickup, local delivery, or items a partner ships."],
+          ["Add a location with its address", "Open Settings > Locations and fill in the street, city and country of the place you ship from."],
+          ["The order has no complete delivery address", "Press Edit on the order's Shipping address card, fix it, then get rates again."],
+          ["Enter the parcel's weight", "Your products have no weight saved. Weigh the packed parcel and type it, or add weights to the products."],
+          ["No rates came back", "Check the box size and weight, and both addresses. Make sure the carriers are turned on in your Shippo or EasyPost account."],
+          ["That rate has expired", "Rates last a short while. Press Get rates again and pick one."],
+          ["Insufficient balance, or a card error", "Shippo's or EasyPost's own words. Top up or fix billing in that account, then buy again."],
+          ["Test key: the label is a free sample", "You connected a test key. Don't post a parcel with it. Replace the key with your live one in Settings > Integrations."],
+          ["The label was bought but the items could not be marked shipped", "Nothing is bought twice. Press Ship with this label on the label's card, or press Buy label again."],
+          ["This label purchase did not finish", "Check your Shippo or EasyPost account for a label on this order before buying another, then get rates again."],
         ],
       },
     ],

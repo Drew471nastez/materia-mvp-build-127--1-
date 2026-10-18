@@ -27,7 +27,7 @@ import "server-only"
  *   ship      a bought label left without a live shipment (its shipment was
  *             cancelled, or marking the items shipped failed after the
  *             purchase) ships them with its tracking: the order page shows
- *             such a label with Print, Mark as shipped and Void, so money
+ *             such a label with Print, Ship with this label and Void, so money
  *             spent on a label is never out of the seller's reach
  *
  * Not for a pickup order, nor one the seller delivers themselves (local
@@ -495,7 +495,7 @@ function stuckClaim(row: Record<string, any>, providerName: string): ShipOutcome
  * new shipment (orders-server fulfilItems: stock, status, timeline, the
  * buyer's shipping email), and the label tied to that shipment. Run right
  * after a purchase, again when a retried Buy finds the label bought but its
- * items never marked shipped, and from Mark as shipped on a label the order
+ * items never marked shipped, and from Ship with this label on a label the order
  * shows without a shipment (its shipment was cancelled, or saving it
  * failed). Keyed on the label, so a repeat never ships twice.
  */
@@ -547,7 +547,7 @@ async function finishShipping(
   return { ok: true, order: shipped.order, label }
 }
 
-/** Mark as shipped, on a bought label the order shows without a shipment. */
+/** Ship with this label, on a bought label the order shows without a shipment. */
 export async function shipLabel(db: Db, creatorId: string, checkoutId: string, labelId: string, input: { notifyBuyer?: boolean }, deps: LabelDeps): Promise<ShipOutcome> {
   const { data: row } = await db.from("shipping_labels").select("*").eq("id", labelId).eq("creator_id", creatorId).eq("checkout_id", checkoutId).maybeSingle()
   if (!row) return { ok: false, error: "Label not found.", status: 404 }

@@ -117,7 +117,7 @@ export async function voidLabelRequest(orderId: string, labelId: string): Promis
   return r.ok ? { ok: true, order: r.data.order, label: r.data.label } : { ok: false, error: r.error }
 }
 
-/** Mark as shipped, on a bought label the order shows without a shipment. */
+/** Ship with this label, on a bought label the order shows without a shipment. */
 export async function shipLabelRequest(orderId: string, labelId: string, notifyBuyer: boolean): Promise<{ ok: true; order: any; label: LabelView } | { ok: false; error: string }> {
   const r = await api<{ order: any; label: LabelView }>(labelPath(orderId), { body: { action: "ship", labelId, notifyBuyer } })
   return r.ok ? { ok: true, order: r.data.order, label: r.data.label } : { ok: false, error: r.error }
@@ -320,7 +320,7 @@ export function ShipModeSwitch({ flow }: { flow: LabelFlow }) {
             role="radio"
             aria-checked={on}
             onClick={() => flow.setMode(m)}
-            className={cn("h-9 rounded-lg text-[13.5px] font-medium transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]", on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+            className={cn("h-9 rounded-lg text-[13.5px] font-medium transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]", on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#4b5563] hover:text-[#1a1a2e]")}
             data-ship-mode-option={m}
           >
             {m === "tracking" ? tt("Add tracking") : tt("Buy a label")}
@@ -379,13 +379,13 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
         <div className="grid grid-cols-3 gap-2" data-label-custom="">
           {(["l", "w", "h"] as const).map((k) => (
             <Field key={k} label={k === "l" ? tt("Length") : k === "w" ? tt("Width") : tt("Height")}>
-              <DecimalInput value={flow.dims[k]} onChange={(v) => flow.setDims({ ...flow.dims, [k]: v })} suffix={flow.dUnit} />
+              <DecimalInput value={flow.dims[k]} onChange={(v) => flow.setDims({ ...flow.dims, [k]: v })} suffix={<Unit>{flow.dUnit}</Unit>} />
             </Field>
           ))}
         </div>
       ) : null}
       <Field label={tt("Total weight")} hint={o.itemsGrams > 0 ? tt("The items as sold, plus the empty package.") : tt("These products have no weight saved: weigh the parcel.")}>
-        <DecimalInput value={flow.weight} onChange={flow.setWeight} suffix={flow.wUnit} data-label-weight="" />
+        <DecimalInput value={flow.weight} onChange={flow.setWeight} suffix={<Unit>{flow.wUnit}</Unit>} data-label-weight="" />
       </Field>
 
       {flow.quote && flow.quote.warnings.length > 0 ? (
@@ -430,6 +430,11 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
       {flow.error ? <Notice>{flow.error}</Notice> : null}
     </div>
   )
+}
+
+/* The unit inside a size or weight field, dark enough to read (4.8:1 on white). */
+function Unit({ children }: { children: React.ReactNode }) {
+  return <span className="text-[#6b7280]">{children}</span>
 }
 
 function Bought({ label }: { label: LabelView }) {

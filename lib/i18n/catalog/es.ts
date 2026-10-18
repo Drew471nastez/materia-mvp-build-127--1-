@@ -10,7 +10,7 @@ const words: Record<string, string> = {
  "Its items aren't marked shipped. Ship them with it, or void it to get the money back.": "Sus artículos no están marcados como enviados. Envíalos con ella o anúlala para recuperar el dinero.",
  "Nothing on this order is waiting for it. Void it to get the money back.": "Nada en este pedido la necesita. Anúlala para recuperar el dinero.",
  "Items marked shipped": "Artículos marcados como enviados",
- "Mark as shipped": "Marcar como enviado",
+ "Ship with this label": "Enviar con esta etiqueta",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Conecta Shippo o EasyPost en Ajustes › Integraciones para ver tarifas.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Elige un paquete predeterminado en Ajustes › Envíos › Paquetes para ver tarifas.",
  "Add a carrier": "Añadir un transportista",
