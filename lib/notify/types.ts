@@ -337,6 +337,8 @@ export type SkipReason =
   | "DAILY_CAP"
   /** Not a type that may be an email (lib/notify/email-budget.ts): the bell and the phone carry it. */
   | "EMAIL_BUDGET"
+  /** The data carries an amount but no currency to write it in: held for a person, never sent with a guess (lib/money/held-email). */
+  | "CURRENCY_UNKNOWN"
 
 /** One job the orchestrator plans: a notification to one person, now or later. */
 export interface PlannedJob {

@@ -11,6 +11,7 @@ import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checko
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
+import { METADATA_TOO_LARGE_MESSAGE, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
@@ -431,6 +432,14 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     ...(business?.ok ? businessToMetadata(business.value) : {}),
     ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
   }
+  /* Stripe's 50 keys, checked once for every key above (lib/checkout/stripe-metadata): never charged without its record. */
+  const fitted = fitStripeMetadata(metadata)
+  if (!fitted.ok) {
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    await releaseSales(admin, heldCopies, saleHolder)
+    return json({ error: METADATA_TOO_LARGE_MESSAGE, code: "order_too_large" }, 400)
+  }
+  for (const key of fitted.dropped) delete metadata[key]
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {

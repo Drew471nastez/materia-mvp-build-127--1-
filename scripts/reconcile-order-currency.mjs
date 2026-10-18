@@ -25,6 +25,13 @@
  *     node scripts/reconcile-order-currency.mjs [--limit 2000] [--creator <uuid>] [--json]
  *
  * Without the Stripe key it still lists rows with no currency (unknown).
+ *
+ * --prices adds a second read-only list: published products of stores that
+ * never chose a currency (so they sell in the platform's), whose price is a
+ * whole number times 4.6. That factor is the old dollars-to-lei conversion
+ * (supabase/sql/RUN_CURRENCY_RON.sql), so such a price may be a lei amount
+ * now charged in dollars (165.60 = 36 x 4.6). A list to look at, nothing more:
+ * many honest prices are multiples of 4.6 too.
  */
 const args = process.argv.slice(2)
 const opt = (name, fallback = null) => {
@@ -34,6 +41,7 @@ const opt = (name, fallback = null) => {
 const LIMIT = Math.max(1, Math.min(50_000, Number(opt("--limit", "2000")) || 2000))
 const CREATOR = opt("--creator")
 const AS_JSON = args.includes("--json")
+const PRICES = args.includes("--prices")
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -94,8 +102,22 @@ async function main() {
     else out.mismatch.push({ id: o.id, recorded, stripe: paid.currency, amount_cents: o.amount_cents, stripe_amount: paid.amount })
   }
 
+  /* Products that may carry a lei amount under the platform's currency (see --prices above). Read only. */
+  const suspect = []
+  if (PRICES) {
+    const chosen = new Set((await rest(`store_settings?select=creator_id,currency&currency=not.is.null&limit=50000`)).map((r) => r.creator_id))
+    for (let offset = 0; ; offset += 1000) {
+      const page = await rest(`products?select=id,creator_id,title,price_cents,type&status=eq.published&order=created_at.desc&limit=1000&offset=${offset}${filter}`)
+      for (const p of page) {
+        if (chosen.has(p.creator_id) || !(p.price_cents > 0)) continue
+        if (p.price_cents % 460 === 0) suspect.push({ id: p.id, creator_id: p.creator_id, title: String(p.title ?? "").slice(0, 60), price_cents: p.price_cents, if_lei_then_usd_about: (p.price_cents / 460).toFixed(2) })
+      }
+      if (page.length < 1000) break
+    }
+  }
+
   if (AS_JSON) {
-    console.log(JSON.stringify({ read: rows.length, proven: out.proven.length, mismatch: out.mismatch, unknown: out.unknown, unprovable: out.unprovable.length }, null, 2))
+    console.log(JSON.stringify({ read: rows.length, proven: out.proven.length, mismatch: out.mismatch, unknown: out.unknown, unprovable: out.unprovable.length, ...(PRICES ? { pricesToCheck: suspect } : {}) }, null, 2))
     return
   }
   console.log(`Read ${rows.length} orders${CREATOR ? ` of store ${CREATOR}` : ""}. Nothing was changed.`)
@@ -105,6 +127,10 @@ async function main() {
   console.log(`  nothing to compare:    ${out.unprovable.length}${STRIPE_KEY ? "" : "   (no STRIPE_SECRET_KEY given)"}`)
   for (const u of out.unknown.slice(0, 200)) console.log(`  unknown   ${u.id}  ${u.created_at}  ${u.amount_cents}`)
   for (const m of out.mismatch.slice(0, 200)) console.log(`  mismatch  ${m.id}  row ${m.recorded} ${m.amount_cents}  stripe ${m.stripe} ${m.stripe_amount}`)
+  if (PRICES) {
+    console.log(`\nProducts to look at (price a whole number x 4.6, store never chose a currency): ${suspect.length}`)
+    for (const p of suspect.slice(0, 200)) console.log(`  price     ${p.id}  ${p.price_cents}  (${p.if_lei_then_usd_about} if it was meant in lei x 4.6)  ${p.title}`)
+  }
 }
 
 main().catch((e) => {

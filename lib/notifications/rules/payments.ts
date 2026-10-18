@@ -219,7 +219,7 @@ export const payoutFailed: Rule = {
       out.push({
         subject: p.id,
         period: "",
-        title: `A payout of ${money(p.amountCents, p.currency)} failed`,
+        title: money(p.amountCents, p.currency) ? `A payout of ${money(p.amountCents, p.currency)} failed` : "A payout failed",
         message: `${why} Update your bank details, then cash out again.`,
         pushTitle: "A payout failed",
         href: PAYOUTS,
@@ -247,7 +247,7 @@ export const disputeOpened: Rule = {
       .map((d) => ({
         subject: d.id,
         period: "",
-        title: `A buyer disputed a ${money(d.amountCents, d.currency)} payment`,
+        title: money(d.amountCents, d.currency) ? `A buyer disputed a ${money(d.amountCents, d.currency)} payment` : "A buyer disputed a payment",
         message: "Your share of the sale is held while the buyer's bank decides. Storelib answers the bank; add your evidence on Payouts.",
         pushTitle: "A buyer opened a dispute",
         href: PAYOUTS,

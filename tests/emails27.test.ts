@@ -358,7 +358,8 @@ async function transactional() {
     { id: "p1", title: "Ceramic mug", thumbnail_url: PIC, creator_id: CREATOR },
     { id: "p2", title: "Linen apron", thumbnail_url: null, creator_id: CREATOR },
   ]
-  db.tables.orders = db.tables.orders.map((o: Row, i: number) => ({ ...o, creator_id: CREATOR, amount_cents: i === 0 ? 4100 : 4200, buyer_email: "maria@example.com", buyer_first_name: "Maria", buyer_last_name: "Popescu", stripe_session_id: "cs_27", status: "paid", fee_cents: 100 }))
+  /* Changed on purpose (currency round AN): the orders say the currency they were paid in, as every real order does; one without it now holds its sale email. */
+  db.tables.orders = db.tables.orders.map((o: Row, i: number) => ({ ...o, creator_id: CREATOR, amount_cents: i === 0 ? 4100 : 4200, buyer_email: "maria@example.com", buyer_first_name: "Maria", buyer_last_name: "Popescu", stripe_session_id: "cs_27", status: "paid", fee_cents: 100, currency: "usd" }))
   const n0 = outbox.length
   const res = await sendSellerNotificationEmail(db as any, { orderId: "o1", creatorId: CREATOR, sellerEmail: "andrew@andrew.test", productTitle: "Ceramic mug", buyerFirstName: "Maria", buyerLastName: "Popescu", buyerEmail: "maria@example.com", amountCents: 8300, feeCents: 200, baseUrl: "https://storelib.com" })
   const sale = outbox[n0]

@@ -17,6 +17,7 @@
  */
 
 import { ORDER_PAGE_WORDS } from "./order-page"
+import { MARKETPLACE_WORDS } from "./marketplace"
 
 /** The sentences every curated language must have: what a buyer sees on almost every checkout. */
 export const CORE_SENTENCES: readonly string[] = [
@@ -166,5 +167,5 @@ const pl: Record<string, string> = {
 
 /** The curated checkout words of each language but Romanian (./ro.ts), with the buyer's order pages after paying (./order-page.ts; these win where both have a sentence). */
 export const CORE_DICTIONARIES: Readonly<Record<string, Record<string, string>>> = Object.fromEntries(
-  Object.entries({ es, fr, de, it, pt, "pt-BR": ptBR, nl, pl }).map(([lang, words]) => [lang, { ...ORDER_PAGE_WORDS[lang], ...words }]),
+  Object.entries({ es, fr, de, it, pt, "pt-BR": ptBR, nl, pl }).map(([lang, words]) => [lang, { ...ORDER_PAGE_WORDS[lang], ...MARKETPLACE_WORDS[lang], ...words }]),
 )

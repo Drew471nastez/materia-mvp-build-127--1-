@@ -50,6 +50,8 @@ function safeName(name?: string) {
 
 /** One receipt email, whatever the payment held. Built by receiptEmailModel in lib/email.tsx. */
 export interface ReceiptEmailModel {
+  /** An amount is owed in it but the order kept no currency: the email is held, never sent (lib/money/held-email). */
+  heldForCurrency?: boolean
   firstName: string
   sellerName: string
   /** The creator's one picture, as every email of theirs carries it. Null draws their initial. */
