@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers"
 import { APP_SEEN_COOKIE, OPEN_CARD_COOKIE, handoffCard } from "@/lib/platform/open-in-app"
+import { carriesSignIn } from "@/lib/auth/no-session-paths"
 
 /**
  * ===========================================================================
@@ -31,6 +32,8 @@ export async function GET(request: Request) {
     quietCookie: jar.get(OPEN_CARD_COOKIE)?.value ?? null,
     appSeenCookie: jar.get(APP_SEEN_COOKIE)?.value ?? null,
     appStoreId: process.env.NEXT_PUBLIC_IOS_APP_STORE_ID || null,
+    /* Only whether a sign in is there, by its cookie's name; nothing of it is read. */
+    signedIn: carriesSignIn(jar.getAll().map((c) => c.name)),
   })
   return new Response(JSON.stringify({ card }), {
     status: 200,

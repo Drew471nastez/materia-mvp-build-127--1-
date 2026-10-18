@@ -8560,3 +8560,73 @@ dialog:focus,
   background-color: rgba(148, 163, 184, 0.45);
   border-radius: 999px;
 }
+
+/*
+  Round AK: the sidebar's bar is slim and fades in while the pointer
+  is over the sidebar and out when it leaves (a registered colour,
+  so it eases instead of snapping). Its column is always kept
+  (scrollbar-gutter), so a group opening into an overflow never
+  narrows the rows or jumps them sideways; the nav's right padding
+  is 6px less to match, so the rows sit where they always did.
+*/
+@property --sl-nav-thumb {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(0, 0, 0, 0);
+}
+.sidebar-nav {
+  --sl-nav-thumb: rgba(0, 0, 0, 0);
+  transition: --sl-nav-thumb 260ms ease;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+.sidebar-nav:hover,
+.sidebar-nav:focus-within {
+  --sl-nav-thumb: rgba(16, 24, 40, 0.16);
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: var(--sl-nav-thumb);
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(16, 24, 40, 0.3);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .sidebar-nav {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sl-nav-thumb) transparent;
+  }
+}
+
+/*
+  Round AK: the computer's sidebar going into a section and back out. The
+  owner: it felt "too direct", a cut, but must not be a distracting slide.
+  Half the phone's travel (12px), a little quicker, from 0.55 opacity so the
+  white under it never flashes; transform and opacity only.
+*/
+.wb-desk-panel[data-dir="in"] {
+  animation: wb-desk-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wb-desk-panel[data-dir="back"] {
+  animation: wb-desk-back 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes wb-desk-in {
+  from { opacity: 0.55; transform: translate3d(12px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes wb-desk-back {
+  from { opacity: 0.55; transform: translate3d(-12px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-desk-panel[data-dir="in"],
+  .wb-desk-panel[data-dir="back"] { animation: none; }
+}

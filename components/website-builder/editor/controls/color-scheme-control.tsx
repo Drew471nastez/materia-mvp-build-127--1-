@@ -54,8 +54,8 @@ export function ColorSchemeControl({ value, onChange, fallback, label }: { value
   const schemes = list ?? nativeSchemes(env?.themeSettings ?? null)
   if (schemes.length === 0) return <p className={NOTE}>This theme saved no colour schemes to pick from. It draws this section with its own.</p>
   const current = schemes.some((s) => s.id === value) ? value : schemes.some((s) => s.id === fallback) ? fallback! : schemes[0].id
-  /* Every scheme can be edited from here: Edit sits inside the field, at its right, and opens Theme settings at this scheme. */
-  const edit = env?.openColorSchemes ? () => env.openColorSchemes?.(current) : undefined
+  /* Every scheme can be edited from here: Edit is in the open list, on the chosen row and on the row under the pointer, and opens Theme settings at that scheme (round AK: the closed field is a plain selector). */
+  const edit = env?.openColorSchemes ? (id: string) => env.openColorSchemes?.(id) : undefined
   return (
     <div data-scheme-row="">
       <SchemeSelect list={schemes} current={current} onChange={onChange} label={label ?? "Color scheme"} onEdit={edit} />
@@ -73,7 +73,7 @@ function nativeSchemes(theme: Record<string, unknown> | null): Scheme[] {
   })
 }
 
-function SchemeSelect({ list, current, onChange, label, onEdit }: { list: Scheme[]; current: string; onChange: (v: string) => void; label: string; onEdit?: () => void }) {
+function SchemeSelect({ list, current, onChange, label, onEdit }: { list: Scheme[]; current: string; onChange: (v: string) => void; label: string; onEdit?: (id: string) => void }) {
   const [open, setOpen] = React.useState(false)
   const [active, setActive] = React.useState(-1)
   const listRef = React.useRef<HTMLDivElement>(null)
@@ -125,14 +125,11 @@ function SchemeSelect({ list, current, onChange, label, onEdit }: { list: Scheme
                 choose(list[active].id)
               }
             }}
-            className={cn(
-              "flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background pl-1.5 text-left transition-colors hover:border-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 max-sm:h-11",
-              onEdit ? "pr-[64px]" : "pr-2",
-            )}
+            className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background pl-1.5 pr-2 text-left transition-colors hover:border-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 max-sm:h-11"
           >
             <Swatch scheme={chosen} />
             <span className="min-w-0 flex-1 truncate text-[13px] text-foreground max-sm:text-[15px]">{chosen.name}</span>
-            {onEdit ? null : <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />}
+            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150", open && "rotate-180")} />
           </button>
         }
       >
@@ -156,29 +153,39 @@ function SchemeSelect({ list, current, onChange, label, onEdit }: { list: Scheme
                 onMouseMove={() => active !== i && setActive(i)}
                 onClick={() => choose(s.id)}
                 className={cn(
-                  "flex h-10 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 transition-colors duration-75 max-sm:h-12",
+                  "group/scheme flex h-10 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 transition-colors duration-75 max-sm:h-12",
                   i === active ? "bg-muted" : "",
                 )}
               >
                 <Swatch scheme={s} size="list" />
                 <span className={cn("min-w-0 flex-1 truncate text-[13px] text-foreground max-sm:text-[15px]", on && "font-medium")}>{s.name}</span>
-                {on ? <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Chosen" /> : null}
+                {onEdit ? (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setOpen(false)
+                      onEdit(s.id)
+                    }}
+                    aria-label={`Edit ${s.name}`}
+                    data-scheme-edit=""
+                    className={cn(
+                      "h-6 shrink-0 rounded-[6px] bg-white px-2.5 text-[12px] font-medium text-[#374151] shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_1px_2px_rgba(16,24,40,0.06)] transition-[opacity,box-shadow,color] duration-150 hover:text-[#1a1a2e] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.2),0_1px_3px_rgba(16,24,40,0.08)] max-sm:h-8 max-sm:px-3 max-sm:text-[13px]",
+                      on || i === active ? "opacity-100" : "pointer-events-none opacity-0 group-hover/scheme:pointer-events-auto group-hover/scheme:opacity-100",
+                    )}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+                <span className="flex w-[18px] shrink-0 items-center justify-center">
+                  {on ? <Check className="h-3.5 w-3.5 text-foreground/70" strokeWidth={2.2} aria-label="Chosen" /> : null}
+                </span>
               </div>
             )
           })}
         </div>
       </FieldPopover>
-      {onEdit ? (
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label={`Edit ${chosen.name}`}
-          data-scheme-edit=""
-          className="absolute right-1.5 top-1/2 h-6 -translate-y-1/2 rounded-[6px] bg-white px-2.5 text-[12px] font-medium text-[#374151] shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_1px_2px_rgba(16,24,40,0.06)] transition-[box-shadow,color] hover:text-[#1a1a2e] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.2),0_1px_3px_rgba(16,24,40,0.08)] active:translate-y-[calc(-50%+1px)] max-sm:h-8 max-sm:px-3 max-sm:text-[13px]"
-        >
-          Edit
-        </button>
-      ) : null}
     </div>
   )
 }

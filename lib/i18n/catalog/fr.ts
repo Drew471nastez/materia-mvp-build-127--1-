@@ -10010,7 +10010,16 @@ const words: Record<string, string> = {
  "Could not load. Try again in a moment.": "Chargement impossible. Réessaie dans un instant.",
  "Nothing yet. Add something below, or the AI keeps notes as you work.": "Rien pour l'instant. Ajoute quelque chose ci-dessous, ou l'IA prend des notes pendant que tu travailles.",
  "Forget this": "Oublier ceci",
- "Add something to remember": "Ajoute quelque chose à retenir"
+ "Add something to remember": "Ajoute quelque chose à retenir",
+ "Sections from your apps. Manage an app on its own page.": "Sections de tes applis. Gère chaque appli sur sa propre page.",
+ "Responsiveness": "Réactivité",
+ "Visual stability": "Stabilité visuelle",
+ "First content": "Premier contenu",
+ "Fast for most visitors": "Rapide pour la plupart des visiteurs",
+ "Slow for many visitors": "Lent pour beaucoup de visiteurs",
+ "Some visitors wait too long": "Certains visiteurs attendent trop longtemps",
+ "Fewer measures": "Moins de mesures",
+ "More measures": "Plus de mesures"
 }
 
 export default words

@@ -94,6 +94,33 @@ function metricName(m: RumMetric): string {
   }
 }
 
+/**
+ * WHAT EACH MEASURE MEANS, IN WORDS (round AK, the owner: "too complex for
+ * people"). The big label is what a visitor feels; Google's short name
+ * stays beside it, small, for anyone who knows it.
+ */
+function plainName(m: RumMetric): string {
+  switch (m) {
+    case "lcp":
+      return tt("Loading")
+    case "inp":
+      return tt("Responsiveness")
+    case "cls":
+      return tt("Visual stability")
+    case "fcp":
+      return tt("First content")
+    case "ttfb":
+      return tt("Server response")
+    default:
+      return tt("Page changes")
+  }
+}
+
+/** One sentence for the whole page, from the three. */
+function overallLine(r: PerfRating): string {
+  return r === "good" ? tt("Fast for most visitors") : r === "poor" ? tt("Slow for many visitors") : tt("Some visitors wait too long")
+}
+
 function metricShort(m: RumMetric): string {
   return m === "nav" ? tt("Page changes") : SHORT[m]
 }
@@ -122,10 +149,10 @@ function PeriodPicker({ value, onChange }: { value: PerfRange; onChange: (r: Per
           type="button"
           data-perf-period=""
           aria-label={tt("Period: last {period}", { period: rangeLabel(value) })}
-          className="inline-flex h-9 items-center gap-2 self-start rounded-lg border border-white/10 bg-white/[0.06] px-3 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_1px_2px_rgba(0,0,0,0.3)] transition-colors hover:bg-white/[0.09] data-[state=open]:bg-white/[0.12] md:h-8 md:text-[13px]"
+          className="inline-flex h-9 min-w-[156px] items-center gap-2 self-start rounded-lg border border-white/10 bg-white/[0.06] px-3 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_1px_2px_rgba(0,0,0,0.3)] transition-colors duration-150 hover:bg-white/[0.09] data-[state=open]:bg-white/[0.12] md:h-8 md:text-[13px]"
         >
           <CalendarDays aria-hidden className="h-3.5 w-3.5 text-white/60" strokeWidth={1.9} />
-          {tt("Last {period}", { period: rangeLabel(value) })}
+          <span className="min-w-0 flex-1 text-left">{tt("Last {period}", { period: rangeLabel(value) })}</span>
           <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 text-white/50 transition-transform duration-200", open && "rotate-180")} />
         </button>
       </PopoverTrigger>
@@ -311,7 +338,7 @@ function Segmented<T extends string>({
       <span
         aria-hidden
         data-segment-plate=""
-        className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[7px] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:rounded-md"
+        className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[7px] bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.25)] transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none md:rounded-md"
         style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
       />
       {options.map((o) => {
@@ -387,13 +414,8 @@ function Bands({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) 
     <span className="mt-3 block" data-bands="">
       {/* One element painted with a gradient, a 2px gap of the card between bands: a new period repaints it and lays nothing out. */}
       <span className="block h-1.5 overflow-hidden rounded-full" role="img" aria-label={said} title={said} style={{ background: bandGradient(parts) }} />
-      <span className="mt-1.5 flex items-center gap-3 text-[12px] tabular-nums text-white/50">
-        {parts.map(([r, s]) => (
-          <span key={r} className="inline-flex min-w-[40px] items-center gap-1" aria-hidden>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[r] }} />
-            {percent(s)}
-          </span>
-        ))}
+      {/* Round AK: the three shares are in the bar's label and its tooltip; under it only how it changed. */}
+      <span className="mt-1.5 flex min-h-[16px] items-center text-[12px] tabular-nums text-white/50">
         <Delta metric={metric} figure={figure} />
       </span>
     </span>
@@ -455,9 +477,9 @@ function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMet
     >
       {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
       <span className="flex items-start justify-between gap-3 lg:block">
-        <span className="min-w-0">
-          <span className="block text-[14.5px] font-semibold text-white">{metricShort(metric)}</span>
-          <span className="block truncate text-[12.5px] text-white/50">{metricName(metric)}</span>
+        <span className="min-w-0" title={metricName(metric)}>
+          <span className="block text-[14.5px] font-semibold text-white">{plainName(metric)}</span>
+          <span className="block truncate text-[12px] text-white/50">{metricShort(metric)}</span>
         </span>
         {/* On a phone a column of its own width, its words from its left edge: a new figure is written in place and nothing beside it moves. */}
         {figure.p75 === null ? (
@@ -498,7 +520,7 @@ function MinorTab({ metric, figure, selected, onSelect }: { metric: RumMetric; f
       )}
     >
       {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
-      <span className="block truncate text-[12.5px] text-white/50">{metricShort(metric)}</span>
+      <span className="block truncate text-[12.5px] text-white/50">{plainName(metric)}{metric === "nav" ? null : <span className="text-white/30"> · {metricShort(metric)}</span>}</span>
       {figure.p75 === null ? (
         <span className="mt-0.5 block truncate text-[13px] text-white/50" data-not-enough="">{tt("Not enough visits yet")}</span>
       ) : (
@@ -896,6 +918,8 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
   const [device, setDevice] = useState<DeviceView>("all")
   const [metric, setMetric] = useState<RumMetric>("lcp")
   const [dim, setDim] = useState<Dim>("path")
+  /* FCP, TTFB and page changes, folded under "More measures" until asked for (round AK). */
+  const [more, setMore] = useState(false)
   const keyOf = useCallback((r: PerfRange) => `${ctx.installId}|${r}`, [ctx.installId])
   const [state, dispatch] = useReducer(loadReducer<Answer>, null, () => initialLoad<Answer>(lastAnswers.get(`${ctx.installId}|7d`) ?? null, `${ctx.installId}|7d`))
   const asked = useRef(0)
@@ -1001,7 +1025,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
         ? tt("Safari does not report INP, so {share} of page views are not in it.", { share: percent(report.noInpShare) })
         : null
     const minor: RumMetric[] = s.metrics.nav.samples > 0 ? ["fcp", "ttfb", "nav"] : ["fcp", "ttfb"]
-    const order: RumMetric[] = [...CORE_METRICS, ...minor]
+    const order: RumMetric[] = more ? [...CORE_METRICS, ...minor] : [...CORE_METRICS]
     const overall = overallRating(s)
     const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
       const next = segmentKey(order, metric, e.key)
@@ -1014,9 +1038,17 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
       <div className={cn("transition-opacity duration-200", view.dim && "opacity-50")} aria-busy={view.busy} data-perf-body="" data-dim={view.dim ? "" : undefined}>
         <section className="relative mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-6" data-perf-summary="">
           <LoadingLine active={view.busy} />
-          <div className="flex min-h-[52px] items-center gap-x-4 gap-y-1 border-b border-white/[0.07] px-4 py-3 md:px-6" data-overall={overall ?? "none"}>
-            <h2 className="text-[14px] font-semibold text-white/90">{tt("Core Web Vitals")}</h2>
-            {overall ? <RatingMark rating={overall} className="text-[14px] text-white" /> : <span className="text-[13px] text-white/50">{tt("Not enough visits yet")}</span>}
+          {/* Round AK: one plain sentence first, Google's name for it small beside. */}
+          <div className="flex min-h-[56px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.07] px-4 py-3 md:px-6" data-overall={overall ?? "none"}>
+            {overall ? (
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-white">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[overall] }} aria-hidden />
+                {overallLine(overall)}
+              </h2>
+            ) : (
+              <h2 className="text-[14px] font-semibold text-white/80">{tt("Not enough visits yet")}</h2>
+            )}
+            <span className="text-[12.5px] text-white/50">{tt("Core Web Vitals")}</span>
           </div>
           <div ref={tabs} role="tablist" aria-label={tt("Measure")} onKeyDown={onTabKey}>
             <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0" data-vitals="">
@@ -1024,11 +1056,28 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
                 <CoreTab key={m} metric={m} figure={s.metrics[m]} selected={metric === m} onSelect={() => setMetric(m)} note={m === "inp" ? inpNote : undefined} />
               ))}
             </div>
-            <div className={cn("grid divide-x divide-white/[0.07] border-t border-white/[0.07]", minor.length === 3 ? "grid-cols-3" : "grid-cols-2")} data-minor="">
-              {minor.map((m) => (
-                <MinorTab key={m} metric={m} figure={s.metrics[m]} selected={metric === m} onSelect={() => setMetric(m)} />
-              ))}
-            </div>
+            {more && (
+              <div className={cn("grid divide-x divide-white/[0.07] border-t border-white/[0.07] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200", minor.length === 3 ? "grid-cols-3" : "grid-cols-2")} data-minor="">
+                {minor.map((m) => (
+                  <MinorTab key={m} metric={m} figure={s.metrics[m]} selected={metric === m} onSelect={() => setMetric(m)} />
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-white/[0.07] px-4 md:px-6">
+            <button
+              type="button"
+              aria-expanded={more}
+              data-perf-more=""
+              onClick={() => {
+                if (more && !CORE_METRICS.includes(metric as PerfMetric)) setMetric("lcp")
+                setMore(!more)
+              }}
+              className="inline-flex h-9 items-center gap-1.5 text-[12.5px] font-medium text-white/55 transition-colors hover:text-white/85"
+            >
+              {more ? tt("Fewer measures") : tt("More measures")}
+              <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", more && "rotate-180")} />
+            </button>
           </div>
           <div role="tabpanel" aria-label={metricName(metric)} className="border-t border-white/[0.07] px-2 pb-3 pt-3 md:px-4" data-perf-panel="">
             <div className="flex min-h-[24px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 pb-1">

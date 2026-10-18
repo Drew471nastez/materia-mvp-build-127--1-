@@ -6964,7 +6964,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const chosenIndex =
         canvasInsertAt != null ? bodyGapToListIndex(current, canvasInsertAt) : pendingInsertIndex
       const next = {
-        anchor: writingAnchor(current, { chosenIndex, selectedId: selectedSectionId }),
+        anchor: writingAnchor(current, { chosenIndex, selectedId: selectedSectionId, prompt }),
         prompt,
         page: currentPageRef.current,
       }
@@ -10442,7 +10442,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   <div
                     key={sidebarPanelKey}
                     ref={desktopPanelRef}
-                    className="h-full"
+                    /* Round AK: going into a section reads as going in, short and quiet (wb-desk-panel in globals.css). */
+                    className="h-full wb-desk-panel"
+                    data-dir={panelDir > 0 ? "in" : panelDir < 0 ? "back" : "none"}
                   >
                     <TranslationEditingProvider value={translationEditing}>{renderSidebarContent()}</TranslationEditingProvider>
                   </div>
