@@ -54,7 +54,8 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const numbers = {}
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--disable-dev-shm-usage", "--autoplay-policy=no-user-gesture-required"] })
+/* A computer with a mouse: headless Chromium otherwise reports no pointer, and the drawn scrollbar is only for a fine one. */
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--disable-dev-shm-usage", "--autoplay-policy=no-user-gesture-required", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
 
 async function open({ width, height, phone = false, dpr = 1, states = null }) {
   const page = await browser.newPage()
@@ -62,6 +63,16 @@ async function open({ width, height, phone = false, dpr = 1, states = null }) {
   /* The editor's layout mounts the drawn scrollbar (app/website-builder/layout.tsx); the probe mounts it when asked. */
   await page.evaluateOnNewDocument(() => { window.PROBE_RAIL = true })
   await page.setViewport({ width, height, isMobile: phone, hasTouch: phone, deviceScaleFactor: dpr })
+  /* A computer has a mouse: headless reports none, and the drawn scrollbar is only for a fine pointer (slim-scroll-rail.tsx). */
+  if (!phone) {
+    const cdp = await page.createCDPSession()
+    await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "pointer", value: "fine" }, { name: "hover", value: "hover" }] }).catch(() => {})
+    /* Headless Chromium answers "(pointer: fine)" false whatever is emulated; a computer answers true. */
+    await page.evaluateOnNewDocument(() => {
+      const own = window.matchMedia.bind(window)
+      window.matchMedia = (q) => (q.replace(/\s/g, "") === "(pointer:fine)" ? { matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false } : own(q))
+    })
+  }
   await page.goto(origin, { waitUntil: "load" })
   await page.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 60_000 })
   return page
@@ -174,23 +185,30 @@ try {
 
       /* ── SCROLLBAR ── */
       console.log("\nThe sidebar's scrollbar")
+      /* A laptop's height, where the sidebar's list is longer than the panel. */
+      await page.setViewport({ width: 1440, height: 520 })
+      /* And a list longer than the panel whatever the probe's page holds: the thumb's size and place are what is measured, not the page. */
+      await page.evaluate(() => { const s = document.querySelector("[data-wb-sidebar-scroll]"); const pad = document.createElement("div"); pad.style.height = "1600px"; pad.setAttribute("aria-hidden", "true"); s.appendChild(pad) })
+      await sleep(500)
       const scroller = await page.$("[data-wb-sidebar-scroll]")
       const sb = await scroller.boundingBox()
       await page.mouse.move(sb.x + sb.width / 2, sb.y + 200)
       await page.mouse.wheel({ deltaY: 120 })
+      await page.evaluate(() => { const s = document.querySelector("[data-wb-sidebar-scroll]"); if (s.scrollTop === 0) s.scrollTop = 120 })
       await sleep(450)
       const thumb = await page.evaluate(() => {
         const t = document.querySelector("[data-slim-scroll-thumb]")
+        if (!t) return { room: 0, missing: true }
         const s = document.querySelector("[data-wb-sidebar-scroll]")
         const r = t.getBoundingClientRect()
         const q = s.getBoundingClientRect()
         const cs = getComputedStyle(t)
-        return { w: r.width, h: r.height, gap: Math.round((q.right - r.right) * 10) / 10, opacity: Number(cs.opacity), radius: cs.borderTopLeftRadius, colour: cs.backgroundColor, room: s.scrollHeight - s.clientHeight }
+        return { w: r.width, h: r.height, gap: Math.round((q.right - r.right) * 10) / 10, opacity: Number(cs.opacity), radius: cs.borderTopLeftRadius, colour: cs.backgroundColor, room: s.scrollHeight - s.clientHeight, fine: matchMedia("(pointer: fine)").matches, rail: document.documentElement.classList.contains("slim-rail"), slim: s.classList.contains("wb-slim-scroll"), top: s.scrollTop }
       })
       numbers.scrollbar = thumb
       if (thumb.room > 1) {
         expect(thumb.w === 7, "the thumb is 7px wide (it was 4)", thumb.w)
-        expect(thumb.gap === 2, "2px in from the panel's edge", thumb.gap)
+        expect(thumb.gap === 2, "2px in from the panel's edge", thumb)
         expect(thumb.opacity > 0.9 && parseFloat(thumb.radius) >= 3.5, "shown while the pointer is in the panel, round at the ends", { opacity: thumb.opacity, radius: thumb.radius })
         await page.mouse.move(sb.x + sb.width - 4, thumb.h > 0 ? sb.y + 220 : sb.y + 200)
         await sleep(350)
