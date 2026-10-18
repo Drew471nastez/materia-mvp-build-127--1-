@@ -350,7 +350,9 @@ export function freeShippingFrom(profile: ShippingProfile | null | undefined, co
   if (!zone) return null
   let best: number | null = null
   for (const r of zone.rates) {
-    if (!r.active || r.kind === "carrier") continue
+    if (!r.active) continue
+    /* A carrier rate's price is only known at checkout, but its "free over" is the seller's own: checkout makes it free from there (ratePrice). */
+    if (r.kind === "carrier" && !(r.freeOverCents !== null && r.freeOverCents > 0)) continue
     let at: number | null = null
     if (r.kind === "free") at = r.minValue ?? 0
     else if (r.freeOverCents !== null && r.freeOverCents > 0) at = r.freeOverCents

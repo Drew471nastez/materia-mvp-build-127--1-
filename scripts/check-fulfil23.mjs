@@ -178,7 +178,7 @@ try {
       const text = await page.evaluate(() => document.body.innerText)
       const reload = await page.evaluate(() => [...document.querySelectorAll("button")].filter((b) => /reload/i.test(b.textContent ?? "")).length)
       expect(/Custom shipping profile/.test(text) && !/Reload/i.test(text) && reload === 0, 'no "Reload" after "Custom shipping profile", seen or hidden', `${reload} ${text.slice(-300)}`)
-      expect(/Local delivery and local pickup are set on each location, in Locations: local delivery from Studio, and pickup at Studio\./.test(text), "the line naming where local delivery and pickup are set", text.slice(-400))
+      expect(/Local delivery and pickup\s+Local delivery from Studio, and pickup at Studio\./.test(text), "the card naming where local delivery and pickup are set", text.slice(-400))
       expect((await sideways(page)) === 0 && errors.length === 0, "nothing scrolls sideways, no errors", errors.join(" "))
       await shot(page, `settings-delivery-${label}`)
       await page.close()

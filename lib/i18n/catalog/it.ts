@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "L'ordine paga la fascia raggiunta dal totale. Una fascia a 0 è spedizione gratuita da lì in poi.",
+ "The order pays the step its weight reaches, your default package included.": "L'ordine paga la fascia raggiunta dal suo peso, imballo predefinito incluso.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Ogni articolo paga la fascia raggiunta dal proprio peso, poi si sommano.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Prezzo in tempo reale dal tuo account Shippo o EasyPost per l'indirizzo dell'acquirente. Escluso se non risponde in tempo.",
+ "free": "gratis",
+ "each": "ciascuno",
+ "Local delivery and pickup": "Consegna locale e ritiro",
+ "For products that ship differently, like heavy or fragile items.": "Per i prodotti spediti in modo diverso, come articoli pesanti o fragili.",
+ "New zone": "Nuova zona",
+ "Every country not in another zone of this profile.": "Ogni paese che non è in un'altra zona di questo profilo.",
+ "States you leave out aren't shipped to, unless another zone has them.": "Gli stati esclusi non ricevono spedizioni, a meno che un'altra zona li includa.",
+ "Delete the {name} rate?": "Eliminare la tariffa {name}?",
+ "Name at checkout": "Nome al checkout",
+ "Live carrier rates appear here once {apps} is connected.": "Le tariffe in tempo reale del corriere compaiono qui quando {apps} è collegato.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Un codice servizio, come usps_priority. Vuoto: il più economico.",
+ "Always free": "Sempre gratis",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Collega Shippo o EasyPost in Impostazioni › Integrazioni per vedere le tariffe.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Imposta un pacco predefinito in Impostazioni › Spedizione › Pacchi per vedere le tariffe.",
  "Add a carrier": "Aggiungi un corriere",

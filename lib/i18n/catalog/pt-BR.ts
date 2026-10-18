@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "O pedido paga a faixa que o total alcança. Uma faixa com 0 é frete grátis a partir dali.",
+ "The order pays the step its weight reaches, your default package included.": "O pedido paga a faixa que o peso alcança, com sua embalagem padrão incluída.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Cada item paga a faixa que o próprio peso alcança, e depois tudo é somado.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Preço ao vivo da sua conta Shippo ou EasyPost para o endereço do comprador. Fica de fora se não responder a tempo.",
+ "free": "grátis",
+ "each": "cada",
+ "Local delivery and pickup": "Entrega local e retirada",
+ "For products that ship differently, like heavy or fragile items.": "Para produtos enviados de outro jeito, como itens pesados ou frágeis.",
+ "New zone": "Nova zona",
+ "Every country not in another zone of this profile.": "Todos os países que não estão em outra zona deste perfil.",
+ "States you leave out aren't shipped to, unless another zone has them.": "Estados que você deixar de fora não recebem envios, a menos que outra zona os tenha.",
+ "Delete the {name} rate?": "Excluir a tarifa {name}?",
+ "Name at checkout": "Nome no checkout",
+ "Live carrier rates appear here once {apps} is connected.": "As tarifas ao vivo da transportadora aparecem aqui quando {apps} estiver conectado.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Um código de serviço, como usps_priority. Vazio: o mais barato.",
+ "Always free": "Sempre grátis",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Conecte o Shippo ou o EasyPost em Configurações › Integrações para ver as tarifas.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Defina um pacote padrão em Configurações › Envio › Pacotes para ver as tarifas.",
  "Add a carrier": "Adicionar uma transportadora",

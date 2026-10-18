@@ -5,6 +5,22 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "The order pays the step its total reaches. A step at 0 is free shipping from there.": "El pedido paga el tramo que alcanza su total. Un tramo a 0 es envío gratis desde ahí.",
+ "The order pays the step its weight reaches, your default package included.": "El pedido paga el tramo que alcanza su peso, con tu paquete predeterminado incluido.",
+ "Each item pays the step its own weight reaches, then they are added up.": "Cada artículo paga el tramo que alcanza su propio peso, y luego se suman.",
+ "Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.": "Precio en directo de tu cuenta de Shippo o EasyPost para la dirección del comprador. Se omite si no responde a tiempo.",
+ "free": "gratis",
+ "each": "cada uno",
+ "Local delivery and pickup": "Entrega local y recogida",
+ "For products that ship differently, like heavy or fragile items.": "Para productos que se envían de otra forma, como artículos pesados o frágiles.",
+ "New zone": "Nueva zona",
+ "Every country not in another zone of this profile.": "Todos los países que no están en otra zona de este perfil.",
+ "States you leave out aren't shipped to, unless another zone has them.": "No se envía a los estados que dejes fuera, salvo que otra zona los incluya.",
+ "Delete the {name} rate?": "¿Eliminar la tarifa {name}?",
+ "Name at checkout": "Nombre en el pago",
+ "Live carrier rates appear here once {apps} is connected.": "Las tarifas en directo del transportista aparecen aquí cuando {apps} está conectado.",
+ "A service code, like usps_priority. Empty: the cheapest.": "Un código de servicio, como usps_priority. Vacío: el más barato.",
+ "Always free": "Siempre gratis",
  "Connect Shippo or EasyPost in Settings › Integrations to see rates.": "Conecta Shippo o EasyPost en Ajustes › Integraciones para ver tarifas.",
  "Set a default package in Settings › Shipping › Packages to see rates.": "Elige un paquete predeterminado en Ajustes › Envíos › Paquetes para ver tarifas.",
  "Add a carrier": "Añadir un transportista",
