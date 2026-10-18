@@ -7296,6 +7296,8 @@ const words: Record<string, string> = {
  "Theme default": "Predeterminado del tema",
  "Theme kind": "Tipo de tema",
  "Theme marketplace": "Tienda de temas",
+ "Explore more themes": "Explorar más temas",
+ "by {author}": "de {author}",
  "Theme settings": "Ajustes del tema",
  "Themes": "Temas",
  "Then": "Después",

@@ -7,6 +7,7 @@ import type { CreatorDetailPayload, CreatorRow, CreatorsPayload, OrderRow, Order
 import type { Action } from "./actions"
 import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
+import { PlanPanel } from "./panel-plan"
 import { ViewHeader } from "./shell"
 import { Button, DataList, Facts, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
 
@@ -142,7 +143,6 @@ export function CreatorView({ data, go, act }: Common & { data: CreatorDetailPay
           <Facts
             items={[
               { label: "Storefront", value: c.storePublished ? "Open" : "Closed" },
-              { label: "Plan", value: statusWord(c.plan) || "Free" },
               { label: "Spam review", value: statusWord(c.spamState) || "Not reviewed" },
               { label: "Creator id", value: short(c.id) },
               { label: "User id", value: c.userId ? short(c.userId) : "None" },
@@ -150,6 +150,8 @@ export function CreatorView({ data, go, act }: Common & { data: CreatorDetailPay
           />
         </Panel>
       </div>
+
+      <PlanPanel creatorId={c.id} />
 
       <Panel title="Products" meta={data.products ? `${num(data.products.length)}${data.products.length === 50 ? " newest" : ""}` : undefined}>
         {data.products ? (

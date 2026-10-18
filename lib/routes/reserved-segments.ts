@@ -94,6 +94,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   /* A team invite opened: /team/join (app/team/join). */
   "team",
   "terms",
+  /* The theme marketplace (storelib.com/themes) and its live preview frame (/theme-preview/<slug>). */
+  "theme-preview",
+  "themes",
   "u",
   "unsubscribe",
   "upgrade",
