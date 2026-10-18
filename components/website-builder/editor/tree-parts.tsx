@@ -117,9 +117,14 @@ export function TreeAddRow({
       {...rest}
     >
       <TreeSpacer />
-      {/* A small raised key with the plus in it: white, a hairline edge and a soft drop, pressed in a little under the pointer. */}
+      {/*
+        A small raised key with the plus in it: white, a hairline edge and a
+        soft drop. It does not move on the press: it used to sink a pixel and
+        swap its drop for an inset, which read as the plus bumping each time
+        Add section was clicked (the owner). The row's own grey is the press.
+      */}
       <span aria-hidden className="flex h-6 w-5 shrink-0 items-center justify-center max-sm:h-8">
-        <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[6px] bg-white text-[#4b5563] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] transition-[box-shadow,color,translate] duration-150 group-hover/add:text-[#1a1a2e] group-hover/add:shadow-[0_0_0_1px_rgba(16,24,40,0.16),0_2px_4px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] group-active/add:translate-y-px group-active/add:shadow-[0_0_0_1px_rgba(16,24,40,0.14),inset_0_1px_1px_rgba(16,24,40,0.08)] max-sm:h-[22px] max-sm:w-[22px]">
+        <span data-add-key="" className="flex h-[18px] w-[18px] items-center justify-center rounded-[6px] bg-white text-[#4b5563] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] transition-[box-shadow,color] duration-150 group-hover/add:text-[#1a1a2e] group-hover/add:shadow-[0_0_0_1px_rgba(16,24,40,0.16),0_2px_4px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] max-sm:h-[22px] max-sm:w-[22px]">
           <Plus className="h-3 w-3" strokeWidth={2.75} />
         </span>
       </span>

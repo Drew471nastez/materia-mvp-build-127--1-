@@ -116,7 +116,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, p
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { playCardEdges, playSidebarFold } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -1099,8 +1099,8 @@ export type DeviceMode = "desktop" | "mobile"
  */
 /** Full screen preview, remembered for the tab's session (see `fullScreen` in the editor). */
 const FULL_SCREEN_KEY = "wb:full-screen"
-/** How long the sidebar takes to fold away or come back. */
-const FULL_SCREEN_MS = 320
+/** The sidebar folding for full screen takes as long as every other switch of the canvas. */
+const FULL_SCREEN_MS = CANVAS_SWITCH_MS
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -3333,6 +3333,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the canvas, written straight to the element while the pointer moves
    * (a React render per pointer event is a sidebar that lags its handle)
    * and committed to state and storage on release.
+   *
+   * ONE WRITE A FRAME (round Z1, the owner: "even the dragging, adjusting
+   * the sidebar, make sure it's more smooth and clean"). A mouse reports
+   * more often than the screen draws, and each report was a new width for
+   * the sidebar and the canvas beside it, so a frame could lay the page out
+   * two or three times for one picture. The latest width is kept and written
+   * once in the next animation frame, the pointer is captured so a fast drag
+   * off the edge keeps its hold, and the panel is its own width (`flex-none`)
+   * so only the canvas reflows, the way a window being resized does.
    */
   const [sidebarWidth, setSidebarWidth] = useState(288)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
@@ -3356,13 +3365,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     document.body.style.cursor = "col-resize"
     document.body.style.userSelect = "none"
     let latest = startW
-    const onMove = (ev: PointerEvent) => {
-      latest = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)))
+    let written = startW
+    let frame = 0
+    const write = () => {
+      frame = 0
+      if (latest === written) return
+      written = latest
       if (sidebarRef.current) sidebarRef.current.style.width = `${latest}px`
       /* The fold around it (full screen) is capped at the width, so it moves with it. */
       if (sidebarFoldRef.current) sidebarFoldRef.current.style.maxWidth = `${latest}px`
     }
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)))
+      if (!frame) frame = requestAnimationFrame(write)
+    }
     const onUp = () => {
+      if (frame) cancelAnimationFrame(frame)
+      write()
       handle.removeEventListener("pointermove", onMove)
       handle.removeEventListener("pointerup", onUp)
       handle.removeEventListener("pointercancel", onUp)
@@ -3418,20 +3437,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
   /*
-    ONE LAYOUT, THEN ONLY TRANSFORMS. Desktop, phone and full screen change
-    the card's box once, and the page is drawn where it ends up in the first
-    frame. What moves after that is the card's edges (strips of white or of
-    the shelf shrinking to the new edge) and the sidebar (laid over the
-    canvas, nudged and faded), by transform and opacity on the compositor.
-    Nothing slides from a place it never was and the page is never dimmed
-    (lib/website-builder/canvas-switch.ts, scripts/check-view-switch.mjs).
-    The card's box is read once on the press, before the change, and once
-    after it.
+    THE CARD CHANGES SHAPE AS ONE THING, the way it did before round AJ.
+    Desktop, phone and full screen move the card's real box, a frame at a
+    time, and the page inside flows to each width on the way: the card's
+    size, corners and lift from the old look to the new one, and for full
+    screen the sidebar's fold closing by its own width with the panel slid
+    out along it, while the card grows into the room by flex. Each starts
+    from what is on screen at the press, read once before the change; the
+    end is read once after it (lib/website-builder/canvas-switch.ts,
+    scripts/check-view-switch.mjs).
   */
   const canvasFrameRef = useRef<HTMLDivElement | null>(null)
-  const switchFrom = useRef<DOMRect | null>(null)
+  const switchFrom = useRef<{ card: CardLook | null; fold: FoldLook | null } | null>(null)
   const switchCanvas = useCallback((apply: () => void) => {
-    switchFrom.current = canvasFrameRef.current?.getBoundingClientRect() ?? null
+    const card = canvasFrameRef.current
+    const fold = sidebarFoldRef.current
+    const panel = sidebarRef.current
+    switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
     apply()
   }, [])
   const lastView = useRef<{ device: string; full: boolean } | null>(null)
@@ -3441,10 +3463,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const from = switchFrom.current
     switchFrom.current = null
     if (!prev) return
-    if (prev.full !== fullView && sidebarFoldRef.current && sidebarRef.current) playSidebarFold(sidebarFoldRef.current, sidebarRef.current, fullView)
-    const host = canvasMainRef.current
-    const frame = canvasFrameRef.current
-    if (from && host && frame && prev.device !== device) playCardEdges(host, from, frame.getBoundingClientRect())
+    const fold = sidebarFoldRef.current
+    const panel = sidebarRef.current
+    if (prev.full !== fullView && fold && panel) {
+      const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
+      playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth)
+    }
+    const card = canvasFrameRef.current
+    if (from?.card && card && prev.device !== device) {
+      /* Its new look is the stylesheet's, read with nothing moving it. */
+      stopCanvasSwitch(card)
+      playCardMorph(card, from.card, readCardLook(card))
+    }
   }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
@@ -10391,14 +10421,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             className="relative flex-shrink-0 flex h-full overflow-visible"
             data-wb-sidebar-fold={fullView ? "folded" : "open"}
             aria-hidden={fullView || undefined}
-            /* Full screen folds the sidebar by its own width, so the canvas grows into the room rather than jumping. */
+            /*
+              Full screen folds the sidebar by its own width, so the canvas
+              grows into the room rather than jumping. These are where it
+              ends; the way there is played from where it was on screen
+              (playSidebarFold), a frame at a time.
+            */
             style={{
               maxWidth: fullView ? 0 : sidebarWidth,
-              opacity: fullView ? 0 : 1,
               /* And the 6px seam beside it, so the canvas meets the edge. */
               marginRight: fullView ? -6 : 0,
-              /* The width snaps (one layout, not one a frame); the panel is laid over the canvas, nudged and faded (playSidebarFold). */
-              transition: `opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
+              overflow: fullView ? "hidden" : undefined,
               pointerEvents: fullView ? "none" : undefined,
             }}
             {...(fullView ? { inert: true } : {})}
@@ -10412,10 +10445,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 grey runs behind it on the left as well as in the gap, and a
                 card with one square corner and one round one reads as a
                 mistake. Square at the bottom, where the shelf is open. */}
+            {/* Its own width, never squeezed: as the fold closes, or as the
+                sidebar is dragged, only the canvas beside it is laid out again. */}
             <div
               ref={sidebarRef}
-              className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-[20px]"
-              style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX }}
+              data-wb-sidebar-panel=""
+              className="flex-none flex flex-col min-h-0 overflow-hidden bg-white rounded-t-[20px]"
+              style={{ width: sidebarWidth, minWidth: SIDEBAR_MIN, maxWidth: SIDEBAR_MAX, opacity: fullView ? 0 : 1, transform: fullView ? `translateX(-${sidebarWidth}px)` : undefined }}
             >
               {/*
                 SECTIONS, PAGES AND THEME, AT THE TOP OF THE SIDEBAR THEY SWITCH.
@@ -10697,7 +10733,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  A section's `position: fixed` menu, its 100vh and its width
                  queries all answer to this card, never to the editor around
                  it (app/globals.css, lib/storelib-theme/storelib/css.ts). */
-              /* Never `transition-all`: a width animated here laid every section out again on every frame (10fps on a full page). Not the radius or the shadow either: each frame of those repainted the whole card. The size snaps once and its edges are carried by playCardEdges. Opacity only, for the code pane. */
+              /* Never `transition-all`: the size, the corners and the lift of a switch are played from where the card is on screen at the press (playCardMorph, canvas-switch.ts), which a transition cannot do when a second press lands mid way. Opacity only, for the code pane. */
               "wb-canvas-frame relative overflow-hidden transition-opacity duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.

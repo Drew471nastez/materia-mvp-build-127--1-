@@ -96,8 +96,8 @@ const STATE = () => ({
   fold: document.querySelector("[data-wb-sidebar-fold]")?.getAttribute("data-wb-sidebar-fold"),
   foldWidth: Math.round(document.querySelector("[data-wb-sidebar-fold]")?.getBoundingClientRect().width ?? -1),
   canvas: Math.round(document.getElementById("wb-preview-root").getBoundingClientRect().width),
-  pressed: document.querySelector("[data-wb-full-screen-switch]")?.getAttribute("aria-pressed"),
-  switchVisible: !!document.querySelector("[data-wb-full-screen-switch]")?.getBoundingClientRect().width,
+  pressed: document.querySelector("[data-wb-full-toggle]")?.getAttribute("aria-pressed"),
+  switchVisible: !!document.querySelector("[data-wb-full-toggle]")?.getBoundingClientRect().width,
   deviceVisible: !!document.querySelector("[data-wb-device-switch]")?.getBoundingClientRect().width,
   toolbar: !!document.querySelector(".wb-section-toolbar"),
   rings: document.querySelectorAll("#wb-preview-root span.wb-ring").length,
@@ -147,10 +147,10 @@ try {
   expect(before.fold === "open" && before.foldWidth > 200 && before.switchVisible && before.pressed === "false", "the switch sits beside desktop / phone, off", before)
 
   /* One icon cycles desktop, phone, large: phone first, then the click that is filmed goes to Large. */
-  await page.click("[data-wb-full-screen-switch]")
+  await page.click("[data-wb-full-toggle]")
   await sleep(500)
   const filmIn = page.evaluate(FILM, 700)
-  await page.click("[data-wb-full-screen-switch]")
+  await page.click("[data-wb-full-toggle]")
   const inFrames = await filmIn
   const foldIn = read(inFrames, "fold", -1)
   const canvasIn = read(inFrames, "canvas", 1)
@@ -191,7 +191,7 @@ try {
   console.log("\nphone editor, 390x844")
   const phone = await browser.newPage()
   await open(phone, { width: 390, height: 844 }, true)
-  const p = await phone.evaluate(() => ({ button: !!document.querySelector("[data-wb-full-screen-switch]") }))
+  const p = await phone.evaluate(() => ({ button: !!document.querySelector("[data-wb-full-toggle]") }))
   expect(!p.button, "not offered on a phone, where the canvas already fills the screen", p)
   await phone.close()
 } finally {

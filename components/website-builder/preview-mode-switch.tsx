@@ -389,6 +389,32 @@ export function CodePane({
     return () => window.clearTimeout(t)
   }, [visible])
 
+  /**
+   * ===========================================================================
+   *  HIDDEN, IT KEEPS ITS SIZE WHEN THE CANVAS CHANGES
+   * ===========================================================================
+   * The pane fills the canvas area, so every change of that area (full
+   * screen, the sidebar dragged wider) also resized the hidden frame, and
+   * the whole code page inside it was styled and laid out again in the same
+   * frame. Measured in the editor probe (scripts/check-view-switch.mjs): that
+   * was the 120 to 180ms before full screen moved, twice over (the frame's
+   * page restyled, then laid out again), for a page nobody could see.
+   *
+   * So once it is hidden it holds the size it had, read once, and the canvas
+   * moves without it. Shown again, it fills the area as before.
+   */
+  const paneRef = useRef<HTMLDivElement>(null)
+  const [held, setHeld] = useState<{ w: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    if (fullScreen || !(hidden && !visible)) {
+      setHeld(null)
+      return
+    }
+    const r = paneRef.current?.getBoundingClientRect()
+    if (r && r.width > 0 && r.height > 0) setHeld({ w: Math.round(r.width), h: Math.round(r.height) })
+    /* everShown: the pane is first drawn, already hidden, when it is warmed in idle time. */
+  }, [hidden, visible, fullScreen, everShown])
+
   // Escape leaves it, the way leaving any page over another one should.
   useEffect(() => {
     if (!fullScreen || !visible || !onClose) return
@@ -403,6 +429,9 @@ export function CodePane({
 
   const body = (
     <div
+      ref={paneRef}
+      data-code-pane={held ? "held" : visible ? "shown" : "hiding"}
+      style={held ? { right: "auto", bottom: "auto", width: held.w, height: held.h } : undefined}
       className={cn(
         /**
          * The editor's own surface, so nothing white shows around a dark

@@ -66,8 +66,8 @@ function panelBoxes(): DOMRect[] {
 function holesFor(box: DOMRect, panels: DOMRect[]): string | undefined {
   const holes = panels.map((p) => clip(p, box)).filter((r): r is DOMRect => !!r)
   if (!holes.length) return undefined
-  /* The outline's ring is drawn just outside its box (a 1.5px spread): the clip reaches 2px past it so the ring is kept. */
-  const o = 2
+  /* The outline's ring is drawn just outside its box (a 2px spread): the clip reaches 3px past it so the ring is kept. */
+  const o = 3
   const outer = `M${-o} ${-o}H${box.width + o}V${box.height + o}H${-o}Z`
   const cut = holes.map((h) => `M${h.left - box.left} ${h.top - box.top}H${h.right - box.left}V${h.bottom - box.top}H${h.left - box.left}Z`).join("")
   return `path(evenodd, "${outer}${cut}")`

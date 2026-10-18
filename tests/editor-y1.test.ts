@@ -8,17 +8,16 @@
  * scripts/check-view-switch.mjs and scripts/check-sidebar-fields.mjs; this
  * holds what can be checked without a browser:
  *
- *   EDGES    the strips that carry the card's edges between two boxes:
- *            white going narrower, the shelf's grey going wider, each shrinking
- *            toward where the edge now is, never overlapping
- *   SWITCH   the editor reads the card's box once before the change, moves
- *            only the sidebar or the edges, and animates no radius or shadow
+ *   MORPH    (round Z1, replacing Y1's edge strips) the card's own frames,
+ *            from the old box to the new one, corners and lift with it
+ *   SWITCH   the editor reads the card and the sidebar once before the change
+ *            and plays each from there
  *   FIELDS   the sidebar's text controls wrap rather than scroll sideways
  *
  * Run with:  npx tsx tests/editor-y1.test.ts
  */
 import { readCode, readSource } from "./_source"
-import { CARD_WHITE, SHELF_GREY, edgeStrips, type Box } from "@/lib/website-builder/canvas-switch"
+import { morphFrames, type CardLook } from "@/lib/website-builder/canvas-switch"
 
 let passed = 0
 let failed = 0
@@ -34,50 +33,40 @@ function check(label: string, ok: boolean, detail?: unknown) {
   }
 }
 
-console.log("\nEDGES: the card's edges carried from the old box to the new one")
+console.log("\nMORPH: the card itself goes from the old box to the new one (round Z1)")
 {
-  /* The desktop card, flush in a 1134 x 846 canvas, and the phone card centred in it. */
-  const desktop: Box = { left: 0, top: 0, right: 1134, bottom: 846 }
-  const phone: Box = { left: 372, top: 24, right: 762, bottom: 822 }
-
-  const narrower = edgeStrips(desktop, phone)
-  const side = (list: ReturnType<typeof edgeStrips>, s: string) => list.find((x) => x.side === s)
-  const l = side(narrower, "left")
-  const r = side(narrower, "right")
-  const t = side(narrower, "top")
-  const b = side(narrower, "bottom")
-  check("going to the phone: four strips of the card's own white", narrower.length === 4 && narrower.every((x) => x.color === CARD_WHITE), narrower)
-  check("the side strips fill from the old edge to the new one, the full height", !!l && l.left === 0 && l.width === 372 && l.top === 0 && l.height === 846 && !!r && r.left === 762 && r.width === 372)
-  check("and shrink inward, toward where the edge is now", l?.origin === "right" && r?.origin === "left" && l.axis === "x")
-  check("the top and bottom ones are only as wide as the phone, so nothing overlaps", !!t && t.left === 372 && t.width === 390 && t.height === 24 && t.origin === "bottom" && !!b && b.top === 822 && b.height === 24 && b.origin === "top")
-
-  const wider = edgeStrips(phone, desktop)
-  const wl = side(wider, "left")
-  const wr = side(wider, "right")
-  check("going to the desktop: strips of the shelf's grey over the new card", wider.length === 4 && wider.every((x) => x.color === SHELF_GREY), wider)
-  check("which shrink outward, toward the new edge", wl?.origin === "left" && wr?.origin === "right" && side(wider, "top")?.origin === "top" && side(wider, "bottom")?.origin === "bottom")
-  check("covering exactly the room the card gained", !!wl && wl.left === 0 && wl.width === 372 && !!wr && wr.left === 762 && wr.width === 372)
-
-  check("the same box twice: nothing to carry", edgeStrips(desktop, desktop).length === 0)
-  /* A canvas narrowed by the sidebar coming back while on the phone: only the sides that moved. */
-  const moved = edgeStrips({ left: 0, top: 0, right: 1428, bottom: 846 }, { left: 0, top: 0, right: 1134, bottom: 846 })
-  check("an edge that did not move gets no strip", moved.length === 1 && moved[0].side === "right" && moved[0].color === CARD_WHITE && moved[0].width === 294)
-  /* Rounded to a tenth of a pixel, as the stylesheet writes them. */
-  const odd = edgeStrips({ left: 0.333, top: 0, right: 1000.25, bottom: 800 }, { left: 300.111, top: 0, right: 700.777, bottom: 800 })
-  check("sizes are written to a tenth of a pixel", odd.every((x) => Number.isInteger(x.width * 10) && Number.isInteger(x.left * 10)), odd)
+  /*
+    Changed on purpose (round Z1). Y1 carried the card's edges with strips of
+    white and of the shelf laid over it; the owner found that "glitchy ...
+    flashy ... not accurate" and asked for the switch "like how it was before
+    a long time ago": the card's own box changing shape, the page flowing
+    with it. The strips are gone; what the strips promised (from the old box,
+    to the new one, nothing in between left over) is now asked of the card's
+    own frames.
+  */
+  const desktop: CardLook = { width: 1134, height: 846, radius: "20px 20px 0px 0px", shadow: "none" }
+  const phone: CardLook = { width: 390, height: 798, radius: "16px", shadow: "rgba(0, 0, 0, 0.06) 0px 0px 0px 1px" }
+  const frames = morphFrames(desktop, phone)
+  check("two frames: where it was and where it goes", frames.length === 2, frames)
+  check("from the old box, to the new one", frames[0].width === "1134px" && frames[0].height === "846px" && frames[1].width === "390px" && frames[1].height === "798px", frames)
+  check("its corners and its lift go with it, one object", frames[0].borderRadius === desktop.radius && frames[1].borderRadius === phone.radius && frames[0].boxShadow === "none" && frames[1].boxShadow === phone.shadow)
+  check("held centred, never shrunk by its row or capped by its own max-width on the way", frames.every((f) => f.alignSelf === "center" && f.flexShrink === "0" && f.maxWidth === "none"))
+  const odd = morphFrames({ ...desktop, width: 1000.333 }, { ...phone, width: 390.06 })
+  check("sizes are written to a tenth of a pixel", odd[0].width === "1000.3px" && odd[1].width === "390.1px", odd)
 }
 
-console.log("\nSWITCH: one layout, then only transforms")
+console.log("\nSWITCH: read once at the press, played from there")
 {
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
   const lib = readCode("lib/website-builder/canvas-switch.ts")
-  check("the card's box is read once on the press, before the change", /const switchCanvas = useCallback\(\(apply: \(\) => void\) => \{\s*\n\s*switchFrom\.current = canvasFrameRef\.current\?\.getBoundingClientRect\(\) \?\? null\s*\n\s*apply\(\)/.test(editor))
+  check("the card's look and the sidebar's are read once on the press, before the change", /const switchCanvas = useCallback\(\(apply: \(\) => void\) => \{[\s\S]{0,300}switchFrom\.current = \{ card: card \? readCardLook\(card\) : null, fold: fold && panel \? readFoldLook\(fold, panel\) : null \}\s*\n\s*apply\(\)/.test(editor))
   check("the size switch, the full screen button and Escape all go through it",
     /onClick=\{\(\) => switchCanvas\(\(\) => go\(next\.key\)\)\}/.test(editor) && /onClick=\{\(\) => switchCanvas\(\(\) => toggleCanvasFullScreen\(!fullView\)\)\}/.test(editor) && /switchCanvas\(\(\) => setFullScreen\(false\)\)/.test(editor))
-  check("full screen moves the sidebar; a size change moves the edges", /playSidebarFold\(sidebarFoldRef\.current, sidebarRef\.current, fullView\)/.test(editor) && /playCardEdges\(host, from, frame\.getBoundingClientRect\(\)\)/.test(editor))
-  check("the card is never slid or dimmed (the old glide is gone)", !/translateX\(\$\{fullView \? by : -by\}px\)/.test(editor) && !/opacity: 0\.55, transform: "scale\(0\.985\)"/.test(editor))
-  check("and animates no radius or shadow: a repaint of the whole card on every frame", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(editor))
-  check("the motion is transform and opacity alone", /el\.animate\(\[\{ transform: "none" \}, \{ transform: gone \}\]/.test(lib) && /panel\.animate\(\[\{ transform: "none", opacity: 1 \}, \{ transform: to, opacity: 0 \}\]/.test(lib) && !/width:.*animate|animate\([^)]*(width|left|height)/.test(lib))
+  check("full screen folds the sidebar from where it was; a size change morphs the card from its old look to its new one",
+    /playSidebarFold\(fold, panel, at, fullView \? 0 : sidebarWidth, fullView \? 0 : 1, sidebarWidth\)/.test(editor) && /stopCanvasSwitch\(card\)\s*\n\s*playCardMorph\(card, from\.card, readCardLook\(card\)\)/.test(editor))
+  check("the card is never slid or dimmed (the old glide is gone), and no strips are laid over it", !/translateX\(\$\{fullView \? by : -by\}px\)/.test(editor) && !/opacity: 0\.55, transform: "scale\(0\.985\)"/.test(editor) && !/playCardEdges|data-wb-switch-edge/.test(editor + lib))
+  check("no CSS transition on the card's size: a second press mid way turns it round from where it is", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(editor) && /function stop\(el: Element\)/.test(lib) && /stop\(card\)/.test(lib))
+  check("the panel slides with its fold and keeps its own width, so only the canvas is laid out again", /className="flex-none flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) && /const shift = \(w: number\) => `translateX\(\$\{r\(Math\.min\(0, w - panelWidth\)\)\}px\)`/.test(lib))
   check("reduced motion: nothing moves", (lib.match(/if \(reduced\(\) \|\|/g) ?? []).length === 2)
 }
 

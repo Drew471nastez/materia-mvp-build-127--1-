@@ -169,7 +169,7 @@ console.log("\nThe editor wires it up\n")
   )
   check("hover draws an outline and the section's name", /<CanvasHover enabled=/.test(page) && /wb-hover-chip/.test(read("components/website-builder/canvas-hover.tsx")))
   const shared = read("components/website-builder/sections/_shared.tsx")
-  check("the canvas selection is blue, as it was: ring, hover ring and badge", /inset 0 0 0 1\.5px #3b82f6/.test(shared) && /inset 0 0 0 1\.5px rgba\(59, 130, 246, 0\.5\)/.test(shared) && /background: "#3b82f6"/.test(shared) && !/8b5cf6|139, 92, 246/.test(shared))
+  check("the canvas selection is blue, as it was: ring, hover ring and badge", /inset 0 0 0 2px #3b82f6/.test(shared) && /inset 0 0 0 2px rgba\(59, 130, 246, 0\.5\)/.test(shared) && /background: "#3b82f6"/.test(shared) && !/8b5cf6|139, 92, 246/.test(shared))
   check("and the hover outline and chip wear the same blue", /\.wb-hover-outline \{[\s\S]{0,200}rgba\(59, 130, 246/.test(css) && /\.wb-hover-chip \{[\s\S]{0,300}background: #3b82f6/.test(css))
 }
 

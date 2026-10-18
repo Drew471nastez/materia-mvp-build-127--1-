@@ -1,46 +1,43 @@
 /**
  * ===========================================================================
- *  SWITCHING HOW THE CANVAS IS SHOWN, FRAME BY FRAME
+ *  SWITCHING HOW THE CANVAS IS SHOWN, AND DRAGGING THE SIDEBAR, FRAME BY FRAME
  * ===========================================================================
  * The owner: switching the editor's canvas to phone, back to desktop, or into
- * and out of full screen "is very glitchy, not smooth at all".
+ * and out of full screen is "very glitchy and bad and flashy and not
+ * accurate ... the wall frame and canvas should be very smooth ... like how it
+ * was before a long time ago. Even the dragging, adjusting the sidebar".
  *
  * The real editor (editor-probe-harness.mjs) at 1440 x 900, the real buttons
- * on the bar, and every switch filmed from the press for 800ms:
+ * on the bar pressed the way a hand presses them (pointer down, up, click),
+ * and every switch filmed from the press for 800ms:
  *
- *   frames        animation frames drawn, frames dropped against 60Hz, and
- *                 the longest gap between two of them
+ *   the card      its box on screen, every frame: left and right edge and
+ *                 width. Each edge must travel one way only, in steps (no
+ *                 frame moves an edge more than a third of the way), and the
+ *                 card is never blank (no frame with no width) or dimmed
+ *   the sidebar   its panel's left edge and strength, one way only
+ *   frames        frames drawn while it moves, frames dropped against 60Hz,
+ *                 the longest gap, and how long after the press it started
  *   long tasks    main thread tasks over 50ms (PerformanceObserver)
- *   shifts        the layout shift total over the switch
  *   remounted     sections drawn again from nothing (a new node where the
  *                 old one was): the page must be the same page, restyled
- *   the card      its left and right edge as seen on screen, every frame:
- *                 the view transition's own box while one runs (its
- *                 ::view-transition-group), the card's box otherwise. The
- *                 biggest single frame step as a share of the whole move,
- *                 whether either edge ever went back on itself, and how
- *                 long until it settled
- *   dimmed        the lowest opacity the card was shown at
  *
- * Numbers on a loaded machine are noisy; the shape (one move, no reversal, no
- * remount) is what is asserted. Measured in Y1, headless Chromium, software
- * rendering, three agents sharing four cores:
+ * and then the sidebar's edge dragged 220px out and back by the mouse, with
+ * every frame timed while it moves and the sidebar's width checked against
+ * the pointer at the end.
  *
- *   before  desktop to phone dimmed to 0.55, both edges jumped 375px in one
- *           frame and went back on themselves; into and out of full screen
- *           the page settled 425 to 520ms after the press, having been drawn
- *           somewhere else first; 14 checks failed
- *   after   every switch: never dimmed, no edge reversed, no edge step over
- *           22% of its move, 0 frames dropped while it moves (17 frames for a
- *           device switch, 14 to 18 for full screen), no section remounted.
- *           Full screen still waits on one 130 to 190ms task (the editor's
- *           render and layout) before its first frame, as it did before
+ * Headless Chromium draws in software, on a machine other agents share, so
+ * the times are noisy and slower than a real screen; the shape (one move,
+ * no reversal, no remount, few dropped frames) is what is asserted.
  *
- * An attempt with a document view transition measured worse here (300 to
- * 550ms before anything moved, a dozen frames dropped while it moved): its
- * capture works out every element's style several times a switch.
+ *   before (Y1, edge strips)   full screen: one 140 to 235ms frame before
+ *          anything moved, the card snapping 294px in a frame (share 1.0),
+ *          then only the sidebar fading; 9 to 11 frames dropped per switch
+ *   after  (Z1, the card's own box, a frame at a time)   see the summary
+ *          printed at the end of a run, recorded in the round's report
  *
  *   node scripts/check-view-switch.mjs
+ *   VS_FILM=1 node scripts/check-view-switch.mjs     (every frame printed)
  */
 import { createServer } from "node:http"
 import { readFileSync } from "node:fs"
@@ -69,72 +66,23 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const STRICT = process.env.REPORT_ONLY !== "1"
 
-/* Installed once: the observers, and a film started by the press. */
+/* Installed once: the observers. */
 const INSTALL = () => {
   window.__long = []
-  window.__shift = []
   try {
     new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push({ at: e.startTime, ms: Math.round(e.duration) }) }).observe({ type: "longtask" })
-  } catch {}
-  try {
-    new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__shift.push({ at: e.startTime, v: e.value }) }).observe({ type: "layout-shift" })
   } catch {}
   /* A frame inside the canvas (an imported theme draws in one) loading again is the page reloaded. */
   window.__frameLoads = 0
   document.addEventListener("load", (e) => { if (e.target && e.target.tagName === "IFRAME") window.__frameLoads++ }, true)
-  /* A view transition's own clock: when its pictures start to move (ready) and when they are done. */
-  window.__vts = []
-  const own = document.startViewTransition
-  if (typeof own === "function") {
-    document.startViewTransition = function (cb) {
-      const rec = { start: performance.now(), ready: null, finished: null }
-      window.__vts.push(rec)
-      const t = own.call(this, cb)
-      t.ready.then(() => { rec.ready = performance.now() }, () => {})
-      t.finished.then(() => { rec.finished = performance.now() }, () => {})
-      return t
-    }
-  }
 }
 
-/** Press `selector` and film the card for `ms`. */
+/** Press `selector` the way a hand does and film the card and the sidebar for `ms`. */
 const FILM = (selector, ms) => new Promise((resolve) => {
   const frame = document.querySelector(".wb-canvas-frame")
   const boxes = [...document.querySelectorAll("#wb-preview-root [data-section-box]")]
   for (const b of boxes) b.__probeSeen = true
   const loadsBefore = window.__frameLoads
-  const root = document.documentElement
-  const group = () => {
-    /* A view transition's box is a pseudo element: its size and place are read from its computed style. */
-    try {
-      const cs = getComputedStyle(root, "::view-transition-group(wb-canvas)")
-      const w = parseFloat(cs.width)
-      if (!w || cs.display === "none") return null
-      const m = new DOMMatrixReadOnly(cs.transform === "none" ? undefined : cs.transform)
-      return { left: m.m41, right: m.m41 + w, vt: true }
-    } catch {
-      return null
-    }
-  }
-  /*
-    WHERE THE CARD'S EDGES ARE SEEN, not where its box is: the box snaps once,
-    and the strips of white or grey laid over the gap (canvas-switch.ts
-    playCardEdges) carry the edge from the old box to the new one.
-  */
-  const seen = () => {
-    const r = frame.getBoundingClientRect()
-    let left = r.left
-    let right = r.right
-    for (const el of document.querySelectorAll("[data-wb-switch-edge]")) {
-      const er = el.getBoundingClientRect()
-      const card = el.getAttribute("data-wb-switch-color") === "card"
-      const side = el.getAttribute("data-wb-switch-edge")
-      if (side === "left") left = card ? Math.min(left, er.left) : Math.max(left, er.right)
-      if (side === "right") right = card ? Math.max(right, er.right) : Math.min(right, er.left)
-    }
-    return { left, right }
-  }
-  /* The sidebar's panel: where it is and how strongly it is drawn, its fold's opacity with its own. */
   const sidebar = document.querySelector("[data-wb-sidebar-fold]")
   const panel = () => {
     if (!sidebar) return {}
@@ -142,39 +90,36 @@ const FILM = (selector, ms) => new Promise((resolve) => {
     const r = (inner ?? sidebar).getBoundingClientRect()
     return { panelLeft: Math.round(r.left * 10) / 10, panelOpacity: Math.round(Number(getComputedStyle(sidebar).opacity) * Number(getComputedStyle(inner ?? sidebar).opacity) * 1000) / 1000 }
   }
-  const film = []
+  const shot = (t) => {
+    const r = frame.getBoundingClientRect()
+    return { t, left: Math.round(r.left * 10) / 10, right: Math.round(r.right * 10) / 10, width: Math.round(r.width * 10) / 10, height: Math.round(r.height * 10) / 10, opacity: Number(getComputedStyle(frame).opacity), visibility: getComputedStyle(frame).visibility, ...panel() }
+  }
+  const film = [shot(0)]
   let t0 = null
   const tick = (now) => {
-    if (t0 === null) t0 = now
-    const g = group()
-    const box = g ?? seen()
-    const p = panel()
-    film.push({ t: Math.round(now - t0), left: Math.round(box.left * 10) / 10, right: Math.round(box.right * 10) / 10, vt: !!box.vt, opacity: Number(getComputedStyle(frame).opacity), card: Math.round(frame.getBoundingClientRect().left * 10) / 10, ...p })
+    film.push(shot(Math.round(now - t0)))
     if (now - t0 < ms) requestAnimationFrame(tick)
     else {
       const after = [...document.querySelectorAll("#wb-preview-root [data-section-box]")]
-      const vt = window.__vts.find((v) => v.start >= pressAt) ?? null
-      resolve({ film, remounted: after.filter((b) => !b.__probeSeen).length, sections: after.length, frameLoads: window.__frameLoads - loadsBefore, vt: vt && { ready: vt.ready === null ? null : Math.round(vt.ready - pressAt), finished: vt.finished === null ? null : Math.round(vt.finished - pressAt) } })
+      resolve({ film, remounted: after.filter((b) => !b.__probeSeen).length, sections: after.length, frameLoads: window.__frameLoads - loadsBefore, pressMs: window.__pressMs })
     }
   }
-  /* Where it was, before the press: the first frame of the film. */
-  const r0 = frame.getBoundingClientRect()
-  film.push({ t: 0, left: Math.round(r0.left * 10) / 10, right: Math.round(r0.right * 10) / 10, vt: false, opacity: Number(getComputedStyle(frame).opacity), card: Math.round(r0.left * 10) / 10, ...panel() })
-  var pressAt = performance.now()
-  document.querySelector(selector).click()
+  const el = document.querySelector(selector)
+  const pressAt = performance.now()
+  t0 = pressAt
+  /* A hand's press: the editor's idle work (the section library's previews) waits on input, and a bare click() is no input. */
+  el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse", isPrimary: true }))
+  el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "mouse", isPrimary: true }))
+  el.click()
   /* How long the press itself held the main thread: the render and commit it caused. */
   window.__pressMs = Math.round(performance.now() - pressAt)
-  requestAnimationFrame((now) => {
-    t0 = pressAt
-    tick(now)
-  })
+  requestAnimationFrame(tick)
 })
 
-function read(result, pressAt, longs, shifts) {
+function read(result, longs) {
   const f = result.film
-  const dts = f.slice(1).map((x, i) => x.t - f[i].t)
+  const dts = f.slice(2).map((x, i) => x.t - f[i + 1].t)
   const dropped = dts.reduce((n, dt) => n + Math.max(0, Math.round(dt / 16.67) - 1), 0)
-  const longest = Math.max(...dts)
   const edge = (k) => {
     const from = f[0][k]
     const to = f[f.length - 1][k]
@@ -190,50 +135,42 @@ function read(result, pressAt, longs, shifts) {
     const settledAt = f.find((x, i) => f.slice(i).every((y) => Math.abs(y[k] - to) < 0.5))?.t ?? null
     return { from, to, distance: Math.round(distance), biggestStep: Math.round(biggest), share: distance ? Math.round((biggest / distance) * 100) / 100 : biggest ? 1 : 0, reversed, settledAt }
   }
-  /*
-    THE MOTION ITSELF, apart from the wait before it. It starts at the first
-    frame the card is anywhere new (or the transition's ready) and ends when
-    both edges have settled; frames dropped inside it are the stutter you see,
-    the time before it is the press answered late.
-  */
   const L = edge("left")
   const R = edge("right")
-  /* Full screen: the page snaps, and the motion is the sidebar's; otherwise the edges'. */
-  const panelMoves = Math.abs((f[f.length - 1].panelOpacity ?? 0) - (f[0].panelOpacity ?? 0)) > 0.01
-  const moved = panelMoves
-    ? f.findIndex((x, i) => i > 0 && x.panelOpacity !== f[1]?.panelOpacity && Math.abs((x.panelOpacity ?? 0) - (f[0].panelOpacity ?? 0)) > 0.005)
-    : f.findIndex((x, i) => i > 0 && (Math.abs(x.left - f[0].left) > 0.5 || Math.abs(x.right - f[0].right) > 0.5))
-  const startAt = result.vt?.ready ?? (moved > 0 ? f[moved].t : null)
-  const lastP = f[f.length - 1].panelOpacity ?? 0
-  const panelSettled = f.find((x, i) => f.slice(i).every((y) => Math.abs((y.panelOpacity ?? 0) - lastP) < 0.01 && Math.abs((y.panelLeft ?? 0) - (f[f.length - 1].panelLeft ?? 0)) < 0.5))?.t ?? 0
+  const P = edge("panelLeft")
   /* The sidebar's fade, only ever one way. */
+  const lastP = f[f.length - 1].panelOpacity ?? 0
   const pdir = Math.sign(lastP - (f[0].panelOpacity ?? 0))
   let panelReversed = false
   for (let i = 1; i < f.length; i++) if (pdir !== 0 && pdir * ((f[i].panelOpacity ?? 0) - (f[i - 1].panelOpacity ?? 0)) < -0.01) panelReversed = true
-  const endAt = Math.max(L.settledAt ?? 0, R.settledAt ?? 0, result.vt?.finished ?? 0, panelSettled)
-  const inMotion = f.filter((x) => startAt !== null && x.t >= startAt && x.t <= endAt)
+  /* The motion: from the first frame anything is somewhere new to the last frame anything moved. */
+  const moved = (x) => Math.abs(x.left - f[0].left) > 0.5 || Math.abs(x.right - f[0].right) > 0.5 || Math.abs((x.panelLeft ?? 0) - (f[0].panelLeft ?? 0)) > 0.5 || Math.abs((x.panelOpacity ?? 0) - (f[0].panelOpacity ?? 0)) > 0.005
+  const first = f.findIndex((x, i) => i > 0 && moved(x))
+  const same = (a, b) => Math.abs(a.left - b.left) < 0.5 && Math.abs(a.right - b.right) < 0.5 && Math.abs((a.panelLeft ?? 0) - (b.panelLeft ?? 0)) < 0.5 && Math.abs((a.panelOpacity ?? 0) - (b.panelOpacity ?? 0)) < 0.005
+  let last = f.length - 1
+  while (last > 0 && same(f[last], f[last - 1])) last--
+  const inMotion = first > 0 ? f.slice(first - 1, last + 1) : []
   const motionDts = inMotion.slice(1).map((x, i) => x.t - inMotion[i].t)
   const motionDropped = motionDts.reduce((n, dt) => n + Math.max(0, Math.round(dt / 16.67) - 1), 0)
   return {
-    pressToMotionMs: startAt,
-    motionMs: startAt === null ? 0 : endAt - startAt,
+    pressMs: result.pressMs,
+    pressToMotionMs: first > 0 ? f[first].t : null,
+    motionMs: first > 0 ? f[last].t - f[first].t : 0,
     motionFrames: inMotion.length,
     motionDropped,
-    frames: f.length,
+    motionLongestMs: motionDts.length ? Math.max(...motionDts) : 0,
+    frames: f.length - 1,
     dropped,
-    longestFrameMs: Math.round(longest),
+    longestFrameMs: dts.length ? Math.max(...dts) : 0,
     longTasks: longs.length,
     longTaskMs: longs.reduce((s, l) => s + l.ms, 0),
-    shift: Math.round(shifts.reduce((s, x) => s + x.v, 0) * 1000) / 1000,
     remounted: result.remounted,
     frameLoads: result.frameLoads,
-    viewTransition: f.some((x) => x.vt),
     dimmedTo: Math.round(Math.min(...f.map((x) => x.opacity)) * 100) / 100,
+    blank: f.filter((x) => x.width < 1 || x.height < 1 || x.visibility !== "visible").length,
     left: L,
     right: R,
-    panel: { from: f[0].panelOpacity, to: lastP, settledAt: panelSettled, reversed: panelReversed },
-    /* The card's own box: where it is from the first frame after the press. */
-    cardSettledAt: f.find((x, i) => i > 0 && f.slice(i).every((y) => Math.abs(y.card - f[f.length - 1].card) < 0.5))?.t ?? null,
+    panel: { left: P, from: f[0].panelOpacity, to: lastP, reversed: panelReversed },
   }
 }
 
@@ -243,6 +180,7 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox", ...(process.env.VS_GPU === "1" ? ["--enable-unsafe-swiftshader", "--use-angle=swiftshader"] : ["--disable-gpu"]), "--hide-scrollbars", "--disable-dev-shm-usage", "--autoplay-policy=no-user-gesture-required"],
 })
 const summary = {}
+let drag = null
 try {
   const page = await browser.newPage()
   const errors = []
@@ -252,7 +190,12 @@ try {
   await page.evaluate(() => { try { sessionStorage.removeItem("wb:full-screen") } catch {} })
   await page.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 60_000 })
   await page.evaluate(INSTALL)
-  await sleep(1500)
+  /* The code editor is warmed in idle time (preview-mode-switch.tsx): let it arrive, as it has by the time anybody switches. */
+  await page.waitForFunction(() => !!document.querySelector("[data-code-pane]"), { timeout: 20_000 }).catch(() => {})
+  await sleep(2500)
+  const codePane = await page.evaluate(() => document.querySelector("[data-code-pane]")?.getAttribute("data-code-pane") ?? "none")
+  console.log(`\nthe hidden code editor: ${codePane}`)
+  expect(codePane === "held", "the hidden code editor keeps its size, so the canvas changes without it", codePane)
 
   const STEPS = [
     ["desktop to phone", "[data-wb-device-switch]", (s) => s.device === "mobile", "device"],
@@ -268,57 +211,113 @@ try {
     await page.mouse.move(5, 890)
     await sleep(700)
     const longsBefore = await page.evaluate(() => window.__long.length)
-    const shiftsBefore = await page.evaluate(() => window.__shift.length)
     const result = await page.evaluate(FILM, selector, 800)
     await sleep(300)
-    const { longs, shifts, state } = await page.evaluate((a, b) => ({
+    const { longs, state } = await page.evaluate((a) => ({
       longs: window.__long.slice(a),
-      shifts: window.__shift.slice(b),
       state: {
         device: document.querySelector("[data-wb-device-switch]")?.getAttribute("data-wb-device"),
         full: document.querySelector("[data-wb-full-toggle]")?.getAttribute("aria-pressed"),
       },
-    }), longsBefore, shiftsBefore)
-    const r = read(result, 0, longs, shifts)
-    r.pressMs = await page.evaluate(() => window.__pressMs)
-    r.film1 = result.film[1]?.t ?? null
+    }), longsBefore)
+    const r = read(result, longs)
     summary[name] = r
     console.log(`  ${JSON.stringify(r)}`)
-    /* VS_FILM=1: every frame, for reading a switch by eye. */
-    if (process.env.VS_FILM === "1") console.log(result.film.map((x) => `    ${x.t}ms L${x.left} R${x.right} card${x.card} panel ${x.panelLeft}/${x.panelOpacity}`).join("\n"))
+    if (process.env.VS_FILM === "1") console.log(result.film.map((x) => `    ${x.t}ms L${x.left} R${x.right} w${x.width} h${x.height} panel ${x.panelLeft}/${x.panelOpacity}`).join("\n"))
     expect(ok(state), "it lands where it should", state)
     expect(r.remounted === 0, "the page is the same page: no section drawn again from nothing", r.remounted)
     expect(r.frameLoads === 0, "no frame inside the canvas loads again", r.frameLoads)
+    expect(r.blank === 0, "the card is there in every frame: never blank, never hidden", r.blank)
     if (STRICT) {
       expect(r.dimmedTo >= 0.99, "the card is never dimmed", r.dimmedTo)
-      expect(r.motionDropped <= 3, "three frames dropped at the most while it moves", { motionDropped: r.motionDropped, motionFrames: r.motionFrames, motionMs: r.motionMs })
-      if (kind !== "full") {
-        /* Phone and desktop: the edges travel from the old box to the new one, one way, in steps. */
-        expect(!r.left.reversed && !r.right.reversed, "neither edge of the card goes back on itself", { left: r.left, right: r.right })
-        expect(r.left.share <= 0.34 && r.right.share <= 0.34, "no frame moves an edge more than a third of the way", { left: r.left.share, right: r.right.share })
-      }
+      expect(!r.left.reversed && !r.right.reversed, "neither edge of the card goes back on itself", { left: r.left, right: r.right })
+      /* Against the card's whole move: going from the phone into full screen the right edge travels less than the left, on the same frames. */
+      const whole = Math.max(r.left.distance, r.right.distance)
+      expect(r.left.biggestStep <= whole / 3 && r.right.biggestStep <= whole / 3, "the card changes shape over frames: no frame moves an edge more than a third of the card's move", { left: r.left.biggestStep, right: r.right.biggestStep, whole })
+      expect(r.motionFrames >= 8, "it is seen moving, not cut", { motionFrames: r.motionFrames, motionMs: r.motionMs })
+      expect(r.motionDropped <= 3, "three frames dropped at the most while it moves", { motionDropped: r.motionDropped, motionFrames: r.motionFrames, motionLongestMs: r.motionLongestMs })
       if (kind !== "device") {
-        /* Full screen: the page is where it ends up from the first frame, and only the sidebar moves, one way. */
-        const first = r.film1
-        expect(r.cardSettledAt !== null && r.cardSettledAt <= first, "the page is at its new place from the first frame after the press, and stays", { cardSettledAt: r.cardSettledAt, firstFrame: first })
-        expect(!r.panel.reversed && Math.abs(r.panel.to - (state.full === "true" ? 0 : 1)) < 0.01, "the sidebar fades one way, to gone or to there", r.panel)
+        expect(!r.panel.reversed && !r.panel.left.reversed && Math.abs(r.panel.to - (state.full === "true" ? 0 : 1)) < 0.01, "the sidebar goes one way, to gone or to there", r.panel)
+        expect(r.panel.left.share <= 0.34, "and slides over frames, never in one", r.panel.left)
       }
     }
   }
   expect(errors.length === 0, "no page errors", errors)
 
+  /*
+    THE SIDEBAR'S EDGE, DRAGGED. A mouse moved 220px out over 40 moves and
+    back, the way a hand drags, with every animation frame timed: the page
+    beside it reflows a frame at a time and the sidebar follows the pointer.
+  */
+  console.log("\ndragging the sidebar's edge")
+  await sleep(600)
+  const handle = await page.evaluate(() => {
+    const h = document.querySelector('[role="separator"][aria-label="Resize the sidebar"]')
+    const r = h?.getBoundingClientRect()
+    return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, width: (document.querySelector("[data-wb-sidebar-panel]") ?? document.querySelector("[data-wb-sidebar-fold]")?.firstElementChild)?.getBoundingClientRect().width ?? 0 } : null
+  })
+  expect(!!handle, "the sidebar has its edge to drag", handle)
+  if (handle) {
+    const longsBefore = await page.evaluate(() => window.__long.length)
+    await page.evaluate(() => {
+      window.__drag = []
+      window.__dragOn = true
+      const panel = document.querySelector("[data-wb-sidebar-panel]") ?? document.querySelector("[data-wb-sidebar-fold]").firstElementChild
+      const card = document.querySelector(".wb-canvas-frame")
+      const tick = (now) => {
+        window.__drag.push({ t: now, w: Math.round(panel.getBoundingClientRect().width), card: Math.round(card.getBoundingClientRect().left) })
+        if (window.__dragOn) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await page.mouse.move(handle.x, handle.y)
+    await page.mouse.down()
+    for (let i = 1; i <= 40; i++) {
+      await page.mouse.move(handle.x + (220 * i) / 40, handle.y)
+      await sleep(8)
+    }
+    for (let i = 39; i >= 20; i--) {
+      await page.mouse.move(handle.x + (220 * i) / 40, handle.y)
+      await sleep(8)
+    }
+    await page.mouse.up()
+    await sleep(300)
+    const out = await page.evaluate((a) => {
+      window.__dragOn = false
+      return { film: window.__drag, longs: window.__long.slice(a), width: Math.round((document.querySelector("[data-wb-sidebar-panel]") ?? document.querySelector("[data-wb-sidebar-fold]").firstElementChild).getBoundingClientRect().width), stored: (() => { try { return localStorage.getItem("wb:sidebar-width") } catch { return null } })() }
+    }, longsBefore)
+    const f = out.film
+    const moving = f.filter((x, i) => i > 0 && (x.w !== f[i - 1].w || x.card !== f[i - 1].card))
+    const firstAt = moving.length ? f.indexOf(moving[0]) - 1 : 0
+    const lastAt = moving.length ? f.indexOf(moving[moving.length - 1]) : 0
+    const span = f.slice(firstAt, lastAt + 1)
+    const dts = span.slice(1).map((x, i) => x.t - span[i].t)
+    const droppedDrag = dts.reduce((n, dt) => n + Math.max(0, Math.round(dt / 16.67) - 1), 0)
+    const expected = Math.round(Math.min(560, handle.width + 110))
+    drag = { frames: span.length, moved: moving.length, dropped: droppedDrag, longestMs: Math.round(dts.length ? Math.max(...dts) : 0), meanMs: Math.round((dts.reduce((s, x) => s + x, 0) / Math.max(1, dts.length)) * 10) / 10, longTasks: out.longs.length, longTaskMs: out.longs.reduce((s, l) => s + l.ms, 0), width: out.width, expected, stored: out.stored, cardFollows: span.every((x) => Math.abs(x.card - (x.w + 12)) <= 1) }
+    console.log(`  ${JSON.stringify(drag)}`)
+    expect(Math.abs(out.width - expected) <= 2, "the sidebar ends where the pointer let go", { width: out.width, expected })
+    expect(out.stored === String(out.width), "and that width is remembered", out.stored)
+    expect(drag.cardFollows, "the card's edge stays on the sidebar's in every frame of the drag")
+    if (STRICT) {
+      expect(drag.moved >= 20, "the sidebar moves in many frames, not a few jumps", drag.moved)
+      expect(drag.longestMs <= 100, "no frame of the drag takes longer than 100ms", drag.longestMs)
+    }
+  }
+
   console.log("\nreduced motion")
   await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   await sleep(400)
   const reduced = await page.evaluate(FILM, "[data-wb-device-switch]", 500)
-  const rr = read(reduced, 0, [], [])
-  expect(!rr.viewTransition && rr.right.settledAt !== null && rr.right.settledAt <= 120 && rr.left.settledAt <= 120, "the card is where it is going within a frame or two, with no motion", { left: rr.left, right: rr.right })
+  const rr = read(reduced, [])
+  expect(rr.right.settledAt !== null && rr.right.settledAt <= 120 && rr.left.settledAt <= 120, "the card is where it is going within a frame or two, with no motion", { left: rr.left, right: rr.right })
   await page.close()
 } finally {
   await browser.close()
   server.close()
 }
 console.log("\nsummary")
-for (const [k, v] of Object.entries(summary)) console.log(`  ${k.padEnd(26)} to motion ${v.pressToMotionMs}ms  motion ${v.motionMs}ms in ${v.motionFrames} frames, ${v.motionDropped} dropped  all: frames ${v.frames}  dropped ${v.dropped}  longest ${v.longestFrameMs}ms  long tasks ${v.longTasks} (${v.longTaskMs}ms)  shift ${v.shift}  remounted ${v.remounted}  vt ${v.viewTransition}  dimmed ${v.dimmedTo}  step L ${v.left.share} R ${v.right.share}  reversed ${v.left.reversed || v.right.reversed}`)
+for (const [k, v] of Object.entries(summary)) console.log(`  ${k.padEnd(34)} press ${v.pressMs}ms  to motion ${v.pressToMotionMs}ms  motion ${v.motionMs}ms in ${v.motionFrames} frames, ${v.motionDropped} dropped, longest ${v.motionLongestMs}ms  long tasks ${v.longTasks} (${v.longTaskMs}ms)  remounted ${v.remounted}  blank ${v.blank}  dimmed ${v.dimmedTo}  step L ${v.left.share} R ${v.right.share} panel ${v.panel.left.share}  reversed ${v.left.reversed || v.right.reversed || v.panel.reversed}`)
+if (drag) console.log(`  ${"drag the sidebar's edge".padEnd(34)} ${drag.frames} frames, ${drag.moved} moved, ${drag.dropped} dropped, longest ${drag.longestMs}ms, mean ${drag.meanMs}ms, long tasks ${drag.longTasks} (${drag.longTaskMs}ms)`)
 console.log(broken ? `\n${broken} failed\n` : "\nall passed\n")
 process.exit(broken ? 1 : 0)

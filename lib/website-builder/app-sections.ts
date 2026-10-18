@@ -38,6 +38,13 @@ export interface SectionApp {
   stateId: string | null
   /** Where the app is turned on and set up. */
   href: string
+  /**
+   * Its entry in Settings › Integrations (lib/integrations/storelib-apps.ts
+   * and catalog.ts): the mark Add section's App embeds button shows for it,
+   * and the state that says it is installed. None for a part of every store
+   * (Wishlist), which is never shown as an installed app.
+   */
+  markId?: string
 }
 
 export interface AppSectionEntry {
@@ -52,9 +59,9 @@ export interface AppSectionEntry {
 }
 
 export const STORELIB_SECTION_APPS: SectionApp[] = [
-  { id: "reviews", name: "Storelib Reviews", label: "Reviews", icon: "star", stateId: "storelib-reviews", href: "/app/integrations?integration=storelib-reviews" },
-  { id: "offers", name: "Offers", label: "Offers", icon: "gift", stateId: "storelib-bundles", href: "/app/offers" },
-  { id: "email", name: "Email", label: "Email", icon: "mail", stateId: null, href: "/app/emails" },
+  { id: "reviews", name: "Storelib Reviews", label: "Reviews", icon: "star", stateId: "storelib-reviews", href: "/app/integrations?integration=storelib-reviews", markId: "storelib-reviews" },
+  { id: "offers", name: "Offers", label: "Offers", icon: "gift", stateId: "storelib-bundles", href: "/app/offers", markId: "storelib-bundles" },
+  { id: "email", name: "Email", label: "Email", icon: "mail", stateId: null, href: "/app/emails", markId: "storelib-email-marketing" },
   { id: "wishlist", name: "Wishlist", label: "Wishlist", icon: "heart", stateId: null, href: "/app/customers" },
 ]
 
@@ -109,6 +116,18 @@ export function appForBlock(type: string, sectionType: string): { entry: AppSect
   const entry = ENTRIES.find((e) => e.kind === "block" && e.type === type && (!e.in || e.in.includes(sectionType)))
   const app = entry ? appById(entry.app) : null
   return entry && app ? { entry, app } : null
+}
+
+/**
+ * THE APPS THIS STORE HAS ON, of those whose sections are in `apps`, in the
+ * registry's order, for the round marks on Add section's App embeds button.
+ * Installed means the integrations directory says On for the app's own entry
+ * (`markId`); an app with no entry there, or one whose state is not known
+ * yet, is left out rather than guessed.
+ */
+export function installedSectionApps(apps: ReadonlySet<string>, states: Record<string, string | null | undefined> | null, max = 3): SectionApp[] {
+  if (!states) return []
+  return STORELIB_SECTION_APPS.filter((a) => apps.has(a.id) && !!a.markId && states[a.markId] === "on").slice(0, max)
 }
 
 /**
