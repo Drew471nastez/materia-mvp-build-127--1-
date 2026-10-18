@@ -30,6 +30,7 @@ export default function ConfigurationPage() {
             {[
               ["Provider", String(cfg.provider)],
               ["Platform currency", String(cfg.platformCurrency)],
+              ["Marketplace in US dollars", String(cfg.marketplaceUsd ?? "off")],
               ["Charge model", String(cfg.chargeModel)],
               ["Connected account model", String(cfg.connectedAccountModel)],
               ["Application fees", cfg.applicationFees ? "enabled" : "disabled"],

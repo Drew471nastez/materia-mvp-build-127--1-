@@ -6,6 +6,7 @@ import { activePaymentProvider } from "@/lib/payments/active-provider"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { stripeConfigured, stripePublishableKey } from "@/lib/payments/stripe/config"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { marketplaceGate } from "@/lib/money/marketplace-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,6 +29,11 @@ export async function GET() {
       {
         provider: activePaymentProvider(),
         platformCurrency: platformChargeCurrencyUpper(),
+        /* The marketplace dollar switch (MARKETPLACE_USD), read only: off, how many stores, or all. Never the ids themselves. */
+        marketplaceUsd: (() => {
+          const gate = marketplaceGate()
+          return gate.mode === "some" ? `on for ${gate.creatorIds.size} ${gate.creatorIds.size === 1 ? "store" : "stores"}` : gate.mode === "all" ? "on for every store" : "off"
+        })(),
         chargeModel: "destination_charges",
         connectedAccountModel: "Express",
         applicationFees: true,

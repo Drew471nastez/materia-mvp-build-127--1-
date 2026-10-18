@@ -26,6 +26,7 @@ import { priceOrder } from "@/lib/checkout/pricing"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
+import { METADATA_TOO_LARGE_MESSAGE, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { SALE_HOLDER_KEY, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
@@ -297,7 +298,15 @@ async function handlePOST(request: Request) {
     in ONE key and only while Stripe's 50 keys allow: it is the order's
     record, never what is charged. The store's own prices add nothing here.
   */
-  if (priced.pricing.context === "marketplace" && Object.keys(metadata).length < 50) metadata[PRICING_METADATA_KEY] = encodePricing(priced.pricing)
+  if (priced.pricing.context === "marketplace") metadata[PRICING_METADATA_KEY] = encodePricing(priced.pricing)
+  /* Stripe's 50 keys, checked once for every key above (lib/checkout/stripe-metadata): never charged without its record. */
+  const fitted = fitStripeMetadata(metadata)
+  if (!fitted.ok) {
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    if (saleHolder) await releaseSale(admin, product.id, saleHolder)
+    return NextResponse.json({ error: METADATA_TOO_LARGE_MESSAGE, code: "order_too_large" }, { status: 400 })
+  }
+  for (const key of fitted.dropped) delete metadata[key]
   /* Last, and only while Stripe's 50 keys allow: the payment never waits on it. */
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
