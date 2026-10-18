@@ -176,6 +176,8 @@ const SUITES = [
   "tests/dispute-orders.test.ts",
   "tests/anon-visit.test.ts",
   "tests/analytics-completeness.test.ts",
+  /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
+  "tests/analytics-audience.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",

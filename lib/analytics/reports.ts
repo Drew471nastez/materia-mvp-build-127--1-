@@ -41,7 +41,8 @@
  */
 
 import { groupOrders, isSale, startOfDay, type OrderRow } from "../orders/order-view"
-import { isInternalReferrer } from "./sources"
+import { REFERRER_BRAND_KEYS, isInternalReferrer, referrerBrand } from "./sources"
+import { osKey } from "./user-agent"
 import { isOnePageHost } from "@/lib/onepage/address"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 import {
@@ -83,6 +84,8 @@ export interface ViewRow {
   os?: string | null
   page_url?: string | null
   utm_campaign?: string | null
+  /** The page's title (supabase/sql/run-now part 253); absent before it. */
+  page_title?: string | null
 }
 
 /** A step towards a sale (buy_click, checkout_start) or a link click, as analytics_events keeps it. */
@@ -159,6 +162,12 @@ export interface WindowWire {
   checkouts?: number
   /** [property_type, property_id, link, clicks, visitors], the 50 most clicked. */
   links?: Array<[string | null, string | null, string, number, number]>
+  /** [system as stored, visitors, page views] (analytics_audience, part 253). */
+  os?: Array<[string, number, number]>
+  /** Visitors who added something to the cart or pressed Buy (buy_click). */
+  carts?: number
+  /** [property_type, property_id, path, title]: the latest title each page was viewed with. */
+  titles?: Array<[string | null, string | null, string | null, string]>
 }
 
 export interface ReportWire {
@@ -202,7 +211,7 @@ export interface BreakdownRow {
   previous: number
   /** Share of the card's total, 0..1. */
   share: number
-  extra?: { orders?: number; salesCents?: number; code?: string }
+  extra?: { orders?: number; salesCents?: number; code?: string; views?: number }
 }
 
 export interface PageRow {
@@ -211,6 +220,8 @@ export interface PageRow {
   label: string
   /** Which of the creator's places it is on, under All; null when one place is chosen. */
   place: string | null
+  /** The page's own title, when it was recorded (part 253). */
+  title?: string | null
   views: number
   visitors: number
   share: number
@@ -227,6 +238,8 @@ export interface LinkRow {
 export interface ProductRow {
   key: string
   label: string
+  /** physical, digital, membership, course or other; null for a removed product. */
+  kind?: string | null
   views: number
   orders: number
   salesCents: number
@@ -234,13 +247,37 @@ export interface ProductRow {
 }
 
 export interface FunnelStep {
-  key: "visitors" | "product" | "checkout" | "orders"
+  key: "visitors" | "product" | "cart" | "checkout" | "orders"
   label: string
   value: number
   /** Of the step before, 0..1; null for the first step, after a step with nothing recorded, or when more reached this step than the one before. */
   rate: number | null
   /** False when this step was not recorded for the period (nothing here while a later step has something). */
   recorded: boolean
+}
+
+/** One kind of product's sales: physical, digital, a membership, a course. */
+export interface KindRow {
+  key: string
+  label: string
+  /** Payments with at least one line of this kind. */
+  orders: number
+  units: number
+  salesCents: number
+  /** Lines of this kind refunded, in whole or part. */
+  refunds: number
+  share: number
+}
+
+/** Digital products: what sold, and how many of those orders were downloaded. */
+export interface DigitalFigures {
+  orders: number
+  salesCents: number
+  /** Revenue over orders; null with no orders. */
+  averageCents: number | null
+  /** Downloads of the period's digital orders, and how many of those orders were downloaded at least once. Null when they could not be read. */
+  downloads: { total: number; orders: number } | null
+  top: Array<{ key: string; label: string; orders: number; salesCents: number; downloads: number | null }>
 }
 
 export interface SubscriberFigures extends Headline {
@@ -272,6 +309,9 @@ export interface Reports {
   topLinks: LinkRow[]
   topProducts: ProductRow[]
   funnel: FunnelStep[]
+  /** Sales by kind of product, the largest first. */
+  kinds: KindRow[]
+  digital: DigitalFigures
   subscribers: SubscriberFigures | null
   breakdowns: {
     source: BreakdownRow[]
@@ -281,6 +321,10 @@ export interface Reports {
     country: BreakdownRow[]
     device: BreakdownRow[]
     browser: BreakdownRow[]
+    /** Visitors by operating system; `extra.views` their page views. */
+    os: BreakdownRow[]
+    /** Orders by the buyer's country; `extra.salesCents` their revenue. */
+    orderCountry: BreakdownRow[]
   }
 }
 
@@ -669,7 +713,11 @@ export function wireFromRows(input: {
       session_buckets: sessionBuckets,
       maps,
     }
+    const audience = audienceOf(inside.map((x) => x.v), steps.filter((st) => st.event_type === "buy_click" && Date.parse(st.created_at) >= w.start && Date.parse(st.created_at) < w.end))
+    wire.os = audience.os
     if (!lists) return wire
+    wire.carts = audience.carts
+    wire.titles = audience.titles
 
     const pages = new Map<string, { pt: string | null; pid: string | null; path: string | null; views: number; people: Set<string> }>()
     const products = new Map<string, { views: number; people: Set<string> }>()
@@ -715,6 +763,39 @@ export function wireFromRows(input: {
   }
 
   return { cur: one(cur, starts, true), prev: one(prev, prevStarts, false) }
+}
+
+/**
+ * WHO WAS LOOKING, COUNTED FROM ROWS: analytics_audience (part 253) by the
+ * same rules, for a database without it and for the tests. `views` and
+ * `carts` are one period's page views and buy_click rows, already narrowed
+ * to the property and product asked for. A visitor is the visitor id, else
+ * the visit, else the row, as everywhere in this file.
+ */
+export function audienceOf(views: ViewRow[], carts: StepRow[]): Required<Pick<WindowWire, "os" | "carts" | "titles">> {
+  const os = new Map<string, { people: Set<string>; views: number }>()
+  const titles = new Map<string, { at: number; row: [string | null, string | null, string | null, string] }>()
+  for (const v of views) {
+    const k = (v.os || "").trim() || "unknown"
+    const o = os.get(k) ?? { people: new Set<string>(), views: 0 }
+    o.people.add(visitorOf(v))
+    o.views++
+    os.set(k, o)
+    if (v.page_title && v.path) {
+      const key = `${v.property_type ?? ""}|${v.property_id ?? ""}|${v.path}`
+      const at = Date.parse(v.created_at)
+      const seen = titles.get(key)
+      if (!seen || at > seen.at) titles.set(key, { at, row: [v.property_type ?? null, v.property_id ?? null, v.path, v.page_title] })
+    }
+  }
+  return {
+    os: [...os.entries()]
+      .map(([k, o]): [string, number, number] => [k, o.people.size, o.views])
+      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      .slice(0, 40),
+    carts: new Set(carts.map(visitorOf)).size,
+    titles: [...titles.values()].map((t) => t.row).slice(0, 2000),
+  }
 }
 
 /* ─── The OnePage's history before its events ─────────────────────────── */
@@ -882,9 +963,43 @@ export function referrerKeyer(mainDomain: string) {
     if (!d || d === "direct") return null
     if (d === OTHER) return { key: OTHER, label: tt("Other websites") }
     /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
+    /* A brand's key as already folded (a merge of two answers) stays that brand. */
+    if (REFERRER_BRAND_KEYS.has(d)) return { key: d, label: referrerBrandLabel(d) }
     const self = channelOfUrl(`https://${d}`, mainDomain) === "storelib" || isInternalReferrer(d, mainDomain)
-    return self ? null : { key: d, label: d }
+    if (self) return null
+    /* One row per company: google.com, google.co.uk and the Google app are Google; l.instagram.com is Instagram; t.co is X. */
+    return referrerBrand(d) ?? { key: d, label: d }
   }
+}
+
+function referrerBrandLabel(key: string): string {
+  const probe: Record<string, string> = { google: "google.com", gmail: "mail.google.com", gemini: "gemini.google.com", x: "x.com", instagram: "instagram.com", facebook: "facebook.com", threads: "threads.net", tiktok: "tiktok.com", youtube: "youtube.com", pinterest: "pinterest.com", linkedin: "linkedin.com", snapchat: "snapchat.com", reddit: "reddit.com", whatsapp: "whatsapp.com", telegram: "telegram.org", discord: "discord.com", twitch: "twitch.tv", bluesky: "bsky.app", tumblr: "tumblr.com", bing: "bing.com", duckduckgo: "duckduckgo.com", brave: "search.brave.com", ecosia: "ecosia.org", baidu: "baidu.com", chatgpt: "chatgpt.com", perplexity: "perplexity.ai", messenger: "messenger.com", github: "github.com", stripe: "stripe.com", apple: "apple.com", linktree: "linktr.ee", substack: "substack.com", spotify: "spotify.com" }
+  return referrerBrand(probe[key] ?? key)?.label ?? key
+}
+
+/** The systems by name, as people call them. */
+function osLabel(k: string): string {
+  if (k === "unknown") return tt("Unknown")
+  if (k === "other" || k === OTHER) return tt("Other")
+  return k
+}
+
+/** What kind of product a type is, as the reports group them. */
+export function kindOf(type: string | null | undefined): "physical" | "digital" | "membership" | "course" | "other" {
+  const t = (type || "").toLowerCase()
+  if (t === "physical") return "physical"
+  if (t === "membership" || t === "subscription") return "membership"
+  if (t === "course") return "course"
+  if (t === "digital" || t === "" || t === "download" || t === "ebook" || t === "file") return "digital"
+  return "other"
+}
+
+function kindLabel(k: string): string {
+  if (k === "physical") return tt("Physical")
+  if (k === "digital") return tt("Digital")
+  if (k === "membership") return tt("Memberships")
+  if (k === "course") return tt("Courses")
+  return tt("Other")
 }
 
 function deviceLabel(d: string): string {
@@ -932,6 +1047,10 @@ export function buildReports(input: {
   product?: string | null
   /** A OnePage block's name, by its id. */
   linkLabels?: Record<string, string>
+  /** Each product's type (physical, digital, membership, course), by its id. */
+  productTypes?: Record<string, string | null>
+  /** Downloads of each order line (download_events by order id); null when they could not be read. */
+  downloadsByLine?: Record<string, number> | null
 }): Reports {
   const { window: cur, timeZone, mainDomain } = input
   const selector = input.selector ?? ALL
@@ -1019,6 +1138,7 @@ export function buildReports(input: {
   const placeOf = (pt: string | null, pid: string | null) => (pt ? propertyName({ type: pt as never, id: pid }, properties) : null)
   const named: PageRow[] = []
   let earlier: PageRow | null = null
+  const titleOf = new Map((now.titles ?? []).map(([pt, pid, path, title]) => [`${pt ?? ""}|${pid ?? ""}|${path ?? ""}`, title]))
   for (const [pt, pid, path, views, visitors] of now.pages ?? []) {
     const v = Number(views) || 0
     const u = Number(visitors) || 0
@@ -1032,6 +1152,7 @@ export function buildReports(input: {
       key: `${pt ?? ""}|${pid ?? ""}|${path ?? ""}`,
       label: path ?? placeOf(pt, pid) ?? tt("Earlier visits"),
       place: path ? placeLabel(pt, pid) : null,
+      title: path ? titleOf.get(`${pt ?? ""}|${pid ?? ""}|${path}`) ?? null : null,
       views: v,
       visitors: u,
       share: 0,
@@ -1079,6 +1200,7 @@ export function buildReports(input: {
       .map(([key, r]) => ({
         key,
         label: key === REMOVED_PRODUCT ? tt("Removed product") : input.productTitles[key],
+        kind: key === REMOVED_PRODUCT ? null : kindOf((input.productTypes ?? {})[key]),
         views: r.views,
         orders: r.orders,
         salesCents: r.cents,
@@ -1097,10 +1219,11 @@ export function buildReports(input: {
   */
   const funnel: FunnelStep[] = (() => {
     if (partial) return []
-    const values = [now.visitors ?? 0, now.product_visitors ?? 0, now.checkouts ?? 0, ordersNow.length]
+    const values = [now.visitors ?? 0, now.product_visitors ?? 0, now.carts ?? 0, now.checkouts ?? 0, ordersNow.length]
     const steps: Array<Pick<FunnelStep, "key" | "label">> = [
       { key: "visitors", label: tt("Visitors") },
       { key: "product", label: tt("Viewed a product") },
+      { key: "cart", label: tt("Added to cart") },
       { key: "checkout", label: tt("Started checkout") },
       { key: "orders", label: tt("Ordered") },
     ]
@@ -1112,6 +1235,71 @@ export function buildReports(input: {
       const rate = i > 0 && recorded && beforeRecorded && before > 0 && value <= before ? value / before : null
       return { ...s, value, rate, recorded }
     })
+  })()
+
+  /*
+    BY KIND OF PRODUCT: physical, digital, memberships, courses. Each line
+    of each payment under its product's kind, money as Top products counts
+    it (lineMoney), so the kinds add up to Revenue. A payment with lines of
+    two kinds is an order of each.
+  */
+  const types = input.productTypes ?? {}
+  const kinds: KindRow[] = (() => {
+    const rows = new Map<string, { orders: Set<string>; units: number; cents: number; refunds: number }>()
+    for (const o of ordersNow) {
+      for (const line of o.lines) {
+        const k = kindOf(types[line.product_id])
+        const row = rows.get(k) ?? { orders: new Set<string>(), units: 0, cents: 0, refunds: 0 }
+        row.orders.add(o.id)
+        row.units += Math.max(1, Number(line.quantity) || 1)
+        const m = lineMoney(line)
+        row.cents += m.net
+        if (m.refunded > 0) row.refunds++
+        rows.set(k, row)
+      }
+    }
+    const total = sum([...rows.values()].map((r) => r.cents))
+    const orderTotal = sum([...rows.values()].map((r) => r.orders.size))
+    return [...rows.entries()]
+      .map(([key, r]) => ({ key, label: kindLabel(key), orders: r.orders.size, units: r.units, salesCents: r.cents, refunds: r.refunds, share: total > 0 ? r.cents / total : orderTotal > 0 ? r.orders.size / orderTotal : 0 }))
+      .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || a.key.localeCompare(b.key))
+  })()
+
+  /* Digital products: everything that does not ship. Downloads are of these very orders' lines. */
+  const digital: DigitalFigures = (() => {
+    const per = new Map<string, { orders: Set<string>; cents: number; downloads: number }>()
+    const orders = new Set<string>()
+    let cents = 0
+    let downloads = 0
+    const downloaded = new Set<string>()
+    const counted = input.downloadsByLine ?? null
+    for (const o of ordersNow) {
+      for (const line of o.lines) {
+        if (kindOf(types[line.product_id]) === "physical") continue
+        orders.add(o.id)
+        const m = lineMoney(line).net
+        cents += m
+        const key = line.product_id && input.productTitles[line.product_id] ? line.product_id : REMOVED_PRODUCT
+        const row = per.get(key) ?? { orders: new Set<string>(), cents: 0, downloads: 0 }
+        row.orders.add(o.id)
+        row.cents += m
+        const n = counted ? Number(counted[line.id]) || 0 : 0
+        row.downloads += n
+        downloads += n
+        if (n > 0) downloaded.add(o.id)
+        per.set(key, row)
+      }
+    }
+    return {
+      orders: orders.size,
+      salesCents: cents,
+      averageCents: orders.size > 0 ? Math.round(cents / orders.size) : null,
+      downloads: counted ? { total: downloads, orders: downloaded.size } : null,
+      top: [...per.entries()]
+        .map(([key, r]) => ({ key, label: key === REMOVED_PRODUCT ? tt("Removed product") : input.productTitles[key], orders: r.orders.size, salesCents: r.cents, downloads: counted ? r.downloads : null }))
+        .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || a.label.localeCompare(b.label))
+        .slice(0, 25),
+    }
   })()
 
   /* Sign-ups: people who left their email on one of the creator's places or at checkout. */
@@ -1177,6 +1365,33 @@ export function buildReports(input: {
     browser: mapRows(maps.browser, before.browser, (k) =>
       k === "unknown" ? { key: "unknown", label: tt("Unknown") } : k === OTHER ? { key: OTHER, label: tt("Other") } : { key: k, label: titleCase(k) },
     ),
+    /* Visitors by system: iOS, Android, Windows, macOS, Linux, ChromeOS by name, everything else Other. */
+    os: (() => {
+      const toMap = (xs: WindowWire["os"]) => Object.fromEntries(Object.entries((xs ?? []).reduce<Record<string, number>>((m, [k, people]) => ((m[k] = (m[k] ?? 0) + (Number(people) || 0)), m), {})))
+      const views = new Map<string, number>()
+      for (const [k, , v] of now.os ?? []) views.set(osKey(k), (views.get(osKey(k)) ?? 0) + (Number(v) || 0))
+      return mapRows(toMap(now.os), toMap(then.os), (k) => {
+        const key = osKey(k)
+        return { key, label: osLabel(key) }
+      }).map((r) => ({ ...r, extra: { views: views.get(r.key) ?? 0 } }))
+    })(),
+    /* Orders by where the buyer is, from the order itself. */
+    orderCountry: (() => {
+      const count = (list: Grouped[]) => {
+        const m: Record<string, number> = {}
+        const cents: Record<string, number> = {}
+        for (const o of list) {
+          const code = (o.lines[0]?.buyer_country_code || "").toUpperCase()
+          if (!/^[A-Z]{2}$/.test(code) || code === "XX") continue
+          m[code] = (m[code] ?? 0) + 1
+          cents[code] = (cents[code] ?? 0) + net(o)
+        }
+        return { m, cents }
+      }
+      const a = count(ordersNow)
+      const b = count(ordersBefore)
+      return mapRows(a.m, b.m, (k) => ({ key: k, label: countryName(k) })).map((r) => ({ ...r, extra: { code: r.key, salesCents: a.cents[r.key] ?? 0 } }))
+    })(),
   }
 
   return {
@@ -1195,6 +1410,8 @@ export function buildReports(input: {
     topLinks,
     topProducts,
     funnel,
+    kinds,
+    digital,
     subscribers,
     breakdowns,
   }

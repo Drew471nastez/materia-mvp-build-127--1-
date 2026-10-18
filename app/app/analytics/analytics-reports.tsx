@@ -39,8 +39,8 @@ import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatCurrency } from "@/lib/markets/money"
 
-/** The funnel's steps, in steps of the accent every /app screen uses. */
-const FUNNEL = ["#6d28d9", "#8b5cf6", "#a78bfa", "#c4b5fd"]
+/** The funnel's bars: one series, so one colour, the accent every /app screen uses. */
+const FUNNEL_BAR = "#8b5cf6"
 
 /* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
 let reportCurrency = "USD"
@@ -195,7 +195,7 @@ function Row({ r, max, format, lead, previous }: { r: ListRow; max: number; form
           <span className={cn("min-w-0 truncate text-[13px] text-[#303036]", !lead && "pl-1.5")} title={r.label}>
             {r.label}
           </span>
-          {r.note ? <span className="shrink-0 truncate pr-2 text-[12px] tabular-nums text-[#9ca3af]">{r.note}</span> : null}
+          {r.note ? <span className="min-w-0 max-w-[45%] shrink truncate pr-2 text-[12px] tabular-nums text-[#9ca3af]">{r.note}</span> : null}
         </div>
       </div>
       <span className="shrink-0 text-[13px] font-medium tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
@@ -268,39 +268,74 @@ function fromBreakdown(rows: BreakdownRow[], note?: (r: BreakdownRow) => string 
 
 /* ─── Funnel ──────────────────────────────────────────────────────────── */
 
-/** What each step's rate is of: the step before it, by name. */
+/** What each step's rate is of: the step before it. */
 const OF: Record<FunnelStep["key"], string> = {
   visitors: "",
   get product() { return tt("of visitors") },
-  get checkout() { return tt("of product viewers") },
+  get cart() { return tt("of product viewers") },
+  get checkout() { return tt("of those who added to cart") },
   get orders() { return tt("of checkouts") },
 }
 
+/** The step where the largest share of people did not go on, among the steps with a rate. */
+export function biggestDrop(steps: FunnelStep[]): FunnelStep | null {
+  let worst: FunnelStep | null = null
+  for (const s of steps) if (s.rate !== null && s.rate < 1 && (!worst || s.rate < (worst.rate ?? 1))) worst = s
+  return worst
+}
+
 /**
- * FROM A VISIT TO AN ORDER, IN PEOPLE: four steps, each with its count and
- * what share of the step before went on. A step nothing was recorded for,
- * while a later one has something, says so instead of a 0% that would read
- * as nobody going on.
+ * FROM A VISIT TO AN ORDER, IN PEOPLE, AS A LIST: five steps one under the
+ * other, each a line with its name, its count and the share of the step
+ * before, over a thin bar the width of its count against the visitors. It
+ * fits one column at any width, where the old four columns of bars needed
+ * two. The step that loses the most people says so in its rate's colour
+ * and in the line under the list. A step nothing was recorded for, while a
+ * later one has something, says "Not recorded" rather than a 0% that would
+ * read as nobody going on.
  */
 function Funnel({ steps }: { steps: FunnelStep[] }) {
   const top = Math.max(...steps.map((s) => s.value), 1)
+  const drop = biggestDrop(steps)
   return (
-    <div className="mt-2 grid flex-1 grid-cols-4 gap-2" data-funnel="">
-      {steps.map((s, i) => (
-        <div key={s.key} data-step={s.key} className={cn("flex min-w-0 flex-col", i > 0 && "border-l border-[#eef0f2] pl-2")}>
-          <p className="min-h-[32px] text-[12px] leading-4 text-[#6b7280]">{s.label}</p>
-          <p className="mt-1 text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{s.recorded ? fmtCount(s.value) : "–"}</p>
-          <p className="min-h-[32px] text-[11px] leading-4 tabular-nums text-[#9ca3af]">
-            {!s.recorded ? tt("Not recorded") : s.rate !== null ? `${fmtPct(s.rate)} ${OF[s.key]}` : ""}
-          </p>
-          <div className="mt-auto flex h-[72px] items-end">
-            <div
-              className="w-full max-w-[24px] rounded-t-[4px] transition-[height] duration-500"
-              style={{ height: `${s.recorded ? Math.max(3, (s.value / top) * 100) : 3}%`, background: s.recorded ? FUNNEL[i] : "#e5e7eb" }}
-            />
-          </div>
-        </div>
-      ))}
+    <div className="mt-1 flex flex-1 flex-col" data-funnel="">
+      <ol className="flex flex-col gap-1.5">
+        {steps.map((s) => {
+          const worst = drop?.key === s.key
+          const width = s.recorded ? Math.max(1.5, (s.value / top) * 100) : 0
+          return (
+            <li
+              key={s.key}
+              data-step={s.key}
+              data-drop={worst ? "" : undefined}
+              className="group"
+              title={s.recorded ? `${s.label}: ${fmtCount(s.value)}${s.rate !== null ? `, ${fmtPct(s.rate)} ${OF[s.key]}` : ""}` : `${s.label}: ${tt("Not recorded")}`}
+            >
+              <div className="flex h-5 items-baseline gap-2 text-[13px]">
+                <span className="min-w-0 flex-1 truncate text-[#303036]">{s.label}</span>
+                <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{s.recorded ? fmtCount(s.value) : "–"}</span>
+                <span className={cn("w-12 shrink-0 text-right text-[12px] tabular-nums", worst ? "font-medium text-[#b42318]" : "text-[#9ca3af]")}>
+                  {!s.recorded ? "" : s.rate !== null ? fmtPct(s.rate) : ""}
+                </span>
+              </div>
+              <div className="mt-1 h-[6px] w-full rounded-[3px] bg-[#f1f2f4]" aria-hidden>
+                <div
+                  data-funnel-bar=""
+                  className="h-full rounded-r-[3px] transition-[width] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:brightness-95"
+                  style={{ width: `${width}%`, background: FUNNEL_BAR }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-auto truncate pt-2 text-[12px] text-[#6b7280]" data-funnel-note="">
+        {steps.some((s) => !s.recorded)
+          ? tt("Not recorded: {steps}", { steps: steps.filter((s) => !s.recorded).map((s) => s.label.toLowerCase()).join(", ") })
+          : drop && drop.rate !== null
+            ? tt("Biggest drop: {step}, {share} lost", { step: drop.label, share: fmtPct(1 - drop.rate) })
+            : "\u00a0"}
+      </p>
     </div>
   )
 }
@@ -321,14 +356,15 @@ function Waiting({ kind }: { kind: WaitKind }) {
   if (kind === "funnel") {
     return (
       <Shimmer>
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {[1, 0.62, 0.4, 0.22].map((h, i) => (
-            <div key={i} className={cn("flex flex-col", i > 0 && "border-l border-[#eef0f2] pl-2")}>
-              <ShimmerBlock className="mt-1 h-3 w-4/5 rounded-full" />
-              <ShimmerBlock className="mt-3 h-3.5 w-1/2 rounded-full" />
-              <div className="mt-8 flex h-[72px] items-end">
-                <ShimmerBlock className="w-full max-w-[24px] rounded-b-none rounded-t-[4px]" style={{ height: `${h * 100}%` }} />
+        <div className="mt-1 flex flex-col gap-1.5">
+          {[1, 0.62, 0.3, 0.22, 0.12].map((w, i) => (
+            <div key={i}>
+              <div className="flex h-5 items-center gap-2">
+                <ShimmerBlock className="h-3 w-1/3 rounded-full" />
+                <span className="flex-1" />
+                <ShimmerBlock className="h-3 w-9 rounded-full" />
               </div>
+              <ShimmerBlock className="mt-1 h-[6px] rounded-[3px]" style={{ width: `${Math.max(8, w * 100)}%` }} />
             </div>
           ))}
         </div>
@@ -368,34 +404,80 @@ function Body({ blank, wait, children }: { blank: boolean; wait: WaitKind; child
 
 /* ─── The cards ───────────────────────────────────────────────────────── */
 
-type SourceTab = "source" | "social" | "referrer" | "campaign"
+type SourceTab = "source" | "social" | "campaign"
 type DeviceTab = "device" | "browser"
 type SignupTab = "property" | "source"
+type CountryTab = "visitors" | "orders"
+type ProductTab = "all" | "physical" | "digital"
 
 const SOURCE_TABS: Array<{ value: SourceTab; label: string }> = [
   { value: "source", get label() { return tt("Source") } },
   { value: "social", get label() { return tt("Social") } },
-  { value: "referrer", get label() { return tt("Referrer") } },
   { value: "campaign", get label() { return tt("Campaign") } },
 ]
 const SOURCE_EMPTY: Record<SourceTab, string> = {
   get source() { return tt("No visits in this period. Share your link to bring some in.") },
   get social() { return tt("No visits from social apps. Add your link to your bio.") },
-  get referrer() { return tt("No visits from other websites in this period.") },
   get campaign() { return tt("No visits from tagged links. Add utm_campaign to a link to see it here.") },
+}
+
+/**
+ * TOP PRODUCTS, ALL OR ONE KIND. With both kinds on sale, a line of figures
+ * over the list: for Physical the units, for Digital the share of orders
+ * downloaded at least once.
+ */
+function ProductsBody({ r, tab, figure }: { r: Reports; tab: ProductTab; figure: boolean }) {
+  const kind = (k: string | null | undefined) => (k === "physical" ? "physical" : "digital")
+  const physical = r.kinds.find((k) => k.key === "physical")
+  const digitalKinds = r.kinds.filter((k) => k.key !== "physical")
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+  const rows: ListRow[] =
+    tab === "digital"
+      ? r.digital.top.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: [plural(p.orders, "order", "orders"), p.downloads !== null ? plural(p.downloads, "download", "downloads") : null].filter(Boolean).join(" · ") }))
+      : r.topProducts
+          .filter((p) => tab === "all" || (p.kind != null && kind(p.kind) === tab))
+          .map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: `${plural(p.orders, "order", "orders")} · ${plural(p.views, "view", "views")}` }))
+  const head =
+    tab === "physical"
+      ? { value: physical?.salesCents ?? 0, note: `${plural(physical?.orders ?? 0, "order", "orders")} · ${plural(physical?.units ?? 0, "unit", "units")}` }
+      : tab === "digital"
+        ? {
+            value: r.digital.salesCents,
+            note: [plural(r.digital.orders, "order", "orders"), r.digital.downloads && r.digital.orders > 0 ? tt("{share} downloaded", { share: fmtPct(r.digital.downloads.orders / r.digital.orders) }) : null].filter(Boolean).join(" · "),
+          }
+        : { value: sum(r.kinds.map((k) => k.salesCents)), note: [physical ? tt("{share} physical", { share: fmtPct(physical.share) }) : null, digitalKinds.length ? tt("{share} digital", { share: fmtPct(sum(digitalKinds.map((k) => k.share))) }) : null].filter(Boolean).join(" · ") }
+  return (
+    <>
+      {figure ? (
+        <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+          <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtMoney(head.value)}</span>
+          <span className="truncate text-[12px] tabular-nums text-[#6b7280]">{head.note}</span>
+        </div>
+      ) : null}
+      <List key={tab} title={tt("Top products")} rows={rows} format={fmtMoney} empty={tab === "physical" ? tt("No physical sales in this period.") : tab === "digital" ? tt("No digital sales in this period.") : tt("No product views or orders in this period.")} />
+    </>
+  )
 }
 
 function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelector; perProduct: boolean }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
+  const [countryTab, setCountryTab] = React.useState<CountryTab>("visitors")
+  const [productTab, setProductTab] = React.useState<ProductTab>("all")
   const lists = !r.partial
   const soft = "transition-[opacity,filter] duration-300"
   const visits = (row: BreakdownRow) => `${Math.round(row.share * 100)}%`
   const b = r.breakdowns
   const onePage = property.type === "onepage"
   const traffic = fromBreakdown(b[sourceTab], visits)
-  const countries = fromBreakdown(b.country, visits)
+  const countries = countryTab === "orders" ? fromBreakdown(b.orderCountry, (row) => fmtMoney(row.extra?.salesCents ?? 0)) : fromBreakdown(b.country, visits)
+  const referrers = fromBreakdown(b.referrer, visits)
+  const systems = fromBreakdown(b.os, (row) => `${Math.round(row.share * 100)}%`)
+  /* Physical and Digital tabs only when the creator sells both kinds. */
+  const sells = new Set(r.kinds.map((k) => (k.key === "physical" ? "physical" : "digital")))
+  const both = sells.has("physical") && sells.has("digital")
+  const tab: ProductTab = both ? productTab : "all"
   const devices = fromBreakdown(b[deviceTab], visits)
   const signupsBy = property.type === "all" && signupTab === "property" ? r.subscribers?.byProperty ?? [] : r.subscribers?.bySource ?? []
   const signups = fromBreakdown(signupsBy)
@@ -413,6 +495,17 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
         </Body>
       </Card>
 
+      <Card
+        card="referrers"
+        title={tt("Referrers")}
+        help={tt("The sites and apps that sent each visit, by its first page: one line per company, whichever of its addresses or apps the link came through. Visits with no referrer are Direct, under Traffic sources.")}
+        className={soft}
+      >
+        <Body blank={!lists} wait="list">
+          {lists ? <List title={tt("Referrers")} rows={referrers.rows} previous={referrers.previous} format={fmtCount} lead={{ icon: "referrer" }} empty={tt("No visits from other websites or apps in this period.")} /> : null}
+        </Body>
+      </Card>
+
       {onePage ? (
         <Card card="pages" title={tt("Top links")} help={tt("The links and buttons on your OnePage that were tapped most, by the name they have on the page, and how many people tapped each.")} className={soft}>
           <Body blank={!lists} wait="list">
@@ -427,12 +520,12 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
           </Body>
         </Card>
       ) : (
-        <Card card="pages" title={tt("Top pages")} help={tt("The pages opened most, with how many people opened each. A page opened again within half an hour counts once.")} className={soft}>
+        <Card card="pages" title={tt("Top pages")} help={tt("Each page by its exact address and title, with its views and how many people opened it. A page opened again within half an hour counts once.")} className={soft}>
           <Body blank={!lists} wait="list">
             {lists ? (
               <List
                 title={tt("Top pages")}
-                rows={r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.place, plural(p.visitors, "visitor", "visitors")].filter(Boolean).join(" · ") }))}
+                rows={r.topPages.map((p) => ({ key: p.key, label: p.label, value: p.views, note: [p.title, p.place, plural(p.visitors, "visitor", "visitors")].filter(Boolean).join(" · ") }))}
                 format={fmtCount}
                 empty={tt("No pages opened in this period. Share a link to one of your pages.")}
               />
@@ -441,29 +534,23 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
         </Card>
       )}
 
-      <Card card="products" title={tt("Top products")} help={tt("Revenue from each product, less refunds, with its orders and how often its page was opened.")} className={soft}>
-        <Body blank={!lists} wait="list">
-          {lists ? (
-            <List
-              title={tt("Top products")}
-              rows={r.topProducts.map((p) => ({
-                key: p.key,
-                label: p.label,
-                value: p.salesCents,
-                note: `${plural(p.orders, "order", "orders")} · ${plural(p.views, "view", "views")}`,
-              }))}
-              format={fmtMoney}
-              empty={tt("No product views or orders in this period.")}
-            />
-          ) : null}
+      <Card
+        card="products"
+        title={tt("Top products")}
+        help={tt("Revenue from each product, less refunds, with its orders and how often its page was opened. Physical and Digital split them by kind; Digital counts how many orders were downloaded.")}
+        className={soft}
+        tabs={both ? <Tabs value={tab} onChange={setProductTab} options={[{ value: "all", label: tt("All") }, { value: "physical", label: tt("Physical") }, { value: "digital", label: tt("Digital") }]} /> : undefined}
+      >
+        <Body blank={!lists} wait={both ? "figure" : "list"}>
+          {lists ? <ProductsBody r={r} tab={tab} figure={both} /> : null}
         </Body>
       </Card>
 
       <Card
         card="funnel"
         title={tt("Funnel")}
-        help={tt("Of the people who visited, how many opened a product, how many started a checkout, and how many orders came in. Each step is shown as a share of the one before.")}
-        className={cn("xl:col-span-2", soft)}
+        help={tt("Of the people who visited, how many opened a product, added it to the cart or pressed Buy, started a checkout, and how many orders came in. Each step is a share of the one before; the step that loses the most people is marked in red.")}
+        className={soft}
       >
         <Body blank={!lists} wait="funnel">
           {lists ? (r.funnel.every((s) => s.value === 0) ? <Empty>{tt("No visits in this period.")}</Empty> : <Funnel steps={r.funnel} />) : null}
@@ -498,9 +585,21 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
         </Body>
       </Card>
 
-      <Card card="countries" title={tt("Countries")} help={tt("Where visits came from, from their connection.")} className={soft}>
+      <Card
+        card="countries"
+        title={tt("Countries")}
+        help={tt("Visitors: where visits came from, from their connection. Orders: where buyers are, from the order, with their revenue.")}
+        className={soft}
+        tabs={<Tabs value={countryTab} onChange={setCountryTab} options={[{ value: "visitors", label: tt("Visitors") }, { value: "orders", label: tt("Orders") }]} />}
+      >
         <Body blank={!lists} wait="list">
-          {lists ? <List title={tt("Countries")} rows={countries.rows} previous={countries.previous} format={fmtCount} lead={{ flag: true }} empty={tt("No locations recorded in this period.")} /> : null}
+          {lists ? <List key={countryTab} title={tt("Countries")} rows={countries.rows} previous={countries.previous} format={fmtCount} lead={{ flag: true }} empty={countryTab === "orders" ? tt("No orders with a country in this period.") : tt("No locations recorded in this period.")} /> : null}
+        </Body>
+      </Card>
+
+      <Card card="os" title={tt("Operating systems")} help={tt("Visitors by the system of their device, with its share of all visitors. Read from the browser's signature, and from its platform hint where the signature is vague.")} className={soft}>
+        <Body blank={!lists} wait="list">
+          {lists ? <List title={tt("Operating systems")} rows={systems.rows} previous={systems.previous} format={fmtCount} lead={{ icon: "os" }} empty={tt("No visits in this period.")} /> : null}
         </Body>
       </Card>
 
@@ -523,11 +622,13 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
 function Blank({ property }: { property: PropertySelector }) {
   const cards: Array<[string, string, WaitKind, string?]> = [
     ["traffic", tt("Traffic sources"), "list"],
+    ["referrers", tt("Referrers"), "list"],
     ["pages", property.type === "onepage" ? tt("Top links") : tt("Top pages"), "list"],
     ["products", tt("Top products"), "list"],
-    ["funnel", tt("Funnel"), "funnel", "xl:col-span-2"],
+    ["funnel", tt("Funnel"), "funnel"],
     ["subscribers", tt("Subscribers"), "figure"],
     ["countries", tt("Countries"), "list"],
+    ["os", tt("Operating systems"), "list"],
     ["devices", tt("Devices"), "list"],
   ]
   return (

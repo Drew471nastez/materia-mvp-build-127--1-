@@ -77,6 +77,9 @@ export function markForHost(host: string): Mark | null {
   if (is("linktr.ee")) return brand("linktree")
   if (is("substack.com")) return brand("substack")
   if (is("spotify.com", "open.spotify.com")) return brand("spotify")
+  if (is("github.com", "github.io")) return brand("github")
+  if (is("stripe.com")) return brand("stripe")
+  if (is("apple.com", "icloud.com", "apple.news")) return brand("apple")
   const social = socialNetworkOfHost(h)
   if (social) return network(social)
   if (is("yahoo.com", "yandex.ru", "yandex.com", "startpage.com", "qwant.com")) return glyph("search")
@@ -105,6 +108,7 @@ function markForOs(name: string): Mark | null {
   if (n.includes("chromeos") || n.includes("chrome os")) return brand("chrome")
   if (n.includes("windows")) return brand("windows")
   if (n.includes("linux")) return brand("linux")
+  if (n === "other" || n === "unknown" || n === "(other)") return glyph("globe")
   return null
 }
 
@@ -323,8 +327,10 @@ export function SourceIcon({ kind, value }: { kind: IconFor; value: string }) {
   if (kind === "source") mark = SOURCE[value] ?? (value.startsWith("social_") ? network(value.slice("social_".length)) : undefined)
   else if (kind === "social") mark = network(value)
   else if (kind === "referrer") {
+    /* A company already named by Analytics (lib/analytics/sources referrerBrand): "google", "instagram", "x". */
+    if (value === "google" || value in BRAND_MARKS) mark = brand(value)
     const host = hostOf(value)
-    mark = markForHost(value) ?? (host ? { kind: "site", host } : null)
+    mark = mark ?? markForHost(value) ?? (host ? { kind: "site", host } : null)
   } else if (kind === "device") mark = DEVICE[value]
   else if (kind === "browser") mark = markForBrowser(value)
   else if (kind === "campaign") mark = glyph("campaign")

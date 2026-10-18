@@ -1,6 +1,6 @@
 import { hasConsent } from "@/lib/consent/client"
 import { pixelEvent } from "@/lib/analytics/pixels"
-import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer } from "@/lib/analytics/sources"
+import { canonicalReferrerHost, categorizeServerSource, detectClientAppFromUA, isInternalReferrer, sourceParamOf } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { send, skipReason } from "@/lib/analytics/page-tracker"
 // lib/analytics-utils.ts
@@ -80,7 +80,8 @@ export function getReferrerHost(): string {
     const ref = document.referrer || ""
     if (!ref) return "Direct"
 
-    const refHost = normalizeHost(new URL(ref).hostname)
+    /* android-app://com.google.android.gm is Gmail (lib/analytics/sources canonicalReferrerHost). */
+    const refHost = canonicalReferrerHost(normalizeHost(new URL(ref).hostname))
     const currentHost = normalizeHost(window.location.hostname)
 
     // Ignore self-referrals: this page, Storelib, a creator's Storelib site, the payment page
@@ -105,7 +106,8 @@ export function getUTMParams(): UTM {
   }
   const sp = new URLSearchParams(window.location.search)
   return {
-    utm_source: sp.get("utm_source"),
+    /* No utm_source: ?ref=, ?source= or ?via= names the source (lib/analytics/sources sourceParamOf), as Orders and communities read it. */
+    utm_source: sp.get("utm_source") || (sp.get("utm_medium") ? null : sourceParamOf(sp)),
     utm_medium: sp.get("utm_medium"),
     utm_campaign: sp.get("utm_campaign"),
     utm_term: sp.get("utm_term"),
