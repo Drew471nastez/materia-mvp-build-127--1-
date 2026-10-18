@@ -183,6 +183,8 @@ async function main() {
       status: "succeeded",
       amount: 4610,
       amount_received: 4610,
+      /* Changed on purpose (currency round AN): Stripe always names the currency it charged. An order without one now holds its receipt (lib/money/held-email) rather than guessing. */
+      currency: "usd",
       created: Math.floor(Date.now() / 1000),
       client_secret: `${id}_secret_abc`,
       receipt_email: null,

@@ -30,6 +30,7 @@ import {
   marketplaceAmounts,
   parseMarketplaceGate,
   pricingContextOf,
+  RATES_PAUSED_MESSAGE,
   toUsdMinor,
 } from "@/lib/money/marketplace"
 import { PLAN_CURRENCY, isPlanPriced, productPriceCurrency } from "@/lib/money/product-currency"
@@ -168,11 +169,11 @@ async function main() {
     const session = code("app/api/checkout/stripe-session/route.ts")
     check("stripe-session passes the page's pricing to priceOrder", /pricing: body\.pricing && typeof body\.pricing === "object"/.test(session))
     check("and charges what priceOrder priced", /const storeCurrency = priced\.currency/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session))
-    check("and writes how a marketplace price was made, in one metadata key (Stripe takes 50)", /priced\.pricing\.context === "marketplace" && Object\.keys\(metadata\)\.length < 50\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session))
+    check("and writes how a marketplace price was made, in one metadata key, before the 50-key check", /priced\.pricing\.context === "marketplace"\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session) && /fitStripeMetadata\(metadata\)/.test(session))
     check("a pause is answered with its own code", /priced\.code \? \{ code: priced\.code \}/.test(session))
     const page = code("app/checkout/page.tsx")
     check("the checkout page converts only for ?ctx=mp with the switch on", /ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && marketplaceUsdFor\(product\.creator_id\)/.test(page))
-    check("and waits, with a plain message, when no rate is fresh", /<RatesPaused/.test(page) && /RATES_PAUSED_MESSAGE/.test(page))
+    check("and waits, with a plain message, when no rate is fresh", /<RatesPaused/.test(page) && page.includes(`checkoutMsg("${RATES_PAUSED_MESSAGE}")`))
     const client = code("app/checkout/checkout-client.tsx")
     check("the client sends the pricing back with Pay and with a code", (client.match(/\bpricing,/g) ?? []).length >= 2)
     check("order rows note it, without ever failing the order", /tagOrderPricing\(admin, order\.id/.test(code("lib/checkout/fulfil-payment.ts")) && /tagOrderPricing\(supabaseAdmin, order\.id/.test(code("app/api/stripe/webhook/route.ts")))
@@ -243,7 +244,7 @@ async function main() {
     for (const f of ["lib/checkout/fulfil-payment.ts", "lib/memberships/sync.ts", "lib/stripe/refund-sync.ts", "app/api/invoice/route.ts", "app/api/stripe/refund/route.ts", "app/api/admin/orders/refund/route.ts", "app/api/cron/release-holds/route.ts", "lib/payments/refunds.ts"]) {
       check(`${f}: no "usd" written for an unknown currency`, !/(\|\||\?\?) ?["']usd["']/i.test(code(f)) && !/currency: ["']usd["']/i.test(code(f)))
     }
-    check("a notification never writes $ for a currency nobody recorded", notifyMoney(1234, null) === "12.34" && /€|EUR/.test(notifyMoney(1234, "eur")))
+    check("a notification never writes $ (or a bare number) for a currency nobody recorded", notifyMoney(1234, null) === "" && /€|EUR/.test(notifyMoney(1234, "eur")))
     check("the settings note is said only when the marketplace is in dollars for the store", /marketplaceUsd: marketplaceUsdFor\(creatorId\)/.test(code("app/api/store/currency/route.ts")) && /!data\?\.marketplaceUsd/.test(code("components/app/settings/country-currency.tsx")))
   }
 

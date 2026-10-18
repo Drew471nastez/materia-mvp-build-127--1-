@@ -8,6 +8,7 @@
  * ✅ Reply-To priority: seller email (for purchases) → creator support_email → creator profile email → platform support
  */
 
+import { CURRENCY_UNKNOWN_HOLD, flagHeldEmail, moneyWithoutCurrency } from "@/lib/money/held-email"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
@@ -491,6 +492,7 @@ async function receiptEmailModel(
     }
     const hasFiles = v.items.some((i) => i.files.length > 0)
     return {
+      heldForCurrency: v.currencyKnown === false && v.totalCents > 0,
       firstName: v.buyer.firstName || params.buyerFirstName,
       sellerName: v.seller.name || params.sellerName,
       /* Both read profiles.avatar_url; the loader's is the one to hand when the brand could not be read. */
@@ -535,6 +537,7 @@ async function receiptEmailModel(
   const amount = Number(known?.amount_cents ?? params.fallback.amountCents) || 0
   const amountText = currency === null ? "" : amount === 0 ? "Free" : formatMoney(amount, currency, "en-US")
   return {
+    heldForCurrency: currency === null && amount > 0,
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,
     sellerPicture: pictureOf(brand?.avatarUrl),
@@ -881,6 +884,13 @@ export async function sendBuyerDownloadEmail(
     creatorId,
     fallback: { productTitle, variantName, amountCents: params.amountCents, orderId },
   })
+  /* An amount owed with no currency to write it in: held for the admin, never sent with a guess (lib/money/held-email). */
+  if (model.heldForCurrency) {
+    if (logId) await updateEmailLog(admin, logId, "failed", CURRENCY_UNKNOWN_HOLD)
+    await updateOrderEmailStatus(admin, orderId, "buyer", false, CURRENCY_UNKNOWN_HOLD)
+    await flagHeldEmail({ email: "Receipt", orderId })
+    return { success: false, error: CURRENCY_UNKNOWN_HOLD, logId: logId || undefined }
+  }
   /* The PDF this email carries (lib/checkout/invoice.ts names it Invoice-… or Receipt-…). */
   const pdf = attachments?.find((a) => a.contentType === "application/pdf")
   if (pdf) {
@@ -974,6 +984,10 @@ export async function sendReceiptCopyEmail(
     creatorId: params.creatorId,
     fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
   })
+  if (model.heldForCurrency) {
+    await flagHeldEmail({ email: "Receipt copy", orderId: params.orderId })
+    return { success: false, error: CURRENCY_UNKNOWN_HOLD }
+  }
   const firstTitle = model.items[0]?.title ?? params.productTitle
   const subject = await withReceiptCopy(
     admin,
@@ -1124,6 +1138,13 @@ export async function sendSellerNotificationEmail(
     const sale = await saleEmailData(admin, params)
     covered = sale.orderIds.includes(orderId) ? sale.orderIds : [orderId, ...sale.orderIds]
     first = sale.first
+    /* A sale with an amount but no currency is held for the admin, never sent with a guess or a bare number (lib/money/held-email). */
+    if (moneyWithoutCurrency(sale.data as Record<string, unknown>)) {
+      if (logId) await updateEmailLog(admin, logId, "failed", CURRENCY_UNKNOWN_HOLD)
+      await updateOrderEmailStatus(admin, orderId, "seller", false, CURRENCY_UNKNOWN_HOLD)
+      await flagHeldEmail({ email: "Sale", orderId })
+      return { success: false, error: CURRENCY_UNKNOWN_HOLD, logId: logId || undefined }
+    }
     /* In the creator's own time zone, with its name, not the server's clock. */
     const { date, time } = formatForCreator(sale.occurredAt, creatorZone ?? null)
     const [{ renderEmail }, { preferencesUrl }] = await Promise.all([import("@/lib/notify/templates"), import("@/lib/notify/unsubscribe")])
@@ -1739,10 +1760,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
   */
   const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
   if (!code) {
-    console.error("[email] refund email held: no currency for order", String(orderId).slice(0, 8))
-    await import("@/lib/observability/report")
-      .then(({ reportError }) => reportError({ source: "notify", where: "refund email held: currency unknown", error: new Error("A refund email had no currency and was not sent"), context: { orderId } }))
-      .catch(() => undefined)
+    await flagHeldEmail({ email: "Refund", orderId })
     return
   }
   const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(refundAmount / 100)
