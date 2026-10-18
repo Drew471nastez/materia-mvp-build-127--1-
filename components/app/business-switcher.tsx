@@ -10,6 +10,7 @@ import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
 import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 import { ROLE_LABEL, roleHome, type MemberRole } from "@/lib/team/roles"
+import { ownAccountHref } from "@/lib/team/landing"
 import { tt } from "@/lib/i18n/text"
 
 /**
@@ -244,7 +245,8 @@ export function BusinessSwitcher({
   }
 
   const openBusiness = async (b: BusinessRow) => {
-    if (actingIn && b.current) return openTeam(null, b.userId, "/app")
+    /* Their own account: its dashboard, or, with no store set up yet, its setup, whose Not now comes back to this store (lib/team/landing). */
+    if (actingIn && b.current) return openTeam(null, b.userId, ownAccountHref({ ownAccess: b.ready, actingIn: actingIn.creatorId }))
     if (b.current || busy) return
     setError(null)
     setRetry(null)

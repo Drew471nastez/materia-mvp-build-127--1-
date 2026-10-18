@@ -24,6 +24,7 @@ import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/b
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
+import { appLanding, ownAccountHref } from "@/lib/team/landing"
 import { TeamBar } from "@/components/app/team-bar"
 import { RAIL_COOKIE, railStateOf, railWidth } from "@/lib/ui/app-rail"
 
@@ -177,7 +178,17 @@ export default async function AppLayout({
     already read above, so it costs nothing. The old "role must be selected"
     gate went with the creator or buyer question it was about.
   */
-  if (!creator || (!teamStore && !hasSellerAccess(sellerAccessFrom({ creator, profile: gateCheck })))) {
+  /*
+    A TEAM MEMBER IS NEVER SENT TO ONBOARDING (round Y2, lib/team/landing).
+    On a team with no store of their own, and no cookie naming the store
+    (another device, the app, Back to my account): back into that store
+    through /api/team/home, then its dashboard. Only somebody with
+    no store and no team goes to /sell.
+  */
+  const ownAccess = !!ownCreator && hasSellerAccess(sellerAccessFrom({ creator: ownCreator, profile: gateCheck }))
+  const landing = appLanding({ acting: !!teamStore, ownAccess, memberships: memberOf.length, path: "/app" })
+  if (landing.kind === "adopt") redirect(landing.to)
+  if (!creator || landing.kind === "sell") {
     redirect("/sell")
   }
 
@@ -275,7 +286,7 @@ export default async function AppLayout({
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
           <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
             <LiveStoreCurrency currency={storeCurrency}>
-              {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator}>{children}</TeamBar> : children}
+              {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator} ownHome={ownAccountHref({ ownAccess, actingIn: acting.creatorId })}>{children}</TeamBar> : children}
             </LiveStoreCurrency>
           </div>
         </main>

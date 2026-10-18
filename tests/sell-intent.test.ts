@@ -224,10 +224,10 @@ function main() {
   const callback = code("app/auth/callback/route.ts")
   check("/auth/callback reads it once and decides with the shared table",
     /decodeCarry\(jar\.get\(CARRY_COOKIE\)\?\.value/.test(callback) && /jar\.delete\(CARRY_COOKIE\)/.test(callback)
-      && /destinationAfterAuth\(carry, access\)/.test(callback) && !/signup\/success/.test(callback) && /welcome_completed: true/.test(callback))
+      && /destinationAfterAuth\(carry, access(, \{ teamMember \})?\)/.test(callback) && !/signup\/success/.test(callback) && /welcome_completed: true/.test(callback))
   const cont = code("app/auth/continue/route.ts")
   check("/auth/continue: signed out to login, unverified to the code, else the table",
-    /if \(!user\) return go\(withCarry\("\/login", carry\)\)/.test(cont) && /\/signup\/verify\?userId=/.test(cont) && /destinationAfterAuth\(carry, access\)/.test(cont))
+    /if \(!user\) return go\(withCarry\("\/login", carry\)\)/.test(cont) && /\/signup\/verify\?userId=/.test(cont) && /destinationAfterAuth\(carry, access(, \{ teamMember \})?\)/.test(cont))
   check("sync-session and the App Link follow a path only",
     /sameOriginPath\(searchParams\.get\("next"\), CONTINUE_PATH\)/.test(code("app/auth/sync-session/route.ts"))
       && /sameOriginPath\(searchParams\.get\("next"\), "\/app"\)/.test(code("app/app/auth/callback/route.ts"))
@@ -253,8 +253,9 @@ function main() {
 
   const app = code("app/app/layout.tsx")
   check("/app: no seller access goes to /sell, and the role gate is gone",
-    /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access. */
-    /if \(!creator \|\| \(!teamStore && !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\)\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
+    /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access.
+       Round Y2: the same answer through lib/team/landing appLanding, and a member with no cookie goes back into the store (tests/team-landing.test.ts). */
+    /const ownAccess = !!ownCreator && hasSellerAccess\(sellerAccessFrom\(\{ creator: ownCreator, profile: gateCheck \}\)\)/.test(app) && /if \(!creator \|\| landing\.kind === "sell"\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
   for (const layout of ["app/account/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx"]) {
     check(`${layout}: a buyer is not sent to the creator or buyer question`, !/roleSelected/.test(code(layout)) && !/signup\/success/.test(code(layout)))
   }

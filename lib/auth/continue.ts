@@ -149,20 +149,26 @@ function isAppPath(target: string): boolean {
  *   none    no             set              next
  *   none    no             none             /explore
  *
+ * A team member with no store of their own counts as having a dashboard
+ * here (`teamMember`): /app/... is followed and no `next` is /app, the
+ * store they work in. Sell on Storelib still opens onboarding for them.
+ *
  * "No seller access" includes a half finished onboarding: /sell opens the
  * setup again, it does not count as being a seller.
  */
-export function destinationAfterAuth(carry: AuthCarry, access: SellerAccess): string {
+export function destinationAfterAuth(carry: AuthCarry, access: SellerAccess, opts: { teamMember?: boolean } = {}): string {
   const seller = hasSellerAccess(access)
+  /* On a store's team (lib/team): the dashboard is that store's, so /app is theirs too and never a reason for onboarding (lib/team/landing). */
+  const dashboard = seller || opts.teamMember === true
   if (carry.intent === SELL_INTENT) {
     if (seller) return carry.next && isAppPath(carry.next) ? carry.next : SELLER_HOME
     return carry.next && !isAppPath(carry.next) ? withCarry(SELL_PATH, { next: carry.next }) : SELL_PATH
   }
   if (carry.next) {
-    if (isAppPath(carry.next) && !seller) return SELL_PATH
+    if (isAppPath(carry.next) && !dashboard) return SELL_PATH
     return carry.next
   }
-  return seller ? SELLER_HOME : BUYER_HOME
+  return dashboard ? SELLER_HOME : BUYER_HOME
 }
 
 /**

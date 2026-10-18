@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { currentCreatorId } from "@/lib/creators/current"
 import { getServerTt } from "@/lib/i18n/server"
 import { ReviewsClient } from "./reviews-client"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -29,6 +29,6 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function ReviewsPage() {
   const creatorId = await currentCreatorId()
-  if (!creatorId) redirect("/sell")
+  if (!creatorId) return noStorePage("/app/reviews")
   return <ReviewsClient />
 }

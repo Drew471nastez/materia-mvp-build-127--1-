@@ -29,7 +29,8 @@ function WithStore({ sentence, store }: { sentence: string; store: string }) {
   )
 }
 
-export function TeamBar({ store, role, ownStore = true, children }: { store: string; role: MemberRole; ownStore?: boolean; children: React.ReactNode }) {
+/** `ownHome`: where Back to my account opens (lib/team/landing ownAccountHref): their dashboard, or their own setup with the way back here. */
+export function TeamBar({ store, role, ownStore = true, ownHome = "/app", children }: { store: string; role: MemberRole; ownStore?: boolean; ownHome?: string; children: React.ReactNode }) {
   const pathname = usePathname() || "/app"
   const [leaving, setLeaving] = React.useState(false)
   const area = areaOfPath(pathname)
@@ -48,7 +49,7 @@ export function TeamBar({ store, role, ownStore = true, children }: { store: str
   const back = async () => {
     setLeaving(true)
     await fetch("/api/team/act", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ store: null }) }).catch(() => null)
-    window.location.href = "/app"
+    window.location.href = ownHome
   }
   return (
     <>

@@ -249,6 +249,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const verb = notifyOnly || installed ? null : installVerb(item)
   /* The page has one thing to do (Connect, Install, Turn on, Tell me when it's ready), and it follows in a bar once scrolled away. */
   const pinnable = pin && (notifyOnly || !!verb)
+  /* A bar wherever the page has a Back to integrations, or an action to follow (round Y2). */
+  const barOn = !!onBack || pinnable
   const steps = installed || notifyOnly ? [] : setupSteps(item)
   /* The header's Tell me when it's ready sends the request itself. */
   const [askTick, setAskTick] = React.useState(0)
@@ -468,7 +470,7 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   const glanceRows = item.glance.filter((g) => g.label !== "Status")
   const glance = (
     /* Stuck under the following bar when there is one, so its title is never under it. */
-    <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky", pinnable ? "lg:top-[80px]" : "lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
+    <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky", barOn ? "lg:top-[80px]" : "lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
       <h3 id="integration-glance" className={H3}>{tt("At a glance")}</h3>
       <dl className="mt-3 divide-y divide-[#f1f2f4]">
         <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
@@ -523,9 +525,23 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
     else toSetup()
   }
   const primaryRef = React.useRef<HTMLButtonElement>(null)
-  const pinned = usePinned(primaryRef, pinnable)
+  const actionsRef = React.useRef<HTMLDivElement>(null)
+  const backMark = React.useRef<HTMLSpanElement>(null)
+  /*
+    THE BAR, WITH ITS WAY BACK (round Y2, the owner: "so I don't have to
+    scroll all the way back up"). Wherever the page has a Back to
+    integrations (/app/integrations and Settings, Integrations, on every one
+    of an app's tabs), the bar comes in the moment that link goes out of the
+    top, with a back arrow at its left in the link's place, and goes again
+    the moment the link is back: the link and the arrow trade places on one
+    observer and one transition. The bar's own action follows the header's,
+    as before: shown only once the header's is out of view.
+  */
+  const { bar: barShown, action: actionOut } = usePageBar(onBack ? backMark : null, actionsRef, barOn)
+  const pinned = onBack ? barShown : actionOut
+  const barAction = notifyOnly || !!verb ? "primary" : plan || installed ? "settings" : null
   const actions = (
-    <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end" data-integration-actions="">
+    <div ref={actionsRef} className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end" data-integration-actions="">
       {notifyOnly ? (
         <button ref={primaryRef} type="button" onClick={pressPrimary} className={cn(BTN_PRIMARY, BTN)} data-integration-action="">
           {primaryLabel}
@@ -558,47 +574,83 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 
   return (
     <>
-      {pinnable ? (
+      {barOn ? (
         /*
-          THE ACTION FOLLOWS (round 27). Once the header's Connect (Install,
-          Turn on...) has scrolled out of the top, the same action rides in a
-          bar at the top of the page, 8px under its edge, and leaves again as
-          soon as the header's own is back in view: never both at once. A
-          sticky box with no height, so it takes no room and nothing under it
-          moves; the bar fades and drops 6px into place.
+          THE ACTION FOLLOWS (round 27, round Y2). A sticky box with no
+          height, so it takes no room and nothing under it moves. The bar
+          fades and drops 6px into place on the compositor (opacity and
+          translate only), in and out on the same 200ms curve as the Back
+          link it trades places with. It sits under the top of the page's own
+          scroller, which already starts below the app's header and its safe
+          area (app/app/layout.tsx, the settings sheet), so it is never under
+          a notch and the inset is never counted twice.
         */
         <div className="sticky top-0 z-20 h-0" data-integration-pin-box="">
           <div
             className={cn(
-              "absolute inset-x-0 top-0 pt-2 transition-[opacity,translate] ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
-              pinned ? "translate-y-0 opacity-100 duration-200" : "pointer-events-none -translate-y-1.5 opacity-0 duration-[120ms]",
+              "absolute inset-x-0 top-0 pt-2 transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none sm:pt-3",
+              pinned ? "translate-y-0 opacity-100" : "pointer-events-none -translate-y-1.5 opacity-0",
             )}
             inert={!pinned}
             aria-hidden={!pinned}
             data-integration-pin={pinned ? "shown" : "hidden"}
           >
-            <div className="flex items-center gap-2.5 rounded-2xl border border-[#e5e7eb]/80 bg-white p-2 pl-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_28px_-14px_rgba(16,24,40,0.24)]">
+            <div className={cn("flex items-center gap-2.5 rounded-2xl border border-[#e5e7eb]/80 bg-white p-2 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_28px_-14px_rgba(16,24,40,0.24)]", onBack ? "pl-1.5" : "pl-2.5")}>
+              {onBack ? (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label={tt("Back to integrations")}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+                  data-integration-pin-back=""
+                >
+                  <ChevronLeft className="h-[18px] w-[18px]" aria-hidden />
+                </button>
+              ) : null}
               <Mark item={item} size={32} />
               <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-[#1a1a2e]">{item.name}</span>
-              <button type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-9 shrink-0 rounded-lg px-3.5")} data-integration-pin-action="">
-                {primaryLabel}
-                {verb && verb !== "Turn on" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
-              </button>
+              {barAction ? (
+                /* Kept in its place while the header's own is in view (faded, out of reach), so the name never changes width as it comes. */
+                <span
+                  className={cn("shrink-0 transition-opacity duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none", actionOut ? "opacity-100" : "pointer-events-none opacity-0")}
+                  inert={!actionOut}
+                  data-integration-pin-action-slot={actionOut ? "shown" : "hidden"}
+                >
+                  {barAction === "primary" ? (
+                    <button type="button" disabled={busy} onClick={pressPrimary} className={cn(BTN_PRIMARY, "h-9 shrink-0 rounded-lg px-3.5")} data-integration-pin-action="">
+                      {primaryLabel}
+                      {verb && verb !== "Turn on" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={toSetup} className={cn(BTN_SECONDARY, "h-9 shrink-0 rounded-lg px-3")} data-integration-pin-action="">
+                      <Settings2 className="h-4 w-4" aria-hidden />
+                      {tt("Settings")}
+                    </button>
+                  )}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
       ) : null}
       <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
         {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
-            data-integration-back=""
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-            {tt("Back to integrations")}
-          </button>
+          /* The mark is what the bar watches: 64px under the link's foot, so it crosses into the bar's room as the link's last pixel leaves the top. */
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onBack}
+              className={cn(
+                "-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-[background-color,color,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
+                barShown ? "opacity-0" : "opacity-100",
+              )}
+              data-integration-back={barShown ? "away" : "here"}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              {tt("Back to integrations")}
+            </button>
+            <span ref={backMark} aria-hidden className="pointer-events-none absolute left-0 h-px w-px" style={{ top: `calc(100% + ${PIN_ROOM - 1}px)` }} data-integration-back-mark="" />
+          </div>
         ) : null}
 
         <header className={cn(DEPTH, "overflow-hidden")} data-integration-header="">
@@ -718,32 +770,44 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
 const PIN_ROOM = 64
 
 /**
- * Whether `target` has scrolled out of the top of the page that scrolls it
- * (out of view, or under the bar's room there): true from the frame its last
- * pixel goes, false from the frame one is back. Seen by an
- * IntersectionObserver on that scroller, so scrolling renders nothing
- * between the two moments.
+ * Where the page stands against the bar, from one IntersectionObserver on the
+ * page's scroller, so scrolling renders nothing between the two moments:
+ *
+ *   bar     the Back link's mark is in the bar's room: the link is out of the
+ *           top (with no link, the header's action is)
+ *   action  the header's actions are out of view or under the bar's room
+ *
+ * Both are read in the same callback and set in one update, so the link and
+ * the bar's arrow change in the same frame.
  */
-function usePinned(target: React.RefObject<HTMLElement | null>, on: boolean): boolean {
-  const [out, setOut] = React.useState(false)
+function usePageBar(back: React.RefObject<HTMLElement | null> | null, actions: React.RefObject<HTMLElement | null>, on: boolean): { bar: boolean; action: boolean } {
+  const [state, setState] = React.useState({ bar: false, action: false })
   React.useEffect(() => {
-    const el = target.current
-    if (!on || !el || typeof IntersectionObserver === "undefined") {
-      setOut(false)
+    const act = actions.current
+    const mark = back?.current ?? null
+    if (!on || !act || typeof IntersectionObserver === "undefined") {
+      setState({ bar: false, action: false })
       return
     }
-    const root = el.closest<HTMLElement>("[data-integrations-scroll], [data-settings-sheet-scroll], .app-content-scroll")
+    const root = act.closest<HTMLElement>("[data-integrations-scroll], [data-settings-sheet-scroll], .app-content-scroll")
+    const out = new Map<Element, boolean>()
     const io = new IntersectionObserver(
-      ([e]) => {
-        const top = e.rootBounds?.top ?? 0
-        setOut(!e.isIntersecting && e.boundingClientRect.bottom <= top + 0.5)
+      (entries) => {
+        for (const e of entries) {
+          const top = e.rootBounds?.top ?? 0
+          out.set(e.target, !e.isIntersecting && e.boundingClientRect.bottom <= top + 0.5)
+        }
+        const action = out.get(act) ?? false
+        const bar = mark ? (out.get(mark) ?? false) : action
+        setState((s) => (s.bar === bar && s.action === action ? s : { bar, action }))
       },
       { root, threshold: 0, rootMargin: `-${PIN_ROOM}px 0px 0px 0px` },
     )
-    io.observe(el)
+    io.observe(act)
+    if (mark) io.observe(mark)
     return () => io.disconnect()
-  }, [target, on])
-  return on && out
+  }, [back, actions, on])
+  return on ? state : { bar: false, action: false }
 }
 
 function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; value: string | null; ready: boolean; onSaved: (t: Tracking) => void }) {

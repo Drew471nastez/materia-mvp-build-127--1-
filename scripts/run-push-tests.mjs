@@ -746,6 +746,9 @@ const SUITES = [
   /* Round X4: Join on a team invite works after any sign in (Origin "null" under no-referrer was refused), the invite kept across OAuth, another email may take a valid link once */
   "tests/team-join-x.test.ts",
   "tests/team-invite.test.ts",
+  /* Round Y2: a team member opening /app lands in the team store (never /sell), Not now on /sell goes back to it, sign in follows /app for a member; an integration's bar carries Back (scripts/check-integrations-y2.mjs measures the bar and the card covers) */
+  "tests/team-landing.test.ts",
+  "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
 ]

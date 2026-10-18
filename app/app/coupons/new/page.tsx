@@ -3,6 +3,7 @@ import { CouponEditor } from "../coupon-editor"
 import { loadCouponArea } from "../load-coupons"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -28,6 +29,6 @@ export default async function NewCouponPage({ searchParams }: PageProps) {
   if (edit) redirect(`/app/coupons/${encodeURIComponent(edit)}`)
   const load = await loadCouponArea(null)
   if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/sell")
+  if (load.state === "no-creator") return noStorePage("/app/coupons/new")
   return <CouponEditor products={load.products} initialCoupon={null} />
 }
