@@ -78,7 +78,7 @@ export function builtinListings(): ThemeListing[] {
       slug: DEFAULT_LISTING_SLUG,
       name: def.name,
       author: "Storelib",
-      authorAvatar: "/apple-icon.png",
+      authorAvatar: null,
       category: def.industry,
       tier: "free",
       priceCents: 0,
