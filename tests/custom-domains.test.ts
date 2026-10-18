@@ -327,7 +327,7 @@ console.log("\nThe DNS set up, on both screens")
   check("named for the provider it was bought at, on the same key the builder remembers it by", /hostFor\(registrar, r\)/.test(panel) && /const REGISTRAR_KEY = "storelib:domain-registrar"/.test(panel) && /REGISTRAR_KEY = "storelib:domain-registrar"/.test(code("components/domains/dns-setup.tsx")))
   check("each domain not yet connected has its records on its own row, and what to fix after a check that did not pass", /\{recordsOf\(d, !dnsDone\)\}/.test(panel) && /result\.tone === "bad" && \(result\.message \|\| result\.fixes\.length > 0\)/.test(panel))
   const site = code("components/website-builder/website-settings/domains.tsx")
-  check("Website Settings › Domains uses the same set up, dark", /<DnsSetup[\s\S]{0,800}tone="dark"/.test(site) && !/function DnsRecord\(/.test(site))
+  check("Website Settings › Domains uses the same set up, in the look Website Settings is in (dark unless the person chose light, round X3)", /<DnsSetup[\s\S]{0,800}tone=\{look\}/.test(site) && /const look = useSettingsLook\(\)/.test(site) && !/function DnsRecord\(/.test(site))
 }
 
 console.log("\nThe DNS values a creator sees are Storelib's, never the host's")

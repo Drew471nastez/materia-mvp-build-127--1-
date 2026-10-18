@@ -258,6 +258,54 @@ export async function writeClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * COPY, UNDER YOUR OWN MESSAGE (the owner: the answers had Copy and the
+ * messages did not). The same round 28px button as the answer's, in a row
+ * under the bubble at its right edge, copying the prompt exactly as it was
+ * sent. With a mouse it shows while the pointer is over the message, or while
+ * it has the keyboard's focus; on a touch screen, which has no hover, it is
+ * always there. Its row is always held, so nothing moves when it shows.
+ * "Copied" is said beside it for a moment, as under an answer.
+ */
+export function PromptCopy({ text, phone }: { text: string; phone: boolean }) {
+  const [copied, setCopied] = React.useState<null | "copied" | "failed">(null)
+  React.useEffect(() => {
+    if (!copied) return
+    const off = window.setTimeout(() => setCopied(null), copied === "copied" ? 1600 : 2600)
+    return () => window.clearTimeout(off)
+  }, [copied])
+  if (!text) return null
+  return (
+    <div
+      data-ask-prompt-actions=""
+      className={cn(
+        "mt-0.5 flex items-center justify-end gap-1.5 transition-opacity duration-150 motion-reduce:transition-none",
+        /* A mouse: hidden until the message is under it or the button has focus. A finger: always there. */
+        !copied && "pointer-fine:opacity-0 pointer-fine:group-hover/prompt:opacity-100 pointer-fine:focus-within:opacity-100",
+      )}
+    >
+      {copied && (
+        <span data-ask-copied={copied} role="status" className={cn("whitespace-nowrap text-[12px]", copied === "copied" ? "text-[#1a1a2e]" : "text-[#b45309]")}>
+          {copied === "copied" ? tt("Copied") : tt("Could not copy")}
+        </span>
+      )}
+      <button
+        type="button"
+        data-ask-prompt-copy=""
+        onClick={() => void writeClipboard(text).then((ok) => setCopied(ok ? "copied" : "failed"))}
+        aria-label={copied === "copied" ? tt("Copied") : tt("Copy your message")}
+        title={copied === "copied" ? tt("Copied") : tt("Copy")}
+        className={cn(
+          "relative flex shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-black/[0.05] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+          phone ? "h-9 w-9 after:absolute after:-inset-1 after:content-['']" : "h-7 w-7",
+        )}
+      >
+        {copied === "copied" ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
+      </button>
+    </div>
+  )
+}
+
 export type ReportState =
   | { stage: "closed" }
   | { stage: "open"; reason: string }

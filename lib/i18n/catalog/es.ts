@@ -9979,7 +9979,12 @@ const words: Record<string, string> = {
  "Tax is on, but no region is set": "Los impuestos están activados, pero no hay ninguna región",
  "They take the payment for the total Storelib worked out, tax included. They don't work out tax on your products.": "Cobran el pago por el total que calculó Storelib, impuestos incluidos. No calculan impuestos sobre tus productos.",
  "Turn on tax on digital products and add a region to charge it on memberships.": "Activa los impuestos en productos digitales y añade una región para cobrarlos en las membresías.",
- "You are the seller, so registering for tax where you need to, filing returns and paying the tax stay with you. Storelib does not file or pay tax for you.": "Tú eres el vendedor, así que darte de alta donde haga falta, presentar las declaraciones y pagar el impuesto te corresponden a ti. Storelib no declara ni paga impuestos por ti."
+ "You are the seller, so registering for tax where you need to, filing returns and paying the tax stay with you. Storelib does not file or pay tax for you.": "Tú eres el vendedor, así que darte de alta donde haga falta, presentar las declaraciones y pagar el impuesto te corresponden a ti. Storelib no declara ni paga impuestos por ti.",
+ "Translated": "Traducido",
+ "Leave a field empty to show it in {language}.": "Deja un campo vacío para mostrarlo en {language}.",
+ "Could not copy": "No se pudo copiar",
+ "Copy your message": "Copiar tu mensaje",
+ "Dark mode": "Modo oscuro"
 }
 
 export default words

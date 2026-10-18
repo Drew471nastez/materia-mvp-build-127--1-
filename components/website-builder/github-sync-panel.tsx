@@ -536,12 +536,12 @@ export function GitHubSyncPanel({
                       href={`https://github.com/${link.repo}/commit/${ev.commit_sha}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hidden shrink-0 font-mono text-[12px] text-white/40 hover:text-white sm:inline"
+                      className="hidden shrink-0 font-mono text-[12px] text-white/50 hover:text-white sm:inline"
                     >
                       {ev.commit_sha.slice(0, 7)}
                     </a>
                   )}
-                  <span className="shrink-0 text-[12px] text-white/35">{relativeTime(ev.created_at)}</span>
+                  <span className="shrink-0 text-[12px] text-white/50">{relativeTime(ev.created_at)}</span>
                 </li>
               ))}
             </ul>

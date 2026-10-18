@@ -82,7 +82,7 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
         {showOther && <AgentConnectionRow tool="other" agents={agents} open={open === "other"} onOpen={onOpen} onGitHub={() => setOpen("github")} />}
       </section>
       {!showOther && (
-        <p className="mt-3 text-[13.5px] text-white/45 md:text-[13px]">
+        <p className="mt-3 text-[13.5px] text-white/50 md:text-[13px]">
           {tt("Another tool that works with MCP?")}{" "}
           <InlineButton
             onClick={() => {

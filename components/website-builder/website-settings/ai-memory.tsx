@@ -186,7 +186,7 @@ export function AiMemorySettings({ installId }: { installId: string }) {
                 <span aria-hidden className="block h-4 w-2/3 rounded bg-white/[0.06]" />
               </li>
             ) : load.notes.length === 0 ? (
-              <li className="px-4 py-3.5 text-[13.5px] text-white/45">{tt("Nothing yet.")}</li>
+              <li className="px-4 py-3.5 text-[13.5px] text-white/50">{tt("Nothing yet.")}</li>
             ) : (
               load.notes.map((note) =>
                 editing?.id === note.id ? (
@@ -227,7 +227,7 @@ export function AiMemorySettings({ installId }: { installId: string }) {
                   <li key={note.id} data-wb-ai-memory-note={note.id} className="flex items-start gap-2 py-2.5 pl-4 pr-2">
                     <div className="min-w-0 flex-1 py-0.5">
                       <p className="break-words text-[14.5px] leading-snug text-white md:text-[14px]">{note.content}</p>
-                      <p className="mt-0.5 text-[12.5px] text-white/40">
+                      <p className="mt-0.5 text-[12.5px] text-white/50">
                         {note.installId ? tt("This website") : tt("Every website")} · {keptBy(note)} · {relativeTime(note.createdAt) || new Date(note.createdAt).toLocaleDateString()}
                       </p>
                     </div>

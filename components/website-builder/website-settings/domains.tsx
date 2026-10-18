@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
-import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
+import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass, useSettingsLook } from "./parts"
 import type { SettingsContext } from "./types"
 import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
 import { CNAME_TARGET, DEFAULT_A, type DnsRecord } from "@/lib/custom-domains/hostname"
@@ -63,6 +63,7 @@ function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "ne
 let lastDomains: DomainRow[] | null = null
 
 export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
+  const look = useSettingsLook()
   const [domains, setDomains] = useState<DomainRow[] | null>(() => lastDomains)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -201,7 +202,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
 
       <Card title={tt("Custom domain")}>
         {domains === null ? (
-          <div className="flex items-center justify-center py-10 text-white/45">
+          <div className="flex items-center justify-center py-10 text-white/50">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : (
@@ -234,7 +235,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                       checkLabel={checked[d.id] ? tt("Check again") : tt("Check DNS")}
                       result={checked[d.id]?.result ?? null}
                       fixes={checked[d.id]?.fixes ?? []}
-                      tone="dark"
+                      tone={look}
                     />
                   </div>
                 )}
@@ -272,7 +273,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
               </button>
             </div>
             {!current && !confirming && (
-              <p className="text-[13px] leading-snug text-white/45">
+              <p className="text-[13px] leading-snug text-white/50">
                 {tt("Type the domain and press Connect. You get the records to add where you bought it, and the site answers there once they are in, usually within the hour.")}
               </p>
             )}
@@ -388,7 +389,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
             autoFocus
             className="h-11 min-w-0 flex-1 bg-transparent pl-3.5 text-[16px] text-white outline-none md:h-10 md:text-[14.5px]"
           />
-          <span className="shrink-0 pr-3.5 text-[14.5px] text-white/45">{suffix}</span>
+          <span className="shrink-0 pr-3.5 text-[14.5px] text-white/50">{suffix}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <button type="button" onClick={() => setEditing(false)} className={cn(buttonClass, "md:h-10")}>
@@ -400,7 +401,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
           </button>
         </div>
       </div>
-      <p className={cn("text-[13px] leading-snug", problem || error ? "text-[#f87171]" : "text-white/45")}>
+      <p className={cn("text-[13px] leading-snug", problem || error ? "text-[#f87171]" : "text-white/50")}>
         {problem || error || (wanted && wanted !== draft.trim().toLowerCase() ? tt("Will be {wanted}{suffix}. Your username stays the same.", { wanted, suffix }) : tt("Your username stays the same. The old address keeps working."))}
       </p>
     </div>

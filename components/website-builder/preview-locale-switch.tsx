@@ -25,6 +25,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react"
 import type React from "react"
 import { Check, ChevronDown, Globe } from "lucide-react"
 import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
+import { Reveal } from "@/components/ui/reveal"
 import { cn } from "@/lib/utils"
 import { activeLocale, tt } from "@/lib/i18n/text"
 import { languageName } from "@/lib/markets/locales"
@@ -139,8 +140,31 @@ function useDismiss(open: boolean, close: () => void, trigger: React.RefObject<H
   }, [open, close, trigger, panel])
 }
 
+/**
+ * Kept in the page once it has opened, so it can leave as it came: the same
+ * fade and 4px drop as the page switcher's list (`.wb-pages-menu` in
+ * app/globals.css, entering by @starting-style). `inert` while closed.
+ */
+function useKeptOpen(open: boolean): boolean {
+  const [kept, setKept] = useState(open)
+  if (open && !kept) setKept(true)
+  return kept
+}
+
+/**
+ * THE TOP BAR'S CHIP (the owner: "make the language and currency selector more
+ * subtle and clean"). It was a filled box beside round buttons: here it is the
+ * bar's quiet text button, the same 32px height and full round as the size and
+ * full screen buttons beside it, with no fill or edge until a pointer is on it.
+ * Its words are smaller and greyer than the page switcher's and still 4.5:1 on
+ * the bar (scripts/check-ui-polish-x.mjs measures both).
+ */
+export const LOCALE_CHIP_CLASS =
+  "relative flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium uppercase tracking-[0.04em] tabular-nums outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-white/25 [-webkit-tap-highlight-color:transparent]"
+
 export function PreviewLocaleButton({ model }: { model: PreviewLocaleModel }) {
   const [open, setOpen] = useState(false)
+  const kept = useKeptOpen(open)
   const pillRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
@@ -163,20 +187,17 @@ export function PreviewLocaleButton({ model }: { model: PreviewLocaleModel }) {
         aria-label={tt("Preview language and currency: {language}, {currency}", { language: languageName(lang, activeLocale()), currency })}
         data-preview-locale=""
         data-translating={translating ? "true" : "false"}
-        className={cn(
-          "relative flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] font-medium tabular-nums transition-colors",
-          open ? "bg-white/[0.12] text-white" : "text-white/70 hover:bg-white/[0.08] hover:text-white",
-        )}
+        className={cn(LOCALE_CHIP_CLASS, open ? "bg-white/[0.08] text-white/90" : "text-white/60 hover:bg-white/[0.06] hover:text-white/90")}
       >
-        <Globe className="h-3.5 w-3.5 opacity-80" strokeWidth={2} />
+        <Globe aria-hidden className="h-[13px] w-[13px]" strokeWidth={1.75} />
         <span className="leading-none">
           {model.languages.length > 1 ? short(lang) : currency}
-          {model.languages.length > 1 && model.markets.length > 0 ? <span className="ml-1 text-white/45">{currency}</span> : null}
+          {model.languages.length > 1 && model.markets.length > 0 ? <span className="ml-1">{currency}</span> : null}
         </span>
         {/* Another language: a small dot, the words in the sidebar are that language's. */}
-        {translating ? <span aria-hidden className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-white/80" /> : null}
+        {translating ? <span aria-hidden className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-white/80" /> : null}
       </button>
-      {open ? (
+      {kept ? (
         <AnchoredPanel
           anchorRef={pillRef}
           align="center"
@@ -184,9 +205,12 @@ export function PreviewLocaleButton({ model }: { model: PreviewLocaleModel }) {
           panelRef={menuRef}
           role="dialog"
           aria-label={tt("Preview language and currency")}
-          className="flex w-[260px] max-w-[calc(100vw-16px)] flex-col overflow-y-auto rounded-2xl border border-white/10 bg-[#1f1f1f] p-1.5 text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]"
+          data-state={open ? "open" : "closed"}
+          className="wb-pages-menu flex w-[260px] max-w-[calc(100vw-16px)] flex-col overflow-y-auto rounded-2xl border border-white/10 bg-[#1f1f1f] p-1.5 text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]"
         >
-          <LocaleMenuBody model={model} tone="dark" />
+          <div inert={!open}>
+            <LocaleMenuBody model={model} tone="dark" />
+          </div>
         </AnchoredPanel>
       ) : null}
     </div>
@@ -247,8 +271,23 @@ export function PreviewLocaleSelects({ model, tone = "light", className }: { mod
  * everything else changes in all of them.
  * Not drawn for a website with one language and one currency.
  */
+/**
+ * The sidebar's row, quieter than it was (the owner: "more subtle, clean and
+ * smooth"): no white box with a shadow and no chips inside it, only the globe,
+ * the language and the currency in grey, a fill under a pointer, and the list
+ * fading down out of it rather than appearing. The line under it about where
+ * text saves opens and closes by its height (Reveal), so the sidebar under it
+ * slides instead of jumping.
+ */
+export const SIDEBAR_LOCALE_TRIGGER_CLASS =
+  "group flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left outline-none transition-colors duration-150 hover:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 max-sm:h-11 [-webkit-tap-highlight-color:transparent]"
+
 export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleModel; editing: { locale: string; name: string } | null }) {
   const [open, setOpen] = useState(false)
+  const kept = useKeptOpen(open)
+  /* The last language the line named, kept while it closes. */
+  const [lastName, setLastName] = useState(editing?.name ?? "")
+  if (editing && editing.name !== lastName) setLastName(editing.name)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const close = useCallback(() => setOpen(false), [])
@@ -257,7 +296,7 @@ export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleMod
   const lang = model.locale ?? model.defaultLanguage
   const currency = currencyNow(model)
   return (
-    <div className="shrink-0 border-b border-border px-3 py-2" data-wb-language-bar={editing ? editing.locale : ""}>
+    <div className="shrink-0 border-b border-border px-2 py-1.5" data-wb-language-bar={editing ? editing.locale : ""}>
       <button
         ref={triggerRef}
         type="button"
@@ -266,23 +305,18 @@ export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleMod
         aria-expanded={open}
         aria-label={tt("Preview language and currency: {language}, {currency}", { language: languageName(lang, activeLocale()), currency })}
         data-wb-locale-trigger=""
-        className={cn(
-          "group flex h-9 w-full items-center gap-2 rounded-[10px] bg-white px-2 text-left shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.06)] transition-[box-shadow,background-color] hover:bg-[#fafafa] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_2px_4px_rgba(16,24,40,0.07)] max-sm:h-11",
-          open && "shadow-[0_0_0_1px_rgba(16,24,40,0.18),0_2px_4px_rgba(16,24,40,0.07)]",
-        )}
+        className={cn(SIDEBAR_LOCALE_TRIGGER_CLASS, open && "bg-[#f3f4f6]")}
       >
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#f3f4f6] text-[#4b5563] shadow-[inset_0_-1px_0_rgba(16,24,40,0.06)]">
-          <Globe className="h-3.5 w-3.5" strokeWidth={2} />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#1a1a2e] max-sm:text-[14px]">
+        <Globe aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[#374151] max-sm:text-[14px]">
           {model.languages.length > 1 ? languageName(lang, activeLocale()) : tt("Prices in")}
         </span>
         {model.markets.length > 0 || model.languages.length <= 1 ? (
-          <span className="shrink-0 rounded-[5px] bg-[#f3f4f6] px-1.5 py-[3px] text-[10.5px] font-semibold tabular-nums leading-none text-[#4b5563]">{currency}</span>
+          <span className="shrink-0 text-[11.5px] font-medium tabular-nums text-[#6b7280] max-sm:text-[13px]">{currency}</span>
         ) : null}
-        <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-transform duration-200", open && "rotate-180")} />
+        <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", open && "rotate-180")} />
       </button>
-      {open ? (
+      {kept ? (
         <AnchoredPanel
           anchorRef={triggerRef}
           align="center"
@@ -290,17 +324,20 @@ export function SidebarLanguageBar({ model, editing }: { model: PreviewLocaleMod
           panelRef={panelRef}
           role="dialog"
           aria-label={tt("Preview language and currency")}
-          className="flex w-[260px] max-w-[calc(100vw-16px)] flex-col overflow-y-auto rounded-[14px] border border-[#eceef1] bg-white p-1.5 text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(16,24,40,0.22),0_2px_6px_rgba(16,24,40,0.06)]"
+          data-state={open ? "open" : "closed"}
+          className="wb-pages-menu flex w-[260px] max-w-[calc(100vw-16px)] flex-col overflow-y-auto rounded-[14px] border border-[#eceef1] bg-white p-1.5 text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(16,24,40,0.22),0_2px_6px_rgba(16,24,40,0.06)]"
         >
-          <LocaleMenuBody model={model} tone="light" />
+          <div inert={!open}>
+            <LocaleMenuBody model={model} tone="light" />
+          </div>
         </AnchoredPanel>
       ) : null}
-      {editing ? (
-        <p className="mt-1.5 flex items-center gap-1.5 px-0.5 text-[11.5px] leading-[16px] text-[#6b7280]" data-wb-translating="">
+      <Reveal open={!!editing}>
+        <p className="flex items-center gap-1.5 px-2 pb-0.5 pt-1 text-[11.5px] leading-[16px] text-[#6b7280]" data-wb-translating="">
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1a1a2e]" />
-          <span className="min-w-0">{tt("Text saves to {name}. Everything else changes in all languages.", { name: editing.name })}</span>
+          <span className="min-w-0">{tt("Text saves to {name}. Everything else changes in all languages.", { name: editing?.name ?? lastName })}</span>
         </p>
-      ) : null}
+      </Reveal>
     </div>
   )
 }

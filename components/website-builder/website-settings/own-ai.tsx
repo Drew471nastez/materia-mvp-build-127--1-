@@ -101,7 +101,7 @@ export function OwnAiSettings() {
       )}
 
       {own.setUp && connected.length > 0 && (
-        <p className="mt-3 text-[13.5px] leading-relaxed text-white/45 md:text-[13px]">
+        <p className="mt-3 text-[13.5px] leading-relaxed text-white/50 md:text-[13px]">
           {tt("Storelib AI now answers on your account. Your key is used for your chats only, kept encrypted, and never shown again.")}
         </p>
       )}
