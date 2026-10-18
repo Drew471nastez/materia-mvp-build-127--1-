@@ -8,6 +8,8 @@ import { BUYER_HOME, safeNext, sellDecision } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { listBusinesses } from "@/lib/businesses/server"
 import type { SwitchedTo } from "@/lib/businesses/switch-client"
+import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
+import { UUID, sellLeaveHref } from "@/lib/team/landing"
 import { SellOnboarding } from "./sell-onboarding"
 
 export const dynamic = "force-dynamic"
@@ -74,7 +76,20 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
     /* an unreadable Referer is no Referer */
   }
   const isApp = (p: string | null) => !!p && (p === "/app" || p.startsWith("/app/") || p.startsWith("/app?"))
-  const leaveHref = [next, fromReferer].find((p) => p && !isApp(p)) ?? BUYER_HOME
+  /*
+    A TEAM MEMBER'S NOT NOW GOES BACK TO THE STORE (round Y2, the owner:
+    "when I click Not now, take me back to the team I was in"). The store
+    /sell was opened from (?team=, from Back to my account), else the one
+    they work in now, else the one joined last; /api/team/home checks the
+    membership again before it opens any of them (lib/team/landing).
+  */
+  const [memberOf, acting] = userId ? await Promise.all([teamStoresForRequest(userId), teamStoreForRequest(userId).catch(() => null)]) : [[], null]
+  const teamParam = one("team")
+  const leaveHref = sellLeaveHref({
+    memberships: memberOf.length,
+    team: (teamParam && UUID.test(teamParam) ? teamParam : null) ?? acting?.acting.creatorId ?? null,
+    fallback: [next, fromReferer].find((p) => p && !isApp(p)) ?? BUYER_HOME,
+  })
 
   /* A second business (lib/businesses) goes back to the first one instead of out. */
   let firstBusiness: SwitchedTo | null = null

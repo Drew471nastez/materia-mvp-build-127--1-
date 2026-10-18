@@ -27,12 +27,11 @@
  * everything again.
  */
 import * as React from "react"
-import { Check } from "lucide-react"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { callingCode } from "@/lib/account/phone"
 import { PhoneField } from "@/components/app/settings/phone-field"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, TextInput, api, peekGet } from "@/components/physical/ui"
+import { BTN_SECONDARY, Card, Field, Notice, SaveButton, SelectInput, TextInput, api, peekGet, type SaveState } from "@/components/physical/ui"
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
@@ -69,7 +68,7 @@ interface Location {
 const DIAL = COUNTRIES.filter((c) => callingCode(c.code)).map((c) => ({ code: c.code, label: `${c.name} (+${callingCode(c.code)})` }))
 
 function useSave() {
-  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
+  const [state, setState] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const save = async (body: Record<string, unknown>) => {
     setState("saving")
@@ -85,23 +84,6 @@ function useSave() {
     return r.data.settings
   }
   return { state, error, save }
-}
-
-function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "saved"; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" className={BTN_PRIMARY} onClick={onClick} disabled={disabled || state === "saving"}>
-      {state === "saved" ? (
-        <>
-          <Check className="h-4 w-4" />
-          {tt("Saved")}
-        </>
-      ) : state === "saving" ? (
-        tt("Saving")
-      ) : (
-        tt("Save")
-      )}
-    </button>
-  )
 }
 
 /** A "Use Romania" chip under a field the person has not set, from where they are. */
@@ -360,7 +342,7 @@ function Business({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => v
 
 function OrdersFrom({ locations, value, onSaved }: { locations: Location[] | null; value: string; onSaved: (id: string) => void }) {
   const [chosen, setChosen] = React.useState(value)
-  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
+  const [state, setState] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   React.useEffect(() => setChosen(value), [value])
   if (locations === null) return null

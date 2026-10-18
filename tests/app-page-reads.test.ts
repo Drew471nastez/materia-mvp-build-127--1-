@@ -128,7 +128,8 @@ section("The layout: everything that needs only the user, together")
   /* Changed on purpose: there is no creator or buyer question any more, so no role gate; seller access (lib/account/seller-access.ts) sends anybody without it to /sell. */
   check("and the redirects are still decided in their order: verified, then seller access",
     /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access. */
-    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!creator \|\| \(!teamStore && !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\)\)/.test(layout))
+    /* Round Y2: seller access is decided by lib/team/landing appLanding, after the same verified gate (tests/team-landing.test.ts). */
+    /if \(!gateCheck\?\.email_verified\)[\s\S]*const landing = appLanding\([\s\S]*if \(!creator \|\| landing\.kind === "sell"\)/.test(layout))
   check("on the caller's own client only", !/createAdminClient/.test(layout))
 }
 

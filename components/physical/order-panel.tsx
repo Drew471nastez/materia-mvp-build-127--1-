@@ -50,7 +50,7 @@ import { CarrierPicker, carrierOfChoice } from "./carrier-picker"
 import { CarrierServices, firstCarrier, ownCarrierLink, rememberCarrier, useCarrierPrefs } from "./carrier-live"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
-import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
+import { LabelFields, ShipModeSwitch, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
 
@@ -243,7 +243,8 @@ export function PhysicalFulfillment({
   const [dialog, setDialog] = React.useState<Dialog>(null)
   const phone = useModalPhone()
   /* Labels bought with Shippo or EasyPost, read again whenever a shipment comes or goes: printed and voided from the shipment's card. */
-  const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? order.shipments.map((x) => `${x.id}:${x.status}`).join(",") : "")
+  /* Read on an order with no shipment too: a label bought whose items never got marked shipped is still on it. */
+  const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? ["order", ...order.shipments.map((x) => `${x.id}:${x.status}`)].join(",") : "")
 
   if (!order) {
     if (error) return <Notice className={className}>{error}</Notice>
@@ -296,6 +297,17 @@ export function PhysicalFulfillment({
       : { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => void printSlip(href).then((e) => e && setError(e)) }
   }
   const number = (s: PhysicalShipment) => `${shown ? `#${shown}` : orderNumber(order.id)}-F${order.shipments.indexOf(s) + 1}`
+  /* Void a label not used yet: refunded by the provider, and its shipment, if it has one, cancelled. */
+  const voidOne = async (label: LabelView) => {
+    if (!window.confirm(tt("Void this {providerName} label? {cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.", { providerName: label.providerName, cost: label.cost }))) return
+    const r = await voidLabelRequest(order.id, label.id)
+    if (r.ok === false) return setError(r.error)
+    replace(r.order)
+    setLabels(labels.map((l) => (l.id === r.label.id ? r.label : l)))
+    onNotice?.(r.label.status === "voided" ? tt("Label voided and refunded") : tt("Label void requested"))
+  }
+  const loose = labelsWithoutShipment(labels, order.shipments)
+  const leftToShip = order.lines.some((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
@@ -445,20 +457,7 @@ export function PhysicalFulfillment({
           ? []
           : [
               ...(label?.labelUrl && label.status === "purchased" ? [{ label: tt("Print label"), icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.labelUrl!, "_blank", "noopener") }] : []),
-              ...(labelUnused
-                ? [{
-                    label: tt("Void label"),
-                    icon: <X className="h-4 w-4" />,
-                    onClick: async () => {
-                      if (!window.confirm(tt("Void this {providerName} label? {cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.", { providerName: label!.providerName, cost: label!.cost }))) return
-                      const r = await voidLabelRequest(order.id, label!.id)
-                      if (r.ok === false) return setError(r.error)
-                      replace(r.order)
-                      setLabels(labels.map((l) => (l.id === r.label.id ? r.label : l)))
-                      onNotice?.(r.label.status === "voided" ? tt("Label voided and refunded") : tt("Label void requested"))
-                    },
-                  }]
-                : []),
+              ...(labelUnused ? [{ label: tt("Void label"), icon: <X className="h-4 w-4" />, onClick: () => void voidOne(label!) }] : []),
               /* A delivered parcel can still have its number corrected (a typo found later): the record is fixed, the buyer is not emailed again. */
               ...(!pickup ? [{ label: delivered ? tt("Correct tracking") : s.trackingNumber ? tt("Edit tracking") : tt("Add tracking"), icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
               /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
@@ -478,7 +477,9 @@ export function PhysicalFulfillment({
                     variant: "destructive" as const,
                     separatorBefore: true,
                     onClick: () => {
-                      if (!window.confirm(pickup ? tt("Undo ready for pickup? The items go back to unfulfilled.") : tt("Cancel this fulfillment? Its items go back to unfulfilled and back in stock."))) return
+                      /* A bought label stays on the order after this, to ship with again or void: said, so its cost isn't forgotten. */
+                      const ask = pickup ? tt("Undo ready for pickup? The items go back to unfulfilled.") : labelUnused ? tt("Cancel this fulfillment? Its items go back to unfulfilled and back in stock. The {providerName} label stays on the order: ship with it again, or void it to get {cost} back.", { providerName: label!.providerName, cost: label!.cost }) : tt("Cancel this fulfillment? Its items go back to unfulfilled and back in stock.")
+                      if (!window.confirm(ask)) return
                       void run({ action: "shipment", fulfillmentId: s.id, status: "cancelled", notifyBuyer: false }, tt("Fulfillment cancelled"))
                     },
                   }]
@@ -496,7 +497,7 @@ export function PhysicalFulfillment({
                   {label.status === "void_pending" ? tt(" · void requested") : label.status === "void_rejected" ? tt(" · void refused") : ""}
                 </span>
                 {label.labelUrl && label.status === "purchased" ? (
-                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
+                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="-my-[7px] inline-flex h-8 items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
                     <Printer className="h-3.5 w-3.5" aria-hidden />
                     {tt("Print label")}
                   </a>
@@ -545,6 +546,61 @@ export function PhysicalFulfillment({
         )
       })}
 
+      {/* A bought label with no live shipment (its shipment cancelled, or saving it failed after the purchase): printed, shipped with or voided from here. */}
+      {loose.map((l) => (
+        <section key={l.id} className={cn(card, "min-w-0")} data-label-loose={l.status}>
+          <div className="flex min-h-8 items-center gap-2 px-4 pt-3">
+            <StatusBadge tone="attention">{tt("Label not on a shipment")}</StatusBadge>
+          </div>
+          <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1.5 pl-1.5 pr-3">
+            <CarrierLogo carrier={l.carrier} size={28} decorative={!!l.carrier} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-medium text-[#1a1a2e]">
+                {[l.carrier, l.service].filter(Boolean).join(" ")}
+                {l.trackingNumber ? <span className="ml-1 font-mono text-[12px] font-normal">{l.trackingNumber}</span> : null}
+              </p>
+              <p className="text-[11.5px] text-[#6b7280]">
+                {tt("{providerName} label · {cost} your cost", { providerName: l.providerName, cost: l.cost })}
+                {l.testMode ? tt(" · test") : ""}
+                {l.status === "void_rejected" ? tt(" · void refused") : ""}
+              </p>
+            </div>
+          </div>
+          <p className="mx-4 mt-2 text-[12.5px] leading-[18px] text-[#6b7280]">{leftToShip && l.status === "purchased" ? tt("Its items aren't marked shipped. Ship them with it, or void it to get the money back.") : tt("Nothing on this order is waiting for it. Void it to get the money back.")}</p>
+          <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
+            <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} onClick={() => void voidOne(l)} data-label-loose-void="">
+              {tt("Void label")}
+            </button>
+            {l.labelUrl && l.status === "purchased" ? (
+              <a href={l.labelUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-9 sm:h-8")} data-label-loose-print="">
+                <Printer className="h-3.5 w-3.5" aria-hidden />
+                {tt("Print label")}
+              </a>
+            ) : null}
+            {leftToShip && l.status === "purchased" ? (
+              <button
+                type="button"
+                className={cn(buttonPrimary, "h-9 sm:h-8")}
+                disabled={busy}
+                data-label-loose-ship=""
+                onClick={async () => {
+                  /* The buyer is emailed only when they never heard of this parcel: a shipment cancelled and sent again with the same label is not news. */
+                  const r = await shipLabelRequest(order.id, l.id, !l.fulfillmentId)
+                  if (r.ok === false) return setError(r.error)
+                  replace(r.order)
+                  setLabels(labels.map((x) => (x.id === r.label.id ? r.label : x)))
+                  setError(null)
+                  onNotice?.(tt("Items marked shipped"))
+                }}
+              >
+                <Truck className="h-3.5 w-3.5" aria-hidden />
+                {tt("Ship with this label")}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ))}
+
       {error ? <Notice>{error}</Notice> : null}
 
       {order.returns.length > 0 ? <ReturnsCard order={order} busy={busy} onRefund={onRefund} onMove={(returnId, status, extra) => void run({ action: "return_move", returnId, status, ...extra })} /> : null}
@@ -560,6 +616,7 @@ export function PhysicalFulfillment({
             setLabels([...labels.filter((l) => l.id !== label.id), label])
             onNotice?.(tt("Label bought. The items are marked shipped."))
           }}
+          onLabelKept={(label) => setLabels([...labels.filter((l) => l.id !== label.id), label])}
           onClose={() => setDialog(null)}
           onSubmit={async (body) => {
             const e = await act({ action: "fulfil", locationId: dialog.fulfil.locationId, ...body })
@@ -621,7 +678,7 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
     )
   }
   return (
-    <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1.5 pl-1.5 pr-1.5" data-tracking="">
+    <div className="mx-4 mt-2 flex items-center gap-2.5 rounded-lg bg-[#f7f7f8] py-1 pl-1.5 pr-1" data-tracking="">
       {/* The carrier's own logo (lib/physical/carriers.ts), a neutral mark for one we don't know. */}
       <CarrierLogo carrier={s.carrier} size={28} decorative={!!s.carrier} />
       <div className="min-w-0 flex-1">
@@ -635,13 +692,13 @@ function TrackingRow({ shipment: s, transit, onAdd, onNotice }: { shipment: Phys
         type="button"
         aria-label={tt("Copy tracking number")}
         title={tt("Copy tracking number")}
-        className={cn(iconButton, "h-7 w-7 shrink-0")}
+        className={cn(iconButton, "h-8 w-8 shrink-0")}
         onClick={async () => onNotice?.((await copyText(s.trackingNumber!)) ? tt("Tracking number copied") : tt("Could not copy the tracking number"))}
       >
         <Copy className="h-3.5 w-3.5" />
       </button>
       {s.trackingUrl ? (
-        <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-7 shrink-0 px-2.5 text-[12px]")}>
+        <a href={s.trackingUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonSecondary, "h-8 shrink-0 px-2.5 text-[12px]")}>
           {tt("Track")}
           <ExternalLink className="h-3 w-3" />
         </a>
@@ -1069,7 +1126,7 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
         &minus;
       </button>
       <span className="min-w-[52px] text-center text-[13px] tabular-nums text-[#1a1a2e]" aria-live="polite">
-        {value} <span className="text-[#9ca3af]">{tt("of {max}", { max })}</span>
+        {value} <span className="text-[#6b7280]">{tt("of {max}", { max })}</span>
       </span>
       <button type="button" className={step} aria-label={tt("One more")} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
         +
@@ -1276,7 +1333,7 @@ interface ParcelDraft {
   ship: Ship
 }
 
-function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; locationId?: string | null; onLabel?: (order: PhysicalOrder, label: import("./buy-label").LabelView) => void; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
+function FulfilDialog({ order, only, from, locationId = null, onLabel, onLabelKept, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; locationId?: string | null; onLabel?: (order: PhysicalOrder, label: LabelView) => void; onLabelKept?: (label: LabelView) => void; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
   const pickup = order.deliveryMethod === "pickup"
   const country = typeof order.address?.country === "string" ? order.address.country : null
   const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0 && only.includes(l.orderId))
@@ -1322,8 +1379,13 @@ function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, 
   const partial = chosen > 0 && chosen < left
   const verb = pickup ? tt("Mark ready") : tt("Fulfill")
   /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. One parcel only. */
-  const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(first.qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup && !split, onBought: (o, l) => onLabel?.(o, l) })
-  const labelMode = !pickup && !split && flow.available && (flow.mode === "label" || !!flow.bought)
+  /*
+    Not for an order the shop delivers itself (local delivery: no carrier), nor for items a warehouse, supplier or
+    print partner sends: they print their own label, and their tracking comes back to the order.
+  */
+  const labelsFit = !pickup && order.delivery?.kind !== "local" && open.every((l) => (l.fulfillmentMethod ?? "self") === "self")
+  const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(first.qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: labelsFit && !split, onBought: (o, l) => onLabel?.(o, l), onKept: (l) => onLabelKept?.(l) })
+  const labelMode = labelsFit && !split && flow.available && (flow.mode === "label" || !!flow.bought)
   const canSplit = !pickup && !labelMode && openUnits > 1 && parcels.length < 20
   const carriers = useCarrierPrefs()
   const submit = async () => {

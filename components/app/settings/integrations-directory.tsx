@@ -32,8 +32,8 @@ import { backThen } from "@/lib/navigation/go-back"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet, prefetchGet } from "@/components/physical/ui"
 import type { IntegrationState } from "@/components/physical/integrations-marketplace"
-import { Mark } from "@/components/app/settings/integration-mark"
-import { IntegrationDetail } from "@/components/app/settings/integration-detail"
+import { Mark, tileColor } from "@/components/app/settings/integration-mark"
+import { IntegrationDetail, bannerColor } from "@/components/app/settings/integration-detail"
 import { CATEGORY_NAMES, CATEGORY_ORDER, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
@@ -803,11 +803,11 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
                   onFocus={() => warmApp(hrefOf(e.app))}
                   onTouchStart={() => warmApp(hrefOf(e.app))}
                 >
-                  <EntryBody mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} category={categoryOf(e) ? CATEGORY_NAMES[categoryOf(e)!] : tt("Storelib app")} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
+                  <EntryBody color={tileColor(e.id) ?? "#64748b"} mark={<Mark item={{ id: e.id, name: e.app.name, logo: null }} />} name={e.app.name} category={categoryOf(e) ? CATEGORY_NAMES[categoryOf(e)!] : tt("Storelib app")} summary={e.app.summary} badge={<AppBadge state={appState(e.id)} />} />
                 </Link>
               ) : (
                 <button type="button" onClick={() => open(e.id)} onPointerEnter={warmPages} onFocus={warmPages} data-integration-card={e.id} className={ENTRY}>
-                  <EntryBody mark={<Mark item={e.item} />} name={e.item.name} category={CATEGORY_NAMES[e.item.category]} summary={e.item.summary} badge={<StatusBadge status={statusOf(e.item)} />} />
+                  <EntryBody color={bannerColor(e.item)} mark={<Mark item={e.item} />} name={e.item.name} category={CATEGORY_NAMES[e.item.category]} summary={e.item.summary} badge={<StatusBadge status={statusOf(e.item)} />} />
                 </button>
               )}
             </li>
@@ -867,10 +867,37 @@ const ENTRY = cn(
   "sm:rounded-2xl sm:border sm:border-[#e5e7eb]/70 sm:bg-white sm:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0)] sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_24px_-12px_rgba(16,24,40,0.18)] sm:focus-visible:ring-2 sm:focus-visible:ring-[#1a1a2e]/15",
 )
 
-function EntryBody({ mark, name, category, summary, badge }: { mark: React.ReactNode; name: string; category: string; summary: string; badge: React.ReactNode }) {
+/*
+  THE COVER FILLS ON A HOVER (round Y2, the owner: "smooth, clean,
+  satisfying, for each colour, but subtle"). The band at the top of a card
+  holds a quiet wash of the integration's own colour (the same colour as its
+  page's banner, bannerColor), and under a pointer a second, fuller wash
+  grows out from the logo and fades in, then eases back out when the pointer
+  leaves. Only opacity and a scale of one layer, so the compositor draws it
+  and nothing is painted again; 380ms in, 300ms out, on a curve that starts
+  and ends soft, so it fills rather than pops. Only where there is a pointer (Tailwind's hover is
+  @media (hover: hover)); with reduced motion it simply is there, no motion
+  (scripts/check-integrations-y2.mjs measures it).
+*/
+const washAt = "42px 44px"
+function coverWash(color: string, strength: "rest" | "full"): React.CSSProperties {
+  const [a, b] = strength === "rest" ? [16, 6] : [34, 14]
+  return {
+    backgroundImage: `radial-gradient(150px 80px at ${washAt}, color-mix(in srgb, ${color} ${a}%, transparent) 0%, transparent 100%), radial-gradient(130% 160% at 0% 0%, color-mix(in srgb, ${color} ${b}%, transparent) 0%, transparent 70%)`,
+  }
+}
+
+function EntryBody({ color, mark, name, category, summary, badge }: { color: string; mark: React.ReactNode; name: string; category: string; summary: string; badge: React.ReactNode }) {
   return (
     <>
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[46px] border-b border-[#f3f4f6] bg-[#f9fafb] sm:block" />
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[46px] overflow-hidden border-b border-[#f3f4f6] bg-[#f9fafb] sm:block" data-integration-cover="">
+        <span className="absolute inset-0" style={coverWash(color, "rest")} />
+        <span
+          className="absolute inset-0 origin-[42px_44px] scale-[0.82] opacity-0 transition-[opacity,scale] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[opacity,scale] group-hover:scale-100 group-hover:opacity-100 group-hover:duration-[380ms] group-focus-visible:scale-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
+          style={coverWash(color, "full")}
+          data-integration-cover-fill=""
+        />
+      </span>
       <span className="relative flex shrink-0 items-start justify-between gap-3">
         <span className="rounded-[12px] sm:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_4px_10px_-4px_rgba(16,24,40,0.12)]">{mark}</span>
         {/* In the band, not on its edge (round 27: it sat on the line under the band): centred in its 45px, 10.5px clear above and below. */}

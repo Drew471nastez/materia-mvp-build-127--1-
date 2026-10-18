@@ -13,6 +13,7 @@ import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
+import { onATeam } from "@/lib/team/server"
 
 /**
  * GET /auth/callback?code=<code>
@@ -171,7 +172,9 @@ export async function GET(request: Request) {
   }
   const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
   /* A new account sets its profile once, on its way (lib/account/welcome). A sign-in with nowhere else to go opens the remembered page. */
-  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access), data.user.user_metadata, carry.next)
+  /* On a store's team with no store of their own: the dashboard is that store's, never onboarding (lib/team/landing). */
+  const teamMember = !hasSellerAccess(access) && (await onATeam(admin, data.user.id))
+  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access, { teamMember }), data.user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
   const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
 

@@ -519,7 +519,8 @@ section("Leaving a page always ends, one way or the other")
 {
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
-    "the push goes on the press (round 23: no hold before it), through the one timer that can still be cancelled",
+    /* Changed on purpose (Y1): the builder's Going back is in its canvas now, so the editor must still be there for the owner's minimum; the push waits EXIT_MIN_MS, to a route warmed on the press. The page editors still push on the press (LEAVING_SEEN_MS). */
+    "the push goes once Going back has been up EXIT_MIN_MS, through the one timer that can still be cancelled",
     // Prefetching made the navigation instant, and an instant navigation
     // paints the next page before this one has drawn the screen at all.
     // Three lines in turn need the time they were written for.
@@ -529,8 +530,8 @@ section("Leaving a page always ends, one way or the other")
     /export const LEAVING_SEEN_MS = 0/.test(
       readFileSync(join(process.cwd(), "lib/website-builder/navigate-ceiling.ts"), "utf8"),
     ) &&
-      /LEAVING_SEEN_MS, (NAVIGATE_CEILING_MS, )?navigateWithCeiling/.test(editor) &&
-      /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
+      /import \{ EXIT_MIN_MS, exitWatchdogMs \} from "@\/lib\/website-builder\/exit-hold"/.test(editor) &&
+      /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, EXIT_MIN_MS\)/.test(editor) &&
       /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
   )
   check(
@@ -543,7 +544,7 @@ section("Leaving a page always ends, one way or the other")
   )
   check(
     "the watchdog only revives the editor, long after the push (round 23: its own load of the address fired as the push started)",
-    /const watchdog = window\.setTimeout\(revive, LEAVING_SEEN_MS \+ NAVIGATE_CEILING_MS \+ 2000\)/.test(editor),
+    /const watchdog = window\.setTimeout\(revive, exitWatchdogMs\(NAVIGATE_CEILING_MS\)\)/.test(editor),
   )
   check(
     "and the way out is warmed while nothing else is happening",

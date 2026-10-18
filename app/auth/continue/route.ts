@@ -8,6 +8,7 @@ import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
+import { onATeam } from "@/lib/team/server"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import {
   CARRY_COOKIE,
@@ -96,7 +97,9 @@ export async function GET(request: Request) {
     (lib/account/welcome). A sign-in with nowhere else to go opens the page
     the account remembered (the app, after a join or Open in the app).
   */
-  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access), user.user_metadata, carry.next)
+  /* On a store's team with no store of their own: the dashboard is that store's, never onboarding (lib/team/landing). */
+  const teamMember = !hasSellerAccess(access) && (await onATeam(createAdminClient(), user.id))
+  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access, { teamMember }), user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
   return go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
 }

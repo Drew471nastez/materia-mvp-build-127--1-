@@ -39,7 +39,7 @@ import * as React from "react"
 import { ChevronRight, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_GHOST, BTN_PRIMARY, Card, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
+import { BTN_GHOST, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail } from "@/lib/emails/customer-catalog"
@@ -375,15 +375,12 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
         {testNote ? <span className="hidden min-w-0 sm:inline">{testNote}</span> : null}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        {savedNote && !dirty ? (
+        {editable ? (
+          <SaveButton state={busy ? "saving" : savedNote && !dirty ? "saved" : "idle"} disabled={!dirty || !ready || (checked !== null && checked.ok === false)} onClick={() => void save(draft)} data-email-save="" />
+        ) : savedNote && !dirty ? (
           <span className="text-[13px] text-[#6b7280]" aria-live="polite">
             {tt("Saved")}
           </span>
-        ) : null}
-        {editable ? (
-          <button type="button" className={BTN_PRIMARY} disabled={!dirty || busy || !ready || (checked !== null && checked.ok === false)} onClick={() => void save(draft)} data-email-save="">
-            {busy ? tt("Saving") : tt("Save")}
-          </button>
         ) : null}
       </div>
     </div>

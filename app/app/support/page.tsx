@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation"
 import { currentCreatorId } from "@/lib/creators/current"
 import { SupportClient } from "./support-client"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -15,6 +15,6 @@ export async function generateMetadata(): Promise<Metadata> {
 /** A store's requests to Storelib (lib/support), answered from /admin/resolution. */
 export default async function SupportPage() {
   const creatorId = await currentCreatorId()
-  if (!creatorId) redirect("/sell")
+  if (!creatorId) return noStorePage("/app/support")
   return <SupportClient />
 }

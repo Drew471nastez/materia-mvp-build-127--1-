@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation"
 import { requirePhysicalPage } from "@/lib/physical/gate"
 import { currentCreatorId } from "@/lib/creators/current"
 import { InventoryClient } from "./inventory-client"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -17,6 +17,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InventoryPage() {
   await requirePhysicalPage()
   const creatorId = await currentCreatorId()
-  if (!creatorId) redirect("/sell")
+  if (!creatorId) return noStorePage("/app/inventory")
   return <InventoryClient />
 }

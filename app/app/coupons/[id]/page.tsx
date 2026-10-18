@@ -4,6 +4,7 @@ import type { CouponRecord } from "../coupon-form"
 import { loadCouponArea } from "../load-coupons"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -30,7 +31,7 @@ export default async function CouponEditPage({ params }: CouponEditPageProps) {
   if (!UUID.test(id)) redirect("/app/coupons")
   const load = await loadCouponArea(id)
   if (load.state === "signed-out") return null
-  if (load.state === "no-creator") redirect("/sell")
+  if (load.state === "no-creator") return noStorePage("/app/coupons")
   const coupon = load.coupons[0] as CouponRecord | undefined
   if (!coupon) redirect("/app/coupons")
   return <CouponEditor key={id} products={load.products} initialCoupon={coupon} />

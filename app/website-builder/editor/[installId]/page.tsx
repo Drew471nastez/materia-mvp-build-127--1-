@@ -115,8 +115,9 @@ import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
-import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { exitScreen } from "@/components/website-builder/exit-screen"
+import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { playCardEdges, playSidebarFold } from "@/lib/website-builder/canvas-switch"
+import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
@@ -1061,15 +1062,7 @@ function FieldControl({
  */
 const AUTOSAVE_DELAY_MS = 1_500
 
-/**
- * How long the screen that says you are leaving is on the glass before the
- * page goes. It reads three lines in turn, and a screen nobody can read is
- * a flash of grey with a word in it; this is the time those three lines
- * were written for. The ceiling that stops a slow route hanging starts
- * after this, so nothing waits twice.
- */
-/* LEAVING_SEEN_MS moved to lib/website-builder/navigate-ceiling, beside the
-   ceiling it starts, because the creator page editor leaves too. */
+/* How long Going back stays over the canvas before the page goes: EXIT_MIN_MS, lib/website-builder/exit-hold.ts. */
 
 /**
  * ===========================================================================
@@ -3425,30 +3418,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
   /*
-    THE CANVAS GLIDES, IT IS NOT RESIZED FRAME BY FRAME. Full screen used to
-    animate the sidebar's width and the device switch the card's width, so
-    every frame of the 320ms laid out every section on the page again (the
-    owner: "very laggy, like 10fps"). Now the layout changes once, and the
-    card is moved from where it was to where it is by a transform, which the
-    compositor runs at the screen's own rate. A device switch, where the card
-    changes shape, settles in with a short fade and scale instead.
+    ONE LAYOUT, THEN ONLY TRANSFORMS. Desktop, phone and full screen change
+    the card's box once, and the page is drawn where it ends up in the first
+    frame. What moves after that is the card's edges (strips of white or of
+    the shelf shrinking to the new edge) and the sidebar (laid over the
+    canvas, nudged and faded), by transform and opacity on the compositor.
+    Nothing slides from a place it never was and the page is never dimmed
+    (lib/website-builder/canvas-switch.ts, scripts/check-view-switch.mjs).
+    The card's box is read once on the press, before the change, and once
+    after it.
   */
   const canvasFrameRef = useRef<HTMLDivElement | null>(null)
-  const lastGlide = useRef<{ device: string; full: boolean } | null>(null)
+  const switchFrom = useRef<DOMRect | null>(null)
+  const switchCanvas = useCallback((apply: () => void) => {
+    switchFrom.current = canvasFrameRef.current?.getBoundingClientRect() ?? null
+    apply()
+  }, [])
+  const lastView = useRef<{ device: string; full: boolean } | null>(null)
   useLayoutEffect(() => {
-    const el = canvasFrameRef.current
-    const prev = lastGlide.current
-    lastGlide.current = { device, full: fullView }
-    if (!el || !prev) return
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || typeof el.animate !== "function") return
-    if (prev.full !== fullView) {
-      /* The card's left edge moved by the sidebar and its 6px seam: it starts where it was and slides there. */
-      const by = sidebarWidth + 6
-      el.animate([{ transform: `translateX(${fullView ? by : -by}px)` }, { transform: "translateX(0)" }], { duration: FULL_SCREEN_MS, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
-    } else if (prev.device !== device) {
-      el.animate([{ opacity: 0.55, transform: "scale(0.985)" }, { opacity: 1, transform: "none" }], { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
-    }
-  }, [fullView, device]) // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = lastView.current
+    lastView.current = { device, full: fullView }
+    const from = switchFrom.current
+    switchFrom.current = null
+    if (!prev) return
+    if (prev.full !== fullView && sidebarFoldRef.current && sidebarRef.current) playSidebarFold(sidebarFoldRef.current, sidebarRef.current, fullView)
+    const host = canvasMainRef.current
+    const frame = canvasFrameRef.current
+    if (from && host && frame && prev.device !== device) playCardEdges(host, from, frame.getBoundingClientRect())
+  }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
     the whole browser full screen, only the editor canvas"). The sidebar folds
@@ -3480,11 +3477,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (e.key !== "Escape" || e.defaultPrevented) return
       const t = e.target as HTMLElement | null
       if (t?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="menu"]')) return
-      setFullScreen(false)
+      switchCanvas(() => setFullScreen(false))
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [fullView, setFullScreen])
+  }, [fullView, setFullScreen, switchCanvas])
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
   /* The creator's four public facts, for `{{ creator.name }}` on the canvas. See the install route. */
@@ -8984,9 +8981,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setPendingExit(null)
       /* Still here, so the next way out asks again. */
       leaveAnswered.current = false
-      /* And goes again: the screen comes down and the next press pushes. */
+      /* And goes again: the screen comes down, a push still waiting on it does not go, and the next press pushes. */
       exitPushed.current = false
-      exitScreen.cancel()
+      cancelCeiling.current?.()
     }
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) revive()
@@ -9003,7 +9000,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * finish within the same few milliseconds: the "random" reload going back
      * to Website (round 23, measured in scripts/nav23-real-router).
      */
-    const watchdog = window.setTimeout(revive, LEAVING_SEEN_MS + NAVIGATE_CEILING_MS + 2000)
+    const watchdog = window.setTimeout(revive, exitWatchdogMs(NAVIGATE_CEILING_MS))
     return () => {
       window.removeEventListener("pageshow", onPageShow)
       window.removeEventListener("popstate", revive)
@@ -9250,25 +9247,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (exitPushed.current) return
     exitPushed.current = true
     /*
-      The Going back screen goes up on the press and stays at least
-      EXIT_MIN_MS, the owner's three seconds (components/website-builder/
-      exit-screen.tsx). Already up when Back went through the browser first
-      (goBackForReal); the push still goes.
+      GOING BACK IS SAID IN THE CANVAS, AND THE EDITOR STAYS AROUND IT.
+      The screen goes up over the canvas on the press (the Going back loader
+      below, in the canvas loader's look) and stays EXIT_MIN_MS, the owner's
+      three seconds (lib/website-builder/exit-hold.ts). The bar and the
+      sidebar stay as they are; nothing covers the window, so there is no
+      white sheet over everything to come and go. The push goes when the
+      minimum is over, to a route warmed now and before, and the page that
+      arrives replaces the editor in one commit.
     */
-    exitScreen.start()
     leavingHref.current = href
     setLeaving(true)
     cancelCeiling.current?.()
-    /**
-     * THE SCREEN THAT SAYS YOU ARE LEAVING IS WORTH SEEING.
-     *
-     * Prefetching the way out made the navigation instant, and an instant
-     * navigation paints the next page before this one has drawn the screen
-     * that says where you are going. What was left was a press, a pause,
-     * and then somewhere else. The navigation waits a moment for that screen
-     * to be on the glass: long enough to read the first word, short enough
-     * that nobody waits for it. The ceiling starts from the push.
-     */
+    try {
+      router.prefetch(href)
+    } catch {
+      /* A router that will not prefetch still navigates. */
+    }
+    /* The ceiling starts from the push, so a slow route is loaded for real NAVIGATE_CEILING_MS after it, not after the press. */
     const start = window.setTimeout(() => {
       cancelCeiling.current = navigateWithCeiling(
         () => router.push(href),
@@ -9276,15 +9272,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         (cb, ms) => window.setTimeout(cb, ms),
         (id) => window.clearTimeout(id),
       )
-    }, LEAVING_SEEN_MS)
+    }, EXIT_MIN_MS)
     cancelCeiling.current = () => window.clearTimeout(start)
   }, [router])
   // Navigating unmounts this page, and that cancels the fallback: a hard load
-  // happens only when the soft one did not. It is also the moment the page it
-  // went to has arrived, so the Going back screen may go once its minimum is over.
+  // happens only when the soft one did not.
   useEffect(() => () => {
     cancelCeiling.current?.()
-    exitScreen.arrived()
   }, [])
 
   /**
@@ -9362,22 +9356,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const goBackForReal = useCallback(() => {
     goingBack.current = true
     leaveAnswered.current = true
-    /* Up before the browser goes back, so the way out looks the same whichever door it took. */
-    exitScreen.start()
+    /* The Going back screen goes up with leaveFor, once the browser has stepped off the guard entry. */
     backThen(() => leaveFor("/app/website-builder"))
   }, [leaveFor])
   useEffect(() => {
     const onPop = () => {
       /*
         THE BROWSER'S BACK, OR A PHONE'S, WITH NOTHING TO LOSE. Next takes it
-        straight to the page before; the Going back screen goes up over that
-        page as it arrives, the same as the bar's Back. Only when it leaves
-        the builder: the code editor's own route is part of it.
+        straight to the page before, and the editor is already on its way
+        out: there is no canvas left to say Going back in, and nothing is
+        laid over the page that arrives (it was a white sheet over the whole
+        window). Only when it leaves the builder: the code editor's own route
+        is part of it.
       */
-      if (!guardArmed.current && !goingBack.current && !leavingRef.current && !window.location.pathname.startsWith("/website-builder/")) {
-        exitScreen.start()
-        return
-      }
+      if (!guardArmed.current && !goingBack.current && !leavingRef.current && !window.location.pathname.startsWith("/website-builder/")) return
       if (!guardArmed.current || goingBack.current) return
       /* Forward onto the guard again: nothing has been left. */
       if ((window.history.state as { wbLeaveGuard?: boolean } | null)?.wbLeaveGuard) return
@@ -9872,7 +9864,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     aria-label={`Preview size: ${now.label}. Switch to ${next.label}`}
                     data-wb-device-switch=""
                     data-wb-device={now.key}
-                    onClick={() => go(next.key)}
+                    onClick={() => switchCanvas(() => go(next.key))}
                     className="hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                   >
                     <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
@@ -9892,7 +9884,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   aria-label={fullView ? "Exit full screen" : "Full screen"}
                   aria-pressed={fullView}
                   data-wb-full-toggle=""
-                  onClick={() => toggleCanvasFullScreen(!fullView)}
+                  onClick={() => switchCanvas(() => toggleCanvasFullScreen(!fullView))}
                   className="hidden sm:flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                 >
                   {fullView ? <Minimize2 className="h-[14px] w-[14px]" strokeWidth={1.75} /> : <Maximize2 className="h-[14px] w-[14px]" strokeWidth={1.75} />}
@@ -10287,7 +10279,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         onSave={saveThenLeave}
       />
 
-      {/* Going back: components/website-builder/exit-screen.tsx, its own root on <body>, put up by leaveFor and goBackForReal. */}
 
       {/* ── A save that did not go through: what happened and the one thing to do ── */}
       {/* ── What came in from GitHub or an agent, what didn't, and two versions of one page: lib/github-sync/editor-status.ts ── */}
@@ -10406,7 +10397,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               opacity: fullView ? 0 : 1,
               /* And the 6px seam beside it, so the canvas meets the edge. */
               marginRight: fullView ? -6 : 0,
-              /* The width snaps (one layout, not one a frame); the canvas glides over by transform (canvasGlide) while the panel fades. */
+              /* The width snaps (one layout, not one a frame); the panel is laid over the canvas, nudged and faded (playSidebarFold). */
               transition: `opacity ${Math.round(FULL_SCREEN_MS * 0.6)}ms ease-out`,
               pointerEvents: fullView ? "none" : undefined,
             }}
@@ -10659,6 +10650,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             codeFilePath={codeFilePath}
             codeFileAt={codeFileAt}
           />
+          {/*
+            GOING BACK, IN THE CANVAS. The canvas loader's look (white, the
+            nine squares, one line) over the canvas only, from the press of
+            Back until the page behind arrives: the bar and the sidebar stay
+            as they were, so leaving reads as this page finishing rather than
+            the whole window going white (lib/website-builder/exit-hold.ts).
+            Over the code pane too, which shares this area.
+          */}
+          {leaving && (
+            <div
+              className="wb-exit-canvas absolute inset-0 z-[60] flex items-center justify-center bg-white"
+              data-exit-canvas=""
+              role="status"
+              aria-live="polite"
+            >
+              <BuilderLoader className="wb-loading-line" tone="light" lines={["Going back"]} />
+            </div>
+          )}
           {/* ── The card's rounded corners survive its scrollbar ──
               A scrollbar is laid out and painted inside the scroll
               container's own box, and it is NOT held inside that box's
@@ -10688,8 +10697,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  A section's `position: fixed` menu, its 100vh and its width
                  queries all answer to this card, never to the editor around
                  it (app/globals.css, lib/storelib-theme/storelib/css.ts). */
-              /* Never `transition-all`: a width animated here laid every section out again on every frame (10fps on a full page). The size snaps once and the card glides by transform (canvasGlide). */
-              "wb-canvas-frame relative overflow-hidden transition-[opacity,box-shadow,border-radius] duration-300",
+              /* Never `transition-all`: a width animated here laid every section out again on every frame (10fps on a full page). Not the radius or the shadow either: each frame of those repainted the whole card. The size snaps once and its edges are carried by playCardEdges. Opacity only, for the code pane. */
+              "wb-canvas-frame relative overflow-hidden transition-opacity duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.
               //
