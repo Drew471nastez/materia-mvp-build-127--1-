@@ -50,6 +50,10 @@ import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { afterPaymentReady } from "./parts/stripe-loader"
+
+/** How long the ways out wait for a card form that never says it is ready (no Stripe form on this checkout, or Stripe blocked). */
+const WARM_WITHOUT_FORM_MS = 6000
 import { NativeWalletButtons } from "./parts/native-wallets"
 import { RETURN_PARAM, forgetSecret, redirectToAirwallex, takeSecret } from "./parts/airwallex-redirect"
 import { HtmlClass } from "@/components/platform/html-class"
@@ -426,8 +430,12 @@ export default function CheckoutPageClient({
   /*
     THE WAYS OUT, WARMED. The product page and the creator's page are asked
     for whole (a "full" prefetch: with no loading boundary on those routes an
-    ordinary one brings back almost nothing), once the checkout has drawn
-    and the browser is idle, so Stripe's own loading goes first. The router
+    ordinary one brings back almost nothing), once the card form is ready
+    and the browser is idle, so Stripe's own loading goes first. Asked at
+    the first idle moment, they were whole routes of scripts arriving while
+    Stripe's frames were still drawing, and on a phone the form waited for
+    them (scripts/check-checkout-speed.mjs). A checkout with no card form
+    (the app's own fields, Airwallex) waits a few seconds instead. The router
     keeps them for staleTimes (next.config.mjs), and a press on Back,
     Continue shopping or the creator then lands on the next frame, on the
     client, with no document load.
@@ -446,12 +454,20 @@ export default function CheckoutPageClient({
       }
     }
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(warm, { timeout: 2000 })
-      return () => w.cancelIdleCallback?.(id)
+    let cancelIdle = () => {}
+    const cancelWait = afterPaymentReady(() => {
+      if (w.requestIdleCallback) {
+        const id = w.requestIdleCallback(warm, { timeout: 2000 })
+        cancelIdle = () => w.cancelIdleCallback?.(id)
+      } else {
+        const t = window.setTimeout(warm, 800)
+        cancelIdle = () => window.clearTimeout(t)
+      }
+    }, WARM_WITHOUT_FORM_MS)
+    return () => {
+      cancelWait()
+      cancelIdle()
     }
-    const t = window.setTimeout(warm, 800)
-    return () => window.clearTimeout(t)
   }, [productUrl, shopUrl, creatorHref, router])
 
   const plainClick = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey

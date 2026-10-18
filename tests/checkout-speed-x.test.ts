@@ -154,6 +154,9 @@ async function main() {
     check("the product checkout asks before its Suspense, not after its reads", main.indexOf("stripeEarly({ script: true })") > 0 && main.indexOf("stripeEarly({ script: true })") < main.indexOf("<Suspense"))
     check("the website checkout asks in its first frame and its page", /stripeEarly\(\{ script: true \}\)/.test(read("app/checkout/site/loading.tsx")) && /stripeEarly\(\{ script: true \}\)/.test(read("app/checkout/site/page.tsx")))
     check("the physical checkout opens the connections only", /stripeEarly\(\{ script: false \}\)/.test(read("app/checkout/physical/page.tsx")))
+    const client = read("app/checkout/checkout-client.tsx")
+    check("the checkout's ways out are read ahead only once the card form is ready", /const cancelWait = afterPaymentReady\(\(\) => \{[\s\S]{0,200}requestIdleCallback\(warm, \{ timeout: 2000 \}\)/.test(client) && /\}, WARM_WITHOUT_FORM_MS\)/.test(client))
+    check("the card form says so when Stripe calls it ready", /setPaymentReady\(true\)\n\s*setFailed\(false\)\n[\s\S]{0,120}notePaymentReady\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
     const loader = read("app/checkout/parts/stripe-loader.ts")
     check("Stripe.js still runs only through loadStripe from the pure entry", /import\("@stripe\/stripe-js\/pure"\)/.test(loader) && !/<script/.test(read("app/checkout/parts/stripe-early.ts")))
   }
@@ -188,6 +191,29 @@ async function main() {
     check("another quantity is a new ask", !sameAsFirstQuote(first, "ship-1", { ...now, items: [{ ...items[0], quantity: 2 }] }))
     check("Stripe.js is warmed on idle once the order is on screen, never in the app's shell", /if \(!hasQuote \|\| isCapacitorShell\(\)\) return/.test(client) && /requestIdleCallback\(warm/.test(client))
     check("a warm that fails is forgotten, so Pay asks afresh", /getStripePromise\(\)\.catch\(\(\) => resetStripePromise\(\)\)/.test(client))
+  }
+
+  section("What waits for the card form runs once it is ready, or after the fallback")
+  {
+    const target = new EventTarget()
+    const g = globalThis as unknown as { window?: unknown }
+    g.window = Object.assign(target, { setTimeout, clearTimeout })
+    const { afterPaymentReady, notePaymentReady } = await import("@/app/checkout/parts/stripe-loader")
+    let early = 0
+    let late = 0
+    let cancelled = 0
+    afterPaymentReady(() => early++, 10_000)
+    const cancel = afterPaymentReady(() => cancelled++, 10_000)
+    cancel()
+    check("nothing runs before the form is ready", early === 0)
+    notePaymentReady()
+    check("ready runs what waited, once", early === 1)
+    notePaymentReady()
+    check("a second ready runs nothing again", early === 1)
+    check("a cancelled wait never runs", cancelled === 0)
+    afterPaymentReady(() => late++, 10_000)
+    check("asked after the form is ready, it runs at once", late === 1)
+    delete g.window
   }
 
   section("The card form's place is held, and it says when it is ready")

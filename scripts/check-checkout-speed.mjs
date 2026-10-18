@@ -29,6 +29,9 @@
  *   ONLY=phone node scripts/check-checkout-speed.mjs <url>
  *   AB=1 node scripts/check-checkout-speed.mjs <url>           (live HTML against the same
  *                                                              HTML with Stripe's hints)
+ *   AB=1 ARMS=A,B,C ...                                         (C: also the router's reads
+ *                                                              ahead held back, as the card
+ *                                                              form now holds them)
  *   FORM=0 node scripts/check-checkout-speed.mjs <url>         (a page with no card form
  *                                                              before Pay: waits for the price)
  *
@@ -133,10 +136,12 @@ async function measure(url, profile, arm = null) {
   const p = await ctx.newPage()
   if (arm) {
     const live = await documentOf(url)
-    const body = arm === "B" ? live.replace(/<head>/, `<head>${HINTS}`) : live
+    const body = arm === "A" ? live : live.replace(/<head>/, `<head>${HINTS}`)
     await p.setRequestInterception(true)
     p.on("request", (req) => {
       if (req.resourceType() === "document" && req.url() === url) return req.respond({ status: 200, contentType: "text/html; charset=utf-8", body })
+      /* Arm C: the router's reads ahead held back, as the deployed checkout now holds them until the card form is ready. */
+      if (arm === "C" && req.headers()["next-router-prefetch"]) return req.abort()
       req.continue()
     })
   }
@@ -204,12 +209,13 @@ for (const url of URLS) {
   for (const [name, profile] of Object.entries(PROFILES)) {
     if (process.env.ONLY && process.env.ONLY !== name) continue
     const keys = ["ttfb", "fcp", "lcp", "shell", "price", "stripeAsked", "stripeJs", "frame", "ready", "cls", "requests"]
-    for (const arm of process.env.AB === "1" ? ["A", "B"] : [null]) {
+    for (const arm of process.env.AB === "1" ? (process.env.ARMS || "A,B").split(",") : [null]) {
       const runs = []
       for (let i = 0; i < RUNS; i++) runs.push(await measure(url, profile, arm))
       const out = { ...runs[runs.length - 1] }
       if (RUNS > 1) for (const k of keys) out[k] = median(runs.map((r) => r[k]))
-      console.log(`  ${name.padEnd(7)}${arm ? ` ${arm === "A" ? "live      " : "with hints"}` : ""} ${JSON.stringify(out)}`)
+      const label = { A: "live        ", B: "with hints  ", C: "hints, no ahead" }[arm] ?? ""
+      console.log(`  ${name.padEnd(7)}${arm ? ` ${label}` : ""} ${JSON.stringify(out)}`)
     }
   }
 }

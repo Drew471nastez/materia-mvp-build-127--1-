@@ -55,3 +55,46 @@ export function resetStripePromise() {
 }
 
 export { isCapacitorShell }
+
+/*
+  THE CARD FORM IS READY: SAID ONCE, FOR WHATEVER WAITS ON IT. The checkout
+  reads its ways out ahead (the product page, the creator's page) and those
+  are whole routes of scripts; started before Stripe's frames had drawn,
+  they took the phone's connection and CPU from them (the form was ready
+  seconds after Stripe.js had arrived). Now they wait for this.
+*/
+export const PAYMENT_READY_EVENT = "storelib:payment-ready"
+let paymentFormReady = false
+
+export function notePaymentReady(): void {
+  if (paymentFormReady || typeof window === "undefined") return
+  paymentFormReady = true
+  window.dispatchEvent(new Event(PAYMENT_READY_EVENT))
+}
+
+/**
+ * Runs `then` once the card form is ready, or after `fallbackMs` when it
+ * never says so (a checkout with no card form, Stripe blocked). Returns the
+ * way to cancel it.
+ */
+export function afterPaymentReady(then: () => void, fallbackMs: number): () => void {
+  if (paymentFormReady) {
+    then()
+    return () => {}
+  }
+  let done = false
+  const go = () => {
+    if (done) return
+    done = true
+    window.removeEventListener(PAYMENT_READY_EVENT, go)
+    window.clearTimeout(t)
+    then()
+  }
+  const t = window.setTimeout(go, fallbackMs)
+  window.addEventListener(PAYMENT_READY_EVENT, go)
+  return () => {
+    done = true
+    window.removeEventListener(PAYMENT_READY_EVENT, go)
+    window.clearTimeout(t)
+  }
+}

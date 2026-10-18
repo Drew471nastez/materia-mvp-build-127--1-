@@ -33,7 +33,7 @@ import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStrip
 import type { Appearance, StripeElementsOptions, StripeError } from "@stripe/stripe-js"
 import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getStripePromise, resetStripePromise } from "./stripe-loader"
+import { getStripePromise, notePaymentReady, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
 import { FIELD_SHADOW, useCheckoutCurrency, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
@@ -587,6 +587,8 @@ function StripePayInner({
             onReady={() => {
               setPaymentReady(true)
               setFailed(false)
+              /* What waits for the form (the checkout's ways out, read ahead) may go now. */
+              notePaymentReady()
             }}
             /* Stripe refused this list of methods: the next one, which it takes. With none left, say so. */
             onLoadError={() => (onRefused ? onRefused() : setFailed(true))}
