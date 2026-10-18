@@ -112,7 +112,8 @@ export function InlineRichTextControl({
             run("insertText", e.clipboardData.getData("text/plain").replace(/\s+/g, " "))
           }}
           className={cn(
-            "min-h-9 max-sm:min-h-11 px-3 py-2 text-sm max-sm:text-[16px] leading-5 outline-none whitespace-nowrap overflow-x-auto wb-slim-scroll",
+            /* One line by meaning, not by width: a long heading wraps in the box like it does on the page, rather than scrolling sideways out of view. */
+            "min-h-9 max-sm:min-h-11 min-w-0 px-3 py-2 text-sm max-sm:text-[16px] leading-5 outline-none whitespace-normal [overflow-wrap:anywhere] overflow-x-hidden",
             "[&_a]:underline [&_a]:underline-offset-2",
           )}
         />

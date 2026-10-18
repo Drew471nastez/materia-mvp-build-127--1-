@@ -625,6 +625,7 @@ const SUITES = [
   "tests/nav23.test.ts",
   /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
   "tests/editor-perf-v.test.ts",
+  "tests/editor-y1.test.ts",
   /* V12: no :has() whose subject is the root, so an insertion restyles what it touches (scripts/check-editor-perf.mjs, "insert one node"). */
   "tests/editor-css-v.test.ts",
   "tests/communities-frame12.test.ts",

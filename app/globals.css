@@ -5733,36 +5733,20 @@ picture {
   .wb-canvas-loader { transition: none; }
 }
 
-/* ── Going back: components/website-builder/exit-screen.tsx ──────────────
-   The canvas loader's look, over the whole window, on <body> so it outlives
-   the editor. It comes in over 220ms, stays at least EXIT_MIN_MS
-   (lib/website-builder/exit-hold.ts) and fades off the page that has
-   arrived. The entrance has no fill, so once it is over the fade-out
-   transition owns the opacity. Above the sheets (80) and the old leaving
-   glass (300). */
-.wb-exit-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-  background: #ffffff;
-  opacity: 1;
-  animation: wb-exit-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
-  transition: opacity 320ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-.wb-exit-screen[data-leaving] {
-  opacity: 0;
-  pointer-events: none;
+/* ── Going back, in the canvas: the editor's leaveFor ──────────────────────
+   The canvas loader's look over the canvas only, from the press until the
+   page behind arrives (lib/website-builder/exit-hold.ts EXIT_FADE_IN_MS). It
+   comes in over 220ms on opacity alone, and the bar and the sidebar stay as
+   they are: it used to be a white sheet over the whole window. */
+.wb-exit-canvas {
+  animation: wb-exit-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 @keyframes wb-exit-in {
   from { opacity: 0 }
   to { opacity: 1 }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wb-exit-screen { animation: none; transition: none; }
+  .wb-exit-canvas { animation: none; }
 }
 
 /* ── The website-builder editor's geometry ───────────────────────────────

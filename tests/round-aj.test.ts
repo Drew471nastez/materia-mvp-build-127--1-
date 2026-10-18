@@ -76,9 +76,11 @@ async function main() {
   console.log("\nThe canvas glides")
   {
     const page = code("app/website-builder/editor/[installId]/page.tsx")
-    check("the card never animates its width", /"wb-canvas-frame relative overflow-hidden transition-\[opacity,box-shadow,border-radius\] duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
+    /* Y1: not its radius or shadow either (a repaint of the whole card a frame), only opacity for the code pane. */
+    check("the card never animates its width", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
     check("the sidebar's width snaps", !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
-    check("full screen slides the card by transform", /translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
+    /* Y1: the card is never slid from where it was (the page moved right and then left); the sidebar is laid over it and goes. */
+    check("full screen moves the sidebar, by transform, not the card", /playSidebarFold\(sidebarFoldRef\.current, sidebarRef\.current, fullView\)/.test(page) && !/translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
   }
 
   console.log("\nWebsite settings")
