@@ -194,7 +194,7 @@ function main() {
   section("The site's own links lead somewhere")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const shop = read("app/(site)/w/[username]/products/page.tsx")
+    const shop = read("app/(site)/w/[username]/products/shop-page.tsx")
     const productRoute = read("app/(site)/w/[username]/products/[slug]/page.tsx")
     const productRenderer = read("components/website-builder/theme/render-product.tsx")
     const shopPage = read("lib/website-builder/shop-page.ts")
@@ -220,7 +220,8 @@ function main() {
     check("and the platform's own address draws the same page", /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")))
 
     check("the Shop link the themes ship points at /products", /url: "\/products"/.test(registry))
-    check("and /products is a page now", /export default async function SiteShopPage/.test(shop))
+    /* Changed on purpose (round X1): the page's body is shop-page.tsx, drawn by the held page.tsx and its per request twin ~list/page.tsx. */
+    check("and /products is a page now", /export default async function SiteShopPage/.test(read("app/(site)/w/[username]/products/page.tsx")) && /export async function ShopPage/.test(shop))
     check(
       "built from the site's own header and footer, not a second design",
       /* The whole Header and Footer groups from home, announcement bars and a header section file included. */
@@ -271,7 +272,7 @@ function main() {
      * they built got the profile at it and their site only at the subdomain
      * they were replacing.
      */
-    check("a connected domain shows the website that was built", /* Changed on purpose (round AB): the website in another language. */ /rewritePath = inLanguage\?\.kind === "page" \? inLanguage\.path : `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`/.test(proxy))
+    check("a connected domain shows the website that was built", /* Changed on purpose (round AB): the website in another language. */ /* Changed on purpose (round X1): through heldListPath, the shop's and a collection's filtered addresses to their per request twin. */ /rewritePath = heldListPath\(inLanguage\?\.kind === "page" \? inLanguage\.path : `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`, request\.nextUrl\.searchParams\)/.test(proxy))
     check("with the path kept, so About on a domain is About", /\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}/.test(proxy))
     check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
     check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))

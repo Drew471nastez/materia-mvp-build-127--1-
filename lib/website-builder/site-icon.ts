@@ -92,10 +92,18 @@ export function siteIconTags(icon: string | null | undefined): string {
  * A theme that writes its own keeps it.
  */
 export function withSiteIcon(html: string, icon: string | null | undefined): string {
-  const tags = siteIconTags(icon)
-  if (!tags) return html
   const head = html.search(/<\/head>/i)
   if (head < 0) return html
   if (/<link\b[^>]*\brel\s*=\s*["']?[^"'>]*\bicon\b/i.test(html.slice(0, head))) return html
-  return `${html.slice(0, head)}${tags}${html.slice(head)}`
+  return `${html.slice(0, head)}${siteIconTags(icon) || NO_ICON}${html.slice(head)}`
 }
+
+/*
+  NO ICON AT ALL, SAID SO. With no icon in the page the browser asks the host
+  for /favicon.ico once the page has loaded, and that address is Storelib's
+  "not found" page, sent with headers that tell the browser to fetch the
+  app's own stylesheets and font: measured on an imported theme's front page,
+  about 140 KB a first visit fetched for nothing. An empty icon shows the
+  browser's own blank one, as the missing file did, and asks for nothing.
+*/
+export const NO_ICON = `<link rel="icon" href="data:,">`

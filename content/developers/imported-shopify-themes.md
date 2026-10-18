@@ -136,6 +136,12 @@ The theme's JavaScript runs on the website as it was written. Storelib supplies 
 - **`@shopify/events`**: the storefront events module a theme imports by that name (Horizon's `ProductSelectEvent`, `CartLinesUpdateEvent` and the rest), inline, so an event the theme dispatches is the one its listeners wait for.
 - **The old platform's CDN**: any other script or stylesheet on `cdn.shopify.com` (payment buttons, 3D viewers) is taken out of the page and named in the theme's diagnostics.
 
+On the live site the scripts keep their order but stop holding up the page, as Shopify's own themes write them:
+
+- A blocking `<script src>` is given `defer`, and every classic script after it joins the same queue in its place (an inline one as a `data:` address), so jQuery still runs before the inline script that calls it. Scripts already `defer`, `async` or `type="module"` are left as they are.
+- An `async` app script from a reviews, chat, popup or analytics service the theme writes starts once the page has loaded and the browser is idle, or at the visitor's first tap or key. Consent tools and the scripts they hold back are never touched, and neither are the store's own analytics and pixels.
+- Nothing is changed when the theme asks for its scripts as written (`<html data-storelib-scripts="as-written">` or `<meta name="storelib-scripts" content="as-written">` in its layout), or when the page writes into itself while it is read (`document.write`), has an `onload` or `onerror` handler that calls a function, has a script inside an SVG, or already has a `defer` script before one that would move. The page's `X-Storelib-Scripts` header says what was done, or why nothing was.
+
 ## In the builder
 
 The canvas draws an imported theme's page in a sandboxed frame with no origin of its own, so the theme's scripts run as they do on the website and reach nothing of the builder or the signed in person. The builder adds one script, which talks to it by `postMessage` and does what a theme editor is expected to do:
@@ -151,7 +157,8 @@ The canvas draws an imported theme's page in a sandboxed frame with no origin of
 
 A live website, imported or native, goes from page to page by loading the next page whole, and it does it without a white flash:
 
-- A link the visitor rests on or presses is fetched ahead by the browser (Speculation Rules, prefetch only, never prerender, so no page script or pixel runs for a page nobody opened). The cart, checkout, account and API are left out, as is a link marked `nofollow`, one opening a new tab, or one with `data-no-prefetch`.
+- A link the visitor rests on or presses is fetched ahead by the browser (Speculation Rules). The cart, checkout, account and API are left out, as is a link marked `nofollow`, one opening a new tab, or one with `data-no-prefetch`.
+- On a desktop, an imported theme's page that runs no script from anyone but the site and Storelib is prerendered instead: drawn with its scripts run while the pointer rests on the link, so the click shows a finished page. A page with analytics, pixels or an app widget is only fetched ahead, so none of them runs for a page nobody opened. Storelib's own page view and speed measurements wait until the page is shown.
 - The two pages cross-fade with a cross-document view transition. The arriving page waits, under the one being left, until it has been read to its end, so a theme's own start-up (an entrance animation, a slider laying out) is not shown half done.
 - It is off for a visitor who asks for less motion, in app web views where such transitions do not paint, and on a slow phone; there the page loads as any page does.
 

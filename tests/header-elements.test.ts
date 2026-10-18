@@ -214,7 +214,7 @@ function main() {
       /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)(\.filter\(\(k\) => \(k !== "collections" && k !== "collection"\) \|\| builderCollections !== null\))?\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
       /<PageSwitcher\s*\n\s*pages=\{sitePages\}/.test(editor) && /pages=\{sitePages\}/.test(editor.slice(editor.indexOf("const renderPageBrowser"))))
   check("the live shop and search prefer what the creator saved",
-    /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
+    /site\.pages\.products/.test(read("app/(site)/w/[username]/products/shop-page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))
   check("the canvas tells the field which site it is, so it can ask",
     /* Changed on purpose (round AE): the shop's words in the language previewed. */ /* Changed on purpose (the owner: currency in the builder like the live site): and the market previewed, and the theme switch as a preview. */ /* And the store's currency. */ /const storefront = useMemo\(\(\) => \(\{ inEditor: true, installId(, words)?(, display(, currency)?, language, preview: languagePreview)? \}\), \[installId(, words)?(, display(, currency)?, language, languagePreview)?\]\)/.test(editor) && /storefront=\{storefront\}/.test(editor)
       && /install=\$\{encodeURIComponent\(installId\)\}/.test(header))

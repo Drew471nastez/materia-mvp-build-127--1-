@@ -37,6 +37,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
+import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
+import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 
 export const dynamic = "force-dynamic"
@@ -267,7 +269,22 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       fetches a page to take a section out of it (a quick view) is answered
       with the markup as the theme wrote it, styles in their sections.
     */
-    if (openedAsDocument(req.headers)) html = readierFirstLoad(html).html
+    if (openedAsDocument(req.headers)) {
+      html = readierFirstLoad(html).html
+      /*
+        ITS SCRIPTS IN THEIR ORDER WITHOUT HOLDING UP THE PAGE: a blocking
+        theme script deferred with everything after it, an app widget or
+        pixel the theme writes started after load
+        (lib/storelib-theme/compat/script-order.ts), unless the theme asks
+        for them as written or does something that needs the old timing.
+        Said in a header, so a page left as written says why.
+      */
+      const scripts = calmerScripts(html)
+      html = scripts.html
+      if (scripts.deferred || scripts.queued || scripts.later || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}`)
+      /* On a desktop, a page that runs nobody else's scripts is prerendered when its link is rested on (lib/storelib-theme/compat/prerender.ts). */
+      if (!runsThirdPartyScripts(html)) html = withDesktopPrerender(html)
+    }
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
   return new NextResponse(body, { status: out.status, headers })
