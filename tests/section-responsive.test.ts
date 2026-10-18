@@ -1912,7 +1912,8 @@ check(
    * keep off the screen edge. With one theme on offer it is one full-width
    * row in the card style, inside the section's own padding.
    */
-  /data-explore-row=""/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
+  /* Round Z5: the theme cards are a grid inside the section (components/themes/theme-card.tsx), not a sideways row. */
+  /data-theme-grid=""/.test(wbPage) && /<ThemeCard\b/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
 )
 
 check(
@@ -3084,7 +3085,9 @@ check(
    * theme". Same href, two labels, and the header's wore a plus, which is the
    * mark for adding rather than browsing.
    */
-  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 2 &&
+  /* Round Z5: Add theme in the Library heading, and Browse themes' own link is the Theme marketplace (storelib.com/themes) in a new tab. */
+  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 1 &&
+    /href=\{MARKETPLACE_PATH\}\s*target="_blank"/.test(wbPage) &&
     // one button, one "see all" link — and the section is named for it
     /<SectionHeading title="Browse themes">/.test(wbPage) &&
     !/Browse themes\s*\n\s*<\/Link>/.test(wbPage),

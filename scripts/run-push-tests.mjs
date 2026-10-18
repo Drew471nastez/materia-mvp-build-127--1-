@@ -358,6 +358,8 @@ const SUITES = [
   "tests/app-sidebar.test.ts",
   "tests/analytics-chart.test.ts",
   "tests/website-builder.test.ts",
+  /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
+  "tests/theme-marketplace.test.ts",
   "tests/nav-links.test.ts",
   "tests/menus-main-menu.test.ts",
   "tests/store-menus.test.ts",

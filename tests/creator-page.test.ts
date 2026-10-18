@@ -457,7 +457,9 @@ function main() {
         for one install, nothing on it that sends anything.
       */
       check("and the page a website's cover is taken of, with its pass", asks("/cover-render/pass"))
-      const framablePrefixes = new Set(["p", "u", "cover-render"])
+      /* And /theme-preview/<slug>: the marketplace's live preview, framed by storelib.com/themes/<slug> (round Z5). It draws a theme with no creator in it. */
+      check("and the marketplace's live preview of a theme", asks("/theme-preview/storelib-default"))
+      const framablePrefixes = new Set(["p", "u", "cover-render", "theme-preview"])
       const escapedTwo = reserved.filter((r) => !framablePrefixes.has(r) && asks(`/${r}/anything`))
       check("nor with something after it", escapedTwo.length === 0, `framable: ${escapedTwo.join(", ")}`)
       check("nor in a different case", !asks("/Login") && !asks("/APP"))

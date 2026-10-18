@@ -16,6 +16,8 @@ import {
 import { pageUser } from "@/lib/auth/page-user"
 import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 import { getServerTt } from "@/lib/i18n/server"
+import { publishedListings } from "@/lib/themes/marketplace-server"
+import { builtinListings } from "@/lib/themes/marketplace-shared"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -133,6 +135,8 @@ export default async function WebsiteBuilderPage() {
     covers: one round trip less before the page can be drawn. "I click on
     Website, it shows the loading thing because the page takes long to load."
   */
+  /* Browse themes, from the cache the admin clears on every save; never what holds the page up. */
+  const listings = publishedListings().catch(() => builtinListings())
   const handle = websiteHandleOf(creator.id)
   let { data: rows } = await load()
 
@@ -155,7 +159,7 @@ export default async function WebsiteBuilderPage() {
 
   /* The website's own name on Storelib, when its creator gave it one. */
   const siteHandle = await handle
-  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} />
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} />
 }
 
 /**

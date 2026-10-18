@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
+import { readPlanOverride } from "@/lib/billing/plan-override"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
 
 const FREE_PLAN = {
@@ -71,7 +72,31 @@ function getPlanObject(planId: string) {
   return FREE_PLAN
 }
 
+/**
+ * What Stripe says, and then a plan set from /admin over it: the override is
+ * the plan every check reads (lib/billing/plan-override.ts), so this answers
+ * the same, with `override` naming it. The subscription itself is Stripe's,
+ * untouched, so its card, invoices and Cancel still describe what they pay.
+ */
 export async function GET() {
+  const res = await stripeSubscription()
+  if (res.status !== 200) return res
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return res
+    const admin = createAdminClient()
+    const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+    const override = creator ? await readPlanOverride(admin, creator.id as string) : null
+    if (!override) return res
+    const body = (await res.json()) as Record<string, unknown>
+    return NextResponse.json({ ...body, currentPlan: getPlanObject(override.planId), override: override.planId })
+  } catch {
+    return res
+  }
+}
+
+async function stripeSubscription() {
   try {
     const supabase = await createClient()
 
