@@ -208,6 +208,8 @@ const SUITES = [
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
+  /* Track X2: checkout speed (the server reads side by side, Stripe from the head, the physical cart priced first; scripts/check-checkout-speed.mjs times it). */
+  "tests/checkout-speed-x.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
   "tests/sell-intent.test.ts",

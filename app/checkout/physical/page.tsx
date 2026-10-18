@@ -18,10 +18,56 @@ import { platformSellingCurrency } from "@/lib/store/selling-currency"
 import { cookies, headers } from "next/headers"
 import { countryCode } from "@/lib/checkout/countries"
 import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
+import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
+import { firstQuoteBody } from "@/lib/physical/first-quote"
+import { stripeEarly } from "../parts/stripe-early"
+import { ShopBar } from "../parts/shop-bar"
+import { Suspense } from "react"
+import type * as React from "react"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false, follow: false } }
+
+/** A read started before it is needed: awaited later as it is, and never an unheard rejection when the page ends first. */
+function early<T>(read: Promise<T>): Promise<T> {
+  read.catch(() => {})
+  return read
+}
+
+/**
+ * THE CART PRICED BEFORE THE FIRST FRAME. The page used to arrive with no
+ * order at all: the browser ran its scripts, then asked the quote route,
+ * and only then wrote a line or a price (most of a second after the page
+ * itself on a phone). The same route is asked here, on the server, with
+ * exactly what the page's own first ask sends (no code, no address yet,
+ * the country the page opens on), so the answer is the one the page would
+ * have fetched, through the same checks and limits. Anything other than an
+ * answer leaves the page to ask as it always did.
+ */
+async function firstQuote(h: Headers, shopId: string, items: LinkItem[], country: string): Promise<Record<string, unknown> | null> {
+  try {
+    const { POST } = await import("@/app/api/physical/checkout/quote/route")
+    const forward = new Headers({ "content-type": "application/json" })
+    /* The buyer's address, for the route's rate limit, as their own request would carry it. */
+    for (const k of ["x-forwarded-for", "x-real-ip"]) {
+      const v = h.get(k)
+      if (v) forward.set(k, v)
+    }
+    const res = await POST(
+      new Request("https://checkout.invalid/api/physical/checkout/quote", {
+        method: "POST",
+        headers: forward,
+        body: JSON.stringify(firstQuoteBody(shopId, items, country)),
+      }),
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as unknown
+    return data && typeof data === "object" ? (data as Record<string, unknown>) : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * The checkout for a cart with something to ship: email, delivery address,
@@ -33,14 +79,22 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
  */
 export default async function PhysicalCheckoutPage({ searchParams }: { searchParams: Promise<{ shop?: string; items?: string; return?: string; [key: string]: string | undefined }> }) {
   await requirePhysicalPage()
-  const sp = await searchParams
+  /* The connections to Stripe, open before Pay is pressed; Stripe.js itself waits for an idle page (./physical-checkout.tsx). */
+  stripeEarly({ script: false })
+  const [sp, jar, h] = await Promise.all([searchParams, cookies(), headers()])
   const { shop, return: asked } = sp
+  /* The delivery country before the first frame: the buyer's last pick at a checkout, else where their connection is (no guess, no jump). */
+  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
+  const shopOk = !!shop && /^[0-9a-f-]{36}$/i.test(shop)
+  /* The cart in the link, priced beside the shop's reads below (firstQuote). A cart kept only in this browser is priced by the page, as before. */
+  const linkItems = shopOk ? decodeItems(sp.items) : []
+  const quoteRead = shopOk && linkItems.length ? early(firstQuote(h, shop!, linkItems, initialCountry ?? "")) : Promise.resolve(null)
   let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
   let backTo: string | null = null
   /* The store's own currency (Settings › Country & Currency): what its prices are in and its card payment is charged in. */
   let currency: string = platformSellingCurrency()
-  if (shop && /^[0-9a-f-]{36}$/i.test(shop)) {
+  if (shopOk && shop) {
     const db = createAdminClient()
     /* The shop across the top, as the basket checkout draws it: its website's logo, its store name before the person's (lib/checkout/brand-server), and how its checkout behaves (Settings › Checkout). */
     const [shopBrand, checkout, returns, store] = await Promise.all([
@@ -79,12 +133,41 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
   const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
-  /* The delivery country before the first frame: the buyer's last pick at a checkout, else where their connection is (no guess, no jump). */
-  const [jar, h] = await Promise.all([cookies(), headers()])
-  const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(h.get("x-vercel-ip-country") || h.get("cf-ipcountry"))
+  const props = { shopId: shopOk ? shop! : null, shopName: brand.name, brand, shopUrl, config, buyer, initialCountry }
+  /*
+    THE SHOP'S BAR AT ONCE, THE ORDER WHEN IT IS PRICED. Everything above
+    (and a redirect to the website's own checkout) is decided before a byte
+    is sent, as before; the cart's price streams in after the bar, so the
+    first frame is not held for it. The bar is drawn exactly where, and as,
+    the checkout draws it, so nothing moves when the order arrives.
+  */
+  return (
+    <Suspense
+      fallback={
+        <main aria-busy="true" data-checkout-loading="" className="min-h-dvh bg-white lg:bg-[linear-gradient(90deg,#ffffff_55%,#f8f9fa_55%)]">
+          {/* Back is set once mounted in the checkout too (its backUrl), so the bar is the same on both sides of the swap. */}
+          <ShopBar brand={brand} backTo={null} shopUrl={shopUrl} />
+          <span className="sr-only">Loading checkout</span>
+        </main>
+      }
+    >
+      <PricedCheckout currency={currency} quoteRead={quoteRead} items={linkItems} country={initialCountry ?? ""} backTo={backTo} {...props} />
+    </Suspense>
+  )
+}
+
+/** The checkout, once the cart in the link is priced (firstQuote); without one, the page prices it itself as before. */
+async function PricedCheckout({
+  currency,
+  quoteRead,
+  items,
+  country,
+  ...props
+}: Omit<React.ComponentProps<typeof PhysicalCheckout>, "initialQuote"> & { currency: string; quoteRead: Promise<Record<string, unknown> | null>; items: LinkItem[]; country: string }) {
+  const quote = await quoteRead
   return (
     <CheckoutCurrency currency={currency}>
-      <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} initialCountry={initialCountry} />
+      <PhysicalCheckout {...props} initialQuote={quote ? { items, country, quote } : null} />
     </CheckoutCurrency>
   )
 }

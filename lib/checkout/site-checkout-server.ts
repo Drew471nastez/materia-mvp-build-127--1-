@@ -17,7 +17,9 @@ import "server-only"
  * otherwise. Never a Storelib login: the creator's site does not get
  * storelib.com's session, and storelib.com never gets the site's.
  */
+import { cache } from "react"
 import { siteOwnerOfHost } from "@/lib/site-accounts/hosts"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { cookieFrom, sessionCookieName, visitorFrom } from "@/lib/site-accounts/session"
 import { customerById } from "@/lib/site-accounts/customers"
 import type { SiteBuyer } from "./site-checkout"
@@ -47,6 +49,13 @@ export async function siteOfHost(db: Db, rawHost: string | null | undefined): Pr
   if (!owner) return null
   return { creatorId: owner.creatorId, host: owner.host, origin: originOfHost(owner.host), kind: owner.kind }
 }
+
+/**
+ * The same, read once for the whole request. The checkout's layout asks it
+ * for the tab's title and icon and its page asks it again for the shop;
+ * both now share one answer instead of each making the same reads.
+ */
+export const siteOfThisHost = cache((rawHost: string | null | undefined): Promise<SiteOfCheckout | null> => siteOfHost(createAdminClient(), rawHost))
 
 export async function siteOfRequest(db: Db, request: Request): Promise<SiteOfCheckout | null> {
   return siteOfHost(db, request.headers.get("host"))

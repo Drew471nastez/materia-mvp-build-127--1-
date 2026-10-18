@@ -1,3 +1,5 @@
+import { stripeEarly } from "../parts/stripe-early"
+
 /**
  * THE CHECKOUT'S OWN FRAME, AT ONCE.
  *
@@ -10,6 +12,8 @@
  * No spinner and no grey blocks: nothing is drawn that then has to go away.
  */
 export default function SiteCheckoutLoading() {
+  /* Stripe's connections and Stripe.js, asked for with this first frame, while the page is priced (../parts/stripe-early). */
+  stripeEarly({ script: true })
   return (
     <div data-page="checkout" data-checkout-loading="" aria-busy="true" className="relative min-h-screen bg-white lg:bg-[#f8f9fa]">
       <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-8px_0_24px_-14px_rgba(17,24,39,0.11)] lg:block" />

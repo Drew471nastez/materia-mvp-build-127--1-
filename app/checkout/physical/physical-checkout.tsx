@@ -43,7 +43,7 @@ import { countryName } from "@/lib/checkout/countries"
 import { actionKey } from "@/components/physical/ui"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
-import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
+import { getStripePromise, isCapacitorShell, resetStripePromise } from "../parts/stripe-loader"
 import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { VariantEdit } from "../parts/variant-edit"
@@ -52,6 +52,7 @@ import { useCheckoutCurrency, useMoney } from "../parts/ui"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { optimisticQuote } from "@/lib/checkout/optimistic-quote"
 import { summaryRows } from "@/lib/checkout/summary-rows"
+import { sameAsFirstQuote } from "@/lib/physical/first-quote"
 import { rememberCheckoutCountry } from "@/lib/checkout/checkout-country"
 
 interface QuoteLine {
@@ -119,9 +120,12 @@ export function PhysicalCheckout({
   buyer = { signedIn: true, confirmed: true },
   backTo = null,
   initialCountry = null,
+  initialQuote = null,
 }: {
   /** The delivery country before the first frame (./page.tsx). */
   initialCountry?: string | null
+  /** The cart in the link, priced on the server before the first frame (./page.tsx firstQuote, lib/physical/first-quote). */
+  initialQuote?: { items: LinkItem[]; country: string; quote: unknown } | null
   shopId: string | null
   shopName: string
   /** The shop across the top: its website's logo, or its photo beside its name (lib/checkout/brand-server). */
@@ -145,10 +149,10 @@ export function PhysicalCheckout({
   /* This page's own address, to come back to after signing in: read once mounted, so the server's HTML matches. */
   const [here, setHere] = React.useState("/checkout/physical")
   React.useEffect(() => setHere(window.location.pathname + window.location.search), [])
-  const [items, setItems] = React.useState<LinkItem[] | null>(null)
+  const [items, setItems] = React.useState<LinkItem[] | null>(initialQuote?.items ?? null)
   const [fromCart, setFromCart] = React.useState(false)
   const [backUrl, setBackUrl] = React.useState<string | null>(null)
-  const [quote, setQuote] = React.useState<Quote | null>(null)
+  const [quote, setQuote] = React.useState<Quote | null>((initialQuote?.quote as Quote | undefined) ?? null)
   const [quoteError, setQuoteError] = React.useState<string | null>(null)
   const [quoting, setQuoting] = React.useState(false)
 
@@ -216,11 +220,38 @@ export function PhysicalCheckout({
   /* Asked with the city once it is two letters or more: carrier rates in most of Europe need it, and each keystroke before that would only ask again. */
   const cityForQuote = address.city.trim().length >= 2 ? address.city.trim() : ""
   const ask = React.useRef(0)
+  /* The server's answer for the cart in the link, until anything the page would ask with changes (lib/physical/first-quote). */
+  const first = React.useRef(initialQuote)
   React.useEffect(() => {
     if (!items || !shopId) return
     if (items.length === 0) {
       setQuote(null)
       return
+    }
+    /* What a quote answered means for the delivery chosen: the same whether the server asked it or this page did. */
+    const take = (got: Quote) => {
+      setQuoteError(null)
+      setQuote(got)
+      if (got.couponError) setAppliedCode(null)
+      /* Picking up, and that point can no longer hand everything over: back to shipping. */
+      if (mode === "pickup" && !(got.pickups ?? []).some((p) => p.id === optionId)) {
+        const first = got.pickups?.[0]?.id ?? null
+        if (first) setOptionId(first)
+        else {
+          setMode("ship")
+          setOptionId(null)
+        }
+      } else if (mode === "ship" && got.delivery.selectedId !== optionId) setOptionId(got.delivery.selectedId)
+    }
+    const served = first.current
+    if (served) {
+      const got = served.quote as Quote
+      if (mode === "ship" && sameAsFirstQuote(served, got.delivery?.selectedId ?? null, { items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, city: cityForQuote, deliveryOptionId: optionId, cash: byCash && config.cashOnDelivery })) {
+        ++ask.current
+        take(got)
+        return
+      }
+      first.current = null
     }
     const n = ++ask.current
     setQuoting(true)
@@ -237,21 +268,7 @@ export function PhysicalCheckout({
         if (!res.ok) {
           setQuoteError(typeof data.error === "string" ? data.error : "Could not load your order.")
           setQuote(null)
-        } else {
-          setQuoteError(null)
-          setQuote(data as Quote)
-          if ((data as Quote).couponError) setAppliedCode(null)
-          const got = data as Quote
-          /* Picking up, and that point can no longer hand everything over: back to shipping. */
-          if (mode === "pickup" && !(got.pickups ?? []).some((p) => p.id === optionId)) {
-            const first = got.pickups?.[0]?.id ?? null
-            if (first) setOptionId(first)
-            else {
-              setMode("ship")
-              setOptionId(null)
-            }
-          } else if (mode === "ship" && got.delivery.selectedId !== optionId) setOptionId(got.delivery.selectedId)
-        }
+        } else take(data as Quote)
       } catch {
         if (n === ask.current) setQuoteError("Check your connection and try again.")
       } finally {
@@ -261,6 +278,28 @@ export function PhysicalCheckout({
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, cityForQuote, optionId, byCash])
+
+  /*
+    STRIPE.JS BEFORE PAY, NOT AFTER. The payment step is Stripe's form inside
+    this page, and it used to start fetching Stripe.js only once Pay had
+    made the payment: the buyer waited for the file on top of the payment.
+    It loads once the order is on screen and the page is idle, so the form
+    mounts as soon as Pay answers. Never in the app's shell, which pays on
+    Stripe's own page and must not run Stripe.js (../parts/stripe-loader).
+  */
+  const hasQuote = !!quote
+  React.useEffect(() => {
+    if (!hasQuote || isCapacitorShell()) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    /* A file that fails to arrive is forgotten, so Pay asks for it afresh as it always did. */
+    const warm = () => void getStripePromise().catch(() => resetStripePromise())
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: 3000 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(warm, 1200)
+    return () => window.clearTimeout(t)
+  }, [hasQuote])
 
   /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
   const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {

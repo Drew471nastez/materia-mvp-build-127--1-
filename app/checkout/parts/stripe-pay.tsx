@@ -581,7 +581,8 @@ function StripePayInner({
           <p className="text-[13px] leading-5 text-[#6b7280]">{cash.aside}</p>
         ) : null}
         {/* Kept drawn while cash is chosen, so going back to the card is instant and keeps what was typed. */}
-        <div className={cn("min-h-[200px]", cashOn && "hidden")}>
+        {/* data-payment-ready: Stripe said the form can take a card (scripts/check-checkout-speed.mjs times it). */}
+        <div className={cn("min-h-[200px]", cashOn && "hidden")} data-payment-ready={paymentReady ? "" : undefined}>
           <PaymentElement
             onReady={() => {
               setPaymentReady(true)
