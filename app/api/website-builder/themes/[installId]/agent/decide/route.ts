@@ -16,6 +16,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/request-shape"
+
 import { createClient } from "@/lib/supabase/server"
 import { agentMayWrite } from "@/lib/agent-access/protected"
 import { routeRequest, type RouteSelection } from "@/lib/website-builder/agent/router"
@@ -56,8 +58,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const { data: install } = await supabase.from("store_theme_installs").select("id").eq("id", installId).eq("creator_id", creatorId).maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found." }, { status: 404 })
 
-  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Describe what you want changed." }, { status: 400 })
+  const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
+  if (!parsed.success) return NextResponse.json({ error: unreadablePart(parsed.error.issues) }, { status: 400 })
   const body = parsed.data
 
   /* Which section types this install has its own file for: the paths only, through the creator's own client. */

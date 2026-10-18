@@ -8,7 +8,7 @@
 import * as React from "react"
 import { DEFAULT_STORE_CURRENCY, currencyMark, markInset, type CurrencyMark } from "./currency"
 
-const StoreCurrency = React.createContext<string>(DEFAULT_STORE_CURRENCY)
+const StoreCurrency = React.createContext<string | null>(null)
 
 export function StoreCurrencyProvider({ currency, children }: { currency: string | null | undefined; children: React.ReactNode }) {
   return <StoreCurrency.Provider value={currencyMark(currency).code}>{children}</StoreCurrency.Provider>
@@ -21,6 +21,20 @@ export const STORE_CURRENCY_EVENT = "storelib:store-currency"
 export function LiveStoreCurrency({ currency, children }: { currency: string | null | undefined; children: React.ReactNode }) {
   const [now, setNow] = React.useState(currency)
   React.useEffect(() => setNow(currency), [currency])
+  /* The server could not say (the app restoring its session, a slow read): asked here, so a lei store's fields never fall back to dollars. */
+  React.useEffect(() => {
+    if (currency) return
+    let live = true
+    fetch("/api/store/currency", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { currency?: unknown } | null) => {
+        if (live && typeof d?.currency === "string" && /^[A-Z]{3}$/.test(d.currency)) setNow(d.currency)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [currency])
   React.useEffect(() => {
     const on = (e: Event) => {
       const next = (e as CustomEvent<string>).detail
@@ -33,6 +47,11 @@ export function LiveStoreCurrency({ currency, children }: { currency: string | n
 }
 
 export function useStoreCurrency(): string {
+  return React.useContext(StoreCurrency) ?? DEFAULT_STORE_CURRENCY
+}
+
+/** The store's currency when a provider above says it (all of /app does), else null: a public page reads its own (components/platform/price-currency). */
+export function useStoreCurrencyIfSet(): string | null {
   return React.useContext(StoreCurrency)
 }
 

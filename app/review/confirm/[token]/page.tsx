@@ -36,6 +36,7 @@ export default async function ConfirmReviewPage({ params, searchParams }: { para
   if (!id) notFound()
   const view = await draftView(createAdminClient(), id)
   const failed = typeof query.error === "string" && view.state === "waiting"
+  const back = typeof query.back === "string" && query.back.length <= 1000 && /^https:\/\//.test(query.back) ? query.back : null
   const image = mediaUrl(view.product?.thumbnail_url) ?? null
   const title = view.product?.title || "Your review"
   return (
@@ -66,6 +67,8 @@ export default async function ConfirmReviewPage({ params, searchParams }: { para
               {failed ? <p role="alert" className="mt-4 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">That didn&apos;t go through. Try again.</p> : null}
               <form method="post" action="/api/reviews/confirm" className="mt-5">
                 <input type="hidden" name="token" value={token} />
+                {/* The website page it was written on: posting sends the buyer back there (app/api/reviews/confirm). */}
+                {back ? <input type="hidden" name="back" value={back} /> : null}
                 <button type="submit" className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white transition-colors hover:bg-[#2a2a40]" data-review-confirm-button="">
                   Post my review
                 </button>

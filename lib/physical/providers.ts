@@ -35,6 +35,7 @@ export type ProviderId =
   | "shipstation"
   | "shippo"
   | "easypost"
+  | "shippypro"
 
 export type ProviderCategory = "fulfillment" | "print_on_demand" | "dropshipping" | "supplier" | "shipping"
 
@@ -69,6 +70,15 @@ export const PROVIDERS: ProviderInfo[] = [
   { id: "shipstation", name: "ShipStation", category: "shipping", availability: "connect", get description() { return tt("Each paid order you ship goes to ShipStation. Print the label there and the tracking comes back to your buyer.") }, fields: ["api_key", "api_secret"], docsUrl: "https://www.shipstation.com/docs/api/", verifies: true },
   { id: "shippo", name: "Shippo", category: "shipping", availability: "connect", get description() { return tt("Buy and print labels from the order page at Shippo's rates. The tracking number goes on the shipment.") }, fields: ["api_key"], docsUrl: "https://docs.goshippo.com/", verifies: true },
   { id: "easypost", name: "EasyPost", category: "shipping", availability: "connect", get description() { return tt("Buy and print labels from the order page at EasyPost's rates. The tracking number goes on the shipment.") }, fields: ["api_key"], docsUrl: "https://docs.easypost.com/", verifies: true },
+  /*
+   * ShippyPro (lib/integrations/shipping/shippypro.ts) is written against
+   * its published API document and no further: not one of its calls has
+   * been run against a real key, because this build has no ShippyPro
+   * account. Until someone has, it says so rather than offering a Connect
+   * button that might not work. The adapter also does not fit the Buy a
+   * label contract yet (./shippypro.ts explains which part).
+   */
+  { id: "shippypro", name: "ShippyPro", category: "shipping", availability: "needs_setup", get description() { return tt("Labels and rates from the carriers you have connected in ShippyPro, strongest in Italy, Romania and the rest of the EU. Not connected to Storelib yet: it is written against ShippyPro's API document but has not been run against a real ShippyPro account.") }, fields: ["api_key"], docsUrl: "https://help.shippypro.com/en/knowledge/api" },
 ]
 
 export function providerInfo(id: string): ProviderInfo | null {

@@ -46,7 +46,7 @@ import {
   type LabEvidence,
   type RumEvent,
 } from "./web-performance"
-import { labEvidence, type LabResult, type LabStrategy } from "./pagespeed"
+import { labEvidence, type AnyLabResult, type LabStrategy } from "./pagespeed"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Client = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any }
@@ -55,7 +55,7 @@ export interface StoredLab {
   strategy: LabStrategy
   url: string
   ranAt: string
-  result: LabResult
+  result: AnyLabResult
 }
 
 export type PerformanceAnswer =
@@ -147,7 +147,7 @@ export async function readLabTests(user: Client, installId: string): Promise<Rec
   const { data, error } = await user.from("site_lab_tests").select("strategy, url, ran_at, result").eq("install_id", installId)
   if (error) return null
   const out: Record<LabStrategy, StoredLab | null> = { mobile: null, desktop: null }
-  for (const r of (data ?? []) as Array<{ strategy: LabStrategy; url: string; ran_at: string; result: LabResult }>) {
+  for (const r of (data ?? []) as Array<{ strategy: LabStrategy; url: string; ran_at: string; result: AnyLabResult }>) {
     if (r.strategy === "mobile" || r.strategy === "desktop") out[r.strategy] = { strategy: r.strategy, url: r.url, ranAt: r.ran_at, result: r.result }
   }
   return out

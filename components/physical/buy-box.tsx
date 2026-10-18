@@ -18,7 +18,8 @@
 
 import * as React from "react"
 import { Minus, Plus, ShoppingBag } from "lucide-react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { useSellerCurrency } from "@/components/platform/price-currency"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "@/components/website-builder/site-cart"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -41,6 +42,8 @@ interface Variant {
   maxQuantity: number
 }
 interface Data {
+  /** The store's selling currency: every amount below is in it. */
+  currency?: string | null
   product: { id: string; creatorId: string; title: string; slug: string; imageUrl: string | null }
   /** What delivery costs and takes to the buyer's country, in lines (lib/physical/delivery-promise.ts). */
   delivery?: { lines: string[] } | null
@@ -48,8 +51,11 @@ interface Data {
   variants: Variant[]
 }
 
-function money(cents: number): string {
-  return shopMoney(cents)
+/** In what the product's store sells in (the route says), else the page's, else the platform's. */
+function useBoxMoney(currency: string | null | undefined): (cents: number) => string {
+  const page = useSellerCurrency()
+  const code = currency && /^[A-Z]{3}$/.test(currency) ? currency : page
+  return React.useCallback((cents: number) => shopMoneyIn(cents, code), [code])
 }
 
 /** The buyer's country as their browser names it, for the delivery line; empty when it can't tell. */
@@ -83,6 +89,7 @@ export function PhysicalBuyBox({
   const enabled = usePhysicalCommerceEnabled()
   const site = useSiteCart()
   const [data, setData] = React.useState<Data | null>(null)
+  const money = useBoxMoney(data?.currency)
   const [failed, setFailed] = React.useState(false)
   const [chosen, setChosen] = React.useState<(string | null)[]>([null, null, null])
   const [qty, setQty] = React.useState(1)
@@ -318,6 +325,7 @@ export function PhysicalBuyBox({
         accent={accent}
         radius={radius}
         disabled={inEditor}
+        money={money}
       />
     </div>
   )

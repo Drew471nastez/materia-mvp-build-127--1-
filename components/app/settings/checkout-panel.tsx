@@ -10,14 +10,21 @@
  * take the payment check it again, so nothing here is only a matter of what
  * the page shows.
  *
+ * In the order the page shows them:
+ *
+ *   customer accounts     an account before paying, and a confirmed one
+ *   checkout text         the store's own words on its checkout, per language
+ *                         (./checkout-text-editor.tsx, lib/checkout-text).
+ *                         High on the page, above abandoned checkouts: it is
+ *                         the part most stores change (the owner asked).
+ *                         #checkout-text links straight to it.
+ *   marketing             the unticked "Email me with news and offers" box
  *   abandoned checkouts   the reminder email to a buyer who reached Pay and
  *                         left, when they agreed to hear from the store
- *   customer accounts     an account before paying, and a confirmed one
- *   marketing             the unticked "Email me with news and offers" box
+ *                         (#abandoned-checkouts)
+ *   cash on delivery, cancellations   physical orders only
  *   customer information  the name as one field or two, and whether company,
  *                         phone and the second address line are asked for
- *   checkout text         the store's own words on its checkout, per language
- *                         (./checkout-text-editor.tsx, lib/checkout-text)
  *
  * Saved as each one changes, the way Shopify's checkout settings are; a
  * line at the foot says when the last change was kept.
@@ -134,6 +141,15 @@ export function CheckoutPanel() {
     if (Object.keys(body).length) void api("/api/store/settings", { method: "PUT", body: { checkout: body } })
   }, [])
 
+  /* A link to #checkout-text or #abandoned-checkouts lands on that card once the page is drawn. */
+  const loaded = !!config
+  React.useEffect(() => {
+    if (!loaded) return
+    const id = window.location.hash.slice(1)
+    if (id !== "checkout-text" && id !== "abandoned-checkouts") return
+    document.getElementById(id)?.scrollIntoView({ block: "start" })
+  }, [loaded])
+
   if (!config) {
     return (
       <div className="space-y-4" aria-busy="true">
@@ -164,6 +180,8 @@ export function CheckoutPanel() {
         </div>
       </Card>
 
+      <CheckoutTextCard />
+
       <Card title={tt("Marketing")} description={tt("Asking buyers if they want to hear from you, the way the law in most places expects.")}>
         <Toggle
           label={tt("Show the email news box")}
@@ -173,7 +191,7 @@ export function CheckoutPanel() {
         />
       </Card>
 
-      <Card title={tt("Abandoned checkouts")} description={tt("A buyer who reached Pay and left without paying.")}>
+      <Card id="abandoned-checkouts" title={tt("Abandoned checkouts")} description={tt("A buyer who reached Pay and left without paying.")}>
         <Toggle
           label={tt("Send a checkout reminder")}
           description={
@@ -237,8 +255,6 @@ export function CheckoutPanel() {
           ) : null}
         </div>
       </Card>
-
-      <CheckoutTextCard />
 
       {error ? <Notice>{error}</Notice> : null}
       <p className="px-1 text-[12.5px] text-[#6b7280]" aria-live="polite" data-checkout-saved={saved}>
@@ -336,7 +352,7 @@ function CashOptions({ config, change }: { config: CheckoutConfig; change: (patc
 function CheckoutTextCard() {
   const [open, setOpen] = React.useState(false)
   return (
-    <Card title={tt("Checkout text")} description={tt("Change the words on your checkout, like the pay button or the headings, in each of your languages.")}>
+    <Card id="checkout-text" title={tt("Checkout text")} description={tt("Change the words on your checkout, like the pay button or the headings, in each of your languages.")}>
       <button type="button" className={BTN_SECONDARY} onClick={() => setOpen(true)} data-open-checkout-text="">
         {tt("Edit checkout text")}
       </button>

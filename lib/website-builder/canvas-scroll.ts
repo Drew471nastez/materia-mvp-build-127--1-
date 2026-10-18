@@ -313,3 +313,27 @@ export const PIN_AFTER_SELECT_MS = 500
  * canvas had before any of this.
  */
 export const PIN_WHILE_OPENING_MS = 2000
+
+/*
+  ROUND AH: GLIDE TO IT. A section the person just made (added, pasted,
+  duplicated, or written by the AI) is brought smoothly to near the top of the
+  canvas, even when part of it already shows, because that section is the
+  thing they are about to look at. Picking a section to select it still moves
+  nothing (revealWithin above). An imported theme's canvas is a frame: the
+  same request goes to it as REVEAL_EVENT (components/website-builder/compat/
+  compat-canvas.tsx), and the frame scrolls itself past its sticky header.
+*/
+export const REVEAL_EVENT = "storelib:reveal-section"
+
+export function glideWithin(
+  scroller: { scrollTop: number; getBoundingClientRect(): { top: number }; scrollTo?: (opts: { top: number; behavior: "smooth" | "auto" }) => void },
+  target: { getBoundingClientRect(): { top: number } },
+  margin = 16,
+  behavior: "smooth" | "auto" = "smooth",
+): number | null {
+  const top = Math.max(0, Math.round(target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - margin))
+  if (Math.abs(top - scroller.scrollTop) < 4) return null
+  if (typeof scroller.scrollTo === "function") scroller.scrollTo({ top, behavior })
+  else scroller.scrollTop = top
+  return top
+}

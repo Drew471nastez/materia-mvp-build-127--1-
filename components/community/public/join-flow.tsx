@@ -186,34 +186,46 @@ function PlanCard({ plan, onPick, busy, disabled }: { plan: JoinOption; onPick: 
   const saving = yearlySaving(plan.monthlyCents, plan.yearlyCents)
   const trial = plan.trialDays ?? 0
   return (
-    <section className="flex flex-col rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_8px_24px_-16px_rgba(16,24,40,0.18)] sm:p-7" data-plan-card={plan.kind} data-plan-id={plan.tierId ?? ""}>
-      <div className="text-center">
-        <p className="text-[34px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[#1a1a2e]" data-plan-price="">
+    /*
+      ROUND AH: FEWER ROWS. The name and the trial share the first line, the
+      price and the yearly choice the second, the description is two lines at
+      most, and the benefits sit under a hairline, tighter. Same facts, half
+      the stack, and it reads the same at every width.
+    */
+    <section className="flex flex-col rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_8px_24px_-16px_rgba(16,24,40,0.18)] sm:p-6" data-plan-card={plan.kind} data-plan-id={plan.tierId ?? ""}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e]">{plan.name}</h2>
+        {trial > 0 ? (
+          <span className="shrink-0 rounded-full bg-[#f1f2f4] px-2.5 py-1 text-[12px] font-medium text-[#1a1a2e]" data-plan-trial="">
+            {trial}-day free trial
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <p className="text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[#1a1a2e]" data-plan-price="">
           {price.amount}
-          {price.per ? <span className="ml-0.5 text-[16px] font-medium tracking-normal text-[#6b7280]">{price.per}</span> : null}
+          {price.per ? <span className="ml-0.5 text-[15px] font-medium tracking-normal text-[#6b7280]">{price.per}</span> : null}
         </p>
         {yearly ? (
-          <p className="mt-2 text-[13px] text-[#6b7280]">
+          <p className="text-[12.5px] text-[#6b7280]">
             or {moneyOf(yearly, plan.currency)}/year{saving > 0 ? <span className="ml-1 font-medium text-[#15803d]">save {saving}%</span> : null}
           </p>
         ) : null}
-        <h2 className="mt-4 text-[18px] font-semibold text-[#1a1a2e]">{plan.name}</h2>
-        {trial > 0 ? <p className="mt-1 text-[13.5px] font-medium text-[#1a1a2e]">{trial}-day free trial</p> : null}
-        {plan.description ? <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">{plan.description}</p> : null}
       </div>
+      {plan.description ? <p className="mt-2.5 line-clamp-2 text-[13.5px] leading-relaxed text-[#6b7280]">{plan.description}</p> : null}
       {plan.benefits.length ? (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-4 space-y-2 border-t border-[#f1f2f4] pt-4">
           {plan.benefits.map((b, i) => (
-            <li key={i} className="flex gap-3 text-[14.5px] leading-snug text-[#374151]">
-              <span aria-hidden className="mt-px grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(16,24,40,0.22),0_2px_6px_-2px_rgba(16,24,40,0.28)]" data-plan-check="">
-                <Check className="h-3 w-3 drop-shadow-[0_1px_0_rgba(0,0,0,0.25)]" strokeWidth={3.25} />
+            <li key={i} className="flex gap-2.5 text-[14px] leading-snug text-[#374151]">
+              <span aria-hidden className="mt-px grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(16,24,40,0.22)]" data-plan-check="">
+                <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
               </span>
               <span>{b}</span>
             </li>
           ))}
         </ul>
       ) : null}
-      <div className="mt-auto pt-7">
+      <div className="mt-auto pt-5">
         <button
           type="button"
           onClick={onPick}
@@ -601,13 +613,27 @@ export function CommunityCheckout({
                   {error}
                 </p>
               ) : null}
-              <p className="text-center text-[12px] leading-relaxed text-[#8b919a]" data-renewal-terms="">
-                {renewal} By joining you agree to the{" "}
-                <Link href="/terms" target="_blank" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
-                  Terms
-                </Link>
-                {waiver ? `. ${waiver}` : "."}
-              </p>
+              {/*
+                ROUND AH: SMALL, AND THE LONG PART FOLDED. One short line is always
+                in view (what is paid and when, the Terms, and the withdrawal
+                waiver in a few words where it applies, since pressing the button
+                is the agreement); the full wording opens under Details.
+              */}
+              <details className="group/terms text-center text-[11.5px] leading-relaxed text-[#8b919a] [&_summary::-webkit-details-marker]:hidden" data-renewal-terms="">
+                <summary className="mx-auto inline cursor-pointer list-none outline-none focus-visible:underline">
+                  {trial ? `Nothing today, then ${fmt(recurringCents)}/${per} from ${trialEnds(trialDays)}. ` : `${fmt(recurringCents)} today, then every ${per}. `}
+                  By joining you agree to the{" "}
+                  <Link href="/terms" target="_blank" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
+                    Terms
+                  </Link>
+                  {waiver ? " and waive the 14 day withdrawal right once access starts." : "."}{" "}
+                  <span className="whitespace-nowrap font-medium text-[#6b7280] underline decoration-[#d1d5db] underline-offset-2 group-open/terms:hidden" data-terms-more="">Details</span>
+                </summary>
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-[#8b919a]" data-terms-full="">
+                  {renewal}
+                  {waiver ? ` ${waiver}` : ""}
+                </p>
+              </details>
               <CommunityRefundPolicy terms={facts.terms} />
             </div>
           )}

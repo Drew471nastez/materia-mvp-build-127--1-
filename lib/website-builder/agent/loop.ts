@@ -521,7 +521,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "edit_section_code",
             description:
-              "Change PART of a kind of section's source: exact find-and-replace edits, applied in order. Each find is copied from read_section_code and appears exactly once in the file (add a neighbouring line if it does not). The result is compiled and checked like a whole file and refused if it fails. This is how to make a change to a file: it costs a fraction of resending it and cannot touch lines you did not name. Changes every place this kind of section is used.",
+              "Change PART of a kind of section's source: exact find-and-replace edits, applied in order. Each find is copied from read_section_code and appears exactly once in the file (add a neighbouring line if it does not). The result is compiled and checked like a whole file and refused if it fails. A request about a section's SETTINGS only (add an option, rename a label, regroup the panel under headers, change a default, add visible_if, turn a text heading into inline_richtext) edits inside <schema> alone, plus the one template line that reads a new setting; the markup and CSS stay as they are. This is how to make a change to a file: it costs a fraction of resending it and cannot touch lines you did not name. Changes every place this kind of section is used.",
             parameters: {
               type: "object" as const,
               properties: {

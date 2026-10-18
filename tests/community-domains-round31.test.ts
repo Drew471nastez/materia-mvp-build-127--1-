@@ -108,7 +108,7 @@ console.log("\nThe canonical is the domain once it is connected")
   check("with one, the domain's root", canonicalUrl("clay-studio", "https://club.maralind.com") === "https://club.maralind.com/" && communityMetadata({ ...facts, origin: "https://club.maralind.com" }).alternates?.canonical === "https://club.maralind.com/")
   const page = code("app/(marketing)/community/[slug]/page.tsx")
   const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-  check("the community's page and About read it, and the structured data names it", /origin: await communityDomainOrigin\(community\.id\)/.test(page) && /communityJsonLd\(load\.data\.community, communityIndexable\(load\.community\), await communityDomainOrigin\(load\.community\.id\)\)/.test(page) && /origin: await communityDomainOrigin\(community\.id\)/.test(about))
+  check("the community's page and About read it, and the structured data names it", /* Changed on purpose (round AH: the reads start together). */ /communityDomainOrigin\(community\.id\)\]\)/.test(page) && /communityDomainOrigin\(load\.community\.id\)\]\)/.test(page) && /communityJsonLd\(load\.data\.community, communityIndexable\(load\.community\), origin\)/.test(page) && /origin: await communityDomainOrigin\(community\.id\)/.test(about))
   const server = code("lib/custom-domains/community-server.ts")
   check("only a live domain, only while the community is the owner's, cached under its tag", /\.eq\("status", "active"\)/.test(server) && /communityServable\(row,/.test(server) && /tags: \[communityDomainTag\(communityId\)\]/.test(server))
 }

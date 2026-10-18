@@ -103,9 +103,11 @@ async function main() {
   section("CarrierLogo")
   {
     const known = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "fan courier", size: 28 }))
-    check("a known carrier: its local tile, sized, named", /<img[^>]+src="\/carriers\/fan-courier\.webp"/.test(known) && /width="28"/.test(known) && /alt="FAN Courier"/.test(known) && /loading="lazy"/.test(known), known)
+    /* Pin moved on purpose (carrier picker): the logo is the tile's background over the carrier's letters, and the name is on the tile (role="img" aria-label), so a tile that fails to load leaves the letters rather than a broken image or an empty framed box. */
+    check("a known carrier: its local tile, sized, named", /data-carrier-logo-image="\/carriers\/fan-courier\.webp"/.test(known) && /background-image:url\(\/carriers\/fan-courier\.webp\)/.test(known) && /width:28px/.test(known) && /role="img" aria-label="FAN Courier"/.test(known) && /data-carrier-logo-letters="">FC</.test(known), known)
     const beside = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "UPS", decorative: true }))
-    check("beside its name: not read twice", /alt=""/.test(beside))
+    /* Pin moved on purpose (carrier picker): beside its name the tile is hidden from screen readers rather than given an empty alt (it is no longer an <img>). */
+    check("beside its name: not read twice", /aria-hidden="true"/.test(beside) && !/role="img"/.test(beside))
     const other = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: "Speedy Bob", size: 24 }))
     check("an unknown carrier: a neutral tile with its letters", /data-carrier-logo="other"/.test(other) && />SB</.test(other) && /aria-label="Speedy Bob"/.test(other), other)
     const none = renderToStaticMarkup(React.createElement(CarrierLogo, { carrier: null }))

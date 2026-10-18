@@ -121,7 +121,7 @@ ${STYLE}
 {%- endif -%}
 {%- for r in slrv_here.items limit: slrv_per -%}${CARD}{%- endfor -%}
 {%- if slrv_here.items.size > slrv_per -%}<details class="slrv-more"><summary class="slrv-btn slrv-quiet"><span>Show more reviews</span></summary>{%- for r in slrv_here.items offset: slrv_per -%}${CARD}{%- endfor -%}</details>{%- endif -%}
-</div>
+{% raw %}${reviewWidgetScript()}{% endraw %}</div>
 {%- endif -%}{%- endif -%}`
 
 /**
@@ -219,7 +219,8 @@ export function storelibReviewWidgetFilter(input: unknown, args: unknown[], _kw:
     uid: typeof section.id === "string" ? section.id.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) : undefined,
   })
   /* The carousel's buttons and its own movement: a script that sets up the widget it sits in. */
-  return html.includes("data-slw-carousel") ? html.replace(/<\/div>$/, `${reviewWidgetScript()}</div>`) : html
+  /* Round AH: and a write form, sent without leaving the page; and the section a buyer comes back to from the confirm email. */
+  return html.includes("data-slw-carousel") || html.includes('data-storelib-form="native"') || html.includes('id="review-posted"') ? html.replace(/<\/div>$/, `${reviewWidgetScript()}</div>`) : html
 }
 
 const WIDGET_OPTIONS = WIDGET_TYPES.map((t) => ({ label: WIDGET_INFO[t].name, value: t }))

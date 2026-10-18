@@ -134,6 +134,7 @@ export function ExportOrders({
   selected,
   timeZone,
   onDone,
+  ships = false,
 }: {
   open: boolean
   onClose: () => void
@@ -156,11 +157,15 @@ export function ExportOrders({
   selected: Set<string>
   timeZone: string
   onDone: (message: string) => void
+  /** The store ships something: the warehouse pick list (app/api/physical/orders/export) is offered beside the orders file. */
+  ships?: boolean
 }) {
   const phone = usePhone()
   const [today, setToday] = React.useState(() => todayIn(timeZone, Date.now()))
   const [scope, setScope] = React.useState<ExportScope>("matching")
   const [format, setFormat] = React.useState<ExportFormat>("spreadsheet")
+  /* The pick list: one row per item still to ship, the selected orders' or every order's still to ship. */
+  const [picklist, setPicklist] = React.useState(false)
   const [dates, setDates] = React.useState<RangeValue>(() => ({ preset: "last_30_days", ...presetRange("last_30_days", today) }))
   const [busy, setBusy] = React.useState(false)
   /* By date: how many orders those dates hold, counted by the server (the page has one page of them). */
@@ -177,6 +182,7 @@ export function ExportOrders({
     setWasOpen(open)
     if (open) {
       setScope(selected.size > 0 ? "selected" : "matching")
+      setPicklist(false)
       setDates(period)
       setToday(todayIn(timeZone, Date.now()))
     }
@@ -218,7 +224,37 @@ export function ExportOrders({
           : scope === "matching" ? matching
             : dateCount ?? 0
 
+  const runPicklist = async () => {
+    const ids = scope === "selected" ? [...selected] : []
+    const url = `/api/physical/orders/export${ids.length ? `?ids=${ids.join(",")}` : ""}`
+    setBusy(true)
+    try {
+      const outcome = await saveFile({
+        name: `orders-to-ship-${today}.csv`,
+        file: async () => {
+          const res = await fetch(url, { cache: "no-store" })
+          if (!res.ok) throw new Error(tt("The pick list could not be made. Try again."))
+          return new Blob([await res.arrayBuffer()], { type: "text/csv;charset=utf-8" })
+        },
+        /* The app's browser sheet has no session to read it with. */
+        link: async () => {
+          throw new Error(tt("The pick list downloads in a browser. Open Storelib in your phone's browser or on a computer."))
+        },
+      })
+      setBusy(false)
+      onClose()
+      onDone(outcome === "downloaded" ? tt("Pick list exported") : savedMessage(outcome, tt("Pick list")))
+    } catch (error) {
+      setBusy(false)
+      onDone((error as Error)?.message || tt("The pick list could not be made. Try again."))
+    }
+  }
+
   const run = async () => {
+    if (picklist) {
+      if (!busy) await runPicklist()
+      return
+    }
     if (!ready || busy) return
     const name = scope === "dates" ? `orders-${dates.start}-to-${dates.end}.csv` : `orders-${today}.csv`
     const what = plural(size)
@@ -260,12 +296,19 @@ export function ExportOrders({
 
   /* By date while its count is on its way: the button waits rather than saying there is nothing. */
   const counting = scope === "dates" && dateCount === null
-  const ready = size > 0 && !counting
-  const label = busy ? tt("Exporting…") : counting ? tt("Export") : size === 0 ? tt("Nothing to export") : tt("Export {count}", { count: plural(size) })
+  const ready = picklist || (size > 0 && !counting)
+  const label = busy ? tt("Exporting…") : picklist ? tt("Export pick list") : counting ? tt("Export") : size === 0 ? tt("Nothing to export") : tt("Export {count}", { count: plural(size) })
   const viewDetail = `${valueLabel(period)}${filtering ? tt(", filtered") : ""} · ${count(matching)}`
 
   const choices = (compact: boolean) => (
     <>
+      {picklist ? (
+        /* The pick list is of orders still to ship: the selected ones, or all of them. */
+        <Group compact={compact} label={tt("Orders")}>
+          {selected.size > 0 ? <Choice compact={compact} checked={scope === "selected"} onSelect={() => setScope("selected")} label={tt("Selected")} detail={count(selected.size)} /> : null}
+          <Choice compact={compact} checked={scope !== "selected"} onSelect={() => setScope("matching")} label={tt("Every order still to ship")} />
+        </Group>
+      ) : (
       <Group compact={compact} label={tt("Orders")}>
         <Choice compact={compact} checked={scope === "matching"} onSelect={() => setScope("matching")} label={tt("This view")} detail={viewDetail} />
         {selected.size > 0 ? (
@@ -281,15 +324,17 @@ export function ExportOrders({
           detail={scope === "dates" ? (dateCount === null ? rangeLabel(dates) : `${rangeLabel(dates)} · ${count(dateCount)}`) : null}
         />
       </Group>
-      {scope === "dates" ? (
+      )}
+      {scope === "dates" && !picklist ? (
         <div className="mx-1 mb-1 mt-1 overflow-hidden rounded-xl border border-[#e3e4e8] bg-white">
           <RangePanel initial={dates} today={today} months={1} inline onApply={setDates} />
         </div>
       ) : null}
       <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1.5" : "mx-2 my-1")} />
       <Group compact={compact} label={tt("File")}>
-        <Choice compact={compact} checked={format === "spreadsheet"} onSelect={() => setFormat("spreadsheet")} label={tt("Spreadsheet")} detail={tt("Excel, Numbers, Sheets")} />
-        <Choice compact={compact} checked={format === "plain"} onSelect={() => setFormat("plain")} label={tt("Plain CSV")} detail={tt("UTF-8, for other tools")} />
+        <Choice compact={compact} checked={!picklist && format === "spreadsheet"} onSelect={() => { setPicklist(false); setFormat("spreadsheet") }} label={tt("Spreadsheet")} detail={tt("Excel, Numbers, Sheets")} />
+        <Choice compact={compact} checked={!picklist && format === "plain"} onSelect={() => { setPicklist(false); setFormat("plain") }} label={tt("Plain CSV")} detail={tt("UTF-8, for other tools")} />
+        {ships ? <Choice compact={compact} checked={picklist} onSelect={() => setPicklist(true)} label={tt("Pick list")} detail={tt("One row per item to ship")} /> : null}
       </Group>
     </>
   )

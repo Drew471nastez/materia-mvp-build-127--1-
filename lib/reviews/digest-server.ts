@@ -21,6 +21,7 @@ import { renderHtml, renderText, type LayoutInput } from "@/lib/notify/templates
 import { baseUrl as storelibBase } from "@/lib/notify/urls"
 import { resolveSellerEmail } from "@/lib/email"
 import { confirmPagePath, signDraft } from "./request-token"
+import { mediaUrl } from "@/lib/storage/media-url"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -35,22 +36,43 @@ function render(input: Omit<LayoutInput, "homeUrl" | "family"> & { family?: Layo
 }
 
 /** The confirm link, to the address a visitor typed. True when it went. */
-export async function sendConfirmEmail(db: Db, draft: { id: string; email: string; creator_id: string; product_title: string | null; store_name: string }): Promise<boolean> {
+export async function sendConfirmEmail(
+  db: Db,
+  draft: { id: string; email: string; creator_id: string; product_id?: string | null; product_title: string | null; store_name: string; rating?: number; title?: string | null; content?: string | null; page?: string | null },
+): Promise<boolean> {
   try {
     const since = new Date(Date.now() - 86_400_000).toISOString()
     const { count } = await db.from("review_drafts").select("id", { count: "exact", head: true }).eq("email", draft.email).gte("created_at", since)
     if ((count ?? 0) > CONFIRMS_PER_ADDRESS_A_DAY) return false
     const token = signDraft(draft.id)
     if (!token) return false
-    const url = `${storelibBase()}${confirmPagePath(token)}`
+    /* Round AH: the page it was written on rides along, so posting it brings the buyer back there (lib/reviews/return-page). */
+    const url = `${storelibBase()}${confirmPagePath(token)}${draft.page ? `?back=${encodeURIComponent(draft.page)}` : ""}`
     const product = (draft.product_title || "your purchase").trim()
     const subject = `Confirm your review of ${product}`.replace(/[\r\n]+/g, " ").slice(0, 200)
+    /* What they wrote, so they know which review this is: the stars and the first lines. */
+    const stars = draft.rating && draft.rating >= 1 && draft.rating <= 5 ? `${"★".repeat(draft.rating)}${"☆".repeat(5 - draft.rating)}` : ""
+    const words = (draft.content || "").replace(/\s+/g, " ").trim()
+    const excerpt = words.length > 220 ? `${words.slice(0, 217).trimEnd()}...` : words
+    const quote = [stars, draft.title ? draft.title.trim() : "", excerpt ? `"${excerpt}"` : ""].filter(Boolean).join("\n")
+    let imageUrl: string | null = null
+    if (draft.product_id) {
+      try {
+        const { data: p } = await db.from("products").select("thumbnail_url").eq("id", draft.product_id).maybeSingle()
+        const url = mediaUrl(p?.thumbnail_url ?? null)
+        imageUrl = url && /^https:\/\//.test(url) ? url : null
+      } catch {
+        imageUrl = null
+      }
+    }
     const body = render({
       subject,
-      preview: "One click and your review goes up.",
-      heading: "Confirm your review",
-      paragraphs: [`You wrote a review of ${product} on ${draft.store_name}'s website. Open the link to post it.`, "If this wasn't you, ignore this email and nothing is posted."],
+      preview: "One tap and your review goes up.",
+      heading: "Post your review",
+      media: { title: product, subtitle: draft.store_name, imageUrl },
+      paragraphs: [`Thanks for reviewing ${product}. Tap the button and it goes up on ${draft.store_name}'s website.`, ...(quote ? [quote] : [])],
       action: { label: "Post my review", url },
+      note: "If you didn't write this, ignore this email and nothing is posted. The link works for seven days.",
       reason: "You get this because this address was typed into a review form.",
     })
     const result = await emailProvider().send({

@@ -166,11 +166,11 @@ async function main() {
      * section is on screen (revealWithin); a section any part of which is
      * showing stays where it is. Measured by scripts/check-canvas-click-scroll.mjs.
      */
-    const reveal = editor.slice(editor.indexOf("const revealSection = useCallback"), editor.indexOf("const revealSection = useCallback") + 300)
+    const reveal = editor.slice(editor.indexOf("const revealSection = useCallback"), editor.indexOf("const revealSection = useCallback") + 500)
     check("the one way a section is brought in only moves a canvas that shows none of it", /revealWithin\(scroller, el\)/.test(reveal) && !/scrollWithin/.test(reveal))
     check("and revealWithin leaves a section with any part on screen alone", /if \(seen\) return null/.test(read("lib/website-builder/canvas-scroll.ts")))
-    check("adding a section still brings it into view", /revealSection\(newSection\.id\)/.test(editor))
-    check("so does duplicating one from the layer list", /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id\)/.test(editor))
+    check("adding a section still brings it into view", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /revealSection\(newSection\.id, true\)/.test(editor))
+    check("so does duplicating one from the layer list", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id, true\)/.test(editor))
     check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
     check("and every sidebar row still does, through the one handler the list is given",
       /onSelect=\{\(id\) => \{ setSelectedBlockId\(null\); setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))

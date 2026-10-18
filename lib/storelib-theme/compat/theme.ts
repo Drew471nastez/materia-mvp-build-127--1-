@@ -70,6 +70,10 @@ const FAQ_SHOWN = new WeakSet<object>()
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
+import { compileSection } from "../storelib/compile"
+import { renderSection as renderNativeSection } from "../render"
+import type { CompiledSection, SectionInstanceData } from "../types"
+import { themeVars } from "@/lib/website-builder/theme-css"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
@@ -99,6 +103,35 @@ export const COMPAT_ATTR = /^\s*<template\s+compat="shopify"\s*>/
 
 export function isCompatSource(source: string | null | undefined): boolean {
   return !!source && COMPAT_ATTR.test(source)
+}
+
+/** A native Storelib section file (`<template>` … `<schema>`), not one of the imported theme's Liquid files. */
+export function isNativeSectionSource(source: string | null | undefined): source is string {
+  return !!source && !COMPAT_ATTR.test(source) && /^\s*<template(\s[^>]*)?>/m.test(source) && /^\s*<schema>/m.test(source)
+}
+
+/** An id as a CSS attribute value: quotes and backslashes escaped. */
+function cssIdent(id: string): string {
+  return id.replace(/["\\]/g, "\\$&")
+}
+
+/* The theme tokens a native section reads, set so it sits in an imported theme: its font and text colour, no page colour of its own. */
+let blendVars: string | null = null
+export function nativeBlendVars(): string {
+  if (blendVars) return blendVars
+  const vars: Record<string, string> = {
+    ...themeVars({} as never),
+    "--theme-font-body": "inherit",
+    "--theme-font-heading": "inherit",
+    "--theme-font-accent": "inherit",
+    "--theme-text": "currentColor",
+    "--theme-bg": "transparent",
+    "--theme-primary": "#111827",
+    "--theme-primary-hover": "#000000",
+    "--theme-link": "currentColor",
+  }
+  blendVars = Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(";")
+  return blendVars
 }
 
 /** A line of the theme's markup that is only `</template>` (an HTML template element) is guarded, so the file's own block does not end there. */
@@ -467,7 +500,9 @@ export class CompatTheme {
     let schema: O = {}
     if (path) {
       const src = this.files[path]
-      if (isCompatSource(src)) schema = shopifySchemaOf(splitCompatFile(src).schema)
+      const native = folder === "sections" ? this.nativeSection(path) : null
+      if (native) schema = native.schema as unknown as O
+      else if (isCompatSource(src)) schema = shopifySchemaOf(splitCompatFile(src).schema)
       else {
         const t = this.tree(path)
         if (t?.schema) schema = (parseJsonLoose(t.schema) as O) ?? {}
@@ -812,6 +847,9 @@ export class CompatTheme {
 
   private renderSectionRaw(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
     const path = this.fileFor("sections", instance.type)
+    /* A Storelib section in this imported theme (one the AI wrote, or added from Storelib's own): drawn by Storelib's renderer, never read as Liquid. */
+    const native = path ? this.nativeSection(path) : null
+    if (native) return this.renderNative(ctx, native, instance, group)
     const tree = path ? this.tree(path) : null
     if (!tree && instance.type === "rich_text" && group === undefined) {
       const drawn = this.renderAsThemePage(ctx, instance, index)
@@ -868,6 +906,65 @@ export class CompatTheme {
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
+  }
+
+  /*
+    ROUND AH: A STORELIB SECTION INSIDE AN IMPORTED THEME. An imported theme's
+    sections are Liquid, kept in the compatible profile (`<template
+    compat="shopify">`). A section the builder's AI writes, or one added from
+    Storelib's own library, is a native .storelib file: `<template>`,
+    `<style>`, `<schema>`. Read as Liquid, its template stayed inert inside a
+    <template> element, its styles leaked onto the page and its schema printed
+    as text: the "pieces of code" a creator saw instead of their new section.
+    Such a file is compiled by the same compiler the writer checks it with and
+    drawn by Storelib's own renderer, wrapped like any of the theme's sections.
+    Its theme tokens are scoped to it and made to blend in: the theme's own
+    font and text colour, no background of its own unless it sets one. A
+    section's script needs Storelib's sandbox host, which an imported theme's
+    page does not run, so it is left out; the writer keeps motion in CSS for
+    these themes (lib/website-builder/agent/write-section.ts).
+  */
+  private nativeCache = new Map<string, CompiledSection | null>()
+  private nativeSection(path: string): CompiledSection | null {
+    if (this.nativeCache.has(path)) return this.nativeCache.get(path) ?? null
+    const src = this.files[path]
+    let out: CompiledSection | null = null
+    if (isNativeSectionSource(src)) {
+      const compiled = compileSection(src, { file: path })
+      if (compiled.ok) out = compiled.value
+    }
+    this.nativeCache.set(path, out)
+    return out
+  }
+
+  private renderNative(ctx: Ctx, compiled: CompiledSection, instance: CompatSectionInstance, group?: string): RenderedSection {
+    ;(ctx.registers.drawnIds as Set<string> | undefined)?.add(instance.id)
+    const res = ctx.registers.res as Resources
+    const page = ctx.registers.page as CompatPage | undefined
+    const blocks = (instance.blocks ?? []).filter((b) => !b.disabled)
+    const data: SectionInstanceData = {
+      type: instance.type,
+      settings: instance.settings ?? {},
+      blocks: Object.fromEntries(blocks.map((b) => [b.id, { type: b.type, settings: b.settings ?? {}, ...(b.hidden ? { hidden: true } : {}) }])),
+      block_order: blocks.map((b) => b.id),
+    }
+    const catalog = (res?.catalog ?? res?.products ?? []) as { id: string; settings: Record<string, unknown> }[]
+    try {
+      const r = renderNativeSection({
+        compiled,
+        id: instance.id,
+        instance: data,
+        theme: {},
+        page: { template: page?.template ?? "index", path: page?.path ?? "", in_editor: page?.designMode === true },
+        products: (res?.products ?? []).map((c) => ({ id: c.id, type: "product", settings: c.settings })),
+        data: { catalog },
+      })
+      const scope = `[data-section-id="${cssIdent(instance.id)}"]`
+      const html = `<style>${scope}{${nativeBlendVars()}}${r.css}</style>${r.html}`
+      return { html: `<div id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section storelib-native-section${group ? ` shopify-section-group-${escapeHtml(group)}` : ""}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</div>`, errors: [] }
+    } catch (e) {
+      return { html: "", errors: [(e as Error).message] }
+    }
   }
 
   private readsFaqs: boolean | null = null

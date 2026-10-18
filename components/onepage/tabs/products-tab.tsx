@@ -1,7 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -96,6 +96,8 @@ const productTypeOptions = [
  * adding a product did nothing.
  */
 export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) {
+  /* In the store's own currency (components/platform/price-currency). */
+  const shopMoney = useSellerMoney()
   const { onepage, addBlock, updateBlock } = useOnePage()
   const goToLinks = useCallback(() => onGoToLinks?.(), [onGoToLinks])
   const [products, setProducts] = useState<Product[]>([])

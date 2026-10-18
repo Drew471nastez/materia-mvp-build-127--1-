@@ -42,9 +42,15 @@ export interface DrawnPage {
 
 type Held = { share: false } | { share: true; status: number; headers: [string, string][]; gz: string }
 
-/** The cache key for a marked address: every part of it the page is drawn from. */
-export function strangerKey(username: string, path: readonly string[], search: string): string[] {
-  return ["compat-stranger-page", "v1", username.toLowerCase(), path.join("/"), search]
+/**
+ * The cache key for a marked address: every part of it the page is drawn
+ * from. `asDocument`: the page was opened as a page (Sec-Fetch-Dest:
+ * document), which is drawn ready for its first paint (./first-load.ts); a
+ * script fetching the same address gets the theme's markup as written, so
+ * the two are held apart.
+ */
+export function strangerKey(username: string, path: readonly string[], search: string, asDocument = false): string[] {
+  return ["compat-stranger-page", "v1", username.toLowerCase(), path.join("/"), search, ...(asDocument ? ["document"] : [])]
 }
 
 /**

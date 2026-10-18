@@ -113,8 +113,11 @@ export default async function AppLayout({
         <>
           {arrival}
           <NativeAuthGate requireAuth loadingFallback={<AppColdStart />}>
-            {children}
-            {sheet}
+            {/* No store read on the server yet: the provider asks for its currency itself. */}
+            <LiveStoreCurrency currency={null}>
+              {children}
+              {sheet}
+            </LiveStoreCurrency>
           </NativeAuthGate>
         </>
       )
@@ -276,8 +279,10 @@ export default async function AppLayout({
             </LiveStoreCurrency>
           </div>
         </main>
-        {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh. */}
-        {sheet}
+        {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh.
+            Inside the store's currency, as the page is: Settings › Shipping opened over a page typed
+            its rates in dollars while the store sold in lei, and checkout charged the number in lei. */}
+        <LiveStoreCurrency currency={storeCurrency}>{sheet}</LiveStoreCurrency>
         <Toaster />
       </div>
     </AppLayoutWrapper>

@@ -18,6 +18,8 @@ import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse, after, type NextRequest } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
+
+import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/request-shape"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
 import { resolveForCreator } from "@/lib/sites/agent/provider"
@@ -31,6 +33,7 @@ import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/websit
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
@@ -51,7 +54,7 @@ const BodySchema = z.object({
    * "the assistant could not produce a section that compiles": a true
    * sentence about the wrong thing. A picture is a request.
    */
-  prompt: z.string().max(2000),
+  prompt: z.string().max(8000),
   /** Checked by reviewImages, never trusted as shaped. */
   images: z.array(z.unknown()).max(16).optional(),
   provider: z.enum(["anthropic", "openai"]).optional(),
@@ -74,7 +77,7 @@ const BodySchema = z.object({
    */
   conversationId: z.string().uuid().nullable().optional(),
   /** The page it was asked on, for the transcript. */
-  page: z.string().min(1).max(64).optional(),
+  page: z.string().min(1).max(200).optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -112,8 +115,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   })
   if (limited) return limited
 
-  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return NextResponse.json({ error: "Invalid body", issues: parsed.error.issues }, { status: 400 })
+  const parsed = BodySchema.safeParse(cleanAgentBody(await request.json().catch(() => null)))
+  if (!parsed.success) return NextResponse.json({ error: unreadablePart(parsed.error.issues), issues: parsed.error.issues }, { status: 400 })
 
   /**
    * The pictures are checked at the edge, against the limits in one module:
@@ -191,6 +194,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
   /* AI Memory, this website's notes and the everywhere ones, read through the creator's own client (lib/ai-memory/store.ts). */
   const memory = await memoriesForSite(supabase as unknown as MemoryDb, (creator as { id: string }).id, installId)
+  /* Round AH: an imported theme draws a Storelib section without its script (lib/storelib-theme/compat/theme.ts renderNative). */
+  const importedTheme = await isCompatInstall(installId).catch(() => false)
   const run = async (
     onStage?: (stage: WriteStage, attempt: number) => void,
     onEvent?: (event: WriteEvent) => void,
@@ -209,6 +214,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       memoryText: memory.ready ? describeMemory(memory) : undefined,
       takenTypes,
       takenNames,
+      importedTheme,
       theme: {
         settings: parsed.data.settings ?? null,
         /* The creator's own section files, read above: the brief lists them and is cached per theme version (lib/website-builder/agent/theme-brief.ts). */

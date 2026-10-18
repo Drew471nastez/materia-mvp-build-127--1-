@@ -30,7 +30,7 @@ import "server-only"
  */
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { editorLanguages } from "./model"
-import { localizationOf, originalProductsOf, productTranslationRows, saveTranslations, setProductShowsOriginal } from "./server"
+import { localizationOf, originalProductsOf, productTranslationRows, saveTranslations, setProductShowsOriginal, translationRulesOf } from "./server"
 import { PRODUCT_TRANSLATED_FIELDS, aiMayWrite, productKey, statusOf, translationMap, type ProductTranslatedField } from "./translate"
 import type { draftReusing } from "./translate-ai"
 import { translateFieldsNow } from "./translation-press"
@@ -46,6 +46,8 @@ export interface ProductTranslationsView {
   /** The website's other languages, published or not, in the store's order. */
   languages: { code: string; published: boolean }[]
   showOriginal: boolean
+  /** Settings › Glossary's "Keep product names as written": automatic translation leaves the title alone; a person may still write one here. */
+  keepName: boolean
   /** False until SQL part 211 has run: the switch says so. */
   showOriginalReady: boolean
   fields: ProductField[]
@@ -82,7 +84,7 @@ async function storeLanguages(db: Db, creatorId: string) {
 export async function productTranslationsView(db: Db, creatorId: string, productId: string): Promise<Result<ProductTranslationsView>> {
   const product = await productOf(db, creatorId, productId)
   if (!product) return NOT_FOUND
-  const [{ loc, others }, originals] = await Promise.all([storeLanguages(db, creatorId), originalProductsOf(db, creatorId)])
+  const [{ loc, others }, originals, { rules }] = await Promise.all([storeLanguages(db, creatorId), originalProductsOf(db, creatorId), translationRulesOf(db, creatorId)])
   const fields = fieldsOf(product)
   /* Every language's rows for this product in one query (server.ts productTranslationRows). */
   const read = await productTranslationRows(db, creatorId, productId, others)
@@ -102,6 +104,7 @@ export async function productTranslationsView(db: Db, creatorId: string, product
       defaultLanguage: loc.defaultLanguage,
       languages: others.map((code) => ({ code, published: loc.languages.some((l) => l.code === code && l.published) })),
       showOriginal: originals.ids.includes(productId),
+      keepName: rules.keepProductNames === true,
       showOriginalReady: originals.ready,
       fields,
       values,

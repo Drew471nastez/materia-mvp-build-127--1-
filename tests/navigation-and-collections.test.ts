@@ -98,7 +98,7 @@ console.log("\nOne grid down the sidebar\n")
   check("  and one mark column, 20px, on a section's row and a block's alike", (list.match(/h-6 w-5 shrink-0/g) ?? []).length >= 3 && (tree.match(/h-6 w-5 shrink-0/g) ?? []).length >= 2)
   check("a block is one column further in, not a few stray pixels", /paddingLeft: rowIndent\(depth\)/.test(tree) && !/BASE_INDENT/.test(tree))
   check("  and swaps its dot for the grip in that one column, never both", /group-hover\/block:opacity-0/.test(tree) && /absolute inset-0 flex cursor-grab/.test(tree))
-  check("Add section and Add block are one line, on the grid, in Storelib's violet", /export function TreeAddRow/.test(parts) && /text-\[#7c3aed\]/.test(parts) &&
+  check("Add section and Add block are one line, on the grid", /export function TreeAddRow/.test(parts) && /* Changed on purpose (round AH, the owner: gray, not purple): dark grey words, a light grey hover. */ /text-\[#4b5563\][^"]*hover:bg-\[#f3f4f6\]/.test(parts) && !/7c3aed/.test(parts) &&
     /<TreeAddRow data-add-section=""/.test(list) && /<TreeAddRow data-add-block=""/.test(tree) && !/rounded-full border border-\[#d1d5db\]/.test(tree))
   check("every name on one left edge", /export const TREE_NAME/.test(parts) && /ml-1\.5 min-w-0 flex-1 truncate/.test(parts) && (list.match(/TREE_NAME/g) ?? []).length >= 2 && /TREE_NAME/.test(tree))
   check("a group's heading is quiet, over its rows, not another row", /uppercase tracking-\[0\.06em\] text-\[#6b7280\]/.test(list))

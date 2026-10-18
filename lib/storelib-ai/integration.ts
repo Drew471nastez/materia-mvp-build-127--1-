@@ -416,6 +416,28 @@ export function sectionAdvice(source: string): QualityFinding[] {
       })
     }
   }
+  /* ── words a creator styles are rich text ──────────────────────────── */
+  /*
+    A heading is inline_richtext and body copy is richtext, as a store
+    theme's schema reads. A plain text box for a heading cannot carry an
+    italic word or a line break, and a textarea for a paragraph cannot carry
+    a link or bold, so the creator is stuck with what the model typed.
+    Section settings and block settings alike. A button label or an eyebrow
+    stays text: only the words named like a heading or a paragraph count.
+  */
+  {
+    const HEADINGISH = /^(heading|title|headline|section_heading|section_title)$|_(heading|headline)$/
+    const BODYISH = /^(body|description|content|copy|paragraph|text|subheading|subtitle|intro)$|_(body|description|content|copy|paragraph|subheading|subtitle)$/
+    const words = all
+    const plainHeading = words.find((st) => typeof st?.id === "string" && HEADINGISH.test(st.id) && st.type === "text")
+    if (plainHeading) {
+      out.push({ id: "advice-rich-heading", severity: "warning", message: `"${plainHeading.id}" is a heading, so it is { "type": "inline_richtext" }, not "text": the creator can then put a word in italics or bold. Print it inside the heading element as {{ section.settings.${plainHeading.id} | raw }} (or block.settings).` })
+    }
+    const plainBody = words.find((st) => typeof st?.id === "string" && BODYISH.test(st.id) && st.type === "textarea")
+    if (plainBody) {
+      out.push({ id: "advice-rich-body", severity: "warning", message: `"${plainBody.id}" is body copy, so it is { "type": "richtext" } with a default wrapped in <p>…</p>, not "textarea": the creator can then add links, bold and paragraphs. Print it with | raw in a <div>, not a <p>, since richtext brings its own paragraphs.` })
+    }
+  }
   return out
 }
 

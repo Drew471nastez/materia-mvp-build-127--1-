@@ -22,7 +22,7 @@ import { CountryFlag } from "@/components/app/settings/country-picker"
 import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
-import { useMoneyMark } from "@/lib/store/currency-context"
+import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
 import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 import { tt } from "@/lib/i18n/text"
@@ -121,7 +121,17 @@ export function dollarsOf(cents: number | null | undefined): string {
   return cents === null || cents === undefined ? "" : (cents / 100).toFixed(2)
 }
 
-/** An amount in `currency`, the shop's own (lib/store/shop-money.ts) unless an order says otherwise. */
+/**
+ * Round AH: an amount in the STORE's own selling currency (Settings › Store details), the one its prices, shipping
+ * rates and local delivery are typed in. `money(cents)` alone used the platform's currency, so a store selling in lei
+ * saw its 5 lei shipping rate written "$5.00" here while checkout rightly charged 5 lei.
+ */
+export function useShopMoney(): (cents: number) => string {
+  const currency = useStoreCurrency()
+  return React.useCallback((cents: number) => money(cents, currency), [currency])
+}
+
+/** An amount in `currency`: an order's own, or the platform's when none is given. In a store's settings use useShopMoney. */
 export function money(cents: number, currency = SHOP_CURRENCY): string {
   try {
     return new Intl.NumberFormat(appLocale(), { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)

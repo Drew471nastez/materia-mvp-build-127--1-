@@ -547,7 +547,7 @@ section("Code a section: the picture reaches that model too")
   const route = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
   check(
     "the code route no longer refuses a request that is only a picture",
-    !/prompt: z\.string\(\)\.min\(3\)/.test(route) && /prompt: z\.string\(\)\.max\(2000\)/.test(route),
+    !/prompt: z\.string\(\)\.min\(3\)/.test(route) && /* Changed on purpose (round AI: a long brief fits) */ /prompt: z\.string\(\)\.max\(8000\)/.test(route),
   )
   check("it checks attachments through the one door", /reviewImages\(parsed\.data\.images\)/.test(route))
   check("and hands them to the writer", /prompt: parsed\.data\.prompt,\n\s*images,/.test(route))

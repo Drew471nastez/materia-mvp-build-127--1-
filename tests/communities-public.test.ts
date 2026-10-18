@@ -416,7 +416,7 @@ async function main() {
   console.log("\nPages and routes")
   {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
-    check("/community/<slug> is a 404 while off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page))
+    check("/community/<slug> is a 404 while off, read per request", /* Changed on purpose (round AH: the first reads start together, the switch among them, still before anything is drawn). */ /await connection\(\)[\s\S]{0,400}const \[on, \{ slug \}, query, \{ user \}\] = await Promise\.all\(\[communitiesEnabled\(\),[\s\S]{0,120}if \(!on\) notFound\(\)/.test(page))
     /* Changed on purpose: round 15 seeds the member's home through PlacePage, which draws the feed (or the place the address names) inside the shell (components/community/member/place-page.tsx, ddcbaf919). */
     check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\) \{[\s\S]*const place = placeFromUrl\([\s\S]*\?\? \{ kind: "feed" as const \}\s*return <PlacePage slug=\{load\.community\.slug\} place=\{place\} \/>/.test(page) && /import \{ PlacePage \} from "@\/components\/community\/member\/place-page"/.test(page))
     check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras(, askWhy)? \}\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))

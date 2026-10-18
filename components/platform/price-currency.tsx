@@ -11,8 +11,9 @@
  * says what a number is in. What a visitor sees it as (the marketplace's own
  * display preference, components/locale-provider) is unchanged.
  */
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useCallback, useContext, type ReactNode } from "react"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
+import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 
 const Ctx = createContext<string | null>(null)
 
@@ -34,4 +35,23 @@ export function usePriceCurrency(): string {
 export function usePageMoney(): (cents: number, opts?: { grouping?: boolean }) => string {
   const currency = usePriceCurrency()
   return (cents, opts) => shopMoneyIn(cents, currency, opts)
+}
+
+/**
+ * The currency of the store whose prices these are, wherever they are drawn:
+ * on its own public page (PriceCurrency), in its dashboard (/app's
+ * LiveStoreCurrency, from Settings › Store details), else the platform's.
+ * For what is drawn in both places, a product picker, an offer, a buy box:
+ * a lei store's 49 is "49.00 lei" in its editor and on its page alike.
+ */
+export function useSellerCurrency(): string {
+  const page = useContext(Ctx)
+  const store = useStoreCurrencyIfSet()
+  return page ?? store ?? SHOP_CURRENCY
+}
+
+/** shopMoney in useSellerCurrency's currency. */
+export function useSellerMoney(): (cents: number, opts?: { grouping?: boolean }) => string {
+  const currency = useSellerCurrency()
+  return useCallback((cents: number, opts?: { grouping?: boolean }) => shopMoneyIn(cents, currency, opts), [currency])
 }

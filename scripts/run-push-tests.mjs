@@ -44,6 +44,7 @@ const SUITES = [
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",
+  "tests/languages-checkout-w.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
@@ -362,6 +363,8 @@ const SUITES = [
   "tests/web-vitals.test.ts",
   /* Website settings › Performance: real-user speed for every published website, the lab test, run-now part 210 */
   "tests/web-performance-v.test.ts",
+  /* Website settings › Performance, round W: the quick check when Google's test cannot run, the switches, a new period without a flash */
+  "tests/performance-tab-w.test.ts",
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",
@@ -595,6 +598,8 @@ const SUITES = [
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",
   "tests/round-ag.test.ts",
+  "tests/round-ah.test.ts",
+  "tests/round-ai.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",
@@ -715,8 +720,12 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
   "tests/live-speed-v.test.ts",
+  /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
+  "tests/live-first-load-w.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
+  /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
+  "tests/carrier-select.test.ts",
   /* Round 27 (K27): the seller's orders: carriers with logos and tracking pages, the tracking number rule, unseen orders, the packing slip, the carrier picker */
   "tests/orders27.test.ts",
   /* Round 27 (M27): physical order emails link the live website, never the creator page (lib/physical/store-link), no unsubscribe on transactional mail, product thumbnails, the creator page language banner gone */
@@ -738,6 +747,8 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
+  "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
@@ -752,6 +763,8 @@ const STRICT_SUITES = [
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */
   "tests/shipsetup.test.ts",
+  /* Several parcels in one Fulfill, Mark as fulfilled on many orders from the list, a tracking CSV previewed then imported (tests/_journey) */
+  "tests/e2e-bulk-fulfillment.test.ts",
   /*
     The Claude provider's suite, here and not in the list above: its imports
     (the Anthropic SDK's types) change how the loose compile reads other

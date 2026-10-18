@@ -112,7 +112,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { createUndoRun } from "@/lib/website-builder/undo-run"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
@@ -638,13 +638,13 @@ function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & {
   /*
     ANOTHER LANGUAGE BEING EDITED (the language switch in the top bar or the
     sidebar): a text setting shows and writes that language's translation,
-    everything else is drawn as the same in every language and cannot be
-    changed from here (editor/translation-editing.tsx).
+    everything else is the same in every language and changes for all of
+    them from here (editor/translation-editing.tsx).
   */
   const translating = useTranslationEditing()
   const keyFor = useTranslationScope()
   if (translating) {
-    return <TranslatedFieldEditor tr={translating} keyFor={keyFor} field={props.field} label={label} value={props.value} render={(v, change, f) => <FieldControl field={f} value={v} onChange={change} />} />
+    return <TranslatedFieldEditor tr={translating} keyFor={keyFor} field={props.field} label={label} value={props.value} render={(v, change, f) => <FieldControl field={f} value={v} onChange={change} />} onSharedChange={props.onChange} />
   }
   return (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
@@ -3678,12 +3678,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * already showing at the top. Now a section any part of which is on
    * screen stays exactly where it is.
    */
-  const revealSection = useCallback((sectionId: string) => {
+  /* Round AH: `glide` for a section just made (added, pasted, duplicated, written by the AI): brought smoothly near the top, in an imported theme's frame too. */
+  const revealSection = useCallback((sectionId: string, glide = false) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
       const scroller = document.getElementById("wb-preview-root")
-      if (el && scroller) revealWithin(scroller, el)
-    }, 80)
+      if (el && scroller) {
+        if (glide) glideWithin(scroller, el)
+        else revealWithin(scroller, el)
+      }
+      if (glide && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: sectionId } }))
+    }, glide ? 120 : 80)
   }, [])
 
   /**
@@ -5559,7 +5564,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (fromCanvas) return
     // Two frames: one for React's commit, one for the layout after it.
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => revealSection(copy.id))
+      requestAnimationFrame(() => revealSection(copy.id, true))
     })
   }
 
@@ -5589,7 +5594,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** What a confirm card is asking before a copy or a paste goes ahead. */
   const [pendingAction, setPendingAction] = useState<
     | { kind: "copy-code"; sectionId: string; name: string }
-    | { kind: "paste-code"; clip: SectionClip; afterId: string | null }
+    | { kind: "paste-code"; clip: SectionClip; afterId: string | null; top?: boolean }
     | { kind: "paste-settings"; sectionId: string; next: Record<string, unknown>; changes: string[]; from: string; to: string }
     | null
   >(null)
@@ -5617,36 +5622,56 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   /** The copied section, in after `afterId` (in that section's group), or at the end of the page. One undo step. */
-  const placePastedSection = (c: SectionClip, afterId: string | null, schemaOverride?: SectionSchema) => {
+  const placePastedSection = (c: SectionClip, afterId: string | null, schemaOverride?: SectionSchema, top = false) => {
     const pasted = sectionFromClip(c, { section: (t) => `${t}-${Date.now()}`, block: newBlockId })
     const schema = schemaOverride ?? schemaFor(pasted.type, storelibSources, librarySchemas)
     const list = sectionsRef.current
     const target = afterId ? list.find((x) => x.id === afterId) ?? null : null
     const group: SectionGroup = target ? groupOf(target) : "template"
     const inGroup = splitGroups(list)[group]
-    const at = target ? inGroup.findIndex((x) => x.id === target.id) + 1 : null
+    const at = target ? inGroup.findIndex((x) => x.id === target.id) + 1 : top ? 0 : null
     pushUndo()
     const placed = placeSection(list, pasted, { groups: sectionGroupsFor(schema as never, { type: pasted.type, kind: null }), kind: null, group, at, kindOfType })
     setSections(placed.sections)
     setSelectedBlockId(null)
     setSelectedPanel({ type: "section", sectionId: pasted.id })
     setIsDirty(true)
-    requestAnimationFrame(() => requestAnimationFrame(() => revealSection(pasted.id)))
+    requestAnimationFrame(() => requestAnimationFrame(() => revealSection(pasted.id, true)))
     showNotification(`Pasted ${sectionDisplayName(pasted, librarySchemas)}`)
   }
 
-  const pasteSectionNow = (afterId: string | null, from: Clip | null = clip) => {
+  const pasteSectionNow = (afterId: string | null, from: Clip | null = clip, top = false) => {
+    /* A section copied from the page goes into the page: with the header open it lands first, with the footer open last, never inside either group. */
+    const opened = afterId ? sectionsRef.current.find((x) => x.id === afterId) : null
+    if (opened && groupOf(opened) !== "template") {
+      top = groupOf(opened) === "header"
+      afterId = null
+    }
     const check = sectionPasteCheck(from)
     if (check.ok === false) { toast.error((check as { reason: string }).reason); return }
     const c = from as SectionClip
     if (kindOfType(c.section.type)) { toast.error("A header or footer is added from Add section"); return }
     /* A section the creator wrote, into a theme that does not have its file: asked first, since the file is written too. */
-    if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId }); return }
-    placePastedSection(c, afterId)
+    if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId, top }); return }
+    placePastedSection(c, afterId, undefined, top)
   }
 
+  /** Paste at a place among the page's own sections, as the sidebar's insert line and row menu name it: 0 is the top of the page. */
+  const pasteSectionAt = (at: number) => {
+    const body = splitGroups(sectionsRef.current).template
+    if (at > 0 && body[at - 1]) pasteSectionNow(body[at - 1].id)
+    else pasteSectionNow(null, clip, true)
+  }
+  /** The copied section, for the sidebar's Paste rows: its name and whether it fits this page. */
+  const sidebarPaste = (() => {
+    if (!clip || clip.kind !== "section") return null
+    const check = sectionPasteCheck(clip)
+    if (check.ok && kindOfType(clip.section.type)) return { name: clip.typeName, ok: false, reason: "A header or footer is added from Add section" }
+    return { name: clip.typeName, ok: check.ok, reason: check.ok ? undefined : (check as { reason: string }).reason }
+  })()
+
   /** Write the copied section's file into this theme, then paste it. */
-  const pasteWithCode = async (c: SectionClip, afterId: string | null) => {
+  const pasteWithCode = async (c: SectionClip, afterId: string | null, top = false) => {
     if (!c.code) return
     setPendingBusy(true)
     try {
@@ -5662,7 +5687,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       const files = await loadStorelibSources()
       setPendingAction(null)
-      placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined)
+      placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined, top)
     } catch {
       toast.error("Could not copy the section's file. Try again.")
     } finally {
@@ -5854,7 +5879,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
   clipKeys.current.paste = (c: Clip | null) => {
     const from = c ?? clip
-    if (!from) return
+    if (!from) { toast.error("Copy a section first"); return }
     const id = selectedPanel.type === "section" ? selectedPanel.sectionId : null
     if (c) void writeClip(c)
     if (from.kind === "block") {
@@ -5901,11 +5926,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       e.preventDefault()
       clipKeys.current.paste(null)
     }
+    /* The same keys pressed inside an imported theme's canvas frame (compat-canvas, "clip-key"): the copy kept here is what pastes. */
+    const onFrameKey = (e: Event) => {
+      const key = (e as CustomEvent<unknown>).detail
+      if (key === "copy") {
+        const copied = clipKeys.current.copy()
+        if (!copied) toast.error("Open a section to copy it")
+      } else if (key === "paste") clipKeys.current.paste(null)
+    }
     document.addEventListener("copy", onCopy)
     document.addEventListener("paste", onPaste)
+    window.addEventListener("storelib:clip-key", onFrameKey)
     return () => {
       document.removeEventListener("copy", onCopy)
       document.removeEventListener("paste", onPaste)
+      window.removeEventListener("storelib:clip-key", onFrameKey)
     }
   }, [clipOwner])
 
@@ -5991,7 +6026,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setPageBrowserOpen(false)
     setSidebarMode("sections")
     setIsDirty(true)
-    if (!scroller) revealSection(newSection.id)
+    if (!scroller) revealSection(newSection.id, true)
+    /* An imported theme's canvas is a frame the arrival cannot measure: told to glide to the new section itself. */ else window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: newSection.id } }))
     if (isMobileView) riseOnAdded(newSection.id)
   }
 
@@ -6933,7 +6969,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSelectedPanel({ type: "section", sectionId: id })
       setIsDirty(true)
       setArrivedId(id)
-      revealSection(id)
+      revealSection(id, true)
       return id
     },
     [loadStorelibSources, pushUndo, revealSection],
@@ -7440,7 +7476,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 ? "Menus belong to your store, so every theme shows the same ones. Changes go live right away."
                 : "Menus are saved with this theme."}
             </p>
-            <SharedInAllLanguages note={tt("Menu links are translated in Settings, Markets and languages.")}>
+            <SharedInAllLanguages locked note={tt("Menu links are translated in Settings, Markets and languages.")}>
             <MenusEditor
               value={(settingsDraft as Record<string, unknown>).menus}
               onChange={(next) => updateSetting("menus", next)}
@@ -7768,6 +7804,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onRemove={removeSection}
                 onMove={moveSectionBy}
                 codeItem={(s) => codeMenuFor(s, "top")}
+                onCopy={(id) => { copySectionNow(id) }}
+                paste={sidebarPaste}
+                onPaste={pasteSectionAt}
                 kindOfType={kindOfType}
                 overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
@@ -9575,7 +9614,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           return
         }
         setAiSettledIds(onPage)
-        revealSection(onPage[0])
+        revealSection(onPage[0], true)
       }
       settle(true)
     },
@@ -10156,7 +10195,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           const a = pendingAction
           if (!a) return
           if (a.kind === "copy-code") void editCopyNow(a.sectionId)
-          else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId)
+          else if (a.kind === "paste-code") void pasteWithCode(a.clip, a.afterId, a.top)
           else { setPendingAction(null); applySettings(a.sectionId, a.next) }
         }}
       >

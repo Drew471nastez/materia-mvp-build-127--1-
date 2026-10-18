@@ -7,7 +7,8 @@
  * Analytics (components/app/product-picker.tsx).
  */
 import * as React from "react"
-import { shopMoney } from "@/lib/store/shop-money"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
+import { useSellerCurrency } from "@/components/platform/price-currency"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { pickerSurface, usePhone } from "@/components/app/date-range-picker"
@@ -24,9 +25,10 @@ export interface PickedProduct {
   thumbnail_url: string | null
 }
 
-export function priceLabel(cents: number | null | undefined): string {
+/** "49.00 lei" in the store's currency, or Free. The email carries it as it is, so it is written in what the store sells in. */
+export function priceLabel(cents: number | null | undefined, currency: string = SHOP_CURRENCY): string {
   if (typeof cents !== "number" || !Number.isFinite(cents) || cents <= 0) return "Free"
-  return shopMoney(cents)
+  return shopMoneyIn(cents, currency)
 }
 
 let cache: { creatorId: string; products: PickedProduct[] } | null = null
@@ -62,6 +64,7 @@ function useProducts(creatorId: string | null, open: boolean) {
 
 function List({ creatorId, open, onPick, compact }: { creatorId: string | null; open: boolean; onPick: (p: PickedProduct) => void; compact: boolean }) {
   const { products, error } = useProducts(creatorId, open)
+  const currency = useSellerCurrency()
   const [q, setQ] = React.useState("")
   const shown = (products ?? []).filter((p) => p.title.toLowerCase().includes(q.trim().toLowerCase()))
   return (
@@ -93,7 +96,7 @@ function List({ creatorId, open, onPick, compact }: { creatorId: string | null; 
               {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="h-full w-full object-cover" /> : null}
             </span>
             <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e] sm:text-[13px]">{p.title}</span>
-            <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{priceLabel(p.price_cents)}</span>
+            <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{priceLabel(p.price_cents, currency)}</span>
           </button>
         ))}
       </div>

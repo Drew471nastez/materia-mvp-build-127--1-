@@ -18,7 +18,7 @@
  * Run with:  npm run test:push
  */
 
-import { readUsage, toMessages } from "@/lib/sites/agent/anthropic-provider"
+import { MAX_STRICT_TOOLS, createAnthropicProvider, readUsage, toMessages } from "@/lib/sites/agent/anthropic-provider"
 import { DEFAULT_PROVIDER, modelFor, OFFERED, offeredProvider, resolveProvider, substitutionNotice } from "@/lib/sites/agent/provider"
 import { costOf, chooseTier } from "@/lib/sites/agent/models"
 import type { AgentTurn } from "@/lib/sites/agent/types"
@@ -396,8 +396,32 @@ section("The switch, where somebody can reach it")
   )
 }
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failing:", failures.join(", "))
-  process.exit(1)
-}
+// ===========================================================================
+section("No more strict tools than Anthropic takes")
+// ===========================================================================
+/* Every Storelib AI run failed with 400 "Too many strict tools (26). The maximum number of strict tools supported is 20." */
+const strictChecked = (async () => {
+  let sent: { tools?: { strict?: boolean }[] } | null = null
+  const fake = () => ({
+    messages: {
+      stream: (params: { tools?: { strict?: boolean }[] }) => {
+        sent = params
+        return { finalMessage: async () => { throw new Error("captured") } }
+      },
+    },
+  }) as never
+  const provider = createAnthropicProvider(fake)
+  const tools = Array.from({ length: 26 }, (_, i) => ({ name: `tool_${i}`, description: "d", parameters: { type: "object", properties: {}, required: [], additionalProperties: false } })) as never
+  await provider.complete({ model: "claude-opus-5-5", system: "s", turns: [{ role: "user", content: "hi" }] as never, tools, maxOutputTokens: 100 } as never).catch(() => {})
+  const strict = ((sent as { tools?: { strict?: boolean }[] } | null)?.tools ?? []).filter((t) => t.strict === true).length
+  check(`at most ${MAX_STRICT_TOOLS} of 26 tools are strict`, sent !== null && strict === MAX_STRICT_TOOLS && MAX_STRICT_TOOLS === 20, `strict ${strict}`)
+  check("  and every tool is still sent", ((sent as { tools?: unknown[] } | null)?.tools ?? []).length === 26)
+})()
+
+void strictChecked.then(() => {
+  console.log(`\n${passed} passed, ${failed} failed\n`)
+  if (failed > 0) {
+    console.log("Failing:", failures.join(", "))
+    process.exit(1)
+  }
+})

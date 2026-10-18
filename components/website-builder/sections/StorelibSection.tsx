@@ -233,9 +233,9 @@ export function StorelibSection({
 
   /* Back to top and a popup: the page's scroll and the visitor's memory, which a section's script cannot reach (overlay-hooks.ts). */
   useOverlayHooks(scriptRoot, { sectionId: section.id, inCanvas: !!(isEditing || insideEditor || inEditor), html: onPage })
-  /* Storelib Reviews widgets: a carousel's Previous and Next and its own movement, which its markup reads without (lib/reviews/widgets/enhance.ts). */
+  /* Storelib Reviews widgets: a carousel's Previous and Next and its own movement, and the write form sent without leaving the page, which its markup reads without (lib/reviews/widgets/enhance.ts). */
   useEffect(() => {
-    if (!scriptRoot || !onPage.includes("data-slw-carousel")) return
+    if (!scriptRoot || !(onPage.includes("data-slw-carousel") || onPage.includes("/api/reviews/site") || onPage.includes('id="review-posted"'))) return
     return enhanceReviewWidgets(scriptRoot)
   }, [scriptRoot, onPage])
 

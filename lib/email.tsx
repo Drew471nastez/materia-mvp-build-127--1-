@@ -524,8 +524,9 @@ async function receiptEmailModel(
   }
 
   const amount = Number(params.fallback.amountCents) || 0
-  /* The receipt could not be read: the amount in the store's own currency, what it was charged in (lib/store/shop-money.ts), never dollars over lei. */
-  const amountText = amount === 0 ? "Free" : formatMoney(amount, SHOP_CURRENCY, "en-US")
+  /* The receipt could not be read: the amount in the store's own currency (Settings › Store details), what it was charged in, never dollars over lei. */
+  const currency = params.creatorId ? (await import("@/lib/store/selling-currency-read").then((m) => m.readStoreCurrency(admin, params.creatorId)).catch(() => null))?.currency ?? SHOP_CURRENCY : SHOP_CURRENCY
+  const amountText = amount === 0 ? "Free" : formatMoney(amount, currency, "en-US")
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,

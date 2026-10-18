@@ -207,7 +207,11 @@ type Gate =
   | { ok: true; type: string; name: string; path: string; slots: { setting: string; label: string }[]; notes: string[] }
   | { ok: false; feedback: string; final: { error: string; errors?: ThemeError[] } }
 
-function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput }): Gate {
+/** Round AH: what the writer is told when the website runs a theme imported from Shopify. */
+export const IMPORTED_THEME_NOTE =
+  "IMPORTED THEME\nThis website runs a theme imported from Shopify, and your section is drawn inside it by Storelib. Write no <script>: it does not run there. Keep any motion in CSS (transitions, keyframes, :hover). The theme's own font and text colour are inherited, so set colours through the colour scheme and the settings, never a page background of your own."
+
+function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput; importedTheme?: boolean }): Gate {
   /**
    * The type comes from the file's own schema, and the file name follows it
    * rather than the other way round: the compiler insists the two agree, so
@@ -223,6 +227,13 @@ function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; 
   }
   const type = declared[1]
   const path = `sections/${type}.storelib`
+  if (opts.importedTheme && /^\s*<script[\s>]/m.test(text)) {
+    return {
+      ok: false,
+      feedback: "This website runs an imported theme, where a section's <script> does not run. Leave the <script> block out, keep any motion in CSS, and send the whole file again.",
+      final: { error: "The assistant could not produce a section that works in this theme." },
+    }
+  }
   if (opts.takenTypes.includes(type)) {
     return {
       ok: false,
@@ -278,7 +289,7 @@ function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; 
     return { ok: false, feedback: drawn.feedback, final: { error: "The section did not compile.", errors: drawn.errors } }
   }
   /* Worth saying in the review, never a refusal: the drawn section's notes, and the advice the strict gate passed with. */
-  const worth = new Set(["reduced-motion", "img-alt", "advice-colour-settings", "integration-responsive", "integration-button-hover"])
+  const worth = new Set(["advice-rich-heading", "advice-rich-body", "reduced-motion", "img-alt", "advice-colour-settings", "integration-responsive", "integration-button-hover"])
   const notes = [
     ...((drawn as { notes?: { message: string }[] }).notes ?? []).map((n) => n.message),
     ...((checked as { findings?: { id: string; severity: string; message: string }[] }).findings ?? []).filter((f) => f.severity === "warning" && worth.has(f.id)).map((f) => f.message),
@@ -328,6 +339,8 @@ export async function writeSection(opts: {
   accountMemory?: string[]
   /** AI Memory as one block, this website's notes and the everywhere ones (lib/ai-memory/store.ts describeMemory). Used instead of `accountMemory` when given. */
   memoryText?: string
+  /** Round AH: the website runs a theme imported from Shopify, which draws a Storelib section without its script. */
+  importedTheme?: boolean
 }): Promise<WriteResult> {
   const system = writeSectionSystem()
   const images = opts.images ?? []
@@ -347,6 +360,7 @@ export async function writeSection(opts: {
      * told afterwards what the colours are has already chosen them.
      */
     opts.theme ? themeBrief({ ...opts.theme, for: "writer" }).text : "",
+    opts.importedTheme ? IMPORTED_THEME_NOTE : "",
     opts.memoryText !== undefined ? opts.memoryText : describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",

@@ -20,6 +20,23 @@
 export const CANVAS_BRIDGE = `
 (function () {
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  /*
+    COPY AND PASTE FROM INSIDE THE PAGE. A click in the canvas puts the
+    keyboard in this frame, so Cmd/Ctrl+C and V never reached the builder,
+    which copies and pastes sections. Outside a field and with no text
+    selected, the keys are handed to the builder; anything else is the page's.
+  */
+  document.addEventListener("keydown", function (e) {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+    var k = (e.key || "").toLowerCase();
+    if (k !== "c" && k !== "v") return;
+    var t = e.target;
+    if (t && t.closest && t.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) return;
+    var sel = window.getSelection && window.getSelection();
+    if (k === "c" && sel && !sel.isCollapsed && String(sel).trim() !== "") return;
+    e.preventDefault();
+    post({ type: "clip-key", key: k === "c" ? "copy" : "paste" });
+  }, true);
   var css = document.createElement("style");
   css.setAttribute("data-sl", "");
   /*
@@ -151,13 +168,34 @@ export const CANVAS_BRIDGE = `
     two sides only. An edge is left off only where the element itself is
     cut there: off the screen, or under a sticky header or a drawer.
   */
+  /*
+    THE HEADER STUCK TO THE TOP, AS A LINE NOTHING CROSSES (round AH). The hit
+    tests below read what paints; a header with see-through gaps (a
+    transparent bar over the hero, a menu drawn on a pseudo element) let a
+    section's sides run up through it. A sticky or fixed header at the top
+    of the screen is measured, and no outline of anything outside it is
+    drawn above its foot.
+  */
+  var HEADER_TOPS = ".shopify-section-group-header-group, .shopify-section-group-header-group > *, .shopify-section-group-header-group sticky-header, header, [data-sl-header]";
+  var headerCover = function (el) {
+    var cover = 0, tops = document.querySelectorAll(HEADER_TOPS);
+    for (var i = 0; i < tops.length; i++) {
+      var h = tops[i];
+      if (h === el || h.contains(el) || el.contains(h)) continue;
+      var p = styleOf(h).position;
+      if (p !== "sticky" && p !== "fixed") continue;
+      var q = h.getBoundingClientRect();
+      if (q.top <= 1 && q.bottom > 0 && q.height < innerHeight * 0.6 && q.width > innerWidth * 0.5) cover = Math.max(cover, q.bottom);
+    }
+    return cover;
+  };
   var visibleRect = function (el, inset) {
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
     if (r.width < 1 || r.height < 1) { r = contentBox(el); loose = true; if (!r) return null; }
     var vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
     var left = Math.max(r.left, 0), right = Math.min(r.right, vw);
-    var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, vh);
+    var top = Math.max(r.top, 0, headerCover(el)), bottom = Math.min(r.bottom, vh);
     if (right - left < 1 || bottom - top < 1) return null;
     var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
     var seen = function (y) {
@@ -1050,6 +1088,24 @@ export const CANVAS_BRIDGE = `
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
   };
+  var revealSection = function (id) {
+    if (!id) return;
+    var tries = 0;
+    var go = function () {
+      var el = document.getElementById("shopify-section-" + id) || document.querySelector('[data-section-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (!el) { if (++tries < 10) setTimeout(go, 120); return; }
+      var cover = 0;
+      var tops = document.querySelectorAll(".shopify-section-group-header-group, .shopify-section-group-header-group > *, header");
+      for (var i = 0; i < tops.length; i++) {
+        var cs = getComputedStyle(tops[i]);
+        if (cs.position === "sticky" || cs.position === "fixed") { var r = tops[i].getBoundingClientRect(); if (r.top <= 1) cover = Math.max(cover, r.bottom); }
+      }
+      var top = Math.max(0, el.getBoundingClientRect().top + scrollY - cover - 16);
+      var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (Math.abs(scrollY - top) > 4) scrollTo({ top: top, behavior: still ? "auto" : "smooth" });
+    };
+    requestAnimationFrame(function () { requestAnimationFrame(go); });
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
@@ -1070,6 +1126,9 @@ export const CANVAS_BRIDGE = `
       if ("inspect" in m) setInspect(m.inspect);
       /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
+    } else if (m.type === "reveal") {
+      /* Round AH: a section just added, pasted or written by the AI, brought smoothly to the top, below a sticky header, once it is drawn. */
+      queue = queue.then(function () { revealSection(String(m.id || "")); }).catch(function () {});
     } else if (m.type === "inspect") {
       setInspect(m.on);
     } else if (m.type === "scroll") {

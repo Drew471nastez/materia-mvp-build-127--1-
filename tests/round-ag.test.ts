@@ -131,7 +131,7 @@ async function main() {
   const report = code("lib/tax/report.ts")
   check("the figures are read from what each order recorded, by the store", /scopedOrders\(admin, COLUMNS, scope, creatorId, null\)\.gt\("tax_cents", 0\)/.test(report))
   const panel = read("components/app/settings/taxes-panel.tsx")
-  check("the panel opens on the overview: status, total, countries, CSV, who does what", /<TaxOverview currency=\{currency\} \/>/.test(panel) && ["data-tax-status", "data-tax-total", "data-tax-countries", "data-tax-csv", "data-tax-responsibility"].every((a) => panel.includes(a)))
+  check("the panel opens on the overview: status, total, countries, CSV, who does what", /* Changed on purpose (round AH, the owner: simpler): the status sits in the Tax card, what was collected at the foot. */ /<TaxStatus overview=\{overview\.data\} \/>/.test(panel) && /<TaxOverview currency=\{currency\} overview=\{overview\} \/>/.test(panel) && ["data-tax-status", "data-tax-total", "data-tax-countries", "data-tax-csv", "data-tax-responsibility"].every((a) => panel.includes(a)))
   check("never claims Storelib files or pays tax", /does not file or pay tax for you/.test(panel) && !/(we|Storelib) (file|files|remit|remits) (your|the) tax/i.test(panel + report))
 
   console.log("\nEvery email")

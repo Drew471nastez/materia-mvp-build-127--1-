@@ -493,7 +493,7 @@ export function PhysicalCheckout({
         })}
       </ul>
 
-      <CheckoutSuggestions suggestions={quote.suggestions ?? []} onAdd={addSuggestion} busy={quoting} />
+      <CheckoutSuggestions suggestions={quote.suggestions ?? []} onAdd={addSuggestion} busy={quoting} money={money} />
 
       <div className="border-t border-[#e5e7eb] pt-4">
         {appliedCode && quote.coupon ? (

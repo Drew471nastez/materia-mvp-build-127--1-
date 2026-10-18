@@ -36,7 +36,9 @@
  * ONE MENU FOR THE LIST. The row's "...", a right click on the row (opened
  * at the pointer), a row held down on a touch screen, and Shift+F10 or the
  * context menu key on a focused row all open the same menu: Duplicate, Move
- * up, Move down, Hide or Show, Edit code, Delete. A dropdown on a computer,
+ * up, Move down, Hide or Show, Edit code, Delete, with Copy and Paste below
+ * beside Duplicate when the editor gives them. A right click on the insert
+ * line between two rows opens two rows of its own: Add section, Paste here. A dropdown on a computer,
  * the shared action sheet on a phone (components/ui/responsive-action-
  * menu.tsx, ActionMenuAt). One for the whole list rather than one per row.
  *
@@ -48,7 +50,7 @@
  */
 
 import * as React from "react"
-import { ArrowDown, ArrowUp, Code2, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ClipboardPaste, Code2, Copy, CopyPlus, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useReorder } from "./controls/use-reorder"
@@ -104,6 +106,15 @@ export interface SectionsListProps {
    * section-code-target.ts). Absent, the menu has no such row.
    */
   codeItem?: (section: SectionInstance) => { label: string; hint?: string; run?: () => void } | null
+  /** Copy a section to the builder's clipboard (right click, or the row's menu). */
+  onCopy?: (id: string) => void
+  /**
+   * What the clipboard holds, when it is a section: its name and whether it
+   * can go on this page. Absent or null, nothing to paste and no Paste rows.
+   */
+  paste?: { name: string; ok: boolean; reason?: string } | null
+  /** Paste the copied section at this place among the page's sections (0 is the top). */
+  onPaste?: (at: number) => void
 }
 
 /** The builder is a phone below 768px: the menu is the action sheet there. */
@@ -131,9 +142,13 @@ export function AddSectionButton({ onClick, label = tt("Add section") }: { onCli
  * The strip between two rows that adds a section there. Eight pixels, with
  * no negative margin, so it never overlaps the rows either side of it and
  * two hover targets never fight over one pixel. Its plus does not take the
- * pointer; the strip is the only target.
+ * pointer; the strip is the only target. A right click on it opens a small
+ * menu at the pointer: add a section here, or paste the copied one here.
+ *
+ * Dark grey with a little depth, not violet (the owner, round AH): a hairline
+ * with a soft shadow and a raised disc, the way Storelib's own controls sit.
  */
-function InsertSectionDivider({ onClick }: { onClick: () => void }) {
+function InsertSectionDivider({ onClick, onMenu }: { onClick: () => void; onMenu?: (x: number, y: number) => void }) {
   return (
     <div
       data-insert-section=""
@@ -142,10 +157,17 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
       aria-label={tt("Add a section here")}
       className="group/ins relative flex h-1.5 cursor-pointer select-none items-center justify-center"
       onClick={onClick}
+      onContextMenu={(e) => {
+        if (!onMenu) return
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY)
+      }}
     >
-      <div className="pointer-events-none absolute inset-x-1 h-px bg-transparent transition-colors duration-150 group-hover/ins:bg-[#8b5cf6]/60" />
-      <div className="pointer-events-none relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#8b5cf6] text-white opacity-0 transition-opacity duration-150 group-hover/ins:opacity-100">
-        <Plus className="h-2 w-2" strokeWidth={3} />
+      {/* The line fades out at both ends and in from nothing, so it reads as a soft seam, not a rule. */}
+      <div className="pointer-events-none absolute inset-x-0 h-px scale-x-90 bg-[linear-gradient(90deg,transparent_0%,rgba(107,114,128,0.55)_22%,#6b7280_50%,rgba(107,114,128,0.55)_78%,transparent_100%)] opacity-0 transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-x-100 group-hover/ins:opacity-100" />
+      <div className="pointer-events-none absolute inset-x-6 h-[3px] rounded-full bg-[radial-gradient(closest-side,rgba(16,24,40,0.10),transparent)] opacity-0 blur-[1px] transition-opacity duration-200 group-hover/ins:opacity-100" />
+      <div className="pointer-events-none relative z-10 flex h-4 w-4 scale-75 items-center justify-center rounded-full bg-[#3f4249] text-white opacity-0 shadow-[0_0_0_2px_#fff,0_1px_3px_rgba(16,24,40,0.28),inset_0_1px_0_rgba(255,255,255,0.18)] transition-[opacity,scale] duration-200 ease-out group-hover/ins:scale-100 group-hover/ins:opacity-100">
+        <Plus className="h-2.5 w-2.5" strokeWidth={3} />
       </div>
     </div>
   )
@@ -427,7 +449,7 @@ const NO_ITEMS: ActionMenuItem[] = []
 export function sectionRowMenu(
   section: SectionInstance,
   sections: SectionInstance[],
-  ctx: Pick<SectionsListProps, "kindOfType" | "codeItem" | "onDuplicate" | "onMove" | "onToggleHide" | "onRemove">,
+  ctx: Pick<SectionsListProps, "kindOfType" | "codeItem" | "onDuplicate" | "onMove" | "onToggleHide" | "onRemove" | "onCopy" | "paste"> & { onPasteAfter?: () => void },
 ): ActionMenuItem[] {
   const groups = splitGroups(sections)
   const role = (["header", "footer", "overlay"] as const).find((r) => groups[r].some((s) => s.id === section.id))
@@ -436,7 +458,11 @@ export function sectionRowMenu(
   const chrome = role === "header" || role === "footer" ? isKind(section, role, ctx.kindOfType) : false
   const icon = (Icon: typeof Copy) => <Icon strokeWidth={1.75} />
   const items: ActionMenuItem[] = []
-  if (!chrome) items.push({ id: "duplicate", label: tt("Duplicate"), icon: icon(Copy), onClick: () => ctx.onDuplicate(section.id) })
+  if (!chrome) items.push({ id: "duplicate", label: tt("Duplicate"), icon: icon(CopyPlus), onClick: () => ctx.onDuplicate(section.id) })
+  /* Copy, and Paste under it when a section is copied: a section can be carried to another page or theme. */
+  if (!chrome && ctx.onCopy) items.push({ id: "copy", label: tt("Copy"), icon: icon(Copy), onClick: () => ctx.onCopy?.(section.id) })
+  if (ctx.paste && ctx.onPasteAfter && !role)
+    items.push({ id: "paste", label: tt("Paste below"), hint: ctx.paste.ok ? ctx.paste.name : ctx.paste.reason, disabled: !ctx.paste.ok, icon: icon(ClipboardPaste), onClick: ctx.onPasteAfter })
   if (i > 0) items.push({ id: "move-up", label: tt("Move up"), icon: icon(ArrowUp), onClick: () => ctx.onMove(section.id, -1) })
   if (i >= 0 && i < list.length - 1) items.push({ id: "move-down", label: tt("Move down"), icon: icon(ArrowDown), onClick: () => ctx.onMove(section.id, 1) })
   items.push({ id: "toggle-hidden", label: section.hidden ? tt("Show") : tt("Hide"), icon: section.hidden ? icon(Eye) : icon(EyeOff), onClick: () => ctx.onToggleHide(section.id) })
@@ -465,10 +491,18 @@ export function SectionsList({
   expanded,
   onToggleExpand,
   codeItem,
+  onCopy,
+  paste,
+  onPaste,
 }: SectionsListProps) {
   const groups = splitGroups(sections)
   /** The one menu, and the row it is for. */
   const [menu, setMenu] = React.useState<{ id: string; place: ActionMenuPlace } | null>(null)
+  /** The insert line's own menu (a right click on it), and where among the page's sections it adds. */
+  const [insertMenu, setInsertMenu] = React.useState<{ at: number; place: ActionMenuPlace } | null>(null)
+  const closeInsert = React.useCallback(() => setInsertMenu(null), [])
+  const insertMenuAt = (at: number) => (x: number, y: number) =>
+    setInsertMenu({ at, place: { box: { left: x, top: y, width: 1, height: 1 }, phone: isPhone(), align: "start" } })
   const closeMenu = React.useCallback(() => setMenu(null), [])
   const menuFor = (id: string) => (place: ActionMenuPlace) => setMenu({ id, place })
   /** A section's block rows when it is open, and whether it has any to open. */
@@ -542,11 +576,34 @@ export function SectionsList({
    * and what kind of section it is decides Duplicate.
    */
   const open = menu ? sections.find((s) => s.id === menu.id) ?? null : null
-  const items = open ? sectionRowMenu(open, sections, { kindOfType, codeItem, onDuplicate, onMove, onToggleHide, onRemove }) : NO_ITEMS
+  const openAt = open ? body.findIndex((s) => s.id === open.id) : -1
+  const items = open
+    ? sectionRowMenu(open, sections, {
+        kindOfType,
+        codeItem,
+        onDuplicate,
+        onMove,
+        onToggleHide,
+        onRemove,
+        onCopy,
+        paste,
+        onPasteAfter: onPaste && openAt >= 0 ? () => onPaste(openAt + 1) : undefined,
+      })
+    : NO_ITEMS
+  /* Two rows, no more: add a section here, or paste the copied one here. */
+  const insertItems: ActionMenuItem[] = insertMenu
+    ? [
+        { id: "add-here", label: tt("Add section"), icon: <Plus strokeWidth={1.75} />, onClick: () => onAdd(insertMenu.at, "template") },
+        ...(onPaste
+          ? [{ id: "paste-here", label: tt("Paste here"), hint: paste ? (paste.ok ? paste.name : paste.reason) : tt("Copy a section first"), disabled: !paste?.ok, icon: <ClipboardPaste strokeWidth={1.75} />, onClick: () => onPaste(insertMenu.at) }]
+          : []),
+      ]
+    : NO_ITEMS
 
   return (
     <div data-sections-list="" className="space-y-0.5">
       <ActionMenuAt at={menu?.place ?? null} items={items} title={open ? nameOf(open) : undefined} onClose={closeMenu} />
+      <ActionMenuAt at={insertMenu?.place ?? null} items={insertItems} onClose={closeInsert} />
       <div data-section-group="header">
         <GroupLabel>{GROUP_LABELS.header}</GroupLabel>
         {groupRows("header")}
@@ -562,7 +619,7 @@ export function SectionsList({
           <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">{tt("No sections on this page yet.")}</p>
         ) : (
           <>
-            <InsertSectionDivider onClick={() => onAdd(0, "template")} />
+            <InsertSectionDivider onClick={() => onAdd(0, "template")} onMenu={insertMenuAt(0)} />
             <div ref={listRef} data-section-drag-list="">
               {body.map((s, i) => {
                 const t = tree(s)
@@ -596,7 +653,7 @@ export function SectionsList({
                       menuOpen={menu?.id === s.id}
                     />
                     {lifted ? null : t.under}
-                    <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />
+                    <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} onMenu={insertMenuAt(i + 1)} />
                   </div>
                 )
               })}

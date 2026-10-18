@@ -93,9 +93,9 @@ export function TreeSpacer() {
 
 /**
  * ADD, ON THE SAME GRID. One line for "Add section" and for "Add block": the
- * plus in the mark column and the words on the names' edge, in Storelib's
- * violet so the one line on the list that makes something is the one line
- * that is coloured.
+ * plus in the mark column and the words on the names' edge. Dark grey, not
+ * violet (the owner, round AH): it reads as part of the list, a step
+ * stronger than a row's name, and lifts a little under the pointer.
  */
 export function TreeAddRow({
   label,
@@ -113,12 +113,15 @@ export function TreeAddRow({
       type="button"
       onClick={onClick}
       style={{ paddingLeft: rowIndent(depth) }}
-      className="flex h-8 w-full items-center rounded-md pr-1 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:text-[15px] [-webkit-tap-highlight-color:transparent]"
+      className="group/add flex h-8 w-full items-center rounded-md pr-1 text-left text-[13px] font-medium text-[#4b5563] transition-colors duration-150 hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 active:bg-[#eceef1] max-sm:h-11 max-sm:text-[15px] [-webkit-tap-highlight-color:transparent]"
       {...rest}
     >
       <TreeSpacer />
+      {/* A small raised key with the plus in it: white, a hairline edge and a soft drop, pressed in a little under the pointer. */}
       <span aria-hidden className="flex h-6 w-5 shrink-0 items-center justify-center max-sm:h-8">
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+        <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[6px] bg-white text-[#4b5563] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] transition-[box-shadow,color,translate] duration-150 group-hover/add:text-[#1a1a2e] group-hover/add:shadow-[0_0_0_1px_rgba(16,24,40,0.16),0_2px_4px_rgba(16,24,40,0.10),inset_0_-1px_0_rgba(16,24,40,0.05)] group-active/add:translate-y-px group-active/add:shadow-[0_0_0_1px_rgba(16,24,40,0.14),inset_0_1px_1px_rgba(16,24,40,0.08)] max-sm:h-[22px] max-sm:w-[22px]">
+          <Plus className="h-3 w-3" strokeWidth={2.75} />
+        </span>
       </span>
       <span className="ml-1.5 truncate">{label}</span>
     </button>

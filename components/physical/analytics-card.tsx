@@ -16,7 +16,7 @@ import * as React from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { Pill, api, money } from "./ui"
+import { Pill, api, useShopMoney } from "./ui"
 import { tt } from "@/lib/i18n/text"
 
 interface Data {
@@ -39,6 +39,7 @@ interface Data {
 const EMPTY: Data = { orders: 0, units: 0, revenueCents: 0, shippingCents: 0, taxCents: 0, unfulfilled: 0, partiallyFulfilled: 0, averageHoursToShip: null, returns: 0, returnRate: null, lowStock: [], outOfStock: 0, stockValueCents: 0, topProducts: [] }
 
 export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: number } | null }) {
+  const money = useShopMoney()
   const enabled = usePhysicalCommerceEnabled()
   const [data, setData] = React.useState<Data | null>(null)
   const [loading, setLoading] = React.useState(true)

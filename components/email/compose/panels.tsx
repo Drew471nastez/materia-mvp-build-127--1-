@@ -13,6 +13,7 @@ import { IMAGE_WIDTHS, safeUrl, type Align, type ButtonBlock, type ImageBlock, t
 import { cn } from "@/lib/utils"
 import { ColorChoice, Field, Segmented, buttonSecondary, inputClass, errorClass } from "./ui"
 import { ProductPicker, priceLabel } from "./product-picker"
+import { useSellerCurrency } from "@/components/platform/price-currency"
 import { tt } from "@/lib/i18n/text"
 
 const ALIGN: { value: Align; label: string }[] = [
@@ -157,6 +158,7 @@ export function ProductPanel({
   onPickerOpen: (o: boolean) => void
   brand?: string
 }) {
+  const currency = useSellerCurrency()
   return (
     <div className={panel} data-block-panel="product">
       <Field label={tt("Product")}>
@@ -168,7 +170,7 @@ export function ProductPanel({
             onChange({
               productId: p.id,
               title: p.title,
-              price: priceLabel(p.price_cents),
+              price: priceLabel(p.price_cents, currency),
               imageUrl: p.thumbnail_url && /^https:\/\//.test(p.thumbnail_url) ? p.thumbnail_url : "",
               url: getProductShareUrl(username || "", p.slug),
             })

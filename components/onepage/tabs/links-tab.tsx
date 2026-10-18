@@ -1,7 +1,7 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
-import { shopMoney } from "@/lib/store/shop-money"
+import { useSellerMoney } from "@/components/platform/price-currency"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
@@ -376,7 +376,7 @@ const blockCategories = [
 ]
 
 // Helper function to get block preview data
-function getBlockPreviewData(block: OnePageBlock) {
+function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number) => string) {
   switch (block.type) {
     case "link_button": {
       const data = block.data as LinkButtonBlockData
@@ -468,6 +468,7 @@ function isSpotifyUrl(url: string): boolean {
 }
 
 export function LinksTab() {
+  const sellerMoney = useSellerMoney()
   const {
     onepage,
     selectedBlockId,
@@ -1512,7 +1513,7 @@ export function LinksTab() {
           ) : (
             <div className="space-y-2">
               {archivedBlocks.map((block) => {
-                const preview = getBlockPreviewData(block)
+                const preview = getBlockPreviewData(block, sellerMoney)
                 return (
                   <div key={block.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border">
                     <div className="w-10 h-10 rounded-lg bg-white border flex items-center justify-center shrink-0">
@@ -3980,6 +3981,7 @@ function BlockItem({
   onMoveChildToMainList,
   onOpenAddBlockModal,
 }: BlockItemProps) {
+  const shopMoney = useSellerMoney()
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
@@ -4578,6 +4580,8 @@ function BlockEditor({
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
   sellerProducts?: SellerProduct[]
 }) {
+  /* The store's own currency: a lei store's product reads 49.00 lei here (components/platform/price-currency). */
+  const shopMoney = useSellerMoney()
   const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 

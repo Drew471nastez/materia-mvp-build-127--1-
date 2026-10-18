@@ -194,7 +194,7 @@ for (const [label, vp] of [
   )
   const by = Object.fromEntries(langs.map((l) => [l.code, l]))
   say(by.ro?.state === "published" && /140 of 140 translated/.test(by.ro.line) && by.ro.next === "", `Romanian: published, all translated, nothing to press (${JSON.stringify(by.ro)})`)
-  say(by.fr?.state === "hidden" && /20 to review/.test(by.fr.line) && by.fr.next === "Review", `French: hidden, 20 to review, Review (${JSON.stringify(by.fr)})`)
+  say(by.fr?.state === "hidden" && /20 drafts/.test(by.fr.line) && by.fr.next === "Review", `French: hidden, 20 drafts, Review (${JSON.stringify(by.fr)})`)
   say(by.de?.state === "hidden" && /0 of 140 translated/.test(by.de.line) && by.de.next === "", `German: hidden, nothing translated yet (${JSON.stringify(by.de)})`)
   say(await page.evaluate(() => (document.querySelector("[data-start-translation=de]")?.textContent || "").trim() === "Translate"), "and its next step is Translate")
   const folded = await page.evaluate(() => ({ open: document.querySelector("[data-language-options]")?.hasAttribute("open"), visible: !!document.querySelector("[data-visitor-language]")?.checkVisibility() }))

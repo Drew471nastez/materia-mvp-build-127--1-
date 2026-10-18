@@ -5,6 +5,8 @@ import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { LiveStoreCurrency } from "@/lib/store/currency-context"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -44,7 +46,7 @@ export default async function CreatorPageLayout({
             </div>
           }
         >
-          {children}
+          <LiveStoreCurrency currency={null}>{children}</LiveStoreCurrency>
         </NativeAuthGate>
       )
     }
@@ -70,12 +72,19 @@ export default async function CreatorPageLayout({
     from here to that question.
   */
 
-  const { data: creator } = await supabase.from("creators").select("slug").eq("user_id", user.id).single()
+  const { data: creator } = await supabase.from("creators").select("id, slug").eq("user_id", user.id).single()
 
   if (!creator) {
     redirect("/onboarding")
   }
 
+  /* The store's currency for the prices this editor lists (lib/store/currency-context), as /app has it. */
+  const storeCurrency = await cachedStoreCurrency(creator.id).catch(() => null)
+
   // Full-screen layout without dashboard sidebar
-  return <NativeAuthGate>{children}</NativeAuthGate>
+  return (
+    <NativeAuthGate>
+      <LiveStoreCurrency currency={storeCurrency}>{children}</LiveStoreCurrency>
+    </NativeAuthGate>
+  )
 }

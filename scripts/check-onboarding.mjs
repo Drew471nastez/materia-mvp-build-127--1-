@@ -204,8 +204,8 @@ for (const [label, viewport] of [
   else if (said.alert.bottom > said.heading.y) problems.push(`${at} what went wrong is drawn over the heading`)
 
   /* Type a store name, which is what lets step 1 be left. */
-  await page.click('input[placeholder="Your store name"]')
-  await page.type('input[placeholder="Your store name"]', "Andrews Supplies")
+  await page.click('input[placeholder="Your name or brand"]')
+  await page.type('input[placeholder="Your name or brand"]', "Andrews Supplies")
   await page.waitForFunction(() => {
     const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Next")
     return b && !b.disabled

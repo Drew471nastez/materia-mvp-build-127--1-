@@ -171,7 +171,9 @@ console.log("\nKeys are sealed on the server and never come back\n")
 {
   const sealed = sealSecret("good-printify-token")
   check("sealed with AES-GCM, the key not in it", sealed.startsWith("v1.") && !sealed.includes("good-printify-token") && openSecret(sealed) === "good-printify-token")
-  const tampered = sealed.slice(0, -2) + (sealed.endsWith("A") ? "B" : "A") + sealed.slice(-1)
+  /* A letter in the middle, always changed: the old swap looked at the last letter but replaced the one before it, which was sometimes already "A". */
+  const mid = Math.floor(sealed.length / 2)
+  const tampered = sealed.slice(0, mid) + (sealed[mid] === "A" ? "B" : "A") + sealed.slice(mid + 1)
   check("a tampered secret opens to nothing", openSecret(tampered) === null)
 }
 
