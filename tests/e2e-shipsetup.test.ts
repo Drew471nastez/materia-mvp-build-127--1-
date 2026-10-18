@@ -156,11 +156,12 @@ async function main() {
   check("  the rest of the EU leaves France to its own zone", !!restEu && !(restEu.countries as string[]).includes("FR") && (restEu.countries as string[]).length === 25)
 
   section("6. The settings read sends no secret")
-  j.rows("commerce_integrations").push({ id: "11111111-1111-4111-8111-111111111111", creator_id: ro.creatorId, provider: "shippo", status: "connected", config: {}, secret_ciphertext: "v1:SEALED-SHIPPO-KEY-abcd", webhook_secret_ciphertext: "v1:SEALED-HOOK-wxyz", created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+  /* The key tails are letters no id can hold (ids are hex), so a random id never reads as a leaked key. */
+  j.rows("commerce_integrations").push({ id: "11111111-1111-4111-8111-111111111111", creator_id: ro.creatorId, provider: "shippo", status: "connected", config: {}, secret_ciphertext: "v1:SEALED-SHIPPO-KEY-qrst", webhook_secret_ciphertext: "v1:SEALED-HOOK-wxyz", created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
   const after = await j.call("GET /api/physical/settings", { as: ro.person })
   const text = JSON.stringify(after.json)
   check("Shippo reads as connected", after.json?.carrierApps?.find((x: { id: string }) => x.id === "shippo")?.connected === true, after.json?.carrierApps)
-  check("no key, hint or sealed secret in the answer", !/SEALED|ciphertext|keyHint|secretHint|abcd|wxyz/.test(text), text.slice(0, 400))
+  check("no key, hint or sealed secret in the answer", !/SEALED|ciphertext|keyHint|secretHint|qrst|wxyz/.test(text), text.slice(0, 400))
   check("no integrations list any more", !("integrations" in (after.json ?? {})))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

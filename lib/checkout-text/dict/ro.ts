@@ -784,6 +784,7 @@ const ro: Record<string, string> = {
   "Questions about the order? Reply to this email to reach {shop}, or write to {email}.": "Ai întrebări despre comandă? Răspunde la acest e-mail ca să ajungi la {shop} sau scrie la {email}.",
   "Your receipt from {shop}": "Chitanța ta de la {shop}",
   "Order {number} from {shop}, {total}": "Comanda {number} de la {shop}, {total}",
+  "Order {number} from {shop}": "Comanda {number} de la {shop}",
   "{seller}. Through {platform}.": "{seller}. Prin {platform}.",
   "Sold by {shop} through {platform}.": "Vândut de {shop} prin {platform}.",
   "Hi {name},": "Bună, {name},",
