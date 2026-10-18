@@ -18,9 +18,17 @@ import { execFileSync } from "node:child_process"
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 
 const BASELINE = ".github/typescript-baseline.json"
+// This graph has over 7,000 inputs and exceeds Node's default heap. Apply the
+// same ceiling used by CI to standalone runs, preserving any explicit choice
+// and unrelated Node options. A compiler crash still fails closed below.
+const nodeOptions = process.env.NODE_OPTIONS ?? ""
+const compilerEnv = {
+  ...process.env,
+  NODE_OPTIONS: /--max[-_]old[-_]space[-_]size(?:=|\s)/.test(nodeOptions) ? nodeOptions : `${nodeOptions} --max-old-space-size=6144`.trim(),
+}
 let output = ""
 try {
-  output = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
+  output = execFileSync("pnpm", ["exec", "tsc", "--noEmit", "-p", "tsconfig.json", "--pretty", "false"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], env: compilerEnv })
 } catch (e) {
   output = String(e.stdout ?? "") + String(e.stderr ?? "")
   // A killed compiler, missing executable, or exhausted heap is not zero errors.

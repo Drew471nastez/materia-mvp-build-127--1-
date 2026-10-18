@@ -3,6 +3,9 @@
 Open `/admin/sql-updates` after signing in to the Storelib admin console.
 The catalog is regenerated from `supabase/sql/run-now/*.sql` during every
 development startup and production build. Do not edit its generated JSON.
+Vercel's ignored-build step treats changes in this canonical directory as
+runtime inputs, including SQL-only commits. Historical migration copies can
+still skip an unnecessary deployment.
 
 The database's `storelib_applied_parts` table is the execution record:
 
@@ -45,3 +48,11 @@ and no browser-accessible service key. Storelib previously closed generic
 cannot be reconstructed exactly from today's schema; do not manufacture ledger
 entries based on schema guesses. Recorded execution is not a guarantee that
 another later change has not altered the schema.
+
+For the browser smoke test, start the production build with placeholder
+service configuration, `BLOG_ADMIN_SECRET=local-admin-sql-validation-only`,
+and `pnpm start --hostname 127.0.0.1 --port 3105`. Then run
+`node scripts/check-admin-sql-updates.mjs`. The script refuses non-loopback
+hosts and expects unavailable placeholder history. This publicly known
+fixture secret is for local testing only; never configure it on Vercel or
+against a production-facing server. The test exports SQL but never runs it.

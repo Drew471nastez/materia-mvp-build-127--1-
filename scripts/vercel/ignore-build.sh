@@ -7,11 +7,11 @@
 #
 # A deployment is skipped only when EVERY file changed since the branch's
 # last successful deployment is one the running app never reads: tests,
-# docs, the SQL parts, the native iOS and Android shells, CI workflows,
+# docs, historical SQL copies, the native iOS and Android shells, CI workflows,
 # the root notes (*.md) and the browser check scripts. Nothing under app/,
 # lib/, components/, public/, content/, themes/ or the build's own scripts
-# is ever skipped (checked: none of the skipped folders is imported by the
-# app or read at run time).
+# is ever skipped. Canonical run-now SQL is also a build input: the admin's
+# SQL updates catalog must ship when a part is added, changed or removed.
 #
 # Anything uncertain builds: no previous deployment, a previous commit the
 # shallow clone does not have, a git error, or a change list that cannot be
@@ -26,6 +26,10 @@ if [ -z "$prev" ]; then echo "No previous deployment on this branch: building.";
 if ! git cat-file -e "${prev}^{commit}" 2>/dev/null; then echo "Previous deployment ${prev} is not in the clone: building."; exit 1; fi
 if ! changed=$(git diff --name-only "$prev" "$cur" 2>/dev/null); then echo "Could not compare with ${prev}: building."; exit 1; fi
 if [ -z "$changed" ]; then echo "No file changes since ${prev} (a redeploy): building."; exit 1; fi
+if printf '%s\n' "$changed" | grep -qE '^supabase/sql/run-now/[^/]+\.sql$'; then
+  echo "Canonical SQL changed: rebuilding the admin SQL updates catalog."
+  exit 1
+fi
 runtime=$(printf '%s\n' "$changed" | grep -vE '^(tests/|docs/|supabase/|sql/|android/|ios/|\.github/|scratchpad/|[^/]+\.md$|scripts/(check|render|probe)-[^/]+$)')
 if [ -n "$runtime" ]; then
   echo "Changes the app uses:"; printf '%s\n' "$runtime" | head -20

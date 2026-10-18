@@ -6,11 +6,14 @@ import { join } from "node:path"
 
 const scratch = mkdtempSync(join(tmpdir(), "storelib-typecheck-process-"))
 try {
-  const run = (body: string) => {
+  const run = (body: string, env: Record<string, string> = {}) => {
     writeFileSync(join(scratch, "pnpm"), `#!/bin/sh\n${body}\n`, { mode: 0o700 })
-    return spawnSync(process.execPath, ["scripts/ci/typecheck-ratchet.mjs"], { encoding: "utf8", env: { ...process.env, PATH: scratch } })
+    return spawnSync(process.execPath, ["scripts/ci/typecheck-ratchet.mjs"], { encoding: "utf8", env: { ...process.env, PATH: scratch, ...env } })
   }
   assert.equal(run("exit 0").status, 0, "completed compiler with no errors passes")
+  assert.equal(run('[ "$NODE_OPTIONS" = "--max-old-space-size=6144" ]', { NODE_OPTIONS: "" }).status, 0, "standalone compiler receives the CI heap ceiling")
+  const explicitOptions = "--max-old-space-size=4096 --conditions=storelib-test"
+  assert.equal(run(`[ "$NODE_OPTIONS" = "${explicitOptions}" ]`, { NODE_OPTIONS: explicitOptions }).status, 0, "an explicit ceiling and unrelated options are preserved")
   const failed = run("echo 'compiler process failed' >&2\nexit 1")
   assert.equal(failed.status, 1, "failed process cannot be treated as zero type errors")
   assert.match(failed.stderr, /TypeScript did not complete/)

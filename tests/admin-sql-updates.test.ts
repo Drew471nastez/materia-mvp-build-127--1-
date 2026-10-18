@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
-import { readFileSync, readdirSync } from "node:fs"
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { sqlBatch, sqlStatus, type SqlSource } from "../lib/admin/sql-updates"
 
 const catalog: SqlSource[] = JSON.parse(readFileSync("lib/admin/sql-catalog.generated.json", "utf8"))
@@ -43,4 +46,16 @@ assert(route.indexOf("await requireAdmin()") < route.indexOf("new URL(request.ur
 assert(!route.includes("export async function POST"), "no generic SQL execution endpoint")
 assert(route.includes("no-store, private"))
 assert(readFileSync("app/admin/sql-updates/page.tsx", "utf8").includes("await isAdminAuthenticated()"))
+const scratch = mkdtempSync(join(tmpdir(), "storelib-sql-build-gate-"))
+try {
+  writeFileSync(join(scratch, "git"), '#!/bin/sh\ncase "$1" in\ncat-file) exit 0 ;;\ndiff) printf "%s\\n" "$STORELIB_TEST_CHANGED" ;;\n*) exit 1 ;;\nesac\n', { mode: 0o700 })
+  const buildGate = (files: string) => spawnSync("bash", ["scripts/vercel/ignore-build.sh"], {
+    env: { ...process.env, PATH: `${scratch}:${process.env.PATH}`, STORELIB_TEST_CHANGED: files, VERCEL_GIT_PREVIOUS_SHA: "before", VERCEL_GIT_COMMIT_SHA: "after" },
+    encoding: "utf8",
+  })
+  assert.equal(buildGate("supabase/sql/run-now/233_physical_carrier_prefs.sql").status, 1, "canonical SQL alone must deploy the current catalog")
+  assert.equal(buildGate("docs/example.md\nsupabase/sql/run-now/01_schema.sql").status, 1, "other skipped changes cannot hide a catalog change")
+  assert.equal(buildGate("supabase/migrations/historical.sql\ndocs/example.md").status, 0, "historical copies still do not require a deployment")
+  assert.equal(buildGate("app/admin/sql-updates/page.tsx").status, 1, "runtime changes still deploy")
+} finally { rmSync(scratch, { recursive: true, force: true }) }
 console.log(`SQL updates: status, tracking, ordering, export safety, auth, and ${catalog.length} exact source hashes passed`)
