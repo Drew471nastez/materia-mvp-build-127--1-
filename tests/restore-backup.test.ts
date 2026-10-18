@@ -226,7 +226,7 @@ async function main() {
     let error: string | null = null
     const base = { busy, setBusy: (b: boolean) => states.push(b), setError: (e: string | null) => { error = e }, fallback: "Could not restore this backup" }
 
-    const hang: typeof fetch = (_u, init) => new Promise((_res, rej) => {
+    const hang: typeof fetch = (_u, init) => new Promise<Response>((_res, rej) => {
       init?.signal?.addEventListener("abort", () => rej(Object.assign(new Error("timeout"), { name: "TimeoutError" })))
     })
     const t0 = Date.now()
