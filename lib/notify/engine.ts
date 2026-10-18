@@ -30,7 +30,8 @@
  *              in app        preference, then the bell row (idempotent)
  *              email         sent elsewhere, the email list (email-budget.ts:
  *                            a type that is never an email is skipped
- *                            EMAIL_BUDGET), address, preference,
+ *                            EMAIL_BUDGET), address, an amount with no
+ *                            currency (held: CURRENCY_UNKNOWN), preference,
  *                            suppression, three optional emails a day, the
  *                            account's daily cap on budgeted emails, then
  *                            the delivery row in "sending", then the send
@@ -47,6 +48,7 @@
  *
  * Nothing waits in memory: a delay is a run_at in the table.
  */
+import { flagHeldEmail, moneyWithoutCurrency } from "@/lib/money/held-email"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { checkCondition, isConditionName } from "./conditions"
 import { ACCOUNT_DAILY_EMAIL_CAP, BUDGETED_TYPES, emailAllowed, emailClass } from "./email-budget"
@@ -279,6 +281,11 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
     if (entry.emailSentElsewhere) return skipChannel("email", "EMAIL_SENT_ELSEWHERE")
     if (!emailAllowed(entry.type)) return skipChannel("email", "EMAIL_BUDGET")
     if (!deps.email || !address) return skipChannel("email", "NO_RECIPIENT")
+    /* An amount with no currency is never emailed, not even as a bare number: held and flagged for the admin. */
+    if (moneyWithoutCurrency(job.data)) {
+      await flagHeldEmail({ email: "Notification", orderId: typeof job.data?.orderId === "string" ? job.data.orderId : null, type: String(entry.type) })
+      return skipChannel("email", "CURRENCY_UNKNOWN")
+    }
     if (job.recipient_user_id && !decide(await preferences(), entry, "email")) return skipChannel("email", "PREFERENCE_OFF")
     if (!job.recipient_user_id && entry.requirement === "marketing") return skipChannel("email", "PREFERENCE_OFF")
     if (blocks(await store.suppressions(address), entry.requirement)) return skipChannel("email", "SUPPRESSED")

@@ -529,3 +529,60 @@ Your answers to section 10, as built:
    - the card, product page, checkout, receipt and refund amounts;
    - the order's `currency = usd` and its `pricing_context`.
 6. **Widen gradually:** a comma list of creator ids, then `all`. Setting it to `off` (or removing it) puts every page back on the store's own currency at once. Orders already made keep the currency they were charged in.
+
+## 12. Before any store is switched on (round AN)
+
+`MARKETPLACE_USD` stays unset. Nothing below turns anything on.
+
+### Fixed
+
+- **Stripe's 50 metadata keys.**
+  - A business buyer's details now take 3 keys instead of 8. Payments made before the change are still read the old way.
+  - `lib/checkout/stripe-metadata.ts` checks every payment before Stripe is called. Only the buyer's device (type, system, browser) may be left out to make room. If a payment still does not fit, it is refused before anything is charged, and its coupon and stock holds are let go.
+  - Worst cases, measured in `tests/round-an`:
+    - single product with a business buyer, a coupon hold, a sale hold and the marketplace record: within 50;
+    - a full 50-line website basket with a code, tax and a business buyer: within 50.
+- **Emails with no known currency are held, never sent with a guess.** `lib/money/held-email.ts`. Each one is flagged on the admin Health view with its order.
+  - Notification engine: skip reason `CURRENCY_UNKNOWN`.
+  - Receipt and receipt copy.
+  - The seller's sale email.
+  - The refund email.
+  - The in-app bell drops the number instead of printing a bare one.
+- **Translations.** The paused purchase, "Back to the product" and the too-large refusal are in all 9 curated checkout languages. The paused page reads the buyer's browser language.
+
+### Verified
+
+- **SQL 244**, rehearsed on PostgreSQL 16 with 200,000 stand-in orders:
+  - 59 ms;
+  - no table rewrite (same relfilenode);
+  - existing rows byte-for-byte unchanged;
+  - safe to run again;
+  - skips cleanly on an empty database;
+  - the checks accept what the app writes and refuse bad values;
+  - the migrations copy is identical.
+  - In production, run it with `SET lock_timeout = '5s';` first, so a busy `orders` table makes it wait and retry rather than queue other writes behind it.
+- **Vercel.** The environment variables could not be listed through the connected account (403), and no value was read.
+  - Live Explore shows `$` for stores that never chose a currency, so production's platform currency resolves to USD.
+  - Live Explore links carry no `ctx=mp`, so the switch is off.
+  - Admin › Payments › Configuration now shows both settings.
+- **Reconciliation script.** Proven read-only (GET requests only) against a local stand-in. It needs the production keys, so it has not run against production.
+  - New `--prices` option: it lists products of stores that never chose a currency whose price is a whole number times 4.6.
+  - Live Explore shows prices like this: $165.60 (36 × 4.6), $312.80 (68 × 4.6), $18.40 (4 × 4.6). They may be lei amounts charged as dollars. Not changed; to look at.
+- **One store end to end** (`tests/e2e-marketplace-usd`, real routes, simulated Stripe with signed webhooks):
+  - **Switch off:** an Explore link still charges lei.
+  - **Switch on for one store:**
+    - the website or shared link charges 49.00 lei;
+    - Explore charges $10.65 at the day's ECB rate;
+    - the order records `pricing_context`, list price, source and rate day;
+    - receipts and sale emails show each sale in its own currency;
+    - the ledger keeps the platform wallet currency, with "from 49.00 lei";
+    - the revenue chart is in lei, with the dollar sale converted at its day's rate;
+    - the Payouts tax total is in dollars.
+  - **Stale rate:** 409, Stripe not called.
+  - **No rate:** 503, Stripe not called; the website still sells in lei.
+  - **Another store not in the switch:** keeps its lei.
+  - **Refund:** a $5.00 refund on the dollar charge, refund email "$5.00", the chart's refund converted to lei.
+
+### Found, not changed
+
+- **Revenue chart, partial refunds.** An order with any refund drops out of gross entirely and only its refund is subtracted. This happens in every currency and predates this work. Proposed fix: count the order's gross, and subtract the refunded part.
