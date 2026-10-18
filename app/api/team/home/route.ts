@@ -24,17 +24,18 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const wantedRaw = url.searchParams.get("store")
   const wanted = wantedRaw && UUID.test(wantedRaw) ? wantedRaw : null
+  const to = (path: string) => new URL(path, url.origin)
   const user = await requestUser(req)
+  if (!user) return NextResponse.redirect(to(`/login?next=${encodeURIComponent(safeAppNext(url.searchParams.get("next")))}`), 303)
   const db = createAdminClient()
-  const [access, rows] = user ? await Promise.all([readSellerAccess(db as never, user.id), memberRowsOf(db, user.id).catch(() => [])]) : [null, []]
+  const [access, rows] = await Promise.all([readSellerAccess(db as never, user.id), memberRowsOf(db, user.id).catch(() => [])])
   let cookie: string | null = null
   try {
     cookie = (await cookies()).get(TEAM_STORE_COOKIE)?.value ?? null
   } catch {
     cookie = null
   }
-  const decision = teamHomeDecision({ signedIn: !!user, ownAccess: hasSellerAccess(access), rows, wanted, cookie, next: url.searchParams.get("next") ?? "/app" })
-  const to = (path: string) => new URL(path, url.origin)
+  const decision = teamHomeDecision({ signedIn: true, ownAccess: hasSellerAccess(access), rows, wanted, cookie, next: url.searchParams.get("next") ?? "/app" })
   if (decision.kind === "login") return NextResponse.redirect(to(`/login?next=${encodeURIComponent(safeAppNext(url.searchParams.get("next")))}`), 303)
   if (decision.kind === "sell") return NextResponse.redirect(to("/sell"), 303)
   if (decision.kind === "go") return NextResponse.redirect(to(decision.to), 303)
