@@ -57,7 +57,7 @@ async function main() {
     check("its schema is never printed", !/schema_version|&quot;type&quot;:\s*&quot;|"settings":\s*\[/.test(html.replace(/<script[\s\S]*?<\/script>/g, "")))
     check("no inert <template> or <schema> element reaches the page", !/<template[\s>]/.test(html.replace(/<script[\s\S]*?<\/script>/g, "")) && !/<schema>/.test(html))
     check("it is wrapped like the theme's sections, so the editor selects it", /id="shopify-section-ai1" class="shopify-section storelib-native-section" data-section-id="ai1" data-section-type="ai_hero"/.test(html))
-    check("its styles are scoped to it, with the theme's font and colour", /\[data-section-id="ai1"\]\{[^}]*--theme-font-body:inherit/.test(html))
+    check("its styles are scoped to it, with the theme's font and colour", /* Changed on purpose (round AK: the theme's own font through its CSS variable, inherited when it has none) */ /\[data-section-id="ai1"\]\{[^}]*--theme-font-body:var\(--font-body-family, var\(--font-body--family, inherit\)\)/.test(html))
     check("the theme's own section still draws", html.includes("<h1>Hi</h1>"))
     const schema = theme.schemaOf("sections", "ai_hero")
     check("its schema is read as the compiled one", Array.isArray((schema as { settings?: unknown[] }).settings) && JSON.stringify(schema).includes("button_text"))
@@ -66,7 +66,7 @@ async function main() {
   console.log("\nThe writer knows an imported theme, and the canvas glides to what it made")
   {
     const writer = code("lib/website-builder/agent/write-section.ts")
-    check("an imported theme's writer is told to write no script and keep motion in CSS", /IMPORTED_THEME_NOTE/.test(writer) && /opts\.importedTheme \? IMPORTED_THEME_NOTE/.test(writer))
+    check("an imported theme's writer is told to write no script and keep motion in CSS", /IMPORTED_THEME_NOTE/.test(writer) && /* Changed on purpose (round AK: the note now carries the theme itself, importedThemeNote) */ /const lines = \[IMPORTED_THEME_NOTE\]/.test(writer) && /opts\.importedTheme \? importedThemeNote\(/.test(writer))
     check("a file with a script is sent back for an imported theme", /opts\.importedTheme && \/\^\\s\*<script/.test(writer))
     check("the route asks whether the install is imported", /importedTheme = await isCompatInstall\(installId\)/.test(code("app/api/website-builder/themes/[installId]/sections/code/route.ts")))
     const scroll = await import("@/lib/website-builder/canvas-scroll")

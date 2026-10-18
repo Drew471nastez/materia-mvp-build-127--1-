@@ -52,26 +52,29 @@ const PAGE = [s("header"), s("hero"), s("faq"), s("gallery"), s("footer")]
 function main() {
   console.log("\nWhere it lands")
 
-  check("under the section that is open",
-    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "hero" }), s("new"))) === "header,hero,new,faq,gallery,footer")
+  /* Changed on purpose (round AK, the owner: a section the AI writes goes first on the page, unless a spot is picked or named). */
+  check("under the section that is open, when asked to go below it",
+    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "hero", prompt: "add a pricing table below this" }), s("new"))) === "header,hero,new,faq,gallery,footer")
   check("in the gap the creator chose, over the section they have open",
     ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { chosenIndex: 3, selectedId: "hero" }), s("new"))) === "header,hero,faq,new,gallery,footer")
-  check("with nothing chosen, at the end of the page above the footer",
-    ids(placeWrittenSection(PAGE, writingAnchor(PAGE), s("new"))) === "header,hero,faq,gallery,new,footer")
+  check("with nothing chosen, first on the page under the header (round AK)",
+    ids(placeWrittenSection(PAGE, writingAnchor(PAGE), s("new"))) === "header,new,hero,faq,gallery,footer")
   check("the header being open does not put it above the header",
-    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "header" }), s("new"))) === "header,hero,faq,gallery,new,footer")
+    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "header", prompt: "add a banner below this" }), s("new"))) === "header,new,hero,faq,gallery,footer")
   check("the footer being open does not put it below the footer",
-    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "footer" }), s("new"))) === "header,hero,faq,gallery,new,footer")
+    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { selectedId: "footer", prompt: "add a banner below this" }), s("new"))) === "header,new,hero,faq,gallery,footer")
+  check("at the end, when asked for the end",
+    ids(placeWrittenSection(PAGE, writingAnchor(PAGE, { prompt: "a contact form at the end of the page" }), s("new"))) === "header,hero,faq,gallery,new,footer")
   check("a chosen gap outside the body is pulled back into it",
     anchorIndex(PAGE, writingAnchor(PAGE, { chosenIndex: 0 })) === 1 && anchorIndex(PAGE, writingAnchor(PAGE, { chosenIndex: 99 })) === 4)
   const bare = [s("a"), s("b")]
   check("a page with no header or footer takes it at the top or the end",
     ids(placeWrittenSection(bare, writingAnchor(bare, { chosenIndex: 0 }), s("new"))) === "new,a,b"
-      && ids(placeWrittenSection(bare, writingAnchor(bare), s("new"))) === "a,b,new")
+      && ids(placeWrittenSection(bare, writingAnchor(bare), s("new"))) === "new,a,b")
 
   console.log("\nThe spot survives the creator working while it is written")
 
-  const anchor = writingAnchor(PAGE, { selectedId: "hero" })
+  const anchor = writingAnchor(PAGE, { selectedId: "hero", prompt: "add a pricing table below this" })
   const addedAbove = [s("header"), s("banner"), s("hero"), s("faq"), s("gallery"), s("footer")]
   check("a section added above it moves the spot with the section it was under",
     ids(placeWrittenSection(addedAbove, anchor, s("new"))) === "header,banner,hero,new,faq,gallery,footer")

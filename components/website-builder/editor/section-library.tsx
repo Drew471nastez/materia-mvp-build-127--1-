@@ -81,10 +81,10 @@
  * and films it, and follows the add until everything has settled.
  */
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
+import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { createPortal, flushSync } from "react-dom"
-import { ArrowUpRight, Blocks, Search, X } from "lucide-react"
+import { ArrowUpRight, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
@@ -835,6 +835,8 @@ const FILL_PER_FRAME = 4
 const EAGER_CARDS = 3
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
+/** How long the library's entrance takes before anything heavy is asked of the page (the panel's 280ms, less a frame). */
+const OPEN_SETTLE_MS = 260
 
 /**
  * APP EMBEDS, first in the list. Every section and widget a Storelib app
@@ -957,7 +959,8 @@ export const SectionLibrary = memo(function SectionLibrary({
           instead, from what the theme says about it (section-categories.ts).
         */
         /* Storelib's own apps' sections (Storelib Reviews and its widgets) under Apps, in either kind of theme (section-categories.ts). */
-        const appInfo = own_ ? undefined : appForSection(type)?.app
+        /* Round AK: an imported theme's files all count as the install's own, Storelib Reviews' two among them, so "own" alone hid every app section there and App embeds stayed empty. A file the creator wrote is still never an app's. */
+        const appInfo = own_ && !schema.imported ? undefined : appForSection(type)?.app
         const app = appInfo?.id ?? null
         const category = app
           ? app
@@ -1004,16 +1007,14 @@ export const SectionLibrary = memo(function SectionLibrary({
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? tt("Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
-    const embedCount = entries.filter((e) => e.app).length
+    /* App embeds is its own button beside the search now (round AK), not a category. */
     return [
-      /* App embeds first, always, with or without an app section in this theme: it is also the way to the apps. */
-      { key: APP_EMBEDS, label: tt("App embeds"), count: embedCount, group: "embeds" as const },
       ...mine,
       { key: "all", label: tt("All"), count: entries.length },
       /* Apps second, under their own heading, so a phone's row shows them without a scroll. */
       ...apps,
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
-    ] as { key: string; label: string; count: number; group?: "apps" | "embeds" }[]
+    ] as { key: string; label: string; count: number; group?: "apps" }[]
   }, [entries, compatInstallId])
 
   /**
@@ -1049,10 +1050,21 @@ export const SectionLibrary = memo(function SectionLibrary({
   const [built, setBuilt] = useState(false)
   useEffect(() => {
     if (open) {
-      /* Whatever is still missing, in the order it will be seen. An imported theme draws its own (compat-section-preview.tsx). */
-      if (!compatInstallId) requestPreviews(jobs, true)
-      setBuilt(true)
-      return
+      /*
+        Round AK, the owner: "a bump" on pressing Add section. Drawing the
+        missing previews at once, and building the cards for a library
+        opened before they were built, was a 200 to 600ms task on the
+        entrance's first frames (scripts/check-add-section.mjs). The cards
+        build in an interruptible render, and what is still missing is drawn
+        once the entrance has settled (OPEN_SETTLE_MS), so the dialog or the
+        sheet arrives in one smooth movement and the previews fade in after.
+      */
+      startTransition(() => setBuilt(true))
+      const settle = window.setTimeout(() => {
+        /* Whatever is still missing, in the order it will be seen. An imported theme draws its own (compat-section-preview.tsx). */
+        if (!compatInstallId) requestPreviews(jobs, true)
+      }, OPEN_SETTLE_MS)
+      return () => window.clearTimeout(settle)
     }
     const t = window.setTimeout(() => {
       if (!compatInstallId) requestPreviews(jobs)
@@ -1271,36 +1283,64 @@ export const SectionLibrary = memo(function SectionLibrary({
     </div>
   ) : null
 
-  /* Above the cards in App embeds: the apps themselves, each a tap from its own page, and every integration after them. */
+  /*
+    Above the cards in App embeds: the apps themselves, each a tap from its
+    own page, and every integration after them. Round AK: words, no icons
+    (the owner: "avoid those bad icons"), one quiet row of pills.
+  */
+  const embedCount = useMemo(() => entries.filter((e) => e.app).length, [entries])
   const embedsStrip = !searching && activeCategory === APP_EMBEDS ? (
     <div data-app-embeds="" className="mb-4">
-      <div className="flex flex-wrap gap-2">
-        {STORELIB_SECTION_APPS.map((app) => {
-          const Icon = ICON_MAP[app.icon]
-          return (
-            <a
-              key={app.id}
-              href={app.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-app-embed={app.id}
-              className="group/app flex min-h-12 min-w-[140px] flex-1 basis-[calc(50%-4px)] items-center gap-2.5 rounded-xl bg-white px-3 py-2 shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.05)] transition-[box-shadow,translate] duration-150 sm:basis-[calc(25%-6px)] hover:-translate-y-px hover:shadow-[0_0_0_1px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.14)] [-webkit-tap-highlight-color:transparent] max-sm:hover:translate-y-0"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#4b5563] shadow-[inset_0_-1px_0_rgba(16,24,40,0.06)]">
-                {Icon ? <Icon className="h-3.5 w-3.5" strokeWidth={1.9} /> : <Blocks className="h-3.5 w-3.5" strokeWidth={1.9} />}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#1a1a2e]">{tt(app.label)}</span>
-              <ArrowUpRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#9ca3af] transition-colors group-hover/app:text-[#4b5563]" />
-            </a>
-          )
-        })}
+      <p className="mb-2 text-[12.5px] text-[#6b7280]">{tt("Sections from your apps. Manage an app on its own page.")}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {STORELIB_SECTION_APPS.map((app) => (
+          <a
+            key={app.id}
+            href={app.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-app-embed={app.id}
+            className="group/app inline-flex h-8 items-center gap-1 rounded-full bg-white pl-3 pr-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.05)] transition-[box-shadow,color] duration-150 hover:shadow-[0_0_0_1px_rgba(16,24,40,0.18),0_2px_6px_-2px_rgba(16,24,40,0.12)] [-webkit-tap-highlight-color:transparent]"
+          >
+            {tt(app.label)}
+            <ArrowUpRight aria-hidden className="h-3 w-3 text-[#9ca3af] transition-colors group-hover/app:text-[#4b5563]" />
+          </a>
+        ))}
+        <a href="/app/integrations" target="_blank" rel="noopener noreferrer" data-app-embed="all" className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+          {tt("All integrations")}
+          <ArrowUpRight aria-hidden className="h-3 w-3" />
+        </a>
       </div>
-      <a href="/app/integrations" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[12.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
-        {tt("All integrations")}
-        <ArrowUpRight aria-hidden className="h-3 w-3" />
-      </a>
     </div>
   ) : null
+
+  /* App embeds: a toggle of its own beside the search (round AK). On, the list is the apps' sections; off, back to where it was. */
+  const embedsOn = activeCategory === APP_EMBEDS && !searching
+  const lastCategory = useRef<string | null>(null)
+  const embedsButton = (
+    <button
+      type="button"
+      aria-pressed={embedsOn}
+      data-app-embeds-toggle=""
+      onClick={() => {
+        setQuery("")
+        if (embedsOn) setActiveCategory(lastCategory.current)
+        else {
+          lastCategory.current = activeCategory === APP_EMBEDS ? null : activeCategory
+          setActiveCategory(APP_EMBEDS)
+        }
+      }}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent] max-md:h-8 max-md:rounded-full",
+        embedsOn
+          ? "bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.2)]"
+          : "bg-white text-[#374151] shadow-[0_0_0_1px_rgba(16,24,40,0.10),0_1px_2px_rgba(16,24,40,0.05)] hover:text-[#1a1a2e] hover:shadow-[0_0_0_1px_rgba(16,24,40,0.18),0_1px_2px_rgba(16,24,40,0.06)]",
+      )}
+    >
+      {tt("App embeds")}
+      {embedCount > 0 ? <span className={cn("text-[12px] tabular-nums", embedsOn ? "text-white/60" : "text-[#9ca3af]")}>{embedCount}</span> : null}
+    </button>
+  )
 
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
@@ -1398,8 +1438,9 @@ export const SectionLibrary = memo(function SectionLibrary({
         peekHeight={0}
       >
         <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone" data-library-open={open ? "" : undefined}>
-          <div className="shrink-0 px-4 pb-3 pt-0.5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add a section")}</h2>
+          <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-0.5">
+            <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add a section")}</h2>
+            {embedsButton}
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label={tt("Categories")}>
@@ -1435,7 +1476,10 @@ export const SectionLibrary = memo(function SectionLibrary({
     <LibraryDialog open={open} onClose={() => onOpenChange(false)} labelledBy="section-library-title" searchRef={searchRef}>
       <div className="flex shrink-0 items-center gap-4 border-b border-[#f0f1f3] px-5 py-3.5">
         <h2 id="section-library-title" className="min-w-0 shrink truncate text-[16px] font-semibold text-[#1a1a2e]">{tt("Add a section")}</h2>
-        <div className="ml-auto w-[260px] max-w-full shrink-0">{search}</div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {embedsButton}
+          <div className="w-[260px] max-w-full shrink-0">{search}</div>
+        </div>
         <button
           type="button"
           onClick={() => onOpenChange(false)}
@@ -1468,12 +1512,10 @@ export const SectionLibrary = memo(function SectionLibrary({
                   on ? "bg-[#f3f4f6] font-medium text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f8f9fa] hover:text-[#1a1a2e]",
                 )}
               >
-                {cat.group === "embeds" ? <Blocks aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.9} /> : null}
                 <span className="truncate">{cat.label}</span>
                 {/* How many each holds, so a long theme's list says where the most is. */}
                 <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
-              {cat.group === "embeds" ? <div aria-hidden className="mx-3 my-2 h-px bg-[#f0f1f3]" /> : null}
               </div>
             )
           })}

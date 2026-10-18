@@ -56,6 +56,8 @@ export interface RouteInput {
   bodySections: number
   /** Kinds of section the theme already has, by type and name, so "add a FAQ" is not a new one. */
   addable?: { type: string; name?: string }[]
+  /** The sections already on the page (type and name), so "a new FAQ" beside an existing FAQ is a new one, never that one. */
+  onPage?: { type: string; name?: string }[]
   hasHistory?: boolean
 }
 
@@ -115,6 +117,12 @@ const OWN_KIND = /\b(new kind|custom|my own|its own|unique|from scratch|code|cod
 
 const PAGE_WORDS =/\b(page|pages|site|website|store|shop|home ?page|landing)\b/i
 
+/** Round AK: "new", "another", "a second": a section that is not the one already there. */
+const NEW_WORDS = /\b(new|another|extra|second|separate|additional|fresh)\b/i
+
+/** "Something completely different", "a different design", "not like my current one": never an edit of what is there. */
+const DIFFERENT = /\b(?:completely|totally|entirely|something|very)\s+(?:different|new|else|unique|original)\b|\bdifferent\s+(?:design|style|look|layout|one|version|kind)\b|\bnot\s+like\s+(?:the|my|this)\s+(?:existing|current|old|other)\b|\bnot\s+(?:the|my)\s+(?:existing|current|old)\b/i
+
 function namesAddable(thing: string, addable: { type: string; name?: string }[]): boolean {
   const said = ` ${thing.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ")} `
   return addable.some((a) => {
@@ -171,9 +179,19 @@ export function routeByRules(input: RouteInput): RuleDecision {
   /* "Copy this section" is a new one made from it; "make this section red" is the selection. */
   const aboutThisOne = /\b(?:this|that|the selected)\s+section\b/i.test(words.replace(/\b(?:like|from|as)\s+(?:this|that)\s+section\b/gi, "")) && !/\b(?:copy|duplicate|clone|recreate|replicate)\b/i.test(words)
   if (NEW_SECTION.test(words) && !aboutThisOne) {
-    const known = !!input.addable && namesAddable(words.replace(/\bsections?\b/gi, ""), input.addable)
-    if (known && input.images === 0 && !OWN_KIND.test(words)) return decide("page", "section", false, false, "a section the theme has")
-    return decide("writer", "section", false, false, "a section of its own")
+    const said = words.replace(/\bsections?\b/gi, "")
+    const known = !!input.addable && namesAddable(said, input.addable)
+    /*
+      Round AK, the owner: "create a new FAQ section, something completely
+      different" was routed as "a section the theme has" because the theme
+      has a FAQ, and the page assistant rewrote the FAQ already on the page.
+      A new one of a kind already on this page, or one asked to be
+      different, is a section of its own, written fresh and placed as a new
+      section; the one on the page is left alone.
+    */
+    const alreadyHere = !!input.onPage && NEW_WORDS.test(words) && namesAddable(said, input.onPage)
+    if (known && input.images === 0 && !OWN_KIND.test(words) && !DIFFERENT.test(words) && !alreadyHere) return decide("page", "section", false, false, "a section the theme has")
+    return decide("writer", "section", false, false, alreadyHere ? "a new one beside the one on the page" : "a section of its own")
   }
 
   /* A picture and nothing selected: the picture is a section to make. With the chip on, it is what the selection should look like. */

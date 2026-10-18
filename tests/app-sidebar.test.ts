@@ -474,7 +474,7 @@ section("The submenu has a height to animate")
   )
   check(
     "both the height and the opacity animate, in about two hundred milliseconds",
-    /grid-template-rows 200ms cubic-bezier\(0\.2, 0, 0, 1\), opacity 200ms ease/.test(navSource),
+    /* Changed on purpose (round AK: a softer open, 260ms, and a quicker close, 220ms, the rows fading a touch ahead of the height) */ /grid-template-rows 260ms cubic-bezier\(0\.22, 1, 0\.36, 1\), opacity 220ms ease-out 40ms/.test(navSource) && /grid-template-rows 220ms cubic-bezier\(0\.4, 0, 0\.2, 1\), opacity 140ms ease-in/.test(navSource),
   )
   check(
     "and the chevron turns over the same kind of curve",

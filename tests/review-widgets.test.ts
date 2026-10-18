@@ -257,7 +257,7 @@ function libraryChecks() {
   check("a Storelib theme offers it too, a card per widget", ADDABLE_SECTIONS.includes("reviews_widget") && (SECTION_SCHEMAS.reviews_widget?.presets ?? []).length === WIDGET_TYPES.length)
   check("a theme's own testimonials stay the theme's", appSectionCategory("testimonials") === null && classifyImportedSection({ type: "testimonials", name: "Testimonials" }) === "testimonials")
   const lib = read("components/website-builder/editor/section-library.tsx")
-  check("the library files them before the theme's classifier, and lists Apps last under a heading", /* V5: through the apps registry (lib/website-builder/app-sections.ts), the one place apps register their sections. */ /const appInfo = own_ \? undefined : appForSection\(type\)\?\.app/.test(lib) && /\.\.\.apps,/.test(lib) && /data-library-group="apps"/.test(lib))
+  check("the library files them before the theme's classifier, and lists Apps last under a heading", /* V5: through the apps registry (lib/website-builder/app-sections.ts), the one place apps register their sections. */ /* Changed on purpose (round AK: an imported theme's files are all "own", so an imported one is still an app's) */ /const appInfo = own_ && !schema\.imported \? undefined : appForSection\(type\)\?\.app/.test(lib) && /\.\.\.apps,/.test(lib) && /data-library-group="apps"/.test(lib))
   check("the section's saved look is a list of the store's looks in the sidebar", /field\.id === REVIEW_CONFIG_FIELD && kind === "text"/.test(read("components/website-builder/editor/controls/index.tsx")))
 }
 

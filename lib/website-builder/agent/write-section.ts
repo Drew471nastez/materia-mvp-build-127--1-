@@ -41,6 +41,7 @@
  * mock provider receives).
  */
 import { describeAccountMemory } from "@/lib/ai-memory/store"
+import { nativeThemeFromShopifySchemes } from "@/lib/storelib-theme/compat/native-schemes"
 import { INTEGRATION_CONTRACT } from "@/lib/storelib-ai/integration"
 import {
   MAX_REPAIR_ATTEMPTS,
@@ -211,6 +212,62 @@ type Gate =
 export const IMPORTED_THEME_NOTE =
   "IMPORTED THEME\nThis website runs a theme imported from Shopify, and your section is drawn inside it by Storelib. Write no <script>: it does not run there. Keep any motion in CSS (transitions, keyframes, :hover). The theme's own font and text colour are inherited, so set colours through the colour scheme and the settings, never a page background of your own."
 
+/**
+ * ===========================================================================
+ *  THE IMPORTED THEME ITSELF, FOR THE WRITER (round AK)
+ * ===========================================================================
+ * The owner: a section the AI wrote into an imported theme "doesn't know the
+ * theme it's coding into: the colour schemes don't work, the layout isn't
+ * consistent, the typography". The writer was told only that the theme was
+ * imported. Now it is told the theme itself, from its own settings: each
+ * colour scheme by the id the sidebar's Colour scheme field saves, with its
+ * colours; the heading and body fonts; the page width, the spacing between
+ * sections and the button corners. The section is drawn with those schemes
+ * (lib/storelib-theme/compat/theme.ts nativeThemeFromShopifySchemes) and the
+ * theme's fonts and width (nativeBlendVars), so a section written to them
+ * matches the page around it and repaints when another scheme is picked.
+ * Pure.
+ */
+export function importedThemeNote(settings?: Record<string, unknown> | null): string {
+  const s = settings ?? {}
+  const native = nativeThemeFromShopifySchemes(s.color_schemes) as { color_schemes?: Record<string, Record<string, string>>; default_color_scheme?: string }
+  const schemes = Object.entries(native.color_schemes ?? {}).slice(0, 10)
+  const num = (...keys: string[]): number | null => {
+    for (const k of keys) {
+      const v = s[k]
+      const n = typeof v === "number" ? v : typeof v === "string" && /^\d+(\.\d+)?$/.test(v) ? Number(v) : NaN
+      if (Number.isFinite(n)) return n
+    }
+    return null
+  }
+  const font = (...keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = s[k]
+      if (typeof v === "string" && v.trim()) return v.replace(/_[nib]\d+$/i, "").replace(/[_-]+/g, " ").trim()
+    }
+    return null
+  }
+  const heading = font("type_header_font", "type_heading_font", "type_font_heading", "heading_font")
+  const body = font("type_body_font", "type_font_body", "body_font")
+  const width = num("page_width", "max_page_width")
+  const spacing = num("spacing_sections", "section_spacing")
+  const radius = num("buttons_radius", "button_border_radius", "button_radius")
+  const lines = [IMPORTED_THEME_NOTE]
+  if (schemes.length) {
+    lines.push(
+      "THE THEME'S COLOUR SCHEMES (the Colour scheme field in the sidebar saves one of these ids):",
+      ...schemes.map(([id, c]) => `- ${id}: background ${c.background ?? "unset"}, text ${c.text ?? "unset"}, headings ${c.heading ?? c.text ?? "unset"}, button ${c.primary_button_background ?? "unset"} with ${c.primary_button_text ?? "unset"} text`),
+      `Give the section a setting {"type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "${native.default_color_scheme ?? schemes[0][0]}"} and paint ONLY from the scheme's variables on the section root (var(--scheme-background), var(--scheme-text), var(--scheme-heading), var(--scheme-accent), var(--scheme-border), var(--scheme-button-primary), var(--scheme-button-primary-text), var(--scheme-button-secondary), var(--scheme-button-secondary-text)): choosing another scheme in the sidebar then repaints the whole section, as the theme's own sections do. No colour of your own except as a color setting that defaults to a scheme colour.`,
+    )
+  }
+  lines.push(
+    `TYPE: headings in var(--theme-font-heading)${heading ? ` (the theme's ${heading})` : ""}, everything else in var(--theme-font-body)${body ? ` (${body})` : ""}. Never name a font family. Sizes follow the theme's scale: a section title is the size of the theme's own section titles, not a hero's.`,
+    `LAYOUT: the content sits in a centred wrapper, max-width: var(--theme-page-width)${width ? ` (${width}px)` : ""}, with the theme's side padding, like the theme's own sections. Top and bottom padding are range settings (padding_top, padding_bottom)${spacing !== null ? `, default ${Math.max(24, Math.min(96, Math.round(spacing || 36)))}px` : ", default 36px"}, so the section sits in the page's rhythm.`,
+    radius !== null ? `BUTTONS: corners of ${radius}px, the theme's.` : "",
+  )
+  return lines.filter(Boolean).join("\n")
+}
+
 function gate(text: string, opts: { takenTypes: string[]; takenNames: string[]; theme?: ThemeBriefInput; importedTheme?: boolean }): Gate {
   /**
    * The type comes from the file's own schema, and the file name follows it
@@ -360,7 +417,7 @@ export async function writeSection(opts: {
      * told afterwards what the colours are has already chosen them.
      */
     opts.theme ? themeBrief({ ...opts.theme, for: "writer" }).text : "",
-    opts.importedTheme ? IMPORTED_THEME_NOTE : "",
+    opts.importedTheme ? importedThemeNote(opts.theme?.settings as Record<string, unknown> | null | undefined) : "",
     opts.memoryText !== undefined ? opts.memoryText : describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",
