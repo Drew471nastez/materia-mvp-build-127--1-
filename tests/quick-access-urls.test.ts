@@ -87,7 +87,7 @@ function main() {
   const proxy = read("proxy.ts")
   check(
     "the proxy serves the published website on a connected domain",
-    /if \(pathname === "\/links" \|\| pathname === "\/links\/"\) \{[\s\S]{0,200}rewritePath = `\/l\/\$\{username\}`[\s\S]{0,400}\} else if \(builtSite\) \{[\s\S]{0,700}rewritePath = inLanguage\?\.kind === "page" \? inLanguage\.path : `\/w\/\$\{username\}/.test(proxy) /* Changed on purpose (round AB): /fr on a connected domain too. Round AD: a market's own language greets a first visit just before it. */,
+    /if \(pathname === "\/links" \|\| pathname === "\/links\/"\) \{[\s\S]{0,200}rewritePath = `\/l\/\$\{username\}`[\s\S]{0,400}\} else if \(builtSite\) \{[\s\S]{0,700}rewritePath = (?:heldListPath\()?inLanguage\?\.kind === "page" \? inLanguage\.path : `\/w\/\$\{username\}/.test(proxy) /* Changed on purpose (round X1): through heldListPath. (round AB): /fr on a connected domain too. Round AD: a market's own language greets a first visit just before it. */,
   )
   check("and the creator page when there is none", /\} else if \(pathname === "\/" \|\| pathname === ""\) \{[\s\S]{0,120}rewritePath = `\/u\/\$\{username\}`/.test(proxy))
   check(

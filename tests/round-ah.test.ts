@@ -172,7 +172,7 @@ async function main() {
     check("every setting the sidebar draws passes its change through", /onSharedChange=\{props\.onChange\}/.test(editor))
     check("only the menus' link titles stay locked", (editor.match(/<SharedInAllLanguages locked/g) ?? []).length === 1)
     const sw = readFileSync("components/website-builder/preview-locale-switch.tsx", "utf8")
-    check("the top bar's switch is a small globe and code, no purple, no chevron in the bar", /rounded-md px-1\.5 text-\[11\.5px\]/.test(sw) && !/8b5cf6/.test(sw))
+    check("the top bar's switch is a small globe and code, no purple, no chevron in the bar", /* Changed on purpose (round X3, the owner: "more subtle and clean"): the bar's own 32px round text button, 11px words. */ /h-8 shrink-0 items-center gap-1\.5 rounded-full px-2\.5 text-\[11px\]/.test(sw) && !/8b5cf6/.test(sw))
     check("the sidebar says it in one quiet line", /Text saves to \{name\}\. Everything else changes in all languages\./.test(sw) && !/f5f3ff|5b21b6/.test(sw))
   }
 

@@ -7,6 +7,7 @@ import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { throughWelcome } from "@/lib/account/welcome"
 import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import {
   CARRY_COOKIE,
@@ -56,6 +57,13 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const current = await readCurrentUser(supabase)
   const user = current.user
+
+  /* A team invite opened before signing in, when nothing else said where to go (lib/team/invite-links.ts). Read once a person is in. */
+  const invite = jar.get(INVITE_COOKIE)?.value
+  if (invite && user) {
+    carry = { ...carry, next: inviteFallbackNext(carry.next, invite) }
+    jar.delete(INVITE_COOKIE)
+  }
 
   /*
     NOBODY HERE, OR WE COULD NOT TELL. Either way the login page is the

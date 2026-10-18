@@ -568,7 +568,7 @@ export function WbImagePicker({
               {broken ? (
                 <p className="text-[12px] leading-snug text-amber-600 dark:text-amber-300/80">This picture could not be loaded</p>
               ) : !shown ? (
-                <p className="text-[12px] leading-snug text-muted-foreground max-md:hidden dark:text-white/40">or drop one here</p>
+                <p className="text-[12px] leading-snug text-muted-foreground max-md:hidden dark:text-white/55">or drop one here</p>
               ) : null}
             </div>
           </div>

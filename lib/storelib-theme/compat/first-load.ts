@@ -49,11 +49,11 @@ export const FLAG_SVG_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0
 export const FLAG_SRC_PREFIX = `data:image/svg+xml,${encodeURIComponent(FLAG_SVG_OPEN)}`
 
 /** Elements whose contents are not the page's own markup: skipped whole. */
-const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "plaintext"])
+export const RAW_TEXT = new Set(["script", "style", "textarea", "title", "xmp", "iframe", "noembed", "noframes", "plaintext"])
 /** Elements whose markup is not live, or not HTML's: nothing inside moves or changes. */
-const INERT = new Set(["template", "noscript", "svg", "math"])
+export const INERT = new Set(["template", "noscript", "svg", "math"])
 
-interface Tag {
+export interface Tag {
   name: string
   start: number
   /** Index just past the tag's `>`. */
@@ -63,7 +63,7 @@ interface Tag {
 }
 
 /** The tag that starts at `i` (a `<`), its quoted attributes read whole so a `>` inside one does not end it. Null when it is not a tag. */
-function readTag(html: string, i: number): Tag | null {
+export function readTag(html: string, i: number): Tag | null {
   const m = /^<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)/.exec(html.slice(i, i + 64))
   if (!m) return null
   let j = i + m[0].length
@@ -80,7 +80,7 @@ function readTag(html: string, i: number): Tag | null {
 }
 
 /** Where `</name>` closes, case blind, from `from`; the index past it, or the end of the text. */
-function closeOf(html: string, name: string, from: number): number {
+export function closeOf(html: string, name: string, from: number): number {
   const re = new RegExp(`</${name}\\s*>`, "ig")
   re.lastIndex = from
   const m = re.exec(html)
@@ -88,7 +88,7 @@ function closeOf(html: string, name: string, from: number): number {
 }
 
 /** Past the end of an inert element that may nest (a template in a template, an svg in an svg). */
-function pastInert(html: string, name: string, from: number): number {
+export function pastInert(html: string, name: string, from: number): number {
   const re = new RegExp(`<(/?)${name}\\b[^>]*?(/?)>`, "ig")
   re.lastIndex = from
   let depth = 1
@@ -101,7 +101,7 @@ function pastInert(html: string, name: string, from: number): number {
   return html.length
 }
 
-const attr = (raw: string, name: string): string | null => {
+export const attr = (raw: string, name: string): string | null => {
   const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i").exec(raw)
   return m ? (m[1] ?? m[2] ?? m[3] ?? "") : new RegExp(`\\s${name}(?=[\\s/>])`, "i").test(raw) ? "" : null
 }
@@ -134,6 +134,8 @@ export interface FirstLoadResult {
   moved: number
   /** Flag pictures marked to load when seen. */
   lazyFlags: number
+  /** Earlier copies of a stylesheet linked again later, dropped (onceEachStylesheet). */
+  duplicates?: number
 }
 
 /** Whether the browser asked for the address as a page to show (a link followed, typed, or fetched ahead for one), not for a script. */
@@ -224,10 +226,76 @@ export function readierFirstLoad(html: string): FirstLoadResult {
       }
     }
   }
-  if (bodyAt < 0 || headEnd < 0) return { html, moved: 0, lazyFlags: 0 }
+  if (bodyAt < 0 || headEnd < 0) return { html, moved: 0, lazyFlags: 0, duplicates: 0 }
   out.push(html.slice(copied))
   const body = out.join("")
   /* Nothing before the head's end was cut, so the head's end is where it was. */
-  const result = moved.length ? `${body.slice(0, headEnd)}${moved.join("")}${body.slice(headEnd)}` : body
-  return { html: result, moved: moved.length, lazyFlags: flags }
+  const gathered = moved.length ? `${body.slice(0, headEnd)}${moved.join("")}${body.slice(headEnd)}` : body
+  const once = onceEachStylesheet(gathered)
+  return { html: once.html, moved: moved.length, lazyFlags: flags, duplicates: once.dropped }
+}
+
+/** How a stylesheet link applies: at once ("all"), once loaded ("late-all", the media="print" onload trick), or for its own media. */
+function appliesAs(raw: string): string {
+  const media = (attr(raw, "media") ?? "").trim().toLowerCase()
+  if (media === "print" && /this\.media\s*=\s*(?:'all'|"all"|&quot;all&quot;)/.test(attr(raw, "onload") ?? "")) return "late-all"
+  return media === "" || media === "all" ? "all" : `media:${media}`
+}
+
+/*
+  3. ONE COPY OF EACH STYLESHEET. A theme often links the same file more
+  than once (a section's own `stylesheet_tag` again for each time the
+  section is used, theme.css both late and at once): measured, 6 of the 28
+  stylesheet links on one owner's front page. The browser downloads it once
+  but builds a style sheet for each link, and every style recalculation
+  matches its rules again for each copy. A later copy of the same address
+  wins over the earlier one rule for rule (the same rules, later in the
+  cascade), so the earlier copy changes nothing once the later one applies:
+  it is the one dropped, and only when the later copy applies as soon as it
+  did (both at once, both once loaded, or a late one with a later copy that
+  applies at once). Only in the head, where nothing is drawn, and never a
+  link with an id or one that is disabled.
+*/
+export function onceEachStylesheet(html: string): { html: string; dropped: number } {
+  const headEnd = html.search(/<\/head\s*>|<body\b/i)
+  if (headEnd < 0) return { html, dropped: 0 }
+  const links: { start: number; end: number; href: string; as: string }[] = []
+  let i = 0
+  while (i < headEnd) {
+    const lt = html.indexOf("<", i)
+    if (lt < 0 || lt >= headEnd) break
+    if (html.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4)
+      i = end < 0 ? headEnd : end + 3
+      continue
+    }
+    const tag = readTag(html, lt)
+    if (!tag) {
+      i = lt + 1
+      continue
+    }
+    i = tag.end
+    if (tag.closing) continue
+    if (INERT.has(tag.name)) {
+      i = pastInert(html, tag.name, tag.end)
+      continue
+    }
+    if (RAW_TEXT.has(tag.name)) {
+      i = closeOf(html, tag.name, tag.end)
+      continue
+    }
+    if (tag.name === "link" && isStylesheetLink(tag.raw) && attr(tag.raw, "id") === null && attr(tag.raw, "disabled") === null) {
+      const href = attr(tag.raw, "href")
+      if (href) links.push({ start: tag.start, end: tag.end, href, as: appliesAs(tag.raw) })
+    }
+  }
+  const drop = links.filter((l, k) => links.slice(k + 1).some((m) => m.href === l.href && (m.as === l.as || (l.as === "late-all" && m.as === "all"))))
+  if (!drop.length) return { html, dropped: 0 }
+  let out = ""
+  let at = 0
+  for (const d of drop) {
+    out += html.slice(at, d.start) + EMPTY_LINK
+    at = d.end
+  }
+  return { html: out + html.slice(at), dropped: drop.length }
 }

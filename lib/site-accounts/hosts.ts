@@ -171,15 +171,23 @@ async function isLiveAiSite(db: Db, name: string): Promise<boolean> {
 export async function siteOwnerOfHost(db: Db, rawHost: unknown, r: HostRules = rules()): Promise<SiteOwner | null> {
   const site = classifySiteHost(rawHost, r)
   if (!site) return null
+  /*
+    Side by side, not one after another (a website's checkout asks this
+    before anything else, so every round trip here was the buyer's wait):
+    the live AI site and the name's owner together, then the published
+    website and the ban together. The answer is the same rule as before:
+    a live AI site, no owner, nothing published or a ban is no site.
+  */
   let creatorId: string | null = null
   if (site.kind === "subdomain") {
-    if (await isLiveAiSite(db, site.name)) return null
-    creatorId = await creatorOfName(db, site.name)
+    const [ai, owner] = await Promise.all([isLiveAiSite(db, site.name), creatorOfName(db, site.name)])
+    if (ai) return null
+    creatorId = owner
   } else {
     creatorId = await creatorOfDomain(db, site.domain)
   }
   if (!creatorId) return null
-  if (!(await hasPublishedWebsite(db, creatorId))) return null
-  if (await isBannedCreator(db, creatorId)) return null
+  const [published, banned] = await Promise.all([hasPublishedWebsite(db, creatorId), isBannedCreator(db, creatorId)])
+  if (!published || banned) return null
   return { creatorId, host: site.host, kind: site.kind }
 }

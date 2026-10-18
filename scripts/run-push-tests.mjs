@@ -45,6 +45,8 @@ const SUITES = [
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",
   "tests/languages-checkout-w.test.ts",
+  /* Round X3: light or dark in Website Settings (the shared choice), the quieter language chip, Copy under the creator's message, a product's translations one language at a time; scripts/check-ui-polish-x.mjs measures them. */
+  "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/checkout-market-overhaul.test.ts",
@@ -213,6 +215,8 @@ const SUITES = [
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
+  /* Track X2: checkout speed (the server reads side by side, Stripe from the head, the physical cart priced first; scripts/check-checkout-speed.mjs times it). */
+  "tests/checkout-speed-x.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
   "tests/sell-intent.test.ts",
@@ -724,6 +728,8 @@ const SUITES = [
   "tests/live-speed-v.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
+  /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
+  "tests/live-speed-x.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
@@ -738,6 +744,11 @@ const SUITES = [
   "tests/ai-quality-v.test.ts",
   /* Round V8: the website's words in each language, edited in the builder's sidebar in that language, a product's own Translations, one read per language (SQL part 211; scripts/check-translation-switch.mjs measures the sidebar) */
   "tests/translations-v.test.ts",
+  /* Round X4: Join on a team invite works after any sign in (Origin "null" under no-referrer was refused), the invite kept across OAuth, another email may take a valid link once */
+  "tests/team-join-x.test.ts",
+  "tests/team-invite.test.ts",
+  /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
+  "tests/taxes-x.test.ts",
 ]
 
 /**

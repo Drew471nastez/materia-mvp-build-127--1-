@@ -11,7 +11,7 @@ import {
   checkoutShareTitle,
   checkoutSiteName,
 } from "@/lib/checkout/share-meta"
-import { Suspense } from "react"
+import { Suspense, cache } from "react"
 import { MAX_PWYW_CENTS } from "@/lib/checkout/pricing"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
@@ -34,6 +34,32 @@ import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { CheckoutCurrency } from "./parts/ui"
+import { stripeEarly } from "./parts/stripe-early"
+
+/*
+  ONE READ EACH, FOR THE TAB AND THE PAGE. generateMetadata and the page
+  both need the product, its creator and the creator's profile; React's
+  cache hands the second ask the first one's answer within the request,
+  so the share card costs no reads of its own.
+*/
+const readPublishedProduct = cache(async (productId: string) => {
+  const supabase = await createClient()
+  return supabase.from("products").select("*").eq("id", productId).eq("status", "published").single()
+})
+const readCreatorRow = cache(async (creatorId: string) => {
+  const supabase = await createClient()
+  return supabase.from("creators").select("id, user_id, slug").eq("id", creatorId).single()
+})
+const readCreatorProfile = cache(async (userId: string) => {
+  const supabase = await createClient()
+  return supabase.from("profiles").select("display_name, avatar_url, username").eq("id", userId).single()
+})
+
+/** A read started before it is needed: awaited later as it is, and never an unheard rejection when the page ends first (a redirect). */
+function early<T>(read: Promise<T>): Promise<T> {
+  read.catch(() => {})
+  return read
+}
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -48,12 +74,43 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   const supabase = await createClient()
 
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("*")
-    .eq("id", productId)
-    .eq("status", "published")
-    .single()
+  /*
+    WHO IS SIGNED IN, WHAT THEY OWN OF THIS PRODUCT AND ITS OPTIONS, BESIDE
+    THE PRODUCT. None of them needs the product's row (the address names
+    it), so they are asked with it rather than after it. Nothing they say is
+    used until the product is known to be published.
+  */
+  const userRead = early(currentUserForRequest().then((c) => c.user))
+  const ownedEarly = early(
+    userRead.then(async (u): Promise<{ data: { id: string; variant_id: string | null }[] | null }> => {
+      if (!u) return { data: null }
+      const { data } = await supabase.from("entitlements").select("id, variant_id").eq("buyer_id", u.id).eq("product_id", productId)
+      return { data: (data as { id: string; variant_id: string | null }[] | null) ?? null }
+    }),
+  )
+  const variantEarly = early(
+    (async (): Promise<{ data: unknown }> => {
+      if (!variantId) return { data: null }
+      const { data } = await supabase
+        .from("product_variants")
+        .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
+        .eq("id", variantId)
+        .eq("product_id", productId)
+        .single()
+      return { data }
+    })(),
+  )
+  const variantsEarly = early(
+    Promise.resolve(
+      supabase
+        .from("product_variants")
+        .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
+        .eq("product_id", productId)
+        .order("price_cents", { ascending: true }),
+    ),
+  )
+
+  const { data: product, error } = await readPublishedProduct(productId)
 
   if (error || !product) {
     notFound()
@@ -113,44 +170,56 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   if (product.type === "membership") return membershipCheckoutContent({ product, interval, returnTo: communityReturn?.success ?? null, communityTerms })
 
   /*
+    WHAT ONLY NEEDS THE STORE, ASKED NOW. Who takes the payment, Settings ›
+    Checkout and Taxes, the store's name and currency, and where Back goes
+    depend on the product's store alone, so they start beside the reads
+    below instead of after them: the skeleton used to stand for three
+    rounds of reads, it stands for two.
+  */
+  const storeId: string | null = product.creator_id ?? null
+  const storeReads = early(
+    Promise.all([
+      /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
+      storeId ? providerFor(storeId) : Promise.resolve("stripe" as const),
+      /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
+      loadCheckoutConfig(checkoutAdmin(), storeId ?? undefined),
+      /* Settings › Taxes, when the store taxes digital products (lib/tax). */
+      loadTaxForCheckout(checkoutAdmin(), storeId ?? undefined),
+      headers(),
+      /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
+      storeId ? loadStoreName(checkoutAdmin(), storeId) : Promise.resolve(null),
+      /* The currency the store sells in: its prices are in it and Pay charges it (lib/store/selling-currency). */
+      readStoreCurrency(checkoutAdmin(), storeId ?? undefined),
+    ]),
+  )
+  /* Back to the creator's own website after paying, and for Back, when the
+     link asked and the address is one of THIS creator's sites. Checked here,
+     on the server; anything else is dropped and checkout ends on the receipt
+     as it always did (lib/checkout/return-url.ts). */
+  const returnsRead = early(checkoutReturns({ creatorId: product.creator_id, success: returnTo, cancel, site }))
+
+  /*
     EVERYTHING ELSE AT ONCE. The creator, the option asked for, who is
     signed in and every option of the product only need the product, so
     they are asked for together: this page's wait used to be seven reads
     one after another, and the skeleton stood on screen for all of them.
   */
-  const [creatorRead, variantRead, userRead, variantsRead] = await Promise.all([
-    supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
-    variantId
-      ? supabase
-          .from("product_variants")
-          .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
-          .eq("id", variantId)
-          .eq("product_id", productId)
-          .single()
-      : Promise.resolve({ data: null }),
-    currentUserForRequest().then((c) => ({ data: { user: c.user } })),
-    supabase
-      .from("product_variants")
-      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
-      .eq("product_id", productId)
-      .order("price_cents", { ascending: true }),
+  const [creatorRead, variantRead, user, variantsRead] = await Promise.all([
+    readCreatorRow(product.creator_id),
+    /* The option asked for, and every option: started with the product read, above. */
+    variantEarly,
+    userRead,
+    variantsEarly,
   ])
   const creator = creatorRead.data
-  const user = userRead.data.user
   const allVariants = variantsRead.data
 
   const [profileRead, ownedRead, returns] = await Promise.all([
-    creator
-      ? supabase.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).single()
-      : Promise.resolve({ data: null }),
-    user
-      ? supabase.from("entitlements").select("id, variant_id").eq("buyer_id", user.id).eq("product_id", productId)
-      : Promise.resolve({ data: null }),
-    /* Back to the creator's own website after paying, and for Back, when the
-       link asked and the address is one of THIS creator's sites. Checked here,
-       on the server; anything else is dropped and checkout ends on the receipt
-       as it always did (lib/checkout/return-url.ts). */
-    checkoutReturns({ creatorId: product.creator_id, success: returnTo, cancel, site }),
+    creator ? readCreatorProfile(creator.user_id) : Promise.resolve({ data: null }),
+    /* Started with the product read, above. */
+    ownedEarly,
+    /* Started above, with the store's other reads. */
+    returnsRead,
   ])
   const creatorProfile = profileRead.data as { display_name: string | null; avatar_url: string | null; username: string | null } | null
 
@@ -222,19 +291,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     finalPriceCents = chosen
   }
 
-  /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await Promise.all([
-    creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
-    /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
-    loadCheckoutConfig(checkoutAdmin(), creator?.id),
-    /* Settings › Taxes, when the store taxes digital products (lib/tax). */
-    loadTaxForCheckout(checkoutAdmin(), creator?.id),
-    headers(),
-    /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
-    creator?.id ? loadStoreName(checkoutAdmin(), creator.id) : Promise.resolve(null),
-    /* The currency the store sells in: its prices are in it and Pay charges it (lib/store/selling-currency). */
-    readStoreCurrency(checkoutAdmin(), creator?.id),
-  ])
+  /* Asked above, beside the creator and the options (storeReads). */
+  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await storeReads
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
   return (
@@ -358,11 +416,11 @@ export async function generateMetadata({ searchParams }: CheckoutPageProps): Pro
   }
   if (!params.productId) return fallback
   try {
-    const supabase = await createClient()
-    const { data: product } = await supabase.from("products").select("title, description, thumbnail_url, gallery_urls, creator_id").eq("id", params.productId).eq("status", "published").maybeSingle()
+    /* The page's own reads, shared (readPublishedProduct and the rest, above). */
+    const { data: product } = await readPublishedProduct(params.productId)
     if (!product) return fallback
-    const { data: creator } = await supabase.from("creators").select("user_id, slug").eq("id", product.creator_id).maybeSingle()
-    const { data: profile } = creator ? await supabase.from("profiles").select("display_name, username, avatar_url").eq("id", creator.user_id).maybeSingle() : { data: null }
+    const { data: creator } = await readCreatorRow(product.creator_id)
+    const { data: profile } = creator ? await readCreatorProfile(creator.user_id) : { data: null }
     const creatorName = personName({ name: profile?.display_name, username: profile?.username, slug: creator?.slug })
     const title = checkoutShareTitle(product.title)
     const description = checkoutShareDescription(product.description, creatorName)
@@ -384,6 +442,8 @@ export async function generateMetadata({ searchParams }: CheckoutPageProps): Pro
 }
 
 export default async function CheckoutPage(props: CheckoutPageProps) {
+  /* Before the Suspense below: the hints go out with the skeleton, not after the reads (./parts/stripe-early). */
+  stripeEarly({ script: true })
   return (
     <>
       {/* A back off the checkout that the router has to fetch says so after 220ms, wherever the press

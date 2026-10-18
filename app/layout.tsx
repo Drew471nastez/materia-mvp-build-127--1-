@@ -3,6 +3,7 @@ import { APPEARANCE_BOOT, APP_FROM_DARK_BOOT } from "@/lib/appearance/site-appea
 import { SiteAppearance } from "@/components/platform/site-appearance"
 import { AppRouterHandle } from "@/lib/navigation/app-router-handle"
 import "./theme-dark.css"
+import "./website-settings-light.css"
 import type { Metadata, Viewport } from "next"
 /**
  * ===========================================================================

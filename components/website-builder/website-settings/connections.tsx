@@ -84,7 +84,7 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
           }}
         />
       </section>
-      <p className="mt-2.5 text-[13px] leading-relaxed text-white/45 md:text-[12.5px]">
+      <p className="mt-2.5 text-[13px] leading-relaxed text-white/50 md:text-[12.5px]">
         {tt("Storelib AI is included in your plan. Your own key makes its edits count on your account instead.")}
       </p>
 
@@ -95,8 +95,8 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
       <details data-local-agents="" className="group/local mt-6 rounded-2xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]" open={open === "claude" || open === "codex" || open === "other"}>
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[14px] font-medium text-white/80 transition-colors hover:text-white md:text-[13.5px] [&::-webkit-details-marker]:hidden">
           <span className="min-w-0 flex-1">{tt("Code from your computer")}</span>
-          <span className="text-[12.5px] font-normal text-white/40">{tt("Claude Code, Codex, MCP")}</span>
-          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 text-white/40 transition-transform duration-200 group-open/local:rotate-180"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="text-[12.5px] font-normal text-white/50">{tt("Claude Code, Codex, MCP")}</span>
+          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 text-white/50 transition-transform duration-200 group-open/local:rotate-180"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </summary>
         <div className="divide-y divide-white/[0.07] border-t border-white/[0.07]">
           <AgentConnectionRow tool="claude" agents={agents} open={open === "claude"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
@@ -104,7 +104,7 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
           {showOther && <AgentConnectionRow tool="other" agents={agents} open={open === "other"} onOpen={onOpen} onGitHub={() => setOpen("github")} />}
         </div>
         {!showOther && (
-          <p className="border-t border-white/[0.07] px-4 py-3 text-[13.5px] text-white/45 md:text-[13px]">
+          <p className="border-t border-white/[0.07] px-4 py-3 text-[13.5px] text-white/50 md:text-[13px]">
             {tt("Another tool that works with MCP?")}{" "}
             <InlineButton
               onClick={() => {

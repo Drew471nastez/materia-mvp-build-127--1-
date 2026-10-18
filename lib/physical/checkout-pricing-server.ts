@@ -433,6 +433,8 @@ export interface CheckoutQuote {
   totals: PhysicalTotals
   /** The lines as they will be held: a pickup takes the stock from the pickup location. */
   lines: PricedLine[]
+  /** The country the tax was worked out for (the delivery address, or the pickup point), kept on the order. */
+  taxCountry?: string | null
 }
 
 /**
@@ -511,5 +513,6 @@ export async function quoteCheckout(
     lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
     { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null, codFeeCents: pay.codFeeCents ?? 0 },
   )
-  return { quote, pickups, option, totals, lines }
+  /* The country the tax was worked out for, kept on the order so Settings › Taxes counts it by country (lib/tax/report-model). */
+  return { quote, pickups, option, totals, lines, taxCountry: (taxPlace.country ?? null) as string | null }
 }

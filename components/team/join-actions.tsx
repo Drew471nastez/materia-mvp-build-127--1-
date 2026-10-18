@@ -19,7 +19,7 @@ function Spinner() {
 }
 
 /** Accept, and Decline under it. One press at a time. */
-export function AcceptDecline({ token, storeName }: { token: string; storeName: string }) {
+export function AcceptDecline({ token, storeName, label, decline = true }: { token: string; storeName: string; label?: string; decline?: boolean }) {
   const [busy, setBusy] = React.useState<null | "accept" | "decline">(null)
   const [confirmDecline, setConfirmDecline] = React.useState(false)
   return (
@@ -28,10 +28,10 @@ export function AcceptDecline({ token, storeName }: { token: string; storeName: 
         <input type="hidden" name="token" value={token} />
         <input type="hidden" name="action" value="accept" />
         <button type="submit" className={JOIN_BTN_PRIMARY} disabled={busy !== null} data-join="accept">
-          {busy === "accept" ? <><Spinner /> Joining</> : `Join ${storeName}`}
+          {busy === "accept" ? <><Spinner /> Joining</> : label ?? `Join ${storeName}`}
         </button>
       </form>
-      {confirmDecline ? (
+      {!decline ? null : confirmDecline ? (
         <form method="post" action="/api/team/join" onSubmit={(e) => (busy ? e.preventDefault() : setBusy("decline"))} className="flex gap-2">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="action" value="decline" />
@@ -58,7 +58,7 @@ export function AcceptDecline({ token, storeName }: { token: string; storeName: 
  * device's storage, which only this side can clear. A slow or failed
  * sign out never holds the press: the server clears the cookies anyway.
  */
-export function UseAnotherAccount({ token, label = "Use another account" }: { token: string; label?: string }) {
+export function UseAnotherAccount({ token, label = "Use another account", quiet = false }: { token: string; label?: string; quiet?: boolean }) {
   const form = React.useRef<HTMLFormElement>(null)
   const [busy, setBusy] = React.useState(false)
   const go = async (e: React.FormEvent) => {
@@ -79,8 +79,8 @@ export function UseAnotherAccount({ token, label = "Use another account" }: { to
   return (
     <form ref={form} method="post" action="/api/team/join/switch" onSubmit={go}>
       <input type="hidden" name="token" value={token} />
-      <button type="submit" className={JOIN_BTN_PRIMARY} disabled={busy} data-join="switch">
-        {busy ? <><Spinner /> Signing out</> : label}
+      <button type="submit" className={quiet ? JOIN_BTN_QUIET : JOIN_BTN_PRIMARY} disabled={busy} data-join="switch">
+        {busy ? (quiet ? "Signing out" : <><Spinner /> Signing out</>) : label}
       </button>
     </form>
   )

@@ -88,6 +88,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import {
   ActivityLine,
   AnswerMeta,
+  PromptCopy,
   ReportForm,
   StepsTimeline,
   stepsLabel,
@@ -425,13 +426,17 @@ const ExchangeItem = React.memo(function ExchangeItem({
           ))}
         </div>
       )}
-      <div className="flex justify-end">
-        <p
-          data-ask-prompt=""
-          className={cn("max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 leading-[1.5] text-[#1a1a2e]", words)}
-        >
-          {exchange.prompt}
-        </p>
+      {/* The message and, under it, Copy (shown under a pointer, always on a touch screen). */}
+      <div className="group/prompt">
+        <div className="flex justify-end">
+          <p
+            data-ask-prompt=""
+            className={cn("max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 leading-[1.5] text-[#1a1a2e]", words)}
+          >
+            {exchange.prompt}
+          </p>
+        </div>
+        <PromptCopy text={exchange.prompt} phone={phone} />
       </div>
       {exchange.notKept && (
         <p data-ask-not-kept={exchange.notKept} className="text-right text-[11.5px] leading-snug text-[#6b7280]">

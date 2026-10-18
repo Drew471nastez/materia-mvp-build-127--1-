@@ -25,6 +25,7 @@ import {
   type SettingsSection,
   type SitePage,
 } from "@/components/website-builder/website-settings/types"
+import { LookButton, SettingsLookContext, useSettingsLookChoice } from "@/components/website-builder/website-settings/parts"
 import { tt } from "@/lib/i18n/text"
 
 export type { SettingsSection } from "@/components/website-builder/website-settings/types"
@@ -141,6 +142,8 @@ export function ProjectSettings({
   navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved" | "preview">
 }) {
   const [section, setSection] = useState<SettingsSection>("general")
+  /** Light or dark: the person's own choice (website-settings/parts.tsx useSettingsLookChoice). */
+  const look = useSettingsLookChoice()
   /** A phone shows the list until a subject is picked. */
   const [picked, setPicked] = useState(false)
   /**
@@ -291,10 +294,12 @@ export function ProjectSettings({
   const current = SETTINGS_SECTIONS.find((s) => s.id === section)
 
   return createPortal(
+    <SettingsLookContext.Provider value={look}>
     <div
       role="dialog"
       aria-modal="true"
       aria-label={tt("Website settings")}
+      data-ws-look={look}
       className="wb-settings-in fixed inset-0 z-[150] flex flex-col overflow-hidden bg-[#0f0f0f] text-white md:flex-row"
       /**
        * THE PHONE'S OWN FURNITURE IS NOT A SUGGESTION. This is pinned to the
@@ -323,7 +328,8 @@ export function ProjectSettings({
         )}
         aria-hidden={picked && moving !== "push" ? true : undefined}
       >
-        <div className="px-3 pt-3 md:px-6 md:pt-7">
+        {/* The way out on the left, light or dark on the right: the screen's two controls of its own. */}
+        <div className="flex items-center justify-between gap-2 px-3 pt-3 md:pl-6 md:pr-4 md:pt-7">
           <button
             type="button"
             onClick={onClose}
@@ -332,6 +338,7 @@ export function ProjectSettings({
             <ArrowLeft className="h-[18px] w-[18px] md:h-4 md:w-4" strokeWidth={2} />
             {tt("Back to editor")}
           </button>
+          <LookButton look={look} />
         </div>
         <p className="px-5 pt-5 text-[20px] font-semibold text-white md:px-6 md:pt-6 md:text-[17px]">{tt("Website settings")}</p>
         <nav aria-label={tt("Website settings")} className="flex flex-col px-3 pb-6">
@@ -344,7 +351,7 @@ export function ProjectSettings({
             return (
               <Fragment key={id}>
               {startsGroup && (
-                <p className={cn("px-3 pb-1.5 text-[12px] font-medium uppercase tracking-wider text-white/40", i === 0 ? "pt-4" : "pt-5")}>
+                <p className={cn("px-3 pb-1.5 text-[12px] font-medium uppercase tracking-wider text-white/50", i === 0 ? "pt-4" : "pt-5")}>
                   {SETTINGS_GROUP_LABELS[group]}
                 </p>
               )}
@@ -413,7 +420,8 @@ export function ProjectSettings({
         </div>
       </main>
       </div>
-    </div>,
+    </div>
+    </SettingsLookContext.Provider>,
     document.body,
   )
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { headers } from "next/headers"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { siteOfHost } from "@/lib/checkout/site-checkout-server"
+import { siteOfThisHost } from "@/lib/checkout/site-checkout-server"
 import { checkoutBrandOf } from "@/lib/checkout/brand-server"
 import { siteTabTitle, tabTitleTemplate } from "@/lib/website-builder/tab-title"
 
@@ -18,7 +17,8 @@ import { siteTabTitle, tabTitleTemplate } from "@/lib/website-builder/tab-title"
  * front through the template. Never indexed, as before.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const site = await siteOfHost(createAdminClient(), (await headers()).get("host")).catch(() => null)
+  /* Read once per request: the page asks the same (lib/checkout/site-checkout-server siteOfThisHost). */
+  const site = await siteOfThisHost((await headers()).get("host")).catch(() => null)
   if (!site) return {}
   const brand = await checkoutBrandOf(site.creatorId).catch(() => null)
   if (!brand) return {}

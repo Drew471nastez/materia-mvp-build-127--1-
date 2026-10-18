@@ -160,7 +160,8 @@ function main() {
        * its own, and holding the page as well would add a second minute to a
        * corrected price.
        */
-      check("nor the shop index, which is the same data", !routes.includes("/w/[username]/products"))
+      /* Changed on purpose (round X1): a product saved purges every rendered page of the site (revalidatePublishedPages), so the minute no longer stacks; the shop and a collection with no filter are held, and the filtered twin is drawn per request (lib/website-builder/held-list.ts). */
+      check("the shop index with no filter is held too, and its filtered twin is not", routes.includes("/w/[username]/products") && !routes.includes("/w/[username]/products/~list") && routes.includes("/w/[username]/collections/[handle]") && !routes.includes("/w/[username]/collections/[handle]/~list"))
     }
 
     /**

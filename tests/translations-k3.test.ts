@@ -153,7 +153,7 @@ async function main() {
   console.log("\nThe language and currency switch in the builder")
   check("in the top bar beside the page switcher on a desktop", /\{!isMobileView && <PreviewLocaleButton model=\{localeModel\} \/>\}\s*\n\s*\{!isMobileView && \(\s*<PageSwitcher/.test(editor))
   check("at the top of the sidebar and of a phone's sheet", (editor.match(/<SidebarLanguageBar model=\{localeModel\} editing=\{translationEditing\} \/>/g) ?? []).length === 2)
-  check("and in Website settings › General", /preview: localeModel,/.test(editor) && /<PreviewLocaleSelects model=\{ctx\.preview\} tone="dark" \/>/.test(read("components/website-builder/website-settings/general.tsx")))
+  check("and in Website settings › General", /preview: localeModel,/.test(editor) && /<PreviewLocaleSelects model=\{ctx\.preview\} tone=\{look\} \/>/.test(read("components/website-builder/website-settings/general.tsx")))
   const sw = read("components/website-builder/preview-locale-switch.tsx")
   check("every language including hidden ones, and the currencies a visitor can be shown", /tt\("\{name\} \(hidden\)"/.test(sw) && /markets: marketOptions\.map/.test(editor))
   check("never the live site: no cookie, no address", !/document\.cookie|location\.assign|location\.href\s*=/.test(sw))

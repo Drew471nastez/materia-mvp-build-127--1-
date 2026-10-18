@@ -10,7 +10,8 @@
  * WHAT IT MEASURES, with the browser's own PerformanceObserver and no
  * library: LCP (until the visitor's first input), CLS by session windows,
  * INP as the slowest interaction with one forgiven per fifty, FCP, TTFB
- * (both from the moment a prerendered page was shown), and for a page
+ * (both from the moment a prerendered page was shown; a prerendered page is
+ * not hidden, and one never shown sends nothing), and for a page
  * change inside the site without a reload, how long from the tap to the
  * next frame of the new page. lib/website-builder/web-vitals.ts holds the
  * same algorithms where the tests reach them.
@@ -42,7 +43,7 @@ export const SITE_VITALS_JS =
   `if(W.__slSV||W.self!==W.top||N.webdriver||typeof PerformanceObserver==="undefined")return;W.__slSV=1;` +
   `var EP=${JSON.stringify(SITE_BEACON_PATH)},S=PerformanceObserver.supportedEntryTypes||[],nv=P.getEntriesByType("navigation")[0],act=(nv&&nv.activationStart)||0,` +
   /* hid: when the page was first hidden; on: the observers have started; v: the page view being measured. */
-  `hid=D.visibilityState==="hidden"?0:1/0,on=0,obs=[],lastIn=0,v=view("l",0);` +
+  `hid=D.visibilityState==="hidden"&&!D.prerendering?0:1/0,on=0,obs=[],lastIn=0,v=view("l",0);` +
   `function view(k,t){return{k:k,p:location.pathname,t:t,lcp:null,fcp:null,sh:[],it:{},ic:P.interactionCount||0,nav:null,sent:0}}` +
   `function ob(t,f,x){if(S.indexOf(t)<0)return;try{var o=new PerformanceObserver(function(l){f(l.getEntries())}),p={type:t,buffered:true};if(x)for(var k in x)p[k]=x[k];o.observe(p);obs.push([o,f])}catch(e){}}` +
   `function stop(){lastIn=P.now();if(v.k==="l")v.done=1}` +
@@ -57,7 +58,7 @@ export const SITE_VITALS_JS =
   /* A tap before the observers started and quicker than the browser buffers: its first input is still on the timeline. */
   `if(!a.length&&v.k==="l"){var fi=P.getEntriesByType("first-input")[0];if(fi)a.push(fi.duration)}if(!a.length)return undefined;a.sort(function(x,y){return y-x});var n=Math.max((P.interactionCount||0)-v.ic,a.length);return Math.round(a[Math.min(a.length-1,Math.floor(n/50))])}` +
   `function r(x){return x===null?undefined:Math.round(x)}` +
-  `function send(){start();for(var i=0;i<obs.length;i++){try{obs[i][1](obs[i][0].takeRecords())}catch(e){}}if(v.sent)return;v.sent=1;` +
+  `function send(){if(D.prerendering)return;start();for(var i=0;i<obs.length;i++){try{obs[i][1](obs[i][0].takeRecords())}catch(e){}}if(v.sent)return;v.sent=1;` +
   `var c=N.connection&&N.connection.effectiveType,b={v:1,p:v.p,k:v.k==="l"?"l":"s",w:W.innerWidth,c:c,inp:inp(),cls:S.indexOf("layout-shift")<0?undefined:cls()};` +
   `if(v.k==="l"){b.lcp=r(v.lcp);b.fcp=r(v.fcp);if(nv&&nv.responseStart>0)b.ttfb=Math.round(Math.max(0,nv.responseStart-act))}else{if(v.nav===null)return;b.nav=r(v.nav)}` +
   `var j=JSON.stringify(b);try{if(!(N.sendBeacon&&N.sendBeacon(EP,new Blob([j],{type:"text/plain"}))))fetch(EP,{method:"POST",body:j,keepalive:true,credentials:"omit"}).catch(function(){})}catch(e){}}` +

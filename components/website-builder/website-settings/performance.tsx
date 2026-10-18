@@ -428,7 +428,7 @@ function Delta({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) 
   if (dir === null || figure.p75 === null || figure.previous === null) return null
   if (dir === "same") {
     const full = tt("No change from the previous period")
-    return <span className="min-w-0 truncate text-white/45" data-delta="same" title={full}>{tt("No change")}<span className="sr-only">{full}</span></span>
+    return <span className="min-w-0 truncate text-white/50" data-delta="same" title={full}>{tt("No change")}<span className="sr-only">{full}</span></span>
   }
   const diff = formatPerf(metric, Math.abs(figure.p75 - figure.previous))
   const better = dir === "better"
@@ -479,7 +479,7 @@ function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMet
       <span className="flex items-start justify-between gap-3 lg:block">
         <span className="min-w-0" title={metricName(metric)}>
           <span className="block text-[14.5px] font-semibold text-white">{plainName(metric)}</span>
-          <span className="block truncate text-[12px] text-white/40">{metricShort(metric)}</span>
+          <span className="block truncate text-[12px] text-white/50">{metricShort(metric)}</span>
         </span>
         {/* On a phone a column of its own width, its words from its left edge: a new figure is written in place and nothing beside it moves. */}
         {figure.p75 === null ? (
@@ -496,7 +496,7 @@ function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMet
           <Bands metric={metric} figure={figure} />
         </>
       )}
-      {note && <span className="mt-2 block text-[12.5px] leading-snug text-white/40">{note}</span>}
+      {note && <span className="mt-2 block text-[12.5px] leading-snug text-white/50">{note}</span>}
     </button>
   )
 }
@@ -522,7 +522,7 @@ function MinorTab({ metric, figure, selected, onSelect }: { metric: RumMetric; f
       {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
       <span className="block truncate text-[12.5px] text-white/50">{plainName(metric)}{metric === "nav" ? null : <span className="text-white/30"> · {metricShort(metric)}</span>}</span>
       {figure.p75 === null ? (
-        <span className="mt-0.5 block truncate text-[13px] text-white/40" data-not-enough="">{tt("Not enough visits yet")}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-white/50" data-not-enough="">{tt("Not enough visits yet")}</span>
       ) : (
         <span className="mt-0.5 flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white" data-p75="">
           {figure.rating && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[figure.rating] }} aria-label={ratingLabel(figure.rating)} />}
@@ -857,7 +857,7 @@ function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStr
       {r && current ? (
         <div className={cn("px-4 py-4 transition-opacity duration-200 md:px-6", busy && "opacity-50")} data-lab-result={strategy} data-lab-source={quick ? "quick" : "pagespeed"}>
           {quick ? <QuickResult r={r as QuickCheckResult} /> : <GoogleResult r={r as LabResult} />}
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-white/45" data-lab-meta="">
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-white/50" data-lab-meta="">
             <span>{tt("Tested {time}", { time: when(current.ranAt, true) })}</span>
             <span aria-hidden>·</span>
             <span className="min-w-0 max-w-full truncate">{current.url}</span>
@@ -1048,7 +1048,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
             ) : (
               <h2 className="text-[14px] font-semibold text-white/80">{tt("Not enough visits yet")}</h2>
             )}
-            <span className="text-[12.5px] text-white/40">{tt("Core Web Vitals")}</span>
+            <span className="text-[12.5px] text-white/50">{tt("Core Web Vitals")}</span>
           </div>
           <div ref={tabs} role="tablist" aria-label={tt("Measure")} onKeyDown={onTabKey}>
             <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0" data-vitals="">
