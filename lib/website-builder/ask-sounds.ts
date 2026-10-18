@@ -553,12 +553,13 @@ export const SOUND_DESIGN: Record<AskSound, SoundDesign> = {
   /*
     A soft tock up: a quiet grace a fourth below, then the note, left then right.
     Round Z3, "make the sounds more smooth and clean": a 5ms fade in instead of
-    3 to 4, a third of the mallet noise, less thump, a darker tone and a drier
-    room, so it reads as one rounded tap rather than a knock.
+    3 to 4, a third of the mallet noise, less thump, a darker tone and the
+    room at the drier end of the notes' range, so it reads as one rounded tap
+    rather than a knock.
   */
   sent: {
     gain: 0.116,
-    wet: 0.1,
+    wet: 0.12,
     tone: 5600,
     clickBand: 3400,
     partials: WOOD,

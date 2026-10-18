@@ -561,7 +561,7 @@ section("Code a section: the picture reaches that model too")
   const chat = read("components/website-builder/theme-chat.tsx")
   check(
     "the composer sends the pictures to the section writer too, when the router picks it, instead of dropping them",
-    /if \(route\.agent === "writer"\) void writeOne\(prompt, images, quiet\)/.test(chat) &&
+    /if \(route\.agent === "writer"\) void writeOne\(prompt, images, true, into\)/.test(chat) &&
       /images: images\.map\(\(a\) => \(\{ mediaType: a\.mediaType, data: a\.data, name: a\.name \}\)\),/.test(chat),
   )
 }

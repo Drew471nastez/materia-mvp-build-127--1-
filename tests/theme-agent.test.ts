@@ -2766,7 +2766,8 @@ section("The panel says the true thing, and does not make you wait to type")
     /setQueued\(\{ text: prompt \}\)/.test(chat) && /if \(busy \|\| writing \|\| routingNow \|\| !queued\) return/.test(chat),
   )
   check("a failed exchange can be sent again without retyping it", /Try again/.test(chat))
-  check("the box grows with what is in it", /field\.style\.height = `\$\{Math\.min/.test(chat))
+  /* Round Z3: eased to its new height by lib/website-builder/ask-composer.ts. */
+  check("the box grows with what is in it", /easeFieldHeight\(field\)/.test(chat) && /Math\.min\(field\.scrollHeight, max\)/.test(readFileSync(join(root, "lib/website-builder/ask-composer.ts"), "utf8")))
 
   check(
     "the panel wears the Storelib mark, not a generic star",
