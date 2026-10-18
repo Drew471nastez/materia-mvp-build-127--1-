@@ -19,6 +19,34 @@ Undoing something: [rollback.md](rollback.md).
 
 A red CI on GitHub is a broken commit on `main`: fix it before anything else.
 
+### Run the type checks locally
+
+`pnpm typecheck` runs the complete strict check. It still exits with diagnostics
+while the legacy errors in the baseline remain. `pnpm typecheck:ratchet` runs
+that same compiler and enforces the existing per-file no-regression policy.
+Neither command upgrades the lockfile's TypeScript 5.0.2 or excludes tests.
+
+The graph has roughly 7,100 inputs and can exceed Node's default heap. The
+commands provide a 6 GiB old-space ceiling, as CI does. The ratchet preserves
+an explicit heap choice and unrelated Node options. An exhausted heap, killed
+compiler, missing input, or invalid option is a failure, not zero type errors.
+The ES2022 target matches the Node 22 test workflow; Next's browser compilation
+still uses its own supported browser targets.
+Do not run a build or `next typegen` concurrently with the check in the same
+checkout: Next replaces `.next/types` during generation. Finish generation
+first, then check; a missing generated input must fail rather than be ignored.
+The separate CI jobs already use independent checkouts.
+
+The production Next CLI has a separate 4 GiB heap ceiling in `pnpm build`.
+The package's Node 22 engine keeps Vercel and local installs aligned with CI.
+Route-data and prerender work uses one worker in `next.config.mjs`.
+The Next CLI loads `scripts/build-limits.env` for build-only Rayon and Tokio
+thread defaults of two, rather than sizing native pools to each machine's
+CPU count. Explicit caller values take precedence; runtime environments
+and their service configuration are not changed.
+These are resource limits, not validation skips; the 7,600 MB whole-process
+build budget and bundle budgets remain unchanged.
+
 ### Budgets
 
 `perf-budgets.json` holds, per route, the first-load JavaScript (gzipped)

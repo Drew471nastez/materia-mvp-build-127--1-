@@ -23,7 +23,7 @@ import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 const q = new URLSearchParams(location.search)
 const WAIT = Number(q.get("wait") || 600)
 
-const sam: MemberProfileData = {
+const sam: MemberProfileData = { socials: [],
   userId: "00000000-0000-4000-8000-0000000000b2",
   name: "Sam Rivera",
   username: "sam-rivera",

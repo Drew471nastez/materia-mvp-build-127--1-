@@ -68,7 +68,7 @@ const CARDS = [card("clay-studio", "Clay Studio", "A working studio for people l
 function Person() {
   const photo = q.get("photo") !== "no"
   const self = q.get("self") === "1"
-  const profile: MemberProfileData = {
+  const profile: MemberProfileData = { socials: [],
     userId: "00000000-0000-4000-8000-0000000000a1",
     name: "Maya Ortiz",
     username: "maya",

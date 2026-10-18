@@ -5684,7 +5684,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const check = sectionPasteCheck(from)
     if (check.ok === false) { toast.error((check as { reason: string }).reason); return }
     const c = from as SectionClip
-    if (kindOfType(c.section.type)) { toast.error("A header or footer is added from Add section"); return }
+    if (kindOfType(c.section.type)) { toast.error("Use Add section for headers and footers"); return }
     /* A section the creator wrote, into a theme that does not have its file: asked first, since the file is written too. */
     if ((check as { needsCode: boolean }).needsCode) { setPendingAction({ kind: "paste-code", clip: c, afterId, top }); return }
     placePastedSection(c, afterId, undefined, top)
@@ -5700,7 +5700,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const sidebarPaste = (() => {
     if (!clip || clip.kind !== "section") return null
     const check = sectionPasteCheck(clip)
-    if (check.ok && kindOfType(clip.section.type)) return { name: clip.typeName, ok: false, reason: "A header or footer is added from Add section" }
+    if (check.ok && kindOfType(clip.section.type)) return { name: clip.typeName, ok: false, reason: "Use Add section for headers and footers" }
     return { name: clip.typeName, ok: check.ok, reason: check.ok ? undefined : (check as { reason: string }).reason }
   })()
 
@@ -5716,14 +5716,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
       if (!res.ok) {
         const d = (await res.json().catch(() => ({}))) as { error?: string }
-        toast.error(d.error || "Could not copy the section's file. Try again.")
+        toast.error(d.error || "Could not copy file. Try again.")
         return
       }
       const files = await loadStorelibSources()
       setPendingAction(null)
       placePastedSection(c, afterId, files ? customSectionSchemas(files)[c.section.type] : undefined, top)
     } catch {
-      toast.error("Could not copy the section's file. Try again.")
+      toast.error("Could not copy file. Try again.")
     } finally {
       setPendingBusy(false)
     }

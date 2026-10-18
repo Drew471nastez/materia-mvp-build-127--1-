@@ -741,7 +741,7 @@ async function main() {
   {
     const act = read("components/profile/profile-activity.tsx")
     check("no Joined Storelib row, and no join date reaching the list", !/JoinedRow/.test(act) && !/joinedAt/.test(act))
-    check("About carries the day instead, on a profile and on /account", /<PersonAbout[\s\S]{0,200}joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /<AccountAbout[^>]*joinedAt=\{user\.created_at/.test(read("app/account/page.tsx")))
+    check("About carries the day instead, on a profile and on /account", /<PersonAbout[\s\S]{0,200}joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(read("app/account/page.tsx")))
   }
 
   console.log("\nCopy")

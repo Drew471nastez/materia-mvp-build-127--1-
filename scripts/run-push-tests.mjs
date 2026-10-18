@@ -20,7 +20,12 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync
 import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
+// Fresh/temporary checkouts and parallel SQL changes use the current source catalog.
+execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
+
 const SUITES = [
+  "tests/admin-sql-updates.test.ts",
+  "tests/typecheck-ratchet-process.test.ts",
   "tests/wizard27.test.ts",
   "tests/community-profile-j1.test.ts",
   "tests/surfaces25.test.ts",

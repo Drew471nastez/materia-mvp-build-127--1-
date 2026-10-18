@@ -1,4 +1,5 @@
 "use client"
+import type { Session } from "@supabase/supabase-js"
 
 /**
  * A COMMUNITY'S PAGES FOR SOMEBODY WHO IS NOT IN IT YET: the sales page, the
@@ -77,7 +78,7 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
     if (!me) return
     if (readAuthSnapshot()?.signedIn) return
     let stop = false
-    void createClient().auth.getSession().then(({ data }) => {
+    void createClient().auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       if (stop) return
       const id = data.session?.user?.id
       if (!id || readAuthSnapshot()?.signedIn) return

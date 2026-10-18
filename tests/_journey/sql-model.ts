@@ -32,6 +32,8 @@ export interface TableModel {
   uniques: UniqueKey[]
   /** column -> referenced table */
   references: Map<string, string>
+  /** Inline REFERENCES ...(id) ON DELETE CASCADE, as declared in the SQL. */
+  cascadeDeletes: Set<string>
 }
 
 function sqlFiles(root: string): string[] {
@@ -157,7 +159,7 @@ function readDefault(def: string): DefaultValue | undefined {
 function table(model: Map<string, TableModel>, name: string): TableModel {
   let t = model.get(name)
   if (!t) {
-    t = { name, columns: new Map(), primaryKey: [], uniques: [], references: new Map() }
+    t = { name, columns: new Map(), primaryKey: [], uniques: [], references: new Map(), cascadeDeletes: new Set() }
     model.set(name, t)
   }
   return t
@@ -175,6 +177,7 @@ function addColumn(t: TableModel, def: string) {
   if (/\bunique\b/i.test(rest) && !t.uniques.some((u) => u.columns.length === 1 && u.columns[0] === name)) t.uniques.push({ columns: [name], lower: [] })
   const ref = /\breferences\s+((?:"?public"?\.)?"?[A-Za-z_]\w*"?)/i.exec(rest)
   if (ref) t.references.set(name, ident(ref[1]))
+  if (ref && /\breferences\s+[^\s(]+\s*\(\s*"?id"?\s*\)\s+on\s+delete\s+cascade\b/i.test(rest)) t.cascadeDeletes.add(name)
 }
 
 function colList(s: string): { columns: string[]; lower: string[] } | null {

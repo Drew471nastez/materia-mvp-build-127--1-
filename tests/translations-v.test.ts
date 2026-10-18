@@ -183,7 +183,7 @@ async function main() {
   console.log("\n3. The sidebar in another language (components/website-builder/editor/translation-editing.tsx)")
   {
     const writes: [string, string, string, boolean][] = []
-    let change: ((v: unknown) => void) | null = null
+    const change: { current: ((v: unknown) => void) | null } = { current: null }
     const raw = {
       "section:s1:heading": { v: "Soldes", h: sourceHash("Spring sale") },
       "section:s1:button_label": { v: "Acheter", h: sourceHash("Buy now") },
@@ -213,7 +213,7 @@ async function main() {
           label: field.label,
           value,
           render: (v: unknown, onChange: (x: unknown) => void, f: SchemaField) => {
-            change = onChange
+            change.current = onChange
             return el("input", { value: typeof v === "string" ? v : String(v ?? ""), placeholder: f.placeholder ?? "", readOnly: true, "data-probe": f.id })
           },
         }),
@@ -221,13 +221,13 @@ async function main() {
     const heading = draw(FIELDS[0], "Spring sale")
     check("switched to French, the heading's box holds French's value, the English as its placeholder and under it", /value="Soldes"/.test(heading) && /placeholder="Spring sale"/.test(heading) && /English:/.test(heading) && /data-translated-field="section:s1:heading"/.test(heading), heading.slice(0, 300))
     check("  the merchant's own, for the English as it is now: Edited", /data-translation-state="edited"/.test(heading))
-    change?.("Grandes soldes")
+    change.current?.("Grandes soldes")
     check("  an edit writes only French's translation of that one setting, with the English it was written for", writes.length === 1 && writes[0][0] === "section:s1:heading" && writes[0][1] === "Grandes soldes" && writes[0][2] === "Spring sale" && writes[0][3] === false, writes)
     check("an English changed after it was translated: Original changed, the translation still shown", /data-translation-state="outdated"/.test(draw(FIELDS[8], "Shop now")) && /value="Acheter"/.test(draw(FIELDS[8], "Shop now")))
     const alt = draw(BLOCK_FIELDS[1], "A mug on a table", (id) => blockKey("s1", "b1", id))
     check("a block's alt text is its own translation, block:<section>:<block>:alt", /data-translated-field="block:s1:b1:alt"/.test(alt) && /value="Une tasse"/.test(alt) && /data-translation-state="auto"/.test(alt))
     draw(FIELDS[1], "<p>Linen</p>")
-    change?.("<p>Lin</p>")
+    change.current?.("<p>Lin</p>")
     check("rich text is written as rich text", writes[writes.length - 1][0] === "section:s1:text" && writes[writes.length - 1][3] === true)
     for (const f of [FIELDS[2], FIELDS[4], FIELDS[5], FIELDS[6], FIELDS[7]]) {
       const html = draw(f, (section().settings as Record<string, unknown>)[f.id])

@@ -142,6 +142,7 @@ function Subscribers() {
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
       <EmailsHome
+        physical={false} messages={[]} messagesAvailable onOpenMessage={() => {}} onToggleRead={() => {}} onDeleteMessage={() => {}}
         onOpenContact={setContact}
         tab={tab}
         onTab={setTab}

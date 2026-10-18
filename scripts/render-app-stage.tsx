@@ -34,10 +34,10 @@ import { createRoot } from "react-dom/client"
 import { usePathname } from "next/navigation"
 
 import { NavigationLoadingBar, startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { AppStage } from "@/components/app/app-stage"
+import { AppStage, PageLanded } from "@/components/app/app-stage"
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import AppError from "@/app/app/error"
-import AppNotFound from "@/app/app/not-found"
+import { AppNotFoundBody } from "@/components/app/app-not-found-body"
 
 type W = Window & {
   __delay: number
@@ -93,7 +93,7 @@ function Page({ id }: { id: string }) {
     throwHere = () => setBroken(true)
   }, [])
   if (broken || id === "boom") throw new Error("probe: the page threw")
-  if (id === "missing") return <AppNotFound />
+  if (id === "missing") return <><PageLanded /><AppNotFoundBody tt={text => text} /></>
   return (
     <div data-page={id} className="page-scroll h-full overflow-y-auto bg-[#f8f9fa]">
       {/* Home's top is the violet announcement bar (components/app/dashboard-client.tsx):

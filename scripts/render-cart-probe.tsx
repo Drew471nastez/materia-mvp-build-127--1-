@@ -11,7 +11,7 @@ import { cartStorageKey, serializeCart, type CartLine } from "@/lib/website-buil
 
 declare global {
   interface Window {
-    __calls?: { url: string; body: unknown }[]
+    __commerceProbeCalls?: { url: string; body: unknown }[]
   }
 }
 
@@ -21,7 +21,7 @@ const LINES: CartLine[] = [
 ]
 
 function stubFetch() {
-  const calls: { url: string; body: unknown }[] = (window.__calls = [])
+  const calls: { url: string; body: unknown }[] = (window.__commerceProbeCalls = [])
   const json = (body: unknown, status = 200) =>
     Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
