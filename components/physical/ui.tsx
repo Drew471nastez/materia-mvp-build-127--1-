@@ -15,6 +15,7 @@ import { Check, ChevronDown, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FAIL_COPY, requestJson } from "@/lib/net/request"
 import { Switch } from "@/components/ui/switch"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
 import { HowItWorks } from "@/components/app/settings/how-it-works"
@@ -23,7 +24,7 @@ import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
-import { SHOP_CURRENCY, shopMoney } from "@/lib/store/shop-money"
+import { SHOP_CURRENCY, shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -50,6 +51,128 @@ export const BTN_GHOST =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 disabled:pointer-events-none disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
 export const BTN_DANGER =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#fecaca] bg-white px-4 text-[14px] font-medium text-[#b42318] outline-none transition-colors hover:bg-[#fef2f2] disabled:pointer-events-none disabled:opacity-50"
+
+/*
+ * ===========================================================================
+ *  SAVE, THE SAME EVERYWHERE IN SETTINGS
+ * ===========================================================================
+ * One button and one row for every settings form, so a save looks and
+ * behaves the same on every panel:
+ *
+ *   nothing changed   Save is there and greyed (no button that appears and
+ *                     pushes the row about)
+ *   saving            a spinner where the word was, the button keeps its width
+ *   saved             "Saved" with a check for a moment, then Save again
+ *   failed            the reason in plain words, on the left of the row
+ *
+ * The three labels sit in one grid cell, so the button is as wide as the
+ * widest of them and never jumps as it changes.
+ */
+export type SaveState = "idle" | "saving" | "saved"
+/* Hidden layers are `invisible` as well as clear, so a screen reader and innerText read only the one shown. */
+const LAYER = "col-start-1 row-start-1 transition-[opacity,visibility] duration-150"
+
+/** Runs a save and keeps its state: `run` takes a function that answers null when it worked, or what went wrong. */
+export function useSaveState(savedMs = 1600) {
+  const [state, setState] = React.useState<SaveState>("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  const timer = React.useRef<number | undefined>(undefined)
+  React.useEffect(() => () => window.clearTimeout(timer.current), [])
+  const run = React.useCallback(
+    async (save: () => Promise<string | null | undefined>) => {
+      window.clearTimeout(timer.current)
+      setState("saving")
+      setError(null)
+      let problem: string | null | undefined
+      try {
+        problem = await save()
+      } catch {
+        problem = tt("Something went wrong. Try again.")
+      }
+      if (problem) {
+        setError(problem)
+        setState("idle")
+        return false
+      }
+      setState("saved")
+      timer.current = window.setTimeout(() => setState("idle"), savedMs)
+      return true
+    },
+    [savedMs],
+  )
+  return { state, error, setError, run }
+}
+
+export function SaveButton({
+  state,
+  onClick,
+  disabled,
+  label,
+  className,
+  ...rest
+}: {
+  state: SaveState
+  onClick: () => void
+  /** Nothing to save yet, or something still missing. */
+  disabled?: boolean
+  /** "Save" unless the form says what it makes: "Add rate", "Save zone". */
+  label?: string
+  className?: string
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "disabled" | "className">) {
+  const saving = state === "saving"
+  const word = label ?? tt("Save")
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={cn(BTN_PRIMARY, "h-11 sm:h-10", state !== "idle" && "disabled:opacity-100", className)}
+      onClick={onClick}
+      disabled={disabled || saving}
+      aria-busy={saving || undefined}
+      data-save-state={state}
+    >
+      <span className="grid">
+        <span className={cn(LAYER, state === "idle" ? "visible opacity-100" : "invisible opacity-0")}>{word}</span>
+        <span aria-hidden={state !== "saved"} className={cn(LAYER, "inline-flex items-center justify-center gap-1.5", state === "saved" ? "visible opacity-100" : "invisible opacity-0")}>
+          <Check className="h-4 w-4" strokeWidth={2.5} />
+          {tt("Saved")}
+        </span>
+        <span aria-hidden={!saving} className={cn(LAYER, "grid place-items-center", saving ? "visible opacity-100" : "invisible opacity-0")}>
+          {saving ? <ActivitySpinner size={18} label={tt("Saving")} className="text-white" /> : null}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+/**
+ * The foot of a settings form: what went wrong (or `start`, like a switch)
+ * on the left, Cancel and Save on the right. No band, no ground of its own:
+ * the buttons sit on the card they belong to.
+ */
+export function FormActions({ error, start, children, className }: { error?: string | null; start?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex flex-wrap items-center justify-end gap-x-2 gap-y-3 pt-1", className)} data-form-actions="">
+      {error ? (
+        <p role="alert" className="mr-auto min-w-0 basis-full text-[13px] leading-5 text-[#b42318] sm:basis-auto sm:flex-1">
+          {error}
+        </p>
+      ) : start ? (
+        <div className="mr-auto min-w-0">{start}</div>
+      ) : null}
+      <div className="flex items-center gap-2">{children}</div>
+    </div>
+  )
+}
+
+/** Cancel beside Save: outlined, the same height. */
+export function CancelButton({ onClick, disabled, label }: { onClick: () => void; disabled?: boolean; label?: string }) {
+  return (
+    <button type="button" className={cn(BTN_SECONDARY, "h-11 sm:h-10")} onClick={onClick} disabled={disabled} data-form-cancel="">
+      {label ?? tt("Cancel")}
+    </button>
+  )
+}
 
 /** `help` puts a "How it works" under the card's line, opening that explanation (lib/settings/explainers.ts). */
 export function Card({ title, description, action, help, children, className, id }: { title?: React.ReactNode; description?: React.ReactNode; action?: React.ReactNode; help?: ExplainerId; children?: React.ReactNode; className?: string; id?: string }) {
@@ -92,7 +215,8 @@ export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttri
  * the number, lei or kr after it, with room left so the two never overlap.
  */
 export function MoneyInput({ value, onChange, placeholder, className, inputClassName, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; inputClassName?: string; compact?: boolean }) {
-  const { mark, node, pad } = useMoneyMark()
+  /* The mark in the muted text grey (#6b7280, 4.8:1 on white): a lighter grey read as a hint, not as the currency. */
+  const { mark, node, pad } = useMoneyMark("text-[14px] text-[#6b7280]")
   return (
     <div className={cn("relative", className)}>
       {node}
@@ -128,7 +252,8 @@ export function dollarsOf(cents: number | null | undefined): string {
  */
 export function useShopMoney(): (cents: number) => string {
   const currency = useStoreCurrency()
-  return React.useCallback((cents: number) => money(cents, currency), [currency])
+  /* Written as the summary and the price fields write it ("15.00 lei", "$5.00"), so a rate reads the same in its row, its field and the sentence above. */
+  return React.useCallback((cents: number) => shopMoneyIn(cents, currency), [currency])
 }
 
 /** An amount in `currency`: an order's own, or the platform's when none is given. In a store's settings use useShopMoney. */
@@ -166,7 +291,7 @@ export function DecimalInput({ value, onChange, className, suffix, compact, ...p
         onChange={(e) => onChange(decimalTyped(e.target.value))}
         className={cn(compact ? FIELD_COMPACT : FIELD, "tabular-nums", suffix ? "pr-12" : "", className)}
       />
-      {suffix ? <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-[#9ca3af]">{suffix}</span> : null}
+      {suffix ? <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-[#6b7280]">{suffix}</span> : null}
     </div>
   )
 }
@@ -187,11 +312,11 @@ export function Toggle({ label, description, checked, onChange, disabled, id }: 
   const switchId = id ?? auto
   return (
     <div className="flex items-start justify-between gap-4">
-      <label htmlFor={switchId} className="min-w-0 cursor-pointer">
+      <label htmlFor={switchId} className="-my-1.5 min-w-0 cursor-pointer py-1.5">
         <span className="block text-[14px] font-medium leading-5 text-[#1a1a2e]">{label}</span>
         {description ? <span className="mt-0.5 block text-[13px] leading-[18px] text-[#6b7280]">{description}</span> : null}
       </label>
-      <Switch id={switchId} checked={checked} onCheckedChange={onChange} disabled={disabled} className="mt-0.5 shrink-0" />
+      <Switch id={switchId} checked={checked} onCheckedChange={onChange} disabled={disabled} className="relative mt-0.5 shrink-0 before:absolute before:-inset-x-2 before:-inset-y-1.5 before:content-['']" />
     </div>
   )
 }

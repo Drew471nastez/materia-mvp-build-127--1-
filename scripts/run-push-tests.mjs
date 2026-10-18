@@ -58,6 +58,8 @@ const SUITES = [
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
   "tests/shippingapps24.test.ts",
+  /* Round Y4: shipping labels across every fulfilment path (partial weight, kept labels, ship again, other orders, local delivery); scripts/check-labels-y4.mjs measures the label screens. */
+  "tests/labels-fulfil-y4.test.ts",
   "tests/admindocs23.test.ts",
   "tests/buyer24.test.ts",
   /* Round 27 (B27): the buyer's order pages: Cancel order cancels and refunds, live status, words, logo, Visit store, returns. */
@@ -626,6 +628,7 @@ const SUITES = [
   "tests/nav23.test.ts",
   /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
   "tests/editor-perf-v.test.ts",
+  "tests/editor-y1.test.ts",
   /* V12: no :has() whose subject is the root, so an insertion restyles what it touches (scripts/check-editor-perf.mjs, "insert one node"). */
   "tests/editor-css-v.test.ts",
   "tests/communities-frame12.test.ts",
@@ -747,6 +750,9 @@ const SUITES = [
   /* Round X4: Join on a team invite works after any sign in (Origin "null" under no-referrer was refused), the invite kept across OAuth, another email may take a valid link once */
   "tests/team-join-x.test.ts",
   "tests/team-invite.test.ts",
+  /* Round Y2: a team member opening /app lands in the team store (never /sell), Not now on /sell goes back to it, sign in follows /app for a member; an integration's bar carries Back (scripts/check-integrations-y2.mjs measures the bar and the card covers) */
+  "tests/team-landing.test.ts",
+  "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
 ]
@@ -810,6 +816,13 @@ const STRICT_SUITES = [
     above), the About card's icons and Share; scripts/check-page-editor27.mjs measures the editor and its frame rates.
   */
   "tests/editor27.test.ts",
+  /*
+    Round Y3: Settings › Shipping in Storelib's own forms (no grey band behind Cancel and Save), one SaveButton and
+    FormActions for every settings form, the summary's "from" and carrier zones, and a carrier rate's free over in the
+    free shipping banner; scripts/check-shipping-settings.mjs measures the page at 390 and 1280. Strict, as it imports
+    components/physical/shipping-settings.tsx (as tests/shipsetup.test.ts does).
+  */
+  "tests/shipping-settings-y3.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

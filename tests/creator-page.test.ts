@@ -2326,7 +2326,8 @@ function main() {
     check("and warms the way out so the wait is the only wait", /router\.prefetch\("\/app"\)/.test(workspace))
     /** One number for one question: both editors leave. */
     check("the hold is shared, not copied", /export const LEAVING_SEEN_MS/.test(ceiling))
-    check("and the builder uses that one", /LEAVING_SEEN_MS, (NAVIGATE_CEILING_MS, )?navigateWithCeiling/.test(builder) && !/const LEAVING_SEEN_MS =/.test(builder))
+    /* Y1: the builder itself now waits EXIT_MIN_MS (Going back stays in its canvas until then) and keeps no hold of its own. */
+    check("and the builder keeps no copy of it", /import \{ (LEAVING_SEEN_MS, )?(NAVIGATE_CEILING_MS, )?navigateWithCeiling \} from "@\/lib\/website-builder\/navigate-ceiling"/.test(builder) && !/const LEAVING_SEEN_MS =/.test(builder))
 
     /**
      * A bare anchor is a FULL DOCUMENT LOAD: nothing prefetched, and the

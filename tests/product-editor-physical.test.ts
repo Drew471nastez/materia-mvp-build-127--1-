@@ -47,7 +47,7 @@ console.log("\nPrices in the store's currency")
   const editor = read("app/app/products/new/product-editor.tsx")
   check("no price field in the editor prints a bare $", !/>\$<\/span>/.test(editor) && /\{priceMark\.node\}/.test(editor) && /<StoreCurrencyProvider currency=\{creator\.currency\}>/.test(editor))
   const ui = read("components/physical/ui.tsx")
-  check("the physical cards' price field takes the store's mark", /useMoneyMark\(\)/.test(ui) && !/>\s*\$\s*<\/span>/.test(ui))
+  check("the physical cards' price field takes the store's mark", /useMoneyMark\(/.test(ui) && !/>\s*\$\s*<\/span>/.test(ui))
 }
 
 console.log("\nOptions and variants keep what was typed")

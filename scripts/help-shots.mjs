@@ -69,9 +69,9 @@ const server = createServer((req, res) => {
   const p = req.url.split("?")[0]
   if (p.startsWith("/media/") && mediaDir && /^[\w.-]+$/.test(p.slice(7))) { try { res.writeHead(200, { "content-type": "font/woff2" }); return res.end(readFileSync(join(mediaDir, p.slice(7)))) } catch { res.writeHead(404); return res.end() } }
   if (p === "/probe.js") { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
-  /* The site's own public files the screens ask for: the flags sprite, the integrations' marks. */
+  /* The site's own public files the screens ask for: the flags sprite, the integrations' marks, the carriers' logos. */
   const file = join(root, "public", p)
-  if (/^\/(flags|integrations|images\/brand)\/[\w.-]+$/.test(p) && existsSync(file)) { res.writeHead(200, { "content-type": p.endsWith(".svg") ? "image/svg+xml" : p.endsWith(".webp") ? "image/webp" : "image/png" }); return res.end(readFileSync(file)) }
+  if (/^\/(flags|integrations|carriers|images\/brand)\/[\w.-]+$/.test(p) && existsSync(file)) { res.writeHead(200, { "content-type": p.endsWith(".svg") ? "image/svg+xml" : p.endsWith(".webp") ? "image/webp" : "image/png" }); return res.end(readFileSync(file)) }
   res.writeHead(200, { "content-type": "text/html" }); res.end(html)
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
@@ -197,6 +197,15 @@ const SHOTS = [
     act: [press("Fulfill items"), async (p) => { await p.evaluate(() => document.querySelector('[data-ship-mode-option="label"]')?.click()); await wait(400); await p.evaluate(() => document.querySelector("[data-label-submit]")?.click()); await wait(900) }],
     clip: (p) => p.evaluate(() => window.__dialog()),
   },
+  /* Round Y4: the label bought, a shipment with its label, a label left without a shipment, and Fulfill items for an order the shop delivers itself. */
+  {
+    name: "label-bought", view: "order", q: "label=1", width: 1100, phone: true,
+    act: [press("Fulfill items"), async (p) => { await p.evaluate(() => document.querySelector('[data-ship-mode-option="label"]')?.click()); await wait(400); await p.evaluate(() => document.querySelector("[data-label-submit]")?.click()); await wait(900); await p.evaluate(() => document.querySelector("[data-label-submit]")?.click()); await wait(900) }],
+    clip: (p) => p.evaluate(() => window.__dialog()),
+  },
+  { name: "order-label-shipment", view: "order", q: "order=shipped&labels=shipped&label=1", width: 820, phone: true, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-shipment]")])) },
+  { name: "label-loose", view: "order", q: "labels=loose&label=1", width: 820, phone: true, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-label-loose]")])) },
+  { name: "fulfill-local-delivery", view: "order", q: "local=1&label=1", width: 1100, act: [press("Fulfill items")], clip: (p) => p.evaluate(() => window.__dialog()) },
   { name: "tracking-buyer", view: "status", q: "tracked=1", width: 900, height: 1100, phone: true, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-shipment-status]")], 16)) },
   { name: "tracking-seller", view: "order", q: "order=tracked", width: 820, phone: true, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
   {

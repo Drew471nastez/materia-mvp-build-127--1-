@@ -354,7 +354,7 @@ async function main() {
 
     /** It stops growing before it owns the panel. */
     check("the editor has a ceiling and scrolls past it", /maxHeight = 260/.test(rich) && /style=\{\{ minHeight, maxHeight \}\}/.test(rich))
-    check("on the panel's own slim bar, not a second kind", /wb-slim-scroll overflow-y-auto/.test(rich))
+    check("on the panel's own slim bar, not a second kind", /wb-slim-scroll (?:min-w-0 )?overflow-y-auto/.test(rich))
 
     /** A link is chosen by its name. */
     check("the picker shows the name, with the address as the row's title", /title=\{t\.href\}/.test(picker))

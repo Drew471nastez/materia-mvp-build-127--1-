@@ -41,6 +41,7 @@ import { Check, ChevronDown, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { CountryFlag } from "@/components/app/settings/country-picker"
+import { Switch } from "@/components/ui/switch"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
 import { partnerPill, partnerSentence } from "@/lib/physical/partner"
@@ -53,7 +54,7 @@ import { ReadinessLink } from "./readiness-client"
 import { EU_COUNTRIES, hasUsableRate, isSimpleSetup, quickSetupProposal, shippingSummary } from "@/lib/physical/quick-setup"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { shopMoneyIn } from "@/lib/store/shop-money"
-import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, peekGet, useShopMoney } from "./ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, CancelButton, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, FormActions, MoneyInput, MUTED, Notice, NumberInput, Pill, SaveButton, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, peekGet, useSaveState, useShopMoney, type SaveState } from "./ui"
 import { tt } from "@/lib/i18n/text"
 
 interface Settings {
@@ -164,14 +165,12 @@ const RATE_KIND_LABEL: Record<RateKind, string> = {
 /** What the seller picks from; quantity stays readable on older rates. Carrier calculated: live rates from Shippo or EasyPost (lib/integrations/shipping/checkout-rates-server.ts). */
 const RATE_KINDS_OFFERED: RateKind[] = ["flat", "free", "price", "weight", "item_weight", "carrier"]
 
-const RATE_KIND_LINE: Record<RateKind, string> = {
-  get flat() { return tt("One price for the whole order.") },
-  get free() { return tt("Nothing to pay, always or above an order value.") },
-  get price() { return tt("Bigger orders pay a different price. Set the steps.") },
-  get weight() { return tt("Heavier orders pay more. Set the steps by total weight.") },
-  get item_weight() { return tt("Each item is priced by its own weight, then added up.") },
-  get quantity() { return tt("By how many items are in the order.") },
-  get carrier() { return tt("Live rates from your Shippo or EasyPost account for the buyer's address. Left out when they don't answer in time.") },
+/** A line under the pick, only for the kinds whose name can't say it all. */
+const RATE_KIND_LINE: Partial<Record<RateKind, string>> = {
+  get price() { return tt("The order pays the step its total reaches. A step at 0 is free shipping from there.") },
+  get weight() { return tt("The order pays the step its weight reaches, your default package included.") },
+  get item_weight() { return tt("Each item pays the step its own weight reaches, then they are added up.") },
+  get carrier() { return tt("Priced live by your Shippo or EasyPost account for the buyer's address. Left out when it doesn't answer in time.") },
 }
 
 function weightText(grams: number, system: UnitSystem): string {
@@ -194,7 +193,7 @@ function rateCondition(r: ShippingRate, system: UnitSystem, money: (cents: numbe
         .map((t, i) => {
           const next = r.tiers[i + 1]
           const span = next ? tt("{from} to {from2}", { from: fmtValue(t.from), from2: fmtValue(next.from) }) : `${fmtValue(t.from)}+`
-          return `${span} ${t.priceCents === 0 ? "free" : money(t.priceCents)}${r.kind === "item_weight" ? " each" : ""}`
+          return `${span} ${t.priceCents === 0 ? tt("free") : money(t.priceCents)}${r.kind === "item_weight" ? ` ${tt("each")}` : ""}`
         })
         .join(", "),
     )
@@ -215,6 +214,12 @@ function zonePlaces(z: Pick<ShippingZone, "restOfWorld" | "countries" | "regions
   const names = [...z.countries.map(countryName), ...(z.regions ?? []).map(regionLabel)]
   return names.length <= 3 ? names.join(", ") : tt("{value} and {value2} more", { value: names.slice(0, 2).join(", "), value2: names.length - 2 })
 }
+
+/** "Add rate", "Add shipping zone", "Custom shipping profile": one quiet ink button for adding, the same everywhere here. */
+const ADD = "-ml-2 inline-flex h-9 items-center gap-1.5 self-start rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] outline-none transition-colors hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 [-webkit-tap-highlight-color:transparent]"
+
+/** The ground a form opens on inside a list: white, set off by a hairline above, never a grey band of its own. */
+const FORM_IN_LIST = "space-y-4 border-t border-[#eceef1] px-3 py-3.5 sm:px-4"
 
 function stopEnter(e: React.KeyboardEvent) {
   if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault()
@@ -358,12 +363,9 @@ function Onboarding({ onDone }: { onDone: () => void }) {
   return (
     <Card title={tt("How do you fulfil your physical orders?")} description={tt("We'll set up your first location to match. You can change this any time.")} help="fulfilment">
       <FulfilmentChoice value={chosen} onChange={setChosen} />
-      {error ? <Notice className="mt-3">{error}</Notice> : null}
-      <div className="mt-4 flex justify-end">
-        <button type="button" className={BTN_PRIMARY} disabled={!chosen || busy} onClick={go}>
-          {busy ? tt("Setting up") : tt("Continue")}
-        </button>
-      </div>
+      <FormActions error={error} className="mt-4">
+        <SaveButton state={busy ? "saving" : "idle"} label={tt("Continue")} disabled={!chosen} onClick={go} />
+      </FormActions>
     </Card>
   )
 }
@@ -452,7 +454,7 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
       {open ? (
         <div id="shipping-all" className="shipping-all-in space-y-4">
           <FulfilmentCard data={data} reload={reload} setData={setData} />
-          <Card title={tt("Units")} description={tt("How weights and sizes are typed and shown here, on new products and in packages. Rates keep working when you switch.")}>
+          <Card title={tt("Units")}>
             <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label={tt("Units")} data-unit-system={system} onKeyDown={radioKeys(["metric", "imperial"] as const, system, setSystem)}>
               {units.map((o) => (
                 <button
@@ -463,7 +465,7 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
                   tabIndex={system === o.id ? 0 : -1}
                   data-radio={o.id}
                   onClick={() => setSystem(o.id)}
-                  className={cn("h-9 rounded-lg px-3 text-[13.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25", system === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                  className={cn("h-9 rounded-lg px-3 text-[13.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25", system === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]")}
                 >
                   {o.label}
                 </button>
@@ -476,43 +478,57 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
           ))}
           {error ? <Notice>{error}</Notice> : null}
           {newProfile === null ? (
-            <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile("")}>
+            <button type="button" className={ADD} onClick={() => setNewProfile("")} data-add-profile="">
               <Plus className="h-4 w-4" />
               {tt("Custom shipping profile")}
             </button>
           ) : (
-            <Card title={tt("New shipping profile")} description={tt("For products that ship differently, like heavy or fragile items. Next you pick its products, then where it ships and for how much.")}>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <TextInput autoFocus placeholder={tt("Heavy items")} value={newProfile} maxLength={80} onChange={(e) => setNewProfile(e.target.value)} className="flex-1" />
-                <div className="flex gap-2">
-                  <button type="button" className={BTN_SECONDARY} onClick={() => setNewProfile(null)}>
-                    {tt("Cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    className={BTN_PRIMARY}
-                    disabled={!newProfile.trim()}
-                    onClick={async () => {
-                      const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/profiles", { body: { name: newProfile } })
-                      if (!r.ok) return setError(r.error)
-                      updateProfiles(r.data.profiles)
-                      setNewProfile(null)
-                    }}
-                  >
-                    {tt("Create profile")}
-                  </button>
-                </div>
-              </div>
-            </Card>
+            <NewProfile value={newProfile} onChange={setNewProfile} onCancel={() => setNewProfile(null)} onMade={(p) => { updateProfiles(p); setNewProfile(null) }} />
           )}
           {/* Local delivery and pickup are a place's, not a zone's: each location sets its own (Locations). */}
-          <p className="text-[13px] leading-[19px] text-[#6b7280]" data-local-hint="">
-            {tt("Local delivery and local pickup are set on each location, in Locations:")} {deliveryHint(data.locations)}
-          </p>
+          <div className={cn(CARD, "flex items-center justify-between gap-3 px-4 py-3.5 sm:px-6")} data-local-hint="">
+            <div className="min-w-0">
+              <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Local delivery and pickup")}</p>
+              <p className="text-[13px] leading-[19px] text-[#6b7280]">{capital(deliveryHint(data.locations))}</p>
+            </div>
+            <ReadinessLink plain href="/app/settings?tab=locations" className={cn(BTN_SECONDARY, "h-9 shrink-0 px-3 text-[13.5px]")}>
+              {tt("Locations")}
+            </ReadinessLink>
+          </div>
           <Packages data={data} setData={setData} />
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** A custom profile, named here; its products, zones and rates come after. */
+function NewProfile({ value, onChange, onCancel, onMade }: { value: string; onChange: (v: string) => void; onCancel: () => void; onMade: (profiles: ShippingProfile[]) => void }) {
+  const { state, error, run } = useSaveState()
+  return (
+    <Card title={tt("New shipping profile")} description={tt("For products that ship differently, like heavy or fragile items.")}>
+      <div className="space-y-4">
+        <Field label={tt("Profile name")}>
+          <TextInput autoFocus placeholder={tt("Heavy items")} value={value} maxLength={80} onChange={(e) => onChange(e.target.value)} />
+        </Field>
+        <FormActions error={error}>
+          <CancelButton onClick={onCancel} />
+          <SaveButton
+            state={state}
+            label={tt("Create profile")}
+            disabled={!value.trim()}
+            onClick={() =>
+              void run(async () => {
+                const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/profiles", { body: { name: value } })
+                if (r.ok === false) return r.error
+                onMade(r.data.profiles)
+                return null
+              })
+            }
+          />
+        </FormActions>
+      </div>
+    </Card>
   )
 }
 
@@ -524,14 +540,14 @@ function homeCountry(data: Data): string {
 
 /* ── Quick setup ───────────────────────────────────────────────────────── */
 
-/** Days typed as text, kept to whole numbers 0 to 365. */
-function DaysInputs({ min, max, onMin, onMax, label }: { min: string; max: string; onMin: (v: string) => void; onMax: (v: string) => void; label: string }) {
+/** Days typed as text, kept to whole numbers 0 to 365: "3 to 5 days", one row that never wraps. */
+function DaysInputs({ min, max, onMin, onMax, label, placeholders, unit }: { min: string; max: string; onMin: (v: string) => void; onMax: (v: string) => void; label: string; placeholders?: [string, string]; unit?: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <NumberInput value={min} onChange={onMin} aria-label={tt("{label}, fewest days", { label })} className="w-[72px] text-center" />
+    <div className="flex items-center gap-2" data-days-inputs="">
+      <NumberInput value={min} onChange={onMin} placeholder={placeholders?.[0]} aria-label={tt("{label}, fewest days", { label })} className="w-[72px] text-center" />
       <span className="text-[13px] text-[#6b7280]">{tt("to")}</span>
-      <NumberInput value={max} onChange={onMax} aria-label={tt("{label}, most days", { label })} className="w-[72px] text-center" />
-      <span className="text-[13px] text-[#6b7280]">{tt("days")}</span>
+      <NumberInput value={max} onChange={onMax} placeholder={placeholders?.[1]} aria-label={tt("{label}, most days", { label })} className="w-[72px] text-center" />
+      <span className="whitespace-nowrap text-[13px] text-[#6b7280]">{unit ?? tt("days")}</span>
     </div>
   )
 }
@@ -815,6 +831,7 @@ function ProfileCard({
 }) {
   const [addingZone, setAddingZone] = React.useState(false)
   const [renaming, setRenaming] = React.useState<string | null>(null)
+  const rename = useSaveState()
   const taken = profile.zones.flatMap((z) => z.countries)
   const takenRegions = profile.zones.flatMap((z) => z.regions ?? [])
   const hasRow = profile.zones.some((z) => z.restOfWorld)
@@ -832,21 +849,22 @@ function ProfileCard({
       title={
         renaming !== null ? (
           <span className="flex items-center gap-2">
-            <TextInput autoFocus value={renaming} maxLength={80} aria-label={tt("Profile name")} onChange={(e) => setRenaming(e.target.value)} className="h-9 max-w-[260px]" />
-            <button
-              type="button"
-              className={cn(BTN_PRIMARY, "h-9")}
-              disabled={!renaming.trim()}
-              onClick={async () => {
-                const r = await api<{ profiles: ShippingProfile[]; shippingProducts: ShippingProduct[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "PATCH", body: { name: renaming } })
-                if (!r.ok) return onError(r.error)
-                onProfiles(r.data.profiles, { shippingProducts: r.data.shippingProducts })
-                setRenaming(null)
-              }}
-            >
-              {tt("Save")}
-            </button>
-            <button type="button" className={cn(BTN_GHOST, "h-9")} onClick={() => setRenaming(null)}>
+            <TextInput autoFocus value={renaming} maxLength={80} aria-label={tt("Profile name")} onChange={(e) => setRenaming(e.target.value)} className="h-10 min-w-0 max-w-[260px] flex-1 sm:h-9" />
+            <SaveButton
+              state={rename.state}
+              className="h-10 shrink-0 px-3 sm:h-9"
+              disabled={!renaming.trim() || renaming.trim() === profile.name}
+              onClick={() =>
+                void rename.run(async () => {
+                  const r = await api<{ profiles: ShippingProfile[]; shippingProducts: ShippingProduct[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "PATCH", body: { name: renaming } })
+                  if (r.ok === false) return r.error
+                  onProfiles(r.data.profiles, { shippingProducts: r.data.shippingProducts })
+                  setRenaming(null)
+                  return null
+                })
+              }
+            />
+            <button type="button" className={cn(BTN_GHOST, "h-10 shrink-0 sm:h-9")} onClick={() => setRenaming(null)}>
               {tt("Cancel")}
             </button>
           </span>
@@ -857,7 +875,7 @@ function ProfileCard({
           </span>
         )
       }
-      description={profile.isDefault ? tt("Every physical product uses these rates, unless it's in a custom profile.") : tt("Only the products below use these rates.")}
+      description={renaming !== null && rename.error ? <span className="text-[#b42318]">{rename.error}</span> : profile.isDefault ? tt("Every physical product uses these rates, unless it's in a custom profile.") : tt("Only the products below use these rates.")}
       action={
         renaming !== null ? null : (
           <div className="flex gap-1">
@@ -883,7 +901,7 @@ function ProfileCard({
         )
       }
     >
-      <div className="space-y-3" data-shipping-profile={profile.isDefault ? "default" : "custom"}>
+      <div className="flex flex-col gap-3" data-shipping-profile={profile.isDefault ? "default" : "custom"}>
         <ProfileProducts profile={profile} mine={mine} all={products} profiles={allProfiles} onProfiles={onProfiles} onError={onError} />
         {profile.zones.length === 0 && !addingZone ? (
           <div className="rounded-xl border border-dashed border-[#e5e7eb] px-3 py-3">
@@ -914,7 +932,7 @@ function ProfileCard({
             }}
           />
         ) : (
-          <button type="button" className={BTN_SECONDARY} onClick={() => setAddingZone(true)}>
+          <button type="button" className={ADD} onClick={() => setAddingZone(true)} data-add-zone="">
             <Plus className="h-4 w-4" />
             {tt("Add shipping zone")}
           </button>
@@ -1038,8 +1056,10 @@ function ZoneForm({
   const [regions, setRegions] = React.useState<string[]>(initial?.regions ?? [])
   const [row, setRow] = React.useState(initial?.restOfWorld ?? false)
   const [statesFor, setStatesFor] = React.useState<string | null>(() => (initial?.regions?.[0] ? initial.regions[0].split("-")[0] : null))
-  const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
+  const { state, error, run } = useSaveState()
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
+  /* Editing: Save greys out until something is different from what is saved. */
+  const changed = !initial || name.trim() !== initial.name || !same(countries, initial.countries) || !same(regions, initial.regions ?? [])
   const otherRegions = takenRegions.filter((r) => !initial?.regions?.includes(r))
   const otherCountries = taken.filter((c) => !initial?.countries.includes(c))
   const defaultName = () => {
@@ -1071,11 +1091,12 @@ function ZoneForm({
   const freeStates = statesFor ? statesOf(statesFor).filter((k) => !otherRegions.includes(k)) : []
   const allStatesOn = freeStates.length > 0 && freeStates.every((k) => regions.includes(k))
   return (
-    <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-zone-form="">
+    <div className="space-y-4 rounded-xl border border-[#e5e7eb] bg-white p-3.5 sm:p-4" data-zone-form="">
+      {initial ? null : <p className="text-[14.5px] font-semibold text-[#1a1a2e]">{tt("New zone")}</p>}
       <Field label={tt("Zone name")} hint={tt("Only you see this")}>
         <TextInput value={name} maxLength={80} placeholder={row ? tt("Rest of world") : defaultName() === tt("Zone") ? tt("Europe") : defaultName()} onChange={(e) => setName(e.target.value)} />
       </Field>
-      {canRestOfWorld || initial?.restOfWorld ? <Toggle label={tt("Rest of world")} description={tt("Every country not in another zone of this profile. Countries where you picked only some states stay out.")} checked={row} onChange={setRow} disabled={!!initial} /> : null}
+      {canRestOfWorld || initial?.restOfWorld ? <Toggle label={tt("Rest of world")} description={tt("Every country not in another zone of this profile.")} checked={row} onChange={setRow} disabled={!!initial} /> : null}
       {!row ? (
         <div className="flex flex-wrap items-center gap-2" data-zone-quick="">
           <span className="text-[12.5px] text-[#6b7280]">{tt("Quick pick")}</span>
@@ -1094,9 +1115,9 @@ function ZoneForm({
       ) : null}
       {!row ? <CountryPicker value={countries} onChange={pickCountries} taken={otherCountries} /> : null}
       {!row ? (
-        <div className="rounded-xl border border-[#eceef1] bg-white p-3" data-zone-states="">
-          <p className="text-[13.5px] font-medium text-[#1a1a2e]">{tt("Only some states or provinces")}</p>
-          <p className="mt-0.5 text-[12.5px] text-[#6b7280]">{tt("Pick a country here instead of above to ship to part of it, like the lower 48. States you leave out aren't shipped to, unless another zone has them.")}</p>
+        <div data-zone-states="">
+          <p className="text-[13.5px] font-medium text-[#374151]">{tt("Only some states or provinces")}</p>
+          <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#6b7280]">{tt("States you leave out aren't shipped to, unless another zone has them.")}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {Object.keys(REGIONS).map((cc) => {
               const count = regions.filter((r) => r.startsWith(`${cc}-`)).length
@@ -1150,35 +1171,60 @@ function ZoneForm({
           ) : null}
         </div>
       ) : null}
-      {error ? <Notice>{error}</Notice> : null}
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
-          {tt("Cancel")}
-        </button>
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          disabled={busy || (!row && countries.length === 0 && regions.length === 0)}
-          onClick={async () => {
-            setBusy(true)
-            setError(null)
-            const problem = await onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row })
-            setBusy(false)
-            if (problem) setError(problem)
-          }}
-        >
-          {busy ? tt("Saving") : initial ? tt("Save zone") : tt("Add zone")}
-        </button>
-      </div>
+      <FormActions error={error}>
+        <CancelButton onClick={onCancel} />
+        <SaveButton
+          state={state}
+          label={initial ? tt("Save zone") : tt("Add zone")}
+          disabled={!changed || (!row && countries.length === 0 && regions.length === 0)}
+          onClick={() => void run(() => onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row }))}
+          data-zone-save=""
+        />
+      </FormActions>
     </div>
   )
+}
+
+/** "Saved", for a moment, beside what was just saved: the form has closed, so this is where the eye looks. */
+function SavedMark() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#047857]" data-saved-mark="" role="status">
+      <Check className="h-3.5 w-3.5" aria-hidden strokeWidth={2.5} />
+      {tt("Saved")}
+    </span>
+  )
+}
+
+/** Marks one id as just saved for a little while. */
+function useSavedFlash(ms = 2200): [string | null, (id: string | null) => void] {
+  const [id, setId] = React.useState<string | null>(null)
+  const timer = React.useRef<number | undefined>(undefined)
+  React.useEffect(() => () => window.clearTimeout(timer.current), [])
+  const flash = React.useCallback(
+    (next: string | null) => {
+      window.clearTimeout(timer.current)
+      setId(next)
+      if (next) timer.current = window.setTimeout(() => setId(null), ms)
+    },
+    [ms],
+  )
+  return [id, flash]
 }
 
 function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; carrierApps: CarrierApp[]; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const money = useShopMoney()
   const [editing, setEditing] = React.useState(false)
   const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(() => (fresh && zone.rates.length === 0 ? "new" : null))
+  const [saved, flash] = useSavedFlash()
   const label = zonePlaces(zone)
+  /* The rate a save made or changed, found in what the server sent back, so its row can say Saved. */
+  const keep = (profiles: ShippingProfile[], id: string | null) => {
+    const before = new Set(zone.rates.map((r) => r.id))
+    const after = profiles.flatMap((p) => p.zones).find((z) => z.id === zone.id)?.rates ?? []
+    onProfiles(profiles)
+    setRateForm(null)
+    flash(id ?? after.find((r) => !before.has(r.id))?.id ?? null)
+  }
   if (editing) {
     return (
       <ZoneForm
@@ -1189,9 +1235,10 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
         onCancel={() => setEditing(false)}
         onSave={async (z) => {
           const r = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/zones/${zone.id}`, { method: "PATCH", body: { name: z.name, ...(zone.restOfWorld ? {} : { countries: z.countries, regions: z.regions }) } })
-          if (!r.ok) return r.error
+          if (r.ok === false) return r.error
           onProfiles(r.data.profiles)
           setEditing(false)
+          flash(zone.id)
           return null
         }}
       />
@@ -1199,8 +1246,8 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
   }
   const flags = zone.restOfWorld ? [] : [...new Set([...zone.countries, ...(zone.regions ?? []).map((r) => r.split("-")[0])])].slice(0, 4)
   return (
-    <div className="rounded-xl border border-[#eceef1]" data-zone={zone.id}>
-      <div className="flex items-center justify-between gap-3 border-b border-[#eceef1] px-3 py-2.5">
+    <div className="overflow-hidden rounded-xl border border-[#e5e7eb]" data-zone={zone.id}>
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           {flags.length ? (
             <span className="flex shrink-0 -space-x-1.5" aria-hidden>
@@ -1210,8 +1257,11 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
             </span>
           ) : null}
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{zone.name}</p>
-            <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p>
+            <p className="flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
+              <span className="truncate">{zone.name}</span>
+              {saved === zone.id ? <SavedMark /> : null}
+            </p>
+            {label !== zone.name ? <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p> : null}
           </div>
         </div>
         <div className="flex shrink-0 gap-1">
@@ -1225,7 +1275,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
             onClick={async () => {
               if (!window.confirm(tt("Delete the {name} zone and its rates?", { name: zone.name }))) return
               const r = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/zones/${zone.id}`, { method: "DELETE" })
-              if (!r.ok) return onError(r.error)
+              if (r.ok === false) return onError(r.error)
               onProfiles(r.data.profiles)
             }}
           >
@@ -1233,29 +1283,39 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
           </button>
         </div>
       </div>
-      {zone.rates.length === 0 && rateForm === null ? <p className="px-3 pt-2.5 text-[12.5px] text-[#b45309]">{tt("No rate yet, so nothing ships here.")}</p> : null}
-      <ul className="divide-y divide-[#f1f2f4]">
+      {zone.rates.length === 0 && rateForm === null ? <p className="border-t border-[#eceef1] px-3 py-2.5 text-[13px] text-[#92400e] sm:px-4">{tt("No rate yet, so nothing ships here.")}</p> : null}
+      <ul>
         {zone.rates.map((r) =>
           rateForm !== null && rateForm !== "new" && rateForm.id === r.id ? (
-            <li key={r.id} className="p-3">
-              <RateForm initial={r} system={system} carrierApps={carrierApps} onCancel={() => setRateForm(null)} onSave={async (body) => {
-                const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "PATCH", body })
-                if (!res.ok) return res.error
-                onProfiles(res.data.profiles)
-                setRateForm(null)
-                return null
-              }} />
+            <li key={r.id} className={FORM_IN_LIST}>
+              <RateForm
+                initial={r}
+                system={system}
+                carrierApps={carrierApps}
+                onCancel={() => setRateForm(null)}
+                onSave={async (body) => {
+                  const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "PATCH", body })
+                  if (res.ok === false) return res.error
+                  keep(res.data.profiles, r.id)
+                  return null
+                }}
+              />
             </li>
           ) : (
-            <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-[14px] text-[#1a1a2e]">
-                  {r.name} {!r.active ? <span className="text-[12px] text-[#9ca3af]">{tt("(off)")}</span> : null}
-                </p>
+            <li key={r.id} className="flex items-center gap-2 border-t border-[#eceef1] px-3 py-2.5 sm:gap-3 sm:px-4" data-rate={r.id}>
+              {/* The price on the name's line, so the conditions under them get the row's whole width on a phone. */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-[14px] text-[#1a1a2e]">
+                    <span className="truncate">{r.name}</span>
+                    {!r.active ? <span className="text-[12.5px] text-[#6b7280]">{tt("(off)")}</span> : null}
+                    {saved === r.id ? <SavedMark /> : null}
+                  </p>
+                  <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]" data-rate-price-shown="">{r.kind === "free" ? tt("Free") : r.kind === "carrier" ? tt("Live") : r.tiers.length > 1 ? tt("From {amount}", { amount: money(Math.min(...r.tiers.map((t) => t.priceCents))) }) : r.priceCents === 0 ? tt("Free") : money(r.priceCents)}</span>
+                </div>
                 <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{[RATE_KIND_LABEL[r.kind], rateCondition(r, system, money)].filter(Boolean).join(" · ")}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <span className="mr-1 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{r.kind === "free" ? "Free" : r.kind === "carrier" ? tt("Live") : r.tiers.length > 1 ? tt("From {amount}", { amount: money(Math.min(...r.tiers.map((t) => t.priceCents))) }) : money(r.priceCents)}</span>
+              <div className="flex shrink-0 items-center gap-0.5">
                 <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={tt("Edit {name}", { name: r.name })} onClick={() => setRateForm(r)}>
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -1264,8 +1324,9 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
                   className={cn(BTN_GHOST, "w-9 px-0")}
                   aria-label={tt("Delete {name}", { name: r.name })}
                   onClick={async () => {
+                    if (!window.confirm(tt("Delete the {name} rate?", { name: r.name }))) return
                     const res = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/rates/${r.id}`, { method: "DELETE" })
-                    if (!res.ok) return onError(res.error)
+                    if (res.ok === false) return onError(res.error)
                     onProfiles(res.data.profiles)
                   }}
                 >
@@ -1276,8 +1337,8 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
           ),
         )}
       </ul>
-      <div className="px-3 py-2.5">
-        {rateForm === "new" ? (
+      {rateForm === "new" ? (
+        <div className={FORM_IN_LIST}>
           <RateForm
             system={system}
             carrierApps={carrierApps}
@@ -1285,19 +1346,20 @@ function ZoneBlock({ zone, taken, takenRegions, system, fresh, carrierApps, onPr
             onCancel={() => setRateForm(null)}
             onSave={async (body) => {
               const res = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/rates", { body: { zoneId: zone.id, ...body } })
-              if (!res.ok) return res.error
-              onProfiles(res.data.profiles)
-              setRateForm(null)
+              if (res.ok === false) return res.error
+              keep(res.data.profiles, null)
               return null
             }}
           />
-        ) : (
-          <button type="button" className={BTN_GHOST} onClick={() => setRateForm("new")}>
+        </div>
+      ) : (
+        <div className="border-t border-[#eceef1] px-3 py-1.5 sm:px-4">
+          <button type="button" className={ADD} onClick={() => setRateForm("new")} data-add-rate="">
             <Plus className="h-4 w-4" />
             {tt("Add rate")}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1307,6 +1369,12 @@ interface TierDraft {
   price: string
 }
 
+/**
+ * ONE RATE, ADDED OR CHANGED. What buyers see (its name and delivery time),
+ * how it is priced, the price, and whether it is offered, then Cancel and
+ * Save on the same white ground as the fields. Editing, Save greys out until
+ * something differs from what is saved.
+ */
 export function RateForm({ initial, system, carrierApps = [], first = false, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; carrierApps?: CarrierApp[]; first?: boolean; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
   const unit = weightUnitFor(system)
   const legacy = initial?.kind === "quantity"
@@ -1320,6 +1388,7 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
   const canCarrier = connected.length > 0 || initial?.kind === "carrier"
   const carrierChoices = [...connected, ...(initial?.carrier && !connected.some((a) => a.id === initial.carrier) ? [{ id: initial.carrier, name: carrierApps.find((a) => a.id === initial.carrier)?.name ?? initial.carrier, connected: false }] : [])]
   const offered = RATE_KINDS_OFFERED.filter((k) => k !== "carrier" || canCarrier)
+  const kinds = legacy ? [...offered, initial!.kind] : offered
   const [carrierApp, setCarrierApp] = React.useState(initial?.carrier ?? connected[0]?.id ?? "shippo")
   const [service, setService] = React.useState(initial?.serviceCode ?? "")
   const [kind, setKind] = React.useState<RateKind>(initial?.kind ?? "flat")
@@ -1339,9 +1408,12 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
   const [minDays, setMinDays] = React.useState(initial?.minDays?.toString() ?? "")
   const [maxDays, setMaxDays] = React.useState(initial?.maxDays?.toString() ?? "")
   const [active, setActive] = React.useState(initial?.active ?? true)
-  const [error, setError] = React.useState<string | null>(null)
   const [priceMissing, setPriceMissing] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
+  const { state, error, setError, run } = useSaveState()
+  /* What the form holds, as one string: editing, Save is live only once it differs from what was opened. */
+  const draft = JSON.stringify([kind, name, price, tiers, max, min, freeOver, minDays, maxDays, active, carrierApp, service])
+  const [opened] = React.useState(draft)
+  const changed = !initial || draft !== opened
   const tiered = kind === "price" || kind === "weight" || kind === "item_weight"
   /* "Free over" is offered where it adds something: a flat price, or weight steps. Price steps do it with a $0 step. */
   const canFreeOver = kind === "flat" || kind === "weight" || kind === "item_weight" || kind === "carrier"
@@ -1352,7 +1424,7 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
     const n = Number(t)
     return Number.isFinite(n) ? Math.round(n) : null
   }
-  const valueSuffix = kind === "price" ? undefined : isWeight(kind) ? unit : "items"
+  const valueSuffix = kind === "price" ? undefined : isWeight(kind) ? unit : tt("items")
   const fromLabel = kind === "price" ? tt("Order price from") : kind === "weight" ? tt("Order weight from") : tt("Item weight from")
   const changeKind = (k: RateKind) => {
     if (tiered && (k === "price") !== (kind === "price")) {
@@ -1361,29 +1433,59 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
     }
     setKind(k)
   }
+  const freeOverField = (
+    <Field label={tt("Free over")}>
+      <MoneyInput value={freeOver} onChange={setFreeOver} placeholder={tt("Optional")} aria-label={tt("Free over")} data-rate-free-over="" />
+    </Field>
+  )
+  const save = () => {
+    /* A missing price is said under the field itself, and nothing is sent. */
+    if (kind === "flat" && centsOf(price) === null) return setPriceMissing(true)
+    void run(async () => {
+      let tierBody: RateTier[] = []
+      if (tiered) {
+        for (const [i, t] of tiers.entries()) {
+          const from = i === 0 ? 0 : toValue(kind, t.from)
+          const priceCents = centsOf(t.price)
+          if (from === null || priceCents === null) return tt("Fill in step {value}, or remove it.", { value: i + 1 })
+          tierBody.push({ from, priceCents })
+        }
+        tierBody = tierBody.sort((a, b) => a.from - b.from)
+      }
+      return onSave({
+        kind,
+        name,
+        priceCents: kind === "free" || kind === "carrier" ? 0 : tiered ? (tierBody[0]?.priceCents ?? 0) : centsOf(price),
+        ...(kind === "carrier" ? { carrier: carrierApp, serviceCode: service.trim() || null } : {}),
+        tiers: tierBody,
+        minValue: kind === "free" ? centsOf(min) : kind === "quantity" ? toValue(kind, min) : null,
+        maxValue: tiered || kind === "quantity" ? toValue(kind, max) : null,
+        freeOverCents: canFreeOver ? centsOf(freeOver) : null,
+        minDays: minDays || null,
+        maxDays: maxDays || null,
+        active,
+      })
+    })
+  }
   return (
-    <div className="space-y-3 rounded-xl bg-[#fcfcfd]" data-rate-form="">
+    <div className="space-y-4" data-rate-form="">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={tt("Name buyers see")} hint={tt("Like Standard or Express")}>
+        <Field label={tt("Name at checkout")}>
           <TextInput value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder={tt("Standard")} />
         </Field>
-        <Field label={tt("Delivery estimate")} hint={tt("Business days, shown at checkout")}>
-          <div className="flex items-center gap-2">
-            <NumberInput value={minDays} onChange={setMinDays} placeholder="3" aria-label={tt("From days")} />
-            <span className="text-[13px] text-[#6b7280]">{tt("to")}</span>
-            <NumberInput value={maxDays} onChange={setMaxDays} placeholder="5" aria-label={tt("To days")} />
-          </div>
+        <Field label={tt("Delivery time")}>
+          <DaysInputs label={name || tt("Rate")} min={minDays} max={maxDays} onMin={setMinDays} onMax={setMaxDays} placeholders={["3", "5"]} unit={tt("business days")} />
         </Field>
       </div>
       {/*
-        HOW IT IS PRICED: one list, a radio dot a row, the picked row on a
-        light ground. Five bordered cards, the picked one ringed in ink, read
-        as five buttons fighting for the eye; this reads as one question.
+        HOW IT IS PRICED: one radiogroup, a radio dot a row, two columns from
+        640px. The name says what each does; only the kinds whose name can't
+        say it all (weight steps, live rates) get a line, and only when picked.
       */}
       <div className="space-y-1.5">
-        <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("How it's priced")}</p>
-        <div role="radiogroup" aria-label={tt("How it's priced")} className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" data-rate-kinds="" onKeyDown={radioKeys(legacy ? [...offered, initial!.kind] : offered, kind, changeKind)}>
-          {(legacy ? [...offered, initial!.kind] : offered).map((k) => {
+        <p className="text-[13px] font-medium text-[#374151] sm:text-[13.5px]">{tt("How it's priced")}</p>
+        <div role="radiogroup" aria-label={tt("How it's priced")} className="grid gap-px overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#eceef1] sm:grid-cols-2" data-rate-kinds="" onKeyDown={radioKeys(kinds, kind, changeKind)}>
+          {kinds.map((k) => {
             const on = kind === k
             return (
               <button
@@ -1395,27 +1497,27 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
                 data-radio={k}
                 onClick={() => changeKind(k)}
                 className={cn(
-                  "flex w-full items-start gap-3 border-b border-[#f0f1f3] px-3.5 py-2.5 text-left outline-none transition-colors duration-150 last:border-b-0 focus-visible:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]",
-                  on ? "bg-[#f8f9fa]" : "hover:bg-[#fafafb]",
+                  "flex min-h-11 w-full items-center gap-3 px-3.5 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:bg-[#f4f5f7] sm:min-h-10 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]",
+                  on ? "bg-[#f8f9fa] font-medium text-[#1a1a2e]" : "bg-white text-[#374151] hover:bg-[#fafafb]",
                 )}
                 data-rate-kind={k}
               >
-                <span aria-hidden className={cn("mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#c9ccd2] bg-white")}>
+                <span aria-hidden className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#9ca3af] bg-white")}>
                   <span className={cn("h-1.5 w-1.5 rounded-full bg-white transition-transform duration-150", on ? "scale-100" : "scale-0")} />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{RATE_KIND_LABEL[k]}</span>
-                  <span className="block text-[12.5px] leading-[17px] text-[#6b7280]">{RATE_KIND_LINE[k]}</span>
-                </span>
+                {RATE_KIND_LABEL[k]}
               </button>
             )
           })}
+          {/* An odd number of kinds: the last cell is filled white, so the grid has no grey hole. */}
+          {kinds.length % 2 ? <span aria-hidden className="hidden bg-white sm:block" /> : null}
         </div>
+        {RATE_KIND_LINE[kind] ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-rate-kind-line={kind}>{RATE_KIND_LINE[kind]}</p> : null}
         {canCarrier ? null : (
-          <p className="pt-0.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-carrier-hidden="">
-            {tt("Live rates from a carrier show up here once {apps} is connected.", { apps: carrierApps.map((a) => a.name).join(tt(" or ")) || tt("a shipping app") })}{" "}
+          <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-carrier-hidden="">
+            {tt("Live carrier rates appear here once {apps} is connected.", { apps: carrierApps.map((a) => a.name).join(tt(" or ")) || tt("a shipping app") })}{" "}
             <ReadinessLink plain href="/app/settings?tab=integrations" className="font-medium text-[#1a1a2e] underline underline-offset-2">
-              {tt("Go to Integrations")}
+              {tt("Integrations")}
             </ReadinessLink>
           </p>
         )}
@@ -1423,26 +1525,27 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
 
       {kind === "flat" ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tt("Price")} hint={tt("0 makes it free")} error={priceMissing ? tt("Enter the price, or 0 for free.") : null}>
+          <Field label={tt("Price")} error={priceMissing ? tt("Enter the price, or 0 for free.") : null}>
             <MoneyInput
               value={price}
               onChange={(v) => {
                 setPrice(v)
                 setPriceMissing(false)
+                setError(null)
               }}
+              aria-label={tt("Price")}
               aria-invalid={priceMissing || undefined}
+              data-rate-price=""
             />
           </Field>
-          <Field label={tt("Free over")} hint={tt("Optional: free once the order reaches this")}>
-            <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
-          </Field>
+          {freeOverField}
         </div>
       ) : null}
 
       {kind === "carrier" ? (
         <div className="grid gap-3 sm:grid-cols-2" data-rate-carrier="">
-          <Field label={tt("Rates from")} hint={carrierChoices.some((a) => a.id === carrierApp && !a.connected) ? tt("Not connected, so this rate isn't offered. Connect it in Settings › Integrations.") : tt("Your connected account prices each order for the buyer's address.")}>
-            <SelectInput value={carrierApp} onChange={setCarrierApp}>
+          <Field label={tt("Rates from")} error={carrierChoices.some((a) => a.id === carrierApp && !a.connected) ? tt("Not connected, so this rate isn't offered. Connect it in Settings › Integrations.") : null}>
+            <SelectInput value={carrierApp} onChange={setCarrierApp} aria-label={tt("Rates from")}>
               {carrierChoices.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.connected ? a.name : tt("{name} (not connected)", { name: a.name })}
@@ -1450,30 +1553,28 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
               ))}
             </SelectInput>
           </Field>
-          <Field label={tt("Service")} hint={tt("Optional, like usps_priority (Shippo) or Priority (EasyPost). Empty: the cheapest.")}>
+          <Field label={tt("Service")} hint={tt("A service code, like usps_priority. Empty: the cheapest.")}>
             <TextInput value={service} maxLength={60} onChange={(e) => setService(e.target.value)} placeholder={tt("Cheapest")} />
           </Field>
-          <Field label={tt("Free over")} hint={tt("Optional: free once the order reaches this")}>
-            <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
-          </Field>
+          {freeOverField}
         </div>
       ) : null}
 
       {kind === "free" ? (
-        <Field label={tt("Only on orders over")} hint={tt("Optional. Empty: always free.")} className="sm:max-w-[280px]">
-          <MoneyInput value={min} onChange={setMin} placeholder="" />
+        <Field label={tt("Only on orders over")} className="sm:max-w-[calc(50%-6px)]">
+          <MoneyInput value={min} onChange={setMin} placeholder={tt("Always free")} aria-label={tt("Only on orders over")} />
         </Field>
       ) : null}
 
       {tiered ? (
-        <div className="space-y-2 rounded-xl border border-[#eceef1] bg-white p-3">
-          <div className="hidden grid-cols-[1fr_1fr_36px] gap-2 text-[12px] font-medium uppercase tracking-[0.02em] text-[#6b7280] sm:grid">
+        <div className="space-y-2" data-rate-steps="">
+          <div className="hidden grid-cols-[1fr_1fr_36px] gap-3 text-[13px] font-medium text-[#374151] sm:grid">
             <span>{fromLabel}</span>
             <span>{kind === "item_weight" ? tt("Price per item") : tt("Shipping price")}</span>
             <span />
           </div>
           {tiers.map((t, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_36px] items-center gap-2">
+            <div key={i} className="grid grid-cols-[1fr_1fr_36px] items-center gap-2 sm:gap-3">
               {kind === "price" ? (
                 <MoneyInput aria-label={tt("{fromLabel}, step {value}", { fromLabel, value: i + 1 })} value={t.from} disabled={i === 0} onChange={(v) => setTiers((p) => p.map((x, j) => (j === i ? { ...x, from: v } : x)))} />
               ) : (
@@ -1489,35 +1590,24 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
               )}
             </div>
           ))}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             {tiers.length < 20 ? (
-              <button type="button" className={BTN_GHOST} onClick={() => setTiers((p) => [...p, { from: "", price: "" }])}>
+              <button type="button" className={ADD} onClick={() => setTiers((p) => [...p, { from: "", price: "" }])}>
                 <Plus className="h-4 w-4" />
                 {tt("Add a step")}
               </button>
             ) : (
               <span />
             )}
-            <label className="flex items-center gap-2 text-[13px] text-[#6b7280]">
+            <label className="flex items-center gap-2 text-[13px] text-[#374151]">
               {tt("Not offered above")}
               {kind === "price" ? <MoneyInput aria-label={tt("Not offered above")} value={max} onChange={setMax} placeholder="" className="w-[130px]" /> : <DecimalInput aria-label={tt("Not offered above")} value={max} onChange={setMax} suffix={valueSuffix} className="w-[130px]" />}
             </label>
           </div>
-          <p className="text-[12px] text-[#6b7280]">
-            {kind === "item_weight"
-              ? tt("Each item pays the price of the step its weight reaches. Two 0.5 {unit} items at a 0 {unit2} step of $3 pay $6.", { unit, unit2: unit })
-              : kind === "weight"
-                ? tt("The order pays the price of the last step its weight reaches, products plus your default package. The first step starts from 0.")
-                : tt("The order pays the price of the last step it reaches. The first step starts from 0. A $0 step is free shipping from there.")}
-          </p>
         </div>
       ) : null}
 
-      {tiered && canFreeOver ? (
-        <Field label={tt("Free over")} hint={tt("Optional: free once the order reaches this price")} className="sm:max-w-[280px]">
-          <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
-        </Field>
-      ) : null}
+      {tiered && canFreeOver ? <div className="sm:max-w-[calc(50%-6px)]">{freeOverField}</div> : null}
 
       {kind === "quantity" ? (
         <div className="grid gap-3 sm:grid-cols-3">
@@ -1525,60 +1615,31 @@ export function RateForm({ initial, system, carrierApps = [], first = false, onC
             <MoneyInput value={price} onChange={setPrice} />
           </Field>
           <Field label={tt("Items from")}>
-            <DecimalInput value={min} onChange={setMin} suffix="items" />
+            <DecimalInput value={min} onChange={setMin} suffix={tt("items")} />
           </Field>
           <Field label={tt("Items up to")}>
-            <DecimalInput value={max} onChange={setMax} suffix="items" />
+            <DecimalInput value={max} onChange={setMax} suffix={tt("items")} />
           </Field>
         </div>
       ) : null}
 
-      <Toggle label={tt("Offered at checkout")} checked={active} onChange={setActive} />
-      {error ? <Notice>{error}</Notice> : null}
-      <div className="flex items-center justify-end gap-2">
-        {/* A rate being written is not one buyers can use: said, so a closed tab is not taken for a saved rate. */}
-        {!initial ? <p className="mr-auto text-[12.5px] text-[#9ca3af]" data-rate-unsaved="">{tt("Not saved until you press Add rate")}</p> : null}
-        <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
-          {tt("Cancel")}
-        </button>
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          disabled={busy}
-          onClick={async () => {
-            setError(null)
-            let tierBody: RateTier[] = []
-            if (tiered) {
-              for (const [i, t] of tiers.entries()) {
-                const from = i === 0 ? 0 : toValue(kind, t.from)
-                const priceCents = centsOf(t.price)
-                if (from === null || priceCents === null) return setError(tt("Fill in step {value}, or remove it.", { value: i + 1 }))
-                tierBody.push({ from, priceCents })
-              }
-              tierBody = tierBody.sort((a, b) => a.from - b.from)
-            }
-            if (kind === "flat" && centsOf(price) === null) return setPriceMissing(true)
-            setBusy(true)
-            const problem = await onSave({
-              kind,
-              name,
-              priceCents: kind === "free" || kind === "carrier" ? 0 : tiered ? (tierBody[0]?.priceCents ?? 0) : centsOf(price),
-              ...(kind === "carrier" ? { carrier: carrierApp, serviceCode: service.trim() || null } : {}),
-              tiers: tierBody,
-              minValue: kind === "free" ? centsOf(min) : kind === "quantity" ? toValue(kind, min) : null,
-              maxValue: tiered || kind === "quantity" ? toValue(kind, max) : null,
-              freeOverCents: canFreeOver ? centsOf(freeOver) : null,
-              minDays: minDays || null,
-              maxDays: maxDays || null,
-              active,
-            })
-            setBusy(false)
-            if (problem) setError(problem)
-          }}
-        >
-          {busy ? tt("Saving") : initial ? tt("Save rate") : tt("Add rate")}
-        </button>
-      </div>
+      <FormActions error={error} start={<InlineSwitch label={tt("Offered at checkout")} checked={active} onChange={setActive} />}>
+        <CancelButton onClick={onCancel} />
+        <SaveButton state={state} label={initial ? tt("Save rate") : tt("Add rate")} disabled={!changed} onClick={save} data-rate-save="" />
+      </FormActions>
+    </div>
+  )
+}
+
+/** A switch with its words on the left, as wide as they are: for the foot of a form, beside its buttons. */
+function InlineSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  const id = React.useId()
+  return (
+    <div className="flex items-center gap-2.5" data-inline-switch="">
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
+      <label htmlFor={id} className="cursor-pointer text-[14px] font-medium text-[#1a1a2e]">
+        {label}
+      </label>
     </div>
   )
 }
@@ -1718,8 +1779,9 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
     freeOver: initial?.localDelivery?.freeOverCents ? dollarsOf(initial.localDelivery.freeOverCents) : "",
     note: initial?.localDelivery?.note ?? "",
   }))
-  const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
+  const { state, error, run } = useSaveState()
+  const draft = JSON.stringify([f, local])
+  const [opened] = React.useState(draft)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
   /* The type sets sensible answers below it: a partner ships and gets the orders by email, and nobody picks up from them; your own place ships itself. */
   const setKind = (kind: LocationKind) =>
@@ -1734,7 +1796,7 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
   const format = addressFormat(f.country)
   const postalOff = !!f.postalCode.trim() && !postalLooksRight(f.country, f.postalCode)
   return (
-    <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
+    <div className="mb-3 space-y-4 rounded-xl border border-[#e5e7eb] bg-white p-3.5 sm:p-4" data-location-form="">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={tt("Name")} hint={f.pickupEnabled ? tt("Buyers see it when they choose pickup") : tt("Only you see this")}>
           <TextInput autoFocus={!initial} value={f.name} maxLength={80} placeholder={partner ? "Printful" : tt("Studio")} onChange={(e) => set({ name: e.target.value })} />
@@ -1903,30 +1965,26 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
           </div>
         ) : null}
       </div>
-      {error ? <Notice>{error}</Notice> : null}
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
-          {tt("Cancel")}
-        </button>
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true)
-            setError(null)
-            const localDelivery = partner
-              ? { enabled: false, codes: [] }
-              : { enabled: local.enabled, codes: local.codes, priceCents: centsOf(local.price) ?? 0, minOrderCents: centsOf(local.min), freeOverCents: centsOf(local.freeOver), note: local.note }
-            const r = await api<{ location: Location; message?: string }>(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: { ...f, localDelivery } })
-            setBusy(false)
-            if (!r.ok) return setError(r.error)
-            onSaved(r.data.location, r.data.message ?? null)
-          }}
-        >
-          {busy ? tt("Saving") : initial ? tt("Save location") : tt("Add location")}
-        </button>
-      </div>
+      <FormActions error={error}>
+        <CancelButton onClick={onCancel} />
+        <SaveButton
+          state={state}
+          label={initial ? tt("Save location") : tt("Add location")}
+          disabled={!!initial && draft === opened}
+          onClick={() =>
+            void run(async () => {
+              const localDelivery = partner
+                ? { enabled: false, codes: [] }
+                : { enabled: local.enabled, codes: local.codes, priceCents: centsOf(local.price) ?? 0, minOrderCents: centsOf(local.min), freeOverCents: centsOf(local.freeOver), note: local.note }
+              const r = await api<{ location: Location; message?: string }>(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: { ...f, localDelivery } })
+              if (r.ok === false) return r.error
+              onSaved(r.data.location, r.data.message ?? null)
+              return null
+            })
+          }
+          data-location-save=""
+        />
+      </FormActions>
     </div>
   )
 }
@@ -2022,8 +2080,8 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
       ? { name: initial.name, kind: initial.kind as Pack["kind"], l: String(fromMm(initial.lengthMm, dim) ?? ""), w: String(fromMm(initial.widthMm, dim) ?? ""), h: String(fromMm(initial.heightMm, dim) ?? ""), weight: String(fromGrams(initial.weightGrams, small) ?? "") }
       : { name: first ? "Standard box" : "", kind: "box" as Pack["kind"], ...start },
   )
-  const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
+  const { state, error, run } = useSaveState()
+  const [opened] = React.useState(() => JSON.stringify(f))
   const setKind = (kind: Pack["kind"]) =>
     setF((x) => {
       /* Untouched sizes follow the kind; typed ones stay. */
@@ -2032,7 +2090,7 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
       return untouched && !initial ? { ...x, kind, ...PACKAGE_START[system][kind] } : { ...x, kind }
     })
   return (
-    <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-package-form="">
+    <div className="mb-3 space-y-4 rounded-xl border border-[#e5e7eb] bg-white p-3.5 sm:p-4" data-package-form="">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={tt("Name")} hint={tt("Only you see this")}>
           <TextInput autoFocus={!initial} value={f.name} maxLength={80} placeholder={tt("Small box")} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -2059,28 +2117,24 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
           <DecimalInput value={f.weight} onChange={(v) => setF({ ...f, weight: v })} suffix={small} />
         </Field>
       </div>
-      {error ? <Notice>{error}</Notice> : null}
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
-          {tt("Cancel")}
-        </button>
-        <button
-          type="button"
-          className={BTN_PRIMARY}
-          disabled={busy}
-          onClick={async () => {
-            setError(null)
-            const body = { name: f.name, kind: f.kind, lengthMm: toMm(f.l, dim), widthMm: toMm(f.w, dim), heightMm: toMm(f.h || "0", dim), weightGrams: toGrams(f.weight || "0", small) ?? 0 }
-            setBusy(true)
-            const r = await api<{ packages: Pack[] }>(initial ? `/api/physical/packages/${initial.id}` : "/api/physical/packages", { method: initial ? "PATCH" : "POST", body })
-            setBusy(false)
-            if (!r.ok) return setError(r.error)
-            onSaved(r.data.packages)
-          }}
-        >
-          {busy ? tt("Saving") : initial ? tt("Save package") : tt("Add package")}
-        </button>
-      </div>
+      <FormActions error={error}>
+        <CancelButton onClick={onCancel} />
+        <SaveButton
+          state={state}
+          label={initial ? tt("Save package") : tt("Add package")}
+          disabled={!!initial && JSON.stringify(f) === opened}
+          onClick={() =>
+            void run(async () => {
+              const body = { name: f.name, kind: f.kind, lengthMm: toMm(f.l, dim), widthMm: toMm(f.w, dim), heightMm: toMm(f.h || "0", dim), weightGrams: toGrams(f.weight || "0", small) ?? 0 }
+              const r = await api<{ packages: Pack[] }>(initial ? `/api/physical/packages/${initial.id}` : "/api/physical/packages", { method: initial ? "PATCH" : "POST", body })
+              if (r.ok === false) return r.error
+              onSaved(r.data.packages)
+              return null
+            })
+          }
+          data-package-save=""
+        />
+      </FormActions>
     </div>
   )
 }
@@ -2093,7 +2147,7 @@ function PackageForm({ system, initial, first = false, onCancel, onSaved }: { sy
  * reads the page again, so what shows is what the server has.
  */
 function useSettingsSave(setData: SetData, reload: () => void) {
-  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
+  const [state, setState] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const save = async (patch: Partial<Settings>) => {
     setState("saving")
@@ -2114,23 +2168,6 @@ function useSettingsSave(setData: SetData, reload: () => void) {
   return { state, error, save }
 }
 
-function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "saved"; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" className={BTN_PRIMARY} onClick={onClick} disabled={disabled || state === "saving"}>
-      {state === "saved" ? (
-        <>
-          <Check className="h-4 w-4" />
-          {tt("Saved")}
-        </>
-      ) : state === "saving" ? (
-        tt("Saving")
-      ) : (
-        tt("Save")
-      )}
-    </button>
-  )
-}
-
 /* ── How orders are fulfilled ──────────────────────────────────────────── */
 
 function FulfilmentCard({ data, reload, setData }: { data: Data; reload: () => void; setData: SetData }) {
@@ -2140,12 +2177,9 @@ function FulfilmentCard({ data, reload, setData }: { data: Data; reload: () => v
   return (
     <Card title={tt("How you fulfil orders")} description={tt("Who packs and ships what you sell. A mix is fine: each location says who ships from it.")} help="fulfilment">
       <FulfilmentChoice value={model} onChange={setModel} />
-      {error ? <Notice className="mt-3">{error}</Notice> : null}
-      {changed ? (
-        <div className="mt-4 flex justify-end">
-          <SaveButton state={state} onClick={() => model && save({ fulfillmentModel: model })} />
-        </div>
-      ) : null}
+      <FormActions error={error} className="mt-4">
+        <SaveButton state={state} disabled={!changed || !model} onClick={() => model && save({ fulfillmentModel: model })} data-fulfil-save="" />
+      </FormActions>
     </Card>
   )
 }
@@ -2170,10 +2204,9 @@ function StockAlerts({ data, reload, setData }: { data: Data; reload: () => void
           </a>{" "}
           {tt("and Only")} {Number(low || 0) > 0 ? Number(low) : "N"} {tt("left on your website's product pages (Website settings, Commerce).")}
         </p>
-        {error ? <Notice>{error}</Notice> : null}
-        <div className="flex justify-end">
-          <SaveButton state={state} onClick={() => save({ lowStockDefault: Number(low || 0), lowStockAlerts: alerts })} />
-        </div>
+        <FormActions error={error}>
+          <SaveButton state={state} disabled={Number(low || 0) === data.settings.lowStockDefault && alerts === (data.settings.lowStockAlerts !== false)} onClick={() => save({ lowStockDefault: Number(low || 0), lowStockAlerts: alerts })} data-stock-save="" />
+        </FormActions>
       </div>
     </Card>
   )
@@ -2195,10 +2228,9 @@ function ReturnsPolicy({ data, reload, setData }: { data: Data; reload: () => vo
           </Field>
         ) : null}
         <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Your website's refund policy page ends with this, kept up to date for you. Website settings, Commerce can add it to the cart too.")}</p>
-        {error ? <Notice>{error}</Notice> : null}
-        <div className="flex justify-end">
-          <SaveButton state={state} onClick={() => save({ returnsEnabled: enabled, returnWindowDays: Number(days || 0) })} />
-        </div>
+        <FormActions error={error}>
+          <SaveButton state={state} disabled={enabled === data.settings.returnsEnabled && Number(days || 0) === data.settings.returnWindowDays} onClick={() => save({ returnsEnabled: enabled, returnWindowDays: Number(days || 0) })} data-returns-save="" />
+        </FormActions>
       </div>
     </Card>
   )

@@ -545,8 +545,6 @@ section("The bar answers a touch, and the phone scrolls")
 
 const menu = untt(readFileSync(join(root, "components/ui/responsive-action-menu.tsx"), "utf8"), "components/ui/responsive-action-menu.tsx")
 const css = untt(readFileSync(join(root, "app/globals.css"), "utf8"))
-/* The Going back screen, its own root on <body> since V3 (so it outlives the editor and holds EXIT_MIN_MS). */
-const exitScreenSrc = untt(readFileSync(join(root, "components/website-builder/exit-screen.tsx"), "utf8"), "components/website-builder/exit-screen.tsx")
 
 check(
   "Back is an arrow, and pressing it answers instantly with a leaving screen",
@@ -562,13 +560,12 @@ check(
     // lib/website-builder/navigate-ceiling.ts.
     /leaveFor\(href\)/.test(editor) &&
     /navigateWithCeiling\(\s*\n\s*\(\) => router\.push\(href\),\s*\n\s*\(\) => window\.location\.assign\(href\)/.test(editor) &&
-    // On <body> and above every sheet, or the sheets that render into the
-    // body paint over the screen that says you are leaving. Its own root
-    // since V3, so it stays up after the editor is gone.
-    /exitScreen\.start\(\)/.test(editor) &&
-    /document\.body\.appendChild\(node\)/.test(exitScreenSrc) &&
-    /\.wb-exit-screen \{[\s\S]{0,300}position: fixed/.test(css) &&
-    /\.wb-exit-screen \{[\s\S]{0,300}z-index: 400/.test(css),
+    // In the canvas, over the code pane and the card, from the press (Y1:
+    // the owner did not want the whole window white). The editor keeps its
+    // bar and sidebar around it until the page behind replaces it.
+    /\{leaving && \(\s*\n\s*<div\s*\n\s*className="wb-exit-canvas absolute inset-0 z-\[60\]/.test(editor) &&
+    /\.wb-exit-canvas \{\s*animation: wb-exit-in 220ms/.test(css) &&
+    !/\.wb-exit-screen/.test(css),
 )
 
 check(
@@ -1345,7 +1342,8 @@ check(
     // after the push could have landed. It used to load the address with
     // location.assign at three seconds, the very moment the router's own push
     // started, which turned most Backs into full page loads.
-    /const watchdog = window\.setTimeout\(revive, LEAVING_SEEN_MS \+ NAVIGATE_CEILING_MS \+ 2000\)/.test(editor) &&
+    // Y1: and after the screen's own minimum, since the push now waits for it (exitWatchdogMs).
+    /const watchdog = window\.setTimeout\(revive, exitWatchdogMs\(NAVIGATE_CEILING_MS\)\)/.test(editor) &&
     /if \(e\.persisted\) revive\(\)/.test(editor) &&
     // it clears BOTH, or the confirm reopens the moment anything sets it again
     /setLeaving\(false\)\s*\n\s*setPendingExit\(null\)/.test(editor) &&
@@ -2662,7 +2660,7 @@ check(
     // headed instead of what you are quitting, and it is what the overlay's
     // own aria-label already said. The rule that owns this copy is "going
     // back says so, in words you can read on the glass", below.
-    /lines=\{\["Going back"\]\}/.test(exitScreenSrc) &&
+    /lines=\{\["Going back"\]\}/.test(editor) &&
     /"Loading the editor", "Fetching your sections", "Just a moment"/.test(editor),
 )
 
@@ -2838,7 +2836,7 @@ check(
   // The window between the two strings holds the wrapper's class list and
   // the paragraph explaining why the fade is desktop-only; it was 700 and
   // that paragraph is what pushed it past.
-  /* Changed on purpose (round AJ: no transition-all on the canvas card, its width snaps and it glides) */ /"(?:wb-canvas-frame )?relative overflow-hidden transition-\[opacity,box-shadow,border-radius\] duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
+  /* Changed on purpose (round AJ: no transition-all on the canvas card, its width snaps; Y1: opacity only, a radius or shadow transition repainted the card each frame) */ /"(?:wb-canvas-frame )?relative overflow-hidden transition-opacity duration-300",[\s\S]{0,1600}?\? "rounded-t-\[20px\] w-full"/.test(editor) &&
     // ...and the scroller inside it is square and fills it, so nothing it
     // paints can reach a corner.
     /"relative isolate bg-white flex flex-col overflow-y-auto overflow-x-hidden border-0 rounded-none w-full h-full"/.test(
@@ -3044,11 +3042,11 @@ check(
   /*
    * V3: the builder's own Going back screen is the canvas loader's look now
    * (the owner: "a clean branded Going back screen"), dark ink on white, so
-   * it is readable by construction (components/website-builder/exit-screen.tsx).
+   * it is readable by construction. Y1: in the canvas, not over the window.
    * The glass below is still what the page editors leave through.
    */
-  /<BuilderLoader tone="light" lines=\{\["Going back"\]\} \/>/.test(exitScreenSrc) &&
-    /\.wb-exit-screen \{[\s\S]{0,500}background: #ffffff;/.test(editorCss) &&
+  /<BuilderLoader className="wb-loading-line" tone="light" lines=\{\["Going back"\]\} \/>/.test(editor) &&
+    /className="wb-exit-canvas absolute inset-0 z-\[60\] flex items-center justify-center bg-white"/.test(editor) &&
     // white and lit, scoped to this surface, two classes so it wins inside
     // the utilities layer where Tailwind's own colour also lives
     /\.wb-leaving \.wb-squares \{\s*color: #ffffff;\s*filter: drop-shadow\(/.test(editorCss) &&

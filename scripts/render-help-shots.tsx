@@ -9,6 +9,7 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
+import { EMPTY_CARRIER_PREFS } from "@/lib/physical/carrier-prefs"
 import { InventoryClient } from "@/app/app/inventory/inventory-client"
 import { PhysicalCheckout } from "@/app/checkout/physical/physical-checkout"
 import { PhysicalBuyBox } from "@/components/physical/buy-box"
@@ -121,7 +122,8 @@ function order(kind: "new" | "shipped" | "pickup") {
     processingAt: null, buyerName: "Sam Rivera", buyerPhone: null,
     id: PRODUCT, status: "paid", fulfillmentStatus: shipped ? "fulfilled" : "unfulfilled", returnStatus: "none", currency: "USD", totalCents: 11400, refundedCents: 0, shippingCents: pickup ? 0 : 600, shippingDiscountCents: 0,
     address: pickup ? null : { name: "Sam Rivera", line1: "48 Maple Avenue", city: "Denver", region: "CO", postalCode: "80203", country: "US" },
-    delivery: pickup ? null : { name: "Standard", priceCents: 600, minDays: 3, maxDays: 5 },
+    /* ?local: the shop brings it itself (Local delivery), so Fulfill items starts on no tracking and offers no label. */
+    delivery: pickup ? null : params.has("local") ? { name: "Local delivery", priceCents: 500, minDays: null, maxDays: null, kind: "local", note: "Delivered Tuesdays and Fridays" } : { name: "Standard", priceCents: 600, minDays: 3, maxDays: 5 },
     buyerNote: "It's a gift, please leave the price off.", merchantNote: null, cancelledAt: null,
     lines: [
       { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", sku: "MUG-12-S", imageUrl: MUG_SAND, type: "physical", quantity: 2, unitCents: 3200, discountCents: 0, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 6400, refundedCents: 0 },
@@ -220,7 +222,12 @@ const NOW = Date.parse("2026-10-12T15:00:00Z")
 const hoursAgo = (h: number) => new Date(NOW - h * H).toISOString()
 
 /* Shippo connected with a test key: the label flow in Fulfill items (the shapes app/api/physical/orders/[id]/label answers). */
-const labelState: { shipments: unknown[]; labels: unknown[] } = { shipments: [], labels: [] }
+/* A bought USPS label (lib/integrations/shipping/labels-server.ts labelView): ?labels=shipped puts it on the shipment, ?labels=loose leaves it without one. */
+const demoLabel = (fulfillmentId: string | null) => ({
+  id: "1abe1000-0000-4000-8000-000000000001", provider: "shippo", providerName: "Shippo", carrier: "USPS", service: "Ground Advantage", trackingNumber: "9400100000000000000000",
+  labelUrl: "https://shippo-delivery.example/label.pdf", cents: 812, currency: "USD", cost: "$8.12", status: "purchased", testMode: false, fulfillmentId, createdAt: "2026-10-08T14:40:00Z",
+})
+const labelState: { shipments: unknown[]; labels: unknown[] } = { shipments: [], labels: params.get("labels") === "shipped" ? [demoLabel("f1")] : params.get("labels") === "loose" ? [demoLabel(null)] : [] }
 const labelOptions = () => ({
   ready: true,
   apps: params.has("label") ? [{ id: "shippo", name: "Shippo", test: true }] : [],
@@ -353,10 +360,14 @@ function route(method: string, path: string, body: Record<string, unknown>, quer
   if (path === "/api/store/markets") return markets
   if (path === "/api/store/translations/jobs") return translationJobs
   if (path === "/api/store/translations") return query.get("summary") === "1" ? translationSummary : frenchTexts
+  /* The carrier picker in Fulfill items: no stars or own carriers yet, nothing on a provider account. */
+  if (path === "/api/physical/carriers") return query.get("connected") === "1" ? { carriers: [], errors: [] } : { ...EMPTY_CARRIER_PREFS, ready: true }
   /* Buy a label: Shippo's rates, then the label (only with ?label; otherwise no label app is connected). */
   if (path.startsWith("/api/physical/orders/") && path.endsWith("/label")) {
     if (method === "GET") return labelOptions()
     if (body.action === "rates") return { provider: "shippo", shipmentId: "shp_1", rates: LABEL_RATES, addressOk: true, warnings: [], parcel: { lengthCm: 15, widthCm: 15, heightCm: 15, grams: 1520 } }
+    /* Bought: the order as shipped with the label's number, and the label (the dialog shows Print label). */
+    if (body.action === "buy") return { order: { ...order("shipped"), shipments: [{ ...order("shipped").shipments[0], trackingNumber: "9400100000000000000000" }] }, label: { ...demoLabel("f1"), testMode: false } }
     return {}
   }
   if (path === "/api/store/tracking-app") return { tracking: { platform: { on: true, providerName: "AfterShip", webhooks: true }, ready: true, own: null, following: 7, lastCheckedAt: hoursAgo(0.2) } }
@@ -401,6 +412,8 @@ function route(method: string, path: string, body: Record<string, unknown>, quer
   return {}
 }
 
+/* A bought label opens its PDF in a new tab: nothing opens in a picture. */
+window.open = () => null
 const realFetch = window.fetch.bind(window)
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url

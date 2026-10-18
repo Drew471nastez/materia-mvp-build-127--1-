@@ -2,6 +2,7 @@ import "server-only"
 import { createHash, randomBytes } from "node:crypto"
 import { cache } from "react"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, type RequestCreator } from "@/lib/auth/request-scope"
 import { sendEmail } from "@/lib/mail"
@@ -11,6 +12,7 @@ import { baseUrl } from "@/lib/notify/urls"
 import { isProPlan } from "@/lib/home/progress"
 import { INVITE_TTL_MS, ROLE_LABEL, invitable, isMemberRole, memberCan, resendWait, roleHome, seatLimit, teamEmail, type MemberRole, type TeamArea, type TeamRole } from "./roles"
 import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
+import { teamHomeHref } from "./landing"
 
 /**
  * ===========================================================================
@@ -444,4 +446,52 @@ export async function storeIdFor(area: TeamArea): Promise<{ ok: true; creatorId:
   if (found.kind === "denied") return { ok: false, status: 403, error: "Your role on this store's team does not include this. Ask the store's owner." }
   if (found.kind === "none") return { ok: false, status: 403, error: "Set up your store first." }
   return { ok: true, creatorId: found.creator.id, userId: user.id, role: found.role }
+}
+
+/**
+ * The stores this account is on as an active member, each with when it was
+ * joined, for picking one to open (lib/team/landing pickTeamStore). Only
+ * stores that still exist. [] when the team is not set up or the read fails.
+ */
+export async function memberRowsOf(db: Db, userId: string): Promise<{ creatorId: string; acceptedAt: string | null }[]> {
+  const { data, error } = await db.from("store_team_members").select("creator_id, accepted_at").eq("user_id", userId).eq("status", "active")
+  if (error || !data?.length) return []
+  const rows = data as { creator_id: string; accepted_at: string | null }[]
+  const { data: creators } = await db.from("creators").select("id").in("id", rows.map((r) => r.creator_id))
+  const live = new Set(((creators ?? []) as { id: string }[]).map((c) => c.id))
+  return rows.filter((r) => live.has(r.creator_id)).map((r) => ({ creatorId: r.creator_id, acceptedAt: r.accepted_at }))
+}
+
+/** On at least one store's team, for where a sign in ends (lib/auth/continue destinationAfterAuth). false on any error. */
+export async function onATeam(db: Db, userId: string): Promise<boolean> {
+  try {
+    return (await memberRowsOf(db, userId)).length > 0
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A dashboard page found no store of the signed in account's own. Before,
+ * every such page sent them to /sell, a team member too. Now (lib/team/
+ * landing):
+ *
+ *   working in a team store   null: the page draws nothing of its own, and
+ *                             the team bar over it says whether the role has
+ *                             this part (components/app/team-bar)
+ *   on a team, no cookie      back into that store, then this page
+ *   neither                   /sell, as before
+ */
+export async function noStorePage(path: string): Promise<null> {
+  const { createClient } = await import("@/lib/supabase/server")
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser()
+  if (!user) redirect("/sell")
+  const db = createAdminClient()
+  const acting = await actingStore(db, user.id).catch(() => null)
+  if (acting) return null
+  const rows = await memberRowsOf(db, user.id).catch(() => [])
+  if (rows.length > 0) redirect(teamHomeHref(path))
+  redirect("/sell")
 }

@@ -30,6 +30,7 @@
 import { readCode, readSource } from "./_source"
 import { BACK_MARK, BACK_MARK_MS, fullLoadFor, markBackStarted, SKEW_SAFE_MS } from "@/lib/ui/new-deploy"
 import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { NAV_SPINNER_CAP_MS, NAV_STUCK_AFTER_ANSWER_MS } from "@/lib/ui/app-navigation"
 
 let passed = 0
@@ -88,8 +89,9 @@ console.log("\nRELOADS: a whole page load only when nothing else can work, never
 
   const editor = code("app/website-builder/editor/[installId]/page.tsx")
   const watch = editor.match(/useEffect\(\(\) => \{\s*\n\s*if \(!leaving\) return[\s\S]*?\}, \[leaving\]\)/)?.[0] ?? ""
-  check("the editor's leave watchdog no longer loads the address itself (it fired as its own push started)", watch.length > 0 && !/location\.assign/.test(watch) && /window\.setTimeout\(revive, LEAVING_SEEN_MS \+ NAVIGATE_CEILING_MS \+ 2000\)/.test(watch))
-  check("the push goes on the press, and a document load waits as long as the app's spinner does", LEAVING_SEEN_MS === 0 && NAVIGATE_CEILING_MS === NAV_SPINNER_CAP_MS)
+  check("the editor's leave watchdog no longer loads the address itself (it fired as its own push started)", watch.length > 0 && !/location\.assign/.test(watch) && /window\.setTimeout\(revive, exitWatchdogMs\(NAVIGATE_CEILING_MS\)\)/.test(watch) && exitWatchdogMs(NAVIGATE_CEILING_MS) === EXIT_MIN_MS + NAVIGATE_CEILING_MS + 2000)
+  /* Y1: the builder's own way out pushes once Going back has been up EXIT_MIN_MS (the editor stays around it until then); the page editors still push on the press. */
+  check("the page editors push on the press, and a document load waits as long as the app's spinner does", LEAVING_SEEN_MS === 0 && NAVIGATE_CEILING_MS === NAV_SPINNER_CAP_MS)
   {
     const said: string[] = []
     const timers: Array<[() => void, number]> = []

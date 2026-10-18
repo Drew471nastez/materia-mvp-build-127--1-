@@ -152,28 +152,42 @@ export function zonePlace(zone: Pick<ShippingZone, "name" | "countries" | "regio
 export function shippingSummary(profiles: ShippingProfile[], opts: { home: string | null | undefined; money: (cents: number) => string }): { sentence: string; rows: SummaryRow[] } {
   const profile = profiles.find((p) => p.isDefault) ?? profiles[0]
   const rows: SummaryRow[] = []
+  /* What the sentence says per zone: "to Romania for 15.00 lei", "to the rest of the EU from 25.00 lei", "to the rest of the EU at live carrier rates". */
+  const parts: string[] = []
   for (const z of profile?.zones ?? []) {
     const usable = usableRatesOf(z)
-    if (usable.length === 0) continue
+    /* A zone priced only by a connected carrier still ships: it is said, at live rates, not left out of the summary. */
+    const live = usable.length === 0 && (z.restOfWorld || z.countries.length > 0 || (z.regions ?? []).length > 0) ? z.rates.filter((r) => r.active && r.kind === "carrier") : []
+    if (usable.length === 0 && live.length === 0) continue
+    const timed = usable.length ? usable : live
+    const mins = timed.map((r) => r.minDays).filter((n): n is number => n !== null)
+    const maxs = timed.map((r) => r.maxDays).filter((n): n is number => n !== null)
+    const place = zonePlace(z, opts.home)
+    if (usable.length === 0) {
+      const freeAt = live.map((r) => r.freeOverCents).filter((n): n is number => typeof n === "number" && n > 0)
+      rows.push({ zoneId: z.id, place, price: tt("live rates"), days: daysText(mins.length ? Math.min(...mins) : null, maxs.length ? Math.max(...maxs) : null), free: freeAt.length ? tt("Free over {amount}", { amount: opts.money(Math.min(...freeAt)) }) : null })
+      parts.push(tt("to {place} at live carrier rates", { place }))
+      continue
+    }
     const prices = usable.map((r) => (r.kind === "free" && !r.minValue ? 0 : r.tiers.length ? Math.min(...r.tiers.map((t) => t.priceCents)) : r.priceCents))
     const low = Math.min(...prices)
     const many = new Set(prices).size > 1
     const freeAt = usable.map((r) => (r.kind === "free" ? r.minValue : r.freeOverCents)).filter((n): n is number => typeof n === "number" && n > 0)
-    const mins = usable.map((r) => r.minDays).filter((n): n is number => n !== null)
-    const maxs = usable.map((r) => r.maxDays).filter((n): n is number => n !== null)
     rows.push({
       zoneId: z.id,
-      place: zonePlace(z, opts.home),
+      place,
       price: low === 0 && !many ? tt("free") : many ? tt("from {amount}", { amount: opts.money(low) }) : opts.money(low),
       days: daysText(mins.length ? Math.min(...mins) : null, maxs.length ? Math.max(...maxs) : null),
       free: freeAt.length ? tt("Free over {amount}", { amount: opts.money(Math.min(...freeAt)) }) : null,
     })
+    /* "for from 15.00 lei" read wrong: several prices are "from" alone. */
+    parts.push(low === 0 && !many ? tt("to {place} for free", { place }) : many ? tt("to {place} from {amount}", { place, amount: opts.money(low) }) : tt("to {place} for {price}", { place, price: opts.money(low) }))
   }
   if (rows.length === 0) return { sentence: tt("No rates in your general profile yet."), rows }
-  const parts = rows.map((r) => tt("to {place} for {price}", { place: r.place, price: r.price }))
   const places = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} ${tt("and")} ${parts[parts.length - 1]}`
-  const mins = (profile?.zones ?? []).flatMap(usableRatesOf).map((r) => r.minDays).filter((n): n is number => n !== null)
-  const maxs = (profile?.zones ?? []).flatMap(usableRatesOf).map((r) => r.maxDays).filter((n): n is number => n !== null)
+  const all = (profile?.zones ?? []).flatMap((z) => (usableRatesOf(z).length ? usableRatesOf(z) : rows.some((r) => r.zoneId === z.id) ? z.rates.filter((r) => r.active && r.kind === "carrier") : []))
+  const mins = all.map((r) => r.minDays).filter((n): n is number => n !== null)
+  const maxs = all.map((r) => r.maxDays).filter((n): n is number => n !== null)
   const days = daysText(mins.length ? Math.min(...mins) : null, maxs.length ? Math.max(...maxs) : null)
   return { sentence: days ? tt("You ship {places}, {days}.", { places, days }) : tt("You ship {places}.", { places }), rows }
 }

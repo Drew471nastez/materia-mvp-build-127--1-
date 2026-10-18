@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
@@ -6,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { collectionsArea } from "@/lib/physical/collections-server"
 import { CollectionsClient } from "./collections-client"
 import { getServerTt } from "@/lib/i18n/server"
+import { noStorePage } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -28,7 +28,7 @@ export default async function CollectionsPage() {
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser. */
   if (!user) return null
   const creator = await creatorForRequest(user.id)
-  if (!creator) redirect("/sell")
+  if (!creator) return noStorePage("/app/products/collections")
   /* The same reader the API uses (lib/physical/auth shopCaller): the owner is checked above, every query is filtered by their creator id. */
   const { collections, products } = await collectionsArea(createAdminClient(), creator.id)
   return <CollectionsClient initialCollections={collections} products={products} />
