@@ -1,26 +1,41 @@
 "use client"
 
 /**
- * Physical sales on Analytics, under the reports, while physical commerce is
- * on: orders and units, what shipping brought in, what is waiting to ship
- * and for how long on average, returns, and stock that needs attention.
+ * Physical sales on Analytics, right under the chart while physical commerce
+ * is on: what shipped orders brought in and how the shop gets there, from a
+ * product page to a paid checkout, then where buyers are, what sells and the
+ * stock that needs attention.
  *
  * FOR THE PAGE'S OWN PERIOD (`span`), the one the chart above shows, so the
- * two never disagree; it had a 7, 30 and 90 day switch of its own. Drawn
- * like every other card on the page: the same frame, the same tabs (Top
- * products, Stock), and while a new period loads the figures it has stay in
- * place, softened, never grey blocks.
+ * two never disagree. Drawn like the report cards under it: the same frame,
+ * tabs and bar lists (app/app/analytics/analytics-reports), figures in one
+ * row of plain numbers rather than boxes of their own. While a new period
+ * loads, the figures it has stay in place, softened.
  */
 
 import * as React from "react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { Pill, api, useShopMoney } from "./ui"
+import { ReportList, ReportTabs, type ReportListRow } from "@/app/app/analytics/analytics-reports"
+import { countryName } from "@/lib/analytics/reports"
+import { api, useShopMoney } from "./ui"
 import { tt } from "@/lib/i18n/text"
+import { appLocale } from "@/lib/i18n/format"
 
 interface Data {
   orders: number
+  netCents?: number
+  averageOrderCents?: number | null
+  refundedCents?: number
+  refunds?: number
+  startedCheckouts?: number
+  checkoutConversion?: number | null
+  productViews?: number
+  addsToCart?: number
+  addToCartRate?: number | null
+  averageHoursToDeliver?: number | null
+  countries?: { code: string; orders: number; revenueCents: number }[]
   units: number
   revenueCents: number
   shippingCents: number
@@ -33,17 +48,23 @@ interface Data {
   lowStock: { title: string; variantName: string; available: number }[]
   outOfStock: number
   stockValueCents: number
-  topProducts: { title: string; units: number; revenueCents: number }[]
+  topProducts: { id?: string; title: string; units: number; revenueCents: number; orders?: number }[]
 }
 
 const EMPTY: Data = { orders: 0, units: 0, revenueCents: 0, shippingCents: 0, taxCents: 0, unfulfilled: 0, partiallyFulfilled: 0, averageHoursToShip: null, returns: 0, returnRate: null, lowStock: [], outOfStock: 0, stockValueCents: 0, topProducts: [] }
+
+type Tab = "products" | "countries" | "stock"
+
+const count = (n: number) => Math.round(n).toLocaleString(appLocale())
+const pct = (f: number | null | undefined) => (f === null || f === undefined ? "–" : `${(f * 100).toFixed(f > 0 && f < 0.1 ? 1 : 0).replace(/\.0+$/, "")}%`)
+const hours = (h: number | null | undefined) => (h === null || h === undefined ? "–" : h < 48 ? `${Math.round(h)} h` : tt("{value} days", { value: Math.round(h / 24) }))
 
 export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: number } | null }) {
   const money = useShopMoney()
   const enabled = usePhysicalCommerceEnabled()
   const [data, setData] = React.useState<Data | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [tab, setTab] = React.useState<"products" | "stock">("products")
+  const [tab, setTab] = React.useState<Tab>("products")
   const query = span ? `from=${Math.floor(span.start)}&to=${Math.ceil(span.end)}` : "days=30"
   React.useEffect(() => {
     if (!enabled) return
@@ -60,92 +81,68 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
   }, [enabled, query])
   if (!enabled) return null
   const d = data ?? EMPTY
+  const net = d.netCents ?? d.revenueCents
 
-  const stat = (label: string, value: React.ReactNode, hint?: React.ReactNode) => (
-    <div className="min-w-0 rounded-xl bg-[#f8f9fa] px-3.5 py-3">
-      <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p>
-      <p className="mt-0.5 truncate text-[20px] font-semibold tabular-nums text-[#1a1a2e]">{value}</p>
-      <p className="truncate text-[12px] text-[#9ca3af]">{hint ?? "\u00a0"}</p>
-    </div>
-  )
+  /* The figures, in the order a shop reads its day: money, then the way to it, then what is left to do. */
+  const figures: Array<{ key: string; label: string; value: string; note?: string }> = [
+    { key: "sales", label: tt("Sales"), value: money(net), note: d.refundedCents ? tt("{amount} refunded", { amount: money(d.refundedCents) }) : tt("Less refunds") },
+    { key: "orders", label: tt("Orders"), value: count(d.orders), note: tt("{units, plural, one {# unit} other {# units}}", { units: d.units }) },
+    { key: "aov", label: tt("Average order"), value: d.averageOrderCents == null ? "–" : money(d.averageOrderCents), note: d.shippingCents ? tt("{amount} shipping", { amount: money(d.shippingCents) }) : " " },
+    { key: "cart", label: tt("Add to cart rate"), value: pct(d.addToCartRate), note: tt("{adds} of {views} product views", { adds: count(d.addsToCart ?? 0), views: count(d.productViews ?? 0) }) },
+    { key: "checkout", label: tt("Checkout conversion"), value: pct(d.checkoutConversion), note: tt("{paid} of {started} checkouts paid", { paid: count(d.orders), started: count(d.startedCheckouts ?? 0) }) },
+    { key: "ship", label: tt("To ship"), value: count(d.unfulfilled + d.partiallyFulfilled), note: d.averageHoursToShip !== null ? tt("Ships in {value} on average", { value: hours(d.averageHoursToShip) }) : " " },
+    { key: "deliver", label: tt("Delivered in"), value: hours(d.averageHoursToDeliver), note: tt("From payment, on average") },
+    { key: "returns", label: tt("Returns"), value: count(d.returns), note: d.returnRate !== null ? tt("{returnRate}% of orders", { returnRate: d.returnRate }) : " " },
+  ]
+
+  const productRows: ReportListRow[] = d.topProducts.map((p, i) => ({ key: p.id ?? `${i}:${p.title}`, label: p.title, value: p.revenueCents, note: tt("{units, plural, one {# unit} other {# units}}", { units: p.units }) }))
+  const countryRows: ReportListRow[] = (d.countries ?? []).map((c) => ({ key: c.code, code: c.code, label: countryName(c.code), value: c.orders, note: money(c.revenueCents) }))
 
   return (
-    <section data-card="physical" data-physical-analytics="" className="mt-4 flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <header className="flex min-h-[52px] flex-col justify-center gap-0.5 px-5 pt-4">
+    <section data-card="physical" data-physical-analytics="" className="flex min-w-0 flex-col rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <header className="flex min-h-[52px] items-center justify-between gap-3 px-5 pt-4">
         <h3 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Physical sales")}</h3>
-        <p className="text-[12.5px] text-[#6b7280]">{tt("Orders you ship or hand over, for the period above.")}</p>
+        {tab === "stock" ? (
+          <Link href="/app/inventory" className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
+            {tt("Inventory")}
+          </Link>
+        ) : null}
       </header>
-      <div className={cn("space-y-4 px-5 pb-5 pt-3 transition-[opacity,filter] duration-200", loading && data ? "opacity-60 blur-[1px]" : "", !data ? "opacity-60" : "")} aria-busy={loading}>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {stat(tt("Orders"), d.orders, tt("{units, plural, one {# unit} other {# units}} sold", { units: d.units }))}
-          {stat(tt("Sales"), money(d.revenueCents), d.shippingCents ? tt("{amount} shipping", { amount: money(d.shippingCents) }) : undefined)}
-          {stat(tt("To ship"), d.unfulfilled + d.partiallyFulfilled, d.averageHoursToShip !== null ? tt("Ships in {value} on average", { value: d.averageHoursToShip < 48 ? `${Math.round(d.averageHoursToShip)} h` : tt("{value} days", { value: Math.round(d.averageHoursToShip / 24) }) }) : undefined)}
-          {stat(tt("Returns"), d.returns, d.returnRate !== null ? tt("{returnRate}% of orders", { returnRate: d.returnRate }) : undefined)}
-        </div>
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div role="tablist" className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f2f4] p-0.5">
-              {(
-                [
-                  ["products", tt("Top products")],
-                  ["stock", tt("Stock")],
-                ] as const
-              ).map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === v}
-                  onClick={() => setTab(v)}
-                  className={cn(
-                    "h-8 cursor-pointer rounded-md px-3 text-[12px] font-medium transition-[background-color,color,box-shadow] duration-150 sm:h-7 sm:px-2.5",
-                    tab === v ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
+      <div className={cn("px-5 pb-5 pt-2 transition-[opacity,filter] duration-200", loading && data ? "opacity-60 blur-[1px]" : "", !data ? "opacity-60" : "")} aria-busy={loading}>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4" data-physical-figures="">
+          {figures.map((f) => (
+            <div key={f.key} data-figure={f.key} className="min-w-0">
+              <dt className="truncate text-[12px] text-[#6b7280]">{f.label}</dt>
+              <dd className="truncate text-[20px] font-semibold tabular-nums leading-7 text-[#1a1a2e]">{f.value}</dd>
+              <dd className="truncate text-[12px] tabular-nums text-[#9ca3af]">{f.note ?? " "}</dd>
             </div>
-            {tab === "stock" ? (
-              <Link href="/app/inventory" className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
-                {tt("Inventory")}
-              </Link>
-            ) : null}
+          ))}
+        </dl>
+        <div className="mt-5 border-t border-[#eef0f2] pt-4">
+          <div className="orders-strip -mx-1 overflow-x-auto px-1">
+            <ReportTabs value={tab} onChange={setTab} options={[{ value: "products", label: tt("Top products") }, { value: "countries", label: tt("Countries") }, { value: "stock", label: tt("Stock") }]} />
           </div>
-          {tab === "products" ? (
-            d.topProducts.length === 0 ? (
-              <p className="py-2 text-[13px] text-[#6b7280]">{data ? tt("No physical sales in this period.") : "\u00a0"}</p>
+          <div className="mt-2 flex min-h-[120px] flex-col">
+            {tab === "products" ? (
+              <ReportList key="products" title={tt("Top products")} rows={productRows} format={money} empty={data ? tt("No physical sales in this period.") : " "} />
+            ) : tab === "countries" ? (
+              <ReportList key="countries" title={tt("Countries")} rows={countryRows} format={count} lead={{ flag: true }} empty={data ? tt("No shipped orders in this period.") : " "} />
             ) : (
-              <ul className="divide-y divide-[#f1f2f4]">
-                {d.topProducts.map((p) => (
-                  <li key={p.title} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
-                    <span className="min-w-0 truncate text-[#1a1a2e]">{p.title}</span>
-                    <span className="shrink-0 tabular-nums text-[#6b7280]">
-                      {tt("{units} sold · {amount}", { units: p.units, amount: money(p.revenueCents) })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : (
-            <>
-              <p className="mb-2 text-[13px] text-[#6b7280]">
-                {d.stockValueCents ? tt("{amount} on hand at cost. ", { amount: money(d.stockValueCents) }) : ""}
-                {d.outOfStock ? tt("{outOfStock} sold out.", { outOfStock: d.outOfStock }) : tt("Nothing sold out.")}
-              </p>
-              <ul className="divide-y divide-[#f1f2f4]">
-                {d.lowStock.map((l) => (
-                  <li key={`${l.title}-${l.variantName}`} className="flex items-center justify-between gap-3 py-2 text-[13.5px]">
-                    <span className="min-w-0 truncate text-[#1a1a2e]">
-                      {l.title}
-                      {l.variantName !== "Default" ? <span className="text-[#6b7280]">, {l.variantName}</span> : null}
-                    </span>
-                    <Pill tone="amber">{tt("{available} left", { available: l.available })}</Pill>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+              <>
+                <p className="mb-1 text-[13px] text-[#6b7280]">
+                  {d.stockValueCents ? tt("{amount} on hand at cost. ", { amount: money(d.stockValueCents) }) : ""}
+                  {d.outOfStock ? tt("{outOfStock} sold out.", { outOfStock: d.outOfStock }) : tt("Nothing sold out.")}
+                </p>
+                <ReportList
+                  key="stock"
+                  title={tt("Stock")}
+                  rows={d.lowStock.map((l, i) => ({ key: `${i}:${l.title}:${l.variantName}`, label: l.variantName !== "Default" ? `${l.title}, ${l.variantName}` : l.title, value: l.available, note: tt("{available} left", { available: l.available }) }))}
+                  format={count}
+                  empty={tt("No product is running low.")}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </section>

@@ -230,6 +230,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     if (pwyw.error) { setPwywTouched(true); return }
     if (physical) {
       if (!storefront.creatorId) return
+      /* Buy now on something that ships is a step towards a sale too: it was the one Buy press Analytics never heard. */
+      void trackFunnelStep("buy_click", storefront.creatorId, product.id)
       window.location.href = physicalCheckoutHref(storefront.creatorId, [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty }], window.location.href)
       return
     }

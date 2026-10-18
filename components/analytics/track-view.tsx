@@ -82,6 +82,8 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
             screenWidth: screen.width,
             screenHeight: screen.height,
             language: getLanguage(),
+            /* The page's title beside its path in Top pages. Read when the view is sent, after a route change has set it. */
+            pageTitle: (document.title || "").trim().slice(0, 200) || undefined,
             /* How WhatsApp and the in-app browsers are told apart when there is no referrer. */
             clientApp: attr.clientApp || null,
           }

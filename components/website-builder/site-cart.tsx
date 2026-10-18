@@ -28,6 +28,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
+import { trackFunnelStep } from "@/lib/analytics-utils"
 import {
   addLine,
   cartCount,
@@ -159,6 +160,13 @@ export function SiteCartProvider({ shopId, cartType = "drawer", children }: { sh
 
   const add = useCallback((line: CartLine) => {
     setLines((current) => addLine(current, line))
+    /*
+      ADDED TO CART, FOR ANALYTICS: every way into the bag (a product
+      section, a quick add, a theme's own button) comes through here, so the
+      step is recorded once here (buy_click, once per visit and product on the
+      server). Not in the editor, where there is no shop id.
+    */
+    if (shopId && line.productId) void trackFunnelStep("buy_click", shopId, line.productId)
     if (cartType === "page" && shopId) goToCart.current = true
     else if (cartType === "notification") setNotice(line)
     else setOpen(true)

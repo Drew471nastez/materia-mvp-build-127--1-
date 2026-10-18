@@ -216,6 +216,7 @@ console.log("\nAnalytics reports: everything together")
     view("old", 2, { source_category: "direct" }),
   ]
   const steps: StepRow[] = [
+    { event_type: "buy_click", session_id: "a", visitor_id: "v-a", created_at: at(8, 11.5), property_type: "creator_page" },
     { event_type: "checkout_start", session_id: "a", created_at: at(8, 11.6), property_type: "creator_page" },
     { event_type: "checkout_start", session_id: "a", created_at: at(8, 11.7), property_type: "creator_page" },
     { event_type: "link_click", visitor_id: "vz", property_type: "onepage", property_id: OP, link_id: "b1", created_at: at(9) },
@@ -251,7 +252,7 @@ console.log("\nAnalytics reports: everything together")
   check("the funnel is people: four visitors, one opened a product, one opened the checkout (twice), four ordered",
     f.visitors.value === 4 && f.product.value === 1 && f.checkout.value === 1 && f.orders.value === 4, r.funnel)
   check("  a step's rate is of the step before; more orders than checkouts is no rate, not 400%",
-    f.visitors.rate === null && f.product.rate === 0.25 && f.checkout.rate === 1 && f.orders.rate === null, r.funnel.map((s) => s.rate))
+    f.visitors.rate === null && f.product.rate === 0.25 && f.cart.value === 1 && f.cart.rate === 1 && f.checkout.rate === 1 && f.orders.rate === null, r.funnel.map((s) => s.rate))
 
   const pages = r.topPages.map((p) => `${p.place}:${p.label}:${p.views}/${p.visitors}`)
   check("top pages are each place's paths, with their views and visitors, and under All the place they are on",
@@ -262,7 +263,8 @@ console.log("\nAnalytics reports: everything together")
   const src = Object.fromEntries(r.breakdowns.source.map((x) => [x.key, x.value]))
   check("sources are counted per visit, by the visit's first page", src.social === 1 && src.organic_search === 1 && src.referral === 1 && src.direct === 1, src)
   check("a visit from the creator's own site is not a referrer", !r.breakdowns.referrer.some((x) => x.key.includes("storelib")), r.breakdowns.referrer)
-  check("google is a referrer host, without www", r.breakdowns.referrer[0]?.key === "google.com")
+  /* Changed on purpose: a referrer is its company, Google for any of its sites or its app (round Z6). */
+  check("google is one referrer, named Google, without www", r.breakdowns.referrer[0]?.key === "google" && r.breakdowns.referrer[0]?.label === "Google")
   check("social names the app", r.breakdowns.social[0]?.label === "Instagram")
   check("campaigns come from utm_campaign", r.breakdowns.campaign[0]?.label === "Autumn")
   const ro = r.breakdowns.country.find((c) => c.key === "RO")
@@ -428,7 +430,7 @@ console.log("\nThe funnel: a step not recorded says so")
   check("no checkout recorded while there is an order: not recorded, not 0%", f.checkout.recorded === false && f.checkout.rate === null && f.orders.rate === null, r.funnel)
   check("  the steps before it keep their rates", f.product.rate === 1 / 3 && f.visitors.recorded && f.product.recorded)
   const empty = report({})
-  check("with nothing at all, every step is there with no rate", empty.funnel.length === 4 && empty.funnel.every((s) => s.value === 0 && s.rate === null))
+  check("with nothing at all, every step is there with no rate", empty.funnel.length === 5 && empty.funnel.every((s) => s.value === 0 && s.rate === null))
 }
 
 console.log("\nSubscribers: new in the period, by place and by source")
@@ -743,7 +745,8 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
   /* Counted by `.limit(PAGE)` since pages start where the last ended (keyset) instead of `.range(a, b)`. */
   const ranges = (reads.match(/\.limit\(PAGE\)/g) ?? []).length
   const tieBroken = (reads.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)\s*\.limit\(PAGE\)/g) ?? []).length
-  check("every paged read is sorted by time and then by id", ranges === 5 && tieBroken === ranges, { ranges, tieBroken })
+  /* Changed on purpose: six, the systems and carts read from the rows before part 253 is the sixth (round Z6). */
+  check("every paged read is sorted by time and then by id", ranges === 6 && tieBroken === ranges, { ranges, tieBroken })
 }
 
 console.log("\nAnalytics: counted by the database, and from the rows while it cannot")
@@ -770,7 +773,8 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
     /rpc<ReportWire>\(admin, "analytics_report", \{ \.\.\.args, p_part: part \}\)/.test(reads) && /error\.code === "PGRST202"/.test(reads) && /shared\.rows \?\?= countFromRows\(admin, q\)/.test(reads))
   const route = read("app/api/analytics/reports/route.ts")
   check("the reads it makes go side by side, not one after another",
-    /const \[v, d, l, o, s, labelsById, a\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime\]\)/.test(route))
+    /* Changed on purpose: systems, carts and titles (part 253) and the digital orders' downloads are read beside the rest (round Z6). */
+    /const \[v, d, l, o, s, labelsById, a, \[audNow, audBefore\], dl\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads\]\)/.test(route))
   check("an answer is kept a few seconds for the same person and the same whole question, never longer",
     /const key = `\$\{user\.id\}\|\$\{question\}`/.test(route) && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
 
