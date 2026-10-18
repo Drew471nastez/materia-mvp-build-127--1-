@@ -137,6 +137,8 @@ const SUITES = [
   "tests/agent-brain.test.ts",
   "tests/agent-intent.test.ts",
   "tests/agent-site-pages.test.ts",
+  /* Round Z3: Storelib AI held to 22 owner prompts (routing and intent), no token budget failure, a cut off turn asked again, a new section on an imported theme, the store's currency and reviews. */
+  "tests/agent-eval-z3.test.ts",
   "tests/coded-chrome.test.ts",
   "tests/product-source.test.ts",
   "tests/editor-stability.test.ts",

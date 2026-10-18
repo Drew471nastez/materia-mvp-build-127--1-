@@ -334,11 +334,17 @@ async function completeWith(client: () => Anthropic, request: ProviderRequest, m
     toolCalls,
     raw: response.content,
     usage: readUsage(response.usage),
+    /*
+      CUT OFF WINS OVER TOOL CALLS. A turn stopped at max_tokens can end inside
+      a tool_use block whose input is only partly written; reported as
+      "tool_calls" it was run with half its arguments. "length" tells the loop
+      to ask for the same turn again with more room (lib/website-builder/agent/loop.ts).
+    */
     stop:
-      toolCalls.length > 0
-        ? "tool_calls"
-        : response.stop_reason === "max_tokens"
-          ? "length"
+      response.stop_reason === "max_tokens"
+        ? "length"
+        : toolCalls.length > 0
+          ? "tool_calls"
           : "done",
   }
 }

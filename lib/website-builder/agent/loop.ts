@@ -75,6 +75,9 @@ import type { AgentQuestion } from "@/lib/sites/agent/questions"
 import { failureKind, plainRunError } from "@/lib/sites/agent/plain-errors"
 import { COMPILE_CHECK_LABEL, fileLabel, toolStepLabel, type StepNames } from "./step-labels"
 import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-feedback"
+import { importedSourceProblem, isImportedTheme } from "./imported-write"
+import { importedThemeNote } from "./write-section"
+import { AGENT_LIMITS, WRAP_UP_NOTE, nearCeiling, overCeiling, runSpend, stoppedSentence, type RunLimits } from "./limits"
 import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
 import { makeCodedCopy } from "./coded-copy"
 import { kindOfSource } from "@/lib/storelib-theme/section-groups"
@@ -127,8 +130,13 @@ import { addUsage, ZERO_USAGE } from "@/lib/sites/agent/types"
  */
 export const MAX_TURNS = 24
 
-/** Input plus output for the whole run. A ceiling, not a target. */
-export const MAX_TOKENS = 300_000
+/*
+  THE COST AND RUNAWAY CEILINGS ARE ./limits.ts (AGENT_LIMITS). There used to be
+  a MAX_TOKENS of 300,000 here, input plus output at face value, which a run
+  re-reading a cached page passed doing ordinary work: "This edit reached its
+  token budget." A ceiling reached now ends a part of the work, kept, with
+  Continue; it is never the run's error.
+*/
 
 /**
  * How many times the run may be handed its own work back.
@@ -196,6 +204,13 @@ export type ThemeAgentEvent =
   | { type: "sources-changed" }
   | { type: "error"; message: string }
   /**
+   * THIS PART OF THE WORK STOPPED AT A CEILING (./limits.ts), with what it did
+   * kept. "turns": the chat sends the next part itself, as it does after the
+   * time limit. "budget": the chat offers Continue, because the cost ceiling
+   * is the creator's to pass.
+   */
+  | { type: "continue"; reason: "budget" | "turns" }
+  /**
    * WHERE THE RUN IS: reading, products, planning, writing <section>,
    * checking, saving, done. One headline at a time, documented with the
    * phases in ./progress.ts. Draw `label`; on `done`, `detail` and `sections`.
@@ -243,6 +258,8 @@ export interface ThemeAgentResult {
   forgotten?: string[]
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
+  /** The run ended at a ceiling rather than by finishing (./limits.ts): its work is kept and it can be continued. */
+  stopped?: "budget" | "turns" | null
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -294,6 +311,16 @@ Rules:
 - THE SOURCE IS REACHED WITH TOOLS, LIKE ANYTHING ELSE HERE. When the change is not something a control covers: read_section_code on that section's type, then change the markup, the CSS, the script or the schema with edit_section_code, exact find and replace for only the lines that change. Use write_section_code with the whole file only for a new layout. A refused write did not happen; the compiler says what is wrong, so fix that and write again rather than reporting a change you did not save. Never edit a file you have not read this run; keep its setting ids, block types, color_scheme and container queries, and give anything new a setting.
 - READ ONCE. What you read in this run stays true until you change it; a second read of something unchanged is answered with a note, not the content again. Make related changes in the same turn.
 - When you are done, reply with one plain sentence saying what you changed and in which sections. No preamble, no markdown, no lists.
+
+WORKED EXAMPLES, request then the calls that do it:
+- "Create a page for my shipping FAQ": list_pages; build_page (page "shipping-faq", a FAQ section with six real questions as blocks); edit_menu to link /pages/shipping-faq in main-menu; reply with its address.
+- "Add a testimonials section": read_section_type; add_section after the section it belongs beside; three add_block with named people and real quotes; update_section for heading and colour scheme.
+- "Add a section with a countdown to our launch" (no built-in draws it): read_section_code on a close built-in for its setting ids; create_section with its own markup, CSS, a script for the timer and a finished preset. On an imported theme the file has no script: the date is a setting and any motion is CSS.
+- "Rearrange this section's settings so the colours come first": read_section_code; one edit_section_code inside <schema> that moves the colour entries to the top under {"type": "header", "id": "hdr_colors", "label": "Colors"}. The page looks the same.
+- "Show my bestsellers here with their prices": the STORE (or read_store); the product section's source "chosen" with those products' ids. Never a typed price.
+- "Make the whole site feel more editorial": update_theme (fonts, type scale, buttons); set_color_scheme; each section's colour scheme. Content and order stay.
+- "Make the cards slide in on scroll", a section open: edit_section_code with a CSS reveal that stops under prefers-reduced-motion.
+DESIGN LATITUDE. Inside the theme's colours, fonts and spacing you decide layout, proportion, type scale, rhythm and motion: one clear idea per section, a real hierarchy, generous but consistent spacing, and nothing decorative that says nothing about this business.
 
 ${CREATIVE_BRIEF}
 
@@ -560,7 +587,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "create_section",
             description:
-              "Write a NEW section of your own and put it on the page: a whole sections/<type>.storelib file (template, style, optional script, schema with presets) under a new lowercase type. Use it whenever the design needs its own layout, look or interaction: an immersive hero, a product page laid out its own way, a collection page with its own filters and sorting, search results, a cart drawer, a mega menu, a sidebar, a lookbook, a schedule, a configurator, a header or footer of your own (\"kind\": \"header\" or \"footer\"). Products, collections, menus, the cart, search and checkout stay live: read them through the template (products, collections, collection, page.filters, page.pagination, link_list settings, data-storelib-cart, data-storelib-search, checkout_url), never type them. It is compiled, checked and drawn with its preset before it is kept; a refusal says what to fix. Give it real settings a creator would change (colour scheme, layout, spacing, the words, the pictures as image_picker) and a preset that arrives finished. Read one close built-in section first (read_section_code) and keep its setting ids for the same jobs.",
+              "Write a NEW section of your own and put it on the page: a whole sections/<type>.storelib file (template, style, optional script, schema with presets) under a new lowercase type. Use it whenever the design needs its own layout, look or interaction: an immersive hero, a product page laid out its own way, a collection page with its own filters and sorting, search results, a cart drawer, a mega menu, a sidebar, a lookbook, a schedule, a configurator, a header or footer of your own (\"kind\": \"header\" or \"footer\"). Products, collections, menus, the cart, search and checkout stay live: read them through the template (products, collections, collection, page.filters, page.pagination, link_list settings, data-storelib-cart, data-storelib-search, checkout_url), never type them. It is compiled, checked and drawn with its preset before it is kept; a refusal says what to fix. Give it real settings a creator would change (colour scheme, layout, spacing, the words, the pictures as image_picker) and a preset that arrives finished. Read one close built-in section first (read_section_code) and keep its setting ids for the same jobs. On a theme imported from Shopify it is still this format (no compat attribute) and has no <script>: Storelib draws it inside that theme.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -963,6 +990,8 @@ export interface ThemeAgentInput {
   effort?: "low" | "medium" | "high" | "xhigh" | "max"
   signal?: AbortSignal
   maxTurns?: number
+  /** The cost, output and turn ceilings (./limits.ts). A plan's own limits arrive here; absent, AGENT_LIMITS. */
+  limits?: RunLimits
   /**
    * THIS REQUEST IS ASKING FOR SOMETHING TO BE BUILT (./ambition). Two things
    * follow from it, and both were measured against runs that came out thin:
@@ -1053,7 +1082,14 @@ export async function* themeAgent(
     follow?.scoped && !input.lockToSelection
       ? `This message follows your last change, to the section [${follow.id}], so ${what} is not part of it. Nothing was changed. Change that section in place; if the creator meant more, say so in one sentence.`
       : lockText
-  const maxTurns = input.maxTurns ?? MAX_TURNS
+  const limits = input.limits ?? AGENT_LIMITS
+  const maxTurns = Math.min(input.maxTurns ?? MAX_TURNS, limits.maxTurns)
+  /** Which ceiling ended this part of the work, if one did. */
+  let stopped: "budget" | "turns" | null = null
+  /** The model has been told a ceiling is close, once. */
+  let warnedCeiling = false
+  /** Output room per turn: the ceiling's, raised to the retry size once a turn of this run was cut off. */
+  let outputCap = limits.turnOutputTokens
   const maxReviews = input.maxReviews ?? MAX_REVIEWS
   const newId = input.newId ?? ((type: string) => `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`)
   /**
@@ -1377,6 +1413,14 @@ export async function* themeAgent(
         codeBrief?.text ?? "",
         /* Only where the code tools are: where a sidebar setting comes from, and which part of the file to change for one. */
         input.code ? describeSchemaRules({ imported: isCompatSource(sourcesNow["layout/theme.storelib"]), settingsSchema: !!input.code.readSettingsSchema && !locked }) : "",
+        /*
+          A NEW SECTION ON AN IMPORTED THEME is a Storelib section drawn inside it (./imported-write.ts), written to the
+          theme's own schemes, fonts and width. Said up front, so create_section is the path it takes rather than a
+          refusal it reads too late.
+        */
+        input.code && !locked && isImportedTheme(sourcesNow)
+          ? `NEW SECTIONS ON THIS IMPORTED THEME: create_section takes a Storelib section file (<template>, <style>, <schema>; no compat attribute), and Storelib draws it inside the theme. Its own sections stay <template compat="shopify"> and are changed in place.\n${importedThemeNote(state.settings)}`
+          : "",
         selected && follow
           ? `THIS MESSAGE IS ABOUT YOUR LAST CHANGE, to ${selected.name?.trim() || typeName(schemas, selected.type)} [${selected.id}]. "it", "this" and "the layout" mean this section. Change it in place: its settings, its blocks or its code. Do not add a new section or make it again, and leave every other section as it is; writes to anything else are refused. If the creator plainly meant something else, say so in one sentence.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected && locked
@@ -1425,16 +1469,32 @@ export async function* themeAgent(
     },
   ]
 
+  /*
+    THE TOOL LIST IS BUILT ONCE PER RUN. Every turn's request is a prefix of
+    the next (tools, then the system prompt, then the conversation), which is
+    what the prompt cache reads back at a twentieth of the price and what the
+    model's earlier reasoning is bound to. A list rebuilt per turn changed
+    under a run that edited the theme's settings schema (update_theme names
+    its ids), breaking both. The new ids go back in that edit's result.
+  */
+  const runTools = toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() })
+
   /** SELF_CHECK has been asked for, once, and the step that says so while the model answers it. */
   let selfChecked = false
   let checkingStep: { id: string; label: string } | null = null
 
   try {
-    for (let attempt = 1; attempt <= maxTurns; attempt++) {
+    for (let attempt = 1; ; attempt++) {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError")
 
-      if (usage.inputTokens + usage.outputTokens > MAX_TOKENS) {
-        error = "This edit reached its token budget."
+      /* A ceiling ends this part of the work, never the work: see the end of the run, and ./limits.ts. */
+      if (attempt > maxTurns) {
+        stopped = "turns"
+        break
+      }
+      if (overCeiling(runSpend(model, usage), limits)) {
+        stopped = "budget"
+        trace("ceiling", { usage })
         break
       }
 
@@ -1444,9 +1504,15 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() }),
-        /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
-        maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
+        tools: runTools,
+        /*
+          ROOM TO WRITE. A filled section is a lot of copy, a new section file
+          more, and thinking counts against the same cap. Output is billed for
+          what is written, not for the room, so the cap is the model's
+          working size (./limits.ts) and a turn that still reaches it is
+          asked for again with more (`length` below).
+        */
+        maxOutputTokens: outputCap,
         cacheKey: input.cacheKey,
         effort: input.effort,
         signal,
@@ -1459,6 +1525,23 @@ export async function* themeAgent(
       if (checkingStep) {
         yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "done" }
         checkingStep = null
+      }
+
+      /*
+        CUT OFF AT THE OUTPUT LIMIT. Its last tool call may be half written,
+        so nothing of the turn is run or kept: the same turn is asked for
+        again with more room. Already at the most a model writes, it is kept
+        as text and the model is told to carry on in smaller steps.
+      */
+      if (turn.stop === "length") {
+        trace("cut-off", { n: attempt, output: turn.usage.outputTokens, cap: outputCap })
+        if (outputCap < limits.retryOutputTokens) {
+          outputCap = limits.retryOutputTokens
+          continue
+        }
+        turns.push({ role: "assistant", content: turn.text.trim() || "(cut off)", toolCalls: [] })
+        turns.push({ role: "user", content: "Your last reply was cut off at the output limit before it finished, so none of its tool calls ran. Carry on from where you were, in smaller steps: one section or one file per turn." })
+        continue
       }
 
       if (turn.stop === "refusal") {
@@ -1488,7 +1571,7 @@ export async function* themeAgent(
          */
         const reviewing = (ops.length > 0 || (!!input.projectCheck && wroteCode)) && reviews < maxReviews
         if (reviewing) {
-          const checking = trail.next(progress("checking", input.projectCheck ? "Validating the theme" : PROGRESS_LABELS.checking))
+          const checking = trail.next(progress("checking", input.projectCheck ? "Checking the page" : PROGRESS_LABELS.checking))
           if (checking) yield checking
         }
         const findings = reviewing
@@ -1972,7 +2055,9 @@ export async function* themeAgent(
           wroteCode = true
           done.push("Changed the theme settings")
           const unshown = kept.notes?.length ? ` The builder cannot show all of it:\n${kept.notes.slice(0, 6).map((n) => `- ${n}`).join("\n")}` : ""
-          results.push({ id: call.id, output: `The theme's settings schema is kept. It is saved when this edit finishes, and Theme settings in the builder are made from it then.${unshown}` })
+          const groupsAfter = themeGroupsNow()
+          const ids = groupsAfter ? `\nThe theme setting ids update_theme takes now:\n${describeThemeSettings(groupsAfter)}` : ""
+          results.push({ id: call.id, output: `The theme's settings schema is kept. It is saved when this edit finishes, and Theme settings in the builder are made from it then.${unshown}${ids}` })
           yield { type: "step", id: call.id, label: stepLabel, state: "done" }
           continue
         }
@@ -2274,6 +2359,17 @@ export async function* themeAgent(
         error = null
         break
       }
+      /*
+        A CEILING IS CLOSE: said once, in the results the model reads next, so
+        it finishes what it is doing and closes rather than being stopped
+        mid change. Appended to this turn, never written into an earlier one.
+      */
+      if (!warnedCeiling && results.length && (nearCeiling(runSpend(model, usage), limits) || attempt >= maxTurns - 1)) {
+        warnedCeiling = true
+        const last = results[results.length - 1]
+        results[results.length - 1] = { ...last, output: `${last.output}\n\n${WRAP_UP_NOTE}` }
+        trace("wrap-up", { n: attempt })
+      }
       turns.push({ role: "tool", results })
     }
   } catch (thrown) {
@@ -2315,6 +2411,13 @@ export async function* themeAgent(
     } else if (message) {
       // It answered without changing anything, which is a real outcome:
       // "your FAQ already covers that" is a useful reply, not a failure.
+      status = "succeeded"
+      error = null
+    } else if (stopped === "budget") {
+      /*
+        The cost ceiling ended a part that had only read so far: not a failure, a pause with Continue (./limits.ts).
+        Out of TURNS having only read is different: a run going round in circles, said as the failure below.
+      */
       status = "succeeded"
       error = null
     } else if (error === null || error === "The edit did not finish.") {
@@ -2405,7 +2508,18 @@ export async function* themeAgent(
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten }
+  /*
+    STOPPED AT A CEILING, NOT FINISHED (./limits.ts). The work is kept, the
+    reply says so in one sentence, and the chat carries on: by itself after
+    the turn guard, with a Continue button after the cost ceiling.
+  */
+  const workDone = ops.length > 0 || wroteCode || pagesWritten.length > 0
+  if (stopped && status === "succeeded" && !asked && (workDone || stopped === "budget")) {
+    message = `${message ? `${message} ` : ""}${stoppedSentence(workDone, stopped)}`
+    yield { type: "continue", reason: stopped }
+  }
+
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, rememberedSite, forgotten, pages: pagesWritten, stopped }
 }
 
 /**
@@ -2499,7 +2613,7 @@ async function completeOnce(provider: AgentProvider, request: ProviderRequest): 
  * A request about the business, which the model would answer by reading the
  * store first: products, prices, selling, and copy about what they do.
  */
-const STORE_WORDS = /\b(products?|price[sd]?|pricing|shop|store|catalog(ue)?|sell(s|ing)?|buy|checkout|cart|presets?|courses?|ebooks?|downloads?|offers?|collections?|headlines?|taglines?|copy|about (us|me)|what (i|we) (sell|do|make))\b/i
+const STORE_WORDS = /\b(products?|price[sd]?|pricing|shop|store|catalog(ue)?|sell(s|ing)?|buy|checkout|cart|presets?|courses?|ebooks?|downloads?|offers?|collections?|headlines?|taglines?|copy|reviews?|testimonials?|bestsellers?|currency|about (us|me)|what (i|we) (sell|do|make))\b/i
 
 /** What a read or code call is about: its section id or its section type. */
 function readTarget(argumentsJson: string): string {
@@ -2871,6 +2985,9 @@ async function createSection(
       output: `This file is a ${kind} ("kind": "${kind}", or named like one), and a ${kind} of your own replaces the site's on every page. The creator did not ask for that, so nothing was saved. Set up the built-in ${kind} instead (read_section on it, then update_section: its layout, colour scheme, logo, transparency), and write this section as an ordinary page section if it is one.`,
     }
   }
+  /* An imported theme hosts a Storelib section, without a script (./imported-write.ts): said before the compiler reads it as anything else. */
+  const importedProblem = isImportedTheme(ctx.sources) ? importedSourceProblem(source) : null
+  if (importedProblem) return { ok: false, reason: "compile", output: `${importedProblem}\n\nNothing was saved.` }
   const first = checkSectionSource({ path, type, source, before: null, instances: [], theme: ctx.state.settings, sources: ctx.sources, strict: true, lenient: ctx.lenient })
   if (first.ok === false) return { ok: false, reason: first.reason, output: `${first.feedback}\n\nNothing was saved. Fix exactly that and send create_section again.` }
 

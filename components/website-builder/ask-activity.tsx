@@ -39,10 +39,31 @@ import { tt, msg } from "@/lib/i18n/text"
 /** How long the old words take to leave: `ask-line-out` in app/globals.css. */
 const LINE_OUT_MS = 200
 
+/**
+ * How long a line stays before the next may replace it (round Z3). A run
+ * sends a step, a change and a sentence within a few milliseconds of each
+ * other, and each used to replace the line at once: words flashing past too
+ * quickly to read, which reads as flicker. A line now holds for this long;
+ * whatever arrives meanwhile waits, and only the newest of it is shown.
+ */
+export const LINE_HOLD_MS = 650
+
 export function ActivityLine({ label, className }: { label: string; className?: string }) {
   const [line, setLine] = React.useState<{ now: string; was: string | null; turn: number }>({ now: label, was: null, turn: 0 })
+  const shownAt = React.useRef(0)
   React.useEffect(() => {
-    setLine((current) => (current.now === label ? current : { now: label, was: current.now, turn: current.turn + 1 }))
+    const show = () => {
+      shownAt.current = performance.now()
+      setLine((current) => (current.now === label ? current : { now: label, was: current.now, turn: current.turn + 1 }))
+    }
+    const wait = LINE_HOLD_MS - (performance.now() - shownAt.current)
+    if (wait <= 0) {
+      show()
+      return
+    }
+    /* A newer label clears this one's timer: the latest wins. */
+    const later = window.setTimeout(show, wait)
+    return () => window.clearTimeout(later)
   }, [label])
   React.useEffect(() => {
     if (!line.was) return
