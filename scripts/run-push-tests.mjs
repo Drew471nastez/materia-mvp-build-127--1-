@@ -50,6 +50,7 @@ const SUITES = [
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
+  "tests/round-an.test.ts",
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",
@@ -773,6 +774,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */
+  "tests/e2e-marketplace-usd.test.ts",
   /* Cash on delivery in a lei store: the fee, a country refused, the order, the emails, Mark as paid, a parcel refused and restocked (tests/_journey) */
   "tests/e2e-cash-on-delivery.test.ts",
   /* More currencies: a lei store with euros for Germany and France, a visitor's card, cart, selector, card and cash checkout, order and emails all in the same euros; zloty shown and charged in lei (tests/_journey) */

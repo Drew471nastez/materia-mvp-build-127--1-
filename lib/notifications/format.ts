@@ -6,8 +6,8 @@
 import { DAY_MS } from "./policy"
 
 export function money(cents: number, currency: string | null | undefined): string {
-  /* A currency nobody recorded is not guessed: the amount alone. */
-  if (!currency || !/^[a-z]{3}$/i.test(currency)) return ((cents || 0) / 100).toFixed(2)
+  /* A currency nobody recorded is not guessed, and a bare number is not written either (it reads as any currency): nothing, and the sentence goes without it. */
+  if (!currency || !/^[a-z]{3}$/i.test(currency)) return ""
   const code = currency.toUpperCase()
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format((cents || 0) / 100)
