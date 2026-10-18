@@ -66,6 +66,7 @@ import { classifyIntent } from "@/lib/website-builder/agent/intent"
 import { importedSectionWrite } from "@/lib/website-builder/agent/imported-write"
 import { AGENT_LIMITS } from "@/lib/website-builder/agent/limits"
 import { storeCurrencyOf } from "@/lib/store/currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
 import { describeComparison, MATCH_THRESHOLD } from "@/lib/website-builder/agent/reference-diff"
 import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
@@ -786,10 +787,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               /*
                 THE CURRENCY AND WHAT BUYERS SAID (round Z3), each read on its own so a database without the column or the
                 table still describes the store: prices were always said to be US dollars, and a testimonials section had no
-                real people to quote. The reviews are the ones the site shows, through the creator's own client.
+                real people to quote. The currency is the store's selling currency (Settings, the one checkout charges in). The reviews are the ones the site shows, through the creator's own client.
               */
               const [currencyRow, reviewRows] = await Promise.all([
-                supabase.from("creators").select("payout_currency").eq("id", (creator as { id: string }).id).maybeSingle(),
+                readStoreCurrency(supabase, (creator as { id: string }).id),
                 supabase
                   .from("reviews")
                   .select("rating, content, reviewer_name, product_id")
@@ -799,7 +800,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                   .order("created_at", { ascending: false })
                   .limit(40),
               ])
-              const currency = currencyRow.error ? undefined : storeCurrencyOf((currencyRow.data as { payout_currency?: string } | null)?.payout_currency)
+              const currency = storeCurrencyOf(currencyRow.currency)
               const shown = reviewRows.error ? [] : ((reviewRows.data ?? []) as { rating: number | null; content: string | null; reviewer_name: string | null; product_id: string | null }[])
               const rated = shown.filter((r) => typeof r.rating === "number")
               const titleOf = new Map(list.map((p) => [p.id, p.title]))
