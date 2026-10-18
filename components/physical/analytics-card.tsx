@@ -95,7 +95,7 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
     { key: "returns", label: tt("Returns"), value: count(d.returns), note: d.returnRate !== null ? tt("{returnRate}% of orders", { returnRate: d.returnRate }) : " " },
   ]
 
-  const productRows: ReportListRow[] = d.topProducts.map((p, i) => ({ key: p.id ?? `${i}:${p.title}`, label: p.title, value: p.revenueCents, note: `${count(p.units)} ${p.units === 1 ? tt("unit") : tt("units")}` }))
+  const productRows: ReportListRow[] = d.topProducts.map((p, i) => ({ key: p.id ?? `${i}:${p.title}`, label: p.title, value: p.revenueCents, note: tt("{units, plural, one {# unit} other {# units}}", { units: p.units }) }))
   const countryRows: ReportListRow[] = (d.countries ?? []).map((c) => ({ key: c.code, code: c.code, label: countryName(c.code), value: c.orders, note: money(c.revenueCents) }))
 
   return (
@@ -136,7 +136,7 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
                 <ReportList
                   key="stock"
                   title={tt("Stock")}
-                  rows={d.lowStock.map((l, i) => ({ key: `${i}:${l.title}:${l.variantName}`, label: l.variantName !== "Default" ? `${l.title}, ${l.variantName}` : l.title, value: l.available, note: tt("left") }))}
+                  rows={d.lowStock.map((l, i) => ({ key: `${i}:${l.title}:${l.variantName}`, label: l.variantName !== "Default" ? `${l.title}, ${l.variantName}` : l.title, value: l.available, note: tt("{available} left", { available: l.available }) }))}
                   format={count}
                   empty={tt("No product is running low.")}
                 />
