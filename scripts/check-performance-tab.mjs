@@ -220,8 +220,7 @@ for (const [label, viewport] of SIZES) {
       overallText: document.querySelector("[data-overall]")?.textContent.trim(),
       tiles: tiles.map((t) => ({ metric: t.dataset.metric, ...box(t), value: t.querySelector("[data-p75]")?.textContent ?? t.querySelector("[data-not-enough]")?.textContent })),
       columns: new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().left))).size,
-      /* Round AK folded FCP and TTFB under More measures: opened here to find them. */
-      minor: (document.querySelector("[data-minor]") ? null : document.querySelector("[data-perf-more]")?.click(), [...document.querySelectorAll("[data-minor] [data-metric]")].map((t) => t.textContent.trim())),
+      minor: [...document.querySelectorAll("[data-minor] [data-metric]")].map((t) => t.textContent.trim()),
       selectedTab: document.querySelector("[role=tab][aria-selected=true]")?.dataset.tab,
       chart: box(document.querySelector("[data-perf-chart]")),
       summary: box(document.querySelector("[data-perf-summary]")),
