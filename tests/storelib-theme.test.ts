@@ -517,10 +517,11 @@ section("A section written the way people write sections")
   check("a plain <style> compiles — `scoped` was a word to remember, not a rule to state", c.ok === true, c.ok === false ? c.errors.map((e) => e.message).join("; ") : "")
   if (c.ok === true) {
     const preset = c.value.schema.presets?.[0]
+    const blocks = preset?.blocks
     const out = renderSection({
       compiled: c.value,
       id: "sec-1",
-      instance: { type: "faqsection", settings: {}, blocks: (Array.isArray(preset?.blocks) ? preset.blocks : []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} })) } as never,
+      instance: { type: "faqsection", settings: {}, blocks: (Array.isArray(blocks) ? blocks : []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} })) } as never,
       theme: {},
       page: { template: "index" },
     })

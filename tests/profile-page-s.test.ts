@@ -65,7 +65,7 @@ async function main() {
   const activityCall = (path: string) => (readCode(path).match(/<ProfileActivity[\s\S]*?\/>/) ?? [""])[0]
   check("a profile hands the list no join date", !!activityCall("components/profile/member-profile-page.tsx") && !/joinedAt/.test(activityCall("components/profile/member-profile-page.tsx")))
   check("and neither does /account", !!activityCall("app/account/page.tsx") && !/joinedAt/.test(activityCall("app/account/page.tsx")))
-  check("the day they joined is handed to About instead, on both", /<PersonAbout[\s\S]*?joinedAt=\{profile\.joinedAt\}/.test(readCode("components/profile/member-profile-page.tsx")) && /<AccountAbout[^>]*joinedAt=\{user\.created_at/.test(readCode("app/account/page.tsx")))
+  check("the day they joined is handed to About instead, on both", /<PersonAbout[\s\S]*?joinedAt=\{profile\.joinedAt\}/.test(readCode("components/profile/member-profile-page.tsx")) && /AccountAbout\(\{ userId: user\.id, name, joinedAt: user\.created_at \|\| null \}\)/.test(readCode("app/account/page.tsx")))
   check("'Joined <community>' is still a kind the list draws", /joined: "Joined"/.test(activity))
   check("nothing with the list open still imports the sparkle the row used", !/Sparkles/.test(activity))
 
@@ -97,7 +97,7 @@ async function main() {
   check("their own line sits beside the facts", /data-person-about-bio/.test(about))
   check("it never repeats the follower counts the header already shows", !/followers|following/i.test(readCode("components/profile/person-about.tsx")))
   check("/@handle hands it the bio and where they are from", /bio=\{profile\.bio\}/.test(member) && /location=\{extras\.location \?\? null\}/.test(member))
-  check("/account has an About of its own", here("components/profile/account-about.tsx") && /<AccountAbout/.test(readCode("app/account/page.tsx")))
+  check("/account streams its own About inside Suspense", here("components/profile/account-about.tsx") && /<Suspense fallback=\{null\}>\s*\{AccountAbout\(/.test(readCode("app/account/page.tsx")))
   const accountAbout = readCode("components/profile/account-about.tsx")
   check("  which reads the day, the place, the line and the count", /joinedAt=\{joinedAt\}/.test(accountAbout) && /readProfileLocation/.test(accountAbout) && /readBio/.test(accountAbout) && /profileCommunities/.test(accountAbout))
   check("  and drops a row it could not read rather than failing the page", /\.catch\(\(\) => null\)/.test(accountAbout) && /\.catch\(\(\) => \(\{ owned: \[\], member: \[\] \}\)\)/.test(accountAbout))

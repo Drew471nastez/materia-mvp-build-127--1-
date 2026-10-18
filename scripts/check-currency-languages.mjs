@@ -162,7 +162,7 @@ for (const [label, vp] of [
   await wait(100)
   await page.click("[data-currency-save]")
   await wait(400)
-  const sent = await page.evaluate(() => window.__sent.filter((s) => s.path === "/api/store/currency" && s.method === "PUT").map((s) => s.body))
+  const sent = await page.evaluate(() => window.__settingsPanelsSent.filter((s) => s.path === "/api/store/currency" && s.method === "PUT").map((s) => s.body))
   say(sent.length === 1 && sent[0].currency === "EUR" && sent[0].mode === "convert" && sent[0].rate === 0.200912 && sent[0].asOf === "2026-10-13" && typeof sent[0].key === "string", `Save sends the currency, the choice and the rate it showed: ${JSON.stringify(sent[0] ?? null).slice(0, 120)}`)
 
   console.log(`\nCash on delivery's options on ${label}`)

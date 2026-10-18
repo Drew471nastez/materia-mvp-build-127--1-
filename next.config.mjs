@@ -136,6 +136,9 @@ const nextConfig = {
     qualities: [75, 88, 90],
   },
   experimental: {
+    // Load the large server graph once during route-data/prerender work instead
+    // of duplicating it across workers. Runtime routes and checks are unchanged.
+    cpus: 1,
     /**
      * NO SOURCE MAPS FROM TURBOPACK'S PRODUCTION BUILD.
      *

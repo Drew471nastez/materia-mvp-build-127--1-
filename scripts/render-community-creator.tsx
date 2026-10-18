@@ -103,8 +103,8 @@ const settings: SettingsData = {
   seoTitle: null,
   seoDescription: null,
   tiers: [
-    { id: "t1", name: "Members", description: null, kind: "paid", billing: "recurring", isDefault: true, archived: false, productId: "p1", productStatus: "published", monthlyCents: 1900, yearlyCents: 19000, priceCents: null, priceLine: "$19/month", benefits: [], members: 1201, accessProducts: [{ id: "p9", title: "The 30 day writing course", type: "course" }] },
-    { id: "t2", name: "Lifetime", description: null, kind: "paid", billing: "one_time", isDefault: false, archived: false, productId: "p2", productStatus: "published", monthlyCents: null, yearlyCents: null, priceCents: 29900, priceLine: "$299", benefits: [], members: 83, accessProducts: [] },
+    { trialDays: 0, id: "t1", name: "Members", description: null, kind: "paid", billing: "recurring", isDefault: true, archived: false, productId: "p1", productStatus: "published", monthlyCents: 1900, yearlyCents: 19000, priceCents: null, priceLine: "$19/month", benefits: [], members: 1201, accessProducts: [{ id: "p9", title: "The 30 day writing course", type: "course" }] },
+    { trialDays: 0, id: "t2", name: "Lifetime", description: null, kind: "paid", billing: "one_time", isDefault: false, archived: false, productId: "p2", productStatus: "published", monthlyCents: null, yearlyCents: null, priceCents: 29900, priceLine: "$299", benefits: [], members: 83, accessProducts: [] },
   ],
   products: [{ id: "p8", title: "Prompt deck", type: "digital", status: "published", cover: null }],
   paymentsReady: true,
@@ -216,7 +216,7 @@ function App() {
     case "settings-features":
       return (
         <Shell section="settings">
-          <SettingsSection head={head} data={settings} tab={which === "settings" ? "page" : which === "settings-access" ? "access" : "features"} />
+          <SettingsSection head={head} data={settings} tab={which === "settings" ? "access" : which === "settings-access" ? "access" : "features"} />
         </Shell>
       )
     case "spaces":
@@ -276,8 +276,9 @@ function App() {
             options={{ tiers: [{ id: "t1", name: "Members" }, { id: "t2", name: "Lifetime" }], levels: settings.levels }}
             openNew={params.get("new") === "1"}
             initial={{
-              upcoming: [{ id: "e1", title: "Friday feedback call", description: "", coverUrl: null, kind: "live", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", location: null, meetingUrl: "https://zoom.us/j/1", livestreamUrl: null, capacity: 100, goingCount: 64, access: {}, replayVideoId: null, status: "scheduled" }],
+              upcoming: [{ id: "e1", title: "Friday feedback call", description: "", coverUrl: null, kind: "live", startsAt: ahead(2), endsAt: new Date(Date.parse(ahead(2)) + 3_600_000).toISOString(), timezone: "Europe/Bucharest", location: null, meetingUrl: "https://zoom.us/j/1", livestreamUrl: null, capacity: 100, goingCount: 64, access: {}, replayVideoId: null, status: "scheduled", priceCents: null, currency: null, salesCloseAt: null, refundWindowHours: null, refundPolicy: null, ticketsSold: 0, money: null }],
               past: [],
+              tickets: { ready: true, canSell: true, currency: "usd", communityPolicy: null },
             }}
           />
         </Shell>
@@ -296,6 +297,7 @@ function App() {
               { title: "Post your own words", body: "Share what you wrote. Links to sell something go in the Wins space." },
             ]}
             restricted={{
+              removed: { rows: [], next: null, capped: false },
               muted: { rows: [member(5, { mutedUntil: ahead(1) })], next: null, capped: false },
               paused: { rows: [member(7, { status: "paused" })], next: null, capped: false },
               banned: { rows: [member(9, { status: "banned", name: "Spam Account", email: "spam@example.com" })], next: null, capped: false },

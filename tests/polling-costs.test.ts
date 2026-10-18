@@ -95,7 +95,7 @@ console.log("\nCaches and read aheads")
     check(`${f}: five minutes, cleared by its tag`, /revalidate: 300\b/.test(src) && !/revalidate: 30\b/.test(src))
   }
   const flags = read("app/api/admin/marketplace-flags/route.ts")
-  check("the admin switch clears all four at once", ["EXPLORE_MARKETPLACE_CACHE_TAG", "EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG", "PHYSICAL_COMMERCE_CACHE_TAG", "BUYER_HEADER_LIGHT_CACHE_TAG"].every((t) => flags.includes(`revalidateTag(${t})`)))
+  check("the admin switch immediately expires all four tags using Next 16's explicit profile", ["EXPLORE_MARKETPLACE_CACHE_TAG", "EXPLORE_DISCOVER_MODE_SWITCHER_CACHE_TAG", "PHYSICAL_COMMERCE_CACHE_TAG", "BUYER_HEADER_LIGHT_CACHE_TAG"].every((t) => flags.includes(`revalidateTag(${t}, { expire: 0 })`)))
   const pills = read("components/profile/profile-owner-pills.tsx")
   check("the profile keeps two pages read, not six", KEEP_FRESH_MAX === 2 && /\.slice\(0, KEEP_FRESH_MAX\)/.test(pills))
   check("Settings first, then the first panel; Edit profile's copy of Settings takes no place", /href !== EDIT_PROFILE_HREF/.test(pills) && /const order: OwnerPillKey\[\] = \["settings", "posts"/.test(pills))

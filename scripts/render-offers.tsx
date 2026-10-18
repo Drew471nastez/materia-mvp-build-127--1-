@@ -54,7 +54,7 @@ function Root() {
   if (w.__panel === "checkout")
     return (
       <div style={{ maxWidth: 440, margin: "0 auto", padding: 16, background: "#fafafa" }}>
-        <CheckoutSuggestions suggestions={SUGGESTIONS} onAdd={(s, v) => w.__added!.push({ product: s.product.id, variant: v?.id ?? null })} />
+        <CheckoutSuggestions suggestions={SUGGESTIONS} money={(c) => `$${(c / 100).toFixed(2)}`} onAdd={(s, v) => w.__added!.push({ product: s.product.id, variant: v?.id ?? null })} />
       </div>
     )
   if (w.__panel === "cart")

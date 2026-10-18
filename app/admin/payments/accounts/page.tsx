@@ -38,7 +38,7 @@ export default function AccountsPage() {
       {error ? <Banner tone="bad">{error}</Banner> : null}
       <Panel title="Creator payment accounts">
         <div className="px-4 py-3">
-          <SearchField value={q} onChange={setQ} placeholder="Creator, slug, or account id" />
+          <SearchField value={q} onChange={setQ} label="Search payment accounts" placeholder="Creator, slug, or account id" />
         </div>
         <table className="w-full text-left text-[12px]">
           <thead className="text-[#6b6b76]">

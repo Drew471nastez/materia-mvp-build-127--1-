@@ -113,7 +113,7 @@ function App() {
         />
       )
     default:
-      return <PhysicalCheckout shopId={params.get("empty") ? null : SHOP} shopName="Linen & Co" shopAvatar={null} />
+      return <PhysicalCheckout shopId={params.get("empty") ? null : SHOP} shopName="Linen & Co" />
   }
 }
 

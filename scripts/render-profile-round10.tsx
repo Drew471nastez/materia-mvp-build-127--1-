@@ -77,7 +77,7 @@ const card = (id: string, name: string, tagline: string, logo: string | null, me
 
 function Profile() {
   const photo = q.get("photo") !== "no"
-  const profile: MemberProfileData = {
+  const profile: MemberProfileData = { socials: [],
     userId: "00000000-0000-4000-8000-0000000000a1",
     name: "Maya Ortiz",
     username: "maya",

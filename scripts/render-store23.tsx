@@ -32,7 +32,7 @@ import type { SiteQuote } from "@/lib/checkout/site-quote-server"
 
 declare global {
   interface Window {
-    __calls?: { url: string; body: unknown }[]
+    __commerceProbeCalls?: { url: string; body: unknown }[]
   }
 }
 
@@ -43,7 +43,7 @@ const STRICT = checkoutConfig({ nameFields: "first_and_last", company: "required
 const quote: SiteQuote = {
   kind: "ships",
   creatorId: SHOP,
-  lines: [{ productId: MUG, variantId: null, title: "Stoneware mug", variantName: null, imageUrl: null, type: "physical", quantity: 2, unitCents: 2000, discountCents: 0, requiresShipping: true }],
+  lines: [{ productId: MUG, variantId: null, title: "Stoneware mug", variantName: null, imageUrl: null, type: "physical", quantity: 2, unitCents: 2000, discountCents: 0, requiresShipping: true, maxQuantity: 99 }],
   dropped: [],
   stockIssues: [],
   requiresShipping: true,
@@ -73,7 +73,7 @@ const settings = {
 }
 
 function stubFetch() {
-  const calls: { url: string; body: unknown }[] = (window.__calls = [])
+  const calls: { url: string; body: unknown }[] = (window.__commerceProbeCalls = [])
   const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)

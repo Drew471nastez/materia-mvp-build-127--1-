@@ -203,7 +203,7 @@ function App() {
     case "policies":
       return (
         <Shell section="settings">
-          <SettingsSection head={head} data={settings} tab={which === "settings" ? "page" : which} />
+          <SettingsSection head={head} data={settings} tab={which === "settings" ? "access" : which} />
         </Shell>
       )
     case "analytics":

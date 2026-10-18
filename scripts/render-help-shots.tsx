@@ -21,6 +21,7 @@ import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { KindList } from "@/app/app/products/new/kind-chooser"
 import { PayoutsDemo } from "@/components/app/payouts-demo/payouts-demo"
 import { OffersClient } from "@/app/app/offers/offers-client"
+import type { Offer } from "@/lib/offers/offers"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { SiteCheckout } from "@/app/checkout/site/site-checkout"
@@ -187,14 +188,14 @@ const store = { settings: { storeName: "Fern & Clay", phone: "5035550142", phone
 import { DEFAULT_RETURN_REASONS, DEFAULT_REFUND_REASONS } from "@/lib/store/reasons"
 const reasons = { ready: true, return: DEFAULT_RETURN_REASONS.map((r, i) => ({ ...r, id: `rr${i}` })), refund: DEFAULT_REFUND_REASONS.map((r, i) => ({ ...r, id: `rf${i}` })) }
 
-const P = (id: string, title: string, priceCents: number, imageUrl: string | null) => ({ id, title, type: "physical", published: true, priceCents, imageUrl })
+const P = (id: string, title: string, priceCents: number, imageUrl: string | null) => ({ id, title, type: "physical", published: true, priceCents, imageUrl, payWhatYouWant: false })
 const offers = {
   ready: true,
   products: [P(PRODUCT, "Speckled mug", 3200, MUG_SAND), P("p-bowl", "Serving bowl", 4400, BOWL), P("p-apron", "Linen apron", 3800, APRON)],
   offers: [
     { id: "o1", kind: "bundle", title: "Breakfast set", productIds: [PRODUCT, "p-bowl"], triggerIds: [], discountType: "percent", discountValue: 10, active: true },
     { id: "o2", kind: "checkout", title: "Add an apron", productIds: ["p-apron"], triggerIds: [], discountType: "fixed", discountValue: 500, active: true },
-  ],
+  ] satisfies Offer[],
 }
 
 const buyBoxProduct = {
@@ -668,7 +669,7 @@ function App() {
     case "payouts":
       return <div id="shot"><PayoutsDemo /></div>
     case "offers":
-      return <div id="shot" style={{ height: "100vh" }}><OffersClient /></div>
+      return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={offers.offers} products={offers.products} collections={[]} currency="USD" ready={offers.ready} settingsReady physical /></div>
     case "website-commerce":
       return <WebsiteSettings section="commerce" />
     case "website-policies":

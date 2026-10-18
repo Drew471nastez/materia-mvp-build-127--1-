@@ -7,6 +7,16 @@ import { cookies } from "next/headers"
 const GUEST_ID_COOKIE = "materia_guest_id"
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 
+type WishlistRow = {
+  id: string; product_id: string; created_at: string
+  products: {
+    id: string; title: string; slug: string; price_cents: number | null
+    compare_at_cents: number | null; thumbnail_url: string | null
+    type: string; status: string; creator_id: string
+    creators: { id: string; user_id: string | null; slug: string | null } | null
+  } | null
+}
+
 function generateGuestId(): string {
   return `guest_${crypto.randomUUID()}`
 }
@@ -92,7 +102,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ items: [], count: 0 })
     }
 
-    const { data, error } = await query
+    const { data, error } = await query.returns<WishlistRow[]>()
 
     if (error) {
       console.error("[Wishlist GET] Query error:", error)

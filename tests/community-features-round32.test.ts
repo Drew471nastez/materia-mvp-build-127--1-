@@ -58,6 +58,10 @@ const raw = (p: string) => readFileSync(p, "utf8")
 const code = (p: string) => stripComments(untt(raw(p), p))
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any
+function requireFixture<T>(row: T | undefined): T {
+  if (row === undefined) throw new Error("Expected fixture row was not created")
+  return row
+}
 const A = (x: unknown) => x as Any
 
 const C = "c0000000-0000-4000-8000-000000000001"
@@ -203,7 +207,8 @@ async function main() {
     check("a free join without the answers is refused, pointing at the first", !no.ok && no.status === 400 && no.error === "answers_needed" && no.field === qShort.id && !memberOf(db))
     const yes = A(await joinCommunity(db, C, U, { answers: good }))
     check("with them, in at once", yes.ok && yes.state === "member" && memberOf(db)?.status === "active")
-    check("and the answers are kept with the words asked", answersOf(db)?.answers?.length === 2 && answersOf(db).answers[1].label === "How did you hear about us?" && answersOf(db).answers[1].value === "Search")
+    const answers = answersOf(db)
+    check("and the answers are kept with the words asked", answers?.answers?.length === 2 && answers.answers[1].label === "How did you hear about us?" && answers.answers[1].value === "Search")
   }
   {
     const db = withForm(world({ approval: true }))
@@ -397,13 +402,13 @@ async function main() {
     check("a posted one cannot be changed or published again", !A(await updateScheduled(db, { community, viewer: ownerViewer, userId: OWNER }, made.post.id, { publishNow: true }, make)).ok)
 
     const gone = A(await createScheduled(db, { community, viewer: modViewer, userId: MOD }, { spaceId: FEED, title: "Later", body: "words", publishAt: at }))
-    db.tables.community_members.find((m: Any) => m.user_id === MOD).status = "cancelled"
-    db.tables.community_scheduled_posts.find((r: Any) => r.id === gone.post.id).publish_at = iso(NOW - 1000)
+    requireFixture(db.tables.community_members.find((m: Any) => m.user_id === MOD)).status = "cancelled"
+    requireFixture(db.tables.community_scheduled_posts.find((r: Any) => r.id === gone.post.id)).publish_at = iso(NOW - 1000)
     const run = await publishDuePosts(db, NOW, 10_000, make)
-    check("an author who left: failed with the reason, not posted", run.failed === 1 && posted.length === 2 && /no longer a member/.test(db.tables.community_scheduled_posts.find((r: Any) => r.id === gone.post.id).error))
+    check("an author who left: failed with the reason, not posted", run.failed === 1 && posted.length === 2 && /no longer a member/.test(requireFixture(db.tables.community_scheduled_posts.find((r: Any) => r.id === gone.post.id)).error))
 
     const noSpace = A(await createScheduled(db, { community, viewer: ownerViewer, userId: OWNER }, { spaceId: FEED, title: "Space goes", body: "words", publishAt: at }))
-    const nsRow = db.tables.community_scheduled_posts.find((r: Any) => r.id === noSpace.post.id)
+    const nsRow = requireFixture(db.tables.community_scheduled_posts.find((r: Any) => r.id === noSpace.post.id))
     nsRow.space_id = null
     nsRow.publish_at = iso(NOW - 1000)
     await publishDuePosts(db, NOW, 10_000, make)
@@ -411,7 +416,7 @@ async function main() {
 
     db.tables.community_scheduled_posts.push({ id: "stale", community_id: C, author_id: OWNER, space_id: FEED, title: "t", body: "b", status: "publishing", claimed_at: iso(NOW - 20 * 60_000), attempts: 1 })
     await publishDuePosts(db, NOW, 10_000, make)
-    check("left half way for 15 minutes: failed, never posted twice", db.tables.community_scheduled_posts.find((r: Any) => r.id === "stale").status === "failed" && posted.length === 2)
+    check("left half way for 15 minutes: failed, never posted twice", requireFixture(db.tables.community_scheduled_posts.find((r: Any) => r.id === "stale")).status === "failed" && posted.length === 2)
 
     const del = A(await createScheduled(db, { community, viewer: ownerViewer, userId: OWNER }, { spaceId: FEED, title: "Delete me" }))
     const removed = await deleteScheduled(db, { community, viewer: ownerViewer, userId: OWNER }, del.post.id)

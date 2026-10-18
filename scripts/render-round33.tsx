@@ -20,7 +20,7 @@
  *
  * The 16px copy is handed in by the probe (window.__BLUR, made by sharp from
  * the poster as the server makes it). Every request a page makes is logged in
- * window.__asked (method, address, type, size).
+ * window.__round33Asked (method, address, type, size).
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -47,9 +47,9 @@ if (params.get("dark") === "1") document.documentElement.setAttribute("data-sl-d
 const view = params.get("view") || "feed"
 const admin = params.get("role") === "admin"
 
-type W = Window & { __asked?: { method: string; path: string; type: string | null; size: number; body?: string }[]; __BLUR?: string }
+type W = Window & { __round33Asked?: { method: string; path: string; type: string | null; size: number; body?: string }[]; __BLUR?: string }
 const w = window as W
-w.__asked = []
+w.__round33Asked = []
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -220,7 +220,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const headers = new Headers(init?.headers)
   const body = init?.body
   const size = body instanceof Blob ? body.size : typeof body === "string" ? body.length : 0
-  w.__asked!.push({ method, path: `${path}${u.search}`, type: headers.get("content-type"), size, body: typeof body === "string" ? body.slice(0, 400) : undefined })
+  w.__round33Asked!.push({ method, path: `${path}${u.search}`, type: headers.get("content-type"), size, body: typeof body === "string" ? body.slice(0, 400) : undefined })
   if (/\/api\/community\/[^/]+\/place$/.test(path)) {
     await later(200)
     const p = placeFromKey(u.searchParams.get("p") || "")
