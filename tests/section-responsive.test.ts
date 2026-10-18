@@ -2030,6 +2030,8 @@ section("Backups: every task, every publish, and a way back that is never one-wa
 // ===========================================================================
 
 const backupsLib = untt(readFileSync(join(root, "lib/website-builder/backups.ts"), "utf8"), "lib/website-builder/backups.ts")
+/* Round Z4: a restore's writes live in restore-snapshot.ts (bulk, all or nothing); backups.ts hands over to it. */
+const restoreLib = untt(readFileSync(join(root, "lib/website-builder/restore-snapshot.ts"), "utf8"), "lib/website-builder/restore-snapshot.ts")
 const backupsRoute = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/backups/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/backups/route.ts")
 const restoreRoute = untt(readFileSync(
   join(root, "app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts"),
@@ -2056,9 +2058,9 @@ check(
 
 check(
   "restoring writes the DRAFT, never the live site, and leaves pages the copy did not know about",
-  /update\(\{ draft_settings: snapshot\.settings \}\)/.test(backupsLib) &&
-    /update\(\{ draft_sections: page\.sections \}\)/.test(backupsLib) &&
-    !/update\(\{ sections: page\.sections/.test(backupsLib) &&
+  /update\(\{ draft_settings: snapshot\.settings \}\)/.test(restoreLib) &&
+    /update\(\{ draft_sections: page\.sections \}\)/.test(restoreLib) &&
+    !/update\(\{ sections: page\.sections/.test(restoreLib) &&
     /Pages that exist now but were not in the snapshot are left alone/.test(backupsLib),
 )
 
@@ -2076,7 +2078,7 @@ check(
   (() => {
     const safety = restoreRoute.indexOf('source: "restore"')
     const apply = restoreRoute.indexOf("await applySnapshot(")
-    return safety > 0 && apply > safety && /if \(safety\.error\) return/.test(restoreRoute)
+    return safety > 0 && apply > safety && /if \(safety\.error\) \{[\s\S]{0,300}return NextResponse/.test(restoreRoute)
   })(),
 )
 
@@ -2124,7 +2126,7 @@ check(
     /Restore this backup\?/.test(settingsAll) &&
     /A backup of the draft you have now is saved first, so this can be undone/.test(settingsAll) &&
     /Nothing changes on your live site until you publish/.test(settingsAll) &&
-    /onRestored=\{\(\) => window\.location\.reload\(\)\}/.test(editor),
+    /onRestored=\{\(\) => \{[\s\S]{0,200}window\.location\.reload\(\)/.test(editor),
 )
 
 check(

@@ -89,7 +89,7 @@ function quickResult(strategy: "mobile" | "desktop"): QuickCheckResult {
   return { ...base, findings: quickFindings(base) }
 }
 
-function readyAnswer(thin = false, range: PerfRange = "7d") {
+export function readyAnswer(thin = false, range: PerfRange = "7d") {
   const all = events()
   /* Each period a little different, so switching really changes every figure on screen. */
   const k = range === "24h" ? 0.9 : range === "30d" ? 1.15 : range === "90d" ? 1.3 : 1

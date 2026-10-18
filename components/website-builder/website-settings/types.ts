@@ -89,6 +89,8 @@ export interface SettingsContext {
   go: (section: SettingsSection) => void
   onRenamed: (name: string) => void
   onRestored?: () => void
+  /** Saves the editor's draft and pauses autosave while a restore runs (true), or lets it go (false); false back means it could not save. */
+  onHoldDraft?: (hold: boolean) => Promise<boolean>
   onEditPage: (pageKey: string) => void
   onAddPage: () => void
   /** Opens the builder's Navigation panel, at one menu when a handle is given. */

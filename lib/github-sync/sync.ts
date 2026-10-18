@@ -31,7 +31,7 @@ import { validateSection } from "@/lib/storelib-ai/validate"
 import { refreshCompatSettingsPanel, saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { publicError } from "@/lib/agent-access/operations"
 import { repoMayWrite } from "@/lib/agent-access/protected"
-import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { fitToThemeFormat, folderExamples } from "./format"
 import { SETTINGS_PANEL_FILE, SETTINGS_SCHEMA_FILE } from "@/lib/storelib-theme/compat/schema-sync"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
@@ -174,9 +174,19 @@ async function storageMedia(url: string, maxBytes: number): Promise<Uint8Array |
 
 /** The theme as the repository holds it, guides included. Pure past the read. */
 export function repoFilesFor(snap: ThemeSnapshot, link: Pick<GitHubLink, "branch" | "root_path">) {
+  /* Each folder's format shown with one of this theme's own files (./format.ts). */
+  /*
+    A Storelib theme's examples are Storelib's own built-ins, which do not
+    change with a push, so a new section in the repository does not rewrite
+    AGENTS.md (and send a commit back) by being the shortest file. An
+    imported theme has no built-ins: its own files are the examples.
+  */
+  const source = !snap.compat && Object.keys(snap.defaults).length ? snap.defaults : { ...snap.defaults, ...snap.files }
+  /* A page changes with every edit in the builder, so the page example is a fixed one (core.ts formatGuide), not this site's. */
+  const examples = folderExamples(source, snap.compat)
   return themeFiles(snap, ({ overrides, skipped }) => ({
     readme: repoReadme({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, compat: snap.compat, overrides, skipped }),
-    agents: agentsGuide({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, kind: snap.compat ? "shopify" : "storelib" }),
+    agents: agentsGuide({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, kind: snap.compat ? "shopify" : "storelib", examples }),
     claude: CLAUDE_MD,
   }))
 }
@@ -469,14 +479,21 @@ export async function applyFiles(
     /* A copy of one of Storelib's own sections or blocks: a refusal of it offers Storelib's version back. */
     let builtIn = false
     if (role === "source") {
-      const isCompat = isCompatSource(text)
-      if (snap.compat && !isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: this is an imported theme, so its files start with <template compat="shopify">. Copy that line and the schema layout from another file in the same folder.`, kind: "wrong-kind" })
+      /*
+        The format this theme keeps (./format.ts): a Storelib section in an
+        imported theme is taken as it is, the theme's original file is
+        converted when nothing in it has to be guessed, and only a file that
+        cannot be read either way is refused. A converted file goes back to
+        the repository in the theme's format on the next Push.
+      */
+      const fitted = fitToThemeFormat(f.path, text, compat)
+      if (fitted.ok === false) {
+        out.failed.push({ path: f.path, error: (fitted as { error: string }).error, kind: "wrong-kind" })
         continue
       }
-      if (!snap.compat && isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: <template compat="shopify"> is for imported themes. Write it as a Storelib section (https://storelib.com/developers/sections).`, kind: "wrong-kind" })
-        continue
+      if (fitted.converted) {
+        text = fitted.text
+        if (fitted.note) out.notes.push({ path: f.path, note: fitted.note })
       }
       const allowed = repoMayWrite(f.path, compat)
       if (allowed.ok === false) {
@@ -589,10 +606,13 @@ function fileNames(paths: string[]): string {
   return names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`
 }
 
-function takenSummary(r: { saved: string[]; failed: FileProblem[] }, how: string): string {
-  if (r.failed.length) return `${how}: ${r.saved.length} taken, ${r.failed.length} not. ${r.failed[0].error}`
+export function takenSummary(r: { saved: string[]; failed: FileProblem[]; notes?: FileNote[] }, how: string): string {
+  /* Files Storelib put in this theme's format on the way in (./format.ts) are said, so a changed file in the next Push is no surprise. */
+  const converted = new Set((r.notes ?? []).filter((n) => /converted to this theme's format/.test(n.note)).map((n) => n.path))
+  const tail = converted.size ? ` ${fileNames([...converted])} converted to this theme's format.` : ""
+  if (r.failed.length) return `${how}: ${r.saved.length} taken, ${r.failed.length} not. ${r.failed[0].error}${tail}`
   if (r.saved.length === 0) return `${how}: already up to date`
-  return `${how}: ${fileNames(r.saved)}`
+  return `${how}: ${fileNames(r.saved)}${tail}`
 }
 
 /** The comment on a commit that lists every file a push could not bring in. */

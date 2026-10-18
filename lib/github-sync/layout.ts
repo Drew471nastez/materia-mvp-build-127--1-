@@ -479,8 +479,8 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["shopify/assets/<pictures>", "The theme's pictures and videos, to look at. Upload a new one in Storelib's Files.", "No"],
       ]
     : [
-        ["config/settings.json", "The theme settings' values: colours, fonts, logo, menus. A `config/settings_data.json` in Shopify's shape, `{ \"current\": { ... } }`, is taken the same way, and what it leaves out stays as it is.", "Yes"],
-        ["config/settings_schema.json", "What the theme settings are: groups of settings in Shopify's format. Reorder groups and settings, add your own, change a label, a default or a range, and Theme settings in the builder follow. A Storelib setting keeps its id, type and group. A section reads a setting you add as `theme.settings.<id>`.", "Yes"],
+        ["config/settings.json", "The theme settings' values: colours, fonts, logo, menus. A `config/settings_data.json` in the usual theme shape, `{ \"current\": { ... } }`, is taken the same way, and what it leaves out stays as it is.", "Yes"],
+        ["config/settings_schema.json", "What the theme settings are: a list of groups of settings. Reorder groups and settings, add your own, change a label, a default or a range, and Theme settings in the builder follow. A Storelib setting keeps its id, type and group. A section reads a setting you add as `theme.settings.<id>`.", "Yes"],
         ["templates/<page>.json", "Each page's own sections, their settings and blocks, in order. `home.json` is the home page.", "Yes"],
         ["sections/header-group.json, footer-group.json", "The header and footer, once, for every page.", "Yes"],
         ["sections/*.storelib", "Every section: Storelib's built-in ones and this site's own.", "Yes"],

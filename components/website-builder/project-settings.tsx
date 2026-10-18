@@ -86,6 +86,7 @@ export function ProjectSettings({
   live,
   publishedAt,
   onRestored,
+  onHoldDraft,
   onEditPage,
   initialSection = null,
   githubReturned = null,
@@ -118,6 +119,8 @@ export function ProjectSettings({
   publishedAt: string | null
   /** A backup has been written into the draft; the editor must reload it. */
   onRestored?: () => void
+  /** Saves the editor's draft and pauses autosave while a restore runs (true), or lets it go (false). */
+  onHoldDraft?: (hold: boolean) => Promise<boolean>
   /** Open one of the site's pages in the builder. */
   onEditPage?: (pageKey: string) => void
   /** Open on this page rather than General, e.g. from a tab on the website page. */
@@ -270,6 +273,7 @@ export function ProjectSettings({
     go,
     onRenamed,
     onRestored,
+    onHoldDraft,
     onEditPage: (key) => {
       onClose()
       onEditPage?.(key)
