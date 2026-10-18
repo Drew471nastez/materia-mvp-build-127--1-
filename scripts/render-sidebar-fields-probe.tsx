@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { InlineRichTextControl } from "@/components/website-builder/editor/controls/inline-richtext-control"
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
+import { ChipTextInput } from "@/components/website-builder/editor/controls/chip-text-input"
 
 const params = new URLSearchParams(location.search)
 const width = Number(params.get("w") ?? 320)
@@ -21,6 +22,8 @@ function Panel() {
   const [rich, setRich] = React.useState(`<h2>${LONG_WORD}</h2><p>Read more at ${LONG_URL} or <a href="${LONG_URL}">${LONG_URL}</a></p><ul><li>${LONG_WORD}${LONG_WORD}</li></ul>`)
   const [heading, setHeading] = React.useState(`Our <em>${LONG_WORD}</em> ${LONG_URL}`)
   const [area, setArea] = React.useState(`${LONG_WORD}${LONG_WORD} ${LONG_URL}`)
+  const [line, setLine] = React.useState("Shop")
+  const [chips, setChips] = React.useState("Made by {{ shop.name }}")
   return (
     <div
       data-probe-panel=""
@@ -39,6 +42,22 @@ function Panel() {
         <div className="space-y-1.5" data-probe-field="textarea">
           <span className="block text-[12px] font-medium text-foreground/80">Description</span>
           <AutoTextarea value={area} onChange={setArea} placeholder="" />
+        </div>
+        {/* The one line text setting, as the editor page draws it (EchoTextInput). */}
+        <div className="space-y-1.5" data-probe-field="text">
+          <span className="block text-[12px] font-medium text-foreground/80">Button label</span>
+          <AutoTextarea
+            singleLine
+            maxRows={8}
+            value={line}
+            onChange={setLine}
+            className="min-h-8 px-2.5 py-[6px] text-[13px] leading-[18px] rounded-md max-sm:min-h-11 max-sm:py-[10px] max-sm:text-[16px] max-sm:leading-[22px]"
+          />
+        </div>
+        {/* A text setting with shop data in it: words and pills. */}
+        <div className="space-y-1.5" data-probe-field="chips">
+          <span className="block text-[12px] font-medium text-foreground/80">Subheading</span>
+          <ChipTextInput value={chips} onChange={setChips} label="Subheading" />
         </div>
       </div>
     </div>

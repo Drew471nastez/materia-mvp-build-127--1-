@@ -363,6 +363,7 @@ const SUITES = [
   "tests/collections-ui.test.ts",
   "tests/native-google-sign-in.test.ts",
   "tests/editor-feel.test.ts",
+  "tests/value-pills-menus.test.ts",
   "tests/code-backups.test.ts",
   "tests/own-database.test.ts",
   "tests/builder-click-edit.test.ts",

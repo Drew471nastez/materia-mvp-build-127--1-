@@ -38,7 +38,6 @@ import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/webs
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
-import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
@@ -568,14 +567,19 @@ function fieldCarriesOwnLabel(field: SchemaField): boolean {
  * between a key and its letter. See components/website-builder/echo-field.
  */
 function EchoTextInput({ value, onChange, placeholder }: { value: string; onChange: (v: unknown) => void; placeholder: string }) {
-  const [shown, set] = useEchoedValue(value, onChange)
+  /*
+    A box that wraps and grows, not an <input>: a long heading in a narrow
+    sidebar scrolled sideways inside an input, out of view. Still one line
+    by meaning (Enter refused), and 32px tall while it fits on one line.
+  */
   return (
-    <input
-      type="text"
-      className="w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+    <AutoTextarea
+      singleLine
+      maxRows={8}
+      value={value}
+      onChange={onChange}
       placeholder={placeholder}
-      value={shown}
-      onChange={e => set(e.target.value)}
+      className="min-h-8 px-2.5 py-[6px] text-[13px] leading-[18px] rounded-md max-sm:min-h-11 max-sm:py-[10px] max-sm:text-[16px] max-sm:leading-[22px]"
     />
   )
 }

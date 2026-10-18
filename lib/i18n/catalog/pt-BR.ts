@@ -4544,6 +4544,8 @@ const words: Record<string, string> = {
  "New locations and tax start here. Buyers can be anywhere.": "Novos locais e impostos começam aqui. Os compradores podem estar em qualquer lugar.",
  "New members": "Novos membros",
  "New menu name": "Nome do novo menu",
+ "New menu": "Novo menu",
+ "{label}, shop data": "{label}, dados da loja",
  "New message": "Nova mensagem",
  "New option": "Nova opção",
  "New orders are assigned to this location and their stock is taken from it, unless a product says otherwise.": "Novos pedidos são atribuídos a este local e o estoque sai dele, a menos que um produto diga outra coisa.",

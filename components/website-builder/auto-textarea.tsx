@@ -49,6 +49,7 @@ export function AutoTextarea({
   /** Lines before it stops growing and starts scrolling. */
   maxRows = 12,
   className,
+  singleLine = false,
   ...rest
 }: {
   value: string
@@ -56,10 +57,19 @@ export function AutoTextarea({
   placeholder?: string
   maxRows?: number
   className?: string
+  /**
+   * ONE LINE BY MEANING, NOT BY WIDTH. A heading or a button label is one
+   * line of text, and an `<input>` holding a long one scrolls sideways: the
+   * start of the words leaves the box while the end is typed. As a box that
+   * wraps and grows instead, Enter is refused and a pasted line break
+   * becomes a space, so what is saved is still one line.
+   */
+  singleLine?: boolean
 } & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "className">) {
   const ref = React.useRef<HTMLTextAreaElement>(null)
   /* What is typed shows at once; the editor hears of it in a transition. See ./echo-field. */
   const [shown, set] = useEchoedValue(value, onChange)
+  const { onKeyDown, ...others } = rest
 
   const fit = React.useCallback(() => {
     const el = ref.current
@@ -114,10 +124,14 @@ export function AutoTextarea({
       )}
       placeholder={placeholder}
       value={shown}
-      onChange={(e) => set(e.target.value)}
+      onChange={(e) => set(singleLine ? e.target.value.replace(/\s*[\r\n]+\s*/g, " ") : e.target.value)}
+      onKeyDown={(e) => {
+        if (singleLine && e.key === "Enter") e.preventDefault()
+        onKeyDown?.(e)
+      }}
       /* The same ceiling as the measured path: `maxRows` lines, then it scrolls. */
       style={NATIVE_SIZING ? ({ fieldSizing: "content", maxHeight: `calc(${maxRows}lh + 18px)` } as React.CSSProperties) : undefined}
-      {...rest}
+      {...others}
     />
   )
 }
