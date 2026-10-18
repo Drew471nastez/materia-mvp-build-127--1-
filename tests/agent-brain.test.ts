@@ -273,7 +273,9 @@ async function main() {
     /* Tools 6,450 since Storelib Reviews: its four sections (reviews_product, reviews_badge, reviews_carousel, reviews_all) are in the list of section types the tools name, about 5 tokens. */
     /* Tools 6,600: update_theme names the settings the sidebar writes outside the schema (typography_styles, the phone logo, default_color_scheme) and set_color_scheme its gradient, about 105 tokens (agent/theme-extras.ts). */
     /* System 14,350 since the V round: CREATIVE_BRIEF says how a section it codes is designed (one type size, 65 characters a line, one spacing scale, one primary action, one column on a phone, every visible value a setting it reads), about 110 cached tokens (agent/creative-section.ts). */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_350 && tokens(JSON.stringify(first.tools)) <= 6_600 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* System 14,700 since round Z3: seven worked examples (a new page, a section the theme has, one of its own on a native and an imported theme, a settings panel rearranged, products with prices, a site wide restyle, motion) and the design latitude line, about 300 cached tokens. */
+    /* Tools 6,640 since round Z3: create_section says a new section on an imported theme is this format with no script, about 30 tokens. */
+    check("the first request stays inside its budget", tokens(first.system) <= 14_700 && tokens(JSON.stringify(first.tools)) <= 6_640 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

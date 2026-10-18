@@ -7148,6 +7148,27 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 .ask-in { animation: ask-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .ask-fade { animation: ask-fade 180ms ease-out both; }
 
+/* AI memory from the chat (components/website-builder/ask-memory.tsx): it
+   grows out of the mark that opened it on the sheet's curve and leaves
+   quicker than it came, opacity and transform only, so nothing under it is
+   laid out again. Unlayered, so it replaces the popover's own animation.
+   Under reduced motion, a fade. Measured by scripts/check-ask-memory-send.mjs. */
+@keyframes ask-pop-in {
+  from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate3d(0, -2px, 0) scale(0.98); }
+}
+.ask-memory-pop { transform-origin: var(--radix-popover-content-transform-origin); }
+.ask-memory-pop[data-state="open"] { animation: ask-pop-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-memory-pop[data-state="closed"] { animation: ask-pop-out 130ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-memory-pop[data-state="open"] { animation: ask-fade 120ms ease-out both; }
+  .ask-memory-pop[data-state="closed"] { animation: ask-fade 100ms ease-in reverse both; }
+}
+
 /* Ask Storelib's steps (components/website-builder/ask-activity.tsx,
    StepsTimeline). Every row is one 24px line, so a row never changes height
    and nothing above a new row moves. A row rises 4px into place as it

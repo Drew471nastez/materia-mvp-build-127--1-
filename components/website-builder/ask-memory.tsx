@@ -22,6 +22,9 @@ import type { MemoryNote } from "@/components/website-builder/website-settings/a
 
 type Load = { state: "idle" | "loading" | "error" } | { state: "ready"; notes: MemoryNote[] }
 
+/** A read slower than this says "Loading"; a quicker one opens already filled, with nothing swapped in. */
+export const LOADING_DELAY_MS = 300
+
 async function call<T>(url: string, init?: { method: string; body?: unknown }): Promise<T | null> {
   try {
     const res = await fetch(url, {
@@ -42,25 +45,60 @@ export function AskMemoryButton({ installId, className }: { installId: string; c
   const [load, setLoad] = React.useState<Load>({ state: "idle" })
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  const added = React.useRef(new Set<string>())
 
-  const read = React.useCallback(async () => {
+  /* One read at a time: the warm read on the way in and the read on open are the same request. */
+  const inflight = React.useRef<Promise<void> | null>(null)
+  const read = React.useCallback((): Promise<void> => {
+    if (inflight.current) return inflight.current
     setLoad((l) => (l.state === "ready" ? l : { state: "loading" }))
-    const [site, everywhere] = await Promise.all([
-      call<{ memories: MemoryNote[] }>(`/api/ai-memory?installId=${encodeURIComponent(installId)}`),
-      call<{ memories: MemoryNote[] }>("/api/ai-memory"),
-    ])
-    if (!site || !everywhere) {
-      setLoad((l) => (l.state === "ready" ? l : { state: "error" }))
-      return
-    }
-    const notes = [...site.memories, ...everywhere.memories].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    setLoad({ state: "ready", notes })
+    const run = (async () => {
+      const [site, everywhere] = await Promise.all([
+        call<{ memories: MemoryNote[] }>(`/api/ai-memory?installId=${encodeURIComponent(installId)}`),
+        call<{ memories: MemoryNote[] }>("/api/ai-memory"),
+      ])
+      if (!site || !everywhere) {
+        setLoad((l) => (l.state === "ready" ? l : { state: "error" }))
+        return
+      }
+      const notes = [...site.memories, ...everywhere.memories].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      setLoad({ state: "ready", notes })
+    })()
+    inflight.current = run.finally(() => {
+      inflight.current = null
+    })
+    return inflight.current
   }, [installId])
 
   /* Read each time it opens, so what the AI kept a moment ago is there. */
   React.useEffect(() => {
     if (open) void read()
   }, [open, read])
+
+  /*
+    READ BEFORE IT OPENS (round Z3). The first open used to draw "Loading",
+    then swap it for the list a moment later, so the box opened at one height
+    and jumped to another. A pointer coming over the mark, or focus reaching
+    it, starts the read, which is almost always done by the time the press
+    ends; the list then opens already filled. A slow read shows "Loading" only
+    after LOADING_DELAY_MS, in a list that already has its height.
+  */
+  const warmed = React.useRef(false)
+  const warm = React.useCallback(() => {
+    if (warmed.current) return
+    warmed.current = true
+    void read()
+  }, [read])
+  const [slow, setSlow] = React.useState(false)
+  React.useEffect(() => {
+    if (!open || load.state !== "loading") {
+      setSlow(false)
+      return
+    }
+    const t = window.setTimeout(() => setSlow(true), LOADING_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [open, load.state])
+  const contentRef = React.useRef<HTMLDivElement>(null)
 
   const add = async () => {
     const content = draft.replace(/\s+/g, " ").trim()
@@ -70,6 +108,8 @@ export function AskMemoryButton({ installId, className }: { installId: string; c
     setBusy(false)
     if (!r?.memory) return
     const kept = r.memory
+    /* A note added here rises into the list; the ones that were there are simply there. */
+    added.current.add(kept.id)
     setLoad((l) => (l.state === "ready" && !r.duplicate ? { state: "ready", notes: [kept, ...l.notes] } : l))
     setDraft("")
   }
@@ -85,32 +125,45 @@ export function AskMemoryButton({ installId, className }: { installId: string; c
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" data-ask-memory="" aria-label={tt("AI memory")} title={tt("AI memory")} className={className}>
+        <button type="button" data-ask-memory="" aria-label={tt("AI memory")} title={tt("AI memory")} className={className} onPointerEnter={warm} onFocus={warm} onPointerDown={warm}>
           <Brain className="h-[17px] w-[17px]" strokeWidth={1.8} />
         </button>
       </PopoverTrigger>
       <PopoverContent
+        ref={contentRef}
         align="end"
         sideOffset={6}
-        className="w-[300px] max-w-[calc(100vw-16px)] rounded-[14px] border border-[#eceef1] bg-white p-0 text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(16,24,40,0.22),0_2px_6px_rgba(16,24,40,0.06)]"
+        /*
+          Focus goes to the box itself, not to its first button (a Forget that
+          is invisible until hovered), and back to the mark when it closes,
+          which Radix does. Tab then moves through the notes and the field.
+        */
+        tabIndex={-1}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          contentRef.current?.focus({ preventScroll: true })
+        }}
+        data-ask-memory-panel=""
+        className="ask-memory-pop w-[300px] max-w-[calc(100vw-16px)] rounded-[14px] border border-[#eceef1] bg-white p-0 text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(16,24,40,0.22),0_2px_6px_rgba(16,24,40,0.06)] outline-none"
       >
         <div className="px-3.5 pb-2 pt-3">
           <p className="text-[13px] font-semibold">{tt("AI memory")}</p>
           <p className="mt-0.5 text-[12px] leading-[16px] text-[#6b7280]">{tt("What Storelib AI keeps in mind for this website.")}</p>
         </div>
-        <div className="max-h-[240px] overflow-y-auto px-1.5 [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin]" data-ask-memory-list="">
-          {load.state === "loading" ? (
-            <p className="flex items-center gap-2 px-2 py-3 text-[12.5px] text-[#6b7280]">
+        <div className="max-h-[240px] min-h-[44px] overflow-y-auto px-1.5 [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin]" data-ask-memory-list="">
+          {load.state === "loading" || load.state === "idle" ? (
+            /* Held at a line's height while the read finishes; words only once it is slow. */
+            <p className={cn("flex h-[44px] items-center gap-2 px-2 text-[12.5px] text-[#6b7280] transition-opacity duration-200", slow ? "opacity-100" : "opacity-0")} aria-live="polite">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {tt("Loading")}
             </p>
           ) : load.state === "error" ? (
             <p className="px-2 py-3 text-[12.5px] text-[#6b7280]">{tt("Could not load. Try again in a moment.")}</p>
           ) : notes.length === 0 ? (
-            <p className="px-2 py-3 text-[12.5px] text-[#6b7280]">{tt("Nothing yet. Add something below, or the AI keeps notes as you work.")}</p>
+            <p className="ask-fade px-2 py-3 text-[12.5px] text-[#6b7280]">{tt("Nothing yet. Add something below, or the AI keeps notes as you work.")}</p>
           ) : (
             notes.map((n) => (
-              <div key={n.id} className="group/note flex items-start gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[#f6f7f8]" data-ask-memory-note={n.id}>
+              <div key={n.id} className={cn("group/note flex items-start gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[#f6f7f8]", added.current.has(n.id) && "ask-in")} data-ask-memory-note={n.id}>
                 <span className="min-w-0 flex-1 text-[12.5px] leading-[17px] text-[#374151]">{n.content}</span>
                 <button
                   type="button"

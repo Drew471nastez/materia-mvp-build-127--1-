@@ -34,6 +34,7 @@ import {
   readHouseStyle,
 } from "@/lib/website-builder/agent/house-style"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
+import { AGENT_LIMITS } from "@/lib/website-builder/agent/limits"
 /**
  * The generic half of this prompt moved into the shared brain, which both
  * providers and all four surfaces compose. Asserting against the composed
@@ -3672,7 +3673,8 @@ section("Asking for something good has to get the good model")
   )
   check(
     "and is given room to write a filled section in one turn",
-    /maxOutputTokens: bigIntent \? 24_000 : input\.ambitious \? 16_000 : 8_000/.test(loop),
+    /* Round Z3: the model's working size for every turn (lib/website-builder/agent/limits.ts), raised again for a turn that was cut off. */
+    /maxOutputTokens: outputCap,/.test(loop) && /let outputCap = limits\.turnOutputTokens/.test(loop) && AGENT_LIMITS.turnOutputTokens >= 24_000 && AGENT_LIMITS.retryOutputTokens > AGENT_LIMITS.turnOutputTokens,
   )
   check(
     "a type says how many entries finished means, before its controls are listed",
@@ -3702,7 +3704,8 @@ check(
     ), "app/api/website-builder/themes/[installId]/agent/route.ts")
     return (
       /classifyRequest\(body\.prompt\)/.test(route) &&
-      /maxTurns: bigIntent \? Math\.max\(shape\.maxTurns, 56\) : shape\.maxTurns/.test(route) &&
+      /* Round Z3: no per edit turn cap; the run is held by cost and time (lib/website-builder/agent/limits.ts). */
+      /maxTurns: AGENT_LIMITS\.maxTurns,/.test(route) && /limits: AGENT_LIMITS,/.test(route) &&
       !/chooseModel/.test(route)
     )
   })(),
@@ -3838,7 +3841,8 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "the code tools are offered whenever the run is given a way to read sections, and the route always gives one",
-    /tools: toolSpecs\(addable, schemas, !!input\.code(, \{[^}]*\})?\)/.test(loop) &&
+    /* Round Z3: built once per run (runTools) so every turn's request is a prefix of the next. */
+    /const runTools = toolSpecs\(addable, schemas, !!input\.code(, \{[^}]*\})?\)/.test(loop) && /tools: runTools,/.test(loop) &&
       /code\?: \{[\s\S]{0,200}read\(sectionType: string\): string \| null/.test(loop) &&
       /const code = \{\s*\n\s*read\(sectionType: string\): string \| null/.test(route),
   )

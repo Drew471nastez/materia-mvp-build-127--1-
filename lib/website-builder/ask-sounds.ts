@@ -399,8 +399,8 @@ export function bodyFrequency(note: number): number {
 /** How long the thump lasts: short, so it is weight and not a second note. */
 export const BODY_DECAY = 0.09
 
-/** How long the mallet noise lasts. */
-export const CLICK_DECAY = 0.018
+/** How long the mallet noise lasts. 12ms since round Z3 (was 18): a touch, not a scrape. */
+export const CLICK_DECAY = 0.012
 
 /** Lets go of a strike's nodes once its last source has played, so a long session does not collect them. */
 function releaseWhenDone(source: SourceLike, nodes: NodeLike[]) {
@@ -550,16 +550,21 @@ export const SOUND_DESIGN: Record<AskSound, SoundDesign> = {
     partials: WOOD,
     strikes: [strike({ frequency: 987.77, attack: 0.003, decay: 0.075, body: 0.3, click: 0.3 })],
   },
-  /* A soft tock up: a quiet grace a fourth below, then the note, left then right. */
+  /*
+    A soft tock up: a quiet grace a fourth below, then the note, left then right.
+    Round Z3, "make the sounds more smooth and clean": a 5ms fade in instead of
+    3 to 4, a third of the mallet noise, less thump, a darker tone and a drier
+    room, so it reads as one rounded tap rather than a knock.
+  */
   sent: {
-    gain: 0.123,
-    wet: 0.14,
-    tone: 6500,
+    gain: 0.116,
+    wet: 0.1,
+    tone: 5600,
     clickBand: 3400,
     partials: WOOD,
     strikes: [
-      strike({ frequency: 659.25, level: 0.55, attack: 0.003, decay: 0.07, body: 0.5, click: 0.35, pan: -0.08 }),
-      strike({ frequency: 880, offset: 0.038, attack: 0.004, decay: 0.12, body: 0.6, click: 0.35, pan: 0.08 }),
+      strike({ frequency: 659.25, level: 0.45, attack: 0.005, decay: 0.07, body: 0.35, click: 0.12, pan: -0.08 }),
+      strike({ frequency: 880, offset: 0.038, attack: 0.005, decay: 0.12, body: 0.4, click: 0.12, pan: 0.08 }),
     ],
   },
   /* Two light ticks, the same high note: something is in. Less body, a brighter click. */
@@ -582,21 +587,22 @@ export const SOUND_DESIGN: Record<AskSound, SoundDesign> = {
     clickBand: 3000,
     partials: WOOD,
     strikes: [
-      strike({ frequency: 587.33, level: 0.85, attack: 0.006, decay: 0.13, body: 0.5, click: 0.2, pan: -0.1 }),
-      strike({ frequency: 739.99, offset: 0.09, attack: 0.006, decay: 0.16, body: 0.45, click: 0.2, pan: 0.1 }),
+      strike({ frequency: 587.33, level: 0.85, attack: 0.006, decay: 0.13, body: 0.5, click: 0.12, pan: -0.1 }),
+      strike({ frequency: 739.99, offset: 0.09, attack: 0.006, decay: 0.16, body: 0.45, click: 0.12, pan: 0.1 }),
     ],
   },
   /* C major rolled up in 110ms, the root's thump under it, spread left to right. */
+  /* Round Z3: a 7ms fade in on each note and almost no mallet, so the chord blooms rather than taps; a darker tone, less thump under the root. */
   done: {
-    gain: 0.127,
-    wet: 0.14,
-    tone: 5400,
+    gain: 0.135,
+    wet: 0.12,
+    tone: 5000,
     clickBand: 3000,
     partials: WOOD,
     strikes: [
-      strike({ frequency: 523.25, level: 0.9, attack: 0.005, decay: 0.2, body: 0.7, click: 0.22, pan: -0.15 }),
-      strike({ frequency: 659.25, offset: 0.055, level: 0.85, attack: 0.005, decay: 0.21, body: 0.35, click: 0.18, pan: 0 }),
-      strike({ frequency: 783.99, offset: 0.11, attack: 0.005, decay: 0.24, body: 0.3, click: 0.18, pan: 0.15 }),
+      strike({ frequency: 523.25, level: 0.9, attack: 0.007, decay: 0.2, body: 0.5, click: 0.12, pan: -0.15 }),
+      strike({ frequency: 659.25, offset: 0.055, level: 0.85, attack: 0.007, decay: 0.21, body: 0.35, click: 0.12, pan: 0 }),
+      strike({ frequency: 783.99, offset: 0.11, attack: 0.007, decay: 0.24, body: 0.3, click: 0.12, pan: 0.15 }),
     ],
   },
   /* Low, soft and dark: a minor third falling, the slowest attack, a closed filter, a muffled click. */
@@ -647,10 +653,28 @@ function storage(): StorageLike | null {
   }
 }
 
-/** On, unless this browser has turned them off. A browser that blocks storage keeps the default. */
-export function soundsOn(store: StorageLike | null = storage()): boolean {
+/** The system asks for less motion. Read once per call; false where there is no window. */
+function asksForLessMotion(): boolean {
   try {
-    return store?.getItem(SOUNDS_KEY) !== "off"
+    return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
+  }
+}
+
+/**
+ * On, unless this browser has turned them off. A browser that blocks storage
+ * keeps the default. Round Z3: a system set to reduce motion starts with them
+ * off too, the way the community's heart sound already does
+ * (components/community/member/heart.tsx); the switch in the chat turns them
+ * on, and that choice is kept.
+ */
+export function soundsOn(store: StorageLike | null = storage(), lessMotion: () => boolean = asksForLessMotion): boolean {
+  try {
+    const saved = store?.getItem(SOUNDS_KEY)
+    if (saved === "off") return false
+    if (saved === "on") return true
+    return !lessMotion()
   } catch {
     return true
   }

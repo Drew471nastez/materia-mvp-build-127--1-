@@ -28,6 +28,7 @@
  */
 
 import { renderStorelibSection, isStorelibSection } from "../storelib-runtime"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "../theme-css"
 import { fontStylesheetHref, sectionFamilies } from "../font-link"
 import { schemaOf, type SchemaMap } from "./schemas"
@@ -59,7 +60,15 @@ export function composePageDocument(state: ThemeState, sources: Record<string, s
     const schema = schemaOf(schemas, section.type)
     const category = (schema as { category?: string } | undefined)?.category ?? ""
     const skipEmpty = DATA_CATEGORIES.has(category) || DATA_TYPES.has(section.type) ? ' data-check-skip-empty=""' : ""
-    if (!isStorelibSection(section.type, sources)) {
+    /*
+      AN IMPORTED THEME'S OWN SECTION is Liquid, drawn by the theme engine
+      (lib/storelib-theme/compat), not by Storelib's section renderer. Read by
+      that renderer it "could not be drawn" ("a <script> tag inside
+      <template>", in the production log) and the run was sent to fix a
+      section that was fine. A stand-in, like the product's own sections; a
+      Storelib section inside the theme is drawn and measured as ever.
+    */
+    if (!isStorelibSection(section.type, sources) || isCompatSource(sources[`sections/${section.type}.storelib`])) {
       /* The product's own React sections: a stand-in of the usual height. */
       const height = section.type === "header" ? 72 : section.type === "footer" ? 220 : 120
       parts.push(`<div data-check-standin="${escapeAttr(section.type)}" style="height:${height}px;background:var(--theme-bg)"></div>`)

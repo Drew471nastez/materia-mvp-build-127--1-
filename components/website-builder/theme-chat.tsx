@@ -62,6 +62,7 @@
 */
 
 import { AskMemoryButton } from "@/components/website-builder/ask-memory"
+import { easeFieldHeight } from "@/lib/website-builder/ask-composer"
 import * as React from "react"
 import { createPortal } from "react-dom"
 import {
@@ -200,6 +201,12 @@ interface Exchange {
    */
   kind?: "change" | "code"
   codeFocus?: boolean
+  /**
+   * The run stopped at its cost ceiling with the task not done
+   * (lib/website-builder/agent/limits.ts): Continue under the reply sends
+   * the next part, which picks up from this conversation and the page.
+   */
+  canContinue?: boolean
   /** The section the writer wrote, for View code. */
   written?: { path: string; name: string }
   /** What the run kept in AI Memory: the "Remembered: ..." line, each with Undo until it is undone. */
@@ -303,6 +310,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
   canUndo,
   canRetry,
   onRetry,
+  canContinue = false,
+  onContinue,
   onUndo,
   onView,
   onOpenCode,
@@ -319,6 +328,9 @@ const ExchangeItem = React.memo(function ExchangeItem({
   canUndo: boolean
   canRetry: boolean
   onRetry: (exchange: Exchange) => void
+  /** The run stopped at its cost ceiling and this is the latest answer: Continue sends the next part. */
+  canContinue?: boolean
+  onContinue?: (exchange: Exchange) => void
   onUndo: (exchange: Exchange) => void
   onView: (images: ViewableImage[], at: number) => void
   onOpenCode?: (path: string) => void
@@ -499,6 +511,16 @@ const ExchangeItem = React.memo(function ExchangeItem({
         <p data-ask-detail="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
           {detail}
         </p>
+      )}
+      {canContinue && onContinue && (
+        <button
+          type="button"
+          data-ask-continue=""
+          onClick={() => onContinue(exchange)}
+          className={cn("ask-fade inline-flex items-center rounded-full bg-[#1a1a2e] px-3.5 font-medium text-white transition-colors hover:bg-black", phone ? "h-10 text-[14px]" : "h-8 text-[12.5px]")}
+        >
+          {tt("Continue")}
+        </button>
       )}
 
       {exchange.error && (
@@ -1328,6 +1350,24 @@ function ThemeChatPanel({
   const patchExchange = React.useCallback((id: string, change: (exchange: Exchange) => Exchange) => {
     setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
   }, [])
+  /*
+    A new exchange at the end, or, when one with its id is already there (the
+    message put on screen at Enter while the router decided), that one taken
+    over in place, keeping the moment it appeared so nothing restarts.
+  */
+  const placeExchange = React.useCallback((fresh: Exchange) => {
+    setExchanges((previous) => {
+      const at = previous.findIndex((e) => e.id === fresh.id)
+      if (at < 0) return [...previous, fresh]
+      const next = [...previous]
+      next[at] = { ...fresh, startedAt: previous[at].startedAt ?? fresh.startedAt }
+      return next
+    })
+  }, [])
+  /* A message put on screen for a run that then did not start (one already going): taken away again. */
+  const dropExchange = React.useCallback((id: string) => {
+    setExchanges((previous) => previous.filter((e) => !(e.id === id && e.running && e.activity === EMPTY_ACTIVITY)))
+  }, [])
 
   /**
    * ONE RUN. It leaves the box alone: what is in it is the caller's (submit
@@ -1346,17 +1386,25 @@ function ThemeChatPanel({
        * is not the words sent, an answer that put a picture in ("Upload
        * image", with the picture), while the run reads the whole sentence.
        */
-      opts: { codeFocus?: boolean; lock?: boolean; display?: string; shown?: Attachment[] } = {},
+      opts: { codeFocus?: boolean; lock?: boolean; display?: string; shown?: Attachment[]; into?: string } = {},
     ) => {
       const prompt = text.trim()
       /**
        * A picture on its own is a whole request. "Even if it says nothing and
        * uploads an image, it should try to replicate it."
        */
-      if ((!prompt && images.length === 0) || busy || writing) return
+      if ((!prompt && images.length === 0) || busy || writing) {
+        /* Another run got there first: the message waits for it, never lost. */
+        if (opts.into) {
+          dropExchange(opts.into)
+          if (prompt) setQueued({ text: prompt })
+        }
+        return
+      }
       if (prompt !== CONTINUE_PROMPT) continues.current = 0
 
-      const id = crypto.randomUUID()
+      /* `into`: the message already on screen since Enter (dispatch), which this run takes over in place. */
+      const id = opts.into ?? crypto.randomUUID()
       const runId = crypto.randomUUID()
       const startedOn = live.current.page
       /* The whoosh as it goes; a queued message already had its own when it was queued. */
@@ -1368,21 +1416,18 @@ function ThemeChatPanel({
         setLoadingHistory(false)
       }
       setWanted(true)
-      setExchanges((previous) => [
-        ...previous,
-        {
-          id,
-          prompt: opts.display ?? (prompt || promptForPictures(images.length)),
-          running: true,
-          images: opts.shown ?? images,
-          activity: EMPTY_ACTIVITY,
-          startedAt: performance.now(),
-          engine: live.current.engine.id,
-          page: startedOn,
-          kind: opts.codeFocus ? "code" : "change",
-          ...(opts.codeFocus ? { codeFocus: true } : {}),
-        },
-      ])
+      placeExchange({
+        id,
+        prompt: opts.display ?? (prompt || promptForPictures(images.length)),
+        running: true,
+        images: opts.shown ?? images,
+        activity: EMPTY_ACTIVITY,
+        startedAt: performance.now(),
+        engine: live.current.engine.id,
+        page: startedOn,
+        kind: opts.codeFocus ? "code" : "change",
+        ...(opts.codeFocus ? { codeFocus: true } : {}),
+      })
 
       const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
 
@@ -1579,8 +1624,12 @@ function ThemeChatPanel({
                 finished = true
                 return
               } else if (type === "continue") {
-                /* The run stopped for time with work done: the next part is sent when this one has closed (CONTINUE_PROMPT). */
-                carryOn = true
+                /*
+                  Stopped for time, or at the turn guard, with work done: the next part is sent when this one has closed
+                  (CONTINUE_PROMPT). Stopped at the cost ceiling: Continue is offered under the reply, the creator's to press.
+                */
+                if (event.reason === "budget") patch((e) => ({ ...e, canContinue: true }))
+                else carryOn = true
                 return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
@@ -1649,7 +1698,7 @@ function ThemeChatPanel({
         if (changed.size > 0 && live.current.page === startedOn) onRunFinished?.([...changed])
       }
     },
-    [busy, writing, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onPageWritten, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
+    [busy, writing, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onPageWritten, onSourceWritten, onWorkingChange, onRunFinished, patchExchange, placeExchange, dropExchange],
   )
 
   /**
@@ -1684,10 +1733,16 @@ function ThemeChatPanel({
    * one press away in the code editor, never pasted into the thread.
    */
   const writeOne = React.useCallback(
-    async (text: string, images: Attachment[] = [], quiet = false) => {
+    async (text: string, images: Attachment[] = [], quiet = false, into?: string) => {
       const prompt = text.trim()
-      if ((!prompt && images.length === 0) || writing || busy) return
-      const id = crypto.randomUUID()
+      if ((!prompt && images.length === 0) || writing || busy) {
+        if (into) {
+          dropExchange(into)
+          if (prompt) setQueued({ text: prompt })
+        }
+        return
+      }
+      const id = into ?? crypto.randomUUID()
       const startedOn = live.current.page
       if (!quiet) playAskSound("sent")
       setWriting(true)
@@ -1696,20 +1751,17 @@ function ThemeChatPanel({
         setLoadingHistory(false)
       }
       setWanted(true)
-      setExchanges((previous) => [
-        ...previous,
-        {
-          id,
-          kind: "code",
-          prompt: prompt || promptForPictures(images.length),
-          running: true,
-          images,
-          activity: EMPTY_ACTIVITY,
-          startedAt: performance.now(),
-          engine: live.current.engine.id,
-          page: startedOn,
-        },
-      ])
+      placeExchange({
+        id,
+        kind: "code",
+        prompt: prompt || promptForPictures(images.length),
+        running: true,
+        images,
+        activity: EMPTY_ACTIVITY,
+        startedAt: performance.now(),
+        engine: live.current.engine.id,
+        page: startedOn,
+      })
       const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
       /* The spot it is writing into, labelled with what it is writing. */
       let subject = tt("New section")
@@ -1803,7 +1855,7 @@ function ThemeChatPanel({
         setWriting(false)
       }
     },
-    [writing, busy, installId, loadingHistory, patchExchange, onWriteStart, onWriteDone, onWriteFailed, onWorkingChange, onRunFinished, dock],
+    [writing, busy, installId, loadingHistory, patchExchange, onWriteStart, onWriteDone, onWriteFailed, onWorkingChange, onRunFinished, dock, placeExchange, dropExchange],
   )
 
   /**
@@ -1824,6 +1876,29 @@ function ThemeChatPanel({
       }
       routing.current = true
       setRoutingNow(true)
+      /*
+        ON SCREEN THE MOMENT IT IS SENT (round Z3). The message used to wait
+        for the router's answer, a round trip and sometimes a small model,
+        before it appeared or made its sound: Enter emptied the box and then
+        nothing happened for a beat. Now it rises into the thread and plays
+        its sound at once, as a running exchange, and whichever agent the
+        router picks takes over that same message in place (same key, so it
+        is never drawn twice).
+      */
+      const into = crypto.randomUUID()
+      if (!quiet) playAskSound("sent")
+      setWanted(true)
+      placeExchange({
+        id: into,
+        prompt: prompt || promptForPictures(images.length),
+        running: true,
+        images,
+        activity: EMPTY_ACTIVITY,
+        startedAt: performance.now(),
+        engine: live.current.engine.id,
+        page: live.current.page,
+        kind: "change",
+      })
       try {
         const now = live.current
         const route = await decideRoute(installId, {
@@ -1836,14 +1911,14 @@ function ThemeChatPanel({
           scoped: now.locked,
           hasHistory: now.exchanges > 0,
         })
-        if (route.agent === "writer") void writeOne(prompt, images, quiet)
-        else void send(prompt, images, quiet, { codeFocus: route.codeFocus, lock: route.lock })
+        if (route.agent === "writer") void writeOne(prompt, images, true, into)
+        else void send(prompt, images, true, { codeFocus: route.codeFocus, lock: route.lock, into })
       } finally {
         routing.current = false
         setRoutingNow(false)
       }
     },
-    [installId, send, writeOne],
+    [installId, send, writeOne, placeExchange],
   )
   const dispatchRef = React.useRef(dispatch)
   dispatchRef.current = dispatch
@@ -1927,6 +2002,17 @@ function ThemeChatPanel({
     [onRunStart, onOp, onRunFinished, patchExchange, busy, writing, send],
   )
 
+  /** Continue after the cost ceiling: the next part, from where this one stopped, counted as the creator's own message. */
+  const carryOnNow = React.useCallback(
+    (exchange: Exchange) => {
+      if (busy || writing) return
+      patchExchange(exchange.id, (e) => ({ ...e, canContinue: false }))
+      continues.current = 0
+      void send(CONTINUE_PROMPT, [], false, { display: tt("Continue") })
+    },
+    [busy, writing, send, patchExchange],
+  )
+
   /** Try again: the same words, and the same pictures when they are still in hand, the same way they went. */
   const retry = React.useCallback(
     (exchange: Exchange) => {
@@ -1989,8 +2075,8 @@ function ThemeChatPanel({
   const resize = React.useCallback(() => {
     const field = fieldRef.current
     if (!field) return
-    field.style.height = "auto"
-    field.style.height = `${Math.min(field.scrollHeight, 160)}px`
+    /* It moves to its new height rather than jumping (round Z3): lib/website-builder/ask-composer.ts. */
+    easeFieldHeight(field)
   }, [])
 
   React.useEffect(resize, [draft, resize])
@@ -2761,6 +2847,8 @@ function ThemeChatPanel({
                     canUndo={exchange.id === undoable}
                     canRetry={idle}
                     onRetry={retry}
+                    canContinue={idle && !!exchange.canContinue && index === exchanges.length - 1}
+                    onContinue={carryOnNow}
                     onUndo={undoRun}
                     onView={viewImages}
                     onOpenCode={onOpenCodeEditor}

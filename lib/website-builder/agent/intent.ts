@@ -81,6 +81,15 @@ export interface Intent {
   global?: boolean
   /** A picture came with it and the words ask for the page to look like it: measured against it (./reference-diff.ts). */
   recreate?: boolean
+  /**
+   * THE PANEL, NOT THE PAGE: "rearrange the settings of this section", "group
+   * the controls under Content and Style", "move the button settings to the
+   * top". A change to the section's <schema> (its settings' order, headers
+   * and labels), with every id and value kept and nothing on the page moved.
+   */
+  settingsLayout?: boolean
+  /** Several sections named by what they are, each to change: "redesign the hero, the features and the FAQ". */
+  sections?: number
 }
 
 export interface IntentContext {
@@ -139,7 +148,7 @@ const SECTION = [
   /^(?:make )?(?:it|this) (?:better|nicer|more premium|look better|pop)\b/i,
 ]
 
-const MOTION = /\b(animat\w*|motion|smooth\w*|interactive|interaction|parallax|scroll(?:ing)? (?:effect|reveal|animation)s?|reveal|marquee|ticker|carousel|slider|countdown|hover( effect)?|micro.?interactions?|transitions?|fade|sticky|crazy|dynamic|moving|moves?|spin|bounce|cursor|counter|count(?:s|ing)? up|autoplay)\b/i
+const MOTION = /\b(animat\w*|motion|smooth\w*|interactive|interaction|parallax|scroll(?:ing)? (?:effect|reveal|animation)s?|on scroll|slides? (?:in|up|out)|reveal|marquee|ticker|carousel|slider|countdown|hover( effect)?|micro.?interactions?|transitions?|fade|sticky|crazy|dynamic|moving|moves?|spin|bounce|cursor|counter|count(?:s|ing)? up|autoplay)\b/i
 const FUNCTION = /\b(countdown|timer|slider|carousel|accordion|tabs?|form|sign.?up|subscribe|button that|link to|clickable|toggle|open(?:s)? (?:in|on)|play(?:s)?|video|map|search|filter|sticky|autoplay|interactive)\b/i
 const STYLE = /\b(colou?rs?|palette|darker|lighter|dark mode|light mode|font|fonts|typography|type ?face|spacing|padding|margin|bigger|smaller|larger|size|bold(?:er)?|rounded|corners?|shadow|border|background|contrast|align\w*|centr?e(?:d|r)?|width|wider|narrower|tighter|looser|gap|style|look|vibe|minimal|clean(?:er)?|premium|elegant)\b/i
 const CONTENT = /\b(text|copy|heading|headline|title|subtitle|words?|wording|rewrite|write|reword|tagline|paragraph|description|question|answer|faq entr\w*|price|prices|name|names|image|images|photo|photos|picture|pictures|logo|link|links|button (?:text|label)|label|testimonial|quote|translate|typo|spelling)\b/i
@@ -175,6 +184,19 @@ const KEEP = /\b(?:keep|leave|preserve|don'?t (?:touch|change|remove|move|edit)|
 /* A value every page reads, asked to change everywhere at once. */
 const GLOBAL = /\b(?:logo|brand ?name|store ?name|shop ?name|site ?name|favicon|social (?:links?|icons?|media)|socials|currency)\b/i
 const EVERYWHERE = /\b(everywhere|across (?:the|my|our) (?:whole )?(?:site|website|store)|on (?:every|all) pages?|all (?:the )?pages|site.?wide|globally|in (?:the )?header and (?:the )?footer)\b/i
+
+/*
+  "Rearrange the settings", "group this section's controls", "move the button settings above the heading settings",
+  "put the colour options first", "sort the fields in the sidebar". The panel's order and grouping, which is the schema.
+*/
+export const SETTINGS_LAYOUT =
+  /\b(?:rearrange|re-?arrange|reorder|re-?order|regroup|re-?group|group|organi[sz]e|reorgani[sz]e|sort|tidy|clean up|restructure|move|put|split)\b[^.?!]{0,60}\b(?:settings?|controls?|options|fields|inputs|panel|sidebar)\b(?![^.?!]{0,12}\b(?:value|to (?:#|red|blue|green|black|white)))|\b(?:settings?|controls?|options|fields)\b[^.?!]{0,30}\b(?:in|into|under)\s+(?:groups?|sections|headings?|tabs)\b/i
+
+/* Sections named by what they are, for "redesign the hero, the features and the FAQ". */
+const SECTION_NOUNS = /\b(hero|banner|faqs?|pricing|gallery|testimonials?|reviews|features?|newsletter|cta|about|contact|product grid|products|collections?|events?|countdown|slider|carousel|video|team|stats|logos|timeline|footer|header)\b/gi
+function namedSections(text: string): number {
+  return new Set([...text.matchAll(SECTION_NOUNS)].map((m) => m[1].toLowerCase().replace(/s$/, ""))).size
+}
 
 /** What the creator said to leave alone, as short phrases. */
 export function keptPhrases(text: string): string[] {
@@ -227,6 +249,8 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
       keep,
       global: kind !== "QUESTION" && GLOBAL.test(text) && EVERYWHERE.test(text),
       recreate: !!ctx.images && kind !== "QUESTION" && (RECREATE.test(text) || text.length === 0),
+      settingsLayout: kind !== "QUESTION" && SETTINGS_LAYOUT.test(text),
+      sections: namedSections(text),
     }
   }
 
@@ -239,6 +263,12 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
   if ((QUESTION_START.test(text) && /\?\s*$/.test(text) && !/^(can|could) you\b.*\b(make|change|add|build|create|redesign)\b/i.test(text)) || (/^(hi|hello|hey|thanks|thank you)\b/i.test(text) && !IMPERATIVE.test(text))) {
     reasons.push("a question")
     return result("QUESTION", "element")
+  }
+
+  /* The panel's order and groups: a change to the schema alone, whatever else the words mention ("so the colours come first"). */
+  if (SETTINGS_LAYOUT.test(text) && !hits(NEW_SITE, text) && !hits(FULL_SITE, text)) {
+    reasons.push("the settings panel")
+    return result("LOCAL_EDIT", "section")
   }
 
   /* The lock and Code a section both say: this section and nothing else. */
@@ -296,6 +326,14 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
   if (hits(PAGE, text)) {
     reasons.push("this page rethought")
     return result(body <= 1 ? "NEW_SITE_GENERATION" : "PAGE_REDESIGN", "page")
+  }
+  /*
+    "REDESIGN THE HERO, THE FEATURES AND THE FAQ": three sections, each rethought, the rest of the page kept. It read as
+    one section redesign and the run worked on whichever it found first.
+  */
+  if (/\b(?:redesign|rebuild|remake|revamp|rethink|redo|rework|restyle|improve|upgrade|polish)\b/i.test(text) && namedSections(text) >= 2 && !ADD_SECTION.test(text)) {
+    reasons.push("several named sections rethought")
+    return result("SECTION_REDESIGN", "page", FUNCTION.test(text) ? ["FUNCTIONAL_CHANGE"] : [])
   }
   if (hits(SECTION, text) || (ctx.selected && /\b(better|premium|nicer|redesign|rebuild|improve|stunning|beautiful|professional|modern|more \w+)\b/i.test(text) && text.length < 160)) {
     reasons.push("one section rethought")
@@ -400,6 +438,16 @@ export function intentGuidance(intent: Intent): string {
     )
   } else if (intent.light && intent.kind !== "QUESTION") {
     lines.push("A LIGHT TOUCH was asked for. Keep the section, its structure and its content; move its look (settings, then CSS) only as far as the words ask.")
+  }
+  if (intent.kind === "SECTION_REDESIGN" && intent.scope === "page" && (intent.sections ?? 0) >= 2) {
+    lines.push(
+      `SEVERAL SECTIONS, each rethought: the ${intent.sections} the request names. Find each on the page, then do them one at a time, finishing one before the next, so they read as one design: the same colour schemes alternating, the same type scale and spacing. Every section the request does not name stays exactly as it is.`,
+    )
+  }
+  if (intent.settingsLayout) {
+    lines.push(
+      "THE SETTINGS PANEL, NOT THE PAGE. They want the section's controls in the sidebar arranged differently. The panel is the section's <schema>: reorder the entries in \"settings\" (a block's panel is that block's \"settings\"), group them under {\"type\": \"header\", \"id\": \"hdr_<name>\", \"label\": \"<Name>\"} entries, and fix labels and info text. Keep every id, type, default and range, and change nothing outside <schema>: the page must look the same. One edit_section_code with exact finds inside <schema> (read_section_code first unless the file is shown). A built in section: copy_section_to_code first. The theme's own settings (Theme settings) are edit_theme_settings_schema. Say in your reply what order and groups the panel has now.",
+    )
   }
   if (intent.newPage) {
     lines.push(

@@ -117,6 +117,10 @@ const OWN_KIND = /\b(new kind|custom|my own|its own|unique|from scratch|code|cod
 
 const PAGE_WORDS =/\b(page|pages|site|website|store|shop|home ?page|landing)\b/i
 
+/** A link in the site's menu, added, removed, renamed or moved: Website settings, Navigation, not a section. */
+const MENU_EDIT =
+  /\b(?:add|remove|delete|rename|move|reorder|take out|put|link)\b[^.?!]{0,50}\b(?:to|in|into|from|on|of)\s+(?:the\s+|my\s+|our\s+)?(?:main\s+|top\s+|footer\s+|header\s+)?(?:menu|navigation|nav(?:bar)?|nav bar)\b/i
+
 /** Round AK: "new", "another", "a second": a section that is not the one already there. */
 const NEW_WORDS = /\b(new|another|extra|second|separate|additional|fresh)\b/i
 
@@ -176,8 +180,20 @@ export function routeByRules(input: RouteInput): RuleDecision {
     A section of its own, asked for in words, whatever is selected. One the theme already has ("add a testimonials
     section") is the page assistant's, which adds it and fills it, unless the words or a picture ask for a new one.
   */
-  /* "Copy this section" is a new one made from it; "make this section red" is the selection. */
-  const aboutThisOne = /\b(?:this|that|the selected)\s+section\b/i.test(words.replace(/\b(?:like|from|as)\s+(?:this|that)\s+section\b/gi, "")) && !/\b(?:copy|duplicate|clone|recreate|replicate)\b/i.test(words)
+  /*
+    THE SITE'S MENU IS NOT THE OPEN SECTION. "Add a Pricing link to the main menu" with the hero open was locked to the
+    hero, and every menu edit was refused. Links in a menu live in the site's navigation, whatever is selected.
+  */
+  if (MENU_EDIT.test(words)) return decide("page", "theme", false, false, "the site's menu")
+
+  /*
+    THE PANEL OF THE OPEN SECTION: "rearrange this section's settings", "group the controls". Its <schema>, so its code
+    when it has a file, and only it.
+  */
+  if (scoped && sel && intent.settingsLayout) return decide("page", sectionTarget, true, hasFile, "the selection's settings panel")
+
+  /* "Copy this section" is a new one made from it; "make this section red" is the selection; "a new section below this section" is a new one placed by it. */
+  const aboutThisOne = /\b(?:this|that|the selected)\s+section\b/i.test(words.replace(/\b(?:like|from|as|below|above|after|before|under|beneath|over|next to|beside)\s+(?:this|that|the selected)\s+(?:section|one)\b/gi, "")) && !/\b(?:copy|duplicate|clone|recreate|replicate)\b/i.test(words)
   if (NEW_SECTION.test(words) && !aboutThisOne) {
     const said = words.replace(/\bsections?\b/gi, "")
     const known = !!input.addable && namesAddable(said, input.addable)
