@@ -1,5 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
-import { listPrice, usd, type PriceInterval } from "@/lib/pricing/list-price"
+import { listPrice, type PriceInterval } from "@/lib/pricing/list-price"
 
 /**
  * ===========================================================================
@@ -24,6 +24,10 @@ export interface WishlistEntry {
   compareAtCents: number | null
   payWhatYouWant: boolean
   pwywMinCents: number | null
+  /** The currency the price is in: its store's, or US dollars on the marketplace once switched over (lib/money/marketplace). Null: the platform's. */
+  currency?: string | null
+  /** The rate day a marketplace dollar price used, carried to the checkout. */
+  fxAsOf?: string | null
   /** A membership's billing period: "/month" or "/year" after its price. */
   interval: PriceInterval | null
   /** The product has options (product_variants): one is chosen on its page, not here. */
@@ -80,6 +84,8 @@ export function entryOf(row: Row, extra: { plan?: Plan | null; hasOptions?: bool
     compareAtCents: type === "membership" ? null : num(p.compare_at_cents),
     payWhatYouWant: p.pay_what_you_want === true,
     pwywMinCents: num(p.pwyw_min_price_cents),
+    currency: str(p.currency),
+    fxAsOf: str(p.fx_as_of),
     interval,
     hasOptions: !!extra.hasOptions,
     owned: !!extra.owned,
@@ -117,8 +123,9 @@ export function priceOf(e: WishlistEntry): EntryPrice {
       pwyw_min_price_cents: e.pwywMinCents,
       type: e.type,
       price_interval: e.interval,
+      /* In its own currency: a lei store's 49 is 49 lei, never $49. */
+      currency: e.currency,
     },
-    usd,
   )
   const m = /^(.*)(\/(?:month|year))$/.exec(label.main)
   return { main: m ? m[1] : label.main, per: m ? m[2] : null, was: label.was, sale: label.off ? `${label.off}% off` : null }
@@ -133,7 +140,8 @@ export function actionOf(e: WishlistEntry): EntryAction {
     const href = e.type === "course" ? "/account/library/courses" : e.type === "membership" ? "/account/library" : `/account/library/products/${encodeURIComponent(e.productId)}`
     return { label: "In your library", kind: "library", href }
   }
-  const checkout = `/checkout?productId=${encodeURIComponent(e.productId)}`
+  /* The wishlist is the marketplace: its checkout is the marketplace's (lib/money/marketplace), at the rate day the card showed. */
+  const checkout = `/checkout?productId=${encodeURIComponent(e.productId)}&ctx=mp${e.fxAsOf ? `&fx=${encodeURIComponent(e.fxAsOf)}` : ""}`
   if (e.type === "membership") return { label: "Join", kind: "checkout", href: `${checkout}${e.interval ? `&interval=${e.interval}` : ""}` }
   /* A price to choose, or an option to choose: that happens on the product's page. */
   if (e.payWhatYouWant || e.hasOptions) return { label: "View", kind: "page", href: null }

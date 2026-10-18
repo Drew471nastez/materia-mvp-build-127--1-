@@ -66,6 +66,7 @@ import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
+import { MarketplacePriceCard } from "./marketplace-price-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MAX_SALES_LIMIT, missingSalesLimit, readSalesLimit, soldOfText, typedSalesLimit } from "@/lib/products/sales-limit"
@@ -3082,6 +3083,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                               </button>
                             </div>
                           )}
+                          {/* Its price on Storelib's marketplace, when that is in US dollars (lib/money/marketplace). */}
+                          {productType !== "physical" ? <MarketplacePriceCard productId={productId} priceText={price} /> : null}
                         </div>
                       ),
                     },

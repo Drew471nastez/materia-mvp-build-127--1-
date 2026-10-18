@@ -1,9 +1,12 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { productPriceCurrency } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
 import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { productPageQuote } from "@/lib/money/marketplace-server"
+import { MARKETPLACE_CURRENCY } from "@/lib/money/marketplace"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -269,20 +272,33 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     same question and used to each pay for it — three products queries to
     render one product page. lib/commerce/product-page-data.ts.
   */
-  const { product, viaHistory } = await loadProductBySlug(slug)
+  const { product: loaded, viaHistory } = await loadProductBySlug(slug)
 
   // The slug in the URL is an old one: send them to the current address.
   // Permanent (308): the old slug is not coming back, and a search engine
   // moves what it knows only for a permanent move. /p/<slug> rather than
   // /<handle>/<slug> because it answers on every host, a connected domain's
   // included, and names the nested address as its canonical.
-  if (product && viaHistory) {
-    permanentRedirect(`/p/${product.slug}`)
+  if (loaded && viaHistory) {
+    permanentRedirect(`/p/${loaded.slug}`)
   }
 
-  if (!product) {
+  if (!loaded) {
     notFound()
   }
+
+  /*
+    THE MARKETPLACE'S PRICE. A product page on Storelib is the marketplace:
+    in US dollars once its store is switched over (lib/money/marketplace),
+    every amount on the page (the product, each option) converted at one
+    rate day, the one its Buy link carries. Off, or a dollar product: the
+    product's own currency, exactly as before. Waiting for a rate: its own
+    currency, and the checkout waits too (never a lei charge for a dollar
+    page).
+  */
+  const storeSells = await cachedStoreCurrency(loaded.creator_id)
+  const pageQuote = await productPageQuote(loaded, productPriceCurrency(loaded, storeSells))
+  const product = pageQuote.convert(loaded)
 
   /*
     A PRODUCT THAT SELLS A COMMUNITY TIER IS THE COMMUNITY. Its page would
@@ -295,6 +311,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     const { communityAddressForProduct } = await import("@/lib/communities/server/public")
     const target = await communityAddressForProduct(communityId)
     if (target) redirect(target)
+    notFound()
+  }
+
+  /*
+    A PRODUCT THAT SHIPS IS SOLD ON ITS STORE'S WEBSITE ONLY, in the store's
+    own currency with its shipping (never on Storelib's marketplace pages:
+    Explore, creator pages, communities and recommendations leave it out
+    too). Its address here sends the visitor to the website's own product
+    page; a store with no published website has nowhere to sell it, so the
+    page is not found rather than offering what cannot be bought here.
+  */
+  if (product.type === "physical") {
+    const [{ storeOriginFor }, { createAdminClient: physicalAdmin }, { getMainDomain }] = await Promise.all([
+      import("@/lib/physical/order-link-server"),
+      import("@/lib/supabase/admin"),
+      import("@/lib/url-helpers"),
+    ])
+    const origin = await storeOriginFor(physicalAdmin(), product.creator_id)
+    if (origin && origin !== `https://${getMainDomain()}`) redirect(`${origin}/products/${encodeURIComponent(product.slug)}`)
     notFound()
   }
 
@@ -618,7 +653,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const salesView = salesState ? { soldOut: salesSoldOut(salesState), fewLeft: fewLeftText(salesState) } : null
 
   // Transform variants data - price_cents is the FINAL price for the variant
-  const variants = productVariants.map((v) => ({
+  /* In the page's currency: dollars on the marketplace once switched over (pageQuote above). */
+  const variants = productVariants.map((v) => pageQuote.convert({
     id: v.id,
     name: v.name ?? "",
     description: v.description,
@@ -671,7 +707,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   /* A card that is not a product page carries its own address (a free community's, product-page-cache); not a column. */
   const cardLink = (row: object): string | undefined => ("href" in row && typeof row.href === "string" ? row.href : undefined)
   const moreProductsData: ProductData[] =
-    moreProducts.map((p) => ({
+    moreProducts.map((p) => pageQuote.convert({
       id: p.id,
       slug: p.slug ?? undefined,
       title: p.title ?? "",
@@ -684,7 +720,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       type: (p as { type?: string | null }).type ?? undefined,
       /* A free community has no product to link through: its card goes to the community (product-page-cache). */
       href: cardLink(p),
-    }))
+      /*
+        Each card in its own price's currency: the page's on the marketplace
+        in dollars (converted above, a dollar plan as it is), else the
+        product's own, so a lei product beside a dollar plan never reads "$".
+      */
+      currency: pageQuote.marketplace ? MARKETPLACE_CURRENCY : productPriceCurrency({ type: (p as { type?: string | null }).type ?? null }, storeSells),
+    }) as ProductData)
 
   // Apply theme colors to all sections from the product page config
   // This ensures sections always reflect the current theme preset
@@ -882,7 +924,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Helpers
   // ---------------------------------------------------------------------------
   /* In the store's own currency, the one checkout charges (lib/store/selling-currency). */
-  const storeCurrency = await cachedStoreCurrency(product.creator_id)
+  /* The currency this product's own price is in (lib/money/product-currency): the store's, or dollars for a membership or community plan. */
+  const storeCurrency = pageQuote.currency
   const formatPrice = (cents: number) => shopMoneyIn(cents, storeCurrency, { grouping: true })
   /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
   const listed = listPrice({

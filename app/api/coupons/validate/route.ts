@@ -74,7 +74,9 @@ export async function POST(request: NextRequest) {
       variantId: body.variantId,
       customPriceCents: body.customPriceCents,
       couponCode: typeof body.code === "string" ? body.code : "",
-    }, "id, creator_id, price_cents, pay_what_you_want, pwyw_min_price_cents, status")
+      /* The same prices the checkout charges: a marketplace dollar price when the page is one (lib/money/marketplace). */
+      pricing: body.pricing && typeof body.pricing === "object" ? (body.pricing as { context?: unknown; fxAsOf?: unknown }) : null,
+    }, "*")
     if (priced.ok === false) return NextResponse.json({ ok: false, error: priced.error })
     if (!priced.coupon) return NextResponse.json({ ok: false, error: "That code is not valid." })
     return NextResponse.json({

@@ -10,7 +10,7 @@ import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { storeCurrencies } from "@/lib/store/store-currencies"
+import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { offChannelAmong } from "@/lib/store/channel-filter"
 import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
 import { createPublicReadClient } from "@/lib/supabase/public-read"
@@ -171,8 +171,8 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
     const intervals = await intervalsPromise
     /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server. */
     const standings = await salesStandings(createAdminClient(), products.map((p) => p.id))
-    /* Each card in its store's own currency (lib/store/store-currencies). */
-    const currencies = await storeCurrencies(createAdminClient(), products.map((p) => p.creator_id))
+    /* Each card's price as the marketplace shows it: its store's currency, or US dollars once that store is switched over (lib/money/marketplace-server). */
+    const priceOf = await marketplacePricer(createAdminClient(), products.map((p) => p.creator_id))
     // Build products with creator info
     productsWithCreators = products.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
@@ -181,7 +181,7 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
         ...product,
         ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
         ...(salesSoldOut(standings.get(product.id)) ? { sold_out: true } : {}),
-        currency: currencies.get(product.creator_id) ?? null,
+        ...priceOf(product),
         creator: creator ? { ...creator, profile } : null,
         categories: [],
         categoryName: product.category || null,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
@@ -24,10 +25,11 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [identity, store, { data: creator }, copy, ready, look, website] = await Promise.all([
+  const [identity, store, selling, copy, ready, look, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
-    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
+    readStoreCurrency(db, c.creatorId),
     loadCustomerEmailCopy(db, c.creatorId),
     customerEmailCopyReady(db, c.creatorId).catch(() => false),
     loadBrand(db, c.creatorId).catch(() => null),
@@ -41,7 +43,7 @@ export async function GET() {
       storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
-      currency: (creator?.payout_currency as string | null) || "USD",
+      currency: selling.currency,
       accent: look?.accent ?? null,
     },
     copy,

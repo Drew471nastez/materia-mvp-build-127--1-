@@ -30,6 +30,8 @@
  *
  * Browser safe: the library and the creator's screens format with it too.
  */
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
+
 
 export const MEMBERSHIP_STATUSES = ["incomplete", "trialing", "active", "past_due", "canceled", "expired"] as const
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number]
@@ -199,7 +201,8 @@ export function fieldsFromSubscription(sub: SubscriptionLike, prev: PreviousFiel
     stripe_price_id: price?.id ?? null,
     billing_interval: interval,
     amount_cents: typeof price?.unit_amount === "number" ? price.unit_amount : 0,
-    currency: (price?.currency || "usd").toLowerCase(),
+    /* A plan is priced in dollars (lib/money/product-currency PLAN_CURRENCY): its price says so; the constant only names that rule. */
+    currency: (price?.currency || PLAN_CURRENCY).toLowerCase(),
     trial_end: iso(sub.trial_end),
     current_period_start: iso(periodStart),
     current_period_end: status === "canceled" && typeof sub.cancel_at === "number" && sub.cancel_at > 0 ? iso(sub.cancel_at) : iso(periodEnd),
@@ -263,8 +266,8 @@ export function feeFromPercent(amountCents: number, percent: number): number {
 
 /* ── Words ──────────────────────────────────────────────────────────────── */
 
-export function money(cents: number, currency = "usd"): string {
-  const code = (currency || "usd").toUpperCase()
+export function money(cents: number, currency: string = PLAN_CURRENCY): string {
+  const code = (currency || PLAN_CURRENCY).toUpperCase()
   const whole = cents % 100 === 0
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100)

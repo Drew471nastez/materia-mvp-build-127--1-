@@ -222,7 +222,8 @@ async function main() {
     const broken = { from: () => ({ select: () => ({ in: async () => ({ data: null, error: { code: "42703" } }) }) }) }
     check("before SQL part 176 every store is the platform's", (await storeCurrencies(broken, ["a"])).get("a") === "USD")
     check("the marketplace's lei display reads a lei price as lei, not as dollars to convert", formatPlatformMoney(4900, "RON") === formatPlatformMoney(4900, "ron") && /49/.test(formatPlatformMoney(4900, "RON")), formatPlatformMoney(4900, "RON"))
-    check("and a euro price through the same table", /50/.test(formatPlatformMoney(1000, "EUR")), formatPlatformMoney(1000, "EUR"))
+    /* Changed on purpose (currency round AM): the static rate table is gone; a price is written in its own currency, never converted. */
+    check("and a euro price as euros, never through a made-up rate", /10/.test(formatPlatformMoney(1000, "EUR")) && !/50/.test(formatPlatformMoney(1000, "EUR")), formatPlatformMoney(1000, "EUR"))
     const session = code("app/api/checkout/stripe-session/route.ts")
     check("the single product checkout charges the store's currency, held to its minimum", /readStoreCurrency\(admin, creator\.id\)/.test(session) && /chargeCurrency = storeCurrency\.toLowerCase\(\)/.test(session) && /minimumChargeMinor\(storeCurrency\)/.test(session) && !/platformChargeCurrency\(/.test(session))
     const page = code("app/checkout/page.tsx")

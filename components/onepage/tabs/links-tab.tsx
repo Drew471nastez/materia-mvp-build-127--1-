@@ -1,7 +1,7 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
-import { useSellerMoney } from "@/components/platform/price-currency"
+import { useProductMoney } from "@/components/platform/price-currency"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
@@ -376,7 +376,7 @@ const blockCategories = [
 ]
 
 // Helper function to get block preview data
-function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number) => string) {
+function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, product?: { type?: string | null } | null) => string) {
   switch (block.type) {
     case "link_button": {
       const data = block.data as LinkButtonBlockData
@@ -409,7 +409,7 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number) => 
       return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
     case "product": {
       const data = block.data as ProductBlockData
-      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
     }
     case "group": {
       const data = block.data as GroupBlockData
@@ -468,7 +468,7 @@ function isSpotifyUrl(url: string): boolean {
 }
 
 export function LinksTab() {
-  const sellerMoney = useSellerMoney()
+  const sellerMoney = useProductMoney()
   const {
     onepage,
     selectedBlockId,
@@ -3981,7 +3981,7 @@ function BlockItem({
   onMoveChildToMainList,
   onOpenAddBlockModal,
 }: BlockItemProps) {
-  const shopMoney = useSellerMoney()
+  const shopMoney = useProductMoney()
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
@@ -4126,7 +4126,7 @@ function BlockItem({
         return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
       case "product": {
         const data = block.data as ProductBlockData
-        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
       }
       case "group": {
         const data = block.data as GroupBlockData
@@ -4553,6 +4553,8 @@ interface SellerProduct {
   thumbnail_url?: string | null
   description?: string | null
   slug?: string | null
+  /** The product kind: a membership or community plan is priced in US dollars. */
+  type?: string | null
 }
 
 function BlockEditor({
@@ -4581,7 +4583,7 @@ function BlockEditor({
   sellerProducts?: SellerProduct[]
 }) {
   /* The store's own currency: a lei store's product reads 49.00 lei here (components/platform/price-currency). */
-  const shopMoney = useSellerMoney()
+  const shopMoney = useProductMoney()
   const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
@@ -4606,7 +4608,7 @@ function BlockEditor({
 
         const { data } = await supabase
           .from("products")
-          .select("id, title, price_cents, thumbnail_url, description, slug")
+          .select("id, title, price_cents, thumbnail_url, description, slug, type")
           .eq("creator_id", creator.id)
           .order("created_at", { ascending: false })
 
@@ -7325,7 +7327,7 @@ function BlockEditor({
                     </span>
                     {selectedProduct && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents) : 'Free'}
+                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents, selectedProduct) : 'Free'}
                       </span>
                     )}
                   </div>
@@ -7387,7 +7389,7 @@ function BlockEditor({
                               {product.title}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {product.price_cents > 0 ? shopMoney(product.price_cents) : 'Free'}
+                              {product.price_cents > 0 ? shopMoney(product.price_cents, product) : 'Free'}
                             </p>
                           </div>
                           {data.product_id === product.id && (

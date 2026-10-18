@@ -14,8 +14,27 @@
 import { createContext, useCallback, useContext, type ReactNode } from "react"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
+import { productPriceCurrency, type ProductKindLike } from "@/lib/money/product-currency"
 
 const Ctx = createContext<string | null>(null)
+/* The marketplace's tag for a Buy link on this page ("ctx=mp&fx=2026-10-16"), or null on a store's own page (lib/money/marketplace). */
+const QuoteCtx = createContext<string | null>(null)
+
+/**
+ * A page on the marketplace whose prices are in US dollars (or waiting for a
+ * rate): its Buy links say so, with the rate day the page was priced at, so
+ * the checkout shows and charges the same dollar price.
+ */
+export function MarketplaceQuote({ active, fxAsOf, children }: { active: boolean; fxAsOf?: string | null; children: ReactNode }) {
+  const tag = active ? `ctx=mp${fxAsOf ? `&fx=${encodeURIComponent(fxAsOf)}` : ""}` : null
+  return <QuoteCtx.Provider value={tag}>{children}</QuoteCtx.Provider>
+}
+
+/** A checkout link with this page's marketplace tag added, when it has one. */
+export function useCheckoutHref(): (href: string) => string {
+  const tag = useContext(QuoteCtx)
+  return useCallback((href: string) => (tag ? `${href}${href.includes("?") ? "&" : "?"}${tag}` : href), [tag])
+}
 
 export function PriceCurrency({ currency, children }: { currency: string | null | undefined; children: ReactNode }) {
   return <Ctx.Provider value={currency || null}>{children}</Ctx.Provider>
@@ -54,4 +73,18 @@ export function useSellerCurrency(): string {
 export function useSellerMoney(): (cents: number, opts?: { grouping?: boolean }) => string {
   const currency = useSellerCurrency()
   return useCallback((cents: number, opts?: { grouping?: boolean }) => shopMoneyIn(cents, currency, opts), [currency])
+}
+
+/**
+ * A product's own price, in the currency it is really in: dollars for a
+ * membership or community plan (lib/money/product-currency), else the
+ * seller's store currency. For the lists and editors that draw several kinds
+ * of product together, so a $9 plan never reads "9.00 lei".
+ */
+export function useProductMoney(): (cents: number, product?: ProductKindLike | null, opts?: { grouping?: boolean }) => string {
+  const seller = useSellerCurrency()
+  return useCallback(
+    (cents: number, product?: ProductKindLike | null, opts?: { grouping?: boolean }) => shopMoneyIn(cents, productPriceCurrency(product, seller), opts),
+    [seller],
+  )
 }

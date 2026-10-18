@@ -1,3 +1,4 @@
+import { marketplacePricer, type MarketplaceRowPatch } from "@/lib/money/marketplace-server"
 import { personName } from "@/lib/profile/display-name"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut } from "@/lib/products/sales-limit"
@@ -875,9 +876,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   /* A membership's card says "$9/month", and "/year" for a yearly only plan: read only when the page sells one (lib/memberships/intervals). */
   /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server, asked beside the intervals. */
-  const [intervals, standings] = await Promise.all([
+  /* Each card's price as the marketplace shows it: the store's currency, or US dollars once it is switched over (lib/money/marketplace-server). */
+  const [intervals, standings, priceOf] = await Promise.all([
     planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id)),
     readStandings((products ?? []).map((p) => p.id)),
+    marketplacePricer(createAdminClient(), [creator.id]),
   ])
   const productsData: ProductData[] =
     products?.map((p) => ({
@@ -901,6 +904,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       reviews_count: p.reviews_count,
       reviews_average: p.reviews_average,
       ...(salesSoldOut(standings.get(p.id)) ? { sold_out: true } : {}),
+      ...marketplaceCard(priceOf({ ...p, creator_id: creator.id })),
     })) || []
 
   // Helper function to build subscribe bar settings from published config or defaults
@@ -1910,4 +1914,13 @@ async function readStandings(productIds: string[]) {
   } catch {
     return new Map<string, import("@/lib/products/sales-limit").SalesStanding>()
   }
+}
+
+/** A card's marketplace price: dollars once the store is switched over (the amounts and the currency), else its store's currency alone. */
+function marketplaceCard(patch: MarketplaceRowPatch): Partial<ProductData> {
+  const out: Partial<ProductData> = { currency: patch.currency }
+  if (typeof patch.price_cents === "number") out.price_cents = patch.price_cents
+  if (patch.pwyw_min_price_cents !== undefined) out.pwyw_min_price_cents = patch.pwyw_min_price_cents
+  if (patch.compare_at_cents !== undefined) out.compare_at_cents = patch.compare_at_cents ?? undefined
+  return out
 }

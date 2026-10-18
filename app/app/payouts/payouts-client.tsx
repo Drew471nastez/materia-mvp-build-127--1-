@@ -3097,8 +3097,10 @@ interface PayoutsClientProps {
   initialData: {
     /** The currency Stripe holds the balance in (lib/payments/display-currency pickBalance). */
     balanceCurrency: string;
-    /** The currency most sales were charged in. */
+    /** The store's currency: sales and disputes are reported in it, each converted at its own day's rate. */
     salesCurrency: string;
+    /** The wallet ledger's own currency (lib/payments/ledger-currency): a negative balance is in it. */
+    ledgerCurrency?: string;
     pendingAmount: number;
     availableBalance: number;
     /** Stripe answered the server: the figures are real, not a placeholder of 0. */
@@ -3155,6 +3157,7 @@ export function PayoutsClient({
   */
   const [balanceCurrency, setBalanceCurrency] = useState(initialData.balanceCurrency);
   const salesCurrency = initialData.salesCurrency;
+  const walletCurrency = initialData.ledgerCurrency || salesCurrency;
   /* Stripe's pending transactions, as the days they become available, and the account's settlement delay. */
   const [upcoming, setUpcoming] = useState<Array<{ date: string; amount: number; currency: string }>>([]);
   const [settleDays, setSettleDays] = useState<number | null>(null);
@@ -3511,7 +3514,7 @@ export function PayoutsClient({
               {tt("Your share of")} {fmt(totalDisputedAmount, salesCurrency)} {tt("in sales is held while the buyer's bank decides. Storelib answers the bank for you; add anything that proves the sale below.")}
               {negativeBalance > 0 ? (
                 <span className="mt-1 block font-medium text-[#8a1c0f]">
-                  {tt("Your balance is -")}{fmt(negativeBalance, salesCurrency)} {tt("because of it. New sales cover the difference.")}
+                  {tt("Your balance is -")}{fmt(negativeBalance, walletCurrency)} {tt("because of it. New sales cover the difference.")}
                 </span>
               ) : null}
             </>
@@ -3527,7 +3530,7 @@ export function PayoutsClient({
         <Notice
           tone="attention"
           title={tt("Your balance is below zero after a refund")}
-          body={tt("{value} was taken back from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.", { value: fmt(negativeBalance, salesCurrency) })}
+          body={tt("{value} was taken back from your balance. New sales cover it first, with nothing for you to do, and Cash out comes back once your balance is above zero.", { value: fmt(negativeBalance, walletCurrency) })}
         />
       );
     }

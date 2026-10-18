@@ -20,6 +20,7 @@ import "server-only"
  * page at a time and counted by the same rules (reports.ts wireFromRows).
  */
 
+import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
@@ -348,7 +349,7 @@ export async function onePageLinkLabels(admin: Admin, onePageId: string | null):
 
 /* What the figures read of an order (lib/orders/order-view, reports.ts moneyOf), and where it was made. */
 const ORDER_COLUMNS =
-  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country"
+  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country, currency"
 
 /**
  * A day either side of each stretch. A basket's lines are written one at a
@@ -376,7 +377,7 @@ function asOrdersPageRow(row: OrderRow): OrderRow {
 }
 
 /* The creator's orders by the order's own creator, never by a list of product ids (lib/analytics/creator-orders). */
-export function readOrders(admin: Admin, spans: Span[], creatorId: string, product: string | null): Promise<{ rows: OrderRow[]; truncated: boolean }> {
+export function readOrders(admin: Admin, spans: Span[], creatorId: string, product: string | null): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
       const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
@@ -385,7 +386,9 @@ export function readOrders(admin: Admin, spans: Span[], creatorId: string, produ
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
-      return { rows: ownRows(read.rows).map(asOrdersPageRow), truncated: read.truncated }
+      /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
+      const inStore = await inStoreCurrency(admin, creatorId, ownRows(read.rows).map(asOrdersPageRow))
+      return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted: inStore.unconverted } }
     }),
   )
 }

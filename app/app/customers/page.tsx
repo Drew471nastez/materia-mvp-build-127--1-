@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { creatorForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -90,6 +91,25 @@ export default async function CustomersPage() {
     return allOrders?.filter((o) => o.buyer_email === email) || []
   }
 
+  /*
+    WHAT A CUSTOMER SPENT, IN THE STORE'S CURRENCY. The kept total adds each
+    payment as it came, which is only a sum while every order is in the
+    store's currency. With orders in another one (a market's, a dollar
+    plan's, or from before a currency change), each paid order is converted
+    at its own day's ECB rate (lib/money/report-currency) and added up here;
+    an order no rate converts is left out rather than counted at a guess.
+  */
+  const inStore = await inStoreCurrency(admin, creator.id, (allOrders ?? []) as Array<{ created_at: string; currency?: string | null; amount_cents?: number | null; buyer_email?: string | null; status?: string | null }>, storeCurrency)
+  const mixed = inStore.converted > 0 || inStore.unconverted > 0
+  const spentByEmail = new Map<string, number>()
+  if (mixed) {
+    for (const o of inStore.rows as Array<{ buyer_email?: string | null; status?: string | null; amount_cents?: number | null }>) {
+      if (!o.buyer_email || !["completed", "refunded", "partially_refunded"].includes(String(o.status))) continue
+      spentByEmail.set(o.buyer_email, (spentByEmail.get(o.buyer_email) ?? 0) + Math.max(0, Number(o.amount_cents) || 0))
+    }
+  }
+  const spentOf = (customer: { email: string; total_spent_cents: number }) => (mixed ? spentByEmail.get(customer.email) ?? 0 : customer.total_spent_cents)
+
   return (
     <div className="space-y-6">
       <div>
@@ -150,7 +170,7 @@ export default async function CustomersPage() {
                         <span>
                           {tt("{length, plural, one {# order} other {# orders}}", { length: orders.length })}
                         </span>
-                        <span>{tt("Total: {amount}", { amount: formatPrice(customer.total_spent_cents, storeCurrency) })}</span>
+                        <span>{tt("Total: {amount}", { amount: formatPrice(spentOf(customer), storeCurrency) })}</span>
                       </div>
                     </div>
                   )
@@ -196,7 +216,7 @@ export default async function CustomersPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm">{orders.length}</td>
-                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(customer.total_spent_cents, storeCurrency)}</td>
+                          <td className="px-4 py-3 text-sm font-medium">{formatPrice(spentOf(customer), storeCurrency)}</td>
                           <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
                             {formatDate(customer.created_at)}
                           </td>

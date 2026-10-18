@@ -29,6 +29,8 @@ import "server-only"
  */
 import { cache } from "react"
 import { money } from "@/lib/memberships/state"
+import { productPriceCurrency } from "@/lib/money/product-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { socialLinksOf } from "@/lib/communities/social-links"
 import { coverPosition, joinLookOf, pageLookOf } from "@/lib/communities/page-look"
@@ -614,13 +616,16 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   const recurringOk = creatorTakesPayments(entry?.creator)
   const options = optionsFor(community.slug, tiers, products, plans, recurringOk)
 
+  /* A linked product is priced in its store's currency (or dollars for a plan, lib/money/product-currency), the one its checkout charges: never drawn as dollars by default. */
+  const accessCurrency = accessIds.length && community.creator_id ? (await readStoreCurrency(db, community.creator_id)).currency : null
   const accessProducts: AccessProductLink[] = accessIds
     .map((id) => products.get(id))
-    .filter((p): p is ProductLite => !!p && p.status === "published" && !!p.slug)
+    /* Never a product that ships: it is sold on its store's website only, not on a community's page. */
+    .filter((p): p is ProductLite => !!p && p.status === "published" && !!p.slug && p.type !== "physical")
     .slice(0, 6)
     .map((p) => {
       const plan = plans.get(p.id)
-      const line = p.type === "membership" ? priceLine({ billing: "recurring", monthlyCents: plan?.monthly_price_cents, yearlyCents: plan?.yearly_price_cents, currency: plan?.currency }) : p.price_cents && p.price_cents > 0 ? money(p.price_cents) : "Free"
+      const line = p.type === "membership" ? priceLine({ billing: "recurring", monthlyCents: plan?.monthly_price_cents, yearlyCents: plan?.yearly_price_cents, currency: plan?.currency }) : p.price_cents && p.price_cents > 0 ? money(p.price_cents, productPriceCurrency(p, accessCurrency)) : "Free"
       return { productId: p.id, title: p.title || "Product", href: getProductInternalPath(p.slug as string, creator?.username ?? undefined), priceLine: line }
     })
 

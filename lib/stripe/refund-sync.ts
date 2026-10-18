@@ -278,7 +278,7 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
   const rows = ((found ?? []) as OrderRow[]).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || a.id.localeCompare(b.id))
   if (rows.length === 0) return result
 
-  const currency = charge.currency || "usd"
+  const currency = charge.currency
   /*
     WHAT EACH ROW HAS GIVEN BACK is read from the ledger events, which only
     this function writes, and not from the row: the Orders page and its

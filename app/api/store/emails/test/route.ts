@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
@@ -48,10 +49,11 @@ export async function POST(request: Request) {
   if (!to) return physicalJson({ error: "Your account has no email address to send the test to." }, 400)
 
   const db = c.db
-  const [identity, store, { data: creator }, look, saved, website] = await Promise.all([
+  const [identity, store, selling, look, saved, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
-    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
+    readStoreCurrency(db, c.creatorId),
     loadBrand(db, c.creatorId).catch(() => null),
     loadCustomerEmailCopy(db, c.creatorId),
     /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
       storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
       phone: store?.phone ?? null,
-      currency: (creator?.payout_currency as string | null) || "USD",
+      currency: selling.currency,
       accent: look?.accent ?? null,
     },
     words,

@@ -2,7 +2,7 @@
 
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
 import { useEffect } from "react"
-import { usePageMoney } from "@/components/platform/price-currency"
+import { useCheckoutHref, usePageMoney } from "@/components/platform/price-currency"
 
 import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { Button } from "@/components/ui/button"
@@ -52,6 +52,7 @@ export function BuyButton({
    * use-editor-frame for why browsing stays and buying goes.
    */
   const inEditorFrame = useEditorFrame()
+  const checkoutHref = useCheckoutHref()
   const formatPrice = (cents: number) => {
     if (cents === 0) return "Free"
     return pageMoney(cents, { grouping: true })
@@ -62,7 +63,8 @@ export function BuyButton({
     if (variantId) url += `&variantId=${variantId}`
     // Add custom price for PWYW
     if (customPriceCents !== null && customPriceCents !== undefined) url += `&customPrice=${customPriceCents}`
-    return url
+    /* On the marketplace: the dollar price this page showed, and its rate day (lib/money/marketplace). */
+    return checkoutHref(url)
   })()
 
   /* The checkout warmed while the buyer reads, so the press lands quickly. */

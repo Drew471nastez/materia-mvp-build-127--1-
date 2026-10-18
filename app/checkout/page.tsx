@@ -33,6 +33,9 @@ import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
+import { PLAN_CURRENCY, productPriceCurrency } from "@/lib/money/product-currency"
+import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, marketplaceAmounts } from "@/lib/money/marketplace"
+import { marketplaceRates, marketplaceUsdFor } from "@/lib/money/marketplace-server"
 import { CheckoutCurrency } from "./parts/ui"
 import { stripeEarly } from "./parts/stripe-early"
 
@@ -62,11 +65,11 @@ function early<T>(read: Promise<T>): Promise<T> {
 }
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string; ctx?: string; fx?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice, return: returnTo, cancel, site, interval } = await searchParams
+  const { productId, variantId, customPrice, return: returnTo, cancel, site, interval, ctx, fx: fxParam } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -257,21 +260,57 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     selectedVariant = allVariants[0]
   }
 
+  /* Asked above, beside the creator and the options (storeReads). */
+  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await storeReads
+  /* The currency this product's price is in and Pay charges: the store's, or dollars for a community plan (lib/money/product-currency), as the route that charges reads it. */
+  let priceCurrency = productPriceCurrency(product, store.currency)
+
+  /*
+    BOUGHT ON THE MARKETPLACE (?ctx=mp, which only Storelib's own pages add):
+    in US dollars while the switch is on for this store (lib/money/marketplace),
+    the product and its options converted once at the rate day the page
+    showed (?fx=), and that day sent back with Pay so the charge is this
+    price. No fresh rate: the purchase waits. It is never shown, or charged,
+    in the store's currency instead. Anything else (the store's website, its
+    OnePage, a shared link) is the store's own prices, as always.
+  */
+  type PriceRow = { price_cents: number; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null }
+  let priceRow: PriceRow = product as PriceRow
+  let shownVariants = allVariants
+  let pricing: { context: "marketplace"; fxAsOf: string | null } | null = null
+  if (ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && marketplaceUsdFor(product.creator_id)) {
+    const fx = await marketplaceRates(checkoutAdmin(), fxParam)
+    const listed = priceCurrency
+    const usd = <T extends { price_cents: number; pwyw_min_price_cents?: number | null }>(row: T): T | null => {
+      const m = marketplaceAmounts({ ...row, type: product.type }, listed, fx)
+      return m.ok ? { ...row, price_cents: m.price_cents, pwyw_min_price_cents: m.pwyw_min_price_cents } : null
+    }
+    const p = usd(priceRow)
+    const v = selectedVariant ? usd(selectedVariant) : null
+    const all = (allVariants ?? []).map(usd)
+    if (!fx || !p || (selectedVariant && !v) || all.some((x) => x === null)) return <RatesPaused backTo={`/p/${encodeURIComponent(product.slug)}`} />
+    priceRow = p
+    if (v) selectedVariant = v
+    shownVariants = all as typeof allVariants
+    priceCurrency = MARKETPLACE_CURRENCY
+    pricing = { context: "marketplace", fxAsOf: fx.asOf }
+  }
+
   // Determine if PWYW is active
   const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
-  const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
+  const isProductPwyw = !selectedVariant && (priceRow as any).pay_what_you_want
   const isPwywActive = isVariantPwyw || isProductPwyw
 
   // Get PWYW min price for validation
   const pwywMinPriceCents = isVariantPwyw
     ? ((selectedVariant as any).pwyw_min_price_cents || 0)
-    : ((product as any).pwyw_min_price_cents || 0)
+    : ((priceRow as any).pwyw_min_price_cents || 0)
 
   // Calculate final price:
   // - If PWYW and customPrice provided, use customPrice (validated against minimum)
   // - If variant is selected, use variant's price_cents (FINAL price)
   // - Otherwise use product's base price
-  let finalPriceCents = selectedVariant ? selectedVariant.price_cents : product.price_cents
+  let finalPriceCents = selectedVariant ? selectedVariant.price_cents : priceRow.price_cents
 
   // Handle PWYW custom price
   // NOTE: use != null && !== "" check (NOT truthy) so that customPrice="0" ($0) is treated as valid
@@ -291,8 +330,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     finalPriceCents = chosen
   }
 
-  /* Asked above, beside the creator and the options (storeReads). */
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await storeReads
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
   return (
@@ -301,10 +338,10 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     {creator?.id ? (
       <StoreTracking
         creatorId={creator.id}
-        checkout={gaCheckoutOf([{ productId: product.id, title: product.title, variantName: selectedVariant?.name ?? null, unitCents: isPwywActive && customPriceCents !== null ? customPriceCents : finalPriceCents, quantity: 1, type: product.type }], store.currency)}
+        checkout={gaCheckoutOf([{ productId: product.id, title: product.title, variantName: selectedVariant?.name ?? null, unitCents: isPwywActive && customPriceCents !== null ? customPriceCents : finalPriceCents, quantity: 1, type: product.type }], priceCurrency)}
       />
     ) : null}
-    <CheckoutCurrency currency={store.currency}>
+    <CheckoutCurrency currency={priceCurrency}>
     <CheckoutPageClient
       checkoutConfig={checkoutConfig}
       emailConfirmed={!!user?.email_confirmed_at}
@@ -330,6 +367,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       returnTo={communityReturn?.success ?? returns.success}
       backTo={communityReturn?.cancel ?? returns.cancel}
       communityTerms={communityTerms}
+      pricing={pricing}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,
@@ -339,7 +377,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       // Pass PWYW info for display
       isPwyw={isPwywActive}
       customPriceCents={customPriceCents}
-      allVariants={(allVariants || []).map(v => ({
+      allVariants={(shownVariants || []).map(v => ({
         id: v.id,
         name: v.name,
         description: v.description,
@@ -388,7 +426,7 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
         yearlyPriceCents: plan?.yearly_price_cents ?? null,
         trialDays: trialDaysOf(plan?.trial_days),
         benefits: Array.isArray(plan?.benefits) ? (plan!.benefits as unknown[]).filter((b): b is string => typeof b === "string") : [],
-        currency: (plan?.currency || "usd").toLowerCase(),
+        currency: (plan?.currency || PLAN_CURRENCY).toLowerCase(),
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
@@ -455,5 +493,17 @@ export default async function CheckoutPage(props: CheckoutPageProps) {
         <CheckoutContent {...props} />
       </Suspense>
     </>
+  )
+}
+
+/** A marketplace purchase while no fresh exchange rate exists: said plainly, with the way back. Never a price in another currency. */
+function RatesPaused({ backTo }: { backTo: string }) {
+  return (
+    <main data-checkout-paused="" className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="max-w-sm text-center">
+        <p className="text-[15px] font-medium text-[#1a1a2e]">{RATES_PAUSED_MESSAGE}</p>
+        <a href={backTo} className="mt-4 inline-block text-[13px] text-[#6b7280] underline underline-offset-4">Back to the product</a>
+      </div>
+    </main>
   )
 }

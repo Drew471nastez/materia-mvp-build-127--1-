@@ -1,6 +1,8 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
+import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 import { usePageMoney } from "@/components/platform/price-currency"
 import type React from "react"
 
@@ -5309,9 +5311,9 @@ function PublicBlockRenderer({
         its options and delivery are chosen. Back from checkout returns here: the OnePage is the page behind it.
       */
       const buyUrl = data.product_id && (data.product_type as string | undefined) !== 'physical' ? `/checkout?productId=${encodeURIComponent(data.product_id)}` : productUrl
-      /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
+      /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price), and always in dollars, its plan's currency (lib/money/product-currency): never relabelled as the store's. */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? perInterval(pageMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
+        ? perInterval(isPlanPriced({ type: data.product_type }) ? shopMoneyIn(data.product_price_cents, PLAN_CURRENCY) : pageMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
         : 'Free'
       const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
       const useQuickCheckout = isFreeProduct && data.quick_checkout === true

@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { trialDaysOf } from "@/lib/memberships/plan"
 import { headers } from "next/headers"
 import { buyerCountry, buyerIp, membershipTaxForSubscription } from "@/lib/tax/membership"
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
 
   try {
     const price = await ensurePrice(admin, plan, product, interval)
-    const fee = await membershipFee(admin, creator.id, price.amountCents)
+    const fee = await membershipFee(admin, creator.id, price.amountCents, (plan.currency || PLAN_CURRENCY).toUpperCase())
     const customerId = await buyerCustomer(admin, { email, name, userId: user?.id ?? null })
     if (paymentMethodId) await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId })
     /* Round AG: the tax this buyer pays, the same the checkout showed (lib/tax/membership.ts): Stripe Tax, the creator's rate, or none. */
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
       creatorId: creator.id as string,
       productId: product.id,
       amountCents: price.amountCents,
-      currency: plan.currency || "usd",
+      currency: (plan.currency || PLAN_CURRENCY).toLowerCase(),
       country: buyerCountry(h),
       ip: buyerIp(h),
       customerId,

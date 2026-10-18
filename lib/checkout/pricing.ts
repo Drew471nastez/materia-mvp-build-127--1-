@@ -16,13 +16,16 @@
  *   - a pay-what-you-want product sent without an amount cost nothing.
  */
 
-import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type CouponRow } from "./coupons"
+import { checkCoupon, checkCouponLines, findCoupon, normaliseCode, validateCoupon, type CouponRow } from "./coupons"
 import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { productPriceCurrency } from "@/lib/money/product-currency"
+import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, couponValueInUsd, gateOpenFor, toUsdMinor, marketplaceAmounts, parseMarketplaceGate, pricingContextOf, type PriceSource, type PricingContext } from "@/lib/money/marketplace"
+import type { FxRates } from "@/lib/markets/money"
 import { applyOffers, stackWithCode, type AppliedOffer, type Offer, type OfferLine } from "@/lib/offers/offers"
 import { loadOffers, offerLinesFor } from "@/lib/offers/offers-read"
 
@@ -117,6 +120,12 @@ export async function variantSoldOut(db: Db, variant: { id: string; max_purchase
   return count >= max
 }
 
+/** Whether a code carries amounts in a currency (a fixed amount off, or a minimum order), as opposed to a percentage alone. */
+function couponHasAmounts(c: CouponRow | null | undefined): boolean {
+  if (!c) return false
+  return c.discount_type === "fixed" || (Number((c as { min_purchase_cents?: number | null }).min_purchase_cents) || 0) > 0
+}
+
 export type Priced =
   | {
       ok: true
@@ -125,8 +134,23 @@ export type Priced =
       totals: OrderTotals
       coupon: CouponRow | null
       couponLabel: string | null
+      /** The currency every amount above is in, upper case: the product's own (lib/money/product-currency), or US dollars on the marketplace (lib/money/marketplace). The checkout charges exactly this. */
+      currency: string
+      /** Which prices these are, and how a marketplace dollar price was made: for the order's record. */
+      pricing: {
+        context: PricingContext
+        /** The store's own currency, upper case, which its prices are typed in. */
+        listCurrency: string
+        /** The product's (or option's) own price in it. */
+        listAmountCents: number
+        source: PriceSource
+        /** The ECB day a converted price used, or null. */
+        fxAsOf: string | null
+        /** US dollars per one unit of the store's currency that day, or null. */
+        fxRate: number | null
+      }
     }
-  | { ok: false; status: number; error: string }
+  | { ok: false; status: number; error: string; code?: string }
 
 export interface PriceRequest {
   productId: unknown
@@ -134,6 +158,18 @@ export interface PriceRequest {
   customPriceCents?: unknown
   tipCents?: unknown
   couponCode?: unknown
+  /**
+   * Where the buyer is buying: `context` "marketplace" (Explore, a creator
+   * page, a product page on Storelib, a community) or anything else for the
+   * store's own places; `fxAsOf` the rate day the page was priced at. Only
+   * read while the marketplace switch is on for the store (MARKETPLACE_USD).
+   */
+  pricing?: { context?: unknown; fxAsOf?: unknown } | null
+}
+
+/** The page's word for where it is: "mp" (or a marketplace surface) is the marketplace, anything else the store's own. */
+export function requestedContext(raw: unknown): PricingContext {
+  return raw === "mp" || raw === "marketplace" ? "marketplace" : pricingContextOf(raw)
 }
 
 /**
@@ -173,7 +209,37 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   }
 
   const owner = variant ?? (product as PricedProduct)
-  const base = baseFor(owner, req.customPriceCents)
+
+  /* The currency this product's price is in: its store's, or dollars for a community or membership plan (lib/money/product-currency). */
+  const storeCurrency = (await readStoreCurrency(db, (product as PricedProduct).creator_id)).currency
+  const listCurrency = productPriceCurrency(product as PricedProduct, storeCurrency)
+  let currency = listCurrency
+  let charged: { price_cents?: number | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null } = owner
+  let pricing: Extract<Priced, { ok: true }>["pricing"] = { context: "merchant", listCurrency, listAmountCents: Math.max(0, Math.round(Number(owner.price_cents) || 0)), source: "native", fxAsOf: null, fxRate: null }
+  let couponFx: FxRates | null = null
+
+  /*
+    THE MARKETPLACE, IN US DOLLARS (lib/money/marketplace), only while the
+    switch is on for this store: the price converted at the rate day the page
+    showed (or the newest fresh one), or the creator's approved dollar price.
+    No fresh rate: the purchase pauses. It is never charged in the store's
+    currency instead, which the buyer was not shown.
+  */
+  const context = requestedContext(req.pricing?.context)
+  if (context === "marketplace" && listCurrency !== MARKETPLACE_CURRENCY && gateOpenFor(parseMarketplaceGate(process.env.MARKETPLACE_USD), (product as PricedProduct).creator_id)) {
+    const { marketplaceRates } = await import("@/lib/money/marketplace-server")
+    const fx = await marketplaceRates(db, req.pricing?.fxAsOf)
+    const m = marketplaceAmounts({ ...(owner as object), type: (product as PricedProduct).type } as Parameters<typeof marketplaceAmounts>[0], listCurrency, fx)
+    if (!fx || m.ok === false) return { ok: false, status: 503, error: RATES_PAUSED_MESSAGE, code: "rates_paused" }
+    charged = { price_cents: m.price_cents, pay_what_you_want: owner.pay_what_you_want, pwyw_min_price_cents: m.pwyw_min_price_cents }
+    currency = MARKETPLACE_CURRENCY
+    const perUnit = m.source === "converted" ? (fx.rates[MARKETPLACE_CURRENCY] ?? 0) / (listCurrency === "EUR" ? 1 : fx.rates[listCurrency] ?? 0) : null
+    pricing = { ...pricing, context: "marketplace", source: m.source, fxAsOf: m.source === "converted" ? m.fxAsOf : null, fxRate: perUnit && Number.isFinite(perUnit) ? Math.round(perUnit * 1e8) / 1e8 : null }
+    couponFx = fx
+  }
+
+  /* A pay-what-you-want amount is in the currency the buyer was shown, and held to the minimum in it. */
+  const base = baseFor(charged, req.customPriceCents)
   if (base.ok === false) return { ok: false, status: 400, error: base.error }
   const baseCents = base.cents
 
@@ -186,8 +252,18 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   if (typeof req.couponCode === "string" && req.couponCode.trim()) {
     const ask = { creatorId: (product as PricedProduct).creator_id, productId, code: req.couponCode, priceCents: baseCents }
     /* The platform admin's own code first (./admin-code), then the creator's codes. */
-    const checked = (await adminCodeCheck(ask)) ?? (await validateCoupon(db, ask))
+    const admin = await adminCodeCheck(ask)
+    const checked = admin ?? (couponFx ? await marketplaceCoupon(db, ask, storeCurrency, couponFx) : await validateCoupon(db, ask))
     if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
+    /*
+      A CODE'S AMOUNTS ARE IN THE STORE'S CURRENCY. On the marketplace they
+      were turned into dollars at the price's own rate (marketplaceCoupon).
+      On a product priced in another currency (a dollar plan in a lei
+      store), a fixed amount off or a minimum order would be read in the
+      wrong currency, so such a code is not taken there. A percentage is the
+      same in any currency.
+    */
+    if (!couponFx && listCurrency !== storeCurrency && couponHasAmounts(checked.coupon)) return { ok: false, status: 400, error: "That code can't be used on this item." }
     coupon = checked.coupon
     couponLabel = checked.label
     discountCents = checked.discountCents
@@ -200,7 +276,36 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
     totals: totalsOf(baseCents, discountCents, tip),
     coupon,
     couponLabel,
+    currency,
+    pricing,
   }
+}
+
+/**
+ * A creator's code on a marketplace dollar price: its fixed amount and its
+ * minimum order are in the store's currency, so both are turned into dollars
+ * at the same rate as the price before the code is checked. A percentage is
+ * as it is. No rate for them: the code is refused, never guessed.
+ */
+async function marketplaceCoupon(db: Db, ask: { creatorId: string; productId: string; code: unknown; priceCents: number }, storeCurrency: string, fx: FxRates) {
+  const code = normaliseCode(ask.code)
+  if (!code) return { ok: false as const, error: "That code is not valid." }
+  const found = await findCoupon(db, ask.creatorId, code)
+  if (!found) return checkCoupon(null, { productId: ask.productId, priceCents: ask.priceCents })
+  const c = { ...found }
+  if (c.discount_type === "fixed") {
+    const usd = couponValueInUsd(Number(c.discount_value) || 0, storeCurrency, fx)
+    if (usd === null) return { ok: false as const, error: "That code can't be used on this item." }
+    c.discount_value = usd
+  }
+  const min = Number((c as { min_purchase_cents?: number | null }).min_purchase_cents) || 0
+  if (min > 0) {
+    /* Rounded up: a minimum is never lowered by the conversion. */
+    const usd = toUsdMinor(min, storeCurrency, fx, { round: "up" })
+    if (usd === null) return { ok: false as const, error: "That code can't be used on this item." }
+    ;(c as { min_purchase_cents?: number | null }).min_purchase_cents = usd
+  }
+  return checkCoupon(c, { productId: ask.productId, priceCents: ask.priceCents })
 }
 
 /* ===========================================================================

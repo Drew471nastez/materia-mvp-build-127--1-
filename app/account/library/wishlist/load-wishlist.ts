@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPubliclyVisible } from "@/lib/products/visibility"
+import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { entryOf, type Plan, type WishlistEntry } from "@/components/wishlist/wishlist-entry"
 
 /**
@@ -65,7 +66,8 @@ export async function loadWishlist(userId: string): Promise<WishlistEntry[]> {
   if (error && missingPwywColumn(error)) ({ data, error } = await read(WITHOUT_PWYW))
   if (error || !data) return []
 
-  const rows = (data as unknown as SavedRow[]).filter((r) => r.products && isPubliclyVisible(r.products as { status?: string | null }))
+  /* On sale, and never a product that ships: those are sold on their store's website only. */
+  const rows = (data as unknown as SavedRow[]).filter((r) => r.products && isPubliclyVisible(r.products as { status?: string | null }) && r.products.type !== "physical")
   if (rows.length === 0) return []
 
   const ids = rows.map((r) => r.products!.id)
@@ -73,11 +75,13 @@ export async function loadWishlist(userId: string): Promise<WishlistEntry[]> {
   const memberships = rows.filter((r) => r.products!.type === "membership").map((r) => r.products!.id)
 
   /* Each of these can fail on its own (a table from a later migration) without taking the list with it. */
-  const [profiles, plans, variants, owned] = await Promise.all([
+  const [profiles, plans, variants, owned, priceOfRow] = await Promise.all([
     sellers.length ? admin.from("profiles").select("id, display_name, username, avatar_url").in("id", sellers) : Promise.resolve({ data: [] }),
     memberships.length ? admin.from("membership_plans").select("product_id, monthly_price_cents, yearly_price_cents").in("product_id", memberships) : Promise.resolve({ data: [] }),
     admin.from("product_variants").select("product_id").in("product_id", ids),
     admin.from("entitlements").select("product_id").eq("buyer_id", userId).in("product_id", ids),
+    /* Each price as the marketplace shows it: its store's currency, or dollars once switched over (lib/money/marketplace-server). */
+    marketplacePricer(admin, rows.map((r) => r.products!.creator_id as string | null)),
   ])
 
   const faceOf = new Map(((profiles.data ?? []) as Array<{ id: string; display_name: string | null; username: string | null; avatar_url: string | null }>).map((p) => [p.id, p]))
@@ -90,7 +94,7 @@ export async function loadWishlist(userId: string): Promise<WishlistEntry[]> {
     const p = r.products!
     const face = p.creators?.user_id ? faceOf.get(p.creators.user_id) : undefined
     const entry = entryOf(
-      { ...r, products: { ...p, creator_profile: face ? { display_name: face.display_name, username: face.username, avatar_url: face.avatar_url } : null } },
+      { ...r, products: { ...p, ...priceOfRow(p as Parameters<typeof priceOfRow>[0]), creator_profile: face ? { display_name: face.display_name, username: face.username, avatar_url: face.avatar_url } : null } },
       { plan: planOf.get(p.id) ?? null, hasOptions: withOptions.has(p.id), owned: theirs.has(p.id) },
     )
     if (entry) out.push(entry)

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { productPriceCurrency } from "@/lib/money/product-currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
@@ -66,6 +68,8 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    /* The currency this product's price is in, for the order's record (lib/money/product-currency). */
+    const freeCurrency = productPriceCurrency(product, (await readStoreCurrency(admin, product.creator_id)).currency)
     /* The store's Settings › Checkout: an account first, and a confirmed one, for a free product as for a paid one (lib/store/checkout-config). */
     const creatorOf = (product as { creator?: { id?: string } | null }).creator?.id ?? null
     const checkoutRules = await loadCheckoutConfig(admin, creatorOf)
@@ -172,7 +176,8 @@ async function handlePOST(request: Request) {
       product_id: product.id,
       amount_cents: 0,
       tip_cents: 0,
-      currency: "usd",
+      /* The product's own currency (lib/money/product-currency), a free order included: never a default. */
+      currency: freeCurrency.toLowerCase(),
       status: "completed",
       provider: "free",
       fee_cents: 0,
@@ -192,6 +197,7 @@ async function handlePOST(request: Request) {
       const minimalOrderData: Record<string, any> = {
         product_id: product.id,
         amount_cents: 0,
+        currency: freeCurrency.toLowerCase(),
         status: "completed",
         receipt_token: receiptToken,
         buyer_email: email.toLowerCase().trim(),

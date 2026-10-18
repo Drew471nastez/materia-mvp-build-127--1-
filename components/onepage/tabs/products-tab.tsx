@@ -1,7 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
-import { useSellerMoney } from "@/components/platform/price-currency"
+import { useProductMoney } from "@/components/platform/price-currency"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -97,7 +97,7 @@ const productTypeOptions = [
  */
 export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) {
   /* In the store's own currency (components/platform/price-currency). */
-  const shopMoney = useSellerMoney()
+  const shopMoney = useProductMoney()
   const { onepage, addBlock, updateBlock } = useOnePage()
   const goToLinks = useCallback(() => onGoToLinks?.(), [onGoToLinks])
   const [products, setProducts] = useState<Product[]>([])
@@ -375,7 +375,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {product.price_cents > 0 ? shopMoney(product.price_cents) : 'Free'}
+                        {product.price_cents > 0 ? shopMoney(product.price_cents, product) : 'Free'}
                       </p>
                     </div>
                     {addedProductIds.has(product.id) ? (

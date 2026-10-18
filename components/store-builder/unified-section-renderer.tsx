@@ -88,6 +88,8 @@ export interface ProductData {
   thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number
+  /** The currency this card's price is in, when it is not the page's (a dollar price on the marketplace). */
+  currency?: string | null
   /* Pay what you want, listed from its minimum (lib/pricing/list-price). */
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
@@ -4933,6 +4935,7 @@ function UnifiedMoreFromSellerSection({
                 thumbnail_url: product.thumbnail_url,
                 price_cents: product.price_cents,
                 compare_at_cents: product.compare_at_cents,
+                currency: product.currency ?? null,
                 type: product.type,
                 price_interval: product.price_interval ?? null,
                 categories: product.categories,

@@ -1,3 +1,4 @@
+import { marketplaceUsdFor } from "@/lib/money/marketplace-server"
 import { NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
@@ -128,6 +129,8 @@ async function state(db: Db, creatorId: string, headers: Headers) {
     catalog: counts,
     /* The change just made, which Undo puts back (store_currency_restore). */
     lastChange: lastChange && lastChange.to === store.currency ? lastChange : null,
+    /* Storelib's marketplace shows this store in US dollars (lib/money/marketplace): only then does Settings say so. */
+    marketplaceUsd: marketplaceUsdFor(creatorId),
   }
 }
 

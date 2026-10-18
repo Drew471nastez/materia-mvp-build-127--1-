@@ -1,5 +1,6 @@
 "use client"
 
+import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
 import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
 import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode, type PointerEvent } from "react"
@@ -262,8 +263,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
                 View product
               </SmartLink>
               <span className="text-lg font-bold text-white drop-shadow-md">
-                {/* A membership's price is per month or year (lib/pricing/list-price). */}
-                {productPrice ? perInterval(formatPrice(productPrice, (currentProduct as { currency?: string | null } | undefined)?.currency), intervalOf(currentProduct ?? {})) : formatPrice(productPrice)}
+                {/* A membership's price is per month or year (lib/pricing/list-price), and in dollars, its plan's currency (lib/money/product-currency). */}
+                {productPrice ? perInterval(formatPrice(productPrice, isPlanPriced(currentProduct) ? PLAN_CURRENCY : (currentProduct as { currency?: string | null } | undefined)?.currency), intervalOf(currentProduct ?? {})) : formatPrice(productPrice)}
               </span>
             </div>
           </div>

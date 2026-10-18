@@ -107,6 +107,8 @@ interface CheckoutPageClientProps {
   paymentProvider?: "stripe" | "airwallex"
   /** A product that sells a community tier: the community's refund policy and the EU withdrawal waiver where it applies (round 13). */
   communityTerms?: CommunityCheckoutTerms | null
+  /** A marketplace dollar price and the rate day it was made at, sent back so the charge is the price shown (lib/money/marketplace). Null: the store's own prices. */
+  pricing?: { context: "marketplace"; fxAsOf: string | null } | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -175,6 +177,7 @@ export default function CheckoutPageClient({
   allVariants = [],
   paymentProvider = "stripe",
   communityTerms = null,
+  pricing = null,
   isLoggedIn,
   checkoutConfig = DEFAULT_CHECKOUT,
   emailConfirmed = true,
@@ -887,6 +890,7 @@ export default function CheckoutPageClient({
          the order's Source (lib/orders/checkout-origin). Read when Pay is
          pressed, when the page before this one is surely known. */
       origin: checkoutOrigin(creator.id),
+      pricing,
     }
   }
 
@@ -1018,6 +1022,7 @@ export default function CheckoutPageClient({
         productId: product.id,
         variantId: variant?.id ?? null,
         customPriceCents: customPrice,
+        pricing,
       })
       if (!res.data.ok) {
         setCodeError(res.data.error || "That code is not valid.")

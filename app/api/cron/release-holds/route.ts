@@ -1,3 +1,5 @@
+import { ledgerCurrency } from "@/lib/payments/ledger-currency"
+import { formatMinor } from "@/lib/markets/money"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { notifyPayoutAvailable } from "@/lib/push/notifications"
@@ -141,10 +143,11 @@ async function runJob(request: Request) {
           event_type: "hold_release",
           amount_cents: releaseAmount,
           net_seller_cents: toAvailable,
-          currency: "usd",
+          /* The wallet's one currency (lib/payments/ledger-currency), never a guessed one. */
+          currency: ledgerCurrency(),
           pending_delta: -releaseAmount,
           available_delta: toAvailable,
-          description: `Hold released: $${(releaseAmount / 100).toFixed(2)} cleared`,
+          description: `Hold released: ${formatMinor(releaseAmount, ledgerCurrency())} cleared`,
         })
 
         // Mark events as released

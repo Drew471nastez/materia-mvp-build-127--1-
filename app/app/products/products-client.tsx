@@ -13,6 +13,7 @@ import { asksInPlace, useNewProductChooser } from "./new/kind-chooser"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { useStoreCurrency } from "@/lib/store/currency-context"
+import { productPriceCurrency } from "@/lib/money/product-currency"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
 import { quietDepth } from "./new/editor-buttons"
 import { accentDepth } from "@/components/ui/depth-button"
@@ -244,7 +245,7 @@ const escapeHtml = (value: unknown) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
 
 // StoreLib branded PDF Export function
-const generateProductsPDF = (products: Product[], formatPrice: (cents: number) => string) => {
+const generateProductsPDF = (products: Product[], formatPrice: (cents: number, product: Product) => string) => {
   const today = new Date().toLocaleDateString(appLocale(), zoned({ year: 'numeric', month: 'long', day: 'numeric' }))
 
   const htmlContent = `
@@ -323,7 +324,7 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
             <tr>
               <td class="product-title">${escapeHtml(product.title)}</td>
               <td>${escapeHtml(product.type)}</td>
-              <td class="price">${escapeHtml(formatPrice(product.price_cents))}</td>
+              <td class="price">${escapeHtml(formatPrice(product.price_cents, product))}</td>
               <td><span class="status status-${isArchived(product) ? 'archived' : product.status === 'published' ? 'published' : 'draft'}">${isArchived(product) ? tt("Archived") : escapeHtml(product.status)}</span></td>
               <td>${new Date(product.created_at).toLocaleDateString(appLocale(), zoned({ year: 'numeric', month: 'short', day: 'numeric' }))}</td>
             </tr>
@@ -353,13 +354,13 @@ const generateProductsPDF = (products: Product[], formatPrice: (cents: number) =
 }
 
 // CSV Export function
-const generateProductsCSV = (products: Product[], formatPrice: (cents: number) => string) => {
+const generateProductsCSV = (products: Product[], formatPrice: (cents: number, product: Product) => string) => {
   const headers = [tt("Title"), tt("Type"), tt("Price"), tt("Status"), tt("Slug"), tt("Created At"), tt("Description")]
 
   const rows = products.map(product => [
     `"${product.title.replace(/"/g, '""')}"`,
     product.type,
-    formatPrice(product.price_cents),
+    formatPrice(product.price_cents, product),
     isArchived(product) ? tt("Archived") : product.status,
     product.slug,
     new Date(product.created_at).toISOString(),
@@ -462,11 +463,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
   const storeCurrency = useStoreCurrency()
   const exportPDF = () => {
-    generateProductsPDF(products, (c) => formatMoney(c, storeCurrency))
+    generateProductsPDF(products, (c, p) => formatMoney(c, productPriceCurrency(p, storeCurrency)))
     showNotification(tt("PDF report generated"))
   }
   const exportCSV = () => {
-    generateProductsCSV(products, (c) => formatMoney(c, storeCurrency))
+    generateProductsCSV(products, (c, p) => formatMoney(c, productPriceCurrency(p, storeCurrency)))
     showNotification(tt("CSV file downloaded"))
   }
   const exportItems = [
@@ -1556,7 +1557,7 @@ const PhoneRow = memo(function PhoneRow({
               <Sep />
             </>
           ) : null}
-          <span data-price="" className="tabular-nums"><PriceOf cents={product.price_cents} /></span>
+          <span data-price="" className="tabular-nums"><PriceOf cents={product.price_cents} type={product.type} /></span>
           {product.sales_count ? (
             <>
               <Sep />
@@ -1632,7 +1633,7 @@ const TableRow = memo(function TableRow({
       <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
         {product.sales_count ? product.sales_count.toLocaleString(appLocale()) : <span className="text-[#b6bac1]">0</span>}
       </td>
-      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]"><PriceOf cents={product.price_cents} /></td>
+      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]"><PriceOf cents={product.price_cents} type={product.type} /></td>
       <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
         <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
           {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={VIEW_TABLE} api={api} />}
@@ -1680,9 +1681,10 @@ function OpeningMark({ size }: { size: "phone" | "table" }) {
 */
 
 /** A free product says Free rather than $0.00, on the list and in the table. In the store's own currency: a lei store's 49 is 49 lei. */
-function PriceOf({ cents }: { cents: number }) {
-  const currency = useStoreCurrency()
-  return <>{cents > 0 ? formatMoney(cents, currency) : "Free"}</>
+function PriceOf({ cents, type }: { cents: number; type?: string | null }) {
+  const store = useStoreCurrency()
+  /* A membership or community plan is priced in dollars (lib/money/product-currency): never relabelled as the store's currency. */
+  return <>{cents > 0 ? formatMoney(cents, productPriceCurrency({ type }, store)) : "Free"}</>
 }
 
 /** The middle dot between the parts of a phone row's second line, which ends in an ellipsis when it does not fit. */

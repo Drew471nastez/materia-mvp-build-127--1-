@@ -77,10 +77,12 @@ async function handlePOST(request: Request) {
         variantId: body.variantId,
         customPriceCents: body.customPriceCents,
         couponCode: body.couponCode,
+        /* The same prices the paid checkout uses (lib/money/marketplace). */
+        pricing: body.pricing && typeof body.pricing === "object" ? (body.pricing as { context?: unknown; fxAsOf?: unknown }) : null,
       },
       "*, creator:creators!inner(id, user_id)",
     )
-    if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
+    if (priced.ok === false) return NextResponse.json({ error: priced.error, ...(priced.code ? { code: priced.code } : {}) }, { status: priced.status })
     const { product, variant, totals, coupon } = priced
     const creator = product.creator as { id: string; user_id: string | null }
     /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
@@ -145,7 +147,7 @@ async function handlePOST(request: Request) {
           variant_id: variant.id,
           variant_name: variant.name,
           variant_price_cents: variant.price_cents ?? null,
-          variant_currency: "USD",
+          variant_currency: priced.currency,
           variant_snapshot: { id: variant.id, name: variant.name, price_cents: variant.price_cents ?? null },
         }
       : {}
@@ -157,7 +159,8 @@ async function handlePOST(request: Request) {
       product_id: product.id,
       amount_cents: 0,
       tip_cents: 0,
-      currency: "usd",
+      /* The product's own currency (priced.currency), a free order included: never a default. */
+      currency: priced.currency.toLowerCase(),
       status: "completed",
       provider: "free",
       fee_cents: 0,
@@ -176,6 +179,7 @@ async function handlePOST(request: Request) {
       const minimal: Record<string, unknown> = {
         product_id: product.id,
         amount_cents: 0,
+        currency: priced.currency.toLowerCase(),
         status: "completed",
         receipt_token: receiptToken,
         buyer_email: email,

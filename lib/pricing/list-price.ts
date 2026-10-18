@@ -25,6 +25,7 @@
  * Pure, so the tests run it directly.
  */
 import { shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
+import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 
 export interface ListedPrice {
   price_cents: number | null | undefined
@@ -68,8 +69,16 @@ export function usd(cents: number): string {
 }
 
 export function listPrice(p: ListedPrice, given?: (cents: number) => string): PriceLabel {
-  /* In the store's own currency when the row carries it: a lei store's 49 is 49 lei. */
-  const format = given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
+  /*
+    In the store's own currency when the row carries it: a lei store's 49 is
+    49 lei. A membership or a community plan is priced and billed in dollars
+    whatever its store sells in (lib/money/product-currency), so it is always
+    written in dollars, whatever formatter the page handed over: a $9 plan
+    never reads "9 lei".
+  */
+  const format = isPlanPriced(p)
+    ? (cents: number) => shopMoneyIn(cents || 0, PLAN_CURRENCY, { grouping: true })
+    : given ?? (p.currency ? (cents: number) => shopMoneyIn(cents || 0, p.currency!, { grouping: true }) : usd)
   if (p.pay_what_you_want) {
     const min = Math.max(0, p.pwyw_min_price_cents ?? p.price_cents ?? 0)
     return { main: min > 0 ? `${format(min)}+` : "Pay what you want", was: null, off: null }

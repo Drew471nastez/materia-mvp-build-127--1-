@@ -1,3 +1,4 @@
+import { tagOrderPricing } from "@/lib/money/order-pricing"
 import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import type Stripe from "stripe"
@@ -535,7 +536,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       fee_cents: applicationFeeAmount,
       application_fee_cents: applicationFeeAmount,
       transfer_id: transferId,
-      currency: session.currency || "usd",
+      currency: session.currency || null,
       provider: "stripe",
       status: "completed",
       stripe_session_id: session.id,
@@ -585,6 +586,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       const minimalOrderData: Record<string, any> = {
         product_id: productId,
         amount_cents: totalAmount,
+        /* The currency it was paid in, always: without it the column's default would call a lei payment dollars. */
+        currency: session.currency || null,
         status: "completed",
         stripe_session_id: session.id,
         stripe_payment_intent_id: session.payment_intent as string,
@@ -615,6 +618,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
     console.log("[Webhook] Order created:", order.id)
     await tagOrderSource(supabaseAdmin, order.id, orderSourceFrom(metadata), orderOriginFrom(metadata))
+    /* How its price was made (lib/money/order-pricing). */
+    await tagOrderPricing(supabaseAdmin, order.id, metadata as Record<string, string>)
     const attribution = attributionFromMetadata(metadata, { source: orderSourceFrom(metadata), origin: orderOriginFrom(metadata) })
     await recordOrderAttribution(supabaseAdmin, order.id, attribution)
 
@@ -662,22 +667,28 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
         /* Once per order, in one locked step (lib/payments/ledger), under the key the
            PaymentIntent path writes too. The code below is the path before run-now part 64. */
+        /* In the wallet's currency, as every other sale is added (lib/payments/ledger-currency): the
+           sale's own currency converted at the day's ECB rate, or kept and labelled when no rate exists. */
+        const { toLedger, ledgerAmountText } = await import("@/lib/payments/ledger-currency")
+        const wallet = await toLedger([totalAmount, netSeller, applicationFeeAmount], session.currency)
+        const [wTotal, wNet, wFee] = wallet.amounts
+        const saleLine = `Sale: ${ledgerAmountText(wTotal, wallet, { amount: totalAmount, currency: session.currency })} (net ${ledgerAmountText(wNet, { ...wallet, converted: false }, { amount: wNet, currency: wallet.currency })})`
         const posted = await postLedger(supabaseAdmin, {
           creatorId,
           key: `sale:${order.id}`,
           op: "sale",
-          amountCents: netSeller,
+          amountCents: wNet,
           event: {
             event_type: "sale",
-            amount_cents: totalAmount,
-            net_seller_cents: netSeller,
-            fee_cents: applicationFeeAmount,
-            currency: "usd",
+            amount_cents: wTotal,
+            net_seller_cents: wNet,
+            fee_cents: wFee,
+            currency: wallet.currency,
             order_id: order.id,
             hold_until: holdUntil.toISOString(),
-            description: `Sale: $${(totalAmount / 100).toFixed(2)} (net $${(netSeller / 100).toFixed(2)})`,
-            add_lifetime_earnings: totalAmount,
-            add_lifetime_fees: applicationFeeAmount,
+            description: saleLine,
+            add_lifetime_earnings: wTotal,
+            add_lifetime_fees: wFee,
           },
         })
 
@@ -691,7 +702,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           : { data: null }
 
         if (ledger) {
-          let actualPending = netSeller
+          let actualPending = wNet
           let newNegative = ledger.negative_balance
 
           // Absorb negative balance from prior refunds
@@ -705,8 +716,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             .from("seller_ledger")
             .update({
               pending_amount: ledger.pending_amount + actualPending,
-              lifetime_earnings: ledger.lifetime_earnings + totalAmount,
-              lifetime_fees: ledger.lifetime_fees + applicationFeeAmount,
+              lifetime_earnings: ledger.lifetime_earnings + wTotal,
+              lifetime_fees: ledger.lifetime_fees + wFee,
               negative_balance: newNegative,
             })
             .eq("creator_id", creatorId)
@@ -714,14 +725,14 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           await supabaseAdmin.from("ledger_events").insert({
             creator_id: creatorId,
             event_type: "sale",
-            amount_cents: totalAmount,
-            net_seller_cents: netSeller,
-            fee_cents: applicationFeeAmount,
-            currency: "usd",
+            amount_cents: wTotal,
+            net_seller_cents: wNet,
+            fee_cents: wFee,
+            currency: wallet.currency,
             pending_delta: actualPending,
             order_id: order.id,
             hold_until: holdUntil.toISOString(),
-            description: `Sale: $${(totalAmount / 100).toFixed(2)} (net $${(netSeller / 100).toFixed(2)})`,
+            description: saleLine,
           })
         }
       } catch (ledgerErr) {
@@ -843,7 +854,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       creatorId,
       purchase: { orderId: order.id, amountCents: totalAmount, lineCount: 1 },
       lines: [{ orderId: order.id, productId, productTitle, amountCents: totalAmount, feeCents: applicationFeeAmount }],
-      currency: session.currency || "usd",
+      currency: session.currency || null,
       buyerEmail,
       buyerCountry: metadata.buyer_country || null,
       correlationId: event.id,
@@ -1234,7 +1245,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             subscriptionId,
             invoiceId: invoice.id,
             amountCents: invoice.amount_paid,
-            currency: (invoice.currency || "usd").toLowerCase(),
+            currency: invoice.currency.toLowerCase(),
             periodEnd: invoice.period_end ? safeTimestamp(invoice.period_end) : null,
           },
         })
@@ -1446,13 +1457,32 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         // Find the original cashout event to get USD amount
         const { data: cashoutEvent } = await supabaseAdmin
           .from("ledger_events")
-          .select("amount_cents")
+          .select("amount_cents, currency")
           .eq("creator_id", creator.id)
           .eq("event_type", "cashout_initiated")
           .eq("stripe_payout_id", payout.id)
           .maybeSingle()
 
-        const usdAmount = cashoutEvent?.amount_cents || payout.amount
+        /*
+          THE WALLET'S UNITS. The balance buckets are kept in the wallet's one
+          currency (lib/payments/ledger-currency). A cash out recorded its own
+          amount in them; a payout Storelib did not start (Stripe's schedule)
+          is in the bank's currency, so it is converted at the day's ECB rate
+          first. A payout no rate can convert leaves the buckets alone rather
+          than taking lei from a dollar balance; Stripe's own balance, which
+          Payouts reads, is the truth either way.
+        */
+        const { toLedger, ledgerCurrency } = await import("@/lib/payments/ledger-currency")
+        const { formatMinor } = await import("@/lib/markets/money")
+        const walletOf = cashoutEvent
+          ? { amount: Number(cashoutEvent.amount_cents) || 0, currency: String(cashoutEvent.currency || ledgerCurrency()).toLowerCase() }
+          : await toLedger([payout.amount], payout.currency).then((w) => ({ amount: w.amounts[0] ?? 0, currency: w.currency }))
+        const usdAmount = walletOf.amount
+        const walletText = formatMinor(usdAmount, walletOf.currency.toUpperCase(), "en")
+        if (walletOf.currency !== ledgerCurrency()) {
+          /* Caught below, which only logs: the notifications after this still go. */
+          throw new Error(`payout ${payout.id} is in ${walletOf.currency.toUpperCase()} and no rate converts it to the wallet's currency: balance buckets left as they are`)
+        }
 
         /* Once per payout and outcome, in one locked step (lib/payments/ledger): Stripe
            delivering payout.paid twice no longer pays it out twice on the balance. */
@@ -1467,11 +1497,11 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
                 event_type: returned ? "cashout_failed" : "cashout_completed",
                 amount_cents: usdAmount,
                 net_seller_cents: usdAmount,
-                currency: "usd",
+                currency: walletOf.currency,
                 stripe_payout_id: payout.id,
                 description: returned
-                  ? `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: $${(usdAmount / 100).toFixed(2)} returned to available`
-                  : `Cashout completed: $${(usdAmount / 100).toFixed(2)} arrived at bank`,
+                  ? `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`
+                  : `Cashout completed: ${walletText} arrived at bank`,
               },
             })
           : { unavailable: true as const }
@@ -1492,10 +1522,10 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             event_type: "cashout_completed",
             amount_cents: usdAmount,
             net_seller_cents: usdAmount,
-            currency: "usd",
+            currency: walletOf.currency,
             in_transit_delta: -usdAmount,
             stripe_payout_id: payout.id,
-            description: `Cashout completed: $${(usdAmount / 100).toFixed(2)} arrived at bank`,
+            description: `Cashout completed: ${walletText} arrived at bank`,
           })
         } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
           // Return funds to available
@@ -1512,11 +1542,11 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             event_type: "cashout_failed",
             amount_cents: usdAmount,
             net_seller_cents: usdAmount,
-            currency: "usd",
+            currency: walletOf.currency,
             in_transit_delta: -usdAmount,
             available_delta: usdAmount,
             stripe_payout_id: payout.id,
-            description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: $${(usdAmount / 100).toFixed(2)} returned to available`,
+            description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: ${walletText} returned to available`,
           })
         }
       }

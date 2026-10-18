@@ -22,7 +22,6 @@ import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-serv
 import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orderSourceFromRequest, originOf } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
-import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
@@ -102,10 +101,12 @@ async function handlePOST(request: Request) {
       customPriceCents: body.customPriceCents,
       tipCents: body.tipCents,
       couponCode: body.couponCode,
+      /* Where the buyer is buying and the rate day the page showed (lib/money/marketplace): read only while the marketplace switch is on. */
+      pricing: body.pricing && typeof body.pricing === "object" ? (body.pricing as { context?: unknown; fxAsOf?: unknown }) : null,
     },
     "*, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
   )
-  if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
+  if (priced.ok === false) return NextResponse.json({ error: priced.error, ...(priced.code ? { code: priced.code } : {}) }, { status: priced.status })
 
   const { product, variant, totals, coupon } = priced
   const creator = product.creator as {
@@ -150,8 +151,8 @@ async function handlePOST(request: Request) {
       )
     : null
   const chargeCents = tax ? tax.totalCents : totals.totalCents
-  /* The product's price is in its store's currency (lib/store/selling-currency): charged in it, held to Stripe's smallest charge in it. */
-  const storeCurrency = (await readStoreCurrency(admin, creator.id)).currency
+  /* The product's price is in its own currency (lib/money/product-currency: the store's, or dollars for a community plan), read by priceOrder: charged in exactly it, held to Stripe's smallest charge in it. */
+  const storeCurrency = priced.currency
   if (totals.totalCents < minimumChargeMinor(storeCurrency)) {
     return NextResponse.json({ error: `The smallest card payment is ${formatStoreMoney(minimumChargeMinor(storeCurrency), storeCurrency)}. Add a tip or remove the code.` }, { status: 400 })
   }
@@ -279,6 +280,12 @@ async function handlePOST(request: Request) {
     tax_country: tax && tax.taxCents > 0 ? tax.country ?? "" : "",
     /* "VAT 19%": what the receipt, the PDF and the order call it (lib/tax/rules taxLabel). */
     tax_label: tax && tax.taxCents > 0 ? tax.label : "",
+    /* How the price was made (lib/money/marketplace): the store's own price, or a marketplace dollar price and the rate day behind it. */
+    pricing_context: priced.pricing.context,
+    list_currency: priced.pricing.listCurrency,
+    list_amount_cents: String(priced.pricing.listAmountCents),
+    price_source: priced.pricing.source,
+    ...(priced.pricing.fxAsOf ? { fx_as_of: priced.pricing.fxAsOf, fx_rate: String(priced.pricing.fxRate ?? "") } : {}),
     buyer_country: geoInfo.country || "",
     buyer_country_code: geoInfo.countryCode || "",
     buyer_device_type: deviceInfo.deviceType || "",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { inStoreCurrency } from "@/lib/money/report-currency-server"
 
 /**
  * GET /api/stripe/tax-summary?year=2025
@@ -75,14 +76,22 @@ export async function GET(request: Request) {
 
     const { data: orders } = await adminSupabase
       .from("orders")
-      .select("amount_cents, fee_cents, created_at, status, product_id, refund_amount_cents")
+      .select("amount_cents, fee_cents, created_at, status, product_id, refund_amount_cents, currency")
       .in("product_id", productIds)
       .in("status", ["completed", "refunded", "disputed"])
       .gte("created_at", startDate)
       .lt("created_at", endDate)
       .order("created_at", { ascending: true })
 
-    const allOrders = orders || []
+    /*
+      IN US DOLLARS. A 1099-K summary is an American form with a dollar line,
+      so each sale is converted at its own day's ECB rate (lib/money/
+      report-currency), never its lei or euro cents read as cents of a
+      dollar. A sale no rate converts is counted in `unconverted`, its money
+      left out rather than guessed.
+    */
+    const usd = await inStoreCurrency(adminSupabase, creator.id, (orders || []) as Array<{ amount_cents: number | null; fee_cents: number | null; created_at: string; status: string; product_id: string; refund_amount_cents: number | null; currency: string | null }>, "USD")
+    const allOrders = usd.rows
 
     // Aggregate totals
     let grossEarnings = 0
@@ -147,6 +156,8 @@ export async function GET(request: Request) {
         transactionCount: data.count,
       }))
 
+    /* Every sale is a transaction, converted or not. */
+    transactionCount += usd.unconverted
     const isEligible = grossEarnings >= 2000000 && transactionCount >= 200
 
     return NextResponse.json({
@@ -159,6 +170,8 @@ export async function GET(request: Request) {
       refunds,
       transactionCount,
       isEligible,
+      currency: "usd",
+      unconverted: usd.unconverted,
       monthlyBreakdown,
       productBreakdown,
       generatedAt: new Date().toISOString(),

@@ -173,4 +173,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "232", file: "232_review_imports_from_apps.sql", sha256: "bd1804b3c359fdd1760274c721c67704d7e70f6ea566aeda76cf786031df9b5b" },
   { part: "233", file: "233_physical_carrier_prefs.sql", sha256: "eaa6a5203efae49b04b943cf8be771a9227bb22f7d9e168a330a42a6a32ccc8b" },
   { part: "243", file: "243_shipped_order_tax_on_orders.sql", sha256: "8bc7f1bf450c4e71d04d3e7e0a63c40bca9658e0518575453719d136765c541d" },
+  { part: "244", file: "244_marketplace_pricing.sql", sha256: "f376d726c3a87c965d4c3cb3c18fd172765b6b49d41f5104df41b9dde74c96e7" },
 ]

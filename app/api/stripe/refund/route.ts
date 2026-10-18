@@ -114,7 +114,7 @@ export async function POST(request: Request) {
     let refund: { id: string; status: string | null; currency: string | null }
     if (byCash) {
       /* Keyed like a card refund, so a double tap records it once (the emitted event's key below). */
-      refund = { id: `cash_${orderId}_${alreadyRefunded}_${refundAmountCents}`, status: "succeeded", currency: (order.currency || "usd").toLowerCase() }
+      refund = { id: `cash_${orderId}_${alreadyRefunded}_${refundAmountCents}`, status: "succeeded", currency: order.currency ? String(order.currency).toLowerCase() : null }
     } else if (onAirwallex) {
       const done = await refundAirwallexOrder({
         orderId,
@@ -196,7 +196,7 @@ export async function POST(request: Request) {
         refundId: refund.id,
         productId: order.product_id ?? null,
         amountCents: refundAmountCents,
-        currency: (refund.currency || "usd").toLowerCase(),
+        currency: (refund.currency || order.currency || "").toLowerCase() || null,
         full: refundedTotal >= (order.amount_cents || 0),
         reason: reason || "requested_by_customer",
         buyerEmail: order.customer_email || order.buyer_email || null,
@@ -273,7 +273,7 @@ export async function POST(request: Request) {
         productTitle: product.title,
         refundAmount: refundAmountCents,
         /* The order's own currency (what the buyer paid in), as Stripe refunded it. */
-        currency: (refund.currency || order.currency || creator.default_currency || "USD").toUpperCase(),
+        currency: (refund.currency || order.currency || "").toUpperCase(),
         orderId,
         reason: reason || "Requested by seller",
         storeName,

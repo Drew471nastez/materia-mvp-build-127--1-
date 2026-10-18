@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { emit } from "@/lib/notify/outbox"
-import { getMarketExchangeRate } from "@/lib/exchange-rate"
+import { ledgerCurrency, toLedger } from "@/lib/payments/ledger-currency"
+import { formatMinor } from "@/lib/markets/money"
 
 /**
  * POST /api/stripe/cashout
@@ -15,6 +16,14 @@ import { getMarketExchangeRate } from "@/lib/exchange-rate"
  * - Prevents double cashout (no concurrent in-transit)
  * - Uses idempotency key
  * - Updates platform ledger: available → in_transit
+ *
+ * TWO KINDS OF NUMBER, NEVER MIXED. The wallet (seller_ledger, ledger_events)
+ * is kept in one currency, the platform's (lib/payments/ledger-currency), and
+ * every amount written to it is in that currency's minor units. The payout
+ * itself is Stripe's: the creator's whole available balance, in the currency
+ * Stripe holds it in, and the `payouts` row records exactly that. A balance
+ * is turned into the wallet's currency at the ECB rate of the day, the same
+ * rates every other wallet line uses; with no rate, nothing is guessed.
  */
 export async function POST(request: Request) {
   try {
@@ -96,35 +105,23 @@ export async function POST(request: Request) {
         )
       }
 
-      // Stripe has settled funds — sync the ledger so cashout can proceed.
-      // Convert native currency to USD using the real ECB market rate.
-      let syncAmountUsd = availableEntry.amount
-
-      if (availableEntry.currency !== "usd") {
-        // Try market rate first (ECB/Google rate), fall back to Stripe's rate
-        let exchangeRate: number | null = await getMarketExchangeRate(availableEntry.currency, null)
-
-        if (!exchangeRate || exchangeRate <= 0) {
-          const balanceTx = await stripe.balanceTransactions.list(
-            { limit: 10 },
-            { stripeAccount: stripeAccountId },
-          )
-          exchangeRate = (balanceTx.data as any[]).find(
-            (tx: any) => tx.exchange_rate,
-          )?.exchange_rate ?? null
-        }
-
-        if (exchangeRate && exchangeRate > 0) {
-          syncAmountUsd = Math.floor(availableEntry.amount / exchangeRate)
-        }
+      // Stripe has settled funds — sync the ledger so cashout can proceed,
+      // in the wallet's own currency at the day's ECB rate (never a guess).
+      const synced = await toLedger([availableEntry.amount], availableEntry.currency)
+      if (synced.currency !== ledgerCurrency()) {
+        return NextResponse.json(
+          { error: "Your balance is being updated. Try again in a few minutes." },
+          { status: 503 },
+        )
       }
+      const syncWalletMinor = synced.amounts[0] ?? 0
 
       // Move settled funds from pending → available in the ledger
-      const pendingReduction = Math.min(ledger.pending_amount, syncAmountUsd)
+      const pendingReduction = Math.min(ledger.pending_amount, syncWalletMinor)
       await adminSupabase
         .from("seller_ledger")
         .update({
-          available_amount: syncAmountUsd,
+          available_amount: syncWalletMinor,
           pending_amount: Math.max(0, ledger.pending_amount - pendingReduction),
         })
         .eq("creator_id", creator.id)
@@ -139,7 +136,7 @@ export async function POST(request: Request) {
         .lte("hold_until", new Date().toISOString())
 
       // Refresh local ledger values for the rest of the flow
-      ledger.available_amount = syncAmountUsd
+      ledger.available_amount = syncWalletMinor
       ledger.pending_amount = Math.max(0, ledger.pending_amount - pendingReduction)
     }
 
@@ -151,9 +148,8 @@ export async function POST(request: Request) {
 
     const minCashout = holdConfig?.min_cashout_cents ?? 100
     if (ledger.available_amount < minCashout) {
-      const minDollars = (minCashout / 100).toFixed(2)
       return NextResponse.json(
-        { error: `Minimum cashout is $${minDollars}` },
+        { error: `Minimum cashout is ${formatMinor(minCashout, ledgerCurrency().toUpperCase(), "en")}` },
         { status: 400 },
       )
     }
@@ -169,12 +165,12 @@ export async function POST(request: Request) {
     // ATOMIC LOCK: Conditionally update ledger only if in_transit is still 0
     // and available funds haven't changed. This prevents double-cashout from
     // concurrent requests — only one request can match the WHERE clause.
-    const cashoutUsdCents = ledger.available_amount
+    const cashoutWalletMinor = ledger.available_amount
     const { data: lockedLedger, error: lockErr } = await adminSupabase
       .from("seller_ledger")
       .update({
         available_amount: 0,
-        in_transit_amount: ledger.in_transit_amount + cashoutUsdCents,
+        in_transit_amount: ledger.in_transit_amount + cashoutWalletMinor,
       })
       .eq("creator_id", creator.id)
       .eq("in_transit_amount", 0)
@@ -195,7 +191,7 @@ export async function POST(request: Request) {
       { stripeAccount: stripeAccountId },
     )
 
-    const nativeCurrency = (creator.default_currency || "usd").toLowerCase()
+    const nativeCurrency = (creator.default_currency || "").toLowerCase()
     const nativeEntry = stripeBalance.available.find(
       (b) => b.currency === nativeCurrency && b.amount > 0,
     )
@@ -209,8 +205,8 @@ export async function POST(request: Request) {
       await adminSupabase
         .from("seller_ledger")
         .update({
-          available_amount: cashoutUsdCents,
-          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutUsdCents),
+          available_amount: cashoutWalletMinor,
+          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutWalletMinor),
         })
         .eq("creator_id", creator.id)
       return NextResponse.json(
@@ -235,7 +231,9 @@ export async function POST(request: Request) {
           metadata: {
             creator_id: creator.id,
             platform: "storelib",
-            ledger_available_usd_cents: String(ledger.available_amount),
+            /* What the wallet moved to in transit, in its own currency's minor units. */
+            ledger_available_minor: String(ledger.available_amount),
+            ledger_currency: ledgerCurrency(),
           },
         },
         {
@@ -248,8 +246,8 @@ export async function POST(request: Request) {
       await adminSupabase
         .from("seller_ledger")
         .update({
-          available_amount: cashoutUsdCents,
-          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutUsdCents),
+          available_amount: cashoutWalletMinor,
+          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutWalletMinor),
         })
         .eq("creator_id", creator.id)
       console.error("[Cashout] Stripe payout failed, ledger rolled back:", stripeErr)
@@ -262,13 +260,13 @@ export async function POST(request: Request) {
     await adminSupabase.from("ledger_events").insert({
       creator_id: creator.id,
       event_type: "cashout_initiated",
-      amount_cents: cashoutUsdCents,
-      net_seller_cents: cashoutUsdCents,
-      currency: "usd",
-      available_delta: -cashoutUsdCents,
-      in_transit_delta: cashoutUsdCents,
+      amount_cents: cashoutWalletMinor,
+      net_seller_cents: cashoutWalletMinor,
+      currency: ledgerCurrency(),
+      available_delta: -cashoutWalletMinor,
+      in_transit_delta: cashoutWalletMinor,
       stripe_payout_id: stripePayout.id,
-      description: `Cashout: $${(cashoutUsdCents / 100).toFixed(2)} to bank`,
+      description: `Cashout: ${formatMinor(payoutAmountNative, payoutCurrency.toUpperCase(), "en")} to bank`,
     })
 
     // Upsert payouts table (existing pattern for payout history)
@@ -287,8 +285,9 @@ export async function POST(request: Request) {
       {
         creator_id: creator.id,
         stripe_payout_id: stripePayout.id,
-        amount_cents: cashoutUsdCents,
-        currency: payoutCurrency,
+        /* Stripe's payout as it is: its amount in its own currency. */
+        amount_cents: stripePayout.amount,
+        currency: stripePayout.currency || payoutCurrency,
         status: stripePayout.status,
         arrival_date: arrivalDate,
         description: stripePayout.description,
@@ -316,7 +315,8 @@ export async function POST(request: Request) {
         payoutId: stripePayout.id,
         amountCents: payoutAmountNative,
         currency: payoutCurrency,
-        amountUsdCents: cashoutUsdCents,
+        walletAmountMinor: cashoutWalletMinor,
+        walletCurrency: ledgerCurrency(),
         arrivalDate,
         method: stripePayout.method,
         bankName: bank?.bank_name || null,
@@ -329,7 +329,8 @@ export async function POST(request: Request) {
       payout: {
         id: stripePayout.id,
         amount: payoutAmountNative,
-        amount_usd_cents: cashoutUsdCents,
+        wallet_amount_minor: cashoutWalletMinor,
+        wallet_currency: ledgerCurrency(),
         amount_native: payoutAmountNative,
         currency: payoutCurrency,
         status: stripePayout.status,

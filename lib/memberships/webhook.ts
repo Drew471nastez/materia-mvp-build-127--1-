@@ -112,7 +112,8 @@ async function exactRenewalFee(admin: Db, invoice: Stripe.Invoice): Promise<void
   const creatorId = invoice.parent?.subscription_details?.metadata?.creator_id
   if (!creatorId) return
   try {
-    const fee = await membershipFee(admin, creatorId, invoice.amount_due)
+    /* In the invoice's own currency (the plan's, dollars): the fee rule for that currency, never another's. */
+    const fee = await membershipFee(admin, creatorId, invoice.amount_due, (invoice.currency || "").toUpperCase() || undefined)
     await stripe.invoices.update(invoice.id, { application_fee_amount: fee.cents })
   } catch (e) {
     console.warn(`[memberships] renewal fee left as a percent on ${invoice.id}:`, e instanceof Error ? e.message : e)

@@ -49,6 +49,7 @@ const SUITES = [
   "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
   "tests/store-currency.test.ts",
+  "tests/round-am.test.ts",
   "tests/checkout-market-overhaul.test.ts",
   "tests/languages-panel.test.ts",
   "tests/auto-translate.test.ts",

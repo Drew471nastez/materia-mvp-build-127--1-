@@ -4,6 +4,7 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { revalidateTag } from "next/cache"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
@@ -20,13 +21,15 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [settings, h, creator, account, fallback] = await Promise.all([
+  const [settings, h, creator, account, fallback, selling] = await Promise.all([
     loadStoreSettings(c.db, c.creatorId),
     headers(),
-    db.from("creators").select("support_email, payout_currency, display_name, username").eq("id", c.creatorId).maybeSingle(),
+    db.from("creators").select("support_email, display_name, username").eq("id", c.creatorId).maybeSingle(),
     db.auth.admin.getUserById(c.userId).catch(() => null),
     /* What receipts show when no store logo is set: the website's logo, else the person's photo. */
     storeIdentity(db, c.creatorId, { skipStoreLogo: true, logoOnly: true }).catch(() => null),
+    /* The currency the store sells in (Settings › Store details), never the payout currency. */
+    readStoreCurrency(db, c.creatorId),
   ])
   /*
     WHAT TO START FROM WHEN NOTHING IS SAVED YET: the name the store already
@@ -34,12 +37,12 @@ export async function GET() {
     starting value in the form; nothing is written until Save, and a saved
     value is never replaced by these.
   */
-  const row = creator?.data as { support_email?: string | null; payout_currency?: string | null; display_name?: string | null; username?: string | null } | null
+  const row = creator?.data as { support_email?: string | null; display_name?: string | null; username?: string | null } | null
   const suggested = {
     storeName: (row?.display_name || row?.username || "").trim().slice(0, 80) || null,
     contactEmail: account?.data?.user?.email ?? null,
   }
-  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: row?.payout_currency ?? null, suggested, logoDefault: fallback?.logoUrl ? { url: fallback.logoUrl, from: fallback.logoFrom } : null })
+  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: selling.currency, suggested, logoDefault: fallback?.logoUrl ? { url: fallback.logoUrl, from: fallback.logoFrom } : null })
 }
 
 export async function PUT(request: Request) {

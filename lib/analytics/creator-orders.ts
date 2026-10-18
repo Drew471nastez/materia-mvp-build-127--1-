@@ -4,9 +4,11 @@ import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { homeTotals } from "./home-figures"
 import { KEYSET_PAGE, keysetFrom, readByKeyset } from "./keyset"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
 
 /* What a sale and its money are counted from (lib/orders/order-view, reports.ts moneyOf). */
-const SALE_COLUMNS = "id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents"
+const SALE_COLUMNS = "id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, currency"
 
 /**
  * THE CREATOR'S ORDERS, BY THE CREATOR, NEVER BY A LIST OF PRODUCT IDS.
@@ -69,7 +71,16 @@ export const ownRows = <T,>(rows: T[]): T[] => rows.map((row) => {
  * page at a time.
  */
 export async function creatorSalesTotals(admin: Admin, creatorId: string): Promise<{ sales: number; revenueCents: number }> {
-  try {
+  /*
+    IN THE STORE'S CURRENCY. The database's count adds every order's cents as
+    they are, which is only a total while every order is in the store's
+    currency. With any order in another one (a market's, a dollar plan's, a
+    store that changed currency), the orders are read and each is converted
+    at its own day's ECB rate first (lib/money/report-currency).
+  */
+  const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
+  const mixed = await byCreator((scope) => hasOrdersInOtherCurrency((columns) => scopedOrders(admin, columns, scope, creatorId, null), storeCurrency))
+  if (!mixed) try {
     const { data, error } = await admin.rpc("analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
     if (!error && data) {
       const d = data as { orders?: number; sales_cents?: number }
@@ -88,7 +99,7 @@ export async function creatorSalesTotals(admin: Admin, creatorId: string): Promi
       )
       return ownRows(read.rows)
     })
-    const { totalOrders, totalRevenue } = homeTotals(rows)
+    const { totalOrders, totalRevenue } = homeTotals((await inStoreCurrency(admin, creatorId, rows, storeCurrency)).rows)
     return { sales: totalOrders, revenueCents: Math.max(0, totalRevenue) }
   } catch (error) {
     console.error("[creator-orders] sales not counted:", (error as Error).message)
@@ -123,7 +134,10 @@ export async function creatorSalesRows(admin: Admin, creatorId: string, now: num
             return data ?? []
           }),
       ])
-      return { recent: ownRows(recent.rows), earliest: ownRows(earliest) }
+      /* In the store's currency, each at its own day's rate (lib/money/report-currency), as every figure is. */
+      const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
+      const [r, e] = await Promise.all([inStoreCurrency(admin, creatorId, ownRows(recent.rows), storeCurrency), inStoreCurrency(admin, creatorId, ownRows(earliest as OrderRow[]), storeCurrency)])
+      return { recent: r.rows, earliest: e.rows }
     })
   } catch (error) {
     console.error("[creator-orders] banner sales not read:", (error as Error).message)

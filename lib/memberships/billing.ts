@@ -37,6 +37,7 @@ import "server-only"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { feePercentFor, type BillingInterval } from "./state"
 import type { Db, PlanRow } from "./server"
@@ -63,7 +64,8 @@ export async function ensurePrice(admin: Db, plan: PlanRow, product: { id: strin
   const price = await stripe.prices.create(
     {
       product: stripeProductId,
-      currency: plan.currency || "usd",
+      /* The plan's own currency (dollars, lib/money/product-currency): never re-read from the store. */
+      currency: (plan.currency || PLAN_CURRENCY).toLowerCase(),
       unit_amount: amount,
       recurring: { interval },
       metadata: { kind: "membership", product_id: product.id },
@@ -83,9 +85,9 @@ export async function membershipFee(
   admin: Db,
   creatorId: string,
   amountCents: number,
-  currency = "usd",
+  currency: string | undefined = PLAN_CURRENCY,
 ): Promise<{ cents: number; percent: number; planId: string }> {
-  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency)
+  const fee = await calculatePlatformFeeForCheckout(amountCents, creatorId, admin, currency || PLAN_CURRENCY)
   return { cents: fee.platformFeeCents, percent: feePercentFor(amountCents, fee.platformFeeCents), planId: fee.planId }
 }
 

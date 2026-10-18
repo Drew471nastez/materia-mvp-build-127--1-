@@ -191,12 +191,14 @@ const ZERO_DECIMAL = new Set(["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "
 export function formatMoney(amount: unknown, currency: unknown): string {
   const n = typeof amount === "number" ? amount : typeof amount === "string" && /^-?\d+(\.\d+)?$/.test(amount.trim()) ? Number(amount) : NaN
   if (!Number.isFinite(n)) return ""
-  const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : "USD"
+  /* An amount is only ever written in the currency it was paid in. With no currency, or one Intl does not know, no amount is written: never dollars as a guess. */
+  const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
+  if (!code) return ""
   const value = ZERO_DECIMAL.has(code.toLowerCase()) ? n : n / 100
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(value)
   } catch {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value)
+    return ""
   }
 }
 

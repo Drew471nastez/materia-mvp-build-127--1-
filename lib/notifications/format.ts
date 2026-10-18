@@ -6,7 +6,9 @@
 import { DAY_MS } from "./policy"
 
 export function money(cents: number, currency: string | null | undefined): string {
-  const code = (currency || "usd").toUpperCase()
+  /* A currency nobody recorded is not guessed: the amount alone. */
+  if (!currency || !/^[a-z]{3}$/i.test(currency)) return ((cents || 0) / 100).toFixed(2)
+  const code = currency.toUpperCase()
   try {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format((cents || 0) / 100)
   } catch {

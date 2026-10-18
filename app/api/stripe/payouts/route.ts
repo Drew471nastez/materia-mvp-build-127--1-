@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import type Stripe from "stripe"
 import { pickBalance, upcomingByDay } from "@/lib/payments/display-currency"
+import { disputedInStore, taxYearsInUsd, type TaxYear } from "@/lib/money/payout-figures"
 import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
 
 export async function GET() {
@@ -162,7 +163,6 @@ function inTime<T, F>(read: Promise<T>, fallback: F): Promise<T | F> {
   ]).finally(() => clearTimeout(timer))
 }
 
-type TaxYear = { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
 
 /**
  * Storelib's own figures for the page: the negative balance and open
@@ -189,28 +189,23 @@ async function storelibFigures(admin: ReturnType<typeof createAdminClient>, crea
     const ids = ((productsRead.data as { id: string }[] | null) || []).map((p) => p.id)
     if (ids.length > 0) {
       const [disputedRead, taxRead] = await Promise.all([
-        admin.from("orders").select("amount_cents").in("product_id", ids).eq("status", "disputed"),
+        admin.from("orders").select("amount_cents, created_at, currency").in("product_id", ids).eq("status", "disputed"),
         admin
           .from("orders")
-          .select("amount_cents, created_at, status")
+          .select("amount_cents, created_at, status, currency")
           .in("product_id", ids)
           .in("status", ["completed", "refunded", "disputed"])
           .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
       ])
-      const disputed = (disputedRead.data as { amount_cents: number | null }[] | null) || []
-      disputeData.activeDisputes = disputed.length
-      disputeData.totalDisputedAmount = disputed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-      for (const order of (taxRead.data as { amount_cents: number | null; created_at: string }[] | null) || []) {
-        const orderYear = new Date(order.created_at).getFullYear()
-        const bucket = orderYear === currentYear ? taxData.currentYear : orderYear === previousYear ? taxData.previousYear : null
-        if (bucket) {
-          bucket.grossCents += order.amount_cents || 0
-          bucket.transactionCount += 1
-        }
-      }
-      /* Federal threshold: $20,000 AND 200+ transactions. */
-      taxData.currentYear.isEligible = taxData.currentYear.grossCents >= 2000000 && taxData.currentYear.transactionCount >= 200
-      taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200
+      /* Disputes in the store's currency; the 1099-K years in US dollars, each sale at its own day's rate (lib/money/payout-figures). */
+      const [disputed, years] = await Promise.all([
+        disputedInStore(admin, creatorId, (disputedRead.data as { amount_cents: number | null; created_at: string; currency: string | null }[] | null) || []),
+        taxYearsInUsd(admin, creatorId, (taxRead.data as { amount_cents: number | null; created_at: string; currency: string | null }[] | null) || [], currentYear),
+      ])
+      disputeData.activeDisputes = disputed.count
+      disputeData.totalDisputedAmount = disputed.amountCents
+      taxData.currentYear = years.currentYear
+      taxData.previousYear = years.previousYear
     }
     disputeData.hasActiveDisputes = disputeData.activeDisputes > 0
   } catch {

@@ -1,3 +1,4 @@
+import { tagOrderPricing } from "@/lib/money/order-pricing"
 import "server-only"
 
 /**
@@ -166,7 +167,8 @@ export async function fulfilPaymentIntent(
       provider: "stripe",
       paymentId: pi.id,
       amountMinor: pi.amount_received || pi.amount || 0,
-      currency: pi.currency || "usd",
+      /* Stripe always names the currency it charged in; never a guessed one. */
+      currency: pi.currency,
       metadata: pi.metadata,
       receiptEmail: pi.receipt_email || null,
       createdSeconds: pi.created,
@@ -239,7 +241,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     plan_used: m.plan_used || null,
     pricing_tier: m.pricing_tier || null,
     fee_rule_version: m.fee_rule_version || null,
-    currency: (paid.currency || m.currency || "usd").toLowerCase(),
+    currency: (paid.currency || m.currency || "").toLowerCase() || null,
     transfer_id: facts.transferId,
     provider: paid.provider,
     status: "completed",
@@ -265,7 +267,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     variant_name: variantName,
     variant_price_cents: variantPriceCents,
     /* What the buyer was charged in, not a fixed USD. */
-    variant_currency: (paid.currency || m.currency || "usd").toUpperCase(),
+    variant_currency: (paid.currency || m.currency || "").toUpperCase() || null,
     variant_snapshot: variantId && variantName ? { id: variantId, name: variantName, price_cents: variantPriceCents } : null,
     agreed_to_terms: m.agreed_to_terms === "true",
     agreed_at: m.agreed_at || new Date(paid.createdSeconds * 1000).toISOString(),
@@ -297,6 +299,8 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   const origin = orderOriginFrom(m, opts.request)
   const source = orderSourceFrom(m, opts.request)
   await tagOrderSource(admin, order.id, source, origin)
+  /* How its price was made: the store's own, or a marketplace dollar price and its rate day (lib/money/order-pricing). */
+  await tagOrderPricing(admin, order.id, m as Record<string, string>)
   /* First and last touch and the property, from what stripe-session checked
      and put on the payment; the property follows `source` (lib/attribution).
      Only this caller made the row, and the write is once anyway. */
@@ -460,7 +464,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
       creatorId,
       purchase: { orderId: order.id, amountCents: total, lineCount: 1 },
       lines: [{ orderId: order.id, productId, productTitle: m.product_title || null, amountCents: total, feeCents }],
-      currency: paid.currency.toLowerCase() || "usd",
+      currency: paid.currency.toLowerCase(),
       buyerEmail: buyerEmail || null,
       buyerCountry: row.buyer_country,
       correlationId: paid.paymentId,

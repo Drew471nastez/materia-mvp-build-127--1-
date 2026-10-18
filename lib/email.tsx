@@ -24,7 +24,6 @@ import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundEmail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
-import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -523,10 +522,18 @@ async function receiptEmailModel(
     }
   }
 
-  const amount = Number(params.fallback.amountCents) || 0
-  /* The receipt could not be read: the amount in the store's own currency (Settings › Store details), what it was charged in, never dollars over lei. */
-  const currency = params.creatorId ? (await import("@/lib/store/selling-currency-read").then((m) => m.readStoreCurrency(admin, params.creatorId)).catch(() => null))?.currency ?? SHOP_CURRENCY : SHOP_CURRENCY
-  const amountText = amount === 0 ? "Free" : formatMoney(amount, currency, "en-US")
+  /*
+    THE RECEIPT COULD NOT BE READ. The amount is the order's own, in the
+    currency the order was charged in (orders.currency, written from the
+    payment). Never the store's current currency, which may have changed
+    since, and never a guess: when the order itself cannot be read, the
+    email goes without amounts and the button opens the receipt.
+  */
+  const { data: orderRow } = await admin.from("orders").select("amount_cents, currency").eq("id", params.fallback.orderId).maybeSingle().then((r: { data: unknown }) => r, () => ({ data: null }))
+  const known = orderRow as { amount_cents?: number | null; currency?: string | null } | null
+  const currency = typeof known?.currency === "string" && /^[a-z]{3}$/i.test(known.currency) ? known.currency.toUpperCase() : null
+  const amount = Number(known?.amount_cents ?? params.fallback.amountCents) || 0
+  const amountText = currency === null ? "" : amount === 0 ? "Free" : formatMoney(amount, currency, "en-US")
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,
@@ -662,7 +669,8 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   }
 
   const first = rows[0] ?? null
-  const currency = (first?.currency || sale.currency || "usd").toString().toLowerCase()
+  /* The currency the sale was paid in: the order's own, else the checkout's. Never a guess: unknown, the email is written without amounts (lib/notify/templates formatMoney). */
+  const currency = (first?.currency || sale.currency || "").toString().toLowerCase() || null
   const extraFor = (id: string) => sale.lines?.find((l) => l.orderId === id)
   const single = rows.length <= 1
 
@@ -1723,10 +1731,21 @@ interface SendRefundEmailsParams {
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
   const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate, sellerAvatarUrl } = params
 
-  const formattedAmount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency || "USD",
-  }).format(refundAmount / 100)
+  /*
+    A REFUND IS WRITTEN IN THE CURRENCY IT WAS PAID BACK IN, which the caller
+    reads from Stripe's refund or the order. With no currency known, the email
+    is not sent with a guessed one: it is held and reported to the admin's
+    Health view, where it can be sent by hand.
+  */
+  const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
+  if (!code) {
+    console.error("[email] refund email held: no currency for order", String(orderId).slice(0, 8))
+    await import("@/lib/observability/report")
+      .then(({ reportError }) => reportError({ source: "notify", where: "refund email held: currency unknown", error: new Error("A refund email had no currency and was not sent"), context: { orderId } }))
+      .catch(() => undefined)
+    return
+  }
+  const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(refundAmount / 100)
 
   const refundDateFormatted = new Date().toLocaleDateString("en-US", {
     month: "short",

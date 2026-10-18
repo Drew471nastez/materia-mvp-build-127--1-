@@ -30,6 +30,8 @@ export interface StorefrontCardProduct {
   thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number | null
+  /** The currency the price is in when it is not the page's (lib/money/marketplace). */
+  currency?: string | null
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
   type?: string
@@ -85,6 +87,7 @@ export function StorefrontProductCard({
         href: product.href ?? null,
         price_cents: product.price_cents,
         compare_at_cents: product.compare_at_cents ?? null,
+        ...(product.currency ? { currency: product.currency } : {}),
         pay_what_you_want: product.pay_what_you_want ?? null,
         pwyw_min_price_cents: product.pwyw_min_price_cents ?? null,
         thumbnail_url: product.thumbnail_url ?? null,

@@ -56,7 +56,9 @@ export async function refundAirwallexOrder(r: {
     .eq("provider_payment_id", r.paymentIntentId)
     .maybeSingle()
   const fee = feeRow as { currency: string; gross_minor: number; creator_share_minor: number; refunded_minor: number; clawed_back_minor: number; creator_id: string | null } | null
-  const currency = fee?.currency ?? "USD"
+  /* The payment's own currency, from its fee record; without one the refund waits rather than guess. */
+  if (!fee?.currency) throw new Error("This payment's currency is not recorded, so the refund was not sent. Contact support.")
+  const currency = fee.currency
 
   const c = airwallex()
   const refund = await createRefund(c, { paymentIntentId: r.paymentIntentId, refundKey: key, amountMinor: r.amountMinor, currency, reason: r.reason ?? undefined })

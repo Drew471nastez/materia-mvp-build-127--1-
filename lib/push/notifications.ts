@@ -5,12 +5,26 @@ import { sendPushToUser } from "./sender"
  * Call these from webhook handlers, Stripe listeners, payout jobs, etc.
  */
 
+/** "$12.40" or "49.00 lei" in the amount's own currency, or "" when the currency is unknown: never a guessed one. */
+function moneyText(minor: number, currency: string | null | undefined): string {
+  const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
+  if (!code || !Number.isFinite(minor)) return ""
+  try {
+    const digits = new Intl.NumberFormat("en", { style: "currency", currency: code }).resolvedOptions().maximumFractionDigits ?? 2
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(minor / 10 ** digits)
+  } catch {
+    return ""
+  }
+}
+
 // ── Sale ─────────────────────────────────────────────────────────────────────
 
 interface SaleOptions {
   productName: string
-  /** Amount in cents */
+  /** Amount in the currency's minor units */
   amountCents: number
+  /** The currency it was paid in. Without it the push names no amount rather than guessing one. */
+  currency?: string | null
   orderId: string
   productId: string
 }
@@ -32,16 +46,13 @@ async function milestoneTitle(userId: string): Promise<string | null> {
 }
 
 export async function notifySale(userId: string, opts: SaleOptions): Promise<void> {
-  const amount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(opts.amountCents / 100)
+  const amount = moneyText(opts.amountCents, opts.currency)
 
   const milestone = await milestoneTitle(userId)
 
   return sendPushToUser(userId, {
     title: milestone ?? "🎉 You made a sale!",
-    body: `You sold ${opts.productName} for ${amount}`,
+    body: amount && opts.amountCents > 0 ? `You sold ${opts.productName} for ${amount}` : `You sold ${opts.productName}`,
     data: {
       type: "sale",
       orderId: opts.orderId,
@@ -54,14 +65,13 @@ export async function notifySale(userId: string, opts: SaleOptions): Promise<voi
 // ── Payout available ──────────────────────────────────────────────────────────
 
 export async function notifyPayoutAvailable(userId: string, amountCents: number): Promise<void> {
-  const amount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amountCents / 100)
+  /* The wallet's balance, in the wallet's own currency (lib/payments/ledger-currency), never dollars by default. */
+  const { ledgerCurrency } = await import("@/lib/payments/ledger-currency")
+  const amount = moneyText(amountCents, ledgerCurrency())
 
   return sendPushToUser(userId, {
     title: "Payout available",
-    body: `${amount} is ready to cash out`,
+    body: amount ? `${amount} is ready to cash out` : "Money is ready to cash out",
     data: {
       type: "payout_available",
     },

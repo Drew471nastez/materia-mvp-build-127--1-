@@ -10013,7 +10013,18 @@ const words: Record<string, string> = {
  "Slow for many visitors": "Lento para muchos visitantes",
  "Some visitors wait too long": "Algunos visitantes esperan demasiado",
  "Fewer measures": "Menos medidas",
- "More measures": "Más medidas"
+ "More measures": "Más medidas",
+ "Sales in other currencies are shown in {currency} at each day's exchange rate. {count} could not be converted yet and are not included.": "Las ventas en otras monedas se muestran en {currency} al tipo de cambio de cada día. {count} aún no se han podido convertir y no están incluidas.",
+ "Sales in other currencies are shown in {currency} at each day's exchange rate.": "Las ventas en otras monedas se muestran en {currency} al tipo de cambio de cada día.",
+ "Explore and the Storelib marketplace show prices in US dollars, so buyers in every country see one currency. Your store, website and dashboard stay in {currency}.": "Explore y el marketplace de Storelib muestran los precios en dólares estadounidenses, para que los compradores de todos los países vean una sola moneda. Tu tienda, tu web y tu panel siguen en {currency}.",
+ "On Explore and the Storelib marketplace: {price}, your dollar price.": "En Explore y el marketplace de Storelib: {price}, tu precio en dólares.",
+ "On Explore and the Storelib marketplace: about {price}, at today's exchange rate.": "En Explore y el marketplace de Storelib: unos {price}, al tipo de cambio de hoy.",
+ "On Explore and the Storelib marketplace this shows in US dollars, at the day's exchange rate.": "En Explore y el marketplace de Storelib se muestra en dólares estadounidenses, al tipo de cambio del día.",
+ "Dollar price": "Precio en dólares",
+ "Use this price": "Usar este precio",
+ "Change dollar price": "Cambiar precio en dólares",
+ "Set my own dollar price": "Poner mi propio precio en dólares",
+ "Use the converted price": "Usar el precio convertido"
 }
 
 export default words

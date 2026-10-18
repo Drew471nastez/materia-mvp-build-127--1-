@@ -1,3 +1,4 @@
+import { marketplacePricer } from "@/lib/money/marketplace-server"
 import { type NextRequest, NextResponse } from "next/server"
 import { isPubliclyVisible } from "@/lib/products/visibility"
 import { createClient } from "@/lib/supabase/server"
@@ -116,6 +117,8 @@ export async function GET(request: NextRequest) {
     const shown: typeof items = []
     for (const item of items) {
       if (!item.products || !isPubliclyVisible(item.products as { status?: string | null })) continue
+      /* A product that ships is sold on its store's website only, never on Storelib's marketplace pages: not on a marketplace list either. */
+      if (item.products.type === "physical") continue
       shown.push(item)
     }
 
@@ -137,6 +140,8 @@ export async function GET(request: NextRequest) {
       for (const p of (profileRows ?? []) as CreatorProfile[]) profileByUser.set(p.id, p)
     }
 
+    /* Each price as the marketplace shows it: its store's currency, or dollars once switched over (lib/money/marketplace-server). */
+    const priceOfRow = await marketplacePricer(adminClient, shown.map((item) => (item.products as { creator_id?: string | null } | null)?.creator_id ?? null))
     for (const item of shown) {
       let creatorInfo = null
       const profileData = item.products?.creators?.user_id ? profileByUser.get(item.products.creators.user_id) : undefined
@@ -152,6 +157,7 @@ export async function GET(request: NextRequest) {
         ...item,
         products: {
           ...item.products,
+          ...priceOfRow(item.products as Parameters<typeof priceOfRow>[0]),
           creator_profile: creatorInfo
         }
       })

@@ -4,6 +4,7 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadTaxSetup, saveTaxSwitches } from "@/lib/tax/server"
 import { detectedCountry, loadStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,10 +14,11 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [setup, h, creator, products, store] = await Promise.all([
+  const [setup, h, selling, products, store] = await Promise.all([
     loadTaxSetup(c.db, c.creatorId),
     headers(),
-    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    /* The store's selling currency (Settings › Store details), what its prices and taxes are in. Never the payout currency, which is only where money lands. */
+    readStoreCurrency(db, c.creatorId),
     /* For a product's own rate: the store's products by name. */
     c.db.from("products").select("id, title").eq("creator_id", c.creatorId).neq("status", "archived").order("title").limit(500),
     /* Settings › Store details' country: "New locations and tax start here". */
@@ -26,7 +28,7 @@ export async function GET() {
     ...setup,
     /* The country the first region is offered in: where the store says it is based, else where the request came from. */
     detectedCountry: store?.defaultCountry ?? detectedCountry(h),
-    currency: (creator?.data?.payout_currency as string | null) ?? "USD",
+    currency: selling.currency,
     products: ((products?.data ?? []) as { id: string; title: string | null }[]).map((p) => ({ id: p.id, title: p.title || "Untitled product" })),
   })
 }

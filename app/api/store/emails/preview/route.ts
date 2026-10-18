@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { shopCaller } from "@/lib/physical/auth"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { resolveCreatorIdentity } from "@/lib/email"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -20,10 +21,11 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id") ?? ""
   const db = c.db
-  const [identity, store, { data: creator }, look, website] = await Promise.all([
+  const [identity, store, selling, look, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
-    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
+    readStoreCurrency(db, c.creatorId),
     loadBrand(db, c.creatorId).catch(() => null),
     /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
     orderStoreUrl({ creator_id: c.creatorId }),
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
     storeUrl: website || null,
     logoUrl: store?.logoUrl ?? null,
     phone: store?.phone ?? null,
-    currency: (creator?.payout_currency as string | null) || "USD",
+    currency: selling.currency,
     accent: look?.accent ?? null,
   })
   if (!mail) return NextResponse.json({ error: "That email was not found." }, { status: 404 })

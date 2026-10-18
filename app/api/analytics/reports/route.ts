@@ -6,6 +6,8 @@ import { buildReports, moneyOf, previousWindow, spansToRead, type ReportWire, ty
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
+import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { ownsProperty, parseProperty, propertyParam } from "@/lib/analytics/properties"
 import {
   countVisits,
@@ -270,6 +272,8 @@ function storeAnswer(
       reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById }),
       allTime: a,
       truncated: v.truncated || d.truncated || l.truncated || o.truncated,
+      /* Sales in another currency, each converted to the store's at its own day's rate; any no rate could convert are left out and counted. */
+      conversion: o.conversion,
       viewer,
       property: propertyParam(q.selector) ?? "all",
       properties: q.properties,
@@ -283,10 +287,13 @@ function storeAnswer(
  * database when it can (analytics_all_time), else from every order here.
  */
 async function allTimeOf(admin: Admin, creatorId: string) {
-  const counted = await rpc<{ views: number; orders: number; sales_cents: number }>(admin, "analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
+  /* The database's count adds cents as they are: right only while every order is in the store's currency. Otherwise each is converted at its own day's rate (lib/money/report-currency). */
+  const storeCurrency = (await readStoreCurrency(admin, creatorId)).currency
+  const mixed = await byCreator((scope) => hasOrdersInOtherCurrency((columns) => scopedOrders(admin, columns, scope, creatorId, null), storeCurrency))
+  const counted = mixed ? null : await rpc<{ views: number; orders: number; sales_cents: number }>(admin, "analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
   if (counted) return { orders: Number(counted.orders) || 0, salesCents: Number(counted.sales_cents) || 0 }
-  const rows = await byCreator((scope) =>
-    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents", async (columns) =>
+  const read = await byCreator((scope) =>
+    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, currency", async (columns) =>
       ownRows(
         (
           await readAll<OrderRow>((after) =>
@@ -299,6 +306,7 @@ async function allTimeOf(admin: Admin, creatorId: string) {
       ),
     ),
   )
+  const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency)).rows
   const sales = groupOrders(rows).filter(isSale)
   return { orders: sales.length, salesCents: sales.reduce((sum, o) => sum + moneyOf(o).net, 0) }
 }

@@ -1,4 +1,5 @@
 import "server-only"
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { trialDaysOf } from "./plan"
 
 /**
@@ -99,7 +100,7 @@ export async function createMembershipProduct(admin: Db, creatorId: string, titl
     const refused = error?.code === "23514"
     return { ok: false, status: refused ? 503 : 500, error: refused ? "Memberships are not set up on Storelib yet." : "The membership could not be made. Try again." }
   }
-  const { error: planError } = await admin.from("membership_plans").insert({ product_id: product.id, creator_id: creatorId, trial_days: 0, benefits: [], included_product_ids: [] })
+  const { error: planError } = await admin.from("membership_plans").insert({ product_id: product.id, creator_id: creatorId, trial_days: 0, benefits: [], included_product_ids: [], /* Plans are priced and billed in US dollars (lib/money/product-currency), written down rather than left to the column default. */ currency: PLAN_CURRENCY.toLowerCase() })
   if (planError) {
     await admin.from("products").delete().eq("id", product.id)
     return { ok: false, status: 500, error: "The membership could not be made. Try again." }

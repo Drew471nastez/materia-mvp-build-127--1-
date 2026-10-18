@@ -46,6 +46,8 @@ interface CurrencyState {
   unsupportedLocal: string | null
   detectedCountry: string | null
   currencies: { code: string; label: string }[]
+  /** Storelib's marketplace shows this store in US dollars (lib/money/marketplace). */
+  marketplaceUsd?: boolean
   catalog: { products: number; variants: number; shippingRates: number; coupons: number; total: number }
   /** The change just made, while it can be undone (a day). */
   lastChange: { id: string; from: string; to: string; mode: string; at: string } | null
@@ -152,10 +154,26 @@ export function CountryCurrency() {
               <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
             </span>
           </div>
+          <MarketplaceNote data={data} />
           {data.lastChange ? <Undo change={data.lastChange} onDone={changed} /> : null}
         </>
       )}
     </Card>
+  )
+}
+
+/**
+ * ONE QUIET LINE, ONLY WHEN TRUE. Once Storelib's marketplace shows this
+ * store in US dollars (lib/money/marketplace), the creator is told where
+ * dollars appear and that their own places stay in their currency. Never
+ * shown for a dollar store, or before the marketplace is switched over.
+ */
+function MarketplaceNote({ data }: { data: Pick<CurrencyState, "currency" | "marketplaceUsd"> | null }) {
+  if (!data?.marketplaceUsd || data.currency.toUpperCase() === "USD") return null
+  return (
+    <p className="mt-2 text-[12px] leading-[18px] text-[#6b7280]" data-marketplace-usd-note="">
+      {tt("Explore and the Storelib marketplace show prices in US dollars, so buyers in every country see one currency. Your store, website and dashboard stay in {currency}.", { currency: data.currency })}
+    </p>
   )
 }
 
@@ -196,6 +214,7 @@ export function CurrencyLink() {
           <span className="truncate">{data ? (data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency) : ""}</span>
         </span>
       </div>
+      <MarketplaceNote data={data} />
     </Card>
   )
 }

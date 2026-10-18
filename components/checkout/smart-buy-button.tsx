@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePageMoney } from "@/components/platform/price-currency"
+import { useCheckoutHref, usePageMoney } from "@/components/platform/price-currency"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -143,7 +143,9 @@ export function SmartBuyButton({
     return pageMoney(cents, { grouping: true })
   }
 
-  const checkoutUrl = `/checkout?productId=${productId}${variantId ? `&variantId=${variantId}` : ""}`
+  /* On the marketplace: the dollar price this page showed, and its rate day (lib/money/marketplace). */
+  const checkoutHref = useCheckoutHref()
+  const checkoutUrl = checkoutHref(`/checkout?productId=${productId}${variantId ? `&variantId=${variantId}` : ""}`)
 
   /* The checkout warmed while the buyer reads, so the press lands quickly. */
   useEffect(() => {

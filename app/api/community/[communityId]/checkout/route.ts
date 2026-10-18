@@ -1,3 +1,4 @@
+import { PLAN_CURRENCY } from "@/lib/money/product-currency"
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
@@ -61,7 +62,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   ])
   const name = String((profile.data as { display_name?: string | null } | null)?.display_name ?? "").trim() || email.split("@")[0]
   /* Round AG: the tax each interval carries for this buyer, worked out as the subscription will be (lib/tax/membership.ts). */
-  const sale = { creatorId: community.creator_id ?? "", productId: plan.productId, currency: plan.currency || "usd", country: buyerCountry(h), ip: buyerIp(h) }
+  const sale = { creatorId: community.creator_id ?? "", productId: plan.productId, currency: plan.currency || PLAN_CURRENCY, country: buyerCountry(h), ip: buyerIp(h) }
   const [taxMonth, taxYear] = community.creator_id
     ? await Promise.all([
         plan.monthlyCents ? membershipTaxQuote(db, { ...sale, amountCents: plan.monthlyCents }).catch(() => null) : Promise.resolve(null),

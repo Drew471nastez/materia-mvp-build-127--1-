@@ -555,6 +555,8 @@ export interface ReportsAnswer {
   reports: Reports
   allTime: StoreAllTime | null
   truncated: boolean
+  /** Sales in another currency, converted to the store's at their own day's rate; `unconverted` had no rate and are left out. */
+  conversion?: { currency: string; converted: number; unconverted: number } | null
   /** The place the server counted ("all", "onepage", "website:<id>"), and the creator's places. */
   property?: string
   properties?: CreatorProperties
@@ -769,6 +771,14 @@ function ReportsView({ state, property }: { state: ReportsState; property: Prope
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
             {tt("This period has more activity than one report reads at once. Choose a shorter period for exact figures.")}
+          </p>
+        ) : null}
+
+        {shown?.conversion && (shown.conversion.converted > 0 || shown.conversion.unconverted > 0) ? (
+          <p data-analytics-converted="" className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">
+            {shown.conversion.unconverted > 0
+              ? tt("Sales in other currencies are shown in {currency} at each day's exchange rate. {count} could not be converted yet and are not included.", { currency: shown.conversion.currency, count: shown.conversion.unconverted })
+              : tt("Sales in other currencies are shown in {currency} at each day's exchange rate.", { currency: shown.conversion.currency })}
           </p>
         ) : null}
       </div>

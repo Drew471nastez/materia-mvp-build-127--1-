@@ -6,8 +6,10 @@ import { PayoutsClient } from "./payouts-client";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
 import { checkoutReadyForCreator } from "@/lib/payments/service";
 import { TryProStrip } from "@/components/app/announcement-bar-mobile";
-import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules";
-import { pickBalance, salesCurrencyOf } from "@/lib/payments/display-currency";
+import { pickBalance } from "@/lib/payments/display-currency";
+import { ledgerCurrency } from "@/lib/payments/ledger-currency";
+import { readStoreCurrency } from "@/lib/store/selling-currency-read";
+import { disputedInStore, taxYearsInUsd } from "@/lib/money/payout-figures";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
 import { PaneBar } from "@/app/app/orders/order-parts"
@@ -223,7 +225,7 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
         Promise.resolve(
           adminSupabase
             .from("orders")
-            .select("amount_cents, created_at, status")
+            .select("amount_cents, created_at, status, currency")
             .in("product_id", productIds)
             .in("status", ["completed", "refunded", "disputed"])
             .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
@@ -231,7 +233,7 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
         Promise.resolve(
           adminSupabase
             .from("orders")
-            .select("amount_cents")
+            .select("amount_cents, created_at, currency")
             .in("product_id", productIds)
             .eq("status", "disputed"),
         ).then((r) => r, () => nothing),
@@ -267,7 +269,8 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
     within seconds (PayoutsClient refreshBalances). Sales keep the currency
     they were charged in.
   */
-  const salesCurrency = salesCurrencyOf(allOrders, platformChargeCurrency());
+  /* Sales are reported in the store's currency (lib/money/report-currency), each converted at its own day's rate. */
+  const salesCurrency = (await readStoreCurrency(adminSupabase, creator.id)).currency.toLowerCase();
   let balanceCurrency = salesCurrency;
   let stripeAvailableBalance = 0;
   let stripePendingBalance = 0;
@@ -286,35 +289,26 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
   }
 
   // ── 1099-K Tax Data ──────────────────────────────────────────────────────────
+  /* In US dollars, each sale at its own day's rate: the form and its line are American (lib/money/payout-figures). */
+  const taxYears = productIds.length > 0
+    ? await taxYearsInUsd(adminSupabase, creator.id, (taxRead.data as { amount_cents: number | null; created_at: string; currency: string | null }[] | null) || [], currentYear)
+    : null;
   const taxData: {
     currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
     previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
     stripeExpressDashboardUrl: string | null;
   } = {
-    currentYear: { year: currentYear, grossCents: 0, transactionCount: 0, isEligible: false },
-    previousYear: { year: previousYear, grossCents: 0, transactionCount: 0, isEligible: false },
+    currentYear: taxYears?.currentYear ?? { year: currentYear, grossCents: 0, transactionCount: 0, isEligible: false },
+    previousYear: taxYears?.previousYear ?? { year: previousYear, grossCents: 0, transactionCount: 0, isEligible: false },
     stripeExpressDashboardUrl: null,
   };
 
-  if (productIds.length > 0) {
-    for (const order of (taxRead.data as { amount_cents: number | null; created_at: string }[] | null) || []) {
-      const orderYear = new Date(order.created_at).getFullYear();
-      const bucket = orderYear === currentYear ? taxData.currentYear : orderYear === previousYear ? taxData.previousYear : null;
-      if (bucket) {
-        bucket.grossCents += order.amount_cents || 0;
-        bucket.transactionCount += 1;
-      }
-    }
-
-    taxData.currentYear.isEligible = taxData.currentYear.grossCents >= 2000000 && taxData.currentYear.transactionCount >= 200;
-    taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200;
-  }
-
   // Dispute and negative balance figures, from the ledger row and the disputed orders
+  /* The ledger keeps its own currency (lib/payments/ledger-currency); disputes are reported in the store's. */
   const negativeBalance = ledger?.negative_balance || 0;
-  const disputed = (disputedRead.data as { amount_cents: number | null }[] | null) || [];
-  const activeDisputeCount = disputed.length;
-  const totalDisputedAmount = disputed.reduce((s, o) => s + (o.amount_cents || 0), 0);
+  const disputed = await disputedInStore(adminSupabase, creator.id, (disputedRead.data as { amount_cents: number | null; created_at: string; currency: string | null }[] | null) || [], salesCurrency);
+  const activeDisputeCount = disputed.count;
+  const totalDisputedAmount = disputed.amountCents;
 
   return (
     <PayoutsClient
@@ -323,6 +317,7 @@ async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsR
       initialData={{
         balanceCurrency,
         salesCurrency,
+        ledgerCurrency: ledgerCurrency(),
         pendingAmount: stripePendingBalance,
         availableBalance: stripeAvailableBalance,
         stripeRead: !!stripeRead?.ok,

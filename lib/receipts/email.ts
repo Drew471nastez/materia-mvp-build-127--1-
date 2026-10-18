@@ -122,7 +122,8 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
     ...(m.subtotalText ? [{ label: et("Subtotal"), value: m.subtotalText }] : []),
     ...(m.tipText ? [{ label: et("Tip"), value: m.tipText }] : []),
     ...(m.taxText && !m.taxIncluded ? [{ label: taxName(m), value: m.taxText }] : []),
-    { label: et("Total"), value: m.totalText, strong: true },
+    /* No total when the amount could not be read with its own currency (lib/email.tsx receiptEmailModel): never a guessed one. */
+    ...(m.totalText ? [{ label: et("Total"), value: m.totalText, strong: true }] : []),
     ...(m.taxText && m.taxIncluded ? [{ label: includedName(m), value: m.taxText }] : []),
     ...(m.refundedText ? [{ label: et("Refunded"), value: m.refundedText }] : []),
   ]
@@ -149,7 +150,7 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
   return emailDocument({
     sender,
     subject: et("Your receipt from {shop}", { shop: sellerPlain }),
-    preview: et("Order {number} from {shop}, {total}", { number: m.orderNumber, shop: sellerPlain, total: m.totalText }),
+    preview: m.totalText ? et("Order {number} from {shop}, {total}", { number: m.orderNumber, shop: sellerPlain, total: m.totalText }) : et("Order {number} from {shop}", { number: m.orderNumber, shop: sellerPlain }),
     rows,
     footer: { legal: legalText(m) ? et("{seller}. Through {platform}.", { seller: legalText(m), platform: PLATFORM_BRAND_NAME }) : et("Sold by {shop} through {platform}.", { shop: sellerPlain, platform: PLATFORM_BRAND_NAME }) },
   })
@@ -177,7 +178,7 @@ function legalText(m: ReceiptEmailModel): string {
 export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
   const lines = m.items.map((it) => {
     const name = it.variantName ? `${safeText(it.title)} (${safeText(it.variantName)})` : safeText(it.title)
-    return `  ${name}: ${it.amountText}${it.note ? ` (${it.note})` : ""}`
+    return `  ${name}${it.amountText ? `: ${it.amountText}` : ""}${it.note ? ` (${it.note})` : ""}`
   })
   return [
     safeName(m.firstName) ? et("Hi {name},", { name: safeName(m.firstName) }) : et("Hi there,"),
@@ -190,7 +191,7 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
     m.subtotalText ? `${et("Subtotal")}: ${m.subtotalText}` : null,
     m.tipText ? `${et("Tip")}: ${m.tipText}` : null,
     m.taxText && !m.taxIncluded ? `${taxName(m)}: ${m.taxText}` : null,
-    `${et("Total")}: ${m.totalText}`,
+    m.totalText ? `${et("Total")}: ${m.totalText}` : null,
     m.taxText && m.taxIncluded ? `${includedName(m)}: ${m.taxText}` : null,
     m.refundedText ? `${et("Refunded")}: ${m.refundedText}` : null,
     "",

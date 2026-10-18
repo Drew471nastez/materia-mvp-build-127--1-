@@ -210,12 +210,14 @@ async function drawInvoice({
   logo: Buffer | null
 }): Promise<Buffer> {
   const first = lines[0]
-  const currency = String((first as { currency?: string | null }).currency || "usd").toUpperCase()
+  /* The order's own currency. One nobody recorded is not guessed: the amounts are written plain. */
+  const currency = String((first as { currency?: string | null }).currency || "").toUpperCase()
   const money = (cents: number) => {
+    if (!/^[A-Z]{3}$/.test(currency)) return (cents / 100).toFixed(2)
     try {
       return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100)
     } catch {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+      return `${(cents / 100).toFixed(2)} ${currency}`
     }
   }
   const day = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "long", day: "numeric" }).format(new Date(iso))

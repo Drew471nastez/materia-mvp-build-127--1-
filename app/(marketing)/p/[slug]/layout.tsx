@@ -1,10 +1,12 @@
 import type React from "react"
+import { productPriceCurrency } from "@/lib/money/product-currency"
 import { loadProductBySlug, loadStoreConfig } from "@/lib/commerce/product-page-data"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import type { ThemePreset } from "@/lib/store-builder/types"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
-import { PriceCurrency } from "@/components/platform/price-currency"
+import { MarketplaceQuote, PriceCurrency } from "@/components/platform/price-currency"
+import { productPageQuote } from "@/lib/money/marketplace-server"
 
 interface ProductLayoutProps {
   children: React.ReactNode
@@ -18,6 +20,8 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
   let themePreset: ThemePreset = "default"
   /* The currency its store sells in: every price on the page is in it (components/platform/price-currency). */
   let currency: string | null = null
+  /* On the marketplace in US dollars (lib/money/marketplace): the Buy links carry the rate day. */
+  let quote: { active: boolean; fxAsOf: string | null } = { active: false, fxAsOf: null }
 
   try {
     /*
@@ -32,7 +36,12 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
     if (product?.creator_id) {
       const [config, sells] = await Promise.all([loadStoreConfig(product.creator_id, "product"), cachedStoreCurrency(product.creator_id)])
       themePreset = config?.published_config?.globalSettings?.themePreset || "default"
-      currency = sells
+      /* The currency this product's price is in: the store's, or dollars for a membership or community plan (lib/money/product-currency). */
+      currency = productPriceCurrency(product, sells)
+      /* A product page on Storelib is the marketplace: in dollars once its store is switched over, or waiting for a rate. */
+      const q = await productPageQuote(product, currency)
+      currency = q.currency
+      quote = { active: q.marketplace || q.paused, fxAsOf: q.fxAsOf }
     }
   } catch (error) {
     // Silently fall back to default theme on error
@@ -52,7 +61,9 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
         "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
-      <PriceCurrency currency={currency}>{children}</PriceCurrency>
+      <PriceCurrency currency={currency}>
+        <MarketplaceQuote active={quote.active} fxAsOf={quote.fxAsOf}>{children}</MarketplaceQuote>
+      </PriceCurrency>
     </div>
   )
 }
