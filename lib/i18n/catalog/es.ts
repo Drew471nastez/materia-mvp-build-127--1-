@@ -9971,7 +9971,13 @@ const words: Record<string, string> = {
  "Under Manage DNS Records, edit Wix's own A record and www CNAME rather than adding new ones.": "En Gestionar registros DNS, edita el registro A y el CNAME www de Wix en vez de añadir otros.",
  "Open DNS zone. Leave the subdomain empty for the domain itself.": "Abre la zona DNS. Deja el subdominio vacío para el propio dominio.",
  "In the domain's hosted zone, leave Record name empty for the domain itself.": "En la zona alojada del dominio, deja el nombre del registro vacío para el propio dominio.",
- "Use the blue globe to manage DNS, and delete its parking records first.": "Usa el globo azul para gestionar el DNS y borra primero sus registros de aparcamiento."
+ "Use the blue globe to manage DNS, and delete its parking records first.": "Usa el globo azul para gestionar el DNS y borra primero sus registros de aparcamiento.",
+ "AI memory": "Memoria de la IA",
+ "What Storelib AI keeps in mind for this website.": "Lo que Storelib AI tiene en cuenta para este sitio web.",
+ "Could not load. Try again in a moment.": "No se pudo cargar. Inténtalo de nuevo en un momento.",
+ "Nothing yet. Add something below, or the AI keeps notes as you work.": "Nada todavía. Añade algo abajo, o la IA toma notas mientras trabajas.",
+ "Forget this": "Olvidar esto",
+ "Add something to remember": "Añade algo para recordar"
 }
 
 export default words
