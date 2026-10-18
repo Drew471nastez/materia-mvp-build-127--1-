@@ -23,7 +23,7 @@ function check(name: string, ok: boolean, got?: unknown) {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}${ok || got === undefined ? "" : `   (${JSON.stringify(got)})`}`)
 }
 const eq = (name: string, got: unknown, want: unknown) => check(name, JSON.stringify(got) === JSON.stringify(want), got)
-const root = join(__dirname, "..")
+const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 
 const STORE = "11111111-2222-4333-8444-555555555555"

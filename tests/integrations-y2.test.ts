@@ -18,7 +18,7 @@ function check(name: string, ok: boolean) {
   else failed++
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${name}`)
 }
-const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8")
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const detail = read("components/app/settings/integration-detail.tsx")
 const dir = read("components/app/settings/integrations-directory.tsx")
 

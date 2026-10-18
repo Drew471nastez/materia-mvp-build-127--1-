@@ -602,3 +602,29 @@ The launch checklist is `docs/launch/marketplace-usd-launch-checklist.md`. `MARK
   - fingerprints identical before and after.
 - **Connect.** Onboarding requests the recipient agreement first for creators outside the platform's country. Stripe says those accounts get no cross-border payouts. `scripts/connect-audit.mjs` lists every account's agreement, country, capabilities and payout eligibility (read only). Nothing changed.
 - **Real Stripe test mode.** `scripts/stripe-test-purchase.mjs` covers the USD destination charge, settlement, transfer, the creator's currency, the partial refund and the proportional reversal. It refuses live keys. It needs a test key and test accounts, which this environment does not have.
+
+## 14. Round AP: accounts that can be paid out
+
+- **Stripe's rule (docs.stripe.com/connect/cross-border-payouts).** Cross-border payouts work only:
+  - between the US, UK, EEA, Canada and Switzerland;
+  - on the full agreement, never the recipient one;
+  - for destination charges without `on_behalf_of`.
+- **Onboarding fixed.**
+  - It never requests the recipient agreement.
+  - Across a border it opens transfers only, on the full agreement, never with card payments.
+  - Outside the region it opens no account and says so in plain words.
+  - An untouched recipient account is swapped for a new one.
+  - Pure and tested: `lib/payments/stripe/account-attempts.ts`, `payout-regions.ts`, `tests/round-ap.test.ts`.
+  - Existing accounts are not changed.
+- **Connect audit.** It also marks accounts in countries outside the region as `affected`, and warns about cross-border accounts that can take cards (the `on_behalf_of` risk when the seller-statement switch is on).
+- **Test mode.**
+  - `scripts/stripe-test-purchase.mjs --create-account <RO|DE|FR|US|GB>` opens the account the way onboarding does, using Stripe's documented test identity and bank.
+  - Its run ends with a real test payout in the currency the sale settled in.
+- **Tests.** `team-landing` and `integrations-y2` crashed on `__dirname` in the ES module test build since #379. They now read from the working folder; their checks pass.
+- **Still needs access this environment does not have:**
+  - the live Connect audit;
+  - the price audit;
+  - SQL 244 and 245 in production;
+  - the reconciliation;
+  - the test-mode runs;
+  - and therefore activation.

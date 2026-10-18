@@ -7,6 +7,8 @@ import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
 import { countryIsUnsupported, paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
+import { payoutRoute } from "./payout-regions"
+import { accountAttempts } from "./account-attempts"
 import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
 import { parsePersonal } from "./onboarding-steps"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
@@ -248,7 +250,10 @@ export async function ensureStripeAccount(
       /* An unfinished Express account would make Stripe open its sign-in window.
          Nothing has been sent on it, so it is swapped for one that stays in Storelib. */
       const untouched = !existing.details_submitted && !existing.charges_enabled && !existing.payouts_enabled
-      if (runsInStorelib(existing) || !untouched) return accountId
+      /* An unfinished account on the recipient agreement can never be paid out
+         across borders: nothing has been sent on it either, so it is swapped too. */
+      const recipient = existing.tos_acceptance?.service_agreement === "recipient"
+      if ((runsInStorelib(existing) && !recipient) || !untouched) return accountId
       replacing = accountId
     } catch (error) {
       if (!accountIsGone(error)) {
@@ -352,8 +357,13 @@ async function platformCountry(): Promise<string> {
 
 /**
  * Destination charges only need `transfers` on the connected account.
- * A creator outside the platform country is a cross-border recipient:
- * card_payments is not requested, and the recipient agreement is.
+ * A creator outside the platform country gets a FULL agreement account with
+ * transfers only: Stripe makes cross-border payouts only to full agreement
+ * accounts, only for destination charges without on_behalf_of (so no
+ * card_payments), and only inside the US, UK, EEA, Canada and Switzerland
+ * (lib/payments/stripe/payout-regions). Outside that region no account is
+ * opened at all: one that can never be paid out would only hold the
+ * creator's money.
  *
  * First choice: Storelib collects the requirements and there is no Stripe
  * dashboard, so setup never leaves Storelib. If the platform is not set up
@@ -365,69 +375,11 @@ async function createConnectedAccount(
   options: { storelibOnly?: boolean } = {},
 ): Promise<Stripe.Account> {
   const platform = await platformCountry().catch(() => "")
-  const crossBorder = platform !== "" && country !== platform
-  const full: Stripe.AccountCreateParams.Capabilities = {
-    card_payments: { requested: true },
-    transfers: { requested: true },
+  const route = payoutRoute(platform, country)
+  if (route === "unsupported") {
+    throw new PaymentsProblem("Payouts to that country are not available on Storelib yet. Choose another country where you have a bank account, or write to support@storelib.com.")
   }
-  const transfersOnly: Stripe.AccountCreateParams.Capabilities = { transfers: { requested: true } }
-  const inStorelib: Stripe.AccountCreateParams.Controller = {
-    stripe_dashboard: { type: "none" },
-    fees: { payer: "application" },
-    losses: { payments: "application" },
-    requirement_collection: "application",
-  }
-  const acknowledged: Stripe.AccountCreateParams.Controller = {
-    stripe_dashboard: { type: "express" },
-    fees: { payer: "application" },
-    losses: { payments: "application" },
-    requirement_collection: "stripe",
-  }
-  const expressDefault: Stripe.AccountCreateParams.Controller = {
-    stripe_dashboard: { type: "express" },
-    fees: { payer: "account" },
-    losses: { payments: "stripe" },
-    requirement_collection: "stripe",
-  }
-
-  const recipient = {
-    ...shared,
-    capabilities: transfersOnly,
-    tos_acceptance: { service_agreement: "recipient" },
-  }
-  const merchant = { ...shared, capabilities: full }
-  /* Destination charges only need transfers. card_payments is extra, and
-     Stripe refuses it for some countries (Romania included) with a message
-     that sounds like the country itself is unsupported. Transfers, with no
-     recipient agreement, still pays the seller out. */
-  const paidOut = { ...shared, capabilities: transfersOnly }
-
-  /* The recipient ToS agreement only exists for cross-border payouts: Stripe
-     refuses it when the platform and the creator are in the same country
-     ("recipient ToS is not supported for platforms in RO creating accounts in
-     RO"). Same country tries a full account, then transfers only. */
-  const storelibAttempts: Stripe.AccountCreateParams[] = crossBorder
-    ? [
-        { ...recipient, controller: inStorelib },
-        { ...paidOut, controller: inStorelib },
-        { ...merchant, controller: inStorelib },
-      ]
-    : [
-        { ...merchant, controller: inStorelib },
-        { ...paidOut, controller: inStorelib },
-      ]
-  const expressAttempts: Stripe.AccountCreateParams[] = crossBorder
-    ? [
-        { ...recipient, controller: acknowledged },
-        { ...paidOut, controller: acknowledged },
-        { ...recipient, type: "express" },
-      ]
-    : [
-        { ...merchant, controller: acknowledged },
-        { ...paidOut, controller: acknowledged },
-        { ...merchant, type: "express" },
-      ]
-  const attempts = options.storelibOnly ? storelibAttempts : [...storelibAttempts, ...expressAttempts]
+  const attempts = accountAttempts(shared, route, options)
 
   let last: unknown
   /* A platform-level block (Stripe paused or is holding the platform) is the
@@ -447,7 +399,7 @@ async function createConnectedAccount(
       console.error("[stripe connect] create attempt", msg.replace(/\s+/g, " ").slice(0, 180))
       if (/account has been rejected|invalid email/i.test(msg)) throw error
       if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
-      const transfersOnlyShape = !params.capabilities?.card_payments && params.tos_acceptance?.service_agreement !== "recipient"
+      const transfersOnlyShape = !params.capabilities?.card_payments
       if (transfersOnlyShape && countryIsUnsupported(msg)) countryBlocked = error
     }
   }
