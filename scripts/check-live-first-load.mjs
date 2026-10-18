@@ -22,6 +22,7 @@
  *
  *   node scripts/check-live-first-load.mjs https://andrewrullz.storelib.com/
  *   node scripts/check-live-first-load.mjs --runs 3 --nav http://localhost:4100/
+ *   node scripts/check-live-first-load.mjs --desktop --nav --hover <url>   rest on the link first (prerender on a desktop)
  *
  * Targets for an imported theme's page on this profile: fcp under 1.8s, lcp
  * under 2.5s, dcl under 3s. It prints what it measured and says which
@@ -57,9 +58,11 @@ const option = (name, fallback) => {
 const runs = Number(option("--runs", "1"))
 const withNav = !!flag("--nav")
 const desktop = !!flag("--desktop")
+/* Rest the pointer on the link a second before pressing it, as a desktop visitor does: what a link fetched (or drawn) ahead on hover saves. */
+const hover = !!flag("--hover")
 const urls = args
 if (!urls.length) {
-  console.error("Usage: node scripts/check-live-first-load.mjs [--runs N] [--nav] [--desktop] <url> [url...]")
+  console.error("Usage: node scripts/check-live-first-load.mjs [--runs N] [--nav] [--desktop] [--hover] <url> [url...]")
   process.exit(2)
 }
 
@@ -112,16 +115,25 @@ async function once(url) {
     const href = await page.evaluate((o) => [...document.querySelectorAll("a[href]")].map((a) => a.href).find((h) => h.startsWith(o) && !h.includes("#") && new URL(h).pathname !== new URL(location.href).pathname && !/cart|checkout|account|login/.test(h)), origin)
     if (href) {
       const before = await page.evaluate(() => performance.timeOrigin)
+      if (hover) {
+        const link = page.locator(`a[href="${new URL(href).pathname}"], a[href="${href}"]`).first()
+        await link.scrollIntoViewIfNeeded().catch(() => {})
+        await link.hover({ timeout: 5000 }).catch(() => {})
+        await page.waitForTimeout(1000)
+      }
       const t1 = Date.now()
-      await page.evaluate((h) => { const a = [...document.querySelectorAll("a")].find((x) => x.href === h); a?.click() }, href)
+      if (hover) await page.locator(`a[href="${new URL(href).pathname}"], a[href="${href}"]`).first().click({ timeout: 5000 }).catch(() => page.evaluate((h) => { const a = [...document.querySelectorAll("a")].find((x) => x.href === h); a?.click() }, href))
+      else await page.evaluate((h) => { const a = [...document.querySelectorAll("a")].find((x) => x.href === h); a?.click() }, href)
       await page.waitForURL((u) => u.href.replace(/\/$/, "") === href.replace(/\/$/, ""), { timeout: 60000 }).catch(() => {})
       await page.waitForLoadState("load").catch(() => {})
       m.nav = Date.now() - t1
       m.navTo = href.replace(origin, "")
       /* When the next page was first drawn, from the click: what the visitor waits for before they see it. */
       /* A page that moves in place (a Storelib theme) has no new document: its next page is drawn when the move is done. */
-      const after = await page.evaluate(() => ({ origin: performance.timeOrigin, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? NaN })).catch(() => null)
-      const drawnAt = after && after.origin !== before ? after.origin + after.fcp : NaN
+      /* A prerendered page was drawn before the click: it is shown at its activation. */
+      const after = await page.evaluate(() => ({ origin: performance.timeOrigin, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? NaN, act: performance.getEntriesByType("navigation")[0]?.activationStart ?? 0 })).catch(() => null)
+      const drawnAt = after && after.origin !== before ? after.origin + Math.max(after.fcp, after.act) : NaN
+      m.prerendered = !!after && after.act > 0
       m.navFcp = Number.isFinite(drawnAt) ? Math.round(drawnAt - t1) : m.nav
       m.navInPlace = !!after && after.origin === before
     }
@@ -148,6 +160,7 @@ for (const url of urls) {
   if (withNav) {
     row.navTo = all[0].navTo
     if (all.some((r) => r.navInPlace)) row.navTo += " (in place)"
+    if (all.some((r) => r.prerendered)) row.navTo += ` (prerendered ${all.filter((r) => r.prerendered).length}/${all.length})`
   }
   console.log(url)
   console.log("  " + Object.entries(row).map(([k, v]) => `${k} ${v}`).join("  "))

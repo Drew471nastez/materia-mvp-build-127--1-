@@ -639,7 +639,7 @@ async function main() {
     const site = read("app/(site)/w/[username]/render-site.tsx")
     check("every website page mounts the tracker (home and every [page])", /<TrackView type="store" creatorId=\{site\.creatorId\} \/>/.test(site))
     check("  and the shop, search, cart and wishlist, which drew none",
-      ["products/page.tsx", "search/page.tsx", "cart/page.tsx"].every((f) => /<TrackView creatorId=\{site\.creatorId\} \/>/.test(read(`app/(site)/w/[username]/${f}`))) &&
+      ["products/shop-page.tsx", "search/page.tsx", "cart/page.tsx"].every((f) => /<TrackView creatorId=\{site\.creatorId\} \/>/.test(read(`app/(site)/w/[username]/${f}`))) &&
         /key === "contact" \|\| key === "wishlist"/.test(read("app/(site)/w/[username]/render-account.tsx")))
     const tracker = read("components/analytics/track-view.tsx")
     check("the tracker is keyed by the path, so a route change is a new view", /const pathname = usePathname\(\)/.test(tracker) && /\}, \[creatorId, productId, pathname\]\)/.test(tracker))

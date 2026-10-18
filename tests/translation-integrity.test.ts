@@ -65,8 +65,8 @@ async function main() {
   console.log("\nCollections in the page's language")
   const live = read("lib/markets/live.ts")
   check("the live site translates a collection's name and description", /collection\(c\) \{/.test(live) && /`collection:\$\{c\.id\}`/.test(live))
-  check("its own page uses them", /const collection = localizer \? localizer\.collection\(inIt\.collection\) : inIt\.collection/.test(read("app/(site)/w/[username]/collections/[handle]/page.tsx")))
-  check("every live page hands its language to the collections it lists", ["search/page.tsx", "products/page.tsx", "collections/page.tsx", "render-account.tsx", "collections/[handle]/page.tsx"].every((f) => /\{ cached: true, localizer \}/.test(read(`app/(site)/w/[username]/${f}`))))
+  check("its own page uses them", /const collection = localizer \? localizer\.collection\(inIt\.collection\) : inIt\.collection/.test(read("app/(site)/w/[username]/collections/[handle]/collection-page.tsx")))
+  check("every live page hands its language to the collections it lists", ["search/page.tsx", "products/shop-page.tsx", "collections/page.tsx", "render-account.tsx", "collections/[handle]/collection-page.tsx"].every((f) => /\{ cached: true, localizer \}/.test(read(`app/(site)/w/[username]/${f}`))))
   check("  where the page's data lays them over", /collections: collections && opts\.localizer \?/.test(read("lib/website-builder/published-site.ts")))
   /* Changed on purpose (translation coverage): the overlay moved to compat-fields.ts compatCollectionIn, which the builder's canvas calls too. */
   check("imported themes too", /`collection:\$\{c\.id\}`/.test(read("lib/markets/compat-fields.ts")) && /compatCollectionIn\(c, map, opts\)/.test(read("lib/markets/compat.ts")))
@@ -83,7 +83,7 @@ async function main() {
   /* Changed on purpose (translate changes automatically, owner edits protected): Storelib AI's; the merchant's own stays, as above. */
   check("  Storelib AI's written for an older text is not", shown.cookie_banner_text === "We use cookies.")
   check("the translations list reads them from the theme settings schema", /themeTextTranslatables\(theme, THEME_SETTINGS_GROUPS\.flatMap/.test(read("lib/markets/server.ts")))
-  check("every live page lays the theme over in its language, not only the home page", ["products/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
+  check("every live page lays the theme over in its language, not only the home page", ["products/shop-page.tsx", "collections/page.tsx", "collections/[handle]/collection-page.tsx", "search/page.tsx", "cart/page.tsx", "render-account.tsx"].every((f) => /themeSettings: localizer\.theme\(/.test(read(`app/(site)/w/[username]/${f}`))))
   check("and the editor's language preview does too", /* Changed on purpose (merge with main): the theme in the language and the market previewed. */ /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /theme=\{canvasThemeShown\}/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 
   console.log("\nOptions and variants")
