@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   const product = await ownProduct(c.db, c.creatorId, new URL(request.url).searchParams.get("productId"))
   if (!product) return physicalJson({ error: "Not found." }, 404)
   const store = (await readStoreCurrency(c.db, c.creatorId)).currency.toUpperCase()
-  const enabled = marketplaceUsdFor(c.creatorId) && store !== MARKETPLACE_CURRENCY && !isPlanPriced(product)
+  const enabled = (await marketplaceUsdFor(c.creatorId)) && store !== MARKETPLACE_CURRENCY && !isPlanPriced(product)
   if (!enabled) return physicalJson({ enabled: false })
   const [fx, fixed] = await Promise.all([marketplaceRates(c.db, undefined, { cached: true }), fixedOf(c.db, product.id)])
   /* What one whole unit of the store's currency is in dollar cents today, for the editor's "about $12.34"; null with no fresh rate. */
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   const body = await readBody(request)
   const product = await ownProduct(c.db, c.creatorId, body?.productId)
   if (!product) return physicalJson({ error: "Not found." }, 404)
-  if (!marketplaceUsdFor(c.creatorId) || isPlanPriced(product)) return physicalJson({ error: "This product has no separate marketplace price." }, 400)
+  if (!(await marketplaceUsdFor(c.creatorId)) || isPlanPriced(product)) return physicalJson({ error: "This product has no separate marketplace price." }, 400)
   const raw = body?.usdCents
   const cents = raw === null ? null : typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= MAX_USD_CENTS ? raw : undefined
   if (cents === undefined) return physicalJson({ error: "Enter a dollar price." }, 400)

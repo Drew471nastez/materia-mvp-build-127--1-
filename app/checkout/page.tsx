@@ -280,7 +280,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   let priceRow: PriceRow = product as PriceRow
   let shownVariants = allVariants
   let pricing: { context: "marketplace"; fxAsOf: string | null } | null = null
-  if (ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && marketplaceUsdFor(product.creator_id)) {
+  if (ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && (await marketplaceUsdFor(product.creator_id))) {
     const fx = await marketplaceRates(checkoutAdmin(), fxParam)
     const listed = priceCurrency
     const usd = <T extends { price_cents: number; pwyw_min_price_cents?: number | null }>(row: T): T | null => {

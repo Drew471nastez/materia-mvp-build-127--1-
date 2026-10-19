@@ -130,7 +130,7 @@ async function state(db: Db, creatorId: string, headers: Headers) {
     /* The change just made, which Undo puts back (store_currency_restore). */
     lastChange: lastChange && lastChange.to === store.currency ? lastChange : null,
     /* Storelib's marketplace shows this store in US dollars (lib/money/marketplace): only then does Settings say so. */
-    marketplaceUsd: marketplaceUsdFor(creatorId),
+    marketplaceUsd: await marketplaceUsdFor(creatorId),
   }
 }
 

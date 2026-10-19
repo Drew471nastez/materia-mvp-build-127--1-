@@ -22,6 +22,7 @@
 import { readFileSync, existsSync } from "node:fs"
 import { stripComments } from "./_source"
 import { fakeDb } from "./_fake-db"
+import { resetMarketplaceLaunchCache } from "@/lib/money/marketplace"
 import {
   MARKETPLACE_CURRENCY,
   approvedUsdPrice,
@@ -132,6 +133,8 @@ async function main() {
       product_variants: [],
       store_settings: [{ creator_id: STORE, currency: "RON", default_country: "RO" }],
       fx_rates: [{ as_of: today, rates: RATES }],
+      /* Changed on purpose (currency round AP): "all" is locked until this launch row exists (lib/money/marketplace resolveMarketplaceGate). */
+      platform_migrations: [{ key: "marketplace_usd_launch", applied_at: today }],
       coupons: [{ id: "c0000000-0000-4000-8000-000000000001", creator_id: STORE, code: "FIVE", discount_type: "fixed", discount_value: 5, is_active: true, starts_at: null, expires_at: null, usage_limit: null, usage_count: 0, product_ids: null, min_purchase_cents: null }],
     })
     const before = process.env.MARKETPLACE_USD
@@ -141,6 +144,12 @@ async function main() {
       check("switch off: the marketplace charges the store's currency, as before", off.ok && off.currency === "RON" && off.totals.totalCents === 4900 && off.pricing.context === "merchant", off)
 
       process.env.MARKETPLACE_USD = "all"
+      resetMarketplaceLaunchCache()
+      const unverified = tables()
+      ;(unverified as { platform_migrations: unknown[] }).platform_migrations = []
+      const locked = await priceOrder(fakeDb(unverified) as never, { productId: PRODUCT, pricing: { context: "mp", fxAsOf: today } })
+      check("\"all\" before the launch is verified: still the store's currency (locked)", locked.ok && locked.currency === "RON" && locked.pricing.context === "merchant", locked)
+      resetMarketplaceLaunchCache()
       const site = await priceOrder(fakeDb(tables()) as never, { productId: PRODUCT })
       check("switch on: the store's own places still charge its currency", site.ok && site.currency === "RON" && site.totals.totalCents === 4900)
       const mp = await priceOrder(fakeDb(tables()) as never, { productId: PRODUCT, pricing: { context: "mp", fxAsOf: today } })
@@ -172,7 +181,7 @@ async function main() {
     check("and writes how a marketplace price was made, in one metadata key, before the 50-key check", /priced\.pricing\.context === "marketplace"\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session) && /fitStripeMetadata\(metadata\)/.test(session))
     check("a pause is answered with its own code", /priced\.code \? \{ code: priced\.code \}/.test(session))
     const page = code("app/checkout/page.tsx")
-    check("the checkout page converts only for ?ctx=mp with the switch on", /ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && marketplaceUsdFor\(product\.creator_id\)/.test(page))
+    check("the checkout page converts only for ?ctx=mp with the switch on", /ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && \(await marketplaceUsdFor\(product\.creator_id\)\)/.test(page)) /* Changed on purpose (currency round AP): the switch is awaited (launch lock). */
     check("and waits, with a plain message, when no rate is fresh", /<RatesPaused/.test(page) && page.includes(`checkoutMsg("${RATES_PAUSED_MESSAGE}")`))
     const client = code("app/checkout/checkout-client.tsx")
     check("the client sends the pricing back with Pay and with a code", (client.match(/\bpricing,/g) ?? []).length >= 2)
@@ -245,7 +254,7 @@ async function main() {
       check(`${f}: no "usd" written for an unknown currency`, !/(\|\||\?\?) ?["']usd["']/i.test(code(f)) && !/currency: ["']usd["']/i.test(code(f)))
     }
     check("a notification never writes $ (or a bare number) for a currency nobody recorded", notifyMoney(1234, null) === "" && /€|EUR/.test(notifyMoney(1234, "eur")))
-    check("the settings note is said only when the marketplace is in dollars for the store", /marketplaceUsd: marketplaceUsdFor\(creatorId\)/.test(code("app/api/store/currency/route.ts")) && /!data\?\.marketplaceUsd/.test(code("components/app/settings/country-currency.tsx")))
+    check("the settings note is said only when the marketplace is in dollars for the store", /marketplaceUsd: await marketplaceUsdFor\(creatorId\)/.test(code("app/api/store/currency/route.ts")) && /!data\?\.marketplaceUsd/.test(code("components/app/settings/country-currency.tsx")))
   }
 
   console.log("\nSQL part 244")

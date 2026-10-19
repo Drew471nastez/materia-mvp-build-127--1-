@@ -71,6 +71,47 @@ export function gateOpenFor(gate: MarketplaceGate, creatorId: string | null | un
   return !!creatorId && gate.creatorIds.has(creatorId.toLowerCase())
 }
 
+/**
+ * GLOBAL ACTIVATION IS LOCKED UNTIL THE DATABASE SAYS IT WAS VERIFIED.
+ * "all" only takes effect once platform_migrations holds the row
+ * `marketplace_usd_launch`. Only the launch SQL writes it
+ * (supabase/sql/runbooks/ap-launch.sql), and it refuses to unless parts
+ * 244 and 245 are in and a real marketplace dollar sale, refunded, is on
+ * record. Until then "all" acts as off. A list of creator ids (the gradual
+ * rollout, one store first) never needs the row. Read at most once a
+ * minute per server; an unreadable answer counts as "not yet".
+ */
+export const MARKETPLACE_LAUNCH_KEY = "marketplace_usd_launch"
+const LAUNCH_TTL_MS = 60_000
+let launchCache: { ok: boolean; at: number } | null = null
+
+/** Tests only: forget the cached answer. */
+export function resetMarketplaceLaunchCache(): void {
+  launchCache = null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function marketplaceLaunchConfirmed(db: any): Promise<boolean> {
+  if (launchCache && Date.now() - launchCache.at < LAUNCH_TTL_MS) return launchCache.ok
+  let ok = false
+  try {
+    const { data, error } = await db.from("platform_migrations").select("key").eq("key", MARKETPLACE_LAUNCH_KEY).maybeSingle()
+    ok = !error && !!data
+  } catch {
+    ok = false
+  }
+  launchCache = { ok, at: Date.now() }
+  return ok
+}
+
+/** The switch as it really applies: "all" without the launch row is off. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function resolveMarketplaceGate(db: any, raw: string | null | undefined = process.env.MARKETPLACE_USD): Promise<MarketplaceGate & { lockedAll?: true }> {
+  const gate = parseMarketplaceGate(raw)
+  if (gate.mode !== "all") return gate
+  return (await marketplaceLaunchConfirmed(db)) ? gate : { mode: "off", lockedAll: true }
+}
+
 /* ─── The arithmetic ─────────────────────────────────────────────────── */
 
 function perEuro(fx: FxRates, currency: string): number | null {

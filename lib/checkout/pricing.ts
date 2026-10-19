@@ -24,7 +24,7 @@ import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { productPriceCurrency } from "@/lib/money/product-currency"
-import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, couponValueInUsd, gateOpenFor, toUsdMinor, marketplaceAmounts, parseMarketplaceGate, pricingContextOf, type PriceSource, type PricingContext } from "@/lib/money/marketplace"
+import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, couponValueInUsd, gateOpenFor, toUsdMinor, marketplaceAmounts, resolveMarketplaceGate, pricingContextOf, type PriceSource, type PricingContext } from "@/lib/money/marketplace"
 import type { FxRates } from "@/lib/markets/money"
 import { applyOffers, stackWithCode, type AppliedOffer, type Offer, type OfferLine } from "@/lib/offers/offers"
 import { loadOffers, offerLinesFor } from "@/lib/offers/offers-read"
@@ -226,7 +226,7 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
     currency instead, which the buyer was not shown.
   */
   const context = requestedContext(req.pricing?.context)
-  if (context === "marketplace" && listCurrency !== MARKETPLACE_CURRENCY && gateOpenFor(parseMarketplaceGate(process.env.MARKETPLACE_USD), (product as PricedProduct).creator_id)) {
+  if (context === "marketplace" && listCurrency !== MARKETPLACE_CURRENCY && gateOpenFor(await resolveMarketplaceGate(db), (product as PricedProduct).creator_id)) {
     const { marketplaceRates } = await import("@/lib/money/marketplace-server")
     const fx = await marketplaceRates(db, req.pricing?.fxAsOf)
     const m = marketplaceAmounts({ ...(owner as object), type: (product as PricedProduct).type } as Parameters<typeof marketplaceAmounts>[0], listCurrency, fx)

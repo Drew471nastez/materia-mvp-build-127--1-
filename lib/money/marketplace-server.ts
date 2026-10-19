@@ -9,18 +9,27 @@ import "server-only"
 import { fxFresh, type FxRates } from "@/lib/markets/money"
 import { cachedRates, latestRates } from "@/lib/markets/fx-server"
 import { storeCurrencies } from "@/lib/store/store-currencies"
-import { MARKETPLACE_CURRENCY, gateOpenFor, marketplaceAmounts, parseMarketplaceGate, toUsdMinor, type MarketplaceGate, type MarketplaceSource } from "./marketplace"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { MARKETPLACE_CURRENCY, gateOpenFor, marketplaceAmounts, parseMarketplaceGate, resolveMarketplaceGate, toUsdMinor, type MarketplaceGate, type MarketplaceSource } from "./marketplace"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-/** The switch, from the server's environment only (never NEXT_PUBLIC_): off unless set. */
-export function marketplaceGate(): MarketplaceGate {
-  return parseMarketplaceGate(process.env.MARKETPLACE_USD)
+/**
+ * The switch, from the server's environment only (never NEXT_PUBLIC_): off
+ * unless set, and "all" stays off until the launch row exists
+ * (lib/money/marketplace resolveMarketplaceGate).
+ */
+export async function marketplaceGate(): Promise<MarketplaceGate & { lockedAll?: true }> {
+  const raw = process.env.MARKETPLACE_USD
+  const gate = parseMarketplaceGate(raw)
+  /* The database is asked only for "all"; off and a list of stores never need it. */
+  if (gate.mode !== "all") return gate
+  return resolveMarketplaceGate(createAdminClient(), raw)
 }
 
-export function marketplaceUsdFor(creatorId: string | null | undefined): boolean {
-  return gateOpenFor(marketplaceGate(), creatorId)
+export async function marketplaceUsdFor(creatorId: string | null | undefined): Promise<boolean> {
+  return gateOpenFor(await marketplaceGate(), creatorId)
 }
 
 /**
@@ -63,7 +72,7 @@ export interface MarketplaceRowPatch {
  * fresh rate: its own currency, marked paused, never a guessed dollar figure.
  */
 export async function marketplacePricer(db: Db, creatorIds: (string | null | undefined)[], productIds: (string | null | undefined)[] = []): Promise<(row: MarketplaceSource & { id?: string | null; creator_id?: string | null }) => MarketplaceRowPatch> {
-  const gate = marketplaceGate()
+  const gate = await marketplaceGate()
   const currencies = await storeCurrencies(db, creatorIds)
   const anyOpen = gate.mode !== "off" && creatorIds.some((id) => gateOpenFor(gate, id))
   const [fx, fixed] = anyOpen ? await Promise.all([marketplaceRates(db, undefined, { cached: true }), approvedDollarPrices(db, productIds)]) : [null, new Map<string, MarketplaceSource>()]
@@ -140,7 +149,7 @@ export interface ProductPageQuote {
  */
 export async function productPageQuote(product: (PricedRow & { creator_id?: string | null }) | null | undefined, listCurrency: string, rows: PricedRow[] = []): Promise<ProductPageQuote> {
   const same: ProductPageQuote = { currency: listCurrency, marketplace: false, paused: false, fxAsOf: null, convert: (r) => r }
-  if (!product || listCurrency.toUpperCase() === MARKETPLACE_CURRENCY || !marketplaceUsdFor(product.creator_id)) return same
+  if (!product || listCurrency.toUpperCase() === MARKETPLACE_CURRENCY || !(await marketplaceUsdFor(product.creator_id))) return same
   const fx = await marketplaceRates(null, undefined, { cached: true })
   const from = listCurrency.toUpperCase()
   const convert = <R extends PricedRow>(row: R): R | null => {

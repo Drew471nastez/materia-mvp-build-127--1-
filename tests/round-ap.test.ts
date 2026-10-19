@@ -84,6 +84,26 @@ async function main() {
   const cards = v({ id: "d", country: "DE", capabilities: { transfers: "active", card_payments: "active" } })
   check("  one that can take cards stays ok but carries the on_behalf_of warning", cards.verdict === "ok" && cards.reasons.some((r: string) => /on_behalf_of/.test(r)))
 
+  section("3b. The one launch file and the lock on MARKETPLACE_USD=all")
+  const launch = read("supabase/sql/runbooks/storelib-currency-launch.sql")
+  check("one transaction, and orders must be byte-for-byte unchanged or nothing is kept", /raise exception 'Orders changed during the run/.test(launch) && (launch.match(/do \$launch\$/g) ?? []).length === 1)
+  check("the price fix is the proven one (own order, same currency, no edit, no old options) at platform usd", /v_platform constant text := 'usd'/.test(launch) && /greatest\(0, coalesce\(o\.amount_cents, 0\) - coalesce\(o\.tip_cents, 0\)\) = c\.original_cents/.test(launch) && /product_variants v\s+where v\.product_id = c\.id and v\.price_cents > 0 and v\.created_at < v_applied_at/.test(launch))
+  check("every change is written to price_corrections first", launch.indexOf("insert into public.price_corrections") < launch.indexOf("update public.products p set price_cents"))
+  check("the launch lock table is admin only", /alter table public\.platform_migrations enable row level security;\s*revoke all on public\.platform_migrations from anon, authenticated;/.test(launch))
+  check("all is unlocked only after a real marketplace dollar sale was refunded and no recent order lacks a currency", /v_mp_sales >= 1 and v_mp_refunded >= 1 and v_unknown_recent = 0 then\s*insert into public\.platform_migrations/.test(launch))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mk: any = await import("../lib/money/marketplace")
+  const dbWith = (rows: unknown[]) => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: rows[0] ?? null, error: null }) }) }) }) })
+  mk.resetMarketplaceLaunchCache()
+  check("MARKETPLACE_USD=all without the launch row acts as off", (await mk.resolveMarketplaceGate(dbWith([]), "all")).mode === "off")
+  mk.resetMarketplaceLaunchCache()
+  check("  with the row, all is on", (await mk.resolveMarketplaceGate(dbWith([{ key: "marketplace_usd_launch" }]), "all")).mode === "all")
+  mk.resetMarketplaceLaunchCache()
+  const failing = { from: () => { throw new Error("db down") } }
+  check("  an unreadable database counts as not launched", (await mk.resolveMarketplaceGate(failing, "all")).mode === "off")
+  check("  one creator id (the first rollout step) never needs the row", (await mk.resolveMarketplaceGate(failing, "0e5e3f49-2b67-4e49-8e8f-373a82aebf1d")).mode === "some")
+  mk.resetMarketplaceLaunchCache()
+
   section("4. A test-mode run that opens its own account and pays it out")
   const seen: Array<{ m: string; p: string; body: URLSearchParams; acct: string | undefined }> = []
   const made: Record<string, Record<string, unknown>> = {}
