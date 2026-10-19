@@ -212,3 +212,38 @@ export function couponValueInUsd(valueMajor: number, from: string, fx: FxRates |
 
 /** The message a paused marketplace purchase answers with. Plain, and true. */
 export const RATES_PAUSED_MESSAGE = "Prices on Storelib are being updated. Try again in a few minutes."
+
+/**
+ * A SAFETY NET FOR A BUY LINK THAT LOST ITS TAG. The marketplace's Buy
+ * links carry ?ctx=mp; a button that forgot it would charge the store's
+ * currency on storelib.com. The page the buyer came from settles it: Explore,
+ * a product page, a creator page or a community on Storelib's own address
+ * (never a store's website, its subdomain or its OnePage) is the marketplace.
+ */
+export function marketplaceReferrer(referer: string | null | undefined, mainDomain: string): boolean {
+  if (!referer) return false
+  let url: URL
+  try {
+    url = new URL(referer)
+  } catch {
+    return false
+  }
+  const main = mainDomain.trim().toLowerCase().replace(/^www\./, "")
+  const host = url.hostname.toLowerCase().replace(/^www\./, "")
+  if (!main || host !== main) return false
+  const parts = url.pathname.split("/").filter(Boolean).map((p) => p.toLowerCase())
+  if (!parts.length) return true
+  const [first, second] = parts
+  if (first === "explore" || first === "marketplace" || first === "search") return true
+  if ((first === "p" || first === "u" || first === "c" || first === "communities") && second) return true
+  if (first === "l" || second === "links") return false
+  if (RESERVED_FIRST.has(first)) return false
+  /* /<seller> and /<seller>/<product>: the creator page and its product pages. */
+  return parts.length <= 2
+}
+
+const RESERVED_FIRST = new Set([
+  "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "cart", "checkout", "creators", "dashboard",
+  "developers", "downloads", "faq", "features", "forgot-password", "legal", "library", "login", "logout", "native-start",
+  "onboarding", "pricing", "privacy", "purchase", "receipt", "reset-password", "settings", "signup", "terms", "welcome", "w",
+])

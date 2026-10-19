@@ -181,7 +181,7 @@ async function main() {
     check("and writes how a marketplace price was made, in one metadata key, before the 50-key check", /priced\.pricing\.context === "marketplace"\) metadata\[PRICING_METADATA_KEY\] = encodePricing\(priced\.pricing\)/.test(session) && /fitStripeMetadata\(metadata\)/.test(session))
     check("a pause is answered with its own code", /priced\.code \? \{ code: priced\.code \}/.test(session))
     const page = code("app/checkout/page.tsx")
-    check("the checkout page converts only for ?ctx=mp with the switch on", /ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && \(await marketplaceUsdFor\(product\.creator_id\)\)/.test(page)) /* Changed on purpose (currency round AP): the switch is awaited (launch lock). */
+    /* Changed on purpose (round AQ): ?ctx=mp, or a storelib.com marketplace page before it; never a website (?site=). */ check("the checkout page converts only on the marketplace with the switch on", /const onMarketplace = ctx === "mp" \|\| \(!ctx && !site && marketplaceReferrer\(/.test(page) && /onMarketplace && priceCurrency !== MARKETPLACE_CURRENCY && \(await marketplaceUsdFor\(product\.creator_id\)\)/.test(page)) /* Changed on purpose (currency round AP): the switch is awaited (launch lock). */
     check("and waits, with a plain message, when no rate is fresh", /<RatesPaused/.test(page) && page.includes(`checkoutMsg("${RATES_PAUSED_MESSAGE}")`))
     const client = code("app/checkout/checkout-client.tsx")
     check("the client sends the pricing back with Pay and with a code", (client.match(/\bpricing,/g) ?? []).length >= 2)

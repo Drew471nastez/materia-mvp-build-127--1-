@@ -24,6 +24,7 @@ import { CROSS_BORDER_REGION, payoutRoute, payoutSupported } from "../lib/paymen
 import { accountAttempts } from "../lib/payments/stripe/account-attempts"
 import { followsStoreName, pickStatementName } from "../lib/payments/statement-name"
 import { statementParams } from "../lib/payments/platform-descriptor"
+import { marketplaceReferrer } from "../lib/money/marketplace"
 
 let passed = 0
 let failed = 0
@@ -157,6 +158,16 @@ async function main() {
   const live = await run("scripts/stripe-test-purchase.mjs", ["--create-account", "DE"], { ...env, STRIPE_SECRET_KEY: "sk_live_xxx" })
   check("a live key is still refused before any call", live.code === 2 && seen.length === 0)
   stub.close()
+
+  /* Every storelib.com page is the marketplace, even when a Buy link lost its ?ctx=mp tag. */
+  const M = "storelib.com"
+  for (const u of ["https://storelib.com/explore", "https://www.storelib.com/p/tech-house-master-bundle", "https://storelib.com/andrewrullz/tech-house-master-bundle", "https://storelib.com/andrewrullz", "https://storelib.com/c/loudlib", "https://storelib.com/"]) {
+    check(`marketplace page: ${u}`, marketplaceReferrer(u, M))
+  }
+  for (const u of ["https://andrew.storelib.com/products/x", "https://loudlib.shop/products/x", "https://storelib.com/l/andrew", "https://storelib.com/andrew/links", "https://storelib.com/app/products", "https://storelib.com/checkout?productId=1", "", "not a url"]) {
+    check(`not the marketplace: ${u || "(none)"}`, !marketplaceReferrer(u, M))
+  }
+  check("checkout charges dollars for a storelib.com page without the tag, never for a website (?site=)", /const onMarketplace = ctx === "mp" \|\| \(!ctx && !site && marketplaceReferrer\(requestHeaders\.get\("referer"\)/.test(readFileSync(join(process.cwd(), "app/checkout/page.tsx"), "utf8")))
 
   /* The bank statement follows the store's name. */
   check("statement: no name typed uses the store's name", pickStatementName({ custom: null, storeName: "Offgrid Sounds", displayName: "Andrew", slug: "andrewrullz" }) === "OFFGRID")

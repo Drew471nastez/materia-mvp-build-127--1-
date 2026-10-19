@@ -34,7 +34,7 @@ import { gaCheckoutOf } from "@/lib/store/ga"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { PLAN_CURRENCY, productPriceCurrency } from "@/lib/money/product-currency"
-import { MARKETPLACE_CURRENCY, marketplaceAmounts } from "@/lib/money/marketplace"
+import { MARKETPLACE_CURRENCY, marketplaceAmounts, marketplaceReferrer } from "@/lib/money/marketplace"
 import { curatedWords } from "@/lib/checkout-text/words"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { marketplaceRates, marketplaceUsdFor } from "@/lib/money/marketplace-server"
@@ -280,7 +280,9 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   let priceRow: PriceRow = product as PriceRow
   let shownVariants = allVariants
   let pricing: { context: "marketplace"; fxAsOf: string | null } | null = null
-  if (ctx === "mp" && priceCurrency !== MARKETPLACE_CURRENCY && (await marketplaceUsdFor(product.creator_id))) {
+  /* No tag, no website: the page before decides (lib/money/marketplace marketplaceReferrer), so a storelib.com Buy button is never charged in the store's currency. */
+  const onMarketplace = ctx === "mp" || (!ctx && !site && marketplaceReferrer(requestHeaders.get("referer"), process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"))
+  if (onMarketplace && priceCurrency !== MARKETPLACE_CURRENCY && (await marketplaceUsdFor(product.creator_id))) {
     const fx = await marketplaceRates(checkoutAdmin(), fxParam)
     const listed = priceCurrency
     const usd = <T extends { price_cents: number; pwyw_min_price_cents?: number | null }>(row: T): T | null => {
