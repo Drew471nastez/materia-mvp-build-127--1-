@@ -897,14 +897,7 @@ function EntryBody({ color, mark, name, category, summary, badge }: { color: str
           style={coverWash(color, "full")}
           data-integration-cover-fill=""
         />
-        {SPECKS.map((s, i) => {
-          const { place, dot } = speckStyle(color, s)
-          return (
-            <span key={i} className="int-speck" style={place} data-integration-speck="">
-              <i style={dot} />
-            </span>
-          )
-        })}
+        <span className="int-mesh" style={meshStyle(color)} data-integration-mesh="" />
       </span>
       <span className="relative flex shrink-0 items-start justify-between gap-3">
         <span className="rounded-[12px] sm:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_4px_10px_-4px_rgba(16,24,40,0.12)]">{mark}</span>
@@ -924,48 +917,28 @@ function EntryBody({ color, mark, name, category, summary, badge }: { color: str
 }
 
 /*
-  AND A FEW SOFT SPECKS OF ITS COLOUR SCATTER ACROSS IT (round Z7, the owner:
-  "dispersed, very smooth and clean particles of gradient when I hover").
-  Seven small dots, each already soft (a radial gradient that fades to
-  nothing, so no blur filter is ever run), in the integration's colour with
-  a slight lean toward a lighter, a cooler or a warmer neighbour. At rest
-  they are gathered by the logo and invisible; under the pointer they spread
-  out to their places and fade in, and while the pointer stays each drifts a
-  few pixels on its own slow loop; when it leaves they gather back and fade.
-  They only move, grow and fade (no layout, no paint), the drift paused
-  unless the card is hovered, and none of it with reduced motion
-  (app/globals.css .int-speck; scripts/check-integrations-y2.mjs films it).
+  A DISPERSED GRADIENT ON A HOVER (the owner, after the specks of round Z7
+  read as bubbles: "dispersed, very subtle, very close to each other, like
+  a gradient, smooth, clean, modern, not bubbles"). One layer, made of four
+  wide, low soft ellipses of the integration's colour and three close
+  neighbours (lighter, cooler, warmer), overlapping so far that no edge or
+  dot can be seen: a mesh, not shapes. Under the pointer it fades in and
+  slides a few pixels into place, then drifts very slowly while it stays.
+  Only its opacity and position change; nothing with reduced motion or
+  without hover (app/globals.css .int-mesh).
 */
-const SPECKS: ReadonlyArray<{ left: string; top: number; size: number; alpha: number; tint: "same" | "light" | "cool" | "warm"; dx: number; dy: number; loop: number; delay: number }> = [
-  { left: "22%", top: 10, size: 28, alpha: 0.78, tint: "light", dx: 5, dy: 3, loop: 6.2, delay: 0 },
-  { left: "36%", top: 24, size: 16, alpha: 0.7, tint: "same", dx: -4, dy: -3, loop: 5.4, delay: 30 },
-  { left: "49%", top: 4, size: 22, alpha: 0.62, tint: "cool", dx: 4, dy: 4, loop: 7.1, delay: 60 },
-  { left: "60%", top: 20, size: 32, alpha: 0.5, tint: "light", dx: -5, dy: 2, loop: 6.6, delay: 20 },
-  { left: "72%", top: 6, size: 14, alpha: 0.72, tint: "warm", dx: 3, dy: 4, loop: 5.8, delay: 90 },
-  { left: "83%", top: 22, size: 24, alpha: 0.56, tint: "cool", dx: -3, dy: -4, loop: 6.9, delay: 50 },
-  { left: "92%", top: 8, size: 12, alpha: 0.66, tint: "same", dx: 4, dy: -2, loop: 5.1, delay: 110 },
-]
-const TINT_WITH = { same: null, light: "#ffffff", cool: "#7dd3fc", warm: "#f9a8d4" } as const
-/** Where a speck sits and how it moves (the outer span), and its soft dot (the inner <i>). */
-function speckStyle(color: string, s: (typeof SPECKS)[number]): { place: React.CSSProperties; dot: React.CSSProperties } {
-  const mixWith = TINT_WITH[s.tint]
-  /* Mixed in sRGB, not round the hue wheel: orange toward blue must not pass through green. */
-  const tone = mixWith ? `color-mix(in srgb, ${color} ${s.tint === "light" ? 62 : 80}%, ${mixWith})` : color
+function meshStyle(color: string): React.CSSProperties {
+  const mix = (other: string | null, pct: number, alpha: number) => {
+    const tone = other ? `color-mix(in srgb, ${color} ${pct}%, ${other})` : color
+    return `color-mix(in srgb, ${tone} ${alpha}%, transparent)`
+  }
   return {
-    place: {
-      left: s.left,
-      top: s.top,
-      width: s.size,
-      height: s.size,
-      marginLeft: -s.size / 2,
-      transitionDelay: `${s.delay}ms`,
-      ["--speck-dx" as string]: `${s.dx}px`,
-      ["--speck-dy" as string]: `${s.dy}px`,
-      ["--speck-loop" as string]: `${s.loop}s`,
-    },
-    dot: {
-      backgroundImage: `radial-gradient(circle closest-side, color-mix(in srgb, ${tone} ${Math.round(s.alpha * 100)}%, transparent) 0%, color-mix(in srgb, ${tone} ${Math.round(s.alpha * 80)}%, transparent) 30%, color-mix(in srgb, ${tone} ${Math.round(s.alpha * 30)}%, transparent) 65%, transparent 100%)`,
-    },
+    backgroundImage: [
+      `radial-gradient(60% 140% at 18% 30%, ${mix("#ffffff", 70, 30)} 0%, transparent 70%)`,
+      `radial-gradient(55% 150% at 42% 70%, ${mix(null, 100, 24)} 0%, transparent 72%)`,
+      `radial-gradient(60% 140% at 66% 20%, ${mix("#7dd3fc", 78, 20)} 0%, transparent 72%)`,
+      `radial-gradient(55% 150% at 90% 65%, ${mix("#f9a8d4", 80, 18)} 0%, transparent 72%)`,
+    ].join(", "),
   }
 }
 

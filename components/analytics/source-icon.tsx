@@ -19,6 +19,7 @@
 import * as React from "react"
 import { socialNetworkOfHost } from "@/lib/analytics/sources"
 import { BRAND_MARKS } from "./brand-marks"
+import { BrowserLogo, COLOUR_BROWSERS } from "./browser-logos"
 
 type GlyphName =
   | "direct"
@@ -94,7 +95,7 @@ function markForBrowser(name: string): Mark | null {
   if (n.includes("edge")) return brand("edge")
   if (n.includes("opera")) return brand("opera")
   if (n.includes("brave")) return brand("brave")
-  if (n.includes("samsung")) return glyph("globe")
+  if (n.includes("samsung")) return brand("samsung")
   if (n.includes("firefox")) return brand("firefox")
   if (n.includes("chrome")) return brand("chrome")
   if (n.includes("safari")) return brand("safari")
@@ -336,6 +337,14 @@ export function SourceIcon({ kind, value }: { kind: IconFor; value: string }) {
   else if (kind === "campaign") mark = glyph("campaign")
   else mark = markForOs(value)
   const m: Mark = mark ?? glyph("globe")
+  /* A browser in its own colours (./browser-logos), not a one-colour silhouette. */
+  if (m.kind === "brand" && kind === "browser" && COLOUR_BROWSERS.has(m.name)) {
+    return (
+      <span aria-hidden data-brand={m.name} className={TILE}>
+        <BrowserLogo name={m.name} />
+      </span>
+    )
+  }
   if (m.kind === "brand") {
     return (
       <span aria-hidden data-brand={m.name} className={TILE} style={m.name === "snapchat" ? { background: "#FFFC00" } : undefined}>

@@ -367,23 +367,23 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
       ) : null}
 
       {changesCurrency && data.country ? (
-        <div className="space-y-2 rounded-xl bg-[#f8f9fa] px-3.5 py-3" data-currency-notice="">
-        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Review your prices across the store after changing currency, so checkout holds no surprises.")}</p>
-        <label
-          className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-[19px] text-[#374151]"
-          data-currency-understood=""
-        >
-          <input
-            type="checkbox"
-            checked={understood}
-            onChange={(e) => setUnderstood(e.target.checked)}
-            className="mt-[2px] h-4 w-4 shrink-0 cursor-pointer rounded border-[#d1d5db] accent-[#1a1a2e]"
-          />
-          <span>
-            {tt("I understand the risk of changing the store currency")}
+        <label className="group flex cursor-pointer items-start gap-2.5 py-0.5" data-currency-understood="">
+          <span className="relative mt-[1px] grid h-[18px] w-[18px] shrink-0 place-items-center">
+            <input
+              type="checkbox"
+              checked={understood}
+              onChange={(e) => setUnderstood(e.target.checked)}
+              className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[5px] border border-[#c9cdd3] bg-white shadow-[0_1px_0_rgba(26,26,46,0.04)] transition-[background-color,border-color,box-shadow] duration-150 group-hover:border-[#9ca3af] checked:border-[#1a1a2e] checked:bg-[#1a1a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+            />
+            <svg aria-hidden viewBox="0 0 12 12" className="pointer-events-none relative h-3 w-3 scale-75 text-white opacity-0 transition-[opacity,transform] duration-150 peer-checked:scale-100 peer-checked:opacity-100">
+              <path d="M2.5 6.2 4.9 8.5 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{tt("I understand the risk of changing the store currency")}</span>
+            <span className="mt-0.5 block text-[12.5px] leading-[18px] text-[#6b7280]" data-currency-notice="">{tt("Review your prices across the store after changing currency, so checkout holds no surprises.")}</span>
           </span>
         </label>
-        </div>
       ) : null}
 
       {error ? <Notice>{error}</Notice> : null}

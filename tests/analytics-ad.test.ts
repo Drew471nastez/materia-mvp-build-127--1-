@@ -146,7 +146,9 @@ console.log("\nEvery view keeps its page\n")
 console.log("\nPhysical sales follow the page\n")
 {
   const card = read("components/physical/analytics-card.tsx")
-  check("the card asks for the page's period, and has no range of its own", /from=\$\{Math\.floor\(span\.start\)\}&to=\$\{Math\.ceil\(span\.end\)\}/.test(card) && !/\[7, 30, 90\]/.test(card) && /<PhysicalAnalyticsCard span=\{safeSpan\} \/>/.test(read("app/app/analytics/analytics-client.tsx")))
+  check("the card asks for the page's period, and has no range of its own", /from=\$\{Math\.floor\(span\.start\)\}&to=\$\{Math\.ceil\(span\.end\)\}/.test(card) && !/\[7, 30, 90\]/.test(card))
+  /* Changed on purpose (round AR): no separate physical panel under the chart; physical sales are in the page's own figures and reports. */
+  check("Analytics has no separate physical panel", !/PhysicalAnalyticsCard/.test(read("app/app/analytics/analytics-client.tsx")))
   check("  no grey blocks while loading: the figures stay, softened", !/animate-pulse/.test(card) && /opacity-60 blur-\[1px\]/.test(card))
   check("  the API and the query take the period's end", /new Date\(to\)\.toISOString\(\)/.test(read("app/api/physical/analytics/route.ts")) && /if \(untilIso\) paid = paid\.lt\("paid_at", untilIso\)/.test(read("lib/physical/analytics-server.ts")))
 }

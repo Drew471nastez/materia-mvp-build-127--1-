@@ -40,7 +40,6 @@ import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
 import { SWITCH_GROUP, SwapPanels, SwitchRow } from "./editor-controls"
-import { ProductTranslationsCard } from "./product-translations-card"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
@@ -3598,9 +3597,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
               </div>
 
-              {/* A saved product on a website in more than one language: its words in each (product-translations-card.tsx). Drawn only when there is another language. */}
-              {/* Physical products only: a digital product or a course is sold from its own page, where the words stay the creator's own (round AJ, the owner: less to think about). */}
-              {editProductId && productType === "physical" ? <ProductTranslationsCard productId={editProductId} cardClass={CARD} titleClass={CARD_TITLE} /> : null}
+              {/* No translations card in the editor: a product's words reach other languages on their own when the website is published (lib/translations auto-translate), and can be edited per language in the website editor. */}
           </div>
         </div>
       </div>

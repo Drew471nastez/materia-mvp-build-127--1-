@@ -46,7 +46,6 @@ import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, t
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
-import { PhysicalAnalyticsCard } from "@/components/physical/analytics-card"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
@@ -528,8 +527,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
           </div>
         </div>
 
-        {/* Physical sales first, under the chart: money, the way from a product page to a paid checkout, buyers' countries and stock. Only while physical commerce is on. */}
-        <PhysicalAnalyticsCard span={safeSpan} />
+        {/* No separate physical panel: physical sales are in the chart, the figures and the reports below (Top products splits Physical and Digital), like any other sale. */}
         {/* The reports under the chart, from the same answer. */}
         <AnalyticsReports state={reportsState} property={property} />
       </div>

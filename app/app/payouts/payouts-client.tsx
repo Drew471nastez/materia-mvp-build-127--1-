@@ -103,6 +103,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useReasons } from "@/lib/store/use-reasons";
 import type { StorelibStatusView } from "@/lib/payments/stripe/status";
 import { tt } from "@/lib/i18n/text"
+import { calculateStorelibFee } from "@/lib/payments/fees/calculate"
+import { ratePercentLabel } from "@/lib/payments/fees/config"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -197,6 +199,29 @@ function fmt(minor: number, currency = "usd") {
   } catch {
     return `${(minor / 10 ** d).toFixed(d)} ${code}`;
   }
+}
+
+/**
+ * WHICH RULE TOOK THIS FEE, read back from the sale itself: the fee the
+ * Free and the Pro plan would each charge for this amount and currency
+ * (lib/payments/fees), matched against the fee Stripe actually took. Only a
+ * match is named; a fee from an older rule just reads "Storelib fee".
+ */
+function feeRuleOf(amountMinor: number, feeMinor: number, currency: string): string | null {
+  if (!(amountMinor > 0) || !(feeMinor >= 0)) return null
+  for (const plan of ["free", "paid"] as const) {
+    try {
+      const r = calculateStorelibFee({ grossMinor: amountMinor, currency: currency.toUpperCase(), sellerPlan: plan })
+      if (r.totalStorelibFeeMinor !== feeMinor) continue
+      const name = plan === "free" ? tt("Free plan") : tt("Pro plan")
+      return r.pricingTier === "micro"
+        ? tt("{plan} · {rate}, small order", { plan: name, rate: ratePercentLabel(r.percentageRate) })
+        : tt("{plan} · {rate} + {fixed}", { plan: name, rate: ratePercentLabel(r.percentageRate), fixed: fmt(r.fixedFeeMinor, currency) })
+    } catch {
+      return null
+    }
+  }
+  return null
 }
 
 function fmtCompact(minor: number, currency = "usd") {
@@ -1782,6 +1807,7 @@ function OrderDetailsModal({
   if (!order || !mounted) return null;
 
   const net = order.amount_cents - (order.fee_cents || 0);
+  const feeRule = order.amount_cents > 0 ? feeRuleOf(order.amount_cents, order.fee_cents || 0, currency) : null;
   const buyerName = customerNameOf(order);
   const buyerEmail =
     emailOverrides[order.id] || order.buyer?.email || order.buyer_email || order.customer_email || null;
@@ -1835,7 +1861,17 @@ function OrderDetailsModal({
         <Part title={tt("Payment")}>
           <div className="rounded-xl border border-[#eceef1] px-3 py-1.5">
             <Line label={tt("Paid")} value={fmt(order.amount_cents, currency)} />
-            <Line label={tt("Fee")} value={`−${fmt(order.fee_cents || 0, currency)}`} muted />
+            <Line
+              label={
+                <span className="flex min-w-0 flex-col">
+                  <span>{tt("Storelib fee")}</span>
+                  {feeRule ? <span className="text-[11.5px] font-normal text-[#9ca3af]">{feeRule}</span> : null}
+                </span>
+              }
+              value={`−${fmt(order.fee_cents || 0, currency)}`}
+              muted
+            />
+            <div className="my-1 border-t border-dashed border-[#eceef1]" />
             <Line label={tt("You receive")} value={fmt(net, currency)} strong />
             {order.status === "refunded" && order.refund_amount_cents ? (
               <Line label={tt("Refunded")} value={`−${fmt(order.refund_amount_cents, currency)}`} />
@@ -2059,7 +2095,7 @@ function OrderDetailsModal({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             {content(false)}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
@@ -2081,7 +2117,7 @@ function OrderDetailsModal({
         onClose={onClose}
         label={tt("Order #{shortId}", { shortId })}
         fill
-        maxHeight="72vh"
+        maxHeight="min(86dvh, 720px)"
         header={
           <div className="flex items-start justify-between gap-3 border-b border-[#eef0f2] px-4 pb-3 pt-1">
             <div className="min-w-0">
@@ -2092,7 +2128,7 @@ function OrderDetailsModal({
           </div>
         }
       >
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
+        <div className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
           {content(true)}
         </div>
         {/* The actions, pinned under the order: two to a row, each 44px. */}

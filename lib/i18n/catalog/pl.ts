@@ -10117,7 +10117,10 @@ const words: Record<string, string> = {
  "Works once a language is published.": "Działa, gdy język zostanie opublikowany.",
  "Works once you add a language.": "Działa po dodaniu języka.",
  "{count, plural, one {# price changes} other {# prices change}}. Past orders keep their currency.": "{count, plural, one {Zmienia się # cena} few {Zmieniają się # ceny} many {Zmienia się # cen} other {Zmienia się # ceny}}. Poprzednie zamówienia zachowują walutę.",
- "Review your prices across the store after changing currency, so checkout holds no surprises.": "Sprawdź ceny w sklepie po zmianie waluty, żeby w kasie nie było niespodzianek."
+ "Review your prices across the store after changing currency, so checkout holds no surprises.": "Sprawdź ceny w sklepie po zmianie waluty, żeby w kasie nie było niespodzianek.",
+ "Free plan": "Plan Free",
+ "{plan} · {rate} + {fixed}": "{plan} · {rate} + {fixed}",
+ "{plan} · {rate}, small order": "{plan} · {rate}, małe zamówienie"
 }
 
 export default words

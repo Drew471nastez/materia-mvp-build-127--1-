@@ -542,10 +542,7 @@ function PaymentCard({
 }) {
   /* Cash still to collect is not received yet: You receive waits for Mark as paid. */
   const received = order.payment === "failed" || order.payment === "pending" || order.payment === "voided" || order.payment === "cash_due" ? 0 : order.totalCents
-  /* A refund gives back the same share of the fee as of the sale, the way
-     the seller's balance counts it (lib/stripe/refund-allocation feeShare). */
-  const fee = received <= 0 || order.refundedCents >= received ? 0 : order.feeCents - Math.round((order.feeCents * order.refundedCents) / received)
-  const earnings = Math.max(0, received - order.refundedCents - fee)
+  /* An order shows what the buyer paid, like Shopify: Storelib's fee and the seller's share live in Payouts (the sale's panel), never here. */
   const method = paymentMethodOf(order)
   return (
     <section className={cn(card, "min-w-0", className)}>
@@ -562,12 +559,6 @@ function PaymentCard({
         <div className="my-1.5 border-t border-[#f0f1f3]" />
         <Row label={order.payment === "pending" || order.payment === "cash_due" ? tt("Due") : tt("Paid")} middle={method || undefined} value={formatMoney(order.payment === "pending" || order.payment === "cash_due" ? order.totalCents : received, order.currency)} />
         {order.refundedCents > 0 ? <Row label={tt("Refunded")} value={`−${formatMoney(order.refundedCents, order.currency)}`} /> : null}
-        {received > 0 ? (
-          <>
-            {order.feeCents > 0 ? <Row label={tt("Storelib fee")} value={`−${formatMoney(fee, order.currency)}`} muted /> : null}
-            <Row label={tt("You receive")} value={formatMoney(earnings, order.currency)} strong />
-          </>
-        ) : null}
       </div>
       <div className="flex justify-end gap-2 px-4 py-3">
         <button type="button" className={buttonSecondary} onClick={onInvoice} disabled={busy !== null}>

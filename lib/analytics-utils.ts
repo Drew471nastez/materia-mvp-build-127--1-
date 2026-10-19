@@ -1,6 +1,6 @@
 import { hasConsent } from "@/lib/consent/client"
 import { pixelEvent } from "@/lib/analytics/pixels"
-import { canonicalReferrerHost, categorizeServerSource, detectClientAppFromUA, isInternalReferrer, sourceParamOf } from "@/lib/analytics/sources"
+import { canonicalReferrerHost, categorizeServerSource, detectClientAppFromUA, isInternalReferrer, sourceParamOf, clickIdSourceOf } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { send, skipReason } from "@/lib/analytics/page-tracker"
 // lib/analytics-utils.ts
@@ -105,10 +105,14 @@ export function getUTMParams(): UTM {
     }
   }
   const sp = new URLSearchParams(window.location.search)
+  /* No utm tags at all: an ad's or a social link's click id names the source (lib/analytics/sources clickIdSourceOf). */
+  const tagged = !!(sp.get("utm_source") || sp.get("utm_medium"))
+  const named = tagged ? null : sourceParamOf(sp)
+  const clicked = tagged || named ? null : clickIdSourceOf(sp)
   return {
     /* No utm_source: ?ref=, ?source= or ?via= names the source (lib/analytics/sources sourceParamOf), as Orders and communities read it. */
-    utm_source: sp.get("utm_source") || (sp.get("utm_medium") ? null : sourceParamOf(sp)),
-    utm_medium: sp.get("utm_medium"),
+    utm_source: sp.get("utm_source") || (sp.get("utm_medium") ? null : named ?? clicked?.source ?? null),
+    utm_medium: sp.get("utm_medium") || clicked?.medium || null,
     utm_campaign: sp.get("utm_campaign"),
     utm_term: sp.get("utm_term"),
     utm_content: sp.get("utm_content"),

@@ -403,7 +403,7 @@ async function main() {
     const productRoute = readCode("app/api/store/translations/product/route.ts")
     check("the product route: the store's own, through Products, and the translator only on a press", (productRoute.match(/shopCaller\("products"\)/g) ?? []).length === 4 && /export async function POST/.test(productRoute) && /canDraftWithAi\(\)/.test(productRoute) && !/from\("products"\)\.(update|upsert|insert)/.test(readCode("lib/markets/product-translations.ts")))
     check("  its Translate automatically goes through the sidebar's per-text press, so the glossary and Don't translate apply", /translateFieldsNow\(db, creatorId, locale/.test(readCode("lib/markets/product-translations.ts")) && /replaceManual: false/.test(readCode("lib/markets/product-translations.ts")))
-    check("the product editor carries the Translations card for a saved product", /* Changed on purpose (round AJ: physical products only) */ /editProductId && productType === "physical" \? <ProductTranslationsCard productId=\{editProductId\}/.test(readCode("app/app/products/new/product-editor.tsx")))
+    check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(readCode("app/app/products/new/product-editor.tsx")))
     const live = readCode("lib/markets/live.ts")
     check("the website's localizer: one cached read per language, and the products shown as written", (live.match(/cachedTranslations\(/g) ?? []).length === 1 && /cachedOriginalProducts\(creatorId\)/.test(live) && /original\.has\(p\.id\)/.test(live))
     check("  an imported theme too", /original\.has\(c\.id\) \? c : compatCardIn/.test(readCode("lib/markets/compat.ts")))

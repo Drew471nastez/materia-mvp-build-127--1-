@@ -363,6 +363,33 @@ export function sourceParamOf(search: URLSearchParams): string | null {
   return null
 }
 
+/**
+ * AN AD OR A SOCIAL LINK THAT LEFT ONLY ITS CLICK ID. Google and Bing ads
+ * add gclid / msclkid, Meta adds fbclid to every outbound link (Facebook and
+ * Instagram), TikTok ads ttclid, X twclid, LinkedIn li_fat_id, Instagram
+ * shares igshid. With no utm tags and often no referrer the visit read as
+ * Direct; the click id names where it came from. Used only when the address
+ * has no utm_source and no utm_medium of its own.
+ */
+export const CLICK_ID_SOURCES: ReadonlyArray<readonly [param: string, source: string, medium: string | null]> = [
+  ["gclid", "google", "cpc"],
+  ["gbraid", "google", "cpc"],
+  ["wbraid", "google", "cpc"],
+  ["msclkid", "bing", "cpc"],
+  ["ttclid", "tiktok", "paid"],
+  ["twclid", "x", "paid"],
+  ["li_fat_id", "linkedin", "paid"],
+  ["fbclid", "facebook", null],
+  ["igshid", "instagram", null],
+]
+
+export function clickIdSourceOf(search: URLSearchParams): { source: string; medium: string | null } | null {
+  for (const [param, source, medium] of CLICK_ID_SOURCES) {
+    if ((search.get(param) || "").trim()) return { source, medium }
+  }
+  return null
+}
+
 /** The host of a referrer address, without www, or "" for none. */
 export function referrerHost(referrer: string | null | undefined): string {
   const r = normalizeStr(referrer)

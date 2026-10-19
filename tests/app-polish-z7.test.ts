@@ -60,10 +60,11 @@ check("and there is none when nothing overflows", thumbGeometry(400, 400, 0) ===
 
 console.log("\nIntegration cards")
 const dir = read("components/app/settings/integrations-directory.tsx")
-check("seven specks, each a radial gradient, in the card both surfaces share", (dir.match(/\{ left: "\d+%", top: \d+, size: \d+/g) ?? []).length === 7 && /radial-gradient\(circle closest-side/.test(dir) && /data-integration-speck=""/.test(dir))
-check("they move by translate, scale and opacity; the drift is a transform", /\.int-speck \{[\s\S]*?transition-property: opacity, translate, scale;/.test(css) && /@keyframes int-speck-drift \{\s*from \{ transform: translate3d\(0, 0, 0\); \}/.test(css))
-check("the drift is paused unless the card is hovered", /animation-play-state: paused;/.test(css) && /\.group:hover > \[data-integration-cover\] > \.int-speck > i \{\s*animation-play-state: running;/.test(css))
-check("no blur filter, and none at all with reduced motion", !/\.int-speck[^{]*\{[^}]*filter/.test(css) && /@media \(prefers-reduced-motion: reduce\) \{\s*\.int-speck \{\s*display: none;/.test(css))
+/* Changed on purpose (round AR): the specks read as bubbles; one dispersed mesh gradient replaces them. */
+check("one dispersed mesh of overlapping soft gradients, no specks", /data-integration-mesh=""/.test(dir) && (dir.match(/radial-gradient\(\d+% \d+% at \d+% \d+%/g) ?? []).length >= 4 && !/data-integration-speck/.test(dir))
+check("it moves by opacity and transform only", /\.int-mesh \{[\s\S]*?transition-property: opacity, transform;/.test(css) && /@keyframes int-mesh-drift \{/.test(css))
+check("the drift only runs while the card is hovered", /\.group:hover > \[data-integration-cover\] > \.int-mesh,[\s\S]*?animation: int-mesh-drift/.test(css) && !/(^|\n)\.int-mesh \{[^}]*animation:/.test(css))
+check("no blur filter, and none at all with reduced motion", !/\.int-mesh[^{]*\{[^}]*filter/.test(css) && /@media \(prefers-reduced-motion: reduce\) \{\s*\.int-mesh \{\s*display: none;/.test(css))
 
 console.log("\nShipping")
 const ship = read("components/physical/shipping-settings.tsx")

@@ -125,7 +125,7 @@ async function main() {
     const header = read("components/platform/platform-header-client.tsx")
     check("Help, Terms and Privacy take the reading header, no marketplace search", /const isReadRoute = pathname === "\/help"/.test(header) && /isDevelopersRoute \|\| isReadRoute/.test(header))
     check("  on the dark bar the search field is the bar's colour, not white", /!buyerHeaderLight && HEADER_FIELD_ON_DARK/.test(header))
-    check("  those pages follow the header colour set in /admin", ["app/help/layout.tsx", "app/terms/layout.tsx", "app/privacy/layout.tsx"].every((p) => /ConditionalHeader buyerHeaderLight=\{buyerHeaderLight\}/.test(read(p))))
+    check("  those pages follow the header colour set in /admin", /* Changed on purpose (round AR): the Help Center has its own bar (components/help/help-header). */ ["app/terms/layout.tsx", "app/privacy/layout.tsx"].every((p) => /ConditionalHeader buyerHeaderLight=\{buyerHeaderLight\}/.test(read(p))))
   }
 
   console.log("\nSettings data and AI Memory\n")

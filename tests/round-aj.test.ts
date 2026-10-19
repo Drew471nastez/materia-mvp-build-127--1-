@@ -123,7 +123,7 @@ async function main() {
 
   console.log("\nProducts")
   {
-    check("the translations card only on a physical product", /editProductId && productType === "physical" \? <ProductTranslationsCard/.test(code("app/app/products/new/product-editor.tsx")))
+    check("the product editor has no translations card (round AR, translated on publish instead)", !/<ProductTranslationsCard/.test(code("app/app/products/new/product-editor.tsx")))
     const cache = code("lib/commerce/product-page-cache.ts")
     check("a free community has its card in More from, to its own page", /href: communityPath\(c\.slug\)/.test(cache) && /kind: "community"/.test(cache))
     check("and the card goes there", /product\.href && product\.href\.startsWith\("\/"\) \? product\.href/.test(code("components/explore/product-card.tsx")))
