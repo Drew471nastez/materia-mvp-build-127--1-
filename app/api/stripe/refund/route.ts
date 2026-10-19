@@ -92,8 +92,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "This order hasn't been paid yet: the cash is collected on delivery. Cancel the order instead." }, { status: 409 })
       }
     }
+    /* A free order took no money, so there is nothing to send back: said plainly, not as a missing payment. */
+    if ((order.amount_cents || 0) <= 0) {
+      return NextResponse.json({ error: "This order was free, so there's nothing to refund." }, { status: 400 })
+    }
     if (!order.stripe_payment_intent_id && !onAirwallex && !byCash) {
-      return NextResponse.json({ error: "No payment intent found for this order" }, { status: 400 })
+      return NextResponse.json({ error: "This order has no card payment to refund. If the buyer paid another way, refund them directly." }, { status: 400 })
     }
 
     // Validate refund amount

@@ -25,6 +25,7 @@ import { accountAttempts } from "../lib/payments/stripe/account-attempts"
 import { followsStoreName, pickStatementName } from "../lib/payments/statement-name"
 import { statementParams } from "../lib/payments/platform-descriptor"
 import { marketplaceReferrer } from "../lib/money/marketplace"
+import { breakdownOf, channelsOf, seriesOf } from "../lib/analytics/commerce"
 
 let passed = 0
 let failed = 0
@@ -158,6 +159,25 @@ async function main() {
   const live = await run("scripts/stripe-test-purchase.mjs", ["--create-account", "DE"], { ...env, STRIPE_SECRET_KEY: "sk_live_xxx" })
   check("a live key is still refused before any call", live.code === 2 && seen.length === 0)
   stub.close()
+
+  /* Sales reports add up like Shopify's: gross - discounts - returns = net; net + shipping + taxes + tips = total = paid - refunded. */
+  {
+    const day = "2026-10-10T10:00:00Z"
+    const rows = [
+      { id: "a", amount_cents: 1100, unit_price_cents: 1000, quantity: 1, tax_cents: 100, tax_included: false, status: "completed", created_at: day, source: "website", stripe_session_id: "s1", buyer_email: "x@y.z" },
+      { id: "b", amount_cents: 800, unit_price_cents: 1000, quantity: 1, status: "completed", created_at: day, stripe_session_id: "s2", buyer_email: "X@y.z" },
+      { id: "c", amount_cents: 1500, shipping_cents: 500, unit_price_cents: 1000, quantity: 1, status: "refunded", refund_amount_cents: 1500, created_at: day, stripe_session_id: "s3", buyer_email: "q@y.z" },
+      { id: "d", amount_cents: 999, status: "pending", created_at: day },
+    ]
+    const b = breakdownOf(rows)
+    check("sales: gross at list price, discount from it, returns, shipping, taxes", b.gross === 3000 && b.discounts === 200 && b.returns === 1500 && b.shipping === 500 && b.taxes === 100, b)
+    check("sales: net and total add up to paid less refunded", b.net === 1300 && b.total === 1900 && b.total === 1100 + 800 + 1500 - 1500, b)
+    check("sales: orders, AOV and returning customers (case-insensitive email)", b.orders === 3 && b.aov === Math.round(2800 / 3) && b.customers === 2 && b.returningCustomers === 1, b)
+    const ch = channelsOf(rows)
+    check("sales: by channel (website vs Storelib)", ch.some((c) => c.channel === "website" && c.total === 1100) && ch.some((c) => c.channel === "storelib"), ch)
+    const series = seriesOf(rows, { start: Date.parse("2026-10-09T00:00:00Z"), end: Date.parse("2026-10-12T00:00:00Z") })
+    check("sales: daily series covers the period and sums to the total", series.length === 3 && series.reduce((n, p) => n + p.total, 0) === b.total, series)
+  }
 
   /* Every storelib.com page is the marketplace, even when a Buy link lost its ?ctx=mp tag. */
   const M = "storelib.com"

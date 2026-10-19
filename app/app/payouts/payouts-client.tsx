@@ -1816,7 +1816,8 @@ function OrderDetailsModal({
   const productType = order.product?.type || tt("Digital product");
   const shortId = order.id.slice(0, 8);
   const status = refundDone ? "refunded" : order.status;
-  const canRefund = order.status === "completed" && !refundDone;
+  /* A free order took no money: no Refund button at all. */
+  const canRefund = order.status === "completed" && !refundDone && order.amount_cents > 0;
   const device = [order.buyer_device_type, order.buyer_os, order.buyer_browser].filter(Boolean).join(", ");
   const method =
     order.payment_method === "card" && order.card_brand
@@ -1984,16 +1985,39 @@ function OrderDetailsModal({
         </div>
         <p className="shrink-0 text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</p>
       </div>
-      <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
-        {tt("Reason")}
-        <select value={refundReason} onChange={(e) => setRefundReason(e.target.value)} className={FIELD}>
-          {REFUND_REASONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* The reason as a short list to tap, not the browser's own dropdown: the same on every device, and smooth in the sheet. */}
+      <div className="grid gap-1.5" role="radiogroup" aria-label={tt("Reason")}>
+        <span className="text-[12px] font-medium text-[#4b5563]">{tt("Reason")}</span>
+        <div className="wb-slim-scroll max-h-[232px] overflow-y-auto overscroll-contain rounded-xl border border-[#e5e7eb] bg-white p-1 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          {REFUND_REASONS.filter((opt) => opt.value).map((opt) => {
+            const on = refundReason === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => setRefundReason(opt.value)}
+                className={cn(
+                  "flex h-11 w-full items-center justify-between gap-3 rounded-lg px-3 text-left text-[14px] transition-colors duration-150 sm:h-9 sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+                  on ? "bg-[#f3f4f6] font-medium text-[#1a1a2e]" : "text-[#374151] hover:bg-[#f8f9fa] active:bg-[#f3f4f6]",
+                )}
+              >
+                <span className="min-w-0 truncate">{opt.label}</span>
+                <span
+                  aria-hidden
+                  className={cn(
+                    "grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-[background-color,border-color] duration-150",
+                    on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#c9cdd3] bg-white",
+                  )}
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full bg-white transition-transform duration-150", on ? "scale-100" : "scale-0")} />
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
       {refundError ? (
         <p role="alert" className="flex items-start gap-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13px] text-[#8a1c0f]">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -2072,7 +2096,7 @@ function OrderDetailsModal({
           aria-label={tt("Order #{shortId}", { shortId })}
           className={cn(
             DIALOG_PANEL,
-            "max-w-[580px] transition-[opacity,scale]",
+            "max-h-[min(78vh,720px)] max-w-[520px] transition-[opacity,scale]",
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-[0.97]",
           )}
           style={{

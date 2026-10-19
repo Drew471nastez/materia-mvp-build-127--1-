@@ -489,13 +489,14 @@ function main() {
     const sheetSrc = read("components/app/mobile-account-menu.tsx")
     const header = sidebarSrc.slice(sidebarSrc.indexOf("Header Profile Dropdown"), sidebarSrc.indexOf("Center: the search bar"))
     const order = (src: string, marks: string[]) => marks.map((m) => src.indexOf(m)).every((i, n, all) => i >= 0 && (n === 0 || i > all[n - 1]))
-    check("Help in the account menu at both sizes, opening /app/help in the app, not the public /help",
-      /export const APP_HELP_HREF = "\/app\/help"/.test(sheetSrc) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(header) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(sheetSrc)
+    /* Changed on purpose (round AS): Help opens the real Help Center at help.storelib.com (lib/help/paths.ts publicHelpUrl), in a new tab. */
+    check("Help in the account menu at both sizes, opening the Help Center at help.storelib.com",
+      /export const APP_HELP_HREF = publicHelpUrl\(\)/.test(sheetSrc) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(header) && /href=\{APP_HELP_HREF\}[\s\S]{0,300}data-account-help=""/.test(sheetSrc)
         && !/"\/help"/.test(desktopMenu) && !/"\/help"/.test(phoneMenu) && !/HELP_FULL_URL|\/help`/.test(sidebarSrc + sheetSrc))
     check("  its own row after Language and right above Sign Out, with the help icon the rows share",
       order(header, ['t("settings.language")', "data-account-help", "handleSignOut()"]) && order(sheetSrc, ["{languageLabel}", "data-account-help", "onSignOut()"])
         && /<HelpCircle className="h-4 w-4 shrink-0" strokeWidth=\{1\.5\} \/>/.test(header) && /<HelpCircle className="h-\[18px\] w-\[18px\] shrink-0 text-neutral-400" strokeWidth=\{1\.75\} \/>/.test(sheetSrc))
-    check("  not a new tab: no target on it, and the sheet fetches the page ahead once it is up", !/APP_HELP_HREF\}[^>]*target=/.test(header + sheetSrc) && /prefetchAppPage\(router, APP_HELP_HREF\)/.test(sheetSrc))
+    check("  in a new tab, so the dashboard stays where it was", /href=\{APP_HELP_HREF\}\s*target="_blank"/.test(header) && /href=\{APP_HELP_HREF\}\s*target="_blank"/.test(sheetSrc) && !/prefetchAppPage\(router, APP_HELP_HREF\)/.test(sheetSrc))
   }
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))

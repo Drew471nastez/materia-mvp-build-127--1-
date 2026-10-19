@@ -1,5 +1,6 @@
 "use client"
 
+import { publicHelpUrl } from "@/lib/help/paths"
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
@@ -2112,8 +2113,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     </span>
                   </button>
                   {/* The Help Center inside the app (app/app/help), as the account menu opens it: a page here, not a new tab. */}
-                  <SmartLink
-                    href="/app/help"
+                  <a
+                    href={publicHelpUrl()}
+                    target="_blank"
+                    rel="noopener"
                     className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                     data-settings-help=""
                   >
@@ -2128,7 +2131,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       {tt("Get help")}
                     </span>
-                  </SmartLink>
+                  </a>
                   {/* A request to Storelib, answered by a person (app/app/support, lib/support). */}
                   <SmartLink href="/app/support" className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors" data-settings-support="">
                     <div className="flex items-center gap-3">

@@ -1,12 +1,14 @@
 import Link from "next/link"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
+import { HelpAccount } from "./help-account"
 
 /**
- * THE HELP CENTER'S OWN BAR. A help page is for reading: the logo with
- * "Help" beside it (home of the Help Center), a way to write to support and
- * one way back to Storelib. No notifications, no library, no marketing menu,
- * nothing else to open.
+ * THE HELP CENTER'S OWN BAR (help.storelib.com). A help page is for
+ * reading: the logo with "Help" beside it (home of the Help Center), a way
+ * to write to support, and your account at the right, as Shopify's Help
+ * Center has it (./help-account: your photo and its menu, or Log in). No
+ * notifications, no library, no marketing menu.
  */
 export function HelpHeader() {
   return (
@@ -23,12 +25,7 @@ export function HelpHeader() {
           >
             Contact support
           </a>
-          <Link
-            href="/"
-            className="inline-flex h-9 items-center rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-colors hover:border-[#d1d5db] hover:bg-[#f9fafb]"
-          >
-            Go to Storelib
-          </Link>
+          <HelpAccount />
         </nav>
       </div>
     </header>

@@ -1,3 +1,4 @@
+import { withOwnersCommunities } from "@/lib/commerce/owner-communities-server"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { productPriceCurrency } from "@/lib/money/product-currency"
 import { personName } from "@/lib/profile/display-name"
@@ -699,7 +700,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // More products from seller (for "More from seller" section)
   // ---------------------------------------------------------------------------
   /* On the marketplace in dollars, each card with its creator's own dollar price when they set one, as its own page shows it. */
-  const moreProducts = pageQuote.marketplace ? await withApprovedDollarPrices(createAdminClient(), await moreProductsPromise) : await moreProductsPromise
+  /* With the same person's communities from their other stores (lib/commerce/owner-communities-server). */
+  const moreCards = await withOwnersCommunities(await moreProductsPromise, creator?.user_id, product.creator_id, product.id)
+  const moreProducts = pageQuote.marketplace ? await withApprovedDollarPrices(createAdminClient(), moreCards) : moreCards
   timer.mark("moreProducts")
   timer.done()
 

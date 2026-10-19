@@ -1855,14 +1855,14 @@ export function WebsiteBuilderClient({
           <SectionHeading title={tt("Browse themes")}>
             {/* The whole marketplace, in its own tab: inside the phone app, a new window from the creator's tools opens in the browser (components/platform/native-link-guard.tsx). */}
             <a
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[14px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[background-color,border-color,box-shadow] duration-150 hover:border-[#d1d5db] hover:bg-[#f9fafb] hover:shadow-[0_2px_6px_-2px_rgba(16,24,40,0.12)] active:bg-[#f3f4f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               href={MARKETPLACE_PATH}
               target="_blank"
               rel="noopener"
               data-theme-marketplace-link=""
-              className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-[14px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#eef0f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
             >
               {tt("Theme marketplace")}
-              <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
+              <ArrowUpRight className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2.25} />
             </a>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">{tt("Browse themes")}</h2>

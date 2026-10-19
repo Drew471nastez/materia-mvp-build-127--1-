@@ -91,9 +91,10 @@ check("the index no longer links to \"#\"", !/href="#"/.test(index))
 check("no purple gradient anywhere in the Help Center",
   ![index, category, article, read("components/help/help-parts.tsx"), read("components/help/help-search.tsx")].some((s) => /bg-gradient|from-\[#8b5cf6\]/.test(s)))
 check("no icon library on the pages", ![index, category, article, read("components/help/help-parts.tsx")].some((s) => /from "lucide-react"/.test(s)))
+/* Changed on purpose (round AS): the Help Center lives at help.storelib.com, so canonicals are that address (lib/help/paths.ts publicHelpUrl). */
 check("each category and article page has its own title, description and canonical",
-  /generateMetadata/.test(category) && /alternates: \{ canonical: `\/help\/\$\{category\.slug\}` \}/.test(category) &&
-  /generateMetadata/.test(article) && /description: article\.summary/.test(article) && /alternates: \{ canonical: path \}/.test(article))
+  /generateMetadata/.test(category) && /alternates: \{ canonical: publicHelpUrl\(`\/\$\{category\.slug\}`\) \}/.test(category) &&
+  /generateMetadata/.test(article) && /description: article\.summary/.test(article) && /alternates: \{ canonical: publicHelpUrl\(path\.replace\(/.test(article))
 check("pages are built ahead of time and unknown ones 404", /dynamicParams = false/.test(category) && /dynamicParams = false/.test(article))
 /* Changed on purpose (round K): the form posts to the search of the Help Center it is in, /help/search by default or /app/help/search in the app. */
 check("the search is a form that works without script", /action=\{`\$\{base\}\/search`\} method="get" role="search"/.test(read("components/help/help-search.tsx")) && /base = HELP_BASE/.test(read("components/help/help-search.tsx")) && /export const HELP_BASE = "\/help"/.test(read("lib/help/paths.ts")))

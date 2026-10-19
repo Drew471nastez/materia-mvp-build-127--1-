@@ -1,3 +1,4 @@
+import { publicHelpUrl } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { helpTopicsFor } from "@/lib/help/questions"
@@ -11,7 +12,7 @@ const DESCRIPTION = "What happens when an order can't be filled, a parcel goes m
 export const metadata: Metadata = {
   title: { absolute: "Order problems, answered for stores and buyers | Storelib Help Center" },
   description: DESCRIPTION,
-  alternates: { canonical: "/help/questions" },
+  alternates: { canonical: publicHelpUrl("/questions") },
   openGraph: { title: "Order problems, answered", description: DESCRIPTION, url: "/help/questions", siteName: "Storelib Help Center", type: "website" },
 }
 

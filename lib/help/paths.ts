@@ -25,3 +25,14 @@ export function helpHref(href: string, base: HelpBase = HELP_BASE): string {
   if (href === HELP_BASE || /^\/help[/?#]/.test(href)) return base + href.slice(HELP_BASE.length)
   return href
 }
+
+/**
+ * THE HELP CENTER'S OWN ADDRESS: help.storelib.com (proxy.ts serves /help
+ * there). The dashboard's Help rows open it, in a new tab, like Shopify's.
+ * Without a main domain (a local run) it is /help on the same host.
+ */
+export function publicHelpUrl(path = ""): string {
+  const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").trim().toLowerCase().replace(/^www\./, "")
+  if (!main || main.startsWith("localhost") || main.includes(":")) return `/help${path}`
+  return `https://help.${main}${path}`
+}

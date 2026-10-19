@@ -729,18 +729,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                   <Globe className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span>{t("settings.language")}</span>
                 </button>
-                <Link
+                <a
                   href={APP_HELP_HREF}
-                  prefetch={false}
-                  onMouseEnter={() => warmAccountPage(APP_HELP_HREF)}
-                  onFocus={() => warmAccountPage(APP_HELP_HREF)}
+                  target="_blank"
+                  rel="noopener"
                   onClick={() => setHeaderProfileOpen(false)}
                   data-account-help=""
                   className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
                 >
                   <HelpCircle className="h-4 w-4 shrink-0" strokeWidth={1.5} />
                   <span>{tt("Help")}</span>
-                </Link>
+                </a>
                 <div className="my-1 h-px bg-neutral-100" />
                 <button
                   onClick={() => {

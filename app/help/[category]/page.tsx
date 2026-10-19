@@ -1,3 +1,4 @@
+import { publicHelpUrl } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: { absolute: `${title} | Storelib Help Center` },
     description: category.description,
-    alternates: { canonical: `/help/${category.slug}` },
+    alternates: { canonical: publicHelpUrl(`/${category.slug}`) },
     openGraph: { title, description: category.description, url: `/help/${category.slug}`, siteName: "Storelib Help Center", type: "website" },
     twitter: { card: "summary", title, description: category.description },
   }

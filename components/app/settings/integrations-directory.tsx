@@ -881,7 +881,7 @@ const ENTRY = cn(
 */
 const washAt = "42px 44px"
 function coverWash(color: string, strength: "rest" | "full"): React.CSSProperties {
-  const [a, b] = strength === "rest" ? [16, 6] : [34, 14]
+  const [a, b] = strength === "rest" ? [9, 3] : [16, 6]
   return {
     backgroundImage: `radial-gradient(150px 80px at ${washAt}, color-mix(in srgb, ${color} ${a}%, transparent) 0%, transparent 100%), radial-gradient(130% 160% at 0% 0%, color-mix(in srgb, ${color} ${b}%, transparent) 0%, transparent 70%)`,
   }
@@ -898,6 +898,7 @@ function EntryBody({ color, mark, name, category, summary, badge }: { color: str
           data-integration-cover-fill=""
         />
         <span className="int-mesh" style={meshStyle(color)} data-integration-mesh="" />
+        <span className="int-grain" data-integration-grain="" />
       </span>
       <span className="relative flex shrink-0 items-start justify-between gap-3">
         <span className="rounded-[12px] sm:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_4px_10px_-4px_rgba(16,24,40,0.12)]">{mark}</span>
@@ -917,9 +918,11 @@ function EntryBody({ color, mark, name, category, summary, badge }: { color: str
 }
 
 /*
-  A DISPERSED GRADIENT ON A HOVER (the owner, after the specks of round Z7
-  read as bubbles: "dispersed, very subtle, very close to each other, like
-  a gradient, smooth, clean, modern, not bubbles"). One layer, made of four
+  A DISPERSED, GRAINY GRADIENT ON A HOVER (the owner, after the specks of
+  round Z7 read as bubbles and the first mesh as too colourful: "more noisy,
+  grainy, kind of like texture"). The colour is the integration's own, mixed
+  well toward grey and kept faint; over it a film grain (.int-grain, an SVG
+  noise tile) fades in, so it reads as texture rather than colour. One layer, made of four
   wide, low soft ellipses of the integration's colour and three close
   neighbours (lighter, cooler, warmer), overlapping so far that no edge or
   dot can be seen: a mesh, not shapes. Under the pointer it fades in and
@@ -934,10 +937,10 @@ function meshStyle(color: string): React.CSSProperties {
   }
   return {
     backgroundImage: [
-      `radial-gradient(60% 140% at 18% 30%, ${mix("#ffffff", 70, 30)} 0%, transparent 70%)`,
-      `radial-gradient(55% 150% at 42% 70%, ${mix(null, 100, 24)} 0%, transparent 72%)`,
-      `radial-gradient(60% 140% at 66% 20%, ${mix("#7dd3fc", 78, 20)} 0%, transparent 72%)`,
-      `radial-gradient(55% 150% at 90% 65%, ${mix("#f9a8d4", 80, 18)} 0%, transparent 72%)`,
+      `radial-gradient(60% 140% at 18% 30%, ${mix("#9ca3af", 40, 16)} 0%, transparent 70%)`,
+      `radial-gradient(55% 150% at 42% 70%, ${mix("#9ca3af", 55, 14)} 0%, transparent 72%)`,
+      `radial-gradient(60% 140% at 66% 20%, ${mix("#d1d5db", 45, 12)} 0%, transparent 72%)`,
+      `radial-gradient(55% 150% at 90% 65%, ${mix("#9ca3af", 50, 10)} 0%, transparent 72%)`,
     ].join(", "),
   }
 }

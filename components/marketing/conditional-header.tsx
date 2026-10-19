@@ -64,6 +64,9 @@ function isKnownPlatformPath(p: string): boolean {
   return (
     p.startsWith("/feed") ||
     p.startsWith("/explore") ||
+    /* The theme store and each theme's page: Storelib's own, with Storelib's header (it drew none). */
+    p === "/themes" ||
+    p.startsWith("/themes/") ||
     p.startsWith("/features") ||
     p.startsWith("/creators") ||
     p.startsWith("/wishlist") ||

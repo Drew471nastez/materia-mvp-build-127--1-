@@ -60,7 +60,7 @@ const SITES_DOMAIN = process.env.NEXT_PUBLIC_SITES_HOST || MAIN_DOMAIN
 // Domains that should NOT be treated as seller subdomains. "domains" is the
 // name creators point their own domains at (domains.storelib.com), so a
 // visit to it directly lands on storelib.com, never on someone's site.
-const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost", "domains", MCP_HOST_LABEL]
+const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localhost", "domains", "help", MCP_HOST_LABEL]
 
 /**
  * Platform flows that belong to the apex, wherever they are asked for. These
@@ -1381,6 +1381,26 @@ async function routeRequest(request: NextRequest) {
   if (pathname === "/.well-known/apple-developer-merchantid-domain-association") return NextResponse.next()
 
   /*
+    THE HELP CENTER LIVES AT help.storelib.com. Its pages are app/help; on
+    that host a path is the Help Center's own (help.storelib.com/orders-and-
+    payouts is /help/orders-and-payouts), and a link written /help/... still
+    works. Files and Next's own requests pass as they are. On storelib.com
+    itself, /help answers a 308 to the same page there, the query kept.
+  */
+  const helpHost = `help.${MAIN_DOMAIN}`
+  const bareHost = host.split(":")[0].toLowerCase()
+  if (bareHost === helpHost) {
+    if (pathname.startsWith("/_next") || pathname.startsWith("/api/") || pathname.startsWith("/help") || /\.[a-z0-9]{2,5}$/i.test(pathname)) return NextResponse.next()
+    const url = request.nextUrl.clone()
+    url.pathname = pathname === "/" ? "/help" : `/help${pathname}`
+    return NextResponse.rewrite(url)
+  }
+  if ([MAIN_DOMAIN, `www.${MAIN_DOMAIN}`].includes(bareHost) && !MAIN_DOMAIN.startsWith("localhost") && (pathname === "/help" || pathname.startsWith("/help/")) && !/\.[a-z0-9]{2,5}$/i.test(pathname)) {
+    const rest = pathname.slice("/help".length)
+    return NextResponse.redirect(new URL(`https://${helpHost}${rest || "/"}${search}`), 308)
+  }
+
+  /*
     A COMMUNITY PAGE IS TOLD ITS OWN ADDRESS. A layout is not given its path,
     and the community's layout needs it to send an old address on to the new
     one with the rest of the path and the query (lib/communities/slug-move.ts).
@@ -1395,8 +1415,6 @@ async function routeRequest(request: NextRequest) {
   if (pathname.startsWith("/community/") || pathname.startsWith("/app/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
   /* And a profile, for the same reason: a creator's /@handle answers a 308 to their page with the query kept, from its layout (lib/profile/profile-redirect.ts). */
   if (isProfilePath(pathname)) request.headers.set(PROFILE_PATH_HEADER, `${pathname}${search}`)
-
-  const bareHost = host.split(":")[0].toLowerCase()
 
   /* mcp.storelib.com is the MCP server, before any rule about sites or redirects. See lib/agent-access/mcp-host.ts. */
   const mcp = mcpHostRoute(bareHost, pathname, MAIN_DOMAIN)
@@ -1817,8 +1835,10 @@ async function routeRequest(request: NextRequest) {
    * fighting this guard and quietly widening it.
    */
   const isPublicApi = pathname.startsWith("/api/public/")
+  /* The Help Center (help.storelib.com, a reserved name no site can take) asks who is signed in and can log out: those two only, from that origin only. */
+  const fromHelpCenter = (pathname === "/api/help/me" || pathname === "/api/help/logout") && request.headers.get("origin") === `https://help.${MAIN_DOMAIN}`
 
-  if (isApi && !isPublicApi && secFetchSite === "same-site") {
+  if (isApi && !isPublicApi && !fromHelpCenter && secFetchSite === "same-site") {
     return new NextResponse(
       JSON.stringify({ error: "Requests from published sites are not allowed." }),
       { status: 403, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } },

@@ -1,3 +1,4 @@
+import { publicHelpUrl } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -49,7 +50,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: { absolute: `${article.title} | Storelib Help Center` },
     description: article.summary,
-    alternates: { canonical: path },
+    alternates: { canonical: publicHelpUrl(path.replace(/^\/help/, "")) },
     keywords: article.keywords,
     openGraph: {
       title: article.title,

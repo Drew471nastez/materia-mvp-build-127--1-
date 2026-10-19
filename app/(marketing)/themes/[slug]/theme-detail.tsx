@@ -21,6 +21,7 @@ import Link from "next/link"
 import { ArrowUpRight, ChevronLeft } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { AddStatus } from "@/components/themes/add-status"
 import { useAddTheme } from "@/components/themes/use-add-theme"
 import { MARKETPLACE_PATH, categoryLabel, hasLivePreview, listingPreviewPath, tierLabel, type ThemeListing } from "@/lib/themes/marketplace-shared"
@@ -46,8 +47,13 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
   return (
     <div className="bg-white" data-theme-detail={listing.slug}>
       <div className="mx-auto max-w-[1200px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8 lg:px-8">
-        <Link href={MARKETPLACE_PATH} className="-ml-2 inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[14px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
-          <ChevronLeft className="h-4 w-4" />
+        <Link
+          href={MARKETPLACE_PATH}
+          className="group inline-flex h-9 items-center gap-2 rounded-full pr-3 text-[14px] font-medium text-[#4b5563] transition-colors duration-200 hover:text-[#1a1a2e]"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-x-0.5 group-hover:shadow-[0_0_0_1px_rgba(17,24,39,0.12),0_3px_8px_rgba(17,24,39,0.1)] group-active:scale-95">
+            <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2} />
+          </span>
           Themes
         </Link>
 
@@ -58,7 +64,12 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
             <div className="mt-3 flex items-center gap-2.5 text-[14px] text-[#6b7280]">
               {listing.authorAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={listing.authorAvatar} alt="" className="h-7 w-7 rounded-full bg-[#f1f2f4] object-cover" />
+                <img src={listing.authorAvatar} alt="" className="h-7 w-7 rounded-full bg-[#f1f2f4] object-cover shadow-[0_0_0_1px_rgba(17,24,39,0.08)]" />
+              ) : /^storelib$/i.test(listing.author.trim()) ? (
+                /* Storelib's own themes: Storelib's mark, not an "S" on grey. */
+                <span className="overflow-hidden rounded-[8px] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.08)]">
+                  <StorelibLogo size={28} />
+                </span>
               ) : (
                 <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-[#eef0f3] text-[12px] font-semibold text-[#4b5563]">
                   {listing.author.slice(0, 1).toUpperCase()}
@@ -81,7 +92,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
                 onClick={() => void add(listing.slug)}
                 disabled={state.phase === "adding"}
                 data-theme-add=""
-                className="inline-flex h-11 items-center rounded-lg bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white transition-colors duration-150 hover:bg-[#2d2d44] disabled:opacity-60"
+                className="inline-flex h-11 items-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_6px_14px_-8px_rgba(26,26,46,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,transform] duration-150 hover:bg-[#2d2d44] active:scale-[0.98] disabled:opacity-60"
               >
                 {state.phase === "adding" ? "Adding" : state.phase === "added" ? "Add another copy" : "Add to my library"}
               </button>
@@ -118,12 +129,12 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
             ) : null}
           </div>
 
-          <div className={cn("rounded-2xl bg-[#eef0f3] transition-[padding] duration-300", device === "phone" ? "px-4 py-8" : "p-0")}>
+          <div className={cn("rounded-2xl bg-[#f3f4f6] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.04)] transition-[padding] duration-300", device === "phone" ? "px-4 py-8" : "p-2 sm:p-3")}>
             <div
               data-theme-frame={device}
               className={cn(
                 "relative mx-auto overflow-hidden bg-white transition-[width,height,border-radius] duration-300 ease-out",
-                device === "desktop" ? "h-[min(78vh,760px)] w-full rounded-2xl ring-1 ring-black/[0.06]" : "h-[min(78vh,780px)] w-[min(100%,390px)] rounded-[28px] ring-1 ring-black/[0.08] shadow-[0_22px_44px_-18px_rgba(15,23,42,0.35)]",
+                device === "desktop" ? "h-[min(78vh,760px)] w-full rounded-xl ring-1 ring-black/[0.06] shadow-[0_18px_40px_-20px_rgba(15,23,42,0.35)]" : "h-[min(78vh,780px)] w-[min(100%,390px)] rounded-[28px] ring-1 ring-black/[0.08] shadow-[0_22px_44px_-18px_rgba(15,23,42,0.35)]",
               )}
             >
               {still && !loaded ? (

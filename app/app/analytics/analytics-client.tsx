@@ -31,6 +31,7 @@
  * (lib/date-range/range compareBounds), sent with the question.
  */
 
+import { CommerceReports } from "./commerce-reports"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
@@ -528,6 +529,8 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         </div>
 
         {/* No separate physical panel: physical sales are in the chart, the figures and the reports below (Top products splits Physical and Digital), like any other sale. */}
+        {/* The store's sales reports, Shopify's way: breakdown, over time, by channel, average order value, returning customers, fulfillment time (./commerce-reports). */}
+        <CommerceReports span={safeSpan} />
         {/* The reports under the chart, from the same answer. */}
         <AnalyticsReports state={reportsState} property={property} />
       </div>

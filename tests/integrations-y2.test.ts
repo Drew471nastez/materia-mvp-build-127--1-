@@ -39,7 +39,8 @@ check("the fill is one layer's opacity and scale, from the logo outward", /origi
 check("  out in 300ms, in in 380ms, on a soft in and out curve; none with reduced motion", /duration-300 ease-\[cubic-bezier\(0\.4,0,0\.2,1\)\]/.test(dir) && /group-hover:duration-\[380ms\][^"]*motion-reduce:transition-none/.test(dir))
 check("  keyboard focus fills it too", /group-focus-visible:opacity-100/.test(dir))
 check("  the band clips it, so it never spills into the card", /h-\[46px\] overflow-hidden border-b/.test(dir))
-check("  never purple and never a loud colour: the wash is a mix of at most 34%", /strength === "rest" \? \[16, 6\] : \[34, 14\]/.test(dir))
+/* Changed on purpose (round AS): less colour on hover, with a grain texture over it. */
+check("  never purple and never a loud colour: the wash is a mix of at most 16%", /strength === "rest" \? \[9, 3\] : \[16, 6\]/.test(dir))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

@@ -8609,6 +8609,25 @@ dialog:focus,
     display: none;
   }
 }
+/* The grain over it: a tiled noise picture (no filter runs on the page), faint, fading in with the mesh. */
+.int-grain {
+  position: absolute;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  mix-blend-mode: multiply;
+  transition: opacity 360ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (hover: hover) {
+  .group:hover > [data-integration-cover] > .int-grain,
+  .group:focus-visible > [data-integration-cover] > .int-grain {
+    opacity: 0.22;
+    transition-duration: 480ms;
+  }
+}
 
 /*
   THE /app SIDEBAR'S SCROLLBAR (round Z7). The owner: "too big ... more

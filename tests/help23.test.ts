@@ -200,9 +200,10 @@ console.log("\n5. SEO")
 const page = read("app/help/[category]/[article]/page.tsx")
 const catPage = read("app/help/[category]/page.tsx")
 const home = read("app/help/page.tsx")
-check("article pages: own title, description, canonical, Open Graph and Twitter", /title: \{ absolute: `\$\{article\.title\} \| Storelib Help Center` \}/.test(page) && /alternates: \{ canonical: path \}/.test(page) && /openGraph:/.test(page) && /twitter:/.test(page))
+/* Changed on purpose (round AS): the Help Center lives at help.storelib.com, so canonicals are that address (lib/help/paths.ts publicHelpUrl). */
+check("article pages: own title, description, canonical, Open Graph and Twitter", /title: \{ absolute: `\$\{article\.title\} \| Storelib Help Center` \}/.test(page) && /alternates: \{ canonical: publicHelpUrl\(path\.replace\(/.test(page) && /openGraph:/.test(page) && /twitter:/.test(page))
 check("  the social card is the article's first screenshot", /helpImages\(article\)\[0\]/.test(page))
-check("topic pages and the home have their own titles and canonicals", /alternates: \{ canonical: `\/help\/\$\{category\.slug\}` \}/.test(catPage) && /alternates: \{ canonical: "\/help" \}/.test(home))
+check("topic pages and the home have their own titles and canonicals", /alternates: \{ canonical: publicHelpUrl\(`\/\$\{category\.slug\}`\) \}/.test(catPage) && /alternates: \{ canonical: publicHelpUrl\("\/"\) \}/.test(home))
 const z = art("zero-to-100")
 const ld = helpArticleJsonLd(z, helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] }
 const types = ld["@graph"].map((g) => g["@type"])

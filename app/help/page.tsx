@@ -1,3 +1,4 @@
+import { publicHelpUrl } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { POPULAR_HELP, helpArticle, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpVisible, helpCategory } from "@/lib/help/articles"
@@ -12,7 +13,7 @@ const DESCRIPTION = "Step by step guides and answers for selling on Storelib: pr
 export const metadata: Metadata = {
   title: { absolute: "Storelib Help Center: guides and answers" },
   description: DESCRIPTION,
-  alternates: { canonical: "/help" },
+  alternates: { canonical: publicHelpUrl("/") },
   openGraph: { title: "Storelib Help Center", description: DESCRIPTION, url: "/help", siteName: "Storelib", type: "website" },
   twitter: { card: "summary", title: "Storelib Help Center", description: DESCRIPTION },
 }

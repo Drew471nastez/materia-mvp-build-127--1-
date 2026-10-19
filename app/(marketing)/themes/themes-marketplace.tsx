@@ -81,8 +81,56 @@ export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {
           <span className="text-[15px] tabular-nums text-[#6b7280]">{listings.length}</span>
         </div>
 
-        {/* ── Search, price, order ─────────────────────────────── */}
-        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="lg:mt-8 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-10">
+        {/* ── The sidebar, on a computer: search, price, category, order ─ */}
+        <aside aria-label="Filters" className="hidden lg:block">
+          <div className="sticky top-[88px] space-y-6">
+            <label className="relative block">
+              <span className="sr-only">Search themes</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search themes"
+                className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[14px] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#1a1a2e]/30 focus:shadow-[0_0_0_3px_rgba(26,26,46,0.06)]"
+              />
+            </label>
+            <FilterGroup title="Price">
+              {PRICES.map((p) => (
+                <FilterRow key={p.id} on={tier === p.id} onClick={() => setTier(p.id)} label={p.label} count={p.id === "all" ? listings.length : listings.filter((l) => l.tier === p.id).length} />
+              ))}
+            </FilterGroup>
+            {categories.length > 1 ? (
+              <FilterGroup title="Category">
+                {["all", ...categories].map((c) => (
+                  <FilterRow key={c} on={category === c} onClick={() => setCategory(c)} label={c === "all" ? "All categories" : categoryLabel(c)} count={c === "all" ? listings.length : listings.filter((l) => l.category === c).length} />
+                ))}
+              </FilterGroup>
+            ) : null}
+            <FilterGroup title="Sort by">
+              {THEME_SORTS.map((x) => (
+                <FilterRow key={x.id} on={sort === x.id} onClick={() => setSort(x.id as ThemeSort)} label={x.label} />
+              ))}
+            </FilterGroup>
+            {narrowed ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("")
+                  setTier("all")
+                  setCategory("all")
+                }}
+                className="text-[13px] font-medium text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
+        </aside>
+        <div className="min-w-0">
+        {/* ── Search, price, order (a phone or a tablet) ───────────────── */}
+        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center lg:hidden">
           <label className="relative block md:w-[340px]">
             <span className="sr-only">Search themes</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
@@ -129,7 +177,7 @@ export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {
 
         {/* ── Categories: words, the chosen one underlined ─────── */}
         {categories.length > 1 ? (
-          <nav aria-label="Categories" className="-mx-4 mt-5 overflow-x-auto border-b border-[#eceef1] px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+          <nav aria-label="Categories" className="-mx-4 mt-5 overflow-x-auto border-b border-[#eceef1] px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:hidden [&::-webkit-scrollbar]:hidden">
             <div className="flex gap-5">
               {["all", ...categories].map((c) => (
                 <button
@@ -168,7 +216,7 @@ export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {
             ) : null}
           </div>
         ) : (
-          <div data-theme-grid="" className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          <div data-theme-grid="" className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:mt-0 xl:grid-cols-3">
             {shown.map((l, i) => (
               <ThemeCard
                 key={l.slug}
@@ -183,7 +231,7 @@ export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {
                       type="button"
                       onClick={() => void add(l.slug)}
                       disabled={state.phase === "adding"}
-                      className="inline-flex h-11 items-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-semibold text-white sm:h-9 transition-colors duration-150 hover:bg-[#2d2d44] disabled:opacity-60"
+                      className="inline-flex h-11 items-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors duration-150 hover:bg-[#2d2d44] disabled:opacity-60 sm:h-9"
                     >
                       {state.phase === "adding" && state.slug === l.slug ? "Adding" : "Add"}
                     </button>
@@ -193,8 +241,36 @@ export function ThemesMarketplace({ listings }: { listings: ThemeListing[] }) {
             ))}
           </div>
         )}
+        </div>
+        </div>
       </div>
       <AddStatus state={state} name={addingName} onClose={reset} />
     </div>
+  )
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 px-2.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]">{title}</p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  )
+}
+
+function FilterRow({ on, onClick, label, count }: { on: boolean; onClick: () => void; label: string; count?: number }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        "flex h-9 w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-[13.5px] transition-colors duration-150",
+        on ? "bg-[#f1f2f4] font-medium text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.04)]" : "text-[#4b5563] hover:bg-[#f8f9fa] hover:text-[#1a1a2e]",
+      )}
+    >
+      <span className="truncate">{label}</span>
+      {typeof count === "number" ? <span className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{count}</span> : null}
+    </button>
   )
 }
