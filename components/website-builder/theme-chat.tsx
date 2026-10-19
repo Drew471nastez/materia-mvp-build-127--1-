@@ -476,8 +476,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
 
       {/* A question stands where the answer would; an offer after a written section stands under it. */}
       {exchange.reply && (!question || question.offer) && (
-        <p data-ask-reply="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
-          {exchange.reply}
+        <div data-ask-reply="" className={cn("leading-relaxed text-[#1a1a2e]", words, arrive)}>
+          <ReplyText text={exchange.reply} />
           {exchange.written && onOpenCode && (
             <>
               {" "}
@@ -491,7 +491,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
               </button>
             </>
           )}
-        </p>
+        </div>
       )}
       {question && (
         <QuestionChoices
@@ -564,7 +564,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
             onToggleSteps={() => setStepsOpen((open) => !open)}
             undo={exchange.undone ? "done" : canUndo ? "available" : null}
             onUndo={() => onUndo(exchange)}
-            copyText={exchange.reply ?? detail ?? question?.question ?? ""}
+            copyText={(exchange.reply ? tidyReply(exchange.reply).map((p) => (p.kind === "li" ? `• ${p.text}` : p.text)).join("\n") : null) ?? detail ?? question?.question ?? ""}
             canReport={!!exchange.messageId}
             report={report}
             onReport={setReport}
@@ -602,6 +602,60 @@ export const CONTINUE_PROMPT = "Continue where you stopped: finish the rest of w
 export const MAX_CONTINUES = 3
 
 export const ThemeChat = React.memo(ThemeChatPanel)
+
+
+/**
+ * A REPLY AS CLEAN TEXT. The assistant is told to answer in a plain
+ * sentence, and sometimes still sends markdown: **bold**, "# headings",
+ * numbered steps. Those showed as stars and hashes. The marks come off here,
+ * and lines that were a list read as a quiet list, so a reply is always
+ * calm text whatever the model wrote.
+ */
+export function tidyReply(text: string): { kind: "p" | "li"; text: string }[] {
+  const out: { kind: "p" | "li"; text: string }[] = []
+  for (const raw of text.replace(/\r/g, "").split("\n")) {
+    let line = raw.trim()
+    if (!line) continue
+    line = line
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/(^|\s)\*([^*\s][^*]*)\*(?=\s|[.,;:!?]|$)/g, "$1$2")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*/g, "")
+    const item = /^(?:[-*•]|\d{1,2}[.)])\s+(.*)$/.exec(line)
+    if (item) out.push({ kind: "li", text: item[1] })
+    else out.push({ kind: "p", text: line })
+  }
+  return out
+}
+
+function ReplyText({ text }: { text: string }) {
+  const parts = tidyReply(text)
+  const blocks: React.ReactNode[] = []
+  for (let i = 0; i < parts.length; ) {
+    if (parts[i].kind === "li") {
+      const items: string[] = []
+      while (i < parts.length && parts[i].kind === "li") items.push(parts[i++].text)
+      blocks.push(
+        <ul key={`l${i}`} className="my-1.5 space-y-1 pl-0">
+          {items.map((t, n) => (
+            <li key={n} className="relative pl-3.5 before:absolute before:left-0.5 before:top-[0.6em] before:h-1 before:w-1 before:rounded-full before:bg-[#9ca3af] before:content-['']">
+              {t}
+            </li>
+          ))}
+        </ul>,
+      )
+    } else {
+      blocks.push(
+        <p key={`p${i}`} className="[&:not(:first-child)]:mt-1.5">
+          {parts[i++].text}
+        </p>,
+      )
+    }
+  }
+  return <>{blocks}</>
+}
 
 function ThemeChatPanel({
   installId,

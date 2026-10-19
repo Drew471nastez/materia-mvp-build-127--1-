@@ -87,7 +87,7 @@ export function ThemeCard({
         onFocus={() => pan(true)}
         onBlur={() => pan(false)}
         data-theme-card-frame=""
-        className="group/frame relative block aspect-[4/3] overflow-hidden rounded-xl bg-[#eef0f3] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05),0_10px_24px_-16px_rgba(17,24,39,0.22)] outline-none ring-offset-2 transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_4px_rgba(17,24,39,0.06),0_18px_36px_-16px_rgba(17,24,39,0.3)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        className="group/frame relative block aspect-[4/3] overflow-hidden rounded-xl bg-[#eef0f3] shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)] outline-none ring-offset-2 transition-shadow duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_4px_rgba(17,24,39,0.05),0_14px_30px_-16px_rgba(17,24,39,0.22)] hover:duration-[420ms] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 motion-reduce:transition-none"
       >
         {picture ? (
           // eslint-disable-next-line @next/next/no-img-element

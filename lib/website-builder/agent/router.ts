@@ -127,6 +127,33 @@ const NEW_WORDS = /\b(new|another|extra|second|separate|additional|fresh)\b/i
 /** "Something completely different", "a different design", "not like my current one": never an edit of what is there. */
 const DIFFERENT = /\b(?:completely|totally|entirely|something|very)\s+(?:different|new|else|unique|original)\b|\bdifferent\s+(?:design|style|look|layout|one|version|kind)\b|\bnot\s+like\s+(?:the|my|this)\s+(?:existing|current|old|other)\b|\bnot\s+(?:the|my)\s+(?:existing|current|old)\b/i
 
+/**
+ * THE WORDS NAME ANOTHER SECTION ON THE PAGE. A section left selected by
+ * mistake took every edit: the hero open, "make the FAQ shorter" typed, and
+ * the hero was changed. "The FAQ", "my footer", "the testimonials": a section
+ * that is on the page and is not the selected one, said with "the", "my",
+ * "our" or "that" before it, so a word in passing ("text", "image") never
+ * counts.
+ */
+export function namesAnotherSection(words: string, sel: RouteSelection, onPage: { type: string; name?: string }[] = []): boolean {
+  const norm = (w: string) => w.toLowerCase().replace(/[_-]+/g, " ").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim()
+  const mine = new Set([sel.sectionType, sel.sectionName].filter(Boolean).map((w) => norm(w as string)))
+  const said = ` ${norm(words)} `
+  /* Saying the selection itself ("this section", its own name) keeps it. */
+  if (/ (?:this|the selected) (?:section|one|block) /.test(said)) return false
+  for (const w of mine) if (w.length >= 3 && said.includes(` ${w} `)) return false
+  const others = new Set<string>()
+  for (const s of onPage) {
+    for (const w of [s.type, s.name ?? ""].map(norm)) if (w.length >= 3 && !mine.has(w)) others.add(w)
+  }
+  for (const w of ["header", "footer", "announcement bar", "menu"]) if (!mine.has(w) && ![...mine].some((m) => m.includes(w))) others.add(w)
+  for (const w of others) {
+    const pattern = new RegExp(` (?:the|my|our|that) ${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s? `)
+    if (pattern.test(said)) return true
+  }
+  return false
+}
+
 function namesAddable(thing: string, addable: { type: string; name?: string }[]): boolean {
   const said = ` ${thing.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ")} `
   return addable.some((a) => {
@@ -185,6 +212,9 @@ export function routeByRules(input: RouteInput): RuleDecision {
     hero, and every menu edit was refused. Links in a menu live in the site's navigation, whatever is selected.
   */
   if (MENU_EDIT.test(words)) return decide("page", "theme", false, false, "the site's menu")
+
+  /* Another section named while one is selected: that one is meant, never the selection (a selection left on by mistake). */
+  if (scoped && sel && namesAnotherSection(words, sel, input.onPage)) return decide("page", "page", false, false, "another section, by name")
 
   /*
     THE PANEL OF THE OPEN SECTION: "rearrange this section's settings", "group the controls". Its <schema>, so its code

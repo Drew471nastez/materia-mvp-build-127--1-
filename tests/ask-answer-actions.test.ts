@@ -126,7 +126,8 @@ async function main() {
     delete g.document
     check(
       "the button copies the answer, or what the run said it did, or its question",
-      /copyText=\{exchange\.reply \?\? detail \?\? question\?\.question \?\? ""\}/.test(panel) && /setCopied\(\(await writeClipboard\(copyText\)\) \? "copied" : "failed"\)/.test(activityUi),
+      /* Changed on purpose (round AU): the answer is copied as the tidy text the chat shows, never with markdown stars. */
+      /copyText=\{\(exchange\.reply \? tidyReply\(exchange\.reply\)[^}]*\}[^}]*\) : null\) \?\? detail \?\? question\?\.question \?\? ""\}/.test(panel) && /setCopied\(\(await writeClipboard\(copyText\)\) \? "copied" : "failed"\)/.test(activityUi),
     )
     check(
       "and says Copied beside itself, or why not, for a moment",

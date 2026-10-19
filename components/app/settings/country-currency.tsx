@@ -154,7 +154,6 @@ export function CountryCurrency() {
               <span className="truncate">{data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency}</span>
             </span>
           </div>
-          <MarketplaceNote data={data} />
           {data.lastChange ? <Undo change={data.lastChange} onDone={changed} /> : null}
         </>
       )}
@@ -163,15 +162,16 @@ export function CountryCurrency() {
 }
 
 /**
- * ONE QUIET LINE, ONLY WHEN TRUE. Once Storelib's marketplace shows this
- * store in US dollars (lib/money/marketplace), the creator is told where
- * dollars appear and that their own places stay in their currency. Never
- * shown for a dollar store, or before the marketplace is switched over.
+ * ONE QUIET LINE, ONLY WHEN TRUE, IN THE EDITOR. Once Storelib's marketplace
+ * shows this store in US dollars (lib/money/marketplace), a creator choosing
+ * their currency is told where dollars appear and that their own places stay
+ * in the one they pick. Never shown for a dollar store, or before the
+ * marketplace is switched over, and not on the card at rest.
  */
 function MarketplaceNote({ data }: { data: Pick<CurrencyState, "currency" | "marketplaceUsd"> | null }) {
   if (!data?.marketplaceUsd || data.currency.toUpperCase() === "USD") return null
   return (
-    <p className="mt-2 text-[12px] leading-[18px] text-[#6b7280]" data-marketplace-usd-note="">
+    <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-marketplace-usd-note="">
       {tt("Explore and the Storelib marketplace show prices in US dollars, so buyers in every country see one currency. Your store, website and dashboard stay in {currency}.", { currency: data.currency })}
     </p>
   )
@@ -214,7 +214,6 @@ export function CurrencyLink() {
           <span className="truncate">{data ? (data.country ? `${countryName(data.country)} · ${data.currency}` : data.currency) : ""}</span>
         </span>
       </div>
-      <MarketplaceNote data={data} />
     </Card>
   )
 }
@@ -386,6 +385,8 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
         </label>
       ) : null}
 
+      {/* Where dollars show, said while the currency is being chosen (Edit), not on the card at rest. Follows the currency picked here. */}
+      <MarketplaceNote data={{ currency, marketplaceUsd: data.marketplaceUsd }} />
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={onCancel} disabled={busy}>

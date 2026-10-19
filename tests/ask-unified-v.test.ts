@@ -480,6 +480,18 @@ async function main() {
     check("each note says which scope, who kept it and when", /tt\("This website"\)/.test(panel) && /tt\("Every website"\)/.test(panel) && /keptBy\(note\)/.test(panel) && /relativeTime\(note\.createdAt\)/.test(panel))
   }
 
+  /* Round AU: a section left selected by mistake no longer takes an edit that names another one. */
+  {
+    const hero: RouteSelection = { sectionId: "hero-1", sectionType: "hero", sectionName: "Hero", origin: "builtin" }
+    const onPage = [{ type: "hero", name: "Hero" }, { type: "faq", name: "FAQ" }, { type: "testimonials" }]
+    const go = (prompt: string) => routeByRules({ prompt, selection: hero, scoped: true, images: 0, bodySections: 3, onPage })
+    check("with the hero selected, \"make the FAQ shorter\" is not locked to the hero", go("make the FAQ shorter").lock === false)
+    check("  nor \"change the footer links colour\"", go("change the footer links colour").lock === false)
+    check("  but \"make this section darker\" stays on the hero", go("make this section darker").lock === true)
+    check("  and \"make the hero title bigger\" too", go("make the hero title bigger").lock === true)
+    check("  and a word in passing (\"make the text bigger\") keeps the selection", go("make the text bigger").lock === true)
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log("\nFailing:")

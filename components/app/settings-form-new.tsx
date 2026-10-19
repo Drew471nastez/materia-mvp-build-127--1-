@@ -379,6 +379,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
   const initialLanguage = useRef(currentLanguage)
+  /* The app's language can settle after this mounts (the stored choice is read in an effect): follow it while nobody picked one here, so it is never an unsaved change. */
+  useEffect(() => {
+    if (initialLanguage.current === currentLanguage) return
+    setSelectedLanguage((cur) => (cur === initialLanguage.current ? currentLanguage : cur))
+    initialLanguage.current = currentLanguage
+  }, [currentLanguage])
 
   /*
     THE ACCOUNT'S TIME ZONE (lib/account/time-zone): the one saved on the
@@ -424,9 +430,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       .then((d: { custom?: string; storeName?: string; name?: string } | null) => {
         if (!live || !d) return
         if (d.storeName || d.name) setStatementStoreName(d.storeName || d.name || "")
-        /* Only when nothing was typed meanwhile. */
-        setStatementDescriptor((cur) => (cur === initialStatementDescriptor.current ? d.custom ?? "" : cur))
-        initialStatementDescriptor.current = d.custom ?? ""
+        /*
+          Only when nothing was typed meanwhile. The baseline before this answer is kept first: the updater runs later,
+          and comparing to the new baseline left the field empty against a saved name, so the save bar came up with
+          nothing changed whenever a custom bank line was set.
+        */
+        const saved = d.custom ?? ""
+        const before = initialStatementDescriptor.current
+        initialStatementDescriptor.current = saved
+        setStatementDescriptor((cur) => (cur === before ? saved : cur))
       })
       .catch(() => {})
     return () => {
@@ -702,9 +714,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     country !== initialValues.current.country ||
     selectedLanguage !== initialLanguage.current ||
     selectedTimezone !== initialTimezone.current ||
-    supportEmail !== initialSupportEmail.current ||
+    supportEmail.trim() !== initialSupportEmail.current.trim() ||
     payoutCurrency !== initialPayoutCurrency.current ||
-    statementDescriptor !== initialStatementDescriptor.current
+    statementDescriptor.trim() !== initialStatementDescriptor.current.trim()
 
 
   const loadStripeStatus = useCallback(async () => {
