@@ -18,12 +18,14 @@
  * parent's grip. Two levels, because that is what the header draws
  * (NAV_MAX_DEPTH in lib/website-builder/nav-links.ts).
  *
- * MOVING. The grip drags a row up or down its own level, with a mouse or a
- * finger (use-reorder.ts). Dragged right and let go, a link goes under the
- * one above it; dragged left, a sub-link comes back out. The same with the
- * keyboard on a focused grip: Up and Down move it, Right and Left nest it.
- * The row's "…" says the same moves in words, for anyone who never finds the
- * gesture.
+ * MOVING. The grip drags a row anywhere in the menu, with a mouse or a
+ * finger, and on a phone a finger held still on a row picks it up too
+ * (use-link-tree-drag.ts). A violet line shows where it will land: up and
+ * down picks the gap, right and left picks the level, so a link dropped
+ * indented under another becomes its sub-link and a sub-link dragged left
+ * comes back out. On a focused grip, Up and Down move it, Right and Left
+ * nest it. The row's "…" says the same moves in words, for anyone who never
+ * finds the gesture.
  *
  * EDITING. A click on the row opens Label and Link under it, in place (the
  * same link picker every link setting uses). Add sub-link and Delete are in
@@ -41,6 +43,7 @@ import {
   moveNavBlock,
   navBlocksToItems,
   nestNavBlock,
+  placeNavBlock,
   unnestNavBlock,
   type LinkItem,
   type NavBlock,
@@ -48,7 +51,7 @@ import {
 import { cn } from "@/lib/utils"
 import { isMenuButton } from "@/lib/website-builder/header-settings"
 import { INPUT } from "./styles"
-import { useReorder } from "./use-reorder"
+import { useLinkTreeDrag } from "./use-link-tree-drag"
 import { tt } from "@/lib/i18n/text"
 
 /* The sidebar's field, a thumb's height on a phone: these lists are also drawn outside the phone sheet, in Website Settings, where the sheet's own 44px rule does not reach. */
@@ -67,6 +70,12 @@ export interface LinkListEditorProps {
   onMove: (parentId: string | null, from: number, to: number) => void
   /** A top-level link under the one above it (1), or a sub-link back out (-1). */
   onNest?: (id: string, dir: 1 | -1) => void
+  /**
+   * A link dropped anywhere: at `index` of `parentId`'s links (`null`, the
+   * top level), counted without the link itself. Without it a drag moves a
+   * link within its own level only.
+   */
+  onPlace?: (id: string, parentId: string | null, index: number) => void
   /** Whether links can have sub-links. */
   nested?: boolean
   maxLinks?: number
@@ -84,6 +93,7 @@ type Ctx = LinkListEditorProps & {
   canNest: (index: number) => boolean
   /** May this sub-link come out to the top level? */
   canOut: () => boolean
+  drag: ReturnType<typeof useLinkTreeDrag>
 }
 
 /** How far a sub-link sits in: one step, the grip's half and a little. */
@@ -107,8 +117,6 @@ function LinkRow({
   above,
   first,
   ctx,
-  grip,
-  style,
 }: {
   item: LinkItem
   index: number
@@ -117,13 +125,12 @@ function LinkRow({
   above: LinkItem | null
   first: boolean
   ctx: Ctx
-  grip: React.HTMLAttributes<HTMLElement> & { style?: React.CSSProperties }
-  style?: React.CSSProperties
 }) {
   const expanded = ctx.open === item.id
   const kids = item.children ?? []
   const name = item.label.trim()
-  const lifted = !!style?.zIndex
+  const grip = ctx.drag.gripProps(item.id, parent?.id ?? null, index)
+  const hold = ctx.drag.rowPressProps(item.id)
   const panelId = `link-panel-${item.id}`
   /* A top-level link with sub-links may open them instead of going anywhere (header-settings.ts, isMenuButton). */
   const opensKids = depth === 0 && kids.length > 0
@@ -151,16 +158,9 @@ function LinkRow({
   ]
 
   return (
-    <div data-reorder-row="" data-link-row={item.id} data-link-depth={depth} style={style}>
-      <div
-        className={cn(
-          "relative",
-          !first && HAIRLINE,
-          /* Only a lifted row is painted: it passes over the others. The rest are the surface showing through. */
-          lifted && "z-10 rounded-md border-transparent bg-background shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_10px_28px_-6px_rgba(0,0,0,0.22)] dark:bg-[#1c1c1c] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_28px_-6px_rgba(0,0,0,0.7)]",
-        )}
-      >
-        <div className={BAR} data-link-bar="">
+    <div data-link-row={item.id} data-link-depth={depth} data-link-held={ctx.drag.dragging === item.id ? "" : undefined} className="transition-opacity duration-150">
+      <div className={cn("relative", !first && HAIRLINE)}>
+        <div className={BAR} data-link-bar="" {...hold}>
           <button
             type="button"
             aria-label={tt("Move {value}", { value: name || "link" })}
@@ -304,25 +304,8 @@ function AddRow({ label, onClick, ...rest }: { label: string; onClick: () => voi
 
 function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: LinkItem | null; depth: number; ctx: Ctx }) {
   const parentId = parent?.id ?? null
-  const nestable = !!ctx.nested && !!ctx.onNest
-  const { listRef, gripProps, rowStyle, nesting, drag } = useReorder<HTMLDivElement>({
-    count: items.length,
-    onMove: (from, to) => ctx.onMove(parentId, from, to),
-    onStart: () => ctx.setOpen(null),
-    nest: nestable
-      ? {
-          step: LINK_STEP,
-          can: (i, dir) => (dir === 1 ? depth === 0 && ctx.canNest(i) : depth === 1 && ctx.canOut()),
-          onNest: (i, dir) => ctx.onNest?.(items[i].id, dir),
-        }
-      : undefined,
-  })
   return (
-    <div
-      ref={listRef}
-      data-link-level={parentId ?? "top"}
-      data-link-nesting={drag && nesting ? (nesting === 1 ? "in" : "out") : undefined}
-    >
+    <div data-link-level={parentId ?? "top"}>
       {items.map((item, i) => (
         <LinkRow
           key={item.id}
@@ -333,8 +316,6 @@ function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: L
           above={i > 0 ? items[i - 1] : null}
           first={i === 0}
           ctx={ctx}
-          grip={gripProps(i)}
-          style={rowStyle(i)}
         />
       ))}
     </div>
@@ -366,30 +347,51 @@ export function LinkListEditor(props: LinkListEditorProps) {
 
   const room = props.items.length < (props.maxLinks ?? Infinity)
   const subRoom = props.maxSubLinks ?? Infinity
-  const ctx: Ctx = {
-    ...props,
-    open,
-    setOpen,
-    add,
-    targets,
-    /* Closed first: a menu names its links by place, so after a move the open id would be some other link. */
-    onNest: props.onNest
-      ? (id, dir) => {
-          setOpen(null)
-          props.onNest?.(id, dir)
-        }
-      : undefined,
-    canNest: (i) => {
-      if (!props.nested || !props.onNest || i <= 0) return false
-      const me = props.items[i]
-      const above = props.items[i - 1]
-      return !!me && !!above && (me.children ?? []).length === 0 && (above.children ?? []).length < subRoom
-    },
-    canOut: () => !!props.nested && !!props.onNest && room,
+  const onNest = props.onNest
+    ? (id: string, dir: 1 | -1) => {
+        /* Closed first: a menu names its links by place, so after a move the open id would be some other link. */
+        setOpen(null)
+        props.onNest?.(id, dir)
+      }
+    : undefined
+  const canNest = (i: number) => {
+    if (!props.nested || !props.onNest || i <= 0) return false
+    const me = props.items[i]
+    const above = props.items[i - 1]
+    return !!me && !!above && (me.children ?? []).length === 0 && (above.children ?? []).length < subRoom
   }
+  const canOut = () => !!props.nested && !!props.onNest && room
+
+  const parentOfId = (id: string): string | null => props.items.find((l) => (l.children ?? []).some((c) => c.id === id))?.id ?? null
+  const drag = useLinkTreeDrag({
+    items: props.items,
+    /* Across levels only where the list can say so in one save. */
+    nested: !!props.nested && !!props.onPlace,
+    step: LINK_STEP,
+    maxLinks: props.maxLinks,
+    maxSubLinks: props.maxSubLinks,
+    onPlace: (id, parentId, index) => {
+      setOpen(null)
+      if (props.onPlace) return props.onPlace(id, parentId, index)
+      /* Without it, a move within the level the link is already on. */
+      const from = (parentId === null ? props.items : props.items.find((l) => l.id === parentId)?.children ?? []).findIndex((l) => l.id === id)
+      if (from >= 0 && parentOfId(id) === parentId) props.onMove(parentId, from, index)
+    },
+    onMove: (parentId, from, to) => {
+      setOpen(null)
+      props.onMove(parentId, from, to)
+    },
+    onNest,
+    canNest,
+    canOut,
+    onStart: () => setOpen(null),
+  })
+
+  const ctx: Ctx = { ...props, open, setOpen, add, targets, onNest, canNest, canOut, drag }
 
   return (
-    <div className={cn(props.disabled && "pointer-events-none opacity-50")} data-link-list="">
+    <div className={cn("relative", props.disabled && "pointer-events-none opacity-50")} data-link-list="" ref={drag.listRef}>
+      {drag.line}
       {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={ctx} />}
       {room && (
         <div className={cn(props.items.length === 0 && "[&>button]:border-t-0")}>
@@ -451,6 +453,11 @@ export function HeaderNavLinksEditor({
       /* In or out a level is one write of the whole list: the new parent_id and the new order together, one step of Undo. */
       onNest={(id, dir) => {
         const next = dir === 1 ? nestNavBlock(blocks, id) : unnestNavBlock(blocks, id)
+        if (next !== blocks) onReorderBlocks(next)
+      }}
+      /* Dragged anywhere: the new parent and the new order in one write, one step of Undo. */
+      onPlace={(id, parentId, index) => {
+        const next = placeNavBlock(blocks, id, parentId, index)
         if (next !== blocks) onReorderBlocks(next)
       }}
     />

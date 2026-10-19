@@ -351,8 +351,8 @@ function main() {
   check("the SQL adds the switches to an existing table and makes the activity table, read-only to creators",
     /ADD COLUMN IF NOT EXISTS push_on_save/.test(sql2) && /CREATE TABLE IF NOT EXISTS theme_github_events/.test(sql2) && /REVOKE INSERT, UPDATE, DELETE ON theme_github_events/.test(sql2))
   const panel2 = read("components/website-builder/github-sync-panel.tsx")
-  check("the panel shows both directions as switches, Pull, Push and what happened lately",
-    /Builder to GitHub/.test(panel2) && /GitHub to builder/.test(panel2) && /action: "pull"/.test(panel2) && /status\.events\.map/.test(panel2))
+  check("the panel shows both directions as switches, Pull, Push and what happened lately", /* Changed on purpose (round Z4): Recent is its own list, five rows then Show all. */
+    /Builder to GitHub/.test(panel2) && /GitHub to builder/.test(panel2) && /action: "pull"/.test(panel2) && /<RecentList events=\{status\.events\}/.test(panel2) && /events\.map\(\(ev, i\)/.test(panel2))
   check("its switch cannot draw outside its track", /absolute left-\[3px\] top-\[3px\] h-4 w-4/.test(panel2) && /translate-x-\[18px\]/.test(panel2))
   const direct = read("components/website-builder/agent-connections-panel.tsx")
   check("a direct connection is the steps left for the tool whose line was pressed, with only its command",

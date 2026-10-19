@@ -32,7 +32,6 @@ import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
-  ArrowRight,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -81,13 +80,13 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import {
-  BROWSABLE_THEMES,
   THEME_INSTALL_LIMIT,
   getIndustry,
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import { ThemeCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
+import { ExploreThemesCard, ThemeCard } from "@/components/themes/theme-card"
+import { LIBRARY_THEME_CARDS, MARKETPLACE_PATH, builtinListings, listingPath, type ThemeListing } from "@/lib/themes/marketplace-shared"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { decodeCover, isDecoded, rememberCover, shownCover } from "@/lib/website-builder/cover-memory"
@@ -691,11 +690,14 @@ export function WebsiteBuilderClient({
   installs: given,
   username,
   siteHandle = null,
+  listings = builtinListings(),
 }: {
   installs: WebsiteSummary[]
   username: string
   /** The website's own name on Storelib, when it has one apart from the username. */
   siteHandle?: string | null
+  /** The marketplace's themes, Storelib's own first (lib/themes/marketplace-server.ts). */
+  listings?: ThemeListing[]
 }) {
   /* Opening your own website from here is not a visit to it (lib/analytics/own-site). */
   useOwnMarker()
@@ -1114,6 +1116,32 @@ export function WebsiteBuilderClient({
     )
   }
 
+  /**
+   * A marketplace theme: Storelib's own goes through addTheme above; one the
+   * admin uploaded is imported for this creator by /api/themes/marketplace/add,
+   * which checks Pro and paid on the server whatever the card showed.
+   */
+  const addListing = (l: ThemeListing): Promise<void> | undefined => {
+    const def = l.builtinThemeId ? getThemeDefinition(l.builtinThemeId) : null
+    if (def) return addTheme(def)
+    if (slotsLeft === 0) {
+      setFull("add")
+      return
+    }
+    if (making) return
+    return make(
+      "add",
+      l.name,
+      async () => {
+        const res = await fetch("/api/themes/marketplace/add", json("POST", { slug: l.slug }))
+        return { ok: res.ok, data: await res.json().catch(() => ({})) }
+      },
+      () => tt("{name} added", { name: l.name }),
+      tt("Could not add theme"),
+      () => void addListing(l),
+    )
+  }
+
   const exportTheme = async (i: WebsiteSummary) => {
     setBusy(`${i.id}:export`)
     try {
@@ -1264,8 +1292,8 @@ export function WebsiteBuilderClient({
         }
       : null
 
-  /* The themes Browse themes offers (one, for now), whether or not they are in the library already. */
-  const explore = BROWSABLE_THEMES
+  /* Browse themes: eight of the marketplace's themes, then a card to the rest. */
+  const explore = listings.slice(0, LIBRARY_THEME_CARDS)
   /*
     BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a
     screen below the fold there, and a drawn cover with a dozen lines of SVG
@@ -1540,7 +1568,7 @@ export function WebsiteBuilderClient({
                 <p className="max-w-[320px] text-[13px] text-[#6b7280]">{tt("Start from a theme, change what you like, and publish when it is ready.")}</p>
                 {explore[0] && (
                   <Button
-                    onClick={() => void addTheme(explore[0])}
+                    onClick={() => void addListing(explore[0])}
                     disabled={making}
                     className="mt-2 h-11 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:h-10"
                   >
@@ -1825,27 +1853,37 @@ export function WebsiteBuilderClient({
           data-page-block
         >
           <SectionHeading title={tt("Browse themes")}>
-            <Link
-              href="/app/website-builder/themes"
-              onClick={() => startNavigationLoading()}
-              className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] transition-colors duration-150 hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+            {/* The whole marketplace, in its own tab: inside the phone app, a new window from the creator's tools opens in the browser (components/platform/native-link-guard.tsx). */}
+            <a
+              href={MARKETPLACE_PATH}
+              target="_blank"
+              rel="noopener"
+              data-theme-marketplace-link=""
+              className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2.5 text-[14px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#eef0f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
             >
-              {tt("Browse")}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+              {tt("Theme marketplace")}
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
+            </a>
           </SectionHeading>
           <h2 id="explore-heading" className="sr-only">{tt("Browse themes")}</h2>
-          <div className="space-y-3">
+          <div data-theme-grid="" className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
             {explore.map((t) => (
-              <ExploreRow
-                key={t.id}
-                def={t}
-                inLibrary={installedThemeIds.has(t.id)}
-                busy={making && incoming?.kind === "add" && incoming.name === t.name}
-                onAdd={() => void addTheme(t)}
-                onOpen={() => go("/app/website-builder/themes")}
+              <ThemeCard
+                key={t.slug}
+                listing={t}
+                href={listingPath(t.slug)}
+                newTab
+                action={
+                  <LibraryThemeAction
+                    listing={t}
+                    inLibrary={!!t.builtinThemeId && installedThemeIds.has(t.builtinThemeId)}
+                    busy={making && incoming?.kind === "add" && incoming.name === t.name}
+                    onAdd={() => void addListing(t)}
+                  />
+                }
               />
             ))}
+            <ExploreThemesCard href={MARKETPLACE_PATH} />
           </div>
 
         </section>
@@ -1968,52 +2006,36 @@ export function WebsiteBuilderClient({
  * reason: `transform-none` was switching off a property that was not in use.
  */
 /**
- * A theme Browse themes offers, as one row: a drawn cover, what it is, and
- * Add (or that it is in the library already). Nothing moves on hover, only
- * the row's tint: the cards used to rise 2px, which read as a bump.
+ * The end of a Browse themes card's name row: Add, or that it is in the
+ * library already. A Pro or paid theme opens its page in the marketplace,
+ * where its price and plan are explained, rather than failing here.
  */
-function ExploreRow({
-  def,
-  inLibrary,
-  busy,
-  onAdd,
-  onOpen,
-}: {
-  def: ThemeDefinition
-  inLibrary: boolean
-  busy: boolean
-  onAdd: () => void
-  onOpen: () => void
-}) {
+function LibraryThemeAction({ listing, inLibrary, busy, onAdd }: { listing: ThemeListing; inLibrary: boolean; busy: boolean; onAdd: () => void }) {
+  if (inLibrary) {
+    return (
+      <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#3f3f46]">
+        <Check className="h-3.5 w-3.5" />
+        {tt("In library")}
+      </span>
+    )
+  }
+  if (listing.tier !== "free") {
+    return (
+      <a
+        href={listingPath(listing.slug)}
+        target="_blank"
+        rel="noopener"
+        className="inline-flex h-11 items-center rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f8f9fa] sm:h-9"
+      >
+        {tt("View")}
+      </a>
+    )
+  }
   return (
-    <div
-      data-explore-row=""
-      /* pointer-fine, for the reason on the library row above. */
-      className="flex items-center gap-3 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors duration-150 pointer-fine:hover:bg-[#fcfcfd] sm:gap-4"
-    >
-      <button type="button" onClick={onOpen} aria-label={tt("Preview {name}", { name: def.name })} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:gap-4">
-        <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-32">
-          <span className="block aspect-[16/10]">
-            <ThemeCover spec={coverSpecFromDefinition(def)} className="block h-full w-full" />
-          </span>
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{def.name}</span>
-          <span className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[#6b7280]">{def.tagline}</span>
-        </span>
-      </button>
-      {inLibrary ? (
-        <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#3f3f46]">
-          <Check className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">{tt("In library")}</span>
-        </span>
-      ) : (
-        <Button onClick={onAdd} disabled={busy} className="h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3 sm:h-9 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          {tt("Add")}
-        </Button>
-      )}
-    </div>
+    <Button onClick={onAdd} disabled={busy} className="h-11 shrink-0 rounded-lg bg-[#1a1a2e] px-3.5 sm:h-9 text-[13px] font-semibold text-white hover:bg-[#2d2d44]">
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+      {tt("Add")}
+    </Button>
   )
 }
 

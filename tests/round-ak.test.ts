@@ -57,8 +57,9 @@ async function main() {
     check("the open group follows the page shown, set while rendering (no frame with the old one open)", /groupForRoute\(navItems, shownPath, shownSearch\)/.test(shell) && /if \(groupFor !== routeGroup\)/.test(shell))
     const nav = code("components/app/sidebar-desktop-nav.tsx")
     check("a folded list is out of the Tab order", /inert=\{!open\}/.test(nav) && /inert=\{!open\}/.test(code("components/app/sidebar-mobile-nav.tsx")))
-    check("the nav keeps its scrollbar's column, so opening a group never narrows the rows", /\.sidebar-nav \{[\s\S]*?scrollbar-gutter: stable/.test(src("app/globals.css")) && /pl-\[7px\] pr-px/.test(nav))
-    check("the bar fades in and out with the pointer", /@property --sl-nav-thumb/.test(src("app/globals.css")) && /transition: --sl-nav-thumb 260ms/.test(src("app/globals.css")))
+    /* Round Z7: the platform's bar is hidden and a thumb is drawn over the edge, so there is no column to keep and opening a group cannot narrow the rows. */
+    check("the nav's bar takes no width, so opening a group never narrows the rows", /\.sidebar-nav \{[\s\S]*?scrollbar-width: none/.test(src("app/globals.css")) && /pl-\[7px\] pr-\[7px\]/.test(nav) && /<SidebarScrollThumb target=\{navRef\} \/>/.test(nav))
+    check("the bar fades in and out with the pointer", /\[data-nav-scroll-frame\]:hover > \[data-nav-thumb\]\[data-scrollable\]/.test(src("app/globals.css")) && /transition: opacity 420ms/.test(src("app/globals.css")))
   }
 
   console.log("\nThe Open in Storelib card")
@@ -96,7 +97,8 @@ async function main() {
   console.log("\nThe builder")
   {
     const lib = code("components/website-builder/editor/section-library.tsx")
-    check("App embeds is a button beside the search, on a phone above it at the right", /\{embedsButton\}\s*<div className="w-\[260px\]/.test(lib) && /<h2 className="min-w-0 flex-1 truncate[^>]*>\{tt\("Add a section"\)\}<\/h2>\s*\{embedsButton\}/.test(lib))
+    /* Changed on purpose (round Z1): on a phone too it sits beside the search, and is called Apps there. */
+    check("App embeds is a button beside the search, on a phone too", /\{embedsButton\}\s*<div className="w-\[260px\]/.test(lib) && /<div className="min-w-0 flex-1">\{search\}<\/div>\s*\{embedsButton\}/.test(lib) && /const embedsLabel = phone \? tt\("Apps"\) : tt\("App embeds"\)/.test(lib))
     check("and finds Storelib Reviews' sections in an imported theme too", /own_ && !schema\.imported \? undefined : appForSection\(type\)\?\.app/.test(lib))
     check("its apps as words, no icons", /data-app-embeds=""/.test(lib) && !/ICON_MAP\[app\.icon\][\s\S]{0,400}data-app-embed=\{app\.id\}/.test(lib))
     check("opening asks nothing heavy of the entrance", /startTransition\(\(\) => setBuilt\(true\)\)/.test(lib) && /OPEN_SETTLE_MS/.test(lib))
@@ -104,7 +106,7 @@ async function main() {
     check("the closed scheme field is a plain selector, Edit only in the open list", /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0/.test(scheme) && /onEdit\(s\.id\)/.test(scheme) && !/absolute right-1\.5 top-1\/2/.test(scheme))
     check("going into a section on a computer reads as going in", /className="h-full wb-desk-panel"/.test(code("app/website-builder/editor/[installId]/page.tsx")) && /@keyframes wb-desk-in/.test(src("app/globals.css")))
     const rail = code("components/website-builder/editor/slim-scroll-rail.tsx")
-    check("the sidebar's bar stays while the pointer is in it and glides out after", /let inside = false/.test(rail) && /fadeLater\(OUT_MS\)/.test(rail) && /w-\[4px\]/.test(rail))
+    check("the sidebar's bar stays while the pointer is in it and glides out after", /let inside = false/.test(rail) && /fadeLater\(OUT_MS\)/.test(rail) && /* Round Z1: 7px, one width at rest and under the pointer (the owner: "too slim"). */ /export const THUMB_PX = 7/.test(rail) && /width: THUMB_PX/.test(rail))
   }
 
   console.log("\nStorelib AI")

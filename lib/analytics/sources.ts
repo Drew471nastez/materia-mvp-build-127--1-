@@ -172,7 +172,7 @@ export function categorizeServerSource(
   utmMedium?: string | null,
   clientApp?: string | null,
 ): string {
-  const ref = normalizeLower(referrerDomain).replace(/^www\./, "")
+  const ref = canonicalReferrerHost(referrerDomain)
   const source = normalizeLower(utmSource)
   const medium = normalizeLower(utmMedium)
   const app = normalizeLower(clientApp)
@@ -231,7 +231,136 @@ export function isInternalReferrer(host: string, mainDomain: string, pageHost?: 
   /* A OnePage on storelib.me is Storelib too: a visitor it sent on was already on the creator's page. */
   if (isOnePageHost(h)) return true
   if (pageHost && h === normalizeLower(pageHost).replace(/^www\./, "")) return true
-  return hostIs(h, "checkout.stripe.com", "stripe.com", "paypal.com", "localhost") || h.endsWith(".vercel.app")
+  /*
+    The payment pages a buyer comes back from: Stripe's checkout, payment
+    links, its card check and invoices, Link, PayPal. Stripe's own site and
+    dashboard (stripe.com, dashboard.stripe.com) are a real referrer: a
+    creator who links their shop from there sees Stripe in Referrers.
+  */
+  if (hostIs(h, "checkout.stripe.com", "buy.stripe.com", "hooks.stripe.com", "pay.stripe.com", "invoice.stripe.com", "js.stripe.com", "connect.stripe.com", "checkout.link.com", "link.com", "paypal.com", "localhost")) return true
+  return h.endsWith(".vercel.app")
+}
+
+/**
+ * AN ANDROID APP AS A REFERRER. Chrome on Android names the app a link was
+ * opened from as android-app://<package> (Gmail is
+ * android-app://com.google.android.gm), and its "host" is the package. Each
+ * known app is the site it stands for, so a tap in the Gmail app is Gmail
+ * and a tap in the Google app is Google search.
+ */
+const ANDROID_APPS: Record<string, string> = {
+  "com.google.android.gm": "mail.google.com",
+  "com.google.android.gm.lite": "mail.google.com",
+  "com.google.android.googlequicksearchbox": "google.com",
+  "com.google.android.apps.searchlite": "google.com",
+  "com.google.android.youtube": "youtube.com",
+  "com.google.android.apps.youtube.music": "youtube.com",
+  "com.instagram.android": "instagram.com",
+  "com.instagram.barcelona": "threads.net",
+  "com.facebook.katana": "facebook.com",
+  "com.facebook.lite": "facebook.com",
+  "com.facebook.orca": "messenger.com",
+  "com.twitter.android": "x.com",
+  "com.zhiliaoapp.musically": "tiktok.com",
+  "com.ss.android.ugc.trill": "tiktok.com",
+  "com.pinterest": "pinterest.com",
+  "com.reddit.frontpage": "reddit.com",
+  "com.linkedin.android": "linkedin.com",
+  "com.whatsapp": "whatsapp.com",
+  "com.whatsapp.w4b": "whatsapp.com",
+  "org.telegram.messenger": "telegram.org",
+  "org.thunderdog.challegram": "telegram.org",
+  "com.discord": "discord.com",
+  "com.snapchat.android": "snapchat.com",
+  "com.github.android": "github.com",
+  "com.microsoft.office.outlook": "outlook.live.com",
+  "com.yahoo.mobile.client.android.mail": "mail.yahoo.com",
+  "com.microsoft.bing": "bing.com",
+  "com.duckduckgo.mobile.android": "duckduckgo.com",
+  "com.slack": "slack.com",
+  "com.substack.app": "substack.com",
+  "com.spotify.music": "open.spotify.com",
+}
+
+/** A referrer's host as a site: an Android app's package as the site it stands for, anything else as it is, without www. */
+export function canonicalReferrerHost(host: string | null | undefined): string {
+  const h = normalizeLower(host).replace(/^www\./, "")
+  if (!h) return ""
+  return ANDROID_APPS[h] ?? h
+}
+
+/**
+ * THE COMPANY BEHIND A REFERRER, for the Referrers list: one row for Google
+ * whatever country site or app it came through, one for Instagram whether
+ * the visit came by instagram.com, l.instagram.com or the Android app, X for
+ * x.com, twitter.com and t.co. The key is the mark the list draws
+ * (components/analytics/source-icon). Null for a site that is no company
+ * listed here: it is listed by its own host, with its own icon.
+ */
+const REFERRER_BRANDS: Array<[key: string, label: string, test: (h: string) => boolean]> = [
+  ["gmail", "Gmail", (h) => hostIs(h, "mail.google.com", "gmail.com", "inbox.google.com")],
+  ["gemini", "Gemini", (h) => hostIs(h, "gemini.google.com", "bard.google.com")],
+  ["google", "Google", (h) => isGoogle(h) || hostIs(h, "news.google.com", "googleusercontent.com")],
+  ["bing", "Bing", (h) => hostIs(h, "bing.com", "cn.bing.com")],
+  ["duckduckgo", "DuckDuckGo", (h) => hostIs(h, "duckduckgo.com")],
+  ["brave", "Brave Search", (h) => hostIs(h, "search.brave.com")],
+  ["ecosia", "Ecosia", (h) => hostIs(h, "ecosia.org")],
+  ["baidu", "Baidu", (h) => hostIs(h, "baidu.com")],
+  ["chatgpt", "ChatGPT", (h) => hostIs(h, "chatgpt.com", "chat.openai.com")],
+  ["perplexity", "Perplexity", (h) => hostIs(h, "perplexity.ai")],
+  ["messenger", "Messenger", (h) => hostIs(h, "messenger.com", "m.me")],
+  ["github", "GitHub", (h) => hostIs(h, "github.com", "github.io", "gist.github.com")],
+  ["stripe", "Stripe", (h) => hostIs(h, "stripe.com")],
+  ["apple", "Apple", (h) => hostIs(h, "apple.com", "icloud.com", "apple.news")],
+  ["linktree", "Linktree", (h) => hostIs(h, "linktr.ee")],
+  ["substack", "Substack", (h) => hostIs(h, "substack.com")],
+  ["spotify", "Spotify", (h) => hostIs(h, "spotify.com")],
+]
+
+const NETWORK_LABEL: Record<string, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  threads: "Threads",
+  tiktok: "TikTok",
+  x: "X",
+  youtube: "YouTube",
+  pinterest: "Pinterest",
+  linkedin: "LinkedIn",
+  snapchat: "Snapchat",
+  reddit: "Reddit",
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  discord: "Discord",
+  twitch: "Twitch",
+  bluesky: "Bluesky",
+  tumblr: "Tumblr",
+}
+
+export function referrerBrand(host: string | null | undefined): { key: string; label: string } | null {
+  const h = canonicalReferrerHost(host)
+  if (!h) return null
+  for (const [key, label, test] of REFERRER_BRANDS) if (test(h)) return { key, label }
+  const network = socialNetworkOfHost(h)
+  if (network) return { key: network, label: NETWORK_LABEL[network] ?? network }
+  return null
+}
+
+/** Every key referrerBrand can give: a stored referrer is never one of these, since a host always has a dot. */
+export const REFERRER_BRAND_KEYS: ReadonlySet<string> = new Set([...REFERRER_BRANDS.map(([k]) => k), ...Object.keys(NETWORK_LABEL)])
+
+/**
+ * A SOURCE NAMED IN THE ADDRESS WITHOUT UTM TAGS: ?ref=producthunt,
+ * ?source=newsletter, ?via=instagram. Many sites and link tools tag links
+ * this way, and the visit was counted as Direct when the referrer was
+ * empty. Used as utm_source only when there is no utm_source.
+ */
+export function sourceParamOf(search: URLSearchParams): string | null {
+  for (const key of ["ref", "source", "via", "src"]) {
+    const v = (search.get(key) || "").trim()
+    /* A word or a host, not an id: a referral code like ref=8F3K2 says nothing about where the visit came from. */
+    if (v && v.length <= 60 && /^[a-z][a-z0-9._-]*$/i.test(v) && !/^\d+$/.test(v)) return v.toLowerCase()
+  }
+  return null
 }
 
 /** The host of a referrer address, without www, or "" for none. */
@@ -239,7 +368,7 @@ export function referrerHost(referrer: string | null | undefined): string {
   const r = normalizeStr(referrer)
   if (!r) return ""
   try {
-    return new URL(r.includes("://") ? r : `https://${r}`).hostname.toLowerCase().replace(/^www\./, "")
+    return canonicalReferrerHost(new URL(r.includes("://") ? r : `https://${r}`).hostname)
   } catch {
     return ""
   }

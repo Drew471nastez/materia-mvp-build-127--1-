@@ -1033,7 +1033,8 @@ check(
     !/pt-1\.5 pb-1\.5/.test(editor) &&
     // both top corners, on all three: a card with one square top corner and
     // one round one reads as a mistake
-    /className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
+    /* Changed on purpose (round Z1): the sidebar card is its own width (flex-none), so folding or dragging it lays out only the canvas. */
+    /className="flex-none flex flex-col min-h-0 overflow-hidden bg-white rounded-t-\[20px\]"/.test(editor) &&
     // Ask Storelib is no longer the third card on the shelf: on a computer
     // it floats over the canvas as a pill (theme-chat.tsx, variant "dock")
     !/<div className="h-full overflow-hidden bg-white rounded-t-\[20px\]">/.test(editor) &&
@@ -1912,7 +1913,8 @@ check(
    * keep off the screen edge. With one theme on offer it is one full-width
    * row in the card style, inside the section's own padding.
    */
-  /data-explore-row=""/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
+  /* Round Z5: the theme cards are a grid inside the section (components/themes/theme-card.tsx), not a sideways row. */
+  /data-theme-grid=""/.test(wbPage) && /<ThemeCard\b/.test(wbPage) && !/snap-x snap-mandatory/.test(wbPage),
 )
 
 check(
@@ -2030,6 +2032,8 @@ section("Backups: every task, every publish, and a way back that is never one-wa
 // ===========================================================================
 
 const backupsLib = untt(readFileSync(join(root, "lib/website-builder/backups.ts"), "utf8"), "lib/website-builder/backups.ts")
+/* Round Z4: a restore's writes live in restore-snapshot.ts (bulk, all or nothing); backups.ts hands over to it. */
+const restoreLib = untt(readFileSync(join(root, "lib/website-builder/restore-snapshot.ts"), "utf8"), "lib/website-builder/restore-snapshot.ts")
 const backupsRoute = untt(readFileSync(join(root, "app/api/website-builder/themes/[installId]/backups/route.ts"), "utf8"), "app/api/website-builder/themes/[installId]/backups/route.ts")
 const restoreRoute = untt(readFileSync(
   join(root, "app/api/website-builder/themes/[installId]/backups/[backupId]/restore/route.ts"),
@@ -2056,9 +2060,9 @@ check(
 
 check(
   "restoring writes the DRAFT, never the live site, and leaves pages the copy did not know about",
-  /update\(\{ draft_settings: snapshot\.settings \}\)/.test(backupsLib) &&
-    /update\(\{ draft_sections: page\.sections \}\)/.test(backupsLib) &&
-    !/update\(\{ sections: page\.sections/.test(backupsLib) &&
+  /update\(\{ draft_settings: snapshot\.settings \}\)/.test(restoreLib) &&
+    /update\(\{ draft_sections: page\.sections \}\)/.test(restoreLib) &&
+    !/update\(\{ sections: page\.sections/.test(restoreLib) &&
     /Pages that exist now but were not in the snapshot are left alone/.test(backupsLib),
 )
 
@@ -2076,7 +2080,7 @@ check(
   (() => {
     const safety = restoreRoute.indexOf('source: "restore"')
     const apply = restoreRoute.indexOf("await applySnapshot(")
-    return safety > 0 && apply > safety && /if \(safety\.error\) return/.test(restoreRoute)
+    return safety > 0 && apply > safety && /if \(safety\.error\) \{[\s\S]{0,300}return NextResponse/.test(restoreRoute)
   })(),
 )
 
@@ -2124,7 +2128,7 @@ check(
     /Restore this backup\?/.test(settingsAll) &&
     /A backup of the draft you have now is saved first, so this can be undone/.test(settingsAll) &&
     /Nothing changes on your live site until you publish/.test(settingsAll) &&
-    /onRestored=\{\(\) => window\.location\.reload\(\)\}/.test(editor),
+    /onRestored=\{\(\) => \{[\s\S]{0,200}window\.location\.reload\(\)/.test(editor),
 )
 
 check(
@@ -3082,7 +3086,9 @@ check(
    * theme". Same href, two labels, and the header's wore a plus, which is the
    * mark for adding rather than browsing.
    */
-  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 2 &&
+  /* Round Z5: Add theme in the Library heading, and Browse themes' own link is the Theme marketplace (storelib.com/themes) in a new tab. */
+  (wbPage.match(/href="\/app\/website-builder\/themes"/g) ?? []).length === 1 &&
+    /href=\{MARKETPLACE_PATH\}\s*target="_blank"/.test(wbPage) &&
     // one button, one "see all" link — and the section is named for it
     /<SectionHeading title="Browse themes">/.test(wbPage) &&
     !/Browse themes\s*\n\s*<\/Link>/.test(wbPage),

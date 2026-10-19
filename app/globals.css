@@ -1077,9 +1077,10 @@ html.capacitor body {
     scrollbar-color: transparent transparent;
   }
 
+  /* 8px with a 1px clear border each side: a 6px thumb, near the editor's drawn one (slim-scroll-rail). */
   .wb-slim-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   .wb-slim-scroll::-webkit-scrollbar-track {
@@ -1090,6 +1091,8 @@ html.capacitor body {
     /* Transparent until the pointer is in the panel. A thumb that is always
        drawn is a second border down the side of every list. */
     background-color: transparent;
+    border: 1px solid transparent;
+    background-clip: padding-box;
     border-radius: 999px;
     transition: background-color 180ms ease-out;
   }
@@ -1423,7 +1426,8 @@ html.capacitor body {
     z-index: 60;
     pointer-events: none;
     border-radius: 4px;
-    box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.85);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.85);
+    /* 2px, with the section rings (sections/_shared.tsx): whole pixels on a 1x and a 2x screen. */
     transition: opacity 120ms ease-out;
   }
   .wb-hover-chip {
@@ -7148,6 +7152,27 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 .ask-in { animation: ask-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .ask-fade { animation: ask-fade 180ms ease-out both; }
 
+/* AI memory from the chat (components/website-builder/ask-memory.tsx): it
+   grows out of the mark that opened it on the sheet's curve and leaves
+   quicker than it came, opacity and transform only, so nothing under it is
+   laid out again. Unlayered, so it replaces the popover's own animation.
+   Under reduced motion, a fade. Measured by scripts/check-ask-memory-send.mjs. */
+@keyframes ask-pop-in {
+  from { opacity: 0; transform: translate3d(0, -4px, 0) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translate3d(0, -2px, 0) scale(0.98); }
+}
+.ask-memory-pop { transform-origin: var(--radix-popover-content-transform-origin); }
+.ask-memory-pop[data-state="open"] { animation: ask-pop-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-memory-pop[data-state="closed"] { animation: ask-pop-out 130ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-memory-pop[data-state="open"] { animation: ask-fade 120ms ease-out both; }
+  .ask-memory-pop[data-state="closed"] { animation: ask-fade 100ms ease-in reverse both; }
+}
+
 /* Ask Storelib's steps (components/website-builder/ask-activity.tsx,
    StepsTimeline). Every row is one 24px line, so a row never changes height
    and nothing above a new row moves. A row rises 4px into place as it
@@ -8532,8 +8557,8 @@ dialog:focus,
 }
 [data-sheet-scroll]::-webkit-scrollbar,
 [data-wb-sidebar-scroll]::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 [data-sheet-scroll]::-webkit-scrollbar-track,
 [data-wb-sidebar-scroll]::-webkit-scrollbar-track {
@@ -8542,51 +8567,113 @@ dialog:focus,
 [data-sheet-scroll]::-webkit-scrollbar-thumb,
 [data-wb-sidebar-scroll]::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.45);
+  border: 1px solid transparent;
+  background-clip: padding-box;
   border-radius: 999px;
 }
 
 /*
-  Round AK: the sidebar's bar is slim and fades in while the pointer
-  is over the sidebar and out when it leaves (a registered colour,
-  so it eases instead of snapping). Its column is always kept
-  (scrollbar-gutter), so a group opening into an overflow never
-  narrows the rows or jumps them sideways; the nav's right padding
-  is 6px less to match, so the rows sit where they always did.
+  AN INTEGRATION CARD'S SPECKS (round Z7; components/app/settings/
+  integrations-directory.tsx SPECKS). Each speck is gathered by the logo
+  (pulled left and down, small, clear) and spreads to its own place under
+  the pointer, 520ms out on a soft curve and 420ms back. The inner <i>
+  carries the gradient and the slow drift, which only runs while the card
+  is hovered. Compositor properties only; nothing at all with reduced
+  motion, or on a screen with no hover.
 */
-@property --sl-nav-thumb {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: rgba(0, 0, 0, 0);
+.int-speck {
+  --speck-gather: 46px;
+  position: absolute;
+  display: block;
+  opacity: 0;
+  translate: calc(-1 * var(--speck-gather)) 10px;
+  scale: 0.45;
+  pointer-events: none;
+  transition-property: opacity, translate, scale;
+  transition-duration: 420ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+.int-speck > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  animation: int-speck-drift var(--speck-loop, 6s) ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+@keyframes int-speck-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(var(--speck-dx, 4px), var(--speck-dy, 3px), 0); }
+}
+@media (hover: hover) {
+  .group:hover > [data-integration-cover] > .int-speck,
+  .group:focus-visible > [data-integration-cover] > .int-speck {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+    transition-duration: 520ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .group:hover > [data-integration-cover] > .int-speck > i {
+    animation-play-state: running;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .int-speck {
+    display: none;
+  }
+}
+
+/*
+  THE /app SIDEBAR'S SCROLLBAR (round Z7). The owner: "too big ... more
+  slim, more modern ... appears only when I'm hovering over the sidebar and
+  disappears very smooth when I hover out ... not that long". The
+  platform's bar is hidden here and components/app/sidebar-scroll-thumb.tsx
+  draws a 4px thumb over the nav's edge: no column is kept, so nothing moves
+  when it shows, and the nav's own right padding (7px, the same as its left)
+  puts the rows exactly where the old gutter did. Opacity only: in over
+  180ms, out over 420ms, so leaving reads as a slow fade rather than a cut.
+*/
 .sidebar-nav {
-  --sl-nav-thumb: rgba(0, 0, 0, 0);
-  transition: --sl-nav-thumb 260ms ease;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
-}
-.sidebar-nav:hover,
-.sidebar-nav:focus-within {
-  --sl-nav-thumb: rgba(16, 24, 40, 0.16);
+  scrollbar-width: none;
 }
 .sidebar-nav::-webkit-scrollbar {
-  width: 6px;
+  display: none;
 }
-.sidebar-nav::-webkit-scrollbar-track {
-  background: transparent;
+[data-nav-thumb] {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  width: 10px;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1);
 }
-.sidebar-nav::-webkit-scrollbar-thumb {
-  background-color: var(--sl-nav-thumb);
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
+[data-nav-thumb]::before {
+  content: "";
+  position: absolute;
+  inset: 0 3px 0 3px;
   border-radius: 999px;
+  background-color: rgba(16, 24, 40, 0.2);
+  transition: background-color 160ms ease;
 }
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(16, 24, 40, 0.3);
+[data-nav-scroll-frame]:hover > [data-nav-thumb][data-scrollable],
+[data-nav-thumb][data-scrollable][data-scrolling],
+[data-nav-thumb][data-scrollable][data-dragging] {
+  opacity: 1;
+  pointer-events: auto;
+  transition-duration: 180ms;
 }
-@supports not selector(::-webkit-scrollbar) {
-  .sidebar-nav {
-    scrollbar-width: thin;
-    scrollbar-color: var(--sl-nav-thumb) transparent;
+[data-nav-thumb]:hover::before,
+[data-nav-thumb][data-dragging]::before {
+  background-color: rgba(16, 24, 40, 0.36);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-nav-thumb],
+  [data-nav-thumb]::before {
+    transition: none;
   }
 }
 

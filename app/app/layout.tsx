@@ -17,6 +17,7 @@ import AppColdStart from "./cold-start"
 import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
+import { PlanWatch } from "@/components/app/plan-watch"
 import { factsFromRows, homeProgress, paymentsReadyFrom, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { providerPaymentsReady } from "@/lib/payments/readiness"
 import { listBusinesses } from "@/lib/businesses/server"
@@ -253,6 +254,8 @@ export default async function AppLayout({
     <NativeBackHandler />
     {accountZone ? <script dangerouslySetInnerHTML={{ __html: timeZoneScript(accountZone) }} /> : null}
     <TimeZoneSync accountZone={accountZone} />
+    {/* A plan set from /admin redraws what is open (components/app/plan-watch.tsx). */}
+    <PlanWatch creatorId={(creator as { id?: string } | null)?.id ?? null} />
     <AppLayoutWrapper>
       {/* The sidebar's width, open or a row of icons, for the sidebar and the page alike (lib/ui/app-rail). */}
       <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar" data-app-rail={rail} style={{ ["--app-rail-w" as string]: `${railWidth(rail)}px` }}>

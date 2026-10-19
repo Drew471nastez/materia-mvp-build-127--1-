@@ -65,10 +65,10 @@ async function main() {
   const { libraryMemberships } = await import("../lib/library/library-memberships")
   console.log("\nNo new membership can be made")
   {
-    const every = [false, true].flatMap((physical) => [false, true].map((communities) => kindOptions(physical, communities)))
+    const every = [false, true].map((physical) => kindOptions(physical))
     check("no combination of switches offers Membership in the New product question", every.every((list) => !list.some((o) => /membership/i.test(`${o.kind} ${o.title} ${o.line}`))))
     check("the always there answers are a digital product and a video course", KIND_OPTIONS.map((o) => o.kind).join() === "digital,course")
-    check("Paid community is offered only while communities are on, and opens /app/community/new", !kindOptions(false, false).some((o) => o.kind === "community") && kindOptions(false, true).at(-1)?.title === "Paid community" && kindHref("community") === "/app/community/new")
+    check("Paid community is never offered in New product (it is made on the Community page); an old ?type=community link still opens /app/community/new", every.every((list) => !list.some((o) => o.kind === "community")) && kindHref("community") === "/app/community/new")
     check("the old ?type=membership is no answer: the question is asked again", kindFromParam("membership") === null)
 
     const chooser = code("app/app/products/new/kind-chooser.tsx")

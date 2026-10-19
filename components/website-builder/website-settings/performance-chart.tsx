@@ -31,7 +31,8 @@ export interface ChartPoint {
   samples: Partial<Record<PerfDevice, number>>
 }
 
-const H = 200
+/* Round Z4: a shorter chart (the owner: "too much height"); the same days and the same scale. */
+const H = 160
 const PAD_TOP = 12
 const PAD_BOTTOM = 26
 const PAD_LEFT = 44

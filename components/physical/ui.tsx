@@ -15,6 +15,7 @@ import { Check, ChevronDown, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FAIL_COPY, requestJson } from "@/lib/net/request"
 import { Switch } from "@/components/ui/switch"
+import { toast } from "@/hooks/use-toast"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
@@ -73,13 +74,20 @@ export type SaveState = "idle" | "saving" | "saved"
 const LAYER = "col-start-1 row-start-1 transition-[opacity,visibility] duration-150"
 
 /** Runs a save and keeps its state: `run` takes a function that answers null when it worked, or what went wrong. */
+/**
+ * A save, its state for the button, and a toast (round Z7, the owner: "when
+ * I click save ... a smooth notification toast"). `done` is the toast's one
+ * line when it worked ("Zone saved"); without it a save stays quiet and
+ * only the button says Saved. A save that did not work always says so in a
+ * toast too, and its words stay under the form, where the fix is made.
+ */
 export function useSaveState(savedMs = 1600) {
   const [state, setState] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const timer = React.useRef<number | undefined>(undefined)
   React.useEffect(() => () => window.clearTimeout(timer.current), [])
   const run = React.useCallback(
-    async (save: () => Promise<string | null | undefined>) => {
+    async (save: () => Promise<string | null | undefined>, done?: string) => {
       window.clearTimeout(timer.current)
       setState("saving")
       setError(null)
@@ -92,8 +100,10 @@ export function useSaveState(savedMs = 1600) {
       if (problem) {
         setError(problem)
         setState("idle")
+        toast({ title: tt("Not saved"), description: problem, variant: "destructive" })
         return false
       }
+      if (done) toast({ title: done })
       setState("saved")
       timer.current = window.setTimeout(() => setState("idle"), savedMs)
       return true
@@ -179,13 +189,17 @@ export function Card({ title, description, action, help, children, className, id
   return (
     <section id={id} className={cn(CARD, CARD_PAD, "scroll-mt-4", className)}>
       {title || action ? (
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            {title ? <h2 className={CARD_TITLE}>{title}</h2> : null}
-            {description ? <p className={cn(MUTED, "mt-0.5")}>{description}</p> : null}
-            {help ? <HowItWorks id={help} className="-ml-2 mt-1" /> : null}
-          </div>
-          {action ? <div className="shrink-0">{action}</div> : null}
+        /*
+          On a phone the description runs under the title AND the action, the
+          card's full width (round Z7: beside "Add package" it was squeezed
+          into a column of three words a line); from 640px it stays beside
+          the action as before.
+        */
+        <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3" data-card-head="">
+          {title ? <h2 className={cn(CARD_TITLE, "col-start-1 row-start-1 min-w-0 self-center sm:self-start")}>{title}</h2> : null}
+          {action ? <div className="col-start-2 row-start-1 shrink-0 sm:row-span-3">{action}</div> : null}
+          {description ? <p className={cn(MUTED, "col-span-2 mt-0.5 min-w-0 sm:col-span-1 sm:col-start-1", action && "max-sm:mt-1.5")}>{description}</p> : null}
+          {help ? <HowItWorks id={help} className="col-span-2 -ml-2 mt-1 justify-self-start sm:col-span-1 sm:col-start-1" /> : null}
         </div>
       ) : null}
       {children}

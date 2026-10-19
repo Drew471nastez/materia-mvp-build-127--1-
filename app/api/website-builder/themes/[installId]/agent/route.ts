@@ -33,7 +33,7 @@ import { recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme
 import { compileSection } from "@/lib/storelib-theme"
 import { agentMayWrite } from "@/lib/agent-access/protected"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
-import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { isCompatSource, isNativeSectionSource } from "@/lib/storelib-theme/compat/theme"
 import {
   SETTINGS_SCHEMA_FILE,
   buildSettingsPanel,
@@ -63,6 +63,10 @@ import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
 import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
+import { importedSectionWrite } from "@/lib/website-builder/agent/imported-write"
+import { AGENT_LIMITS } from "@/lib/website-builder/agent/limits"
+import { storeCurrencyOf } from "@/lib/store/currency"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
 import { describeComparison, MATCH_THRESHOLD } from "@/lib/website-builder/agent/reference-diff"
 import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
@@ -456,7 +460,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         const origin = (type: string): SectionOrigin => {
           if (!SECTION_TYPE.test(type)) return "product"
           const path = pathOf(type)
-          if (importedTheme) return isCompatSource(agentSources[path]) ? "own" : "product"
+          if (importedTheme) return isCompatSource(agentSources[path]) || isNativeSectionSource(agentSources[path]) ? "own" : "product"
           if (path in agentSources && agentMayWrite(path).ok) return "own"
           return agentSources[path] !== undefined || DEFAULT_THEME_SOURCES[path] !== undefined ? "builtin" : "product"
         }
@@ -536,8 +540,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               to the loop, so its next read and update_section see the
               settings the sidebar will show.
             */
-            if (importedTheme) {
-              if (opts.create) return { ok: false, error: "A new section of an imported theme is not written here. Change one of its own sections instead." }
+            /* A Storelib section already in an imported theme (one written by Storelib AI) is changed like any Storelib section, without a script. */
+            const nativeInImported = importedTheme && !opts.create && isNativeSectionSource(agentSources[path])
+            if (nativeInImported && /^\s*<script[\s>]/m.test(source)) {
+              return { ok: false, error: "This website runs an imported theme, where a section's <script> does not run. Leave the <script> block out and keep any motion in CSS." }
+            }
+            if (importedTheme && !nativeInImported) {
+              /*
+                A NEW SECTION OF AN IMPORTED THEME is a Storelib section, which the engine draws inside the theme in its
+                own fonts and colour schemes (lib/website-builder/agent/imported-write.ts). Checked, then staged like
+                every other file this run writes.
+              */
+              if (opts.create) {
+                const fresh = importedSectionWrite(sectionType, source, agentSources)
+                if (fresh.ok === false) return { ok: false, error: (fresh as { error: string }).error }
+                journal.stage(path, source)
+                agentSources[path] = source
+                return { ok: true }
+              }
               if (!isCompatSource(agentSources[path])) return { ok: false, error: `There is no ${path} in this theme to replace.` }
               if (!isCompatSource(source)) return { ok: false, error: `${path} belongs to an imported theme: keep its first line, <template compat="shopify">, and its <schema> after </template>.` }
               const { tr } = await readCompat()
@@ -614,7 +634,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * early lets it finish the way a cancel does: work already applied
          * is kept and summarised, and the answer arrives.
          */
-        const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
+        const deadline = AbortSignal.timeout(Math.min(AGENT_LIMITS.wallClockMs, (maxDuration - 15) * 1000))
         /**
          * THE RUN'S LOG, for whoever debugs it: the intent, the plan, every
          * tool call, what the checks found and what was repaired, the model
@@ -628,8 +648,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           sources: agentSources,
           code,
           model: resolved.model,
-          /* A whole site is a plan, eight to twelve sections and a look at them: room for it. The deadline still ends it in time. */
-          maxTurns: bigIntent ? Math.max(shape.maxTurns, 56) : shape.maxTurns,
+          /*
+            NO PER EDIT TURN CAP (round Z3). The run is held by its cost and its time (lib/website-builder/agent/limits.ts),
+            and the turn guard there is for a loop that never ends. Reaching any of them ends a part, kept, with Continue.
+          */
+          maxTurns: AGENT_LIMITS.maxTurns,
+          limits: AGENT_LIMITS,
           /* Reads the catalogue up front and gives the model room to write a filled section (lib/website-builder/agent/loop). */
           ambitious: shape.ambitious || bigIntent,
           /**
@@ -760,8 +784,41 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                 .limit(30)
               const collections = ((collectionRows as { id: string; title: string; slug: string; published: boolean }[] | null) ?? []).map((c) => ({ id: c.id, title: c.title, handle: c.slug, published: c.published === true }))
 
+              /*
+                THE CURRENCY AND WHAT BUYERS SAID (round Z3), each read on its own so a database without the column or the
+                table still describes the store: prices were always said to be US dollars, and a testimonials section had no
+                real people to quote. The currency is the store's selling currency (Settings, the one checkout charges in). The reviews are the ones the site shows, through the creator's own client.
+              */
+              const [currencyRow, reviewRows] = await Promise.all([
+                readStoreCurrency(supabase, (creator as { id: string }).id),
+                supabase
+                  .from("reviews")
+                  .select("rating, content, reviewer_name, product_id")
+                  .eq("creator_id", (creator as { id: string }).id)
+                  .eq("status", "published")
+                  .eq("site_status", "shown")
+                  .order("created_at", { ascending: false })
+                  .limit(40),
+              ])
+              const currency = storeCurrencyOf(currencyRow.currency)
+              const shown = reviewRows.error ? [] : ((reviewRows.data ?? []) as { rating: number | null; content: string | null; reviewer_name: string | null; product_id: string | null }[])
+              const rated = shown.filter((r) => typeof r.rating === "number")
+              const titleOf = new Map(list.map((p) => [p.id, p.title]))
+              const reviews = reviewRows.error
+                ? undefined
+                : {
+                    count: shown.length,
+                    average: rated.length ? rated.reduce((sum, r) => sum + (r.rating as number), 0) / rated.length : null,
+                    quotes: shown
+                      .filter((r) => (r.content ?? "").trim().length >= 12 && (r.rating ?? 0) >= 4)
+                      .slice(0, 6)
+                      .map((r) => ({ name: (r.reviewer_name ?? "").trim() || "A buyer", rating: r.rating ?? 5, text: (r.content ?? "").trim(), product: (r.product_id && titleOf.get(r.product_id)) || undefined })),
+                  }
+
               const slug = (profile as { slug?: string } | null)?.slug ?? null
               return {
+                currency,
+                reviews,
                 collections,
                 storeName: slug ?? "this store",
                 live: (profile as { store_published?: boolean } | null)?.store_published === true,
@@ -808,6 +865,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             provider: resolved.provider.id,
             own: resolved.own,
             status: result.status,
+            stopped: result.stopped ?? null,
             intent: intent.kind,
             ms: Date.now() - startedAt,
             usage: result.usage,

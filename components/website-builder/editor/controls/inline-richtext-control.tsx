@@ -23,6 +23,8 @@ import { Bold, Italic, Link } from "lucide-react"
 import { sanitizeInlineHtml } from "@/lib/storelib-theme/values"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { VALUE_IN_TEXT, withValueChips, withoutValueChips } from "@/components/website-builder/rich-text-field"
+import { caretAfter, copyWithPills, pillKeyDown, pillsFromText, stripZw } from "@/components/website-builder/value-pills"
 
 export function InlineRichTextControl({
   value,
@@ -37,23 +39,45 @@ export function InlineRichTextControl({
 }) {
   const ref = React.useRef<HTMLDivElement>(null)
   const [empty, setEmpty] = React.useState(!value)
+  /** What this field has sent since the last value from outside: its own echo, never news. */
+  const sent = React.useRef<string[]>([])
 
-  /* The DOM is the truth while somebody types; the prop wins when it says
-     something else (undo, the assistant, another section). */
+  /*
+    The DOM is the truth while somebody types; the prop wins when it says
+    something else (undo, the assistant, another section).
+
+    ITS OWN ECHO IS NOT SOMETHING ELSE. The value sent is the cleaned markup,
+    which is not byte for byte the DOM: a space typed at the end is `&nbsp;`
+    in the DOM and a plain space once cleaned, and a pill is a `<span>` in
+    the DOM and `{{ shop.name }}` once saved. Compared with the DOM, every
+    echo looked like news and was written back in, which threw the caret to
+    the start of the heading after every space and after every pill: the
+    "typing stops" bug. A value this field sent is skipped.
+  */
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
     const incoming = value ?? ""
-    if (el.innerHTML !== incoming) el.innerHTML = incoming
-    setEmpty(!el.textContent?.trim())
+    if (sent.current.includes(incoming)) return
+    sent.current = []
+    const shown = withValueChips(incoming)
+    if (el.innerHTML !== shown) el.innerHTML = shown
+    setEmpty(!stripZw(el.textContent ?? "").trim())
   }, [value])
 
   const publish = React.useCallback(() => {
     const el = ref.current
     if (!el) return
-    setEmpty(!el.textContent?.trim())
-    const clean = sanitizeInlineHtml(el.innerHTML)
-    if (clean !== value) onChange(clean)
+    /* Braces typed or pasted become their pill where they stand. */
+    const made = pillsFromText(el, VALUE_IN_TEXT)
+    if (made && document.activeElement === el) caretAfter(made)
+    setEmpty(!stripZw(el.textContent ?? "").trim())
+    const clean = sanitizeInlineHtml(withoutValueChips(el.innerHTML))
+    if (clean !== value) {
+      sent.current.push(clean)
+      if (sent.current.length > 64) sent.current.shift()
+      onChange(clean)
+    }
   }, [onChange, value])
 
   const run = (command: string, argument?: string) => {
@@ -103,17 +127,31 @@ export function InlineRichTextControl({
           suppressContentEditableWarning
           data-inline-richtext=""
           onInput={publish}
-          onBlur={publish}
+          onBlur={() => {
+            publish()
+            /* Out of the field, a toolbar undo is news again. */
+            sent.current = sent.current.slice(-1)
+          }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") e.preventDefault()
+            if (e.key === "Enter") {
+              e.preventDefault()
+              return
+            }
+            if (ref.current) pillKeyDown(e, ref.current)
+          }}
+          onCopy={(e) => {
+            if (ref.current) copyWithPills(e, ref.current)
+          }}
+          onCut={(e) => {
+            if (ref.current) copyWithPills(e, ref.current, true)
           }}
           onPaste={(e) => {
             e.preventDefault()
             run("insertText", e.clipboardData.getData("text/plain").replace(/\s+/g, " "))
           }}
           className={cn(
-            /* One line by meaning, not by width: a long heading wraps in the box like it does on the page, rather than scrolling sideways out of view. */
-            "min-h-9 max-sm:min-h-11 min-w-0 px-3 py-2 text-sm max-sm:text-[16px] leading-5 outline-none whitespace-normal [overflow-wrap:anywhere] overflow-x-hidden",
+            /* One line by meaning, not by width: a long heading wraps in the box like it does on the page, rather than scrolling sideways out of view. It grows to about eight lines, then scrolls up and down only. */
+            "min-h-9 max-sm:min-h-11 min-w-0 px-3 py-2 text-sm max-sm:text-[16px] leading-5 outline-none whitespace-normal [overflow-wrap:anywhere] overflow-x-hidden overflow-y-auto wb-slim-scroll max-h-[180px] max-sm:max-h-[220px]",
             "[&_a]:underline [&_a]:underline-offset-2",
           )}
         />

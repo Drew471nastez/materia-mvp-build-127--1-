@@ -28,12 +28,12 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 
 import { MENU_HANDLE, MENU_LIMITS, cleanMenus, type Menu, type MenuLink } from "@/lib/storelib-theme/values"
 import { MAIN_MENU, MAIN_MENU_TITLE, mainMenuView, headerReadsMenu } from "@/lib/website-builder/main-menu"
-import { nestMenuLink } from "@/lib/website-builder/nav-links"
+import { nestMenuLink, placeMenuLink } from "@/lib/website-builder/nav-links"
 import { cn } from "@/lib/utils"
 import { useEditorFieldEnv } from "./context"
 import { LinkListEditor, NEW_LINK_LABEL, type LinkItem } from "./link-list-editor"
 import { INPUT, NOTE, TEXT_BUTTON } from "./styles"
-import { tt } from "@/lib/i18n/text"
+import { msg, tt } from "@/lib/i18n/text"
 
 /* A thumb's height on a phone, inside the phone sheet and outside it (Website Settings). */
 const FIELD = cn(INPUT, "max-sm:h-11")
@@ -48,6 +48,9 @@ export function handleFor(title: string, taken: Set<string>): string {
   while (taken.has(handle)) handle = `${base.slice(0, 36)}-${n++}`
   return handle
 }
+
+/** The menus stores make most, offered under the new menu's name. One a store already has is left out. */
+export const MENU_SUGGESTIONS = [msg("Footer"), msg("Shop"), msg("Help"), msg("Legal"), msg("Social")] as const
 
 /** A link's place in the menu as the list editor names it: "2", or "2/0" for a sub-link. */
 const pathOf = (id: string): number[] => id.split("/").map(Number)
@@ -105,6 +108,10 @@ export function MenuLinksEditor({ links, onLinks }: { links: MenuLink[]; onLinks
         const next = nestMenuLink(links, id, dir)
         if (next !== links) onLinks(next)
       }}
+      onPlace={(id, parentId, index) => {
+        const next = placeMenuLink(links, id, parentId, index)
+        if (next !== links) onLinks(next)
+      }}
     />
   )
 }
@@ -145,6 +152,7 @@ export function MenusEditor({
   const [confirming, setConfirming] = React.useState(false)
   const [adding, setAdding] = React.useState(false)
   const [name, setName] = React.useState("")
+  const nameInput = React.useRef<HTMLInputElement>(null)
   /* Which way the last move went: into a menu slides in from the right, back to the list from the left. */
   const [dir, setDir] = React.useState<"in" | "out" | null>(null)
   const go = (handle: string | null) => {
@@ -241,6 +249,8 @@ export function MenusEditor({
   }
 
   const rows = [MAIN_MENU, ...others]
+  const have = new Set(rows.map((h) => (menuOf(h).title || "").trim().toLowerCase()))
+  const suggestions = MENU_SUGGESTIONS.map((s) => tt(s)).filter((s) => !have.has(s.toLowerCase()))
   const roomForMore = Object.keys(clean).filter((h) => h !== MAIN_MENU).length + 1 < MENU_LIMITS.menus
   return (
     <div className={cn("space-y-2", dir === "out" && "animate-in fade-in-0 slide-in-from-left-2 duration-200 motion-reduce:animate-none")} data-menus-editor="">
@@ -281,11 +291,13 @@ export function MenusEditor({
       {roomForMore ? (
         adding ? (
           /* Not a <form>: Website Settings is one already, and a form in a form sent Enter to the wrong one. */
-          <div className="flex items-center gap-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none" data-menu-new="">
+          <div className="animate-in fade-in-0 duration-150 motion-reduce:animate-none" data-menu-new="">
+          <div className="flex items-center gap-2">
             <input
+              ref={nameInput}
               aria-label={tt("New menu name")}
               className={FIELD}
-              placeholder={tt("Footer")}
+              placeholder={tt("New menu")}
               autoFocus
               value={name}
               maxLength={MENU_LIMITS.titleLength}
@@ -315,6 +327,31 @@ export function MenusEditor({
             >
               {tt("Add")}
             </button>
+          </div>
+          {/*
+            THE MENUS PEOPLE MAKE MOST, one press to name it. Only the ones
+            this store does not have yet, and only while nothing is typed.
+          */}
+          {suggestions.length > 0 && !name.trim() && (
+            <div className="mt-2 flex flex-wrap gap-1.5" data-menu-suggestions="">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  data-menu-suggestion={s}
+                  /* Down, not click: the box keeps focus, so it does not close as empty. */
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setName(s)
+                    nameInput.current?.focus()
+                  }}
+                  className="h-7 rounded-md border border-border bg-background px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-neutral-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-10 max-sm:px-3 max-sm:text-[14px] [-webkit-tap-highlight-color:transparent] dark:border-white/[0.1]"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           </div>
         ) : (
           <button

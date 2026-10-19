@@ -27,8 +27,9 @@ import { byCreator, ownRows, scopedOrders } from "./creator-orders"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
 import { isBotAgent, parseUserAgent } from "./user-agent"
-import { propertyParam, type CreatorProperties, type PropertySelector, type WebsiteProperty } from "./properties"
+import { counts, propertyParam, type CreatorProperties, type PropertySelector, type WebsiteProperty } from "./properties"
 import {
+  audienceOf,
   foldLegacyOnePage,
   periodsOf,
   reportArgs,
@@ -171,7 +172,7 @@ export async function creatorProperties(admin: Admin, creatorId: string, userId:
 /* ─── Visits ──────────────────────────────────────────────────────────── */
 
 const VIEW_COLUMNS =
-  "id, session_id, visitor_id, product_id, created_at, property_type, property_id, path, source_category, referrer_domain, country_code, device_type, browser, page_url, utm_campaign"
+  "id, session_id, visitor_id, product_id, created_at, property_type, property_id, path, source_category, referrer_domain, country_code, device_type, browser, os, page_url, utm_campaign"
 const STEP_COLUMNS = "id, event_type, session_id, visitor_id, product_id, property_type, property_id, link_id, link_url, created_at"
 
 export interface CountQuestion {
@@ -241,7 +242,7 @@ async function countFromRows(admin: Admin, q: CountQuestion): Promise<Counted> {
     orNone<StepRow>(
       withColumns(STEP_COLUMNS, (columns) =>
         readSpans<StepRow & { id: string }>(spans, (start, end, after) =>
-          startingAt(admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).in("event_type", ["checkout_start", "link_click"]).lt("created_at", end), start, after)
+          startingAt(admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).in("event_type", ["checkout_start", "link_click", "buy_click"]).lt("created_at", end), start, after)
             .order("created_at", { ascending: true })
             .order("id", { ascending: true })
             .limit(PAGE) as unknown as Read<StepRow & { id: string }>,
@@ -349,7 +350,7 @@ export async function onePageLinkLabels(admin: Admin, onePageId: string | null):
 
 /* What the figures read of an order (lib/orders/order-view, reports.ts moneyOf), and where it was made. */
 const ORDER_COLUMNS =
-  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country, currency"
+  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country, currency, quantity"
 
 /**
  * A day either side of each stretch. A basket's lines are written one at a
@@ -431,4 +432,90 @@ export async function readSubscribers(admin: Admin, spans: Span[], creatorId: st
 /** The report's question, as the page and the cache name it (for logs and the answer). */
 export function describe(q: CountQuestion): string {
   return `${propertyParam(q.selector) ?? "all"} ${new Date(q.window.start).toISOString()}..${new Date(q.window.end).toISOString()} ${q.timeZone} ${periodsOf(q.window, q.previous, q.timeZone).grain}`
+}
+
+/* ─── Systems, carts and page titles ──────────────────────────────────── */
+
+type Audience = Pick<WindowWire, "os" | "carts" | "titles">
+
+/** The most rows read here for one period when the database cannot count them (before part 253). */
+const AUDIENCE_CEILING = 50_000
+
+/**
+ * WHO WAS LOOKING, FOR ONE PERIOD: visitors by operating system, the
+ * visitors who added to the cart, and each page's title. Counted by
+ * analytics_audience (supabase/sql/run-now part 253) when it is there; else
+ * from the rows, at most AUDIENCE_CEILING of them, by the same rules
+ * (reports.ts audienceOf). Null when neither can be read: the cards then
+ * say nothing rather than zero.
+ */
+export async function readAudience(admin: Admin, q: CountQuestion, w: Span): Promise<{ audience: Audience | null; truncated: boolean }> {
+  const counted = await rpc<Audience>(admin, "analytics_audience", {
+    ...selectorArgs(q),
+    p_start: new Date(w.start).toISOString(),
+    p_end: new Date(w.end).toISOString(),
+  })
+  if (counted) return { audience: { os: counted.os ?? [], carts: Number(counted.carts) || 0, titles: counted.titles ?? [] }, truncated: false }
+  try {
+    const start = new Date(w.start).toISOString()
+    const end = new Date(w.end).toISOString()
+    const read = async (columns: string) => {
+      const rows: Array<ViewRow & StepRow & { id: string }> = []
+      let after: After = null
+      while (rows.length < AUDIENCE_CEILING) {
+        let r = admin.from("analytics_events").select(columns).eq("creator_id", q.creatorId).in("event_type", ["view", "buy_click"]).lt("created_at", end)
+        if (q.product) r = r.eq("product_id", q.product)
+        const { data, error } = await (startingAt(r, start, after).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(PAGE) as unknown as Read<ViewRow & StepRow & { id: string }>)
+        if (error) throw new Error(error.message)
+        rows.push(...(data ?? []))
+        if (!data || data.length < PAGE) return { rows, truncated: false }
+        const last = data[data.length - 1]
+        after = { t: last.created_at, id: String(last.id) }
+      }
+      return { rows, truncated: true }
+    }
+    const base = "id, event_type, visitor_id, session_id, os, property_type, property_id, product_id, path, created_at"
+    let got: { rows: Array<ViewRow & StepRow & { id: string }>; truncated: boolean }
+    try {
+      got = await read(`${base}, page_title`)
+    } catch (error) {
+      if (!/column|PGRST204|42703/i.test((error as Error).message)) throw error
+      got = await read(base)
+    }
+    const mine = got.rows.filter((r) => counts(q.selector, { type: (r.property_type ?? null) as never, id: r.property_id ?? null }, q.properties.defaultWebsite))
+    const a = audienceOf(mine.filter((r) => r.event_type === "view"), mine.filter((r) => r.event_type === "buy_click"))
+    return { audience: a, truncated: got.truncated }
+  } catch (error) {
+    console.warn("[analytics] systems and carts not read:", (error as Error).message)
+    return { audience: null, truncated: false }
+  }
+}
+
+/**
+ * DOWNLOADS OF THESE ORDER LINES: download_events by their order id, for the
+ * Digital card. At most 5,000 lines are asked about, 200 at a time. Null when
+ * the table cannot be read. A download logged with only its entitlement (no
+ * order id) is not found here.
+ */
+export async function readDownloads(admin: Admin, lineIds: string[]): Promise<Record<string, number> | null> {
+  const ids = [...new Set(lineIds)].slice(0, 5000)
+  if (ids.length === 0) return {}
+  try {
+    const out: Record<string, number> = {}
+    const chunks: string[][] = []
+    for (let i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200))
+    for (let i = 0; i < chunks.length; i += 5) {
+      const answers = await Promise.all(
+        chunks.slice(i, i + 5).map((chunk) => Promise.resolve(admin.from("download_events").select("order_id").in("order_id", chunk).limit(10_000))),
+      )
+      for (const { data, error } of answers) {
+        if (error) throw new Error(error.message)
+        for (const row of (data ?? []) as Array<{ order_id: string | null }>) if (row.order_id) out[row.order_id] = (out[row.order_id] ?? 0) + 1
+      }
+    }
+    return out
+  } catch (error) {
+    console.warn("[analytics] downloads not read:", (error as Error).message)
+    return null
+  }
 }

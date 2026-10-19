@@ -121,6 +121,36 @@ try {
     await sleep(300)
     const m = await page.evaluate(MEASURE, "[data-probe-panel]")
     report[`controls ${w}`] = judge(`controls at ${w}`, m)
+
+    /*
+      TALLER, NOT WIDER. Every box typed into at its end with a long word and
+      an address: its height goes up (or it was already at its ceiling and
+      scrolls up and down), and it is still no wider inside than out.
+    */
+    const boxSel = (f) => `[data-probe-field="${f}"] [role="textbox"], [data-probe-field="${f}"] textarea`
+    const grows = []
+    for (const f of ["richtext", "inline_richtext", "textarea", "text", "chips"]) {
+      const sel = boxSel(f)
+      const h0 = await page.$eval(sel, (el) => el.getBoundingClientRect().height)
+      await page.$eval(sel, (el) => {
+        el.scrollIntoView({ block: "center" })
+        el.focus()
+        if (el.tagName === "TEXTAREA") return el.setSelectionRange(el.value.length, el.value.length)
+        const r = document.createRange()
+        r.selectNodeContents(el)
+        r.collapse(false)
+        getSelection().removeAllRanges()
+        getSelection().addRange(r)
+      })
+      await page.keyboard.type(` ${LONG_WORD} ${LONG_URL}`, { delay: 0 })
+      await sleep(150)
+      const after = await page.$eval(sel, (el) => ({ h: el.getBoundingClientRect().height, sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight, oy: getComputedStyle(el).overflowY, ox: getComputedStyle(el).overflowX }))
+      const capped = after.sh > after.ch + 1 && /auto|scroll/.test(after.oy)
+      grows.push({ f, from: Math.round(h0), to: Math.round(after.h), sideways: after.sw - after.cw, capped, ox: after.ox })
+    }
+    expect(grows.every((g) => g.sideways <= 0 && g.ox !== "auto" && g.ox !== "scroll"), `controls at ${w}: typed long, no box scrolls sideways`, grows.map((g) => `${g.f} ${g.sideways}px ${g.ox}`).join(", "))
+    expect(grows.every((g) => g.to > g.from || g.capped), `controls at ${w}: each box grew taller, or is at its ceiling and scrolls up and down`, grows.map((g) => `${g.f} ${g.from}->${g.to}${g.capped ? " capped" : ""}`).join(", "))
+    report[`controls ${w}`].grows = grows
     await page.close()
   }
 

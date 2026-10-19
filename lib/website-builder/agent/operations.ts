@@ -829,6 +829,10 @@ export interface StoreFacts {
   address?: string | null
   /** The creator's collections, for a collection_picker or collection_list (Products › Collections). */
   collections?: Array<{ id: string; title: string; handle: string; published: boolean }>
+  /** The store's currency (creators.payout_currency, lib/store/currency.ts): what the prices above are in. Absent: US dollars. */
+  currency?: string
+  /** What buyers said, shown on the site: for proof sections and copy that quotes real people. Absent: not read. */
+  reviews?: { count: number; average: number | null; quotes: Array<{ name: string; rating: number; text: string; product?: string }> }
 }
 
 export function describeStore(facts: StoreFacts): string {
@@ -844,7 +848,7 @@ export function describeStore(facts: StoreFacts): string {
 
   return [
     `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}${facts.address ? `, at ${facts.address}` : ""}`,
-    `${facts.publishedProducts} published of ${facts.totalProducts} products. Prices in USD. A product picker takes a product's page address; a buy button is its checkout.`,
+    `${facts.publishedProducts} published of ${facts.totalProducts} products. Prices in ${facts.currency || "USD"}. A product picker takes a product's page address; a buy button is its checkout.`,
     "PRODUCTS",
     ...facts.products.map((p) => {
       const where = [p.id ? `id ${p.id}` : "", p.url ? p.url : ""].filter(Boolean).join(", ")
@@ -858,6 +862,13 @@ export function describeStore(facts: StoreFacts): string {
       : "",
     facts.collections?.length
       ? ["COLLECTIONS (a collection_picker or collection_list takes the id)", ...facts.collections.map((c) => `  ${c.title} [id ${c.id}, /collections/${c.handle}]${c.published ? "" : " (hidden)"}`)].join("\n")
+      : "",
+    /* Real buyers, in their words: a testimonials section quotes these (or binds the reviews sections), never invents people. */
+    facts.reviews && facts.reviews.count > 0
+      ? [
+          `REVIEWS: ${facts.reviews.count} shown on the site${facts.reviews.average !== null ? `, average ${facts.reviews.average.toFixed(1)} of 5` : ""}. The reviews sections (reviews_carousel, reviews_all, reviews_badge) draw them live; a testimonial you write quotes one of these, never an invented person.`,
+          ...facts.reviews.quotes.slice(0, 6).map((q) => `  ${q.name}, ${q.rating}/5${q.product ? ` on ${q.product}` : ""}: "${q.text.replace(/\s+/g, " ").slice(0, 160)}"`),
+        ].join("\n")
       : "",
     /* How these become a section's products: never copied in as text. */
     "BIND, NEVER COPY: a product section shows these through the store, not as typed text. product_grid or product_featured with source shop, chosen (a product_list of ids) or collection (a collection id); a single product through a product_picker set to its address, or to @current on the product page. A section you write loops products or reads a product_picker / product_list / collection_picker; never type a name, price or picture from this list into a setting, a block or the markup.",

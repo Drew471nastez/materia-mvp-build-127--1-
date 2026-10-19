@@ -371,7 +371,7 @@ function Segmented<T extends string>({
 
 function RatingMark({ rating, className }: { rating: PerfRating; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-white/80", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] font-medium text-white/75", className)}>
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[rating] }} aria-hidden />
       {ratingLabel(rating)}
     </span>
@@ -411,7 +411,7 @@ function Bands({ metric, figure }: { metric: RumMetric; figure: MetricFigure }) 
   ]
   const said = parts.map(([r, s]) => `${ratingLabel(r)} ${percent(s)}`).join(", ")
   return (
-    <span className="mt-3 block" data-bands="">
+    <span className="mt-2 block" data-bands="">
       {/* One element painted with a gradient, a 2px gap of the card between bands: a new period repaints it and lays nothing out. */}
       <span className="block h-1.5 overflow-hidden rounded-full" role="img" aria-label={said} title={said} style={{ background: bandGradient(parts) }} />
       {/* Round AK: the three shares are in the bar's label and its tooltip; under it only how it changed. */}
@@ -470,7 +470,7 @@ function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMet
       data-tab={metric}
       onClick={onSelect}
       className={cn(
-        "relative block w-full min-w-0 px-4 py-4 text-left outline-none transition-colors duration-200 md:px-6 md:py-5 [-webkit-tap-highlight-color:transparent]",
+        "relative block w-full min-w-0 px-4 py-3 text-left outline-none transition-colors duration-200 md:px-6 md:py-3.5 [-webkit-tap-highlight-color:transparent]",
         "focus-visible:bg-white/[0.05]",
         selected ? "bg-white/[0.035]" : "hover:bg-white/[0.02]",
       )}
@@ -478,15 +478,16 @@ function CoreTab({ metric, figure, selected, onSelect, note }: { metric: PerfMet
       {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
       <span className="flex items-start justify-between gap-3 lg:block">
         <span className="min-w-0" title={metricName(metric)}>
-          <span className="block text-[14.5px] font-semibold text-white">{plainName(metric)}</span>
-          <span className="block truncate text-[12px] text-white/50">{metricShort(metric)}</span>
+          <span className="block text-[13.5px] font-medium text-white">{plainName(metric)}</span>
+          <span className="block truncate text-[11.5px] text-white/50">{metricShort(metric)}</span>
         </span>
         {/* On a phone a column of its own width, its words from its left edge: a new figure is written in place and nothing beside it moves. */}
         {figure.p75 === null ? (
-          <span className="w-[136px] shrink-0 text-[14px] text-white/50 lg:mt-3 lg:block lg:w-auto" data-not-enough="">{tt("Not enough visits yet")}</span>
+          <span className="w-[136px] shrink-0 text-[13px] text-white/50 lg:mt-2 lg:block lg:w-auto" data-not-enough="">{tt("Not enough visits yet")}</span>
         ) : (
-          <span className="w-[136px] shrink-0 lg:mt-2 lg:block lg:w-auto">
-            <span className="block text-[22px] font-semibold leading-tight tracking-[-0.01em] text-white lg:text-[28px]" data-p75="">{formatPerf(metric, figure.p75)}</span>
+          <span className="w-[136px] shrink-0 lg:mt-1.5 lg:block lg:w-auto">
+            {/* Round Z4 (the owner: "too huge texts"): a figure, not a headline. */}
+            <span className="block text-[18px] font-semibold leading-tight tracking-[-0.01em] text-white lg:text-[22px]" data-p75="">{formatPerf(metric, figure.p75)}</span>
             {figure.rating && <RatingMark rating={figure.rating} className="mt-0.5" />}
           </span>
         )}
@@ -514,17 +515,17 @@ function MinorTab({ metric, figure, selected, onSelect }: { metric: RumMetric; f
       onClick={onSelect}
       title={metricName(metric)}
       className={cn(
-        "relative block min-w-0 px-4 py-3 text-left outline-none transition-colors duration-200 md:px-6 [-webkit-tap-highlight-color:transparent]",
+        "relative block min-w-0 px-4 py-2.5 text-left outline-none transition-colors duration-200 md:px-6 [-webkit-tap-highlight-color:transparent]",
         "focus-visible:bg-white/[0.05]",
         selected ? "bg-white/[0.035]" : "hover:bg-white/[0.02]",
       )}
     >
       {selected && <span aria-hidden data-tab-line="" className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: TAB_LINE }} />}
-      <span className="block truncate text-[12.5px] text-white/50">{plainName(metric)}{metric === "nav" ? null : <span className="text-white/30"> · {metricShort(metric)}</span>}</span>
+      <span className="block truncate text-[12px] text-white/50">{plainName(metric)}{metric === "nav" ? null : <span className="text-white/30"> · {metricShort(metric)}</span>}</span>
       {figure.p75 === null ? (
         <span className="mt-0.5 block truncate text-[13px] text-white/50" data-not-enough="">{tt("Not enough visits yet")}</span>
       ) : (
-        <span className="mt-0.5 flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white" data-p75="">
+        <span className="mt-0.5 flex items-center gap-1.5 text-[14px] font-medium tabular-nums text-white" data-p75="">
           {figure.rating && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[figure.rating] }} aria-label={ratingLabel(figure.rating)} />}
           {formatPerf(metric, figure.p75)}
         </span>
@@ -724,11 +725,11 @@ function QuickResult({ r }: { r: QuickCheckResult }) {
   ]
   return (
     <>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5 sm:grid-cols-3" data-quick-facts="">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3" data-quick-facts="">
         {facts.map((f) => (
           <div key={f.label} className="min-w-0">
-            <dt className="text-[12.5px] leading-snug text-white/50">{f.label}</dt>
-            <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[15px] font-medium tabular-nums text-white">
+            <dt className="text-[12px] leading-snug text-white/50">{f.label}</dt>
+            <dd className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[14px] font-medium tabular-nums text-white">
               {f.rating && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[f.rating] }} aria-label={ratingLabel(f.rating)} />}
               <span className="truncate">{f.value}</span>
             </dd>
@@ -736,16 +737,16 @@ function QuickResult({ r }: { r: QuickCheckResult }) {
         ))}
       </dl>
       {r.findings.length > 0 ? (
-        <ul className="mt-5 divide-y divide-white/[0.06] border-t border-white/[0.07]" data-quick-findings="">
+        <ul className="mt-4 divide-y divide-white/[0.06] border-t border-white/[0.07]" data-quick-findings="">
           {r.findings.map((f) => (
-            <li key={f.kind} className="flex gap-3 py-2.5 text-[13.5px] leading-snug text-white/80" data-finding={f.kind}>
+            <li key={f.kind} className="flex gap-3 py-2 text-[13px] leading-snug text-white/80" data-finding={f.kind}>
               <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: RATING_DOT[f.severity] }} aria-label={ratingLabel(f.severity)} />
               <span className="min-w-0">{findingText(f)}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-5 border-t border-white/[0.07] pt-3 text-[13.5px] text-white/60" data-quick-findings="none">{tt("Nothing slow found in this check.")}</p>
+        <p className="mt-4 border-t border-white/[0.07] pt-3 text-[13px] text-white/60" data-quick-findings="none">{tt("Nothing slow found in this check.")}</p>
       )}
     </>
   )
@@ -764,16 +765,16 @@ function GoogleResult({ r }: { r: LabResult }) {
       <div className="flex flex-col gap-x-10 gap-y-4 md:flex-row md:items-start">
         {r.score !== null && (
           <div className="shrink-0">
-            <p className="text-[12.5px] text-white/50">{tt("Performance score")}</p>
-            <p className="mt-0.5 text-[28px] font-semibold leading-tight text-white">{r.score}</p>
+            <p className="text-[12px] text-white/50">{tt("Performance score")}</p>
+            <p className="mt-0.5 text-[22px] font-semibold leading-tight text-white">{r.score}</p>
             <RatingMark rating={scoreRating(r.score)} />
           </div>
         )}
-        <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3.5 sm:grid-cols-3">
+        <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
           {metrics.map(([label, value, m, raw]) => (
             <div key={label} className="min-w-0">
-              <dt className="text-[12.5px] leading-snug text-white/50">{label}</dt>
-              <dd className="mt-0.5 inline-flex items-center gap-1.5 text-[15px] font-medium tabular-nums text-white">
+              <dt className="text-[12px] leading-snug text-white/50">{label}</dt>
+              <dd className="mt-0.5 inline-flex items-center gap-1.5 text-[14px] font-medium tabular-nums text-white">
                 {m && raw !== null && <span className="h-1.5 w-1.5 rounded-full" style={{ background: RATING_DOT[ratePerf(m, raw)] }} aria-hidden />}
                 {value ?? "–"}
               </dd>
@@ -782,9 +783,9 @@ function GoogleResult({ r }: { r: LabResult }) {
         </dl>
       </div>
       {r.opportunities.length > 0 && (
-        <ul className="mt-5 divide-y divide-white/[0.06] border-t border-white/[0.07]">
+        <ul className="mt-4 divide-y divide-white/[0.06] border-t border-white/[0.07]">
           {r.opportunities.map((o) => (
-            <li key={o.id} className="flex items-baseline justify-between gap-4 py-2.5 text-[13.5px]">
+            <li key={o.id} className="flex items-baseline justify-between gap-4 py-2 text-[13px]">
               <span className="min-w-0 text-white/80">{o.title}</span>
               <span className="shrink-0 tabular-nums text-white/50">
                 {o.savingsMs && o.savingsMs >= 50 ? tt("about {time}", { time: formatPerf("lcp", o.savingsMs) }) : o.savingsBytes ? formatBytes(o.savingsBytes) : ""}
@@ -841,7 +842,7 @@ function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStr
 
   return (
     <Card title={tt("Lab test")} footer={footer}>
-      <div className="flex flex-col gap-2.5 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center md:px-6" data-lab-controls="">
+      <div className="flex flex-col gap-2.5 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center md:px-6" data-lab-controls="">
         <Segmented name="lab-device" value={strategy} onChange={setStrategy} label={tt("Device")} options={[{ id: "mobile", label: tt("Mobile") }, { id: "desktop", label: tt("Desktop") }]} />
         <select value={path} onChange={(e) => setPath(e.target.value)} aria-label={tt("Page to test")} className={cn(inputClass, "min-w-0 sm:w-auto sm:flex-1 md:w-auto md:max-w-[240px] md:flex-1")}>
           {pages.map((p) => (
@@ -855,9 +856,9 @@ function LabCard({ ctx, lab, onRan }: { ctx: SettingsContext; lab: Record<LabStr
       </div>
       {error && <p className="px-4 py-3 text-[13.5px] text-red-300 md:px-6" role="alert">{error}</p>}
       {r && current ? (
-        <div className={cn("px-4 py-4 transition-opacity duration-200 md:px-6", busy && "opacity-50")} data-lab-result={strategy} data-lab-source={quick ? "quick" : "pagespeed"}>
+        <div className={cn("px-4 py-3.5 transition-opacity duration-200 md:px-6", busy && "opacity-50")} data-lab-result={strategy} data-lab-source={quick ? "quick" : "pagespeed"}>
           {quick ? <QuickResult r={r as QuickCheckResult} /> : <GoogleResult r={r as LabResult} />}
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-white/50" data-lab-meta="">
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-white/50" data-lab-meta="">
             <span>{tt("Tested {time}", { time: when(current.ranAt, true) })}</span>
             <span aria-hidden>·</span>
             <span className="min-w-0 max-w-full truncate">{current.url}</span>
@@ -891,17 +892,17 @@ function Placeholder() {
       className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] opacity-0 md:mt-6"
       style={{ animation: `skeleton-reveal 260ms ease-out ${PERF_SKELETON_AFTER_MS}ms forwards` }}
     >
-      <div className="h-[52px] border-b border-white/[0.07]" />
+      <div className="h-[44px] border-b border-white/[0.07]" />
       <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="px-4 py-4 md:px-6 md:py-5">
+          <div key={i} className="px-4 py-3 md:px-6 md:py-3.5">
             <div className="h-3.5 w-10 rounded bg-white/[0.07]" />
             <div className="mt-3 h-6 w-20 rounded bg-white/[0.07]" />
             <div className="mt-4 h-1.5 w-full rounded-full bg-white/[0.06]" />
           </div>
         ))}
       </div>
-      <div className="h-[232px] border-t border-white/[0.07]" />
+      <div className="h-[202px] border-t border-white/[0.07]" />
     </section>
   )
 }
@@ -983,7 +984,7 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
     body = (
       <Card>
         <div className="px-4 py-5 md:px-6" data-perf-empty="unavailable">
-          <p className="text-[15px] font-medium text-white">{tt("Visitor speed is not set up yet")}</p>
+          <p className="text-[14px] font-medium text-white">{tt("Visitor speed is not set up yet")}</p>
           <p className="mt-1 text-[14px] text-white/55">{tt("Storelib is finishing the setup for this. Nothing is wrong with your website.")}</p>
         </div>
       </Card>
@@ -995,17 +996,17 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
         <div className={cn("px-4 py-5 transition-opacity duration-200 md:px-6", view.dim && "opacity-50")} data-perf-empty={live ? (recent ? "new" : "no-visits") : "unpublished"}>
           {!live ? (
             <>
-              <p className="text-[15px] font-medium text-white">{tt("Publish your website to see how fast it is for visitors.")}</p>
+              <p className="text-[14px] font-medium text-white">{tt("Publish your website to see how fast it is for visitors.")}</p>
               <button type="button" onClick={ctx.onPublish} className={cn(primaryButtonClass, "mt-4")}>{tt("Publish")}</button>
             </>
           ) : recent ? (
             <>
-              <p className="text-[15px] font-medium text-white">{tt("Published {time}. Speed shows here after the first visits.", { time: when(ctx.publishedAt, true) })}</p>
+              <p className="text-[14px] font-medium text-white">{tt("Published {time}. Speed shows here after the first visits.", { time: when(ctx.publishedAt, true) })}</p>
               <p className="mt-1 text-[14px] text-white/55">{tt("A visit is counted when the visitor leaves the page.")}</p>
             </>
           ) : (
             <>
-              <p className="text-[15px] font-medium text-white">{tt("No visits measured in the last {period}.", { period: rangeLabel(range) })}</p>
+              <p className="text-[14px] font-medium text-white">{tt("No visits measured in the last {period}.", { period: rangeLabel(range) })}</p>
               {report.lastViewAt && <p className="mt-1 text-[14px] text-white/55">{tt("Last visit measured {time}.", { time: when(report.lastViewAt, true) })}</p>}
             </>
           )}
@@ -1039,16 +1040,16 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
         <section className="relative mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-6" data-perf-summary="">
           <LoadingLine active={view.busy} />
           {/* Round AK: one plain sentence first, Google's name for it small beside. */}
-          <div className="flex min-h-[56px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.07] px-4 py-3 md:px-6" data-overall={overall ?? "none"}>
+          <div className="flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.07] px-4 py-2.5 md:px-6" data-overall={overall ?? "none"}>
             {overall ? (
-              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-white">
+              <h2 className="flex items-center gap-2 text-[14px] font-semibold text-white">
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[overall] }} aria-hidden />
                 {overallLine(overall)}
               </h2>
             ) : (
-              <h2 className="text-[14px] font-semibold text-white/80">{tt("Not enough visits yet")}</h2>
+              <h2 className="text-[13.5px] font-semibold text-white/80">{tt("Not enough visits yet")}</h2>
             )}
-            <span className="text-[12.5px] text-white/50">{tt("Core Web Vitals")}</span>
+            <span className="text-[12px] text-white/50">{tt("Core Web Vitals")}</span>
           </div>
           <div ref={tabs} role="tablist" aria-label={tt("Measure")} onKeyDown={onTabKey}>
             <div className="grid divide-y divide-white/[0.07] lg:grid-cols-3 lg:divide-x lg:divide-y-0" data-vitals="">
@@ -1073,17 +1074,17 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
                 if (more && !CORE_METRICS.includes(metric as PerfMetric)) setMetric("lcp")
                 setMore(!more)
               }}
-              className="inline-flex h-9 items-center gap-1.5 text-[12.5px] font-medium text-white/55 transition-colors hover:text-white/85"
+              className="inline-flex h-11 items-center gap-1.5 text-[12px] font-medium text-white/55 transition-colors hover:text-white/85 md:h-8"
             >
               {more ? tt("Fewer measures") : tt("More measures")}
               <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", more && "rotate-180")} />
             </button>
           </div>
-          <div role="tabpanel" aria-label={metricName(metric)} className="border-t border-white/[0.07] px-2 pb-3 pt-3 md:px-4" data-perf-panel="">
-            <div className="flex min-h-[24px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 pb-1">
-              <p className="text-[13px] text-white/60">{tt("{metric} at the 75th percentile", { metric: metricShort(metric) })}</p>
+          <div role="tabpanel" aria-label={metricName(metric)} className="border-t border-white/[0.07] px-2 pb-2 pt-2.5 md:px-3" data-perf-panel="">
+            <div className="flex min-h-[20px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 pb-1">
+              <p className="text-[12px] text-white/55">{tt("{metric} at the 75th percentile", { metric: metricShort(metric) })}</p>
               {devices.length > 1 && (
-                <div className="flex gap-4 text-[12.5px] text-white/60" data-legend="">
+                <div className="flex gap-3.5 text-[12px] text-white/55" data-legend="">
                   {devices.map((d) => (
                     <span key={d} className="inline-flex items-center gap-1.5">
                       <span className="h-[2px] w-3.5 rounded-full" style={{ background: DEVICE_COLOR[d] }} aria-hidden />
@@ -1108,12 +1109,12 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
             {report.insights.map((i, k) => {
               const t = insightText(i)
               return (
-                <div key={k} className="flex gap-3 px-4 py-4 md:px-6" data-insight={i.kind}>
-                  {t.rating && <span className="mt-[7px] h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[t.rating] }} aria-label={ratingLabel(t.rating)} />}
+                <div key={k} className="flex gap-3 px-4 py-3 md:px-6" data-insight={i.kind}>
+                  {t.rating && <span className="mt-[6px] h-2 w-2 shrink-0 rounded-full" style={{ background: RATING_DOT[t.rating] }} aria-label={ratingLabel(t.rating)} />}
                   <div className="min-w-0">
-                    <p className="text-[14.5px] font-medium text-white">{t.title}</p>
-                    {t.evidence && <p className="mt-1 text-[13.5px] text-white/70">{t.evidence}</p>}
-                    {t.body && <p className="mt-1 text-[13.5px] leading-snug text-white/55">{t.body}</p>}
+                    <p className="text-[13.5px] font-medium text-white">{t.title}</p>
+                    {t.evidence && <p className="mt-0.5 text-[13px] text-white/70">{t.evidence}</p>}
+                    {t.body && <p className="mt-0.5 text-[13px] leading-snug text-white/55">{t.body}</p>}
                   </div>
                 </div>
               )
@@ -1122,8 +1123,8 @@ export function PerformanceSettings({ ctx }: { ctx: SettingsContext }) {
         )}
 
         <Card>
-          <div className="flex flex-col gap-3 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between md:px-6">
-            <h2 className="text-[14px] font-semibold text-white/90">{tt("Where it is slow")}</h2>
+          <div className="flex flex-col gap-2.5 px-4 py-3 lg:flex-row lg:items-center lg:justify-between md:px-6">
+            <h2 className="text-[13.5px] font-semibold text-white/90">{tt("Where it is slow")}</h2>
             <Segmented
               name="dim"
               ownWidthFrom="lg"

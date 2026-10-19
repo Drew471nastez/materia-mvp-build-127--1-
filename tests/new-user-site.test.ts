@@ -138,7 +138,7 @@ async function main() {
     check("  and is not listed again in the library", /i\.status !== "published" && i\.id !== starter\?\.id/.test(client))
     check("  its card says Customize and opens the editor", />\s*Customize\s*</.test(client) && /onClick=\{\(\) => go\(editorHref\(username, starter\.id\)\)\}/.test(client))
     check("  and Publish asks first, through the same question as every Publish", /onClick=\{\(\) => setPublishing\(starter\)\}/.test(client) && /data-control="publish"/.test(client))
-    check("an empty library offers the default theme in one press", /data-live-empty="first"/.test(client) && /addTheme\(explore\[0\]\)/.test(client))
+    check("an empty library offers the default theme in one press", /data-live-empty="first"/.test(client) && /addListing\(explore\[0\]\)/.test(client))
     check("the only website cannot be removed, since an empty library gets it back", /else if \(installs\.length > 1\) \{/.test(client))
     check("no banned words in the new copy", !/unlock|elevate|seamless|powerful|effortless|supercharge|transform|—/i.test(
       (client.match(/data-starter-card[\s\S]*?data-live-empty="first"[\s\S]*?<\/div>/) ?? [""])[0]))

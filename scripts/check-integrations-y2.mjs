@@ -17,6 +17,12 @@
  *   C1  a card's cover fills under the pointer and empties after it, over
  *       time; the card never moves; reduced motion: no animation
  *   W   no horizontal scroll at 390 and 1280, list and page
+ *   P   round Z7: a card's specks, on the Integrations page and in the
+ *       Settings tab alike: clear and still at rest, spread out and drifting
+ *       under the pointer, gathered and still again after it; only
+ *       transform, translate, scale and opacity animate, nothing is blurred
+ *       by a filter, and the frames keep their pace while they move;
+ *       reduced motion: none drawn
  *
  *   node scripts/check-integrations-y2.mjs     (wrap in flock /tmp/v-heavy.lock)
  *
@@ -379,6 +385,79 @@ export const isNativePlatform = () => false
   await hoverCase("klaviyo", false)
   await hoverCase("meta-pixel", false)
   await hoverCase("klaviyo", true)
+  async function speckCase(path, card, reduce) {
+    const tag = `${path} ${card}${reduce ? " (reduced motion)" : ""}`
+    console.log(`\nP   ${tag}: the cover's specks\n`)
+    const { p, errors } = await open(path, DESK)
+    if (reduce) await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+    const box = await p.evaluate((id) => {
+      const el = document.querySelector(`[data-integration-card="${id}"]`)
+      el.scrollIntoView({ block: "center" })
+      const r = el.getBoundingClientRect()
+      return { x: r.x, y: r.y, w: r.width, h: r.height }
+    }, card)
+    await p.mouse.move(box.x - 30, box.y - 30)
+    await sleep(500)
+    const read = () => p.evaluate((id) => {
+      const card = document.querySelector(`[data-integration-card="${id}"]`)
+      const cover = card.querySelector("[data-integration-cover]").getBoundingClientRect()
+      return [...card.querySelectorAll("[data-integration-speck]")].map((el) => {
+        const cs = getComputedStyle(el), dot = getComputedStyle(el.firstElementChild)
+        const r = el.getBoundingClientRect()
+        return { op: +(+cs.opacity).toFixed(3), translate: cs.translate, scale: cs.scale, display: cs.display, play: dot.animationPlayState, anim: dot.animationName, props: cs.transitionProperty, filter: cs.filter + "|" + dot.filter, image: dot.backgroundImage.slice(0, 40), cx: Math.round(r.left + r.width / 2 - cover.left), inCover: r.top >= cover.top - 20 && r.bottom <= cover.bottom + 20 }
+      })
+    }, card)
+    const atRest = await read()
+    if (reduce) {
+      expect(atRest.length > 0 && atRest.every((x) => x.display === "none"), `P ${tag}: no specks drawn`, atRest.map((x) => x.display))
+      await p.close()
+      return
+    }
+    expect(atRest.length >= 5, `P ${tag}: ${atRest.length} specks in the cover`)
+    expect(atRest.every((x) => x.op === 0 && x.play === "paused"), `P ${tag}: at rest they are clear and their drift is paused`, atRest.map((x) => [x.op, x.play]))
+    expect(atRest.every((x) => /radial-gradient/.test(x.image) && x.filter === "none|none"), `P ${tag}: each is a soft radial gradient, no blur filter`, atRest[0]?.filter)
+    expect(atRest.every((x) => x.props.split(", ").every((pp) => ["opacity", "translate", "scale"].includes(pp)) && x.anim === "int-speck-drift"), `P ${tag}: only opacity, translate and scale transition; the drift is a transform keyframe`, atRest[0] && [atRest[0].props, atRest[0].anim])
+    await p.evaluate((id) => {
+      const el = document.querySelector(`[data-integration-card="${id}"] [data-integration-speck]`)
+      window.__sp = []
+      const t0 = performance.now()
+      const tick = (t) => {
+        window.__sp.push({ t: t - t0, op: +getComputedStyle(el).opacity, tr: getComputedStyle(el).translate, dot: getComputedStyle(el.firstElementChild).transform })
+        if (t - t0 < 1600) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, card)
+    await sleep(30)
+    await p.mouse.move(box.x + box.w / 2, box.y + box.h / 2)
+    await sleep(1650)
+    const film = await p.evaluate(() => window.__sp)
+    const hovered = await read()
+    const gaps = film.slice(1).map((f, i) => f.t - film[i].t)
+    const worst = Math.max(...gaps)
+    const first = film.find((f) => f.op > 0.01), full = film.find((f) => f.op > 0.99)
+    const spread = new Set(hovered.map((x) => Math.round(x.cx / 20))).size
+    expect(hovered.every((x) => x.op === 1 && (x.translate === "0px" || x.translate === "none")), `P ${tag}: under the pointer every speck shows`, hovered.map((x) => x.op))
+    expect(first && full && full.t - first.t >= 300 && full.t - first.t <= 800, `P ${tag}: they spread in over ${first && full ? Math.round(full.t - first.t) : null}ms, not at once`)
+    expect(spread >= 5 && hovered.every((x) => x.inCover), `P ${tag}: spread across the cover (${spread} different places), inside it`, hovered.map((x) => x.cx))
+    expect(hovered.every((x) => x.play === "running") && new Set(film.slice(-30).map((f) => f.dot)).size > 1, `P ${tag}: and drift while the pointer stays`)
+    expect(worst < 40, `P ${tag}: frames keep their pace while they move (worst gap ${worst.toFixed(1)}ms over ${film.length} frames)`)
+    await p.mouse.move(box.x + box.w / 2, box.y + box.h + 120)
+    await sleep(900)
+    const after = await read()
+    expect(after.every((x) => x.op === 0 && x.play === "paused"), `P ${tag}: after it leaves they gather back, clear and still`, after.map((x) => [x.op, x.play]))
+    /* A clipped capture drops the pointer's hover, so the picture pins the spread state on this card, after the checks. */
+    if (shots) {
+      await p.addStyleTag({ content: `[data-integration-card="${card}"] .int-speck{opacity:1!important;translate:0 0!important;scale:1!important;transition:none!important}` })
+      await p.screenshot({ path: join(shots, `specks-${path.split("/").pop()}-${card}.png`), clip: { x: box.x - 10, y: box.y - 10, width: box.w + 20, height: box.h + 20 } })
+    }
+    expect(errors.length === 0, "no page errors", errors)
+    await p.close()
+  }
+  await speckCase("/app/integrations", "klaviyo", false)
+  await speckCase("/app/integrations", "storelib-reviews", false)
+  await speckCase("/app/settings", "google-analytics", false)
+  await speckCase("/app/integrations", "klaviyo", true)
+
   for (const vp of [DESK, PHONE]) {
     const { p } = await open("/app/integrations", vp)
     const w = await p.evaluate(() => ({ doc: document.documentElement.scrollWidth - innerWidth, box: (() => { const b = document.querySelector("[data-integrations-scroll]"); return b.scrollWidth - b.clientWidth })() }))

@@ -528,10 +528,10 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
           </div>
         </div>
 
+        {/* Physical sales first, under the chart: money, the way from a product page to a paid checkout, buyers' countries and stock. Only while physical commerce is on. */}
+        <PhysicalAnalyticsCard span={safeSpan} />
         {/* The reports under the chart, from the same answer. */}
         <AnalyticsReports state={reportsState} property={property} />
-        {/* Units, shipping, what is waiting to ship and stock: only while physical commerce is on. */}
-        <PhysicalAnalyticsCard span={safeSpan} />
       </div>
       </PullToRefreshEvent>
 

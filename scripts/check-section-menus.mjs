@@ -213,19 +213,26 @@ console.log("\nA computer, 1280 × 800")
     return { kids, heading: heading ? { top: heading.top, bottom: heading.bottom } : null, reviews: reviews ? { top: reviews.top, bottom: reviews.bottom, left: reviews.left, right: reviews.right } : null }
   })
   const order = nav.kids.map((k) => (k.head ? `[${k.head}] ` : "") + k.label)
-  check("Add section: All, then the Apps heading with each app, then the theme's Sections", nav.kids[0].label === "All" && nav.kids[1].head === "apps" && nav.kids[1].label === "Reviews" && nav.kids.findIndex((k) => k.head === "sections") > 1, order.slice(0, 5))
-  check("the Apps heading and Reviews on screen without scrolling", !!nav.heading && !!nav.reviews && nav.heading.top >= 0 && nav.reviews.bottom <= 800 && nav.reviews.right <= 1280, nav.reviews)
-  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="desktop"] nav button')].find((b) => b.querySelector("span")?.textContent === "Reviews")?.click())
+  /* Changed on purpose (round Z1, the owner: "I don't like how it shows ... apps reviews email. I want to be just the button there, app embeds, next to the search input"). */
+  check("Add section: All first, and no Apps group in the list", nav.kids[0].label === "All" && !nav.kids.some((k) => k.head) && !nav.kids.some((k) => k.label === "Reviews"), order.slice(0, 5))
+  const embeds = await page.evaluate(() => {
+    const b = document.querySelector('[data-section-library="desktop"] [data-app-embeds-toggle]')
+    const s = document.querySelector('[data-section-library="desktop"] input[type="search"]')
+    const r = b?.getBoundingClientRect()
+    const q = s?.getBoundingClientRect()
+    return b && r && q ? { text: b.textContent, right: r.right, top: r.top, bottom: r.bottom, searchLeft: q.left, searchTop: q.top } : null
+  })
+  check("App embeds is one button beside the search", !!embeds && /App embeds/.test(embeds.text) && embeds.right <= embeds.searchLeft && embeds.searchLeft - embeds.right <= 12 && Math.abs(embeds.top - embeds.searchTop) <= 2, embeds)
+  await page.click('[data-section-library="desktop"] [data-app-embeds-toggle]')
   await sleep(400)
   const apps = await page.evaluate(() => ({
     cards: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
     named: [...document.querySelectorAll('[data-section-library="desktop"] [data-library-card]:not([hidden]) [data-card-app]')].map((n) => n.textContent),
     off: [...document.querySelectorAll('[data-section-library="desktop"] [data-app-off]')].map((n) => ({ id: n.getAttribute("data-app-off"), text: n.textContent, href: n.querySelector("a")?.getAttribute("href"), h: n.getBoundingClientRect().height })),
   }))
-  check("Reviews shows Storelib Reviews' sections and only those, each with the app's name", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_/.test(t)) && apps.named.length === apps.cards.length && apps.named.every((n) => n === "Storelib Reviews"), `${apps.cards.length} cards: ${[...new Set(apps.cards)].join(", ")}`)
-  check("and says Reviews is off, with the way to turn it on", apps.off.length === 1 && apps.off[0].id === "reviews" && /Storelib Reviews is off/.test(apps.off[0].text) && apps.off[0].href === "/app/integrations?integration=storelib-reviews", apps.off)
-  const reviewsCount = nav.kids.find((k) => k.label === "Reviews")?.count
-  check(`count beside it matches (${reviewsCount})`, Number(reviewsCount) === apps.cards.length)
+  check("pressed, it shows the apps' sections and only those, each with its app's name", apps.cards.length >= 4 && apps.cards.some((t) => /^reviews_/.test(t)) && apps.named.length === apps.cards.length, `${apps.cards.length} cards: ${[...new Set(apps.cards)].join(", ")}`)
+  const reviewsOff = apps.off.find((o) => o.id === "reviews")
+  check("and says Reviews is off, with the way to turn it on", !!reviewsOff && /Storelib Reviews is off/.test(reviewsOff.text) && reviewsOff.href === "/app/integrations?integration=storelib-reviews", apps.off)
   if (shots) await page.screenshot({ path: join(shots, "apps-1280.png") })
   await page.close()
 }
@@ -281,25 +288,27 @@ console.log("\nA phone, 390 × 844")
   await sleep(900)
   const pills = await page.evaluate(() => {
     const row = document.querySelector('[data-section-library="phone"] [role="toolbar"]')
-    const box = row.getBoundingClientRect()
     const kids = [...row.firstElementChild.children]
-    const reviews = kids.find((c) => c.tagName === "BUTTON" && c.textContent === "Reviews")?.getBoundingClientRect()
+    const b = document.querySelector('[data-section-library="phone"] [data-app-embeds-toggle]')
+    const s = document.querySelector('[data-section-library="phone"] input[type="search"]')
+    const r = b?.getBoundingClientRect()
+    const q = s?.getBoundingClientRect()
     return {
       order: kids.map((c) => (c.getAttribute("data-library-group") ? `[${c.getAttribute("data-library-group")}]` : c.textContent)),
-      reviews: reviews ? { left: reviews.left, right: reviews.right, top: reviews.top, bottom: reviews.bottom } : null,
-      row: { left: box.left, right: box.right },
+      apps: b && r && q ? { text: b.textContent, left: r.left, right: r.right, top: r.top, searchRight: q.right, searchTop: q.top } : null,
     }
   })
-  check("Add section on a phone: All, then Apps with each app, then the theme's", pills.order[0] === "All" && pills.order[1] === "[apps]" && pills.order[2] === "Reviews" && pills.order.indexOf("[sections]") > 2, pills.order.slice(0, 6))
-  check("and the Reviews pill is on screen without scrolling the row", !!pills.reviews && pills.reviews.left >= pills.row.left && pills.reviews.right <= pills.row.right && pills.reviews.right <= 390 && pills.reviews.bottom <= 844, pills.reviews)
-  await page.evaluate(() => [...document.querySelectorAll('[data-section-library="phone"] [role="toolbar"] button')].find((c) => c.textContent === "Reviews")?.click())
+  /* Changed on purpose (round Z1): on a phone the same button, called Apps, beside the search; no Apps group of pills. */
+  check("Add section on a phone: All first, no Apps group of pills", pills.order[0] === "All" && !pills.order.some((o) => /^\[/.test(o) || o === "Reviews"), pills.order.slice(0, 6))
+  check("and Apps is a button beside the search, on screen", !!pills.apps && pills.apps.text.trim() === "Apps" && pills.apps.left >= pills.apps.searchRight && pills.apps.left - pills.apps.searchRight <= 12 && pills.apps.right <= 390 - 15, pills.apps)
+  await page.evaluate(() => document.querySelector('[data-section-library="phone"] [data-app-embeds-toggle]')?.click())
   await sleep(400)
   const apps = await page.evaluate(() => ({
     cards: [...document.querySelectorAll('[data-section-library="phone"] [data-library-card]:not([hidden])')].map((c) => c.getAttribute("data-library-card")),
     off: [...document.querySelectorAll('[data-section-library="phone"] [data-app-off]')].map((n) => { const r = n.getBoundingClientRect(); return { id: n.getAttribute("data-app-off"), left: r.left, right: r.right, h: r.height } }),
   }))
-  check("Reviews on a phone shows the app's sections only", apps.cards.length >= 4 && apps.cards.every((t) => /^reviews_/.test(t)), `${apps.cards.length} cards`)
-  check("and the off line fits the sheet", apps.off.length === 1 && apps.off[0].left >= 16 && apps.off[0].right <= 390 - 16 + 1 && apps.off[0].h >= 44, apps.off)
+  check("Apps on a phone shows the apps' sections only", apps.cards.length >= 4 && apps.cards.some((t) => /^reviews_/.test(t)), `${apps.cards.length} cards`)
+  check("and the off lines fit the sheet", apps.off.length >= 1 && apps.off.every((o) => o.left >= 16 && o.right <= 390 - 16 + 1 && o.h >= 44), apps.off)
   if (shots) await page.screenshot({ path: join(shots, "apps-390.png") })
   await page.close()
 }

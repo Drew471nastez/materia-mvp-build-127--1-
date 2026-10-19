@@ -83,7 +83,7 @@ export async function POST(_req: Request, { params }: Params) {
   }
   if (!release) return NextResponse.json({ error: "Version not found" }, { status: 404 })
 
-  const safety = await takeBackup(supabase, installId, { label: "Before restoring a published version", source: "restore" })
+  const safety = await takeBackup(supabase, installId, { label: "Before restoring a published version", source: "restore", verify: true })
   if (safety.error) {
     console.error("[releases/restore] the draft could not be backed up:", safety.error)
     return NextResponse.json({ error: "Could not back up your draft, so nothing changed. Try again." }, { status: 500 })

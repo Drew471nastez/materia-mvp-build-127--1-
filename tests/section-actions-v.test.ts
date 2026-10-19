@@ -324,7 +324,7 @@ async function main() {
   const lib = read("components/website-builder/editor/section-library.tsx")
   const cats = read("lib/website-builder/section-categories.ts")
   check("one registry: Add section's app categories read it", /return appForSection\(type\)\?\.app\.id \?\? null/.test(cats) && /STORELIB_SECTION_APPS\.map\(\(a\) => \(\{ id: a\.id, label: tt\(a\.label\) \}\)\)/.test(cats) && !/APP_SECTION_TYPES/.test(cats))
-  check("Add section files each app's sections under it, under Apps, right after All", /* round AK: imported files are an app's too */ /const appInfo = own_ && !schema\.imported \? undefined : appForSection\(type\)\?\.app/.test(lib) && /\{ key: "all", label: tt\("All"\), count: entries\.length \},\s*\n\s*\/\*[^\n]*\*\/\s*\n\s*\.\.\.apps,/.test(lib) && /data-library-group="apps"/.test(lib) && /data-library-group="sections"/.test(lib))
+  check("Add section files each app's sections under it, behind the App embeds button beside the search", /* round AK: imported files are an app's too */ /const appInfo = own_ && !schema\.imported \? undefined : appForSection\(type\)\?\.app/.test(lib) && /* Changed on purpose (round Z1, the owner: "just the button there, app embeds, next to the search"): no Apps group in the list. */ /activeCategory === APP_EMBEDS \? !!e\.app/.test(lib) && !/data-library-group="apps"/.test(lib) && /data-app-embeds-toggle=""/.test(lib))
   check("and says when that app is off, with the way to turn it on", /* round AJ: App embeds too */ /\(e\.app\.id === activeCategory \|\| activeCategory === APP_EMBEDS\) && appIsOn\(e\.app, appStates\) === false/.test(lib) && /href=\{app\.href\}/.test(lib))
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -441,7 +441,8 @@ section("The page")
     /<a href=\{ownOpen\(siteUrl\)\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
       !/window\.open\(siteUrl/.test(client))
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
-    !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
+    /* Round Z5: Browse themes' cards are drawn by components/themes/theme-card.tsx, a screenshot or the drawn desktop cover. */
+    !/ThemeCoverPair|ThemePhoneCover/.test(client) && !/ThemePhoneCover/.test(read("components/themes/theme-card.tsx")) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="absolute inset-0 h-full w-full" \/>/.test(read("components/themes/theme-card.tsx")) &&
       /<WebsiteCover install=\{i\} preparing=\{!!preparing\[i\.id\]\} \/>/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\$?\{(live\.name|name)\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [

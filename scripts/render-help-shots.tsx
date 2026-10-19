@@ -577,7 +577,7 @@ function App() {
         <Page width={460} bg="#ffffff">
           <div className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <p className="px-3 pb-2 pt-1 text-[17px] font-semibold text-[#1a1a2e]">What are you selling?</p>
-            <KindList communities={false} onChoose={() => {}} />
+            <KindList onChoose={() => {}} />
           </div>
         </Page>
       )
