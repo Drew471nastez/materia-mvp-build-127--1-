@@ -79,7 +79,7 @@ import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
 import { ReadinessBanner } from "@/components/physical/readiness-banner"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, weekdayNames } from "@/lib/i18n/format"
-import { orderCurrency } from "@/lib/orders/money"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { minorUnits } from "@/lib/markets/money"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
@@ -154,10 +154,10 @@ type Metric = Exclude<KPIType, null>
  * The numbers on the axis, one formatter per metric, used to write them and
  * to measure the gutter they need.
  */
-function tickText(metric: KPIType, v: number): string {
+function tickText(metric: KPIType, v: number, currency: string): string {
   const short = (n: number) => (n >= 1000 ? `${Number((n / 1000).toFixed(1))}k` : `${Number(n.toFixed(2))}`)
-  /* Revenue in the platform's charge currency, what every checkout charged in (lib/orders/money). */
-  if (metric === "revenue") return new Intl.NumberFormat(appLocale(), { style: "currency", currency: orderCurrency(null), notation: v >= 1000 ? "compact" : "standard", maximumFractionDigits: v >= 1000 ? 1 : 2, minimumFractionDigits: 0 }).format(v)
+  /* Revenue in the store's own currency: every order is converted to it at its own day's rate (lib/analytics/creator-orders). */
+  if (metric === "revenue") return new Intl.NumberFormat(appLocale(), { style: "currency", currency, notation: v >= 1000 ? "compact" : "standard", maximumFractionDigits: v >= 1000 ? 1 : 2, minimumFractionDigits: 0 }).format(v)
   if (metric === "conversion") return `${Number(v.toFixed(2))}%`
   return short(v)
 }
@@ -216,7 +216,8 @@ export function DashboardTrendChart({
    * formatter, used to draw the ticks and to measure them, so the gutter can
    * never be sized for text the chart does not show.
    */
-  const axisTick = useCallback((v: number) => tickText(openKPIModal, v), [openKPIModal])
+  const storeCurrency = useStoreCurrency()
+  const axisTick = useCallback((v: number) => tickText(openKPIModal, v, storeCurrency), [openKPIModal, storeCurrency])
   const scale = useMemo(() => scaleOf(openKPIModal, displayChartData), [openKPIModal, displayChartData])
   const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
 
@@ -227,10 +228,10 @@ export function DashboardTrendChart({
   */
   const plotLeft = useMemo(() => {
     const widths = (Object.keys(widthFrom) as Metric[]).map((m) =>
-      plotLeftFor(scaleOf(m, widthFrom[m] ?? []).ticks.map((v) => tickText(m, v))),
+      plotLeftFor(scaleOf(m, widthFrom[m] ?? []).ticks.map((v) => tickText(m, v, storeCurrency))),
     )
     return Math.max(plotLeftFor(axisLabels), ...widths)
-  }, [widthFrom, axisLabels])
+  }, [widthFrom, axisLabels, storeCurrency])
 
   /*
     ONE MOVE PER SWITCH, AND ONLY WHEN THE NUMBERS CHANGE. A tab used to fire
@@ -248,13 +249,13 @@ export function DashboardTrendChart({
   const formatValue = useCallback((val: number | null) => {
     if (val === null) return tt("No visitors")
     if (openKPIModal === "revenue") {
-      const currency = orderCurrency(null)
+      const currency = storeCurrency
       const decimals = minorUnits(currency)
       return new Intl.NumberFormat(appLocale(), { style: "currency", currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val)
     }
     if (openKPIModal === "conversion") return `${val}%`
     return val.toLocaleString(appLocale())
-  }, [openKPIModal])
+  }, [openKPIModal, storeCurrency])
 
   const metricLabel = openKPIModal === "views" ? t("dashboard.visitors")
     : openKPIModal === "orders" ? t("dashboard.orders")
@@ -839,10 +840,11 @@ export function DashboardClient({
     return () => window.clearInterval(id)
   }, [])
   const greetingName = displayName === "there" ? "" : firstName(displayName)
+  const storeCurrencyCode = useStoreCurrency()
 
-  /* Revenue is what checkouts charged, in the platform's charge currency (lib/orders/money); a whole amount without its .00. */
+  /* Revenue in the store's own currency (Settings > Languages & Currency); every order is converted to it at its own day's rate. A whole amount without its .00. */
   const formatCurrency = (cents: number, compact = false) => {
-    const currency = orderCurrency(null)
+    const currency = storeCurrencyCode
     const decimals = minorUnits(currency)
     const value = cents / 10 ** decimals
     if (compact && value >= 1000) {
