@@ -28,6 +28,7 @@ import { notFound } from "next/navigation"
 
 import ProductPage, { generateMetadata as productMetadata } from "../../p/[slug]/page"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { ProductPageFrame } from "@/components/platform/product-page-frame"
 
 export const dynamic = "force-dynamic"
 
@@ -57,5 +58,6 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 export default async function SellerProductPage({ params, searchParams }: PageProps) {
   const slug = await resolve(params)
   if (!slug) notFound()
-  return await ProductPage({ params: Promise.resolve({ slug }), searchParams } as never)
+  /* The same frame /p/<slug> has (its layout): the store's currency and the marketplace's dollar quote on the Buy links. */
+  return ProductPageFrame({ slug, children: await ProductPage({ params: Promise.resolve({ slug }), searchParams } as never) })
 }

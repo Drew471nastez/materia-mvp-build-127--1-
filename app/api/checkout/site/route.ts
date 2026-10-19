@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -451,7 +452,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     transfer_data: { destination: account },
     ...statementParams({
       account,
-      descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator as { display_name?: string | null }).display_name || "",
+      descriptor: (await sellerStatementName(admin, (creator as { id: string }).id)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator as { display_name?: string | null }).display_name || "",
       chargesEnabled: (creator as { charges_enabled?: boolean | null }).charges_enabled ?? null,
     }),
   }

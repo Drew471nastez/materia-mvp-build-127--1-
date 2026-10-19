@@ -22,6 +22,8 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { CROSS_BORDER_REGION, payoutRoute, payoutSupported } from "../lib/payments/stripe/payout-regions"
 import { accountAttempts } from "../lib/payments/stripe/account-attempts"
+import { followsStoreName, pickStatementName } from "../lib/payments/statement-name"
+import { statementParams } from "../lib/payments/platform-descriptor"
 
 let passed = 0
 let failed = 0
@@ -155,6 +157,20 @@ async function main() {
   const live = await run("scripts/stripe-test-purchase.mjs", ["--create-account", "DE"], { ...env, STRIPE_SECRET_KEY: "sk_live_xxx" })
   check("a live key is still refused before any call", live.code === 2 && seen.length === 0)
   stub.close()
+
+  /* The bank statement follows the store's name. */
+  check("statement: no name typed uses the store's name", pickStatementName({ custom: null, storeName: "Offgrid Sounds", displayName: "Andrew", slug: "andrewrullz" }) === "OFFGRID")
+  check("statement: an old auto-saved username counts as not chosen", pickStatementName({ custom: "ANDREWRULLZ", storeName: "Offgrid", displayName: "Andrew", slug: "andrewrullz" }) === "OFFGRID")
+  check("statement: a name the seller typed wins", pickStatementName({ custom: "OFFGRID", storeName: "Offgrid Sounds", displayName: "Andrew", slug: "andrewrullz" }) === "OFFGRID")
+  check("statement: no store name falls back to the display name", pickStatementName({ storeName: "", displayName: "Andrew Rullz" }) === "ANDREW RULLZ")
+  check("statement: follows the store name unless something else was typed", followsStoreName({ custom: "", storeName: "X" }) && followsStoreName({ custom: "ANDREWRULLZ", slug: "andrewrullz" }) && !followsStoreName({ custom: "BEATS BY DREW", storeName: "Offgrid Sounds", slug: "andrewrullz" }))
+  const long = statementParams({ account: "acct_1", descriptor: "The Very Long Store Name Of Tech House Masters", chargesEnabled: false })
+  check("statement: a long store name is cut to Stripe's room on a whole word, never refused", long.statement_descriptor_suffix === "THE VERY", long)
+  const src = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+  for (const p of ["app/api/checkout/stripe-session/route.ts", "app/api/checkout/cart/route.ts", "app/api/checkout/site/route.ts", "lib/physical/checkout-server.ts"]) {
+    check(`statement: ${p} sends the store's name`, /descriptor: \(await sellerStatementName\(/.test(src(p)))
+  }
+  check("statement: a store rename reaches Stripe", /pushStatementName\(account, await sellerStatementName\(/.test(src("app/api/store/settings/route.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   process.exit(failed ? 1 : 0)

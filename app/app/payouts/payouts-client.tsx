@@ -757,6 +757,14 @@ function RevenueChart({ initialCurrency }: { initialCurrency: string }) {
           <div className="flex h-48 items-center justify-center px-4 text-center">
             <p className="text-[13px] text-[#b42318]">{error}</p>
           </div>
+        ) : !hasData && !isHourly && otherCurrencies.length > 0 ? (
+          /* Only sales in another currency no rate converts yet: shown as paid, never as "no revenue". */
+          <div className="flex h-48 flex-col items-center justify-center px-4 text-center">
+            <p className="text-[28px] font-semibold tabular-nums tracking-tight text-[#1a1a2e]">
+              {otherCurrencies.map((o) => fmt(o.gross, o.currency)).join(" + ")}
+            </p>
+            <p className="mt-1 text-[13px] text-[#6b7280]">{tt("As paid. Converted once the day's rate arrives.")}</p>
+          </div>
         ) : !hasData && !isHourly ? (
           /* Daily mode, no sales in the period. */
           <div className="flex h-48 flex-col items-center justify-center px-4 text-center">

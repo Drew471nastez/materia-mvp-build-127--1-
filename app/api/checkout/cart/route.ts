@@ -1,4 +1,5 @@
 import { statementParams } from "@/lib/payments/platform-descriptor"
+import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -438,7 +439,7 @@ async function handlePOST(request: Request) {
         /* The seller's name on the statement, as on the single product checkout (lib/payments/platform-descriptor). */
         ...statementParams({
           account: String(creator.stripe_account_id),
-          descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || creator.display_name || "",
+          descriptor: (await sellerStatementName(admin, creator.id)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || creator.display_name || "",
           chargesEnabled: creator.charges_enabled,
         }),
       },

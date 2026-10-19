@@ -232,7 +232,9 @@ async function main() {
     check("and its page draws the store's currency", /let priceCurrency = productPriceCurrency\(product, store\.currency\)/.test(page) && /<CheckoutCurrency currency=\{priceCurrency\}>/.test(page) && /* Changed on purpose (track X2): asked with the store's other reads, by the product's store. */ /readStoreCurrency\(checkoutAdmin\(\), storeId \?\? undefined\)/.test(page))
     const client = code("app/checkout/checkout-client.tsx")
     check("its own minimum check is the store currency's", /minimumChargeMinor\(chargeCurrency\)/.test(client) && !/MIN_CHARGE_CENTS/.test(client))
-    for (const f of ["app/(marketing)/p/[slug]/layout.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {
+    /* Changed on purpose: the product page's frame is shared with /creator/product (components/platform/product-page-frame), so both pages agree with the checkout. */
+    check("(marketing)/p and /creator/product use the one product page frame", /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/p/[slug]/layout.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/[sellername]/[productSlug]/page.tsx")))
+    for (const f of ["components/platform/product-page-frame.tsx", "app/(marketing)/u/[username]/layout.tsx", "app/(marketing)/l/[slug]/page.tsx"]) {
       check(`${f.split("/").slice(1, 3).join("/")} tells its prices the store's currency`, /<PriceCurrency currency=/.test(code(f)) && /cachedStoreCurrency\(/.test(code(f)))
     }
     for (const f of ["app/(marketing)/explore/page.tsx", "app/(marketing)/explore/[category]/page.tsx"]) {

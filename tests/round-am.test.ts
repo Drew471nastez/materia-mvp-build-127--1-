@@ -203,7 +203,7 @@ async function main() {
     check("a creator page's cards", /marketplacePricer\(createAdminClient\(\), \[creator\.id\], /.test(code("app/(marketing)/u/[username]/page.tsx")))
     const p = code("app/(marketing)/p/[slug]/page.tsx")
     check("a product page: the product and each option at one rate day", /productPageQuote\(loaded/.test(p) && /pageQuote\.convert\(loaded\)/.test(p) && /productVariants\.map\(\(v\) => pageQuote\.convert\(/.test(p))
-    check("its Buy links carry the marketplace and the rate day", /<MarketplaceQuote active=/.test(code("app/(marketing)/p/[slug]/layout.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/buy-button.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/smart-buy-button.tsx")))
+    check("its Buy links carry the marketplace and the rate day", /<MarketplaceQuote active=/.test(code("components/platform/product-page-frame.tsx")) && /ProductPageFrame\(\{ slug, children/.test(code("app/(marketing)/[sellername]/[productSlug]/page.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/buy-button.tsx")) && /useCheckoutHref\(\)/.test(code("components/checkout/smart-buy-button.tsx")))
     const e = entryOf({ id: "w", product_id: PRODUCT, created_at: today, products: { id: PRODUCT, title: "Pack", slug: "pack", type: "digital", price_cents: 4900, currency: "RON" } })!
     check("the wishlist writes a lei price in lei, never as dollars", /lei|RON/i.test(priceOf(e).main) && !/\$/.test(priceOf(e).main), priceOf(e))
     check("with the switch off its Buy is the link it always was", actionOf(e).href === `/checkout?productId=${PRODUCT}`)

@@ -89,6 +89,8 @@ export interface ReportConversion<T> {
   unconverted: number
   /** Rows with no currency recorded: counted as they are. */
   unknown: number
+  /** The rows no rate could convert, as they were (their own currency), for a report to show beside its total. */
+  left?: T[]
 }
 
 const MONEY_KEYS = ["amount_cents", "refund_amount_cents", "tip_cents", "tax_cents", "shipping_cents", "fee_cents", "application_fee_cents"] as const
@@ -109,6 +111,7 @@ export function inReportingCurrency<T extends ReportMoneyRow>(rows: T[], target:
   let converted = 0
   let unconverted = 0
   let unknown = 0
+  const left: T[] = []
   for (const row of rows) {
     const from = codeOf(row.currency)
     if (!from) {
@@ -134,12 +137,13 @@ export function inReportingCurrency<T extends ReportMoneyRow>(rows: T[], target:
     }
     if (!ok) {
       unconverted += 1
+      left.push(row)
       continue
     }
     converted += 1
     out.push(copy as T)
   }
-  return { rows: out, converted, unconverted, unknown }
+  return { rows: out, converted, unconverted, unknown, left }
 }
 
 /** Whether any row is in a currency other than `target`: the only case a report needs rates at all. */

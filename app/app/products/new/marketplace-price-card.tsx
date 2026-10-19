@@ -2,9 +2,9 @@
 
 /**
  * THE PRODUCT'S PRICE ON STORELIB'S MARKETPLACE, when it is in US dollars
- * (lib/money/marketplace). One quiet line under the price: what buyers on
- * Explore see today ("about $12.34"), and, if the creator wants, a dollar
- * price of their own. Saving it is their approval; Storelib never sets,
+ * (lib/money/marketplace). One small line under the price: what buyers on
+ * Explore see today ("Explore price: about $12.34 · Set USD price"), and, if
+ * the creator wants, a dollar price of their own, edited in place. Saving it is their approval; Storelib never sets,
  * rounds or changes it for them. Nothing shows for a dollar store, a plan,
  * a product not saved yet, or before the marketplace is switched over.
  */
@@ -56,27 +56,30 @@ export function MarketplacePriceCard({ productId, priceText }: { productId: stri
     setEditing(false)
   }
 
+  const shown = fixed ?? converted
   return (
-    <div className="space-y-2 rounded-lg bg-[#f8f9fa] px-3 py-2.5" data-marketplace-price="">
-      <p className="text-[13px] leading-[18px] text-[#6b7280]">
-        {fixed !== null
-          ? tt("On Explore and the Storelib marketplace: {price}, your dollar price.", { price: usd(fixed) })
-          : converted !== null
-            ? tt("On Explore and the Storelib marketplace: about {price}, at today's exchange rate.", { price: usd(converted) })
-            : tt("On Explore and the Storelib marketplace this shows in US dollars, at the day's exchange rate.")}
-      </p>
+    <div className="mt-1.5 text-[12px] leading-[18px] text-[#6b7280]" data-marketplace-price="">
       {editing ? (
-        <div className="flex items-center gap-2">
-          <div className="relative w-36">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">$</span>
+        <div className="flex items-center gap-1.5">
+          <span className="shrink-0">{tt("Explore price")}</span>
+          <div className="relative w-24">
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-[#6b7280]">$</span>
             <Input
               type="text"
               inputMode="decimal"
               autoComplete="off"
+              autoFocus
               placeholder="0.00"
               value={typed}
               onChange={(e) => setTyped(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="h-9 pl-6 text-sm tabular-nums"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && Number.parseFloat(typed) >= 0) {
+                  e.preventDefault()
+                  void save(Math.round(Number.parseFloat(typed) * 100))
+                }
+                if (e.key === "Escape") setEditing(false)
+              }}
+              className="h-7 rounded-md pl-5 text-[12px] tabular-nums"
               aria-label={tt("Dollar price")}
             />
           </div>
@@ -84,35 +87,43 @@ export function MarketplacePriceCard({ productId, priceText }: { productId: stri
             type="button"
             disabled={busy || !(Number.parseFloat(typed) >= 0)}
             onClick={() => void save(Math.round(Number.parseFloat(typed) * 100))}
-            className="h-9 rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white disabled:opacity-50"
+            className="h-7 rounded-md bg-[#1a1a2e] px-2.5 text-[12px] font-medium text-white transition-opacity disabled:opacity-50"
           >
-            {tt("Use this price")}
+            {tt("Save")}
           </button>
-          <button type="button" onClick={() => setEditing(false)} className="h-9 px-2 text-[13px] text-[#6b7280]">
+          <button type="button" onClick={() => setEditing(false)} className="h-7 px-1.5 text-[12px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
             {tt("Cancel")}
           </button>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span>
+            {shown !== null
+              ? fixed !== null
+                ? tt("Explore price: {price}", { price: usd(shown) })
+                : tt("Explore price: about {price}", { price: usd(shown) })
+              : tt("Explore shows this in US dollars.")}
+          </span>
+          <span aria-hidden className="text-[#d1d5db]">·</span>
           <button
             type="button"
             onClick={() => {
-              setTyped(fixed !== null ? (fixed / 100).toFixed(2) : converted !== null ? (converted / 100).toFixed(2) : "")
+              setTyped(shown !== null ? (shown / 100).toFixed(2) : "")
               setEditing(true)
             }}
             disabled={state.ready === false}
-            className="text-[13px] font-medium text-[#1a1a2e] underline-offset-4 hover:underline disabled:opacity-50"
+            className="font-medium text-[#1a1a2e] underline-offset-2 transition-colors hover:underline disabled:opacity-50"
           >
-            {fixed !== null ? tt("Change dollar price") : tt("Set my own dollar price")}
+            {fixed !== null ? tt("Edit") : tt("Set USD price")}
           </button>
           {fixed !== null ? (
-            <button type="button" disabled={busy} onClick={() => void save(null)} className="text-[13px] text-[#6b7280] underline-offset-4 hover:underline">
-              {tt("Use the converted price")}
+            <button type="button" disabled={busy} onClick={() => void save(null)} className="text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline">
+              {tt("Use rate")}
             </button>
           ) : null}
         </div>
       )}
-      {error ? <p className="text-[13px] text-[#b42318]">{error}</p> : null}
+      {error ? <p className="mt-1 text-[12px] text-[#b42318]">{error}</p> : null}
     </div>
   )
 }

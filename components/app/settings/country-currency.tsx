@@ -226,6 +226,8 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
   const [currency, setCurrency] = React.useState(data.chosen ?? (data.country ? data.currency : suggestedCurrencyFor(startCountry)))
   const [picked, setPicked] = React.useState(!!data.chosen)
   const [mode, setMode] = React.useState<"keep" | "convert" | null>(null)
+  /* Changing the currency of a store already set up asks for one tick: the merchant reviews their prices. */
+  const [understood, setUnderstood] = React.useState(false)
   const [preview, setPreview] = React.useState<Preview | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -239,6 +241,7 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
   React.useEffect(() => {
     setMode(null)
     setPreview(null)
+    setUnderstood(false)
     key.current = newKey()
     if (!asks) return
     let live = true
@@ -295,7 +298,7 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
       <Field
         label={tt("Currency")}
         htmlFor="store-currency"
-        hint={local ? tt("Storelib can't take card payments in {local} yet, so your store sells in {currency}.", { local, currency }) : tt("Your prices are in it and buyers pay in it. Payouts still arrive in your bank's currency.")}
+        hint={local ? tt("Storelib can't take card payments in {local} yet, so your store sells in {currency}.", { local, currency }) : tt("Prices and checkout use it. Payouts arrive in your bank's currency.")}
       >
         <SelectInput
           id="store-currency"
@@ -356,10 +359,30 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
           </div>
           {preview ? (
             <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-currency-facts="">
-              {tt("{count, plural, one {# price changes} other {# prices change}}: your products, options, shipping rates and fixed coupons. Orders already placed keep their currency.", { count: preview.counts.total })}
-              {preview.rate ? ` ${tt("Rate: 1 {from} = {rate} {to}, {day}.", { from: preview.from, rate: String(preview.rate), to: preview.to, day: dayOf(preview.asOf) })}` : ""}
+              {tt("{count, plural, one {# price changes} other {# prices change}}. Past orders keep their currency.", { count: preview.counts.total })}
+              {preview.rate && mode === "convert" ? ` ${tt("Rate: 1 {from} = {rate} {to}, {day}.", { from: preview.from, rate: String(preview.rate), to: preview.to, day: dayOf(preview.asOf) })}` : ""}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {changesCurrency && data.country ? (
+        <div className="space-y-2 rounded-xl bg-[#f8f9fa] px-3.5 py-3" data-currency-notice="">
+        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Review your prices across the store after changing currency, so checkout holds no surprises.")}</p>
+        <label
+          className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-[19px] text-[#374151]"
+          data-currency-understood=""
+        >
+          <input
+            type="checkbox"
+            checked={understood}
+            onChange={(e) => setUnderstood(e.target.checked)}
+            className="mt-[2px] h-4 w-4 shrink-0 cursor-pointer rounded border-[#d1d5db] accent-[#1a1a2e]"
+          />
+          <span>
+            {tt("I understand the risk of changing the store currency")}
+          </span>
+        </label>
         </div>
       ) : null}
 
@@ -368,7 +391,7 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
         <button type="button" className={BTN_SECONDARY} onClick={onCancel} disabled={busy}>
           {tt("Cancel")}
         </button>
-        <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy || (asks && !mode) || (nothingChanged && !!data.country)} data-currency-save="">
+        <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy || (asks && !mode) || (changesCurrency && !!data.country && !understood) || (nothingChanged && !!data.country)} data-currency-save="">
           {busy ? tt("Saving") : tt("Save")}
         </button>
       </div>

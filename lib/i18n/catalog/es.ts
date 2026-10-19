@@ -10099,7 +10099,25 @@ const words: Record<string, string> = {
  "From payment, on average": "Desde el pago, de media",
  "No shipped orders in this period.": "No hay pedidos enviados en este periodo.",
  "No product is running low.": "Ningún producto se está agotando.",
- "Added to cart": "Añadido al carrito"
+ "Added to cart": "Añadido al carrito",
+ "As paid. Converted once the day's rate arrives.": "Tal como se pagó. Se convierte cuando llegue el tipo del día.",
+ "Every other country, at your prices in {baseCurrency}.": "Todos los demás países, con tus precios en {baseCurrency}.",
+ "Explore price": "Precio en Explore",
+ "Explore price: about {price}": "Precio en Explore: unos {price}",
+ "Explore price: {price}": "Precio en Explore: {price}",
+ "Explore shows this in US dollars.": "Explore lo muestra en dólares estadounidenses.",
+ "I understand the risk of changing the store currency": "Entiendo el riesgo de cambiar la moneda de la tienda",
+ "Leave empty to use your store name. Long names are shortened for you.": "Déjalo vacío para usar el nombre de tu tienda. Los nombres largos se acortan solos.",
+ "New text is translated a few minutes after you publish. Your own edits are kept.": "El texto nuevo se traduce unos minutos después de publicar. Tus propios cambios se conservan.",
+ "New visitors see their browser's language, once.": "Los visitantes nuevos ven el idioma de su navegador, una vez.",
+ "Optional. Listed countries see and pay in their currency. Everyone else sees {currency}.": "Opcional. Los países de la lista ven y pagan en su moneda. Los demás ven {currency}.",
+ "Prices and checkout use it. Payouts arrive in your bank's currency.": "Los precios y el pago la usan. Los pagos llegan en la moneda de tu banco.",
+ "Set USD price": "Fijar precio en USD",
+ "Use rate": "Usar el tipo de cambio",
+ "Works once a language is published.": "Funciona cuando publiques un idioma.",
+ "Works once you add a language.": "Funciona cuando añadas un idioma.",
+ "{count, plural, one {# price changes} other {# prices change}}. Past orders keep their currency.": "{count, plural, one {Cambia # precio} other {Cambian # precios}}. Los pedidos anteriores mantienen su moneda.",
+ "Review your prices across the store after changing currency, so checkout holds no surprises.": "Revisa los precios de tu tienda después de cambiar la moneda, para que el pago no tenga sorpresas."
 }
 
 export default words

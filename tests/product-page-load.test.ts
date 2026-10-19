@@ -41,7 +41,8 @@ function check(label: string, ok: boolean, detail?: string) {
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const page = read("app/(marketing)/p/[slug]/page.tsx")
-const layout = read("app/(marketing)/p/[slug]/layout.tsx")
+/* Changed on purpose: the layout's body is the shared product page frame (also behind /creator/product). */
+const layout = read("components/platform/product-page-frame.tsx")
 const loaders = read("lib/commerce/product-page-data.ts")
 const css = read("app/globals.css")
 

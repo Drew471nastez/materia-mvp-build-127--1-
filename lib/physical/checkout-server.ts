@@ -1,4 +1,5 @@
 import "server-only"
+import { sellerStatementName } from "@/lib/payments/statement-name-server"
 
 /**
  * ===========================================================================
@@ -561,7 +562,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       /* Settings › Payments' name on the statement, as the digital and basket checkouts already put it (lib/payments/platform-descriptor). */
       ...statementParams({
         account: String(creator.stripe_account_id),
-        descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator.display_name as string | null) || "",
+        descriptor: (await sellerStatementName(db, creator.id as string)) || (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator.display_name as string | null) || "",
         chargesEnabled: creator.charges_enabled as boolean | null,
       }),
       metadata: { physical_checkout_id: checkoutId, creator_id: priced.creatorId },

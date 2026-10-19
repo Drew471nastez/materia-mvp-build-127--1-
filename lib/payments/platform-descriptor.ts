@@ -41,14 +41,22 @@ export const STATEMENT_SUFFIX_MAX = 22 - PLATFORM_STATEMENT_DESCRIPTOR.length - 
 export const STATEMENT_NAME_MAX = SELLER_ONLY_STATEMENT ? 22 : STATEMENT_SUFFIX_MAX
 
 /** The seller's part of the bank line. Empty when there is nothing usable. */
-export function statementDescriptorSuffix(raw: string | null | undefined): string {
-  return (raw || "")
+export function statementDescriptorSuffix(raw: string | null | undefined, max: number = STATEMENT_NAME_MAX): string {
+  const clean = (raw || "")
     .toUpperCase()
     .replace(/[^A-Z0-9 ]/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, STATEMENT_NAME_MAX)
-    .trim()
+  return fitWords(clean, max)
+}
+
+/** Cut to `max`, on a whole word when one fits ("OFFGRID SOUNDS" in 12 is "OFFGRID", not "OFFGRID SOUN"). */
+function fitWords(s: string, max: number): string {
+  if (s.length <= max) return s
+  const cut = s.slice(0, max)
+  if (s[max] === " ") return cut.trim()
+  const space = cut.lastIndexOf(" ")
+  return (space >= 2 ? cut.slice(0, space) : cut).trim()
 }
 
 /** What a bank app shows: NAME on its own when the seller is the merchant, STORELIB* NAME otherwise. */
@@ -72,6 +80,6 @@ export function statementParams(seller: {
   if (SELLER_ONLY_STATEMENT && seller.chargesEnabled && seller.account.startsWith("acct_")) {
     return { on_behalf_of: seller.account }
   }
-  const suffix = statementDescriptorSuffix(seller.descriptor).slice(0, STATEMENT_SUFFIX_MAX).trim()
+  const suffix = statementDescriptorSuffix(seller.descriptor, STATEMENT_SUFFIX_MAX)
   return suffix.length >= 2 ? { statement_descriptor_suffix: suffix } : {}
 }

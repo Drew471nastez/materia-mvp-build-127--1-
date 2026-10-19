@@ -7,7 +7,7 @@ import "server-only"
  * the checkout, so a card, the page behind it and the charge say the same.
  */
 import { fxFresh, type FxRates } from "@/lib/markets/money"
-import { cachedRates, latestRates } from "@/lib/markets/fx-server"
+import { cachedRates, latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { storeCurrencies } from "@/lib/store/store-currencies"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MARKETPLACE_CURRENCY, gateOpenFor, marketplaceAmounts, parseMarketplaceGate, resolveMarketplaceGate, toUsdMinor, type MarketplaceGate, type MarketplaceSource } from "./marketplace"
@@ -54,8 +54,15 @@ export async function marketplaceRates(db: Db, asOf?: unknown, opts: { cached?: 
   /* The hourly cache can hold an old answer (or none) after a fresh rate
      arrived: ask the table itself before pausing dollar prices. */
   if (opts.cached && !(latest && fxFresh(latest))) latest = await latestRates()
+  /* Still nothing fresh (the daily rate job missed): fetch today's ECB rates once (at most every 30 minutes per server) rather than pause the marketplace. */
+  if (!(latest && fxFresh(latest)) && Date.now() - ratesTriedAt > 30 * 60_000) {
+    ratesTriedAt = Date.now()
+    const r = await refreshRates().catch(() => null)
+    if (r?.ok) latest = await latestRates()
+  }
   return latest && fxFresh(latest) ? latest : null
 }
+let ratesTriedAt = 0
 
 export interface MarketplaceRowPatch {
   currency: string | null

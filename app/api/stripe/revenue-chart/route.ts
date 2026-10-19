@@ -167,7 +167,14 @@ export async function GET(request: Request) {
     const inStore = await inStoreCurrency(adminSupabase, creator.id, (inPeriod ?? []) as Array<{ status: string; amount_cents: number | null; fee_cents: number | null; refund_amount_cents: number | null; created_at: string; currency: string | null }>)
     const chartCurrency = inStore.currency.toLowerCase()
     const orders = inStore.rows
-    const otherCurrencies: Array<{ currency: string; gross: number }> = []
+    /* Sales no rate could convert yet: shown beside the chart in what the buyer paid, never dropped and never guessed. */
+    const otherByCurrency = new Map<string, number>()
+    for (const row of inStore.left ?? []) {
+      const c = String(row.currency ?? "").toLowerCase()
+      const g = lineMoney(row as Parameters<typeof lineMoney>[0]).gross
+      if (c && g > 0) otherByCurrency.set(c, (otherByCurrency.get(c) ?? 0) + g)
+    }
+    const otherCurrencies: Array<{ currency: string; gross: number }> = [...otherByCurrency].map(([currency, gross]) => ({ currency, gross }))
     const unconverted = inStore.unconverted
 
     const payments: Array<{ date: string; net: number; gross: number }> = []

@@ -1,4 +1,5 @@
 import { PRICING_METADATA_KEY, encodePricing } from "@/lib/money/order-pricing"
+import { sellerStatementName } from "@/lib/payments/statement-name-server"
 import { personName } from "@/lib/profile/display-name"
 import { rowsOwn } from "@/lib/checkout/owned"
 import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
@@ -328,7 +329,7 @@ async function handlePOST(request: Request) {
     getValidatedPlatformStatementDescriptor()
     Object.assign(params, statementParams({
       account,
-      descriptor: creator.statement_descriptor || creator.display_name || "",
+      descriptor: (await sellerStatementName(admin, creator.id)) || creator.statement_descriptor || creator.display_name || "",
       chargesEnabled: creator.charges_enabled,
     }))
   } catch {

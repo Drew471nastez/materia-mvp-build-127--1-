@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { sellerStatementName } from "@/lib/payments/statement-name-server"
+import { pushStatementName } from "@/lib/payments/stripe/descriptor"
 import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
@@ -61,6 +63,20 @@ export async function PUT(request: Request) {
     } catch {
       /* The site catches up on its own within a minute. */
     }
+  }
+  /* A renamed store renames its bank statement line too, on Stripe, unless the seller typed their own (lib/payments/statement-name-server). */
+  if ("storeName" in body) {
+    const db = c.db
+    const creatorId = c.creatorId
+    after(async () => {
+      try {
+        const { data } = await db.from("creators").select("stripe_account_id").eq("id", creatorId).maybeSingle()
+        const account = (data as { stripe_account_id?: string | null } | null)?.stripe_account_id
+        if (account) await pushStatementName(account, await sellerStatementName(db, creatorId))
+      } catch {
+        /* Checkout still sends the new name with every sale. */
+      }
+    })
   }
   return physicalJson({ settings: saved.settings })
 }

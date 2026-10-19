@@ -44,7 +44,7 @@ import { DomainsPanel, type DomainsData } from "@/components/app/settings/domain
 import { creatorPageHostFrom, websiteHostFrom } from "@/lib/custom-domains/client"
 import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
-import { STATEMENT_NAME_MAX, bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
+import { bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
@@ -403,18 +403,35 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
   const initialSupportEmail = useRef(supportEmail)
 
-  const normalizeStatementDescriptor = (value: string) => statementDescriptorSuffix(value)
+  /* Typed freely (no length limit shown): the bank line is cut to Stripe's room on its own. */
+  const normalizeStatementDescriptor = (value: string) => value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/\s+/g, " ").replace(/^ /, "").slice(0, 60)
 
-  const defaultStatementDescriptor = normalizeStatementDescriptor(
-    (creator?.statement_descriptor || profile?.username || (creator as any)?.display_name || "STORE").trim()
-  )
+  /* Empty field = the store's name from Store details (lib/payments/statement-name-server), read below. */
+  const [statementStoreName, setStatementStoreName] = useState(() => statementDescriptorSuffix((creator as any)?.display_name || profile?.username || "STORE"))
+  const defaultStatementDescriptor = statementStoreName
 
   const [payoutCurrency, setPayoutCurrency] = useState((creator as any)?.payout_currency || "USD")
-  const [statementDescriptor, setStatementDescriptor] = useState(defaultStatementDescriptor)
+  const [statementDescriptor, setStatementDescriptor] = useState("")
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const initialPayoutCurrency = useRef(payoutCurrency)
   const initialStatementDescriptor = useRef(statementDescriptor)
+  useEffect(() => {
+    let live = true
+    fetch("/api/settings/statement-descriptor", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { custom?: string; storeName?: string; name?: string } | null) => {
+        if (!live || !d) return
+        if (d.storeName || d.name) setStatementStoreName(d.storeName || d.name || "")
+        /* Only when nothing was typed meanwhile. */
+        setStatementDescriptor((cur) => (cur === initialStatementDescriptor.current ? d.custom ?? "" : cur))
+        initialStatementDescriptor.current = d.custom ?? ""
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
 
   /**
    * SEEDED FROM THE SERVER, NOT FROM NOTHING.
@@ -1175,7 +1192,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         slug: cleanUsername,
         support_email: supportEmail || null,
         payout_currency: payoutCurrency,
-        statement_descriptor: normalizeStatementDescriptor(statementDescriptor || profile?.username || (creator as any)?.display_name || "STORE"),
       }).eq("id", creator.id)
 
       if (creatorError) throw creatorError
@@ -1285,11 +1301,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       initialSupportEmail.current = supportEmail
       initialPayoutCurrency.current = payoutCurrency
       /* A new name for the bank statement is written to the creator's Stripe account as well (app/api/settings/statement-descriptor). */
-      if (statementDescriptor !== initialStatementDescriptor.current && statementDescriptor.trim()) {
+      if (statementDescriptor.trim() !== initialStatementDescriptor.current.trim()) {
         void fetch("/api/settings/statement-descriptor", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ descriptor: statementDescriptor }),
+          body: JSON.stringify({ descriptor: statementDescriptor.trim() }),
         }).catch(() => {})
       }
       initialStatementDescriptor.current = statementDescriptor
@@ -2247,7 +2263,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       <p className="text-[12px] text-[#6b7280]">{tt("How a sale reads in your buyer's bank app")}</p>
                     </div>
                   </div>
-                  <p className="text-[12px] text-[#9ca3af]">{tt("Letters, numbers and spaces. Up to")} {STATEMENT_NAME_MAX} {tt("characters.")}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{tt("Leave empty to use your store name. Long names are shortened for you.")}</p>
                 </div>
               </div>
 

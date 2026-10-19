@@ -503,8 +503,8 @@ export function MarketsPanel() {
               label={tt("Show visitors their own language")}
               description={
                 draft.languages.some((l) => l.published)
-                  ? tt("A first visit opens in the language the visitor's browser asks for, once, on your website and your storelib.com page. A close match gets a small offer instead.")
-                  : tt("Works once a language is published: a first visit opens in the language the visitor's browser asks for.")
+                  ? tt("New visitors see their browser's language, once.")
+                  : tt("Works once a language is published.")
               }
               checked={draft.visitorLanguage === true}
               disabled={!data.ready}
@@ -520,8 +520,8 @@ export function MarketsPanel() {
                 data.autoTranslate?.available === false
                   ? tt("Automatic translation isn't set up on Storelib yet. You can still write each translation yourself.")
                   : draft.languages.length === 0
-                    ? tt("Works once you add a language. When you publish changes, new and edited text is translated within a few minutes.")
-                    : tt("When you publish changes, new and edited text is translated into your other languages within a few minutes. Translations you edit yourself are never replaced.")
+                    ? tt("Works once you add a language.")
+                    : tt("New text is translated a few minutes after you publish. Your own edits are kept.")
               }
               checked={draft.autoTranslate === true}
               disabled={!data.ready || (data.autoTranslate?.available === false && draft.autoTranslate !== true)}
@@ -545,7 +545,7 @@ export function MarketsPanel() {
       <Card
         title={tt("More currencies")}
         help="markets"
-        description={tt("Optional. Visitors in the countries you list see prices in that currency and pay in it. Everyone else sees {currency}. Anyone can switch with your website's currency selector.", { currency: data.baseCurrency })}
+        description={tt("Optional. Listed countries see and pay in their currency. Everyone else sees {currency}.", { currency: data.baseCurrency })}
       >
         {draft.markets.some((m) => !m.primary) ? (
           <ul className="mb-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
@@ -930,7 +930,7 @@ function MarketEditor({
             ) : null}
           </div>
         ) : (
-          <p className="text-[13.5px] leading-5 text-[#4b5563]">{tt("Your home market: every country not in another market, at your own prices in {baseCurrency}.", { baseCurrency })}</p>
+          <p className="text-[13.5px] leading-5 text-[#4b5563]">{tt("Every other country, at your prices in {baseCurrency}.", { baseCurrency })}</p>
         )}
 
         {!m.primary ? (
