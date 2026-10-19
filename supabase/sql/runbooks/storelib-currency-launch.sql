@@ -13,8 +13,12 @@
 --   3. checks that no order changed (fingerprint of every order's id,
 --      amount, currency and status before and after). If anything differs,
 --      or anything fails, NOTHING is kept;
---   4. unlocks MARKETPLACE_USD=all (writes platform_migrations row
---      marketplace_usd_launch) ONLY when a real marketplace US dollar sale
+--   4. makes sure a fresh exchange rate exists (the ECB reference rates of
+--      2026-10-16, only if the table has nothing newer; the daily job keeps
+--      it fresh after that). Without a rate under 4 days old the marketplace
+--      keeps showing the store's own currency;
+--   5. unlocks MARKETPLACE_USD=all (platform_migrations row
+--      marketplace_usd_launch) only when a real marketplace US dollar sale
 --      that was refunded is on record and no order of the last 30 days has
 --      an unknown currency. Until then "all" acts as off in the app.
 -- Then it shows one report. Orders, payments and receipts are never edited.
@@ -245,6 +249,21 @@ begin
     if not found then
       insert into _launch_report (section, item, detail) values ('4 payouts', 'every connected creator', 'is in Romania: no cross-border payout issue');
     end if;
+  end if;
+
+  -- 5b. Exchange rate: the marketplace converts only with an ECB rate under 4 days old.
+  -- ECB euro reference rates published 2026-10-16 (www.ecb.europa.eu/stats/eurofxref), copied as published,
+  -- added only when the table has nothing as new; the daily /api/cron/fx-rates job keeps it fresh afterwards.
+  if to_regclass('public.fx_rates') is not null then
+    insert into public.fx_rates (as_of, base, rates, source)
+    select date '2026-10-16', 'EUR', '{"USD":1.1253,"JPY":177.82,"CZK":24.323,"DKK":7.4748,"GBP":0.84385,"HUF":363.08,"PLN":4.37,"RON":5.331,"SEK":11.145,"CHF":0.9272,"ISK":136.2,"NOK":10.624,"TRY":55.7328,"AUD":1.6171,"BRL":5.7197,"CAD":1.5935,"CNY":7.524,"HKD":8.8316,"IDR":20290.28,"ILS":3.4822,"INR":106.864,"KRW":1499.01,"MXN":20.6871,"MYR":4.5929,"NZD":1.9868,"PHP":70.858,"SGD":1.4395,"THB":37.602,"ZAR":18.493}'::jsonb, 'ecb'
+     where not exists (select 1 from public.fx_rates where as_of >= date '2026-10-16');
+    insert into _launch_report (section, item, detail)
+    select '5 rates', 'newest exchange rate', max(as_of)::text ||
+           case when max(as_of) >= current_date - 4 then ' (fresh: marketplace can show USD)' else ' (OLD: marketplace waits; the daily fx-rates job is not running)' end
+      from public.fx_rates;
+  else
+    insert into _launch_report (section, item, detail) values ('5 rates', 'fx_rates table', 'MISSING: SQL part 136 (markets) has not been run, so the marketplace cannot convert');
   end if;
 
   -- 6. Global launch: only after a real marketplace dollar sale was refunded.

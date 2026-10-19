@@ -50,7 +50,10 @@ export async function marketplaceRates(db: Db, asOf?: unknown, opts: { cached?: 
       /* the newest instead */
     }
   }
-  const latest = opts.cached ? await cachedRates() : await latestRates(db)
+  let latest = opts.cached ? await cachedRates() : await latestRates(db)
+  /* The hourly cache can hold an old answer (or none) after a fresh rate
+     arrived: ask the table itself before pausing dollar prices. */
+  if (opts.cached && !(latest && fxFresh(latest))) latest = await latestRates()
   return latest && fxFresh(latest) ? latest : null
 }
 

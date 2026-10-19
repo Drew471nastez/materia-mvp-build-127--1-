@@ -32,7 +32,7 @@ export async function GET() {
         /* The marketplace dollar switch (MARKETPLACE_USD), read only: off, how many stores, or all. Never the ids themselves. */
         marketplaceUsd: await (async () => {
           const gate = await marketplaceGate()
-          if (gate.lockedAll) return "set to every store, locked until the launch is verified (supabase/sql/runbooks/ap-launch.sql)"
+          if (gate.lockedAll) return "set to every store, locked until the launch is confirmed (run supabase/sql/runbooks/storelib-currency-launch.sql)"
           return gate.mode === "some" ? `on for ${gate.creatorIds.size} ${gate.creatorIds.size === 1 ? "store" : "stores"}` : gate.mode === "all" ? "on for every store" : "off"
         })(),
         chargeModel: "destination_charges",
