@@ -20,5 +20,5 @@ export default async function CouponsPage() {
      over this while it restores the session (app/app/cold-start.tsx). */
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") return noStorePage("/app/coupons")
-  return <CouponsClient creatorId={load.creatorId} initialCoupons={load.coupons} products={load.products} />
+  return <CouponsClient creatorId={load.creatorId} initialCoupons={load.coupons} products={load.products} currency={load.currency} />
 }

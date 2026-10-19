@@ -1,5 +1,6 @@
 "use client"
 
+import { couponMoney, currencySign } from "./coupon-money"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { PhysicalCouponOptions, type CouponOptionsHandle } from "@/components/physical/coupon-options"
@@ -43,7 +44,7 @@ const HINT = "text-[13px] leading-5 text-[#6b7280]"
 const FIELD =
   "h-11 w-full rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
 const FIELD_WRONG = "border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_3px_rgba(196,41,12,0.1)]"
-/* The adornment inside a field: $ before an amount, % after a percentage. */
+/* The adornment inside a field: the store currency's sign before an amount, % after a percentage. */
 const ADORN = "pointer-events-none absolute top-1/2 -translate-y-1/2 text-[16px] text-[#9ca3af] sm:text-[14px]"
 
 const FIELD_ID: Record<CouponField, string> = {
@@ -109,7 +110,11 @@ function FieldError({ id, problem }: { id: string; problem: CouponProblem | null
  * (lib/checkout/coupons.ts readCouponInput); the checks here only answer
  * sooner, under the field they are about.
  */
-export function CouponEditor({ products, initialCoupon }: { products: CouponProduct[]; initialCoupon: CouponRecord | null }) {
+export function CouponEditor({ products, initialCoupon, currency = "USD" }: { products: CouponProduct[]; initialCoupon: CouponRecord | null; currency?: string }) {
+  /* The store's own currency: the sign in the amount fields, product prices and the summary (./coupon-money). */
+  const money = useMemo(() => couponMoney(currency), [currency])
+  const sign = useMemo(() => currencySign(currency), [currency])
+  const signPad = { paddingLeft: `calc(0.875rem + ${Math.max(1, sign.length)}ch + 0.375rem)` }
   const router = useRouter()
   const isEdit = !!initialCoupon
   const [initial] = useState<CouponForm>(() => (initialCoupon ? fromCoupon(initialCoupon) : emptyForm()))
@@ -288,7 +293,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
           : tt("{couponState} · used {used, plural, one {# time} other {# times}}", { couponState: COUPON_STATE_LABEL[state!], used })
 
   const title = isEdit ? initialCoupon!.code : tt("New coupon")
-  const summary = summaryLines(form, products)
+  const summary = summaryLines(form, products, money)
 
   return (
     /*
@@ -419,17 +424,18 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                   ]}
                 />
                 <div className="relative">
-                  {form.discount_type === "fixed" ? <span className={cn(ADORN, "left-3.5")}>$</span> : null}
+                  {form.discount_type === "fixed" ? <span className={cn(ADORN, "left-3.5")}>{sign}</span> : null}
                   <input
                     id="coupon-value"
                     type="text"
                     inputMode="decimal"
-                    aria-label={form.discount_type === "percentage" ? tt("Percent off") : tt("Amount off, in dollars")}
+                    aria-label={form.discount_type === "percentage" ? tt("Percent off") : tt("Amount off, in {currency}", { currency })}
                     value={form.discount_value}
                     onChange={(e) => set("discount_value", typedAmount(e.target.value))}
                     placeholder={form.discount_type === "percentage" ? "10" : "5.00"}
                     aria-invalid={wrong("value") || undefined}
                     aria-describedby={described("value")}
+                    style={form.discount_type === "fixed" ? signPad : undefined}
                     className={cn(FIELD, "tabular-nums", form.discount_type === "fixed" ? "pl-7" : "pr-9", wrong("value") && FIELD_WRONG)}
                   />
                   {form.discount_type === "percentage" ? <span className={cn(ADORN, "right-3.5")}>%</span> : null}
@@ -496,7 +502,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                                 )}
                               </span>
                               <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
-                              <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">${(p.price_cents / 100).toFixed(2)}</span>
+                              <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{money(p.price_cents / 100)}</span>
                             </button>
                           </li>
                         )
@@ -539,17 +545,18 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
                   {form.has_min_purchase ? (
                     <div className="space-y-1.5 px-4 pb-3 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
                       <div className="relative">
-                        <span className={cn(ADORN, "left-3.5")}>$</span>
+                        <span className={cn(ADORN, "left-3.5")}>{sign}</span>
                         <input
                           id="coupon-minimum"
                           type="text"
                           inputMode="decimal"
-                          aria-label={tt("Minimum order, in dollars")}
+                          aria-label={tt("Minimum order, in {currency}", { currency })}
                           value={form.min_purchase_amount}
                           onChange={(e) => set("min_purchase_amount", typedAmount(e.target.value))}
                           placeholder="25.00"
                           aria-invalid={wrong("minimum") || undefined}
                           aria-describedby={described("minimum")}
+                          style={signPad}
                           className={cn(FIELD, "pl-7 tabular-nums", wrong("minimum") && FIELD_WRONG)}
                         />
                       </div>

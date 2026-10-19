@@ -34,5 +34,5 @@ export default async function CouponEditPage({ params }: CouponEditPageProps) {
   if (load.state === "no-creator") return noStorePage("/app/coupons")
   const coupon = load.coupons[0] as CouponRecord | undefined
   if (!coupon) redirect("/app/coupons")
-  return <CouponEditor key={id} products={load.products} initialCoupon={coupon} />
+  return <CouponEditor key={id} products={load.products} currency={load.currency} initialCoupon={coupon} />
 }

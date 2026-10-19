@@ -212,7 +212,8 @@ const tech = ld["@graph"].find((g) => g["@type"] === "TechArticle")!
 check("  with dateModified, its screenshots and Storelib as publisher", tech.dateModified === z.updated && Array.isArray(tech.image) && (tech.image as string[]).every((u) => u.startsWith("https://storelib.com/help/physical/")) && (tech.publisher as { name: string }).name === "Storelib")
 check("  a HowTo for its first numbered steps", types.includes("HowTo") && (helpHowTo(z)?.steps.length ?? 0) >= 3)
 const crumbs = ld["@graph"].find((g) => g["@type"] === "BreadcrumbList") as { itemListElement: { item: string }[] }
-check("  breadcrumbs: Help Center, Physical products, the article", crumbs.itemListElement.length === 3 && crumbs.itemListElement[2].item === "https://storelib.com/help/physical-products/zero-to-100")
+/* Changed on purpose (round AT): the Help Center lives at help.storelib.com, its pages at the root there (lib/help/paths). */
+check("  breadcrumbs: Help Center, Physical products, the article", crumbs.itemListElement.length === 3 && crumbs.itemListElement[2].item === "https://help.storelib.com/physical-products/zero-to-100")
 const q = art("physical-products-questions")
 const qa = helpFaq(q)
 const qld = helpArticleJsonLd(q, helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] }
@@ -220,7 +221,7 @@ check("the common questions article is an FAQPage, every question with its answe
 check("an article without real questions gets no FAQPage", !(helpArticleJsonLd(art("taxes"), helpCategory("physical-products")!) as { "@graph": Record<string, unknown>[] })["@graph"].some((g) => g["@type"] === "FAQPage"))
 const cld = helpCategoryJsonLd(PHYSICAL_CATEGORY, helpArticlesIn("physical-products")) as { "@graph": { "@type": string; mainEntity?: { numberOfItems: number } }[] }
 check("the topic page is a CollectionPage listing every article", cld["@graph"][0]["@type"] === "CollectionPage" && cld["@graph"][0].mainEntity?.numberOfItems === helpArticlesIn("physical-products").length)
-check("the home says how to search it", (helpHomeJsonLd("x") as { potentialAction: { target: string } }).potentialAction.target.includes("/help/search?q={search_term_string}"))
+check("the home says how to search it", (helpHomeJsonLd("x") as { potentialAction: { target: string } }).potentialAction.target.includes("https://help.storelib.com/search?q={search_term_string}"))
 check("JSON-LD is printed through jsonLdScript on all three pages", [page, catPage, home].every((s) => /jsonLdScript\(/.test(s)))
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the sitemap gives each article its lastmod and screenshots", /lastModified: a\.updated \?\? null, images: helpImages\(a\)/.test(sitemap))
@@ -233,7 +234,7 @@ check("pages are built ahead (static) and revalidate", /export const revalidate 
 /* ── 6. The Help Center's pages ───────────────────────────────────────── */
 console.log("\n6. The Help Center's pages")
 check("no \"What happens if\" highlight on the Help Center home", !/What happens if/.test(home) && !/data-help-questions-link/.test(home))
-check("  order problems are a topic card of their own", /* Changed on purpose (round AE): the Linktree-like home. */ /href="\/help\/questions" slug="questions" title="Order problems"/.test(home))
+check("  order problems are a topic card of their own", /* Changed on purpose (round AE): the Linktree-like home. */ /href=\{helpHref\("\/help\/questions"\)\} slug="questions" title="Order problems"/.test(home))
 check("the questions page is named plainly", /Order problems, answered/.test(read("app/help/questions/page.tsx")) && !/What happens if\.\.\./.test(read("app/help/questions/page.tsx")))
 check("the home leads with search, then the topics as cards, then popular articles", /* Changed on purpose (round AE). */ home.indexOf("<HelpHero home") < home.indexOf("<TopicCard") && home.indexOf("<TopicCard") < home.indexOf("Popular articles"))
 check("every popular article exists", POPULAR_HELP.every((p) => { const [c, s] = p.split("/"); return !!helpArticle(c, s) }))
@@ -279,7 +280,8 @@ check("the article path helper", helpArticlePath({ category: "physical-products"
   const hero = read("components/help/help-hero.tsx")
   const article = read("app/help/[category]/[article]/page.tsx")
   check("one band on every page: Help Center, the mark, a search on ink", /bg-\[#1a1a2e\]/.test(hero) && /tone="dark"/.test(hero) && ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx", "app/help/questions/page.tsx"].every((f) => /<HelpHero/.test(read(f))))
-  check("each topic has its own mark on a lavender tile", /export function TopicIcon/.test(hero) && /bg-\[#f1ecff\]/.test(hero))
+  /* Changed on purpose (round AT): plain ink line icons on a white tile, no lavender. */
+  check("each topic has its own mark on a plain white tile", /export function TopicIcon/.test(hero) && /bg-white text-\[#1a1a2e\]/.test(hero) && !/f1ecff|6d28d9/.test(hero))
   check("an article's side column is the contents only, never a box that scrolls or clips", !/overflow-y-auto/.test(article) && !/-mx-2\.5/.test(article) && /<div className="sticky top-24">\s*<OnThisPage items=\{toc\} variant="side" \/>/.test(article))
   check("  the rest of its group under the article instead", /data-help-more=""/.test(article))
 }

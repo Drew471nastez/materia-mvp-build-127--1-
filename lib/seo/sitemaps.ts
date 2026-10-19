@@ -50,6 +50,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
+import { publicHelpUrl } from "@/lib/help/paths"
 import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, helpImages } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
@@ -68,6 +69,13 @@ import {
   type SitemapEntry,
 } from "./indexing"
 import { imagesOnly } from "@/lib/media/video"
+
+
+/** A /help/... path at the Help Center's own address. */
+const helpUrl = (path: string) => {
+  const url = publicHelpUrl(path.slice("/help".length) || "/")
+  return url.startsWith("http") ? url : `${BASE}${url}`
+}
 
 export const BASE = "https://storelib.com"
 /**
@@ -281,11 +289,12 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
       (lib/help/articles), for the same reason: an article added there is
       here too. /help/search is left out on purpose; it is not indexed.
     */
-    { url: `${BASE}/help` },
-    { url: `${BASE}/help/questions` },
-    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}`, lastModified: newestOf(...helpArticlesIn(c.slug).map((a) => a.updated)) })),
+    /* At help.storelib.com, where the Help Center lives (lib/help/paths publicHelpUrl). */
+    { url: helpUrl("/help") },
+    { url: helpUrl("/help/questions") },
+    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: helpUrl(`/help/${c.slug}`), lastModified: newestOf(...helpArticlesIn(c.slug).map((a) => a.updated)) })),
     /* Each article with the day it was last checked against the product, and its screenshots for Google Images. */
-    ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}`, lastModified: a.updated ?? null, images: helpImages(a).map((src) => `${BASE}${src}`) })),
+    ...helpArticlesFor(physicalGuide).map((a) => ({ url: helpUrl(helpArticlePath(a)), lastModified: a.updated ?? null, images: helpImages(a).map((src) => `${BASE}${src}`) })),
   ]
 
   /**

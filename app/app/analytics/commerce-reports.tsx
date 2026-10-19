@@ -224,17 +224,22 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
         )}
       </Card>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      {/*
+        The three figures, one under the other beside the channels: the name on the left, never cut, and the number on
+        the right with its change under it. Three tiles side by side squeezed the names ("Returning customer rate")
+        and the numbers ("22 min") on a laptop, so they stack at every width.
+      */}
+      <div className="grid grid-cols-1 content-start gap-3">
         {[
           { key: "aov", title: tt("Average order value"), value: money(b.aov), delta: <Delta now={b.aov} before={p.aov} />, help: tt("Gross sales less discounts, divided by orders.") },
           { key: "returning", title: tt("Returning customer rate"), value: `${Math.round(b.returningRate * 100)}%`, delta: <Delta now={b.returningRate} before={p.returningRate} />, help: tt("Customers with two or more orders in this period, out of every customer who ordered.") },
           { key: "fulfil", title: tt("Order fulfillment time"), value: waitText, delta: <span className="text-[12px] text-[#9ca3af]">{tt("{count, plural, one {# shipped} other {# shipped}}", { count: data.fulfillment.shipped })}</span>, help: tt("How long a physical order took from payment to shipped, on average.") },
         ].map((f) => (
-          <section key={f.key} data-card={f.key} className="flex min-w-0 flex-col justify-between rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <HelpLabel as="h3" label={f.title} description={f.help} className="truncate text-[13px] font-medium text-[#4b5563]" />
-            <div className="mt-2 flex items-baseline justify-between gap-2">
-              <span className="truncate text-[22px] font-semibold tabular-nums tracking-tight text-[#1a1a2e]">{f.value}</span>
-              {f.delta}
+          <section key={f.key} data-card={f.key} className="flex min-h-[76px] min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <HelpLabel as="h3" label={f.title} description={f.help} className="min-w-0 text-[13.5px] font-medium leading-5 text-[#4b5563]" />
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              <span className="whitespace-nowrap text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{f.value}</span>
+              <span className="whitespace-nowrap">{f.delta}</span>
             </div>
           </section>
         ))}

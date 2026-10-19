@@ -175,7 +175,8 @@ console.log("\nThe physical products guide")
 console.log("\nThe sitemap")
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the Help Center is in the pages sitemap, from the same list",
-  /\{ url: `\$\{BASE\}\/help` \}/.test(sitemap) && /helpCategoriesFor\(physicalGuide\)\.map/.test(sitemap) && /helpArticlesFor\(physicalGuide\)\.map\(\(a\) => \(\{ url: `\$\{BASE\}\$\{helpArticlePath\(a\)\}`/.test(sitemap))
+  /* Changed on purpose (round AT): at help.storelib.com. */
+  /\{ url: helpUrl\("\/help"\) \}/.test(sitemap) && /helpCategoriesFor\(physicalGuide\)\.map/.test(sitemap) && /helpArticlesFor\(physicalGuide\)\.map\(\(a\) => \(\{ url: helpUrl\(helpArticlePath\(a\)\)/.test(sitemap))
 check("article addresses are /help/<category>/<article>", helpArticlePath({ category: "products", slug: "coupons" }) === "/help/products/coupons")
 
 console.log(`\n${passed} passed, ${failed} failed`)

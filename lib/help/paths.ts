@@ -17,9 +17,25 @@ export const HELP_BASE = "/help"
 export const APP_HELP_BASE = "/app/help"
 export type HelpBase = typeof HELP_BASE | typeof APP_HELP_BASE
 
-/** `href` as it should be linked from the Help Center at `base`. */
+/** storelib.com's own domain, or null on a local run (no help subdomain there). */
+function mainDomain(): string | null {
+  const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").trim().toLowerCase().replace(/^www\./, "")
+  return !main || main.startsWith("localhost") || main.includes(":") ? null : main
+}
+
+/**
+ * `href` as it should be linked from the Help Center at `base`. The public
+ * Help Center lives at help.storelib.com, where its pages sit at the root
+ * (help.storelib.com/orders-and-payouts), so a /help/... link loses its
+ * /help there. On a local run it keeps it.
+ */
 export function helpHref(href: string, base: HelpBase = HELP_BASE): string {
-  if (base === HELP_BASE) return href
+  if (base === HELP_BASE) {
+    if (!mainDomain() || /\.[a-z0-9]{2,5}(?:[?#]|$)/i.test(href)) return href
+    if (href === HELP_BASE) return "/"
+    if (/^\/help[/?#]/.test(href)) return href.slice(HELP_BASE.length).replace(/^(?=[?#])/, "/")
+    return href
+  }
   /* A file under public/help (an article's screenshot) is served where it is. */
   if (/\.[a-z0-9]{2,5}(?:[?#]|$)/i.test(href)) return href
   if (href === HELP_BASE || /^\/help[/?#]/.test(href)) return base + href.slice(HELP_BASE.length)
@@ -32,7 +48,12 @@ export function helpHref(href: string, base: HelpBase = HELP_BASE): string {
  * Without a main domain (a local run) it is /help on the same host.
  */
 export function publicHelpUrl(path = ""): string {
-  const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").trim().toLowerCase().replace(/^www\./, "")
-  if (!main || main.startsWith("localhost") || main.includes(":")) return `/help${path}`
-  return `https://help.${main}${path}`
+  const main = mainDomain()
+  return main ? `https://help.${main}${path}` : `/help${path}`
+}
+
+/** A page of storelib.com itself (the dashboard, login, Explore), linked from the Help Center on its own subdomain. */
+export function mainSiteUrl(path: string): string {
+  const main = mainDomain()
+  return main ? `https://${main}${path}` : path
 }

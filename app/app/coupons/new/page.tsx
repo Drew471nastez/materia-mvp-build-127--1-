@@ -30,5 +30,5 @@ export default async function NewCouponPage({ searchParams }: PageProps) {
   const load = await loadCouponArea(null)
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") return noStorePage("/app/coupons/new")
-  return <CouponEditor products={load.products} initialCoupon={null} />
+  return <CouponEditor products={load.products} currency={load.currency} initialCoupon={null} />
 }

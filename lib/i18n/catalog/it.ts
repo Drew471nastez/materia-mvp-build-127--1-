@@ -10149,7 +10149,10 @@ const words: Record<string, string> = {
  "Storelib marketplace": "Marketplace di Storelib",
  "OnePage": "OnePage",
  "Checkout links": "Link di pagamento",
- "Manual": "Manuale"
+ "Manual": "Manuale",
+ "Amount off, in {currency}": "Importo dello sconto, in {currency}",
+ "Minimum order, in {currency}": "Ordine minimo, in {currency}",
+ "A fixed amount is at most 100,000.": "Un importo fisso è al massimo 100.000."
 }
 
 export default words

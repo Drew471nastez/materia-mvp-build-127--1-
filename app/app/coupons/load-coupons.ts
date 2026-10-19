@@ -2,6 +2,7 @@ import "server-only"
 
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 /**
  * The signed in creator, their published products (what a code can be
@@ -18,7 +19,7 @@ export async function loadCouponArea(couponId: string | null) {
   if (!creator) return { state: "no-creator" as const }
   const supabase = await createClient()
 
-  const [products, coupons] = await Promise.all([
+  const [products, coupons, store] = await Promise.all([
     supabase
       .from("products")
       .select("id, title, price_cents, thumbnail_url, status")
@@ -28,6 +29,8 @@ export async function loadCouponArea(couponId: string | null) {
     couponId
       ? supabase.from("coupons").select("*").eq("id", couponId).eq("creator_id", creator.id).limit(1)
       : supabase.from("coupons").select("*").eq("creator_id", creator.id).order("created_at", { ascending: false }),
+    /* The store's own currency (Settings › Country and currency): a fixed amount off and a minimum are in it, as checkout reads them. */
+    readStoreCurrency(supabase as never, creator.id as string).catch(() => ({ currency: "USD" })),
   ])
 
   return {
@@ -35,5 +38,6 @@ export async function loadCouponArea(couponId: string | null) {
     creatorId: creator.id as string,
     products: products.data ?? [],
     coupons: coupons.data ?? [],
+    currency: (store.currency || "USD").toUpperCase(),
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { helpCors } from "@/lib/help/cors"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +17,18 @@ export async function GET(request: Request) {
     const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
     const p = (profile ?? {}) as { display_name?: string | null; avatar_url?: string | null }
     const email = user.email && !user.email.includes("+slb-") ? user.email : null
-    return NextResponse.json({ signedIn: true, name: p.display_name || email?.split("@")[0] || "Your account", email, avatarUrl: p.avatar_url || null }, { headers })
+    /* A store owner gets the dashboard in the menu; a buyer gets their purchases. Only whether a store exists is read. */
+    let seller = false
+    try {
+      const { data: creator } = await createAdminClient().from("creators").select("id").eq("user_id", user.id).limit(1).maybeSingle()
+      seller = Boolean(creator)
+    } catch {
+      seller = false
+    }
+    return NextResponse.json(
+      { signedIn: true, kind: seller ? "seller" : "buyer", name: p.display_name || email?.split("@")[0] || "Your account", email, avatarUrl: p.avatar_url || null },
+      { headers },
+    )
   } catch {
     return NextResponse.json({ signedIn: false }, { headers })
   }

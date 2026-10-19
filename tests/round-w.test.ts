@@ -160,7 +160,7 @@ console.log("\nWhat happens if... (/help/questions)")
   check("physical questions hide with physical commerce off", helpTopicsFor(false).every((t) => t.questions.every((q) => !q.physical)) && helpTopicsFor(true).flatMap((t) => t.questions).length === all.length)
   check("every drawing it names exists", all.every((q) => !q.figure || new RegExp(`"?${q.figure.figure}"?: \\(label\\)`).test(read("components/help/help-figures.tsx"))), all.filter((q) => q.figure).map((q) => q.figure!.figure))
   check("no em dashes or filler", !/—|unlock|elevate|seamless|effortless|supercharge|transform/i.test(JSON.stringify(HELP_TOPICS)))
-  check("linked from the help index and in the sitemap", /href="\/help\/questions"/.test(read("app/help/page.tsx")) && /\/help\/questions/.test(read("lib/seo/sitemaps.ts")))
+  check("linked from the help index and in the sitemap", /href=\{helpHref\("\/help\/questions"\)\}/.test(read("app/help/page.tsx")) && /\/help\/questions/.test(read("lib/seo/sitemaps.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -2,22 +2,23 @@
 
 import { AppAvatar } from "@/components/app/app-avatar"
 import * as React from "react"
-import { ArrowUpRight, LayoutGrid, LogOut, Mail, Settings, Compass } from "lucide-react"
+import { ArrowUpRight, LayoutGrid, LogOut, Mail, Settings, Compass, Library, UserRound } from "lucide-react"
+import { mainSiteUrl } from "@/lib/help/paths"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
 
-type Me = { signedIn: false } | { signedIn: true; name: string; email: string | null; avatarUrl: string | null }
+type Me = { signedIn: false } | { signedIn: true; kind?: "seller" | "buyer"; name: string; email: string | null; avatarUrl: string | null }
 
-/** storelib.com's own origin, where the session lives (help.storelib.com asks it). */
+/** storelib.com's own origin, where the session lives (help.storelib.com asks it). Empty on a local run: the same host. */
 function mainOrigin(): string {
-  if (typeof window === "undefined") return ""
-  const host = window.location.hostname
-  return host.startsWith("help.") ? `${window.location.protocol}//${host.slice("help.".length)}` : ""
+  return mainSiteUrl("/").replace(/\/$/, "")
 }
 
 /**
  * THE HELP CENTER'S ACCOUNT MENU, like Shopify's: your photo at the right
- * of the bar, a small menu under it (your name and email, the dashboard,
- * settings, Explore, support, log out). Signed out, a Log in button. The
+ * of the bar, a small menu under it. A store owner gets their dashboard and
+ * settings; a buyer gets their purchases and account. Both get Explore,
+ * support and Log out. Every link is to storelib.com itself, never a path on
+ * help.storelib.com. Signed out, a Log in button that comes back here. The
  * answer comes from storelib.com (app/api/help/me), where the session is.
  */
 export function HelpAccount() {
@@ -59,7 +60,7 @@ export function HelpAccount() {
   if (!me.signedIn) {
     return (
       <a
-        href={`${origin}/login`}
+        href={`${origin}/login?next=${encodeURIComponent(typeof window === "undefined" ? "/" : window.location.href)}`}
         className="inline-flex h-9 items-center rounded-lg bg-[#1a1a2e] px-3.5 text-[13.5px] font-medium text-white shadow-[0_1px_2px_rgba(16,24,40,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-[#2b2b42]"
       >
         Log in
@@ -99,15 +100,35 @@ export function HelpAccount() {
             {me.email ? <p className="truncate text-[12.5px] text-[#6b7280]">{me.email}</p> : null}
           </div>
           <div className="my-1 h-px bg-[#f1f2f4]" />
-          <a role="menuitem" href={`${origin}/app`} className={row}>
-            <LayoutGrid className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
-            <span className="flex-1">Go to dashboard</span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-[#9ca3af]" />
-          </a>
-          <a role="menuitem" href={`${origin}/app/settings`} className={row}>
-            <Settings className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
-            Settings
-          </a>
+          {me.kind === "buyer" ? (
+            <>
+              <a role="menuitem" href={`${origin}/account/library`} className={row}>
+                <Library className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
+                <span className="flex-1">Your purchases</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-[#9ca3af]" />
+              </a>
+              <a role="menuitem" href={`${origin}/account`} className={row}>
+                <UserRound className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
+                Your account
+              </a>
+            </>
+          ) : (
+            <>
+              <a role="menuitem" href={`${origin}/app`} className={row}>
+                <LayoutGrid className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
+                <span className="flex-1">Go to dashboard</span>
+                <ArrowUpRight className="h-3.5 w-3.5 text-[#9ca3af]" />
+              </a>
+              <a role="menuitem" href={`${origin}/app/settings`} className={row}>
+                <Settings className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
+                Settings
+              </a>
+              <a role="menuitem" href={`${origin}/account/library`} className={row}>
+                <Library className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
+                Your purchases
+              </a>
+            </>
+          )}
           <a role="menuitem" href={`${origin}/explore`} className={row}>
             <Compass className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
             Explore

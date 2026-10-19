@@ -148,7 +148,7 @@ export function formProblem(form: CouponForm, savedCode: string | null = null, f
   const shippingOnly = freeShipping && (!form.discount_value || value === 0)
   if (!shippingOnly && (!form.discount_value || !Number.isFinite(value) || !(value > 0))) return { field: "value", message: tt("Enter how much it takes off.") }
   if (form.discount_type === "percentage" && value > 100) return { field: "value", message: tt("A percentage is at most 100.") }
-  if (form.discount_type === "fixed" && value > 100_000) return { field: "value", message: tt("A fixed amount is at most $100,000.") }
+  if (form.discount_type === "fixed" && value > 100_000) return { field: "value", message: tt("A fixed amount is at most 100,000.") }
   if (form.applies_to === "specific" && form.product_ids.length === 0) return { field: "products", message: tt("Pick at least one product.") }
   if (form.has_min_purchase && !(Number(form.min_purchase_amount) > 0)) return { field: "minimum", message: tt("Enter the smallest order it works on.") }
   if (form.has_usage_limit) {
@@ -180,7 +180,7 @@ export function formPayload(form: CouponForm) {
   }
 }
 
-const money = (value: number) => `$${Number.isInteger(value) ? value : value.toFixed(2)}`
+const dollarsText = (value: number) => `$${Number.isInteger(value) ? value : value.toFixed(2)}`
 const when = (local: string) =>
   new Date(local).toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }))
 
@@ -189,7 +189,7 @@ const when = (local: string) =>
  * on what, then each rule it has. Only what is set; nothing for a rule that
  * is off. A value not typed yet is left out rather than guessed.
  */
-export function summaryLines(form: CouponForm, products: Pick<CouponProduct, "id" | "title">[]): string[] {
+export function summaryLines(form: CouponForm, products: Pick<CouponProduct, "id" | "title">[], money: (value: number) => string = dollarsText): string[] {
   const lines: string[] = []
   const value = Number(form.discount_value)
   const on =

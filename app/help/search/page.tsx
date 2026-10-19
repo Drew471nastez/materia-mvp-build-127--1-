@@ -1,3 +1,4 @@
+import { helpHref } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { helpArticlePath, helpCategory } from "@/lib/help/articles"
@@ -40,7 +41,7 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
           <ol className="mt-6 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
             {results.map((r) => (
               <li key={`${r.article.category}/${r.article.slug}`} className="px-5 py-4 sm:px-6">
-                <Link href={helpArticlePath(r.article)} className="text-[16px] font-medium text-[#1a1a2e] hover:underline hover:underline-offset-2">
+                <Link href={helpHref(helpArticlePath(r.article))} className="text-[16px] font-medium text-[#1a1a2e] hover:underline hover:underline-offset-2">
                   {r.article.title}
                 </Link>
                 <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
@@ -53,7 +54,7 @@ export default async function HelpSearchPage({ searchParams }: { searchParams: P
           </ol>
         ) : q.trim() ? (
           <p className="mt-3 text-[15px] text-[#6b7280]">
-            Try a shorter or different word, or <Link href="/help" className="font-medium text-[#1a1a2e] underline underline-offset-2">browse the topics</Link>.
+            Try a shorter or different word, or <Link href={helpHref("/help")} className="font-medium text-[#1a1a2e] underline underline-offset-2">browse the topics</Link>.
           </p>
         ) : null}
       </div>

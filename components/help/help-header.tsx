@@ -1,3 +1,4 @@
+import { helpHref } from "@/lib/help/paths"
 import Link from "next/link"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { SUPPORT_EMAIL } from "@/lib/help/articles"
@@ -14,7 +15,7 @@ export function HelpHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-[#eef0f2] bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
       <div className="mx-auto flex h-14 w-full max-w-[1120px] items-center justify-between gap-3 px-4 sm:h-[60px] sm:px-6">
-        <Link href="/help" className="group flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" aria-label="Storelib Help">
+        <Link href={helpHref("/help")} className="group flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" aria-label="Storelib Help">
           <StorelibLogo size={28} />
           <span className="text-[16px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Help</span>
         </Link>

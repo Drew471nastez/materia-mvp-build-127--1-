@@ -31,7 +31,7 @@ export function RichText({ text, base }: { text: string; base?: HelpBase }) {
     if (m.index > last) parts.push(text.slice(last, m.index))
     const [, label, raw] = m
     const href = helpHref(raw, base)
-    const cls = "font-medium text-[#6d28d9] underline decoration-[#6d28d9]/30 underline-offset-2 hover:decoration-[#6d28d9]"
+    const cls = "font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 hover:decoration-[#1a1a2e]"
     parts.push(
       href.startsWith("/") ? (
         <Link key={m.index} href={href} className={cls}>
@@ -61,7 +61,7 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
               </svg>
             )}
             {item.href ? (
-              <Link href={item.href} className="hover:text-[#1a1a2e] hover:underline hover:underline-offset-2">
+              <Link href={helpHref(item.href)} className="hover:text-[#1a1a2e] hover:underline hover:underline-offset-2">
                 {item.label}
               </Link>
             ) : (

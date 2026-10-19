@@ -180,7 +180,7 @@ export function AppHelpTopic({ category, physical }: { category: HelpCategory; p
         {grouped && first ? (
           <Link href={appArticlePath(first)} className={cn(CARD, ROW, "py-4")} data-help-start="">
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium text-[#6d28d9]">{category.start ? "Start here" : "New here? Start with"}</span>
+              <span className="block text-[13px] font-medium text-[#6b7280]">{category.start ? "Start here" : "New here? Start with"}</span>
               <span className="mt-0.5 block text-[16px] font-semibold leading-snug text-[#1a1a2e]">{first.title}</span>
               <span className="mt-0.5 line-clamp-2 block text-[13.5px] leading-snug text-[#6b7280]">{first.summary}</span>
             </span>
@@ -242,7 +242,7 @@ export function AppHelpArticle({ article, category }: { article: HelpArticle; ca
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_200px] lg:gap-10">
       <div className="min-w-0">
         <article className={cn(CARD, "app-gutter-bleed rounded-none border-x-0 px-5 py-6 sm:mx-0 sm:rounded-2xl sm:border-x sm:px-8 sm:py-8 lg:px-10 lg:py-10")} data-help-article="">
-          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6d28d9]">{article.section}</p> : null}
+          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6b7280]">{article.section}</p> : null}
           <h1 className="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">{article.title}</h1>
           <p className="mt-3 text-[16.5px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-help-summary="">
             {article.summary}

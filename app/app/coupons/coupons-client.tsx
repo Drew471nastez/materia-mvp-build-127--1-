@@ -1,5 +1,6 @@
 "use client"
 
+import { couponMoney } from "./coupon-money"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -49,6 +50,8 @@ interface CouponsClientProps {
   creatorId: string
   initialCoupons: Coupon[]
   products: Product[]
+  /** The store's currency: a fixed amount and a minimum are in it. */
+  currency?: string
 }
 
 type View = "all" | "active" | "scheduled" | "ended"
@@ -74,9 +77,8 @@ const TONE: Record<CouponState, "success" | "neutral" | "attention"> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const money = (dollars: number) => `$${Number(dollars).toFixed(Number.isInteger(Number(dollars)) ? 0 : 2)}`
 
-function discountText(c: Coupon) {
+function discountText(c: Coupon, money: (n: number) => string) {
   return c.discount_type === "percentage" ? tt("{count}% off", { count: Number(c.discount_value) }) : tt("{amount} off", { amount: money(c.discount_value) })
 }
 
@@ -119,7 +121,8 @@ const EDITED_FADE_MS = 1200
  * stands (active, scheduled, expired, used up, off) is worked out by the
  * same rule the checkout's (lib/checkout/coupons.ts).
  */
-export function CouponsClient({ initialCoupons, products }: CouponsClientProps) {
+export function CouponsClient({ initialCoupons, products, currency = "USD" }: CouponsClientProps) {
+  const money = useMemo(() => couponMoney(currency), [currency])
   /* A save or a delete in the editor, laid over the rows the router kept (./list-return). */
   const [coupons, setCoupons] = useState<Coupon[]>(() => withReturn(initialCoupons, peekReturn()))
   /* The server's list again (a refresh after a change): it is the truth from here. */
@@ -316,7 +319,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                     <li key={coupon.id} data-row={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 data-[pressed]:bg-[#f6f7f8]">
                       <Link
                         href={`/app/coupons/${coupon.id}`}
-                        aria-label={`${coupon.code}, ${discountText(coupon)}`}
+                        aria-label={`${coupon.code}, ${discountText(coupon, money)}`}
                         onTouchStart={() => warm(`/app/coupons/${coupon.id}`)}
                         onClick={openFromLink(`/app/coupons/${coupon.id}`)}
                         {...pressMark}
@@ -328,7 +331,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                           <StatusBadge tone={TONE[state]}>{COUPON_STATE_LABEL[state]}</StatusBadge>
                         </span>
                         <span className="mt-1 block truncate text-[13px] leading-5 text-[#6b7280]">
-                          <span className="text-[#1a1a2e]">{discountText(coupon)}</span>
+                          <span className="text-[#1a1a2e]">{discountText(coupon, money)}</span>
                           {" · "}
                           {usedText(coupon)}
                           {dates ? ` · ${dates}` : ""}
@@ -381,7 +384,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                         <StatusBadge tone={TONE[state]}>{COUPON_STATE_LABEL[state]}</StatusBadge>
                       </td>
                       <td className="h-14 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]">
-                        {discountText(coupon)}
+                        {discountText(coupon, money)}
                         {coupon.min_purchase_cents ? (
                           <span className="text-[#6b7280]"> {tt("over {amount}", { amount: money(coupon.min_purchase_cents / 100) })}</span>
                         ) : null}

@@ -162,7 +162,7 @@ console.log("\nThe frame: the product editor's")
   const layouts = [code("app/app/coupons/new/layout.tsx"), code("app/app/coupons/[id]/layout.tsx")]
   check("both pages are a layer on a phone and a page in the shell from md, with the pill kept",
     layouts.every((l) => /<PageLayer pill inset="bar" phoneOnly>\{children\}<\/PageLayer>/.test(l)))
-  check("both pages draw the one editor", /<CouponEditor products=\{load\.products\} initialCoupon=\{null\} \/>/.test(code("app/app/coupons/new/page.tsx")) && /<CouponEditor key=\{id\} products=\{load\.products\} initialCoupon=\{coupon\} \/>/.test(code("app/app/coupons/[id]/page.tsx")))
+  check("both pages draw the one editor", /<CouponEditor products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{null\} \/>/.test(code("app/app/coupons/new/page.tsx")) && /<CouponEditor key=\{id\} products=\{load\.products\} currency=\{load\.currency\} initialCoupon=\{coupon\} \/>/.test(code("app/app/coupons/[id]/page.tsx")))
   check("it scrolls in its own pane, with room for the pill at its foot on a phone",
     /className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-\[#f8f9fa\] max-md:\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\] lg:flex lg:flex-col"/.test(editor))
   check("below lg one bar at the top, under the status bar on a phone: the way out and Save",

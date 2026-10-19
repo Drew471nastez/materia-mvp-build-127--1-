@@ -1,4 +1,4 @@
-import { publicHelpUrl } from "@/lib/help/paths"
+import { publicHelpUrl, helpHref } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
@@ -101,7 +101,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
 
       <div className={`${HELP_WIDTH} grid gap-10 pb-16 pt-8 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-16`}>
         <article className="min-w-0 max-w-[42rem]" data-help-article="">
-          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6d28d9]">{article.section}</p> : null}
+          {article.section ? <p className="mb-2 text-[13px] font-medium text-[#6b7280]">{article.section}</p> : null}
           <h1 className="text-[28px] font-bold leading-[1.18] tracking-[-0.02em] text-[#1a1a2e] sm:text-[38px]">{article.title}</h1>
           <p className="mt-4 text-[17px] leading-relaxed text-[#4b5563] sm:text-[18px]" data-help-summary="">
             {article.summary}
@@ -139,7 +139,7 @@ export default async function HelpArticlePage({ params }: PageProps) {
                 More in {own?.title ?? category.title}
               </h2>
               <ArticleRows articles={siblings.slice(0, 6)} />
-              <Link href={`/help/${category.slug}`} className="mt-3 inline-block text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
+              <Link href={helpHref(`/help/${category.slug}`)} className="mt-3 inline-block text-[14px] font-medium text-[#1a1a2e] hover:underline hover:underline-offset-2">
                 All {category.title.toLowerCase()} articles
               </Link>
             </section>
@@ -176,7 +176,7 @@ function ArticleRows({ articles, withSummary = false }: { articles: HelpArticle[
     <ul className="mt-3 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
       {articles.map((r) => (
         <li key={r.slug}>
-          <Link href={helpArticlePath(r)} className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-[#fafafb]">
+          <Link href={helpHref(helpArticlePath(r))} className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-[#fafafb]">
             <span className="min-w-0">
               <span className="block text-[15px] font-medium leading-snug text-[#1a1a2e]">{r.title}</span>
               {withSummary ? <span className="mt-0.5 block text-[13.5px] leading-snug text-[#6b7280]">{r.summary}</span> : null}
@@ -194,7 +194,7 @@ function ArticleRows({ articles, withSummary = false }: { articles: HelpArticle[
 function StepLink({ article, dir }: { article: HelpArticle; dir: "previous" | "next" }) {
   return (
     <Link
-      href={helpArticlePath(article)}
+      href={helpHref(helpArticlePath(article))}
       rel={dir === "next" ? "next" : "prev"}
       className={cn(
         "group flex min-h-[76px] flex-col justify-center rounded-2xl border border-[#e5e7eb] px-4 py-3 transition-colors hover:border-[#c9ccd2] hover:bg-[#fafafa]",

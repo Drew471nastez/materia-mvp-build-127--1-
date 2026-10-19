@@ -15,6 +15,7 @@
  *
  * Printed through lib/seo/json-ld jsonLdScript, like every other JSON-LD.
  */
+import { publicHelpUrl } from "./paths"
 import { articleText, helpArticlePath, helpImages, plainText, type HelpArticle, type HelpCategory } from "./articles"
 
 export const HELP_ORIGIN = "https://storelib.com"
@@ -25,7 +26,9 @@ const PUBLISHER = {
   logo: { "@type": "ImageObject", url: `${HELP_ORIGIN}/icon.png` },
 }
 
-const abs = (path: string) => `${HELP_ORIGIN}${path}`
+/* A Help Center page is at help.storelib.com (its path without /help); a file, and anything else, on storelib.com. */
+const abs = (path: string) =>
+  /^\/help(?:[/?#]|$)/.test(path) && !/\.[a-z0-9]{2,5}(?:[?#]|$)/i.test(path) ? publicHelpUrl(path.slice("/help".length) || "/") : `${HELP_ORIGIN}${path}`
 
 export function helpBreadcrumbs(items: { name: string; path: string }[]) {
   return {

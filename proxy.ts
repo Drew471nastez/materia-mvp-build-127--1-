@@ -1390,7 +1390,16 @@ async function routeRequest(request: NextRequest) {
   const helpHost = `help.${MAIN_DOMAIN}`
   const bareHost = host.split(":")[0].toLowerCase()
   if (bareHost === helpHost) {
-    if (pathname.startsWith("/_next") || pathname.startsWith("/api/") || pathname.startsWith("/help") || /\.[a-z0-9]{2,5}$/i.test(pathname)) return NextResponse.next()
+    const isFile = /\.[a-z0-9]{2,5}$/i.test(pathname)
+    if (pathname.startsWith("/_next") || pathname.startsWith("/api/") || isFile) return NextResponse.next()
+    /* An old help.storelib.com/help/... address: the same page without /help, so the bar never reads help.storelib.com/help. */
+    if (pathname === "/help" || pathname.startsWith("/help/")) {
+      return NextResponse.redirect(new URL(`https://${helpHost}${pathname.slice("/help".length) || "/"}${search}`), 308)
+    }
+    /* storelib.com's own pages (the dashboard, login, Explore, a buyer's library) asked for here: sent home, never a Help Center 404. */
+    if (/^\/(?:app|login|signup|auth|explore|library|account|checkout|settings|admin|p|u|c|community|pricing|sell)(?:\/|$)/.test(pathname)) {
+      return NextResponse.redirect(new URL(`https://${MAIN_DOMAIN}${pathname}${search}`), 307)
+    }
     const url = request.nextUrl.clone()
     url.pathname = pathname === "/" ? "/help" : `/help${pathname}`
     return NextResponse.rewrite(url)

@@ -1,4 +1,4 @@
-import { publicHelpUrl } from "@/lib/help/paths"
+import { publicHelpUrl, helpHref } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -89,12 +89,12 @@ export default async function HelpCategoryPage({ params }: PageProps) {
         <div className="mt-8 space-y-10">
           {grouped && first ? (
             <Link
-              href={helpArticlePath(first)}
+              href={helpHref(helpArticlePath(first))}
               className="group flex items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/80 bg-white px-5 py-5 transition-[box-shadow,border-color] hover:border-[#dcdfe4] hover:shadow-[0_10px_28px_-16px_rgba(16,24,40,0.22)] sm:px-6"
               data-help-start=""
             >
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium text-[#6d28d9]">{category.start ? "Start here" : "New here? Start with"}</span>
+                <span className="block text-[13px] font-medium text-[#6b7280]">{category.start ? "Start here" : "New here? Start with"}</span>
                 <span className="mt-1 block text-[17px] font-semibold leading-snug tracking-tight text-[#1a1a2e]">{first.title}</span>
                 <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{first.summary}</span>
               </span>
@@ -116,7 +116,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               <ul className="divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
                 {section.articles.map((a) => (
                   <li key={a.slug}>
-                    <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb] sm:px-6">
+                    <Link href={helpHref(helpArticlePath(a))} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb] sm:px-6">
                       <span className="min-w-0">
                         <span className="block text-[15.5px] font-medium leading-snug text-[#1a1a2e]">{a.title}</span>
                         <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{a.summary}</span>
@@ -139,7 +139,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               .filter((c) => c.slug !== category.slug)
               .map((c) => (
                 <li key={c.slug}>
-                  <Link href={`/help/${c.slug}`} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-4 text-[14px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
+                  <Link href={helpHref(`/help/${c.slug}`)} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-4 text-[14px] font-medium text-[#374151] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]">
                     <TopicIcon slug={c.slug} size={28} />
                     {c.title}
                   </Link>

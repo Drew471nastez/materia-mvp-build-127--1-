@@ -1,4 +1,4 @@
-import { publicHelpUrl } from "@/lib/help/paths"
+import { publicHelpUrl, helpHref } from "@/lib/help/paths"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { POPULAR_HELP, helpArticle, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpVisible, helpCategory } from "@/lib/help/articles"
@@ -48,11 +48,11 @@ export default async function HelpPage() {
         <ul className="grid gap-4 sm:grid-cols-2 sm:gap-5" aria-label="Topics">
           {categories.map((category) => (
             <li key={category.slug}>
-              <TopicCard href={`/help/${category.slug}`} slug={category.slug} title={category.title} description={category.description} count={helpArticlesIn(category.slug).length} />
+              <TopicCard href={helpHref(`/help/${category.slug}`)} slug={category.slug} title={category.title} description={category.description} count={helpArticlesIn(category.slug).length} />
             </li>
           ))}
           <li>
-            <TopicCard href="/help/questions" slug="questions" title="Order problems" description="What to do when an order goes wrong, for stores and for buyers." />
+            <TopicCard href={helpHref("/help/questions")} slug="questions" title="Order problems" description="What to do when an order goes wrong, for stores and for buyers." />
           </li>
         </ul>
 
@@ -64,7 +64,7 @@ export default async function HelpPage() {
             <ul className="mt-4 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white">
               {popular.map((a) => (
                 <li key={helpArticlePath(a)}>
-                  <Link href={helpArticlePath(a)} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb]">
+                  <Link href={helpHref(helpArticlePath(a))} className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-[#fafafb]">
                     <span className="min-w-0">
                       <span className="block text-[15px] font-medium leading-snug text-[#1a1a2e]">{a.title}</span>
                       <span className="mt-0.5 block text-[13px] text-[#6b7280]">{helpCategory(a.category)?.title}</span>
