@@ -59,7 +59,8 @@ function fakeDoc(opts: { open?: string[]; html?: Record<string, string>; body?: 
     documentElement,
     body,
     /** Every selector the real one is asked, matched against a list of what is on screen. */
-    querySelector: (sel: string) => (sel.split(",").some((s) => present.includes(s.trim())) ? {} : null),
+    /* Round AW: each selector also says "not at rest" (a kept sheet, an inert or closed layer); the fake reads the part before it. */
+    querySelector: (sel: string) => (sel.split(",").some((s) => present.includes(s.trim().replace(/:not\(\[data-app-sheet-rest\]\).*$/, ""))) ? {} : null),
     addEventListener(t: string, cb: Listener) { listeners.set(t, [...(listeners.get(t) ?? []), cb]) },
     removeEventListener(t: string, cb: Listener) { listeners.set(t, (listeners.get(t) ?? []).filter((x) => x !== cb)) },
     press(t = "pointerdown") { for (const cb of listeners.get(t) ?? []) cb() },

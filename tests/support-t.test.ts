@@ -103,7 +103,8 @@ async function main() {
   check("a store's routes are the signed in store's own", ["app/api/support/tickets/route.ts", "app/api/support/tickets/[id]/route.ts"].every((f) => /shopCaller\(\)/.test(read(f))))
   check("opening is rate limited per person", /bucket: "support", subjects: \[`support:\$\{c\.userId\}`\]/.test(read("app/api/support/tickets/route.ts")))
   check("the admin nav has Resolution center", /href: "\/admin\/resolution", label: "Resolution center"/.test(read("app/admin/_console/shell.tsx")))
-  check("Help and Settings lead to Open a request", /href="\/app\/support"/.test(read("components/help/help-parts.tsx")) && /href="\/app\/support"/.test(read("components/app/settings-form-new.tsx")))
+  /* Changed on purpose (round AW): the Help Center is on help.storelib.com, so its link to the dashboard is storelib.com's own. */
+check("Help and Settings lead to Open a request", /href=\{mainSiteUrl\("\/app\/support"\)\}/.test(read("components/help/help-parts.tsx")) && /href="\/app\/support"/.test(read("components/app/settings-form-new.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

@@ -59,12 +59,23 @@
  * as a tooltip happens to be showing. So the wrapper counts only when what is
  * inside it is not a tooltip.
  */
+/*
+  AT REST IS NOT OPEN. A kept bottom sheet (components/ui/bottom-sheet.tsx)
+  and the closed section library stay mounted with role="dialog" and
+  aria-modal="true" so nothing under the page's :has() rules changes when
+  they open. Counted as open, they meant a modal was "always open" in the
+  editor, so a lock a menu left on the body was never cleared and the
+  sidebar stayed dead until a reload (the owner: "randomly it bugs, I can't
+  click things in theme settings, I have to refresh"). A layer at rest, inert,
+  hidden or closed is not holding anything.
+*/
+const NOT_AT_REST = ':not([data-app-sheet-rest]):not([data-app-sheet-rest] *):not([inert]):not([inert] *):not([aria-hidden="true"]):not([aria-hidden="true"] *):not([data-state="closed"] *)'
 const MODAL_SELECTOR = [
-  '[aria-modal="true"]',
-  '[role="dialog"][data-state="open"]',
-  '[role="alertdialog"][data-state="open"]',
-  '[role="menu"][data-state="open"]',
-  '[role="listbox"][data-state="open"]',
+  `[aria-modal="true"]${NOT_AT_REST}`,
+  `[role="dialog"][data-state="open"]${NOT_AT_REST}`,
+  `[role="alertdialog"][data-state="open"]${NOT_AT_REST}`,
+  `[role="menu"][data-state="open"]${NOT_AT_REST}`,
+  `[role="listbox"][data-state="open"]${NOT_AT_REST}`,
   '[data-radix-popper-content-wrapper]:not(:has([role="tooltip"]))',
 ].join(",")
 

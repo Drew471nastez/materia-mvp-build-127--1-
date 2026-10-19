@@ -7,9 +7,9 @@
  */
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { SUPPORT_EMAIL, headingId, plainText, type HelpBlock } from "@/lib/help/articles"
+import { headingId, plainText, type HelpBlock } from "@/lib/help/articles"
 import { HelpFigure } from "./help-figures"
-import { helpHref, type HelpBase } from "@/lib/help/paths"
+import { helpHref, mainSiteUrl, publicHelpUrl, type HelpBase } from "@/lib/help/paths"
 
 /** The page container every /app page uses, so help sits in the same frame. */
 export const HELP_CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8"
@@ -290,14 +290,14 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER, inCard
   if (compact) {
     return (
       <p className="text-[14px] text-[#6b7280]">
-        Still stuck? Email{" "}
-        <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
-          {SUPPORT_EMAIL}
+        Still stuck?{" "}
+        <a href={publicHelpUrl("/contact")} className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
+          Contact support
         </a>{" "}
-        with your username, and for an order the buyer&apos;s email address. Selling on Storelib?{" "}
-        <Link href="/app/support" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
+        and a person on the team replies by email. Selling on Storelib?{" "}
+        <a href={mainSiteUrl("/app/support")} className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
           Open a request
-        </Link>{" "}
+        </a>{" "}
         from your dashboard.
       </p>
     )
@@ -310,21 +310,22 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER, inCard
             Still need help?
           </h2>
           <p className="mt-1 max-w-[56ch] text-[14px] leading-relaxed text-[#6b7280]">
-            Selling on Storelib? Open a request from your dashboard and we&apos;ll reply there. Or email us with your username, and for an order the buyer&apos;s email address, so we can look it up.
+            Send the team a message and a person replies by email, usually within a day. Selling on Storelib? You can also open a request from your dashboard.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-          <Link
-            href="/app/support"
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a44]"
-          >
-            Open a request
-          </Link>
           <a
-            href={`mailto:${SUPPORT_EMAIL}`}
+            href={publicHelpUrl("/contact")}
+            data-help-contact=""
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(16,24,40,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-[#2a2a44]"
+          >
+            Contact support
+          </a>
+          <a
+            href={mainSiteUrl("/app/support")}
             className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white px-5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa]"
           >
-            {SUPPORT_EMAIL}
+            Open a request
           </a>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import { helpHref } from "@/lib/help/paths"
 import Link from "next/link"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { SUPPORT_EMAIL } from "@/lib/help/articles"
 import { HelpAccount } from "./help-account"
 
 /**
@@ -21,7 +20,7 @@ export function HelpHeader() {
         </Link>
         <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <a
-            href={`mailto:${SUPPORT_EMAIL}`}
+            href={helpHref("/help/contact")}
             className="hidden h-9 items-center rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] sm:inline-flex"
           >
             Contact support

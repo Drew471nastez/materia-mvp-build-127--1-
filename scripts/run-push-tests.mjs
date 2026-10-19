@@ -463,6 +463,7 @@ const SUITES = [
   "tests/site-pages.test.ts",
   "tests/admin-auth.test.ts",
   "tests/stuck-layer.test.ts",
+  "tests/round-aw.test.ts",
   "tests/site-cache-and-buttons.test.ts",
   /* Marketing pages served from the CDN: their layout reads nothing about the request */
   "tests/marketing-cache.test.ts",

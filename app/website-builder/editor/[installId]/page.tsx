@@ -1,5 +1,6 @@
 "use client"
 
+import { flushSync } from "react-dom"
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
@@ -1105,6 +1106,8 @@ export type DeviceMode = "desktop" | "mobile"
 const FULL_SCREEN_KEY = "wb:full-screen"
 /** The sidebar folding for full screen takes as long as every other switch of the canvas. */
 const FULL_SCREEN_MS = CANVAS_SWITCH_MS
+/** The page's fade before the card moves: short enough to read as part of the press. */
+const CANVAS_FADE_OUT_MS = 90
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -3455,12 +3458,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const canvasFrameRef = useRef<HTMLDivElement | null>(null)
   const switchFrom = useRef<{ card: CardLook | null; fold: FoldLook | null } | null>(null)
+  /*
+    NO SPLASH OF THE OTHER LAYOUT. The page is laid out at its new size from
+    the first frame of the switch (pinCanvasPage), so for a moment the phone
+    layout sat inside the wide card, or the desktop one was cut by the narrow
+    card: the "splash" the owner saw. The page fades out first (fast, on the
+    compositor), the card glides, and the page fades back in at its new size.
+  */
+  const canvasFadeOut = useRef<Animation | null>(null)
   const switchCanvas = useCallback((apply: () => void) => {
     const card = canvasFrameRef.current
     const fold = sidebarFoldRef.current
     const panel = sidebarRef.current
-    switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
-    apply()
+    const run = () => {
+      switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
+      apply()
+    }
+    const root = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
+    const calm = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    /* A second press while the page is fading goes straight through. */
+    if (!root || calm || typeof root.animate !== "function" || canvasFadeOut.current) {
+      run()
+      return
+    }
+    const out = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CANVAS_FADE_OUT_MS, easing: "ease-out", fill: "forwards" })
+    canvasFadeOut.current = out
+    let ran = false
+    const go = () => {
+      if (ran) return
+      ran = true
+      /* Committed at once, as the click itself would have been: a state change from a callback is otherwise a
+         background render that lands across the card's first frames. */
+      flushSync(run)
+      /* No state change came of it (already there): the page comes back on its own. Long enough for a heavy page's render to land first. */
+      window.setTimeout(() => {
+        if (canvasFadeOut.current === out) {
+          canvasFadeOut.current = null
+          out.cancel()
+        }
+      }, 900)
+    }
+    out.finished.then(go, go)
   }, [])
   const lastView = useRef<{ device: string; full: boolean } | null>(null)
   /* The page pinned for the switch still running, let go early when another press lands. */
@@ -3496,12 +3534,39 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* Its new look is the stylesheet's, read with nothing moving it. */
       playCardMorph(card, from.card, readCardLook(card))
     }
-    const t = window.setTimeout(unpin, CANVAS_SWITCH_MS + 40)
-    unpinCanvas.current?.()
-    unpinCanvas.current = () => {
-      window.clearTimeout(t)
+    /*
+      THE PAGE SITS OUT THE GLIDE. Faded out at the press, it is not laid out
+      or drawn at all while the card moves (content-visibility: hidden), so
+      the glide costs the same on a three-section page and on a store with
+      hundreds of products. As the card arrives it is laid out once, at its
+      new size, and fades back in.
+    */
+    const root = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
+    const faded = canvasFadeOut.current
+    canvasFadeOut.current = null
+    const resting = !!root && !!faded
+    if (root && resting) root.style.setProperty("content-visibility", "hidden")
+    const land = () => {
       unpin()
+      if (!root || !resting) return
+      root.style.removeProperty("content-visibility")
+      if (typeof root.animate === "function") root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" })
+      faded?.cancel()
     }
+    /* When the moves have finished, not on a clock: a heavy page can start them a frame or two late. */
+    unpinCanvas.current?.()
+    let landed = false
+    const once = () => {
+      if (landed) return
+      landed = true
+      window.clearTimeout(t)
+      land()
+    }
+    const t = window.setTimeout(once, CANVAS_SWITCH_MS + 900)
+    const moving = [card, fold, panel].flatMap((el) => (el && typeof el.getAnimations === "function" ? el.getAnimations() : []))
+    if (moving.length) void Promise.allSettled(moving.map((a) => a.finished)).then(once)
+    else window.setTimeout(once, 0)
+    unpinCanvas.current = once
   }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
@@ -3523,7 +3588,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [fullSettled, setFullSettled] = useState(false)
   useEffect(() => {
-    const id = window.setTimeout(() => setFullSettled(fullView), FULL_SCREEN_MS + 40)
+    const id = window.setTimeout(() => setFullSettled(fullView), FULL_SCREEN_MS + 160)
     return () => window.clearTimeout(id)
   }, [fullView])
 

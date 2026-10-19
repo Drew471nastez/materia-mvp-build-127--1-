@@ -3,8 +3,7 @@
 import { AppAvatar } from "@/components/app/app-avatar"
 import * as React from "react"
 import { ArrowUpRight, LayoutGrid, LogOut, Mail, Settings, Compass, Library, UserRound } from "lucide-react"
-import { mainSiteUrl } from "@/lib/help/paths"
-import { SUPPORT_EMAIL } from "@/lib/help/articles"
+import { mainSiteUrl, publicHelpUrl } from "@/lib/help/paths"
 
 type Me = { signedIn: false } | { signedIn: true; kind?: "seller" | "buyer"; name: string; email: string | null; avatarUrl: string | null }
 
@@ -133,7 +132,7 @@ export function HelpAccount() {
             <Compass className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
             Explore
           </a>
-          <a role="menuitem" href={`mailto:${SUPPORT_EMAIL}`} className={row}>
+          <a role="menuitem" href={publicHelpUrl("/contact")} className={row}>
             <Mail className="h-4 w-4 text-[#6b7280]" strokeWidth={1.75} />
             Contact support
           </a>
