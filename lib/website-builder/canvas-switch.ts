@@ -162,3 +162,44 @@ export function playSidebarFold(fold: HTMLElement, panel: HTMLElement, from: Fol
     timing,
   ))
 }
+
+/**
+ * THE PAGE HELD AT ITS NEW SIZE WHILE THE CARD MOVES.
+ *
+ * The site inside the card measures it: `.wb-canvas-frame #wb-preview-root`
+ * is the container its 100vh (`--sl-vh`) and width queries answer to. A card
+ * changing size a frame at a time restyled and laid out every section at
+ * every frame, about 20 fps on a real page. Pinned at the card's final size
+ * (read here, with nothing moving it), the page is laid out once, and only
+ * the card's own box, which clips it, is laid out again as it glides.
+ * Returns the undo, which hands the page back to the card's size: the same
+ * size by then, so nothing moves.
+ */
+export function pinCanvasPage(card: HTMLElement, anchor: "center" | "right", rootId = "wb-preview-root"): () => void {
+  const root = card.querySelector<HTMLElement>(`#${rootId}`)
+  if (!root || reduced()) return () => {}
+  const r = card.getBoundingClientRect()
+  if (r.width < 1 || r.height < 1) return () => {}
+  const s = root.style
+  s.position = "absolute"
+  s.top = "0"
+  s.width = `${Math.round(r.width * 10) / 10}px`
+  s.height = `${Math.round(r.height * 10) / 10}px`
+  s.maxWidth = "none"
+  s.flexShrink = "0"
+  if (anchor === "right") {
+    s.right = "0"
+    s.left = "auto"
+  } else {
+    s.left = "50%"
+    s.translate = "-50% 0"
+  }
+  root.setAttribute("data-wb-pinned", anchor)
+  let done = false
+  return () => {
+    if (done) return
+    done = true
+    for (const p of ["position", "top", "width", "height", "max-width", "flex-shrink", "right", "left", "translate"]) s.removeProperty(p)
+    root.removeAttribute("data-wb-pinned")
+  }
+}

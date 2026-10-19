@@ -7486,6 +7486,17 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
   --sl-vh: 1cqh;
   --sl-vw: 1cqw;
 }
+/*
+  The page inside is the container its sections answer to (the same size as
+  the card, which it fills). While the card changes size it is pinned at the
+  size it is going to (lib/website-builder/canvas-switch.ts pinCanvasPage),
+  so its 100vh and width queries settle once instead of at every frame.
+*/
+.wb-canvas-frame > #wb-preview-root {
+  container: wb-canvas / size;
+  --sl-vh: 1cqh;
+  --sl-vw: 1cqw;
+}
 
 /* A popover or dialog a section opens, opened in place rather than in the
    browser's top layer (components/website-builder/canvas-top-layer.tsx).

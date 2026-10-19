@@ -115,7 +115,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, p
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { CANVAS_SWITCH_MS, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS, pinCanvasPage, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -3463,6 +3463,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     apply()
   }, [])
   const lastView = useRef<{ device: string; full: boolean } | null>(null)
+  /* The page pinned for the switch still running, let go early when another press lands. */
+  const unpinCanvas = useRef<(() => void) | null>(null)
   useLayoutEffect(() => {
     const prev = lastView.current
     lastView.current = { device, full: fullView }
@@ -3471,15 +3473,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!prev) return
     const fold = sidebarFoldRef.current
     const panel = sidebarRef.current
-    if (prev.full !== fullView && fold && panel) {
+    const card = canvasFrameRef.current
+    const folding = prev.full !== fullView && !!fold && !!panel
+    const resizing = !!from?.card && !!card && prev.device !== device
+    if (!folding && !resizing) return
+    /*
+      THE SITE IS LAID OUT ONCE, AT ITS NEW SIZE, AND ONLY THE CARD MOVES (the
+      owner: "very laggy, 20 fps"). The site measures the canvas (its 100vh,
+      its width queries), so a card changing size a frame at a time restyled
+      and laid out every section at every frame. The page inside is pinned at
+      the size it is going to, from the first frame, and the card's own box
+      glides around it: centred for a size change, held to the right edge for
+      full screen, where the sidebar folds away on the left.
+    */
+    stopCanvasSwitch(card, fold, panel)
+    const unpin = card ? pinCanvasPage(card, folding && !resizing ? "right" : "center") : () => {}
+    if (folding && fold && panel) {
       const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
       playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth)
     }
-    const card = canvasFrameRef.current
-    if (from?.card && card && prev.device !== device) {
+    if (resizing && card && from?.card) {
       /* Its new look is the stylesheet's, read with nothing moving it. */
-      stopCanvasSwitch(card)
       playCardMorph(card, from.card, readCardLook(card))
+    }
+    const t = window.setTimeout(unpin, CANVAS_SWITCH_MS + 40)
+    unpinCanvas.current?.()
+    unpinCanvas.current = () => {
+      window.clearTimeout(t)
+      unpin()
     }
   }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*

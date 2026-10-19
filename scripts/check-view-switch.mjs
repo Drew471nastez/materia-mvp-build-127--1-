@@ -190,6 +190,31 @@ try {
   await page.evaluate(() => { try { sessionStorage.removeItem("wb:full-screen") } catch {} })
   await page.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 60_000 })
   await page.evaluate(INSTALL)
+  /*
+    VS_HEAVY=<n>: a real site's weight. The probe's page is light; a creator's
+    has full-height heroes, grids that answer to the canvas's width and
+    hundreds of products. n blocks of that kind are added inside the canvas,
+    each sized from it (cqh, cqw and a container query), so a switch that lays
+    the page out at every frame shows here the way it does on a real site.
+  */
+  const heavy = Number(process.env.VS_HEAVY || 0)
+  if (heavy > 0) {
+    await page.evaluate((n) => {
+      const host = document.querySelector("#wb-preview-root > div") ?? document.querySelector("#wb-preview-root")
+      const style = document.createElement("style")
+      style.textContent = `.vs-heavy{display:grid;grid-template-columns:repeat(4,1fr);gap:1cqw;padding:2cqw}.vs-heavy>div{min-height:calc(var(--sl-vh,1vh)*8);padding:1cqw;font-size:max(12px,1.1cqw);border:1px solid #eee}@container wb-canvas (max-width: 700px){.vs-heavy{grid-template-columns:repeat(2,1fr)}.vs-heavy>div{font-size:14px}}`
+      document.head.appendChild(style)
+      const box = document.createElement("section")
+      box.className = "vs-heavy"
+      for (let i = 0; i < n; i++) {
+        const d = document.createElement("div")
+        d.innerHTML = `<h3>Product ${i}</h3><p>A line of text that wraps differently at every width of the canvas, as a real card's copy does.</p><span>RON ${i}.00</span>`
+        box.appendChild(d)
+      }
+      host.appendChild(box)
+    }, heavy)
+    await sleep(800)
+  }
   /* The code editor is warmed in idle time (preview-mode-switch.tsx): let it arrive, as it has by the time anybody switches. */
   await page.waitForFunction(() => !!document.querySelector("[data-code-pane]"), { timeout: 20_000 }).catch(() => {})
   await sleep(2500)
