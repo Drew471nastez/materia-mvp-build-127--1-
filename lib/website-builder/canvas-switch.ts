@@ -138,68 +138,141 @@ export function readFoldLook(fold: HTMLElement, panel: HTMLElement): FoldLook {
  * The 6px seam beside the fold closes with it, so the card meets the
  * window's edge.
  */
-export function playSidebarFold(fold: HTMLElement, panel: HTMLElement, from: FoldLook, toWidth: number, toOpacity: number, panelWidth: number, seam = 6): void {
+export function playSidebarFold(fold: HTMLElement, panel: HTMLElement, from: FoldLook, toWidth: number, toOpacity: number, panelWidth: number, seam = 6): Animation[] {
   stop(fold)
   stop(panel)
-  if (reduced() || typeof fold.animate !== "function") return
-  if (Math.abs(from.width - toWidth) < 0.5 && Math.abs(from.opacity - toOpacity) < 0.01) return
+  if (reduced() || typeof fold.animate !== "function") return []
+  if (Math.abs(from.width - toWidth) < 0.5 && Math.abs(from.opacity - toOpacity) < 0.01) return []
   const timing = { duration: CANVAS_SWITCH_MS, easing: CANVAS_SWITCH_EASE }
   const r = (n: number) => Math.round(n * 10) / 10
   const shift = (w: number) => `translateX(${r(Math.min(0, w - panelWidth))}px)`
   const margin = (w: number) => `${r(-seam * (1 - Math.min(1, w / Math.max(1, panelWidth))))}px`
-  keep(fold, fold.animate(
+  const a = fold.animate(
     [
       { maxWidth: `${r(from.width)}px`, marginRight: margin(from.width), overflow: "hidden" },
       { maxWidth: `${r(toWidth)}px`, marginRight: margin(toWidth), overflow: "hidden" },
     ],
     timing,
-  ))
-  keep(panel, panel.animate(
+  )
+  const b = panel.animate(
     [
-      { transform: shift(from.width), opacity: from.opacity },
-      { transform: shift(toWidth), opacity: toOpacity },
+      /* Slid, never faded: it stays solid and is clipped by its fold (the owner: "it fades"). */
+      { transform: shift(from.width), opacity: Math.max(from.opacity, toOpacity, 1) },
+      { transform: shift(toWidth), opacity: Math.max(from.opacity, toOpacity, 1) },
     ],
     timing,
-  ))
+  )
+  keep(fold, a)
+  keep(panel, b)
+  return [a, b]
 }
 
 /**
- * THE PAGE HELD AT ITS NEW SIZE WHILE THE CARD MOVES.
+ * ONLY WHAT IS ON SCREEN FLOWS WITH THE CARD.
  *
- * The site inside the card measures it: `.wb-canvas-frame #wb-preview-root`
- * is the container its 100vh (`--sl-vh`) and width queries answer to. A card
- * changing size a frame at a time restyled and laid out every section at
- * every frame, about 20 fps on a real page. Pinned at the card's final size
- * (read here, with nothing moving it), the page is laid out once, and only
- * the card's own box, which clips it, is laid out again as it glides.
- * Returns the undo, which hands the page back to the card's size: the same
- * size by then, so nothing moves.
+ * The site measures the card (its 100vh and width queries), so a card
+ * changing size a frame at a time lays the page out at every frame. Most of
+ * a page is above or below what can be seen. Those sections are paused for
+ * the switch (content-visibility: hidden, held at the height they have), so
+ * a frame costs the sections in view, not the whole site. Taken at the press,
+ * before anything changes, so reading where they are costs nothing.
+ *
+ * When the card lands they come back a few a frame, nearest first
+ * (releaseHeldSections), and a section above the view that changes height
+ * moves the scroll by the same amount, so what is on screen never jumps.
+ * Native sections are `[data-section-box]` in the canvas; an imported
+ * theme's are `.shopify-section` in its frame.
  */
-export function pinCanvasPage(card: HTMLElement, anchor: "center" | "right", rootId = "wb-preview-root"): () => void {
+type Held = { el: HTMLElement; scroller: HTMLElement; frame: HTMLIFrameElement | null }
+const held = new Set<Held>()
+let releaseRun = 0
+
+function topLevel(list: HTMLElement[], selector: string): HTMLElement[] {
+  return list.filter((b) => !b.parentElement?.closest(selector))
+}
+
+function holdIn(scroller: HTMLElement, boxes: HTMLElement[], viewTop: number, viewBottom: number, frame: HTMLIFrameElement | null, margin: number) {
+  const rects = boxes.map((b) => b.getBoundingClientRect())
+  const take: Array<[HTMLElement, number]> = []
+  boxes.forEach((b, i) => {
+    const r = rects[i]
+    if (r.height < 1 || b.hasAttribute("data-wb-held") || b.style.contentVisibility) return
+    if (r.bottom >= viewTop - margin && r.top <= viewBottom + margin) return
+    take.push([b, r.height])
+  })
+  for (const [b, h] of take) {
+    b.style.containIntrinsicHeight = `${Math.round(h * 10) / 10}px`
+    b.style.contentVisibility = "hidden"
+    b.setAttribute("data-wb-held", "")
+    held.add({ el: b, scroller, frame })
+  }
+}
+
+export function holdOffscreenSections(card: HTMLElement, rootId = "wb-preview-root", margin = 160): void {
+  if (reduced()) return
+  releaseRun++
   const root = card.querySelector<HTMLElement>(`#${rootId}`)
-  if (!root || reduced()) return () => {}
-  const r = card.getBoundingClientRect()
-  if (r.width < 1 || r.height < 1) return () => {}
-  const s = root.style
-  s.position = "absolute"
-  s.top = "0"
-  s.width = `${Math.round(r.width * 10) / 10}px`
-  s.height = `${Math.round(r.height * 10) / 10}px`
-  s.maxWidth = "none"
-  s.flexShrink = "0"
-  if (anchor === "right") {
-    s.right = "0"
-    s.left = "auto"
-  } else {
-    s.left = "50%"
-    s.translate = "-50% 0"
+  if (!root) return
+  const view = root.getBoundingClientRect()
+  if (view.height < 1) return
+  holdIn(root, topLevel(Array.from(root.querySelectorAll<HTMLElement>("[data-section-box]")), "[data-section-box]"), view.top, view.bottom, null, margin)
+  for (const frame of Array.from(root.querySelectorAll<HTMLIFrameElement>("iframe"))) {
+    let doc: Document | null = null
+    try { doc = frame.contentDocument } catch { doc = null }
+    const scroller = doc?.scrollingElement as HTMLElement | null | undefined
+    if (!doc || !scroller || !doc.defaultView) continue
+    const sections = topLevel(Array.from(doc.querySelectorAll<HTMLElement>(".shopify-section")), ".shopify-section")
+    holdIn(scroller, sections, 0, doc.defaultView.innerHeight, frame, margin)
   }
-  root.setAttribute("data-wb-pinned", anchor)
-  let done = false
-  return () => {
-    if (done) return
-    done = true
-    for (const p of ["position", "top", "width", "height", "max-width", "flex-shrink", "right", "left", "translate"]) s.removeProperty(p)
-    root.removeAttribute("data-wb-pinned")
+}
+
+function hand(h: Held) {
+  h.el.style.removeProperty("content-visibility")
+  h.el.style.removeProperty("contain-intrinsic-height")
+  h.el.removeAttribute("data-wb-held")
+}
+
+/**
+ * The paused sections back, a few a frame, nearest to the view first. A
+ * newer switch (holdOffscreenSections) takes over the ones still waiting.
+ */
+export function releaseHeldSections(perFrame = 3): void {
+  const run = ++releaseRun
+  const anchors = new Map<HTMLElement, string>()
+  const step = () => {
+    if (run !== releaseRun) return
+    if (held.size === 0) {
+      for (const [sc, v] of anchors) sc.style.overflowAnchor = v
+      return
+    }
+    /* Nearest to what is on screen first. */
+    const list = Array.from(held)
+    const dist = list.map((h) => {
+      const r = h.el.getBoundingClientRect()
+      const vh = h.frame ? (h.frame.contentWindow?.innerHeight ?? 0) : h.scroller.getBoundingClientRect().height
+      const top = h.frame ? 0 : h.scroller.getBoundingClientRect().top
+      return r.bottom <= top ? { h, d: top - r.bottom, above: true, height: r.height } : { h, d: r.top - (top + vh), above: false, height: r.height }
+    })
+    dist.sort((x, y) => x.d - y.d)
+    const chunk = dist.slice(0, perFrame)
+    for (const c of chunk) {
+      if (!anchors.has(c.h.scroller)) {
+        anchors.set(c.h.scroller, c.h.scroller.style.overflowAnchor)
+        /* The scroll is kept by hand below; the browser's own anchoring would count it twice. */
+        c.h.scroller.style.overflowAnchor = "none"
+      }
+      hand(c.h)
+      held.delete(c.h)
+    }
+    /* One layout for the chunk, then the scroll moved by what grew or shrank above the view. */
+    const shift = new Map<HTMLElement, number>()
+    for (const c of chunk) {
+      if (!c.above || !c.h.el.isConnected) continue
+      const grew = c.h.el.getBoundingClientRect().height - c.height
+      if (Math.abs(grew) >= 0.5) shift.set(c.h.scroller, (shift.get(c.h.scroller) ?? 0) + grew)
+    }
+    for (const [sc, by] of shift) sc.scrollTop += by
+    requestAnimationFrame(step)
   }
+  requestAnimationFrame(step)
 }

@@ -204,14 +204,19 @@ try {
       const style = document.createElement("style")
       style.textContent = `.vs-heavy{display:grid;grid-template-columns:repeat(4,1fr);gap:1cqw;padding:2cqw}.vs-heavy>div{min-height:calc(var(--sl-vh,1vh)*8);padding:1cqw;font-size:max(12px,1.1cqw);border:1px solid #eee}@container wb-canvas (max-width: 700px){.vs-heavy{grid-template-columns:repeat(2,1fr)}.vs-heavy>div{font-size:14px}}`
       document.head.appendChild(style)
-      const box = document.createElement("section")
-      box.className = "vs-heavy"
+      /* In sections of 60 cards, as a real page is many sections, each one a section box. */
+      let box = null
       for (let i = 0; i < n; i++) {
+        if (i % 60 === 0) {
+          box = document.createElement("section")
+          box.className = "vs-heavy"
+          box.setAttribute("data-section-box", "")
+          host.appendChild(box)
+        }
         const d = document.createElement("div")
         d.innerHTML = `<h3>Product ${i}</h3><p>A line of text that wraps differently at every width of the canvas, as a real card's copy does.</p><span>RON ${i}.00</span>`
         box.appendChild(d)
       }
-      host.appendChild(box)
     }, heavy)
     await sleep(800)
   }

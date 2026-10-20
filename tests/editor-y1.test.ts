@@ -59,18 +59,19 @@ console.log("\nSWITCH: read once at the press, played from there")
 {
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
   const lib = readCode("lib/website-builder/canvas-switch.ts")
-  const css = readCode("app/globals.css")
-  /* Changed on purpose (round AX, the owner: "it flashes, it glitches, it bumps, it disappears, it fades"). The switch is one view transition: the browser takes a picture of the card and the sidebar before the change, lays the page out once at its new size, and morphs picture into page. Never a page laid out a frame at a time, never a blank card, never a fade to nothing. */
-  check("the switch is a view transition over the card and the sidebar, committed at once inside it",
-    /doc\.startViewTransition\(\(\) => \{\s*flushSync\(apply\)/.test(editor) && /card\.style\.setProperty\("view-transition-name", "wb-canvas"\)/.test(editor) && /fold\?\.style\.setProperty\("view-transition-name", "wb-sidebar"\)/.test(editor))
+  /* Changed on purpose (round AX, the owner: "it flashes, it fades, it bumps", wants it flexible). The fade (AW) and the picture morph read as a flash; the card's real box moves again and the page flows with it, live, but only the sections on screen are laid out on the way. */
+  check("the card's look and the sidebar's are read once on the press, the off-screen sections paused, before the change", /switchFrom\.current = \{ card: card \? readCardLook\(card\) : null, fold: fold && panel \? readFoldLook\(fold, panel\) : null \}\s*\n[\s\S]{0,120}if \(card\) holdOffscreenSections\(card\)[\s\S]{0,60}apply\(\)/.test(editor))
   check("the size switch, the full screen button and Escape all go through it",
     /onClick=\{\(\) => switchCanvas\(\(\) => go\(next\.key\)\)\}/.test(editor) && /onClick=\{\(\) => switchCanvas\(\(\) => toggleCanvasFullScreen\(!fullView\)\)\}/.test(editor) && /switchCanvas\(\(\) => setFullScreen\(false\)\)/.test(editor))
-  check("only the card and the sidebar are pictured, not the whole page", /html\[data-wb-view-switch\] \{\s*view-transition-name: none;/.test(css))
-  check("the names are taken off when it ends, ok or not", /\.finished\.then\(done, done\)/.test(editor) && /card\.style\.removeProperty\("view-transition-name"\)/.test(editor))
-  check("no fade to nothing, no page pinned, no frame by frame morph left in the editor", !/canvasFadeOut|CANVAS_FADE_OUT_MS|pinCanvasPage|playCardMorph|playSidebarFold/.test(editor))
+  check("full screen folds the sidebar from where it was; a size change morphs the card from its old look to its new one",
+    /playSidebarFold\(fold, panel, at, fullView \? 0 : sidebarWidth, fullView \? 0 : 1, sidebarWidth\)/.test(editor) && /playCardMorph\(card, from\.card, readCardLook\(card\)\)/.test(editor) && /stopCanvasSwitch\(card, fold, panel\)/.test(editor))
+  check("the paused sections come back when the moves have finished, a few a frame, the view held still", /Promise\.all\(moving\.map\(\(a\) => a\.finished\)\)\.then\(land/.test(editor) && /export function releaseHeldSections\(perFrame = 3\)/.test(lib) && /sc\.scrollTop \+= by/.test(lib) && /overflowAnchor = "none"/.test(lib))
+  check("a press that changes nothing hands them straight back", /if \(!switchSeen\.current\) releaseHeldSections\(\)/.test(editor))
+  check("native sections and an imported theme's both", /\[data-section-box\]/.test(lib) && /\.shopify-section/.test(lib) && /contentVisibility = "hidden"/.test(lib))
+  check("no fade, no picture, no pinned page", !/startViewTransition|canvasFadeOut|CANVAS_FADE_OUT_MS|pinCanvasPage\(/.test(editor))
   check("the card is never slid or dimmed (the old glide is gone), and no strips are laid over it", !/translateX\(\$\{fullView \? by : -by\}px\)/.test(editor) && !/opacity: 0\.55, transform: "scale\(0\.985\)"/.test(editor) && !/playCardEdges|data-wb-switch-edge/.test(editor + lib))
-  check("no CSS transition on the card's size", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(editor))
-  check("reduced motion, a hidden tab or no view transitions: it changes at once", /if \(!card \|\| calm \|\| typeof doc\.startViewTransition !== "function" \|\| document\.visibilityState !== "visible"/.test(editor))
+  check("no CSS transition on the card's size: a second press mid way turns it round from where it is", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(editor) && /function stop\(el: Element\)/.test(lib) && /stop\(card\)/.test(lib))
+  check("reduced motion: nothing moves", (lib.match(/if \(reduced\(\) \|\|/g) ?? []).length === 2)
 }
 
 console.log("\nFIELDS: the sidebar's text never scrolls sideways")

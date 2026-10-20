@@ -43,7 +43,7 @@ check("a kept sheet at rest, an inert or closed layer is not an open modal", /co
 console.log("\nThe size switch\n")
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
 /* Changed on purpose (round AX, the owner: "it disappears, it fades"): no fade out any more, one view transition instead (editor-y1 pins it). */
-check("the page never fades out or sits out the glide", !/CANVAS_FADE_OUT_MS|content-visibility", "hidden"/.test(editor) && /startViewTransition/.test(editor))
+check("the page never fades out or sits out the glide", !/CANVAS_FADE_OUT_MS|content-visibility", "hidden"/.test(editor) && /holdOffscreenSections/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

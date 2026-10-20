@@ -1,6 +1,5 @@
 "use client"
 
-import { flushSync } from "react-dom"
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
@@ -116,7 +115,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, p
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { CANVAS_SWITCH_MS } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS, holdOffscreenSections, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -2745,19 +2744,6 @@ function warmPanels(): () => void {
   return () => window.clearTimeout(t)
 }
 
-/** The first solid background in the canvas's page, top down: what the site itself is painted on. */
-function siteBackground(card: HTMLElement): string {
-  const clear = (c: string) => !c || c === "transparent" || /rgba\([^)]*,\s*0\)$/.test(c)
-  let el: Element | null = card.querySelector("#wb-preview-root")
-  for (let depth = 0; el && depth < 4; depth++) {
-    const c = getComputedStyle(el).backgroundColor
-    if (!clear(c)) return c
-    el = el.firstElementChild
-  }
-  const own = getComputedStyle(card).backgroundColor
-  return clear(own) ? "#ffffff" : own
-}
-
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   useEffect(() => warmPanels(), [])
   const { installId } = use(params)
@@ -3469,56 +3455,69 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const canvasFrameRef = useRef<HTMLDivElement | null>(null)
   /*
-    ONE SEAMLESS MORPH, NOT A RESIZE (the owner: "it flashes, it glitches, it
-    bumps, it disappears, it fades"). The site inside the canvas measures the
-    card, so a card resized a frame at a time laid out every section at every
-    frame (20 fps), and every way of hiding that (pinning the page, fading it
-    out) showed as a splash or a blank. Now the browser does what it is built
-    for: a view transition. It holds a picture of the canvas as it is, the
-    new size is drawn once, and the card glides from the old box to the new
-    one on the compositor while the two pictures blend, so there is always a
-    page on screen and nothing is laid out while it moves. The sidebar folds
-    for full screen the same way (app/globals.css, wb-canvas and wb-sidebar).
-    A browser without view transitions switches at once, with no motion at
-    all, which is cleaner than any half-way.
+    ONE OBJECT CHANGING SHAPE, LIKE A WINDOW BEING RESIZED (the owner, after
+    the fade and the picture morph: "it flashes, it fades, it bumps... it
+    should be flexible"). Nothing is faded, pictured or swapped:
+    the card's real box moves and the page flows with it, live, every frame.
+    What made that 20 fps was laying out the whole site at every frame; now
+    only the sections on screen flow with it, the ones above and below wait
+    at their size until the card lands (holdOffscreenSections), so a frame
+    costs what is visible, not the whole page.
   */
-  const viewSwitching = useRef(false)
+  const switchFrom = useRef<{ card: CardLook | null; fold: FoldLook | null } | null>(null)
+  const switchSeen = useRef(true)
   const switchCanvas = useCallback((apply: () => void) => {
     const card = canvasFrameRef.current
     const fold = sidebarFoldRef.current
-    const doc = document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void>; skipTransition?: () => void } }
-    const calm = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    if (!card || calm || typeof doc.startViewTransition !== "function" || document.visibilityState !== "visible" || viewSwitching.current) {
-      apply()
+    const panel = sidebarRef.current
+    switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
+    /* Before the change: only what is on screen will flow with the card. */
+    if (card) holdOffscreenSections(card)
+    switchSeen.current = false
+    apply()
+    /* A press that changed nothing (no switch played) hands them straight back. */
+    requestAnimationFrame(() => { if (!switchSeen.current) releaseHeldSections() })
+  }, [])
+  const lastView = useRef<{ device: string; full: boolean } | null>(null)
+  useLayoutEffect(() => {
+    const prev = lastView.current
+    lastView.current = { device, full: fullView }
+    const from = switchFrom.current
+    switchFrom.current = null
+    switchSeen.current = true
+    if (!prev) return
+    const fold = sidebarFoldRef.current
+    const panel = sidebarRef.current
+    const card = canvasFrameRef.current
+    const folding = prev.full !== fullView && !!fold && !!panel
+    const resizing = !!from?.card && !!card && prev.device !== device
+    if (!folding && !resizing) {
+      releaseHeldSections()
       return
     }
-    viewSwitching.current = true
-    /* The Ask pill floats over the card: pictured too, so it stays on top of the moving card instead of under it. */
-    const ask = document.querySelector<HTMLElement>("[data-ask-dock]")
-    const html = document.documentElement
-    /* What shows under the pictures where they do not reach: the site's own background, never a white or grey gap. */
-    html.style.setProperty("--wb-switch-bg", siteBackground(card))
-    card.style.setProperty("view-transition-name", "wb-canvas")
-    fold?.style.setProperty("view-transition-name", "wb-sidebar")
-    ask?.style.setProperty("view-transition-name", "wb-ask")
-    html.setAttribute("data-wb-view-switch", "")
-    const done = () => {
-      card.style.removeProperty("view-transition-name")
-      fold?.style.removeProperty("view-transition-name")
-      ask?.style.removeProperty("view-transition-name")
-      html.removeAttribute("data-wb-view-switch")
-      html.style.removeProperty("--wb-switch-bg")
-      viewSwitching.current = false
+    stopCanvasSwitch(card, fold, panel)
+    const moving: Animation[] = []
+    if (folding && fold && panel) {
+      const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
+      moving.push(...playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth))
     }
-    try {
-      doc.startViewTransition(() => {
-        flushSync(apply)
-      }).finished.then(done, done)
-    } catch {
-      done()
-      apply()
+    if (resizing && card && from?.card) {
+      /* Its new look is the stylesheet's, read with nothing moving it. */
+      const a = playCardMorph(card, from.card, readCardLook(card))
+      if (a) moving.push(a)
     }
-  }, [])
+    /* Landed (or turned round by another press, which cancels these): the paused sections come back, a few a frame. */
+    let done = false
+    const land = () => {
+      if (done) return
+      done = true
+      window.clearTimeout(t)
+      if (moving.some((a) => a.playState === "idle")) return
+      releaseHeldSections()
+    }
+    const t = window.setTimeout(land, CANVAS_SWITCH_MS + 400)
+    Promise.all(moving.map((a) => a.finished)).then(land, () => {})
+  }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
     the whole browser full screen, only the editor canvas"). The sidebar folds
