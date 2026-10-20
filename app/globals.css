@@ -7488,9 +7488,8 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
 }
 /*
   The page inside is the container its sections answer to (the same size as
-  the card, which it fills). While the card changes size it is pinned at the
-  size it is going to (lib/website-builder/canvas-switch.ts pinCanvasPage),
-  so its 100vh and width queries settle once instead of at every frame.
+  the card, which it fills). A size switch lays it out once, inside a view
+  transition (switchCanvas in the editor), never at every frame.
 */
 .wb-canvas-frame > #wb-preview-root {
   container: wb-canvas / size;
@@ -8717,4 +8716,87 @@ dialog:focus,
 @media (prefers-reduced-motion: reduce) {
   .wb-desk-panel[data-dir="in"],
   .wb-desk-panel[data-dir="back"] { animation: none; }
+}
+
+/*
+  THE EDITOR'S SIZE SWITCH (desktop, phone, full screen) as one seamless
+  morph (app/website-builder/editor/[installId]/page.tsx, switchCanvas). The
+  card's box glides from where it was to where it is going while a picture
+  of the old view blends into the live new one, top-aligned and clipped to
+  the card's corners: always a page on screen, nothing laid out as it moves.
+  The sidebar's picture keeps its size and slides out of (or into) its
+  narrowing box from the right edge, as a panel folding away.
+*/
+html[data-wb-view-switch] {
+  view-transition-name: none;
+}
+::view-transition-group(wb-canvas),
+::view-transition-group(wb-sidebar) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+::view-transition-group(wb-canvas) {
+  overflow: hidden;
+  border-radius: 16px;
+  /* Under the pictures (which blend inside their own pair), the site's own
+     background, so where a picture does not reach there is no gap. */
+  background: var(--wb-switch-bg, #ffffff);
+}
+/* The two pictures trade places in the first part of the glide, on one
+   straight line each so together they stay fully opaque (they add up):
+   a short handover, then only the new page riding the card in. */
+::view-transition-old(wb-canvas),
+::view-transition-new(wb-canvas) {
+  animation-duration: 380ms;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  height: auto;
+  width: 100%;
+}
+::view-transition-old(wb-canvas) {
+  animation-name: wb-switch-out;
+}
+::view-transition-new(wb-canvas) {
+  animation-name: wb-switch-in;
+}
+@keyframes wb-switch-out {
+  0% { opacity: 1; }
+  40%, 100% { opacity: 0; }
+}
+@keyframes wb-switch-in {
+  0% { opacity: 0; }
+  40%, 100% { opacity: 1; }
+}
+/* The Ask pill does not move: only held above the card while it does. */
+::view-transition-group(wb-ask) {
+  animation: none;
+}
+::view-transition-old(wb-ask) {
+  display: none;
+}
+::view-transition-new(wb-ask) {
+  animation: none;
+}
+::view-transition-group(wb-sidebar) {
+  overflow: hidden;
+}
+::view-transition-old(wb-sidebar),
+::view-transition-new(wb-sidebar) {
+  animation: none;
+  width: auto;
+  height: 100%;
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  mix-blend-mode: normal;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(wb-canvas),
+  ::view-transition-group(wb-sidebar),
+  ::view-transition-old(wb-canvas),
+  ::view-transition-new(wb-canvas) {
+    animation: none;
+  }
+  ::view-transition-old(wb-canvas) {
+    opacity: 0;
+  }
 }

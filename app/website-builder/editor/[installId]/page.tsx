@@ -116,7 +116,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, p
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { CANVAS_SWITCH_MS, pinCanvasPage, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -1106,8 +1106,6 @@ export type DeviceMode = "desktop" | "mobile"
 const FULL_SCREEN_KEY = "wb:full-screen"
 /** The sidebar folding for full screen takes as long as every other switch of the canvas. */
 const FULL_SCREEN_MS = CANVAS_SWITCH_MS
-/** The page's fade before the card moves: short enough to read as part of the press. */
-const CANVAS_FADE_OUT_MS = 90
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -2747,6 +2745,19 @@ function warmPanels(): () => void {
   return () => window.clearTimeout(t)
 }
 
+/** The first solid background in the canvas's page, top down: what the site itself is painted on. */
+function siteBackground(card: HTMLElement): string {
+  const clear = (c: string) => !c || c === "transparent" || /rgba\([^)]*,\s*0\)$/.test(c)
+  let el: Element | null = card.querySelector("#wb-preview-root")
+  for (let depth = 0; el && depth < 4; depth++) {
+    const c = getComputedStyle(el).backgroundColor
+    if (!clear(c)) return c
+    el = el.firstElementChild
+  }
+  const own = getComputedStyle(card).backgroundColor
+  return clear(own) ? "#ffffff" : own
+}
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   useEffect(() => warmPanels(), [])
   const { installId } = use(params)
@@ -3457,117 +3468,57 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scripts/check-view-switch.mjs).
   */
   const canvasFrameRef = useRef<HTMLDivElement | null>(null)
-  const switchFrom = useRef<{ card: CardLook | null; fold: FoldLook | null } | null>(null)
   /*
-    NO SPLASH OF THE OTHER LAYOUT. The page is laid out at its new size from
-    the first frame of the switch (pinCanvasPage), so for a moment the phone
-    layout sat inside the wide card, or the desktop one was cut by the narrow
-    card: the "splash" the owner saw. The page fades out first (fast, on the
-    compositor), the card glides, and the page fades back in at its new size.
+    ONE SEAMLESS MORPH, NOT A RESIZE (the owner: "it flashes, it glitches, it
+    bumps, it disappears, it fades"). The site inside the canvas measures the
+    card, so a card resized a frame at a time laid out every section at every
+    frame (20 fps), and every way of hiding that (pinning the page, fading it
+    out) showed as a splash or a blank. Now the browser does what it is built
+    for: a view transition. It holds a picture of the canvas as it is, the
+    new size is drawn once, and the card glides from the old box to the new
+    one on the compositor while the two pictures blend, so there is always a
+    page on screen and nothing is laid out while it moves. The sidebar folds
+    for full screen the same way (app/globals.css, wb-canvas and wb-sidebar).
+    A browser without view transitions switches at once, with no motion at
+    all, which is cleaner than any half-way.
   */
-  const canvasFadeOut = useRef<Animation | null>(null)
+  const viewSwitching = useRef(false)
   const switchCanvas = useCallback((apply: () => void) => {
     const card = canvasFrameRef.current
     const fold = sidebarFoldRef.current
-    const panel = sidebarRef.current
-    const run = () => {
-      switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
-      apply()
-    }
-    const root = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
+    const doc = document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void>; skipTransition?: () => void } }
     const calm = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    /* A second press while the page is fading goes straight through. */
-    if (!root || calm || typeof root.animate !== "function" || canvasFadeOut.current) {
-      run()
+    if (!card || calm || typeof doc.startViewTransition !== "function" || document.visibilityState !== "visible" || viewSwitching.current) {
+      apply()
       return
     }
-    const out = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CANVAS_FADE_OUT_MS, easing: "ease-out", fill: "forwards" })
-    canvasFadeOut.current = out
-    let ran = false
-    const go = () => {
-      if (ran) return
-      ran = true
-      /* Committed at once, as the click itself would have been: a state change from a callback is otherwise a
-         background render that lands across the card's first frames. */
-      flushSync(run)
-      /* No state change came of it (already there): the page comes back on its own. Long enough for a heavy page's render to land first. */
-      window.setTimeout(() => {
-        if (canvasFadeOut.current === out) {
-          canvasFadeOut.current = null
-          out.cancel()
-        }
-      }, 900)
+    viewSwitching.current = true
+    /* The Ask pill floats over the card: pictured too, so it stays on top of the moving card instead of under it. */
+    const ask = document.querySelector<HTMLElement>("[data-ask-dock]")
+    const html = document.documentElement
+    /* What shows under the pictures where they do not reach: the site's own background, never a white or grey gap. */
+    html.style.setProperty("--wb-switch-bg", siteBackground(card))
+    card.style.setProperty("view-transition-name", "wb-canvas")
+    fold?.style.setProperty("view-transition-name", "wb-sidebar")
+    ask?.style.setProperty("view-transition-name", "wb-ask")
+    html.setAttribute("data-wb-view-switch", "")
+    const done = () => {
+      card.style.removeProperty("view-transition-name")
+      fold?.style.removeProperty("view-transition-name")
+      ask?.style.removeProperty("view-transition-name")
+      html.removeAttribute("data-wb-view-switch")
+      html.style.removeProperty("--wb-switch-bg")
+      viewSwitching.current = false
     }
-    out.finished.then(go, go)
+    try {
+      doc.startViewTransition(() => {
+        flushSync(apply)
+      }).finished.then(done, done)
+    } catch {
+      done()
+      apply()
+    }
   }, [])
-  const lastView = useRef<{ device: string; full: boolean } | null>(null)
-  /* The page pinned for the switch still running, let go early when another press lands. */
-  const unpinCanvas = useRef<(() => void) | null>(null)
-  useLayoutEffect(() => {
-    const prev = lastView.current
-    lastView.current = { device, full: fullView }
-    const from = switchFrom.current
-    switchFrom.current = null
-    if (!prev) return
-    const fold = sidebarFoldRef.current
-    const panel = sidebarRef.current
-    const card = canvasFrameRef.current
-    const folding = prev.full !== fullView && !!fold && !!panel
-    const resizing = !!from?.card && !!card && prev.device !== device
-    if (!folding && !resizing) return
-    /*
-      THE SITE IS LAID OUT ONCE, AT ITS NEW SIZE, AND ONLY THE CARD MOVES (the
-      owner: "very laggy, 20 fps"). The site measures the canvas (its 100vh,
-      its width queries), so a card changing size a frame at a time restyled
-      and laid out every section at every frame. The page inside is pinned at
-      the size it is going to, from the first frame, and the card's own box
-      glides around it: centred for a size change, held to the right edge for
-      full screen, where the sidebar folds away on the left.
-    */
-    stopCanvasSwitch(card, fold, panel)
-    const unpin = card ? pinCanvasPage(card, folding && !resizing ? "right" : "center") : () => {}
-    if (folding && fold && panel) {
-      const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
-      playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth)
-    }
-    if (resizing && card && from?.card) {
-      /* Its new look is the stylesheet's, read with nothing moving it. */
-      playCardMorph(card, from.card, readCardLook(card))
-    }
-    /*
-      THE PAGE SITS OUT THE GLIDE. Faded out at the press, it is not laid out
-      or drawn at all while the card moves (content-visibility: hidden), so
-      the glide costs the same on a three-section page and on a store with
-      hundreds of products. As the card arrives it is laid out once, at its
-      new size, and fades back in.
-    */
-    const root = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
-    const faded = canvasFadeOut.current
-    canvasFadeOut.current = null
-    const resting = !!root && !!faded
-    if (root && resting) root.style.setProperty("content-visibility", "hidden")
-    const land = () => {
-      unpin()
-      if (!root || !resting) return
-      root.style.removeProperty("content-visibility")
-      if (typeof root.animate === "function") root.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" })
-      faded?.cancel()
-    }
-    /* When the moves have finished, not on a clock: a heavy page can start them a frame or two late. */
-    unpinCanvas.current?.()
-    let landed = false
-    const once = () => {
-      if (landed) return
-      landed = true
-      window.clearTimeout(t)
-      land()
-    }
-    const t = window.setTimeout(once, CANVAS_SWITCH_MS + 900)
-    const moving = [card, fold, panel].flatMap((el) => (el && typeof el.getAnimations === "function" ? el.getAnimations() : []))
-    if (moving.length) void Promise.allSettled(moving.map((a) => a.finished)).then(once)
-    else window.setTimeout(once, 0)
-    unpinCanvas.current = once
-  }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
     The button beside the size: the canvas only (the owner: "it should not make
     the whole browser full screen, only the editor canvas"). The sidebar folds
@@ -10539,7 +10490,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               Full screen folds the sidebar by its own width, so the canvas
               grows into the room rather than jumping. These are where it
               ends; the way there is played from where it was on screen
-              (playSidebarFold), a frame at a time.
+              (switchCanvas: a view transition, wb-sidebar in app/globals.css).
             */
             style={{
               maxWidth: fullView ? 0 : sidebarWidth,
@@ -10847,7 +10798,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                  A section's `position: fixed` menu, its 100vh and its width
                  queries all answer to this card, never to the editor around
                  it (app/globals.css, lib/storelib-theme/storelib/css.ts). */
-              /* Never `transition-all`: the size, the corners and the lift of a switch are played from where the card is on screen at the press (playCardMorph, canvas-switch.ts), which a transition cannot do when a second press lands mid way. Opacity only, for the code pane. */
+              /* Never `transition-all`: a size switch is a view transition (switchCanvas, wb-canvas in app/globals.css), which a CSS transition on the card would fight. Opacity only, for the code pane. */
               "wb-canvas-frame relative overflow-hidden transition-opacity duration-300",
               // Fading the whole card, not just the scroller, so the corner
               // clip goes with it.

@@ -42,9 +42,8 @@ check("a kept sheet at rest, an inert or closed layer is not an open modal", /co
 
 console.log("\nThe size switch\n")
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
-check("the page fades out before the card moves, committed at once after", /root\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: CANVAS_FADE_OUT_MS/.test(editor) && /flushSync\(run\)/.test(editor))
-check("  and sits out the glide, not laid out or drawn", /root\.style\.setProperty\("content-visibility", "hidden"\)/.test(editor))
-check("  coming back when the moves have finished, not on a clock", /Promise\.allSettled\(moving\.map\(\(a\) => a\.finished\)\)\.then\(once\)/.test(editor))
+/* Changed on purpose (round AX, the owner: "it disappears, it fades"): no fade out any more, one view transition instead (editor-y1 pins it). */
+check("the page never fades out or sits out the glide", !/CANVAS_FADE_OUT_MS|content-visibility", "hidden"/.test(editor) && /startViewTransition/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

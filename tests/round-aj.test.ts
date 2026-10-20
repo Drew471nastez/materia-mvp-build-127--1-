@@ -81,9 +81,10 @@ async function main() {
     /* Y1: not its radius or shadow either (a repaint of the whole card a frame), only opacity for the code pane. */
     /* Changed on purpose (round Z1, the owner: "like how it was before a long time ago"): the card's size is played from where it is on screen (playCardMorph), never a CSS transition on it. */
     check("the card has no CSS transition on its size", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(page) && !/wb-canvas-frame relative overflow-hidden transition-all/.test(page))
-    check("the sidebar's width has no CSS transition either: its fold is played from where it is", !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page) && /playSidebarFold\(fold, panel, at,/.test(page))
+    /* Changed on purpose (round AX, the owner: "it flashes, it bumps, it disappears, it fades"): the fold is a picture the browser moves (a view transition), not a width played a frame at a time. */
+    check("the sidebar's width has no CSS transition either: its fold is played as a picture", !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page) && /fold\?\.style\.setProperty\("view-transition-name", "wb-sidebar"\)/.test(page))
     /* Y1: the card is never slid from where it was (the page moved right and then left). */
-    check("full screen folds the sidebar; the card is never slid", /playSidebarFold\(/.test(page) && !/translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
+    check("full screen folds the sidebar; the card is never slid", /"wb-sidebar"/.test(page) && !/translateX\(\$\{fullView \? by : -by\}px\)/.test(page))
   }
 
   console.log("\nWebsite settings")
