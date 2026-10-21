@@ -459,7 +459,7 @@ function ProductsBody({ r, tab, figure }: { r: Reports; tab: ProductTab; figure:
   )
 }
 
-function Grid({ r, property, perProduct, downloads }: { r: Reports; property: PropertySelector; perProduct: boolean; downloads: boolean }) {
+function Grid({ r, property, perProduct, cards }: { r: Reports; property: PropertySelector; perProduct: boolean; cards: readonly string[] }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
@@ -546,38 +546,6 @@ function Grid({ r, property, perProduct, downloads }: { r: Reports; property: Pr
         </Body>
       </Card>
 
-      {downloads ? (
-        <Card
-          card="downloads"
-          title={tt("Downloads")}
-          help={tt("How many of this period's digital orders were downloaded, and which products.")}
-          className={soft}
-        >
-          <Body blank={!lists} wait="figure">
-            {lists ? (
-              r.digital?.downloads == null ? (
-                <Empty>{r.digital && r.digital.downloads === null ? tt("Downloads could not be read. Refresh the page to try again.") : tt("No downloads in this period.")}</Empty>
-              ) : (
-                <>
-                  <div className="flex h-9 items-baseline gap-2.5" data-figure="">
-                    <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(r.digital.downloads.total)}</span>
-                    <span className="truncate text-[12px] tabular-nums text-[#6b7280]">
-                      {r.digital.orders > 0 ? tt("{share} of orders", { share: fmtPct(r.digital.downloads.orders / r.digital.orders) }) : tt("No digital orders")}
-                    </span>
-                  </div>
-                  <List
-                    title={tt("Downloads")}
-                    rows={r.digital.top.map((p) => ({ key: p.key, label: p.label, value: p.downloads ?? 0, note: plural(p.orders, "order", "orders") }))}
-                    format={fmtCount}
-                    empty={tt("No downloads in this period.")}
-                  />
-                </>
-              )
-            ) : null}
-          </Body>
-        </Card>
-      ) : null}
-
       <Card
         card="funnel"
         title={tt("Funnel")}
@@ -646,6 +614,97 @@ function Grid({ r, property, perProduct, downloads }: { r: Reports; property: Pr
           {lists ? <List key={deviceTab} title={deviceTab === "device" ? tt("Devices") : tt("Browsers")} rows={devices.rows} previous={devices.previous} format={fmtCount} lead={{ icon: deviceTab }} empty={tt("No visits in this period.")} /> : null}
         </Body>
       </Card>
+      <AddedCards r={r} cards={cards} lists={lists} />
+    </>
+  )
+}
+
+/** Reports the seller added. They take their place in the grid at once and fade in; the chart is not touched. */
+function AddedCards({ r, cards, lists }: { r: Reports; cards: readonly string[]; lists: boolean }) {
+  if (!cards.length) return null
+  const sum = (xs: number[] | undefined) => (xs ?? []).reduce((a, b) => a + b, 0)
+  const delta = (value: number, previous: number): Headline => ({ value, previous, change: previous === 0 ? null : (value - previous) / previous })
+  const pageViews = delta(r.views.value, r.views.previous)
+  const refundsNow = sum(r.refunds?.series.current)
+  const refundsBefore = sum(r.refunds?.series.previous)
+  const clicksNow = r.linkClicks?.value ?? 0
+  const clicksBefore = sum(r.linkClicks?.series.previous)
+  return (
+    <>
+      <style>{`@keyframes analytics-card-in{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:none}}.analytics-card-in{animation:analytics-card-in 280ms cubic-bezier(0.32,0.72,0,1) both}@media(prefers-reduced-motion:reduce){.analytics-card-in{animation:none!important}}`}</style>
+      {cards.map((id) => {
+        if (id === "pageviews") {
+          return (
+            <Card key={id} card="pageviews" title={tt("Page views")} help={tt("Every page opened, one per page per visitor per half hour.")} className="analytics-card-in">
+              <Body blank={!lists} wait="figure">
+                {lists ? (
+                  <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+                    <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(pageViews.value)}</span>
+                    <Change h={pageViews} />
+                  </div>
+                ) : null}
+              </Body>
+            </Card>
+          )
+        }
+        if (id === "refunds") {
+          const h = delta(refundsNow, refundsBefore)
+          return (
+            <Card key={id} card="refunds" title={tt("Refunds")} help={tt("Money given back in this period.")} className="analytics-card-in">
+              <Body blank={!lists} wait="figure">
+                {lists ? (
+                  <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+                    <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtMoney(h.value)}</span>
+                    <Change h={h} />
+                  </div>
+                ) : null}
+              </Body>
+            </Card>
+          )
+        }
+        if (id === "clicks") {
+          const h = delta(clicksNow, clicksBefore)
+          return (
+            <Card key={id} card="clicks" title={tt("Link clicks")} help={tt("Links and buttons tapped, including the ones on your OnePage.")} className="analytics-card-in">
+              <Body blank={!lists} wait="figure">
+                {lists ? (
+                  <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+                    <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(h.value)}</span>
+                    <Change h={h} />
+                  </div>
+                ) : null}
+              </Body>
+            </Card>
+          )
+        }
+        if (id !== "downloads") return null
+        return (
+          <Card key={id} card="downloads" title={tt("Downloads")} help={tt("How many of this period's digital orders were downloaded, and which products.")} className="analytics-card-in">
+            <Body blank={!lists} wait="figure">
+              {lists ? (
+                r.digital?.downloads == null ? (
+                  <Empty>{r.digital && r.digital.downloads === null ? tt("Downloads could not be read. Refresh the page to try again.") : tt("No downloads in this period.")}</Empty>
+                ) : (
+                  <>
+                    <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+                      <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(r.digital.downloads.total)}</span>
+                      <span className="truncate text-[12px] tabular-nums text-[#6b7280]">
+                        {r.digital.orders > 0 ? tt("{share} of orders", { share: fmtPct(r.digital.downloads.orders / r.digital.orders) }) : tt("No digital orders")}
+                      </span>
+                    </div>
+                    <List
+                      title={tt("Downloads")}
+                      rows={r.digital.top.map((p) => ({ key: p.key, label: p.label, value: p.downloads ?? 0, note: plural(p.orders, "order", "orders") }))}
+                      format={fmtCount}
+                      empty={tt("No downloads in this period.")}
+                    />
+                  </>
+                )
+              ) : null}
+            </Body>
+          </Card>
+        )
+      })}
     </>
   )
 }
@@ -867,32 +926,32 @@ export function AnalyticsReports({
   product = "all",
   property = { type: "all" },
   state,
-  downloads = false,
+  cards = [],
 }: {
   start?: Date
   end?: Date
   product?: string
   property?: PropertySelector
   state?: ReportsState
-  /** A downloads card, for a store that sells digital products or courses. */
-  downloads?: boolean
+  /** Report cards the seller added. They are not figures on the chart. */
+  cards?: readonly string[]
 }) {
   reportCurrency = useStoreCurrency()
   return state ? (
-    <ReportsView state={state} property={property} downloads={downloads} />
+    <ReportsView state={state} property={property} cards={cards} />
   ) : (
-    <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} downloads={downloads} currency={reportCurrency} />
+    <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} cards={cards} currency={reportCurrency} />
   )
 }
 
-function SelfLoading({ start, end, product, property, downloads, currency }: { start: number; end: number; product: string; property: PropertySelector; downloads: boolean; currency: string }) {
+function SelfLoading({ start, end, product, property, cards, currency }: { start: number; end: number; product: string; property: PropertySelector; cards: readonly string[]; currency: string }) {
   const compare = React.useMemo(() => ({ start: start - (end - start), end: start }), [start, end])
   const key = property.type === "all" ? "all" : property.type === "website" ? `website:${property.id}` : property.type
   const state = useAnalyticsReports({ start, end, compare, product, property: key, currency })
-  return <ReportsView state={state} property={property} downloads={downloads} />
+  return <ReportsView state={state} property={property} cards={cards} />
 }
 
-function ReportsView({ state, property, downloads }: { state: ReportsState; property: PropertySelector; downloads: boolean }) {
+function ReportsView({ state, property, cards }: { state: ReportsState; property: PropertySelector; cards: readonly string[] }) {
   const { data, lists, loading, failed, stale } = state
   /* A quick first answer to a new question keeps the last whole answer's lists on screen, softened, until the rest comes. */
   const shown = data && data.reports.partial && lists && !lists.reports.partial ? lists : data
@@ -916,7 +975,7 @@ function ReportsView({ state, property, downloads }: { state: ReportsState; prop
           </p>
         ) : null}
 
-        {shown ? <Grid r={shown.reports} property={countedFor} perProduct={(new URLSearchParams(shown.key).get("product") ?? "all") !== "all"} downloads={downloads} /> : <Blank property={property} />}
+        {shown ? <Grid r={shown.reports} property={countedFor} perProduct={(new URLSearchParams(shown.key).get("product") ?? "all") !== "all"} cards={cards} /> : <Blank property={property} />}
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">

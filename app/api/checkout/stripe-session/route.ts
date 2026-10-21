@@ -85,10 +85,6 @@ async function handlePOST(request: Request) {
   if (limited) return limited
 
   let business: ReturnType<typeof checkBusiness> | null = null
-  if (body.business !== undefined && body.business !== null) {
-    business = checkBusiness(body.business)
-    if (business.ok === false) return NextResponse.json({ error: business.error, field: business.field }, { status: 400 })
-  }
 
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -125,6 +121,10 @@ async function handlePOST(request: Request) {
   if (!creator) return NextResponse.json({ error: "This product is not available." }, { status: 404 })
   /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
   const checkoutConfig = await loadCheckoutConfig(admin, creator.id)
+  if (checkoutConfig.businessInvoices && body.business !== undefined && body.business !== null) {
+    business = checkBusiness(body.business)
+    if (business.ok === false) return NextResponse.json({ error: business.error, field: business.field }, { status: 400 })
+  }
   if (checkoutConfig.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
   if (checkoutConfig.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
   /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */

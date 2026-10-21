@@ -19,6 +19,7 @@ import "server-only"
  * pages).
  */
 import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
+import { cache } from "react"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { textFieldsFrom } from "@/lib/website-builder/custom-schemas"
@@ -179,9 +180,14 @@ export interface Localizer {
  * to lay over: no language asked for on a website written in English, one
  * that is not published, or no approved translation in it yet.
  */
-export async function siteLocalizer(creatorId: string, locale: string | null | undefined, market: string | null = null, given?: string): Promise<Localizer | null> {
+export function siteLocalizer(creatorId: string, locale: string | null | undefined, market: string | null = null, given?: string): Promise<Localizer | null> {
+  /* One overlay per request: the page and its metadata ask for the same language. */
+  return loadLocalizer(creatorId, locale ?? "", market ?? "", given ?? "")
+}
+
+const loadLocalizer = cache(async function loadLocalizer(creatorId: string, locale: string, market: string, given: string): Promise<Localizer | null> {
   /* The store's own currency (Settings › Country & Currency): what its prices are in, what a market converts from and what checkout charges. */
-  const base = given ?? (await cachedStoreCurrency(creatorId))
+  const base = given || (await cachedStoreCurrency(creatorId))
   /* No language asked for: the website's own, which still has its shop words when it is not written in English (below). */
   const langs = await siteLanguages(creatorId)
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
@@ -258,7 +264,7 @@ export async function siteLocalizer(creatorId: string, locale: string | null | u
       })
     },
   }
-}
+})
 
 /**
  * What the page's language switch offers, or undefined for a website in one

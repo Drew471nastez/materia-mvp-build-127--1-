@@ -928,19 +928,21 @@ function FlowsTable(props: EmailsHomeProps) {
   return (
     <>
       {props.flows.length > 0 ? (
-        <div className="orders-strip flex gap-1 overflow-x-auto border-b border-[#f1f2f4] px-4 py-2.5 sm:px-5" role="tablist" aria-label={tt("Automation kinds")} data-flow-kinds="">
-          {kinds.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              role="tab"
-              aria-selected={kind === k.id}
-              onClick={() => setKind(k.id)}
-              className={cn("h-8 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100", kind === k.id ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2]")}
-            >
-              {k.label}
-            </button>
-          ))}
+        <div className="overflow-x-auto border-b border-[#f1f2f4] px-4 py-2.5 sm:px-5" data-flow-kinds="">
+          <div role="tablist" aria-label={tt("Automation kinds")} className="inline-flex rounded-lg bg-[#f1f2f4] p-0.5">
+            {kinds.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                role="tab"
+                aria-selected={kind === k.id}
+                onClick={() => setKind(k.id)}
+                className={cn("h-8 shrink-0 whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]", kind === k.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>

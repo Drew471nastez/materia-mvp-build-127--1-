@@ -311,7 +311,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   if (limited) return limited
 
   let business: ReturnType<typeof checkBusiness> | null = null
-  if (body.business !== undefined && body.business !== null) {
+  if (contact.config.businessInvoices && body.business !== undefined && body.business !== null) {
     business = checkBusiness(body.business)
     if (business.ok === false) return json({ error: business.error, field: business.field }, 400)
   }

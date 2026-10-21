@@ -900,8 +900,13 @@ export async function sendBuyerDownloadEmail(
     }
   }
   const firstTitle = model.items[0]?.title ?? productTitle
-  /* In the language the order was placed in (lib/emails/words.ts): the model's own words, the subject and the email are built in it. */
-  const language = creatorId ? await import("@/lib/emails/words-server").then((m) => m.emailLanguageFor(creatorId, params.lang)).catch(() => null) : null
+  /*
+    A website order is written in the language it was placed in, or the
+    website's own. A download bought on Storelib, a creator page or Explore
+    stays in English: those surfaces are not the store's website.
+  */
+  const websiteOrder = !!params.lang || !!params.receiptBaseUrl
+  const language = creatorId && websiteOrder ? await import("@/lib/emails/words-server").then((m) => m.emailLanguageFor(creatorId, params.lang)).catch(() => null) : null
   const say = <T,>(build: () => T): T => inEmailLanguage(language?.lang, language?.words, build)
   const standard = say(() => {
     const word = (v: string | null | undefined) =>

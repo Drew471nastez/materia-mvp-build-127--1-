@@ -18,6 +18,8 @@ import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, ord
 import { itemsText, resolveCopy, type EmailCopy } from "./customer-custom"
 import { tt } from "@/lib/i18n/text"
 import { formatCurrency } from "@/lib/markets/money"
+import { inEmailLanguage } from "@/lib/emails/words"
+import { senderPicture } from "@/lib/email-campaigns/sender"
 
 export type CustomerEmailGroup = "digital" | "orders" | "payments" | "shipping" | "pickup" | "returns" | "checkout"
 
@@ -94,7 +96,7 @@ export const SAMPLE_DATE = "10 October 2026"
  */
 export function previewCustomerEmail(
   id: string,
-  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null; accent?: string | null },
+  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null; accent?: string | null; language?: string | null; emailWords?: Record<string, string> | null },
   /** The store's own words (saved, or still being typed in the editor): drawn exactly as the sender draws them. */
   words?: EmailCopy | null,
 ): { subject: string; html: string; text: string } | null {
@@ -105,6 +107,10 @@ export function previewCustomerEmail(
   const orderDate = SAMPLE_DATE
   const sampleLines = id === "receipt" ? [{ title: tt("The bread baking course") }] : id.startsWith("return_") ? [SAMPLE_LINES[0]] : SAMPLE_LINES
   const copy = resolveCopy(words, { customer_name: tt("Maria"), order_number: "#1042", shop_name: shopName, items: itemsText(sampleLines.map((l) => l.title)) })
+  /* A download's receipt is English, the way Storelib, creator pages and Explore send it. A shipped order is in the website's published language. */
+  const language = id === "receipt" ? "en" : shop.language || "en"
+  const emailWords = id === "receipt" ? null : shop.emailWords
+  return inEmailLanguage(language, emailWords, () => {
   switch (id) {
     case "receipt": {
       const model: ReceiptEmailModel = {
@@ -112,6 +118,7 @@ export function previewCustomerEmail(
         sellerName: shopName,
         orderNumber: "#1042",
         dateText: SAMPLE_DATE,
+        sellerPicture: senderPicture({ logoUrl: shop.logoUrl }),
         items: [{ title: tt("The bread baking course"), variantName: null, amountText: formatCurrency(49, currency), note: null, thumbnailUrl: null }],
         subtotalText: null,
         tipText: null,
@@ -205,4 +212,5 @@ export function previewCustomerEmail(
     default:
       return null
   }
+  })
 }

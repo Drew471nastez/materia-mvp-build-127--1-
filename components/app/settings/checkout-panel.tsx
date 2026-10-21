@@ -182,6 +182,15 @@ export function CheckoutPanel() {
 
       <CheckoutTextCard />
 
+      <Card title={tt("Business invoices")} description={tt("A buyer who pays for a company.")}>
+        <Toggle
+          label={tt("Buying for a business")}
+          description={tt("Shows the box at checkout. Ticking it asks for the company name, tax number and address, and they go on the invoice. Hide it and checkout never asks.")}
+          checked={config.businessInvoices}
+          onChange={(v) => change({ businessInvoices: v })}
+        />
+      </Card>
+
       <Card title={tt("Marketing")} description={tt("Asking buyers if they want to hear from you, the way the law in most places expects.")}>
         <Toggle
           label={tt("Show the email news box")}
