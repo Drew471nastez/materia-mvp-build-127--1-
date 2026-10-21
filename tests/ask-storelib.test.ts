@@ -151,7 +151,8 @@ section("The computer's pill")
     )
     check(
       "the rings fade on their own opacity with the glass, never an ancestor's: a backdrop filter under a fading parent is switched off for the whole fade",
-      /data-ask-soften=\{ring\.reach\}[\s\S]{0,600}\.\.\.appear\(!expanded && !pillAway, 280, 200\),/.test(chat),
+      /* Changed on purpose (round 34): faceAway, which is pillAway except while it slides away under the canvas in full screen, solid. */
+      /data-ask-soften=\{ring\.reach\}[\s\S]{0,600}\.\.\.appear\(!expanded && !faceAway, 280, 200\),/.test(chat),
     )
     const css = read("app/globals.css")
     check(
@@ -167,9 +168,11 @@ section("The computer's pill")
   )
   check(
     "the pill's glass fades on its own opacity and is moved by a transform; the conversation moves and fades as one element",
-    /style=\{appear\(!expanded && !pillAway, 280, 200\)\}/.test(chat) &&
+    /* Changed on purpose (round 34): in full screen the pill slides under the canvas's edge with its glass solid (slideAway), never faded. */
+    /style=\{appear\(!expanded && !faceAway, 280, 200\)\}/.test(chat) &&
+      /const faceAway = pillAway && !slideAway/.test(chat) &&
       /\.\.\.cardMotion\(cardOpen\)/.test(chat) &&
-      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{lift\(!pillAway/.test(chat),
+      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{slideAway \? lift\(false, [^}]*\}px\)\)`, 320, 320\) : lift\(!pillAway/.test(chat),
   )
   check(
     "opening and closing move on transform and opacity only: the iOS curve in, a quicker ease in out",

@@ -60,18 +60,19 @@ console.log("\nSWITCH: read once at the press, played from there")
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
   const lib = readCode("lib/website-builder/canvas-switch.ts")
   /* Changed on purpose (round AX, the owner: "it flashes, it fades, it bumps", wants it flexible). The fade (AW) and the picture morph read as a flash; the card's real box moves again and the page flows with it, live, but only the sections on screen are laid out on the way. */
-  check("the card's look and the sidebar's are read once on the press, the off-screen sections paused, before the change", /switchFrom\.current = \{ card: card \? readCardLook\(card\) : null, fold: fold && panel \? readFoldLook\(fold, panel\) : null \}\s*\n[\s\S]{0,120}if \(card\) holdOffscreenSections\(card\)[\s\S]{0,60}apply\(\)/.test(editor))
+  check("the card's look and the sidebar's are read once on the press, the off-screen sections paused, before the change", /switchFrom\.current = \{ card: card \? readCardLook\(card\) : null, fold: fold && panel \? readFoldLook\(fold, panel\) : null \}\s*\n[\s\S]{0,200}if \(card\) \{\s*holdView\(card\)\s*holdOffscreenSections\(card\)\s*\}[\s\S]{0,60}apply\(\)/.test(editor) /* Changed on purpose (round 34): what is under the eye is held through the switch too (holdView) */)
   check("the size switch, the full screen button and Escape all go through it",
     /onClick=\{\(\) => switchCanvas\(\(\) => go\(next\.key\)\)\}/.test(editor) && /onClick=\{\(\) => switchCanvas\(\(\) => toggleCanvasFullScreen\(!fullView\)\)\}/.test(editor) && /switchCanvas\(\(\) => setFullScreen\(false\)\)/.test(editor))
   check("full screen folds the sidebar from where it was; a size change morphs the card from its old look to its new one",
-    /playSidebarFold\(fold, panel, at, fullView \? 0 : sidebarWidth, fullView \? 0 : 1, sidebarWidth\)/.test(editor) && /playCardMorph\(card, from\.card, readCardLook\(card\)\)/.test(editor) && /stopCanvasSwitch\(card, fold, panel\)/.test(editor))
+    /playSidebarFold\(fold, panel, at, fullView \? 0 : sidebarWidth, fullView \? 0 : 1, sidebarWidth\)/.test(editor) && /* Changed on purpose (round 34): the new look is read before the fold plays, so phone into full screen ends at the full width */ /const to = resizing && card \? readCardLook\(card\) : null[\s\S]{0,600}playSidebarFold\([\s\S]{0,300}playCardMorph\(card, from\.card, to\)/.test(editor) && /stopCanvasSwitch\(card, fold, panel\)/.test(editor))
   check("the paused sections come back when the moves have finished, a few a frame, the view held still", /Promise\.all\(moving\.map\(\(a\) => a\.finished\)\)\.then\(land/.test(editor) && /export function releaseHeldSections\(perFrame = 3\)/.test(lib) && /sc\.scrollTop \+= by/.test(lib) && /overflowAnchor = "none"/.test(lib))
   check("a press that changes nothing hands them straight back", /if \(!switchSeen\.current\) releaseHeldSections\(\)/.test(editor))
   check("native sections and an imported theme's both", /\[data-section-box\]/.test(lib) && /\.shopify-section/.test(lib) && /contentVisibility = "hidden"/.test(lib))
   check("no fade, no picture, no pinned page", !/startViewTransition|canvasFadeOut|CANVAS_FADE_OUT_MS|pinCanvasPage\(/.test(editor))
   check("the card is never slid or dimmed (the old glide is gone), and no strips are laid over it", !/translateX\(\$\{fullView \? by : -by\}px\)/.test(editor) && !/opacity: 0\.55, transform: "scale\(0\.985\)"/.test(editor) && !/playCardEdges|data-wb-switch-edge/.test(editor + lib))
   check("no CSS transition on the card's size: a second press mid way turns it round from where it is", /"wb-canvas-frame relative overflow-hidden transition-opacity duration-300"/.test(editor) && /function stop\(el: Element\)/.test(lib) && /stop\(card\)/.test(lib))
-  check("reduced motion: nothing moves", (lib.match(/if \(reduced\(\) \|\|/g) ?? []).length === 2)
+  /* Changed on purpose (round 34): three, the third the view held under the eye (holdView) */
+  check("reduced motion: nothing moves", (lib.match(/if \(reduced\(\) \|\|/g) ?? []).length === 3 && /export function holdOffscreenSections[\s\S]{0,200}if \(reduced\(\)\) return/.test(lib))
 }
 
 console.log("\nFIELDS: the sidebar's text never scrolls sideways")

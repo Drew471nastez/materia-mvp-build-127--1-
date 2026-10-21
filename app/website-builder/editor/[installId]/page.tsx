@@ -9,6 +9,8 @@ import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type ReactNode } from "react"
+import { flushSync } from "react-dom"
+import { MENU_DRAWER_MAX_WIDTH } from "@/lib/website-builder/header-drawers"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
@@ -116,7 +118,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, p
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { CANVAS_SWITCH_MS, holdOffscreenSections, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS, holdOffscreenSections, holdView, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -3477,14 +3479,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const fold = sidebarFoldRef.current
     const panel = sidebarRef.current
     switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
-    /* Before the change: only what is on screen will flow with the card. */
-    if (card) holdOffscreenSections(card)
+    /* Before the change: what is under the eye stays there, and only what is on screen will flow with the card. */
+    if (card) {
+      holdView(card)
+      holdOffscreenSections(card)
+    }
     switchSeen.current = false
     apply()
     /* A press that changed nothing (no switch played) hands them straight back. */
     requestAnimationFrame(() => { if (!switchSeen.current) releaseHeldSections() })
   }, [])
   const lastView = useRef<{ device: string; full: boolean } | null>(null)
+  /* The device the site's header is drawn for: the canvas's, from the moment the card crosses the header's breakpoint (below). */
+  const [headerDevice, setHeaderDevice] = useState<DeviceMode>(device)
+  const headerRun = useRef(0)
   useLayoutEffect(() => {
     const prev = lastView.current
     lastView.current = { device, full: fullView }
@@ -3497,20 +3505,67 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const card = canvasFrameRef.current
     const folding = prev.full !== fullView && !!fold && !!panel
     const resizing = !!from?.card && !!card && prev.device !== device
+    const run = ++headerRun.current
     if (!folding && !resizing) {
+      setHeaderDevice(device)
       releaseHeldSections()
       return
     }
     stopCanvasSwitch(card, fold, panel)
+    /*
+      Its new look is the stylesheet's, read with nothing moving it: before
+      the fold starts, so going from the phone into full screen the card ends
+      at the width it has once the sidebar is gone, not at the width it has
+      beside it (filmed: it landed 148px short and snapped).
+    */
+    /*
+      THE SCROLL STAYS WHERE IT WAS THROUGH THAT READ. Reading the new look
+      lays the page out once at the new width, a layout nobody sees (the card
+      is put back at its old size before the frame is drawn), and the
+      browser's scroll anchoring moved the scroll for it: filmed scrolled to
+      the middle of a long page, the page jumped 394px at the press before
+      the card had moved. Anchoring is off for the read and the scroll is put
+      back once the card is at its starting size again.
+    */
+    const scroller = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
+    const keepTop = scroller ? scroller.scrollTop : 0
+    const keepAnchor = scroller ? scroller.style.overflowAnchor : ""
+    if (resizing && scroller) scroller.style.overflowAnchor = "none"
+    const to = resizing && card ? readCardLook(card) : null
     const moving: Animation[] = []
     if (folding && fold && panel) {
       const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
       moving.push(...playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth))
     }
-    if (resizing && card && from?.card) {
-      /* Its new look is the stylesheet's, read with nothing moving it. */
-      const a = playCardMorph(card, from.card, readCardLook(card))
-      if (a) moving.push(a)
+    let morph: Animation | null = null
+    if (resizing && card && from?.card && to) {
+      morph = playCardMorph(card, from.card, to)
+      if (morph) moving.push(morph)
+    }
+    if (resizing && scroller) {
+      if (Math.abs(scroller.scrollTop - keepTop) >= 1) scroller.scrollTop = keepTop
+      scroller.style.overflowAnchor = keepAnchor
+    }
+    /*
+      THE HEADER CHANGES ITS LAYOUT WHERE A WINDOW WOULD: when the card's
+      width crosses the header's breakpoint on the way, not at the press. At
+      the press it put the phone's menu button across a desktop wide card
+      (and the desktop's links in a phone) for the frames before the card
+      moved. Only the header reads the device; nothing else is drawn again.
+    */
+    if (!morph || !card) setHeaderDevice(device)
+    else {
+      const wide = device !== "mobile"
+      const cross = () => {
+        if (run !== headerRun.current) return
+        const w = card.getBoundingClientRect().width
+        if (morph!.playState === "finished" || morph!.playState === "idle" || (wide ? w > MENU_DRAWER_MAX_WIDTH : w <= MENU_DRAWER_MAX_WIDTH)) {
+          flushSync(() => setHeaderDevice(device))
+          return
+        }
+        requestAnimationFrame(cross)
+      }
+      requestAnimationFrame(cross)
     }
     /* Landed (or turned round by another press, which cancels these): the paused sections come back, a few a frame. */
     let done = false
@@ -3521,7 +3576,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (moving.some((a) => a.playState === "idle")) return
       releaseHeldSections()
     }
-    const t = window.setTimeout(land, CANVAS_SWITCH_MS + 400)
+    /* A fallback for a promise that never settles: past the wait for the first frame (startOnceDrawn) and the move. */
+    const t = window.setTimeout(land, CANVAS_SWITCH_MS * 2 + 600)
     Promise.all(moving.map((a) => a.finished)).then(land, () => {})
   }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
@@ -4305,10 +4361,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * resize, which must not reopen something somebody closed.
      */
     let wasMobile: boolean | null = null
+    /*
+      The size the canvas was showing before a window narrowed past the
+      phone line, given back when it widens again: a window dragged narrow
+      and back (or out of a computer's full screen) came back as a phone
+      card in the desktop editor.
+    */
+    let shownBefore: DeviceMode | null = null
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobileView(mobile)
-      if (mobile) setDevice("mobile")
+      if (mobile) {
+        const crossing = wasMobile !== true
+        setDevice((d) => {
+          if (crossing && shownBefore === null) shownBefore = d
+          return "mobile"
+        })
+      } else if (wasMobile === true && shownBefore !== null) {
+        const back = shownBefore
+        shownBefore = null
+        setDevice(back)
+      }
       if (mobile !== wasMobile) setAiOpen(!mobile && !askDockClosed())
       wasMobile = mobile
     }
@@ -9953,7 +10026,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onClick={() => switchCanvas(() => go(next.key))}
                     className="hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                   >
-                    <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
+                    {/* Swapped in place, like the full screen icon beside it: no fade (the owner: "it fades"). */}
+                    <now.Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{`${now.label} · click for ${next.label}`}</TooltipContent>
@@ -11249,6 +11323,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 inspectorEnabled={canvasInspecting && !fullSettled}
                 selectedSectionId={selectedSectionId}
                 device={device}
+                headerDevice={headerDevice}
                 /**
                  * What the canvas card's top corners are cut to, so the
                  * selection ring on the top section can be cut to the same
@@ -11337,7 +11412,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <ThemeChat
               variant="dock"
               hidden={!aiOpen}
-              suspended={previewMode !== "preview" || projectSettingsOpen || fullView}
+              suspended={previewMode !== "preview" || projectSettingsOpen}
+              /* Full screen: it slides under the canvas's edge as the canvas grows, never fades. */
+              tucked={fullView}
               openRequest={aiAsk}
               installId={installId}
               page={currentPage}
@@ -11867,6 +11944,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled,
   selectedSectionId,
   device,
+  headerDevice,
   canvasRadiusPx,
   bodyCount,
   onSelectSection,
@@ -11901,6 +11979,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
+  /** What the header is drawn for: the device, once the card has crossed the header's breakpoint on its way there. */
+  headerDevice: DeviceMode
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
@@ -12059,7 +12139,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                 onSelectSection(section.id, field ? field.block : path.length ? pathKey(path) : null, field)
               }
             : undefined,
-          deviceMode: device,
+          /*
+            Only the header reads the device (the other sections answer to
+            the card's width with container queries), so only the header is
+            drawn again when it changes: a size switch no longer redraws
+            every section of the page in the frame of the press.
+          */
+          deviceMode: role === "header" || section.type === "header" ? headerDevice : undefined,
           /**
            * THE HEADER AND THE FOOTER NAVIGATE; EVERYTHING ELSE SELECTS.
            *

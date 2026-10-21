@@ -188,7 +188,7 @@ console.log("\nFull screen, the third way of looking\n")
   check("remembered for the session", /const FULL_SCREEN_KEY = "wb:full-screen"/.test(page) && /window\.sessionStorage\.setItem\(FULL_SCREEN_KEY, "1"\)/.test(page))
   check("the sidebar folds by its width and opacity, not by unmounting", /maxWidth: fullView \? 0 : sidebarWidth/.test(page) && /opacity: fullView \? 0 : 1/.test(page) && /* Changed on purpose (round AJ: the width snaps once, no width animated a frame at a time; Y1: the sidebar is laid over the canvas and goes, lib/website-builder/canvas-switch.ts) */ /playSidebarFold\(/.test(page) && !/transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
   check("Escape leaves it", /if \(e\.key !== "Escape" \|\| e\.defaultPrevented\) return[\s\S]{0,300}setFullScreen\(false\)/.test(page))
-  check("no rings, toolbar, hover or Ask pill over the site", /inspectorEnabled=\{canvasInspecting && !fullSettled\}/.test(page) && /canvasInspecting && !fullView && !isMobileView/.test(page) && /suspended=\{[^}]*\|\| fullView\}/.test(page))
+  check("no rings, toolbar, hover or Ask pill over the site", /inspectorEnabled=\{canvasInspecting && !fullSettled\}/.test(page) && /canvasInspecting && !fullView && !isMobileView/.test(page) && /* Changed on purpose (round 34): the Ask pill is tucked under the canvas's edge in full screen, not faded */ /tucked=\{fullView\}/.test(page))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -40,6 +40,7 @@
  *   design mode: it is a picture, not a page.
  */
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
+import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
@@ -267,7 +268,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const langCode = language?.locale ?? ""
   const box = useRef<HTMLDivElement | null>(null)
   const [compatFiles, setCompatFiles] = useState<Record<string, string> | null>(null)
-  const [height, setHeight] = useState(800)
+  /*
+    THE FRAME IS AS TALL AS THE CANVAS IT SITS IN, in the same layout: the
+    canvas (#wb-preview-root) is a size container, so 100cqh is its height
+    at every frame. This was a number kept in state from a ResizeObserver,
+    a frame behind the card: while the editor's size switch grew the card,
+    the frame ended short of it and the strip below showed through.
+  */
+  const height = "max(320px, 100cqh)"
   const scrollY = useRef(0)
   /* Whether the inspector is on, for a page drawn from now: it knows before its first paint (canvas-bridge.ts, window.__slInspect). */
   const inspecting = useRef(props.inspectorEnabled)
@@ -294,17 +302,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
     )
     return () => { live = false }
   }, [installId, attempt, filesVersion])
-
-  /* The frame is as tall as the canvas it sits in: the page scrolls inside it, as the website does. */
-  useEffect(() => {
-    const root = document.getElementById("wb-preview-root")
-    if (!root) return
-    const fit = () => setHeight(Math.max(320, root.clientHeight))
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(root)
-    return () => ro.disconnect()
-  }, [])
 
   /* The theme's own words in the language previewed (its locales/fr.json), for `| t`: read once per language. */
   const [langFiles, setLangFiles] = useState<{ lang: string; files: Record<string, string> } | null>(null)
@@ -908,6 +905,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     window.addEventListener(REVEAL_EVENT, onReveal)
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)
+  }, [])
+
+  /*
+    THE EDITOR'S SIZE SWITCH, INSIDE THE FRAME. The frame is resized with the
+    card, and what the person was looking at in the theme's page is held under
+    their eye by the page itself (canvas-bridge.ts, hold-view): the editor's
+    hand cannot reach into the frame (lib/website-builder/canvas-switch.ts,
+    HOLD_VIEW_EVENT).
+  */
+  useEffect(() => {
+    const onHold = (e: Event) => {
+      const on = !!(e as CustomEvent<{ on?: boolean }>).detail?.on
+      const slot = slotsRef.current[0]
+      if (!slot?.ready) return
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "hold-view", on }, "*")
+    }
+    window.addEventListener(HOLD_VIEW_EVENT, onHold)
+    return () => window.removeEventListener(HOLD_VIEW_EVENT, onHold)
   }, [])
 
   /*

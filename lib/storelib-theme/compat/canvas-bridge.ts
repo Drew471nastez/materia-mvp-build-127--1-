@@ -1106,9 +1106,92 @@ export const CANVAS_BRIDGE = `
     };
     requestAnimationFrame(function () { requestAnimationFrame(go); });
   };
+  /*
+    THE EDITOR'S SIZE SWITCH, FROM IN HERE. The builder resizes this frame
+    with its canvas (desktop, phone, full screen), and the page reflows at
+    every frame like a window being resized. Two things went wrong in it,
+    filmed on Dawn (scripts/check-view-switch-frames.mjs): the place being
+    read was lost (scrolled to the middle, going to the desktop landed 548px
+    away, on another section), and pieces that waited off screen to rise in
+    came into view as the page got shorter and faded in, a white gap until
+    they did. While the builder says hold-view: the element under the eye
+    (a quarter of the way down, at most 120px) is kept where it was, after
+    each layout and before it is drawn, and anything waiting to rise in that
+    the resize brings into view is simply there. A wheel or a touch is the
+    person scrolling, and ends it; so does the builder, or two seconds.
+  */
+  var holding = null;
+  var holdView = function (on) {
+    if (holding) { holding.stop(); holding = null; }
+    if (!on || typeof ResizeObserver === "undefined") return;
+    var se = document.scrollingElement || document.documentElement;
+    var eye = document.elementFromPoint(innerWidth / 2, Math.min(120, innerHeight / 4));
+    var at = eye ? eye.getBoundingClientRect().top : 0;
+    var anchor = se.style.overflowAnchor;
+    se.style.overflowAnchor = "none";
+    var began = document.timeline ? document.timeline.currentTime : null;
+    var inView = function (el) { var r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0; };
+    var show = function () {
+      var waiting = document.querySelectorAll(".scroll-trigger--offscreen");
+      for (var i = 0; i < waiting.length; i++) {
+        if (!inView(waiting[i])) continue;
+        /*
+          Its entrance started and taken to its end at once, not switched off:
+          a theme can keep the piece faint at rest and rely on the entrance
+          (filled forwards) to show it, so "animation: none" left it invisible.
+        */
+        waiting[i].classList.remove("scroll-trigger--offscreen");
+        void getComputedStyle(waiting[i]).opacity;
+        if (waiting[i].getAnimations) waiting[i].getAnimations().forEach(function (a) {
+          var tm = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+          if (tm && isFinite(tm.endTime)) { try { a.finish(); } catch (e) {} }
+        });
+      }
+      if (!document.getAnimations || began === null) return;
+      document.getAnimations().forEach(function (a) {
+        var t = a.effect && a.effect.target;
+        if (!t || !t.getBoundingClientRect || a.startTime === null || a.startTime < began) return;
+        var timing = a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+        if (!timing || !isFinite(timing.endTime)) return;
+        var fades = a.transitionProperty === "opacity" || (a.effect.getKeyframes && a.effect.getKeyframes().some(function (k) { return "opacity" in k; }));
+        if (fades && inView(t)) { try { a.finish(); } catch (e) {} }
+      });
+    };
+    var keep = function () {
+      show();
+      if (!eye || !eye.isConnected) return;
+      var moved = eye.getBoundingClientRect().top - at;
+      if (Math.abs(moved) >= 0.5) scrollTo({ top: scrollY + moved, behavior: "instant" });
+    };
+    var ro = new ResizeObserver(keep);
+    ro.observe(document.documentElement);
+    addEventListener("resize", keep);
+    /*
+      Those scrolls are not the person's: the theme's own scripts are not told
+      of them (a sticky header that hides on the way down slid away as the
+      page was held in place). Said once, where it ended, when the hold ends.
+    */
+    var quiet = function (e) { if (e.target === document || e.target === window) e.stopImmediatePropagation(); };
+    addEventListener("scroll", quiet, true);
+    var mine = function () { holdView(false); };
+    addEventListener("wheel", mine, { passive: true });
+    addEventListener("touchstart", mine, { passive: true });
+    var t = setTimeout(mine, 2000);
+    holding = { stop: function () {
+      ro.disconnect();
+      clearTimeout(t);
+      removeEventListener("resize", keep);
+      removeEventListener("scroll", quiet, true);
+      removeEventListener("wheel", mine);
+      removeEventListener("touchstart", mine);
+      se.style.overflowAnchor = anchor;
+      post({ type: "scrolled", scrollY: scrollY });
+    } };
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
+    if (m.type === "hold-view") { holdView(!!m.on); return; }
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
       queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
