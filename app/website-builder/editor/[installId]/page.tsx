@@ -8,6 +8,7 @@ import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
+import { createSaveQueue, retryDelayMs } from "@/lib/website-builder/save-queue"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type ReactNode } from "react"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
@@ -3093,7 +3094,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     },
     [installId],
   )
-  const [isDirty, setIsDirty] = useState(false)
+  const [isDirty, setIsDirtyState] = useState(false)
+  /**
+   * EVERY EDIT IS COUNTED. A save that lands says Saved only when nothing
+   * was edited after what it wrote was taken: the count it started with is
+   * still the count (saveDraft). Before this, the first of two saves landing
+   * put the button to Saved and switched autosave off over an edit made
+   * while it was on its way, and leaving gave no warning for it.
+   */
+  const editRev = useRef(0)
+  const setIsDirty = useCallback((dirty: boolean) => {
+    if (dirty) editRev.current++
+    setIsDirtyState(dirty)
+  }, [])
 
   /**
    * THE DRAFT IS AHEAD OF WHAT IS LIVE.
@@ -3690,19 +3703,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const redoRef = useRef(redoStack)
   redoRef.current = redoStack
 
-  /** The page as it is right now, deep copied so a later edit cannot reach it. */
+  /**
+   * The page as it is right now, BY REFERENCE (round 34). Every edit in this
+   * file makes new objects for what it changes and keeps the rest (the
+   * canvas's memo depends on exactly that), so a step can hold the page
+   * itself: nothing later reaches it.
+   *
+   * It was a deep copy (JSON round trip of every section), and an Undo then
+   * put back forty new section objects for one changed: every section on
+   * the page drew again, the canvas's memo missed on all of them, and each
+   * step of the history held a full copy of the page. Measured on 44
+   * sections (scripts/check-editor-sections.mjs), eight Undos drew 100
+   * sections; by reference, only the ones the step changes.
+   */
   const snapshotNow = useCallback(
     () => ({
-      sections: JSON.parse(JSON.stringify(sectionsRef.current)) as SectionInstance[],
-      settings: JSON.parse(JSON.stringify(settingsRef.current)) as ThemeSettingsValues,
+      sections: sectionsRef.current,
+      settings: settingsRef.current,
     }),
     [],
   )
+
+  /** Ends the run of edits now (lib/website-builder/undo-run.ts cut): set once the run exists, below. */
+  const cutUndoRun = useRef<() => void>(() => {})
 
   /** Thirty steps. Anything a person can remember doing, they can undo. */
   const pushUndo = useCallback(() => {
     setUndoStack(prev => [...prev.slice(-30), snapshotNow()])
     setRedoStack([])
+    /*
+      A step of its own (a delete, a move) ends the run of typing before it,
+      so typing again after it is a step of its own too. It used to join the
+      run that was still open: Undo then took back the typing after the
+      delete together with the delete.
+    */
+    cutUndoRun.current()
   }, [snapshotNow])
 
   /**
@@ -3717,6 +3752,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const pushUndoLatest = useRef(pushUndo)
   pushUndoLatest.current = pushUndo
   const [undoRun] = useState(() => createUndoRun(() => pushUndoLatest.current()))
+  cutUndoRun.current = undoRun.cut
   const endUndoRun = undoRun.end
   const debouncedPushUndo = undoRun.step
 
@@ -5153,7 +5189,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* The favicon is one value in Website settings and in an imported theme's own settings (lib/website-builder/favicon-sync.ts): a write of one carries the other. */
     const follows = faviconFollows(settingsRef.current as Record<string, unknown>, key, value)
     if (sameSettingValue(settingsRef.current[key], value) && !follows) return
-    debouncedPushUndo()
+    debouncedPushUndo(`theme:${key}`)
     setSettingsDraft(prev => ({ ...prev, [key]: value, ...faviconFollows(prev as Record<string, unknown>, key, value) }))
 
     // If updating logo in theme settings, also sync to header section
@@ -5322,7 +5358,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (current && sameSettingValue(current.settings?.[key], value)) return
     /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
     if (current) echoSectionSetting(sectionId, key, value)
-    debouncedPushUndo()
+    debouncedPushUndo(`section:${sectionId}:${key}`)
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
       // If updating header section logo settings, also sync to theme settings
@@ -5383,7 +5419,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!path) {
       if (!staticType) return
       const target = parsePath(blockKey)
-      debouncedPushUndo()
+      debouncedPushUndo(`block:${sectionId}:${blockKey}:${key}`)
       setSections(prev => prev.map(s =>
         s.id === sectionId
           ? { ...s, blocks: insertBlockAt(s.blocks, target.slice(0, -1), { id: target[target.length - 1], type: staticType, settings: { [key]: value }, static: true }) }
@@ -5396,7 +5432,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (block && sameSettingValue(block.settings?.[key], value)) return
     /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
     if (block) echoBlockSetting(sectionId, blockKey, key, value)
-    debouncedPushUndo()
+    debouncedPushUndo(`block:${sectionId}:${blockKey}:${key}`)
     setSections(prev => prev.map(s =>
       s.id === sectionId
         ? { ...s, blocks: updateAt(s.blocks, path, b => ({ ...b, settings: { ...b.settings, [key]: value } })) }
@@ -6370,7 +6406,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [isDirty, saving, publishing, loading, sections, settingsDraft, syncConflict])
 
   // Save header/footer to all pages so they stay universal
-  const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
+  /* The page's sections and its key are the ones being written (a save's snapshot), not whatever is on screen when the request goes. */
+  const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft", list: SectionInstance[] = sections, page: PageKey = currentPage) => {
     /**
      * THE HEADER AND FOOTER GROUPS, whole: an announcement bar above the
      * header, a header written as a section file, a header hidden because
@@ -6378,7 +6415,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * deleted the header (or footer) here; otherwise an empty one means
      * "nothing to copy", and the other pages keep theirs.
      */
-    const g = splitGroups(sections)
+    const g = splitGroups(list)
     const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
     const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
     /* The Overlay group is the site's too: a popup or a bottom bar is on every page, as Shopify's groups are. */
@@ -6395,7 +6432,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         header_group: headerGroup,
         footer_group: footerGroup,
         overlay_group: overlayGroup,
-        current_page: currentPage,
+        current_page: page,
         mode,
       }),
     }, 20_000).catch(() => null)
@@ -6435,6 +6472,104 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
+  /**
+   * ===========================================================================
+   *  THE DRAFT, WRITTEN ONE SNAPSHOT AT A TIME
+   * ===========================================================================
+   * What a save writes is taken when it is asked for (the page, its
+   * sections, the settings, and the edit count then), and written through
+   * one queue (lib/website-builder/save-queue.ts): never two writes of the
+   * draft in flight, so an older one cannot land after a newer one and put
+   * the older page back; of saves waiting for the same page only the newest
+   * is sent. Publish writes its draft through the same queue.
+   */
+  type DraftSnapshot = { page: PageKey; sections: SectionInstance[]; settings: ThemeSettingsValues; rev: number }
+  type DraftResult = { ok: true } | { ok: false; problem: SaveProblem; reason: string }
+  const sendDraft = async (snap: DraftSnapshot): Promise<DraftResult> => {
+    try {
+      /*
+        THE THREE WRITES AT ONCE (round 25), as Publish already sends them:
+        the settings, this page, and the header and footer on every other
+        page are different rows, and each was waited for before the next
+        was sent, three round trips in front of every save and of every page
+        switch with something unsaved. Each is a whole value written again
+        (idempotent), so one that fails leaves the edit unsaved and the next
+        save sends all three again; what is said is the first that failed.
+      */
+      const sent = sectionsForSave(snap.sections)
+      const [settingsRes, sectionsRes] = await Promise.all([
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(snap.settings as Record<string, unknown>, themeGroups) }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: snap.page, sections: sent, mode: "draft" }),
+        // Sync header/footer to all other pages
+        syncHeaderFooterToAllPages("draft", snap.sections, snap.page),
+      ])
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json().catch(() => ({}))
+        return { ok: false, problem: explainSaveProblem(settingsRes.status, d), reason: `http_${settingsRes.status}` }
+      }
+      if (!sectionsRes.ok) {
+        const d = await sectionsRes.json().catch(() => ({}))
+        // A FAILED autosave is not quiet. Silence here is how somebody keeps
+        // working for an hour against a server that stopped accepting writes.
+        return { ok: false, problem: explainSaveProblem(sectionsRes.status, d, sent), reason: `http_${sectionsRes.status}` }
+      }
+      return { ok: true }
+    } catch {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false
+      return { ok: false, problem: explainSaveProblem(offline ? null : 503, null), reason: offline ? "offline" : "network" }
+    }
+  }
+  const sendDraftLatest = useRef(sendDraft)
+  sendDraftLatest.current = sendDraft
+  const [draftQueue] = useState(() =>
+    createSaveQueue<DraftSnapshot, DraftResult>((snap) => sendDraftLatest.current(snap), {
+      sameTarget: (a, b) => a.page === b.page,
+      /* The same objects: nothing was edited between the two, so the second would write what the first did. */
+      equal: (a, b) => a.sections === b.sections && a.settings === b.settings,
+      succeeded: (r) => r.ok,
+    }),
+  )
+  /** Nothing edited since `snap` was taken: what it wrote is what is here. */
+  const writtenIsCurrent = (snap: DraftSnapshot) =>
+    editRev.current === snap.rev && sectionsRef.current === snap.sections && settingsRef.current === snap.settings
+
+  /**
+   * A SAVE THAT COULD NOT GO THROUGH FOR A REASON THAT PASSES (offline, the
+   * server not answering, too many at once) IS TRIED AGAIN ON ITS OWN, a
+   * little later each time (retryDelayMs), and at once when the browser is
+   * back online. The banner's words already promised this ("Saving resumes
+   * when you're back", "it saves again on its own"); nothing did it until
+   * the next edit. A refusal that says what is wrong (a 400, a 413, signed
+   * out) is not tried again: the same body would be refused the same way.
+   */
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryAttempt = useRef(0)
+  const saveDraftLatest = useRef<(o?: { quiet?: boolean }) => Promise<boolean>>(async () => false)
+  const retrySaveNow = useCallback(() => {
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    /* The same holds as autosave's: not over GitHub's version, not across a page switch or a restore. */
+    if (!isDirtyRef.current || syncConflictRef.current || switchingPage.current || restoreHold.current) return
+    void saveDraftLatest.current({ quiet: true })
+  }, [])
+  const scheduleRetry = (problem: SaveProblem) => {
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    if (problem.action !== "retry") return
+    retryTimer.current = setTimeout(retrySaveNow, retryDelayMs(retryAttempt.current++))
+  }
+  useEffect(() => {
+    const online = () => {
+      if (retryTimer.current) retrySaveNow()
+    }
+    window.addEventListener("online", online)
+    return () => {
+      window.removeEventListener("online", online)
+      if (retryTimer.current) clearTimeout(retryTimer.current)
+      retryTimer.current = null
+    }
+  }, [retrySaveNow])
+
   const saveDraft = async (options: { quiet?: boolean; keepMine?: boolean } = {}): Promise<boolean> => {
     /* Never over GitHub's version while the creator has not picked (syncConflict), unless saving IS their pick. */
     if (syncConflictRef.current) {
@@ -6446,55 +6581,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
     const t0 = performance.now()
-    try {
-      /*
-        THE THREE WRITES AT ONCE (round 25), as Publish already sends them:
-        the settings, this page, and the header and footer on every other
-        page are different rows, and each was waited for before the next
-        was sent, three round trips in front of every save and of every page
-        switch with something unsaved. Each is a whole value written again
-        (idempotent), so one that fails leaves the edit unsaved and the next
-        save sends all three again; what is said is the first that failed.
-      */
-      const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-        // Sync header/footer to all other pages
-        syncHeaderFooterToAllPages("draft"),
-      ])
-      if (!settingsRes.ok) {
-        perfFail("/step/editor/save", `http_${settingsRes.status}`)
-        const d = await settingsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(settingsRes.status, d))
-        return false
-      }
-
-      if (!sectionsRes.ok) {
-        perfFail("/step/editor/save", `http_${sectionsRes.status}`)
-        const d = await sectionsRes.json().catch(() => ({}))
-        // A FAILED autosave is not quiet. Silence here is how somebody keeps
-        // working for an hour against a server that stopped accepting writes.
-        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
-        return false
-      }
-
-      setIsDirty(false)
-      setSaveProblem(null)
-      snapshotAfterSave()
-      /**
-       * Autosave says nothing. A toast every couple of seconds is noise that
-       * trains somebody to ignore the one that matters — the bar already shows
-       * the state.
-       */
-      perfStep("/step/editor/save", performance.now() - t0)
-      if (!options.quiet) showNotification("Saved")
-      return true
-    } catch {
-      perfFail("/step/editor/save", typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "network")
-      setSaveProblem(explainSaveProblem(typeof navigator !== "undefined" && navigator.onLine === false ? null : 503, null))
+    const snap: DraftSnapshot = { page: currentPage, sections, settings: settingsDraft, rev: editRev.current }
+    const result = await draftQueue.save(snap)
+    if (!result.ok) {
+      perfFail("/step/editor/save", result.reason)
+      setSaveProblem(result.problem)
+      scheduleRetry(result.problem)
       return false
     }
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    retryAttempt.current = 0
+    /*
+      Saved is said only for what is on screen. An edit made while this was
+      on its way is still unsaved: its own autosave writes it, and this asks
+      for one too, for an edit that changed no section (nothing for autosave
+      to notice).
+    */
+    if (writtenIsCurrent(snap)) setIsDirty(false)
+    else retryTimer.current = setTimeout(retrySaveNow, AUTOSAVE_DELAY_MS)
+    setSaveProblem(null)
+    snapshotAfterSave()
+    /**
+     * Autosave says nothing. A toast every couple of seconds is noise that
+     * trains somebody to ignore the one that matters: the bar already shows
+     * the state.
+     */
+    perfStep("/step/editor/save", performance.now() - t0)
+    if (!options.quiet) showNotification("Saved")
+    return true
   }
+  saveDraftLatest.current = saveDraft
 
   const publishChanges = async () => {
     /* Two versions of the same page: which one goes live is the creator's to say first. */
@@ -6513,24 +6630,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         draft, exactly. The writes go to different rows, so at the same time;
         each one ends (lib/website-builder/save-request).
       */
+      /* Through the draft's queue, after any autosave still on its way, so none of them lands after this. */
+      const snap: DraftSnapshot = { page: currentPage, sections, settings: settingsDraft, rev: editRev.current }
       if (isDirty) {
-      const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-        syncHeaderFooterToAllPages("draft"),
-      ])
-      if (!settingsRes.ok) {
-        const d = await settingsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(settingsRes.status, d))
-        setPublishing(false)
-        return
-      }
-      if (!sectionsRes.ok) {
-        const d = await sectionsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
-        setPublishing(false)
-        return
-      }
+        const written = await draftQueue.save(snap)
+        if (!written.ok) {
+          setSaveProblem(written.problem)
+          scheduleRetry(written.problem)
+          setPublishing(false)
+          return
+        }
+      } else {
+        await draftQueue.idle()
       }
 
       /*
@@ -6558,8 +6669,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setInstall({ ...install, status: "published", published_at: new Date().toISOString() })
       }
 
-      setIsDirty(false)
-      setUnpublished(false)
+      /* An edit made while it published is not live and not saved: it stays unsaved, and autosave writes it. */
+      if (writtenIsCurrent(snap)) {
+        setIsDirty(false)
+        setUnpublished(false)
+      }
       setHasPublished(true)
       setAgentNote(null)
       snapshotAfterSave()
@@ -8431,7 +8545,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => catalogCardsForCanvas.map((c) => ({ id: c.id, title: c.settings.title, price: c.settings.price, image: c.settings.image, url: c.settings.url })),
     [catalogCardsForCanvas],
   )
-  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
+  /*
+    Keyed on the header (the only section siteMenus reads), not the page
+    (round 34): keyed on `sections`, any edit anywhere made new menus, new
+    storefront data for the canvas and a new render function in its live
+    provider, so every section drawn from a .storelib file drew again
+    (scripts/check-editor-sections.mjs: hiding one section drew 43).
+  */
+  const menuHeader = sections.find((s) => s.type === "header")
+  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, menuHeader ? [menuHeader] : []), [activeThemeSettings, menuHeader])
   /* An imported Shopify theme (lib/storelib-theme/compat/install.ts): its canvas, its collections. */
   const canvasCompat = useMemo(() => compatOf(canvasThemeSettings), [canvasThemeSettings])
   const compatCollections = useMemo(
@@ -11472,7 +11594,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
  * `transform` — Tailwind v4 compiles those utilities to the standalone
  * properties, and a transition naming `transform` animates neither.
  */
-function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
+/*
+  Memoised on its place and the canvas's (stable) add (round 34): the canvas
+  draws one per gap, 44 on a long page, and each drew again on every canvas
+  render with a new arrow function for its click.
+*/
+const CanvasInsertStrip = memo(function CanvasInsertStrip({ at, onAdd }: { at: number; onAdd: (at: number) => void }) {
+  const onClick = () => onAdd(at)
   /**
    * ===========================================================================
    *  IT COSTS THE PAGE NO HEIGHT
@@ -11521,7 +11649,7 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
     </div>
     </div>
   )
-}
+})
 
 /**
  * ===========================================================================
@@ -11964,7 +12092,16 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   const currency = storeCurrency || shopCards?.[0]?.settings.currency || undefined
   const storefront = useMemo(() => ({ inEditor: true, installId, words, display, currency, language, preview: languagePreview }), [installId, words, display, currency, language, languagePreview])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
-  const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
+  /*
+    Keyed on the HEADER, not the page (round 34). Keyed on `sections`, any
+    edit anywhere made a new logo object, a new render function in the live
+    provider and a new context value: every section drawn from a .storelib
+    file drew again and compiled its markup again, so hiding one section
+    rebuilt the whole page (scripts/check-editor-sections.mjs: 43 sections
+    for one hidden).
+  */
+  const canvasHeader = sections.find((s) => s.type === "header")
+  const canvasHeaderLogo = useMemo(() => headerLogoOf(canvasHeader ? [canvasHeader] : []), [canvasHeader])
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData} headerLogo={canvasHeaderLogo}>
     <ThemePage
@@ -11982,7 +12119,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           ? (at) => {
               /* Counted without the placeholder, which is not in the page. */
               const gap = gapWithoutPlaceholder(sections, at)
-              return gap === null ? null : <CanvasInsertStrip onClick={() => onAddSectionAt(gap)} />
+              return gap === null ? null : <CanvasInsertStrip at={gap} onAdd={onAddSectionAt} />
             }
           : undefined
       }

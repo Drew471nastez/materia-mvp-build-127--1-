@@ -82,6 +82,14 @@ const INIT = String.raw`
         var nm = nameOf(n)
         P.renders[nm] = (P.renders[nm] || 0) + 1
         if (!p) P.mounts[nm] = (P.mounts[nm] || 0) + 1
+        /* WHY_CTX=<component>: which of its contexts changed, by place in its reading order, when it drew again. */
+        if (p && window.__whyCtx === nm && n.dependencies && p.dependencies) {
+          var a = n.dependencies.firstContext, b = p.dependencies.firstContext, k = 0
+          var props = n.memoizedProps !== p.memoizedProps
+          P.why = P.why || {}
+          if (props) P.why.props = (P.why.props || 0) + 1
+          while (a && b) { if (a.memoizedValue !== b.memoizedValue) { var key = "ctx" + k + ":" + Object.keys(a.memoizedValue || {}).slice(0, 4).join("|"); P.why[key] = (P.why[key] || 0) + 1 } a = a.next; b = b.next; k++ }
+        }
       }
       if (p && n.child === p.child) continue
       for (var c = n.child; c; c = c.sibling) stack.push(c, c.alternate)
@@ -177,7 +185,7 @@ async function main() {
   const out = mkdtempSync(join(tmpdir(), "editor-sections-"))
   writeFileSync(join(out, "editor-probe.js"), readFileSync(harness.bundle))
   writeFileSync(join(out, "index.html"),
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${harness.css}</style></head><body><div id="app"></div><script>window.PROBE_PAGES={home:${JSON.stringify(PAGE)}};window.PROBE_SHORT=false</script><script src="editor-probe.js"></script><script>window.__wrapFetch();window.__TOPN=${Number(process.env.TOP) || 8}</script></body></html>`)
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${harness.css}</style></head><body><div id="app"></div><script>window.PROBE_PAGES={home:${JSON.stringify(PAGE)}};window.PROBE_SHORT=false</script><script src="editor-probe.js"></script><script>window.__wrapFetch();window.__TOPN=${Number(process.env.TOP) || 8};window.__whyCtx=${JSON.stringify(process.env.WHY_CTX ?? "")}</script></body></html>`)
 
   const browser = await puppeteer.launch({
     executablePath: harness.CHROMIUM, headless: true,
@@ -222,6 +230,7 @@ async function main() {
       report[name] = m
       console.log(`  ${name.padEnd(20)} ${String(m.commits).padStart(3)} commits ${String(m.renders).padStart(6)} renders (editor ${m.editor}, sections ${m.sections}, mounted ${m.sectionMounts}, rows ${m.rows})  replaced ${m.replaced}, new pictures ${m.newImages}  long ${m.longTasks} (max ${m.longest}ms) blocking ${m.tbt}ms  wall ${m.wall}ms${m.note ? `  [${m.note}]` : ""}`)
       if (process.env.TOP) console.log(`      ${m.top.join("  ")}`)
+      if (process.env.WHY_CTX) console.log(`      why ${process.env.WHY_CTX}: ${JSON.stringify(await js(() => { const w = window.__perf.why; window.__perf.why = {}; return w }))}`)
       return m
     }
     const clickAt = async (p) => { await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.up() }

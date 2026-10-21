@@ -148,9 +148,10 @@ export function AddSectionButton({ onClick, label = tt("Add section") }: { onCli
  * Dark grey with a little depth, not violet (the owner, round AH): a hairline
  * with a soft shadow and a raised disc, the way Storelib's own controls sit.
  */
-function InsertSectionDivider({ onClick, onMenu }: { onClick: () => void; onMenu?: (x: number, y: number) => void }) {
-  return <TreeInsertLine data-insert-section="" label={tt("Add a section here")} onClick={onClick} onMenu={onMenu} />
-}
+/* Memoised on its place, with the list's handlers (RowHandlers): 44 of them on a long page drew again on every render of the editor. */
+const InsertSectionDivider = React.memo(function InsertSectionDivider({ at, h }: { at: number; h: RowHandlers }) {
+  return <TreeInsertLine data-insert-section="" label={tt("Add a section here")} onClick={() => h.insertAt(at)} onMenu={(x, y) => h.insertMenu(at, x, y)} />
+})
 
 /** A small square action on a row. 24px under a pointer. */
 function RowAction({
@@ -414,6 +415,84 @@ export function SectionRow({
   )
 }
 
+/**
+ * ===========================================================================
+ *  A ROW DRAWS AGAIN WHEN ITS SECTION DOES, NOT WHEN THE LIST DOES (round 34)
+ * ===========================================================================
+ * Every render of the editor drew every row of the list: on a page of 44
+ * sections, hiding one drew 88 rows and their icons, and a drag across
+ * twelve rows drew 704 (scripts/check-editor-sections.mjs), since the list
+ * hears each slot the lifted row passes. A row now draws when what it shows
+ * changes: its section, its name, its place, whether it is selected, open
+ * or has its menu open.
+ *
+ * Its handlers are the list's, taking the section's id and reading the
+ * list's latest props when they run (`RowHandlers`), so a row that did not
+ * draw again never calls an old one. The grip's handlers read the list's
+ * length when pressed (use-reorder countRef) and take the row's place,
+ * which is compared.
+ */
+interface RowHandlers {
+  select: (id: string) => void
+  toggleHide: (id: string) => void
+  remove: (id: string) => void
+  toggleExpand: (id: string) => void
+  menu: (id: string, place: ActionMenuPlace) => void
+  /** Add a section at this place among the page's, and the insert line's own menu there. */
+  insertAt: (at: number) => void
+  insertMenu: (at: number, x: number, y: number) => void
+}
+
+interface ListRowProps {
+  h: RowHandlers
+  section: SectionInstance
+  displayName: string
+  isSelected: boolean
+  menuOpen: boolean
+  expandable: boolean
+  expanded: boolean
+  chrome?: "header" | "footer"
+  fixed?: boolean
+  index: number
+  grip?: (index: number) => Record<string, unknown>
+}
+
+const ListRow = React.memo(
+  function ListRow({ h, section, displayName, isSelected, menuOpen, expandable, expanded, chrome, fixed, index, grip }: ListRowProps) {
+    const id = section.id
+    return (
+      <SectionRow
+        section={section}
+        displayName={displayName}
+        isSelected={isSelected}
+        onSelect={() => h.select(id)}
+        onToggleHide={() => h.toggleHide(id)}
+        onRemove={() => h.remove(id)}
+        chrome={chrome}
+        fixed={fixed}
+        dragHandleProps={grip ? grip(index) : undefined}
+        expandable={expandable}
+        expanded={expanded}
+        onToggleExpand={() => h.toggleExpand(id)}
+        onMenu={(place) => h.menu(id, place)}
+        menuOpen={menuOpen}
+      />
+    )
+  },
+  (a, b) =>
+    a.section === b.section &&
+    a.displayName === b.displayName &&
+    a.isSelected === b.isSelected &&
+    a.menuOpen === b.menuOpen &&
+    a.expandable === b.expandable &&
+    a.expanded === b.expanded &&
+    a.chrome === b.chrome &&
+    a.fixed === b.fixed &&
+    a.index === b.index &&
+    !!a.grip === !!b.grip &&
+    a.h === b.h,
+)
+
 /* ── The menu ────────────────────────────────────────────────────────────── */
 
 const NO_ITEMS: ActionMenuItem[] = []
@@ -486,10 +565,22 @@ export function SectionsList({
   /** The insert line's own menu (a right click on it), and where among the page's sections it adds. */
   const [insertMenu, setInsertMenu] = React.useState<{ at: number; place: ActionMenuPlace } | null>(null)
   const closeInsert = React.useCallback(() => setInsertMenu(null), [])
-  const insertMenuAt = (at: number) => (x: number, y: number) =>
-    setInsertMenu({ at, place: { box: { left: x, top: y, width: 1, height: 1 }, phone: isPhone(), align: "start" } })
   const closeMenu = React.useCallback(() => setMenu(null), [])
-  const menuFor = (id: string) => (place: ActionMenuPlace) => setMenu({ id, place })
+  /* The rows' handlers, made once and reading the latest props when they run (ListRow). */
+  const latest = React.useRef({ onSelect, onToggleHide, onToggleExpand, removeSmooth, onAdd })
+  latest.current = { onSelect, onToggleHide, onToggleExpand, removeSmooth, onAdd }
+  const handlers = React.useMemo<RowHandlers>(
+    () => ({
+      select: (id) => latest.current.onSelect(id),
+      toggleHide: (id) => latest.current.onToggleHide(id),
+      remove: (id) => latest.current.removeSmooth(id),
+      toggleExpand: (id) => latest.current.onToggleExpand?.(id),
+      menu: (id, place) => setMenu({ id, place }),
+      insertAt: (at) => latest.current.onAdd(at, "template"),
+      insertMenu: (at, x, y) => setInsertMenu({ at, place: { box: { left: x, top: y, width: 1, height: 1 }, phone: isPhone(), align: "start" } }),
+    }),
+    [],
+  )
   /** A section's block rows when it is open, and whether it has any to open. */
   const tree = (s: SectionInstance) => {
     const node = blocksOf?.(s) ?? null
@@ -497,7 +588,6 @@ export function SectionsList({
     return {
       expandable: node !== null,
       expanded: open,
-      onToggleExpand: () => onToggleExpand?.(s.id),
       under: open ? <div data-section-blocks={s.id}>{node}</div> : null,
     }
   }
@@ -534,19 +624,16 @@ export function SectionsList({
       const t = tree(s)
       return (
         <div key={s.id} data-section-row-wrap={s.id}>
-          <SectionRow
+          <ListRow
+            h={handlers}
             section={s}
             displayName={nameOf(s)}
             isSelected={selectedId === s.id}
-            onSelect={() => onSelect(s.id)}
-            onToggleHide={() => onToggleHide(s.id)}
-            onRemove={() => removeSmooth(s.id)}
             chrome={chrome}
             fixed
+            index={0}
             expandable={t.expandable}
             expanded={t.expanded}
-            onToggleExpand={t.onToggleExpand}
-            onMenu={menuFor(s.id)}
             menuOpen={menu?.id === s.id}
           />
           {t.under}
@@ -625,22 +712,19 @@ export function SectionsList({
                     style={rowStyle(i)}
                     className={cn("rounded-md", lifted && "wb-drag-lift bg-white")}
                   >
-                    <SectionRow
+                    <ListRow
+                      h={handlers}
                       section={s}
                       displayName={nameOf(s)}
                       isSelected={selectedId === s.id}
-                      onSelect={() => onSelect(s.id)}
-                      onToggleHide={() => onToggleHide(s.id)}
-                      onRemove={() => removeSmooth(s.id)}
-                      dragHandleProps={gripProps(i)}
+                      index={i}
+                      grip={gripProps}
                       expandable={t.expandable}
                       expanded={t.expanded}
-                      onToggleExpand={t.onToggleExpand}
-                      onMenu={menuFor(s.id)}
                       menuOpen={menu?.id === s.id}
                     />
                     {lifted ? null : t.under}
-                    <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} onMenu={insertMenuAt(i + 1)} />
+                    <InsertSectionDivider at={i + 1} h={handlers} />
                   </div>
                 )
               })}
