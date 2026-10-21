@@ -180,6 +180,31 @@ window.__pt = (function () {
 true
 `
 
+/* PROFILE=<interaction>: self and total time by function (as scripts/check-editor-perf.mjs prints it). */
+function printProfile(profile) {
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+  const parent = new Map()
+  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
+  const dt = new Map()
+  profile.samples.forEach((id, k) => dt.set(id, (dt.get(id) ?? 0) + (profile.timeDeltas[k] ?? 0)))
+  const self = new Map(), total = new Map()
+  const name = (n) => `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber}`
+  for (const [id, us] of dt) {
+    const n = byId.get(id)
+    if (/^\((idle|program|garbage collector)\)/.test(n.callFrame.functionName)) continue
+    self.set(name(n), (self.get(name(n)) ?? 0) + us)
+    const seen = new Set()
+    for (let cur = id; cur !== undefined; cur = parent.get(cur)) {
+      const nm = name(byId.get(cur))
+      if (seen.has(nm)) continue
+      seen.add(nm)
+      total.set(nm, (total.get(nm) ?? 0) + us)
+    }
+  }
+  const top = (m, n) => [...m].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `      ${(v / 1000).toFixed(1).padStart(7)}ms  ${k}`).join("\n")
+  console.log("    SELF\n" + top(self, 15) + "\n    TOTAL\n" + top(total, Number(process.env.PROFILE_N ?? 40)))
+}
+
 async function main() {
   const harness = await import("./editor-probe-harness.mjs")
   const out = mkdtempSync(join(tmpdir(), "editor-sections-"))
@@ -222,10 +247,13 @@ async function main() {
     const js = (fn, ...a) => page.evaluate(fn, ...a)
     const measure = async (name, act, opts = {}) => {
       await js(() => window.__pt.quiet(400, 8000))
+      const profiling = process.env.PROFILE && new RegExp(process.env.PROFILE, "i").test(name)
+      if (profiling) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
       await js(() => window.__pt.start())
       const note = await act()
       await js((q) => window.__pt.quiet(q, 10000), opts.quiet ?? 500)
       const m = await js(() => window.__pt.stop())
+      if (profiling) printProfile((await cdp.send("Profiler.stop")).profile)
       if (note !== undefined && note !== true) m.note = note
       report[name] = m
       console.log(`  ${name.padEnd(20)} ${String(m.commits).padStart(3)} commits ${String(m.renders).padStart(6)} renders (editor ${m.editor}, sections ${m.sections}, mounted ${m.sectionMounts}, rows ${m.rows})  replaced ${m.replaced}, new pictures ${m.newImages}  long ${m.longTasks} (max ${m.longest}ms) blocking ${m.tbt}ms  wall ${m.wall}ms${m.note ? `  [${m.note}]` : ""}`)
@@ -285,6 +313,35 @@ async function main() {
 
     await measure("hide", async () => js(() => { const r = document.querySelectorAll("[data-section-group='template'] [data-section-row]")[14]; r.scrollIntoView({ block: "center" }); const e = [...r.querySelectorAll("button[aria-label^='Hide']")][0]; if (!e) return "no eye"; e.click(); return true }))
     await measure("show", async () => js(() => { const r = document.querySelectorAll("[data-section-group='template'] [data-section-row]")[14]; const e = [...r.querySelectorAll("button[aria-label^='Show']")][0]; if (!e) return "no eye"; e.click(); return true }))
+
+    /* ── Add a section between two rows, from the library: the press on its card ── */
+    {
+      const before = await js(() => window.__pt.boxes().length)
+      const opened = await js(async () => {
+        const line = document.querySelectorAll("[data-section-group='template'] [data-insert-section]")[9]
+        if (!line) return false
+        line.scrollIntoView({ block: "center" })
+        line.click()
+        for (let i = 0; i < 60; i++) {
+          const card = [...document.querySelectorAll("[data-section-library] [data-library-card]")].find((c) => window.__pt.visible(c) && !c.hidden)
+          if (card) return true
+          await window.__pt.sleep(100)
+        }
+        return false
+      })
+      if (!opened) expect(false, "the library opens from the insert line")
+      else {
+        await sleep(800)
+        await measure("add (library card)", async () => {
+          const card = await js(() => { const c = [...document.querySelectorAll("[data-section-library] [data-library-card]")].find((x) => window.__pt.visible(x) && !x.hidden); const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(40, r.height / 2) } })
+          await clickAt(card)
+          return true
+        }, { quiet: 900 })
+        const after = await js(() => window.__pt.boxes().length)
+        expect(after === before + 1, "a card pressed adds one section", `${before} -> ${after}`)
+        await backToList()
+      }
+    }
 
     /* ── Drag a row across twelve others, a frame at a time ── */
     const grip = await js(() => {

@@ -937,7 +937,9 @@ check(
    */
   /label=\{hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(sectionsList) &&
     /shown=\{hidden \|\| isSelected\}/.test(sectionsList) &&
-    /onToggleHide=\{\(\) => onToggleHide\(s\.id\)\}[\s\S]{0,400}?chrome=\{chrome\}/.test(sectionsList) &&
+    /* Changed on purpose (round 34): the rows are memoised (ListRow) and reach onToggleHide through the list's handlers, the header and footer rows too. */
+    /toggleHide: \(id\) => latest\.current\.onToggleHide\(id\)/.test(sectionsList) &&
+    /onToggleHide=\{\(\) => h\.toggleHide\(id\)\}[\s\S]{0,400}?chrome=\{chrome\}/.test(sectionsList) &&
     /onToggleHide=\{toggleSectionHidden\}/.test(editor) &&
     /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor),
 )
@@ -2282,7 +2284,8 @@ check(
    * which section took whose place.
    */
   /import \{ useReorder \} from "\.\/controls\/use-reorder"/.test(sectionsList) &&
-    /dragHandleProps=\{gripProps\(i\)\}/.test(sectionsList) &&
+    /* Changed on purpose (round 34): the memoised row (ListRow) is handed the grip's props maker and its place. */
+    /grip=\{gripProps\}/.test(sectionsList) && /dragHandleProps=\{grip \? grip\(index\) : undefined\}/.test(sectionsList) &&
     /data-reorder-row=""/.test(sectionsList) &&
     !/@dnd-kit/.test(sectionsList) &&
     /dnd=\{\{ onReorder: reorderSection \}\}/.test(editor) &&

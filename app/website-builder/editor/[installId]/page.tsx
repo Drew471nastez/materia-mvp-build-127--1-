@@ -9310,8 +9310,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * from inside a frozen page, and it is enough — whatever left the lock
    * there, and whether or not this file ever learns what did.
    */
-  useEffect(() => watchForStuckLayer(document, () => {
-    window.dispatchEvent(new Event("resize"))
+  useEffect(() => watchForStuckLayer(document, (cleared) => {
+    /*
+      Only when what was cleared moved the layout (round 34). A dialog that
+      closed after another can leave `overscroll-behavior` on html and body
+      (components/ui/dialog.tsx puts back what it found, which was the other
+      one's); clearing that moves nothing, and the resize told every listener
+      to measure the page again: 190ms on the first press into a 44 section
+      page (scripts/check-editor-sections.mjs, select).
+    */
+    if (cleared.some((what) => !/overscroll-behavior|touch-action/.test(what))) window.dispatchEvent(new Event("resize"))
   }), [])
 
   // Coming back from the code pane or from project settings.

@@ -37,7 +37,9 @@ console.log("\nPublishing ends, and sooner")
 {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))
-  check("the three saves before a publish go at the same time", /await Promise\.all\(\[\s*putJsonWithRetry\([^)]*settings`/.test(publish) && /syncHeaderFooterToAllPages\("draft"\),\s*\]\)/.test(publish))
+  /* Changed on purpose (round 34): Publish writes its draft through the draft's queue (after any autosave on its way), whose one write sends the three at once. */
+  const send = editor.slice(editor.indexOf("const sendDraft = async"), editor.indexOf("const sendDraftLatest"))
+  check("the three saves before a publish go at the same time", /await draftQueue\.save\(snap\)/.test(publish) && /await Promise\.all\(\[\s*putJsonWithRetry\([^)]*settings`/.test(send) && /syncHeaderFooterToAllPages\("draft", snap\.sections, snap\.page\),\s*\]\)/.test(send))
   check("the publish itself has an end, and says so when it is reached", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/publish`[\s\S]*?PUBLISH_MS\)/.test(publish) && /e instanceof LoadTimeout/.test(publish) && /const PUBLISH_MS = 45_000/.test(editor))
   check("  and a refusal that is not JSON is still a message, not a spinner", /await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)/.test(publish))
   check("the header and footer copy to every page has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\/sync-global`[\s\S]{0,600}?20_000\)\.catch\(\(\) => null\)/.test(editor))

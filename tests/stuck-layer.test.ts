@@ -178,7 +178,8 @@ function main() {
       const fn = editor.slice(editor.indexOf("const reviveCanvas"), editor.indexOf("const reviveCanvas") + 900)
       return fn.indexOf("clearStaleDocumentLocks(document)") > 0 && fn.indexOf("clearStaleDocumentLocks(document)") < fn.indexOf("reviveScroller(")
     })(), "reviving a scroller cannot help when the touches never reach it")
-    check("and the press-to-revive net is armed on the document", /watchForStuckLayer\(document, \(\) => \{/.test(editor))
+    /* Changed on purpose (round 34): the net reads what it cleared, and a resize is sent only when that moved the layout. */
+    check("and the press-to-revive net is armed on the document", /watchForStuckLayer\(document, \(cleared\) => \{/.test(editor) && /if \(cleared\.some\(\(what\) => !\/overscroll-behavior\|touch-action\/\.test\(what\)\)\) window\.dispatchEvent\(new Event\("resize"\)\)/.test(editor))
     check("the scroller's own repair runs on the return from the code pane, not on a watchdog", /window\.setTimeout\(back, 340\)/.test(editor) && /const back = isMobileView \? settleCanvas : reviveCanvas/.test(editor) && !/watchForStuckScroll\(/.test(editor))
   }
 
