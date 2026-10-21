@@ -1047,7 +1047,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (real === shown) return
       templates.current.set(key, { at, t: null })
       slot.liveShown?.delete(s.id)
-      sync.current()
+      /* With what the finger has set laid over the page: this canvas does not render while it moves (quietWhileLive), so its own copy is the one from before the gesture. */
+      sync.current(sectionsRef.current.map((x) => liveSectionNow(x as unknown as SectionInstance) as unknown as StoredSection))
     }, 160))
   }
   const learn = (key: string, at: string, s: StoredSection, path: LeafPath, base: { value: unknown; html: string }, list: StoredSection[], index: number, group: string | undefined) => {
@@ -1181,7 +1182,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const overlay = liveThemeNow()
     if (overlay) applyLiveThemeRef.current(overlay)
     const was = sectionsRef.current
-    const list = was.map((s) => liveSectionNow(s))
+    const list = was.map((s) => liveSectionNow(s as unknown as SectionInstance) as unknown as StoredSection)
     if (list.every((s, i) => s === was[i])) return
     sync.current(list)
   }), [])

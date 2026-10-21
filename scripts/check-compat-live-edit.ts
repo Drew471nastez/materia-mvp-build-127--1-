@@ -353,8 +353,8 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
       }))))
       if (process.env.DEBUG_MSG) console.log("    reading a section message: " + JSON.stringify(await f.evaluate(() => { const a = (window as unknown as { __msgT: number[] }).__msgT; return { n: a.length, avg: a.reduce((x, y) => x + y, 0) / (a.length || 1), max: Math.max(0, ...a) } })))
       if (film) { await (film as { stop: () => Promise<void> }).stop(); film = null }
-      if (profiling) printProfile((await cdp.send("Profiler.stop")).profile)
-      if (tracing) printTrace(JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents)
+      if (profiling) printProfile((await cdp.send("Profiler.stop")).profile as unknown as Parameters<typeof printProfile>[0])
+      if (tracing) printTrace(JSON.parse(Buffer.from((await page.tracing.stop()) ?? new Uint8Array()).toString("utf8")).traceEvents)
       await throttle(1)
       const editor = await page.evaluate((c0) => {
         const P = (window as unknown as { __le: { counting: boolean; renders: Record<string, number>; longs: [number, number][]; l0: number } }).__le
@@ -461,7 +461,7 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
     const heading = `function () { var h = document.querySelector('.banner__heading'); if (!h) return null; h.scrollIntoView({ block: "center" }); var r = h.getBoundingClientRect(); return { x: r.left + Math.min(20, r.width / 2), y: r.top + r.height / 2 } }`
     if (await pressInFrame(heading)) {
       const field = await page.evaluateHandle(() => {
-        const h = [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input[type='text'], textarea, [contenteditable='true']")].find((i) => i.getClientRects().length && /Browse our latest/.test("value" in i ? i.value : i.textContent ?? ""))
+        const h = [...document.querySelectorAll<HTMLElement>("input[type='text'], textarea, [contenteditable='true']")].find((i) => i.getClientRects().length && /Browse our latest/.test(i instanceof HTMLInputElement || i instanceof HTMLTextAreaElement ? i.value : i.textContent ?? ""))
         return h ?? null
       })
       const el = field.asElement() as import("puppeteer-core").ElementHandle<HTMLInputElement> | null
