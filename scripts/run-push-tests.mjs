@@ -770,6 +770,8 @@ const SUITES = [
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
+  /* Round 34: Add block opens a picker with each block drawn in its section before it is added (scripts/check-block-picker.mjs measures it in the real editor) */
+  "tests/block-picker.test.ts",
 ]
 
 /**

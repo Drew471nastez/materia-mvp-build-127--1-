@@ -410,13 +410,15 @@ function StorelibPane({ session, choice, className }: { session: PreviewSession;
     const html = session.markup.get(choiceKey(choice))
     if (html === undefined) return false
     const key = choiceKey(choice)
-    if (shown.current !== key) {
-      if (shown.current === null) {
+    /* A new opening is a new section at a new place: its own markup and its own look, even for a block of the same kind. */
+    const showing = `${sessionKey(session)}:${key}`
+    if (shown.current !== showing) {
+      if (!shown.current?.startsWith(`${sessionKey(session)}:`)) {
         /* The theme root's own style, then the stage's place: the theme's rules paint the root's background, which here is the pane's to paint. */
         stage.style.cssText = `${session.look.inherited};position:absolute;left:0;top:0;width:${session.look.width}px;min-width:0;max-width:none;height:auto;min-height:0;margin:0;padding:0;background:transparent;border:0;box-shadow:none;transform-origin:0 0;container-type:inline-size`
       }
       stage.innerHTML = html
-      shown.current = key
+      shown.current = showing
     }
     const { found } = fitStage(pane, stage, outline, document, session.look.width, fallbackBg)
     stage.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
@@ -467,7 +469,7 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
   const paneRef = useRef<HTMLDivElement | null>(null)
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const outlineRef = useRef<HTMLDivElement | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const [loadedDoc, setLoadedDoc] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const width = session.look.width
   const doc = useMemo(() => {
@@ -477,7 +479,7 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
     const withRules = html.replace(/<\/head>/i, () => `${rules}</head>`)
     return withRules.replace(/<\/body>/i, () => `${main || "<main>"}</main></body>`)
   }, [ctx?.theme, ctx?.page, ctx?.rows, width])
-  const kept = useRef(new Map<string, string>())
+  const loaded = !!doc && loadedDoc === doc
   useLayoutEffect(() => {
     const frame = frameRef.current
     const pane = paneRef.current
@@ -485,14 +487,14 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
     const fd = frame?.contentDocument
     if (!ctx?.theme || !frame || !pane || !outline || !fd || !loaded || !choice) return
     const key = choiceKey(choice)
-    let html = kept.current.get(key)
+    let html = session.markup.get(key)
     if (html === undefined) {
       try {
         html = sectionMarkup(ctx.theme, ctx.page, session.sectionFor(choice) as unknown as StoredSection, ctx.rows, width, 800)
       } catch {
         html = ""
       }
-      kept.current.set(key, html)
+      session.markup.set(key, html)
     }
     const main = fd.querySelector("main") ?? fd.body
     main.innerHTML = html
@@ -502,10 +504,10 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
     else body.removeAttribute("data-bp-isolate")
     const { found } = fitStage(pane, frame, outline, fd, width, "#ffffff")
     frame.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
-    setNote(!html ? tt("This theme's block can't be drawn here") : found ? null : tt("Shown in its section"))
+    setNote(!html ? tt("No preview for this block") : found ? null : tt("Shown in its section"))
   }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width])
   return (
-    <PaneShell paneRef={paneRef} outlineRef={outlineRef} className={className} choice={choice} note={ctx?.failed ? tt("This theme's block can't be drawn here") : note}>
+    <PaneShell paneRef={paneRef} outlineRef={outlineRef} className={className} choice={choice} note={ctx?.failed ? tt("No preview for this block") : note}>
       {doc ? (
         <iframe
           ref={frameRef}
@@ -516,7 +518,7 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
           aria-hidden
           data-bp-frame=""
           data-keep-transform=""
-          onLoad={() => setLoaded(true)}
+          onLoad={() => setLoadedDoc(doc)}
           className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent"
           style={{ width, height: 0 }}
         />

@@ -29,6 +29,7 @@
  *   ONLY=390 node scripts/check-block-picker.mjs        (one size)
  */
 import { createServer } from "node:http"
+import { execFileSync } from "node:child_process"
 import { mkdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
@@ -266,6 +267,31 @@ async function run(kind) {
     await sleep(350)
     const away = await p.evaluate(() => document.querySelector("[data-block-picker-layer]")?.getAttribute("data-state"))
     expect(away === "closed", "a press outside puts it away", away)
+
+    /* The line between the first two blocks: a new opening, and the block drawn at that place, not at the end. */
+    const between = await p.evaluate((id) => {
+      const line = document.querySelector(`[data-section-blocks="${id}"] [data-insert-block]`)
+      const first = document.querySelector(`[data-section-blocks="${id}"] [data-tree-block]`)?.getAttribute("data-tree-block")
+      if (!line) return null
+      line.click()
+      return { first }
+    }, SECTION)
+    await sleep(350)
+    if (between) {
+      await p.evaluate(() => {
+        const row = [...document.querySelectorAll("[data-block-picker-list] [role='option']")].find((r) => r.getAttribute("data-block-choice") === "text")
+        row.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse", isPrimary: true }))
+      })
+      await sleep(80)
+      const placed = await p.evaluate(() => {
+        const t = document.querySelector("[data-block-preview] [data-bp-target]")
+        const ids = [...(t?.closest("[data-bp-stage]")?.querySelectorAll("[data-block-id]") ?? [])].map((e) => e.getAttribute("data-block-id")).filter((x) => !/block-picker-preview-/.test(x))
+        return { ids, showing: document.querySelector("[data-bp-showing]")?.getAttribute("data-bp-showing") }
+      })
+      expect(placed.ids[1] === "block-picker-preview" && placed.ids[0] === between.first, "from the line between two blocks, the block is drawn between them", placed)
+      await p.keyboard.press("Escape")
+      await sleep(300)
+    } else note("no insert line between blocks found")
     await p.mouse.click(add.x, add.y)
     await sleep(400)
   }
@@ -325,8 +351,135 @@ async function run(kind) {
   await p.close()
 }
 
-/* ONLY=390 runs one size. */
+/**
+ * ===========================================================================
+ *  AN IMPORTED THEME: tests/fixtures/shopify-posture, its "Rich text"
+ * ===========================================================================
+ * Its sections are drawn by the compat engine, in a frame: the preview is
+ * the same engine, in a frame of its own. The block is found by what the
+ * theme prints for `block.shopify_attributes`, and held against the block
+ * the canvas's frame draws once it is added.
+ */
+async function CANVAS_FRAME(p) {
+  for (const f of p.frames()) {
+    if (f === p.mainFrame() || f.url() !== "about:srcdoc" || f.parentFrame() !== p.mainFrame()) continue
+    const el = await f.frameElement().catch(() => null)
+    if (el && !(await el.evaluate((x) => x.hasAttribute("data-bp-frame")))) return f
+  }
+  return null
+}
+async function compat() {
+  const fixture = JSON.parse(execFileSync("npx", ["tsx", "-e", `
+    import { converted } from "./scripts/check-builder-nav19"
+    converted().then((t) => {
+      const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
+      const files = Object.fromEntries(Object.entries(t.files).filter(([p, v]) => p.startsWith("shopify/") && !String(v).startsWith("base64:")))
+      const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections]))
+      process.stdout.write(JSON.stringify({ compat: { settings: t.settings, pages, sources, files }, all: t.files }))
+    })`], { maxBuffer: 256 * 1024 * 1024, encoding: "utf8" }))
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${interFaces()}</style><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;window.PROBE_COMPAT=${JSON.stringify(fixture.compat).replace(/</g, "\\u003c")}</script><script src="/editor-probe.js"></script></body></html>`
+  const srv = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://x")
+    if (url.pathname === "/editor-probe.js") { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(js) }
+    const asset = url.pathname.match(/^\/api\/site-theme\/assets\/[^/]+\/[^/]+\/(.+)$/)
+    if (asset) {
+      const name = decodeURIComponent(asset[1])
+      const text = fixture.all[`shopify/assets/${name}`]
+      if (text === undefined) { res.writeHead(404); return res.end() }
+      res.writeHead(200, { "content-type": name.endsWith(".css") ? "text/css" : name.endsWith(".js") ? "text/javascript" : "text/plain", "access-control-allow-origin": "*" })
+      return res.end(text)
+    }
+    res.writeHead(200, { "content-type": "text/html" })
+    res.end(url.pathname.startsWith("/editor") ? html : "<!doctype html><title>blank</title>")
+  })
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r))
+  const p = await browser.newPage()
+  await p.setViewport({ width: 1440, height: 900 })
+  await p.evaluateOnNewDocument("window.__name = (f) => f")
+  await p.goto(`http://127.0.0.1:${srv.address().port}/editor`, { waitUntil: "load" })
+  console.log("\n══ 1440 × 900, an imported Shopify theme ══\n")
+  for (let i = 0; i < 120 && !(await CANVAS_FRAME(p)); i++) await sleep(250)
+  await sleep(2500)
+  await p.evaluate(NORMALISE)
+  const id = await p.evaluate(() => [...document.querySelectorAll("[data-section-row]")].find((r) => /Rich text/i.test(r.textContent || ""))?.getAttribute("data-section-row") ?? null)
+  expect(!!id, "the theme's Rich text section is in the tree", id)
+  if (!id) { await p.close(); srv.close(); return }
+  const already = await p.evaluate((id) => !!document.querySelector(`[data-section-blocks="${id}"] [data-add-block]`), id)
+  if (!already) await p.evaluate((id) => document.querySelector(`[data-section-expand="${id}"]`)?.click(), id)
+  await sleep(500)
+  const addSel = `[data-section-blocks="${id}"] [data-tree-add-block="1"]`
+  const t0 = Date.now()
+  await p.evaluate((sel) => { const el = document.querySelector(sel); el.scrollIntoView({ block: "center" }); el.focus(); el.click() }, addSel)
+  let ready = null
+  for (let i = 0; i < 100 && ready === null; i++) {
+    await sleep(50)
+    if (await p.evaluate(() => !!document.querySelector("[data-block-preview] iframe[data-bp-showing]"))) ready = Date.now() - t0
+  }
+  note(`the preview frame showed its first block ${ready}ms after the press (the theme's files are read once, the first time)`)
+  expect(ready !== null, "the imported theme's block is drawn in the preview", ready)
+  const rows = await p.evaluate(() => [...document.querySelectorAll("[data-block-picker-list] [role='option']")].map((r) => r.getAttribute("data-block-choice")))
+  note(`blocks offered: ${rows.join(", ")}`)
+  const times = []
+  for (const type of rows) {
+    const ms = await p.evaluate((type) => new Promise((resolve) => {
+      const row = [...document.querySelectorAll("[data-block-picker-list] [role='option']")].find((r) => r.getAttribute("data-block-choice") === type)
+      const t = performance.now()
+      row.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse", isPrimary: true }))
+      const tick = () => {
+        const f = document.querySelector("[data-block-preview] iframe[data-bp-showing]")
+        if (f?.getAttribute("data-bp-showing")?.startsWith(type + ":")) resolve(Math.round(performance.now() - t))
+        else if (performance.now() - t > 2000) resolve(null)
+        else requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }), type)
+    times.push(ms)
+    await sleep(150)
+    const info = await p.evaluate(() => {
+      const f = document.querySelector("[data-block-preview] iframe")
+      const t = f?.contentDocument?.querySelector("[data-bp-target]")
+      return { found: !!t, note: document.querySelector("[data-block-preview] [data-preview-note]")?.textContent ?? null, text: t?.textContent?.trim().slice(0, 40) ?? null }
+    })
+    expect(info.found && !info.note, `${type}: found and drawn in the theme's own styles`, info)
+    await p.screenshot({ path: shot(`compat-${type}`) })
+  }
+  note(`hover to preview in the imported theme: ${times.join(", ")}ms`)
+  expect(times.every((t) => t !== null && t <= 80), "each on the next frame or so", times)
+  /* Pick the Heading, and hold the canvas frame's block against the preview frame's. */
+  const preview = await p.evaluate(() => {
+    const row = [...document.querySelectorAll("[data-block-picker-list] [role='option']")].find((r) => r.getAttribute("data-block-choice") === "heading")
+    row.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse", isPrimary: true }))
+    const t = document.querySelector("[data-block-preview] iframe").contentDocument.querySelector("[data-bp-target]")
+    const cs = t.ownerDocument.defaultView.getComputedStyle(t)
+    return { html: window.__norm(t), font: cs.fontFamily, size: cs.fontSize, color: cs.color, w: Math.round(t.getBoundingClientRect().width) }
+  })
+  let frame = await CANVAS_FRAME(p)
+  const before = await frame.evaluate(() => [...document.querySelectorAll("[data-block-id]")].map((e) => e.getAttribute("data-block-id")))
+  await p.evaluate(() => [...document.querySelectorAll("[data-block-picker-list] [role='option']")].find((r) => r.getAttribute("data-block-choice") === "heading").click())
+  await sleep(2500)
+  frame = (await CANVAS_FRAME(p)) ?? frame
+  const landed = await frame.evaluate((before) => {
+    const el = [...document.querySelectorAll("[data-block-id]")].find((e) => !before.includes(e.getAttribute("data-block-id")))
+    if (!el) return null
+    const c = el.cloneNode(true)
+    for (const n of [c, ...c.querySelectorAll("*")]) for (const a of [...n.attributes]) if (/^data-(block-id|bp-|section-id|sl-block|editor|wb-)|^(id|aria-[a-z]+|tabindex|contenteditable|spellcheck|draggable|loading|decoding)$/.test(a.name)) n.removeAttribute(a.name)
+    const cs = getComputedStyle(el)
+    return { html: c.outerHTML.replace(/\s+/g, " ").trim(), font: cs.fontFamily, size: cs.fontSize, color: cs.color, w: Math.round(el.getBoundingClientRect().width) }
+  }, before).catch((e) => ({ error: String(e).slice(0, 120) }))
+  expect(!!landed && !landed.error, "the heading lands in the canvas's frame", landed?.error)
+  if (landed && !landed.error) {
+    expect(landed.html === preview.html, "the frame draws the markup the preview showed", landed.html === preview.html ? undefined : { preview: preview.html.slice(0, 160), canvas: landed.html.slice(0, 160) })
+    expect(landed.font === preview.font && landed.size === preview.size && landed.color === preview.color, "in the same type and colour", { preview: [preview.size, preview.color, preview.font.slice(0, 30)], canvas: [landed.size, landed.color, landed.font.slice(0, 30)] })
+    note(`width: preview ${preview.w}px, canvas ${landed.w}px`)
+  }
+  await p.screenshot({ path: shot("compat-added") })
+  await p.close()
+  srv.close()
+}
+
+/* ONLY=390 runs one size; ONLY=compat the imported theme alone. */
 for (const kind of [{ w: 1440, h: 900 }, { w: 1280, h: 800 }, { w: 390, h: 844 }].filter((k) => !process.env.ONLY || String(k.w) === process.env.ONLY)) await run(kind)
+if (!process.env.ONLY || process.env.ONLY === "compat") await compat()
 await browser.close()
 server.close()
 console.log(`\n${bad === 0 ? "all good" : `${bad} failed`}; pictures in ${SHOTS}\n`)
