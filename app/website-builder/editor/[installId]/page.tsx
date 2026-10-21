@@ -4355,10 +4355,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * resize, which must not reopen something somebody closed.
      */
     let wasMobile: boolean | null = null
+    /*
+      The size the canvas was showing before a window narrowed past the
+      phone line, given back when it widens again: a window dragged narrow
+      and back (or out of a computer's full screen) came back as a phone
+      card in the desktop editor.
+    */
+    let shownBefore: DeviceMode | null = null
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobileView(mobile)
-      if (mobile) setDevice("mobile")
+      if (mobile) {
+        const crossing = wasMobile !== true
+        setDevice((d) => {
+          if (crossing && shownBefore === null) shownBefore = d
+          return "mobile"
+        })
+      } else if (wasMobile === true && shownBefore !== null) {
+        const back = shownBefore
+        shownBefore = null
+        setDevice(back)
+      }
       if (mobile !== wasMobile) setAiOpen(!mobile && !askDockClosed())
       wasMobile = mobile
     }

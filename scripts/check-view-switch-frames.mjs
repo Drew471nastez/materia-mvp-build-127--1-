@@ -61,6 +61,7 @@ const CPUS = (process.env.CPUS ?? "1,4").split(",").map(Number)
 const SCROLLS = (process.env.SCROLLS ?? "top,middle").split(",")
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null
 const SHEETS = process.env.SHEETS !== "0"
+const WINDOW = process.env.WINDOW !== "0"
 const RECORD_MS = Number(process.env.RECORD_MS ?? 1500)
 const zipPath = process.argv[2] ?? process.env.THEME_ZIP ?? null
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -185,9 +186,26 @@ const RECORDER = String.raw`(() => {
     let stamp = document.getElementById("vsf-stamp")
     if (!stamp) { stamp = document.createElement("div"); stamp.id = "vsf-stamp"; stamp.style.cssText = "position:fixed;left:0;bottom:0;width:24px;height:12px;z-index:2147483647;pointer-events:none;background:#000"; document.body.appendChild(stamp) }
     const t0 = performance.now()
+    /*
+      READ WHAT WAS DRAWN. Positions are read after the frame (a message
+      posted from its animation frame runs once the frame is done), not in
+      the animation frame itself: that runs before the frame's layout and
+      before its ResizeObservers, so it saw every frame before the editor's
+      own corrections to it.
+    */
+    const afterFrame = (fn) => { const ch = new MessageChannel(); ch.port1.onmessage = fn; ch.port2.postMessage(0) }
+    let count = 0
     const tick = (now) => {
-      const n = film.length
+      const n = count++
       stamp.style.background = "rgb(" + ((n % 8) * 32 + 16) + "," + (Math.floor(n / 8) % 8 * 32 + 16) + "," + (Math.floor(n / 64) % 4 * 45 + 120) + ")"
+      const last = now - t0 >= ms
+      afterFrame(() => {
+        sample(now, n)
+        if (last) { stamp.style.background = "rgb(0,0,0)"; done({ film, fades: Object.fromEntries(fades), eye: eye ? eye.tagName + "." + String(eye.className).slice(0, 40) : null }) }
+      })
+      if (!last) requestAnimationFrame(tick)
+    }
+    const sample = (now, n) => {
       const v = root.getBoundingClientRect()
       let heldPx = 0, heldN = 0, skippedPx = 0
       for (const b of boxes()) {
@@ -237,10 +255,10 @@ const RECORDER = String.raw`(() => {
         newFrames: Array.from(root.querySelectorAll("iframe")).filter((f) => !f.__vsf).length,
         newImgs: Array.from(root.querySelectorAll("img")).filter((i) => !imgs0.has(i)).length,
       })
-      if (now - t0 < ms) requestAnimationFrame(tick)
-      else { stamp.style.background = "rgb(0,0,0)"; done({ film, fades: Object.fromEntries(fades), eye: eye ? eye.tagName + "." + String(eye.className).slice(0, 40) : null }) }
     }
     const hit = (sel) => {
+      /* The window itself resized: done from outside (setViewport), nothing pressed in here. */
+      if (sel === "window") return
       if (sel === "Escape") { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); return }
       const el = document.querySelector(sel)
       el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "mouse", isPrimary: true }))
@@ -267,7 +285,13 @@ const FRAME_RECORDER = String.raw`(() => {
     const section = eye && eye.closest(".shopify-section")
     const film = []
     const t0 = performance.now()
+    const afterFrame = (fn) => { const ch = new MessageChannel(); ch.port1.onmessage = fn; ch.port2.postMessage(0) }
     const tick = (now) => {
+      const last = now - t0 >= ms
+      afterFrame(() => { sample(now); if (last) done(film) })
+      if (!last) requestAnimationFrame(tick)
+    }
+    const sample = (now) => {
       let heldPx = 0, undrawn = 0, fades = 0
       for (const s of secs()) {
         const r = s.getBoundingClientRect()
@@ -283,8 +307,6 @@ const FRAME_RECORDER = String.raw`(() => {
       const er = eye && eye.isConnected ? eye.getBoundingClientRect() : null
       const sr = section && section.isConnected ? section.getBoundingClientRect() : null
       film.push({ wall: performance.timeOrigin + now, w: innerWidth, h: innerHeight, y: Math.round(scrollY), sh: document.documentElement.scrollHeight, eye: er ? r2(er.top) : null, section: sr ? r2(sr.top) : null, heldPx: Math.round(heldPx), undrawn, fades, remounted: secs().filter((s) => !s.__vsf).length, bar: innerWidth - document.documentElement.clientWidth })
-      if (now - t0 < ms) requestAnimationFrame(tick)
-      else done(film)
     }
     requestAnimationFrame(tick)
   })
@@ -547,6 +569,8 @@ function verdict(r) {
   if (r.topbarMoved) bad.push(`bar moved ${r.topbarMoved}px`)
   if (r.scrollbarChanged) bad.push("scrollbar came or went")
   if (r.eyeJump) bad.push(`content under the eye jumped ${r.eyeJump}px`)
+  /* Over the whole switch: the header changing its own padding moves the page a few px, which a window does too. */
+  if (Math.abs(r.eyeDrift ?? 0) > 24) bad.push(`content under the eye moved ${r.eyeDrift}px in all`)
   if ((r.eyeEnd ?? 0) > 2) bad.push(`end jump ${r.eyeEnd}px`)
   if (r.eyeAfter > 2) bad.push(`moved after landing ${r.eyeAfter}px`)
   if (r.cardEnd > 2) bad.push(`card snapped at the end ${r.cardEnd}px`)
@@ -662,6 +686,41 @@ try {
       console.log(`  ${bad.length ? "BAD " : "ok  "} ${name.padEnd(40)} ${bad.join("; ") || "clean"}`)
       console.log(`        first frame ${r.firstFrameMs}ms, first move ${r.firstMoveMs}ms, ${r.movingFrames} frames moving;  frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
       if (process.env.VSF_FILM === "1") for (const x of rec.film) console.log(`          ${x.t} card ${x.card?.l}-${x.card?.r} x ${x.card?.t}-${x.card?.b} scroll ${x.scrollTop} eye ${x.eye} sec ${x.section} held ${x.heldPx} skip ${x.skippedPx} moving ${x.moving} fold ${x.fold} panel ${x.panel?.l} o ${x.panelOpacity}`)
+    }
+    /*
+      THE WINDOW ITSELF, resized (or a computer's full screen): across the
+      editor's phone line and back, then a little wider. The canvas must not
+      be drawn again from nothing, must not fade, must keep its place, and
+      must come back to the size it was showing.
+    */
+    if (WINDOW && !ONLY) {
+      const RESIZES = [["window narrower than a tablet", 700, h], ["window back to its width", w, h], ["window wider (full screen)", w + 160, h + 60], ["window back again", w, h]]
+      for (const [name, ww, hh] of RESIZES) {
+        await sleep(900)
+        const before = await state(page)
+        const recP = page.evaluate((ms) => window.__vsfStart(ms, "window", null), RECORD_MS)
+        await sleep(60)
+        await page.setViewport({ width: ww, height: hh, deviceScaleFactor: 1 })
+        const rec = await recP
+        const f = rec.film.filter((x) => x.t >= 0)
+        const s = await state(page)
+        const r = {
+          remounted: Math.max(0, ...f.map((x) => x.remounted + x.newFrames)),
+          fades: Object.keys(rec.fades),
+          eyeDrift: rec.film[0].eye !== null && f.length && f[f.length - 1].eye !== null ? Math.round(f[f.length - 1].eye - rec.film[0].eye) : null,
+          held: Math.max(0, ...f.map((x) => x.heldPx + x.skippedPx)),
+          undrawn: Math.max(0, ...f.map((x) => x.undrawn)),
+          device: `${before.device ?? "phone editor"} -> ${s.device ?? "phone editor"}`,
+        }
+        const bad = []
+        if (r.remounted) bad.push(`remounted ${r.remounted}`)
+        if (r.fades.length) bad.push(`fades ${r.fades.join(" ")}`)
+        if (r.held) bad.push(`held in view ${r.held}px`)
+        if (name === "window back to its width" && s.device !== "desktop") bad.push(`came back as ${s.device}`)
+        if (bad.length) failures++
+        table.push({ run, name, r, bad })
+        console.log(`  ${bad.length ? "BAD " : "ok  "} ${name.padEnd(40)} ${bad.join("; ") || "clean"}   ${JSON.stringify(r)}`)
+      }
     }
     if (cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     if (errors.length) console.log("  page errors:", errors.slice(0, 3))

@@ -68,8 +68,13 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
       schedule()
       /* The editor's size switch holding the page under the eye moves the scroll; nobody scrolled (lib/website-builder/canvas-switch.ts, holdView). */
       if (el.hasAttribute("data-wb-switching")) return
+      /* Nor does a window being resized, whose reflow moves it too. */
+      if (performance.now() - resizedAt < 250) return
       reveal()
     }
+    let resizedAt = -Infinity
+    const onResize = () => { resizedAt = performance.now() }
+    window.addEventListener("resize", onResize)
     measure()
     el.addEventListener("scroll", onScroll, { passive: true })
     el.addEventListener("pointerenter", reveal)
@@ -82,6 +87,7 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
     if (content) ro.observe(content)
     return () => {
       el.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onResize)
       el.removeEventListener("pointerenter", reveal)
       el.removeEventListener("pointermove", reveal)
       ro.disconnect()
