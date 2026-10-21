@@ -1,0 +1,20 @@
+<div class="pg">
+  <h2 class="pg__title reveal">{{ section.settings.heading }}</h2>
+  <div class="pg__grid">
+    {%- for block in section.blocks -%}
+      <a class="pg__card reveal" href="#" {{ block.shopify_attributes }}>
+        <span class="pg__media">{%- if block.settings.image != blank -%}<img src="{{ block.settings.image | image_url: width: 600 }}" alt="" width="600" height="600" loading="lazy">{%- endif -%}</span>
+        <span class="pg__name">{{ block.settings.title }}</span>
+        <span class="pg__price">{{ block.settings.price }}</span>
+      </a>
+    {%- endfor -%}
+  </div>
+</div>
+{% schema %}
+{ "name": "Product grid", "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "I più amati" } ],
+  "blocks": [ { "type": "product", "name": "Product", "settings": [
+    { "type": "image_picker", "id": "image", "label": "Image" },
+    { "type": "text", "id": "title", "label": "Title", "default": "Prime1 Clarity" },
+    { "type": "text", "id": "price", "label": "Price", "default": "39,00 €" }
+  ] } ], "presets": [ { "name": "Product grid" } ] }
+{% endschema %}

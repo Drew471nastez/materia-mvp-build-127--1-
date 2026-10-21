@@ -1,0 +1,1 @@
+{ "type": "custom.overlay", "name": "Overlay group", "sections": { "tab-bar": { "type": "tab-bar", "settings": {} } }, "order": ["tab-bar"] }

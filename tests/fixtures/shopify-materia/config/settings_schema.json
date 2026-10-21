@@ -1,0 +1,2 @@
+[ { "name": "theme_info", "theme_name": "Materia Fixture", "theme_version": "1.0.0", "theme_author": "Storelib tests" },
+  { "name": "Colors", "settings": [ { "type": "color", "id": "accent", "label": "Accent", "default": "#111111" } ] } ]

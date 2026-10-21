@@ -1,0 +1,20 @@
+<div class="tb">
+  <div class="tb__social" aria-label="Social">
+    <a href="#" class="tb__icon">f</a><a href="#" class="tb__icon">ig</a><a href="#" class="tb__icon">yt</a><a href="#" class="tb__icon">tt</a><a href="#" class="tb__icon">p</a>
+  </div>
+  <div class="tb__slider" data-slider data-slider-debounce="200">
+    <button type="button" class="tb__arrow" data-prev aria-label="Precedente">&lsaquo;</button>
+    <div class="tb__viewport" data-viewport>
+      <div class="tb__track" data-track>
+        {%- for block in section.blocks -%}
+          <div class="tb__slide{% if forloop.first %} is-active{% endif %}" data-slide {{ block.shopify_attributes }}>{{ block.settings.text }}</div>
+        {%- endfor -%}
+      </div>
+    </div>
+    <button type="button" class="tb__arrow" data-next aria-label="Successivo">&rsaquo;</button>
+  </div>
+  <div class="tb__locale">EUR &euro; &middot; Italiano</div>
+</div>
+{% schema %}
+{ "name": "Announcement Bar Pro 3", "class": "section-top-bar", "blocks": [ { "type": "text", "name": "Text", "settings": [ { "type": "text", "id": "text", "label": "Text", "default": "Annuncio" } ] } ], "presets": [ { "name": "Announcement Bar Pro 3", "category": "Announcement Bars" } ] }
+{% endschema %}
