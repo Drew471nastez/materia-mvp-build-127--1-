@@ -269,7 +269,16 @@ const RECORDER = String.raw`(() => {
     film.push({ n: -1, t: -1, wall: performance.timeOrigin + performance.now(), card: rect(card), view: rect(root), scrollTop: Math.round(root.scrollTop), eye: eye ? Math.round(eye.getBoundingClientRect().top - view0.top) : null, section: eyeSection ? Math.round(eyeSection.getBoundingClientRect().top - view0.top) : null })
     window.__vsfPressWall = performance.timeOrigin + performance.now()
     hit(press)
-    if (again) setTimeout(() => { window.__vsfAgainWall = performance.timeOrigin + performance.now(); hit(again[0]) }, again[1])
+    /* The second press comes again[1]ms after the card or the sidebar has started to move: a turn round in the middle of the move. */
+    if (again) {
+      const w0 = card.getBoundingClientRect().width, f0 = fold ? fold.getBoundingClientRect().width : 0
+      const watch = () => {
+        const moved = Math.abs(card.getBoundingClientRect().width - w0) > 2 || (fold && Math.abs(fold.getBoundingClientRect().width - f0) > 2)
+        if (moved) setTimeout(() => { window.__vsfAgainWall = performance.timeOrigin + performance.now(); hit(again[0]) }, again[1])
+        else requestAnimationFrame(watch)
+      }
+      requestAnimationFrame(watch)
+    }
     requestAnimationFrame(tick)
   })
 })()`
@@ -424,7 +433,8 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
   const cardJump = Math.max(biggestStepOver(f.map((x) => x.card.l)), biggestStepOver(f.map((x) => x.card.r)), biggestStepOver(f.map(H)))
   /* Stalls: the card or the fold not moving for more than two frames while the switch is still under way. */
   let stall = 0, run = 0
-  for (let i = 1; i < motion.length; i++) {
+  /* Only between the first and the last frame that moved: a switch with nothing to move has no stall. */
+  for (let i = 1; i < motion.length && lastMoving >= 0; i++) {
     const same = Math.abs(W(motion[i]) - W(motion[i - 1])) < 0.2 && Math.abs(H(motion[i]) - H(motion[i - 1])) < 0.2 && Math.abs((motion[i].fold ?? 0) - (motion[i - 1].fold ?? 0)) < 0.2
     run = same ? run + 1 : 0
     stall = Math.max(stall, run)
@@ -602,8 +612,8 @@ const STEPS = [
   ["desktop to phone, for the next", DEV, null, (s) => s.device === "mobile"],
   ["phone into full screen", FULL, null, (s) => s.full === "true" && s.device === "desktop"],
   ["full screen out by the size switch", DEV, null, (s) => s.full === "false" && s.device === "desktop"],
-  ["desktop to phone, turned round at 140ms", DEV, [DEV, 140], (s) => s.device === "desktop"],
-  ["into full screen, turned round at 140ms", FULL, [FULL, 140], (s) => s.full === "false"],
+  ["desktop to phone, turned round mid move", DEV, [DEV, 60], (s) => s.device === "desktop"],
+  ["into full screen, turned round mid move", FULL, [FULL, 60], (s) => s.full === "false"],
 ]
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--autoplay-policy=no-user-gesture-required"] })
@@ -668,6 +678,7 @@ try {
       await cdp.send("Page.startScreencast", { format: "jpeg", quality: 85, everyNthFrame: 1, maxWidth: w, maxHeight: h })
       await sleep(300)
       const framePromise = fr ? fr.evaluate((ms) => window.__vsfFrame(ms), RECORD_MS).catch(() => null) : Promise.resolve(null)
+      const calls0 = await page.evaluate(() => (window.probeCalls || []).length)
       const rec = await page.evaluate((ms, p, a) => window.__vsfStart(ms, p, a), RECORD_MS, press, again)
       const frameFilm = await framePromise
       const walls = await page.evaluate(() => ({ press: window.__vsfPressWall, again: window.__vsfAgainWall ?? null }))
@@ -679,7 +690,10 @@ try {
       shots.sort((a, b) => a.wall - b.wall)
       const s = await state(page)
       const r = await analyse(rec, frameFilm, shots, walls.press, walls.again, dir, name, 1)
+      /* Nothing is asked of the network for a switch: no page, no section, no file fetched again. */
+      r.fetched = await page.evaluate((n) => (window.probeCalls || []).slice(n), calls0)
       const bad = verdict(r)
+      if (r.fetched.length) bad.push(`fetched ${r.fetched.length}: ${r.fetched.slice(0, 3).join(" ")}`)
       if (!ok(s)) bad.unshift(`landed wrong ${JSON.stringify(s)}`)
       if (bad.length) failures++
       table.push({ run, name, r, bad })

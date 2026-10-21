@@ -1135,8 +1135,17 @@ export const CANVAS_BRIDGE = `
       var waiting = document.querySelectorAll(".scroll-trigger--offscreen");
       for (var i = 0; i < waiting.length; i++) {
         if (!inView(waiting[i])) continue;
-        waiting[i].style.animation = "none";
+        /*
+          Its entrance started and taken to its end at once, not switched off:
+          a theme can keep the piece faint at rest and rely on the entrance
+          (filled forwards) to show it, so "animation: none" left it invisible.
+        */
         waiting[i].classList.remove("scroll-trigger--offscreen");
+        void getComputedStyle(waiting[i]).opacity;
+        if (waiting[i].getAnimations) waiting[i].getAnimations().forEach(function (a) {
+          var tm = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+          if (tm && isFinite(tm.endTime)) { try { a.finish(); } catch (e) {} }
+        });
       }
       if (!document.getAnimations || began === null) return;
       document.getAnimations().forEach(function (a) {
