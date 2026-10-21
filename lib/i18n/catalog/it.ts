@@ -2941,6 +2941,8 @@ const words: Record<string, string> = {
  "Block preview": "Anteprima del blocco",
  "Shown in its section": "Mostrato nella sua sezione",
  "No preview for this block": "Nessuna anteprima per questo blocco",
+ "Already used": "Già usato",
+ "Nothing to show yet": "Ancora niente da mostrare",
  "Earlier visits": "Visite precedenti",
  "Earnings summary (CSV)": "Riepilogo guadagni (CSV)",
  "EasyPost": "EasyPost",
