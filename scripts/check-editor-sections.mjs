@@ -33,7 +33,32 @@
  *                       right after is a step of its own
  *
  * and memory over MINUTES of synthetic editing (heap after a forced
- * collection, DOM nodes, listeners).
+ * collection, DOM nodes, listeners), sampled each minute in one state.
+ *
+ * Round 34, the bundle before and after, back to back, two runs each (the
+ * machine is shared, so a time is claimed only where both runs agree;
+ * render counts are exact and repeat):
+ *
+ *                          before (1x / 4x)          after (1x / 4x)
+ *   hide one section       2,565 renders, 88 rows    758 renders, 1 row
+ *                          blocking 8-18 / 471-520ms 0 / 64-79ms
+ *   move down (menu)       4,750 renders, 176 rows   1,551, 4 rows
+ *                          blocking 46-79 / 1,048-1,290ms   15-55 / 262-905ms
+ *   drag across 12 rows    12,311-14,200 renders, 630-720 rows    1,853-2,193, 13 rows
+ *                          longest frame 117-250 / 450-483ms      67-133 / 167-283ms
+ *   undo x8                11,117 renders, 102 sections drawn     4,820-6,378, 4 sections
+ *                          blocking 100-215 / 2,786-3,437ms       1-106 / 347-593ms
+ *   delete                 2,575 renders, 88 rows    1,632, 44 rows
+ *   add from the library   7,201-7,488 renders       5,625-6,503
+ *   36 keys typed          9 PUTs                    3 PUTs (the page alone)
+ *   newer edit in flight   says Saved over it        stays unsaved, written next
+ *   503 then back          waits for another edit    written on its own
+ *   memory, 8 min editing  flat (no growth in either), heap 23MB / 20MB
+ *
+ * Not changed: selecting a section (about 300ms at 1x, 1.3-1.7s at 4x, its
+ * settings panel mounting and the ask sounds' AudioContext made on the
+ * first press); every section mounted and no picture loaded again, before
+ * and after.
  *
  *   node scripts/check-editor-sections.mjs
  *   CPU=4 node scripts/check-editor-sections.mjs
@@ -471,9 +496,24 @@ async function main() {
     }
     if (MINUTES > 0) {
       await js(() => { window.PROBE_API_DELAY_MS = 150 })
-      const m0 = await heap()
-      const until = Date.now() + MINUTES * 60_000
+      /*
+        Every sample is taken in the same state (the same section selected,
+        its panel open, nothing saving), so what is compared is what editing
+        left behind, not which panel happened to be open. The first after a
+        minute of editing, once every panel and menu has been opened once.
+      */
+      const sample = async () => {
+        await clickAt(await centreOfBox(3))
+        await sleep(600)
+        for (let i = 0; i < 40 && (await js(() => window.__pt.saveText())) !== "Saved"; i++) await sleep(250)
+        await js(() => window.__pt.quiet(1000, 20000))
+        return heap()
+      }
+      const samples = []
+      const t0 = Date.now()
+      const until = t0 + MINUTES * 60_000
       let loops = 0
+      let nextSample = t0 + 60_000
       while (Date.now() < until) {
         loops++
         const p = await centreOfBox(3 + (loops % 20))
@@ -493,12 +533,18 @@ async function main() {
         await page.keyboard.down("Control"); await page.keyboard.press("z"); await page.keyboard.up("Control")
         await page.keyboard.down("Control"); await page.keyboard.down("Shift"); await page.keyboard.press("z"); await page.keyboard.up("Shift"); await page.keyboard.up("Control")
         await sleep(200)
+        if (Date.now() >= nextSample) { samples.push({ minute: Math.round((Date.now() - t0) / 60_000), loops, ...(await sample()) }); nextSample += 60_000 }
       }
-      await js(() => window.__pt.quiet(1500, 20000))
-      const m1 = await heap()
-      report.memory = { minutes: MINUTES, loops, before: m0, after: m1, growthMB: +(m1.heapMB - m0.heapMB).toFixed(1) }
-      console.log(`\n  memory: ${MINUTES} min, ${loops} rounds of select, duplicate, delete, type, undo, redo; heap ${m0.heapMB}MB -> ${m1.heapMB}MB, DOM nodes ${m0.nodes} -> ${m1.nodes}, listeners ${m0.listeners} -> ${m1.listeners}`)
-      expect(m1.listeners - m0.listeners < 200, "listeners do not grow with editing", `${m0.listeners} -> ${m1.listeners}`)
+      samples.push({ minute: Math.round((Date.now() - t0) / 60_000), loops, ...(await sample()) })
+      const first = samples[0], last = samples[samples.length - 1]
+      report.memory = { minutes: MINUTES, loops, samples, growthMB: +(last.heapMB - first.heapMB).toFixed(1) }
+      console.log(`\n  memory: ${MINUTES} min, ${loops} rounds of select, duplicate, delete, type, undo, redo; sampled in one state each minute:`)
+      for (const m of samples) console.log(`      min ${String(m.minute).padStart(2)}  rounds ${String(m.loops).padStart(4)}  heap ${m.heapMB}MB  DOM nodes ${m.nodes}  listeners ${m.listeners}`)
+      if (samples.length >= 2) {
+        expect(last.listeners - first.listeners < 50, "listeners do not grow with editing", `${first.listeners} -> ${last.listeners}`)
+        expect(last.nodes - first.nodes < 300, "DOM nodes do not grow with editing", `${first.nodes} -> ${last.nodes}`)
+        expect(last.heapMB - first.heapMB < 5, "the heap does not grow with editing", `${first.heapMB}MB -> ${last.heapMB}MB`)
+      }
     }
     if (errors.length) console.log(`  page errors: ${errors.slice(0, 5).join(" | ")}`)
     report.errors = errors
