@@ -19,9 +19,11 @@
  *                     and a ceiling), the block in its middle
  *   splitChoices      the blocks that can be added, then the ones that
  *                     cannot, with one heading for the second group
- *   placePicker       where the two cards go on a computer: beside the
- *                     sidebar, level with the row they came from, or in
- *                     the middle when there is no room beside it
+ *   placePicker       where the one panel goes on a computer, and its
+ *                     size: beside the sidebar, level with the row it came
+ *                     from, or in the middle when there is no room beside it
+ *   previewStrip      the strip of the section the block is shown on, inside
+ *                     the preview's canvas
  */
 import { freshBlocks, insertAt } from "./block-tree"
 import type { BlockInstance, BlockSchema, SectionInstance, SectionPreset } from "./types"
@@ -161,28 +163,32 @@ export function splitChoices<C extends PickerChoice>(shown: readonly C[], reason
 }
 
 /**
- * The two cards on a computer: the list (its search and its rows) and the
- * preview beside it. `listMax` and `previewMax` are the tallest each may be;
- * each is as tall as its content up to that.
+ * THE PANEL ON A COMPUTER (round 36). One card: the search and the list on
+ * the left, `list` wide, and the preview filling the rest, divided by a
+ * hairline. The owner, after two separate cards: "it's split from the main
+ * one and it's too short and small". After one 820 by 540 panel: "too big".
+ * So it is `width` wide (`minWidth` where the window has less room beside the
+ * sidebar) and between `minH` and `maxH` tall: as tall as the list wants
+ * inside those, and never taller than the window.
  */
-export const PICKER_SIZE = { list: 236, preview: 392, gap: 8, margin: 12, listMax: 460, previewMax: 400, previewMin: 72, inset: 14 }
+export const PICKER_SIZE = { list: 260, width: 760, minWidth: 640, minH: 420, maxH: 560, gap: 8, margin: 12, canvasPad: 24, inset: 20 }
 
 export interface PickerPlace {
   mode: "beside" | "center"
   left: number
   top: number
-  /** Both cards and the gap between them. */
   width: number
-  previewWidth: number
-  listMax: number
-  previewMax: number
+  height: number
 }
 
 /**
- * Where the cards go: beside the sidebar, the top level with the row they
- * were opened from and kept on screen; or, with no room beside the sidebar,
- * in the middle of the window over a dimmed editor. `listHeight` is what
- * the list card would like to be (its search and every row).
+ * Where the panel goes: beside the sidebar, its top level with the row it was
+ * opened from, lifted as far as it must be to stay in the window; or, with no
+ * room beside the sidebar, in the middle of the window over a dimmed editor.
+ * `listHeight` is what the list side would like to be (its search and every
+ * row): the panel takes that height between `minH` and `maxH`, so a level
+ * with three blocks does not get a tall empty column, nor a long one a short
+ * scroller.
  */
 export function placePicker(
   anchor: { top: number },
@@ -191,19 +197,28 @@ export function placePicker(
   listHeight: number,
   size = PICKER_SIZE,
 ): PickerPlace {
-  const full = size.list + size.gap + size.preview
-  const listMax = Math.max(160, Math.min(size.listMax, viewport.h - size.margin * 2))
-  const listH = Math.min(Math.max(0, listHeight), listMax)
-  /* What has to fit under the top: the list, and a preview of a fair height. */
-  const need = Math.max(listH, Math.min(size.previewMax, 280, viewport.h - size.margin * 2))
+  const height = Math.round(Math.max(1, Math.min(Math.max(size.minH, Math.min(size.maxH, listHeight)), viewport.h - size.margin * 2)))
   const left = (sidebar?.right ?? 0) + size.gap
   const room = viewport.w - left - size.margin
-  if (sidebar && room >= full) {
-    const top = Math.round(Math.max(size.margin, Math.min(anchor.top - 8, viewport.h - need - size.margin)))
-    return { mode: "beside", left: Math.round(left), top, width: full, previewWidth: size.preview, listMax, previewMax: Math.round(Math.min(size.previewMax, viewport.h - size.margin - top)) }
+  if (sidebar && room >= size.minWidth) {
+    const top = Math.round(Math.max(size.margin, Math.min(anchor.top - 8, viewport.h - height - size.margin)))
+    return { mode: "beside", left: Math.round(left), top, width: Math.round(Math.min(size.width, room)), height }
   }
-  const width = Math.min(full, viewport.w - size.margin * 2)
-  const previewWidth = Math.max(200, width - size.list - size.gap)
-  const top = Math.round(Math.max(size.margin, (viewport.h - need) / 2))
-  return { mode: "center", left: Math.round((viewport.w - width) / 2), top, width: Math.round(width), previewWidth: Math.round(previewWidth), listMax, previewMax: Math.round(Math.min(size.previewMax, viewport.h - size.margin - top)) }
+  const width = Math.round(Math.min(size.width, viewport.w - size.margin * 2))
+  return { mode: "center", left: Math.round((viewport.w - width) / 2), top: Math.round(Math.max(size.margin, (viewport.h - height) / 2)), width, height }
+}
+
+/**
+ * THE STRIP THE BLOCK IS SHOWN ON. The preview side is a quiet canvas; on it
+ * a strip of the section (its own background) as wide as the canvas allows,
+ * as tall as the scaled block, never shorter than `floor` of the room (so a
+ * line of text is not a sliver in a big grey field) and never taller than the
+ * room. `area` is the canvas, `pad` its padding, `below` what a caption under
+ * the strip takes.
+ */
+export function previewStrip(area: { w: number; h: number }, pad: number, inset: number, below = 0, floor = 0.5): { w: number; minH: number; maxH: number; inset: number } {
+  const w = Math.max(1, Math.round(area.w - pad * 2))
+  const maxH = Math.max(1, Math.round(area.h - pad * 2 - below))
+  const minH = Math.min(maxH, Math.max(96, Math.round(maxH * floor)))
+  return { w, minH, maxH, inset }
 }

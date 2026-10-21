@@ -12,23 +12,22 @@
  *
  * Add block used to open the shared action menu: a column of names. Now:
  *
- *   A COMPUTER  two cards beside the sidebar, level with the row they were
- *               opened from: the list (a search, the blocks this level
- *               takes, then the ones it has no room for under one heading)
- *               and, beside it, the block under the pointer (or the keys)
- *               drawn as it will be in this section. A click or Enter adds
- *               it there. Escape, a press outside, or adding puts them away
- *               and the focus back on the row.
+ *   A COMPUTER  one panel beside the sidebar, level with the row it was
+ *               opened from: on its left a search and the list (the blocks
+ *               this level takes, then the ones it has no room for under
+ *               one heading), on its right, past a hairline, the block under
+ *               the pointer (or the keys) drawn as it will be in this
+ *               section. A click or Enter adds it there. Escape, a press
+ *               outside, or adding puts it away and the focus back on the row.
  *   A PHONE     the builder's own sheet, over the sections sheet, as tall as
- *               what is in it: the preview, the search and the list, a tap
- *               picks and the Add button under the list adds.
+ *               what is in it: the preview canvas edge to edge, the search
+ *               and the list; a tap picks and the Add button adds.
  *
- * The owner, after the first version: "the whole blocks library selector is
- * too big ... the preview should be good clean optimized". It was one 820 by
- * 540 panel whatever it held, and a short block sat at its own size in the
- * middle of a pane made for a picture. So each card is now the size of what
- * it holds: the list as tall as its rows (up to a cap), the preview as wide
- * as its card and as tall as the scaled block.
+ * Round 35, after one 820 by 540 panel: "too big". Round 36, after two cards
+ * each the size of what it held: "it's split from the main one and it's too
+ * short and small". So it is one panel again, 760 wide and 420 to 560 tall
+ * (PICKER_SIZE), the preview side a quiet canvas with a strip of the section
+ * on it, as wide as the canvas and as tall as the scaled block, in the middle.
  *
  * WHAT THE PREVIEW IS. The section the block is being added to, drawn by the
  * real renderer with this site's theme, the section's own settings (its
@@ -69,7 +68,7 @@ import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { splitStyles } from "@/lib/website-builder/preview-markup"
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
-import { PICKER_SIZE, PREVIEW_BLOCK_ID, fitPreview, matchChoices, placePicker, previewBlock, sectionWith, splitChoices, type PickerPlace } from "@/lib/website-builder/block-picker"
+import { PICKER_SIZE, PREVIEW_BLOCK_ID, fitPreview, matchChoices, placePicker, previewBlock, previewStrip, sectionWith, splitChoices, type PickerPlace } from "@/lib/website-builder/block-picker"
 import type { BlockSchema, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
 import type { BlockChoice } from "./add-block-button"
@@ -348,11 +347,21 @@ function drawsNothing(el: Element): boolean {
   return !el.querySelector("img, svg, video, picture, canvas, iframe, input, button, hr")
 }
 
-/** How a pane is sized: its width is its card's; its height follows the block, between these. */
+/** How the strip is sized: its width is the canvas's; its height follows the block, between these. */
 interface PaneBox {
   minH: number
   maxH: number
   inset: number
+}
+
+const CAPTION_GAP = 12
+
+/** The strip's room, read from the canvas it sits on at the moment it is fitted: the canvas less its padding and the caption under the strip. */
+function stripBox(pane: HTMLElement, pad: number, inset: number): PaneBox {
+  const area = pane.parentElement
+  if (!area) return { minH: 96, maxH: 320, inset }
+  const caption = area.querySelector<HTMLElement>("[data-preview-caption]")
+  return previewStrip({ w: area.clientWidth, h: area.clientHeight }, pad, inset, caption ? caption.offsetHeight + CAPTION_GAP : 0)
 }
 
 /**
@@ -434,8 +443,12 @@ function sectionBackdrop(root: Element): string {
 interface PaneProps {
   session: PreviewSession
   choice: BlockChoice | undefined
-  box: PaneBox
+  /** The canvas's padding around the strip. */
+  pad: number
+  /** Why the block cannot be added here, said once under its strip. */
+  reason?: string | null
   className?: string
+  style?: React.CSSProperties
 }
 
 const PreviewPane = memo(function PreviewPane(props: PaneProps) {
@@ -448,19 +461,20 @@ interface ShellRefs {
   outlineRef: React.RefObject<HTMLDivElement | null>
 }
 
-function PaneShell({ paneRef, clipRef, outlineRef, className, children, choice, note, empty, box, loading }: ShellRefs & { className?: string; children: ReactNode; choice: BlockChoice | undefined; note?: string | null; empty?: boolean; box: PaneBox; loading?: boolean }) {
-  /* A phone's pane is one fixed height, so its note sits over the preview's foot; elsewhere it is a line under it. */
-  const fixed = box.minH === box.maxH
-  const line = note ? (
-    <p className={cn("px-3 py-1.5 text-[12px] leading-snug text-[#6b7280]", fixed ? "absolute inset-x-0 bottom-0 bg-white/90" : "border-t border-[#f0f1f3] bg-white")} data-preview-note="">{note}</p>
-  ) : null
+/**
+ * THE PREVIEW SIDE: a quiet canvas, and on it a strip of the section with the
+ * block on it, in the middle. Under the strip, once, why the block cannot be
+ * added here, or a note about the preview itself.
+ */
+function PaneShell({ paneRef, clipRef, outlineRef, className, style, children, choice, note, reason, empty, pad, loading }: ShellRefs & { className?: string; style?: React.CSSProperties; children: ReactNode; choice: BlockChoice | undefined; note?: string | null; reason?: string | null; empty?: boolean; pad: number; loading?: boolean }) {
+  const caption = reason ?? note
   return (
-    <>
+    <div data-block-picker-canvas="" className={cn("relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-[#f5f6f8]", className)} style={{ padding: pad, ...style }}>
       <div
         ref={paneRef}
-        className={cn("relative overflow-hidden bg-white", className)}
-        /* Its first height, before the block is fitted, is the floor: nothing shrinks from a taller guess. */
-        style={{ height: box.minH }}
+        /* A ring, not a border: the strip's height is the fit's own number, with nothing added to it. */
+        className="relative w-full shrink-0 overflow-hidden rounded-lg bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.06)]"
+        style={{ height: 120 }}
         data-block-preview=""
         data-showing={choice ? choiceKey(choice).replace("\u0000", ":") : undefined}
       >
@@ -469,31 +483,40 @@ function PaneShell({ paneRef, clipRef, outlineRef, className, children, choice, 
         </div>
         <div ref={outlineRef} hidden className="pointer-events-none absolute rounded-[3px] border border-dashed border-[#9ca3af]" />
         {loading ? <span aria-hidden className="wb-preview-shimmer pointer-events-none absolute inset-0" /> : null}
-        {empty ? <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[12px] text-[#6b7280]" data-preview-note="" data-preview-empty="">{tt("Nothing to show yet")}</p> : null}
-        {fixed ? line : null}
+        {empty ? <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[13px] text-[#6b7280]" data-preview-note="" data-preview-empty="">{tt("Nothing to show yet")}</p> : null}
       </div>
-      {fixed ? null : line}
-    </>
+      {caption ? (
+        <p
+          className="max-w-[440px] shrink-0 text-balance text-center text-[13px] leading-snug text-[#4b5563]"
+          style={{ marginTop: CAPTION_GAP }}
+          data-preview-caption=""
+          {...(reason ? { "data-block-picker-reason": "" } : { "data-preview-note": "" })}
+        >
+          {caption}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
-/** Fits again when the pane's width changes (the window, the sheet). Its height is the fit's own doing, so it is not watched. */
-function useWidthRefit(paneRef: React.RefObject<HTMLDivElement | null>, refit: () => unknown) {
+/** Fits again when the canvas changes size (the window, the panel's height for a new opening, the sheet). The strip's height is the fit's own doing, and the canvas does not follow it. */
+function useAreaRefit(paneRef: React.RefObject<HTMLDivElement | null>, refit: () => unknown) {
   useEffect(() => {
-    const pane = paneRef.current
-    if (!pane || typeof ResizeObserver === "undefined") return
-    let last = pane.clientWidth
+    const area = paneRef.current?.parentElement
+    if (!area || typeof ResizeObserver === "undefined") return
+    let last = `${area.clientWidth}x${area.clientHeight}`
     const ro = new ResizeObserver(() => {
-      if (pane.clientWidth === last) return
-      last = pane.clientWidth
+      const now = `${area.clientWidth}x${area.clientHeight}`
+      if (now === last) return
+      last = now
       refit()
     })
-    ro.observe(pane)
+    ro.observe(area)
     return () => ro.disconnect()
   }, [paneRef, refit])
 }
 
-function StorelibPane({ session, choice, box, className }: PaneProps) {
+function StorelibPane({ session, choice, pad, reason, className, style }: PaneProps) {
   const paneRef = useRef<HTMLDivElement | null>(null)
   const clipRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
@@ -502,7 +525,7 @@ function StorelibPane({ session, choice, box, className }: PaneProps) {
   const [empty, setEmpty] = useState(false)
   const shown = useRef<string | null>(null)
   const fallbackBg = String(session.env.theme?.background_color ?? "#ffffff")
-  const { minH, maxH, inset } = box
+  const inset = pad >= 20 ? PICKER_SIZE.inset : 12
   const apply = useCallback(() => {
     const pane = paneRef.current
     const clip = clipRef.current
@@ -522,12 +545,13 @@ function StorelibPane({ session, choice, box, className }: PaneProps) {
       stage.innerHTML = html
       shown.current = showing
     }
-    const { found, empty: none } = fitStage(pane, clip, stage, outline, document, session.look.width, fallbackBg, { minH, maxH, inset })
+    const { found, empty: none } = fitStage(pane, clip, stage, outline, document, session.look.width, fallbackBg, stripBox(pane, pad, inset))
     stage.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
     setMissing(!found && !!html)
     setEmpty(none)
     return true
-  }, [session, choice, fallbackBg, minH, maxH, inset])
+    /* The caption is in the deps: it takes room under the strip. */
+  }, [session, choice, fallbackBg, pad, inset, reason]) // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     styleStage()
     if (apply() === false) {
@@ -539,9 +563,9 @@ function StorelibPane({ session, choice, box, className }: PaneProps) {
       return () => window.clearTimeout(id)
     }
   }, [apply, session, choice])
-  useWidthRefit(paneRef, apply)
+  useAreaRefit(paneRef, apply)
   return (
-    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} choice={choice} box={box} empty={empty} note={missing ? tt("Shown in its section") : null}>
+    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} style={style} choice={choice} pad={pad} reason={reason} empty={empty} note={missing ? tt("Shown in its section") : null}>
       <div
         ref={stageRef}
         data-bp-stage=""
@@ -560,7 +584,7 @@ function StorelibPane({ session, choice, box, className }: PaneProps) {
  * `block.shopify_attributes` has no block to find: the section is shown
  * whole, and says so.
  */
-function CompatPane({ session, choice, box, className }: PaneProps) {
+function CompatPane({ session, choice, pad, reason, className, style }: PaneProps) {
   const ctx = useCompatPreview()
   const paneRef = useRef<HTMLDivElement | null>(null)
   const clipRef = useRef<HTMLDivElement | null>(null)
@@ -570,7 +594,7 @@ function CompatPane({ session, choice, box, className }: PaneProps) {
   const [note, setNote] = useState<string | null>(null)
   const [empty, setEmpty] = useState(false)
   const width = session.look.width
-  const { minH, maxH, inset } = box
+  const inset = pad >= 20 ? PICKER_SIZE.inset : 12
   const doc = useMemo(() => {
     if (!ctx?.theme) return null
     const { html, main } = sheetDocument(ctx.theme, ctx.page, ctx.rows, width, 800)
@@ -608,17 +632,17 @@ function CompatPane({ session, choice, box, className }: PaneProps) {
     const body = fd.body
     if (fd.querySelector(`[data-block-id="${PREVIEW_BLOCK_ID}"]`)) body.setAttribute("data-bp-isolate", "")
     else body.removeAttribute("data-bp-isolate")
-    const { found, empty: none } = fitStage(pane, clip, frame, outline, fd, width, "#ffffff", { minH, maxH, inset })
+    const { found, empty: none } = fitStage(pane, clip, frame, outline, fd, width, "#ffffff", stripBox(pane, pad, inset))
     setEmpty(none)
     frame.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
     setNote(!html ? tt("No preview for this block") : found ? null : tt("Shown in its section"))
-  }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width, minH, maxH, inset])
+  }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width, pad, inset, reason]) // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     apply()
   }, [apply])
-  useWidthRefit(paneRef, apply)
+  useAreaRefit(paneRef, apply)
   return (
-    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} choice={choice} box={box} empty={empty} loading={!loaded} note={ctx?.failed ? tt("No preview for this block") : note}>
+    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} style={style} choice={choice} pad={pad} reason={reason} empty={empty} loading={!loaded} note={ctx?.failed ? tt("No preview for this block") : note}>
       {doc ? (
         <iframe
           ref={frameRef}
@@ -691,8 +715,8 @@ export function BlockPickerProvider({ theme, sources, compatInstallId = null, ch
     setPhone(onPhone)
     if (env.compatInstallId) setCompatWanted(true)
     setSession(s)
-    /* The very first time the sheet is built closed and opened on the next frame, so it moves in like every later opening. The cards on a computer are simply up. */
-    if (onPhone && !everOpened.current) {
+    /* The very first time, the sheet (or the panel) is built closed and opened on the next frame, so it comes in like every later opening. */
+    if (!everOpened.current) {
       everOpened.current = true
       requestAnimationFrame(() => setOpen(true))
     } else setOpen(true)
@@ -726,10 +750,9 @@ function sessionKey(s: PreviewSession): number {
   return id
 }
 
-/** A phone's preview is one height for the whole opening, so the list under it never moves as a tap changes it. */
-function phonePaneBox(): PaneBox {
-  const h = typeof window === "undefined" ? 152 : Math.round(Math.max(112, Math.min(200, window.innerHeight * 0.23)))
-  return { minH: h, maxH: h, inset: 12 }
+/** A phone's preview canvas is one height for the whole opening, so the list under it never moves as a tap changes the block on it. */
+function phoneCanvasHeight(): number {
+  return typeof window === "undefined" ? 220 : Math.round(Math.max(180, Math.min(270, window.innerHeight * 0.29)))
 }
 
 function PickerBody({ session, open, phone, onClose }: { session: PreviewSession; open: boolean; phone: boolean; onClose: () => void }) {
@@ -880,9 +903,9 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => (phone ? show(c) : add(c))}
         className={cn(
-          "flex h-8 cursor-pointer select-none items-center rounded-md px-2.5 text-left text-[13px] [-webkit-tap-highlight-color:transparent] max-sm:h-11 max-sm:rounded-lg max-sm:px-3 max-sm:text-[15px]",
+          "flex h-8 cursor-pointer select-none items-center rounded-lg px-2.5 text-left text-[13px] [-webkit-tap-highlight-color:transparent] max-sm:h-11 max-sm:px-3 max-sm:text-[15px]",
           on ? "bg-[#f3f4f6]" : "",
-          reason ? "cursor-default text-[#9ca3af]" : "text-[#1a1a2e]",
+          reason ? cn("cursor-default", groups.open.length ? "text-[#9ca3af]" : "text-[#6b7280]") : "text-[#1a1a2e]",
         )}
       >
         <span className="min-w-0 flex-1 truncate">{c.label}</span>
@@ -892,13 +915,14 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
 
   const list = (
     /* On a phone the list is the sheet's scroller and its rows the content it measures, so a sheet opened again for a longer list grows to it. */
-    <div ref={listRef} id={listId} role="listbox" aria-label={tt("Blocks")} data-block-picker-list="" {...(phone ? { "data-sheet-scroll": "" } : {})} className="wb-slim-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5 max-sm:px-2">
+    <div ref={listRef} id={listId} role="listbox" aria-label={tt("Blocks")} data-block-picker-list="" {...(phone ? { "data-sheet-scroll": "" } : {})} className="wb-slim-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-2">
       <div data-sheet-content="">
       {groups.open.map((c, i) => row(c, i))}
       {groups.closed.length ? (
         <div role="group" aria-labelledby={`${listId}-closed`} data-block-picker-closed="">
-          <p id={`${listId}-closed`} className="px-2.5 pb-1 pt-2.5 text-[12px] leading-snug text-[#9ca3af] max-sm:px-3" data-block-picker-heading="">
-            {groups.heading ?? tt("Already used")}
+          <p id={`${listId}-closed`} className={cn("px-2.5 pb-1 text-[12px] font-medium leading-snug text-[#9ca3af] max-sm:px-3", groups.open.length ? "pt-3" : "pt-1")} data-block-picker-heading="">
+            {/* A label, not the reason: the reason is said once, under the preview of the block it is about. */}
+            {!groups.open.length ? tt("Nothing more fits here") : groups.shared ? tt("No room here") : tt("Already used")}
           </p>
           {groups.closed.map((c, i) => row(c, groups.open.length + i))}
         </div>
@@ -908,39 +932,26 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
     </div>
   )
 
-  const activeReason = active ? reasons.get(choiceKey(active)) : null
-  /* The reason a block cannot be added, whole, under its preview; not repeated when the heading already says it. */
-  const reasonLine = activeReason && !groups.shared ? (
-    <p className="border-t border-[#f0f1f3] bg-white px-3 py-2 text-[12px] leading-snug text-[#6b7280]" data-block-picker-reason="">{activeReason}</p>
-  ) : null
+  const activeReason = active ? reasons.get(choiceKey(active)) ?? null : null
 
   if (phone) {
-    return <PhoneSheet open={open} onClose={onClose} session={session} active={active} activeReason={activeReason ?? null} search={search} list={list} onAdd={() => add(active)} />
+    return <PhoneSheet open={open} onClose={onClose} session={session} active={active} activeReason={activeReason} search={search} list={list} onAdd={() => add(active)} />
   }
 
   return (
     <DesktopPanel open={open} anchor={request.anchor} onClose={onClose} searchRef={searchRef}>
-      {(place) => (
-        <>
-          <div data-block-picker-card="list" className={cn(CARD, "flex min-h-0 shrink-0 flex-col")} style={{ width: PICKER_SIZE.list, maxHeight: place.listMax }}>
-            <div className="shrink-0 p-1.5 pb-1">{search}</div>
-            {list}
-          </div>
-          <div data-block-picker-card="preview" className={cn(CARD, "shrink-0")} style={{ width: place.previewWidth }}>
-            <PreviewPane session={session} choice={active} box={{ minH: PICKER_SIZE.previewMin, maxH: place.previewMax, inset: PICKER_SIZE.inset }} />
-            {reasonLine}
-          </div>
-        </>
-      )}
+      <div data-block-picker-side="" className="flex w-[260px] shrink-0 flex-col border-r border-[#eceef1]" style={{ width: PICKER_SIZE.list }}>
+        <div className="shrink-0 px-3 pb-2 pt-3">{search}</div>
+        {list}
+      </div>
+      <PreviewPane session={session} choice={active} pad={PICKER_SIZE.canvasPad} reason={activeReason} className="flex-1" />
     </DesktopPanel>
   )
 }
 
-const CARD = "overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_12px_32px_-12px_rgba(15,23,42,0.22),0_1px_3px_rgba(15,23,42,0.06)]"
-
 function PhoneSheet({ open, onClose, session, active, activeReason, search, list, onAdd }: { open: boolean; onClose: () => void; session: PreviewSession; active: BlockChoice | undefined; activeReason: string | null; search: ReactNode; list: ReactNode; onAdd: () => void }) {
   /* Measured once an opening: the window's height does not change under an open sheet in a way the preview should follow. */
-  const box = useMemo(() => phonePaneBox(), [session]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canvasH = useMemo(() => phoneCanvasHeight(), [session]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     /*
       holdPage "scroll": the editor's document never scrolls (the canvas has
@@ -950,12 +961,11 @@ function PhoneSheet({ open, onClose, session, active, activeReason, search, list
     */
     <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} openFull fit detents={[0.9]} layer="raised" peekHeight={0} holdPage="scroll" label={tt("Add block")}>
       <div className="flex min-h-0 flex-1 flex-col" data-block-picker="phone" data-picker-open={open ? "" : undefined}>
-        <div className="flex shrink-0 items-center px-4 pb-2.5 pt-0.5">
+        <div className="flex shrink-0 items-center px-4 pb-3 pt-0.5">
           <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add block")}</h2>
         </div>
-        <div className="mx-4 shrink-0 overflow-hidden rounded-xl border border-[#e5e7eb]">
-          <PreviewPane session={session} choice={active} box={box} />
-        </div>
+        {/* The preview is the sheet's own canvas, edge to edge, one height for the opening; the search and the list sit on the same sheet under it. */}
+        <PreviewPane session={session} choice={active} pad={14} className="shrink-0 border-y border-[#eceef1]" style={{ height: canvasH }} />
         <div className="shrink-0 px-4 pb-1.5 pt-3">{search}</div>
         <div className="flex min-h-0 flex-1 flex-col">{list}</div>
         <div className="shrink-0 border-t border-[#f0f1f3] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
@@ -964,9 +974,9 @@ function PhoneSheet({ open, onClose, session, active, activeReason, search, list
             disabled={!active || !!activeReason}
             onClick={onAdd}
             data-block-picker-add=""
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#e5e7eb] disabled:text-[#9ca3af]"
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#f3f4f6] disabled:text-[#6b7280]"
           >
-            {/* On a phone the reason is the button's own words: a line under the preview would push the list down a row's height on every tap. */}
+            {/* On a phone the reason is the button's own words: a line under the preview would take the preview's room on every tap. */}
             <span className="truncate" {...(activeReason ? { "data-block-picker-reason": "" } : {})}>{activeReason ?? (active ? tt("Add {value}", { value: active.label }) : tt("Add block"))}</span>
           </button>
         </div>
@@ -976,22 +986,27 @@ function PhoneSheet({ open, onClose, session, active, activeReason, search, list
 }
 
 /**
- * THE CARDS ON A COMPUTER. Beside the sidebar, level with the row, over
- * nothing: the editor stays in sight and a press anywhere outside puts them
- * away, as a menu does. Where the window has no room beside the sidebar,
- * they sit in the middle over a dimmed editor. They move by opacity and a
- * few pixels of `translate` only, so opening lays out nothing but them.
+ * THE PANEL ON A COMPUTER. One card beside the sidebar, level with the row it
+ * was opened from, over nothing: the editor stays in sight and a press
+ * anywhere outside puts it away, as a menu does. Where the window has no room
+ * beside the sidebar, it sits in the middle over a dimmed editor.
  *
- * The list card is as tall as its rows, up to a cap; the preview card is as
- * tall as its block. The top is placed from the list's own height, measured
- * before the first paint of each opening.
+ * The search and the list on the left, the preview on the right, a hairline
+ * between them. Its height is set for each opening from the list's own
+ * height (between PICKER_SIZE.minH and maxH), measured before the first
+ * paint, and kept while typing, so a search never resizes it.
+ *
+ * It comes in and goes out by opacity and a few pixels of `translate` and
+ * `scale`, so opening lays out nothing but itself. The way in names no
+ * `visibility` transition: the panel is visible from its first frame and the
+ * search box can take the focus in it.
  */
-function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: boolean; anchor: HTMLElement; onClose: () => void; searchRef: React.RefObject<HTMLInputElement | null>; children: (place: PickerPlace) => ReactNode }) {
+function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: boolean; anchor: HTMLElement; onClose: () => void; searchRef: React.RefObject<HTMLInputElement | null>; children: ReactNode }) {
   const [portal, setPortal] = useState<HTMLElement | null>(null)
   useEffect(() => setPortal(document.body), [])
   const panel = useRef<HTMLDivElement | null>(null)
   const [place, setPlace] = useState<PickerPlace>(() => measure(anchor, null))
-  /* Placed for each opening from the list's natural height; not while typing, so a search never moves the cards. */
+  /* Placed for each opening from the list's natural height; not while typing, so a search never resizes the panel. */
   useLayoutEffect(() => {
     if (!open) return
     const put = () => setPlace(measure(anchor, panel.current))
@@ -1044,33 +1059,30 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
         aria-label={tt("Add block")}
         data-block-picker="desktop"
         data-placement={place.mode}
-        /*
-          Up at once, as a menu is; put away with a short fade. The opening
-          is not a transition at all: a transition on `visibility` keeps the
-          cards hidden for the first frame of their way in, and the search
-          box cannot take the focus while they are.
-        */
         className={cn(
-          "absolute flex items-start gap-2",
+          "absolute flex origin-top-left overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_24px_48px_-16px_rgba(15,23,42,0.22),0_2px_6px_rgba(15,23,42,0.06)]",
           open
-            ? "visible translate-x-0 opacity-100 transition-none"
-            : "invisible -translate-x-1 opacity-0 transition-[opacity,translate,visibility] duration-[140ms] ease-out motion-reduce:transition-none",
+            ? "visible translate-x-0 scale-100 opacity-100 transition-[opacity,translate,scale] duration-[160ms] ease-out motion-reduce:transition-none"
+            : "invisible -translate-x-1.5 scale-[0.985] opacity-0 transition-[opacity,translate,scale,visibility] duration-[120ms] ease-in motion-reduce:transition-none",
         )}
-        style={{ left: place.left, top: place.top, width: place.width }}
+        style={{ left: place.left, top: place.top, width: place.width, height: place.height }}
       >
-        {children(place)}
+        {children}
       </div>
     </div>,
     portal,
   )
 }
 
-/** The list card's natural height: its search and every row, as if nothing capped it. */
+/** The list side's natural height: its search and every row, as if nothing capped it. */
 function listHeight(panel: HTMLElement | null): number {
-  const card = panel?.querySelector<HTMLElement>("[data-block-picker-card='list']")
-  const list = card?.querySelector<HTMLElement>("[data-block-picker-list]")
-  if (!card || !list) return 0
-  return card.offsetHeight - list.clientHeight + list.scrollHeight
+  const side = panel?.querySelector<HTMLElement>("[data-block-picker-side]")
+  const list = side?.querySelector<HTMLElement>("[data-block-picker-list]")
+  const rows = list?.querySelector<HTMLElement>("[data-sheet-content]")
+  if (!side || !list || !rows) return 0
+  /* The rows' own height, not the list's scroll height: a list taller than its rows scrolls nothing and would read as wanting all the room it has. */
+  const cs = getComputedStyle(list)
+  return side.offsetHeight - list.clientHeight + rows.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
 }
 
 function measure(anchor: HTMLElement, panel: HTMLElement | null): PickerPlace {

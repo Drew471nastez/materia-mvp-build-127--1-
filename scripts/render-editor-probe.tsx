@@ -86,7 +86,8 @@ const probeGlobals = globalThis as unknown as {
    * Every key but home is also a page the install has saved, so it is listed
    * wherever the editor lists pages (scripts/check-page-switcher.mjs).
    */
-  PROBE_PAGES?: Record<string, string[]>
+  /** A section type, or a whole section (a type of the creator's own from PROBE_FILES, with its blocks: check-block-picker.mjs). */
+  PROBE_PAGES?: Record<string, (string | SectionInstance)[]>
   PROBE_PAGE_DELAY_MS?: number
   /* The store's products, for the page switcher probe. */
   PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
@@ -171,7 +172,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const own = probeGlobals.PROBE_PAGES?.[key]
     if (own) {
       await new Promise((r) => setTimeout(r, probeGlobals.PROBE_PAGE_DELAY_MS ?? 0))
-      return json({ sections: own.map((t, i) => instance(t, i)), has_draft: false })
+      return json({ sections: own.map((t, i) => (typeof t === "string" ? instance(t, i) : t)), has_draft: false })
     }
     return json({ sections, has_draft: false })
   }
