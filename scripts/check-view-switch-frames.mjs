@@ -169,6 +169,22 @@ const RECORDER = String.raw`(() => {
   const r2 = (n) => Math.round(n * 10) / 10
   const eff = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) o *= Number(getComputedStyle(e).opacity); return Math.round(o * 1000) / 1000 }
   const rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { l: r2(r.left), t: r2(r.top), r: r2(r.right), b: r2(r.bottom) } }
+  /* The card as it is SEEN: its laid out box cut by its clip (round 36: the edge glides by its clip while the box follows when it can). */
+  const seen = (el) => {
+    const box = rect(el)
+    const page = el.querySelector(":scope > #wb-preview-root")
+    const cp = [getComputedStyle(el).clipPath, page && getComputedStyle(page).clipPath].find((c) => c && c.startsWith("inset("))
+    if (!box || !cp || !cp.startsWith("inset(")) return box
+    const inner = cp.slice(6, cp.lastIndexOf(")")).split(" round ")[0]
+    const tokens = []
+    let depth = 0, cur = ""
+    for (const ch of inner) { if (ch === "(") depth++; if (ch === ")") depth--; if (ch === " " && depth === 0) { if (cur) tokens.push(cur); cur = "" } else cur += ch }
+    if (cur) tokens.push(cur)
+    const val = (tok, base) => { const e = tok.replace(/calc/g, "").replace(/(-?[\d.]+)%/g, (m, n) => String((Number(n) * base) / 100)).replace(/(-?[\d.]+)px/g, "$1"); try { return Number(Function("return (" + e + ")")()) } catch { return 0 } }
+    const W = box.r - box.l, H = box.b - box.t
+    const [t, rr = t, b = t, l = rr] = tokens
+    return { l: r2(box.l + Math.max(0, val(l, W))), t: r2(box.t + Math.max(0, val(t, H))), r: r2(box.r - Math.max(0, val(rr, W))), b: r2(box.b - Math.max(0, val(b, H))) }
+  }
   window.__vsfStart = (ms, press, again) => new Promise((done) => {
     const card = document.querySelector(".wb-canvas-frame")
     const root = document.getElementById("wb-preview-root")
@@ -251,7 +267,7 @@ const RECORDER = String.raw`(() => {
       const c = card.getBoundingClientRect()
       film.push({
         n, t: Math.round(now - t0), wall: performance.timeOrigin + now,
-        card: rect(card), cardOpacity: eff(card), radius: getComputedStyle(card).borderTopLeftRadius + "/" + getComputedStyle(card).borderBottomLeftRadius,
+        card: seen(card), layout: rect(card), cardOpacity: eff(card), radius: getComputedStyle(card).borderTopLeftRadius + "/" + getComputedStyle(card).borderBottomLeftRadius,
         content: content && content.isConnected ? eff(content) : -1,
         view: rect(root), scrollTop: Math.round(root.scrollTop), scrollHeight: root.scrollHeight, bar: root.offsetWidth - root.clientWidth,
         fold: fold ? r2(fold.getBoundingClientRect().width) : null, panel: rect(panel), panelOpacity: tabs ? eff(tabs) : null,
@@ -274,7 +290,7 @@ const RECORDER = String.raw`(() => {
       el.click()
     }
     stamp.style.background = "rgb(0,0,0)"
-    film.push({ n: -1, t: -1, wall: performance.timeOrigin + performance.now(), card: rect(card), view: rect(root), scrollTop: Math.round(root.scrollTop), eye: eye ? Math.round(eye.getBoundingClientRect().top - view0.top) : null, section: eyeSection ? Math.round(eyeSection.getBoundingClientRect().top - view0.top) : null })
+    film.push({ n: -1, t: -1, wall: performance.timeOrigin + performance.now(), card: seen(card), layout: rect(card), view: rect(root), scrollTop: Math.round(root.scrollTop), eye: eye ? Math.round(eye.getBoundingClientRect().top - view0.top) : null, section: eyeSection ? Math.round(eyeSection.getBoundingClientRect().top - view0.top) : null })
     window.__vsfPressWall = performance.timeOrigin + performance.now()
     hit(press)
     /* The second press comes again[1]ms after the card or the sidebar has started to move: a turn round in the middle of the move. */
@@ -540,13 +556,16 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
     /* The theme's phone layout drawn while the card is a desktop's width, or the other way round (749px: the fixture's breakpoint). */
     for (const x of ff) {
       const c = f.reduce((best, y) => (Math.abs(y.wall - x.wall) < Math.abs(best.wall - x.wall) ? y : best), f[0])
-      if (x.phone !== undefined && x.phone !== (W(c) - (c.bar ?? 0) < 750)) frame.wrongLayout++
+      const lw = c.layout ? c.layout.r - c.layout.l : W(c)
+      if (x.phone !== undefined && x.phone !== (lw - (c.bar ?? 0) < 750)) frame.wrongLayout++
     }
     /* The frame's height against the card's at the same moment: a frame shorter than the card shows what is behind it. */
     let lag = 0
     for (const x of ff) {
       const c = f.reduce((best, y) => (Math.abs(y.wall - x.wall) < Math.abs(best.wall - x.wall) ? y : best), f[0])
-      lag = Math.max(lag, Math.abs(H(c) - x.h), Math.abs(W(c) - x.w - (c.bar ?? 0)))
+      /* Against the card's laid out box, which the frame fills; the glide's clip only cuts it. */
+      const L = c.layout ?? c.card
+      lag = Math.max(lag, Math.abs(L.b - L.t - x.h), Math.abs(L.r - L.l - x.w - (c.bar ?? 0)))
     }
     frame.heightLag = Math.round(lag)
   }
@@ -598,6 +617,46 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
     const lastMotionShot = shots.filter((s) => s.wall <= lastMotionWall + 1).pop()
     const endPop = lastMotionShot ? Math.round((await meanDiff(lastMotionShot.data, after.data, last.card, scale)) * 1000) / 1000 : null
     pix = { shots: shots.filter((s) => s.wall >= pressWall).length, blank, worstBand: Math.round(worstBand), editorBgInCard: bgFrames, chromeChanged: chrome, endPop }
+    /*
+      THE CARD AS DRAWN, NOT AS READ (round 36). The card's edges found in
+      each picture of the screen, so a move the compositor draws between two
+      main thread frames counts, and a frame that never reached the screen
+      does not. steps: pictures whose card edge moved from the one before;
+      maxStep: the largest such move (px). Only for a change of width.
+    */
+    const wideBox = W(pre) >= W(last) ? pre.card : last.card, narrowBox = W(pre) >= W(last) ? last.card : pre.card
+    if (wideBox && narrowBox && wideBox.r - wideBox.l - (narrowBox.r - narrowBox.l) > 40 && Math.abs(wideBox.l - narrowBox.l) > 20) {
+      const meta = await sharp(after.data).metadata()
+      const narrowShot = W(pre) >= W(last) ? after : before
+      const ys = [0.35, 0.5, 0.65].map((k) => Math.round((narrowBox.t + (narrowBox.b - narrowBox.t) * k) * scale))
+      const rowOf = async (d, y) => sharp(d).extract({ left: 0, top: Math.min(meta.height - 1, y), width: meta.width, height: 1 }).removeAlpha().raw().toBuffer()
+      const bgX = Math.round(((wideBox.l + narrowBox.l) / 2) * scale)
+      const bgRow = await rowOf(narrowShot.data, ys[1])
+      const bg = [bgRow[bgX * 3], bgRow[bgX * 3 + 1], bgRow[bgX * 3 + 2]]
+      const off = (row, x) => Math.abs(row[x * 3] - bg[0]) > 8 || Math.abs(row[x * 3 + 1] - bg[1]) > 8 || Math.abs(row[x * 3 + 2] - bg[2]) > 8
+      const x0 = Math.max(0, Math.round(wideBox.l * scale) + 1), x1 = Math.min(meta.width - 1, Math.round(wideBox.r * scale) - 2)
+      const edgeOf = async (d) => {
+        let l = x1, r = x0
+        for (const y of ys) {
+          const row = await rowOf(d, y)
+          for (let x = x0; x <= x1; x++) if (off(row, x)) { l = Math.min(l, x); break }
+          for (let x = x1; x >= x0; x--) if (off(row, x)) { r = Math.max(r, x); break }
+        }
+        return { l, r }
+      }
+      const seen = []
+      for (const s of shots) if (s.wall >= pressWall) seen.push({ wall: s.wall, ...(await edgeOf(s.data)) })
+      let steps = 0, maxStep = 0, prev = await edgeOf(before.data)
+      const edges = [prev.l]
+      for (const e of seen) {
+        const d = Math.max(Math.abs(e.l - prev.l), Math.abs(e.r - prev.r))
+        if (d > 1) { steps++; maxStep = Math.max(maxStep, d); edges.push(e.l) }
+        prev = e
+      }
+      pix.steps = steps
+      pix.maxStep = Math.round(maxStep / scale)
+      pix.edges = edges.join(",")
+    }
     if (SHEETS) {
       const file = join(dir, `${name.replace(/[^a-z0-9]+/gi, "-")}.png`)
       await sheet(shots.filter((s) => s.wall >= pressWall - 200), pressWall, file, `${name}  ${dir.split("/").pop()}`)
@@ -686,6 +745,7 @@ try {
     const page = await browser.newPage()
     const errors = []
     page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 160)))
+    if (process.env.TRACE) page.on("console", (m) => { if (m.text().startsWith("[glide]")) console.log("        " + m.text()) })
     await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 })
     /*
       Only the native page's pictures are answered from here. Asking the
@@ -748,7 +808,18 @@ try {
       const calls0 = await page.evaluate(() => (window.probeCalls || []).length)
       /* PROFILE=1: where the switch's main thread time goes (self time by function, and the browser's own work by phase). */
       if (process.env.PROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
+      /* TRACE=1: whether the browser ran each animation of the switch on the compositor, and why not when it did not. */
+      if (process.env.TRACE) await page.tracing.start({ categories: ["blink.animations", "devtools.timeline", "disabled-by-default-devtools.timeline"] })
       const rec = await page.evaluate((ms, p, a) => window.__vsfStart(ms, p, a), RECORD_MS, press, again)
+      if (process.env.TRACE) {
+        const events = JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents
+        const anims = events.filter((e) => e.name === "Animation" && e.args?.data)
+        const why = new Map()
+        for (const e of anims) { const d = e.args.data; const k = JSON.stringify(d).slice(0, 300); why.set(k, (why.get(k) ?? 0) + 1) }
+        console.log("        animations:", [...why.keys()].slice(0, 12).join("\n                    "))
+        const long = events.filter((e) => e.ph === "X" && e.name === "RunTask" && e.dur > 30000).map((e) => Math.round(e.dur / 1000))
+        console.log("        long tasks:", long.join(","))
+      }
       if (process.env.PROFILE) {
         const { profile } = await cdp.send("Profiler.stop")
         const self = new Map(), dt = profile.timeDeltas, byId = new Map(profile.nodes.map((n) => [n.id, n]))
@@ -773,7 +844,7 @@ try {
       if (bad.length) failures++
       table.push({ run, name, r, bad })
       console.log(`  ${bad.length ? "BAD " : "ok  "} ${name.padEnd(40)} ${bad.join("; ") || "clean"}`)
-      console.log(`        first frame ${r.firstFrameMs}ms, first move ${r.firstMoveMs}ms, ${r.movingFrames} frames moving;  frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
+      console.log(`        first frame ${r.firstFrameMs}ms, first move ${r.firstMoveMs}ms, ${r.movingFrames} frames moving;  frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} steps ${r.pix?.steps ?? "-"} maxStep ${r.pix?.maxStep ?? "-"} edges ${r.pix?.edges ?? "-"} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
       if (process.env.VSF_FILM === "1" && frameFilm) for (const x of frameFilm) console.log(`          frame ${Math.round(x.wall - walls.press)}ms w ${x.w} phone ${x.phone} stale ${x.stale} washed ${x.washed} replays ${x.replays} undrawn ${x.undrawn} fades ${x.fades}`)
       if (process.env.VSF_FILM === "1") for (const x of rec.film)console.log(`          ${x.t} card ${x.card?.l}-${x.card?.r} x ${x.card?.t}-${x.card?.b} scroll ${x.scrollTop} eye ${x.eye} sec ${x.section} held ${x.heldPx} skip ${x.skippedPx} moving ${x.moving} fold ${x.fold} panel ${x.panel?.l} o ${x.panelOpacity}`)
     }
