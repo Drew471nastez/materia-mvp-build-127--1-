@@ -10159,7 +10159,18 @@ const words: Record<string, string> = {
  "Manual": "Ręcznie",
  "Amount off, in {currency}": "Kwota rabatu, w {currency}",
  "Minimum order, in {currency}": "Minimalne zamówienie, w {currency}",
- "A fixed amount is at most 100,000.": "Stała kwota to maksymalnie 100 000."
+ "A fixed amount is at most 100,000.": "Stała kwota to maksymalnie 100 000.",
+ "Company invoices": "Faktury dla firm",
+ "Adds “Buying for a business” to checkout. A buyer who ticks it enters the company's name, tax number and address, and the invoice is made out to the company.": "Dodaje „Kupuję dla firmy” do kasy. Kupujący, który to zaznaczy, podaje nazwę, numer podatkowy i adres firmy, a faktura jest wystawiana na firmę.",
+ "Nothing that ships is on sale yet, so a sample line stands in for it.": "Nie sprzedajesz jeszcze nic z wysyłką, więc w tym miejscu jest przykładowa pozycja.",
+ "No download is on sale yet, so a sample line stands in for it.": "Nie sprzedajesz jeszcze żadnego pliku do pobrania, więc w tym miejscu jest przykładowa pozycja.",
+ "Tap any words on your checkout to change them.": "Dotknij dowolnego tekstu w kasie, aby go zmienić.",
+ "All texts": "Wszystkie teksty",
+ "Your checkout doesn't show this with its current settings.": "Twoja kasa nie pokazuje tego przy obecnych ustawieniach.",
+ "Thank you": "Podziękowanie",
+ "Order page": "Strona zamówienia",
+ "Screen": "Ekran",
+ "Preview of your checkout": "Podgląd twojej kasy"
 }
 
 export default words

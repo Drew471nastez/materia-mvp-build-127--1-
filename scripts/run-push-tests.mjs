@@ -56,6 +56,8 @@ const SUITES = [
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
   "tests/checkout-text.test.ts",
+  /* Round chk-1021: "Buying for a business" only where the store turns on Company invoices, in every checkout and route; SQL part 256. */
+  "tests/checkout-company-invoice.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",

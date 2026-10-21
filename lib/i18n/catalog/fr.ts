@@ -10159,7 +10159,18 @@ const words: Record<string, string> = {
  "Manual": "Manuel",
  "Amount off, in {currency}": "Montant de la réduction, en {currency}",
  "Minimum order, in {currency}": "Commande minimum, en {currency}",
- "A fixed amount is at most 100,000.": "Un montant fixe ne peut pas dépasser 100 000."
+ "A fixed amount is at most 100,000.": "Un montant fixe ne peut pas dépasser 100 000.",
+ "Company invoices": "Factures aux entreprises",
+ "Adds “Buying for a business” to checkout. A buyer who ticks it enters the company's name, tax number and address, and the invoice is made out to the company.": "Ajoute « J'achète pour une entreprise » au paiement. L'acheteur qui le coche indique le nom, le numéro fiscal et l'adresse de l'entreprise, et la facture est établie à son nom.",
+ "Nothing that ships is on sale yet, so a sample line stands in for it.": "Rien d'expédiable n'est encore en vente : une ligne d'exemple le remplace.",
+ "No download is on sale yet, so a sample line stands in for it.": "Aucun téléchargement n'est encore en vente : une ligne d'exemple le remplace.",
+ "Tap any words on your checkout to change them.": "Touchez un texte du paiement pour le modifier.",
+ "All texts": "Tous les textes",
+ "Your checkout doesn't show this with its current settings.": "Votre paiement ne l'affiche pas avec les réglages actuels.",
+ "Thank you": "Merci",
+ "Order page": "Page de commande",
+ "Screen": "Écran",
+ "Preview of your checkout": "Aperçu de votre paiement"
 }
 
 export default words

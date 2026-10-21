@@ -310,8 +310,9 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   })
   if (limited) return limited
 
+  /* Company details only where the store offers company invoices (Settings › Checkout, businessInvoice): otherwise they are not asked for, and anything sent is ignored. */
   let business: ReturnType<typeof checkBusiness> | null = null
-  if (body.business !== undefined && body.business !== null) {
+  if (contact.config.businessInvoice && body.business !== undefined && body.business !== null) {
     business = checkBusiness(body.business)
     if (business.ok === false) return json({ error: business.error, field: business.field }, 400)
   }

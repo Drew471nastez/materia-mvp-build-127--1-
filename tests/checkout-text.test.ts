@@ -99,6 +99,14 @@ async function main() {
   check("sentences are unique too", new Set(EDITABLE_TEXTS.map((e) => e.source)).size === EDITABLE_TEXTS.length)
   check("every group is used: Header, Contact, Delivery, Payment, Buttons, Order summary, Messages", ["header", "contact", "delivery", "payment", "buttons", "summary", "messages"].every((g) => EDITABLE_TEXTS.some((e) => e.group === g)))
   check("protected texts are never editable", PROTECTED_TEXTS.every((p) => !editableBySource(p.source) && isProtected(p.source)))
+  /* Changed on purpose (round chk-1021): only texts a store's words reach. "Add a tip" is the storelib.com checkout's and "Secure checkout" shows only where there is no website to go back to; the website's thank you page has its own heading. */
+  check("no text a store's words never reach", !editableBySource("Add a tip") && !editableBySource("Secure checkout"))
+  check("the thank you page's heading, with and without the name", editableById("messages.thanks_order_name")?.source === "Thank you, {name}" && editableById("messages.thanks_order")?.source === "Thank you for your order")
+  {
+    const site = ["app/checkout/site/site-checkout.tsx", "app/checkout/site/thanks/[token]/thanks-view.tsx", "app/checkout/physical/order/[token]/order-status-view.tsx", ...["ui", "order-summary", "shop-bar", "stripe-pay", "success", "variant-edit", "phone-input", "business-fields"].map((f) => `app/checkout/parts/${f}.tsx`)].map(read).join("\n")
+    const unseen = EDITABLE_TEXTS.filter((e) => !site.includes(JSON.stringify(e.source)))
+    check("every editable text is drawn by the website's checkout, its thank you page or its order page", unseen.length === 0, unseen.map((e) => e.source))
+  }
   for (const s of ["I agree to the [Terms and Conditions] and the [Refund policy]", "Email me with news and offers", "Includes {amount} tax", "Prices in {display} are for reference. You'll pay in {charge}; your bank converts it.", "The payment did not go through. Nothing was charged.", "Refunds: {policy}.", "Cash on delivery adds a fee of {amount}.", "Powered by", "No refunds", "30-day money back guarantee"]) check(`  locked: ${s.slice(0, 50)}`, isProtected(s))
   check("anything not listed is locked by default", isProtected("Your bank is still processing the payment. The receipt will be emailed to you as soon as it clears."))
   const pay = editableById("buttons.pay_amount")!
@@ -194,8 +202,38 @@ async function main() {
   const panel = read("components/app/settings/checkout-panel.tsx")
   const editor = read("components/app/settings/checkout-text-editor.tsx")
   check("Settings › Checkout has Checkout text", /<CheckoutTextCard \/>/.test(panel) && /Edit checkout text/.test(panel))
-  check("the editor: language selector, defaults, fields, live preview, locked list, default changed", /data-checkout-text-language/.test(editor) && /placeholder=\{item\.default\}/.test(editor) && /<CheckoutPreview/.test(editor) && /data-text-locked/.test(editor) && /Default changed since you edited\./.test(editor))
-  check("preview beside on a computer, under it on a phone", /lg:grid-cols-\[minmax\(0,1fr\)_440px\]/.test(editor))
+  /* Changed on purpose (round chk-1021): the preview is the website's real checkout in a frame (app/checkout/preview), not a drawing of one. */
+  check("the editor: language selector, defaults, fields, the real checkout as preview, locked list, default changed", /data-checkout-text-language/.test(editor) && /placeholder=\{item\.default\}/.test(editor) && /<PreviewCanvas/.test(editor) && /CHECKOUT_PREVIEW_PATH/.test(editor) && !/function CheckoutPreview\(/.test(editor) && /data-text-locked/.test(editor) && /Default changed since you edited\./.test(editor))
+  /* Changed on purpose (round chk-1021): side by side from 1024px; on a phone the checkout is the screen and the fields come up in a sheet that leaves it undimmed. */
+  check("fields beside the checkout from 1024px, a sheet over it on a phone", /useMedia\("\(min-width: 1024px\)"\)/.test(editor) && /data-checkout-text-layout="side"/.test(editor) && /data-checkout-text-layout="phone"/.test(editor) && (editor.match(/scrim="clear"/g) ?? []).length === 2 && /aboveKeyboard/.test(editor))
+
+  console.log("\nThe preview is the checkout a buyer gets")
+  {
+    const { wordsWithDraft, templatePattern, textAt, textsOnPage, viewFor, placeOf, CHECKOUT_PREVIEW_PATH } = await import("@/lib/checkout-text/preview")
+    const base = { "Pay {amount}": "Cumpără {amount}" }
+    check("typed words lie over the language's own, by the sentence they replace", wordsWithDraft(base, { "buttons.pay_amount": "Plătește acum {amount}" })["Pay {amount}"] === "Plătește acum {amount}")
+    check("a field the server would refuse shows the default meanwhile", wordsWithDraft(base, { "buttons.pay_amount": "Plătește acum" })["Pay {amount}"] === "Cumpără {amount}" && wordsWithDraft(base, { "buttons.pay_amount": "<b>{amount}</b>" })["Pay {amount}"] === "Cumpără {amount}")
+    check("an empty field is the default", wordsWithDraft(base, { "buttons.pay_amount": "  " })["Pay {amount}"] === "Cumpără {amount}")
+    check("a sentence is found as the page fills it in: Pay {amount} is Pay 52,60 lei", templatePattern("Pay {amount}").test("Pay 52,60 lei") && !templatePattern("Pay {amount}").test("Pay") && !templatePattern("Pay {amount}").test("Payment"))
+    check("  the words around it exactly, white space and apostrophes as the page sets them", templatePattern("Thank you, {name}").test("Thank you,  Alex") && !templatePattern("Thank you, {name}!").test("Thank you, Alex") && templatePattern("Your checkout doesn't").test("Your checkout doesn’t"))
+    check("  the order page's \"Thank you, Alex!\" is its own heading, not the thank you page's", textAt(["Thank you, Alex!"], textsOnPage({})) === "messages.thanks_name" && textAt(["Thank you, Alex"], textsOnPage({})) === "messages.thanks_order_name")
+    const texts = textsOnPage({})
+    check("pressing words finds their text; a longer one is never taken for a shorter", textAt(["Phone (optional)"], texts) === "contact.phone_optional" && textAt(["Phone"], texts) === "contact.phone" && textAt(["Pay 12.00 €"], texts) === "buttons.pay_amount")
+    check("  by its label for a screen reader or its placeholder too", textAt(["", "Back to bread.studio"], texts) === "header.back_to" && textAt(["Enter discount code"], texts) === "summary.enter_code")
+    check("  and nothing for words a store can't change", textAt(["I agree to the Terms and Conditions and the Refund policy"], texts) === null)
+    check("a delivery word opens the shipped checkout; the order page only for an order that ships", viewFor("delivery.method", { mode: "digital", view: "checkout" }, true).mode === "shipped" && viewFor("messages.thanks_name", { mode: "digital", view: "checkout" }, false).view === "thanks")
+    check("the thank you heading opens the thank you page, a field's message is shown by pressing Pay", viewFor("messages.thanks_order_name", { mode: "shipped", view: "checkout" }, true).view === "thanks" && placeOf("messages.email_invalid").action === "email" && placeOf("messages.city_missing").mode === "shipped")
+    check("the frame is framed by this origin only, and kept from page counters", CHECKOUT_PREVIEW_PATH.includes("embedded=1") && CHECKOUT_PREVIEW_PATH.includes("preview=1") && /url\.pathname === "\/checkout\/preview"/.test(read("proxy.ts")))
+    const frame = read("app/checkout/preview/preview-document.tsx")
+    check("the frame draws the real components: the website's checkout, its thank you page, the order page", /<SiteCheckout/.test(frame) && /<ThanksView/.test(frame) && /<OrderStatusView/.test(frame) && /<CheckoutWords lang=\{data\.lang\} words=\{words\}>/.test(frame) && /<CheckoutCurrency currency=\{data\.currency\}>/.test(frame))
+    check("  nothing leaves it: requests to this origin answered in the frame, beacons and storage kept in it", /window\.fetch = /.test(frame) && /url\.origin !== window\.location\.origin\) return realFetch/.test(frame) && /navigator\.sendBeacon = \(\) => true/.test(frame) && /"localStorage", "sessionStorage"/.test(frame))
+    check("  only the editor on this origin talks to it", /e\.origin !== window\.location\.origin \|\| e\.source !== parent/.test(frame) && /sandbox="allow-scripts allow-same-origin"/.test(editor))
+    check("  the ring moves by transform and fades by opacity", /translate3d\(/.test(frame) && /transition: "transform 200ms/.test(frame))
+    const server = read("lib/checkout-text/preview-server.ts")
+    check("the store's own name, logo, settings, currency and products, priced by the checkout's own quote", /checkoutBrand\(db, creatorId\)/.test(server) && /loadCheckoutConfig\(db, creatorId\)/.test(server) && /readStoreCurrency\(db, creatorId\)/.test(server) && /siteQuote\(db, creatorId, \{ items/.test(server) && /localizeQuote\(answer\.quote, map\)/.test(server))
+    check("  the words as a buyer reads them, without the store's own (those are typed over them)", /checkoutWordsIn\(lang, map, null\)/.test(server))
+    check("  read by the store's owner or team only", /const c = await shopCaller\(\)/.test(read("app/api/store/checkout-text/preview/route.ts")))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

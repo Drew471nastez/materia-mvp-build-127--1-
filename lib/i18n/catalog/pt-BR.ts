@@ -10159,7 +10159,18 @@ const words: Record<string, string> = {
  "Manual": "Manual",
  "Amount off, in {currency}": "Valor do desconto, em {currency}",
  "Minimum order, in {currency}": "Pedido mínimo, em {currency}",
- "A fixed amount is at most 100,000.": "Um valor fixo é no máximo 100.000."
+ "A fixed amount is at most 100,000.": "Um valor fixo é no máximo 100.000.",
+ "Company invoices": "Notas para empresas",
+ "Adds “Buying for a business” to checkout. A buyer who ticks it enters the company's name, tax number and address, and the invoice is made out to the company.": "Adiciona “Comprando para uma empresa” ao checkout. Quem marca informa o nome, o número fiscal e o endereço da empresa, e a nota sai em nome da empresa.",
+ "Nothing that ships is on sale yet, so a sample line stands in for it.": "Ainda não há nada à venda que seja enviado, então uma linha de exemplo aparece no lugar.",
+ "No download is on sale yet, so a sample line stands in for it.": "Ainda não há nenhum download à venda, então uma linha de exemplo aparece no lugar.",
+ "Tap any words on your checkout to change them.": "Toque em qualquer texto do checkout para mudá-lo.",
+ "All texts": "Todos os textos",
+ "Your checkout doesn't show this with its current settings.": "Seu checkout não mostra isso com as configurações atuais.",
+ "Thank you": "Obrigado",
+ "Order page": "Página do pedido",
+ "Screen": "Tela",
+ "Preview of your checkout": "Prévia do seu checkout"
 }
 
 export default words

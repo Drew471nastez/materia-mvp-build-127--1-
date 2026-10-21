@@ -586,7 +586,7 @@ export function SiteCheckout({
 
   /* ── Checks, before anything is sent ─────────────────────────────── */
   const checkBusinessNow = (): string | null => {
-    if (!businessOn) return null
+    if (!businessOn || !config.businessInvoice) return null
     const r = checkBusiness(business)
     if (r.ok) {
       setBusinessErrors({})
@@ -659,7 +659,7 @@ export function SiteCheckout({
       lastName: typed ? lastName : walletName.slice(1).join(" "),
       emailOptIn: plan.newsBox ? emailOptIn : false,
       agreedToTerms: agreed,
-      business: businessOn ? business : null,
+      business: businessOn && config.businessInvoice ? business : null,
       address: ships && mode === "ship" ? { ...address, name: `${firstName} ${lastName}`.trim() } : null,
       phone: address.phone,
       deliveryOptionId: ships ? optionId : null,
@@ -1039,7 +1039,8 @@ export function SiteCheckout({
           ))}
         </dl>
       ) : null}
-      {!isFree ? (
+      {/* Only where the store offers company invoices (Settings › Checkout, businessInvoice): off, the box is not drawn and nothing of it is sent. */}
+      {!isFree && config.businessInvoice ? (
         <section aria-label={ct("Invoice")}>
           <BusinessFields
             on={businessOn}
