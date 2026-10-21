@@ -22,9 +22,15 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { ArrowLeft, Loader2, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_PRIMARY, BTN_SECONDARY, Notice, api } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Notice, api, peekGet } from "@/components/physical/ui"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { usePhoneWidth } from "@/components/ui/choice-list"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
+import { checkoutConfig, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { formatMessage, tt } from "@/lib/i18n/text"
 import { formatCurrency } from "@/lib/markets/money"
+import { appLocale } from "@/lib/i18n/format"
 import { editableById, validateOverride, type TextGroupId } from "@/lib/checkout-text/registry"
 
 interface Item {
@@ -69,6 +75,27 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
   const [savedNote, setSavedNote] = React.useState<string | null>(null)
   const [mounted, setMounted] = React.useState(false)
   const previewRef = React.useRef<HTMLElement>(null)
+  const physicalCommerce = usePhysicalCommerceEnabled()
+  const phone = usePhoneWidth()
+  const liveCurrency = useStoreCurrencyIfSet()
+  const modePicked = React.useRef(false)
+  const [previewMode, setPreviewMode] = React.useState<"digital" | "physical">("digital")
+  const [previewOpen, setPreviewOpen] = React.useState(false)
+  const checkout = React.useMemo<CheckoutConfig>(() => checkoutConfig(peekGet<{ settings: { checkout?: unknown } }>("/api/store/settings")?.settings.checkout), [mounted])
+  React.useEffect(() => {
+    if (!modePicked.current && physicalCommerce) setPreviewMode("physical")
+  }, [physicalCommerce])
+  React.useEffect(() => {
+    if (!focus) return
+    if (focus.startsWith("delivery.") || focus === "payment.cod" || focus === "summary.shipping") {
+      modePicked.current = true
+      setPreviewMode("physical")
+    }
+  }, [focus])
+  const chooseMode = (mode: "digital" | "physical") => {
+    modePicked.current = true
+    setPreviewMode(mode)
+  }
   /* On a computer the preview scrolls on its own: the text being edited is brought into view there. */
   React.useEffect(() => {
     const box = previewRef.current
@@ -78,7 +105,7 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
     const a = el.getBoundingClientRect()
     const b = box.getBoundingClientRect()
     if (a.top < b.top + 24 || a.bottom > b.bottom - 24) box.scrollTo({ top: box.scrollTop + a.top - b.top - b.height / 3, behavior: "smooth" })
-  }, [focus])
+  }, [focus, previewMode])
 
   const load = React.useCallback(async (which: string | null) => {
     setError(null)
@@ -205,12 +232,7 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
               {!data.ready ? <Notice tone="amber">{tt("Checkout text needs its database update (SQL part 212). Until it runs, checkout shows Storelib's words and changes here are not kept.")}</Notice> : null}
               {error ? <Notice>{error}</Notice> : null}
               {savedNote && !dirty.length ? <Notice tone="green">{savedNote}</Notice> : null}
-              <p className="px-1 text-[13px] text-[#6b7280] lg:hidden">
-                {tt("Your changes show in the preview at the end.")}{" "}
-                <button type="button" className="font-medium text-[#1a1a2e] underline underline-offset-2" onClick={() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                  {tt("See preview")}
-                </button>
-              </p>
+              <p className="px-1 text-[13px] text-[#6b7280] lg:hidden">{tt("Preview sits at the bottom of the screen, the same checkout a buyer gets.")}</p>
               {data.groups.map((g) => {
                 const items = data.items.filter((i) => i.group === g.id)
                 if (!items.length) return null
@@ -252,13 +274,31 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
                 </ul>
               </section>
             </div>
-            <aside ref={previewRef} className="min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-120px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl" aria-label={tt("Preview")}>
-              <p className="mb-2 px-1 text-[13px] font-medium text-[#6b7280]">{tt("Preview")}</p>
-              <CheckoutPreview data={data} draft={draft} focus={focus} />
+            <aside ref={previewRef} className="hidden min-w-0 lg:sticky lg:top-6 lg:block lg:max-h-[calc(100dvh-120px)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:rounded-2xl" aria-label={tt("Preview")}>
+              <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                <p className="text-[13px] font-medium text-[#6b7280]">{tt("Preview")}</p>
+                <PreviewMode mode={previewMode} onChange={chooseMode} />
+              </div>
+              <CheckoutPreview data={data} draft={draft} focus={focus} mode={previewMode} currency={liveCurrency || data.currency} nameFields={checkout.nameFields} marketing={checkout.marketingOptIn} />
             </aside>
           </div>
         )}
       </div>
+      {data ? (
+        <div className="shrink-0 border-t border-[#e5e7eb] bg-white px-4 pt-2.5 lg:hidden" style={{ paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}>
+          <button type="button" onClick={() => setPreviewOpen(true)} className={cn(BTN_SECONDARY, "h-11 w-full")} data-checkout-preview-open="">
+            {tt("Preview checkout")}
+          </button>
+        </div>
+      ) : null}
+      {phone && data ? (
+        <BottomSheet isOpen={previewOpen} onClose={() => setPreviewOpen(false)} title={tt("Checkout")}>
+          <div className="space-y-3 px-4 pb-6">
+            <PreviewMode mode={previewMode} onChange={chooseMode} />
+            <CheckoutPreview data={data} draft={draft} focus={focus} mode={previewMode} currency={liveCurrency || data.currency} nameFields={checkout.nameFields} marketing={checkout.marketingOptIn} />
+          </div>
+        </BottomSheet>
+      ) : null}
     </div>,
     document.body,
   )
@@ -316,9 +356,32 @@ function TextRow({ item, value, problem, onChange, onFocus, onSettle }: { item: 
 
 /* ── The preview ────────────────────────────────────────────────────── */
 
-/* Written as the checkout writes money (app/checkout/parts/ui moneyIn), so the preview reads "49.00 lei" as the page does. */
+function PreviewMode({ mode, onChange }: { mode: "digital" | "physical"; onChange: (mode: "digital" | "physical") => void }) {
+  const options = [
+    { id: "digital" as const, label: tt("Digital") },
+    { id: "physical" as const, label: tt("Shipped") },
+  ]
+  return (
+    <div role="radiogroup" aria-label={tt("Checkout")} className="inline-flex rounded-lg bg-[#f1f2f4] p-0.5" data-preview-mode={mode}>
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={mode === o.id}
+          onClick={() => onChange(o.id)}
+          className={cn("h-7 rounded-md px-2.5 text-[12px] font-medium transition-[background-color,color,box-shadow] duration-150", mode === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.12)]" : "text-[#6b7280]")}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* Written as the checkout writes money (app/checkout/parts/ui moneyIn), in the store's currency. */
 function moneyIn(cents: number, currency: string): string {
-  return formatCurrency(cents / 100, currency.toUpperCase(), "en-US")
+  return formatCurrency(cents / 100, currency.toUpperCase(), appLocale())
 }
 
 /**
@@ -327,11 +390,32 @@ function moneyIn(cents: number, currency: string): string {
  * being edited is outlined. Messages show their own panel (after paying,
  * and a field with its error), since they are not on the page until then.
  */
-function CheckoutPreview({ data, draft, focus }: { data: Loaded; draft: Record<string, string>; focus: string | null }) {
+function CheckoutPreview({
+  data,
+  draft,
+  focus,
+  mode,
+  currency,
+  nameFields,
+  marketing,
+}: {
+  data: Loaded
+  draft: Record<string, string>
+  focus: string | null
+  mode: "digital" | "physical"
+  currency: string
+  nameFields: CheckoutConfig["nameFields"]
+  marketing: boolean
+}) {
   const lang = data.lang
   const byId = new Map(data.items.map((i) => [i.id, i]))
-  const money = (c: number) => moneyIn(c, data.currency)
-  const vars = { shop: data.shopName, site: data.shopName, amount: money(4900), name: "Ana", code: "SAVE10" }
+  const shipped = mode === "physical"
+  const subtotal = 4900
+  const discount = 500
+  const shipping = shipped ? 500 : 0
+  const total = subtotal - discount + shipping
+  const money = (c: number) => moneyIn(c, currency)
+  const vars = { shop: data.shopName, site: data.shopName, amount: money(total), name: "Ana", code: "SAVE10" }
   const w = (id: string) => {
     const i = byId.get(id)
     if (!i) return ""
@@ -380,28 +464,31 @@ function CheckoutPreview({ data, draft, focus }: { data: Loaded; draft: Record<s
       </div>
       <div className="bg-[#f8f9fa] px-4 pb-4 pt-4">
         <p data-k="header.pay_shop" className={cn("text-[13px] font-medium text-[#6b7280]", mark("header.pay_shop"))} data-preview-pay-shop="">{w("header.pay_shop")}</p>
-        <p className="text-[24px] font-semibold tabular-nums text-[#1a1a2e]">{money(4900)}</p>
+        <p className="text-[24px] font-semibold tabular-nums tracking-tight text-[#1a1a2e]">{money(total)}</p>
         <span data-k="header.details" className={cn("mt-1 inline-block rounded-[6px] bg-[#e9ebee] px-2 py-0.5 text-[12px] font-medium text-[#1a1a2e]", mark("header.details"))}>{w("header.details")}</span>
         <div className="mt-3 flex items-start gap-3">
-          <div className="h-11 w-11 shrink-0 rounded-lg bg-[#e5e7eb]" />
+          <div className="h-12 w-12 shrink-0 rounded-lg bg-[#e5e7eb]" />
           <div className="min-w-0 flex-1 text-[13px]">
-            <p className="font-medium text-[#1a1a2e]">{tt("Linen shirt")}</p>
+            <p className="font-medium text-[#1a1a2e]">{shipped ? tt("Linen shirt") : tt("Bread baking course")}</p>
             <p className="text-[#6b7280]">
-              M <span data-k="buttons.edit" className={cn("underline", mark("buttons.edit"))}>{w("buttons.edit")}</span> · <span data-k="buttons.remove" className={cn("underline", mark("buttons.remove"))}>{w("buttons.remove")}</span>
+              {shipped ? "M · " : null}
+              <span data-k="buttons.edit" className={cn("underline", mark("buttons.edit"))}>{w("buttons.edit")}</span>
+              {" · "}
+              <span data-k="buttons.remove" className={cn("underline", mark("buttons.remove"))}>{w("buttons.remove")}</span>
             </p>
           </div>
-          <p className="text-[13px] font-medium tabular-nums text-[#1a1a2e]">{money(4900)}</p>
+          <p className="text-[13px] font-medium tabular-nums text-[#1a1a2e]">{money(subtotal)}</p>
         </div>
         <dl className="mt-3 space-y-1.5 border-t border-black/[0.07] pt-3 text-[13px]">
-          <div className="flex justify-between"><dt {...k("summary.subtotal")}>{w("summary.subtotal")}</dt><dd className="tabular-nums">{money(4900)}</dd></div>
+          <div className="flex justify-between"><dt {...k("summary.subtotal")}>{w("summary.subtotal")}</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
           <div data-k="buttons.add_code" className={cn("text-[12.5px] text-[#4b5563] underline", mark("buttons.add_code"))}>{w("buttons.add_code")}</div>
           <div className="flex items-center gap-2">
-            <span data-k="summary.enter_code" className={cn("flex h-8 flex-1 items-center rounded-md border border-[#e5e7eb] bg-white px-2 text-[12px] text-[#9ca3af]", mark("summary.enter_code"))}>{w("summary.enter_code")}</span>
-            <span data-k="buttons.apply" className={cn("rounded-md bg-[#1a1a2e] px-2.5 py-1.5 text-[12px] font-medium text-white", mark("buttons.apply"))}>{w("buttons.apply")}</span>
+            <span data-k="summary.enter_code" className={cn("flex h-11 flex-1 items-center rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#9ca3af] sm:h-9 sm:text-[13px]", mark("summary.enter_code"))}>{w("summary.enter_code")}</span>
+            <span data-k="buttons.apply" className={cn("grid h-11 place-items-center rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white sm:h-9", mark("buttons.apply"))}>{w("buttons.apply")}</span>
           </div>
-          <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.discount")}>{w("summary.discount")} ({vars.code})</dt><dd className="tabular-nums">−{money(500)}</dd></div>
-          <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.shipping")}>{w("summary.shipping")}</dt><dd className="tabular-nums">{money(500)}</dd></div>
-          <div className="flex justify-between border-t border-black/[0.07] pt-2 font-semibold text-[#1a1a2e]"><dt {...k("summary.total")}>{w("summary.total")}</dt><dd className="tabular-nums">{money(4900)}</dd></div>
+          <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.discount")}>{w("summary.discount")} ({vars.code})</dt><dd className="tabular-nums">−{money(discount)}</dd></div>
+          {shipped ? <div className="flex justify-between text-[#6b7280]"><dt {...k("summary.shipping")}>{w("summary.shipping")}</dt><dd className="tabular-nums">{money(shipping)}</dd></div> : null}
+          <div className="flex justify-between border-t border-black/[0.07] pt-2 text-[15px] font-semibold text-[#1a1a2e]"><dt {...k("summary.total")}>{w("summary.total")}</dt><dd className="tabular-nums">{money(total)}</dd></div>
         </dl>
         <p data-k="summary.tip" className={cn("mt-2 text-[12px] text-[#6b7280]", mark("summary.tip"))}>{w("summary.tip")} · <span {...k("summary.free")}>{w("summary.free")}</span> · <span {...k("summary.discount_code")}>{w("summary.discount_code")}</span></p>
       </div>
@@ -411,25 +498,34 @@ function CheckoutPreview({ data, draft, focus }: { data: Loaded; draft: Record<s
           <p data-k="contact.heading" className={cn("text-[15px] font-semibold text-[#1a1a2e]", mark("contact.heading"))}>{w("contact.heading")}</p>
           <span data-k="contact.sign_in" className={cn("text-[12px] text-[#4b5563] underline", mark("contact.sign_in"))}>{w("contact.sign_in")}</span>
         </div>
-        <div className="rounded-lg border border-[#e5e7eb] px-2.5 py-1.5 text-[#9ca3af]"><span {...k("contact.email")}>{w("contact.email")}</span></div>
-        <div className="rounded-lg border border-[#e5e7eb] px-2.5 py-1.5 text-[#9ca3af]"><span {...k("contact.phone")}>{w("contact.phone")}</span> / <span {...k("contact.phone_optional")}>{w("contact.phone_optional")}</span></div>
-        <p data-k="delivery.heading" className={cn("pt-1 text-[15px] font-semibold text-[#1a1a2e]", mark("delivery.heading"))}>{w("delivery.heading")}</p>
-        <p data-k="delivery.or_pickup" className={cn("text-[12px] text-[#6b7280]", mark("delivery.or_pickup"))}>{w("delivery.or_pickup")}</p>
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#f1f2f4] p-1 text-center text-[12.5px] font-medium">
-          <span data-k="delivery.ship" className={cn("rounded-md bg-white py-1 text-[#1a1a2e]", mark("delivery.ship"))}>{w("delivery.ship")}</span>
-          <span data-k="delivery.pick_up" className={cn("py-1 text-[#6b7280]", mark("delivery.pick_up"))}>{w("delivery.pick_up")}</span>
+        <div className={cn("grid gap-2", nameFields === "first_and_last" ? "grid-cols-2" : "grid-cols-1")}>
+          <div className="flex h-11 items-center rounded-lg border border-[#e5e7eb] px-3 text-[16px] text-[#9ca3af] sm:text-[14px]">{tt("First name")}</div>
+          {nameFields === "first_and_last" ? <div className="flex h-11 items-center rounded-lg border border-[#e5e7eb] px-3 text-[16px] text-[#9ca3af] sm:text-[14px]">{tt("Last name")}</div> : null}
         </div>
-        <p data-k="delivery.method" className={cn("font-medium text-[#1a1a2e]", mark("delivery.method"))}>{w("delivery.method")}</p>
-        <div className="flex justify-between rounded-lg border border-[#1a1a2e] px-2.5 py-2"><span>{tt("Standard")}</span><span className="tabular-nums">{money(500)}</span></div>
-        <p data-k="delivery.note" className={cn("text-[12.5px] text-[#4b5563] underline", mark("delivery.note"))}>{w("delivery.note")}</p>
-        <div className="rounded-lg border border-[#e5e7eb] px-2.5 py-1.5 text-[12px] text-[#9ca3af]"><span {...k("delivery.note_hint")}>{w("delivery.note_hint")}</span></div>
+        <div className="flex h-11 items-center rounded-lg border border-[#e5e7eb] px-3 text-[16px] text-[#9ca3af] sm:text-[14px]"><span {...k("contact.email")}>{w("contact.email")}</span></div>
+        <div className="flex h-11 items-center rounded-lg border border-[#e5e7eb] px-3 text-[16px] text-[#9ca3af] sm:text-[14px]"><span {...k("contact.phone")}>{w("contact.phone")}</span></div>
+        {marketing ? <p className="text-[13px] text-[#4b5563]">{tt("Email me with news and offers")}</p> : null}
+        {shipped ? (
+          <>
+            <p data-k="delivery.heading" className={cn("pt-1 text-[15px] font-semibold text-[#1a1a2e]", mark("delivery.heading"))}>{w("delivery.heading")}</p>
+            <p data-k="delivery.or_pickup" className={cn("text-[12px] text-[#6b7280]", mark("delivery.or_pickup"))}>{w("delivery.or_pickup")}</p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#f1f2f4] p-1 text-center text-[12.5px] font-medium">
+              <span data-k="delivery.ship" className={cn("rounded-md bg-white py-1.5 text-[#1a1a2e]", mark("delivery.ship"))}>{w("delivery.ship")}</span>
+              <span data-k="delivery.pick_up" className={cn("py-1.5 text-[#6b7280]", mark("delivery.pick_up"))}>{w("delivery.pick_up")}</span>
+            </div>
+            <p data-k="delivery.method" className={cn("font-medium text-[#1a1a2e]", mark("delivery.method"))}>{w("delivery.method")}</p>
+            <div className="flex justify-between rounded-lg border border-[#1a1a2e] px-3 py-2.5"><span>{tt("Standard")}</span><span className="tabular-nums">{money(shipping)}</span></div>
+            <p data-k="delivery.note" className={cn("text-[12.5px] text-[#4b5563] underline", mark("delivery.note"))}>{w("delivery.note")}</p>
+            <div className="flex h-11 items-center rounded-lg border border-[#e5e7eb] px-3 text-[16px] text-[#9ca3af] sm:text-[14px]"><span {...k("delivery.note_hint")}>{w("delivery.note_hint")}</span></div>
+          </>
+        ) : null}
         <p data-k="payment.heading" className={cn("pt-1 text-[15px] font-semibold text-[#1a1a2e]", mark("payment.heading"))}>{w("payment.heading")}</p>
         <p data-k="payment.how" className={cn("text-[12px] text-[#6b7280]", mark("payment.how"))}>{w("payment.how")}</p>
-        <div className="grid grid-cols-2 gap-1 text-[12.5px]">
-          <span className="rounded-lg border border-[#1a1a2e] px-2 py-1.5">{tt("Card")}</span>
-          <span data-k="payment.cod" className={cn("rounded-lg border border-[#e5e7eb] px-2 py-1.5", mark("payment.cod"))}>{w("payment.cod")}</span>
+        <div className={cn("grid gap-1 text-[13px]", shipped ? "grid-cols-2" : "grid-cols-1")}>
+          <span className="rounded-lg border border-[#1a1a2e] px-2 py-2">{tt("Card")}</span>
+          {shipped ? <span data-k="payment.cod" className={cn("rounded-lg border border-[#e5e7eb] px-2 py-2", mark("payment.cod"))}>{w("payment.cod")}</span> : null}
         </div>
-        <div data-k="buttons.pay_amount" className={cn("grid h-11 place-items-center rounded-lg bg-[#1a1a2e] text-[14px] font-semibold text-white", mark("buttons.pay_amount"))} data-preview-pay="">{w("buttons.pay_amount")}</div>
+        <div data-k="buttons.pay_amount" className={cn("grid h-12 place-items-center rounded-lg bg-[#1a1a2e] text-[15px] font-semibold text-white", mark("buttons.pay_amount"))} data-preview-pay="">{w("buttons.pay_amount")}</div>
         <p className="text-center text-[12px] text-[#6b7280]">
           <span {...k("buttons.place_order")}>{w("buttons.place_order")}</span> · <span {...k("buttons.get_free")}>{w("buttons.get_free")}</span> · <span {...k("buttons.continue")}>{w("buttons.continue")}</span> · <span {...k("header.hide_details")}>{w("header.hide_details")}</span>
         </p>

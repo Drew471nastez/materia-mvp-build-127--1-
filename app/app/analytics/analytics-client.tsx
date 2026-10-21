@@ -32,6 +32,7 @@
  */
 
 import { CommerceReports } from "./commerce-reports"
+import { AddReports, sellsDigital, useAddedReports, type ExtraTab } from "./add-reports"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
@@ -58,8 +59,8 @@ import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatCurrency } from "@/lib/markets/money"
 
-/* The four figures in order, for the strip that scrolls them on a phone. "views" is the Visitors tab. */
-const TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
+/* The four figures that always show, in order. A seller can add more (./add-reports). "views" is the Visitors tab. */
+const CORE_TABS = ["views", "revenue", "orders", "conversion"] as const
 /* Each tab keeps its width in the phone's row, the home page's 130px. */
 const STRIP_TAB = "flex-shrink-0 min-w-[130px] md:min-w-0"
 /* The first line's name in the chart's readout. */
@@ -69,6 +70,7 @@ interface Product {
   id: string
   title: string
   thumbnail_url?: string | null
+  type?: string | null
 }
 
 interface AnalyticsClientProps {
@@ -79,7 +81,7 @@ interface AnalyticsClientProps {
   properties: CreatorProperties
 }
 
-type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion"
+type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion" | ExtraTab
 
 interface Figure {
   /** Null only for a rate with nothing to divide by. */
@@ -249,6 +251,18 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
 
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [selectedProduct, setSelectedProduct] = useState("all")
+  const [added, setAdded] = useAddedReports()
+  const sellsPhysical = products.some((p) => (p.type || "").toLowerCase() === "physical")
+  const hasPublishedSite = properties.websites.some((w) => w.published !== false)
+  const showFulfillment = sellsPhysical || hasPublishedSite
+  const offerDownloads = sellsDigital(products)
+  const tabOrder = useMemo(() => {
+    const extra = added.tabs.filter((t) => t === "pageviews" || t === "refunds" || t === "clicks")
+    return [...CORE_TABS, ...extra]
+  }, [added.tabs])
+  useEffect(() => {
+    if (!tabOrder.includes(chartMetricFilter)) setChartMetricFilter("views")
+  }, [tabOrder, chartMetricFilter])
 
   /* Asked again every minute, so a sale shows up without a reload. Not while
      the tab or the app is in the background: coming back asks at once when a
@@ -286,6 +300,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
   const safeSpan = useMemo(() => ({ start: span.start, end: Math.max(span.end, span.start + 1) }), [span])
   const propertyKey = propertyParam(property) ?? "all"
 
+  const storeCurrency = useStoreCurrency()
   const reportsState = useAnalyticsReports({
     start: safeSpan.start,
     end: safeSpan.end,
@@ -294,6 +309,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     property: propertyKey,
     refresh: tick,
     viewer: userId,
+    currency: storeCurrency,
   })
   /*
     PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around the
@@ -345,7 +361,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
   const waitingKey = `${period.preset ?? ""}|${period.start}|${period.end}|${propertyKey}|${selectedProduct}`
 
   /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
-  const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, TAB_ORDER)
+  const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, tabOrder)
   const trendData = useMemo<AnalyticsChartData[]>(() => {
     if (!answer) return []
     const r = answer.reports
@@ -357,6 +373,8 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
       sales: r.orders.series.current[i] ?? 0,
       revenue: r.sales.series.current[i] ?? 0,
       refunds: r.refunds.series.current[i] ?? 0,
+      pageViews: r.views.series.current[i] ?? 0,
+      clicks: r.linkClicks?.series.current[i] ?? 0,
       conversion: percent(r.conversion.series.current[i]),
       ...(c
         ? {
@@ -364,6 +382,8 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
             prev_sales: r.orders.series.previous[i] ?? 0,
             prev_revenue: r.sales.series.previous[i] ?? 0,
             prev_refunds: r.refunds.series.previous[i] ?? 0,
+            prev_pageViews: r.views.series.previous[i] ?? 0,
+            prev_clicks: r.linkClicks?.series.previous[i] ?? 0,
             prev_conversion: percent(r.conversion.series.previous[i]),
           }
         : {}),
@@ -396,12 +416,23 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         previous: r.conversion.previous === null ? null : r.conversion.previous * 100,
         allTime: null,
       },
+      pageviews: { value: r.views.value, previous: r.views.previous, allTime: null },
+      refunds: {
+        value: (r.refunds?.series.current ?? []).reduce((a, b) => a + b, 0),
+        previous: (r.refunds?.series.previous ?? []).reduce((a, b) => a + b, 0),
+        allTime: null,
+      },
+      clicks: {
+        value: r.linkClicks?.value ?? 0,
+        previous: (r.linkClicks?.series.previous ?? []).reduce((a, b) => a + b, 0),
+        allTime: null,
+      },
       pageViews: r.views.value,
     }
   }, [answer])
 
   const zero: Figure = { value: 0, previous: 0, allTime: null }
-  const shown = figures ?? { views: zero, revenue: zero, orders: zero, conversion: { value: null, previous: null, allTime: null }, pageViews: 0 }
+  const shown = figures ?? { views: zero, revenue: zero, orders: zero, conversion: { value: null, previous: null, allTime: null }, pageviews: zero, refunds: zero, clicks: zero, pageViews: 0 }
   /* Nothing has come back yet: the tabs draw soft (MetricTab `loading`) and clear to the real figures when they land. */
   const figuresLoading = !answer
   const soft = isRefreshing && !figuresLoading
@@ -412,7 +443,6 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     time anything on this page changed.
   */
   /* In the store's own currency (Settings › Languages & Currency), as its prices and orders are: a store in lei reads lei, never dollars. */
-  const storeCurrency = useStoreCurrency()
   const formatPrice = useCallback((cents: number) => formatCurrency(cents / 100, storeCurrency, appLocale()), [storeCurrency])
   const formatCompactNumber = (num: number) => {
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
@@ -426,7 +456,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
 
   return (
     <CompareContext.Provider value={compareLabel}>
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
+    <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
       {/* Try Pro at the top of the page (components/app/announcement-bar-mobile). */}
       <TryProStrip />
 
@@ -471,13 +501,22 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
             role="tablist"
             aria-label={tt("Metric")}
             data-scroll-x
-            className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"
+            className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 data-[tabs='5']:md:grid-cols-5 data-[tabs='6']:md:grid-cols-6 data-[tabs='7']:md:grid-cols-7"
             style={TAB_STRIP_STYLE}
+            data-tabs={tabOrder.length}
           >
-            <MetricTab tab="views" className={STRIP_TAB} label={t("dashboard.visitors")} value={formatCompactNumber(shown.views.value ?? 0)} change={changeOf(shown.views)} selected={chartMetricFilter === "views"} soft={soft} loading={figuresLoading} foot={`${formatCompactNumber(shown.pageViews)} ${t("dashboard.pageViews")}`} onSelect={() => setChartMetricFilter("views")} />
-            <MetricTab tab="revenue" className={STRIP_TAB} label={t("analytics.totalRevenue")} value={formatPrice(shown.revenue.value ?? 0)} change={changeOf(shown.revenue)} selected={chartMetricFilter === "revenue"} soft={soft} loading={figuresLoading} foot={allTime(shown.revenue, formatPrice, tt("Less refunds"))} onSelect={() => setChartMetricFilter("revenue")} />
-            <MetricTab tab="orders" className={STRIP_TAB} label={t("analytics.totalOrders")} value={formatCompactNumber(shown.orders.value ?? 0)} change={changeOf(shown.orders)} selected={chartMetricFilter === "orders"} soft={soft} loading={figuresLoading} foot={allTime(shown.orders, formatCompactNumber, tt("Paid and free"))} onSelect={() => setChartMetricFilter("orders")} />
-            <MetricTab tab="conversion" className={STRIP_TAB} label={t("analytics.conversionRate")} value={formatRate(shown.conversion.value)} change={changeOf(shown.conversion)} selected={chartMetricFilter === "conversion"} soft={soft} loading={figuresLoading} foot={t("dashboard.ordersPerVisitor")} onSelect={() => setChartMetricFilter("conversion")} />
+            {tabOrder.map((tab) => {
+              const spec = {
+                views: { label: t("dashboard.visitors"), value: formatCompactNumber(shown.views.value ?? 0), change: changeOf(shown.views), foot: `${formatCompactNumber(shown.pageViews)} ${t("dashboard.pageViews")}` },
+                revenue: { label: t("analytics.totalRevenue"), value: formatPrice(shown.revenue.value ?? 0), change: changeOf(shown.revenue), foot: allTime(shown.revenue, formatPrice, tt("Less refunds")) },
+                orders: { label: t("analytics.totalOrders"), value: formatCompactNumber(shown.orders.value ?? 0), change: changeOf(shown.orders), foot: allTime(shown.orders, formatCompactNumber, tt("Paid and free")) },
+                conversion: { label: t("analytics.conversionRate"), value: formatRate(shown.conversion.value), change: changeOf(shown.conversion), foot: t("dashboard.ordersPerVisitor") },
+                pageviews: { label: tt("Page views"), value: formatCompactNumber(shown.pageviews.value ?? 0), change: changeOf(shown.pageviews), foot: tt("Every page opened") },
+                refunds: { label: tt("Refunds"), value: formatPrice(shown.refunds.value ?? 0), change: changeOf(shown.refunds), foot: tt("Money returned") },
+                clicks: { label: tt("Link clicks"), value: formatCompactNumber(shown.clicks.value ?? 0), change: changeOf(shown.clicks), foot: tt("Links and buttons tapped") },
+              }[tab]
+              return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} />
+            })}
           </div>
 
           <div className="border-t border-[#e5e7eb]/60 px-2 pt-7 pb-3 sm:px-4 sm:pb-4">
@@ -528,11 +567,14 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
           </div>
         </div>
 
-        {/* No separate physical panel: physical sales are in the chart, the figures and the reports below (Top products splits Physical and Digital), like any other sale. */}
-        {/* The store's sales reports, Shopify's way: breakdown, over time, by channel, average order value, returning customers, fulfillment time (./commerce-reports). */}
-        <CommerceReports span={safeSpan} />
+        {/* No separate physical panel: physical sales are in the chart, the figures and the reports below (Top products splits Physical and Digital), like any other sale. Fulfillment shows only for a store that ships or has a published website. */}
+        {/* The store's sales reports, for the same period, place and product as the chart (./commerce-reports). */}
+        <CommerceReports span={safeSpan} product={selectedProduct} property={propertyKey} showFulfillment={showFulfillment} />
         {/* The reports under the chart, from the same answer. */}
-        <AnalyticsReports state={reportsState} property={property} />
+        <AnalyticsReports state={reportsState} property={property} downloads={offerDownloads && added.cards.includes("downloads")} />
+        <div className="flex justify-center pt-1">
+          <AddReports added={added} onChange={setAdded} offerDownloads={offerDownloads} />
+        </div>
       </div>
       </PullToRefreshEvent>
 

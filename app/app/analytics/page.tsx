@@ -40,7 +40,7 @@ export default async function AnalyticsPage() {
   */
   const [{ data: creator, error: creatorError }, joined] = await Promise.all([
     adminSupabase.from("creators").select("id").eq("user_id", user.id).single(),
-    adminSupabase.from("products").select("id, title, thumbnail_url, creators!inner(user_id)").eq("creators.user_id", user.id),
+    adminSupabase.from("products").select("id, title, thumbnail_url, type, creators!inner(user_id)").eq("creators.user_id", user.id),
   ])
 
   if (creatorError || !creator) {
@@ -49,8 +49,8 @@ export default async function AnalyticsPage() {
 
   const [productsData, properties] = await Promise.all([
     joined.error
-      ? adminSupabase.from("products").select("id, title, thumbnail_url").eq("creator_id", creator.id).then((r) => r.data)
-      : Promise.resolve((joined.data ?? []).map((p: { id: string; title: string; thumbnail_url: string | null }) => ({ id: p.id, title: p.title, thumbnail_url: p.thumbnail_url }))),
+      ? adminSupabase.from("products").select("id, title, thumbnail_url, type").eq("creator_id", creator.id).then((r) => r.data)
+      : Promise.resolve((joined.data ?? []).map((p: { id: string; title: string; thumbnail_url: string | null; type?: string | null }) => ({ id: p.id, title: p.title, thumbnail_url: p.thumbnail_url, type: p.type ?? null }))),
     /* A read that fails lists no places: the page counts All, which needs none. */
     creatorProperties(adminSupabase, creator.id, user.id).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
   ])

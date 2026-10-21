@@ -890,9 +890,34 @@ function MessagesTable(props: EmailsHomeProps) {
  * in full, what starts it, its steps and what it has done, with its switch
  * and its menu at the end, where a thumb is. Tapping the row opens it.
  */
+type FlowKind = "all" | "list" | "checkout" | "purchase"
+
+function flowKind(trigger: string): FlowKind {
+  if (trigger === "new_subscriber") return "list"
+  if (trigger === "abandoned_checkout") return "checkout"
+  if (trigger === "purchase" || trigger === "first_purchase") return "purchase"
+  return "all"
+}
+
+/** A purchase automation says whether it is every product or a few. */
+function flowScope(f: FlowRow): string | null {
+  if (flowKind(f.trigger_type) !== "purchase") return null
+  const ids = f.trigger_config && typeof f.trigger_config === "object" ? (f.trigger_config as { product_ids?: unknown }).product_ids : null
+  if (!Array.isArray(ids) || ids.length === 0) return tt("Any product")
+  return tt("{count, plural, one {# product} other {# products}}", { count: ids.length })
+}
+
 function FlowsTable(props: EmailsHomeProps) {
   const router = useRouter()
   const press = usePress()
+  const [kind, setKind] = React.useState<FlowKind>("all")
+  const flows = kind === "all" ? props.flows : props.flows.filter((f) => flowKind(f.trigger_type) === kind)
+  const kinds: Array<{ id: FlowKind; label: string }> = [
+    { id: "all", label: tt("All") },
+    { id: "list", label: tt("Email list") },
+    { id: "checkout", label: tt("Checkout") },
+    { id: "purchase", label: tt("Purchases") },
+  ]
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   const menu = (f: FlowRow, on: boolean): ActionMenuItem[] => [
     { label: tt("Edit"), onClick: () => openLayer(router, href(f)) },
@@ -902,6 +927,22 @@ function FlowsTable(props: EmailsHomeProps) {
   ]
   return (
     <>
+      {props.flows.length > 0 ? (
+        <div className="orders-strip flex gap-1 overflow-x-auto border-b border-[#f1f2f4] px-4 py-2.5 sm:px-5" role="tablist" aria-label={tt("Automation kinds")} data-flow-kinds="">
+          {kinds.map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              role="tab"
+              aria-selected={kind === k.id}
+              onClick={() => setKind(k.id)}
+              className={cn("h-8 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100", kind === k.id ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2]")}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : props.flows.length === 0 ? (
           <Empty
@@ -914,11 +955,14 @@ function FlowsTable(props: EmailsHomeProps) {
               </Link>
             }
           />
+        ) : flows.length === 0 ? (
+          <p className="px-5 py-8 text-center text-[14px] text-[#6b7280]">{tt("No automations of this kind.")}</p>
         ) : (
           <>
             <ul aria-label={tt("Automations")} className="divide-y divide-[#f1f2f4] md:hidden" data-flow-list="">
-              {props.flows.map((f) => {
-                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")
+              {flows.map((f) => {
+                const scope = flowScope(f)
+                const trigger = (isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")) + (scope ? ` · ${scope}` : "")
                 const on = f.status === "active"
                 const t = f.totals
                 const numbers = t ? [t.in_progress > 0 ? tt("{value} in progress", { value: t.in_progress.toLocaleString(appLocale()) }) : null, tt("{value} sent", { value: t.sent.toLocaleString(appLocale()) }), t.sent > 0 ? tt("{value} opened", { value: rate(t.opened, t.sent) }) : null].filter(Boolean).join(" · ") : null
@@ -968,8 +1012,9 @@ function FlowsTable(props: EmailsHomeProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f2f4]">
-                  {props.flows.map((f) => {
-                    const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")
+                  {flows.map((f) => {
+                    const scope = flowScope(f)
+                    const trigger = (isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")) + (scope ? ` · ${scope}` : "")
                     const on = f.status === "active"
                     const t = f.totals
                     return (

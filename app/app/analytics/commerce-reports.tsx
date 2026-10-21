@@ -24,6 +24,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { HelpLabel } from "@/components/app/help-label"
 import { shopMoneyIn } from "@/lib/store/shop-money"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { tt } from "@/lib/i18n/text"
 import type { SalesBreakdown } from "@/lib/analytics/commerce"
 
@@ -117,7 +118,21 @@ function LineChart({ series, previous, format, label }: { series: Point[]; previ
   )
 }
 
-export function CommerceReports({ span }: { span: { start: number; end: number } }) {
+export function CommerceReports({
+  span,
+  product = "all",
+  property = "all",
+  showFulfillment = true,
+}: {
+  span: { start: number; end: number }
+  /** "all" or a product id. The sales cards follow the same product as the chart. */
+  product?: string
+  /** "all", "creator_page", "onepage" or "website:<id>". */
+  property?: string
+  /** Order fulfillment time, for a store that ships or has a published website. */
+  showFulfillment?: boolean
+}) {
+  const currency = useStoreCurrency()
   const [data, setData] = React.useState<Answer | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [metric, setMetric] = React.useState<"total" | "aov" | "orders">("total")
@@ -125,7 +140,14 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
   React.useEffect(() => {
     let live = true
     setLoading(true)
-    fetch(`/api/analytics/commerce?from=${Math.floor(span.start)}&to=${Math.ceil(span.end)}`, { cache: "no-store" })
+    const q = new URLSearchParams({
+      from: String(Math.floor(span.start)),
+      to: String(Math.ceil(span.end)),
+      product,
+      property,
+      ccy: currency,
+    })
+    fetch(`/api/analytics/commerce?${q}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Answer | null) => {
         if (!live) return
@@ -136,7 +158,7 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
     return () => {
       live = false
     }
-  }, [span.start, span.end])
+  }, [span.start, span.end, product, property, currency])
 
   if (!data) {
     return loading ? <div aria-hidden className="h-[320px] rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" /> : null
@@ -144,7 +166,7 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
   const money = (n: number) => shopMoneyIn(n, data.currency, { grouping: true })
   const b = data.breakdown
   const p = data.previous
-  const rows: Array<{ key: keyof SalesBreakdown; label: string; sign?: "-"; strong?: boolean; invert?: boolean }> = [
+  const breakdownRows: Array<{ key: keyof SalesBreakdown; label: string; sign?: "-"; strong?: boolean; invert?: boolean }> = [
     { key: "gross", label: tt("Gross sales") },
     { key: "discounts", label: tt("Discounts"), sign: "-", invert: true },
     { key: "returns", label: tt("Returns"), sign: "-", invert: true },
@@ -154,6 +176,7 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
     { key: "tips", label: tt("Tips") },
     { key: "total", label: tt("Total sales"), strong: true },
   ]
+  const rows = breakdownRows.filter((r) => showFulfillment || r.key !== "shipping" || b.shipping > 0 || p.shipping > 0)
   const channelMax = Math.max(1, ...data.channels.map((c) => c.total))
   const hours = data.fulfillment.hours
   const waitText = hours === null ? "–" : hours < 1 ? tt("{n} min", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h", { n: Math.round(hours * 10) / 10 }) : tt("{n} days", { n: Math.round((hours / 24) * 10) / 10 })
@@ -233,7 +256,9 @@ export function CommerceReports({ span }: { span: { start: number; end: number }
         {[
           { key: "aov", title: tt("Average order value"), value: money(b.aov), delta: <Delta now={b.aov} before={p.aov} />, help: tt("Gross sales less discounts, divided by orders.") },
           { key: "returning", title: tt("Returning customer rate"), value: `${Math.round(b.returningRate * 100)}%`, delta: <Delta now={b.returningRate} before={p.returningRate} />, help: tt("Customers with two or more orders in this period, out of every customer who ordered.") },
-          { key: "fulfil", title: tt("Order fulfillment time"), value: waitText, delta: <span className="text-[12px] text-[#9ca3af]">{tt("{count, plural, one {# shipped} other {# shipped}}", { count: data.fulfillment.shipped })}</span>, help: tt("How long a physical order took from payment to shipped, on average.") },
+          ...(showFulfillment && product === "all"
+            ? [{ key: "fulfil", title: tt("Order fulfillment time"), value: waitText, delta: <span className="text-[12px] text-[#9ca3af]">{tt("{count, plural, one {# shipped} other {# shipped}}", { count: data.fulfillment.shipped })}</span>, help: tt("How long a physical order took from payment to shipped, on average.") }]
+            : []),
         ].map((f) => (
           <section key={f.key} data-card={f.key} className="flex min-h-[76px] min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <HelpLabel as="h3" label={f.title} description={f.help} className="min-w-0 text-[13.5px] font-medium leading-5 text-[#4b5563]" />

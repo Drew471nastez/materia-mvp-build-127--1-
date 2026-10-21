@@ -57,6 +57,12 @@ export interface ReportQuestion {
   /** Which of the creator's places: "all", "creator_page", "onepage" or "website:<id>" (lib/analytics/properties). */
   property: string
   timeZone: string
+  /**
+   * The store's selling currency when the caller knows it. Money in the
+   * answer is converted into it, so a change of currency is a different
+   * question: the numbers kept for the old one are not shown as the new one.
+   */
+  currency?: string
 }
 
 /** The query string the page asks with. The same question is always the same string. */
@@ -68,6 +74,8 @@ export function reportKey(q: ReportQuestion): string {
     product: q.product,
     property: q.property,
   })
+  const currency = (q.currency || "").trim().toUpperCase()
+  if (/^[A-Z]{3}$/.test(currency)) p.set("ccy", currency)
   if (q.compare) {
     p.set("cstart", new Date(q.compare.start).toISOString())
     p.set("cend", new Date(q.compare.end).toISOString())
@@ -302,6 +310,20 @@ async function read(key: string, signal: AbortSignal, onFigures: (figures: Line)
   throw new Error("The answer ended early")
 }
 
+/* ─── The store currency the open app is showing ──────────────────────── */
+
+let notedCurrency = ""
+
+/** Settings told the app the store's currency (lib/store/currency-context). The prefetch uses it so its question matches the page. */
+export function noteStoreCurrency(code: string) {
+  const currency = code.trim().toUpperCase()
+  if (/^[A-Z]{3}$/.test(currency)) notedCurrency = currency
+}
+
+export function notedStoreCurrency(): string {
+  return notedCurrency
+}
+
 /* ─── Warming ──────────────────────────────────────────────────────────── */
 
 let warmedAt = 0
@@ -326,6 +348,7 @@ export function warmAnalytics() {
       product: "all",
       property: "all",
       timeZone,
+      currency: notedCurrency || undefined,
     })
     const k = kept().get(questionOf(key))
     if (k && Date.now() - k.at < FRESH_MS) return

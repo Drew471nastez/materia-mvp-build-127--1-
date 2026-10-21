@@ -31,6 +31,7 @@ import { regionsOf } from "@/lib/physical/regions"
 import { TAX_REGION_RULES, percentText } from "@/lib/tax/rules"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { STORE_CURRENCY_EVENT, useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { tt } from "@/lib/i18n/text"
 
@@ -85,9 +86,15 @@ export function TaxesPanel() {
   React.useEffect(() => {
     void load()
   }, [load])
+  /* A currency change rewrites prices. Read taxes again so the amounts and the symbol follow. */
+  React.useEffect(() => {
+    const on = () => void load()
+    window.addEventListener(STORE_CURRENCY_EVENT, on)
+    return () => window.removeEventListener(STORE_CURRENCY_EVENT, on)
+  }, [load])
 
-  /* A server answer is the whole setup again; the person's own extras are kept. */
-  const take = (next: Setup) => setSetup((s) => ({ ...next, detectedCountry: s?.detectedCountry, currency: s?.currency, products: s?.products ?? next.products }))
+  /* A server answer is the whole setup again; the person's own extras are kept. The currency follows the store. */
+  const take = (next: Setup) => setSetup((s) => ({ ...next, detectedCountry: s?.detectedCountry, currency: next.currency || s?.currency, products: s?.products ?? next.products }))
 
   const flip = async (patch: Partial<Pick<Setup, "enabled" | "included" | "onShipping" | "digital">>) => {
     setSetup((s) => (s ? { ...s, ...patch } : s))
@@ -106,7 +113,8 @@ export function TaxesPanel() {
     /* No outline of itself: the settings fade in when they come (settings-content-in). */
     return <div className="min-h-[360px]" aria-busy="true" />
   }
-  const currency = (setup.currency || "USD").toUpperCase()
+  const liveCurrency = useStoreCurrencyIfSet()
+  const currency = (liveCurrency || setup.currency || "USD").toUpperCase()
   const suggested = setup.detectedCountry && !setup.regions.some((r) => r.country === setup.detectedCountry) ? setup.detectedCountry : null
 
   return (

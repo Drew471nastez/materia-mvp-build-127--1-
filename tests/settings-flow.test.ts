@@ -546,7 +546,7 @@ check(
       && !/setShouldAnimate/.test(src)
       && /React\.useLayoutEffect\(\(\) => \{\s*const s = st\.current\s*if \(s\.sig === sig\) return/.test(lines)
       /* Changed on purpose: a new order asks again too (ordersChanged); the tab still never does. */
-      && /\}, \[periodKey, creatorId, ordersChanged\]\)/.test(src) && !/openKPIModal, periodKey/.test(src)
+      && /\}, \[periodKey, creatorId, ordersChanged, storeCurrencyCode\]\)/.test(src) && !/openKPIModal, periodKey/.test(src)
   })(),
 )
 

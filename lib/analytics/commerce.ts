@@ -23,6 +23,7 @@
  * customers in it. Channels come from where each order was placed.
  */
 import { decodeOrigin } from "@/lib/orders/order-source"
+import { counts, orderProperty, type PropertySelector } from "@/lib/analytics/properties"
 
 export interface CommerceOrderRow {
   id: string
@@ -41,6 +42,28 @@ export interface CommerceOrderRow {
   stripe_session_id?: string | null
   buyer_email?: string | null
   customer_email?: string | null
+  product_id?: string | null
+  property_type?: string | null
+  property_id?: string | null
+}
+
+/**
+ * Whether one order line belongs in this report. A chosen product keeps only
+ * its own lines. A chosen place uses the same rule as the rest of Analytics
+ * (lib/analytics/properties counts). All keeps every line.
+ */
+export function commerceRowCounts(
+  row: CommerceOrderRow,
+  opts: { productId: string | null; property: PropertySelector; defaultWebsite: string | null },
+): boolean {
+  if (opts.productId && row.product_id !== opts.productId) return false
+  if (opts.property.type === "all") return true
+  const placed = orderProperty({
+    lines: [{ property_type: row.property_type, property_id: row.property_id, source: row.source, source_detail: decodeOrigin(row.source_detail) }],
+    source: row.source,
+    sourceDetail: decodeOrigin(row.source_detail),
+  })
+  return counts(opts.property, placed, opts.defaultWebsite)
 }
 
 export interface SalesBreakdown {

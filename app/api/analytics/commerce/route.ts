@@ -3,18 +3,22 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
-import { breakdownOf, channelsOf, grainFor, seriesOf, type CommerceOrderRow } from "@/lib/analytics/commerce"
+import { breakdownOf, channelsOf, commerceRowCounts, grainFor, seriesOf, type CommerceOrderRow } from "@/lib/analytics/commerce"
+import { creatorProperties } from "@/lib/analytics/report-read"
+import { ownsProperty, parseProperty } from "@/lib/analytics/properties"
 
 export const dynamic = "force-dynamic"
 
 const COLUMNS =
-  "id, amount_cents, tip_cents, tax_cents, tax_included, shipping_cents, unit_price_cents, quantity, status, refund_amount_cents, created_at, source, source_detail, stripe_session_id, buyer_email, currency"
+  "id, amount_cents, tip_cents, tax_cents, tax_included, shipping_cents, unit_price_cents, quantity, status, refund_amount_cents, created_at, source, source_detail, stripe_session_id, buyer_email, currency, product_id, property_type, property_id"
+const WITH_PRODUCT =
+  "id, amount_cents, tip_cents, tax_cents, tax_included, shipping_cents, unit_price_cents, quantity, status, refund_amount_cents, created_at, source, source_detail, stripe_session_id, buyer_email, currency, product_id"
 const FALLBACK = "id, amount_cents, tip_cents, status, refund_amount_cents, created_at, source, source_detail, stripe_session_id, buyer_email, currency"
 const PAGE = 1000
 const CEILING = 50_000
 const DAY = 86_400_000
-/** The longest period a report covers: a little over two years. */
-const MAX_SPAN = 800 * DAY
+/** The same ceiling as /api/analytics/reports, so All time is the same period on every card. */
+const MAX_SPAN = 30 * 366 * DAY
 
 /**
  * THE STORE'S SALES REPORTS (app/app/analytics commerce-reports): the sales
@@ -40,6 +44,15 @@ export async function GET(request: Request) {
   const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
   const creatorId = (creator as { id: string }).id
+  const selector = parseProperty(url.searchParams.get("property"))
+  const properties = await creatorProperties(admin, creatorId, user.id)
+  if (!ownsProperty(properties, selector)) return NextResponse.json({ error: "No such property" }, { status: 404 })
+  const wanted = url.searchParams.get("product")
+  let productId: string | null = null
+  if (wanted && wanted !== "all") {
+    const { data: product } = await admin.from("products").select("id").eq("id", wanted).eq("creator_id", creatorId).maybeSingle()
+    if (product) productId = wanted
+  }
 
   const read = async (columns: string): Promise<CommerceOrderRow[]> =>
     byCreator(async (scope) => {
@@ -59,12 +72,29 @@ export async function GET(request: Request) {
     })
 
   let raw: CommerceOrderRow[]
+  let canProduct = true
+  let canProperty = true
   try {
     raw = await read(COLUMNS)
   } catch (e) {
     if (!/column|42703|PGRST204/i.test((e as Error).message)) return NextResponse.json({ error: "Reports are not available right now." }, { status: 500 })
-    raw = await read(FALLBACK)
+    try {
+      raw = await read(WITH_PRODUCT)
+      canProperty = false
+    } catch (e2) {
+      if (!/column|42703|PGRST204/i.test((e2 as Error).message)) return NextResponse.json({ error: "Reports are not available right now." }, { status: 500 })
+      raw = await read(FALLBACK)
+      canProduct = false
+      canProperty = false
+    }
   }
+  raw = raw.filter((row) =>
+    commerceRowCounts(row, {
+      productId: canProduct ? productId : null,
+      property: canProperty ? selector : { type: "all" },
+      defaultWebsite: properties.defaultWebsite,
+    }),
+  )
   const inStore = await inStoreCurrency(admin, creatorId, raw as never[])
   const rows = inStore.rows as unknown as CommerceOrderRow[]
   const inSpan = (r: CommerceOrderRow, s: { start: number; end: number }) => {

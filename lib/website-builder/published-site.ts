@@ -42,6 +42,7 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { siteRead } from "@/lib/website-builder/site-read"
+import { cache } from "react"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
@@ -298,6 +299,13 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
   if (!install) return { kind: "unpublished", displayName }
 
   const row = install as { id: string; name?: string | null; store_theme_settings?: unknown }
+  /* Menus and the release do not depend on each other. The page rows only need the install. */
+  const menusPromise = storeMenusOrNull(admin, creatorId)
+  const pagesPromise = siteRead("pages", (signal) => admin
+    .from("store_theme_pages")
+    .select("page_key, sections, draft_sections")
+    .eq("install_id", row.id)
+    .abortSignal(signal))
   /* Only a release of the install that is published now. */
   const manifest = pointer && pointer.installId === row.id ? await releaseManifest(pointer.releaseId) : null
   const releaseSources = manifest ? await releaseFiles(manifest).then((files) => (files ? sourcesFromFiles(files) : null)) : null
@@ -319,7 +327,7 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
    */
   /* The store's menus over the theme's own, when the store has them (lib/website-builder/store-menus-server.ts). */
   const themeSettings = sanitizeThemeSettings(
-    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, creatorId)),
+    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await menusPromise),
   )
 
   /* The saved section files first: a creator's own section is cleaned by
@@ -330,13 +338,8 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
   ])
   const ownSchemas = schemaLookupFrom(sources)
 
-  const pageRows = release
-    ? pageRowsOf(release)
-    : await siteRead("pages", (signal) => admin
-      .from("store_theme_pages")
-      .select("page_key, sections, draft_sections")
-      .eq("install_id", row.id)
-      .abortSignal(signal))
+  if (release) void pagesPromise.catch(() => {})
+  const pageRows = release ? pageRowsOf(release) : await pagesPromise
 
   /**
    * And again on the way out. The database already holds rich text saved
@@ -505,19 +508,40 @@ export async function dressPage(
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
   const missing = missingReferences(productReferences(sections, schemaOf), products)
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
-  const pickedRead = missing.ids.length || missing.slugs.length
-    ? opts.cached
-      ? await unstable_cache(
-          read,
-          ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
-          { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
-        )()
-      : await read()
-    : []
+  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
+  const communityIds = communityReferences(sections, schemaOf)
+  /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews] = await Promise.all([
+    missing.ids.length || missing.slugs.length
+      ? opts.cached
+        ? unstable_cache(
+            read,
+            ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
+            { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
+          )()
+        : read()
+      : Promise.resolve([] as ProductCard[]),
+    import("@/lib/website-builder/site-seo-data").then(({ siteOrigin }) => siteOrigin(site.creatorId, site.displayName).catch(() => "")),
+    communityIds.length
+      ? import("@/lib/communities/server/blocks").then(({ communityCardsFor }) => {
+          const load = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
+          return opts.cached ? unstable_cache(load, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })() : load()
+        }).catch(() => ({}))
+      : Promise.resolve(undefined),
+    pageWantsCollections(sections, schemaOf, sourceOf)
+      ? import("@/lib/website-builder/storefront-collections-server").then(({ siteCollections }) => {
+          const load = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
+          return opts.cached ? unstable_cache(load, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })() : load()
+        }).catch(() => undefined)
+      : Promise.resolve(undefined),
+    pageWantsReviews(sections, sourceOf)
+      ? import("@/lib/reviews/storefront-server").then(({ storefrontReviews }) =>
+          storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null) as unknown as Promise<Record<string, unknown>>,
+        ).catch(() => undefined)
+      : Promise.resolve(undefined),
+  ])
   /* In the page's language and the visitor's currency, as the shop's own cards around them are: a picked product used to show untranslated, in the store's currency, beside converted ones. */
   const picked = opts.localizer && pickedRead.length ? opts.localizer.cards(pickedRead) : pickedRead
-  const { siteOrigin } = await import("@/lib/website-builder/site-seo-data")
-  const siteUrl = await siteOrigin(site.creatorId, site.displayName).catch(() => "")
   const dynamic = dynamicContext({
     theme: site.themeSettings,
     creator: site.profile,
@@ -529,46 +553,12 @@ export async function dressPage(
   })
   /* Theme settings › Breadcrumbs: the bar under the header on every page but home (theme-breadcrumbs.ts). */
   const filled = withDynamicSources(withThemeBreadcrumbs(searchListsTheShop(sections), site.themeSettings, template), schemaOf, dynamic)
-  /* The communities a community_picker names: the creator's own, published and public, while communities are on. A minute in the cache, like the shop. */
-  const communityIds = communityReferences(sections, schemaOf)
-  const communities = communityIds.length
-    ? await (async () => {
-        const { communityCardsFor } = await import("@/lib/communities/server/blocks")
-        const read = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
-        return opts.cached
-          ? unstable_cache(read, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })()
-          : read()
-      })().catch(() => ({}))
-    : undefined
-  /*
-    The creator's published collections, for a collection picker, a
-    collection list and the collections page: read only for a page that
-    uses them, a minute in the cache like the shop. Every shop has them,
-    whatever kind of product it sells.
-  */
-  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
-  const collectionsRead = pageWantsCollections(sections, schemaOf, sourceOf)
-    ? await (async () => {
-        const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
-        const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
-        return opts.cached
-          ? unstable_cache(read, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
-          : read()
-      })().catch(() => undefined)
-    : undefined
   /* In the visitor's language and currency: each collection's title and description (collection:<id>), its products as the page's cards. */
   const collections = localizer && collectionsRead
     ? Object.fromEntries(
         Object.entries(collectionsRead as Record<string, StorefrontCollection>).map(([id, c]) => [id, { ...localizer.collection(c as unknown as Record<string, unknown> & { id: string }), products: localizer.cards(c.products as never) } as unknown as StorefrontCollection]),
       )
     : collectionsRead
-  /* Storelib Reviews, for a page with a review section: the shop's, and the product's on its page (lib/reviews/storefront-server.ts). */
-  const reviews = pageWantsReviews(sections, sourceOf)
-    ? await (async () => {
-        const { storefrontReviews } = await import("@/lib/reviews/storefront-server")
-        return (await storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null)) as unknown as Record<string, unknown>
-      })().catch(() => undefined)
-    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
@@ -661,7 +651,7 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
 const lastGood = new Map<string, ShopLookup>()
 const LAST_GOOD_MAX = 500
 
-async function resolveSite(name: string): Promise<ShopLookup> {
+const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
   try {
     const found = await resolveSiteFresh(lower)
@@ -678,7 +668,7 @@ async function resolveSite(name: string): Promise<ShopLookup> {
     }
     throw e
   }
-}
+})
 
 async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 

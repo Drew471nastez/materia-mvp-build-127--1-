@@ -132,8 +132,8 @@ export async function siteMetadata(
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
   // The published site is built from published values alone (buildSite).
-  /* In the page's language, the default's included: its title and description as translated (lib/markets/live.ts). */
-  const localizer = await siteLocalizer(creator.creatorId, locale)
+  /* In the page's language, the default's included: its title and description as translated (lib/markets/live.ts). The address and the language list are asked with it. */
+  const [localizer, originEarly, langsEarly] = await Promise.all([siteLocalizer(creator.creatorId, locale), siteOrigin(creator.creatorId, username), siteLanguages(creator.creatorId)])
   const settings: ThemeSettingsValues = localizer ? localizer.theme((found.site.themeSettings ?? {}) as Record<string, unknown>) as ThemeSettingsValues : (found.site.themeSettings ?? {})
   /* The store's name as the site says it: its brand name, else Store details', else the person's (lib/website-builder/tab-title.ts). */
   const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.site.profile?.storeName, displayName: creator.displayName, handle: defaultHandle })
@@ -166,7 +166,7 @@ export async function siteMetadata(
    * it knows between them. The canonical names the one the creator gives
    * out: lib/website-builder/site-seo-data.ts.
    */
-  const origin = await siteOrigin(creator.creatorId, username)
+  const origin = originEarly
   /*
     EVERY LANGUAGE OF THE PAGE, for search engines: hreflang for each
     published language and x-default for the website's own, and a page in
@@ -174,7 +174,8 @@ export async function siteMetadata(
   */
   /* A page with an address of its own under its key (/collections/summer under "collections") is its own canonical, not the index's. */
   const ownPath = tab?.path ?? new URL(pageUrl(origin, pageKey)).pathname
-  const [languages, langs] = await Promise.all([languageAlternates(creator.creatorId, origin, ownPath), siteLanguages(creator.creatorId)])
+  const langs = langsEarly
+  const languages = await languageAlternates(creator.creatorId, origin, ownPath)
   const pageLocale = locale && langs.others.find((l) => l.toLowerCase() === locale) ? langs.others.find((l) => l.toLowerCase() === locale)! : null
   const url = pageLocale ? `${origin}${localizedPath(ownPath, pageLocale, langs.defaultLanguage)}` : tab?.path ? `${origin}${tab.path}` : pageUrl(origin, pageKey)
 
@@ -278,7 +279,7 @@ export async function renderSite(
   const { site } = found
   const template = templateForPage(pageKey)
   /* The website and whose it is, once, on the front page. */
-  const [structured, language, localizer] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market), siteLocalizer(site.creatorId, locale, market).catch(() => null)])
+  const [structured, language, localizer, currency] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market), siteLocalizer(site.creatorId, locale, market).catch(() => null), cachedStoreCurrency(site.creatorId)])
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
@@ -286,7 +287,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display, currency }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its

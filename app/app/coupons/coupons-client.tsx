@@ -18,6 +18,7 @@ import { holdLanding } from "@/lib/ui/app-navigation"
 import { pressMark } from "@/lib/press-mark"
 import { whenIdle } from "../products/list-return"
 import { tt } from "@/lib/i18n/text"
+import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -122,7 +123,9 @@ const EDITED_FADE_MS = 1200
  * same rule the checkout's (lib/checkout/coupons.ts).
  */
 export function CouponsClient({ initialCoupons, products, currency = "USD" }: CouponsClientProps) {
-  const money = useMemo(() => couponMoney(currency), [currency])
+  /* The store's currency as it is changed in Settings, not only the one this page was opened with. */
+  const liveCurrency = useStoreCurrencyIfSet()
+  const money = useMemo(() => couponMoney(liveCurrency || currency), [liveCurrency, currency])
   /* A save or a delete in the editor, laid over the rows the router kept (./list-return). */
   const [coupons, setCoupons] = useState<Coupon[]>(() => withReturn(initialCoupons, peekReturn()))
   /* The server's list again (a refresh after a change): it is the truth from here. */

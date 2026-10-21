@@ -163,8 +163,12 @@ export async function creatorProperties(admin: Admin, creatorId: string, userId:
     publishedInstallOf(admin, creatorId),
   ])
   const websites: WebsiteProperty[] = rows
+    /* A draft that was never published has had no visitor. A site that was live and then taken down keeps its history. */
     .filter((r) => r.status === "published" || !!r.published_at || r.id === live)
-    .map((r) => ({ id: String(r.id).toLowerCase(), name: (r.name || "").trim() || "Website" }))
+    .map((r) => {
+      const id = String(r.id).toLowerCase()
+      return { id, name: (r.name || "").trim() || "Website", published: r.status === "published" || id === (live ? String(live).toLowerCase() : null) }
+    })
   const defaultWebsite = (live ? String(live).toLowerCase() : null) ?? websites[0]?.id ?? null
   return { onePageId: onePageId ? onePageId.toLowerCase() : null, websites, defaultWebsite }
 }
