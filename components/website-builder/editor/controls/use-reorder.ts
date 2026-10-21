@@ -132,6 +132,9 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
   onMoveRef.current = onMove
   const nestRef = React.useRef(nest)
   nestRef.current = nest
+  /* Read when a grip is pressed, not when its handlers were made: a row that did not draw again (a memoised row) still knows how long the list is. */
+  const countRef = React.useRef(count)
+  countRef.current = count
 
   const rows = React.useCallback(() => {
     const list = listRef.current
@@ -282,7 +285,7 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
 
   const onPointerDown = (index: number) => (e: React.PointerEvent<HTMLElement>) => {
     /* A row alone in its list has nowhere to go, unless it can go in or out a level. */
-    if (e.button !== 0 || live.current || (count < 2 && !nestRef.current)) return
+    if (e.button !== 0 || live.current || (countRef.current < 2 && !nestRef.current)) return
     const list = rows()
     const el = list[index]
     if (!el) return
@@ -368,7 +371,7 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return
     e.preventDefault()
     const to = e.key === "ArrowUp" ? index - 1 : index + 1
-    if (to < 0 || to >= count) return
+    if (to < 0 || to >= countRef.current) return
     onMoveRef.current(index, to)
   }
 

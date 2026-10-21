@@ -134,7 +134,8 @@ function main() {
     for (const op of ["addBlock", "duplicateBlock", "reorderBlocks", "removeBlock"]) {
       check(`${op} records an undo step`, /pushUndo\(\)/.test(body(op)), body(op) ? "" : "not found")
     }
-    check("and typing in a block setting records one too, debounced like the rest", /debouncedPushUndo\(\)/.test(body("updateBlockSetting")))
+    /* Changed on purpose (round 34): the step names what it edits (undo-run.ts step(key)), so another field is a step of its own. */
+    check("and typing in a block setting records one too, debounced like the rest", /debouncedPushUndo\((?:`[^`]*`)?\)/.test(body("updateBlockSetting")))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

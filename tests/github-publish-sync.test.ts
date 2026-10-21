@@ -331,7 +331,8 @@ async function main() {
     check("no save goes over GitHub's version unasked: a page switch waits, Save on the way out is a pick",
       /if \(syncConflictRef\.current\) \{\s*if \(!options\.keepMine\)/.test(editor) && /saveDraft\(\{ quiet: true, keepMine: true \}\)/.test(editor) && /const handlePageChange = async[\s\S]{0,1600}if \(syncConflictRef\.current\) \{\s*showNotification/.test(editor))
     check("Publish waits for that choice", /if \(syncConflictRef\.current\) \{\s*showNotification\("Pick which version to keep first"/.test(editor))
-    check("Publish writes the editor's copy only when it has unsaved work, so a push it has not read yet is not overwritten", /if \(isDirty\) \{\s*const \[settingsRes, sectionsRes\] = await Promise\.all\(\[\s*putJsonWithRetry/.test(editor))
+    /* Changed on purpose (round 34): the write goes through the draft's queue; with nothing unsaved it only waits for a write on its way, and sends nothing. */
+    check("Publish writes the editor's copy only when it has unsaved work, so a push it has not read yet is not overwritten", /if \(isDirty\) \{\s*const written = await draftQueue\.save\(snap\)[\s\S]{0,300}\} else \{\s*await draftQueue\.idle\(\)\s*\}/.test(editor))
     check("the buttons go through the GitHub route, which is rate limited per site and checks the owner",
       /\/github`, \{/.test(editor) && /bucket: "github-sync"/.test(read("app/api/website-builder/themes/[installId]/github/route.ts")) && /const own = await ownInstall\(installId\)/.test(read("app/api/website-builder/themes/[installId]/github/route.ts")))
     const status = read("app/api/website-builder/themes/[installId]/sync-status/route.ts")

@@ -772,6 +772,8 @@ const SUITES = [
   "tests/taxes-x.test.ts",
   /* Round 34: Add block opens a picker with each block drawn in its section before it is added (scripts/check-block-picker.mjs measures it in the real editor) */
   "tests/block-picker.test.ts",
+  /* Round 34: the builder's draft written one snapshot at a time (save ordering, Saved only for what is on screen, retry on its own), undo by reference and per field, memoised rows and insert strips (scripts/check-editor-sections.mjs measures them on 44 sections) */
+  "tests/editor-sections-r34.test.ts",
 ]
 
 /**
