@@ -195,7 +195,7 @@ function main() {
   */
   check("the analytics figures keep visitors, revenue, orders and conversion, in that order",
     /const CORE_TABS = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics)
-      && /const tabOrder = CORE_TABS/.test(analytics)
+      && /return \[\.\.\.CORE_TABS, \.\.\.extra\]/.test(analytics)
       && /<MetricTab key=\{tab\} tab=\{tab\} className=\{STRIP_TAB\}/.test(analytics))
   check("and they are one row that scrolls sideways on a phone, columns wider up, like the home page's",
     /ref=\{metricStripRef\}/.test(analytics)

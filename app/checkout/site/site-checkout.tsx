@@ -1039,7 +1039,7 @@ export function SiteCheckout({
           ))}
         </dl>
       ) : null}
-      {!isFree && config.businessInvoices ? (
+      {!isFree ? (
         <section aria-label={ct("Invoice")}>
           <BusinessFields
             on={businessOn}

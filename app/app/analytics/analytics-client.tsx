@@ -32,7 +32,7 @@
  */
 
 import { CommerceReports } from "./commerce-reports"
-import { AddReports, sellsDigital, useAddedReports } from "./add-reports"
+import { AddReports, sellsDigital, useAddedReports, type ExtraTab } from "./add-reports"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
@@ -81,7 +81,7 @@ interface AnalyticsClientProps {
   properties: CreatorProperties
 }
 
-type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion"
+type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion" | ExtraTab
 
 interface Figure {
   /** Null only for a rate with nothing to divide by. */
@@ -256,8 +256,13 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
   const hasPublishedSite = properties.websites.some((w) => w.published !== false)
   const showFulfillment = sellsPhysical || hasPublishedSite
   const offerDownloads = sellsDigital(products)
-  /* The chart is these four. Added reports are cards under it, never more tabs here. */
-  const tabOrder = CORE_TABS
+  const tabOrder = useMemo(() => {
+    const extra = added.tabs.filter((t) => t === "pageviews" || t === "refunds" || t === "clicks")
+    return [...CORE_TABS, ...extra]
+  }, [added.tabs])
+  useEffect(() => {
+    if (!tabOrder.includes(chartMetricFilter)) setChartMetricFilter("views")
+  }, [tabOrder, chartMetricFilter])
 
   /* Asked again every minute, so a sale shows up without a reload. Not while
      the tab or the app is in the background: coming back asks at once when a
@@ -496,8 +501,9 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
             role="tablist"
             aria-label={tt("Metric")}
             data-scroll-x
-            className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"
+            className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 data-[tabs='5']:md:grid-cols-5 data-[tabs='6']:md:grid-cols-6 data-[tabs='7']:md:grid-cols-7"
             style={TAB_STRIP_STYLE}
+            data-tabs={tabOrder.length}
           >
             {tabOrder.map((tab) => {
               const spec = {
@@ -505,6 +511,9 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
                 revenue: { label: t("analytics.totalRevenue"), value: formatPrice(shown.revenue.value ?? 0), change: changeOf(shown.revenue), foot: allTime(shown.revenue, formatPrice, tt("Less refunds")) },
                 orders: { label: t("analytics.totalOrders"), value: formatCompactNumber(shown.orders.value ?? 0), change: changeOf(shown.orders), foot: allTime(shown.orders, formatCompactNumber, tt("Paid and free")) },
                 conversion: { label: t("analytics.conversionRate"), value: formatRate(shown.conversion.value), change: changeOf(shown.conversion), foot: t("dashboard.ordersPerVisitor") },
+                pageviews: { label: tt("Page views"), value: formatCompactNumber(shown.pageviews.value ?? 0), change: changeOf(shown.pageviews), foot: tt("Every page opened") },
+                refunds: { label: tt("Refunds"), value: formatPrice(shown.refunds.value ?? 0), change: changeOf(shown.refunds), foot: tt("Money returned") },
+                clicks: { label: tt("Link clicks"), value: formatCompactNumber(shown.clicks.value ?? 0), change: changeOf(shown.clicks), foot: tt("Links and buttons tapped") },
               }[tab]
               return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} />
             })}
@@ -562,7 +571,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         {/* The store's sales reports, for the same period, place and product as the chart (./commerce-reports). */}
         <CommerceReports span={safeSpan} product={selectedProduct} property={propertyKey} showFulfillment={showFulfillment} />
         {/* The reports under the chart, from the same answer. */}
-        <AnalyticsReports state={reportsState} property={property} cards={added.cards} />
+        <AnalyticsReports state={reportsState} property={property} downloads={offerDownloads && added.cards.includes("downloads")} />
         <div className="flex justify-center pt-1">
           <AddReports added={added} onChange={setAdded} offerDownloads={offerDownloads} />
         </div>

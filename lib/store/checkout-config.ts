@@ -25,12 +25,6 @@ export interface CheckoutConfig {
   requireConfirmedEmail: boolean
   /** The "Email me with news and offers" box, never ticked for them. */
   marketingOptIn: boolean
-  /**
-   * "Buying for a business" at checkout: the company name, tax number and
-   * address on the invoice. On for a store that never chose, which is how
-   * checkout already behaved.
-   */
-  businessInvoices: boolean
   /** "first_and_last" asks for both; "last_only" takes one full name. */
   nameFields: "first_and_last" | "last_only"
   company: FieldRule
@@ -69,7 +63,6 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   requireAccount: false,
   requireConfirmedEmail: false,
   marketingOptIn: true,
-  businessInvoices: true,
   nameFields: "last_only",
   company: "off",
   phone: "optional",
@@ -95,7 +88,6 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     requireAccount: requireConfirmedEmail || bool(o.requireAccount, DEFAULT_CHECKOUT.requireAccount),
     requireConfirmedEmail,
     marketingOptIn: bool(o.marketingOptIn, DEFAULT_CHECKOUT.marketingOptIn),
-    businessInvoices: bool(o.businessInvoices, DEFAULT_CHECKOUT.businessInvoices),
     nameFields: o.nameFields === "first_and_last" ? "first_and_last" : "last_only",
     company: rule(o.company, DEFAULT_CHECKOUT.company),
     phone: rule(o.phone, DEFAULT_CHECKOUT.phone),

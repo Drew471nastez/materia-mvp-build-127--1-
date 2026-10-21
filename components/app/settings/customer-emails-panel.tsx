@@ -36,6 +36,7 @@
  * stay above it, and fields are 16px there so iOS does not zoom the page.
  */
 import * as React from "react"
+import Link from "next/link"
 import { ChevronRight, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -45,7 +46,6 @@ import { BTN_GHOST, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peek
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail, type CustomerEmailGroup } from "@/lib/emails/customer-catalog"
-import { CommunityMailList } from "./community-mail-list"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
 import { tt } from "@/lib/i18n/text"
 
@@ -60,9 +60,6 @@ export interface CustomerEmailsShop {
   currency: string
   /** The store's accent, for the button in each preview (lib/emails/layout.ts uses it when it reads on white). */
   accent?: string | null
-  /** The website's published language, for shipped-order previews. */
-  language?: string | null
-  emailWords?: Record<string, string> | null
 }
 export interface CustomerEmailsData {
   shop: CustomerEmailsShop
@@ -78,7 +75,7 @@ const PHONE_SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
 type EmailFamily = "all" | "digital" | "physical" | "communities"
 
 const FAMILY_GROUPS: Record<"digital" | "physical", CustomerEmailGroup[]> = {
-  digital: ["digital"],
+  digital: ["digital", "checkout"],
   physical: ["orders", "payments", "shipping", "pickup", "returns"],
 }
 
@@ -88,38 +85,32 @@ interface CommunityMail {
   slug: string
 }
 
-/** One track, the chosen kind on a white chip that slides. Same control in Emails and in Settings. */
-function FamilySwitch({
-  value,
-  options,
-  onChange,
-  bare,
-}: {
-  value: EmailFamily
-  options: Array<{ id: EmailFamily; label: string }>
-  onChange: (id: EmailFamily) => void
-  bare: boolean
-}) {
+/** Community mail lives in each community, not in the product receipts. */
+function CommunitiesMail({ rows, compact }: { rows: CommunityMail[] | null; compact: boolean }) {
+  if (compact && !rows?.length) return null
   return (
-    <div className={cn("overflow-x-auto", bare ? "px-4 pb-2 pt-3 sm:px-5" : "pb-1")} data-email-families="">
-      <div role="tablist" aria-label={tt("Email kinds")} className="inline-flex rounded-lg bg-[#f1f2f4] p-0.5">
-        {options.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            role="tab"
-            aria-selected={value === f.id}
-            onClick={() => onChange(f.id)}
-            className={cn(
-              "h-8 shrink-0 whitespace-nowrap rounded-md px-3 text-[13px] font-medium transition-[background-color,box-shadow,color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] [-webkit-tap-highlight-color:transparent]",
-              value === f.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(17,24,39,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <section className={cn("px-4 py-3 sm:px-5", compact && "pb-1")} data-email-communities="">
+      <h3 className="text-[13px] font-semibold text-[#6b7280]">{tt("Communities")}</h3>
+      <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-[#6b7280]">
+        {tt("Welcome notes, invites and announcements are edited in each community. They are not the receipts and shipping emails below.")}
+      </p>
+      {rows && rows.length > 0 ? (
+        <ul className="mt-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]">
+          {rows.map((c) => (
+            <li key={c.id}>
+              <Link href={`/app/community/${c.slug || c.id}/settings?tab=emails`} className="flex min-h-11 items-center justify-between gap-3 px-3.5 py-3 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#fafafa]">
+                <span className="min-w-0 truncate">{c.name || tt("Community")}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Link href="/app/community" className="mt-3 inline-flex h-9 items-center text-[14px] font-medium text-[#1a1a2e] underline underline-offset-2">
+          {tt("Open communities")}
+        </Link>
+      )}
+    </section>
   )
 }
 
@@ -179,8 +170,24 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
 
   const list = (
     <div className={cn(bare ? "pb-1" : "space-y-5")}>
-      <FamilySwitch value={family} options={families} onChange={setFamily} bare={bare} />
-      {family === "communities" ? <CommunityMailList communities={communities ?? []} /> : null}
+      <div className={cn("orders-strip flex gap-1 overflow-x-auto", bare ? "px-4 pb-1 pt-3 sm:px-5" : "")} role="tablist" aria-label={tt("Email kinds")} data-email-families="">
+        {families.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={family === f.id}
+            onClick={() => setFamily(f.id)}
+            className={cn(
+              "h-8 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
+              family === f.id ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2]",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      {family === "communities" || family === "all" ? <CommunitiesMail rows={communities} compact={family === "all"} /> : null}
       {groups.map((g) => {
         const rows = emails.filter((e) => e.group === g)
         if (rows.length === 0) return null

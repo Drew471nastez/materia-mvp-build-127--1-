@@ -1246,7 +1246,7 @@ export default function CheckoutPageClient({
 
   const beforePay = (
     <>
-      {!isFree && checkoutConfig.businessInvoices ? (
+      {!isFree ? (
         <section aria-label="Invoice">
           <BusinessFields
             on={businessOn}

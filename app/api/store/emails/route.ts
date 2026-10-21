@@ -7,7 +7,6 @@ import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { customerEmailCopyReady, loadCustomerEmailCopy, saveCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
-import { emailLanguageFor } from "@/lib/emails/words-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -26,7 +25,7 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [identity, store, selling, copy, ready, look, website, spoken] = await Promise.all([
+  const [identity, store, selling, copy, ready, look, website] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
@@ -36,8 +35,6 @@ export async function GET() {
     loadBrand(db, c.creatorId).catch(() => null),
     /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
     orderStoreUrl({ creator_id: c.creatorId }),
-    /* The website's own language, for shipped-order previews. A download receipt stays English. */
-    emailLanguageFor(c.creatorId, null).catch(() => ({ lang: "en", words: {} as Record<string, string>, own: true })),
   ])
   return physicalJson({
     shop: {
@@ -48,8 +45,6 @@ export async function GET() {
       phone: store?.phone ?? null,
       currency: selling.currency,
       accent: look?.accent ?? null,
-      language: spoken.lang,
-      emailWords: spoken.words,
     },
     copy,
     ready,

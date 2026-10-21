@@ -97,7 +97,6 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   requireAccount: "Require customers to sign in",
   requireConfirmedEmail: "Require a confirmed email address",
   marketingOptIn: "Show the email news box",
-  businessInvoices: "Buying for a business",
   nameFields: "Full name",
   company: "Company name",
   phone: "Phone number",
