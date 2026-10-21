@@ -70,6 +70,7 @@ import { remapScheme } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
 import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -11472,7 +11473,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
  * `transform` — Tailwind v4 compiles those utilities to the standalone
  * properties, and a transition naming `transform` animates neither.
  */
-function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
+/*
+  Memoised, with the gap's index and the canvas's one add function rather
+  than a closure made per render: there is one of these between every two
+  sections, and each canvas render drew all forty of them again, with their
+  icons, for nothing (scripts/check-editor-live-edit.mjs, CanvasInsertStrip).
+*/
+const CanvasInsertStrip = memo(function CanvasInsertStrip({ at, onAdd }: { at: number; onAdd: (at: number) => void }) {
+  const onClick = () => onAdd(at)
   /**
    * ===========================================================================
    *  IT COSTS THE PAGE NO HEIGHT
@@ -11521,7 +11529,7 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
     </div>
     </div>
   )
-}
+})
 
 /**
  * ===========================================================================
@@ -11849,6 +11857,9 @@ function patchCanvasThemeVars(theme: ThemeSettingsValues) {
  * parent. `onSelectSection` and `onAddSection` take no closure over a
  * section; they are given the id.
  */
+/** The canvas's scroller, and the id each section's element is given in it. */
+const CANVAS_ON_SCREEN = { rootId: "wb-preview-root", prefix: "wb-section-" }
+
 const EditorCanvasPage = memo(function EditorCanvasPage({
   theme: committedTheme,
   sections,
@@ -11926,6 +11937,18 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
+  /*
+    And only by the sections on screen while it is live: the rest keep the
+    committed theme, so their memo holds, until the commit draws the page
+    once (lib/website-builder/on-screen-sections.ts).
+  */
+  const themeLive = theme !== committedTheme
+  const onScreen = useOnScreenSections(
+    useMemo(() => sections.map((s) => s.id), [sections]),
+    themeLive,
+    CANVAS_ON_SCREEN,
+  )
+  const themeFor = (id: string) => (!themeLive || onScreen(id) ? theme : committedTheme)
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render
@@ -11982,7 +12005,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           ? (at) => {
               /* Counted without the placeholder, which is not in the page. */
               const gap = gapWithoutPlaceholder(sections, at)
-              return gap === null ? null : <CanvasInsertStrip onClick={() => onAddSectionAt(gap)} />
+              return gap === null ? null : <CanvasInsertStrip at={gap} onAdd={onAddSectionAt} />
             }
           : undefined
       }
@@ -12003,7 +12026,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         }
         const shared = {
           section,
-          theme,
+          theme: themeFor(section.id),
           // TRUE whether or not the Inspector is on — it tells a
           // section "you are inside the canvas card, use the
           // editor-scoped sticky mode". `isEditing` flips with the

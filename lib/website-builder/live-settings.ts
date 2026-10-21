@@ -35,7 +35,7 @@
  * between the drag and its commit.
  */
 
-import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import type { BlockInstance, SectionInstance, ThemeSettingsValues } from "./types"
 import { parsePath, updateAt } from "./block-tree"
 import { sameSettingValue } from "./same-setting"
@@ -320,6 +320,9 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
   }, [list, at])
 }
 
+/** How long a theme value being drawn may hold the next one back before the next is drawn anyway. */
+export const DRAW_WAIT_MS = 400
+
 /**
  * The theme to draw, with a theme setting under a finger laid over it; the
  * same object when none is.
@@ -350,14 +353,49 @@ export function useLiveTheme<T extends ThemeSettingsValues>(base: T, patch?: (th
     patchRef.current = patch
   })
   const seen = useRef(theme)
+  /*
+    ONE DRAW IN FLIGHT, AND THE NEWEST VALUE NEXT. A transition is thrown
+    away and started again when a newer value arrives before it finishes, and
+    a finger on a colour sends one every frame: a render longer than a frame
+    never finished at all, and the canvas drew once, after the finger lifted
+    (scripts/check-editor-live-edit.mjs, a scheme colour: one draw for 61
+    values). So a value that arrives while one is still being drawn waits,
+    the draw finishes, and the newest waiting value is drawn next. Values in
+    between are skipped, never queued. `patch` still runs on every move.
+  */
+  const inFlight = useRef<{ value: Record<string, unknown> | null; at: number } | null>(null)
+  const waiting = useRef<{ value: Record<string, unknown> | null } | null>(null)
+  const oRef = useRef(o)
+  const draw = useCallback((value: Record<string, unknown> | null) => {
+    if (value === oRef.current) {
+      inFlight.current = null
+      return
+    }
+    inFlight.current = { value, at: Date.now() }
+    startTransition(() => setO(value))
+  }, [])
   useEffect(() => subscribe(() => {
     const cur = theme
     /* A section's value moving says nothing new about the theme. */
     if (cur === seen.current) return
     seen.current = cur
     patchRef.current?.((cur ? { ...baseRef.current, ...cur } : baseRef.current) as T)
-    startTransition(() => setO(cur))
-  }), [])
+    /* A draw that never came back (a render React dropped) holds nothing up for long. */
+    if (inFlight.current && Date.now() - inFlight.current.at < DRAW_WAIT_MS) {
+      waiting.current = { value: cur }
+      return
+    }
+    waiting.current = null
+    draw(cur)
+  }), [draw])
+  useLayoutEffect(() => {
+    oRef.current = o
+    if (!inFlight.current || inFlight.current.value !== o) return
+    inFlight.current = null
+    const next = waiting.current
+    waiting.current = null
+    if (next) draw(next.value)
+  }, [o, draw])
   const out = useMemo(() => {
     if (!o) return base
     const b = base as Record<string, unknown>

@@ -5722,8 +5722,20 @@ picture {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
+/* FILLED BACKWARDS, NOT BOTH. Filled forwards, the finished entrance stayed
+   an active transform animation on the whole page, for as long as the editor
+   was open: the page (25,000px tall at 44 sections) stayed its own layer of
+   unknown bounds, and every insert strip and selection ring above it was
+   pushed onto a layer of its own to be sure of the overlap, 127 layers where
+   36 do (scripts/check-editor-live-edit.mjs counts them), all of them
+   composited again on every frame of a slider. The end state is no
+   transform, which is what the page has without the animation. `contain:
+   layout` keeps what the filled transform gave by accident and the canvas
+   was built on: the page is the containing block of a fixed element in it
+   (a popup, a phone menu) and its own stacking context. */
 .wb-canvas-in {
-  animation: wb-canvas-in 360ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: wb-canvas-in 360ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  contain: layout;
 }
 .wb-canvas-loader {
   transition: opacity 260ms ease-out;

@@ -515,12 +515,19 @@ export function ThemePage({
    * a re-parse of the whole theme and a style recalculation of the page, on
    * every keystroke in the builder. See ../sections/stable-html.
    */
-  const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
+  /*
+    BY ITS TEXT, NOT BY THE THEME OBJECT. In the builder a colour or a slider
+    under a finger is a new theme object on every move, and the stylesheet
+    reads nearly everything through the theme's CSS variables, so its text
+    almost never changes. Keyed on the object, the <style> was written again
+    on each move all the same, and the browser parsed it and restyled the
+    whole page for nothing (scripts/check-editor-live-edit.mjs).
+  */
+  const themeCssText = useMemo(() => themeStylesheet(theme), [theme])
+  const themeCss = useMemo(() => ({ __html: themeCssText }), [themeCssText])
   /* Theme settings › Custom CSS, cleaned and scoped (lib/storelib-theme/custom-css.ts). Null when there is none. */
-  const customCss = useMemo(() => {
-    const css = themeCustomCss(theme)
-    return css ? { __html: css } : null
-  }, [theme])
+  const customCssText = useMemo(() => themeCustomCss(theme), [theme])
+  const customCss = useMemo(() => (customCssText ? { __html: customCssText } : null), [customCssText])
   const pageColor = typeof (theme as Record<string, unknown>).background_color === "string" ? String((theme as Record<string, unknown>).background_color).trim() : ""
   const documentBackground = useMemo(
     () =>
@@ -531,7 +538,15 @@ export function ThemePage({
   )
 
   /* Website settings › Commerce, read once from the theme and handed to every section (lib/website-builder/site-commerce.ts). */
-  const storefrontValue = useMemo(() => ({ ...(storefront ?? {}), commerce: siteCommerce(theme as Record<string, unknown>) }), [storefront, theme])
+  /*
+    By what Commerce says, not by the theme object: every section that reads
+    the storefront renders again when this value changes, past its memo, so a
+    colour dragged in the builder rendered every section on the page on every
+    move, whatever it had to do with them (scripts/check-editor-live-edit.mjs).
+  */
+  const commerceKey = JSON.stringify(siteCommerce(theme as Record<string, unknown>))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const storefrontValue = useMemo(() => ({ ...(storefront ?? {}), commerce: siteCommerce(theme as Record<string, unknown>) }), [storefront, commerceKey])
 
   return (
     <StorefrontProvider value={storefrontValue}>
