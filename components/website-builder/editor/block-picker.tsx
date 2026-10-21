@@ -12,26 +12,35 @@
  *
  * Add block used to open the shared action menu: a column of names. Now:
  *
- *   A COMPUTER  a panel beside the sidebar, its top level with the row it
- *               was opened from: a search and the blocks this level takes on
- *               the left, and on the right the block under the pointer (or
- *               the keys) drawn as it will be in this section. A click or
- *               Enter adds it there. Escape, a press outside, or adding puts
- *               the panel away and the focus back on the row.
- *   A PHONE     the builder's own sheet, over the sections sheet: the same
- *               search and list, the preview over them, a tap picks and the
- *               Add button under the list adds.
+ *   A COMPUTER  two cards beside the sidebar, level with the row they were
+ *               opened from: the list (a search, the blocks this level
+ *               takes, then the ones it has no room for under one heading)
+ *               and, beside it, the block under the pointer (or the keys)
+ *               drawn as it will be in this section. A click or Enter adds
+ *               it there. Escape, a press outside, or adding puts them away
+ *               and the focus back on the row.
+ *   A PHONE     the builder's own sheet, over the sections sheet, as tall as
+ *               what is in it: the preview, the search and the list, a tap
+ *               picks and the Add button under the list adds.
+ *
+ * The owner, after the first version: "the whole blocks library selector is
+ * too big ... the preview should be good clean optimized". It was one 820 by
+ * 540 panel whatever it held, and a short block sat at its own size in the
+ * middle of a pane made for a picture. So each card is now the size of what
+ * it holds: the list as tall as its rows (up to a cap), the preview as wide
+ * as its card and as tall as the scaled block.
  *
  * WHAT THE PREVIEW IS. The section the block is being added to, drawn by the
  * real renderer with this site's theme, the section's own settings (its
  * colour scheme, its layout) and its own blocks, with the new block put in
  * at the place it will land, filled in the way Add block fills it (its
  * defaults, then its preset). Everything but the block is then left out of
- * sight, and the window is cut around the block: so what is shown is the
- * block at the width it will have, on the section's own background, in the
- * section's type and colours. It is laid out at the canvas's own width,
- * with the canvas's own theme variables, so it is the block the canvas will
- * draw a moment later (scripts/check-block-picker.mjs compares the two).
+ * sight. It is laid out at the width the canvas gives that section right
+ * now (the device the canvas shows included), with the canvas's own theme
+ * variables, so it is the block the canvas will draw a moment later
+ * (scripts/check-block-picker.mjs compares the two). Then it is cropped to
+ * what the block paints and scaled down as one piece to the card's width:
+ * a wide block is never cut, a narrow one is never a speck.
  *
  * WHAT MAKES IT INSTANT. A preview is markup. Each block is drawn once per
  * opening, off screen, and kept; the first is drawn in the press that opens
@@ -53,13 +62,14 @@ import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
+import { StorelibLiveProvider, editorCanvasLive } from "@/components/website-builder/sections/storelib-live"
+import { StorefrontProvider, editorCanvasStorefront } from "@/components/website-builder/theme/storefront-context"
 import { CompatPreviewProvider, sectionMarkup, sheetDocument, useCompatPreview } from "@/components/website-builder/compat/compat-section-preview"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { splitStyles } from "@/lib/website-builder/preview-markup"
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
-import { PREVIEW_BLOCK_ID, cropFor, matchChoices, placePicker, previewBlock, sectionWith } from "@/lib/website-builder/block-picker"
+import { PICKER_SIZE, PREVIEW_BLOCK_ID, fitPreview, matchChoices, placePicker, previewBlock, sectionWith, splitChoices, type PickerPlace } from "@/lib/website-builder/block-picker"
 import type { BlockSchema, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
 import type { BlockChoice } from "./add-block-button"
@@ -102,6 +112,8 @@ export function useBlockPicker(): ((request: BlockPickerRequest) => void) | null
 
 let host: HTMLDivElement | null = null
 let drawRoot: Root | null = null
+/* Before the canvas has handed its storefront down: still the builder's, so a block with nothing to show on this product says so as the canvas does. */
+const EDITOR_STOREFRONT = { inEditor: true }
 
 /** Reads its own markup the moment its children have committed. */
 function Capture({ onCapture, children }: { onCapture: (html: string) => void; children: ReactNode }) {
@@ -124,14 +136,18 @@ function drawStorelib(section: SectionInstance, theme: ThemeSettingsValues, sour
     drawRoot = createRoot(host)
   }
   let html = ""
+  /* What the canvas draws with besides the section: its storefront (words, currency, the builder's notes) and its page's product, products and template. */
+  const live = editorCanvasLive()
   try {
     flushSync(() => {
       drawRoot!.render(
-        <StorelibLiveProvider sources={sources} inEditor>
-          <Capture onCapture={(h) => { html = h }}>
-            <SectionRenderer section={section} theme={theme} isEditing={false} isSelected={false} insideEditor deviceMode={deviceMode} />
-          </Capture>
-        </StorelibLiveProvider>,
+        <StorefrontProvider value={editorCanvasStorefront() ?? EDITOR_STOREFRONT}>
+          <StorelibLiveProvider sources={sources} inEditor asCanvas={false} page={live?.page} products={live?.products} data={live?.data} headerLogo={live?.headerLogo}>
+            <Capture onCapture={(h) => { html = h }}>
+              <SectionRenderer section={section} theme={theme} isEditing={false} isSelected={false} insideEditor deviceMode={deviceMode} />
+            </Capture>
+          </StorelibLiveProvider>
+        </StorefrontProvider>,
       )
     })
   } catch {
@@ -193,7 +209,9 @@ const INHERITED = ["font-family", "font-size", "line-height", "letter-spacing", 
  */
 function readStageLook(sectionId: string): StageLook {
   const box = document.getElementById(`wb-section-${sectionId}`) ?? document.querySelector<HTMLElement>("#wb-preview-root [data-section-box]")
-  const width = Math.round(box?.getBoundingClientRect().width || 0) || 1000
+  /* An imported theme's canvas is a frame of the page's width: its sections are as wide as it. */
+  const frame = box ? null : document.querySelector<HTMLElement>("iframe[data-compat-frame='front']")
+  const width = Math.round((box ?? frame)?.getBoundingClientRect().width || 0) || 1000
   const holder = box?.parentElement
   const root = box?.closest<HTMLElement>(`[${THEME_ROOT_ATTRIBUTE}]`)
   let inherited = root?.style.cssText ?? ""
@@ -330,14 +348,28 @@ function drawsNothing(el: Element): boolean {
   return !el.querySelector("img, svg, video, picture, canvas, iframe, input, button, hr")
 }
 
-const PANE_INSET = 24
+/** How a pane is sized: its width is its card's; its height follows the block, between these. */
+interface PaneBox {
+  minH: number
+  maxH: number
+  inset: number
+}
 
 /**
- * Lay the drawn section out in `stage` (inside `pane`), find the block, and
- * cut the window around it. Direct DOM work, in a layout effect, so the
- * preview that is painted is the one asked for in the same frame.
+ * Lay the drawn section out in `stage` at its real width, find the block,
+ * crop to what it paints, and scale that crop as one piece into `clip`, a
+ * box exactly the size of the scaled crop in the middle of `pane`. The pane
+ * takes the height the scaled block needs. Direct DOM work, in a layout
+ * effect, so the preview that is painted is the one asked for in the same
+ * frame. The stage moves by the `translate` and `scale` properties, never
+ * with a transition.
+ *
+ * `empty`: the block is there and draws nothing at all (a product's badges
+ * when the product has none, a file list with no files). The canvas will
+ * draw nothing either, so the pane says so at its smallest instead of
+ * showing a tall box of nothing.
  */
-function fitStage(pane: HTMLElement, stage: HTMLElement, outline: HTMLElement, doc: Document, width: number, fallbackBg: string): { found: boolean } {
+function fitStage(pane: HTMLElement, clip: HTMLElement, stage: HTMLElement, outline: HTMLElement, doc: Document, width: number, fallbackBg: string, box: PaneBox): { found: boolean; empty: boolean } {
   const target = doc.querySelector(`[data-block-id="${PREVIEW_BLOCK_ID}"]`)
   if (target) {
     target.setAttribute("data-bp-target", "")
@@ -345,68 +377,138 @@ function fitStage(pane: HTMLElement, stage: HTMLElement, outline: HTMLElement, d
   } else {
     stage.removeAttribute("data-bp-isolate")
   }
-  stage.style.transform = "none"
+  stage.style.scale = "1"
+  stage.style.translate = "0px 0px"
   const s = stage.getBoundingClientRect()
   const stageH = stage.offsetHeight || s.height
   const r = target ? boxOf(target) : null
   const seen = target && r ? paintedBox(target) : null
-  const pw = Math.max(1, pane.clientWidth - PANE_INSET * 2)
-  const ph = Math.max(1, pane.clientHeight - PANE_INSET * 2)
+  const empty = !!target && !seen && (!r || r.height < 2)
+  const pw = Math.max(1, pane.clientWidth)
   const offset = stage.tagName === "IFRAME" ? { x: 0, y: 0 } : { x: s.left, y: s.top }
   const block = r
     ? { x: r.left - offset.x, y: r.top - offset.y, w: r.width, h: r.height }
-    : { x: 0, y: 0, w: width, h: Math.min(stageH, (width * ph) / pw) }
+    : { x: 0, y: 0, w: width, h: Math.min(stageH, (width * box.maxH) / pw) }
   const shown = seen ? { x: seen.left - offset.x, y: seen.top - offset.y, w: seen.width, h: seen.height } : block
-  const fit = cropFor(shown, { w: width, h: stageH }, { w: pw, h: ph }, r ? 24 : 0)
-  stage.style.transform = `translate(${fit.x + PANE_INSET}px, ${fit.y + PANE_INSET}px) scale(${fit.scale})`
-  pane.style.background = (target && backdropOf(target, doc === document ? stage : doc.body)) || fallbackBg
-  if (r && target && !seen && drawsNothing(target)) {
+  const fit = empty
+    ? { scale: 1, window: { x: 0, y: 0, w: 0, h: 0 }, paneH: box.minH, left: 0, top: 0, width: 0, height: 0 }
+    : fitPreview(shown, { w: width, h: stageH }, { w: pw, ...box }, r ? 16 : 0)
+  pane.style.height = `${fit.paneH}px`
+  clip.style.left = `${fit.left}px`
+  clip.style.top = `${fit.top}px`
+  clip.style.width = `${fit.width}px`
+  clip.style.height = `${fit.height}px`
+  stage.style.translate = `${-fit.window.x * fit.scale}px ${-fit.window.y * fit.scale}px`
+  stage.style.scale = String(fit.scale)
+  stage.setAttribute("data-bp-scale", fit.scale.toFixed(4))
+  stage.setAttribute("data-bp-window", `${Math.round(fit.window.x)} ${Math.round(fit.window.y)} ${Math.round(fit.window.w)} ${Math.round(fit.window.h)}`)
+  const root = doc === document ? stage : doc.body
+  /* An empty block is not the section's to paint: the pane is the editor's own grey, with the words on it. */
+  pane.style.background = empty ? "#f8f9fa" : (target ? backdropOf(target, root) : sectionBackdrop(root)) || fallbackBg
+  if (r && target && !seen && !empty && drawsNothing(target)) {
     outline.hidden = false
-    outline.style.left = `${fit.x + PANE_INSET + block.x * fit.scale}px`
-    outline.style.top = `${fit.y + PANE_INSET + block.y * fit.scale}px`
+    outline.style.left = `${fit.left + (block.x - fit.window.x) * fit.scale}px`
+    outline.style.top = `${fit.top + (block.y - fit.window.y) * fit.scale}px`
     outline.style.width = `${Math.max(2, block.w * fit.scale)}px`
     outline.style.height = `${Math.max(2, block.h * fit.scale)}px`
   } else {
     outline.hidden = true
   }
-  return { found: !!target }
+  return { found: !!target, empty }
+}
+
+/** The section's own background, for a section shown whole: the first box from its top down that paints one. */
+function sectionBackdrop(root: Element): string {
+  let at: Element | null = root.firstElementChild
+  for (let depth = 0; at && depth < 4; depth++, at = at.firstElementChild) {
+    const cs = (at.ownerDocument.defaultView ?? window).getComputedStyle(at)
+    const image = cs.backgroundImage && cs.backgroundImage !== "none" ? cs.backgroundImage : ""
+    const color = cs.backgroundColor && !CLEAR.test(cs.backgroundColor) ? cs.backgroundColor : ""
+    if (image || color) return [image, color].filter(Boolean).join(", ")
+  }
+  return ""
 }
 
 /* ── The preview pane ──────────────────────────────────────────────────── */
 
-const PreviewPane = memo(function PreviewPane({ session, choice, className }: { session: PreviewSession; choice: BlockChoice | undefined; className?: string }) {
-  const compat = !!session.env.compatInstallId
-  return compat ? (
-    <CompatPane session={session} choice={choice} className={className} />
-  ) : (
-    <StorelibPane session={session} choice={choice} className={className} />
-  )
+interface PaneProps {
+  session: PreviewSession
+  choice: BlockChoice | undefined
+  box: PaneBox
+  className?: string
+}
+
+const PreviewPane = memo(function PreviewPane(props: PaneProps) {
+  return props.session.env.compatInstallId ? <CompatPane {...props} /> : <StorelibPane {...props} />
 })
 
-function PaneShell({ paneRef, outlineRef, className, children, choice, note }: { paneRef: React.RefObject<HTMLDivElement | null>; outlineRef: React.RefObject<HTMLDivElement | null>; className?: string; children: ReactNode; choice: BlockChoice | undefined; note?: string | null }) {
+interface ShellRefs {
+  paneRef: React.RefObject<HTMLDivElement | null>
+  clipRef: React.RefObject<HTMLDivElement | null>
+  outlineRef: React.RefObject<HTMLDivElement | null>
+}
+
+function PaneShell({ paneRef, clipRef, outlineRef, className, children, choice, note, empty, box, loading }: ShellRefs & { className?: string; children: ReactNode; choice: BlockChoice | undefined; note?: string | null; empty?: boolean; box: PaneBox; loading?: boolean }) {
+  /* A phone's pane is one fixed height, so its note sits over the preview's foot; elsewhere it is a line under it. */
+  const fixed = box.minH === box.maxH
+  const line = note ? (
+    <p className={cn("px-3 py-1.5 text-[12px] leading-snug text-[#6b7280]", fixed ? "absolute inset-x-0 bottom-0 bg-white/90" : "border-t border-[#f0f1f3] bg-white")} data-preview-note="">{note}</p>
+  ) : null
   return (
-    <div className={cn("relative min-h-0 overflow-hidden rounded-xl border border-[#e5e7eb]/60", className)} data-block-preview="" data-showing={choice ? choiceKey(choice).replace("\u0000", ":") : undefined}>
-      <div ref={paneRef} aria-hidden className="absolute inset-0 overflow-hidden bg-white">
-        {children}
+    <>
+      <div
+        ref={paneRef}
+        className={cn("relative overflow-hidden bg-white", className)}
+        /* Its first height, before the block is fitted, is the floor: nothing shrinks from a taller guess. */
+        style={{ height: box.minH }}
+        data-block-preview=""
+        data-showing={choice ? choiceKey(choice).replace("\u0000", ":") : undefined}
+      >
+        <div ref={clipRef} aria-hidden data-bp-clip="" className="pointer-events-none absolute left-0 top-0 overflow-hidden">
+          {children}
+        </div>
         <div ref={outlineRef} hidden className="pointer-events-none absolute rounded-[3px] border border-dashed border-[#9ca3af]" />
+        {loading ? <span aria-hidden className="wb-preview-shimmer pointer-events-none absolute inset-0" /> : null}
+        {empty ? <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[12px] text-[#6b7280]" data-preview-note="" data-preview-empty="">{tt("Nothing to show yet")}</p> : null}
+        {fixed ? line : null}
       </div>
-      {note ? <p className="absolute inset-x-0 bottom-0 bg-white/90 px-3 py-1.5 text-[12px] text-[#6b7280]" data-preview-note="">{note}</p> : null}
-    </div>
+      {fixed ? null : line}
+    </>
   )
 }
 
-function StorelibPane({ session, choice, className }: { session: PreviewSession; choice: BlockChoice | undefined; className?: string }) {
+/** Fits again when the pane's width changes (the window, the sheet). Its height is the fit's own doing, so it is not watched. */
+function useWidthRefit(paneRef: React.RefObject<HTMLDivElement | null>, refit: () => unknown) {
+  useEffect(() => {
+    const pane = paneRef.current
+    if (!pane || typeof ResizeObserver === "undefined") return
+    let last = pane.clientWidth
+    const ro = new ResizeObserver(() => {
+      if (pane.clientWidth === last) return
+      last = pane.clientWidth
+      refit()
+    })
+    ro.observe(pane)
+    return () => ro.disconnect()
+  }, [paneRef, refit])
+}
+
+function StorelibPane({ session, choice, box, className }: PaneProps) {
   const paneRef = useRef<HTMLDivElement | null>(null)
+  const clipRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const outlineRef = useRef<HTMLDivElement | null>(null)
   const [missing, setMissing] = useState(false)
+  const [empty, setEmpty] = useState(false)
   const shown = useRef<string | null>(null)
   const fallbackBg = String(session.env.theme?.background_color ?? "#ffffff")
+  const { minH, maxH, inset } = box
   const apply = useCallback(() => {
     const pane = paneRef.current
+    const clip = clipRef.current
     const stage = stageRef.current
     const outline = outlineRef.current
-    if (!pane || !stage || !outline || !choice) return
+    if (!pane || !clip || !stage || !outline || !choice) return
     const html = session.markup.get(choiceKey(choice))
     if (html === undefined) return false
     const key = choiceKey(choice)
@@ -415,16 +517,17 @@ function StorelibPane({ session, choice, className }: { session: PreviewSession;
     if (shown.current !== showing) {
       if (!shown.current?.startsWith(`${sessionKey(session)}:`)) {
         /* The theme root's own style, then the stage's place: the theme's rules paint the root's background, which here is the pane's to paint. */
-        stage.style.cssText = `${session.look.inherited};position:absolute;left:0;top:0;width:${session.look.width}px;min-width:0;max-width:none;height:auto;min-height:0;margin:0;padding:0;background:transparent;border:0;box-shadow:none;transform-origin:0 0;container-type:inline-size`
+        stage.style.cssText = `${session.look.inherited};position:absolute;left:0;top:0;width:${session.look.width}px;min-width:0;max-width:none;height:auto;min-height:0;margin:0;padding:0;background:transparent;border:0;box-shadow:none;transform:none;transform-origin:0 0;container-type:inline-size`
       }
       stage.innerHTML = html
       shown.current = showing
     }
-    const { found } = fitStage(pane, stage, outline, document, session.look.width, fallbackBg)
+    const { found, empty: none } = fitStage(pane, clip, stage, outline, document, session.look.width, fallbackBg, { minH, maxH, inset })
     stage.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
     setMissing(!found && !!html)
+    setEmpty(none)
     return true
-  }, [session, choice, fallbackBg])
+  }, [session, choice, fallbackBg, minH, maxH, inset])
   useLayoutEffect(() => {
     styleStage()
     if (apply() === false) {
@@ -436,16 +539,9 @@ function StorelibPane({ session, choice, className }: { session: PreviewSession;
       return () => window.clearTimeout(id)
     }
   }, [apply, session, choice])
-  /* A pane that changes size (the window, the sheet) cuts its window again. */
-  useEffect(() => {
-    const pane = paneRef.current
-    if (!pane || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => apply())
-    ro.observe(pane)
-    return () => ro.disconnect()
-  }, [apply])
+  useWidthRefit(paneRef, apply)
   return (
-    <PaneShell paneRef={paneRef} outlineRef={outlineRef} className={className} choice={choice} note={missing ? tt("Shown in its section") : null}>
+    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} choice={choice} box={box} empty={empty} note={missing ? tt("Shown in its section") : null}>
       <div
         ref={stageRef}
         data-bp-stage=""
@@ -464,14 +560,17 @@ function StorelibPane({ session, choice, className }: { session: PreviewSession;
  * `block.shopify_attributes` has no block to find: the section is shown
  * whole, and says so.
  */
-function CompatPane({ session, choice, className }: { session: PreviewSession; choice: BlockChoice | undefined; className?: string }) {
+function CompatPane({ session, choice, box, className }: PaneProps) {
   const ctx = useCompatPreview()
   const paneRef = useRef<HTMLDivElement | null>(null)
+  const clipRef = useRef<HTMLDivElement | null>(null)
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const outlineRef = useRef<HTMLDivElement | null>(null)
   const [loadedDoc, setLoadedDoc] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [empty, setEmpty] = useState(false)
   const width = session.look.width
+  const { minH, maxH, inset } = box
   const doc = useMemo(() => {
     if (!ctx?.theme) return null
     const { html, main } = sheetDocument(ctx.theme, ctx.page, ctx.rows, width, 800)
@@ -480,12 +579,13 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
     return withRules.replace(/<\/body>/i, () => `${main || "<main>"}</main></body>`)
   }, [ctx?.theme, ctx?.page, ctx?.rows, width])
   const loaded = !!doc && loadedDoc === doc
-  useLayoutEffect(() => {
+  const apply = useCallback(() => {
     const frame = frameRef.current
     const pane = paneRef.current
+    const clip = clipRef.current
     const outline = outlineRef.current
     const fd = frame?.contentDocument
-    if (!ctx?.theme || !frame || !pane || !outline || !fd || !loaded || !choice) return
+    if (!ctx?.theme || !frame || !pane || !clip || !outline || !fd || !loaded || !choice) return
     const key = choiceKey(choice)
     let html = session.markup.get(key)
     if (html === undefined) {
@@ -496,18 +596,29 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
       }
       session.markup.set(key, html)
     }
-    const main = fd.querySelector("main") ?? fd.body
-    main.innerHTML = html
+    const showing = `${sessionKey(session)}:${key}`
+    if (frame.getAttribute("data-bp-drawn") !== showing) {
+      const main = fd.querySelector("main") ?? fd.body
+      main.innerHTML = html
+      frame.setAttribute("data-bp-drawn", showing)
+    }
+    /* The frame as tall as the section it holds, measured from a frame too short to stretch it. */
+    frame.style.height = "1px"
     frame.style.height = `${Math.max(1, fd.documentElement.scrollHeight)}px`
     const body = fd.body
     if (fd.querySelector(`[data-block-id="${PREVIEW_BLOCK_ID}"]`)) body.setAttribute("data-bp-isolate", "")
     else body.removeAttribute("data-bp-isolate")
-    const { found } = fitStage(pane, frame, outline, fd, width, "#ffffff")
+    const { found, empty: none } = fitStage(pane, clip, frame, outline, fd, width, "#ffffff", { minH, maxH, inset })
+    setEmpty(none)
     frame.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
     setNote(!html ? tt("No preview for this block") : found ? null : tt("Shown in its section"))
-  }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width])
+  }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width, minH, maxH, inset])
+  useLayoutEffect(() => {
+    apply()
+  }, [apply])
+  useWidthRefit(paneRef, apply)
   return (
-    <PaneShell paneRef={paneRef} outlineRef={outlineRef} className={className} choice={choice} note={ctx?.failed ? tt("No preview for this block") : note}>
+    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} choice={choice} box={box} empty={empty} loading={!loaded} note={ctx?.failed ? tt("No preview for this block") : note}>
       {doc ? (
         <iframe
           ref={frameRef}
@@ -522,9 +633,7 @@ function CompatPane({ session, choice, className }: { session: PreviewSession; c
           className="pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent"
           style={{ width, height: 0 }}
         />
-      ) : (
-        <span aria-hidden className="wb-preview-shimmer absolute inset-0" />
-      )}
+      ) : null}
     </PaneShell>
   )
 }
@@ -578,11 +687,12 @@ export function BlockPickerProvider({ theme, sources, compatInstallId = null, ch
     /* The first block is drawn in the press itself, so the panel's first frame has its preview. */
     const first = request.choices.find((c) => !request.reasonFor?.(c)) ?? request.choices[0]
     s.ensure(first)
-    setPhone(!!request.anchor.closest(PHONE_SHEET))
+    const onPhone = !!request.anchor.closest(PHONE_SHEET)
+    setPhone(onPhone)
     if (env.compatInstallId) setCompatWanted(true)
     setSession(s)
-    /* The very first time the panel and the sheet are built closed and opened on the next frame, so they move in like every later opening. */
-    if (!everOpened.current) {
+    /* The very first time the sheet is built closed and opened on the next frame, so it moves in like every later opening. The cards on a computer are simply up. */
+    if (onPhone && !everOpened.current) {
       everOpened.current = true
       requestAnimationFrame(() => setOpen(true))
     } else setOpen(true)
@@ -616,16 +726,20 @@ function sessionKey(s: PreviewSession): number {
   return id
 }
 
+/** A phone's preview is one height for the whole opening, so the list under it never moves as a tap changes it. */
+function phonePaneBox(): PaneBox {
+  const h = typeof window === "undefined" ? 152 : Math.round(Math.max(104, Math.min(160, window.innerHeight * 0.18)))
+  return { minH: h, maxH: h, inset: 12 }
+}
+
 function PickerBody({ session, open, phone, onClose }: { session: PreviewSession; open: boolean; phone: boolean; onClose: () => void }) {
   const { request } = session
   const [query, setQuery] = useState("")
-  const shown = useMemo(() => matchChoices(request.choices, query), [request.choices, query])
   const reasons = useMemo(() => new Map(request.choices.map((c) => [choiceKey(c), request.reasonFor?.(c) ?? null])), [request])
-  const firstOpen = useMemo(() => {
-    const i = shown.findIndex((c) => !reasons.get(choiceKey(c)))
-    return i < 0 ? 0 : i
-  }, [shown, reasons])
-  const [activeKey, setActiveKey] = useState<string | null>(() => (shown[firstOpen] ? choiceKey(shown[firstOpen]) : null))
+  /* What can be added first, then what cannot under one heading: the order the list, the keys and the search all use. */
+  const groups = useMemo(() => splitChoices(matchChoices(request.choices, query), (c) => reasons.get(choiceKey(c)) ?? null), [request.choices, query, reasons])
+  const shown = useMemo(() => [...groups.open, ...groups.closed], [groups])
+  const [activeKey, setActiveKey] = useState<string | null>(() => (shown[0] ? choiceKey(shown[0]) : null))
   /* A new opening starts with nothing typed, on the first block that can be added, from its first frame. */
   const [seen, setSeen] = useState(session)
   if (seen !== session) {
@@ -634,7 +748,7 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
     const first = request.choices.find((c) => !request.reasonFor?.(c)) ?? request.choices[0]
     setActiveKey(first ? choiceKey(first) : null)
   }
-  const active = shown.find((c) => choiceKey(c) === activeKey) ?? shown[firstOpen]
+  const active = shown.find((c) => choiceKey(c) === activeKey) ?? shown[0]
   const activeIndex = active ? shown.indexOf(active) : -1
 
   /* Drawn before it is asked for: the block under the pointer is drawn in the move that reaches it (show), the rest here. */
@@ -715,7 +829,7 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
   const searchRef = useRef<HTMLInputElement | null>(null)
   const search = (
     <div className="relative">
-      <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+      <Search aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
       <input
         ref={searchRef}
         type="search"
@@ -731,14 +845,14 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
         autoComplete="off"
         data-block-picker-search=""
         /* 16px on a phone, or iOS zooms the page in and leaves it there. */
-        className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-9 pr-9 text-[16px] text-[#1a1a2e] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-black/5 sm:h-9 sm:text-[14px] [&::-webkit-search-cancel-button]:hidden"
+        className="h-10 w-full rounded-lg border border-[#e5e7eb] bg-white pl-8 pr-8 text-[16px] text-[#1a1a2e] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:outline-none sm:h-8 sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
       />
       {query ? (
         <button
           type="button"
           onClick={() => { onQuery(""); searchRef.current?.focus() }}
           aria-label={tt("Clear the search")}
-          className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e] sm:h-6 sm:w-6"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -746,99 +860,140 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
     </div>
   )
 
+  const row = (c: BlockChoice, i: number) => {
+    const reason = reasons.get(choiceKey(c))
+    const on = i === activeIndex
+    return (
+      <div
+        key={choiceKey(c)}
+        id={`${listId}-${i}`}
+        role="option"
+        aria-selected={on}
+        aria-disabled={reason ? true : undefined}
+        /* The reason, whole, for a pointer that rests on the row; it is also the line under the preview. */
+        title={reason ?? undefined}
+        data-active={on ? "true" : "false"}
+        data-block-choice={c.type}
+        data-preset={c.preset?.name ?? ""}
+        /* The pointer previews; a press adds (on a phone a tap picks and Add adds). */
+        onPointerMove={phone ? undefined : () => { if (!on) show(c) }}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => (phone ? show(c) : add(c))}
+        className={cn(
+          "flex h-8 cursor-pointer select-none items-center rounded-md px-2.5 text-left text-[13px] [-webkit-tap-highlight-color:transparent] max-sm:h-11 max-sm:rounded-lg max-sm:px-3 max-sm:text-[15px]",
+          on ? "bg-[#f3f4f6]" : "",
+          reason ? "cursor-default text-[#9ca3af]" : "text-[#1a1a2e]",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{c.label}</span>
+      </div>
+    )
+  }
+
   const list = (
-    <div ref={listRef} id={listId} role="listbox" aria-label={tt("Blocks")} data-block-picker-list="" className="wb-slim-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-1.5">
-      {shown.map((c, i) => {
-        const reason = reasons.get(choiceKey(c))
-        const on = i === activeIndex
-        return (
-          <div
-            key={choiceKey(c)}
-            id={`${listId}-${i}`}
-            role="option"
-            aria-selected={on}
-            aria-disabled={reason ? true : undefined}
-            data-active={on ? "true" : "false"}
-            data-block-choice={c.type}
-            data-preset={c.preset?.name ?? ""}
-            /* The pointer previews; a press adds (on a phone a tap picks and Add adds). */
-            onPointerMove={phone ? undefined : () => { if (!on) show(c) }}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => (phone ? show(c) : add(c))}
-            className={cn(
-              "flex min-h-9 cursor-pointer select-none flex-col justify-center rounded-lg px-3 py-1.5 text-left [-webkit-tap-highlight-color:transparent] max-sm:min-h-12",
-              on ? "bg-[#f3f4f6]" : "",
-              reason ? "cursor-default" : "",
-            )}
-          >
-            <span className={cn("truncate text-[14px] leading-snug max-sm:text-[15px]", reason ? "text-[#9ca3af]" : "text-[#1a1a2e]", on && !reason && "font-medium")}>{c.label}</span>
-            {reason ? <span className="truncate text-[12px] leading-snug text-[#9ca3af]">{reason}</span> : null}
-          </div>
-        )
-      })}
-      {shown.length === 0 ? <p className="px-3 py-8 text-center text-[13px] text-[#6b7280]">{tt("Nothing matches “{value}”", { value: query.trim() })}</p> : null}
+    /* On a phone the list is the sheet's scroller and its rows the content it measures, so a sheet opened again for a longer list grows to it. */
+    <div ref={listRef} id={listId} role="listbox" aria-label={tt("Blocks")} data-block-picker-list="" {...(phone ? { "data-sheet-scroll": "" } : {})} className="wb-slim-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-1.5 max-sm:px-2">
+      <div data-sheet-content="">
+      {groups.open.map((c, i) => row(c, i))}
+      {groups.closed.length ? (
+        <div role="group" aria-labelledby={`${listId}-closed`} data-block-picker-closed="">
+          <p id={`${listId}-closed`} className="px-2.5 pb-1 pt-2.5 text-[12px] leading-snug text-[#9ca3af] max-sm:px-3" data-block-picker-heading="">
+            {groups.heading ?? tt("Already used")}
+          </p>
+          {groups.closed.map((c, i) => row(c, groups.open.length + i))}
+        </div>
+      ) : null}
+      {shown.length === 0 ? <p className="px-3 py-6 text-center text-[13px] text-[#6b7280]">{tt("Nothing matches “{value}”", { value: query.trim() })}</p> : null}
+      </div>
     </div>
   )
 
-  const preview = <PreviewPane session={session} choice={active} className={phone ? "mx-4 h-[min(34vh,280px)] shrink-0 bg-[#f8f9fa]" : "h-full bg-[#f8f9fa]"} />
   const activeReason = active ? reasons.get(choiceKey(active)) : null
+  /* The reason a block cannot be added, whole, under its preview; not repeated when the heading already says it. */
+  const reasonLine = activeReason && !groups.shared ? (
+    <p className="border-t border-[#f0f1f3] bg-white px-3 py-2 text-[12px] leading-snug text-[#6b7280]" data-block-picker-reason="">{activeReason}</p>
+  ) : null
 
   if (phone) {
-    return (
-      <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} openFull detents={[0.9]} layer="raised" peekHeight={0} label={tt("Add block")}>
-        <div className="flex min-h-0 flex-1 flex-col" data-block-picker="phone" data-picker-open={open ? "" : undefined}>
-          <div className="flex shrink-0 items-center px-4 pb-3 pt-0.5">
-            <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add block")}</h2>
-          </div>
-          {preview}
-          <div className="shrink-0 px-4 pb-2 pt-3">{search}</div>
-          <div data-sheet-scroll className="flex min-h-0 flex-1 flex-col">{list}</div>
-          <div className="shrink-0 border-t border-[#f0f1f3] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
-            <button
-              type="button"
-              disabled={!active || !!activeReason}
-              onClick={() => add(active)}
-              data-block-picker-add=""
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#e5e7eb] disabled:text-[#9ca3af]"
-            >
-              <span className="truncate">{activeReason ?? (active ? tt("Add {value}", { value: active.label }) : tt("Add block"))}</span>
-            </button>
-          </div>
-        </div>
-      </MobileEditorSheet>
-    )
+    return <PhoneSheet open={open} onClose={onClose} session={session} active={active} activeReason={activeReason ?? null} reasonLine={reasonLine} search={search} list={list} onAdd={() => add(active)} />
   }
 
   return (
     <DesktopPanel open={open} anchor={request.anchor} onClose={onClose} searchRef={searchRef}>
-      <div className="flex w-[260px] shrink-0 flex-col border-r border-[#f0f1f3]">
-        <div className="shrink-0 px-3 pb-2 pt-3">{search}</div>
-        {list}
-      </div>
-      <div className="min-w-0 flex-1 p-3">{preview}</div>
+      {(place) => (
+        <>
+          <div data-block-picker-card="list" className={cn(CARD, "flex min-h-0 shrink-0 flex-col")} style={{ width: PICKER_SIZE.list, maxHeight: place.listMax }}>
+            <div className="shrink-0 p-1.5 pb-1">{search}</div>
+            {list}
+          </div>
+          <div data-block-picker-card="preview" className={cn(CARD, "shrink-0")} style={{ width: place.previewWidth }}>
+            <PreviewPane session={session} choice={active} box={{ minH: PICKER_SIZE.previewMin, maxH: place.previewMax, inset: PICKER_SIZE.inset }} />
+            {reasonLine}
+          </div>
+        </>
+      )}
     </DesktopPanel>
   )
 }
 
+const CARD = "overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_12px_32px_-12px_rgba(15,23,42,0.22),0_1px_3px_rgba(15,23,42,0.06)]"
+
+function PhoneSheet({ open, onClose, session, active, activeReason, reasonLine, search, list, onAdd }: { open: boolean; onClose: () => void; session: PreviewSession; active: BlockChoice | undefined; activeReason: string | null; reasonLine: ReactNode; search: ReactNode; list: ReactNode; onAdd: () => void }) {
+  /* Measured once an opening: the window's height does not change under an open sheet in a way the preview should follow. */
+  const box = useMemo(() => phonePaneBox(), [session]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} openFull fit detents={[0.9]} layer="raised" peekHeight={0} label={tt("Add block")}>
+      <div className="flex min-h-0 flex-1 flex-col" data-block-picker="phone" data-picker-open={open ? "" : undefined}>
+        <div className="flex shrink-0 items-center px-4 pb-2.5 pt-0.5">
+          <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add block")}</h2>
+        </div>
+        <div className="mx-4 shrink-0 overflow-hidden rounded-xl border border-[#e5e7eb]">
+          <PreviewPane session={session} choice={active} box={box} />
+          {reasonLine}
+        </div>
+        <div className="shrink-0 px-4 pb-1.5 pt-3">{search}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{list}</div>
+        <div className="shrink-0 border-t border-[#f0f1f3] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
+          <button
+            type="button"
+            disabled={!active || !!activeReason}
+            onClick={onAdd}
+            data-block-picker-add=""
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#e5e7eb] disabled:text-[#9ca3af]"
+          >
+            <span className="truncate">{active ? tt("Add {value}", { value: active.label }) : tt("Add block")}</span>
+          </button>
+        </div>
+      </div>
+    </MobileEditorSheet>
+  )
+}
+
 /**
- * THE PANEL ON A COMPUTER. Beside the sidebar, level with the row, over
- * nothing: the editor stays in sight and a press anywhere outside puts it
- * away, as a menu does. Where the window has no room beside the sidebar, it
- * sits in the middle over a dimmed editor. It moves by opacity and a few
- * pixels of transform only, so opening it lays out nothing but itself.
+ * THE CARDS ON A COMPUTER. Beside the sidebar, level with the row, over
+ * nothing: the editor stays in sight and a press anywhere outside puts them
+ * away, as a menu does. Where the window has no room beside the sidebar,
+ * they sit in the middle over a dimmed editor. They move by opacity and a
+ * few pixels of `translate` only, so opening lays out nothing but them.
+ *
+ * The list card is as tall as its rows, up to a cap; the preview card is as
+ * tall as its block. The top is placed from the list's own height, measured
+ * before the first paint of each opening.
  */
-function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: boolean; anchor: HTMLElement; onClose: () => void; searchRef: React.RefObject<HTMLInputElement | null>; children: ReactNode }) {
+function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: boolean; anchor: HTMLElement; onClose: () => void; searchRef: React.RefObject<HTMLInputElement | null>; children: (place: PickerPlace) => ReactNode }) {
   const [portal, setPortal] = useState<HTMLElement | null>(null)
   useEffect(() => setPortal(document.body), [])
   const panel = useRef<HTMLDivElement | null>(null)
-  const [place, setPlace] = useState(() => measure(anchor))
+  const [place, setPlace] = useState<PickerPlace>(() => measure(anchor, null))
+  /* Placed for each opening from the list's natural height; not while typing, so a search never moves the cards. */
   useLayoutEffect(() => {
     if (!open) return
-    setPlace(measure(anchor))
-    const onResize = () => setPlace(measure(anchor))
-    window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
-  }, [open, anchor])
+    const put = () => setPlace(measure(anchor, panel.current))
+    put()
+    window.addEventListener("resize", put)
+    return () => window.removeEventListener("resize", put)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, anchor, portal])
 
   useEffect(() => {
     if (!open) return
@@ -883,21 +1038,36 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
         aria-label={tt("Add block")}
         data-block-picker="desktop"
         data-placement={place.mode}
+        /*
+          Up at once, as a menu is; put away with a short fade. The opening
+          is not a transition at all: a transition on `visibility` keeps the
+          cards hidden for the first frame of their way in, and the search
+          box cannot take the focus while they are.
+        */
         className={cn(
-          "absolute flex overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_18px_48px_-16px_rgba(15,23,42,0.28),0_2px_6px_rgba(15,23,42,0.06)]",
-          "transition-[opacity,translate,visibility] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-          open ? "visible translate-x-0 opacity-100" : "invisible -translate-x-1.5 opacity-0",
+          "absolute flex items-start gap-2",
+          open
+            ? "visible translate-x-0 opacity-100 transition-none"
+            : "invisible -translate-x-1 opacity-0 transition-[opacity,translate,visibility] duration-[140ms] ease-out motion-reduce:transition-none",
         )}
-        style={{ left: place.left, top: place.top, width: place.width, height: place.height }}
+        style={{ left: place.left, top: place.top, width: place.width }}
       >
-        {children}
+        {children(place)}
       </div>
     </div>,
     portal,
   )
 }
 
-function measure(anchor: HTMLElement) {
+/** The list card's natural height: its search and every row, as if nothing capped it. */
+function listHeight(panel: HTMLElement | null): number {
+  const card = panel?.querySelector<HTMLElement>("[data-block-picker-card='list']")
+  const list = card?.querySelector<HTMLElement>("[data-block-picker-list]")
+  if (!card || !list) return 0
+  return card.offsetHeight - list.clientHeight + list.scrollHeight
+}
+
+function measure(anchor: HTMLElement, panel: HTMLElement | null): PickerPlace {
   const sidebar = anchor.closest<HTMLElement>("[data-wb-sidebar-fold]")
-  return placePicker(anchor.getBoundingClientRect(), sidebar ? sidebar.getBoundingClientRect() : null, { w: window.innerWidth, h: window.innerHeight })
+  return placePicker(anchor.getBoundingClientRect(), sidebar ? sidebar.getBoundingClientRect() : null, { w: window.innerWidth, h: window.innerHeight }, listHeight(panel))
 }

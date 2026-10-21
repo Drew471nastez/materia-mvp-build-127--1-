@@ -14,9 +14,14 @@
  *   matchChoices      the search: by name and by type, words in any order
  *   cropFor           the window onto the drawn section that shows the
  *                     block, and the scale that fits it into the preview
- *   placePicker       where the panel goes on a computer: beside the
- *                     sidebar, level with the row it came from, or in the
- *                     middle when there is no room beside it
+ *   fitPreview        the preview box sized to that window: as wide as the
+ *                     pane, as tall as the scaled block (between a floor
+ *                     and a ceiling), the block in its middle
+ *   splitChoices      the blocks that can be added, then the ones that
+ *                     cannot, with one heading for the second group
+ *   placePicker       where the two cards go on a computer: beside the
+ *                     sidebar, level with the row they came from, or in
+ *                     the middle when there is no room beside it
  */
 import { freshBlocks, insertAt } from "./block-tree"
 import type { BlockInstance, BlockSchema, SectionInstance, SectionPreset } from "./types"
@@ -103,27 +108,102 @@ export function cropFor(block: Rect, stage: { w: number; h: number }, pane: { w:
   }
 }
 
-/** How wide and tall the panel wants to be on a computer, and the least room beside the sidebar it will sit in. */
-export const PICKER_SIZE = { w: 820, h: 540, minBeside: 600, gap: 8, margin: 12 }
+/**
+ * THE PREVIEW BOX, SIZED TO WHAT IT SHOWS. The pane has a width of its own
+ * (the card's) and takes the height the scaled block needs, between `minH`
+ * and `maxH`, so a divider gets a short box and a picture a tall one, and
+ * nothing floats in a box made for something else. A phone passes the same
+ * number for both, so the list under the preview never moves as it changes.
+ *
+ * The block is laid out at the section's real width, then scaled as one
+ * piece to fit: `left`, `top`, `width` and `height` are the box that holds
+ * the scaled window (the crop), in the pane's own pixels.
+ */
+export function fitPreview(
+  shown: Rect,
+  stage: { w: number; h: number },
+  pane: { w: number; minH: number; maxH: number; inset: number },
+  pad = 16,
+  maxScale = 1,
+): { scale: number; window: Rect; paneH: number; left: number; top: number; width: number; height: number } {
+  const room = { w: Math.max(1, pane.w - pane.inset * 2), h: Math.max(1, pane.maxH - pane.inset * 2) }
+  const { scale, window: win } = cropFor(shown, stage, room, pad, maxScale)
+  const width = Math.round(win.w * scale * 100) / 100
+  const height = Math.round(win.h * scale * 100) / 100
+  const paneH = Math.round(Math.max(pane.minH, Math.min(pane.maxH, height + pane.inset * 2)))
+  return {
+    scale,
+    window: win,
+    paneH,
+    left: Math.round(((pane.w - width) / 2) * 100) / 100,
+    top: Math.round(((paneH - height) / 2) * 100) / 100,
+    width,
+    height,
+  }
+}
 
 /**
- * Where the panel goes: beside the sidebar, its top level with the row it was
- * opened from and kept on screen; or, with no room for it beside the
- * sidebar, in the middle of the window over a dimmed editor.
+ * THE LIST, IN TWO GROUPS. What can be added first, in its own order, then
+ * what cannot. The second group has one heading instead of a reason on every
+ * row: the reason itself when every row shares it (the section is full, the
+ * level is as deep as blocks go), "Already used" when each is a kind of
+ * block the level holds only so many of. Each row's own reason is still
+ * there for the row (its tooltip, the line under the preview).
+ */
+export function splitChoices<C extends PickerChoice>(shown: readonly C[], reasonOf: (c: C) => string | null): { open: C[]; closed: C[]; heading: string | null; shared: boolean } {
+  const open: C[] = []
+  const closed: C[] = []
+  for (const c of shown) (reasonOf(c) ? closed : open).push(c)
+  if (!closed.length) return { open, closed, heading: null, shared: false }
+  const reasons = new Set(closed.map((c) => reasonOf(c)))
+  const shared = closed.length > 1 && reasons.size === 1
+  return { open, closed, heading: shared ? [...reasons][0] : null, shared }
+}
+
+/**
+ * The two cards on a computer: the list (its search and its rows) and the
+ * preview beside it. `listMax` and `previewMax` are the tallest each may be;
+ * each is as tall as its content up to that.
+ */
+export const PICKER_SIZE = { list: 236, preview: 392, gap: 8, margin: 12, listMax: 460, previewMax: 400, previewMin: 72, inset: 14 }
+
+export interface PickerPlace {
+  mode: "beside" | "center"
+  left: number
+  top: number
+  /** Both cards and the gap between them. */
+  width: number
+  previewWidth: number
+  listMax: number
+  previewMax: number
+}
+
+/**
+ * Where the cards go: beside the sidebar, the top level with the row they
+ * were opened from and kept on screen; or, with no room beside the sidebar,
+ * in the middle of the window over a dimmed editor. `listHeight` is what
+ * the list card would like to be (its search and every row).
  */
 export function placePicker(
   anchor: { top: number },
   sidebar: { right: number } | null,
   viewport: { w: number; h: number },
+  listHeight: number,
   size = PICKER_SIZE,
-): { mode: "beside" | "center"; left: number; top: number; width: number; height: number } {
-  const height = Math.min(size.h, viewport.h - size.margin * 2)
+): PickerPlace {
+  const full = size.list + size.gap + size.preview
+  const listMax = Math.max(160, Math.min(size.listMax, viewport.h - size.margin * 2))
+  const listH = Math.min(Math.max(0, listHeight), listMax)
+  /* What has to fit under the top: the list, and a preview of a fair height. */
+  const need = Math.max(listH, Math.min(size.previewMax, 280, viewport.h - size.margin * 2))
   const left = (sidebar?.right ?? 0) + size.gap
   const room = viewport.w - left - size.margin
-  if (sidebar && room >= size.minBeside) {
-    const top = Math.round(Math.max(size.margin, Math.min(anchor.top - 16, viewport.h - height - size.margin)))
-    return { mode: "beside", left: Math.round(left), top, width: Math.round(Math.min(size.w, room)), height: Math.round(height) }
+  if (sidebar && room >= full) {
+    const top = Math.round(Math.max(size.margin, Math.min(anchor.top - 8, viewport.h - need - size.margin)))
+    return { mode: "beside", left: Math.round(left), top, width: full, previewWidth: size.preview, listMax, previewMax: Math.round(Math.min(size.previewMax, viewport.h - size.margin - top)) }
   }
-  const width = Math.min(size.w, viewport.w - size.margin * 2)
-  return { mode: "center", left: Math.round((viewport.w - width) / 2), top: Math.round((viewport.h - height) / 2), width: Math.round(width), height: Math.round(height) }
+  const width = Math.min(full, viewport.w - size.margin * 2)
+  const previewWidth = Math.max(200, width - size.list - size.gap)
+  const top = Math.round(Math.max(size.margin, (viewport.h - need) / 2))
+  return { mode: "center", left: Math.round((viewport.w - width) / 2), top, width: Math.round(width), previewWidth: Math.round(previewWidth), listMax, previewMax: Math.round(Math.min(size.previewMax, viewport.h - size.margin - top)) }
 }

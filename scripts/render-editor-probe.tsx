@@ -17,9 +17,18 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 
 const PLACEHOLDER = "https://example.invalid/picture.jpg"
 const IMAGEY = new Set(["image_picker", "image_gallery"])
+/**
+ * PROBE_SECTION_BLOCKS: for a section type, the preset's blocks kept (by
+ * type, in the preset's order), so a probe can leave room for the rest
+ * (scripts/check-block-picker.mjs: a product section with a title, a price
+ * and buy buttons, every other product block still addable).
+ */
+const keepBlocks = (globalThis as unknown as { PROBE_SECTION_BLOCKS?: Record<string, string[]> }).PROBE_SECTION_BLOCKS ?? {}
 function instance(type: string, i: number): SectionInstance {
   const schema = SECTION_SCHEMAS[type]
-  const preset = schema.presets?.[0]
+  const preset0 = schema.presets?.[0]
+  const keep = keepBlocks[type]
+  const preset = preset0 && keep ? { ...preset0, blocks: (preset0.blocks ?? []).filter((b) => keep.includes(b.type)) } : preset0
   const settings: Record<string, unknown> = { ...(preset?.settings ?? {}) }
   for (const f of schema.fields ?? []) {
     if (IMAGEY.has(f.type) && settings[f.id] === undefined) settings[f.id] = PLACEHOLDER
