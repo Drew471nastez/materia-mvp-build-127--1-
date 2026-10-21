@@ -272,7 +272,7 @@ check("the scale never changes its number of intervals", /export const INTERVALS
 check("the axis numbers fade in and out in the stylesheet, with reduced motion respected",
   /\.chart-axis-in \{ animation: chart-axis-in/.test(CSS) && /prefers-reduced-motion: reduce\) \{\s*\.chart-axis-in, \.chart-axis-out/.test(CSS))
 check("a dashboard tab reads nothing: the chart's events are fetched once per period",
-  /* Changed on purpose: a new order also asks again (ordersChanged); still never the tab. */ /\}, \[periodKey, creatorId, ordersChanged\]\)/.test(DASHBOARD) && /const chartData = \(openKPIModal && chartSeries\?\.\[openKPIModal\]\) \|\| NO_POINTS/.test(DASHBOARD)
+  /* Changed on purpose: a new order asks again (ordersChanged), and a store currency change asks again (storeCurrencyCode). A tab still never does. */ /\}, \[periodKey, creatorId, ordersChanged, storeCurrencyCode\]\)/.test(DASHBOARD) && /const chartData = \(openKPIModal && chartSeries\?\.\[openKPIModal\]\) \|\| NO_POINTS/.test(DASHBOARD)
     && !/fetchChartData\(openKPIModal\)/.test(DASHBOARD))
 check("an analytics tab reads nothing: the metric is not part of the question",
   !/chartMetricFilter/.test(PAGE.slice(PAGE.indexOf("useAnalyticsReports({"), PAGE.indexOf("useAnalyticsReports({") + 300)))

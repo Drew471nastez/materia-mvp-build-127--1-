@@ -459,7 +459,7 @@ function ProductsBody({ r, tab, figure }: { r: Reports; tab: ProductTab; figure:
   )
 }
 
-function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelector; perProduct: boolean }) {
+function Grid({ r, property, perProduct, downloads }: { r: Reports; property: PropertySelector; perProduct: boolean; downloads: boolean }) {
   const [sourceTab, setSourceTab] = React.useState<SourceTab>("source")
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
@@ -545,6 +545,38 @@ function Grid({ r, property, perProduct }: { r: Reports; property: PropertySelec
           {lists ? <ProductsBody r={r} tab={tab} figure={both} /> : null}
         </Body>
       </Card>
+
+      {downloads ? (
+        <Card
+          card="downloads"
+          title={tt("Downloads")}
+          help={tt("How many of this period's digital orders were downloaded, and which products.")}
+          className={soft}
+        >
+          <Body blank={!lists} wait="figure">
+            {lists ? (
+              r.digital?.downloads == null ? (
+                <Empty>{r.digital && r.digital.downloads === null ? tt("Downloads could not be read. Refresh the page to try again.") : tt("No downloads in this period.")}</Empty>
+              ) : (
+                <>
+                  <div className="flex h-9 items-baseline gap-2.5" data-figure="">
+                    <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtCount(r.digital.downloads.total)}</span>
+                    <span className="truncate text-[12px] tabular-nums text-[#6b7280]">
+                      {r.digital.orders > 0 ? tt("{share} of orders", { share: fmtPct(r.digital.downloads.orders / r.digital.orders) }) : tt("No digital orders")}
+                    </span>
+                  </div>
+                  <List
+                    title={tt("Downloads")}
+                    rows={r.digital.top.map((p) => ({ key: p.key, label: p.label, value: p.downloads ?? 0, note: plural(p.orders, "order", "orders") }))}
+                    format={fmtCount}
+                    empty={tt("No downloads in this period.")}
+                  />
+                </>
+              )
+            ) : null}
+          </Body>
+        </Card>
+      ) : null}
 
       <Card
         card="funnel"
@@ -716,6 +748,7 @@ export function useAnalyticsReports({
   property,
   refresh = 0,
   viewer = null,
+  currency = "",
 }: {
   start: number
   end: number
@@ -725,6 +758,8 @@ export function useAnalyticsReports({
   property: string
   refresh?: number
   viewer?: string | null
+  /** The store's selling currency: a change asks again, and does not reuse the old totals. */
+  currency?: string
 }): ReportsState {
   /*
     A page opened from inside the app starts with the kept answer in its very
@@ -733,9 +768,20 @@ export function useAnalyticsReports({
     the first render has to match it (the layout effect below adopts it, still
     before the first paint).
   */
+  const ccy = currency.trim().toUpperCase()
+  const questionKey = (cs: number | null, ce: number | null) =>
+    reportKey({
+      start,
+      end,
+      compare: cs !== null && ce !== null ? { start: cs, end: ce } : null,
+      product,
+      property,
+      timeZone: viewerTimeZone(),
+      currency: /^[A-Z]{3}$/.test(ccy) ? ccy : undefined,
+    })
   const hydrated = React.useSyncExternalStore(noSubscription, () => true, () => false)
   const [state, setState] = React.useState<{ data: ReportsAnswer | null; lists: ReportsAnswer | null; loading: boolean; failed: boolean; asking: string }>(() => {
-    const known = hydrated ? keptAnswer(questionOf(reportKey({ start, end, compare, product, property, timeZone: viewerTimeZone() })), viewer) : null
+    const known = hydrated ? keptAnswer(questionOf(questionKey(compare?.start ?? null, compare?.end ?? null)), viewer) : null
     const data = known ? answerOf(known.answer, known.key) : null
     return { data, lists: data, loading: true, failed: false, asking: data ? questionOf(data.key) : "" }
   })
@@ -750,7 +796,7 @@ export function useAnalyticsReports({
     first draws, and not one frame later.
   */
   React.useLayoutEffect(() => {
-    const key = reportKey({ start, end, compare: cs !== null && ce !== null ? { start: cs, end: ce } : null, product, property, timeZone: viewerTimeZone() })
+    const key = questionKey(cs, ce)
     const question = questionOf(key)
     const known = keptAnswer(question, viewer)
     setState((s) => {
@@ -802,7 +848,7 @@ export function useAnalyticsReports({
       live = false
       release()
     }
-  }, [start, end, cs, ce, product, property, refresh, viewer])
+  }, [start, end, cs, ce, product, property, refresh, viewer, ccy])
   const stale = state.loading && !!state.data && questionOf(state.data.key) !== state.asking
   return React.useMemo(
     () => ({ data: state.data, lists: state.lists, loading: state.loading, failed: state.failed, stale }),
@@ -821,29 +867,32 @@ export function AnalyticsReports({
   product = "all",
   property = { type: "all" },
   state,
+  downloads = false,
 }: {
   start?: Date
   end?: Date
   product?: string
   property?: PropertySelector
   state?: ReportsState
+  /** A downloads card, for a store that sells digital products or courses. */
+  downloads?: boolean
 }) {
   reportCurrency = useStoreCurrency()
   return state ? (
-    <ReportsView state={state} property={property} />
+    <ReportsView state={state} property={property} downloads={downloads} />
   ) : (
-    <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} />
+    <SelfLoading start={(start ?? new Date()).getTime()} end={(end ?? new Date()).getTime()} product={product} property={property} downloads={downloads} currency={reportCurrency} />
   )
 }
 
-function SelfLoading({ start, end, product, property }: { start: number; end: number; product: string; property: PropertySelector }) {
+function SelfLoading({ start, end, product, property, downloads, currency }: { start: number; end: number; product: string; property: PropertySelector; downloads: boolean; currency: string }) {
   const compare = React.useMemo(() => ({ start: start - (end - start), end: start }), [start, end])
   const key = property.type === "all" ? "all" : property.type === "website" ? `website:${property.id}` : property.type
-  const state = useAnalyticsReports({ start, end, compare, product, property: key })
-  return <ReportsView state={state} property={property} />
+  const state = useAnalyticsReports({ start, end, compare, product, property: key, currency })
+  return <ReportsView state={state} property={property} downloads={downloads} />
 }
 
-function ReportsView({ state, property }: { state: ReportsState; property: PropertySelector }) {
+function ReportsView({ state, property, downloads }: { state: ReportsState; property: PropertySelector; downloads: boolean }) {
   const { data, lists, loading, failed, stale } = state
   /* A quick first answer to a new question keeps the last whole answer's lists on screen, softened, until the rest comes. */
   const shown = data && data.reports.partial && lists && !lists.reports.partial ? lists : data
@@ -867,7 +916,7 @@ function ReportsView({ state, property }: { state: ReportsState; property: Prope
           </p>
         ) : null}
 
-        {shown ? <Grid r={shown.reports} property={countedFor} perProduct={(new URLSearchParams(shown.key).get("product") ?? "all") !== "all"} /> : <Blank property={property} />}
+        {shown ? <Grid r={shown.reports} property={countedFor} perProduct={(new URLSearchParams(shown.key).get("product") ?? "all") !== "all"} downloads={downloads} /> : <Blank property={property} />}
 
         {shown?.truncated ? (
           <p className="text-[12px] text-[#9ca3af] md:col-span-2 xl:col-span-3">

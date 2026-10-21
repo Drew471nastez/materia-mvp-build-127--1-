@@ -952,7 +952,7 @@ export function DashboardClient({
     const request = ++chartRequestRef.current
     const fromPull = opts?.pull === true
     setIsChartLoading(true)
-    const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
+    const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)), storeCurrencyCode)
     askPastKept.current = false
     const question = questionOf(key)
     const answerOf = (answer: Record<string, unknown>): HomeAnswer => ({
@@ -1017,7 +1017,7 @@ export function DashboardClient({
     }, 8000)
     fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
-  }, [periodKey, creatorId, ordersChanged]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [periodKey, creatorId, ordersChanged, storeCurrencyCode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * WHAT THE ACCOUNT HAS DONE (lib/home/progress), from the server, asked for

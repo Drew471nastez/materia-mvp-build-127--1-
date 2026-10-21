@@ -82,6 +82,7 @@ export interface AnalyticsChartData {
   clicks?: number
   subscribers?: number
   refunds?: number
+  pageViews?: number
   /** Null where the bucket had no visitors: no rate, drawn on the floor and read as "No visitors". */
   conversion?: number | null
   ctr?: number
@@ -89,6 +90,8 @@ export interface AnalyticsChartData {
   prev_sales?: number
   prev_revenue?: number
   prev_refunds?: number
+  prev_pageViews?: number
+  prev_clicks?: number
   prev_conversion?: number | null
 }
 
@@ -104,6 +107,9 @@ function previousKeyFor(filter: string): Key | null {
   if (filter === "orders") return "prev_sales"
   if (filter === "revenue") return "prev_revenue"
   if (filter === "conversion") return "prev_conversion"
+  if (filter === "refunds") return "prev_refunds"
+  if (filter === "pageviews") return "prev_pageViews"
+  if (filter === "clicks") return "prev_clicks"
   return null
 }
 
@@ -114,6 +120,8 @@ const LABELS: Record<string, string> = {
   get revenue() { return tt("Revenue") },
   get subscribers() { return tt("Subscribers") },
   get conversion() { return tt("Conversion") },
+  get refunds() { return tt("Refunds") },
+  get pageViews() { return tt("Page views") },
   ctr: "CTR",
 }
 
@@ -125,6 +133,9 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
     if (metric === "all" || metric === "orders") k.push("sales")
     if (metric === "all" || metric === "revenue") k.push("revenue")
     if (metric === "conversion") k.push("conversion")
+    if (metric === "refunds") k.push("refunds")
+    if (metric === "pageviews") k.push("pageViews")
+    if (metric === "clicks") k.push("clicks")
     return k
   }
   const k: Key[] = []
@@ -203,6 +214,9 @@ const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKin
     { keys: ["sales", "prev_sales"], kind: "count" },
     { keys: ["revenue", "prev_revenue"], kind: "money" },
     { keys: ["conversion", "prev_conversion"], kind: "percent" },
+    { keys: ["refunds", "prev_refunds"], kind: "money" },
+    { keys: ["pageViews", "prev_pageViews"], kind: "count" },
+    { keys: ["clicks", "prev_clicks"], kind: "count" },
   ],
   onepage: [
     { keys: ["views"], kind: "count" },
@@ -263,7 +277,7 @@ function AnalyticsChartWithTooltipInner({
   )
   const compareKey = analyticsMode === "store" && compareLabel ? previousKeyFor(chartMetricFilter) : null
   const isPercent = chartMetricFilter === "conversion" && analyticsMode === "store" ? true : analyticsMode === "onepage" && onePageChartFilter === "ctr"
-  const isMoney = analyticsMode === "store" && chartMetricFilter === "revenue"
+  const isMoney = analyticsMode === "store" && (chartMetricFilter === "revenue" || chartMetricFilter === "refunds")
 
   /* The scale, from every number the plot will draw. Always three intervals. */
   const scale = useMemo(

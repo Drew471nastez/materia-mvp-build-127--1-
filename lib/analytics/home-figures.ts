@@ -103,9 +103,9 @@ export function homeTotals(orders: OrderRow[]): { totalOrders: number; totalReve
  * is lib/analytics/report-cache reportNow(), so Home, the Analytics page and
  * its prefetch ask the same question and share one answer.
  */
-export function homeQuestion(period: RangeValue, timeZone: string, now: number): { window: Span; previous: Span | null; key: string } {
+export function homeQuestion(period: RangeValue, timeZone: string, now: number, currency?: string | null): { window: Span; previous: Span | null; key: string } {
   const { window, previous } = homeSpans(period, timeZone, now)
-  const key = reportKey({ start: window.start, end: window.end, compare: previous, product: "all", property: "all", timeZone })
+  const key = reportKey({ start: window.start, end: window.end, compare: previous, product: "all", property: "all", timeZone, currency: currency || undefined })
   return { window, previous, key }
 }
 

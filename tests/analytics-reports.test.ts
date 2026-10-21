@@ -38,6 +38,7 @@ import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, refe
 import { isBotAgent, parseUserAgent } from "../lib/analytics/user-agent"
 import { lineMoney, moneyOf, spansToRead } from "../lib/analytics/reports"
 import { questionOf, reportKey, reportNow } from "../lib/analytics/report-cache"
+import { commerceRowCounts } from "../lib/analytics/commerce"
 import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 import {
   ALL,
@@ -782,6 +783,10 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
   const q = { start: T0, end: T0 + DAY, compare: { start: T0 - DAY, end: T0 }, product: "all", property: "all", timeZone: "UTC" }
   check("a question is its key without the moving end", questionOf(reportKey(q)) === questionOf(reportKey({ ...q, end: q.end + 5000, compare: { start: T0 - DAY, end: T0 + 5000 } })))
   check("  and another place is another question", questionOf(reportKey(q)) !== questionOf(reportKey({ ...q, property: "onepage" })))
+  check("  and another currency is another question, while none is the question it was", !reportKey(q).includes("ccy=") && questionOf(reportKey(q)) !== questionOf(reportKey({ ...q, currency: "eur" })) && reportKey({ ...q, currency: "eur" }).includes("ccy=EUR"))
+  check("a sales line follows the product and the place", commerceRowCounts({ id: "1", created_at: "", product_id: "p1", property_type: "website", property_id: "w1" }, { productId: "p1", property: { type: "website", id: "w1" }, defaultWebsite: "w1" })
+    && !commerceRowCounts({ id: "1", created_at: "", product_id: "p2", property_type: "website", property_id: "w1" }, { productId: "p1", property: { type: "website", id: "w1" }, defaultWebsite: "w1" })
+    && !commerceRowCounts({ id: "1", created_at: "", product_id: "p1", property_type: "creator_page", property_id: null }, { productId: null, property: { type: "website", id: "w1" }, defaultWebsite: "w1" }))
   check("now is rounded up to ten seconds, never down", reportNow(T0 + 1) === T0 + 10_000 && reportNow(T0) === T0)
   const cache = read("lib/analytics/report-cache.ts")
   check("a kept answer is shown only to the person it was counted for",

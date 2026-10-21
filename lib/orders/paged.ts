@@ -67,6 +67,9 @@ import {
 } from "./order-view"
 import { readMetrics, type MetricReading } from "./metrics"
 import { ordersCurrency } from "./money"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { daySpan, inReportingCurrency, needsConversion, type ReportMoneyRow } from "@/lib/money/report-currency"
+import { dayRatesBetween } from "@/lib/markets/fx-server"
 import { buildIndex, orderNumbered, ordersWithin, type IndexRow, type IndexedOrder, type OrderIndex } from "./order-index"
 import { OrdersReadError, attachCheckouts, readCreatorProducts, toOrderRow, type CreatorProduct } from "./load-rows"
 
@@ -449,7 +452,7 @@ async function refundedRowIds(db: Db, scope: OrderScope, creatorId: string, span
   return [...byRefund, ...byWritten]
 }
 
-async function readFigures(db: Db, scope: OrderScope, creatorId: string, index: OrderIndex, req: ListingRequest): Promise<{ metrics: MetricReading[]; orders: Order[] }> {
+async function readFigures(db: Db, scope: OrderScope, creatorId: string, index: OrderIndex, req: ListingRequest): Promise<{ metrics: MetricReading[]; orders: Order[]; currency: string }> {
   const spans = [req.window, req.previous].filter((s): s is Span => !!s && s.end > s.start)
   const placed = index.orders.filter((o) => spans.some((s) => o.at >= s.start && o.at < s.end))
   /* A refund in the period of an order placed before it counts on the day it was refunded, so its order is read too. */
@@ -459,8 +462,40 @@ async function readFigures(db: Db, scope: OrderScope, creatorId: string, index: 
   const all = new Map<string, IndexedOrder>()
   for (const o of [...placed, ...refunded]) all.set(o.id, o)
   const raw = await readRowsById(db, scope, creatorId, index, [...all.values()].flatMap((o) => o.rowIds), FIGURE_COLUMNS)
-  const orders = groupOrders(raw.map((r) => toOrderRow(r, undefined)), numbersFor([...all.values()]))
-  return { metrics: readMetrics(orders, req.window, req.previous, req.timeZone), orders }
+  const numbers = numbersFor([...all.values()])
+  const orders = groupOrders(raw.map((r) => toOrderRow(r, undefined)), numbers)
+  const counted = await metricsInStore(db, creatorId, raw as unknown as ReportMoneyRow[], orders, numbers, req)
+  return { metrics: counted.metrics, orders, currency: counted.currency }
+}
+
+/**
+ * The five figures in the store's currency. Orders already in it are added
+ * as they are. Orders in another currency are converted at that day's ECB
+ * rate, and only when every one of them converts: a missing rate leaves the
+ * sum in the currency most orders were charged in, rather than a mix or a
+ * guess. The order rows themselves are not rewritten.
+ */
+async function metricsInStore(
+  db: Db,
+  creatorId: string,
+  raw: ReportMoneyRow[],
+  orders: Order[],
+  numbers: Record<string, number>,
+  req: ListingRequest,
+): Promise<{ metrics: MetricReading[]; currency: string }> {
+  const asCharged = () => ({ metrics: readMetrics(orders, req.window, req.previous, req.timeZone), currency: ordersCurrency(orders) })
+  try {
+    const store = (await readStoreCurrency(db, creatorId)).currency
+    if (!needsConversion(raw, store)) return asCharged()
+    const span = daySpan(raw)
+    const days = span ? await dayRatesBetween(span.from, span.to, db) : []
+    const done = inReportingCurrency(raw, store, days)
+    if (done.unconverted > 0 || done.rows.length !== raw.length) return asCharged()
+    const converted = groupOrders(done.rows.map((r) => toOrderRow(r, undefined)), numbers)
+    return { metrics: readMetrics(converted, req.window, req.previous, req.timeZone), currency: store }
+  } catch {
+    return asCharged()
+  }
 }
 
 /* ─── The tabs ────────────────────────────────────────────────────────── */
@@ -528,7 +563,7 @@ export async function readOrdersListing(db: Db, creatorId: string, ask: ListingR
   const withFigures = req.figures !== false
   const [chosen, figures] = await Promise.all([
     choosePage(db, scope, creatorId, index, products, req),
-    withFigures ? readFigures(db, scope, creatorId, index, req) : Promise.resolve({ metrics: [] as MetricReading[], orders: [] as Order[] }),
+    withFigures ? readFigures(db, scope, creatorId, index, req) : Promise.resolve({ metrics: [] as MetricReading[], orders: [] as Order[], currency: "" }),
   ])
 
   /* The open order, wherever it is in the list (or outside its dates). */
@@ -561,7 +596,7 @@ export async function readOrdersListing(db: Db, creatorId: string, ask: ListingR
       earliest: index.orders[0]?.createdAt ?? null,
       ships: tabs.ships,
       views: tabs.views,
-      currency: ordersCurrency([...byId.values()]),
+      currency: figures.currency || ordersCurrency([...byId.values()]),
     },
     figures: withFigures,
     partial: chosen.partial,
