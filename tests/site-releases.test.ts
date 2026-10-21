@@ -297,8 +297,10 @@ async function main() {
     check("  the theme held on this server is keyed by what it was drawn from", compat.includes("const slot = `${drawnFrom}|${key}`"))
     const published = read("lib/website-builder/published-site.ts")
     check("published-site: keyed by the release when there is one, by the creator alone when not", published.includes('releaseId ? ["published-site", match.creatorId, "release", releaseId] : ["published-site", match.creatorId]'))
-    check("  only a release of the install published now", published.includes("pointer && pointer.installId === row.id ? await releaseManifest(pointer.releaseId) : null"))
-    check("  the rows when any of it cannot be read", published.includes("const release = manifest && releaseSources ? manifest : null") && published.includes("releaseSources ?? sectionSources(admin as never, row.id)"))
+    /* Changed on purpose (round 36): the manifest is asked with the install read, and used only for the install published now. */
+    check("  only a release of the install published now", published.includes("const manifestPromise = pointer ? releaseManifest(pointer.releaseId) : Promise.resolve(null)") && published.includes("pointer && pointer.installId === row.id ? await manifestPromise : null"))
+    /* Changed on purpose (round 36): without a release the rows' files are asked at once (rowsSources); a release that cannot be read still falls back to them. */
+    check("  the rows when any of it cannot be read", published.includes("const release = manifest && releaseSources ? manifest : null") && published.includes("const rowsSources = pointer && pointer.installId === row.id ? null : sectionSources(admin as never, row.id)") && published.includes("releaseSources ?? rowsSources ?? sectionSources(admin as never, row.id)"))
     const server = read("lib/website-builder/site-releases-server.ts")
     check("the pointer is the one read under the site's tag, for a minute", /\["site-live-release", creatorId\], \{ tags, revalidate: POINTER_HOLD_S \}/.test(server) && /POINTER_HOLD_S = 60\b/.test(server))
     check("  a manifest and a group of blobs are held for good, by id and by sha256", /\["site-release", releaseId\], \{ revalidate: false \}/.test(server) && /\["theme-blobs", g\.key\], \{ revalidate: false \}/.test(server))

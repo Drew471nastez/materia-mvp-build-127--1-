@@ -36,7 +36,7 @@ console.log("\nThe channels\n")
 console.log("\nTaking a product off really hides it there\n")
 {
   const shop = read("lib/website-builder/shop-products.ts")
-  check("the online store's lists (sections, /products, collections pages) leave it out", /rows = listedOn\(rows, await offChannel\(db, creatorId, "storefront"\)\)/.test(shop))
+  check("the online store's lists (sections, /products, collections pages) leave it out", /* Changed on purpose (round 36): the off channel read is asked beside the products read. */ /const hidden = offChannel\(db, creatorId, "storefront"\)/.test(shop) && /rows = listedOn\(rows, await hidden\)/.test(shop))
   check("  and the filter is a plain module, since the browser loads shop-products too", /from "@\/lib\/store\/channel-filter"/.test(shop) && !/channels-server/.test(shop) && !/server-only/.test(read("lib/store/channel-filter.ts")))
   check("  its collections", /offChannel\(db, creatorId, "storefront"\)/.test(read("lib/website-builder/storefront-collections-server.ts")))
   check("  a section that picked it", /offStore\.has\(String\(p\.id\)\)/.test(read("lib/website-builder/storefront-data-server.ts")))
