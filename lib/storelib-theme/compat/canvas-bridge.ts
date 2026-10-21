@@ -1547,13 +1547,21 @@ export const CANVAS_SWITCH = `
   var W = window;
   if (typeof W.setTimeout !== "function" || typeof W.addEventListener !== "function") return;
   var add = W.addEventListener, rm = W.removeEventListener, st = W.setTimeout, ct = W.clearTimeout;
-  var raf = typeof W.requestAnimationFrame === "function" ? function (f) { return W.requestAnimationFrame(f); } : function (f) { return st.call(W, f, 16); };
+  var nativeRaf = W.requestAnimationFrame, nativeCaf = W.cancelAnimationFrame;
+  var raf = typeof nativeRaf === "function" ? function (f) { return nativeRaf.call(W, f); } : function (f) { return st.call(W, f, 16); };
   var now = function () { return W.performance && performance.now ? performance.now() : Date.now(); };
-  var on = false, stopAt = 0, inResize = 0, pending = new Map(), wraps = new WeakMap();
+  /*
+    WORK: what a theme does because the page changed width (its resize and
+    breakpoint listeners, and what they put off). A timer or an animation
+    frame asked for from there while a switch is under way is also done in
+    this frame, before it is drawn: a slider built again marks its current
+    slide on the next frame, and that frame drew the slide without it.
+  */
+  var on = false, stopAt = 0, work = 0, pending = new Map(), framesAsked = new Map(), wraps = new WeakMap();
   W.addEventListener = function (type, fn, opts) {
     if (type === "resize" && typeof fn === "function") {
       var w = wraps.get(fn);
-      if (!w) { w = function () { inResize++; try { return fn.apply(this, arguments); } finally { inResize--; } }; wraps.set(fn, w); }
+      if (!w) { w = function () { work++; try { return fn.apply(this, arguments); } finally { work--; } }; wraps.set(fn, w); }
       return add.call(this || W, type, w, opts);
     }
     return add.apply(this || W, arguments);
@@ -1563,11 +1571,22 @@ export const CANVAS_SWITCH = `
     return rm.apply(this || W, arguments);
   };
   W.setTimeout = function (fn, ms) {
-    var id = st.apply(W, arguments);
-    if (on && inResize && typeof fn === "function" && !(Number(ms) > 1000)) pending.set(id, { fn: fn, args: Array.prototype.slice.call(arguments, 2) });
+    if (!(on && work && typeof fn === "function" && !(Number(ms) > 1000))) return st.apply(W, arguments);
+    var args = Array.prototype.slice.call(arguments, 2);
+    var id = st.call(W, function () { pending.delete(id); fn.apply(W, args); }, ms);
+    pending.set(id, { fn: fn, args: args });
     return id;
   };
   W.clearTimeout = function (id) { pending.delete(id); return ct.apply(W, arguments); };
+  if (typeof nativeRaf === "function") {
+    W.requestAnimationFrame = function (fn) {
+      if (!(on && work && typeof fn === "function")) return nativeRaf.call(W, fn);
+      var id = nativeRaf.call(W, function (t) { framesAsked.delete(id); fn.call(W, t); });
+      framesAsked.set(id, fn);
+      return id;
+    };
+    W.cancelAnimationFrame = function (id) { framesAsked.delete(id); return nativeCaf.call(W, id); };
+  }
   /*
     A breakpoint's change event, said in the frame the page is laid out at
     the new width rather than the frame after (when the browser says it), and
@@ -1605,20 +1624,34 @@ export const CANVAS_SWITCH = `
     return m;
   };
   var tellBreakpoints = function () {
-    watched.forEach(function (m) {
-      if (m.matches === m.__sl.seen) return;
-      m.__sl.seen = m.matches;
-      try { m.dispatchEvent(typeof MediaQueryListEvent === "function" ? new MediaQueryListEvent("change", { matches: m.matches, media: m.media }) : new Event("change")); } catch (e) {}
-    });
+    work++;
+    try {
+      watched.forEach(function (m) {
+        if (m.matches === m.__sl.seen) return;
+        m.__sl.seen = m.matches;
+        try { m.dispatchEvent(typeof MediaQueryListEvent === "function" ? new MediaQueryListEvent("change", { matches: m.matches, media: m.media }) : new Event("change")); } catch (e) {}
+      });
+    } finally { work--; }
   };
+  /* At most three rounds: a theme's own loop of frames goes back to the browser's frames after that. */
   var flush = function () {
-    if (!pending.size) return;
-    var list = Array.from(pending.entries());
-    pending.clear();
-    list.forEach(function (e) {
-      ct.call(W, e[0]);
-      try { e[1].fn.apply(W, e[1].args); } catch (err) { st.call(W, function () { throw err; }, 0); }
-    });
+    for (var round = 0; round < 3 && (pending.size || framesAsked.size); round++) {
+      var timers = Array.from(pending.entries()), asked = Array.from(framesAsked.entries());
+      pending.clear();
+      framesAsked.clear();
+      work++;
+      try {
+        timers.forEach(function (e) {
+          ct.call(W, e[0]);
+          try { e[1].fn.apply(W, e[1].args); } catch (err) { st.call(W, function () { throw err; }, 0); }
+        });
+        var t = now();
+        asked.forEach(function (e) {
+          nativeCaf.call(W, e[0]);
+          try { e[1].call(W, t); } catch (err) { st.call(W, function () { throw err; }, 0); }
+        });
+      } finally { work--; }
+    }
   };
   var began = null, still = null, mark = null, ro = null, flip = 0, looping = false;
   var inView = function (el) { var r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; };
@@ -1656,6 +1689,23 @@ export const CANVAS_SWITCH = `
     if (scope.tagName === "IMG" && scope.getAttribute("loading") === "lazy") scope.setAttribute("loading", "eager");
     scope.querySelectorAll('img[loading="lazy"]').forEach(function (img) { img.setAttribute("loading", "eager"); });
   };
+  /*
+    A PICTURE ALREADY SHOWN STAYS SHOWN. A slider built again puts a new
+    <img> in for the same picture, and many themes keep a new picture at
+    nothing until a script marks it loaded, a frame or two after it is
+    (the owner's hero, faint and then there). One for a picture that was
+    drawn in full when the switch began is drawn in full at once, and handed
+    back to the theme's own style when the switch is over.
+  */
+  var shown = new Set(), lifted = [];
+  var lift = function (n) {
+    var list = n.tagName === "IMG" ? [n] : n.querySelectorAll ? n.querySelectorAll("img") : [];
+    Array.prototype.forEach.call(list, function (img) {
+      if (!shown.has(img.src)) return;
+      img.style.setProperty("opacity", "1", "important");
+      lifted.push(img);
+    });
+  };
   var mo = null;
   var quiet = function (yes) {
     if (yes && !still) {
@@ -1673,11 +1723,18 @@ export const CANVAS_SWITCH = `
         ro.observe(mark);
         ro.observe(document.documentElement);
       }
+      shown.clear();
+      Array.prototype.forEach.call(document.images, function (img) {
+        if (img.complete && img.naturalWidth && img.src && getComputedStyle(img).opacity === "1") shown.add(img.src);
+      });
       if (typeof MutationObserver === "function") {
-        mo = new MutationObserver(function (list) { list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) eager(n); }); }); });
+        mo = new MutationObserver(function (list) { list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) { eager(n); lift(n); } }); }); });
         mo.observe(document.documentElement, { childList: true, subtree: true });
       }
     } else if (!yes && still) {
+      lifted.forEach(function (img) { img.style.removeProperty("opacity"); });
+      lifted = [];
+      shown.clear();
       still.remove(); still = null;
       if (ro) { ro.disconnect(); ro = null; }
       if (mo) { mo.disconnect(); mo = null; }
@@ -1688,7 +1745,7 @@ export const CANVAS_SWITCH = `
     if (on && stopAt && now() >= stopAt) { on = false; stopAt = 0; flush(); quiet(false); began = null; idle(); }
     if (!on) { looping = false; return; }
     flush();
-    finishNew();
+    if (!ro) finishNew();
     if (mark) mark.style.width = (flip ^= 1) + "px";
     raf(frame);
   };
@@ -1765,9 +1822,9 @@ export const CANVAS_SWITCH = `
     idle();
     var again = function () {
       if (!on && document.visibilityState !== "hidden") idle();
-      st.call(W, again, 5000);
+      st.call(W, again, 2500);
     };
-    st.call(W, again, 5000);
+    st.call(W, again, 2500);
   });
   W.__slSwitch = function (yes) {
     if (yes) {

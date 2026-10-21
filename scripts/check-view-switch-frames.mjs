@@ -744,7 +744,15 @@ try {
       await sleep(300)
       const framePromise = fr ? fr.evaluate((ms) => window.__vsfFrame(ms), RECORD_MS).catch(() => null) : Promise.resolve(null)
       const calls0 = await page.evaluate(() => (window.probeCalls || []).length)
+      /* PROFILE=1: where the switch's main thread time goes (self time by function, and the browser's own work by phase). */
+      if (process.env.PROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
       const rec = await page.evaluate((ms, p, a) => window.__vsfStart(ms, p, a), RECORD_MS, press, again)
+      if (process.env.PROFILE) {
+        const { profile } = await cdp.send("Profiler.stop")
+        const self = new Map(), dt = profile.timeDeltas, byId = new Map(profile.nodes.map((n) => [n.id, n]))
+        profile.samples.forEach((id, i) => { const n = byId.get(id); const cf = n.callFrame; const k = `${cf.functionName || "(anon)"} ${(cf.url || "").split("/").pop()}:${cf.lineNumber}`; self.set(k, (self.get(k) ?? 0) + (dt[i] ?? 0) / 1000) })
+        console.log("        profile:", [...self].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => `${Math.round(v)}ms ${k.slice(0, 70)}`).join("\n                 "))
+      }
       const frameFilm = await framePromise
       const walls = await page.evaluate(() => ({ press: window.__vsfPressWall, again: window.__vsfAgainWall ?? null }))
       await page.evaluate(() => { window.__vsfAgainWall = undefined })
