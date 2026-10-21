@@ -361,8 +361,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles, ...(wordsFiles ?? {}) } : null), [sources, compatFiles, sourcesReady, wordsFiles])
   /* The theme for a set of settings, from the install's files. */
   const themeWith = (files: Record<string, string>, values: Record<string, unknown>) => {
-    let media = mediaHeld.get(files)
-    if (!media) mediaHeld.set(files, (media = assetAddresses(files)))
+    const media = mediaHeld.get(files) ?? assetAddresses(files)
+    mediaHeld.set(files, media)
     return themeOfInstall(files, values, {
       assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
       assetText: (name) => files[`shopify/assets/${name}`] ?? null,
@@ -1136,8 +1136,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const key = `${themeId(rowsRef.current ?? {})}|${pageIdOf(base.page)}|${JSON.stringify(change.path)}`
     const at = JSON.stringify(withLeaf(next, change.path, null))
     /* Only CSS reads it: the layout's styles, drawn alone. Not known yet: learned meanwhile, the page drawn as before. */
-    const known0 = cssPlans.current.get(key)
-    const plan = known0 && known0.at === at ? known0 : learnCss(key, at, base, change.path, change.from)
+    const cached = cssPlans.current.get(key)
+    const plan = cached && cached.at === at ? cached : learnCss(key, at, base, change.path, change.from)
     if (!plan) { if (cssLearning.current.has(key)) return }
     else if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) return
     const known = themeTemplates.current.get(key)

@@ -589,6 +589,30 @@ async function run(cpu, bundle, css, fonts) {
             await page.mouse.up()
             await js(() => document.removeEventListener("pointermove", window.__mv, true))
           }, { quiet: 900, changes: 61, commits: true })
+          /*
+            Round 36: a section drawn with its scheme as variables is not drawn
+            again while the colour moves; its root's variables are written by
+            hand. Once committed, every section on a scheme shows that
+            scheme's colours: the ones on screen (written, then drawn once)
+            and the ones off it (drawn with the commit) agree, root and box.
+          */
+          report.schemeAfter = await js(() => {
+            const keys = ["--scheme-background", "--scheme-heading", "--scheme-text", "--scheme-button-primary"]
+            const by = {}
+            let roots = 0, byVariables = 0, boxDisagrees = 0
+            for (const el of document.querySelectorAll("#wb-preview-root [data-section-box] [data-section-id][data-color-scheme]")) {
+              roots++
+              if (el.hasAttribute("data-scheme-vars")) byVariables++
+              const cs = getComputedStyle(el)
+              const v = keys.map((k) => cs.getPropertyValue(k).trim()).join(" ")
+              const scheme = el.getAttribute("data-color-scheme")
+              ;(by[scheme] = by[scheme] || new Set()).add(v)
+              const box = el.closest("[data-section-box]")
+              if (box && keys.some((k) => getComputedStyle(box).getPropertyValue(k).trim() !== cs.getPropertyValue(k).trim())) boxDisagrees++
+            }
+            return { roots, byVariables, schemesDisagreeing: Object.values(by).filter((s) => s.size > 1).length, boxDisagrees }
+          })
+          console.log(`      after the commit: ${JSON.stringify(report.schemeAfter)}`)
         }
         await page.keyboard.press("Escape")
         await sleep(400)
@@ -638,6 +662,13 @@ async function main() {
       expect(d.waitP95 !== null && d.waitP95 <= (slow ? 120 : 50), `${cpu}x scheme colour: the canvas follows the picker (p95)`, { p50: d.waitP50, p95: d.waitP95 })
       expect(d.editor >= 1 && d.editor <= 3, `${cpu}x scheme colour: the editor renders once for the drag, when the finger lifts`, { editor: d.editor, committedAfterMs: d.committedAfter })
       expect(d.framesOver33 <= Math.ceil(d.frames * (slow ? 0.25 : 0.1)), `${cpu}x scheme colour: frames over 33ms while dragging`, { over: d.framesOver33, frames: d.frames, worst: d.worstFrame })
+      /* Round 36: the sections drawn with their scheme as variables are not drawn while the colour moves. */
+      const varDrawn = Object.entries(d.sectionTypes ?? {}).filter(([t, n]) => t !== "header" && t !== "footer" && n > 3)
+      expect(varDrawn.length === 0, `${cpu}x scheme colour: a section drawn with its scheme as variables is not drawn again per value`, varDrawn)
+    }
+    if (r.schemeAfter) {
+      const a = r.schemeAfter
+      expect(a.byVariables > 0 && a.schemesDisagreeing === 0 && a.boxDisagrees === 0, `${cpu}x scheme colour: once committed every section on a scheme shows its colours, root and box alike`, a)
     }
     if (has("type 20 keys")) {
       const d = r["type 20 keys"]

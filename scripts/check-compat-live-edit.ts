@@ -715,12 +715,13 @@ async function main() {
   if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(all, null, 2))
 
   console.log("\nBUDGETS")
-  type G = { updatesPerSecond: number; latencyP95: number | null; editorRenders: number; last: string; final: string; jumped: string[]; fetches: number }
+  type G = { values: number; updatesPerSecond: number; latencyP95: number | null; editorRenders: number; last: string; final: string; jumped: string[]; fetches: number }
   for (const [cpu, r] of Object.entries(all) as [string, Record<string, G>][]) {
     const slow = cpu !== "1"
     for (const name of ["header height", "header top padding", "announcement height", "section padding", "theme spacing", "theme button radius"]) {
       const d = r[name]
-      if (!d) continue
+      /* A gesture this theme has no control for (the Materia fixture has no buttons) was said above. */
+      if (!d || !d.values) continue
       expect(d.updatesPerSecond >= (slow ? 20 : 45), `${cpu}x ${name}: the page follows the thumb every frame or near it (updates a second)`, d.updatesPerSecond)
       expect(d.latencyP95 !== null && d.latencyP95 <= (slow ? 80 : 40), `${cpu}x ${name}: a value is on the page soon after the finger (p95)`, d.latencyP95)
       expect(d.editorRenders >= 1 && d.editorRenders <= 3, `${cpu}x ${name}: the editor renders for the commit, not per move`, d.editorRenders)
