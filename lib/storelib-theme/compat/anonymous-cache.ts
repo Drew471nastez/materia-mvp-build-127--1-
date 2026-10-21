@@ -43,11 +43,11 @@
  *   - the cart, checkout, account, password, search, the language selector's
  *     answer, the wishlist and a preview: each is this visitor's, or carries
  *     what they typed (search)
- *   - a request carrying any cookie but the analytics ones below: the cart
- *     (sl_theme_cart), a website customer's session and its hint, a Storelib
- *     session, a password pass, a chosen country (sl_country), the
- *     wishlist, a checkout country, a discount hold. An unknown cookie
- *     counts as one of these.
+ *   - a request carrying one of Storelib's own cookies that a page is drawn
+ *     from: the cart (sl_theme_cart), a website customer's session and its
+ *     hint, a Storelib session, a password pass, a chosen country
+ *     (sl_country), the wishlist, a checkout country, a discount hold. An
+ *     unknown cookie of Storelib's own counts as one of these (below).
  *   - a website behind a password, and a request let in with a pass
  *   - a page the proxy is offering a language on (it sets a cookie)
  *   - the empty-the-cart link (?sl_cart=clear), which sets the cart cookie
@@ -67,12 +67,33 @@ export const PUBLIC_PAGE_CACHE = "public, s-maxage=60"
 export const PUBLIC_PAGE_VARY = "X-Vercel-IP-Country, CF-IPCountry, Sec-Fetch-Dest"
 
 /**
- * Cookies that change nothing a page draws: analytics and the CDN's own.
- * Everything else, named or not, makes a request somebody's (and private).
- * The language cookies (sl_lang, sl_suggest) are read only by the proxy,
- * before any cache, and by the page's own script in the browser.
+ * WHICH COOKIES MAKE A PAGE SOMEBODY'S. A page is drawn by Storelib's server,
+ * which reads cookies by name: only one of Storelib's own can change what it
+ * draws. Their names all start sl_, storelib_, materia_ or sb- (Supabase),
+ * on their own or behind __Host- / __Secure-. Every other cookie on the
+ * website's host is the theme's, an app's or an analytics tool's, set in the
+ * browser for the browser, and never reaches a draw.
+ *
+ * It used to be the other way round: a short list of analytics cookies was
+ * harmless and anything else made the request private. Storelib's own
+ * tracker sets sl_asid and materia_visitor on a visitor's first page, the
+ * consent choice is storelib_consent, and a Shopify theme or its apps set
+ * cookies of their own (recently viewed, a popup seen, Klaviyo's
+ * __kla_id). So the second page a visitor opened, and every page of a
+ * visitor who came back, was drawn for them alone: no CDN, no held copy,
+ * the whole Liquid draw on every click.
+ *
+ * Storelib's own cookies that never change a page: the language ones
+ * (sl_lang, sl_suggest), read only by the proxy, before any cache, and by
+ * the page's script; the tracker's visit and browser ids (sl_asid,
+ * materia_visitor) and the consent choice (storelib_consent), read only by
+ * the page's script and by /api/track-view; and the device a purchase was
+ * made on (materia_session), read only by checkout and the downloads, so a
+ * buyer who comes back is not drawn alone for a year. Any other cookie of
+ * Storelib's own, named here or not, keeps the request private.
  */
-const HARMLESS_COOKIE = /^(?:_ga(?:_[A-Za-z0-9]+)?|_gid|_gat(?:_[A-Za-z0-9_]+)?|_gcl_[a-z]+|_fbp|_fbc|_ttp|_tt_enable_cookie|_pin_unauth|_uetsid|_uetvid|_clck|_clsk|_hjSessionUser_\d+|_hjSession_\d+|_hjTLDTest|__cf_bm|_cfuvid|sl_lang|sl_suggest)$/
+const OWN_COOKIE = /^(?:__Host-|__Secure-)?(?:sl_|storelib_|materia_|sb-|sb_)/i
+const OWN_HARMLESS = /^(?:sl_lang|sl_suggest|sl_asid|materia_visitor|materia_session|storelib_consent)$/
 
 /** The cookie names in a Cookie header. */
 export function cookieNames(header: string | null | undefined): string[] {
@@ -80,9 +101,14 @@ export function cookieNames(header: string | null | undefined): string[] {
   return header.split(";").map((p) => p.split("=")[0]?.trim() ?? "").filter(Boolean)
 }
 
+/** Whether a cookie, by its name, can change what a page is drawn with: one of Storelib's own, other than the few that never do. */
+export function pageCookie(name: string): boolean {
+  return OWN_COOKIE.test(name) && !OWN_HARMLESS.test(name)
+}
+
 /** Whether a request carries no cookie that could change what is drawn for it. */
 export function strangerCookies(header: string | null | undefined): boolean {
-  return cookieNames(header).every((n) => HARMLESS_COOKIE.test(n))
+  return !cookieNames(header).some(pageCookie)
 }
 
 /** Paths that are always one visitor's, or carry what they typed. */

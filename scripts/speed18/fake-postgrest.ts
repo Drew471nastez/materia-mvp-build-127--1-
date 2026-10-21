@@ -303,7 +303,12 @@ export async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): P
     await wait()
     const impl = fixture.rpc?.[fn]
     if (!impl) return respond(404, { code: "PGRST202", message: `Could not find the function public.${fn} in the schema cache`, details: null, hint: null })
-    return respond(200, impl(body ?? Object.fromEntries(url.searchParams)))
+    /* A function reading a table the fixture fails fails as the database would. */
+    try {
+      return respond(200, impl(body ?? Object.fromEntries(url.searchParams)))
+    } catch (e) {
+      return respond(503, { code: "XX000", message: `fixture: ${(e as Error).message}`, details: null, hint: null })
+    }
   }
 
   const table = name

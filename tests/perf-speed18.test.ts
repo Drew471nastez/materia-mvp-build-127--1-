@@ -72,7 +72,20 @@ async function routeFacts() {
   useFixture(buildFixture())
   const maya = await visit(() => readSiteFacts(db(), "Maya"))
   check("a username: its creator, a published website, not an imported theme", maya.value?.facts.creatorId === SITE.creatorId && maya.value.facts.published && !maya.value.facts.compat && !maya.value.failed, maya.value)
-  check("in three round trips (profile, creator, install with its settings)", maya.foreground === 3, maya.trips.map((t) => t.table))
+  /* Changed on purpose (live speed, Oct 21): SQL part 257's site_route_facts answers the chain, and what the proxy asks next, in one round trip. */
+  check("in one round trip (site_route_facts, SQL part 257)", maya.foreground === 1 && maya.trips[0]?.table === "rpc:site_route_facts", maya.trips.map((t) => t.table))
+  check("  with the website's domain for the proxy's next question", maya.value?.facts.extras?.websiteDomain?.domain === "mayastudio.com", maya.value?.facts.extras)
+
+  forgetSiteFacts()
+  useFixture(fixtureWith((f) => {
+    delete f.rpc!.site_route_facts
+  }))
+  const before257 = await visit(() => readSiteFacts(db(), "Maya"))
+  check("part 257 not run: the same answer from the rows", before257.value?.facts.creatorId === SITE.creatorId && before257.value.facts.published && !before257.value.facts.extras && !before257.value.failed, before257.value)
+  check("  in three round trips (profile, creator, install with its settings) after the one that found no function", before257.foreground === 4 && before257.trips.slice(1).map((t) => t.table).join() === "profiles,creators,store_theme_installs", before257.trips.map((t) => t.table))
+  const after257Missing = await visit(() => readSiteFacts(db(), "Maya"))
+  check("  and the function is not asked for again for a while", after257Missing.foreground === 3 && !after257Missing.trips.some((t) => t.table.startsWith("rpc:")), after257Missing.trips.map((t) => t.table))
+  forgetSiteFacts()
 
   useFixture(fixtureWith((f) => {
     const s = f.tables.store_theme_settings.find((r) => r.install_id === SITE.installId)!
@@ -109,7 +122,7 @@ async function routeFacts() {
 
   forgetSiteFacts()
   const together = await visit(() => Promise.all([siteFactsFor(db(), "maya"), siteFactsFor(db(), "MAYA")]))
-  check("two questions asked together share one read", together.foreground === 3, together.trips.map((t) => t.table))
+  check("two questions asked together share one read", together.foreground === 1, together.trips.map((t) => t.table))
 
   forgetSiteFacts()
   rememberCreatorOf("maya", SITE.creatorId)

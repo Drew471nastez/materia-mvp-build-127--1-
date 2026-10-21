@@ -24,7 +24,7 @@ import type { SiteData } from "@/lib/storelib-theme/compat/site"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { cachedOriginalProducts, cachedTranslations } from "./server"
-import { marketPricing, siteLanguages, type LiveMarket } from "./live"
+import { marketPricing, siteLanguages, type LiveMarket, type SiteLanguages } from "./live"
 import { cachedRates } from "./fx-server"
 import { pricingFor } from "./pricing"
 import { commerceInMarket, compatPrices, compatShop, themeCountries } from "./compat-prices"
@@ -43,8 +43,9 @@ type O = Record<string, unknown>
  * country is in a market that shows its own (null: the store's prices).
  * Untouched for a store with one language and no such market.
  */
-export async function localizeCompatSite(site: SiteData, locale: string | null, market: string | null = null, visitorCountry: string | null = null): Promise<SiteData> {
-  const langs = await siteLanguages(site.creatorId)
+export async function localizeCompatSite(site: SiteData, locale: string | null, market: string | null = null, visitorCountry: string | null = null, asked?: Promise<SiteLanguages | undefined>): Promise<SiteData> {
+  /* `asked`: the same read, started by the caller beside the site's own (app/api/site-theme/site). */
+  const langs = (asked ? await asked.catch(() => undefined) : undefined) ?? (await siteLanguages(site.creatorId))
   const base = site.shop.currency ?? "USD"
   /*
     THE THEME'S OWN COUNTRY SELECTOR ("Show currency" on its header,
