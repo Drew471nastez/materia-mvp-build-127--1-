@@ -36,16 +36,13 @@
  * stay above it, and fields are 16px there so iOS does not zoom the page.
  */
 import * as React from "react"
-import Link from "next/link"
 import { ChevronRight, Mail } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
-import { STORE_CURRENCY_EVENT, useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_GHOST, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
-import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail, type CustomerEmailGroup } from "@/lib/emails/customer-catalog"
+import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail } from "@/lib/emails/customer-catalog"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
 import { tt } from "@/lib/i18n/text"
 
@@ -72,123 +69,21 @@ const FALLBACK_SHOP: CustomerEmailsShop = { name: "Your store", supportEmail: nu
 /** The phone sheet's one height, kept whichever pane is showing, so a switch never moves its top edge. */
 const PHONE_SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
 
-type EmailFamily = "all" | "digital" | "physical" | "communities"
-
-const FAMILY_GROUPS: Record<"digital" | "physical", CustomerEmailGroup[]> = {
-  digital: ["digital", "checkout"],
-  physical: ["orders", "payments", "shipping", "pickup", "returns"],
-}
-
-interface CommunityMail {
-  id: string
-  name: string
-  slug: string
-}
-
-/** Community mail lives in each community, not in the product receipts. */
-function CommunitiesMail({ rows, compact }: { rows: CommunityMail[] | null; compact: boolean }) {
-  if (compact && !rows?.length) return null
-  return (
-    <section className={cn("px-4 py-3 sm:px-5", compact && "pb-1")} data-email-communities="">
-      <h3 className="text-[13px] font-semibold text-[#6b7280]">{tt("Communities")}</h3>
-      <p className="mt-1 max-w-[62ch] text-[13px] leading-5 text-[#6b7280]">
-        {tt("Welcome notes, invites and announcements are edited in each community. They are not the receipts and shipping emails below.")}
-      </p>
-      {rows && rows.length > 0 ? (
-        <ul className="mt-3 divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]">
-          {rows.map((c) => (
-            <li key={c.id}>
-              <Link href={`/app/community/${c.slug || c.id}/settings?tab=emails`} className="flex min-h-11 items-center justify-between gap-3 px-3.5 py-3 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#fafafa]">
-                <span className="min-w-0 truncate">{c.name || tt("Community")}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Link href="/app/community" className="mt-3 inline-flex h-9 items-center text-[14px] font-medium text-[#1a1a2e] underline underline-offset-2">
-          {tt("Open communities")}
-        </Link>
-      )}
-    </section>
-  )
-}
-
 export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
   const physical = usePhysicalCommerceEnabled()
   const emails = visibleCustomerEmails(physical)
-  const liveCurrency = useStoreCurrencyIfSet()
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
   const [data, setData] = React.useState<CustomerEmailsData | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH))
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<CustomerEmail | null>(null)
-  const [family, setFamily] = React.useState<EmailFamily>("all")
-  const [communities, setCommunities] = React.useState<CommunityMail[] | null>(null)
 
-  const load = React.useCallback(() => {
+  React.useEffect(() => {
     void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setData(r.data) : setError(r.error)))
   }, [])
-  React.useEffect(() => {
-    load()
-  }, [load])
-  React.useEffect(() => {
-    const on = () => load()
-    window.addEventListener(STORE_CURRENCY_EVENT, on)
-    return () => window.removeEventListener(STORE_CURRENCY_EVENT, on)
-  }, [load])
-  React.useEffect(() => {
-    let live = true
-    void (async () => {
-      try {
-        const supabase = createClient()
-        const { data: auth } = await supabase.auth.getUser()
-        if (!auth.user) return
-        const { data: creator } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
-        if (!creator) return
-        const first = await supabase.from("communities").select("id, name, slug").eq("creator_id", creator.id).is("deleted_at", null).order("name")
-        const read = first.error ? await supabase.from("communities").select("id, name, slug").eq("creator_id", creator.id).order("name") : first
-        if (!live) return
-        if (read.error) setCommunities([])
-        else setCommunities(((read.data ?? []) as CommunityMail[]).filter((c) => c.slug || c.id))
-      } catch {
-        if (live) setCommunities([])
-      }
-    })()
-    return () => {
-      live = false
-    }
-  }, [])
-
-  const families: Array<{ id: EmailFamily; label: string }> = [
-    { id: "all", label: tt("All") },
-    { id: "digital", label: tt("Digital products") },
-    ...(physical ? [{ id: "physical" as const, label: tt("Physical products") }] : []),
-    { id: "communities", label: tt("Communities") },
-  ]
-  const groups = family === "digital" || family === "physical" ? FAMILY_GROUPS[family] : family === "communities" ? [] : GROUP_ORDER
-  const shop = data ? { ...data.shop, currency: liveCurrency || data.shop.currency } : FALLBACK_SHOP
 
   const list = (
     <div className={cn(bare ? "pb-1" : "space-y-5")}>
-      <div className={cn("orders-strip flex gap-1 overflow-x-auto", bare ? "px-4 pb-1 pt-3 sm:px-5" : "")} role="tablist" aria-label={tt("Email kinds")} data-email-families="">
-        {families.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            role="tab"
-            aria-selected={family === f.id}
-            onClick={() => setFamily(f.id)}
-            className={cn(
-              "h-8 shrink-0 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
-              family === f.id ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2]",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      {family === "communities" || family === "all" ? <CommunitiesMail rows={communities} compact={family === "all"} /> : null}
-      {groups.map((g) => {
+      {GROUP_ORDER.map((g) => {
         const rows = emails.filter((e) => e.group === g)
         if (rows.length === 0) return null
         return (
@@ -246,7 +141,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
       )}
       <EmailSheet
         email={open}
-        shop={shop}
+        shop={data?.shop ?? FALLBACK_SHOP}
         saved={open ? data?.copy[open.id] : undefined}
         ready={data?.ready !== false}
         onSaved={(copy) => setData((d) => (d ? { ...d, copy } : d))}

@@ -17,7 +17,6 @@ import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } 
 import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
 import { itemsText, resolveCopy, type EmailCopy } from "./customer-custom"
 import { tt } from "@/lib/i18n/text"
-import { formatCurrency } from "@/lib/markets/money"
 
 export type CustomerEmailGroup = "digital" | "orders" | "payments" | "shipping" | "pickup" | "returns" | "checkout"
 
@@ -112,10 +111,10 @@ export function previewCustomerEmail(
         sellerName: shopName,
         orderNumber: "#1042",
         dateText: SAMPLE_DATE,
-        items: [{ title: tt("The bread baking course"), variantName: null, amountText: formatCurrency(49, currency), note: null, thumbnailUrl: null }],
+        items: [{ title: tt("The bread baking course"), variantName: null, amountText: "$49.00", note: null, thumbnailUrl: null }],
         subtotalText: null,
         tipText: null,
-        totalText: formatCurrency(49, currency),
+        totalText: "$49.00",
         refundedText: null,
         link: "https://storelib.com/account/library",
         buttonLabel: copy?.button ?? tt("View your receipt"),
