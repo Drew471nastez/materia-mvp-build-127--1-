@@ -728,7 +728,7 @@ function sessionKey(s: PreviewSession): number {
 
 /** A phone's preview is one height for the whole opening, so the list under it never moves as a tap changes it. */
 function phonePaneBox(): PaneBox {
-  const h = typeof window === "undefined" ? 152 : Math.round(Math.max(104, Math.min(160, window.innerHeight * 0.18)))
+  const h = typeof window === "undefined" ? 152 : Math.round(Math.max(112, Math.min(200, window.innerHeight * 0.23)))
   return { minH: h, maxH: h, inset: 12 }
 }
 
@@ -915,7 +915,7 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
   ) : null
 
   if (phone) {
-    return <PhoneSheet open={open} onClose={onClose} session={session} active={active} activeReason={activeReason ?? null} reasonLine={reasonLine} search={search} list={list} onAdd={() => add(active)} />
+    return <PhoneSheet open={open} onClose={onClose} session={session} active={active} activeReason={activeReason ?? null} search={search} list={list} onAdd={() => add(active)} />
   }
 
   return (
@@ -938,18 +938,23 @@ function PickerBody({ session, open, phone, onClose }: { session: PreviewSession
 
 const CARD = "overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_12px_32px_-12px_rgba(15,23,42,0.22),0_1px_3px_rgba(15,23,42,0.06)]"
 
-function PhoneSheet({ open, onClose, session, active, activeReason, reasonLine, search, list, onAdd }: { open: boolean; onClose: () => void; session: PreviewSession; active: BlockChoice | undefined; activeReason: string | null; reasonLine: ReactNode; search: ReactNode; list: ReactNode; onAdd: () => void }) {
+function PhoneSheet({ open, onClose, session, active, activeReason, search, list, onAdd }: { open: boolean; onClose: () => void; session: PreviewSession; active: BlockChoice | undefined; activeReason: string | null; search: ReactNode; list: ReactNode; onAdd: () => void }) {
   /* Measured once an opening: the window's height does not change under an open sheet in a way the preview should follow. */
   const box = useMemo(() => phonePaneBox(), [session]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} openFull fit detents={[0.9]} layer="raised" peekHeight={0} label={tt("Add block")}>
+    /*
+      holdPage "scroll": the editor's document never scrolls (the canvas has
+      its own scroller), and switching its overflow off laid the whole editor
+      out again, a 106ms task between the tap and the sheet's first frame
+      (scripts/check-block-picker.mjs at 390 x 844).
+    */
+    <MobileEditorSheet open={open} onOpenChange={(o) => { if (!o) onClose() }} openFull fit detents={[0.9]} layer="raised" peekHeight={0} holdPage="scroll" label={tt("Add block")}>
       <div className="flex min-h-0 flex-1 flex-col" data-block-picker="phone" data-picker-open={open ? "" : undefined}>
         <div className="flex shrink-0 items-center px-4 pb-2.5 pt-0.5">
           <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add block")}</h2>
         </div>
         <div className="mx-4 shrink-0 overflow-hidden rounded-xl border border-[#e5e7eb]">
           <PreviewPane session={session} choice={active} box={box} />
-          {reasonLine}
         </div>
         <div className="shrink-0 px-4 pb-1.5 pt-3">{search}</div>
         <div className="flex min-h-0 flex-1 flex-col">{list}</div>
@@ -961,7 +966,8 @@ function PhoneSheet({ open, onClose, session, active, activeReason, reasonLine, 
             data-block-picker-add=""
             className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#e5e7eb] disabled:text-[#9ca3af]"
           >
-            <span className="truncate">{active ? tt("Add {value}", { value: active.label }) : tt("Add block")}</span>
+            {/* On a phone the reason is the button's own words: a line under the preview would push the list down a row's height on every tap. */}
+            <span className="truncate" {...(activeReason ? { "data-block-picker-reason": "" } : {})}>{activeReason ?? (active ? tt("Add {value}", { value: active.label }) : tt("Add block"))}</span>
           </button>
         </div>
       </div>
