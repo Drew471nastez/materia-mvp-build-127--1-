@@ -2943,6 +2943,8 @@ const words: Record<string, string> = {
  "No preview for this block": "Sem prévia para este bloco",
  "Already used": "Já usado",
  "Nothing to show yet": "Nada para mostrar ainda",
+ "Nothing more fits here": "Não cabe mais nada aqui",
+ "No room here": "Sem espaço aqui",
  "Earlier visits": "Visitas anteriores",
  "Earnings summary (CSV)": "Resumo de ganhos (CSV)",
  "EasyPost": "EasyPost",

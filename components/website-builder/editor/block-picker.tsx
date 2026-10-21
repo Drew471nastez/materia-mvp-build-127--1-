@@ -361,7 +361,8 @@ function stripBox(pane: HTMLElement, pad: number, inset: number): PaneBox {
   const area = pane.parentElement
   if (!area) return { minH: 96, maxH: 320, inset }
   const caption = area.querySelector<HTMLElement>("[data-preview-caption]")
-  return previewStrip({ w: area.clientWidth, h: area.clientHeight }, pad, inset, caption ? caption.offsetHeight + CAPTION_GAP : 0)
+  /* A phone's canvas is short: the strip takes more of it, so a line of text is not a band of grey around a sliver. */
+  return previewStrip({ w: area.clientWidth, h: area.clientHeight }, pad, inset, caption ? caption.offsetHeight + CAPTION_GAP : 0, pad >= PICKER_SIZE.canvasPad ? 0.5 : 0.62)
 }
 
 /**
@@ -965,7 +966,7 @@ function PhoneSheet({ open, onClose, session, active, activeReason, search, list
           <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{tt("Add block")}</h2>
         </div>
         {/* The preview is the sheet's own canvas, edge to edge, one height for the opening; the search and the list sit on the same sheet under it. */}
-        <PreviewPane session={session} choice={active} pad={14} className="shrink-0 border-y border-[#eceef1]" style={{ height: canvasH }} />
+        <PreviewPane session={session} choice={active} pad={14} reason={activeReason} className="shrink-0 border-y border-[#eceef1]" style={{ height: canvasH }} />
         <div className="shrink-0 px-4 pb-1.5 pt-3">{search}</div>
         <div className="flex min-h-0 flex-1 flex-col">{list}</div>
         <div className="shrink-0 border-t border-[#f0f1f3] px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
@@ -976,8 +977,8 @@ function PhoneSheet({ open, onClose, session, active, activeReason, search, list
             data-block-picker-add=""
             className="flex h-12 w-full items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[15px] font-semibold text-white transition-opacity active:opacity-85 disabled:bg-[#f3f4f6] disabled:text-[#6b7280]"
           >
-            {/* On a phone the reason is the button's own words: a line under the preview would take the preview's room on every tap. */}
-            <span className="truncate" {...(activeReason ? { "data-block-picker-reason": "" } : {})}>{activeReason ?? (active ? tt("Add {value}", { value: active.label }) : tt("Add block"))}</span>
+            {/* The reason is said under the preview, whole (the canvas is one height, so it moves nothing); the button only stays off. */}
+            <span className="truncate">{active ? tt("Add {value}", { value: active.label }) : tt("Add block")}</span>
           </button>
         </div>
       </div>

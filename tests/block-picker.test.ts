@@ -2,6 +2,9 @@
  * Round 34: Add block, with each block shown in its section before it is added.
  * Round 35: "too big". Two cards, each the size of what it holds; the preview
  *           scaled from the section's real width; the closed kinds grouped.
+ * Round 36: "it's split from the main one and it's too short and small". One
+ *           panel again, 760 by 420 to 560, the preview a canvas with a strip
+ *           of the section on it; nothing addable says so once.
  *
  *   ARITHMETIC  the block as Add block makes it, the section with it in place,
  *               the search, the window cut around the block, where the panel goes
@@ -20,7 +23,7 @@
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
-import { PICKER_SIZE, PREVIEW_BLOCK_ID, blockDefaults, cropFor, fitPreview, matchChoices, placePicker, previewBlock, sectionWith, splitChoices } from "@/lib/website-builder/block-picker"
+import { PICKER_SIZE, PREVIEW_BLOCK_ID, blockDefaults, cropFor, fitPreview, matchChoices, placePicker, previewBlock, previewStrip, sectionWith, splitChoices } from "@/lib/website-builder/block-picker"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -113,21 +116,40 @@ function main() {
     check("nothing closed: no heading", splitChoices(all, () => null).heading === null)
   }
 
-  console.log("\nWhere the cards go on a computer")
+  console.log("\nThe panel on a computer (round 36)")
   {
-    /* Changed on purpose (round 35): one 820 x 540 panel became two cards, each the size of what it holds. */
-    const full = PICKER_SIZE.list + PICKER_SIZE.gap + PICKER_SIZE.preview
-    check("both cards together are 560 to 680 wide", full >= 560 && full <= 680, full)
-    const beside = placePicker({ top: 500 }, { right: 294 }, { w: 1440, h: 900 }, 300)
-    check("beside the sidebar, a gap from it", beside.mode === "beside" && beside.left === 294 + PICKER_SIZE.gap && beside.width === full && beside.previewWidth === PICKER_SIZE.preview, beside)
-    check("  level with the row", beside.top === 492, beside)
-    const low = placePicker({ top: 800 }, { right: 294 }, { w: 1440, h: 900 }, 460)
-    check("  a long list from a low row is lifted to stay on screen", low.top + 460 <= 900 - PICKER_SIZE.margin && low.top >= PICKER_SIZE.margin, low)
-    check("  the preview may be as tall as the room under the top", low.previewMax === Math.min(PICKER_SIZE.previewMax, 900 - PICKER_SIZE.margin - low.top), low)
+    /* Changed on purpose (round 36): two cards (236 and 392 wide, each its own height) became one panel, the list and the preview in the same card. */
+    check("one panel 720 to 780 wide, the list 260 of it", PICKER_SIZE.width >= 720 && PICKER_SIZE.width <= 780 && PICKER_SIZE.list === 260, PICKER_SIZE)
+    check("  420 to 560 tall", PICKER_SIZE.minH === 420 && PICKER_SIZE.maxH === 560)
+    const beside = placePicker({ top: 300 }, { right: 294 }, { w: 1440, h: 900 }, 300)
+    check("beside the sidebar, a gap from it, its full width", beside.mode === "beside" && beside.left === 294 + PICKER_SIZE.gap && beside.width === PICKER_SIZE.width, beside)
+    check("  level with the row", beside.top === 292, beside)
+    check("  a short list still gets the floor, not a sliver of a panel", beside.height === 420, beside)
+    const long = placePicker({ top: 200 }, { right: 294 }, { w: 1440, h: 900 }, 829)
+    check("  a long list gets the ceiling and scrolls", long.height === 560, long)
+    const mid = placePicker({ top: 200 }, { right: 294 }, { w: 1440, h: 900 }, 480)
+    check("  in between, as tall as the list", mid.height === 480, mid)
+    const low = placePicker({ top: 800 }, { right: 294 }, { w: 1440, h: 900 }, 600)
+    check("a low row: lifted to stay in the window", low.top + low.height === 900 - PICKER_SIZE.margin && low.top >= PICKER_SIZE.margin, low)
     const short = placePicker({ top: 300 }, { right: 294 }, { w: 1280, h: 400 }, 900)
-    check("a short window: the list is capped to it", short.listMax === 400 - PICKER_SIZE.margin * 2 && short.top === PICKER_SIZE.margin, short)
+    check("a short window: never taller than it", short.height === 400 - PICKER_SIZE.margin * 2 && short.top === PICKER_SIZE.margin, short)
+    const tight = placePicker({ top: 300 }, { right: 294 }, { w: 1000, h: 800 }, 300)
+    check("less room beside the sidebar: narrower, down to 640, still beside it", tight.mode === "beside" && tight.width === 1000 - 302 - PICKER_SIZE.margin && tight.width >= PICKER_SIZE.minWidth, tight)
     const narrow = placePicker({ top: 300 }, { right: 360 }, { w: 900, h: 700 }, 300)
-    check("no room beside the sidebar: in the middle of the window", narrow.mode === "center" && narrow.left === Math.round((900 - narrow.width) / 2), narrow)
+    check("no room beside the sidebar: in the middle of the window", narrow.mode === "center" && narrow.left === Math.round((900 - narrow.width) / 2) && narrow.width <= 900 - PICKER_SIZE.margin * 2, narrow)
+  }
+
+  console.log("\nThe strip the block is shown on (round 36)")
+  {
+    const strip = previewStrip({ w: 498, h: 558 }, 24, 20)
+    check("as wide as the canvas less its padding", strip.w === 450, strip)
+    check("  no taller than the canvas's room, no shorter than half of it", strip.maxH === 510 && strip.minH === 255, strip)
+    const captioned = previewStrip({ w: 498, h: 558 }, 24, 20, 40)
+    check("  a caption under it takes its room from the strip", captioned.maxH === 470, captioned)
+    const phone = previewStrip({ w: 390, h: 245 }, 14, 12)
+    check("  a phone's canvas: never under 96", phone.minH >= 96 && phone.maxH === 217, phone)
+    const fit = fitPreview({ x: 100, y: 40, w: 300, h: 40 }, { w: 1134, h: 400 }, strip, 16)
+    check("a heading on it: its own size, in the middle of a strip at the floor", fit.scale === 1 && fit.paneH === 255 && Math.abs(fit.top - (255 - fit.height) / 2) < 0.01, fit)
   }
 
   console.log("\nThe tree opens it, with what the preview and the rules need")
@@ -168,10 +190,12 @@ function main() {
     check("a computer gets a panel beside the sidebar", /placePicker\(anchor\.getBoundingClientRect\(\), sidebar \?/.test(picker) && /data-wb-sidebar-fold/.test(picker))
     check("  the search has the focus; Escape and a press outside close it; the row has the focus back", /searchRef\.current\?\.focus\(\{ preventScroll: true \}\)/.test(picker) && /e\.key === "Escape"/.test(picker) && /addEventListener\("pointerdown", onDown, true\)/.test(picker) && /anchor\.focus\(\{ preventScroll: true \}\)/.test(picker))
     check("  arrows and Enter from the search box", /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(picker) && /e\.key === "Enter"/.test(picker) && /aria-activedescendant=/.test(picker))
-    /* Changed on purpose (round 35): a reason on every grey row, cut off mid word, became one heading over them; the row's own reason is its tooltip and the line under its preview. */
-    check("a kind with no room is listed after the rest, greyed, under one heading", /aria-disabled=\{reason \? true : undefined\}/.test(picker) && /\{groups\.heading \?\? tt\("Already used"\)\}/.test(picker) && /title=\{reason \?\? undefined\}/.test(picker) && /data-block-picker-reason=""/.test(picker))
-    check("a computer's cards are the size of what they hold", /style=\{\{ width: PICKER_SIZE\.list, maxHeight: place\.listMax \}\}/.test(picker) && /box=\{\{ minH: PICKER_SIZE\.previewMin, maxH: place\.previewMax, inset: PICKER_SIZE\.inset \}\}/.test(picker))
-    check("  up at once (no transition on the way in, so the search can take the focus in the first frame)", /\? "visible translate-x-0 opacity-100 transition-none"/.test(picker))
+    /* Changed on purpose (round 36): the heading is a label, never the reason; the reason is said once, under the preview of the block it is about. */
+    check("a kind with no room is listed after the rest, greyed, under one heading", /aria-disabled=\{reason \? true : undefined\}/.test(picker) && /\{!groups\.open\.length \? tt\("Nothing more fits here"\) : groups\.shared \? tt\("No room here"\) : tt\("Already used"\)\}/.test(picker) && /title=\{reason \?\? undefined\}/.test(picker))
+    check("  its reason said once, under its preview", /reason=\{activeReason\}/.test(picker) && /\{\.\.\.\(reason \? \{ "data-block-picker-reason": "" \}/.test(picker))
+    /* Changed on purpose (round 36): two cards became one panel, its size placePicker's. */
+    check("a computer gets one panel: the list side and the preview in it", /style=\{\{ left: place\.left, top: place\.top, width: place\.width, height: place\.height \}\}/.test(picker) && /data-block-picker-side=""/.test(picker) && /<PreviewPane session=\{session\} choice=\{active\} pad=\{PICKER_SIZE\.canvasPad\}/.test(picker) && !/data-block-picker-card/.test(picker))
+    check("  in and out by opacity, translate and scale; the way in names no visibility, so the search can take the focus in the first frame", /\? "visible translate-x-0 scale-100 opacity-100 transition-\[opacity,translate,scale\]/.test(picker) && /: "invisible -translate-x-1\.5 scale-\[0\.985\] opacity-0 transition-\[opacity,translate,scale,visibility\]/.test(picker))
     check("a phone's sheet is as tall as what it holds, its list the scroller it measures", /openFull fit detents=\{\[0\.9\]\}/.test(picker) && /\{\.\.\.\(phone \? \{ "data-sheet-scroll": "" \} : \{\}\)\}/.test(picker) && /<div data-sheet-content="">/.test(picker))
     check("adding closes first, then adds, then brings the new block on screen", /onClose\(\)\s*\/\*[^]*?\*\/\s*requestAnimationFrame\(\(\) => \{\s*request\.onAdd\(c\)\s*revealNewBlock\(/.test(src(PICKER)))
   }

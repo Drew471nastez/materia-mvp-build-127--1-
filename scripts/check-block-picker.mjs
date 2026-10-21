@@ -422,8 +422,8 @@ async function run(kind) {
     if (label === "full") {
       expect(st.rows.length > 0 && st.disabled.length === st.rows.length, "full: every block is listed, none can be added", { rows: st.rows.length, disabled: st.disabled.length })
       expect(st.heading?.text === "Nothing more fits here", "full: one heading says nothing more fits", st.heading)
-      if (!phone) expect(!!st.reason && st.reasonTimes === 1, "full: the reason is said once, under the preview", { reason: st.reason, times: st.reasonTimes })
-      else expect(await p.evaluate(() => document.querySelector("[data-block-picker-add]")?.disabled === true && !!document.querySelector("[data-block-picker-add] [data-block-picker-reason]")), "full: the Add button says why, and is off")
+      expect(!!st.reason && st.reasonTimes === 1, "full: the reason is said once, under the preview", { reason: st.reason, times: st.reasonTimes })
+      if (phone) expect(await p.evaluate(() => document.querySelector("[data-block-picker-add]")?.disabled === true), "full: the Add button is off")
     }
     await p.screenshot({ path: shot(`${kind.w}-${label}-0-open`) })
     await everyBlock(p, phone, kind, id, label)
