@@ -155,6 +155,8 @@ console.log("\nWIRED: the editor's saves")
   check("the retry keeps autosave's holds", /if \(!isDirtyRef\.current \|\| syncConflictRef\.current \|\| switchingPage\.current \|\| restoreHold\.current\) return/.test(editor))
   check("back online, it is tried at once; the listener and the timer go with the editor", /window\.addEventListener\("online", online\)/.test(editor) && /window\.removeEventListener\("online", online\)\s*\n\s*if \(retryTimer\.current\) clearTimeout\(retryTimer\.current\)/.test(editor))
   check("Publish writes through the same queue, and keeps an edit made while it ran unsaved", /const written = await draftQueue\.save\(snap\)/.test(publish) && /if \(writtenIsCurrent\(snap\)\) \{\s*setIsDirty\(false\)\s*setUnpublished\(false\)\s*\}/.test(publish))
+  check("the settings, and the header and footer, are sent only when not the ones last written", /settingsSame \? Promise\.resolve\(new Response\(null, \{ status: 200 \}\)\) : putJsonWithRetry/.test(editor) && /chromeSame \? Promise\.resolve\(true\) : syncHeaderFooterToAllPages/.test(editor) && /if \(settingsRes\.ok\) last\.settings = settingsKey\s*\n\s*if \(chromeOk\) last\.chrome = chromeKey/.test(editor))
+  check("  a deleted header or footer counts as a change", /\.\.\.g\.overlay, "\|", gone\.header, gone\.footer, gone\.overlay\]/.test(editor))
   check("the header and footer copy is of the snapshot's page", /syncHeaderFooterToAllPages\("draft", snap\.sections, snap\.page\)/.test(editor) && /current_page: page,/.test(editor))
   check("leaving still asks while something is unsaved", /if \(isDirty \|\| codeDirty \|\| saving \|\| publishing\) \{ e\.preventDefault\(\); e\.returnValue = "" \}/.test(editor))
 }

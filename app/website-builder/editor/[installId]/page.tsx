@@ -6420,7 +6420,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
     /* The Overlay group is the site's too: a popup or a bottom bar is on every page, as Shopify's groups are. */
     const overlayGroup = g.overlay.length > 0 ? g.overlay : chromeRemoved.current.overlay ? [] : null
-    if (!headerGroup && !footerGroup && !overlayGroup) return
+    if (!headerGroup && !footerGroup && !overlayGroup) return true
 
     // Fetch all pages for this install
     const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections/sync-global`, {
@@ -6438,7 +6438,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }, 20_000).catch(() => null)
     if (!res?.ok) {
       console.warn("Failed to sync header/footer to other pages")
+      return false
     }
+    return true
   }
 
   // Strip runtime-only `_product_data` that the preview injects into
@@ -6496,13 +6498,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         (idempotent), so one that fails leaves the edit unsaved and the next
         save sends all three again; what is said is the first that failed.
       */
+      /*
+        ONLY WHAT CHANGED SINCE THE LAST WRITE THAT WENT THROUGH (round 34).
+        Every save sent all three, so typing in a hero wrote the theme
+        settings and copied the header and footer to every page on each
+        autosave: three requests where one changed (measured: 36 keys, 9
+        PUTs, scripts/check-editor-sections.mjs). The settings are sent when
+        they are not the object last written (with the same theme schema
+        under them); the header and footer when a section of theirs is not
+        the one last copied, or one was deleted. The page itself is always
+        sent: it is the row the save is for.
+      */
       const sent = sectionsForSave(snap.sections)
-      const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(snap.settings as Record<string, unknown>, themeGroups) }),
+      const settingsKey = { settings: snap.settings, groups: themeGroups }
+      const chromeKey = chromeKeyOf(snap.sections)
+      const last = lastWritten.current
+      const settingsSame = !!last.settings && last.settings.settings === settingsKey.settings && last.settings.groups === settingsKey.groups
+      const chromeSame = !!last.chrome && sameChrome(last.chrome, chromeKey)
+      const [settingsRes, sectionsRes, chromeOk] = await Promise.all([
+        settingsSame ? Promise.resolve(new Response(null, { status: 200 })) : putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(snap.settings as Record<string, unknown>, themeGroups) }),
         putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: snap.page, sections: sent, mode: "draft" }),
         // Sync header/footer to all other pages
-        syncHeaderFooterToAllPages("draft", snap.sections, snap.page),
+        chromeSame ? Promise.resolve(true) : syncHeaderFooterToAllPages("draft", snap.sections, snap.page),
       ])
+      if (settingsRes.ok) last.settings = settingsKey
+      if (chromeOk) last.chrome = chromeKey
       if (!settingsRes.ok) {
         const d = await settingsRes.json().catch(() => ({}))
         return { ok: false, problem: explainSaveProblem(settingsRes.status, d), reason: `http_${settingsRes.status}` }
@@ -6519,6 +6539,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return { ok: false, problem: explainSaveProblem(offline ? null : 503, null), reason: offline ? "offline" : "network" }
     }
   }
+  /*
+    What the last write that went through sent of the settings and of the
+    header and footer, so the next sends them only when they changed. Kept
+    by object: a draft read again (a load, a push from GitHub, a restore)
+    is new objects, so the next save after it sends them all.
+  */
+  const lastWritten = useRef<{ settings: { settings: ThemeSettingsValues; groups: unknown } | null; chrome: unknown[] | null }>({ settings: null, chrome: null })
+  /** The header, footer and overlay groups' sections, and which of them were deleted here, as one list to compare. */
+  const chromeKeyOf = (list: SectionInstance[]): unknown[] => {
+    const g = splitGroups(list)
+    const gone = chromeRemoved.current
+    return [...g.header, "|", ...g.footer, "|", ...g.overlay, "|", gone.header, gone.footer, gone.overlay]
+  }
+  const sameChrome = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((x, i) => x === b[i])
   const sendDraftLatest = useRef(sendDraft)
   sendDraftLatest.current = sendDraft
   const [draftQueue] = useState(() =>
