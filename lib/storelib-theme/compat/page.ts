@@ -74,11 +74,21 @@ export function sectionIndexIn(list: readonly StoredSection[], section: StoredSe
   return Math.max(0, same.indexOf(section))
 }
 
+/*
+  The engine's files for an install's files, once per files object: the
+  builder's canvas makes a theme for every value a theme setting passes under
+  a finger (compat-canvas.tsx), and the same files object also lets the
+  theme read its locale and settings schema once (theme.ts, filesRead).
+*/
+const engineHeld = new WeakMap<object, Record<string, string>>()
+
 /** The theme an install's files and settings make. */
 export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
   const compat = compatOf(settings)
   /* With Storelib Reviews' own section, unless the theme has one by that name (./storelib-reviews.ts). */
-  return new CompatTheme(withStorelibReviewsSection(engineFiles(rows)), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
+  let files = engineHeld.get(rows)
+  if (!files) engineHeld.set(rows, (files = withStorelibReviewsSection(engineFiles(rows))))
+  return new CompatTheme(files, compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
 }
 
 export interface DrawOptions {

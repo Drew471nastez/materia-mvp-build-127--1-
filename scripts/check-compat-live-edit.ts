@@ -61,7 +61,7 @@
  *   BUDGET=0              report without failing
  */
 import { createServer } from "node:http"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import JSZip from "jszip"
 import puppeteer, { type CDPSession, type Frame, type Page } from "puppeteer-core"
@@ -86,17 +86,68 @@ function withSchema(liquid: string, add: (schema: { settings?: unknown[] }) => v
   })
 }
 
+/** A theme's zip, or a folder of its files (tests/fixtures/shopify-materia) zipped as Shopify exports one. */
+async function themeZip(path: string): Promise<JSZip> {
+  if (!statSync(path).isDirectory()) return JSZip.loadAsync(readFileSync(path))
+  const zip = new JSZip()
+  const walk = (dir: string, rel: string) => {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n)
+      if (statSync(p).isDirectory()) walk(p, `${rel}${n}/`)
+      else zip.file(`${rel}${n}`, readFileSync(p))
+    }
+  }
+  walk(path, "")
+  return zip
+}
+
+/**
+ * A theme whose layout prints no theme setting of its own (the Materia
+ * fixture) is given what a custom theme's layout writes (round 36): its
+ * accent and a section spacing as variables on :root, the phone's spacing
+ * branching on the value as Dawn's does, and a rule that reads them.
+ */
+async function withLayoutVariables(zip: JSZip): Promise<boolean> {
+  const layoutPath = Object.keys(zip.files).find((p) => p.endsWith("layout/theme.liquid"))
+  const schemaPath = Object.keys(zip.files).find((p) => p.endsWith("config/settings_schema.json"))
+  if (!layoutPath || !schemaPath) return false
+  let layout = await zip.file(layoutPath)!.async("string")
+  if (/\{%-?\s*style\s*-?%\}/.test(layout)) return false
+  layout = layout.replace("</head>", `{% style %}
+      :root {
+        --accent: {{ settings.accent }};
+        --spacing-sections-desktop: {{ settings.spacing_sections }}px;
+        --spacing-sections-mobile: {% if settings.spacing_sections < 24 %}{{ settings.spacing_sections }}{% else %}{{ settings.spacing_sections | times: 0.7 | round }}{% endif %}px;
+      }
+      .shopify-section + .shopify-section { margin-top: var(--spacing-sections-desktop); }
+      a, .button { color: var(--accent); }
+    {% endstyle %}
+  </head>`)
+  zip.file(layoutPath, layout)
+  const schema = JSON.parse(await zip.file(schemaPath)!.async("string")) as { name: string; settings?: unknown[] }[]
+  schema.push({ name: "Layout", settings: [{ type: "range", id: "spacing_sections", min: 0, max: 100, step: 4, unit: "px", label: "Space between template sections", default: 0 }] })
+  zip.file(schemaPath, JSON.stringify(schema, null, 2))
+  return true
+}
+
 async function theme(zipPath: string) {
-  const zip = await JSZip.loadAsync(readFileSync(zipPath))
-  const find = (name: string) => Object.keys(zip.files).find((p) => p.endsWith(`sections/${name}`))!
+  const zip = await themeZip(zipPath)
+  const find = (name: string) => Object.keys(zip.files).find((p) => p.endsWith(`sections/${name}`))
+  if (!find("announcement-bar.liquid")) {
+    /* Not Dawn: the layout's variables only, and the gestures that find nothing to press say so. */
+    await withLayoutVariables(zip)
+    const r = await convertShopifyTheme(zip)
+    if (!r.ok) throw new Error(r.error)
+    return r.theme
+  }
   /* The header's height, in the section's own <style>, as a minimum height. */
-  const headerPath = find("header.liquid")
+  const headerPath = find("header.liquid")!
   let header = await zip.file(headerPath)!.async("string")
   header = header.replace("<style>", "<style>\n  .header { min-height: {{ section.settings.header_height }}px; }\n")
   header = withSchema(header, (s) => { s.settings = [{ type: "range", id: "header_height", min: 40, max: 160, step: 2, unit: "px", label: "Header height", default: 76 }, ...(s.settings ?? [])] })
   zip.file(headerPath, header)
   /* The announcement bar's height and colour, in an inline style. */
-  const barPath = find("announcement-bar.liquid")
+  const barPath = find("announcement-bar.liquid")!
   let bar = await zip.file(barPath)!.async("string")
   bar = bar.replace('<div\n  class="utility-bar', '<div\n  style="min-height: {{ section.settings.bar_height }}px; background-color: {{ section.settings.bar_color }};"\n  class="utility-bar')
   bar = withSchema(bar, (s) => { s.settings = [{ type: "range", id: "bar_height", min: 20, max: 120, step: 1, unit: "px", label: "Bar height", default: 36 }, { type: "color", id: "bar_color", label: "Bar colour", default: "#f3f3f3" }, ...(s.settings ?? [])] })
@@ -424,7 +475,8 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
       }
       report[g.name] = out
       console.log(`  ${g.name.padEnd(22)} ${String(out.updatesPerSecond).padStart(5)}/s shown ${out.shown}/${out.values}  latency p50 ${out.latencyP50}ms p95 ${out.latencyP95}ms  editor longest ${out.editorLongest}ms (${out.editorLongTasks} long)  frame longest ${out.frameLongest}ms  renders ${out.renders} (editor ${out.editorRenders}, canvas ${out.canvasRenders})  section msgs ${out.sectionMessages}  fetches ${out.fetches}  final ${out.last === out.final ? "ok" : `${out.last} != ${out.final}`}${out.jumped.length ? `  JUMPED ${JSON.stringify(out.jumped.slice(0, 4))}` : ""}`)
-      if (process.env.TOP) console.log(`      all: ${out.top.join("  ")}\n      while moving (${out.rendersWhileMoving}): ${out.movingTop.join("  ")}`)
+      if (process.env.SAMPLES) console.log(`      last values on the page (ms from release): ${m.samples.slice(-8).map(([t, v]) => `${Math.round(t - released)}:${v}`).join("  ")}`)
+      if (process.env.TOP) console.log(`      all:${out.top.join("  ")}\n      while moving (${out.rendersWhileMoving}): ${out.movingTop.join("  ")}`)
     }
 
     /* A slider dragged with real input: across and back, a move every 8ms (a 120Hz pointer), the value each move gave read from the thumb. */
@@ -573,7 +625,8 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
         for (const b of document.querySelectorAll<HTMLElement>("[data-compat-theme-group] button[aria-expanded], [data-compat-theme-group] button[aria-label='Pick color']")) {
           if (b.hasAttribute("data-compat-scheme")) continue
           const row = b.closest("div")?.parentElement
-          if (!/^\s*Background(?! gradient)/i.test(row?.textContent ?? "")) continue
+          /* A colour scheme's Background (Dawn), or a theme's one accent colour (the Materia fixture). */
+          if (!/^\s*(Background(?! gradient)|Accent)/i.test(row?.textContent ?? "")) continue
           b.scrollIntoView({ block: "center" })
           const r = b.getBoundingClientRect()
           return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
@@ -585,7 +638,7 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
         await sleep(500)
         const box = await page.evaluate(() => { const b = document.querySelector(".cursor-crosshair[data-sheet-no-drag]"); if (!b) return null; const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height } })
         if (box) {
-          await gesture({ name: "theme scheme colour", select: null, label: /x/, read: `function () { return getComputedStyle(document.documentElement).getPropertyValue("--color-background").trim() }`, expected: (v) => v, byChange: true }, async () => {
+          await gesture({ name: "theme scheme colour", select: null, label: /x/, read: `function () { var s = getComputedStyle(document.documentElement); return (s.getPropertyValue("--color-background") || s.getPropertyValue("--accent")).trim() }`, expected: (v) => v, byChange: true }, async () => {
             await page.evaluate(() => { const w = window as unknown as { __vals: { t: number; v: string }[]; __mv: (e: PointerEvent) => void }; w.__vals = []; w.__mv = (e) => { if (e.buttons === 1) w.__vals.push({ t: performance.timeOrigin + performance.now(), v: "" }) }; document.addEventListener("pointermove", w.__mv, true) })
             await page.mouse.move(box.left + box.w * 0.2, box.top + box.h * 0.2)
             await page.mouse.down()

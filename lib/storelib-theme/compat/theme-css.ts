@@ -34,7 +34,8 @@
  * drawn as before.
  */
 
-export type SettingUse = { file: string; css: boolean }
+/** `css`: inside the layout's CSS. `id`: prints a list's first entry (`{{ settings.color_schemes | first }}`, a colour scheme's id), which no colour of a scheme changes. */
+export type SettingUse = { file: string; css: boolean; id?: boolean }
 export type SettingUses = {
   /** The theme reads its settings somewhere in a way that names no one setting: nothing is known from the files alone. */
   opaque: boolean
@@ -49,7 +50,10 @@ const LIQUID = /\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/g
 /** A read of the global `settings` (not `section.settings`, `block.settings`, `scheme.settings`). */
 const REF = /(^|[^\w.$\]-])settings\b(?:\s*\.\s*([A-Za-z_][\w-]*)|\s*\[\s*(['"])([^'"]+)\3\s*\])?/g
 const RENDERS = /\{%-?\s*(?:render|include)\s+(['"])([^'"]+)\1/g
-const RENDERS_IN_LIQUID = /(?:^|\n)\s*(?:render|include)\s+(['"])([^'"]+)\1/g
+const STATIC_SECTION = /\{%-?\s*section\s+(['"])([^'"]+)\1/g
+/** `{{ settings.color_schemes | first }}`: the list's first entry printed, which for a colour scheme is its id. */
+const PRINTS_FIRST = /^\{\{-?\s*settings\.[\w-]+\s*\|\s*first\s*-?\}\}$/
+const RENDERS_IN_LIQUID =/(?:^|\n)\s*(?:render|include)\s+(['"])([^'"]+)\1/g
 
 /** A file's Liquid, without its schema and comments. */
 function liquidOf(source: string, markupOf: (s: string) => string): string {
@@ -72,13 +76,21 @@ const DRAWN = /^(layout|sections|blocks|snippets)\/[^/]+\.(liquid|storelib)$/
  * one of its <style> blocks, or in a snippet that is only ever rendered from
  * inside those.
  */
-export function settingUses(files: Record<string, string>, layoutPath: string, markupOf: (s: string) => string, templatePath?: string): SettingUses {
+export function settingUses(files: Record<string, string>, layoutPath: string, markupOf: (s: string) => string, page: { template?: string; sections?: ReadonlySet<string> } = {}): SettingUses {
   const texts = new Map<string, { text: string; regions: [number, number][] }>()
+  /* The sections the page draws, when they are known: its own, and those the layout names. */
+  const drawn = page.sections ? new Set(page.sections) : null
+  if (drawn) {
+    for (const m of liquidOf(files[layoutPath] ?? "", markupOf).matchAll(STATIC_SECTION)) {
+      for (const ext of [".storelib", ".liquid"]) drawn.add(`sections/${m[2]}${ext}`)
+    }
+  }
   for (const [path, source] of Object.entries(files)) {
     /* A template written in Liquid draws only its own page: read when it is this one. */
-    if (!DRAWN.test(path) && path !== templatePath) continue
-    /* Another layout is not this page's. */
+    if (!DRAWN.test(path) && path !== page.template) continue
+    /* Another layout is not this page's, nor is a section it does not draw. */
     if (path.startsWith("layout/") && path !== layoutPath) continue
+    if (drawn && path.startsWith("sections/") && !drawn.has(path)) continue
     const text = liquidOf(source, markupOf)
     texts.set(path, { text, regions: regionsOf(text) })
   }
@@ -120,7 +132,7 @@ export function settingUses(files: Record<string, string>, layoutPath: string, m
         const carried = !output && /^(assign|capture)\b/.test(statement)
         const css = !carried && (wholeCss || (path === layoutPath && inside(regions, tag.index!)))
         const list = by.get(id) ?? []
-        list.push({ file: path, css })
+        list.push(output && PRINTS_FIRST.test(body) ? { file: path, css, id: true } : { file: path, css })
         by.set(id, list)
       }
     }
@@ -136,11 +148,17 @@ export function layoutPathIn(files: Record<string, string>, name?: string): stri
   return null
 }
 
-/** Whether the theme's files say this setting is read only in its layout's CSS. */
-export function onlyInCss(uses: SettingUses, id: string): boolean {
-  if (uses.opaque) return false
-  const list = uses.by.get(id)
-  return !!list && list.length > 0 && list.every((u) => u.css)
+/**
+ * Whether the theme's files say the setting at `path` in the install's
+ * settings is read only in its layout's CSS: ["shopify", id], or a colour of
+ * a colour scheme (["shopify", schemes, "scheme-1", "settings", "button"]),
+ * which a scheme printed by its id does not read.
+ */
+export function onlyInCss(uses: SettingUses, path: readonly (string | number)[]): boolean {
+  if (uses.opaque || path[0] !== "shopify" || typeof path[1] !== "string") return false
+  const list = uses.by.get(path[1])
+  const colourOfScheme = path.length === 5 && path[3] === "settings"
+  return !!list && list.length > 0 && list.every((u) => u.css || (colourOfScheme && u.id === true))
 }
 
 /* ── Values to try a setting with ─────────────────────────────────────── */

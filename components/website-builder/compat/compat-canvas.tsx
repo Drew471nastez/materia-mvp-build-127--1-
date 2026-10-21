@@ -252,17 +252,24 @@ const pageIdOf = (p: object) => {
   return id
 }
 
+/* Where the theme's pictures are, read once per set of the install's files: a theme is made for every value a theme setting passes. */
+const mediaHeld = new WeakMap<object, Record<string, string>>()
+
 /* The theme's reads of its settings (theme-css.ts settingUses), once per set of the install's files and page template. */
 const usesHeld = new WeakMap<object, Map<string, SettingUses | null>>()
-const usesOf = (rows: object, theme: CompatTheme, page: CompatPage): SettingUses | null => {
+const usesOf = (rows: object, theme: CompatTheme, page: CompatPage, list: readonly StoredSection[]): SettingUses | null => {
   let byPage = usesHeld.get(rows)
   if (!byPage) usesHeld.set(rows, (byPage = new Map()))
   const name = page.suffix ? `${page.template}.${page.suffix}` : page.template
-  if (byPage.has(name)) return byPage.get(name) ?? null
+  /* The section files the page draws (a type the theme renamed is drawn from its own file). */
+  const sections = new Set<string>()
+  for (const s of list) for (const ext of [".storelib", ".liquid"]) sections.add(`sections/${theme.typeOf(s.type)}${ext}`)
+  const key = `${name}|${[...sections].sort().join(",")}`
+  if (byPage.has(key)) return byPage.get(key) ?? null
   const layout = layoutPathIn(theme.files, theme.templateLayout(page.template, page.suffix))
   const template = theme.files[`templates/${name}.liquid`] !== undefined ? `templates/${name}.liquid` : undefined
-  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), template) : null
-  byPage.set(name, uses)
+  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), { template, sections }) : null
+  byPage.set(key, uses)
   return uses
 }
 
@@ -354,7 +361,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles, ...(wordsFiles ?? {}) } : null), [sources, compatFiles, sourcesReady, wordsFiles])
   /* The theme for a set of settings, from the install's files. */
   const themeWith = (files: Record<string, string>, values: Record<string, unknown>) => {
-    const media = assetAddresses(files)
+    let media = mediaHeld.get(files)
+    if (!media) mediaHeld.set(files, (media = assetAddresses(files)))
     return themeOfInstall(files, values, {
       assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
       assetText: (name) => files[`shopify/assets/${name}`] ?? null,
@@ -830,6 +838,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (front() && front()!.key !== docKey) scrollY.current = 0
     /* Another page, kept loaded as it would be drawn now: brought forward, nothing drawn or loaded (KEPT PAGES). */
     if (front() && front()!.key !== docKey && !accountPath && slotsRef.current[1]?.key !== docKey && bringKept(docKey, list)) return
+    if (!isLive() && commitShown(list)) return
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
@@ -993,51 +1002,60 @@ export function CompatCanvas(props: CompatCanvasProps) {
     as it was drawn until the release's commit draws it by Liquid, and that
     drawing's styles are the ones already on screen, so nothing moves then.
   */
-  type CssPlan = { at: string; ok: boolean; base: object | null; shown: string[] }
+  /** `files`: the theme's files say only the layout's CSS reads it; otherwise the page drawn with values it could take said so. `drawn`: the layout's styles as the page on screen was drawn (for `base`); `shown`: as the frame shows them now. */
+  type CssPlan = { at: string; ok: boolean; files: boolean; base: object | null; drawn: string[]; shown: string[] }
   const cssPlans = useRef(new Map<string, CssPlan>())
   const cssLearning = useRef(new Set<string>())
+  /* The last value written as styles, for the release's commit (drawAndPatch, A COMMIT ALREADY ON SCREEN). */
+  const cssShown = useRef<{ plan: CssPlan; base: NonNullable<typeof drawnWith.current>; path: LeafPath; value: unknown } | null>(null)
   const layoutStylesWith = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => drawLayoutStyles(themeWith(files, values), drawnPage, list)?.map(canvasInsets) ?? null
-  const learnCss = (key: string, at: string, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown) => {
+  /* Read from the theme's files there and then (once per set of files and page); tried with values in the background, one drawing a task, when the files do not say. */
+  const learnCss = (key: string, at: string, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown): CssPlan | null => {
     const files = rowsRef.current
     const theme = base.theme as CompatTheme | null
-    if (cssLearning.current.has(key) || !files || !theme) return
+    if (cssLearning.current.has(key) || !files || !theme) return null
+    const plan = (ok: boolean, fromFiles: boolean): CssPlan => ({ at, ok, files: fromFiles, base: null, drawn: [], shown: [] })
+    let uses: SettingUses | null = null
+    try { uses = usesOf(files, theme, base.page, base.list) } catch { uses = null }
+    if (uses && onlyInCss(uses, path)) {
+      const known = plan(true, true)
+      cssPlans.current.set(key, known)
+      return known
+    }
+    const probes = probeValues(settingAt(theme.settingsSchema, path), value)
+    if (!probes?.length) {
+      cssPlans.current.set(key, plan(false, false))
+      return null
+    }
     cssLearning.current.add(key)
     const done = (ok: boolean) => {
-      cssPlans.current.set(key, { at, ok, base: null, shown: [] })
+      cssPlans.current.set(key, plan(ok, false))
       cssLearning.current.delete(key)
     }
-    const steps: (() => boolean | null)[] = []
+    /* The page drawn whole with the value it has, then with each the setting could take: only the layout's styles may differ. */
     const ahead: { page: { html: string; styles: string[] } | null } = { page: null }
-    steps.push(() => {
-      const uses = usesOf(files, theme, base.page)
-      if (uses && typeof path[1] === "string" && onlyInCss(uses, path[1])) return true
-      const probes = probeValues(settingAt(theme.settingsSchema, path), value)
-      if (!probes?.length) return false
-      /* The page drawn whole with the value it has, then with each the setting could take: only the layout's styles may differ. */
-      steps.push(() => {
-        const styles = layoutStylesWith(files, base.settings, base.page, base.list)
-        if (!styles) return false
-        ahead.page = { html: pagePure(files, base.settings, base.page, base.list), styles }
-        return null
-      })
-      for (const probe of probes) {
-        steps.push(() => {
-          const values = withLeaf(base.settings, path, probe)
-          const styles = layoutStylesWith(files, values, base.page, base.list)
-          if (!styles || !ahead.page) return false
-          return sameButStyles(ahead.page, { html: pagePure(files, values, base.page, base.list), styles }) ? null : false
-        })
-      }
-      steps.push(() => true)
+    const steps: (() => boolean | null)[] = [() => {
+      const styles = layoutStylesWith(files, base.settings, base.page, base.list)
+      if (!styles) return false
+      ahead.page = { html: pagePure(files, base.settings, base.page, base.list), styles }
       return null
-    })
+    }]
+    for (const probe of probes) {
+      steps.push(() => {
+        const values = withLeaf(base.settings, path, probe)
+        const styles = layoutStylesWith(files, values, base.page, base.list)
+        if (!styles || !ahead.page) return false
+        return sameButStyles(ahead.page, { html: pagePure(files, values, base.page, base.list), styles }) ? null : false
+      })
+    }
     const next = () => {
       let r: boolean | null
       try { r = steps.shift()!() } catch { r = false }
       if (r === null && steps.length) window.setTimeout(next, 0)
-      else done(r === true)
+      else done(r === null)
     }
     window.setTimeout(next, 0)
+    return null
   }
   /* A value of a setting only CSS reads, written as the layout's styles: false when it cannot be (the page is drawn as before). */
   const writeCss = (key: string, plan: CssPlan, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown, win: Window): boolean => {
@@ -1050,6 +1068,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const shown = layoutStylesWith(files, base.settings, base.page, base.list)
       if (!shown || typeof html !== "string" || !shown.every((s) => html.includes(s))) { plan.ok = false; return false }
       plan.base = base
+      plan.drawn = shown
       plan.shown = shown
     }
     const styles = layoutStylesWith(files, withLeaf(base.settings, path, value), base.page, base.list)
@@ -1059,12 +1078,50 @@ export function CompatCanvas(props: CompatCanvasProps) {
     cancelRedraw()
     if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
     plan.shown = styles
+    cssShown.current = { plan, base, path, value }
     liveThemeShown.current = null
     /* The page is not drawn again for this value, nor the next, until the finger lifts. */
     if (!held) {
       heldFor.current = propsThemeRef.current
       setHeld(base.settings)
     }
+    return true
+  }
+  /*
+    A COMMIT ALREADY ON SCREEN. The release's commit of a value written as
+    styles drew the whole page by Liquid again (350ms with the CPU slowed 4x
+    on Dawn) to find what the frame already shows. For a setting the theme's
+    files say only the layout's CSS reads, the page drawn with the committed
+    value is the page on screen with those styles in it, and that is what is
+    kept as drawn. One the page's drawings vouched for is drawn by Liquid as
+    before.
+  */
+  const commitShown = (list: StoredSection[]): boolean => {
+    const shown = cssShown.current
+    cssShown.current = null
+    const now = front()
+    const settingsNow = compatTheme ? settingsOfTheme.get(compatTheme) : undefined
+    if (!shown || !shown.plan.ok || !shown.plan.files || !now || !settingsNow || !compatTheme) return false
+    const { base } = shown
+    if (drawnWith.current !== base || base.page !== page || now.key !== docKey || !now.ready || accountPath || slotsRef.current[1]) return false
+    if (list.length !== base.list.length || list.some((s, i) => s !== base.list[i])) return false
+    const change = oneChange(base.settings, settingsNow)
+    if (!change || JSON.stringify(change.path) !== JSON.stringify(shown.path) || JSON.stringify(change.to) !== JSON.stringify(shown.value)) return false
+    const { drawn, shown: styles } = shown.plan
+    let html = now.lastHtml === undefined ? now.html : now.lastHtml
+    if (typeof html !== "string" || drawn.length !== styles.length) return false
+    const swap = new Map<string, string>()
+    for (let i = 0; i < drawn.length; i++) {
+      if (drawn[i] === styles[i]) continue
+      if (!html.includes(drawn[i])) return false
+      html = html.split(drawn[i]).join(styles[i])
+      swap.set(drawn[i], styles[i])
+    }
+    now.lastHtml = html
+    now.shape = { ...now.shape, styles: now.shape.styles.map((x) => swap.get(x) ?? x) }
+    now.stamp = stampRef.current
+    drawnWith.current = { settings: settingsNow, theme: compatTheme, page, list }
+    liveThemeShown.current = null
     return true
   }
   /* A theme value moved: written from the template when there is one, else left to the page's own drawing. */
@@ -1079,12 +1136,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const key = `${themeId(rowsRef.current ?? {})}|${pageIdOf(base.page)}|${JSON.stringify(change.path)}`
     const at = JSON.stringify(withLeaf(next, change.path, null))
     /* Only CSS reads it: the layout's styles, drawn alone. Not known yet: learned meanwhile, the page drawn as before. */
-    const plan = cssPlans.current.get(key)
-    if (!plan || plan.at !== at) {
-      learnCss(key, at, base, change.path, change.from)
-      return
-    }
-    if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) return
+    const known0 = cssPlans.current.get(key)
+    const plan = known0 && known0.at === at ? known0 : learnCss(key, at, base, change.path, change.from)
+    if (!plan) { if (cssLearning.current.has(key)) return }
+    else if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) return
     const known = themeTemplates.current.get(key)
     if (!known || known.at !== at) {
       learnTheme(key, at, base.settings, change.path, change.from, base.page, base.list)
@@ -1128,9 +1183,18 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }
   const themeFailedRef = useRef(themeFailed)
   themeFailedRef.current = themeFailed
-  /* Once the finger is up and its commit is in, nothing is held: the page is drawn with the committed settings. */
+  /*
+    Once the finger is up and its commit is in, the page is drawn with the
+    committed settings: held to them, not let go to the live layer's, until
+    the live layer has let go too. The live layer's copy is the last value it
+    finished drawing, which can be one the finger had passed: drawn with it,
+    the page showed that older value for a moment after the release and then
+    the committed one (round 36, a colour scheme dragged in the picker).
+  */
   useEffect(() => {
-    if (held && !isLive() && props.theme !== heldFor.current) setHeld(null)
+    if (!held || isLive() || props.theme === heldFor.current) return
+    if (held !== props.theme) setHeld(props.theme as Record<string, unknown>)
+    else if (settings === (props.theme as unknown)) setHeld(null)
   })
   /*
     A section's settings or blocks changed: that section, drawn again and

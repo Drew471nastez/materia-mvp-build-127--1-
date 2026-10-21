@@ -414,6 +414,9 @@ function defaultLocalePath(files: Record<string, string>, schema: boolean): stri
 /** See renderDocument: a container the page focused itself shows no focus ring. */
 export const FOCUS_RING_FIX = `<style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style>`
 
+/* A theme's default locale, its schema's locale and its settings schema, by the files object they were read from (CompatTheme's constructor). */
+const filesRead = new WeakMap<object, { locale: O | null; lang: string; schemaLocale: O | null; settingsSchema: O[] }>()
+
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
@@ -453,12 +456,23 @@ export class CompatTheme {
   readonly diagnostics = new Set<string>()
 
   constructor(public readonly files: Record<string, string>, public readonly settingsValues: O, private opts: CompatThemeOptions) {
-    const localePath = defaultLocalePath(files, false)
-    this.locale = parseJsonLoose(files[localePath ?? ""]) as O | null
-    this.lang = localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en"
-    this.schemaLocale = parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null
-    const ss = parseJsonLoose(files["config/settings_schema.json"])
-    this.settingsSchema = Array.isArray(ss) ? (ss as O[]) : []
+    /* Read once per files object: only ever read, never written (the builder makes a theme per value a slider passes). */
+    let read = filesRead.get(files)
+    if (!read) {
+      const localePath = defaultLocalePath(files, false)
+      const ss = parseJsonLoose(files["config/settings_schema.json"])
+      read = {
+        locale: parseJsonLoose(files[localePath ?? ""]) as O | null,
+        lang: localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en",
+        schemaLocale: parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null,
+        settingsSchema: Array.isArray(ss) ? (ss as O[]) : [],
+      }
+      filesRead.set(files, read)
+    }
+    this.locale = read.locale
+    this.lang = read.lang
+    this.schemaLocale = read.schemaLocale
+    this.settingsSchema = read.settingsSchema
   }
 
   // ── Reading files ──
