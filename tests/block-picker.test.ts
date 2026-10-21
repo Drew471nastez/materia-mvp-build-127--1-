@@ -51,10 +51,10 @@ function main() {
     const g = previewBlock({ type: "group", label: "Two columns", preset: { name: "Two columns", settings: {}, blocks: [{ id: "a", type: "text", settings: { text: "First" } }, { id: "b", type: "text", settings: {} }] } }, { fields: [] } as never)
     check("a preset's blocks come with it, with ids of their own", g.blocks?.length === 2 && g.blocks.every((x) => x.id.startsWith(PREVIEW_BLOCK_ID)) && g.blocks[0].settings.text === "First", g)
 
-    const section: SectionInstance = { id: "s1", type: "blocks_section", settings: { scheme: "dark" }, hidden: true, blocks: [{ id: "x", type: "heading", settings: {} }, { id: "grp", type: "group", settings: {}, blocks: [{ id: "y", type: "text", settings: {} }] }, { id: "z", type: "button", settings: {} }] }
+    const section: SectionInstance = { id: "s1", type: "blocks_section", name: "Section", settings: { scheme: "dark" }, hidden: true, blocks: [{ id: "x", type: "heading", settings: {} }, { id: "grp", type: "group", settings: {}, blocks: [{ id: "y", type: "text", settings: {} }] }, { id: "z", type: "button", settings: {} }] }
     const at1 = sectionWith(section, [], 1, b)
     check("the block lands at the place asked for among the section's own", at1.blocks?.map((x) => x.id).join() === `x,${PREVIEW_BLOCK_ID},grp,z`, at1.blocks?.map((x) => x.id))
-    check("  last when no place is given", sectionWith(section, [], undefined, b).blocks?.at(-1)?.id === PREVIEW_BLOCK_ID)
+    check("  last when no place is given", (sectionWith(section, [], undefined, b).blocks ?? []).slice(-1)[0]?.id === PREVIEW_BLOCK_ID)
     const inner = sectionWith(section, ["grp"], 0, b)
     check("  inside a group, at its level", inner.blocks?.[1].blocks?.map((x) => x.id).join() === `${PREVIEW_BLOCK_ID},y`)
     check("drawn under an id of its own, shown, with the section's own settings (its scheme)", at1.id !== section.id && at1.id.includes(section.id) && at1.hidden === false && at1.settings.scheme === "dark")
