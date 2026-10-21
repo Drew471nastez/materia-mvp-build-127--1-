@@ -31,6 +31,26 @@
  *               commit is in, and whether any frame after release showed
  *               another (a jump back)
  *
+ * Round 35, the bundle before the round and after it, interleaved, two
+ * rounds each, on a shared machine (load 5 on 4 cores): latency from a
+ * value under the finger to the page showing it, p50/p95 in ms, each round.
+ * The frame is in the editor's process here, so its work is the editor's;
+ * "shown" is bounded by the pointer, which moves every 8ms and passes 30 to
+ * 90 values.
+ *
+ *                         1x before           1x after          4x before             4x after
+ *   header height         525/671, 477/1085   66/144, 33/96     1906/3802, 1919/3847  147/310, 181/390
+ *     longest task        475, 653ms          118, 102ms        2210, 2076ms          402, 297ms
+ *     renders, moving     1051, 1347          52, 64            1593, 1540            64, 58
+ *   header top padding    324/510, 330/648    125/561, 72/374   1671/2212, 1624/3315  89/642, 121/622
+ *   announcement height   79/177, 87/201      37/80, 28/51      289/471, 284/504      98/182, 107/193
+ *     renders, moving     5347, 4462          138, 150          6030, 5900            132, 127
+ *   section padding       100/181, 88/191     65/135, 39/137    249/424, 227/330      157/310, 151/393
+ *   type heading          40/130, 43/108      33/113, 29/111    2049/2905, 1848/2910  340/531, 1190/1666
+ *   announcement colour   26/219, 15/98       14/51, 8/29       72/194, 63/212        46/142, 43/144
+ *   theme spacing         283/587, 401/825    199/739, 163/498  1198/1941, 1546/1891  822/1738, 760/1976
+ *   theme button radius   313/562, 264/524    200/353, 161/322  1069/1881, 1459/2654  857/1263, 677/1050
+ *
  *   npx tsx scripts/check-compat-live-edit.ts <dawn.zip>
  *   CPU=4                 only the slowed run
  *   EDITOR_BUNDLE=<file>  reuse a bundle (one from another commit, to compare)

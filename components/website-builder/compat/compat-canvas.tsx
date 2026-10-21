@@ -894,17 +894,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
   drawAndPatchRef.current = drawAndPatch
 
   /*
-    A section's settings or blocks changed: that section, drawn again and
-    swapped in. Only into a page that is ready: a change made while the page
-    is loading is sent when it says it is (the "ready" message below).
-
-    WHILE A FINGER IS DOWN (round 35), a value is drawn from the section's
-    template for the one setting it moves, once that is learned
-    (lib/storelib-theme/compat/live-draw.ts). The change goes to the frame
-    named (editBetween), so the frame writes it without parsing the section. When the finger lifts the section
-    is drawn by Liquid as always, and the frame keeps that.
-  */
-  /*
     ═══════════════════════════════════════════════════════════════════════
      A THEME VALUE UNDER A FINGER, WRITTEN WHERE THE PAGE PRINTS IT
     ═══════════════════════════════════════════════════════════════════════
@@ -1030,6 +1019,18 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     if (held && !isLive() && props.theme !== heldFor.current) setHeld(null)
   })
+  /*
+    A section's settings or blocks changed: that section, drawn again and
+    swapped in. Only into a page that is ready: a change made while the page
+    is loading is sent when it says it is (the "ready" message below).
+
+    WHILE A FINGER IS DOWN (round 35), a value is drawn from the section's
+    template for the one setting it moves, once that is learned
+    (lib/storelib-theme/compat/live-draw.ts). The change goes to the frame
+    as a cut, and named (editBetween) when it is one the frame can write
+    without parsing the section. When the finger lifts the section is drawn
+    by Liquid as always, and the frame keeps that.
+  */
   const templates = useRef(new Map<string, { at: string; t: LiveTemplate | null }>())
   const learningNow = useRef(new Set<string>())
   /* A section drawn from its template is drawn by Liquid when the finger pauses, and a template that disagrees is put aside (as the theme's, above). */
