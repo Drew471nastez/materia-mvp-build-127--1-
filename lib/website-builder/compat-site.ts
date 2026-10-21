@@ -347,6 +347,17 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   const readCatalog = () => catalogCards(admin as never, creator.creatorId).catch(() => [])
+  /*
+    Asked beside the pages, the shop and the files rather than after them:
+    whether shipped products are on, the store's return settings when they
+    are, and the store's currency. None of them waits on the reads below.
+  */
+  const physicalRead = isPhysicalCommerceEnabled().catch(() => false)
+  const returnFactsRead = physicalRead.then((on) => (on ? storeReturnFacts(admin, creator.creatorId) : ""))
+  const currencyRead = cachedStoreCurrency(creator.creatorId)
+  /* Awaited below; a failure is thrown there, never left unhandled meanwhile. */
+  void returnFactsRead.catch(() => {})
+  void currencyRead.catch(() => {})
   const [pageRows, products, catalog, collections, menus, , store] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
@@ -370,9 +381,9 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     if (Array.isArray(list) && list.length) pages[p.page_key] = list
   }
   /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
-  const physical = await isPhysicalCommerceEnabled().catch(() => false)
+  const physical = await physicalRead
   /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds). */
-  const returnFacts = physical ? await storeReturnFacts(admin, creator.creatorId) : ""
+  const returnFacts = await returnFactsRead
   const policies = POLICY_HANDLES.flatMap((handle) => {
     const body = policyBodyOf((pages[handle] ?? []) as never)
     if (isBlankHtml(body)) return []
@@ -387,7 +398,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     : null
 
   /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
-  const currency = await cachedStoreCurrency(creator.creatorId)
+  const currency = await currencyRead
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,

@@ -255,7 +255,7 @@ async function main() {
     check("the product page counts on the server and hands both", page.includes("salesStanding(createAdminClient(), productId)") && (page.match(/sales=\{salesView\}/g) ?? []).length === 2 && (page.match(/soldOut=\{salesView\?\.soldOut \?\? false\}/g) ?? []).length === 2)
     check("and tells search engines it is out of stock", page.includes("soldOut(product) || salesView?.soldOut"))
     const shop = read("lib/website-builder/shop-products.ts")
-    check("the website's cards: Sold out, no checkout, every option off", shop.includes("withSalesLimits(db, rows, stocked)") && /tag: "Sold out", checkout_url: ""/.test(shop))
+    check("the website's cards: Sold out, no checkout, every option off", /* Changed on purpose (round 36): the standings are read beside the card's other reads, then laid over the stocked cards. */ shop.includes("salesStandingsOf(db, rows)") && shop.includes("standings ? withStandings(stocked, standings) : stocked") &&/tag: "Sold out", checkout_url: ""/.test(shop))
     check("the creator page's cards", read("app/(marketing)/u/[username]/page.tsx").includes("salesSoldOut(standings.get(p.id)) ? { sold_out: true }"))
     check("Explore and its category pages", read("app/(marketing)/explore/page.tsx").includes("salesSoldOut(standings.get(product.id))") && read("app/(marketing)/explore/[category]/page.tsx").includes("salesSoldOut(standings.get(product.id))"))
     check("the card says Sold out", read("components/explore/product-card.tsx").includes("{product.sold_out && (") && read("components/storefront/storefront-product-card.tsx").includes("sold_out: product.sold_out ?? null"))

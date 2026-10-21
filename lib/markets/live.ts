@@ -149,9 +149,10 @@ export async function marketPricing(creatorId: string, marketId: string | null |
  * is served once more while it is read again.
  */
 const LANGUAGES_SHAPE = "v2-home-country"
-export function siteLanguages(creatorId: string): Promise<SiteLanguages> {
+/* Once per request (React's cache): the page, its metadata and the localizer all ask, side by side. */
+export const siteLanguages = cache(function siteLanguages(creatorId: string): Promise<SiteLanguages> {
   return unstable_cache(() => readLanguages(creatorId), ["site-languages", LANGUAGES_SHAPE, creatorId], { tags: [localizationTag(creatorId)], revalidate: 300 })().catch(() => NONE)
-}
+})
 
 const PRODUCT_FIELDS = ["title", "description", "seo_title", "seo_description"] as const
 
@@ -186,10 +187,12 @@ export function siteLocalizer(creatorId: string, locale: string | null | undefin
 }
 
 const loadLocalizer = cache(async function loadLocalizer(creatorId: string, locale: string, market: string, given: string): Promise<Localizer | null> {
-  /* The store's own currency (Settings › Country & Currency): what its prices are in, what a market converts from and what checkout charges. */
-  const base = given || (await cachedStoreCurrency(creatorId))
-  /* No language asked for: the website's own, which still has its shop words when it is not written in English (below). */
-  const langs = await siteLanguages(creatorId)
+  /*
+    The store's own currency (Settings › Country & Currency): what its prices are in, what a market converts from and what checkout charges.
+    No language asked for: the website's own, which still has its shop words when it is not written in English (below).
+    Asked together: neither waits on the other.
+  */
+  const [base, langs] = await Promise.all([given || cachedStoreCurrency(creatorId), siteLanguages(creatorId)])
   const code = locale ? (langs.others.find((l) => l.toLowerCase() === locale.toLowerCase()) ?? null) : null
   const pricing = market ? await marketPricing(creatorId, market, base) : null
   /*

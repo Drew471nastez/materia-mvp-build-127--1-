@@ -1235,7 +1235,7 @@ section("A form that says it worked, did")
     // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /* Changed on purpose (round AB): the website in another language. */ /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)?(, language)?(, words: localizer\?\.words, display: localizer\?\.display)?(, currency: await cachedStoreCurrency\(site\.creatorId\))? \}\}/.test(read(RENDER_SITE)) &&
+      /* Changed on purpose (round AB): the website in another language. */ /* Changed on purpose (round 36): the currency asked beside the language, so `currency` alone. */ /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)?(, language)?(, words: localizer\?\.words, display: localizer\?\.display)?(, currency(: await cachedStoreCurrency\(site\.creatorId\))?)? \}\}/.test(read(RENDER_SITE)) &&
       /* And the store's currency. */ /storefront=\{\{ creatorId, installId(, currency: await cachedStoreCurrency\(creatorId\))? \}\}/.test(read(RENDER_SITE)),
   )
 

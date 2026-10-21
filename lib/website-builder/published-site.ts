@@ -158,7 +158,11 @@ interface NameMatch {
   displayName: string
   /** The creator's slug, which a site's default title names. Optional: an entry cached before it was added has none. */
   slug?: string | null
+  /** The creator's account (creators.user_id), so a read that needs it does not ask for it again. Optional, as above. */
+  userId?: string | null
 }
+
+const userIdOf = (c: { user_id?: unknown }) => (typeof c.user_id === "string" && c.user_id ? c.user_id : null)
 
 /**
  * A name to a creator: profile username first, then creator slug. Both are
@@ -199,7 +203,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
       /* The profile's name first: `creators.display_name` is a copy written
          when the account was made and edited by nothing since, so it held
          the name a renamed creator no longer uses (lib/account/identity). */
-      return { creatorId: c.id, displayName: p.display_name || c.display_name || p.username || name, slug: c.slug ?? null }
+      return { creatorId: c.id, displayName: p.display_name || c.display_name || p.username || name, slug: c.slug ?? null, userId: userIdOf(creator as { user_id?: unknown }) }
     }
   }
 
@@ -212,7 +216,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   if (bySlug) {
     if (isBanned(bySlug as { banned_at?: string | null })) return null
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
-    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
+    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null, userId: userIdOf(bySlug as { user_id?: unknown }) }
   }
 
   /*
@@ -228,7 +232,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
     if (creator) {
       if (isBanned(creator as { banned_at?: string | null })) return null
       const c = creator as { id: string; slug?: string | null; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
+      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null, userId: userIdOf(creator as { user_id?: unknown }) }
     }
   }
   return null
@@ -239,10 +243,11 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
  * above. The product page on a site needs only this: the address claims an
  * owner and the product either belongs to them or does not.
  */
-export async function creatorByName(name: string): Promise<NameMatch | null> {
+/* Once per request too (React's cache): a page and its metadata are drawn side by side and both ask first thing. */
+export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
   return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
-}
+})
 
 /**
  * Where a name that no longer exists went, if anywhere.
@@ -285,6 +290,15 @@ type BuiltLookup = { kind: "site"; site: PublishedSite } | Exclude<SiteLookup, {
 async function buildSite(creatorId: string, displayName: string, pointer: LivePointer | null = null): Promise<BuiltLookup> {
   const admin = createAdminClient()
 
+  /*
+    WHAT NEEDS ONLY THE CREATOR, OR ONLY THE RELEASE, IS ASKED WITH THE
+    INSTALL: the creator's public facts, and the live release's manifest
+    (the pointer was read from the same published install). Each used to
+    wait for the read before it.
+  */
+  const profilePromise = creatorFacts(admin as never, creatorId)
+  const manifestPromise = pointer ? releaseManifest(pointer.releaseId) : Promise.resolve(null)
+
   /* Thrown, not "unpublished", when the database did not answer: that was cached for an hour as "Coming soon". */
   const install = await siteRead("published install", (signal) => admin
     .from("store_theme_installs")
@@ -306,8 +320,12 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
     .select("page_key, sections, draft_sections")
     .eq("install_id", row.id)
     .abortSignal(signal))
-  /* Only a release of the install that is published now. */
-  const manifest = pointer && pointer.installId === row.id ? await releaseManifest(pointer.releaseId) : null
+  void pagesPromise.catch(() => {})
+  /* Only a release of the install that is published now. Without one, the saved section files are asked for at once. */
+  const rowsSources = pointer && pointer.installId === row.id ? null : sectionSources(admin as never, row.id)
+  /* Awaited below; a failure is thrown there, never left unhandled while the menus are read. */
+  void rowsSources?.catch(() => {})
+  const manifest = pointer && pointer.installId === row.id ? await manifestPromise : null
   const releaseSources = manifest ? await releaseFiles(manifest).then((files) => (files ? sourcesFromFiles(files) : null)) : null
   /* Drawn from the release only when all of it could be read. */
   const release = manifest && releaseSources ? manifest : null
@@ -333,8 +351,8 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
   /* The saved section files first: a creator's own section is cleaned by
      the schema its file declares, below, not only by the built-in ones. */
   const [sources, profile] = await Promise.all([
-    releaseSources ?? sectionSources(admin as never, row.id),
-    creatorFacts(admin as never, creatorId),
+    releaseSources ?? rowsSources ?? sectionSources(admin as never, row.id),
+    profilePromise,
   ])
   const ownSchemas = schemaLookupFrom(sources)
 
@@ -672,11 +690,8 @@ const resolveSite = cache(async function resolveSite(name: string): Promise<Shop
 
 async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 
-  const match = await unstable_cache(
-    () => lookUpName(lower),
-    ["site-name", lower],
-    { revalidate: NAME_TTL },
-  )()
+  /* The name lookup above, shared with the metadata's in the same request. */
+  const match = await creatorByName(lower)
 
   if (!match) {
     const to = await unstable_cache(() => renamedTo(lower), ["site-renamed", lower], { revalidate: NAME_TTL })()
@@ -689,6 +704,29 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     under the release's id: a release never changes, so the key says
     exactly what was drawn. No release: the key of old, and the rows.
   */
+  /*
+    THE SHOP IS ASKED FOR NOW, beside the site rather than after it. It needs
+    only the creator, and its reads (the products, their options, stock and
+    stars) took as long again as the whole site did, one after the other.
+    Read for nothing only when nothing is published, and then held for its
+    minute like any other shop read.
+  */
+  const shop = Promise.all([
+    unstable_cache(
+      () => shopProducts(createAdminClient() as never, match.creatorId),
+      ["shop-products", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+    /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
+    unstable_cache(
+      () => publishedProductCount(createAdminClient() as never, match.creatorId),
+      ["shop-count", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+  ])
+  /* Never an unhandled rejection when the site is not there to wait for it. */
+  void shop.catch(() => {})
+
   const pointer = await livePointer(match.creatorId, [creatorSiteTag(match.creatorId)])
   const releaseId = pointer?.releaseId ?? null
   const found = await unstable_cache(
@@ -712,20 +750,9 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
    * from the two. Drawing is arithmetic — no database, and the compiler
    * keeps its own cache of the files — so this costs single-digit
    * milliseconds and buys a shop that is never more than a minute behind.
+   * Asked above, beside the site.
    */
-  const [products, productCount] = await Promise.all([
-    unstable_cache(
-      () => shopProducts(createAdminClient() as never, match.creatorId),
-      ["shop-products", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
-    )(),
-    /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
-    unstable_cache(
-      () => publishedProductCount(createAdminClient() as never, match.creatorId),
-      ["shop-count", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
-    )(),
-  ])
+  const [products, productCount] = await shop
 
   return { kind: "site", site: found.site, products, productCount }
 }
