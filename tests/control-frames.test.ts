@@ -113,7 +113,8 @@ function main() {
   )
   check(
     "selection is NOT deferred",
-    /selectedSectionId=\{selectedSectionId\}/.test(editor),
+    /* Changed on purpose (round 36): the canvas is handed the pick itself, set at once, while the panel follows in a transition (pickSection) */
+    /selectedSectionId=\{shownSectionId\}/.test(editor) && /setPicked\(\{ id: sectionId, from: selectedPanelNow\.current \}\)\s*\n\s*startTransition\(/.test(editor),
     "the tap that selects a section was on the canvas, so the canvas has to answer it at once",
   )
 

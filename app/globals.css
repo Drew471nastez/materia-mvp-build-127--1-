@@ -7508,6 +7508,30 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
   --sl-vh: 1cqh;
   --sl-vw: 1cqw;
 }
+/*
+  A SIZE SWITCH GLIDING (round 36, lib/website-builder/canvas-switch.ts,
+  playCardGlide): the card is the larger of its two boxes, in the page's own
+  colour, with the page laid out once at its new size in the middle; the
+  card's clip moves the edge. Set by a mark and its numbers, so the card's
+  own style stays React's.
+*/
+.wb-canvas-frame[data-wb-glide] {
+  width: var(--wb-glide-w) !important;
+  height: var(--wb-glide-h) !important;
+  max-width: none !important;
+  max-height: none !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--wb-glide-bg) !important;
+}
+.wb-canvas-frame[data-wb-glide] > #wb-preview-root {
+  width: var(--wb-glide-w) !important;
+  height: var(--wb-glide-h) !important;
+  margin-left: var(--wb-glide-x) !important;
+  margin-top: var(--wb-glide-y) !important;
+}
 
 /* A popover or dialog a section opens, opened in place rather than in the
    browser's top layer (components/website-builder/canvas-top-layer.tsx).
