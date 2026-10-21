@@ -561,6 +561,46 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
         expected: (v) => `${v}px`,
       }, () => drag(/^Corner radius/, 0.9))
     }
+    /* ── Theme › Colors › Scheme 1 › Background, dragged in the picker: the scheme's variables on the page's root (round 36) ── */
+    if (!ONLY || ONLY.test("theme scheme colour")) {
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-compat-theme-group] [data-panel-back] button")][0]?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Theme")?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => /^colou?rs$/i.test((b.textContent ?? "").trim()))?.click())
+      await sleep(800)
+      const chip = await page.evaluate(() => {
+        for (const b of document.querySelectorAll<HTMLElement>("[data-compat-theme-group] button[aria-expanded], [data-compat-theme-group] button[aria-label='Pick color']")) {
+          if (b.hasAttribute("data-compat-scheme")) continue
+          const row = b.closest("div")?.parentElement
+          if (!/^\s*Background(?! gradient)/i.test(row?.textContent ?? "")) continue
+          b.scrollIntoView({ block: "center" })
+          const r = b.getBoundingClientRect()
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+        }
+        return null
+      })
+      if (chip) {
+        await page.mouse.click(chip.x, chip.y)
+        await sleep(500)
+        const box = await page.evaluate(() => { const b = document.querySelector(".cursor-crosshair[data-sheet-no-drag]"); if (!b) return null; const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height } })
+        if (box) {
+          await gesture({ name: "theme scheme colour", select: null, label: /x/, read: `function () { return getComputedStyle(document.documentElement).getPropertyValue("--color-background").trim() }`, expected: (v) => v, byChange: true }, async () => {
+            await page.evaluate(() => { const w = window as unknown as { __vals: { t: number; v: string }[]; __mv: (e: PointerEvent) => void }; w.__vals = []; w.__mv = (e) => { if (e.buttons === 1) w.__vals.push({ t: performance.timeOrigin + performance.now(), v: "" }) }; document.addEventListener("pointermove", w.__mv, true) })
+            await page.mouse.move(box.left + box.w * 0.2, box.top + box.h * 0.2)
+            await page.mouse.down()
+            for (let k = 0; k <= 60; k++) {
+              const f = k / 60
+              await page.mouse.move(box.left + box.w * (0.2 + 0.6 * f), box.top + box.h * (0.2 + 0.5 * Math.sin(f * Math.PI)))
+              await sleep(8)
+            }
+            await page.mouse.up()
+            return page.evaluate(() => { const w = window as unknown as { __vals: { t: number; v: string }[]; __mv: (e: PointerEvent) => void }; document.removeEventListener("pointermove", w.__mv, true); return w.__vals })
+          })
+        } else expect(false, "the scheme's colour picker opened")
+        await page.keyboard.press("Escape")
+      } else expect(false, "the first colour scheme has its Background chip in the sidebar")
+    }
     if (errors.length) console.log(`  page errors: ${errors.slice(0, 3).join(" | ")}`)
     report.errors = errors
     report.isolatedFrame = isolated
@@ -638,6 +678,12 @@ async function main() {
     if (typed) expect(typed.latencyP95 !== null && typed.latencyP95 <= (slow ? 120 : 50), `${cpu}x typing: each key on the page soon after (p95)`, typed.latencyP95)
     const colour = r["announcement colour"]
     if (colour) expect(colour.updatesPerSecond >= (slow ? 15 : 30), `${cpu}x announcement colour: the page follows the picker`, colour.updatesPerSecond)
+    const scheme = r["theme scheme colour"]
+    if (scheme) {
+      expect(scheme.updatesPerSecond >= (slow ? 15 : 30), `${cpu}x theme scheme colour: the page follows the picker`, scheme.updatesPerSecond)
+      expect(scheme.editorRenders >= 1 && scheme.editorRenders <= 3, `${cpu}x theme scheme colour: the editor renders for the commit, not per move`, scheme.editorRenders)
+      expect(scheme.jumped.length === 0, `${cpu}x theme scheme colour: once released the page shows the last colour, with no jump`, scheme.jumped.slice(0, 4))
+    }
   }
   console.log(`\n${broken ? `${broken} over budget` : "all within budget"}`)
   process.exit(broken ? 1 : 0)

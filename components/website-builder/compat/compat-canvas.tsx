@@ -49,8 +49,9 @@ import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-the
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
-import { drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
-import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
+import { drawLayoutStyles, drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
+import { isCompatSource, splitCompatFile, type CompatPage, type CompatTheme } from "@/lib/storelib-theme/compat/theme"
+import { layoutPathIn, onlyInCss, probeValues, sameButStyles, settingAt, settingUses, styleEdits, type SettingUses } from "@/lib/storelib-theme/compat/theme-css"
 import { cutBetween, editBetween, fillTemplate, learning, oneChange, placeEdits, placesOf, templateCut, withLeaf, type LeafPath, type LiveTemplate, type Place } from "@/lib/storelib-theme/compat/live-draw"
 import type { CollectionLike, MenuLinkLike, SiteI18n } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
@@ -249,6 +250,20 @@ const pageIdOf = (p: object) => {
   let id = pageIds.get(p)
   if (!id) pageIds.set(p, (id = ++pageCount))
   return id
+}
+
+/* The theme's reads of its settings (theme-css.ts settingUses), once per set of the install's files and page template. */
+const usesHeld = new WeakMap<object, Map<string, SettingUses | null>>()
+const usesOf = (rows: object, theme: CompatTheme, page: CompatPage): SettingUses | null => {
+  let byPage = usesHeld.get(rows)
+  if (!byPage) usesHeld.set(rows, (byPage = new Map()))
+  const name = page.suffix ? `${page.template}.${page.suffix}` : page.template
+  if (byPage.has(name)) return byPage.get(name) ?? null
+  const layout = layoutPathIn(theme.files, theme.templateLayout(page.template, page.suffix))
+  const template = theme.files[`templates/${name}.liquid`] !== undefined ? `templates/${name}.liquid` : undefined
+  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), template) : null
+  byPage.set(name, uses)
+  return uses
 }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
@@ -963,6 +978,95 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     window.setTimeout(next, 0)
   }
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A THEME VALUE THAT ONLY CSS READS (round 36)
+    ═══════════════════════════════════════════════════════════════════════
+    A setting printed only in the layout's own <style> blocks (Dawn's
+    section spacing, its button radius, a colour scheme's colours) is drawn
+    for each value as the layout alone, no section and no content
+    (page.ts drawLayoutStyles), and the styles that changed go to the frame,
+    which writes them into the rules on the page (canvas-bridge.ts "edits").
+    Which settings those are is read from the theme's files, or from the
+    page drawn with values the setting could take, once per setting, one
+    drawing a task (lib/storelib-theme/compat/theme-css.ts). The page is held
+    as it was drawn until the release's commit draws it by Liquid, and that
+    drawing's styles are the ones already on screen, so nothing moves then.
+  */
+  type CssPlan = { at: string; ok: boolean; base: object | null; shown: string[] }
+  const cssPlans = useRef(new Map<string, CssPlan>())
+  const cssLearning = useRef(new Set<string>())
+  const layoutStylesWith = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => drawLayoutStyles(themeWith(files, values), drawnPage, list)?.map(canvasInsets) ?? null
+  const learnCss = (key: string, at: string, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown) => {
+    const files = rowsRef.current
+    const theme = base.theme as CompatTheme | null
+    if (cssLearning.current.has(key) || !files || !theme) return
+    cssLearning.current.add(key)
+    const done = (ok: boolean) => {
+      cssPlans.current.set(key, { at, ok, base: null, shown: [] })
+      cssLearning.current.delete(key)
+    }
+    const steps: (() => boolean | null)[] = []
+    const ahead: { page: { html: string; styles: string[] } | null } = { page: null }
+    steps.push(() => {
+      const uses = usesOf(files, theme, base.page)
+      if (uses && typeof path[1] === "string" && onlyInCss(uses, path[1])) return true
+      const probes = probeValues(settingAt(theme.settingsSchema, path), value)
+      if (!probes?.length) return false
+      /* The page drawn whole with the value it has, then with each the setting could take: only the layout's styles may differ. */
+      steps.push(() => {
+        const styles = layoutStylesWith(files, base.settings, base.page, base.list)
+        if (!styles) return false
+        ahead.page = { html: pagePure(files, base.settings, base.page, base.list), styles }
+        return null
+      })
+      for (const probe of probes) {
+        steps.push(() => {
+          const values = withLeaf(base.settings, path, probe)
+          const styles = layoutStylesWith(files, values, base.page, base.list)
+          if (!styles || !ahead.page) return false
+          return sameButStyles(ahead.page, { html: pagePure(files, values, base.page, base.list), styles }) ? null : false
+        })
+      }
+      steps.push(() => true)
+      return null
+    })
+    const next = () => {
+      let r: boolean | null
+      try { r = steps.shift()!() } catch { r = false }
+      if (r === null && steps.length) window.setTimeout(next, 0)
+      else done(r === true)
+    }
+    window.setTimeout(next, 0)
+  }
+  /* A value of a setting only CSS reads, written as the layout's styles: false when it cannot be (the page is drawn as before). */
+  const writeCss = (key: string, plan: CssPlan, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown, win: Window): boolean => {
+    const files = rowsRef.current
+    if (!files) return false
+    if (plan.base !== base) {
+      /* What the frame holds: the layout's styles as the page on screen was drawn, every one of them found in its markup. */
+      const onScreen = front()
+      const html = onScreen ? (onScreen.lastHtml === undefined ? onScreen.html : onScreen.lastHtml) : null
+      const shown = layoutStylesWith(files, base.settings, base.page, base.list)
+      if (!shown || typeof html !== "string" || !shown.every((s) => html.includes(s))) { plan.ok = false; return false }
+      plan.base = base
+      plan.shown = shown
+    }
+    const styles = layoutStylesWith(files, withLeaf(base.settings, path, value), base.page, base.list)
+    const edits = styles ? styleEdits(plan.shown, styles) : null
+    if (!styles || !edits) { plan.ok = false; return false }
+    /* A drawing of an older value waiting for its turn would put that value back over this one. */
+    cancelRedraw()
+    if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    plan.shown = styles
+    liveThemeShown.current = null
+    /* The page is not drawn again for this value, nor the next, until the finger lifts. */
+    if (!held) {
+      heldFor.current = propsThemeRef.current
+      setHeld(base.settings)
+    }
+    return true
+  }
   /* A theme value moved: written from the template when there is one, else left to the page's own drawing. */
   const applyLiveTheme = (overlay: Record<string, unknown>) => {
     const base = drawnWith.current
@@ -974,6 +1078,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* By the theme's files, not the theme object: a value drawn by Liquid while the template was being learned is a new theme object with the same files. */
     const key = `${themeId(rowsRef.current ?? {})}|${pageIdOf(base.page)}|${JSON.stringify(change.path)}`
     const at = JSON.stringify(withLeaf(next, change.path, null))
+    /* Only CSS reads it: the layout's styles, drawn alone. Not known yet: learned meanwhile, the page drawn as before. */
+    const plan = cssPlans.current.get(key)
+    if (!plan || plan.at !== at) {
+      learnCss(key, at, base, change.path, change.from)
+      return
+    }
+    if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) return
     const known = themeTemplates.current.get(key)
     if (!known || known.at !== at) {
       learnTheme(key, at, base.settings, change.path, change.from, base.page, base.list)
@@ -1009,6 +1120,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (typeof key === "string" && key) {
       const known = themeTemplates.current.get(key)
       if (known) themeTemplates.current.set(key, { ...known, t: null, places: null })
+      const plan = cssPlans.current.get(key)
+      if (plan) plan.ok = false
     }
     liveThemeShown.current = null
     setHeld(null)

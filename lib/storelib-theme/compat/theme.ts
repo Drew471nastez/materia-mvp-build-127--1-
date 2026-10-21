@@ -1255,6 +1255,29 @@ export class CompatTheme {
     return { headStyles, headLinks, htmlAttrs, bodyAttrs, wrappers: { header: ancestorsOf(body, MARK("header")), content: ancestorsOf(body, MARK("content")), footer: ancestorsOf(body, MARK("footer")) } }
   }
 
+  /**
+   * The layout drawn without its sections and without the page's content:
+   * what it prints of its own (its <style> blocks of variables and colour
+   * schemes among it), as renderDocument draws it, before finish(). The
+   * builder's canvas writes these styles while a theme setting moves under a
+   * finger (compat-canvas.tsx, A THEME VALUE THAT ONLY CSS READS); null when
+   * the layout cannot be read.
+   */
+  layoutAlone(ctx: Ctx, layout?: string): string | null {
+    const path = (layout && layout !== "theme" ? this.fileFor("layout", layout) : null) ?? this.fileFor("layout", "theme")
+    const tree = path ? this.tree(path) : null
+    if (!tree) return null
+    const c = ctx.child({ content_for_layout: "" })
+    const env = { ...c.env, sections: () => "", section: () => "" }
+    const cc = new Ctx(c.globals, env, { registers: c.registers, steps: c.steps, out: c.out })
+    cc.registers.drawnIds = new Set<string>()
+    try {
+      return this.finish(renderTree(tree, cc))
+    } catch {
+      return null
+    }
+  }
+
   /** The font stylesheets the theme's font settings need. */
   fontStylesheets(ctx: Ctx): string[] {
     const fonts = Object.values((ctx.globals.settings ?? {}) as O).filter((v) => v && typeof v === "object" && typeof (v as O).family === "string" && "fallback_families" in (v as O)) as O[]

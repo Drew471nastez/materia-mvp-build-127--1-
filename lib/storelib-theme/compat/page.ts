@@ -197,6 +197,20 @@ export function withoutVendorTraces(html: string): string {
   })
 }
 
+/**
+ * The text of each <style> the page's layout prints by itself (its sections
+ * and the page's content left out), as drawPage leaves it: what a theme
+ * setting that only the layout's CSS reads changes (compat-canvas.tsx, A
+ * THEME VALUE THAT ONLY CSS READS). Null when the layout cannot be drawn.
+ */
+export function drawLayoutStyles(theme: CompatTheme, page: CompatPage, sections: readonly StoredSection[]): string[] | null {
+  const layout = theme.templateLayout(page.template, page.suffix)
+  if (layout === "none") return null
+  const html = theme.layoutAlone(pageContextFor(theme, page, sections), layout)
+  if (html === null) return null
+  return [...withoutVendorTraces(html).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)].map((m) => m[1])
+}
+
 /** One section, wrapped as on Shopify, for the section rendering API and for the builder's live edits. */
 export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: string): { html: string; errors: string[] } {
   /* An Overlay group section is drawn as a section of the theme's group it came from. */
