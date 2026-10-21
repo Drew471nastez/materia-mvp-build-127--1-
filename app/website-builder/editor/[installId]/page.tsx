@@ -3564,14 +3564,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       (and the desktop's links in a phone) for the frames before the card
       moved. Only the header reads the device; nothing else is drawn again.
     */
-    /* A glide lays the page out at its new size at once, so its header is drawn for it at once too. */
-    if (!morph || !card || card.hasAttribute("data-wb-glide")) setHeaderDevice(device)
+    if (!morph || !card) setHeaderDevice(device)
     else {
       const wide = device !== "mobile"
       const cross = () => {
         if (run !== headerRun.current) return
-        /* The page's width, which a glide lays out at its new size from the press (canvas-switch.ts, playCardGlide). */
-        const w = (card.querySelector<HTMLElement>("#wb-preview-root") ?? card).getBoundingClientRect().width
+        const w = card.getBoundingClientRect().width
         if (morph!.playState === "finished" || morph!.playState === "idle" || (wide ? w > MENU_DRAWER_MAX_WIDTH : w <= MENU_DRAWER_MAX_WIDTH)) {
           flushSync(() => setHeaderDevice(device))
           return

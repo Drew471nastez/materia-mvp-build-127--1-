@@ -61,10 +61,8 @@ function reduced(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
-/** The card as it is drawn right now, mid switch included (mid glide, the box that is seen, not the one laid out). */
+/** The card as it is drawn right now, mid switch included. */
 export function readCardLook(el: HTMLElement): CardLook {
-  const g = glides.get(el)
-  if (g) return g.seen()
   const r = el.getBoundingClientRect()
   const cs = getComputedStyle(el)
   return { width: r.width, height: r.height, radius: cs.borderRadius, shadow: cs.boxShadow }
@@ -87,7 +85,6 @@ export function morphFrames(from: CardLook, to: CardLook): Keyframe[] {
 
 const running = new WeakMap<Element, Animation[]>()
 function stop(el: Element) {
-  glides.get(el)?.end()
   for (const a of running.get(el) ?? []) a.cancel()
   running.delete(el)
 }
@@ -118,142 +115,10 @@ export function playCardMorph(card: HTMLElement, from: CardLook, to: CardLook): 
   stop(card)
   if (reduced() || typeof card.animate !== "function") return null
   if (Math.abs(from.width - to.width) < 0.5 && Math.abs(from.height - to.height) < 0.5) return null
-  if (canGlide()) {
-    const g = playCardGlide(card, from, to)
-    if (g) return g
-  }
   const a = card.animate(morphFrames(from, to), { duration: CANVAS_SWITCH_MS, easing: CANVAS_SWITCH_EASE })
   keep(card, a)
   startOnceDrawn([a])
   return a
-}
-
-/**
- * ===========================================================================
- *  ONE LAYOUT, THEN THE EDGE GLIDES ON ITS OWN (round 36)
- * ===========================================================================
- * The morph above moves the card's laid out box, so every step of its edge
- * is a layout of the whole page at that width. On a heavy page or an
- * imported theme at 4x CPU that is 150 to 280ms a step, and the card moved
- * in two to four steps of up to 310px (scripts/check-view-switch-frames.mjs,
- * `steps` and `maxStep`, read off the pictures of the screen).
- *
- * So the page is laid out once, at the size it is going to, and the card's
- * edge glides by its clip (clip-path: inset, centred by `50%`), which
- * Chromium runs on the compositor: it moves every frame the screen draws,
- * whatever the page is doing. For the length of the glide the card is the
- * larger of its two boxes, white, with the page at its new size in the
- * middle of it; growing, the clip opens onto the page already laid out wide;
- * shrinking, it closes onto the page already laid out narrow. The phone's
- * shadow is a plate behind the card, scaled with the edge. At the end the
- * card is its new box, the page inside is the size it already was, and
- * nothing is laid out again.
- */
-type Glide = { seen: () => CardLook; end: () => void }
-const glides = new WeakMap<Element, Glide>()
-
-function canGlide(): boolean {
-  try {
-    return typeof CSS !== "undefined" && CSS.supports("clip-path", "inset(calc(50% - 1px) calc(50% - 1px) round 1px)")
-  } catch {
-    return false
-  }
-}
-
-/** The editor's curve as a function of time (0 to 1), to say where the edge is. */
-export function easeAt(p: number, x1 = 0.32, y1 = 0.72, x2 = 0, y2 = 1): number {
-  if (p <= 0) return 0
-  if (p >= 1) return 1
-  const bx = (t: number) => 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t
-  const by = (t: number) => 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t
-  let lo = 0
-  let hi = 1
-  for (let i = 0; i < 30; i++) {
-    const mid = (lo + hi) / 2
-    if (bx(mid) < p) lo = mid
-    else hi = mid
-  }
-  return by((lo + hi) / 2)
-}
-
-const px = (n: number) => `${Math.round(n * 10) / 10}px`
-/** The clip that shows a box of this size, centred in the card's box. */
-export function glideClip(width: number, height: number, radius: string): string {
-  return `inset(calc(50% - ${px(height / 2)}) calc(50% - ${px(width / 2)}) round ${radius})`
-}
-
-function playCardGlide(card: HTMLElement, from: CardLook, to: CardLook): Animation | null {
-  const page = card.querySelector<HTMLElement>(":scope > #wb-preview-root")
-  if (!page) return null
-  const W = Math.max(from.width, to.width)
-  const H = Math.max(from.height, to.height)
-  /*
-    For the glide only, by a mark and its numbers (app/globals.css,
-    [data-wb-glide]), never by the card's own style, which React writes: a
-    press in the middle of the glide changes it, and the glide's end must
-    not put back what React has since replaced. Not an animation on the
-    card either: one beside the clip keeps the clip off the compositor.
-  */
-  const marks: Array<[HTMLElement, string]> = [
-    [card, "--wb-glide-w"], [card, "--wb-glide-h"], [card, "--wb-glide-bg"],
-    [page, "--wb-glide-w"], [page, "--wb-glide-h"], [page, "--wb-glide-x"], [page, "--wb-glide-y"],
-  ]
-  card.style.setProperty("--wb-glide-w", px(W))
-  card.style.setProperty("--wb-glide-h", px(H))
-  card.style.setProperty("--wb-glide-bg", getComputedStyle(page).backgroundColor)
-  page.style.setProperty("--wb-glide-w", px(to.width))
-  page.style.setProperty("--wb-glide-h", px(to.height))
-  page.style.setProperty("--wb-glide-x", px((W - to.width) / 2))
-  page.style.setProperty("--wb-glide-y", px((H - to.height) / 2))
-  card.setAttribute("data-wb-glide", "")
-  const edge = card.animate(
-    [{ clipPath: glideClip(from.width, from.height, from.radius) }, { clipPath: glideClip(to.width, to.height, to.radius) }],
-    { duration: CANVAS_SWITCH_MS, easing: CANVAS_SWITCH_EASE },
-  )
-  /* The lift, on a plate behind the card: the look that has one, scaled from the old box to the new. */
-  const lifted = to.shadow && to.shadow !== "none" ? to : from.shadow && from.shadow !== "none" ? from : null
-  let plate: HTMLDivElement | null = null
-  let plateAnim: Animation | null = null
-  const parent = card.parentElement
-  if (lifted && parent) {
-    const pr = parent.getBoundingClientRect()
-    const cr = card.getBoundingClientRect()
-    const cx = (cr.left + cr.right) / 2 - pr.left - parent.clientLeft
-    const cy = (cr.top + cr.bottom) / 2 - pr.top - parent.clientTop
-    plate = document.createElement("div")
-    plate.setAttribute("data-wb-card-lift", "")
-    plate.setAttribute("aria-hidden", "true")
-    plate.style.cssText = `position:absolute;pointer-events:none;left:${px(cx - lifted.width / 2)};top:${px(cy - lifted.height / 2)};width:${px(lifted.width)};height:${px(lifted.height)};border-radius:${lifted.radius};box-shadow:${lifted.shadow}`
-    parent.insertBefore(plate, parent.firstChild)
-    const s = (l: CardLook) => `${Math.round((l.width / lifted.width) * 1000) / 1000} ${Math.round((l.height / lifted.height) * 1000) / 1000}`
-    const o = (l: CardLook) => (l === lifted ? 1 : 0)
-    plateAnim = plate.animate([{ scale: s(from), opacity: o(from) }, { scale: s(to), opacity: o(to) }], { duration: CANVAS_SWITCH_MS, easing: CANVAS_SWITCH_EASE, fill: "forwards" })
-  }
-  let over = false
-  const end = () => {
-    if (over) return
-    over = true
-    card.removeAttribute("data-wb-glide")
-    for (const [el, name] of marks) el.style.removeProperty(name)
-    /* Played to its end it has no effect left, and is left finished: the editor waits on it to call the switch landed. */
-    if (edge.playState !== "finished") edge.cancel()
-    plateAnim?.cancel()
-    plate?.remove()
-    if (glides.get(card) === glide) glides.delete(card)
-  }
-  const glide: Glide = {
-    seen: () => {
-      const p = easeAt(Number(edge.currentTime ?? 0) / CANVAS_SWITCH_MS)
-      const half = p < 0.5
-      return { width: from.width + (to.width - from.width) * p, height: from.height + (to.height - from.height) * p, radius: half ? from.radius : to.radius, shadow: half ? from.shadow : to.shadow }
-    },
-    end,
-  }
-  glides.set(card, glide)
-  edge.finished.then(end, () => {})
-  keep(card, edge)
-  startOnceDrawn(plateAnim ? [edge, plateAnim] : [edge])
-  return edge
 }
 
 /**
