@@ -243,10 +243,11 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
  * above. The product page on a site needs only this: the address claims an
  * owner and the product either belongs to them or does not.
  */
-export async function creatorByName(name: string): Promise<NameMatch | null> {
+/* Once per request too (React's cache): a page and its metadata are drawn side by side and both ask first thing. */
+export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
   return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
-}
+})
 
 /**
  * Where a name that no longer exists went, if anywhere.
@@ -689,11 +690,8 @@ const resolveSite = cache(async function resolveSite(name: string): Promise<Shop
 
 async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 
-  const match = await unstable_cache(
-    () => lookUpName(lower),
-    ["site-name", lower],
-    { revalidate: NAME_TTL },
-  )()
+  /* The name lookup above, shared with the metadata's in the same request. */
+  const match = await creatorByName(lower)
 
   if (!match) {
     const to = await unstable_cache(() => renamedTo(lower), ["site-renamed", lower], { revalidate: NAME_TTL })()
