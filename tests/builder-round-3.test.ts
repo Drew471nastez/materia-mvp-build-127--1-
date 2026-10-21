@@ -171,7 +171,7 @@ async function main() {
     check("and revealWithin leaves a section with any part on screen alone", /if \(seen\) return null/.test(read("lib/website-builder/canvas-scroll.ts")))
     check("adding a section still brings it into view", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /revealSection\(newSection\.id, true\)/.test(editor))
     check("so does duplicating one from the layer list", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id, true\)/.test(editor))
-    check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
+    check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /* Changed on purpose (round 36): the toolbar follows the section shown as selected, which the canvas's press sets before its panel lands */ /onDuplicate=\{\(\) => shownSectionId && duplicateSection\(shownSectionId, true\)\}/.test(editor))
     check("and every sidebar row still does, through the one handler the list is given",
       /onSelect=\{\(id\) => \{ setSelectedBlockId\(null\); setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))
     check("nothing still scrolls a section to the top unconditionally", !/scrollToSection\(/.test(editor))

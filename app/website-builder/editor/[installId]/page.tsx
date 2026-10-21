@@ -6920,6 +6920,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * than from the page. Selecting from a list is the case where scrolling is
    * the whole answer.
    */
+  /*
+    THE RING FIRST, THE PANEL WHEN IT IS READY (round 36). Selecting a section
+    drew the ring, the row and the new settings panel in one render: the
+    panel's mount (a thousand components, its tooltips and fields) held the
+    ring back, 50 to 140ms at 1x and 250 to 620ms at 4x CPU (scripts/
+    check-editor-select.mjs). The pick is now said at once (`picked`, read by
+    the canvas, the list and the toolbar) and the panel follows in a
+    transition, so the ring and the row are in the next frame and the
+    panel's work never holds them. `from` is the panel the pick was made
+    over: once any panel change lands (this one, or another that overtook
+    it), the panel itself is the truth again.
+  */
+  const [picked, setPicked] = useState<{ id: string; from: Panel } | null>(null)
+  const selectedPanelNow = useRef(selectedPanel)
+  selectedPanelNow.current = selectedPanel
+  const pickSection = useCallback((sectionId: string, blockId: string | null) => {
+    setPicked({ id: sectionId, from: selectedPanelNow.current })
+    startTransition(() => {
+      setSelectedPanel({ type: "section", sectionId })
+      setSelectedBlockId(blockId)
+    })
+  }, [])
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => {
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
@@ -6956,8 +6978,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           () => touchingCanvas.current,
         )
       }
-      setSelectedPanel({ type: "section", sectionId })
-      setSelectedBlockId(blockId ?? null)
+      pickSection(sectionId, blockId ?? null)
       /**
        * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
        * sidebar on Heading, a picture on Image (the effect below). On a phone
@@ -7233,6 +7254,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
+  /* What is drawn as selected: the pick while its panel is on the way (pickSection), the panel's section otherwise. */
+  const shownSectionId: string | null = picked && picked.from === selectedPanel ? picked.id : selectedSectionId
   /* The section being edited is open in the tree when you go back to it, its blocks showing, as Shopify's tree follows a selection. */
   useEffect(() => {
     if (!selectedSectionId) return
@@ -7792,6 +7815,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     if (panelSectionGone && !sectionsLoading) setSelectedPanel({ type: "pages" })
   }, [panelSectionGone, sectionsLoading])
+  /*
+    THE LIST IS WHERE IT WAS LEFT (round 36). The list is drawn again each
+    time it comes back (a section's settings, Back; Theme, Sections), and it
+    came back at the top: scrolled to the thirtieth row, into a section and
+    Back, and the row was out of sight. Its scroll is kept for the page it
+    belongs to and put back as it is drawn, before anybody sees it at the top.
+    Which rows are open is the editor's own state (treeOpen), kept already.
+  */
+  const listScroll = useRef<{ page: string; top: number } | null>(null)
+  const listPage = selectedProductPage ? `product:${selectedProductPage}` : String(currentPage)
+  const listPageNow = useRef(listPage)
+  listPageNow.current = listPage
+  const keepListScroll = useCallback((el: HTMLDivElement | null) => {
+    const was = listScroll.current
+    if (el && was && was.page === listPageNow.current && was.top > 0) el.scrollTop = was.top
+  }, [])
+  const noteListScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
+    listScroll.current = { page: listPageNow.current, top: e.currentTarget.scrollTop }
+  }, [])
   const renderSidebarContent = () => {
     const selectedPanel = shownPanel
     // ── Page browser mode ──
@@ -8090,13 +8132,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ))}
             </div>
           ) : (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
+            <div ref={keepListScroll} onScroll={noteListScroll} data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
               {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. Add block's picker: block-picker.tsx. */}
               <BlockPickerProvider theme={settingsDraft} sources={storelibSources} compatInstallId={compatInstall ? installId : null}>
               <SectionsList
                 sections={panelHeld ? panelSections.current : sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
-                selectedId={selectedSectionId}
+                selectedId={shownSectionId}
+                /* A row is the sidebar going into the section: its panel is what was asked for, drawn in this press, not behind the canvas's glide (round 36, measured both ways). */
                 onSelect={(id) => { setSelectedBlockId(null); setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
                 expanded={treeOpen}
                 onToggleExpand={(id) => setTreeOpen((prev) => {
@@ -11455,7 +11498,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   menus={compatCanvasMenus}
                   pageKeys={rowPageKeys}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : creatorFacts?.storeName || creatorFacts?.name || "My store"}
-                  selectedSectionId={selectedSectionId}
+                  selectedSectionId={shownSectionId}
                   selectedBlockId={selectedBlockId}
                   /* The switch itself, not the fade behind it: the frame fades its own marks (canvas-bridge.ts), and a page that has stopped selecting must stop outlining on the same press. */
                   inspectorEnabled={inspectorEnabled && !fullView}
@@ -11483,7 +11526,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting && !fullSettled}
-                selectedSectionId={selectedSectionId}
+                selectedSectionId={shownSectionId}
                 device={device}
                 headerDevice={headerDevice}
                 /**
@@ -11530,23 +11573,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
           {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && (() => {
-            const current = sections.find((x) => x.id === selectedSectionId)
+            const current = sections.find((x) => x.id === shownSectionId)
             if (!current) return null
             /* Moved inside its own group; the header and the footer themselves are not moved, copied or deleted from here. */
             const group = groupOf(current)
             const body = splitGroups(sections)[group]
-            const idx = body.findIndex((x) => x.id === selectedSectionId)
+            const idx = body.findIndex((x) => x.id === shownSectionId)
             const chrome = (group === "header" || group === "footer") && isKind(current, group, kindOfType)
             return (
               <SectionToolbar
-                sectionId={selectedSectionId}
+                sectionId={shownSectionId}
                 hidden={!!current.hidden}
                 isChrome={chrome}
                 canMoveUp={idx > 0}
                 canMoveDown={idx > -1 && idx < body.length - 1}
-                onMoveUp={() => selectedSectionId && moveSectionBy(selectedSectionId, -1)}
-                onMoveDown={() => selectedSectionId && moveSectionBy(selectedSectionId, 1)}
-                onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId, true)}
+                onMoveUp={() => shownSectionId && moveSectionBy(shownSectionId, -1)}
+                onMoveDown={() => shownSectionId && moveSectionBy(shownSectionId, 1)}
+                onDuplicate={() => shownSectionId && duplicateSection(shownSectionId, true)}
                 onAskAi={() => {
                   setAiOpen(true)
                   if (isMobileView) setMobileSidebarOpen(false)
@@ -11877,7 +11920,12 @@ function SectionToolbar({
    * draw it, whether it is in the tree, and whether it is faded in.
    */
   const lastBox = useRef<{ top: number; right: number } | null>(null)
-  if (box) lastBox.current = box
+  /* A new place from state is taken once; between those, `measure` moves it by hand and keeps it here. */
+  const boxSeen = useRef<{ top: number; right: number } | null>(null)
+  if (box && box !== boxSeen.current) {
+    boxSeen.current = box
+    lastBox.current = box
+  }
   /*
     PLACED IN WHAT IT IS PLACED IN. It is positioned in the canvas area,
     and its place was read against the scrolling page: the same box at
@@ -11888,6 +11936,8 @@ function SectionToolbar({
   const barRef = useRef<HTMLDivElement>(null)
   const measureNow = useRef<() => void>(() => {})
   const present = box !== null
+  const shownNow = useRef(false)
+  shownNow.current = present
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
 
@@ -11940,7 +11990,17 @@ function SectionToolbar({
       const host = (barRef.current?.offsetParent as HTMLElement | null) ?? scroller
       const h = host.getBoundingClientRect()
       const next = { top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 }
-      /* Where it already is, nothing renders: a section resized under a slider moves its box every frame, and each one rendered every button and tooltip here (round 35). */
+      /*
+        Where it already is, nothing renders: a section resized under a slider moves its box every frame, and each one rendered every button and tooltip here (round 35).
+        And once it is on screen it is moved by hand, not by a render (round 36): following a section brought into view from the sidebar was two commits of every button and tooltip here a frame, which held back the section's settings drawn behind it.
+      */
+      const bar = barRef.current
+      if (shownNow.current && bar) {
+        bar.style.top = `${next.top}px`
+        bar.style.right = `${next.right}px`
+        lastBox.current = next
+        return
+      }
       setBox((was) => (was && was.top === next.top && was.right === next.right ? was : next))
     }
     measureNow.current = measure
@@ -11972,7 +12032,7 @@ function SectionToolbar({
    * The last place it was, so a toolbar on its way out has somewhere to
    * fade FROM. While it is visible this is simply where it is now.
    */
-  const draw = box ?? lastBox.current
+  const draw = lastBox.current ?? box
   if (!mounted || !draw) return null
 
   /* The one component for every button here, made once outside this one (ToolbarItem): a component written inside it was a new kind of element on each render, so every press of a key in the sidebar took the toolbar's buttons out of the page and put new ones in. */

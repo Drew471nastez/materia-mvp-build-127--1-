@@ -2989,7 +2989,8 @@ check(
     // interpolate from and the fade is a cut with extra steps
     /const id = requestAnimationFrame\(\(\) => setVisible\(true\)\)/.test(editor) &&
     // and it draws at its last known place while it leaves
-    /const draw = box \?\? lastBox\.current/.test(editor) &&
+    /* Changed on purpose (round 36): its place between renders is written by hand and kept in lastBox, which a new place from state replaces once */
+    /const draw = lastBox\.current \?\? box/.test(editor) &&
     /if \(!mounted \|\| !draw\) return null/.test(editor) &&
     !/if \(!sectionId \|\| !box\) return null/.test(editor) &&
     /"transition-\[opacity,translate,scale\] duration-200 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none"/.test(
