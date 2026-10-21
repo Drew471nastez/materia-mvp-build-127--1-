@@ -210,6 +210,21 @@ export function reconcileEchoes(current: (sectionId: string) => SectionInstance 
   if (dropped) notify()
 }
 
+/**
+ * Told of every live value as it is set, before any render: for a canvas
+ * that draws a value itself, in the frame the value arrived in, rather than
+ * after React has rendered it and an effect has run (compat-canvas.tsx: two
+ * frames later, at best). Returns the unsubscribe.
+ */
+export function onLiveChange(listener: () => void): () => void {
+  return subscribe(listener)
+}
+
+/** `section` as it should be drawn now: what was committed and echoed, with what a finger is moving over it. The same object when nothing is. */
+export function liveSectionNow<T extends SectionInstance>(section: T): T {
+  return withLive(withLive(section, echoes.get(section.id)), sections.get(section.id)) as T
+}
+
 /** Everything live forgotten without committing: for a test, or an editor that is closing. */
 export function resetLive(): void {
   depth = 0
