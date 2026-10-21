@@ -1532,12 +1532,13 @@ export const CANVAS_REQUESTS = `
  *   there) is done in the next frame, before it is drawn, so a slider sized
  *   in pixels follows the frame's width at every frame, as one measured by
  *   the browser does;
- *   nothing eases: transitions take no time, and an entrance that starts on
- *   something on screen is taken to its end before the frame is drawn
- *   (checked after each layout, a ResizeObserver on a mark of our own), so
- *   what was shown stays shown and nothing fades;
- *   the pictures near the top of the page, for both widths, are in the
- *   browser's cache before they are needed (fetched once the page is idle),
+ *   nothing eases: a transition or an entrance that starts on something on
+ *   screen is taken to its end before the frame is drawn (checked after
+ *   each layout, a ResizeObserver on a mark of our own; not a rule over the
+ *   whole page, which restyled all of Dawn at the press), so what was shown
+ *   stays shown and nothing fades;
+ *   the pictures near the top of the page, for both widths, are preloaded by
+ *   the page itself before they are needed (once the page is idle),
  *   so a picture shown for the other width is drawn at once, never grey.
  *
  * On the live site none of this is there: it is the canvas's head only.
@@ -1653,7 +1654,7 @@ export const CANVAS_SWITCH = `
       } finally { work--; }
     }
   };
-  var began = null, still = null, mark = null, ro = null, flip = 0, looping = false, afterFrames = 0;
+  var began = null, quieted = false, mark = null, ro = null, flip = 0, looping = false, afterFrames = 0;
   var inView = function (el) { var r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; };
   var finishNew = function () {
     if (began === null || !document.getAnimations) return;
@@ -1742,11 +1743,8 @@ export const CANVAS_SWITCH = `
   };
   var mo = null;
   var quiet = function (yes) {
-    if (yes && !still) {
-      still = document.createElement("style");
-      still.setAttribute("data-sl-switch", "");
-      still.textContent = "*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important}";
-      (document.head || document.documentElement).appendChild(still);
+    if (yes && !quieted) {
+      quieted = true;
       lastW = innerWidth;
       if (typeof ResizeObserver === "function") {
         mark = document.createElement("div");
@@ -1762,11 +1760,11 @@ export const CANVAS_SWITCH = `
         mo = new MutationObserver(function (list) { list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) { eager(n); lift(n); } }); }); });
         mo.observe(document.documentElement, { childList: true, subtree: true });
       }
-    } else if (!yes && still) {
+    } else if (!yes && quieted) {
       lifted.forEach(function (img) { img.style.removeProperty("opacity"); });
       lifted = [];
       shown.clear();
-      still.remove(); still = null;
+      quieted = false;
       if (ro) { ro.disconnect(); ro = null; }
       if (mo) { mo.disconnect(); mo = null; }
       if (mark) { mark.remove(); mark = null; }

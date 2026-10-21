@@ -39,7 +39,7 @@ console.log("\nThe canvas's head carries it\n")
 check("the switch script is in the canvas page's head", CANVAS_HEAD.includes(CANVAS_SWITCH))
 check("the bridge hands the switch to it when the builder holds the view", /window\.__slSwitch\(!!on\)/.test(CANVAS_BRIDGE) && /window\.__slSwitch\(false\)/.test(CANVAS_BRIDGE))
 check("pictures are kept by the page's own preloads, not the shared cache", /l\.rel = "preload"/.test(CANVAS_SWITCH) && /l\.as = "image"/.test(CANVAS_SWITCH))
-check("transitions take no time only while the switch lasts", /transition-duration:0s!important/.test(CANVAS_SWITCH) && /still\.remove\(\)/.test(CANVAS_SWITCH))
+check("what starts moving on screen during the switch is taken to its end, checked after each layout", /ro = new ResizeObserver\(laidOut\)/.test(CANVAS_SWITCH) && /a\.finish\(\)/.test(CANVAS_SWITCH))
 
 const PICTURE = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#3a7"/></svg>`)
 
@@ -140,8 +140,8 @@ async function inBrowser() {
 
     await page.evaluate(() => window.postMessage({ storelib: 1, type: "hold-view", on: false }, "*"))
     await wait(1300)
-    const after = await page.evaluate(() => ({ still: !!document.querySelector("style[data-sl-switch]"), lifted: Array.from(document.images).filter((i) => i.style.opacity).length }))
-    check("once it is over, the theme's own styles are back: transitions, and its pictures' opacity", !after.still && after.lifted === 0, after)
+    const after = await page.evaluate(() => ({ lifted: Array.from(document.images).filter((i) => i.style.opacity).length }))
+    check("once it is over, the theme's own style is back on its pictures", after.lifted === 0, after)
     await wait(400)
     const late = await state(page)
     check("  and the theme's own late measure, when it comes, changes nothing", Math.abs(late.slide - late.view) <= 1 && late.rebuilt === 2, late)
