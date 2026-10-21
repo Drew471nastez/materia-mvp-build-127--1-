@@ -66,8 +66,9 @@ function main() {
     /export function SchemePicker\(/.test(panels) && /<SchemePicker\s/.test(panels) && /onEdit\(key\)/.test(panels) && !/SchemeTiles|SchemeEditor/.test(panels))
   check("and a scheme is edited in Colors, under the list, the one opened from a section first",
     /initialActive=\{editSchemeKey\}/.test(editor) && /setExpandedSettings\("color_schemes"\)/.test(editor) && !/schemeEditing/.test(editor))
+  /* Changed on purpose (round 34): still the browser's own select, drawn by EchoSelect, which moves in its own frame and tells the editor in a transition (tests/editor-live-edit-34.test.ts). */
   check("a choice in a section is the browser's own select",
-    /if \(kind === "select"\) \{\s*return \(\s*<div className="relative">\s*<select/.test(editor) && !/SettingSelect|SegmentedChoice/.test(editor))
+    /if \(kind === "select"\) \{\s*return <EchoSelect /.test(editor) && /function EchoSelect\([\s\S]{0,400}return \(\s*<div className="relative">\s*<select/.test(editor) && !/SettingSelect|SegmentedChoice/.test(editor))
   check("and a short one is the grey segmented row, a long one a select",
     /if \(opts\.length > 3\) \{/.test(editor) && /if \(options\.length > 3\) \{/.test(editor) && /"flex gap-1 p-1 bg-neutral-100 rounded-lg"/.test(editor))
   check("the slider is the black one, drawn from its own state and sending once a frame",

@@ -144,6 +144,8 @@ const SUITES = [
   "tests/editor-stability.test.ts",
   "tests/community-mobile.test.ts",
   "tests/live-settings.test.ts",
+  /* Round 34: a sidebar control and the canvas that follows it on a 44 section page: a theme value drawn by the sections on screen, one draw in flight, no whole-page restyle on the first press, the page not one layer, switches and selects in their own frame (scripts/check-editor-live-edit.mjs measures them at 1x and 4x). */
+  "tests/editor-live-edit-34.test.ts",
   "tests/theme-freedom.test.ts",
   "tests/reference-diff.test.ts",
   "tests/ai-runs-admin.test.ts",

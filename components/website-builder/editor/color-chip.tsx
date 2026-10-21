@@ -91,6 +91,10 @@ export function ColorPickerPanel({
 }) {
   const svRef = useRef<HTMLDivElement>(null)
   const hueRef = useRef<HTMLDivElement>(null)
+  const svHandleRef = useRef<HTMLDivElement>(null)
+  const hueHandleRef = useRef<HTMLDivElement>(null)
+  const swatchRef = useRef<HTMLSpanElement>(null)
+  const hexRef = useRef<HTMLInputElement>(null)
 
   const isTransparent = !value || value === "transparent"
   const initial = isTransparent ? { r: 92, g: 91, b: 99 } : hexToRgb(value)
@@ -105,7 +109,9 @@ export function ColorPickerPanel({
   const { emit: send, flush: sendNow } = useFrameCommit(onChange)
   /* A drag in the box or along the hue is drawn by the canvas alone and committed once on release (lib/website-builder/live-settings.ts). */
   const [gesture] = useState(liveGesture)
-  const flush = useCallback(() => { sendNow(); gesture.end() }, [sendNow, gesture])
+  /* The picker's own state takes the colour a drag ended on (see "A DRAG MOVES THE PICKER BY HAND" below). */
+  const settleRef = useRef<() => void>(() => {})
+  const flush = useCallback(() => { sendNow(); settleRef.current(); gesture.end() }, [sendNow, gesture])
   useEffect(() => () => gesture.end(), [gesture])
 
   /** The last colour WE sent, so its echo does not reset the picker. */
@@ -141,22 +147,69 @@ export function ColorPickerPanel({
     emit(hex)
   }, [emit])
 
+  /*
+    A DRAG MOVES THE PICKER BY HAND, NOT THROUGH REACT. Every move set the
+    picker's state, an urgent render, and an urgent render on the editor's
+    root throws away the canvas's transition that is drawing the colour: on a
+    44 section page a scheme colour dragged for half a second drew once,
+    after the finger lifted (scripts/check-editor-live-edit.mjs). So while a
+    finger is down the two handles, the box's hue, the swatch and the hex are
+    written straight onto their elements, as the slider moves its thumb
+    (slider-number-control.tsx), and the picker's state takes the colour once
+    when the finger lifts.
+  */
+  const hsvLive = useRef(hsv)
+  const dragging = useRef(false)
+  useEffect(() => {
+    if (!dragging.current) hsvLive.current = hsv
+  }, [hsv])
+  const paint = useCallback((next: { h: number; s: number; v: number }) => {
+    const hex = hsvToHex(next.h, next.s, next.v)
+    const pure = hsvToHex(next.h, 1, 1)
+    if (svHandleRef.current) {
+      svHandleRef.current.style.left = `${next.s * 100}%`
+      svHandleRef.current.style.top = `${(1 - next.v) * 100}%`
+    }
+    if (svRef.current) svRef.current.style.backgroundColor = pure
+    if (hueHandleRef.current) {
+      hueHandleRef.current.style.left = `${(next.h / 360) * 100}%`
+      hueHandleRef.current.style.background = pure
+    }
+    if (swatchRef.current) swatchRef.current.style.background = hex
+    if (hexRef.current) hexRef.current.value = hex.toUpperCase()
+    return hex
+  }, [])
+  const moveTo = useCallback((next: { h: number; s: number; v: number }) => {
+    if (!dragging.current) { commit(next); return }
+    hsvLive.current = next
+    emit(paint(next))
+  }, [commit, emit, paint])
+  /* The finger lifted: the picker's own state takes where it ended. */
+  const settle = useCallback(() => {
+    if (!dragging.current) return
+    dragging.current = false
+    const next = hsvLive.current
+    setHsv(next)
+    setHexInput(hsvToHex(next.h, next.s, next.v).toUpperCase())
+  }, [])
+  settleRef.current = settle
+
   const handleSvPoint = useCallback((clientX: number, clientY: number) => {
     const el = svRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
     const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
     const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height))
-    commit({ h: hsv.h, s: x, v: 1 - y })
-  }, [commit, hsv.h])
+    moveTo({ h: hsvLive.current.h, s: x, v: 1 - y })
+  }, [moveTo])
 
   const handleHuePoint = useCallback((clientX: number) => {
     const el = hueRef.current
     if (!el) return
     const r = el.getBoundingClientRect()
     const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    commit({ h: x * 360, s: hsv.s, v: hsv.v })
-  }, [commit, hsv.s, hsv.v])
+    moveTo({ h: x * 360, s: hsvLive.current.s, v: hsvLive.current.v })
+  }, [moveTo])
 
   const onHexInputChange = (v: string) => {
     setHexInput(v)
@@ -178,13 +231,10 @@ export function ColorPickerPanel({
         data-sheet-no-drag
         className="relative h-[120px] w-full rounded-md overflow-hidden cursor-crosshair touch-none select-none"
         style={{
-          background: `
-            linear-gradient(to top, #000, rgba(0,0,0,0)),
-            linear-gradient(to right, #fff, rgba(255,255,255,0)),
-            ${pureHue}
-          `,
+          backgroundImage: "linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, rgba(255,255,255,0))",
+          backgroundColor: pureHue,
         }}
-        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); gesture.begin(); handleSvPoint(e.clientX, e.clientY) }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; gesture.begin(); handleSvPoint(e.clientX, e.clientY) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleSvPoint(e.clientX, e.clientY) }}
         /* The last position of a drag is the one that matters, and it must
            not be left sitting in a frame that never runs because the picker
@@ -193,6 +243,7 @@ export function ColorPickerPanel({
         onPointerCancel={flush}
       >
         <div
+          ref={svHandleRef}
           className="absolute h-3.5 w-3.5 rounded-full border-2 border-white pointer-events-none"
           style={{
             left: `${hsv.s * 100}%`,
@@ -211,12 +262,13 @@ export function ColorPickerPanel({
         style={{
           background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
         }}
-        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); gesture.begin(); handleHuePoint(e.clientX) }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; gesture.begin(); handleHuePoint(e.clientX) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleHuePoint(e.clientX) }}
         onPointerUp={flush}
         onPointerCancel={flush}
       >
         <div
+          ref={hueHandleRef}
           className="absolute top-1/2 h-4 w-4 rounded-full border-2 border-white pointer-events-none"
           style={{
             left: `${(hsv.h / 360) * 100}%`,
@@ -230,6 +282,7 @@ export function ColorPickerPanel({
       {/* Hex input with swatch preview */}
       <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
         <span
+          ref={swatchRef}
           className="h-5 w-5 rounded border border-border shrink-0"
           style={{
             background: isTransparent
@@ -238,6 +291,7 @@ export function ColorPickerPanel({
           }}
         />
         <input
+          ref={hexRef}
           type="text"
           value={hexInput}
           onChange={e => onHexInputChange(e.target.value)}

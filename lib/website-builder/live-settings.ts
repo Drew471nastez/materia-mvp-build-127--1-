@@ -320,6 +320,95 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
   }, [list, at])
 }
 
+/** How long a theme value being drawn may hold the next one back before the next is drawn anyway. */
+export const DRAW_WAIT_MS = 400
+
+/**
+ * One draw at a time, and the newest value next (useLiveTheme below). `start`
+ * begins drawing a value and says whether there was anything to draw; the
+ * caller says `drawn` when a value is on screen. A value offered while one
+ * is being drawn waits, replacing any value already waiting: values in
+ * between are skipped, never queued. A draw that has not come back after
+ * `waitMs` holds nothing up (a render React dropped, a component gone).
+ *
+ * AND A SHARE OF THE THREAD, NOT ALL OF IT. The waiting value is drawn after
+ * a pause as long as the last draw took, so the drawing has at most half of
+ * the main thread and the browser keeps the rest for the frames: the theme's
+ * CSS variables (patched on every move) and the layout they cause. Drawn
+ * back to back, a page width dragged on a 44 section page ran more frames
+ * over 33ms than when most draws were thrown away (scripts/check-editor-
+ * live-edit.mjs). The same rule as use-frame-commit.ts, for the same reason.
+ */
+export function oneDrawInFlight<V>(
+  start: (value: V) => boolean,
+  opts: { now?: () => number; later?: (run: () => void, ms: number) => unknown; cancel?: (handle: unknown) => void; waitMs?: number } = {},
+): { offer: (value: V) => void; drawn: (value: V) => void; stop: () => void } {
+  const now = opts.now ?? (() => Date.now())
+  const later = opts.later ?? ((run: () => void, ms: number) => setTimeout(run, ms))
+  const cancel = opts.cancel ?? ((h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>))
+  const waitMs = opts.waitMs ?? DRAW_WAIT_MS
+  let inFlight: { value: V; at: number } | null = null
+  let waiting: { value: V } | null = null
+  let timer: unknown = null
+  /* Between a draw coming back and the next one starting: a render of the same value meanwhile says nothing. */
+  let pausing = false
+  const begin = (value: V) => {
+    pausing = false
+    if (timer !== null) { cancel(timer); timer = null }
+    if (!start(value)) {
+      inFlight = null
+      return
+    }
+    inFlight = { value, at: now() }
+    /* Whatever is waiting when the draw should have come back is drawn then. */
+    timer = later(() => {
+      timer = null
+      if (!inFlight || now() - inFlight.at < waitMs) return
+      inFlight = null
+      const next = waiting
+      waiting = null
+      if (next) begin(next.value)
+    }, waitMs)
+  }
+  return {
+    offer(value) {
+      if (inFlight && now() - inFlight.at < waitMs) {
+        waiting = { value }
+        return
+      }
+      waiting = null
+      begin(value)
+    },
+    drawn(value) {
+      if (pausing || !inFlight || inFlight.value !== value) return
+      const cost = Math.max(0, now() - inFlight.at)
+      if (timer !== null) { cancel(timer); timer = null }
+      if (!waiting || waiting.value === value) {
+        inFlight = null
+        waiting = null
+        return
+      }
+      /* Still "in flight" through the pause, so a value offered meanwhile waits too and replaces this one. */
+      inFlight = { value, at: now() }
+      pausing = true
+      timer = later(() => {
+        timer = null
+        pausing = false
+        inFlight = null
+        const next = waiting
+        waiting = null
+        if (next) begin(next.value)
+      }, Math.min(cost, waitMs))
+    },
+    stop() {
+      if (timer !== null) { cancel(timer); timer = null }
+      pausing = false
+      inFlight = null
+      waiting = null
+    },
+  }
+}
+
 /**
  * The theme to draw, with a theme setting under a finger laid over it; the
  * same object when none is.
@@ -350,14 +439,38 @@ export function useLiveTheme<T extends ThemeSettingsValues>(base: T, patch?: (th
     patchRef.current = patch
   })
   const seen = useRef(theme)
+  /*
+    ONE DRAW IN FLIGHT, AND THE NEWEST VALUE NEXT. A transition is thrown
+    away and started again when a newer value arrives before it finishes, and
+    a finger on a colour sends one every frame: a render longer than a frame
+    never finished at all, and the canvas drew once, after the finger lifted
+    (scripts/check-editor-live-edit.mjs, a scheme colour: one draw for 61
+    values). So a value that arrives while one is still being drawn waits,
+    the draw finishes, and the newest waiting value is drawn next. Values in
+    between are skipped, never queued. `patch` still runs on every move.
+  */
+  const oRef = useRef(o)
+  const [drawing] = useState(() =>
+    oneDrawInFlight<Record<string, unknown> | null>((value) => {
+      /* Already what is drawn: nothing to wait for. */
+      if (value === oRef.current) return false
+      startTransition(() => setO(value))
+      return true
+    }),
+  )
   useEffect(() => subscribe(() => {
     const cur = theme
     /* A section's value moving says nothing new about the theme. */
     if (cur === seen.current) return
     seen.current = cur
     patchRef.current?.((cur ? { ...baseRef.current, ...cur } : baseRef.current) as T)
-    startTransition(() => setO(cur))
-  }), [])
+    drawing.offer(cur)
+  }), [drawing])
+  useLayoutEffect(() => {
+    oRef.current = o
+    drawing.drawn(o)
+  }, [o, drawing])
+  useEffect(() => () => drawing.stop(), [drawing])
   const out = useMemo(() => {
     if (!o) return base
     const b = base as Record<string, unknown>
