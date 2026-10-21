@@ -25,6 +25,23 @@
  *   REQUESTS    fetches the editor made while it ran (a save is counted
  *               apart: autosave is meant to run once after an edit)
  *
+ * Round 34, the bundle before the round and after it, interleaved, two
+ * rounds each (this machine is shared, so a time is claimed only where both
+ * rounds agree; render counts are exact):
+ *
+ *                              1x before        1x after         4x before        4x after
+ *   scheme colour, draws       2 / 2 of 61      21 / 26          1 / 1            13 / 12
+ *     canvas wait p50          892 / 544ms      49 / 39ms        3688 / 3533ms    148 / 286ms
+ *     canvas wait p95          1572 / 1163ms    231 / 172ms      6023 / 5693ms    505 / 657ms
+ *   theme slider, wait p95     254 / 256ms      95 / 100ms       616 / 810ms      272 / 281ms
+ *     sections rendered        484 / 528        136 / 144        552 / 549        127 / 112
+ *     longest task             331 / 332ms      128 / 152ms      1305 / 1435ms    511 / 713ms
+ *   first press of a section   336 / 440ms      192 / 280ms      1952 / 2624ms    1192 / 912ms
+ *   a switch, renders          1689             793              2327             1434
+ *   section padding, typing    unchanged (already drawn by the section alone)
+ *   canvas layers              127              36
+ *   fetches while dragging     0                0
+ *
  *   node scripts/check-editor-live-edit.mjs
  *   CPU=4 node scripts/check-editor-live-edit.mjs     only the slowed run
  *   EDITOR_BUNDLE=<file>  reuse a bundle (one from another commit, to compare)
