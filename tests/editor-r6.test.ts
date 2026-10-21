@@ -175,7 +175,8 @@ async function main() {
   check("no safe-area inset in the canvas: a tab bar is not padded for a home bar it is nowhere near", !/safe-area/.test(out) && out.includes("calc(6px + 0px)") && out.includes("bottom:0px") && out.includes("max(8px, 0px)"), out)
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
   check("  on the page drawn and on every section drawn again", /canvasInsets\(drawn\.html\)/.test(canvas) && /canvasInsets\(drawSection\(/.test(canvas))
-  check("a section is drawn at most once a frame, with the markup it was drawn from", /syncFrame\.current = requestAnimationFrame/.test(canvas) && /prev: slot\.shape\.sections\.get\(s\.id\)/.test(canvas))
+  /* Changed on purpose (round 35): the markup it was drawn from goes with its first drawing; after that, the cut from it (live-draw.ts cutBetween). */
+  check("a section is drawn at most once a frame, with the markup it was drawn from", /syncFrame\.current = requestAnimationFrame/.test(canvas) && /const prev = slot\.shape\.sections\.get\(s\.id\)/.test(canvas) && /type: "section", id: s\.id, html, prev \}/.test(canvas))
 
   console.log("\nAn imported theme's own settings")
   const dawn = { color_schemes: { "scheme-1": { settings: { background: "#FFFFFF", text: "#121212", button: "#121212" } }, "scheme-2": { settings: { background: "#F3F3F3", text: "#121212", button: "#121212" } } } }
