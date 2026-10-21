@@ -23,6 +23,22 @@
  *   sidebar     a press on a row of the list, Back, another row
  *   tabs        Sections, Theme, Pages and back, each timed to its panel
  *
+ * Round 36, the bundle before and after, one run each (times move by tens
+ * of ms between runs on this shared machine; counts repeat):
+ *
+ *                          before (1x / 4x)              after (1x / 4x)
+ *   hover, 30 moves        30 commits / 31               0 / 0
+ *   canvas press: ring     63-112ms / 165-430ms          13-35ms / 77-102ms
+ *   canvas press: panel    63-112ms / 165-430ms          44-209ms / 349-921ms
+ *   sidebar row: panel     41-62ms / 258-286ms           45-52ms / 210-316ms
+ *   sidebar row: commits   69-93, 1,595-6,260 renders    6-17, 1,011-1,715 renders
+ *   Back to the list       56-75ms / 265-334ms           52-69ms / 273-519ms
+ *   tabs: lit / panel      11-23 / 36-83ms, 4x 38-55 / 119-458ms   about the same
+ *   the list's scroll      lost on Back and on the tabs  kept (400 -> 400)
+ *
+ * The panel after a canvas press now lands after the ring, in a transition:
+ * later than before at 4x, which is the price of the ring in the next frame.
+ *
  *   node scripts/check-editor-select.mjs           CPUS=1,4 by default
  *   EDITOR_BUNDLE=<file>                           a bundle from another commit
  *   ROUNDS=3                                       presses of each kind
