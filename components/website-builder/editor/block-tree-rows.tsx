@@ -35,6 +35,7 @@ import { Eye, EyeOff, GripVertical, Trash2 } from "lucide-react"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { blockChoices, type BlockChoice } from "./add-block-button"
+import { useBlockPicker, type BlockPickerRequest } from "./block-picker"
 import type { BlockSchema } from "@/lib/website-builder/types"
 import { useReorder } from "./controls/use-reorder"
 import { TREE_NAME, TREE_ROW, TREE_STEP, TreeAddRow, TreeInsertLine, TreeSpacer, TreeTwisty, foldAway, rowIndent } from "./tree-parts"
@@ -262,32 +263,43 @@ export function BlockTreeLevel<B extends TreeBlock>({
   )
 }
 
+/** Where an Add block row adds, for the picker's preview: the section, the level in it, and the rules for room. */
+export type BlockAddTarget = Pick<BlockPickerRequest, "section" | "parent" | "index" | "reasonFor">
+
 /**
  * ADD BLOCK, the same line as Add section (tree-parts.tsx), at this level's
  * own indent: the plus in the mark column and the words on the names' edge.
- * One kind of block adds it at once; several open the same menu (a sheet on
- * a phone) the panel's button opened, one entry per preset.
+ * One kind of block adds it at once. Several open the block picker
+ * (block-picker.tsx): beside the sidebar on a computer, a sheet on a phone,
+ * each block shown in this section before it is added. Without a target
+ * (outside the editor's tree) the action menu, one entry per preset.
  */
 export function TreeAddBlock({
   options,
   depth,
   onAdd,
   disabledReason,
+  target,
 }: {
   options: readonly BlockSchema[]
   depth: number
   onAdd: (choice: BlockChoice) => void
   /** Why nothing more fits here; the line is left out when there is a reason. */
   disabledReason?: string | null
+  target?: BlockAddTarget
 }) {
   const choices = React.useMemo(() => blockChoices(options), [options])
   const items = React.useMemo<ActionMenuItem[]>(() => choices.map((c) => ({ label: c.label, onClick: () => onAdd(c) })), [choices, onAdd])
+  const openPicker = useBlockPicker()
   if (choices.length === 0 || disabledReason) return null
   /* "Add question", and "Add FAQ item" rather than "Add faq item": an acronym keeps its capitals. */
   const one = choices[0]?.label ?? ""
   const text = choices.length === 1 ? tt("Add {value}", { value: /^[A-Z]{2,}\b/.test(one) ? one : one.charAt(0).toLowerCase() + one.slice(1) }) : tt("Add block")
-  const button = <TreeAddRow data-add-block="" data-tree-add-block={depth} depth={depth} label={text} onClick={choices.length === 1 ? () => onAdd(choices[0]) : undefined} />
-  if (choices.length === 1) return button
+  const pick = openPicker && target && choices.length > 1
+    ? (e: React.MouseEvent<HTMLElement>) => openPicker({ ...target, anchor: e.currentTarget, options, choices, onAdd })
+    : undefined
+  const button = <TreeAddRow data-add-block="" data-tree-add-block={depth} depth={depth} label={text} aria-haspopup={pick ? "dialog" : undefined} onClick={choices.length === 1 ? () => onAdd(choices[0]) : pick} />
+  if (choices.length === 1 || pick) return button
   return <ResponsiveActionMenu title={tt("Add block")} align="start" menuWidth="w-60" items={items} trigger={button} />
 }
 
@@ -295,13 +307,17 @@ export function TreeAddBlock({
 /**
  * THE LINE BETWEEN TWO BLOCKS THAT ADDS ONE THERE, the same line as between
  * two sections. One kind of block here adds it at once; several open the
- * Add block menu (a sheet on a phone), and the choice lands at this spot.
+ * block picker, and the choice lands at this spot.
  */
-export function TreeInsertBlock({ options, depth, onAdd }: { options: readonly BlockSchema[]; depth: number; onAdd: (choice: BlockChoice) => void }) {
+export function TreeInsertBlock({ options, depth, onAdd, target }: { options: readonly BlockSchema[]; depth: number; onAdd: (choice: BlockChoice) => void; target?: BlockAddTarget }) {
   const choices = React.useMemo(() => blockChoices(options), [options])
   const items = React.useMemo<ActionMenuItem[]>(() => choices.map((c) => ({ label: c.label, onClick: () => onAdd(c) })), [choices, onAdd])
+  const openPicker = useBlockPicker()
   if (choices.length === 0) return null
-  const line = <TreeInsertLine data-insert-block="" depth={depth} label={tt("Add a block here")} onClick={choices.length === 1 ? () => onAdd(choices[0]) : () => {}} />
-  if (choices.length === 1) return line
+  const pick = openPicker && target && choices.length > 1
+    ? (e: React.MouseEvent<HTMLElement>) => openPicker({ ...target, anchor: e.currentTarget, options, choices, onAdd })
+    : undefined
+  const line = <TreeInsertLine data-insert-block="" depth={depth} label={tt("Add a block here")} onClick={choices.length === 1 ? () => onAdd(choices[0]) : pick ?? (() => {})} />
+  if (choices.length === 1 || pick) return line
   return <ResponsiveActionMenu title={tt("Add block")} align="start" menuWidth="w-60" items={items} trigger={line} />
 }

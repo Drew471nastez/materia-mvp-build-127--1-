@@ -35,6 +35,7 @@ import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-an
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
+import { BlockPickerProvider } from "@/components/website-builder/editor/block-picker"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
@@ -2497,6 +2498,11 @@ function BlockTreeFor({
   const stored = (b: BlockInstance) => siblings.some((x) => x.id === b.id)
   const options = addableBlocks(parent.length === 0 ? owner : { accepts: owner.accepts }, catalog)
   const full = !!owner.max_blocks && dynamic.length >= owner.max_blocks
+  /* The block picker's reason a kind cannot be added here (its own limit reached), by the same rules addBlock keeps. */
+  const roomFor = (choice: BlockChoice): string | null => {
+    const room = blockRoom({ name: parent.length ? (catalog[blockAt(section.blocks, parent)?.block.type ?? ""]?.name ?? schema.name) : schema.name, max_blocks: owner.max_blocks }, siblings, defOf(choice.type), choice.type, section, { depth: parent.length + 1, size: 1 + countAll(choice.preset?.blocks), height: 1 + depthOf(choice.preset?.blocks) })
+    return room.ok ? null : room.reason
+  }
   const holds = (b: BlockInstance) => {
     const def = defOf(b.type)
     return !!(def?.accepts?.length || def?.statics?.length) && stored(b)
@@ -2572,7 +2578,7 @@ function BlockTreeFor({
       }}
       add={
         !full && parent.length < MAX_BLOCK_DEPTH ? (
-          <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} />
+          <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} target={{ section, parent, reasonFor: roomFor }} />
         ) : null
       }
       insertLine={
@@ -2580,7 +2586,7 @@ function BlockTreeFor({
           ? (i) => {
               /* Before the i-th movable block: its place among all the level's blocks, static ones included. */
               const at = siblings.findIndex((x) => x.id === dynamic[i]?.id)
-              return <TreeInsertBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey, at < 0 ? undefined : at)} />
+              return <TreeInsertBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey, at < 0 ? undefined : at)} target={{ section, parent, index: at < 0 ? undefined : at, reasonFor: roomFor }} />
             }
           : undefined
       }
@@ -7866,7 +7872,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           ) : (
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
-              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. Add block's picker: block-picker.tsx. */}
+              <BlockPickerProvider theme={settingsDraft} sources={storelibSources} compatInstallId={compatInstall ? installId : null}>
               <SectionsList
                 sections={panelHeld ? panelSections.current : sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
@@ -7929,6 +7936,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 }}
                 dnd={{ onReorder: reorderSection }}
               />
+              </BlockPickerProvider>
             </div>
           )}
         </div>
