@@ -29,14 +29,42 @@ const INSET_SIDE = 6
 const MIN_THUMB = 28
 const HIDE_AFTER_MS = 900
 
+/*
+  NO REACT RENDER PER SCROLLED FRAME (round 36). The thumb's place and its
+  showing were state, so every frame the canvas scrolled was a commit: 60
+  of them for one section brought into view from the sidebar, and each one
+  put off the settings panel being drawn in the background behind it
+  (scripts/check-editor-select.mjs). The thumb is written straight onto its
+  element now; only a grab, which changes its width, renders.
+*/
+type Geometry = { top: number; height: number; track: number }
+
 export function CanvasScrollbar({ targetId }: { targetId: string }) {
-  const [state, setState] = useState<{ top: number; height: number; track: number } | null>(null)
-  const [shown, setShown] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const draggingNow = useRef(false)
+  const thumb = useRef<HTMLDivElement | null>(null)
+  const geometry = useRef<Geometry | null>(null)
+  const shown = useRef(false)
   const hideTimer = useRef(0)
   const frame = useRef(0)
   const scroller = useRef<HTMLElement | null>(null)
   const grab = useRef<{ startY: number; startTop: number } | null>(null)
+
+  const paint = () => {
+    const t = thumb.current
+    if (!t) return
+    const g = geometry.current
+    if (!g) {
+      if (t.style.display !== "none") t.style.display = "none"
+      return
+    }
+    t.style.display = "block"
+    t.style.top = `${g.top}px`
+    t.style.height = `${g.height}px`
+    t.style.opacity = shown.current || draggingNow.current ? "1" : "0"
+  }
+  const paintRef = useRef(paint)
+  paintRef.current = paint
 
   useEffect(() => {
     const el = document.getElementById(targetId)
@@ -48,21 +76,29 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
       const { scrollHeight, clientHeight, scrollTop } = el
       const track = clientHeight - INSET_END * 2
       if (scrollHeight <= clientHeight + 1 || track <= MIN_THUMB) {
-        setState(null)
+        geometry.current = null
+        paintRef.current()
         return
       }
       const height = Math.max(MIN_THUMB, Math.round((clientHeight / scrollHeight) * track))
       const range = scrollHeight - clientHeight
       const top = INSET_END + Math.round((scrollTop / range) * (track - height))
-      setState({ top, height, track })
+      geometry.current = { top, height, track }
+      paintRef.current()
     }
     const schedule = () => {
       if (!frame.current) frame.current = requestAnimationFrame(measure)
     }
     const reveal = () => {
-      setShown(true)
+      if (!shown.current) {
+        shown.current = true
+        paintRef.current()
+      }
       window.clearTimeout(hideTimer.current)
-      hideTimer.current = window.setTimeout(() => setShown(false), HIDE_AFTER_MS)
+      hideTimer.current = window.setTimeout(() => {
+        shown.current = false
+        paintRef.current()
+      }, HIDE_AFTER_MS)
     }
     const onScroll = () => {
       schedule()
@@ -98,13 +134,16 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
 
   // A grab on the thumb scrolls the card by the thumb's own ratio.
   useEffect(() => {
+    draggingNow.current = dragging
+    paintRef.current()
     if (!dragging) return
     const onMove = (e: PointerEvent) => {
       const el = scroller.current
       const g = grab.current
-      if (!el || !g || !state) return
+      const at = geometry.current
+      if (!el || !g || !at) return
       const range = el.scrollHeight - el.clientHeight
-      const travel = state.track - state.height
+      const travel = at.track - at.height
       if (travel <= 0) return
       const nextTop = g.startTop + (e.clientY - g.startY)
       el.scrollTop = ((nextTop - INSET_END) / travel) * range
@@ -121,27 +160,29 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
       window.removeEventListener("pointerup", onUp)
       window.removeEventListener("pointercancel", onUp)
     }
-  }, [dragging, state])
+  }, [dragging])
 
-  if (!state) return null
-
+  /* Always in the page, hidden until there is something to scroll: its place is written by `paint`, never by a render. */
   return (
     <div
+      ref={(el) => {
+        thumb.current = el
+        if (el) paintRef.current()
+      }}
       role="presentation"
       aria-hidden
       data-canvas-scrollbar=""
       onPointerDown={(e) => {
         e.preventDefault()
-        grab.current = { startY: e.clientY, startTop: state.top }
+        grab.current = { startY: e.clientY, startTop: geometry.current?.top ?? 0 }
         setDragging(true)
       }}
       className="absolute z-20 rounded-full bg-[rgba(100,116,139,0.45)] transition-[opacity,background-color] duration-200 ease-out hover:bg-[rgba(71,85,105,0.65)]"
       style={{
-        top: state.top,
-        height: state.height,
+        display: "none",
+        opacity: 0,
         right: INSET_SIDE,
         width: dragging ? 8 : 6,
-        opacity: shown || dragging ? 1 : 0,
         cursor: "default",
         touchAction: "none",
         willChange: "opacity",
