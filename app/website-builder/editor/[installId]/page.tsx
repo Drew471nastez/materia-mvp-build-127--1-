@@ -11939,7 +11939,9 @@ function SectionToolbar({
       const top = Math.max(r.top + 10, s.top + 10)
       const host = (barRef.current?.offsetParent as HTMLElement | null) ?? scroller
       const h = host.getBoundingClientRect()
-      setBox({ top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 })
+      const next = { top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 }
+      /* Where it already is, nothing renders: a section resized under a slider moves its box every frame, and each one rendered every button and tooltip here (round 35). */
+      setBox((was) => (was && was.top === next.top && was.right === next.right ? was : next))
     }
     measureNow.current = measure
     // Coalesced into a frame: a scroll fires far more often than the screen
@@ -12318,6 +12320,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     <ThemePage
       /* The committed theme: a value under a finger is the sections' on screen, and written by hand where they are (canvasThemePatcher). */
       theme={committedTheme}
+      /* The bars above the header are no section: drawn with the value under the finger as it moves. */
+      chromeTheme={theme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
       storefront={storefront}

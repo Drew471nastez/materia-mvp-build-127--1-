@@ -177,8 +177,11 @@ export const CANVAS_BRIDGE = `
     drawn above its foot.
   */
   var HEADER_TOPS = ".shopify-section-group-header-group, .shopify-section-group-header-group > *, .shopify-section-group-header-group sticky-header, header, [data-sl-header]";
+  /* Read once a frame (drawBoxes and report start a frame's readings afresh): a page with a large header has thousands of elements to match. */
+  var topsCache = null;
   var headerCover = function (el) {
-    var cover = 0, tops = document.querySelectorAll(HEADER_TOPS);
+    if (!topsCache) topsCache = document.querySelectorAll(HEADER_TOPS);
+    var cover = 0, tops = topsCache;
     for (var i = 0; i < tops.length; i++) {
       var h = tops[i];
       if (h === el || h.contains(el) || el.contains(h)) continue;
@@ -189,6 +192,19 @@ export const CANVAS_BRIDGE = `
     }
     return cover;
   };
+  /*
+    WHILE VALUES STREAM IN (a slider under a finger, round 35), the outline
+    follows the section's box as it is and nothing more: the hit tests below
+    (some sixty a reading, each one a layout of the page if anything moved)
+    ran for every value and were the larger part of a value's cost in the
+    frame. A moment after the last value the outline is read in full again.
+  */
+  var streamingUntil = 0, streamTimer = 0;
+  var streaming = function () {
+    streamingUntil = performance.now() + 250;
+    clearTimeout(streamTimer);
+    streamTimer = setTimeout(function () { streamingUntil = 0; reportSoon(); }, 260);
+  };
   var visibleRect = function (el, inset) {
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
@@ -197,6 +213,12 @@ export const CANVAS_BRIDGE = `
     var left = Math.max(r.left, 0), right = Math.min(r.right, vw);
     var top = Math.max(r.top, 0, headerCover(el)), bottom = Math.min(r.bottom, vh);
     if (right - left < 1 || bottom - top < 1) return null;
+    if (performance.now() < streamingUntil) {
+      var sl = Math.max(r.left + inset, 0), sr = Math.min(r.right - inset, vw);
+      var st = top > r.top + 0.5 ? top : Math.max(r.top + inset, 0), sb = bottom < r.bottom - 0.5 ? bottom : Math.min(r.bottom - inset, vh);
+      if (sr - sl < 1 || sb - st < 2) return null;
+      return { left: sl, width: sr - sl, top: st, bottom: sb, cutTop: top > r.top + 0.5, cutBottom: bottom < r.bottom - 0.5 };
+    }
     var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
     var seen = function (y) {
       for (var i = 0; i < xs.length; i++) if (owns(el, Math.min(Math.max(xs[i], 0.5), innerWidth - 0.5), y, loose)) return true;
@@ -269,10 +291,14 @@ export const CANVAS_BRIDGE = `
     drawFrame = 0;
     styleCache = null;
     fadeCache = null;
+    topsCache = null;
     if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
-    var hov = document.querySelector("[data-sl-hover]");
-    var sec = document.querySelector("[data-sl-selected]");
-    var blk = document.querySelector("[data-sl-selected-block]");
+    /* The marked elements from what marked them, not a search of the page for the marks: a large header is thousands of elements, searched three times a frame while a slider moves. */
+    var hov = hovered && hovered.isConnected && hovered.hasAttribute("data-sl-hover") ? hovered : null;
+    var secEl = selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
+    var sec = secEl && secEl.hasAttribute("data-sl-selected") ? secEl : null;
+    var blkEl = secEl && selected.block ? secEl.querySelector('[data-block-id="' + CSS.escape(selected.block) + '"]') : null;
+    var blk = blkEl && blkEl.hasAttribute("data-sl-selected-block") ? blkEl : null;
     place(boxes.hover, hov && hov !== blk && !(hov === sec && !blk) ? hov : null, 0);
     /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
     var b = place(boxes.block, blk, -2);
@@ -661,6 +687,7 @@ export const CANVAS_BRIDGE = `
   var lastBox = "";
   var report = function (read) {
     boxFrame = 0;
+    if (!read) topsCache = null;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     var v = el ? (read && read.el === el ? read.v : visibleRect(el, 0)) : null;
     var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
@@ -907,7 +934,7 @@ export const CANVAS_BRIDGE = `
     });
     if (tag === "SCRIPT") { if (a.textContent !== b.textContent) ops.restart = true; return true; }
     if (tag === "STYLE" || tag === "TEXTAREA" || tag === "TITLE") {
-      if (a.textContent !== b.textContent) ops.push(function () { live.textContent = b.textContent; });
+      if (a.textContent !== b.textContent) ops.push(function () { live.__slText = undefined; live.textContent = b.textContent; });
       return true;
     }
     if (tag === "TEMPLATE") {
@@ -954,6 +981,282 @@ export const CANVAS_BRIDGE = `
     }
     if (selected.section === id) mark(selected.section, selected.block, false, true);
     reportSoon();
+    return true;
+  };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A STYLE THAT CHANGED IS WRITTEN WHERE IT IS, WHATEVER THE THEME MOVED
+    ═══════════════════════════════════════════════════════════════════════
+    The owner, round 35: the header's height dragged in the sidebar, and the
+    header in the canvas moved in about three steps a second. A theme's
+    header is the section its scripts change most: Dawn's moves its menu
+    drawer and adds its sticky state, a custom header builds its mega menu
+    and its icons. The page no longer matched the markup it was drawn from
+    child for child, so morph above gave up and every value was a swap: the
+    whole header taken out and put back, its custom elements connected
+    again, every element compared for what the theme had done to it. 200 to
+    650ms of the main thread per value on Dawn at full speed, two seconds
+    with the CPU slowed 4x (scripts/check-compat-live-edit.ts).
+
+    Most values a slider or a colour moves change a style and nothing else:
+    a number in the section's own <style>, a declaration in a style
+    attribute. So the two markups are compared with each other first, never
+    with the page. When the only differences are those (and words, and plain
+    attributes), each is found on the page by what it was drawn as, and
+    written there: the <style> whose text was the old text, the element of
+    that tag and those classes at the same place among its kind. The rest of
+    the page, and everything the theme's scripts did to it, is not looked at.
+    Anything that cannot be found that way goes to morph, then to a swap.
+  */
+  var parsedAt = {};
+  var parsed = function (id, html) {
+    var hit = parsedAt[id];
+    if (hit && hit.html === html) return hit.el;
+    var t = document.createElement("template");
+    t.innerHTML = html;
+    var el = t.content.firstElementChild;
+    parsedAt[id] = { html: html, el: el };
+    return el;
+  };
+  var ownStyles = function (root) { return Array.prototype.filter.call(root.querySelectorAll("style"), function (s) { return !s.hasAttribute("data-sl"); }); };
+  /*
+    A <STYLE>'S NEW TEXT, WRITTEN INTO ITS RULES. Its text replaced, the
+    browser reads the sheet again and rebuilds the page's rules from every
+    stylesheet the theme has: 7ms at full speed for a header's one number,
+    30ms slowed 4x, whatever the number changed (a trace of the frame,
+    scripts/check-compat-live-edit.ts TRACE). So the old and the new text are
+    read into sheets of their own, rule for rule, and only the declarations
+    that differ are set on the rule on the page. The text a rule-written
+    <style> stands for is kept on it (__slText), for the next change to be
+    matched against. A sheet whose rules differ in any other way (a rule
+    added, a selector changed, a keyframe) takes the text.
+  */
+  var textOf = function (s) { return s.__slText !== undefined ? s.__slText : s.textContent; };
+  var scratch = function (text) {
+    try { var sh = new CSSStyleSheet(); sh.replaceSync(text); return sh; } catch (e) { return null; }
+  };
+  var ruleOps = function (live, a, b, ops) {
+    if (live.length !== a.length || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      var ra = a[i], rb = b[i], rl = live[i];
+      if (ra.cssText === rb.cssText) continue;
+      if (ra.constructor !== rb.constructor || rl.constructor !== ra.constructor) return false;
+      /* A style rule (which may hold nested rules of its own, CSS nesting): its declarations, then what it holds. */
+      if (ra.style && rb.style && rl.style) {
+        if (ra.selectorText !== rb.selectorText || rl.selectorText !== ra.selectorText) return false;
+        var sa = ra.style, sb = rb.style, k, p;
+        for (k = 0; k < sa.length; k++) { p = sa[k]; if (!sb.getPropertyValue(p)) ops.push((function (st, q) { return function () { st.removeProperty(q); }; })(rl.style, p)); }
+        for (k = 0; k < sb.length; k++) {
+          p = sb[k];
+          if (sa.getPropertyValue(p) === sb.getPropertyValue(p) && sa.getPropertyPriority(p) === sb.getPropertyPriority(p)) continue;
+          ops.push((function (st, q, v, pr) { return function () { st.setProperty(q, v, pr); }; })(rl.style, p, sb.getPropertyValue(p), sb.getPropertyPriority(p)));
+        }
+        var na = ra.cssRules ? ra.cssRules.length : 0, nb = rb.cssRules ? rb.cssRules.length : 0;
+        if ((na || nb) && !(rl.cssRules && ruleOps(rl.cssRules, ra.cssRules, rb.cssRules, ops))) return false;
+        continue;
+      }
+      /* A rule that holds rules (@media, @supports, @layer, @container) under the same condition. */
+      if (ra.cssRules && rb.cssRules && rl.cssRules && (ra.conditionText || "") === (rb.conditionText || "") && (rl.conditionText || "") === (ra.conditionText || "")) {
+        if (!ruleOps(rl.cssRules, ra.cssRules, rb.cssRules, ops)) return false;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  };
+  var setText = function (s, to) {
+    var from = textOf(s), sheet = s.sheet, a = sheet ? scratch(from) : null, b = a ? scratch(to) : null, ops = [];
+    var ruled = false;
+    try { ruled = !!(a && b && ruleOps(sheet.cssRules, a.cssRules, b.cssRules, ops)); } catch (e) { ruled = false; }
+    if (ruled) { ops.forEach(function (op) { op(); }); s.__slText = to; return; }
+    s.__slText = undefined;
+    s.textContent = to;
+  };
+  /* The two markups, child for child: false when their shape differs, else every difference that can be written in place. */
+  var differences = function (a, b, out) {
+    if (a.nodeType !== b.nodeType) return false;
+    if (a.nodeType === 3) { if (a.data !== b.data) out.push({ text: a, to: b.data }); return true; }
+    if (a.nodeType !== 1) return true;
+    if (a.tagName !== b.tagName) return false;
+    var names = {}, i;
+    for (i = 0; i < a.attributes.length; i++) names[a.attributes[i].name] = 1;
+    for (i = 0; i < b.attributes.length; i++) names[b.attributes[i].name] = 1;
+    for (var n in names) {
+      var va = a.getAttribute(n), vb = b.getAttribute(n);
+      if (va !== vb) out.push({ el: a, name: n, from: va, to: vb });
+    }
+    if (a.tagName === "STYLE") { if (a.textContent !== b.textContent) out.push({ style: a, to: b.textContent }); return true; }
+    /* A script's or a template's text is read once by the theme: a change there is a swap. */
+    if (a.tagName === "SCRIPT" || a.tagName === "TEMPLATE" || a.tagName === "TEXTAREA" || a.tagName === "TITLE") return a.textContent === b.textContent;
+    var ka = childrenOf(a), kb = childrenOf(b);
+    if (ka.length !== kb.length) return false;
+    for (i = 0; i < ka.length; i++) if (!differences(ka[i], kb[i], out)) return false;
+    return true;
+  };
+  /* An element as drawn, on the page: the one of its tag carrying its classes, at the same place among those. */
+  var kindOf = function (x) { var c = words(x.getAttribute("class")); return { tag: x.tagName, words: c }; };
+  var ofKind = function (root, k) {
+    var out = root.tagName === k.tag && k.words.every(function (w) { return root.classList.contains(w); }) ? [root] : [];
+    Array.prototype.forEach.call(root.getElementsByTagName(k.tag), function (c) { if (k.words.every(function (w) { return c.classList.contains(w); })) out.push(c); });
+    return out;
+  };
+  var onPage = function (x, drawnRoot, live) {
+    if (x === drawnRoot) return live;
+    var id = x.getAttribute("id");
+    if (id) { var byId = live.querySelector("#" + CSS.escape(id)); return byId && byId.tagName === x.tagName ? byId : null; }
+    var k = kindOf(x);
+    var mine = ofKind(drawnRoot, k), theirs = ofKind(live, k);
+    if (mine.length !== theirs.length) return null;
+    return theirs[mine.indexOf(x)] || null;
+  };
+  /* An attribute as drawn, written as it is drawn now: a style declaration by declaration, a class word by word. */
+  var writeAttr = function (t, name, from, to) {
+    if (name === "style" && from !== null && to !== null) {
+      var da = declarations(from), db = declarations(to);
+      return function () {
+        Object.keys(da).forEach(function (p) { if (!(p in db)) t.style.removeProperty(p); });
+        Object.keys(db).forEach(function (p) {
+          if (da[p] === db[p]) return;
+          var v = db[p], important = /!important$/i.test(v);
+          t.style.setProperty(p, important ? v.replace(/\s*!important$/i, "") : v, important ? "important" : "");
+        });
+      };
+    }
+    if (name === "class") {
+      var wa = words(from), wb = words(to);
+      return function () {
+        wa.forEach(function (w) { if (wb.indexOf(w) < 0) t.classList.remove(w); });
+        wb.forEach(function (w) { if (wa.indexOf(w) < 0) t.classList.add(w); });
+      };
+    }
+    if (to === null) return function () { t.removeAttribute(name); };
+    return function () { t.setAttribute(name, to); };
+  };
+  /* What was written is the section as drawn now; a value a script reads once starts it again when the changes stop (as morph). */
+  var written = function (id, html, ops, restart) {
+    /* Nothing added or taken away, so the scroll is not read back: reading it was a layout of the page for every value. */
+    ops.forEach(function (op) { op(); });
+    if (watcher) watcher.takeRecords();
+    streaming();
+    drawn[id] = html;
+    clearTimeout(settleTimers[id]);
+    if (restart) {
+      settleTimers[id] = setTimeout(function () {
+        queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
+      }, 700);
+    }
+    /* The same elements, changed: the selection's marks are still on them, so only where they are is read again (mark took them all off and put them back, a style pass of its own for every value). */
+    var sel = selected.section === id ? document.getElementById("shopify-section-" + id) : null;
+    if (sel && inspect && !sel.hasAttribute("data-sl-selected") && !sel.querySelector("[data-sl-selected-block]")) mark(selected.section, selected.block, false, true);
+    reportSoon();
+    return true;
+  };
+  var restartsFor = function (name, tag) { return name.indexOf("data-") === 0 || tag.indexOf("-") > 0; };
+  var restyle = function (id, html, prev) {
+    var el = document.getElementById("shopify-section-" + id);
+    var before = drawn[id] || prev;
+    if (!el || typeof before !== "string" || typeof html !== "string") return false;
+    if (before === html) return true;
+    var a = parsed(id, before), b = document.createElement("template");
+    b.innerHTML = html;
+    b = b.content.firstElementChild;
+    if (!a || !b) return false;
+    var diffs = [];
+    if (!differences(a, b, diffs)) return false;
+    var styles = null, liveStyles = null, ops = [], restart = false;
+    for (var i = 0; i < diffs.length; i++) {
+      var d = diffs[i];
+      if (d.style) {
+        if (!styles) { styles = ownStyles(a); liveStyles = ownStyles(el); }
+        var k = styles.indexOf(d.style);
+        var same = liveStyles.length === styles.length ? liveStyles[k] : null;
+        /* Where the theme added a stylesheet of its own: the one whose text is what was drawn. */
+        if (!same || textOf(same) !== d.style.textContent) {
+          var hits = liveStyles.filter(function (s) { return textOf(s) === d.style.textContent; });
+          same = hits.length === 1 ? hits[0] : null;
+        }
+        /* Already written while a finger was down (a theme value, "edits" below): nothing to do. */
+        if (!same && liveStyles.some(function (s) { return textOf(s) === d.to; })) continue;
+        if (!same) return false;
+        ops.push((function (s, to) { return function () { setText(s, to); }; })(same, d.to));
+      } else if (d.text) {
+        var parent = d.text.parentNode && d.text.parentNode.nodeType === 1 ? onPage(d.text.parentNode, a, el) : null;
+        if (!parent) return false;
+        var node = null;
+        for (var c = parent.firstChild; c; c = c.nextSibling) if (c.nodeType === 3 && c.data === d.text.data) { node = c; break; }
+        if (!node) return false;
+        ops.push((function (t, to) { return function () { t.data = to; }; })(node, d.to));
+      } else {
+        if (d.name === "id") return false;
+        var live = onPage(d.el, a, el);
+        if (!live) return false;
+        if (restartsFor(d.name, d.el.tagName)) restart = true;
+        ops.push(writeAttr(live, d.name, d.from, d.to));
+      }
+    }
+    Array.prototype.forEach.call(b.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { keep(l.getAttribute("href")); });
+    parsedAt[id] = { html: html, el: b };
+    return written(id, html, ops, restart);
+  };
+  /*
+    THE ONE CHANGE, NAMED BY THE BUILDER. While a finger is on a slider the
+    builder compares what it drew with what it drew before and, when the
+    change is inside one <style> or one tag, sends that alone
+    (lib/storelib-theme/compat/live-draw.ts editBetween). It is written
+    without parsing or comparing the section: the <style> whose text was the
+    old text, or the one element of that tag and classes whose attributes
+    were the old ones. Found nowhere, or twice, it is left to restyle.
+  */
+  var edit = function (id, e, html) {
+    var el = document.getElementById("shopify-section-" + id);
+    if (!el || !e || typeof html !== "string") return false;
+    if (e.style) {
+      var mine = ownStyles(el);
+      var hits = mine.filter(function (s) { return textOf(s) === e.from; });
+      if (!hits.length && mine.some(function (s) { return textOf(s) === e.to; })) return written(id, html, [], false);
+      if (hits.length !== 1) return false;
+      return written(id, html, [(function (s) { return function () { setText(s, e.to); }; })(hits[0])], false);
+    }
+    if (!e.tag) return false;
+    var ta = document.createElement("template"), tb = document.createElement("template");
+    ta.innerHTML = e.from;
+    tb.innerHTML = e.to;
+    var a = ta.content.firstElementChild, b = tb.content.firstElementChild;
+    if (!a || !b || a.tagName !== b.tagName) return false;
+    var names = {}, changed = [], i;
+    for (i = 0; i < a.attributes.length; i++) names[a.attributes[i].name] = 1;
+    for (i = 0; i < b.attributes.length; i++) names[b.attributes[i].name] = 1;
+    for (var n in names) if (a.getAttribute(n) !== b.getAttribute(n)) changed.push({ name: n, from: a.getAttribute(n), to: b.getAttribute(n) });
+    if (!changed.length || changed.some(function (d) { return d.name === "id"; })) return false;
+    var found = ofKind(el, kindOf(a)).filter(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.from; }); });
+    if (found.length !== 1) return false;
+    var restart = changed.some(function (d) { return restartsFor(d.name, a.tagName); });
+    return written(id, html, changed.map(function (d) { return writeAttr(found[0], d.name, d.from, d.to); }), restart);
+  };
+  /* A named change anywhere in the page: every place holding what it was is written; a page already showing it needs nothing. */
+  var editAnywhere = function (e) {
+    if (e.style) {
+      var all = ownStyles(document.documentElement);
+      var hits = all.filter(function (x) { return textOf(x) === e.from; });
+      if (!hits.length) return all.some(function (x) { return textOf(x) === e.to; });
+      hits.forEach(function (x) { setText(x, e.to); });
+      return true;
+    }
+    if (!e.tag) return false;
+    var ta = document.createElement("template"), tb = document.createElement("template");
+    ta.innerHTML = e.from;
+    tb.innerHTML = e.to;
+    var a = ta.content.firstElementChild, b = tb.content.firstElementChild;
+    if (!a || !b || a.tagName !== b.tagName) return false;
+    var names = {}, changed = [], i;
+    for (i = 0; i < a.attributes.length; i++) names[a.attributes[i].name] = 1;
+    for (i = 0; i < b.attributes.length; i++) names[b.attributes[i].name] = 1;
+    for (var n in names) if (a.getAttribute(n) !== b.getAttribute(n)) changed.push({ name: n, from: a.getAttribute(n), to: b.getAttribute(n) });
+    if (changed.some(function (d) { return d.name === "id" || d.name === "class"; })) return false;
+    var kind = ofKind(document.documentElement, kindOf(a));
+    var found = kind.filter(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.from; }); });
+    if (!found.length) return kind.some(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.to; }); });
+    found.forEach(function (t) { changed.forEach(function (d) { writeAttr(t, d.name, d.from, d.to)(); }); });
     return true;
   };
   /* The newest change asked for each section: one waiting behind a newer one is skipped. */
@@ -1004,7 +1307,8 @@ export const CANVAS_BRIDGE = `
     if (m.styles) {
       var mine = Array.prototype.filter.call(document.head.querySelectorAll("style"), function (x) { return !x.hasAttribute("data-sl"); });
       if (mine.length !== m.styles.length) return reload("styles");
-      mine.forEach(function (x, i) { if (x.textContent !== m.styles[i]) x.textContent = m.styles[i]; });
+      /* A style already showing the text (written into its rules while a finger was down) is left as it is. */
+      mine.forEach(function (x, i) { if (textOf(x) !== m.styles[i]) { x.__slText = undefined; x.textContent = m.styles[i]; } });
     }
     if (m.fonts) {
       var have = Array.prototype.slice.call(document.querySelectorAll("link[data-storelib-font]"));
@@ -1195,13 +1499,41 @@ export const CANVAS_BRIDGE = `
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
       queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
+    } else if (m.type === "edits") {
+      /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
+      queue = queue.then(function () {
+        var ok = (m.edits || []).every(function (e) { try { return editAnywhere(e); } catch (err) { return false; } });
+        if (watcher) watcher.takeRecords();
+        streaming();
+        reportSoon();
+        if (!ok) post({ type: "edits-failed", key: m.key });
+      }).catch(function () {});
+    } else if (m.type === "section" && m.cut) {
+      /*
+        A CUT, NOT THE MARKUP (live-draw.ts cutBetween): the section's new
+        drawing is made from the one held here. Every cut is made, in order,
+        each one costing next to nothing; one that does not fit what is held
+        asks for the section whole.
+      */
+      queue = queue.then(function () {
+        var before = drawn[m.id];
+        var c = m.cut;
+        if (typeof before !== "string" || before.length !== c.len) { post({ type: "resend", id: m.id }); return; }
+        var html = before.slice(0, c.at) + c.put + before.slice(c.at + c.cut);
+        var done = false;
+        if (m.edit) { try { done = edit(m.id, m.edit, html); } catch (err) { done = false; } }
+        if (!done) { try { done = restyle(m.id, html, before); } catch (err) { done = false; } }
+        if (!done) { try { done = morph(m.id, html, before); } catch (err) { done = false; } }
+        if (!done) return swap(m.id, html, before);
+      }).catch(function () {});
     } else if (m.type === "section") {
-      /* In order: a swap that waits for a stylesheet holds the ones after it. Changed in place when it can be (morph); only the newest of a burst is drawn. */
+      /* In order: a swap that waits for a stylesheet holds the ones after it. Changed in place when it can be (morph); only the newest of a burst is drawn (a cut after it is made from it, so it is never the one skipped). */
       var n = (asked[m.id] = (asked[m.id] || 0) + 1);
       queue = queue.then(function () {
         if (asked[m.id] !== n) return;
         var done = false;
-        try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
+        try { done = restyle(m.id, m.html, m.prev); } catch (err) { done = false; }
+        if (!done) try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
         if (!done) return swap(m.id, m.html, m.prev);
       }).catch(function () {});
     } else if (m.type === "select") {

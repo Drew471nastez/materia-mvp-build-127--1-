@@ -1142,15 +1142,29 @@ function anyCase(o: O): O {
   return new Proxy(o, { get: (t, k) => (typeof k === "string" && !(k in t) ? t[k.toLowerCase()] : (t as Record<string | symbol, unknown>)[k]) })
 }
 
+/*
+  Read once per currency and kept: every page context lists the store's
+  countries, each with its currency's sign, and a formatter made for each
+  was most of what reading a page's context cost (a header drawn again in
+  the builder for each value of a slider read it every time; round 35,
+  scripts/check-compat-live-edit.ts). The answer for a code never changes.
+*/
+const symbols = new Map<string, string>()
+
 /** A currency's sign, as Shopify's currency.symbol gives it. */
 export function currencySymbol(iso: string): string {
+  const known = symbols.get(iso)
+  if (known !== undefined) return known
+  let sign: string
   try {
     const part = new Intl.NumberFormat("en", { style: "currency", currency: iso, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
     /* A sign in letters is the currency's own word, never a lone letter (lib/markets/money currencyWord). */
-    return part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
+    sign = part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
   } catch {
-    return iso
+    sign = iso
   }
+  if (symbols.size < 1000) symbols.set(iso, sign)
+  return sign
 }
 
 /**
@@ -1159,7 +1173,15 @@ export function currencySymbol(iso: string): string {
  * a browser asked the website for as /DJ, a whole page, once per country:
  * 250 renders at once on every page view, and the database fell over.
  */
+const flags = new Map<string, string>()
 export function flagImage(code: string): string {
+  const known = flags.get(code)
+  if (known !== undefined) return known
+  const drawn = drawFlag(code)
+  if (flags.size < 1000) flags.set(code, drawn)
+  return drawn
+}
+function drawFlag(code: string): string {
   const cc = /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : ""
   const emoji = cc ? String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : ""
   /* FLAG_SVG_OPEN is how a live page finds its flags to load them when seen (./first-load.ts). */

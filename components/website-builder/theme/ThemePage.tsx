@@ -382,6 +382,7 @@ function SiteCookieStyle({ theme }: { theme: ThemeSettingsValues }) {
 export function ThemePage({
   storefront,
   theme,
+  chromeTheme,
   sections,
   renderSection,
   renderGap,
@@ -392,6 +393,15 @@ export function ThemePage({
   children,
 }: {
   theme: ThemeSettingsValues
+  /**
+   * The theme the bars above the header are drawn with, when it is not
+   * `theme`: the editor keeps `theme` the committed one (a value under a
+   * finger restyles the sections on screen by hand), and the announcement
+   * and free shipping bars, which are drawn here and are no section, never
+   * saw a colour or a text moving until the finger lifted (round 35). They
+   * are two small components; drawing them with each value costs nothing.
+   */
+  chromeTheme?: ThemeSettingsValues
   sections: SectionInstance[]
   /**
    * Whose site this is. The two sections that send something somewhere, the
@@ -618,8 +628,8 @@ export function ThemePage({
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}
 
-      <AnnouncementBar theme={theme} />
-      <FreeShippingBar theme={theme} />
+      <AnnouncementBar theme={chromeTheme ?? theme} />
+      <FreeShippingBar theme={chromeTheme ?? theme} />
 
       {headers.map((section, i) => render(section, "header", i === 0 && headerTouchesTop(theme)))}
 

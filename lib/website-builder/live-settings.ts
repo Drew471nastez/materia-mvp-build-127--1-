@@ -54,8 +54,11 @@ const listeners = new Set<() => void>()
 
 /** Bumped on every change, for a reader of the whole store (useLiveSections). */
 let version = 0
+/** `version` as it was when no gesture was under way: what a reader that draws live values itself renders on (useLiveSections, quietWhileLive). */
+let settledVersion = 0
 function notify() {
   version++
+  if (depth === 0) settledVersion = version
   for (const l of listeners) l()
 }
 function subscribe(l: () => void) {
@@ -210,6 +213,26 @@ export function reconcileEchoes(current: (sectionId: string) => SectionInstance 
   if (dropped) notify()
 }
 
+/**
+ * Told of every live value as it is set, before any render: for a canvas
+ * that draws a value itself, in the frame the value arrived in, rather than
+ * after React has rendered it and an effect has run (compat-canvas.tsx: two
+ * frames later, at best). Returns the unsubscribe.
+ */
+export function onLiveChange(listener: () => void): () => void {
+  return subscribe(listener)
+}
+
+/** `section` as it should be drawn now: what was committed and echoed, with what a finger is moving over it. The same object when nothing is. */
+export function liveSectionNow<T extends SectionInstance>(section: T): T {
+  return withLive(withLive(section, echoes.get(section.id)), sections.get(section.id)) as T
+}
+
+/** The theme settings a finger is moving now, or null: for a canvas that writes them itself (compat-canvas.tsx). */
+export function liveThemeNow(): Record<string, unknown> | null {
+  return theme
+}
+
 /** Everything live forgotten without committing: for a test, or an editor that is closing. */
 export function resetLive(): void {
   depth = 0
@@ -296,8 +319,16 @@ export function useLiveSection(section: SectionInstance): SectionInstance {
  * section (components/website-builder/compat/compat-canvas.tsx). A section
  * no finger is on is the same object, so a reader can tell which changed.
  */
-export function useLiveSections<T extends SectionInstance>(list: readonly T[]): T[] {
-  const at = useSyncExternalStore(subscribe, () => version, () => 0)
+export function useLiveSections<T extends SectionInstance>(list: readonly T[], opts: { quietWhileLive?: boolean } = {}): T[] {
+  /*
+    QUIET WHILE LIVE: for a canvas that draws a live value itself the moment
+    it is set (onLiveChange, liveSectionNow), a render per value is only
+    cost (compat-canvas.tsx, round 35: the canvas and its effects, every
+    value, 10 to 18ms with the CPU slowed 4x). It renders again once the
+    gesture is over, or for anything else that changes meanwhile.
+  */
+  const quiet = opts.quietWhileLive === true
+  const at = useSyncExternalStore(subscribe, () => (quiet ? settledVersion : version), () => 0)
   /* Let go of a value once the editor's own copy says the same, as useLiveSection does: an Undo after a drag is then the Undo that is drawn. */
   useLayoutEffect(() => {
     for (const s of list) {

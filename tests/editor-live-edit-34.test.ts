@@ -104,7 +104,8 @@ console.log("\nA THEME VARIABLE UNDER A FINGER IS WRITTEN WHERE IT CAN BE SEEN")
   check("never onto the theme's root while live, except its own background", !/root\.style\.setProperty/.test(patcher.slice(patcher.indexOf("const want = themeVars(theme)"))) && /root\.style\.backgroundColor = want\["--theme-bg"\]/.test(patcher))
   check("committed, everything written by hand is taken away and the root has the theme", /if \(theme === base\) \{\s*for \(const \[el, keys\] of \[\.\.\.written\]\) letGo\(el, keys\)/.test(patcher))
   check("a variable written in terms of a changed one is written again where it is", /changed\.some\(\(c\) => v\.includes\(`var\(\$\{c\}\)`\)\)/.test(patcher))
-  check("ThemePage keeps the committed theme, so its root is restyled once, on the commit", /theme=\{committedTheme\}\s*\n\s*sections=\{sections\}/.test(editor))
+  /* Changed on purpose (round 35): the bars above the header, which are no section, are drawn with the live theme (chromeTheme). */
+  check("ThemePage keeps the committed theme, so its root is restyled once, on the commit", /theme=\{committedTheme\}\s*\n(\s*\/\*[^\n]*\*\/\s*\n)?\s*chromeTheme=\{theme\}\s*\n\s*sections=\{sections\}/.test(editor))
 }
 
 console.log("\nA COLOUR DRAGGED IN THE PICKER IS NOT A RENDER PER MOVE")
