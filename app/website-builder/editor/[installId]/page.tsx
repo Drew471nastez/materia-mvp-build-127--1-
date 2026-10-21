@@ -1396,7 +1396,8 @@ function WbRadioSegment({
   onChange: (v: string) => void
   options: { label: string; value: string }[]
 }) {
-  const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
+  /* The choice moves in its own frame; the editor follows in a transition (components/website-builder/echo-field.ts). */
+  const [selected, choose] = useEchoedValue(typeof value === "string" ? value : String(options[0]?.value ?? ""), onChange)
   // Fallback to a select when there are too many options for a segmented control
   if (options.length > 3) {
     return (
@@ -1406,7 +1407,7 @@ function WbRadioSegment({
           <select
             className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
             value={selected}
-            onChange={e => onChange(e.target.value)}
+            onChange={e => choose(e.target.value)}
           >
             {options.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1425,7 +1426,7 @@ function WbRadioSegment({
           <button
             key={opt.value}
             type="button"
-            onClick={() => onChange(opt.value)}
+            onClick={() => choose(opt.value)}
             className={cn(
               "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
               selected === opt.value

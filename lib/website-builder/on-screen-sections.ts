@@ -17,8 +17,8 @@
  * late at 1x and 3.4s at 4x CPU; a theme slider rendered 616 sections for 63
  * values.
  *
- * So while a theme value is live, only the sections on screen (and a screen
- * above and below) are drawn with it. They are a handful, which renders
+ * So while a theme value is live, only the sections on screen (and 200px
+ * either side) are drawn with it. They are a handful, which renders
  * between two moves. The rest keep the committed theme until the finger
  * lifts, and the commit then draws the whole page once, with the value the
  * editor keeps: what is published is never drawn from anything else.
@@ -30,8 +30,8 @@
 
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
-/** How far past the visible canvas a section still counts as on screen: a wheel turn or a resize away. */
-export const ON_SCREEN_MARGIN = "600px 0px"
+/** How far past the visible canvas a section still counts as on screen: a wheel turn away. */
+export const ON_SCREEN_MARGIN = "200px 0px"
 
 /**
  * Whether a section is on screen, by its id. `ids` are the sections drawn
