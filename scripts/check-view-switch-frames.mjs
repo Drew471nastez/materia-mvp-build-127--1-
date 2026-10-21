@@ -325,13 +325,15 @@ const FRAME_RECORDER = String.raw`(() => {
       for (const a of document.getAnimations()) if (a.playState === "running") { const kf = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []; if (a.transitionProperty === "opacity" || kf.some((k) => "opacity" in k)) fades++ }
       /*
         REPLAYS: an entrance (opacity or a move) that started after the press
-        on something in view: content already shown, shown again. WASHED: a
+        on something in view and still playing when the frame is drawn:
+        content already shown, shown again (one taken to its end before it
+        was drawn, and kept there by its fill, is not seen). WASHED: a
         picture in view drawn fainter than it was. STALE: a slide whose width
         is not its slider's (a slider sized in pixels, not measured again yet).
       */
       for (const a of document.getAnimations()) {
         const t = a.effect && a.effect.target
-        if (!t || !t.getBoundingClientRect || replayed.has(a)) continue
+        if (!t || !t.getBoundingClientRect || replayed.has(a) || a.playState === "finished") continue
         if (a.startTime !== null && a.startTime < began) continue
         const kf = a.effect.getKeyframes ? a.effect.getKeyframes() : []
         const moves = a.transitionProperty ? /^(opacity|transform|translate)$/.test(a.transitionProperty) : kf.some((k) => "opacity" in k || "transform" in k || "translate" in k)

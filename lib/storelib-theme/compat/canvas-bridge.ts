@@ -1653,7 +1653,7 @@ export const CANVAS_SWITCH = `
       } finally { work--; }
     }
   };
-  var began = null, still = null, mark = null, ro = null, flip = 0, looping = false;
+  var began = null, still = null, mark = null, ro = null, flip = 0, looping = false, afterFrames = 0;
   var inView = function (el) { var r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; };
   var finishNew = function () {
     if (began === null || !document.getAnimations) return;
@@ -1672,9 +1672,43 @@ export const CANVAS_SWITCH = `
     drawn, and what they put off is done at once. The browser's own resize
     event, a frame later, finds nothing left to do.
   */
+  /*
+    ONLY WHAT CAN BE SEEN IS LAID OUT AT EVERY FRAME. The sections well
+    below the view wait at their height until the switch is over (as the
+    builder's own sections do, canvas-switch.ts holdOffscreenSections), so a
+    frame of the move costs the sections on screen, not the whole page. One
+    that the page brings near the view as it reflows is handed back before
+    that frame is drawn. Only below: a section above the view changing height
+    would move what is on screen. Not one that holds a fixed bar (nothing of
+    its own in the page's flow), which would vanish.
+  */
+  var held = [];
+  var holdBelow = function () {
+    var vh = innerHeight || 800;
+    document.querySelectorAll(".shopify-section").forEach(function (s) {
+      if (s.parentElement && s.parentElement.closest(".shopify-section")) return;
+      var r = s.getBoundingClientRect();
+      if (r.top < vh * 2 || r.height < 2 || s.style.contentVisibility) return;
+      var first = s.firstElementChild;
+      if (first && /fixed|sticky/.test(getComputedStyle(first).position)) return;
+      s.style.containIntrinsicHeight = Math.round(r.height) + "px";
+      s.style.contentVisibility = "hidden";
+      held.push(s);
+    });
+  };
+  var releaseNear = function (all) {
+    var vh = innerHeight || 800;
+    held = held.filter(function (s) {
+      if (!all && s.isConnected && s.getBoundingClientRect().top > vh * 1.5) return true;
+      s.style.removeProperty("content-visibility");
+      s.style.removeProperty("contain-intrinsic-height");
+      return false;
+    });
+  };
   var lastW = 0;
   var laidOut = function () {
     if (!on) return;
+    if (held.length) releaseNear(false);
     if (innerWidth !== lastW) {
       lastW = innerWidth;
       try { W.dispatchEvent(new Event("resize")); } catch (e) {}
@@ -1724,9 +1758,6 @@ export const CANVAS_SWITCH = `
         ro.observe(document.documentElement);
       }
       shown.clear();
-      Array.prototype.forEach.call(document.images, function (img) {
-        if (img.complete && img.naturalWidth && img.src && getComputedStyle(img).opacity === "1") shown.add(img.src);
-      });
       if (typeof MutationObserver === "function") {
         mo = new MutationObserver(function (list) { list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) { eager(n); lift(n); } }); }); });
         mo.observe(document.documentElement, { childList: true, subtree: true });
@@ -1742,7 +1773,8 @@ export const CANVAS_SWITCH = `
     }
   };
   var frame = function () {
-    if (on && stopAt && now() >= stopAt) { on = false; stopAt = 0; flush(); quiet(false); began = null; idle(); }
+    /* Over once both the time and a few frames have passed since it landed: on a slow machine a frame can outlast the time, and what the landing brings into view is said a frame or two later. */
+    if (on && stopAt && ++afterFrames >= 6 && now() >= stopAt) { on = false; stopAt = 0; flush(); releaseNear(true); quiet(false); began = null; idle(); }
     if (!on) { looping = false; return; }
     flush();
     if (!ro) finishNew();
@@ -1803,7 +1835,12 @@ export const CANVAS_SWITCH = `
       document.querySelectorAll(".shopify-section").forEach(function (s) {
         var r = s.getBoundingClientRect();
         if (r.bottom < -vh || r.top > vh * 2) return;
-        if (now3 && r.bottom > -100 && r.top < vh * 1.25) eager(s);
+        if (now3 && r.bottom > -100 && r.top < vh * 1.25) {
+          eager(s);
+          s.querySelectorAll("img").forEach(function (img) {
+            if (img.complete && img.naturalWidth && img.src && getComputedStyle(img).opacity === "1") shown.add(img.src);
+          });
+        }
         s.querySelectorAll("img, picture source").forEach(function (el) {
           var set = el.getAttribute("srcset") || el.getAttribute("data-srcset");
           var src = el.getAttribute("data-src") || (el.tagName === "IMG" ? el.getAttribute("src") : null);
@@ -1833,8 +1870,9 @@ export const CANVAS_SWITCH = `
       if (began === null) began = document.timeline ? document.timeline.currentTime : now();
       quiet(true);
       warm(true);
+      holdBelow();
       if (!looping) { looping = true; raf(frame); }
-    } else if (on && !stopAt) stopAt = now() + 450;
+    } else if (on && !stopAt) { stopAt = now() + 900; afterFrames = 0; }
   };
 })();
 `.trim()
