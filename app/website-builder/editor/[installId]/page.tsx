@@ -11816,16 +11816,78 @@ function SectionToolbar({
 }
 
 /**
- * The theme's CSS variables written straight onto the canvas's theme root,
- * for a theme setting under a finger (lib/website-builder/live-settings.ts
- * useLiveTheme): a page width, a side padding or a corner radius moves on
- * the next frame, before any section has rendered again.
+ * ===========================================================================
+ *  A THEME VALUE UNDER A FINGER, WRITTEN WHERE IT CAN BE SEEN
+ * ===========================================================================
+ * The theme's CSS variables, written straight onto the page for a theme
+ * setting under a finger (lib/website-builder/live-settings.ts useLiveTheme):
+ * a page width, a side padding or a corner radius moves on the next frame,
+ * before any section has rendered again.
+ *
+ * NOT ON THE THEME'S ROOT WHILE THE FINGER IS DOWN. A custom property changed
+ * on the root restyles every element under it, and the canvas inherits some
+ * 465 of them, so on a 44 section page one value on the root cost 85ms of
+ * style at 1x CPU and 550ms at 4x, every move, whichever variable it was.
+ * Written onto the sections on screen (lib/website-builder/on-screen-
+ * sections.ts), the same value cost 6ms and 50ms (measured with
+ * scripts/check-editor-live-edit.mjs's page). Only the variables the value
+ * changes are written, and only there, plus the page's own background, which
+ * shows between sections and is not inherited. When the value is committed
+ * the root takes it from React (ThemePage) once, and everything written by
+ * hand is taken away.
  */
-function patchCanvasThemeVars(theme: ThemeSettingsValues) {
-  const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
-  if (!root) return
-  for (const [k, v] of Object.entries(themeVars(theme))) {
-    if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+function canvasThemePatcher(get: {
+  committed: () => ThemeSettingsValues
+  ids: () => readonly string[]
+  onScreen: (id: string) => boolean
+}): (theme: ThemeSettingsValues) => void {
+  const written = new Map<HTMLElement, Set<string>>()
+  let rootBackground: HTMLElement | null = null
+  const letGo = (el: HTMLElement, keys: Set<string>) => {
+    for (const k of keys) el.style.removeProperty(k)
+    written.delete(el)
+  }
+  return (theme) => {
+    const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
+    const base = get.committed()
+    if (theme === base) {
+      for (const [el, keys] of [...written]) letGo(el, keys)
+      if (rootBackground) { rootBackground.style.removeProperty("background-color"); rootBackground = null }
+      if (!root) return
+      for (const [k, v] of Object.entries(themeVars(theme))) {
+        if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+      }
+      return
+    }
+    const want = themeVars(theme)
+    const was = themeVars(base)
+    const changed = Object.keys(want).filter((k) => want[k] !== was[k])
+    /* A variable written in terms of a changed one is substituted where it is declared, so it is written again there too. */
+    for (const [k, v] of Object.entries(want)) if (!changed.includes(k) && changed.some((c) => v.includes(`var(${c})`))) changed.push(k)
+    const seen = new Set<HTMLElement>()
+    for (const id of get.ids()) {
+      const el = document.getElementById(`wb-section-${id}`)
+      if (!el) continue
+      const keys = written.get(el)
+      /* Off screen it is drawn with the committed theme (EditorCanvasPage themeFor), and styled with it. */
+      if (!get.onScreen(id)) { if (keys) letGo(el, keys); continue }
+      seen.add(el)
+      const own = keys ?? new Set<string>()
+      for (const k of own) if (!changed.includes(k)) { el.style.removeProperty(k); own.delete(k) }
+      for (const k of changed) {
+        if (el.style.getPropertyValue(k) !== want[k]) el.style.setProperty(k, want[k])
+        own.add(k)
+      }
+      written.set(el, own)
+    }
+    for (const [el, keys] of [...written]) if (!seen.has(el)) letGo(el, keys)
+    if (root && changed.includes("--theme-bg")) {
+      root.style.backgroundColor = want["--theme-bg"]
+      rootBackground = root
+    } else if (rootBackground) {
+      rootBackground.style.removeProperty("background-color")
+      rootBackground = null
+    }
   }
 }
 
@@ -11933,6 +11995,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   storeCurrency?: string
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
+  const committedRef = useRef(committedTheme)
+  committedRef.current = committedTheme
+  const idsRef = useRef<readonly string[]>([])
+  const onScreenRef = useRef<(id: string) => boolean>(() => true)
+  const [patchCanvasThemeVars] = useState(() =>
+    canvasThemePatcher({ committed: () => committedRef.current, ids: () => idsRef.current, onScreen: (id) => onScreenRef.current(id) }),
+  )
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
   /*
     And only by the sections on screen while it is live: the rest keep the
@@ -11940,11 +12009,10 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     once (lib/website-builder/on-screen-sections.ts).
   */
   const themeLive = theme !== committedTheme
-  const onScreen = useOnScreenSections(
-    useMemo(() => sections.map((s) => s.id), [sections]),
-    themeLive,
-    CANVAS_ON_SCREEN,
-  )
+  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections])
+  const onScreen = useOnScreenSections(sectionIds, themeLive, CANVAS_ON_SCREEN)
+  idsRef.current = sectionIds
+  onScreenRef.current = onScreen
   const themeFor = (id: string) => (!themeLive || onScreen(id) ? theme : committedTheme)
   /**
    * The same navigate, already marked as coming from the site's navigation.
@@ -11988,7 +12056,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData} headerLogo={canvasHeaderLogo}>
     <ThemePage
-      theme={theme}
+      /* The committed theme: a value under a finger is the sections' on screen, and written by hand where they are (canvasThemePatcher). */
+      theme={committedTheme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
       storefront={storefront}

@@ -393,14 +393,31 @@ async function run(cpu, bundle, css, fonts) {
       const profiling = process.env.PROFILE && new RegExp(process.env.PROFILE, "i").test(name)
       const tracing = process.env.TRACE && new RegExp(process.env.TRACE, "i").test(name)
       if (tracing) await page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", ...(process.env.TRACE_INV ? ["disabled-by-default-devtools.timeline.invalidationTracking"] : [])] })
+      let m0 = null
       if (profiling) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
       if (process.env.COMMITS) await js(() => { window.__commitLog = [] })
       await js(() => window.__lt.start())
       let note
       try { note = await act() } catch (e) { note = `threw: ${String(e).slice(0, 120)}` }
       await js((q) => window.__lt.quiet(q, 12000), opts.quiet ?? 600)
+      /*
+        A drag is committed when the finger lifts, as a transition: React
+        renders it in slices, so no long task and no commit says it is still
+        under way, and "quiet" can come first. Waited for, so the window holds
+        the commit and the probe can say it happened.
+      */
+      if (opts.commits) {
+        m0 = await js(async () => {
+          const t0 = performance.now()
+          const ran = () => Object.keys(window.__le.renders).filter((k) => /^StoreEditorPage\d*$/.test(k)).reduce((a, k) => a + window.__le.renders[k], 0)
+          while (performance.now() - t0 < 10000 && ran() === 0) await new Promise((r) => setTimeout(r, 100))
+          return Math.round(performance.now() - t0)
+        })
+        await js((q) => window.__lt.quiet(q, 12000), 600)
+      }
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       const m = await js(() => window.__lt.stop())
+      if (opts.commits) m.committedAfter = m0
       if (process.env.COMMITS) console.log("    commits: " + JSON.stringify(await js(() => { const l = window.__commitLog; window.__commitLog = []; return l })))
       if (profiling) printProfile((await cdp.send("Profiler.stop")).profile)
       if (tracing) printTrace(JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents)
@@ -461,7 +478,7 @@ async function run(cpu, bundle, css, fonts) {
     /* ── A spacing slider on that section ── */
     const pad = await sliderBox("padding")
     if (pad.none) expect(false, "the hero has a padding slider", pad.none)
-    else await measure("drag section padding", async () => { await dragSlider(pad); return pad.label }, { quiet: 900, changes: 81 })
+    else await measure("drag section padding", async () => { await dragSlider(pad); return pad.label }, { quiet: 900, changes: 81, commits: true })
 
     /* ── Typing in the heading ── */
     const input = await js(() => { const i = window.__lt.headingInput(); if (!i) return null; i.scrollIntoView({ block: "center" }); const r = i.getBoundingClientRect(); return { x: r.left + r.width - 8, y: r.top + r.height / 2 } })
@@ -513,7 +530,18 @@ async function run(cpu, bundle, css, fonts) {
       await sleep(300)
       const side = await sliderBox("side padding|padding|width")
       if (side.none) expect(false, "Layout has a slider", side.none)
-      else await measure("drag theme slider", async () => { await dragSlider(side); return side.label }, { quiet: 900, changes: 81 })
+      else {
+        await measure("drag theme slider", async () => { await dragSlider(side); return side.label }, { quiet: 900, changes: 81, commits: true })
+        /* Once committed the page is the committed page: the root has the value, and nothing is left written by hand on a section. */
+        await sleep(600)
+        report.themeAfter = await js(() => {
+          const root = document.querySelector("#wb-preview-root [data-storelib-theme]")
+          const left = [...document.querySelectorAll("#wb-preview-root [id^='wb-section-']")].filter((el) => /--theme-/.test(el.getAttribute("style") || "")).length
+          const thumb = [...document.querySelectorAll("[data-slot='slider-thumb']")].find((t) => !t.closest("#wb-preview-root") && t.getClientRects().length)
+          return { leftOnSections: left, rootPageWidth: root ? root.style.getPropertyValue("--theme-page-width") : null, slider: thumb ? thumb.getAttribute("aria-valuenow") : null, rootBackground: root ? root.style.backgroundColor : null }
+        })
+        console.log(`      after the commit: ${JSON.stringify(report.themeAfter)}`)
+      }
       /* Back to the groups. */
       const back = await js(() => { const b = document.querySelector("[data-theme-group-open] button"); return b ? window.__lt.centre(b) : null })
       if (back) { await clickAt(back); await sleep(500) }
@@ -543,7 +571,7 @@ async function run(cpu, bundle, css, fonts) {
             }
             await page.mouse.up()
             await js(() => document.removeEventListener("pointermove", window.__mv, true))
-          }, { quiet: 900, changes: 61 })
+          }, { quiet: 900, changes: 61, commits: true })
         }
         await page.keyboard.press("Escape")
         await sleep(400)
@@ -574,19 +602,24 @@ async function main() {
     if (has("drag section padding")) {
       const d = r["drag section padding"]
       expect(d.waitP95 !== null && d.waitP95 <= (slow ? 120 : 50), `${cpu}x section padding: the canvas follows the thumb (p95)`, { p50: d.waitP50, p95: d.waitP95 })
-      expect(d.editor <= 3, `${cpu}x section padding: the editor renders once for the drag, not once per move`, { editor: d.editor })
+      expect(d.editor >= 1 && d.editor <= 3, `${cpu}x section padding: the editor renders once for the drag, when the finger lifts, not once per move`, { editor: d.editor, committedAfterMs: d.committedAfter })
       expect(d.sections <= d.values + 6, `${cpu}x section padding: only the section being changed renders`, d.sectionTypes)
       expect(d.fetches === 0, `${cpu}x section padding: nothing fetched while dragging`, d.calls)
     }
     if (has("drag theme slider")) {
       const d = r["drag theme slider"]
       expect(d.waitP95 !== null && d.waitP95 <= (slow ? 120 : 50), `${cpu}x theme slider: the canvas follows the thumb (p95)`, { p50: d.waitP50, p95: d.waitP95 })
-      expect(d.editor <= 3, `${cpu}x theme slider: the editor renders once for the drag`, { editor: d.editor })
+      expect(d.editor >= 1 && d.editor <= 3, `${cpu}x theme slider: the editor renders once for the drag, when the finger lifts`, { editor: d.editor, committedAfterMs: d.committedAfter })
+    }
+    if (r.themeAfter) {
+      const a = r.themeAfter
+      expect(a.leftOnSections === 0 && a.rootBackground === "", `${cpu}x theme slider: once committed nothing written by hand is left on the page`, a)
+      expect(a.slider !== null && a.rootPageWidth === `${a.slider}px`, `${cpu}x theme slider: the theme's root has the value the slider ended on`, a)
     }
     if (has("drag scheme colour")) {
       const d = r["drag scheme colour"]
       expect(d.waitP95 !== null && d.waitP95 <= (slow ? 120 : 50), `${cpu}x scheme colour: the canvas follows the picker (p95)`, { p50: d.waitP50, p95: d.waitP95 })
-      expect(d.editor <= 3, `${cpu}x scheme colour: the editor renders once for the drag`, { editor: d.editor })
+      expect(d.editor >= 1 && d.editor <= 3, `${cpu}x scheme colour: the editor renders once for the drag, when the finger lifts`, { editor: d.editor, committedAfterMs: d.committedAfter })
       expect(d.framesOver33 <= Math.ceil(d.frames * (slow ? 0.25 : 0.1)), `${cpu}x scheme colour: frames over 33ms while dragging`, { over: d.framesOver33, frames: d.frames, worst: d.worstFrame })
     }
     if (has("type 20 keys")) {

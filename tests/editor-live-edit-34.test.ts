@@ -97,6 +97,16 @@ console.log("\nTHE THEME UNDER A FINGER, DRAWN BY THE SECTIONS ON SCREEN")
   check("before the observer has reported, every section counts as on screen", /!ready\.current \|\| seen\.current\.has\(id\)/.test(onScreen))
 }
 
+console.log("\nA THEME VARIABLE UNDER A FINGER IS WRITTEN WHERE IT CAN BE SEEN")
+{
+  const patcher = editor.slice(editor.indexOf("function canvasThemePatcher("), editor.indexOf("const CANVAS_ON_SCREEN"))
+  check("while live, only the variables the value changes, and only onto the sections on screen", /const changed = Object\.keys\(want\)\.filter\(\(k\) => want\[k\] !== was\[k\]\)/.test(patcher) && /document\.getElementById\(`wb-section-\$\{id\}`\)/.test(patcher) && /if \(!get\.onScreen\(id\)\) \{ if \(keys\) letGo\(el, keys\); continue \}/.test(patcher))
+  check("never onto the theme's root while live, except its own background", !/root\.style\.setProperty/.test(patcher.slice(patcher.indexOf("const want = themeVars(theme)"))) && /root\.style\.backgroundColor = want\["--theme-bg"\]/.test(patcher))
+  check("committed, everything written by hand is taken away and the root has the theme", /if \(theme === base\) \{\s*for \(const \[el, keys\] of \[\.\.\.written\]\) letGo\(el, keys\)/.test(patcher))
+  check("a variable written in terms of a changed one is written again where it is", /changed\.some\(\(c\) => v\.includes\(`var\(\$\{c\}\)`\)\)/.test(patcher))
+  check("ThemePage keeps the committed theme, so its root is restyled once, on the commit", /theme=\{committedTheme\}\s*\n\s*sections=\{sections\}/.test(editor))
+}
+
 console.log("\nA COLOUR DRAGGED IN THE PICKER IS NOT A RENDER PER MOVE")
 {
   check("while a finger is down the picker is moved by hand and the colour sent, no state set", /const moveTo = useCallback\(\(next: \{ h: number; s: number; v: number \}\) => \{\s*if \(!dragging\.current\) \{ commit\(next\); return \}\s*hsvLive\.current = next\s*emit\(paint\(next\)\)/.test(chip))
