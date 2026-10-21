@@ -203,6 +203,113 @@ export function templateCut(t: LiveTemplate, from: unknown, to: unknown): Sectio
   return { at, cut, put, len }
 }
 
+/* ── A theme setting, in the places of the page it is printed ──────────── */
+
+/**
+ * ===========================================================================
+ *  A THEME VALUE, WRITTEN WHERE THE PAGE PRINTS IT
+ * ===========================================================================
+ * A theme setting reaches the whole page: Dawn prints its section spacing as
+ * a variable in the layout's <style>, a custom theme its logo width in the
+ * header's. Each value a slider passed drew the whole page through Liquid in
+ * the builder (95ms at full speed on Dawn), parsed it (another 95ms) and
+ * compared it with the page on screen: two values a second
+ * (scripts/check-compat-live-edit.ts, "theme spacing").
+ *
+ * With the page's template for that setting (learning, above, drawn over
+ * the whole page), each place a value is printed is known, and with it what
+ * holds it: a <style>'s text or a tag. `placesOf` reads those once; for each
+ * value, `placeEdits` gives the texts of the places whose print changed,
+ * which the frame writes where they are (canvas-bridge.ts, "edits"). A value
+ * printed in the words of the page has no place that can be written alone,
+ * and the setting is drawn by Liquid as before.
+ */
+export type Place = { kind: "style" | "tag"; start: [number, number]; end: [number, number]; first: number; last: number }
+
+/** One printed value of a template, for a value. */
+function printAt(t: LiveTemplate, i: number, v: unknown): string | null {
+  if (t.kind === "colour") return typeof v === "string" && COLOUR.test(v) ? v : null
+  if (typeof v !== "number" || !Number.isInteger(v)) return null
+  const n = t.lines[i].round(t.lines[i].a * v + t.lines[i].b)
+  return Number.isInteger(n) ? String(n) : null
+}
+const slotCount = (t: LiveTemplate) => t.text.length - 1
+
+export function placesOf(t: LiveTemplate, value: unknown): Place[] | null {
+  const prints: string[] = []
+  for (let i = 0; i < slotCount(t); i++) {
+    const p = printAt(t, i, value)
+    if (p === null) return null
+    prints.push(p)
+  }
+  /* Where each text and each print starts in the drawing. */
+  const textAt: number[] = []
+  const slotAt: number[] = []
+  let x = 0
+  for (let i = 0; i < t.text.length; i++) {
+    textAt.push(x)
+    x += t.text[i].length
+    if (i < prints.length) { slotAt.push(x); x += prints[i].length }
+  }
+  const html = t.text.map((s, i) => s + (prints[i] ?? "")).join("")
+  /* A position as (text, offset into it), or null inside a print. */
+  const inText = (pos: number): [number, number] | null => {
+    for (let i = t.text.length - 1; i >= 0; i--) {
+      if (pos >= textAt[i]) return pos <= textAt[i] + t.text[i].length ? [i, pos - textAt[i]] : null
+    }
+    return null
+  }
+  const places: Place[] = []
+  for (let i = 0; i < prints.length; i++) {
+    const at = slotAt[i]
+    const open = html.lastIndexOf("<", at - 1)
+    const close = open < 0 ? -1 : html.indexOf(">", open)
+    if (open < 0 || close < 0) return null
+    let from: number, to: number, kind: Place["kind"]
+    if (close >= at + prints[i].length) {
+      if (!/^<[a-z]/i.test(html.slice(open, open + 2))) return null
+      kind = "tag"; from = open; to = close + 1
+    } else if (/^<style[\s>]/i.test(html.slice(open, open + 7))) {
+      const end = html.indexOf("</", close)
+      if (end < at + prints[i].length || !/^<\/style/i.test(html.slice(end, end + 7))) return null
+      kind = "style"; from = close + 1; to = end
+    } else return null
+    const start = inText(from), end = inText(to)
+    if (!start || !end) return null
+    const last = places[places.length - 1]
+    if (last && last.kind === kind && last.start[0] === start[0] && last.start[1] === start[1]) { last.last = i; continue }
+    places.push({ kind, start, end, first: i, last: i })
+  }
+  return places
+}
+
+/** The text of a place for a value. */
+function placeText(t: LiveTemplate, p: Place, v: unknown): string | null {
+  const [sj, so] = p.start, [ej, eo] = p.end
+  if (sj === ej) return t.text[sj].slice(so, eo)
+  let out = t.text[sj].slice(so)
+  for (let i = sj; i < ej; i++) {
+    const n = printAt(t, i, v)
+    if (n === null) return null
+    out += n + (i + 1 === ej ? t.text[ej].slice(0, eo) : t.text[i + 1])
+  }
+  return out
+}
+
+/** For a value moving from `from` to `to`: each place whose print changed, as it was and as it is. */
+export function placeEdits(t: LiveTemplate, places: Place[], from: unknown, to: unknown): SectionEdit[] | null {
+  const out: SectionEdit[] = []
+  for (const p of places) {
+    let moved = false
+    for (let i = p.first; i <= p.last && !moved; i++) moved = printAt(t, i, from) !== printAt(t, i, to)
+    if (!moved) continue
+    const a = placeText(t, p, from), b = placeText(t, p, to)
+    if (a === null || b === null) return null
+    out.push(p.kind === "style" ? { style: true, from: a, to: b } : { tag: true, from: a, to: b })
+  }
+  return out
+}
+
 /* ── What changed between two drawings ─────────────────────────────────── */
 
 /**

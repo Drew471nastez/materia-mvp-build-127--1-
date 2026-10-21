@@ -1175,6 +1175,8 @@ export const CANVAS_BRIDGE = `
           var hits = liveStyles.filter(function (s) { return textOf(s) === d.style.textContent; });
           same = hits.length === 1 ? hits[0] : null;
         }
+        /* Already written while a finger was down (a theme value, "edits" below): nothing to do. */
+        if (!same && liveStyles.some(function (s) { return textOf(s) === d.to; })) continue;
         if (!same) return false;
         ops.push((function (s, to) { return function () { setText(s, to); }; })(same, d.to));
       } else if (d.text) {
@@ -1209,7 +1211,9 @@ export const CANVAS_BRIDGE = `
     var el = document.getElementById("shopify-section-" + id);
     if (!el || !e || typeof html !== "string") return false;
     if (e.style) {
-      var hits = ownStyles(el).filter(function (s) { return textOf(s) === e.from; });
+      var mine = ownStyles(el);
+      var hits = mine.filter(function (s) { return textOf(s) === e.from; });
+      if (!hits.length && mine.some(function (s) { return textOf(s) === e.to; })) return written(id, html, [], false);
       if (hits.length !== 1) return false;
       return written(id, html, [(function (s) { return function () { setText(s, e.to); }; })(hits[0])], false);
     }
@@ -1228,6 +1232,32 @@ export const CANVAS_BRIDGE = `
     if (found.length !== 1) return false;
     var restart = changed.some(function (d) { return restartsFor(d.name, a.tagName); });
     return written(id, html, changed.map(function (d) { return writeAttr(found[0], d.name, d.from, d.to); }), restart);
+  };
+  /* A named change anywhere in the page: every place holding what it was is written; a page already showing it needs nothing. */
+  var editAnywhere = function (e) {
+    if (e.style) {
+      var all = ownStyles(document.documentElement);
+      var hits = all.filter(function (x) { return textOf(x) === e.from; });
+      if (!hits.length) return all.some(function (x) { return textOf(x) === e.to; });
+      hits.forEach(function (x) { setText(x, e.to); });
+      return true;
+    }
+    if (!e.tag) return false;
+    var ta = document.createElement("template"), tb = document.createElement("template");
+    ta.innerHTML = e.from;
+    tb.innerHTML = e.to;
+    var a = ta.content.firstElementChild, b = tb.content.firstElementChild;
+    if (!a || !b || a.tagName !== b.tagName) return false;
+    var names = {}, changed = [], i;
+    for (i = 0; i < a.attributes.length; i++) names[a.attributes[i].name] = 1;
+    for (i = 0; i < b.attributes.length; i++) names[b.attributes[i].name] = 1;
+    for (var n in names) if (a.getAttribute(n) !== b.getAttribute(n)) changed.push({ name: n, from: a.getAttribute(n), to: b.getAttribute(n) });
+    if (changed.some(function (d) { return d.name === "id" || d.name === "class"; })) return false;
+    var kind = ofKind(document.documentElement, kindOf(a));
+    var found = kind.filter(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.from; }); });
+    if (!found.length) return kind.some(function (c) { return changed.every(function (d) { return c.getAttribute(d.name) === d.to; }); });
+    found.forEach(function (t) { changed.forEach(function (d) { writeAttr(t, d.name, d.from, d.to)(); }); });
+    return true;
   };
   /* The newest change asked for each section: one waiting behind a newer one is skipped. */
   var asked = {};
@@ -1277,7 +1307,8 @@ export const CANVAS_BRIDGE = `
     if (m.styles) {
       var mine = Array.prototype.filter.call(document.head.querySelectorAll("style"), function (x) { return !x.hasAttribute("data-sl"); });
       if (mine.length !== m.styles.length) return reload("styles");
-      mine.forEach(function (x, i) { if (x.textContent !== m.styles[i]) x.textContent = m.styles[i]; });
+      /* A style already showing the text (written into its rules while a finger was down) is left as it is. */
+      mine.forEach(function (x, i) { if (textOf(x) !== m.styles[i]) { x.__slText = undefined; x.textContent = m.styles[i]; } });
     }
     if (m.fonts) {
       var have = Array.prototype.slice.call(document.querySelectorAll("link[data-storelib-font]"));
@@ -1468,6 +1499,15 @@ export const CANVAS_BRIDGE = `
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
       queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
+    } else if (m.type === "edits") {
+      /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
+      queue = queue.then(function () {
+        var ok = (m.edits || []).every(function (e) { try { return editAnywhere(e); } catch (err) { return false; } });
+        if (watcher) watcher.takeRecords();
+        streaming();
+        reportSoon();
+        if (!ok) post({ type: "edits-failed", key: m.key });
+      }).catch(function () {});
     } else if (m.type === "section" && m.cut) {
       /*
         A CUT, NOT THE MARKUP (live-draw.ts cutBetween): the section's new

@@ -12320,6 +12320,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     <ThemePage
       /* The committed theme: a value under a finger is the sections' on screen, and written by hand where they are (canvasThemePatcher). */
       theme={committedTheme}
+      /* The bars above the header are no section: drawn with the value under the finger as it moves. */
+      chromeTheme={theme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
       storefront={storefront}

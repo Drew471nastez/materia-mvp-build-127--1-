@@ -240,6 +240,35 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
     }
     const isolated = await (async () => { const f = await front(); const t = (f as unknown as { client?: { target?: () => unknown } })?.client; return !!t && t !== (page as unknown as { _client?: () => unknown })._client?.() })()
     if (process.env.SIZES) console.log("section sizes", await frame.evaluate(() => [...document.querySelectorAll(".shopify-section")].map((e) => `${e.id}:${e.outerHTML.length}`).join(" ")))
+    if (process.env.DEBUG_RECALC) console.log("recalc", JSON.stringify(await frame.evaluate(() => {
+      const bar = document.querySelector<HTMLElement>(".utility-bar")!
+      const read = () => getComputedStyle(bar).minHeight
+      const time = (f: (i: number) => void) => { const out: number[] = []; for (let i = 0; i < 15; i++) { read(); f(i); const t0 = performance.now(); read(); out.push(performance.now() - t0) } out.sort((a, b) => a - b); return +out[7].toFixed(2) }
+      const box = document.querySelector<HTMLElement>("[data-sl-box]")
+      const style = [...document.querySelectorAll<HTMLStyleElement>(".shopify-section style")].find((x) => /min-height/.test(x.textContent ?? ""))
+      const rule = style?.sheet ? [...style.sheet.cssRules].find((r) => /min-height/.test(r.cssText)) as CSSStyleRule | undefined : undefined
+      const all = document.querySelectorAll("*").length
+      const sheets = document.styleSheets.length
+      let rules = 0
+      for (const sh of document.styleSheets) { try { rules += sh.cssRules.length } catch { /* */ } }
+      const has = [...document.styleSheets].flatMap((sh) => { try { return [...sh.cssRules].map((r) => r.cssText) } catch { return [] } }).filter((t) => t.includes(":has(")).length
+      return {
+        elements: all, sheets, rules, hasRules: has,
+        nothing: time(() => {}),
+        barInline: time((i) => { bar.style.minHeight = `${30 + i}px` }),
+        box: box ? time((i) => { box.style.width = `${100 + i}px` }) : null,
+        ruleProp: rule ? time((i) => { rule.style.setProperty("min-height", `${60 + i}px`) }) : null,
+        styleText: style ? time((i) => { style.textContent = (style.textContent ?? "").replace(/min-height: \d+px/, `min-height: ${60 + i}px`) }) : null,
+        bodyAttr: time((i) => { document.body.setAttribute("data-x", String(i)) }),
+      }
+    })))
+    if (process.env.DEBUG_VAR) console.log("var", await frame.evaluate(() => {
+      const out: string[] = []
+      document.querySelectorAll("style").forEach((x) => { const t = x.textContent ?? ""; if (t.includes("spacing-sections-desktop")) out.push(`STYLE attrs=${[...x.attributes].map((a) => a.name).join(",")} parent=${x.parentElement?.tagName} len=${t.length}`) })
+      const html = document.documentElement.outerHTML
+      out.push(`in html: ${html.split("spacing-sections-desktop").length - 1}`)
+      return out.join(" | ")
+    }))
     if (process.env.SRCLINE) console.log("srcdoc line", process.env.SRCLINE, await page.evaluate((n) => (document.querySelector("[data-compat-frame='front']")?.getAttribute("srcdoc") ?? "").split("\n").slice(n - 1, n + 40).map((l) => l.slice(0, 300)).join("\n---\n"), Number(process.env.SRCLINE)))
     console.log(`\nCPU ${cpu}x   ${await frame.evaluate(() => document.querySelectorAll(".shopify-section").length)} sections in the frame`)
 
@@ -486,6 +515,32 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
         await page.keyboard.press("Escape")
       } else expect(false, "the announcement bar has its colour chip in the sidebar")
     }
+    /* ── A theme setting: Theme › Layout › Space between template sections, a variable on the page's root ── */
+    if (!ONLY || ONLY.test("theme spacing")) {
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Theme")?.click())
+      await sleep(800)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => (b.textContent ?? "").trim() === "Layout")?.click())
+      await sleep(800)
+      await gesture({
+        name: "theme spacing", select: null, label: /^Space between template sections/,
+        read: `function () { return getComputedStyle(document.documentElement).getPropertyValue("--spacing-sections-desktop").trim() }`,
+        expected: (v) => `${v}px`,
+      }, () => drag(/^Space between template sections/, 0.9))
+    }
+    /* ── Theme › Buttons › Corner radius: a variable printed as it is ── */
+    if (!ONLY || ONLY.test("theme button radius")) {
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-compat-theme-group] [data-panel-back] button")][0]?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Theme")?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => (b.textContent ?? "").trim() === "Buttons")?.click())
+      await sleep(800)
+      await gesture({
+        name: "theme button radius", select: null, label: /^Corner radius/,
+        read: `function () { return getComputedStyle(document.documentElement).getPropertyValue("--buttons-radius").trim() }`,
+        expected: (v) => `${v}px`,
+      }, () => drag(/^Corner radius/, 0.9))
+    }
     if (errors.length) console.log(`  page errors: ${errors.slice(0, 3).join(" | ")}`)
     report.errors = errors
     report.isolatedFrame = isolated
@@ -550,7 +605,7 @@ async function main() {
   type G = { updatesPerSecond: number; latencyP95: number | null; editorRenders: number; last: string; final: string; jumped: string[]; fetches: number }
   for (const [cpu, r] of Object.entries(all) as [string, Record<string, G>][]) {
     const slow = cpu !== "1"
-    for (const name of ["header height", "header top padding", "announcement height", "section padding"]) {
+    for (const name of ["header height", "header top padding", "announcement height", "section padding", "theme spacing", "theme button radius"]) {
       const d = r[name]
       if (!d) continue
       expect(d.updatesPerSecond >= (slow ? 20 : 45), `${cpu}x ${name}: the page follows the thumb every frame or near it (updates a second)`, d.updatesPerSecond)
