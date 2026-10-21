@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { opensNewTab, withNewTab, withoutNewTab } from "@/lib/website-builder/new-tab"
+import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { OverlayRail } from "@/components/storefront/overlay-scroll"
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { linkKind, normalizeLinkAddress } from "@/lib/website-builder/link-address"
@@ -181,7 +182,8 @@ export function LinkPicker({
   placeholder?: string
 }) {
   const bare = withoutNewTab(value ?? "")
-  const newTab = opensNewTab(value)
+  /* The switch moves in its own frame; the editor hears of it in a transition (components/website-builder/echo-field.ts). */
+  const [newTab, setNewTab] = useEchoedValue(opensNewTab(value), (on: boolean) => onChange(withNewTab(bare, on)))
   const switchId = React.useId()
   return (
     <div>
@@ -194,7 +196,7 @@ export function LinkPicker({
             type="button"
             role="switch"
             aria-checked={newTab}
-            onClick={() => onChange(withNewTab(bare, !newTab))}
+            onClick={() => setNewTab(!newTab)}
             className={cn(switchTrack(newTab), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
           >
             <span className={switchKnob(newTab)} />

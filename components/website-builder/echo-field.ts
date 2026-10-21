@@ -21,9 +21,18 @@ import { startTransition, useCallback, useLayoutEffect, useRef, useState } from 
  * our own text is ignored (it may be a key or two behind); anything else,
  * an undo or a reset, replaces what the field shows.
  */
-export function useEchoedValue(value: string, onChange: (value: string) => void): [string, (value: string) => void] {
+/*
+  Not only text. A switch, a select or a segmented choice in the sidebar is
+  one press, and it rendered the whole editor before the switch could move:
+  measured on a 44 section page (scripts/check-editor-live-edit.mjs, "toggle
+  switch"), 100 to 140ms from the press to the next frame at 1x CPU and
+  670ms at 4x. They take the same path now: the control moves in its own
+  frame, the section it belongs to draws its echo at once
+  (lib/website-builder/live-settings.ts), and the editor follows.
+*/
+export function useEchoedValue<T = string>(value: T, onChange: (value: T) => void): [T, (value: T) => void] {
   const [local, setLocal] = useState(value)
-  const sent = useRef<string[]>([])
+  const sent = useRef<T[]>([])
   const onChangeRef = useRef(onChange)
   useLayoutEffect(() => { onChangeRef.current = onChange })
 
@@ -37,7 +46,7 @@ export function useEchoedValue(value: string, onChange: (value: string) => void)
     setLocal(value)
   }, [value])
 
-  const set = useCallback((next: string) => {
+  const set = useCallback((next: T) => {
     setLocal(next)
     sent.current.push(next)
     /* A parent that never answers must not make this grow for ever. */

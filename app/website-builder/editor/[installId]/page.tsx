@@ -71,6 +71,7 @@ import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
 import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
+import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -585,6 +586,44 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
   )
 }
 
+/**
+ * A select and a switch that move in their own frame, and tell the editor
+ * in a transition (components/website-builder/echo-field.ts).
+ */
+function EchoSelect({ value, onChange, options, className }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; className?: string }) {
+  const [shown, set] = useEchoedValue(value, onChange)
+  return (
+    <div className="relative">
+      <select
+        className={cn("w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors", className)}
+        value={shown}
+        onChange={e => set(e.target.value)}
+      >
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+    </div>
+  )
+}
+
+function EchoSwitch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+  const [on, set] = useEchoedValue(checked, onChange)
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={cn(switchTrack(on), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
+      onClick={e => { e.preventDefault(); set(!on) }}
+    >
+      <span className={switchKnob(on)} />
+    </button>
+  )
+}
+
 // ── Field editor ─────────────────────────────────────────────
 /**
  * Every setting's label and control. The label row is drawn here, not by
@@ -801,35 +840,11 @@ function FieldControl({
   }
 
   if (kind === "select") {
-    return (
-      <div className="relative">
-        <select
-          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={typeof raw === "string" ? raw : String(field.default ?? "")}
-          onChange={e => onChange(e.target.value)}
-        >
-          {field.options?.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
-    )
+    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} />
   }
 
   if (kind === "toggle" || kind === "checkbox") {
-    const checked = typeof raw === "boolean" ? raw : !!field.default
-    return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-        onClick={() => onChange(!checked)}
-      >
-        <span className={switchKnob(checked)} />
-      </button>
-    )
+    return <EchoSwitch checked={typeof raw === "boolean" ? raw : !!field.default} onChange={onChange} />
   }
 
   if (kind === "range") {
@@ -1343,15 +1358,7 @@ function WbToggle({
         <p className="text-[13px] font-medium text-foreground transition-colors">{label}</p>
         {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-        onClick={e => { e.preventDefault(); onChange(!checked) }}
-      >
-        <span className={switchKnob(checked)} />
-      </button>
+      <EchoSwitch checked={checked} onChange={onChange} />
     </label>
   )
 }
@@ -1372,18 +1379,7 @@ function WbSelect({
   return (
     <div className="space-y-1.5">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <div className="relative">
-        <select
-          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={selected}
-          onChange={e => onChange(e.target.value)}
-        >
-          {options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <EchoSelect value={selected} onChange={onChange} options={options} />
     </div>
   )
 }

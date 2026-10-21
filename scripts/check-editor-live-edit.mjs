@@ -31,6 +31,7 @@
  *   JSON=<file>           the numbers as JSON
  *   ONLY=<regexp>         only the interactions whose name matches
  *   TOP=1                 the components rendered most, per interaction
+ *   COMMITS=1             every commit: its priority and how much it rendered
  *   PROFILE=<regexp>      a CPU profile of the interactions whose name matches
  *   TRACE=<regexp>        their style and layout passes, and what forced them
  *   BUDGET=0              report without failing
@@ -92,11 +93,28 @@ const INIT = String.raw`
   }
   function walk(top) {
     var stack = [top, top.alternate]
+    var ran = new Set()
+    P.origins = {}
     while (stack.length) {
       var p = stack.pop(), n = stack.pop()
       if (COMP[n.tag] && (!p || (n.flags & 1) === 1)) {
         var nm = nameOf(n)
         P.renders[nm] = (P.renders[nm] || 0) + 1
+        ran.add(n)
+        /* COMMITS=1: which of the editor's own state hooks changed in this commit, by index, with the values. */
+        if (window.__commitLog && nm === "StoreEditorPage" && p) {
+          var a = n.memoizedState, b = p.memoizedState, i = 0, diff = []
+          var short = function (v) { try { var t = typeof v; if (v === null || t === "boolean" || t === "number") return String(v); if (t === "string") return JSON.stringify(v.slice(0, 30)); if (Array.isArray(v)) return "[" + v.length + "]"; if (t === "function") return "fn"; return "{" + Object.keys(v).slice(0, 4).join(",") + "}" } catch (e) { return "?" } }
+          while (a && b && i < 600) {
+            if (a.queue && a.memoizedState !== b.memoizedState) diff.push(i + ":" + short(b.memoizedState) + ">" + short(a.memoizedState))
+            a = a.next; b = b.next; i++
+          }
+          P.editorDiff = diff.slice(0, 8).join(" ")
+        }
+        /* Where an update started: a component that ran under one that did not. */
+        var up = n.return
+        while (up && !COMP[up.tag]) up = up.return
+        if (up && !ran.has(up) && !(up.alternate && ran.has(up.alternate))) P.origins[nm] = (P.origins[nm] || 0) + 1
         if (nm === "SectionRendererInner" && n.memoizedProps && n.memoizedProps.section) { var st = n.memoizedProps.section.type; P.sectionTypes[st] = (P.sectionTypes[st] || 0) + 1 }
       }
       if (p && n.child === p.child) continue
@@ -106,10 +124,18 @@ const INIT = String.raw`
   window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     supportsFiber: true, isDisabled: false, renderers: new Map(),
     inject: function (r) { this.renderers.set(1, r); return 1 },
-    onCommitFiberRoot: function (id, root) {
+    onCommitFiberRoot: function (id, root, priority) {
       P.commits++
       P.lastCommit = performance.now()
-      if (P.counting) { try { walk(root.current) } catch (e) { P.walkError = String(e) } }
+      if (P.counting) {
+        var before = P.renders.StoreEditorPage || 0, total0 = 0, k
+        for (k in P.renders) total0 += P.renders[k]
+        try { walk(root.current) } catch (e) { P.walkError = String(e) }
+        var total1 = 0
+        for (k in P.renders) total1 += P.renders[k]
+        /* COMMITS=1: each commit's priority (1 discrete, 4 continuous, 16 default, 32 idle; React's event priorities) and what it rendered. */
+        if (window.__commitLog) window.__commitLog.push({ t: Math.round(performance.now()), renders: total1 - total0, editor: (P.renders.StoreEditorPage || 0) - before, from: Object.keys(P.origins).slice(0, 6).join(","), state: (P.renders.StoreEditorPage || 0) - before ? P.editorDiff : undefined })
+      }
     },
     onCommitFiberUnmount: function () {}, onPostCommitFiberRoot: function () {}, checkDCE: function () {},
     on: function () {}, off: function () {}, emit: function () {}, sub: function () { return function () {} },
@@ -368,12 +394,14 @@ async function run(cpu, bundle, css, fonts) {
       const tracing = process.env.TRACE && new RegExp(process.env.TRACE, "i").test(name)
       if (tracing) await page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", ...(process.env.TRACE_INV ? ["disabled-by-default-devtools.timeline.invalidationTracking"] : [])] })
       if (profiling) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
+      if (process.env.COMMITS) await js(() => { window.__commitLog = [] })
       await js(() => window.__lt.start())
       let note
       try { note = await act() } catch (e) { note = `threw: ${String(e).slice(0, 120)}` }
       await js((q) => window.__lt.quiet(q, 12000), opts.quiet ?? 600)
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       const m = await js(() => window.__lt.stop())
+      if (process.env.COMMITS) console.log("    commits: " + JSON.stringify(await js(() => { const l = window.__commitLog; window.__commitLog = []; return l })))
       if (profiling) printProfile((await cdp.send("Profiler.stop")).profile)
       if (tracing) printTrace(JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents)
       if (note !== undefined && note !== true) m.note = note
@@ -452,9 +480,18 @@ async function run(cpu, bundle, css, fonts) {
     }
 
     /* ── A switch on the section ── */
-    const sw = await js(() => { const s = window.__lt.sw(); if (!s) return null; s.scrollIntoView({ block: "center" }); const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    const sw = await js(() => {
+      const s = window.__lt.sw()
+      if (!s) return null
+      s.scrollIntoView({ block: "center" })
+      const r = s.getBoundingClientRect()
+      /* Its label: the nearest text above it in the panel. */
+      let label = ""
+      for (let p = s.parentElement; p && !label; p = p.parentElement) label = window.__lt.text(p).slice(0, 40)
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, label }
+    })
     if (sw) {
-      await measure("toggle switch", async () => { await js(() => window.__lt.value()); await clickAt(sw) }, { changes: 1 })
+      await measure("toggle switch", async () => { await js(() => window.__lt.value()); await clickAt(sw); return sw.label }, { changes: 1 })
       await clickAt(sw)
       await sleep(500)
     }
