@@ -885,7 +885,7 @@ function DesktopPanel({ open, anchor, onClose, searchRef, children }: { open: bo
         data-placement={place.mode}
         className={cn(
           "absolute flex overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_18px_48px_-16px_rgba(15,23,42,0.28),0_2px_6px_rgba(15,23,42,0.06)]",
-          "transition-[opacity,transform,visibility] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+          "transition-[opacity,translate,visibility] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
           open ? "visible translate-x-0 opacity-100" : "invisible -translate-x-1.5 opacity-0",
         )}
         style={{ left: place.left, top: place.top, width: place.width, height: place.height }}
