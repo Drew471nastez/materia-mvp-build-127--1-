@@ -1123,6 +1123,8 @@ export const CANVAS_BRIDGE = `
   var holding = null;
   var holdView = function (on) {
     if (holding) { holding.stop(); holding = null; }
+    /* The theme's own scripts through the switch, and a moment after it (canvas-bridge.ts, CANVAS_SWITCH). */
+    if (window.__slSwitch) window.__slSwitch(!!on);
     if (!on || typeof ResizeObserver === "undefined") return;
     var se = document.scrollingElement || document.documentElement;
     var eye = document.elementFromPoint(innerWidth / 2, Math.min(120, innerHeight / 4));
@@ -1178,6 +1180,7 @@ export const CANVAS_BRIDGE = `
     addEventListener("touchstart", mine, { passive: true });
     var t = setTimeout(mine, 2000);
     holding = { stop: function () {
+      if (window.__slSwitch) window.__slSwitch(false);
       ro.disconnect();
       clearTimeout(t);
       removeEventListener("resize", keep);
@@ -1502,6 +1505,284 @@ export const CANVAS_REQUESTS = `
 `.trim()
 
 /**
+ * ===========================================================================
+ *  THE EDITOR'S SIZE SWITCH, AS THE THEME LIVES THROUGH IT
+ * ===========================================================================
+ * The owner's storefront (an imported theme: an announcement bar and a
+ * slideshow hero, each a slider) filmed going from the phone to the desktop:
+ * the headline at the desktop's size wrapped a syllable a line in a strip as
+ * narrow as the phone, the picture went grey, the desktop hero stood without
+ * its headline and stars, and they faded in. Reproduced on
+ * tests/fixtures/shopify-materia (scripts/check-view-switch-frames.mjs), it
+ * is the theme's own scripts reacting to the frame being resized, which a
+ * window being resized does too, only here every one of them is seen:
+ *
+ *   a slider that sizes its slides in pixels measures them again only once
+ *   the resize has gone quiet (a debounce), so for the whole move its slides
+ *   kept the phone's width under the desktop's styles;
+ *   crossing the breakpoint builds the slider again: new pictures, the
+ *   desktop's not loaded yet (lazy, and hidden on the phone), each fading in
+ *   once it is, and the current slide made current again, so its entrance
+ *   played again.
+ *
+ * So, while the builder says a switch is under way (hold-view) and a moment
+ * after it lands:
+ *
+ *   the work a theme puts off from its resize listeners (a timer started
+ *   there) is done in the next frame, before it is drawn, so a slider sized
+ *   in pixels follows the frame's width at every frame, as one measured by
+ *   the browser does;
+ *   nothing eases: transitions take no time, and an entrance that starts on
+ *   something on screen is taken to its end before the frame is drawn
+ *   (checked after each layout, a ResizeObserver on a mark of our own), so
+ *   what was shown stays shown and nothing fades;
+ *   the pictures near the top of the page, for both widths, are in the
+ *   browser's cache before they are needed (fetched once the page is idle),
+ *   so a picture shown for the other width is drawn at once, never grey.
+ *
+ * On the live site none of this is there: it is the canvas's head only.
+ */
+export const CANVAS_SWITCH = `
+(function () {
+  var W = window;
+  if (typeof W.setTimeout !== "function" || typeof W.addEventListener !== "function") return;
+  var add = W.addEventListener, rm = W.removeEventListener, st = W.setTimeout, ct = W.clearTimeout;
+  var raf = typeof W.requestAnimationFrame === "function" ? function (f) { return W.requestAnimationFrame(f); } : function (f) { return st.call(W, f, 16); };
+  var now = function () { return W.performance && performance.now ? performance.now() : Date.now(); };
+  var on = false, stopAt = 0, inResize = 0, pending = new Map(), wraps = new WeakMap();
+  W.addEventListener = function (type, fn, opts) {
+    if (type === "resize" && typeof fn === "function") {
+      var w = wraps.get(fn);
+      if (!w) { w = function () { inResize++; try { return fn.apply(this, arguments); } finally { inResize--; } }; wraps.set(fn, w); }
+      return add.call(this || W, type, w, opts);
+    }
+    return add.apply(this || W, arguments);
+  };
+  W.removeEventListener = function (type, fn, opts) {
+    if (type === "resize" && typeof fn === "function" && wraps.has(fn)) return rm.call(this || W, type, wraps.get(fn), opts);
+    return rm.apply(this || W, arguments);
+  };
+  W.setTimeout = function (fn, ms) {
+    var id = st.apply(W, arguments);
+    if (on && inResize && typeof fn === "function" && !(Number(ms) > 1000)) pending.set(id, { fn: fn, args: Array.prototype.slice.call(arguments, 2) });
+    return id;
+  };
+  W.clearTimeout = function (id) { pending.delete(id); return ct.apply(W, arguments); };
+  /*
+    A breakpoint's change event, said in the frame the page is laid out at
+    the new width rather than the frame after (when the browser says it), and
+    said once to each listener: the browser's own, when it comes, finds the
+    listener already told and is not passed on.
+  */
+  var watched = [];
+  var mm = W.matchMedia;
+  if (typeof mm === "function") W.matchMedia = function () {
+    var m = mm.apply(W, arguments);
+    try {
+      if (m.__sl) return m;
+      m.__sl = { seen: m.matches };
+      var wraps2 = new WeakMap(), ael = m.addEventListener, rel = m.removeEventListener, al = m.addListener, rl = m.removeListener;
+      var wrap = function (fn) {
+        var w = wraps2.get(fn);
+        if (!w) {
+          var last = m.matches;
+          w = function (e) {
+            var now2 = e && typeof e.matches === "boolean" ? e.matches : m.matches;
+            if (now2 === last) return;
+            last = now2;
+            return typeof fn === "function" ? fn.call(this, e) : fn.handleEvent(e);
+          };
+          wraps2.set(fn, w);
+          if (watched.indexOf(m) < 0) watched.push(m);
+        }
+        return w;
+      };
+      if (ael) m.addEventListener = function (t, fn, o) { return ael.call(m, t, t === "change" && fn ? wrap(fn) : fn, o); };
+      if (rel) m.removeEventListener = function (t, fn, o) { return rel.call(m, t, (t === "change" && fn && wraps2.get(fn)) || fn, o); };
+      if (al) m.addListener = function (fn) { return al.call(m, fn ? wrap(fn) : fn); };
+      if (rl) m.removeListener = function (fn) { return rl.call(m, (fn && wraps2.get(fn)) || fn); };
+    } catch (e) {}
+    return m;
+  };
+  var tellBreakpoints = function () {
+    watched.forEach(function (m) {
+      if (m.matches === m.__sl.seen) return;
+      m.__sl.seen = m.matches;
+      try { m.dispatchEvent(typeof MediaQueryListEvent === "function" ? new MediaQueryListEvent("change", { matches: m.matches, media: m.media }) : new Event("change")); } catch (e) {}
+    });
+  };
+  var flush = function () {
+    if (!pending.size) return;
+    var list = Array.from(pending.entries());
+    pending.clear();
+    list.forEach(function (e) {
+      ct.call(W, e[0]);
+      try { e[1].fn.apply(W, e[1].args); } catch (err) { st.call(W, function () { throw err; }, 0); }
+    });
+  };
+  var began = null, still = null, mark = null, ro = null, flip = 0, looping = false;
+  var inView = function (el) { var r = el.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; };
+  var finishNew = function () {
+    if (began === null || !document.getAnimations) return;
+    document.getAnimations().forEach(function (a) {
+      var t = a.effect && a.effect.target;
+      if (!t || !t.getBoundingClientRect || (t.closest && t.closest("[data-sl-box]"))) return;
+      if (a.startTime !== null && a.startTime < began) return;
+      var tm = a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+      if (!tm || !isFinite(tm.endTime) || !inView(t)) return;
+      try { a.finish(); } catch (e) {}
+    });
+  };
+  /*
+    The frame laid out at a new width: the theme's resize listeners and its
+    breakpoint listeners are told now, after this layout and before it is
+    drawn, and what they put off is done at once. The browser's own resize
+    event, a frame later, finds nothing left to do.
+  */
+  var lastW = 0;
+  var laidOut = function () {
+    if (!on) return;
+    if (innerWidth !== lastW) {
+      lastW = innerWidth;
+      try { W.dispatchEvent(new Event("resize")); } catch (e) {}
+      tellBreakpoints();
+      flush();
+    }
+    finishNew();
+  };
+  /* A picture put in during the switch, or one waiting for the screen, is asked for now: from the cache it is there before the frame is drawn. */
+  var eager = function (scope) {
+    if (!scope || !scope.querySelectorAll) return;
+    if (scope.tagName === "IMG" && scope.getAttribute("loading") === "lazy") scope.setAttribute("loading", "eager");
+    scope.querySelectorAll('img[loading="lazy"]').forEach(function (img) { img.setAttribute("loading", "eager"); });
+  };
+  var mo = null;
+  var quiet = function (yes) {
+    if (yes && !still) {
+      still = document.createElement("style");
+      still.setAttribute("data-sl-switch", "");
+      still.textContent = "*,*::before,*::after{transition-duration:0s!important;transition-delay:0s!important}";
+      (document.head || document.documentElement).appendChild(still);
+      lastW = innerWidth;
+      if (typeof ResizeObserver === "function") {
+        mark = document.createElement("div");
+        mark.setAttribute("aria-hidden", "true");
+        mark.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none";
+        document.documentElement.appendChild(mark);
+        ro = new ResizeObserver(laidOut);
+        ro.observe(mark);
+        ro.observe(document.documentElement);
+      }
+      if (typeof MutationObserver === "function") {
+        mo = new MutationObserver(function (list) { list.forEach(function (r) { r.addedNodes.forEach(function (n) { if (n.nodeType === 1) eager(n); }); }); });
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    } else if (!yes && still) {
+      still.remove(); still = null;
+      if (ro) { ro.disconnect(); ro = null; }
+      if (mo) { mo.disconnect(); mo = null; }
+      if (mark) { mark.remove(); mark = null; }
+    }
+  };
+  var frame = function () {
+    if (on && stopAt && now() >= stopAt) { on = false; stopAt = 0; flush(); quiet(false); began = null; idle(); }
+    if (!on) { looping = false; return; }
+    flush();
+    finishNew();
+    if (mark) mark.style.width = (flip ^= 1) + "px";
+    raf(frame);
+  };
+  /*
+    HELD BY THIS PAGE, NOT BY THE BROWSER'S SHARED CACHE. The canvas keeps
+    more than one frame of the theme (the page behind, pages kept for going
+    back), each with an origin of its own, and the browser keeps one copy of
+    a picture for all of them: the last frame to fetch it owns it, and a new
+    <img> in any other frame fetches it again (measured: a slider built again
+    in the front page went to the network for pictures it had drawn a moment
+    before). A preload belongs to its own page and is used by the next <img>
+    for that address there, whoever fetched it since. Used once, so asked for
+    again after each switch and every few seconds while the page sits still:
+    one not used yet answers the new ask itself, and only one used, or taken
+    by another frame, goes to the network.
+  */
+  var links = new Map();
+  var want = function (url, again) {
+    if (!url || /^data:/.test(url)) return;
+    var old = links.get(url);
+    if (old && !again) return;
+    if (!old && links.size >= 40) return;
+    var l = document.createElement("link");
+    l.rel = "preload";
+    l.as = "image";
+    l.href = url;
+    l.setAttribute("data-sl-warm", "");
+    var done = function () { if (old) old.remove(); };
+    l.addEventListener("load", done);
+    l.addEventListener("error", done);
+    (document.head || document.documentElement).appendChild(l);
+    links.set(url, l);
+  };
+  var pick = function (set, px) {
+    var best = null, top = null;
+    set.split(",").forEach(function (part) {
+      var bits = part.trim().split(/\\s+/), w = parseFloat(bits[1]);
+      if (!bits[0] || !/w$/.test(bits[1] || "") || !(w > 0)) return;
+      if (!top || w > top.w) top = { u: bits[0], w: w };
+      if (w >= px && (!best || w < best.w)) best = { u: bits[0], w: w };
+    });
+    return (best || top || { u: null }).u;
+  };
+  /*
+    Every picture of the sections near the view, for the phone's width and
+    the computer's, preloaded by this page: one already drawn is found again
+    by a slider built again, one waiting (lazy, or hidden at this width) is
+    fetched now. At the switch those that will be on screen are asked for at
+    once (eager).
+  */
+  var warm = function (now3, again) {
+    try {
+      var vh = innerHeight || 800, dpr = W.devicePixelRatio || 1;
+      var widths = [390, Math.max(innerWidth || 0, (W.screen && screen.width) || 0, 1280)];
+      document.querySelectorAll(".shopify-section").forEach(function (s) {
+        var r = s.getBoundingClientRect();
+        if (r.bottom < -vh || r.top > vh * 2) return;
+        if (now3 && r.bottom > -100 && r.top < vh * 1.25) eager(s);
+        s.querySelectorAll("img, picture source").forEach(function (el) {
+          var set = el.getAttribute("srcset") || el.getAttribute("data-srcset");
+          var src = el.getAttribute("data-src") || (el.tagName === "IMG" ? el.getAttribute("src") : null);
+          if (set && /\\dw(\\s|,|$)/.test(set)) widths.forEach(function (w) { want(pick(set, w * dpr), again); });
+          else if (set) want(set.trim().split(/\\s+/)[0], again);
+          if (src) want(src, again);
+        });
+      });
+    } catch (e) {}
+  };
+  var idle = function () {
+    if (typeof W.requestIdleCallback === "function") W.requestIdleCallback(function () { warm(false, true); }, { timeout: 800 });
+    else st.call(W, function () { warm(false, true); }, 300);
+  };
+  add.call(W, "load", function () {
+    idle();
+    var again = function () {
+      if (!on && document.visibilityState !== "hidden") idle();
+      st.call(W, again, 5000);
+    };
+    st.call(W, again, 5000);
+  });
+  W.__slSwitch = function (yes) {
+    if (yes) {
+      on = true;
+      stopAt = 0;
+      if (began === null) began = document.timeline ? document.timeline.currentTime : now();
+      quiet(true);
+      warm(true);
+      if (!looping) { looping = true; raf(frame); }
+    } else if (on && !stopAt) stopAt = now() + 450;
+  };
+})();
+`.trim()
+
+/**
  * FIRST IN THE CANVAS PAGE'S HEAD. A frame with no origin of its own has no
  * storage: `localStorage` and `sessionStorage` throw, and a theme that keeps
  * its recently viewed products there stops on its first line. Each gets a
@@ -1535,4 +1816,4 @@ export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,web
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}
-["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script><script>${CANVAS_REQUESTS}</script>`
+["pushState","replaceState"].forEach(function(k){var f=history[k];if(typeof f!=="function")return;history[k]=function(s,t){try{return f.apply(this,arguments)}catch(e){try{return f.call(this,s,t)}catch(e2){}}}});})();</script><script>${CANVAS_REQUESTS}</script><script>${CANVAS_SWITCH}</script>`

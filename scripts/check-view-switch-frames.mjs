@@ -95,7 +95,12 @@ if (SETUPS.includes("compat")) {
       const JSZip = require("jszip"); const { readFileSync, writeFileSync } = require("node:fs")
       const { convertShopifyTheme } = require(${JSON.stringify(join(root, "lib/storelib-theme/shopify/convert"))})
       ;(async () => {
-        const zip = await JSZip.loadAsync(readFileSync(${JSON.stringify(zipPath)}))
+        /* A theme's zip, or a theme's folder (tests/fixtures/shopify-materia), zipped here. */
+        const { statSync, readdirSync } = require("node:fs"); const { join: pj, relative: rel } = require("node:path")
+        const src = ${JSON.stringify(zipPath)}
+        let zip
+        if (statSync(src).isDirectory()) { zip = new JSZip(); const walk = (d) => { for (const n of readdirSync(d)) { const p = pj(d, n); if (statSync(p).isDirectory()) walk(p); else zip.file(rel(src, p), readFileSync(p)) } }; walk(src) }
+        else zip = await JSZip.loadAsync(readFileSync(src))
         const schemaOf = async (type) => { const f = Object.values(zip.files).find((x) => x.name.endsWith("sections/" + type + ".liquid")); if (!f) return null; const m = /{%-?\\s*schema\\s*-?%}([\\s\\S]*?){%-?\\s*endschema\\s*-?%}/.exec(await f.async("string")); try { return m ? JSON.parse(m[1]) : null } catch { return null } }
         for (const [path, f] of Object.entries(zip.files)) {
           if (f.dir || !/(^|\\/)templates\\/index\\.json$/.test(path)) continue
@@ -124,8 +129,11 @@ if (SETUPS.includes("compat")) {
     compatAssets = t.files
   }
 }
+/* IMG_MS: how long a picture takes to arrive, as a store's pictures take from its CDN. */
+const IMG_MS = Number(process.env.IMG_MS ?? 0)
 const imgServer = createServer(async (req, res) => {
   const body = await picture(req.url ?? "/")
+  if (IMG_MS) await sleep(IMG_MS)
   res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*" })
   res.end(body)
 })
@@ -294,6 +302,8 @@ const FRAME_RECORDER = String.raw`(() => {
     const section = eye && eye.closest(".shopify-section")
     const film = []
     const t0 = performance.now()
+    const began = document.timeline.currentTime
+    const replayed = new Set()
     const afterFrame = (fn) => { const ch = new MessageChannel(); ch.port1.onmessage = fn; ch.port2.postMessage(0) }
     const tick = (now) => {
       const last = now - t0 >= ms
@@ -309,13 +319,43 @@ const FRAME_RECORDER = String.raw`(() => {
       }
       for (const img of document.images) {
         const r = img.getBoundingClientRect()
-        if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > innerHeight) continue
+        if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > innerHeight || r.right <= 0 || r.left >= innerWidth) continue
         if (!img.complete || img.naturalWidth === 0) undrawn++
       }
       for (const a of document.getAnimations()) if (a.playState === "running") { const kf = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : []; if (a.transitionProperty === "opacity" || kf.some((k) => "opacity" in k)) fades++ }
+      /*
+        REPLAYS: an entrance (opacity or a move) that started after the press
+        on something in view: content already shown, shown again. WASHED: a
+        picture in view drawn fainter than it was. STALE: a slide whose width
+        is not its slider's (a slider sized in pixels, not measured again yet).
+      */
+      for (const a of document.getAnimations()) {
+        const t = a.effect && a.effect.target
+        if (!t || !t.getBoundingClientRect || replayed.has(a)) continue
+        if (a.startTime !== null && a.startTime < began) continue
+        const kf = a.effect.getKeyframes ? a.effect.getKeyframes() : []
+        const moves = a.transitionProperty ? /^(opacity|transform|translate)$/.test(a.transitionProperty) : kf.some((k) => "opacity" in k || "transform" in k || "translate" in k)
+        const r = t.getBoundingClientRect()
+        if (moves && r.bottom > 0 && r.top < innerHeight && r.width > 0) replayed.add(a)
+      }
+      let washed = 0
+      for (const img of document.images) {
+        const r = img.getBoundingClientRect()
+        if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > innerHeight || r.right <= 0 || r.left >= innerWidth) continue
+        let o = 1
+        for (let e = img; e && e.nodeType === 1; e = e.parentElement) o *= Number(getComputedStyle(e).opacity)
+        if (o < 0.95) washed++
+      }
+      let stale = 0
+      for (const s of document.querySelectorAll("[data-slide]")) {
+        const vp = s.closest("[data-viewport]")
+        const r = s.getBoundingClientRect()
+        if (!vp || r.bottom < 0 || r.top > innerHeight || r.width < 1 || r.right <= 0 || r.left >= innerWidth) continue
+        stale = Math.max(stale, Math.abs(r.width - vp.getBoundingClientRect().width))
+      }
       const er = eye && eye.isConnected ? eye.getBoundingClientRect() : null
       const sr = section && section.isConnected ? section.getBoundingClientRect() : null
-      film.push({ wall: performance.timeOrigin + now, w: innerWidth, h: innerHeight, y: Math.round(scrollY), sh: document.documentElement.scrollHeight, eye: er ? r2(er.top) : null, section: sr ? r2(sr.top) : null, heldPx: Math.round(heldPx), undrawn, fades, remounted: secs().filter((s) => !s.__vsf).length, bar: innerWidth - document.documentElement.clientWidth })
+      film.push({ wall: performance.timeOrigin + now, w: innerWidth, h: innerHeight, y: Math.round(scrollY), sh: document.documentElement.scrollHeight, eye: er ? r2(er.top) : null, section: sr ? r2(sr.top) : null, heldPx: Math.round(heldPx), undrawn, fades, remounted: secs().filter((s) => !s.__vsf).length, bar: innerWidth - document.documentElement.clientWidth, replays: replayed.size, washed, stale: Math.round(stale), phone: matchMedia("(max-width: 749px)").matches })
     }
     requestAnimationFrame(tick)
   })
@@ -488,6 +528,17 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
       fades: Math.max(0, ...ff.map((x) => x.fades)),
       remounted: Math.max(0, ...ff.map((x) => x.remounted)),
       bars: new Set(ff.map((x) => x.bar)).size > 1,
+      replays: Math.max(0, ...ff.map((x) => x.replays ?? 0)),
+      /* Fainter than before the press: a picture still fading in from the page's own load is not the switch's. */
+      washedFrames: ff.filter((x) => x.washed > ff[0].washed).length,
+      staleFrames: ff.filter((x) => x.stale > 2).length,
+      staleMax: Math.max(0, ...ff.map((x) => x.stale ?? 0)),
+      wrongLayout: 0,
+    }
+    /* The theme's phone layout drawn while the card is a desktop's width, or the other way round (749px: the fixture's breakpoint). */
+    for (const x of ff) {
+      const c = f.reduce((best, y) => (Math.abs(y.wall - x.wall) < Math.abs(best.wall - x.wall) ? y : best), f[0])
+      if (x.phone !== undefined && x.phone !== (W(c) - (c.bar ?? 0) < 750)) frame.wrongLayout++
     }
     /* The frame's height against the card's at the same moment: a frame shorter than the card shows what is behind it. */
     let lag = 0
@@ -595,6 +646,10 @@ function verdict(r) {
     if (r.frame.remounted) bad.push(`theme sections remounted ${r.frame.remounted}`)
     if (r.frame.undrawn) bad.push(`theme pictures not drawn ${r.frame.undrawn}`)
     if (r.frame.bars) bad.push("theme scrollbar came or went")
+    if (r.frame.replays) bad.push(`theme entrances played again ${r.frame.replays}`)
+    if (r.frame.washedFrames) bad.push(`theme pictures faint ${r.frame.washedFrames} frames`)
+    if (r.frame.staleFrames) bad.push(`theme slides off their slider ${r.frame.staleFrames} frames (${r.frame.staleMax}px)`)
+    if (r.frame.wrongLayout) bad.push(`theme layout for the other device ${r.frame.wrongLayout} frames`)
   }
   return bad
 }
@@ -630,12 +685,21 @@ try {
     const errors = []
     page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 160)))
     await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 })
-    await page.setRequestInterception(true)
-    page.on("request", (req) => {
-      const u = req.url()
-      if (u.startsWith("https://example.invalid/")) picture(u).then((body) => req.respond({ status: 200, contentType: "image/jpeg", body, headers: { "Cache-Control": "public, max-age=3600" } }))
-      else req.continue()
-    })
+    /*
+      Only the native page's pictures are answered from here. Asking the
+      browser to intercept turns its cache off, and an imported theme's
+      pictures are served (IMG_MS late) by the picture server with a cache
+      header, as a store's CDN does: what the browser already has is what
+      the switch is judged on.
+    */
+    if (setup === "native") {
+      await page.setRequestInterception(true)
+      page.on("request", (req) => {
+        const u = req.url()
+        if (u.startsWith("https://example.invalid/")) picture(u).then((body) => req.respond({ status: 200, contentType: "image/jpeg", body, headers: { "Cache-Control": "public, max-age=3600" } }))
+        else req.continue()
+      })
+    }
     await page.goto(origin, { waitUntil: "load" })
     await page.evaluate(() => { try { sessionStorage.removeItem("wb:full-screen") } catch {} })
     if (setup === "native") await page.waitForFunction((n) => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= n, { timeout: 60_000 }, NATIVE.length - 4)
@@ -651,6 +715,7 @@ try {
       return fr
     }
     let fr = await frameOf()
+    if (fr) console.log(`  the theme's frame is ${fr.isOOPFrame?.() ? "in its own process" : "in the editor's process"}`)
     if (scroll === "middle") {
       if (setup === "native") await page.evaluate(() => { const r = document.getElementById("wb-preview-root"); r.scrollTop = Math.round((r.scrollHeight - r.clientHeight) / 2) })
       else if (fr) await fr.evaluate(() => window.scrollTo(0, Math.round((document.documentElement.scrollHeight - innerHeight) / 2)))
@@ -699,7 +764,8 @@ try {
       table.push({ run, name, r, bad })
       console.log(`  ${bad.length ? "BAD " : "ok  "} ${name.padEnd(40)} ${bad.join("; ") || "clean"}`)
       console.log(`        first frame ${r.firstFrameMs}ms, first move ${r.firstMoveMs}ms, ${r.movingFrames} frames moving;  frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
-      if (process.env.VSF_FILM === "1") for (const x of rec.film) console.log(`          ${x.t} card ${x.card?.l}-${x.card?.r} x ${x.card?.t}-${x.card?.b} scroll ${x.scrollTop} eye ${x.eye} sec ${x.section} held ${x.heldPx} skip ${x.skippedPx} moving ${x.moving} fold ${x.fold} panel ${x.panel?.l} o ${x.panelOpacity}`)
+      if (process.env.VSF_FILM === "1" && frameFilm) for (const x of frameFilm) console.log(`          frame ${Math.round(x.wall - walls.press)}ms w ${x.w} phone ${x.phone} stale ${x.stale} washed ${x.washed} replays ${x.replays} undrawn ${x.undrawn} fades ${x.fades}`)
+      if (process.env.VSF_FILM === "1") for (const x of rec.film)console.log(`          ${x.t} card ${x.card?.l}-${x.card?.r} x ${x.card?.t}-${x.card?.b} scroll ${x.scrollTop} eye ${x.eye} sec ${x.section} held ${x.heldPx} skip ${x.skippedPx} moving ${x.moving} fold ${x.fold} panel ${x.panel?.l} o ${x.panelOpacity}`)
     }
     /*
       THE WINDOW ITSELF, resized (or a computer's full screen): across the
