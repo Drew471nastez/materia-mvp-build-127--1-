@@ -411,9 +411,21 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
   /* The element under the eye. */
   const eyes = f.map((x) => x.eye)
   const eyeJump = biggestStepOver(eyes)
-  const eyeEnd = atEnd.eye !== null && motion.length && motion[motion.length - 1].eye !== null ? Math.round(Math.abs(last.eye - motion[motion.length - 1].eye)) : null
+  /*
+    The END JUMP: from the last frame of the motion to the page at rest, more
+    than the motion's own last step would carry it (the curve slows to its
+    end, so a last step twice the one before it is a snap, not easing).
+  */
+  const endStep = (get) => {
+    if (motion.length < 1) return 0
+    const m1 = motion[motion.length - 1], m0 = motion[motion.length - 2] ?? m1
+    const a = get(m1), b = get(last), c = get(m0)
+    if (a === null || b === null || c === null) return 0
+    return Math.max(0, Math.abs(b - a) - 2 * Math.abs(a - c))
+  }
+  const eyeEnd = Math.round(endStep((x) => x.eye))
   const eyeDrift = pre.eye !== null && last.eye !== null ? Math.round(last.eye - pre.eye) : null
-  const cardEnd = motion.length ? Math.round(Math.max(Math.abs(last.card.l - motion[motion.length - 1].card.l), Math.abs(last.card.r - motion[motion.length - 1].card.r), Math.abs(H(last) - H(motion[motion.length - 1])))) : 0
+  const cardEnd = Math.round(Math.max(endStep((x) => x.card.l), endStep((x) => x.card.r), endStep(H)))
   const topbarMoved = Math.round(Math.max(...f.map((x) => Math.abs(x.topbar.t - f[0].topbar.t) + Math.abs(x.topbar.b - f[0].topbar.b))))
   const bars = new Set(f.map((x) => x.bar)).size > 1
   /* After the card has landed, the scroll must not move by itself, and nothing on screen may move. */
@@ -461,10 +473,19 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
     /* Frames are matched by their stamp; the screencast's own clock runs behind the page's. */
     const byN = new Map(rec.film.map((y) => [y.n, y]))
     const nearN = (s) => byN.get(s.n) ?? rec.film[0]
-    const before = shots.filter((s) => s.n === -1).pop() ?? shots[0]
-    const pressIdx = shots.indexOf(before)
+    /* Unstamped pictures before the first stamped one are the page before the press; after the last, the page at rest. */
+    const firstStamped = shots.findIndex((s) => s.n >= 0)
+    const pressIdx = firstStamped > 0 ? firstStamped - 1 : 0
+    const before = shots[pressIdx]
+    const lastFilm = rec.film[rec.film.length - 1]
+    let lastStamped = -1
+    shots.forEach((s, i) => { if (s.n >= 0) lastStamped = i })
+    for (let i = 0; i < shots.length; i++) {
+      if (i <= pressIdx) { shots[i].wall = pressWall - 1 - (pressIdx - i); shots[i].n = -1 }
+      else if (i > lastStamped) { shots[i].n = lastFilm.n; shots[i].wall = lastFilm.wall + (i - lastStamped) }
+      else shots[i].wall = nearN(shots[i]).wall
+    }
     const after = shots[shots.length - 1]
-    for (let i = 0; i < shots.length; i++) shots[i].wall = i <= pressIdx ? pressWall - 1 - (pressIdx - i) : (nearN(shots[i]).wall)
     const fb = await flatness(before.data, rec.film[0].card, scale)
     const fa = await flatness(after.data, last.card, scale)
     let blank = 0, worstBand = 0, bgFrames = 0, chrome = 0
@@ -498,7 +519,11 @@ async function analyse(rec, frameFilm, shots, pressWall, againWall, dir, name, s
       pix.sheet = file
     }
   }
+  /* How long the press held the screen, and when anything first moved. */
+  const firstMove = f.find((x) => Math.abs(x.card.l - pre.card.l) > 0.5 || Math.abs(x.card.r - pre.card.r) > 0.5 || Math.abs((x.fold ?? 0) - (f[0].fold ?? 0)) > 0.5)
   return {
+    firstFrameMs: f[0]?.t ?? null, firstMoveMs: firstMove ? firstMove.t : null,
+    movingFrames: f.filter((x, i) => i > 0 && (Math.abs(x.card.l - f[i - 1].card.l) > 0.5 || Math.abs(x.card.r - f[i - 1].card.r) > 0.5 || Math.abs(H(x) - H(f[i - 1])) > 0.5 || Math.abs((x.fold ?? 0) - (f[i - 1].fold ?? 0)) > 0.5)).length,
     frames: f.length, motionFrames: motion.length, longestGapMs: Math.max(0, ...gaps), stallFrames: stall,
     blankHeldFrames: heldFrames, heldPxMax: heldMax, undrawnImages: undrawn, remounted,
     fades: rec.fades, opacities, pillFade, radii,
@@ -532,7 +557,7 @@ function verdict(r) {
     if (r.frame.heightLag > 2) bad.push(`theme frame off the card by ${r.frame.heightLag}px`)
     if (r.frame.heldPx) bad.push(`theme sections held in view ${r.frame.heldPx}px`)
     if (r.frame.eyeJump) bad.push(`theme content jumped ${r.frame.eyeJump}px`)
-    if (r.frame.scrollJump) bad.push(`theme scroll jumped ${r.frame.scrollJump}px`)
+    /* The frame's scroll moving is how its content is held still (hold-view); what is judged is the content under the eye. */
     if (r.frame.remounted) bad.push(`theme sections remounted ${r.frame.remounted}`)
     if (r.frame.undrawn) bad.push(`theme pictures not drawn ${r.frame.undrawn}`)
     if (r.frame.bars) bad.push("theme scrollbar came or went")
@@ -623,7 +648,8 @@ try {
       const frameFilm = await framePromise
       const walls = await page.evaluate(() => ({ press: window.__vsfPressWall, again: window.__vsfAgainWall ?? null }))
       await page.evaluate(() => { window.__vsfAgainWall = undefined })
-      await sleep(150)
+      /* The screencast runs behind the page: let the last pictures arrive. */
+      await sleep(900)
       await cdp.send("Page.stopScreencast")
       cdp.off("Page.screencastFrame", onShot)
       shots.sort((a, b) => a.wall - b.wall)
@@ -634,7 +660,7 @@ try {
       if (bad.length) failures++
       table.push({ run, name, r, bad })
       console.log(`  ${bad.length ? "BAD " : "ok  "} ${name.padEnd(40)} ${bad.join("; ") || "clean"}`)
-      console.log(`        frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
+      console.log(`        first frame ${r.firstFrameMs}ms, first move ${r.firstMoveMs}ms, ${r.movingFrames} frames moving;  frames ${r.frames} motion ${r.motionFrames} gap ${r.longestGapMs}ms stall ${r.stallFrames}  eye drift ${r.eyeDrift} jump ${r.eyeJump} end ${r.eyeEnd} after ${r.eyeAfter}  card end ${r.cardEnd}  held ${r.heldPxMax}px  shots ${r.pix?.shots} blank ${r.pix?.blank} band ${r.pix?.worstBand} endPop ${r.pix?.endPop}  radii ${r.radii.join(",")}${r.frame ? `  frame ${JSON.stringify(r.frame)}` : ""}`)
       if (process.env.VSF_FILM === "1") for (const x of rec.film) console.log(`          ${x.t} card ${x.card?.l}-${x.card?.r} x ${x.card?.t}-${x.card?.b} scroll ${x.scrollTop} eye ${x.eye} sec ${x.section} held ${x.heldPx} skip ${x.skippedPx} moving ${x.moving} fold ${x.fold} panel ${x.panel?.l} o ${x.panelOpacity}`)
     }
     if (cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })

@@ -66,6 +66,8 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
     }
     const onScroll = () => {
       schedule()
+      /* The editor's size switch holding the page under the eye moves the scroll; nobody scrolled (lib/website-builder/canvas-switch.ts, holdView). */
+      if (el.hasAttribute("data-wb-switching")) return
       reveal()
     }
     measure()
