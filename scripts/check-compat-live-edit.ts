@@ -51,7 +51,28 @@
  *   theme spacing         283/587, 401/825    199/739, 163/498  1198/1941, 1546/1891  822/1738, 760/1976
  *   theme button radius   313/562, 264/524    200/353, 161/322  1069/1881, 1459/2654  857/1263, 677/1050
  *
- *   npx tsx scripts/check-compat-live-edit.ts <dawn.zip>
+ * Round 36, theme values only the layout's CSS reads written as the layout's
+ * styles drawn alone (lib/storelib-theme/compat/theme-css.ts), the bundle
+ * before the round and after it; latency p50/p95 in ms, longest task, long
+ * tasks. Dawn, each gesture run on its own page:
+ *
+ *                         1x before            1x after            4x before              4x after
+ *   theme spacing         174/366, 143ms, 16   28/63, 85ms, 1      554/1254, 438ms, 50    161/252, 395ms*, 28
+ *   theme button radius   131/251, 98ms, 8     42/75, 0ms, 0       562/960, 388ms, 49     149/206, 105ms, 20
+ *   scheme colour (Bg)    53/130, 97ms, 7      11/33, 0ms, 0       331/1136, 357ms, 30    106/191, 137ms, 34
+ *     updates a second    9.9                  46                  2.2                    7.9
+ *   (* one page drawn whole when the gesture follows the header's; alone, 134ms)
+ *   The rest at 4x is the frame restyling the page for a variable on :root
+ *   (Dawn's 400KB header among it): ~70ms a value here, the browser's own.
+ *   Materia fixture (tests/fixtures/shopify-materia, given a {% style %} of
+ *   variables by withLayoutVariables): theme spacing 38/119 -> 18/61 at 1x,
+ *   126/246 -> 86/171 at 4x; its accent colour 2/35 -> 3/36 at 1x and
+ *   19/65 -> 35/144 at 4x (drawn from the page's template before, which on
+ *   a page this small costs less than the layout drawn alone; a jump back
+ *   after the release at 4x before, none after). Header height unchanged
+ *   (103/223 -> 121/224 at 4x, run beside it).
+ *
+ *   npx tsx scripts/check-compat-live-edit.ts <dawn.zip | theme folder>
  *   CPU=4                 only the slowed run
  *   EDITOR_BUNDLE=<file>  reuse a bundle (one from another commit, to compare)
  *   ONLY=<regexp>         only the gestures whose name matches

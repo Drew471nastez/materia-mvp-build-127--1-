@@ -42,6 +42,18 @@
  *   canvas layers              127              36
  *   fetches while dragging     0                0
  *
+ * Round 36, a .storelib section's scheme colours drawn by the canvas as its
+ * root's variables (lib/storelib-theme/scheme-vars.ts), the bundle before
+ * and after:
+ *
+ *                              1x before        1x after         4x before        4x after
+ *   scheme colour, draws       49 of 61         58 of 61         10 of 61         31 of 61
+ *     canvas wait p50/p95      0/36ms           0/29ms           155/798ms        30/89ms
+ *     sections drawn per value hero, features, header  header only (the React header)
+ *     longest task             0ms              0ms              278ms            218ms
+ *   after the commit: 23 section roots, all drawn with variables, every
+ *   section on a scheme agreeing with its box (schemeAfter)
+ *
  *   node scripts/check-editor-live-edit.mjs
  *   CPU=4 node scripts/check-editor-live-edit.mjs     only the slowed run
  *   EDITOR_BUNDLE=<file>  reuse a bundle (one from another commit, to compare)
