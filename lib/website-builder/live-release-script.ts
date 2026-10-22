@@ -21,9 +21,12 @@
  *   - Back or Forward inside the page (`popstate`), and before a link opened
  *     in place (components/website-builder/site-links.tsx, through
  *     `window.__storelibRelease`), when the last answer is older than
- *     FRESH_MS: Next's router reuses pages it fetched ahead.
+ *     FRESH_MS: Next's router reuses pages it fetched ahead;
+ *   - a page loaded from a copy drawn more than HELD_PAGE_MS ago, once,
+ *     after it has loaded: a copy a Publish did not reach (an edge copy of
+ *     the front page) is caught there.
  *
- * A page loaded from the server never asks: it was drawn from what is live now.
+ * A page drawn for this very request never asks.
  *
  * WHAT IT DOES: the marker now differs from the page's, so the page is
  * loaded again (or, before a link, the link is opened as a whole page). A
@@ -36,6 +39,13 @@
 export const FRESH_MS = 15_000
 /** How long a tab must have been hidden for showing it again to ask. */
 export const SHOWN_AFTER_MS = 4_000
+/**
+ * A page drawn longer ago than this was served from a copy (the edge's, a
+ * held stranger's page), which a Publish should have cleared: it asks once,
+ * after it has loaded, in case a copy somewhere was not. A page drawn for
+ * this request never asks.
+ */
+export const HELD_PAGE_MS = 10_000
 /** How long a link waits for an answer before it opens anyway. */
 export const LINK_WAIT_MS = 400
 
@@ -56,20 +66,22 @@ const MARKER = /^[0-9a-f]{16}$/
 const NAME = /^[a-z0-9_-]{1,64}$/i
 
 /**
- * The inline script for a page drawn from `marker` of the website `name`.
- * Empty when either is not what the server writes, so nothing typed into
- * an address ends up inside a script.
+ * The inline script for a page drawn from `marker` of the website `name`, at
+ * `drawnAt` (ms). Empty when either is not what the server writes, so
+ * nothing typed into an address ends up inside a script.
  */
-export function liveReleaseScript(name: string, marker: string): string {
+export function liveReleaseScript(name: string, marker: string, drawnAt: number = Date.now()): string {
   if (!NAME.test(name) || !MARKER.test(marker)) return ""
+  const drawn = Number.isFinite(drawnAt) ? Math.floor(drawnAt) : 0
   const js = `(function(){try{
-var mine=${JSON.stringify(marker)},url=${JSON.stringify(`${RELEASE_ENDPOINT}?name=${encodeURIComponent(name.toLowerCase())}`)},last=Date.now(),hidden=0,busy=null,old=false;
+var mine=${JSON.stringify(marker)},url=${JSON.stringify(`${RELEASE_ENDPOINT}?name=${encodeURIComponent(name.toLowerCase())}`)},drawn=${drawn},last=Date.now(),hidden=0,busy=null,old=false;
 function changed(){if(old)return Promise.resolve(true);if(busy)return busy;busy=fetch(url,{cache:"no-store",credentials:"omit"}).then(function(r){return r.ok?r.json():null}).then(function(j){last=Date.now();if(j&&typeof j==="object"&&"marker"in j&&j.marker!==mine)old=true;return old}).catch(function(){return false}).then(function(c){busy=null;return c});return busy}
 function once(){var k="sl-release:"+mine;try{if(sessionStorage.getItem(k))return false;sessionStorage.setItem(k,"1")}catch(e){}return true}
 function check(){changed().then(function(c){if(c&&once())location.reload()})}
 window.__storelibRelease={outdated:function(){return old},due:function(){return Date.now()-last>${FRESH_MS}},changed:changed};
 window.addEventListener("pageshow",function(e){if(e.persisted)check()});
 var nav=performance.getEntriesByType&&performance.getEntriesByType("navigation")[0];if(document.prerendering)document.addEventListener("prerenderingchange",check,{once:true});else if(nav&&(nav.type==="back_forward"||nav.deliveryType==="cache"||nav.deliveryType==="navigational-prefetch"))check();
+else if(Date.now()-drawn>${HELD_PAGE_MS}){var idle=function(){(window.requestIdleCallback||function(f){return setTimeout(f,1)})(check,{timeout:3000})};if(document.readyState==="complete")idle();else window.addEventListener("load",idle,{once:true})}
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"){hidden=Date.now();return}if(hidden&&Date.now()-hidden>${SHOWN_AFTER_MS})check()});
 window.addEventListener("popstate",function(){if(old||Date.now()-last>${FRESH_MS})check()});
 }catch(e){}})();`

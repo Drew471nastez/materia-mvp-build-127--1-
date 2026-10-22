@@ -8,10 +8,10 @@
  * imported theme's page was answered in 0.4s and then kept the main thread
  * busy for six to fourteen seconds. Held here:
  *
- *   CDN        a stranger's page is stored by Vercel's CDN: no `Vary: Cookie`
- *              (which Vercel refuses to store), s-maxage, no Set-Cookie on a
- *              shared answer, the page opened as a document held apart from
- *              a script's fetch of the same address
+ *   CDN        a stranger's page was stored by Vercel's CDN; now only by the
+ *              hold, which a Publish clears: no Set-Cookie on a shared
+ *              answer, the page opened as a document held apart from a
+ *              script's fetch of the same address
  *   FIRST DRAW the body's CSS gathered at the end of the head in its own
  *              order (lib/storelib-theme/compat/first-load.ts), never what
  *              is inside a script, a template, a noscript or an SVG; nothing
@@ -27,7 +27,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { FLAG_SRC_PREFIX, openedAsDocument, readierFirstLoad } from "../lib/storelib-theme/compat/first-load"
 import { flagImage } from "../lib/storelib-theme/compat/objects"
-import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer } from "../lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, publicAnswer } from "../lib/storelib-theme/compat/anonymous-cache"
 import { SITE_PREFETCH_RULES } from "../lib/website-builder/prefetch-rules"
 
 let passed = 0
@@ -57,22 +57,20 @@ const headOf = (html: string) => html.slice(0, html.search(/<body\b/i))
 const bodyOf = (html: string) => html.slice(html.search(/<body\b/i))
 
 function cdn() {
-  section("A stranger's page is one the CDN stores")
-  check("never Vary: Cookie (Vercel's CDN does not store such an answer at all)", !/cookie/i.test(PUBLIC_PAGE_VARY), PUBLIC_PAGE_VARY)
-  check("varies by what is low in number: the country and how the page was asked for", /X-Vercel-IP-Country/.test(PUBLIC_PAGE_VARY) && /Sec-Fetch-Dest/.test(PUBLIC_PAGE_VARY))
-  check("held by the CDN for a while (s-maxage), and public", /\bpublic\b/.test(PUBLIC_PAGE_CACHE) && /s-maxage=\d+/.test(PUBLIC_PAGE_CACHE), PUBLIC_PAGE_CACHE)
+  section("A stranger's page is drawn once for every stranger, and kept by no CDN (a Publish cannot reach a CDN copy: tests/publish-shows-new-release.test.ts)")
+  check("the browser is told what any page of the theme says, and no shared cache keeps it", PUBLIC_PAGE_CACHE === "private, no-cache" && !/s-maxage|public/.test(PUBLIC_PAGE_CACHE), PUBLIC_PAGE_CACHE)
   check("an answer that sets a cookie is never shared", !publicAnswer({ method: "GET", status: 200, type: "text/html", cacheControl: "private, no-cache", setsCookie: true, changesCart: false }))
   check("nor one that changed the cart", !publicAnswer({ method: "GET", status: 200, type: "text/html", cacheControl: "private, no-cache", setsCookie: false, changesCart: true }))
   check("a plain page is", publicAnswer({ method: "GET", status: 200, type: "text/html; charset=utf-8", cacheControl: "private, no-cache", setsCookie: false, changesCart: false }))
 
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-  check("the shared answer is said with the public header and the low Vary", /headers\.set\("Cache-Control", PUBLIC_PAGE_CACHE\)/.test(route) && /headers\.set\("Vary", PUBLIC_PAGE_VARY\)/.test(route))
-  check("and only shared without a Set-Cookie", /share: res\.status === 200 && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
+  check("the shared answer is marked for the hold, with the theme's own header", /headers\.set\("Cache-Control", PUBLIC_PAGE_CACHE\)/.test(route) && /headers\.set\(SHAREABLE_HEADER, "1"\)/.test(route))
+  check("and only shared without a Set-Cookie", /share: res\.status === 200 && res\.headers\.get\(SHAREABLE_HEADER\) === "1" && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
   check("the page opened as a document is held apart from a script's fetch of it", /strangerKey\(username, path, url\.search, openedAsDocument\(req\.headers\)\)/.test(route))
   const hold = code("lib/storelib-theme/compat/stranger-hold.ts")
   check("by its own key", /asDocument \? \["document"\] : \[\]/.test(hold))
   const proxy = code("proxy.ts")
-  check("the proxy's front page says the same Vary", /r\.headers\.set\("Vary", PUBLIC_PAGE_VARY\)/.test(proxy))
+  check("the proxy's front page says the same header, private for a stranger too", /r\.headers\.set\("Cache-Control", marker \? PUBLIC_PAGE_CACHE : "private, no-cache"\)/.test(proxy))
 }
 
 function firstDraw() {

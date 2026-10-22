@@ -748,6 +748,8 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
   "tests/live-speed-v.test.ts",
+  /* After a Publish no request and no page in the browser shows the old theme: the tag expired at once, the live release and its marker, an imported theme's hold, Back and bfcache, links opened in place, a switch of renderer */
+  "tests/publish-shows-new-release.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
