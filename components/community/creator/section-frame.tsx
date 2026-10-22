@@ -237,11 +237,18 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       /* The Page editor: the page's preview, and from 1280px the panel beside it (round 26: a drawer below that, page-editor/**). */
       body = (
         <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6" data-frame-page="">
-          <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
-            <Shimmer className="h-full">
-              <ShimmerBlock className="h-full w-full rounded-xl" />
+          {/* Round 37: the editor's row of view controls (44px) and its 8px gap over the preview, as the stage draws them. */}
+          <div className="flex min-w-0 flex-col gap-2">
+            <Shimmer className="flex min-h-11 items-center gap-2 py-0.5">
+              <ShimmerBlock className="h-9 w-[124px] rounded-[10px]" />
+              <ShimmerBlock className="h-9 w-28 rounded-[10px]" />
             </Shimmer>
-          </section>
+            <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
+              <Shimmer className="h-full">
+                <ShimmerBlock className="h-full w-full rounded-xl" />
+              </Shimmer>
+            </section>
+          </div>
           <PanelFrame rows={5} className="hidden xl:block" />
         </div>
       )

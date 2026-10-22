@@ -188,10 +188,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           const b = c.getBoundingClientRect()
           if (b.height < 16 || b.width < 120) continue
           if (cards.some((k) => k.el.contains(c))) continue
-          cards.push({ el: c, r: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] })
+          cards.push({ el: c, r: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)], who: `${c.nodeName.toLowerCase()}${[...c.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}]`).join("")} "${(c.textContent || "").trim().slice(0, 40)}"` })
         }
         const imgs = [...el.querySelectorAll("img")].filter((i) => i.getClientRects().length && !i.complete).length
-        return { id: el.getAttribute("data-section-screen"), kind, r: R(el), op: Number(cs.opacity), tf: cs.translate !== "none" ? cs.translate : cs.transform !== "none" ? cs.transform : "", cards: cards.map((c) => c.r), imgs }
+        return { id: el.getAttribute("data-section-screen"), kind, r: R(el), op: Number(cs.opacity), tf: cs.translate !== "none" ? cs.translate : cs.transform !== "none" ? cs.transform : "", cards: cards.map((c) => c.r), who: cards.map((c) => c.who), imgs }
       })
       const lit = pane.querySelector('[data-tab][aria-current="page"]')
       const pill = pane.querySelector("[data-tab-pill]")
@@ -339,7 +339,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           const d = Math.abs(v.cards[i][1] + scrollD - c0[i][1]) + Math.abs(v.cards[i][3] - c0[i][3])
           if (d > after) {
             after = Math.round(d)
-            afterWhat = `card ${i} ${c0[i][1]}/${c0[i][3]} -> ${v.cards[i][1]}/${v.cards[i][3]}`
+            afterWhat = `card ${i} ${c0[i][1]}/${c0[i][3]} -> ${v.cards[i][1]}/${v.cards[i][3]} ${v.who?.[i] ?? ""}`
           }
         }
       }

@@ -22,6 +22,7 @@ import { auditLog, listReports } from "./moderation"
 import { leaveReasonsSummary } from "./leave-reasons"
 import { learnBuilderFor } from "./learn-builder"
 import { scheduledPanelReads } from "./scheduled-posts"
+import { readJoinForm } from "./join-questions"
 import { parseMemberQuery } from "@/components/community/creator/logic"
 import { pageEditorReads } from "./page-editor"
 
@@ -115,8 +116,9 @@ export async function analyticsReads(ctx: CreatorPageContext) {
 }
 
 export async function settingsReads(ctx: CreatorPageContext) {
-  const [head, data] = await Promise.all([communityHead(ctx), loadSettings(ctx)])
-  return { head, data }
+  /* Round 37: the questions before joining with the rest, so Access is drawn whole (SettingsData.joinForm). */
+  const [head, data, joinForm] = await Promise.all([communityHead(ctx), loadSettings(ctx), readJoinForm(ctx.db, ctx.community.id).catch(() => null)])
+  return { head, data: { ...data, joinForm } }
 }
 
 /** Every section's reads by its id, for the measure. */

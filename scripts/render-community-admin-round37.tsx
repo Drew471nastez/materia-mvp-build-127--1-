@@ -147,6 +147,8 @@ const settings: SettingsData = {
     { type: "image", url: picture("#e6d0cb", "#8a4a3f") },
   ],
   galleryReady: params.get("gallery") !== "missing",
+  /* Round 37: read with the page, as settingsReads does. */
+  joinForm: { ready: true, questions: [] },
   galleryVideos: { "11111111-1111-4111-8111-111111111111": { status: "ready", thumbnailUrl: null, durationSeconds: 94 } },
   roles: { ready: true, admin: Object.fromEntries(PERMISSION_GROUPS.map((g) => [g.key, true])) as never, moderator: Object.fromEntries(PERMISSION_GROUPS.map((g, i) => [g.key, i < 2])) as never },
   policies: { ready: true, refundPolicy: "Cancel any time and keep access until the end of the period you paid for.", contactEmail: "club@salajanywood.com", contactEmailPublic: true },
