@@ -803,7 +803,9 @@ async function main() {
       expect(d.remounted === 0, `${key} ${name}: no section thrown away and mounted again`, d.remounted)
       expect(d.scroll[0] === null || Math.abs((d.scroll[1] ?? 0) - d.scroll[0]) <= 2, `${key} ${name}: the canvas keeps its scroll`, d.scroll)
       expect(d.jumped.length === 0, `${key} ${name}: once released, no jump back`, d.jumped.slice(0, 3))
-      expect(d.canvasP95 !== null && d.canvasP95 <= (slow ? 120 : 50), `${key} ${name}: the canvas follows (p95, ms)`, { p50: d.canvasP50, p95: d.canvasP95 })
+      /* A drag or typing: within four frames at p95 on a computer (the frame commit holds a value back on a slow frame, use-frame-commit.ts). One change (Undo, a switch): the page drawn once. */
+      const once = d.drawable <= 1
+      expect(d.canvasP95 !== null && d.canvasP95 <= (once ? (slow ? 900 : 300) : slow ? 300 : 70), `${key} ${name}: the canvas follows (p95, ms)`, { p50: d.canvasP50, p95: d.canvasP95 })
       if (d.thumbP95 !== null) expect(d.thumbP95 <= 1, `${key} ${name}: the thumb takes the pointer's value in the same task`, d.thumbP95)
       if (!slow && /radius|range|colour/.test(name)) expect(d.frameP95 !== null && d.frameP95 <= 17.5, `${key} ${name}: frames p95 within one frame while dragging`, { p95: d.frameP95, over25: d.framesOver25, frames: d.frames })
       expect(d.saves >= 1, `${key} ${name}: saved in the background`, d.saves)

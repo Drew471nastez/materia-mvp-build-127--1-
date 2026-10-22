@@ -21,7 +21,7 @@ export const CANVAS_BRIDGE = `
 (function () {
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
   /* The layout's own <style>s in the body, around the sections, as drawn (compat-canvas.tsx docShape bodyStyles): marked now, before the theme's deferred scripts can add one. */
-  if (document.body) Array.prototype.forEach.call(document.body.querySelectorAll("style"), function (x) { if (!x.closest(".shopify-section") && !x.hasAttribute("data-sl")) x.__slDrawn = true; });
+  try { Array.prototype.forEach.call(document.body.querySelectorAll("style"), function (x) { if (!x.closest(".shopify-section") && !x.hasAttribute("data-sl")) x.__slDrawn = true; }); } catch (e) {}
   /*
     COPY AND PASTE FROM INSIDE THE PAGE. A click in the canvas puts the
     keyboard in this frame, so Cmd/Ctrl+C and V never reached the builder,
