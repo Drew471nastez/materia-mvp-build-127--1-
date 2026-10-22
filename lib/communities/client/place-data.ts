@@ -12,6 +12,7 @@ import type { ChatView } from "@/components/community/member/chat"
 import type { LearnLibrary } from "@/components/community/learn/learn-library"
 import type { EmptyProgram, LockedProgram, ProgramPlayer } from "@/components/community/learn/program-page"
 import type { EventsPage } from "@/components/community/events/events-page"
+import type { LibraryItemData, LibraryShelfData } from "@/components/community/library/model"
 import type { EventDetail } from "@/components/community/events/event-detail"
 import type { MembersDirectory } from "@/components/community/member/members"
 import type { Leaderboard } from "@/components/community/member/leaderboard"
@@ -32,6 +33,9 @@ export type PlaceData =
   | ({ kind: "program"; mode: "locked" } & ComponentProps<typeof LockedProgram>)
   | ({ kind: "program"; mode: "player" } & ComponentProps<typeof ProgramPlayer>)
   | ({ kind: "program"; mode: "empty" } & ComponentProps<typeof EmptyProgram>)
+  /* Round 39: the Library and one item in it (components/community/library). */
+  | { kind: "library"; shelf: LibraryShelfData }
+  | { kind: "resource"; page: LibraryItemData }
   | ({ kind: "calendar" } & ComponentProps<typeof EventsPage>)
   | ({ kind: "event" } & ComponentProps<typeof EventDetail>)
   | ({ kind: "members" } & ComponentProps<typeof MembersDirectory>)

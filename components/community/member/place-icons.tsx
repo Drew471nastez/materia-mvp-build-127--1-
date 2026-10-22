@@ -15,6 +15,7 @@
  *   Learn         a lesson: a screen with a play mark and the progress
  *                 line under it (round 13, when the Classroom became Learn
  *                 and its courses programs of video lessons)
+ *   Library       two books standing and one leaning, on a shelf (round 39)
  *   Calendar      a page with two rings and its header line
  *   Members       two people, one in front
  *   Leaderboards  three steps of a podium
@@ -42,6 +43,11 @@ const DRAWN: Record<TabKey, { lines: string[]; fill?: string[] }> = {
   classroom: {
     lines: ["M6.25 4.5h11.5A2.25 2.25 0 0 1 20 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H6.25A2.25 2.25 0 0 1 4 14.25v-7.5A2.25 2.25 0 0 1 6.25 4.5z", "M10.5 8.1v4.8l4-2.4z", "M4 19.75h5.45", "M13.55 19.75H20", "M11.5 21a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"],
     fill: ["M6.25 4.5h11.5A2.25 2.25 0 0 1 20 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H6.25A2.25 2.25 0 0 1 4 14.25v-7.5A2.25 2.25 0 0 1 6.25 4.5z"],
+  },
+  /* Round 39: the Library, two books standing and one leaning on them, on a shelf. */
+  library: {
+    lines: ["M5.25 4.75h2a1 1 0 0 1 1 1v13.5h-4V5.75a1 1 0 0 1 1-1z", "M9.25 7.25h2a1 1 0 0 1 1 1v11h-4v-11a1 1 0 0 1 1-1z", "M13.4 6.4 17 5.45l3.35 12.5-3.6.95z", "M4.25 8.75h4", "M3.75 19.25h16.5"],
+    fill: ["M5.25 4.75h2a1 1 0 0 1 1 1v13.5h-4V5.75a1 1 0 0 1 1-1z", "M9.25 7.25h2a1 1 0 0 1 1 1v11h-4v-11a1 1 0 0 1 1-1z"],
   },
   events: {
     lines: ["M6.25 5.5h11.5A2.25 2.25 0 0 1 20 7.75v10A2.25 2.25 0 0 1 17.75 20H6.25A2.25 2.25 0 0 1 4 17.75v-10A2.25 2.25 0 0 1 6.25 5.5z", "M4 10h16", "M8.25 3.75v3.5", "M15.75 3.75v3.5"],

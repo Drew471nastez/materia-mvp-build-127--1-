@@ -26,7 +26,9 @@ import "server-only"
  *             ./post-files.ts): one older than ORPHANS.graceDays that no
  *             post, comment or chat message of the community carries
  *             ({type:"file", assetId}), any status, is removed (a comments
- *             table without its media column keeps every file). A seventh of the communities a day,
+ *             table without its media column keeps every file). A Library
+ *             item's file, or a product's file at the same path, is used
+ *             too (round 39). A seventh of the communities a day,
  *             so each is looked at once a week.
  *
  * WHY THE GRACE IS LONG. A draft keeps its pictures' addresses in the
@@ -250,6 +252,10 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
           const held = await admin.from(table).select("id").eq("community_id", c.id).contains("attachments", carries).limit(1)
           if (!(held.error && missing(held.error))) reads.push(held)
         }
+        /* Round 39: a Library item's file (part 278), and any product's file at this path (a sold resource's product, which its buyers keep after the item changes). */
+        const library = await admin.from("community_library_items").select("id").eq("community_id", c.id).contains("files", JSON.stringify([{ fileId }])).limit(1)
+        if (!(library.error && missing(library.error))) reads.push(library)
+        reads.push(await admin.from("digital_assets").select("id").eq("file_path", path).limit(1))
         if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
           continue

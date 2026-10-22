@@ -37,7 +37,7 @@ export const SCOPE_INCLUDE = [
   /^components\/reviews\/manage\/.*\.tsx?$/,
   /^components\/website-builder\/.*\.tsx?$/,
   /* The community's admin, the email composer, the OnePage editor, shipping and the rest /app draws. */
-  /^components\/community\/(creator|learn)\/.*\.tsx?$/,
+  /^components\/community\/(creator|learn|library)\/.*\.tsx?$/,
   /^components\/community\/membership\/refund-dialog\.tsx$/,
   /^components\/email\/compose\/.*\.tsx?$/,
   /^components\/onepage\/(onepage-editor|seo-panel|onboarding-modal|date-time-field|extra-blocks|color-picker|link-stats-chart|editor-kit)\.tsx$/,

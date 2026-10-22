@@ -28,6 +28,9 @@ export type Place =
   | { kind: "space"; slug: string }
   | { kind: "learn" }
   | { kind: "program"; id: string }
+  /* Round 39: the community's Library and one item in it. */
+  | { kind: "library" }
+  | { kind: "resource"; id: string }
   | { kind: "calendar" }
   | { kind: "event"; id: string }
   | { kind: "members" }
@@ -41,7 +44,7 @@ export type Place =
 export type PlaceKind = Place["kind"]
 
 /** Every kind, in the order the places are listed. */
-export const PLACE_KINDS: readonly PlaceKind[] = ["feed", "space", "learn", "program", "calendar", "event", "members", "leaderboard", "about", "profile", "saved", "notifications", "membership"]
+export const PLACE_KINDS: readonly PlaceKind[] = ["feed", "space", "learn", "program", "library", "resource", "calendar", "event", "members", "leaderboard", "about", "profile", "saved", "notifications", "membership"]
 
 /** The address's query word for a profile inside the community. */
 export const PROFILE_PARAM = "profile"
@@ -71,6 +74,8 @@ export function placeKey(place: Place): string {
       return `space:${place.slug.toLowerCase()}`
     case "program":
       return `program:${place.id}`
+    case "resource":
+      return `resource:${place.id}`
     case "event":
       return `event:${place.id}`
     case "profile":
@@ -89,6 +94,7 @@ export function placeFromKey(key: string | null | undefined): Place | null {
   switch (kind) {
     case "feed":
     case "learn":
+    case "library":
     case "calendar":
     case "members":
     case "leaderboard":
@@ -102,6 +108,7 @@ export function placeFromKey(key: string | null | undefined): Place | null {
       return slug ? { kind, slug: slug.toLowerCase() } : null
     }
     case "program":
+    case "resource":
     case "event": {
       const id = clean(arg, ID)
       return id ? { kind, id } : null
@@ -132,6 +139,10 @@ export function placeHref(slug: string, place: Place): string {
       return `${base}/learn`
     case "program":
       return `${base}/learn/${encodeURIComponent(place.id)}`
+    case "library":
+      return `${base}/library`
+    case "resource":
+      return `${base}/library/${encodeURIComponent(place.id)}`
     case "calendar":
       return `${base}/events`
     case "event":
@@ -198,6 +209,11 @@ export function placeFromUrl(pathname: string, search: string): Place | null {
       if (!second) return { kind: "learn" }
       const id = clean(second, ID)
       return id ? { kind: "program", id } : null
+    }
+    case "library": {
+      if (!second) return { kind: "library" }
+      const id = clean(second, ID)
+      return id ? { kind: "resource", id } : null
     }
     case "events": {
       if (!second) return { kind: "calendar" }
@@ -269,12 +285,15 @@ export const screenKey = slotKeyOf
  * The tab a place marks in the row of places: everything under the feed (a space, a profile, Saved, the inbox) is Community.
  * Round 38: a chat channel is the Chat tab's when the community shows one (`chatTab`: its chat channels' slugs).
  */
-export function placeTab(place: Place, chatTab?: ReadonlySet<string> | null): "home" | "chat" | "classroom" | "events" | "members" | "leaderboard" | "about" {
+export function placeTab(place: Place, chatTab?: ReadonlySet<string> | null): "home" | "chat" | "classroom" | "library" | "events" | "members" | "leaderboard" | "about" {
   if (place.kind === "space" && chatTab?.has(place.slug.toLowerCase())) return "chat"
   switch (place.kind) {
     case "learn":
     case "program":
       return "classroom"
+    case "library":
+    case "resource":
+      return "library"
     case "calendar":
     case "event":
       return "events"

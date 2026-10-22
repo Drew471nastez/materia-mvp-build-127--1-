@@ -61,6 +61,13 @@ export async function learnReads(ctx: CreatorPageContext) {
   return { initial: await learnBuilderFor(ctx.db, ctx.community).catch(() => null) }
 }
 
+/** Round 39: the Library, its items, sections, the products that can be attached, and whether payments take money, in one round. */
+export async function libraryReads(ctx: CreatorPageContext) {
+  const creatorId = ctx.community.creator_id
+  const { libraryAdmin } = await import("./library")
+  return { initial: await libraryAdmin(ctx.db, ctx.community, { canSell: async () => (creatorId ? (await import("@/lib/payments/service")).checkoutReadyForCreator(creatorId) : false) }).catch(() => null) }
+}
+
 export async function eventsReads(ctx: CreatorPageContext) {
   const [head, events, options] = await Promise.all([communityHead(ctx), loadEvents(ctx.db, ctx.community.id), ruleOptions(ctx.db, ctx.community.id)])
   return { head, events, options }
@@ -127,6 +134,7 @@ export const ADMIN_SECTION_READS: Record<string, (ctx: CreatorPageContext, query
   feed: feedReads,
   spaces: spacesReads,
   learn: learnReads,
+  library: libraryReads,
   events: eventsReads,
   members: membersReads,
   moderation: moderationReads,

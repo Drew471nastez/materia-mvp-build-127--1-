@@ -10,7 +10,7 @@ import type { AuthorView, CommentView, CommunityAccess, CommunityVisibility, Fee
 export type { AuthorView, CommentView, FeedPostView, MemberView }
 
 /** "home", "classroom", ..., or "space:<slug>". */
-export type ShellSection = "home" | "classroom" | "events" | "members" | "leaderboard" | "saved" | "notifications" | "about" | `space:${string}`
+export type ShellSection = "home" | "classroom" | "library" | "events" | "members" | "leaderboard" | "saved" | "notifications" | "about" | `space:${string}`
 
 /** A space as the shell and the composer list it. Only spaces the viewer may see are ever handed over. */
 export interface SpaceView {
@@ -62,6 +62,8 @@ export interface ShellCommunity {
   published?: boolean
   /** Round 38: the Chat tab, opening this channel (the admins' main one, else the first the member may read); null without the tab. */
   chatTab?: { slug: string } | null
+  /** Round 39: the Library is on (part 278), so it is one of the places. */
+  libraryEnabled?: boolean
 }
 
 /** A community as the top bar and its switcher draw it. */

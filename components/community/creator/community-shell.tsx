@@ -143,6 +143,8 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     can.moderate_content ? { id: "feed", label: tt("Posts"), href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: tt("Spaces"), href: `${base}/spaces` } : null,
     can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
+    /* Round 39: the Library, beside Learn, while it is on (Settings, Features). */
+    can.manage_classroom && head.libraryEnabled ? { id: "library", label: tt("Library"), href: `${base}/library` } : null,
     can.manage_events && head.eventsEnabled ? { id: "events", label: tt("Calendar"), href: `${base}/events` } : null,
     can.remove_member ? { id: "members", label: tt("Members"), href: `${base}/members`, count: head.memberCount } : null,
     can.review_reports ? { id: "moderation", label: tt("Moderation"), href: `${base}/moderation`, count: head.openReports || undefined } : null,

@@ -214,6 +214,10 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       */
       body = <ListFrame words={[]} action={128} rows={3} rowHeight={76} />
       break
+    case "library":
+      /* Round 39: the Library's list card (components/community/library/library-admin.tsx): the count and Add in its head, a row per item. */
+      body = <ListFrame words={[]} action={96} rows={4} rowHeight={72} />
+      break
     case "events":
       body = <ListFrame words={[72, 44]} action={104} rows={4} rowHeight={76} />
       break

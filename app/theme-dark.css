@@ -324,7 +324,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 859 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 860 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -799,6 +799,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-neutral-100 > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .fill-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { fill: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .fill-black:not([data-own-look], [data-own-look] *) { fill: #ececee; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:after\:ring-\[\#1a1a2e\]\/20:not([data-own-look], [data-own-look] *):focus-visible::after { --tw-ring-color: rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:after\:ring-\[\#1a1a2e\]\/25:not([data-own-look], [data-own-look] *):focus-visible::after { --tw-ring-color: rgba(255,255,255,0.06); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f1f1f4\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus-visible\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *):focus-visible { background-color: #25252a; }
