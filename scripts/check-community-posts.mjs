@@ -402,6 +402,8 @@ async function open(name, path, vp, opts = {}) {
       if (/\/posts\/p-[a-z0-9-]+$/.test(short) && method === "GET") return reply({ error: "not_found" }, 404)
       if (short.endsWith("/posts") && method === "POST") return reply({ post: { id: "p-new", communityId: CID, space: { id: sent.spaceId, slug: "general", name: "General" }, kind: "post", title: sent.title, body: "", bodyText: sent.body, media: sent.media, pinned: false, featured: false, locked: false, status: "published", author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date().toISOString(), editedAt: null, lastActivityAt: new Date().toISOString(), canEdit: true, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true } }, 201)
       if (short.includes("/members?")) return reply({ members: [{ userId: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member", status: "active", level: 3, points: 0 }], nextCursor: null })
+      /* Round 39: New message's picker asks chat/people (its Suggested list, then a search). */
+      if (short.includes("/chat/people")) return reply({ people: [{ id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member", online: null, can: true, why: null }] })
       if (short.includes("/dms")) return dmAnswer(as, short, method, sent, reply)
       if (short.includes("/presence")) return reply({ online: 5 })
       return reply({})
@@ -4174,9 +4176,11 @@ try {
     await press(a.p, "[data-community-messages-button]")
     await a.p.waitForSelector("[data-messages-new]", { timeout: 4000 })
     await press(a.p, "[data-messages-new]")
-    await a.p.type('input[aria-label="Search members"]', "Jon")
-    await a.p.waitForFunction(() => [...document.querySelectorAll('[data-community-messages] button')].some((x) => /Jonas Berg/.test(x.textContent)), { timeout: 4000 }).catch(() => {})
-    const jonas = await a.p.evaluateHandle(() => [...document.querySelectorAll('[data-community-messages] button')].find((x) => /Jonas Berg/.test(x.textContent)))
+    /* Round 39: New message is a picker over the list (people-picker.tsx); its rows are options, not buttons. */
+    await a.p.waitForSelector("[data-picker-search]", { timeout: 4000 })
+    await a.p.type("[data-picker-search]", "Jon")
+    await a.p.waitForFunction(() => [...document.querySelectorAll("[data-community-messages] [data-person]")].some((x) => /Jonas Berg/.test(x.textContent)), { timeout: 4000 }).catch(() => {})
+    const jonas = await a.p.evaluateHandle(() => [...document.querySelectorAll("[data-community-messages] [data-person]")].find((x) => /Jonas Berg/.test(x.textContent)))
     await jonas.asElement()?.evaluate((e) => e.click())
     await a.p.waitForSelector("[data-thread-form] textarea", { timeout: 4000 })
     await a.p.type("[data-thread-form] textarea", "Hey Jonas, are you coming to critique night?")

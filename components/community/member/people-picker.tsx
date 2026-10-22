@@ -260,7 +260,7 @@ export function useRowKeys(count: number, onEnter: (i: number) => void, resetOn:
       setActiveRaw((a) => (e.key === "ArrowDown" ? (Math.min(a, count - 1) + step) % count : (Math.min(a, count - 1) - step + count) % count))
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault()
-      if (clamped >= 0) onEnter(clamped)
+      if (clamped >= 0 && (moved || !!resetOn)) onEnter(clamped)
     }
   }
   return { active: clamped, lit: moved || !!resetOn, setActive, onKeyDown }
