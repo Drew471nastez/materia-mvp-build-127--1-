@@ -18,24 +18,42 @@ import "server-only"
  *                      after the end of each bucket (membersLine)
  *   Posts, comments,   the posts, comments and reactions made in each
  *   reactions          bucket, whatever became of them since (the nightly
- *                      count's rule)
- *   Active members     members with a day in community_member_days (part
- *                      184): their page's heartbeat or anything they did
- *   Engagement         members who posted, commented or reacted, over the
- *                      members there were at the end of the bucket
- *   Visits             one a visitor a day (part 87), added up each night
- *                      with how they came (part 184), today from the day
- *                      rows themselves; a join rate is joins over visits
- *                      from people who were not members yet
+ *                      count's rule), except one the safety check held back
+ *                      before anybody saw it (round 37)
+ *   Active members     members with an hour in community_member_hours (part
+ *                      271) in the bucket, so a day is the viewer's day;
+ *                      before the hours, a day in community_member_days
+ *                      (part 184). Their page's heartbeat or anything they did
+ *   Engagement         members who posted, commented or reacted (from those
+ *                      rows, part 271), over the members there were at the
+ *                      end of the bucket
+ *   Visits             one a visitor a UTC day (part 87), each in the bucket
+ *                      of the moment it came: the visit rows for the days
+ *                      they are kept, the nightly hours (part 271) before
+ *                      that, and before the hours the nightly day counts by
+ *                      their noon (visitsOf). A join rate is the joins a
+ *                      visitor made themselves (part 271) over visits from
+ *                      people who were not members yet
  *   Money              the community's orders (memberships and purchases,
- *                      less refunds), programs sold, event tickets less
- *                      refunds; monthly revenue and subscribers at the end
- *                      of each bucket from the memberships' own dates
+ *                      renewals included, less refunds; a disputed one is no
+ *                      sale), programs sold, event tickets less refunds;
+ *                      monthly revenue and subscribers at the end of each
+ *                      bucket from the memberships' own dates
  *
- * All of the counting by bucket is community_analytics (SQL part 184), one
- * call a period. Before that part has run, the joins and leaves are read
- * from community_activity here and the rest from the nightly rows
+ * All of the counting by bucket is community_analytics (SQL parts 184 and
+ * 271), one call a period. Before part 184 has run, the joins and leaves
+ * are read from community_activity here and the rest from the nightly rows
  * (community_daily_stats), so the screen keeps what it showed before.
+ *
+ * WHAT IS NOT COUNTED, ON PURPOSE (round 37's audit): the owner and the
+ * store's own account looking at their community; a page drawn ahead of a
+ * click (a prefetch) or by a program (a crawler, a link preview, a headless
+ * browser); a second visit the same UTC day, whatever the device, for a
+ * signed in visitor. Two limits remain, and are said here so nobody reads
+ * them as bugs: a visitor on the community's own domain is never signed in
+ * there, so they count as a visitor who is not a member yet (and a member
+ * signed out on storelib.com too); and the same person signed out on two
+ * browsers is two visitors.
  */
 import { bucketStarts, bucketIndex, type Grain, type Span } from "@/lib/analytics/buckets"
 import { monthlyValue } from "@/lib/memberships/state"
