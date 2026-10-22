@@ -1478,7 +1478,20 @@ export function PlatformHeaderClient({
       loadedFor = loadedFor.then((was) => {
         if (event !== "USER_UPDATED" && was === id) return was
         fetchWishlistCount()
-        return loadUser(false).then((now) => now ?? null)
+        return loadUser(false).then((now) => {
+          const nowId = now ?? null
+          /*
+            SOMEBODY ELSE NOW, WITHOUT A PAGE LOAD: signed in or out in
+            another tab, or here from a sheet or a menu. The header redraws
+            itself above; the page under it was drawn on the server for the
+            last answer, and next.config keeps visited pages in the router
+            for five minutes (staleTimes.dynamic), so Library or a receipt
+            opened from this tab would come back as the signed out copy and
+            send the person to sign in again. A refresh asks for both anew.
+          */
+          if ((event === "SIGNED_IN" || event === "SIGNED_OUT") && nowId !== was) router.refresh()
+          return nowId
+        })
       })
     })
 

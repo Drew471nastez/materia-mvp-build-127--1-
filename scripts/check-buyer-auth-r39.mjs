@@ -30,7 +30,7 @@
  *   STUB_ONLY=1                               the stand in alone, until stopped
  */
 import { spawn } from "node:child_process"
-import { mkdirSync } from "node:fs"
+import { appendFileSync, mkdirSync } from "node:fs"
 import { createServer, request as httpRequest } from "node:http"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -161,8 +161,9 @@ if (process.env.NO_SERVER !== "1") {
   }
   next = spawn(process.execPath, ["--max-old-space-size=6144", NEXT_BIN, "dev", "--webpack", "-p", String(PORT), "-H", "localhost"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] })
   let out = ""
-  next.stdout.on("data", (d) => { out += d })
-  next.stderr.on("data", (d) => { out += d })
+  const log = process.env.NEXT_LOG || null
+  next.stdout.on("data", (d) => { out += d; if (log) appendFileSync(log, d) })
+  next.stderr.on("data", (d) => { out += d; if (log) appendFileSync(log, d) })
   let up = false
   for (let i = 0; i < 400 && !up; i++) {
     await sleep(1500)
