@@ -602,6 +602,30 @@ export const notFound = () => {}
       await p.close()
     }
 
+    /* The frame drawn while the editor's reads are on their way is the editor's own screen already. */
+    for (const vp of [DESK, PHONE]) {
+      const tag = vp.width
+      console.log(`\nFULL ${tag}: the frame while it loads`)
+      const { p, errors } = await open("/app/community/salajanywood/page?frame=1", vp)
+      const fr = await p.evaluate(() => {
+        const el = document.querySelector("[data-page-editor-frame]")
+        const r = el?.getBoundingClientRect()
+        const outside = []
+        for (let x = 4; x < innerWidth; x += Math.floor(innerWidth / 9))
+          for (let y = 4; y < innerHeight; y += Math.floor(innerHeight / 12)) {
+            const hit = document.elementFromPoint(x, y)
+            if (hit && !hit.closest("[data-page-editor-frame]")) outside.push([x, y, hit.tagName.toLowerCase()])
+          }
+        return { box: r && { w: Math.round(r.width), h: Math.round(r.height) }, name: el?.querySelector("[data-page-editor-bar] h1")?.textContent, layer: document.documentElement.classList.contains("has-page-layer"), outside: outside.slice(0, 5) }
+      })
+      expect(fr.box && fr.box.w === vp.width && fr.box.h === vp.height && fr.outside.length === 0 && fr.layer, `${tag}: the frame covers the window, nothing of the admin around it`, fr)
+      expect(fr.name === "SalajanyWood Woodworking Club", `${tag}: its bar names the community`, fr.name)
+      await sleep(400)
+      await shot(p, `full-${tag}-frame`)
+      expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
+      await p.close()
+    }
+
     /* Opened from a link, nothing of the admin behind it: Back opens the community's Overview. */
     {
       console.log(`\nFULL 390: opened from a link`)

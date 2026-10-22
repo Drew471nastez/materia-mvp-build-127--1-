@@ -203,7 +203,7 @@ export function PageEditorFrame({ name }: { name?: string }) {
         </aside>
       </div>
       {/* Where the drawer's head will be on a narrow screen. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+8px)] mx-auto max-w-[620px] px-2 sm:hidden">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+8px)] mx-auto max-w-[620px] px-2 sm:hidden">
         <div className="h-[78px] rounded-[16px] border border-[#e5e7eb]/80 bg-white shadow-[0_-6px_28px_-14px_rgba(17,24,39,0.30)]" />
       </div>
     </EditorScreen>

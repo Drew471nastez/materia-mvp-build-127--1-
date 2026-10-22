@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  THE PAGE EDITOR (round 33, rebuilt round 26)
+ *  THE PAGE EDITOR (round 33, rebuilt round 26, its own screen round 37)
  * ===========================================================================
  * /app/community/<slug>/page. The owner, round 26: "currently not
  * responsive, occupies too much space, overly complicated; the preview
@@ -13,18 +13,25 @@
  * editing panel or drawer and a usable full width preview. Avoid nested
  * scroll containers. Preview as visitor."
  *
+ * ITS OWN SCREEN (round 37, the owner: "make sure it's full screen like I'm
+ * getting inside of the creator page"). Over the whole window at every
+ * width (./screen.tsx): one bar of its own, the stage under it, the panel
+ * beside it or the drawer at the foot. Nothing of /app or the community's
+ * admin is drawn while it is up. Back returns to the section it was opened
+ * from as it was left.
+ *
  *   THE STAGE     the About page itself (components/community/public/
  *                 sales-page.tsx) drawn from the draft (./draft.ts
  *                 previewData) into a frame of its own (./preview-frame.tsx:
- *                 the pane's width, at least 1280, or a phone), under one row
- *                 of controls: Computer
- *                 or Phone, As a visitor, the state of the save, Full screen,
- *                 the panel, Save and Publish. It is as tall as the screen
- *                 below the admin's tabs (measured once, useStage), and stays
- *                 there while the panel beside it scrolls with the page: the
- *                 only scroll inside it is the page's own.
+ *                 the pane's width, at least 1280, or a phone), under the
+ *                 editor's bar: the way back and the community, Computer or
+ *                 Phone, As a visitor, the dark look, the state of the save,
+ *                 the panel, Save and Publish. It fills what the bar leaves
+ *                 (over the drawer, what is above its head: useDrawerRoom);
+ *                 the only scroll inside it is the page's own.
  *   THE PANEL     beside the stage: the six groups (./panels.tsx), one open
- *                 at a time, in the page's own scroll (no second scroll box).
+ *                 at a time, flush to the right edge from the bar to the foot,
+ *                 its list the one thing in it that scrolls (round 37).
  *                 Hidden with one press, the stage then takes the whole
  *                 width. Round 27: as wide as the creator drags it (300 to
  *                 560px, the edge between it and the stage is the handle,
@@ -32,7 +39,7 @@
  *                 is dragged the page in the frame is only scaled, and laid
  *                 out once at the end (./preview-frame.tsx).
  *   THE DRAWER    only where the editor itself is narrower than SIDE_MIN
- *                 (a phone, a tablet upright beside the rail): the groups in
+ *                 (a phone, a narrow window): the groups in
  *                 a drawer docked at the foot (./drawer.tsx), dragged
  *                 between its head, half the screen and nearly all of it,
  *                 never covering the page with a dimmed layer.
@@ -44,7 +51,8 @@
  * phone's bar. The editor is measured instead (the rail open or folded, the
  * zoom, the shell's gutters all in it): the panel sits beside the page
  * wherever there is room for both, 300px of panel and 340 of page.
- *   FULL SCREEN   the stage alone over the whole window (Escape leaves).
+ *   FULL SCREEN   round 37: the whole editor is; the panel hidden leaves
+ *                 the page alone under the bar, so there is no second one.
  *   AS A VISITOR  the page as somebody signed out sees it: no outlines, no
  *                 Edit badges, no placeholders for empty parts; the gallery
  *                 and the questions work, links and Join do not.
@@ -54,7 +62,8 @@
  *                 draftProblems names (opening the group it is in). Saving,
  *                 Saved with a check, Unsaved changes, or what went wrong,
  *                 always beside it. Ctrl or Cmd S saves. Leaving with changes
- *                 asks first.
+ *                 asks first: the bar's Back (Discard changes?), and a reload
+ *                 or a closed tab (beforeunload).
  *   PUBLISH       a draft community has Publish beside Save (Save and
  *                 publish while something is unsaved): the same request as
  *                 the bar's Publish (PATCH { publish: true },

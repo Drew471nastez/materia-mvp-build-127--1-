@@ -10,6 +10,8 @@
  * header and the rail, [data-app-nav-pill] on the pill), the Overview is a section the shell holds beside the Page (a
  * tall stand-in, to see Back return to its scroll), and the app's history tracker counts the moves, as in /app.
  *
+ * ?frame=1 draws the Page section's frame (what shows while its reads are on their way) in the editor's place.
+ *
  * ?members=1 makes a community of one member (no Membership section); ?plain=1 an older plain text description; ?dark=1
  * puts the dark look on <html> before the first paint.
  */
@@ -20,6 +22,7 @@ import { CommunityShell, SectionSeed } from "@/components/community/creator/comm
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { ToastHost } from "@/components/community/creator/parts"
 import { PageEditor } from "@/components/community/creator/page-editor/page-editor"
+import { SectionFrame } from "@/components/community/creator/section-frame"
 import { PreviewChrome } from "@/components/community/creator/page-editor/preview-chrome"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import type { CommunityHead, SettingsData } from "@/components/community/creator/view-types"
@@ -178,7 +181,7 @@ function App() {
                   </div>
                 </SectionSeed>
                 <SectionSeed id="page">
-                  <PageEditor head={head} data={settings} preview={sales} creatorId="c1" />
+                  {params.get("frame") ? <SectionFrame id="page" facts={{ title: head.name }} /> : <PageEditor head={head} data={settings} preview={sales} creatorId="c1" />}
                 </SectionSeed>
               </CommunityShell>
             </ToastHost>
