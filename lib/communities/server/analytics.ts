@@ -41,6 +41,15 @@ async function headCount(q: PromiseLike<{ count: number | null; error: { code?: 
   return count ?? 0
 }
 
+/**
+ * A POST OR COMMENT THE SAFETY CHECK HELD BACK IS NOT ONE (round 37). It is
+ * written as removed with "Held for review: ..." (./safety.ts heldColumns)
+ * and nobody but the moderators saw it, so no figure counts it; one a
+ * moderator removed after it was up still counts, as it was there. The same
+ * rule as community_analytics (SQL part 271), as a PostgREST `or`.
+ */
+export const NOT_HELD = 'status.neq.removed,removed_reason.is.null,removed_reason.not.like."Held for review:*"'
+
 export interface DayFigures {
   members: number
   new_members: number
@@ -69,8 +78,8 @@ export async function countDay(db: Db, communityId: string, day: string): Promis
     headCount(c("community_activity").eq("kind", "joined").gte("created_at", from).lt("created_at", to)),
     headCount(c("community_activity").eq("kind", "left").gte("created_at", from).lt("created_at", to)),
     headCount(c("community_members").eq("status", "active").gte("last_active_at", from)),
-    headCount(c("community_feed_posts").gte("created_at", from).lt("created_at", to)),
-    headCount(c("community_feed_comments").gte("created_at", from).lt("created_at", to)),
+    headCount(c("community_feed_posts").gte("created_at", from).lt("created_at", to).or(NOT_HELD)),
+    headCount(c("community_feed_comments").gte("created_at", from).lt("created_at", to).or(NOT_HELD)),
     headCount(c("community_reactions").gte("created_at", from).lt("created_at", to)),
     headCount(c("community_event_rsvps", "event_id").gte("created_at", from).lt("created_at", to)),
     headCount(c("community_activity").eq("kind", "lesson_completed").gte("created_at", from).lt("created_at", to)),
@@ -142,11 +151,11 @@ export async function rollupTraffic(db: Db, communityId: string, day: string, no
   const d = day.slice(0, 10)
   if (d < new Date(now - VIEW_DAYS_KEPT * DAY).toISOString().slice(0, 10)) return false
   try {
-    const rows: VisitRow[] = []
+    const rows: (VisitRow & { created_at?: string | null })[] = []
     for (let page = 0; page < TRAFFIC_PAGES; page++) {
       const { data, error } = await db
         .from("community_view_days")
-        .select("visitor_key, source, referrer, device, country, member")
+        .select("visitor_key, created_at, source, referrer, device, country, member")
         .eq("community_id", communityId)
         .eq("day", d)
         .order("visitor_key", { ascending: true })
@@ -173,9 +182,53 @@ export async function rollupTraffic(db: Db, communityId: string, day: string, no
         return false
       }
     }
+    await rollupVisitHours(db, communityId, d, rows)
     return true
   } catch (e) {
     console.error(`[communities] traffic ${communityId} ${d}: ${reasonOf(e)}`)
+    return false
+  }
+}
+
+/** Each visit's hour (UTC, on the hour) as the nightly count keeps it: "2026-10-15T09:00:00.000Z". A row without its moment is the day's first hour. */
+export function visitHourOf(day: string, createdAt: string | null | undefined): string {
+  const t = createdAt ? Date.parse(createdAt) : NaN
+  const at = Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === day ? t : Date.parse(dayStart(day))
+  return new Date(Math.floor(at / 3_600_000) * 3_600_000).toISOString()
+}
+
+/** The day's visitors and those who were not members, by the hour each came (one visit a visitor a day, at its first page). */
+export function visitHours(day: string, rows: (Pick<VisitRow, "member"> & { created_at?: string | null })[]): { hour: string; visitors: number; prospects: number }[] {
+  const by = new Map<string, { visitors: number; prospects: number }>()
+  for (const r of rows) {
+    const h = visitHourOf(day, r.created_at)
+    const x = by.get(h) ?? { visitors: 0, prospects: 0 }
+    x.visitors += 1
+    if (r.member !== true) x.prospects += 1
+    by.set(h, x)
+  }
+  return [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([hour, x]) => ({ hour, ...x }))
+}
+
+/**
+ * THE DAY'S VISITS BY THE HOUR (SQL part 271), so a community's Analytics
+ * can start each day at midnight where the viewer is: one row an hour with
+ * its visitors and its visitors who were not members, nothing about who.
+ * Counted again, the same day writes the same rows. Before part 271 the
+ * table is not there and this does nothing; never throws.
+ */
+export async function rollupVisitHours(db: Db, communityId: string, day: string, rows: (Pick<VisitRow, "member"> & { created_at?: string | null })[]): Promise<boolean> {
+  const hours = visitHours(day, rows)
+  if (!hours.length) return true
+  try {
+    const { error } = await db.from("community_visit_hours").upsert(hours.map((h) => ({ community_id: communityId, ...h })), { onConflict: "community_id,hour" })
+    if (error) {
+      if (!missing(error)) console.error(`[communities] visit hours ${communityId} ${day}: ${reasonOf(error)}`)
+      return false
+    }
+    return true
+  } catch (e) {
+    console.error(`[communities] visit hours ${communityId} ${day}: ${reasonOf(e)}`)
     return false
   }
 }
