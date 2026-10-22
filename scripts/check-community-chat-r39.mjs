@@ -501,7 +501,29 @@ for (const [label, vp] of VIEWS.filter(onlyView)) {
     })
     note("a picture somebody else sent", theirs)
     expect(!!theirs && theirs.src.startsWith("/_next/image") && theirs.srcset.join() === "384w,640w,828w", "somebody else's picture comes from the optimizer at the bubble's width, with a srcset", theirs)
-    numbers[`${label}-${theme}-picture`] = { previewMs, doneMs, srcset: !!pic?.srcset, shape: pic ? `${pic.w}x${pic.h}` : null }
+    /* SENT BEFORE IT FINISHED UPLOADING: Send is pressable at once; the bubble is up with the picture picked, and the server gets the uploaded one. */
+    const input2 = await page.$("[data-community-messages] [data-chat-form] input[type=file]")
+    const posted0 = server.posts.length
+    await input2.uploadFile(PHOTO)
+    await until(page, () => !!document.querySelector("[data-community-messages] [data-chat-upload='sending']"))
+    const sendWhile = await page.evaluate(() => !document.querySelector("[data-community-messages] [data-chat-send]").disabled)
+    const t1 = Date.now()
+    await page.click("[data-community-messages] [data-chat-send]")
+    const early = await until(page, () => {
+      const img = [...document.querySelectorAll("[data-community-messages] [data-chat-message][data-state='sending'] [data-chat-picture] img")].pop()
+      const box = img?.closest("[data-chat-picture]")?.getBoundingClientRect()
+      return img ? { blob: img.getAttribute("src").startsWith("blob:"), w: Math.round(box.width), h: Math.round(box.height) } : null
+    })
+    const earlyMs = Date.now() - t1
+    const trayGone = await page.evaluate(() => !document.querySelector("[data-community-messages] [data-chat-upload]"))
+    for (let i = 0; i < 200 && server.posts.length === posted0; i++) await sleep(25)
+    const sentLate = server.posts[server.posts.length - 1]
+    const calm = await until(page, () => ![...document.querySelectorAll("[data-community-messages] [data-chat-message][data-mine]")].some((e) => e.getAttribute("data-state")))
+    note("a picture sent while still uploading", { sendWhile, earlyMs, early, trayGone, carried: sentLate?.attachments?.map((a) => a.url.slice(0, 48)), settled: !!calm })
+    expect(sendWhile, "Send is on while a picture is still uploading")
+    expect(!!early && early.blob && Math.abs(early.w / early.h - 1.6) < 0.05 && earlyMs < 400, "pressed, the bubble is up at once with the picture picked, at its shape", { earlyMs, early })
+    expect(server.posts.length > posted0 && /^https:\/\/storelib\.com\/media\/product-images\//.test(sentLate?.attachments?.[0]?.url ?? "") && !!calm, "and the server gets the uploaded picture once it is in; the bubble settles", sentLate?.attachments)
+    numbers[`${label}-${theme}-picture`] = { previewMs, doneMs, srcset: !!pic?.srcset, shape: pic ? `${pic.w}x${pic.h}` : null, sentWhileUploadingMs: earlyMs }
     const picShot = join(shots, `picture-sent-${label}-${theme}.png`)
     await page.screenshot({ path: picShot })
     console.log(`    ${picShot}`)

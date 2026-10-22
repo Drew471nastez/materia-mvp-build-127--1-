@@ -133,7 +133,8 @@ async function main() {
     check("the newest bubbles first, the rest when the page is idle", /const FIRST_DRAW = 24/.test(s) && /items\.slice\(-tail\)/.test(s) && /if \(!el \|\| !root \|\| !hasMore \|\| tail !== null/.test(s))
     check("bubbles memoised, keyed by the client id, their handlers one object that never changes", /const Bubble = memo\(function Bubble/.test(s) && /key=\{m\.clientId \? `c:\$\{m\.clientId\}` : m\.id\}/.test(s) && /const acts = useMemo<BubbleActs>\(/.test(s))
     check("sending: full strength, the clock only after a moment", !/opacity-70"/.test(s.slice(s.indexOf("const Bubble = memo"), s.indexOf("function Pictures"))) && /PENDING_CLOCK_MS = 400/.test(s))
-    check("round 37's send stands: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void post\(m\)/.test(s))
+    /* Changed on purpose (round 39): a message sent while its pictures upload is retried through its uploads first. */
+    check("round 37's send stands: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void \(m\.upload \? deliver\(m, true\) : post\(m\)\)/.test(s))
     check("no catch up while the first page is on its way", /if \(!last && !loadedRef\.current\) return/.test(s))
   }
 
@@ -146,8 +147,9 @@ async function main() {
     /* Changed on purpose (round 39): the button carries the box's own GIF icon (mark) in place of bold letters. */
     check("a GIF search only when GIFs are connected, sent as it is picked", /hideWhenOff mark=\{<GifGlyph \/>\} onPick=\{\(gif\) => onSend\("", \[gif\]\)\}/.test(s) && /if \(hideWhenOff && connected !== true\) return null/.test(code("components/community/member/media-gif.tsx")))
     check("an uploaded GIF is a GIF in the viewer (never the optimizer's one frame)", /a\.type === "image" && isGifPicture\(a\)\) list\.push\(\{ kind: "gif"/.test(s))
-    check("a video is a video in the tray and in the bubble, played from the file picked while it is sent", /data-chat-upload-video=""/.test(s) && /keepLocalVideo\(media\.assetId, item\.preview\)/.test(s) && /<ChatVideo key=\{f\.assetId\}/.test(s))
-    check("the link being written is previewed, and goes with the message signed as the server sent it", /useLinkDraft\(communityId, draftUrl\)/.test(s) && /\{ type: "link", \.\.\.linkCard \} as PostMedia/.test(s) && /ready\.length < CHAT_ATTACHMENTS_MAX/.test(s))
+    /* Changed on purpose (round 39): the upload's answer is one promise per tile (sent with the message while it is still going up), and a video sent before it is in plays from the file picked too. */
+    check("a video is a video in the tray and in the bubble, played from the file picked while it is sent", /data-chat-upload-video=""/.test(s) && /keepLocalVideo\(media\.assetId, preview\)/.test(s) && /keepLocalVideo\(assetId, t\.preview\)/.test(s) && /<ChatVideo key=\{f\.assetId\}/.test(s))
+    check("the link being written is previewed, and goes with the message signed as the server sent it", /useLinkDraft\(communityId, draftUrl\)/.test(s) && /\{ type: "link", \.\.\.linkCard \} as PostMedia/.test(s) && /live\.length < CHAT_ATTACHMENTS_MAX/.test(s))
     const rich = code("components/community/member/chat-rich.tsx")
     check("a video by link: a still and a button, the player only after a press, youtube-nocookie", /\{playing \? \(\s*<iframe\s*src=\{embedPlayerSrc\(video\)\}/.test(rich) && /referrerPolicy="strict-origin-when-cross-origin"/.test(rich) && /youtube-nocookie/.test(read("lib/communities/post-media.ts")))
     check("cards and links open safely in a new tab; outside pictures send no referrer", (rich.match(/rel="noopener noreferrer nofollow ugc"/g) ?? []).length === 2 && (rich.match(/target="_blank"/g) ?? []).length === 2 && (rich.match(/referrerPolicy="no-referrer"/g) ?? []).length >= 3)

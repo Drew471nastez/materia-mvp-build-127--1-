@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { VIEWING_BEAT_MS, typingTopic, type ChatKind, type SendState } from "@/lib/communities/chat-rules"
+import type { PostMedia } from "@/lib/communities/types"
 import type { ChatLine } from "./view-types"
 import { api } from "./api"
 import { realtimeAuth } from "./realtime"
@@ -34,6 +35,8 @@ export type ChatItem = ChatLine & {
   error?: string
   /** What the send carried, for a retry. */
   sendBody?: Record<string, unknown>
+  /** Round 39: sent while its pictures or files were going up; their answers (again: each failed one uploaded once more), null while any is missing. */
+  upload?: (again: boolean) => Promise<PostMedia[] | null>
 }
 
 /*

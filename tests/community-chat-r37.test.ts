@@ -199,7 +199,8 @@ console.log("\nThe chat screen")
 {
   const s = code("components/community/member/chat-surface.tsx")
   check("one merge for every arrival (send, stream, catch up, older)", (s.match(/mergeMessages\(/g) ?? []).length >= 4 && !/\.\.\.cur, \.\.\.fresh/.test(s))
-  check("sending: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void post\(m\)/.test(s))
+  /* Changed on purpose (round 39): a message sent while its pictures upload is retried through its uploads (deliver), then posted under the same id. */
+  check("sending: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void \(m\.upload \? deliver\(m, true\) : post\(m\)\)/.test(s))
   check("scrolled up, new messages gather in a pill; at the bottom it stays there", /setUnseen\(\(n\) => n \+ fresh\)/.test(s) && /data-chat-pill=""/.test(s) && /if \(atBottom\.current\) el\.scrollTop = el\.scrollHeight/.test(s))
   check("older messages keep the reader's place", /keepFrom\.current = el\.scrollHeight - el\.scrollTop/.test(s) && /el\.scrollTop = el\.scrollHeight - keepFrom\.current/.test(s))
   check("pictures have their box before they load", /style=\{\{ aspectRatio: String\(ratio\) \}\}/.test(s) && /aspect-square/.test(s))

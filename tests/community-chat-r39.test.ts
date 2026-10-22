@@ -181,6 +181,14 @@ async function main() {
     check("the one just sent from the file picked; any other from the optimizer at the bubble's width, with a srcset; a GIF as it is", /const local = localPicture\(a\.url\)\s*if \(local\) return \{ src: local, srcSet: undefined \}/.test(s) && /optimizedSrcSet\(a\.url, widths\)/.test(s) && /pictureSources\(a, 300, \[384, 640, 828\]\)/.test(s) && /pictureSources\(a, 150, \[256, 384\]\)/.test(s) && /if \(a\.type === "gif" \|\| isGifPicture\(a\)\) return \{ src: a\.url, srcSet: undefined \}/.test(s))
   }
 
+  console.log("\nSent while it uploads")
+  {
+    const s = code("components/community/member/chat-surface.tsx")
+    check("Send is pressable while pictures go up (only a failed tile is left behind)", /const canSend = editing \? !!text\.trim\(\) \|\| !!editing\.attachments\.length : !!text\.trim\(\) \|\| live\.length > 0/.test(s) && /setTray\(\(cur\) => cur\.filter\(\(t\) => t\.failed\)\)/.test(s))
+    check("the bubble draws the picture picked, at its shape, until the upload's answer takes its place; then it is posted", /onSend\(text, \[\.\.\.live\.map\(\(t\) => t\.media \?\? placeholderOf\(t\)\), \.\.\.link\], finish\)/.test(s) && /img\.onload = \(\) => setTray/.test(s) && /const real = item\.upload \? await item\.upload\(again\) : null/.test(s) && /void post\(next\)/.test(s))
+    check("an upload that failed: Not sent, and trying again uploads it once more", /error: "A picture or file did not upload\. Try again\."/.test(s) && /\(again \? await upload\(live\[i\]\.file, live\[i\]\.kind,/.test(s))
+  }
+
   console.log("\nPart 275")
   {
     const P = "supabase/sql/run-now/275_community_chat_states.sql"

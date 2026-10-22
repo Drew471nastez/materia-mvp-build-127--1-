@@ -83,7 +83,7 @@ import { ChatEmbed, ChatLinkCardView, ChatVideo, LinkDraft, keepLocalVideo, loca
 import { ConfirmDialog, type ConfirmState } from "./dialogs"
 import { Lightbox } from "./lightbox"
 import { MemberAvatar } from "./member-avatar"
-import { localPicture, stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture } from "./media-upload"
+import { localPicture, stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture, type UploadKind } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { toast } from "./toast"
 
@@ -201,6 +201,19 @@ interface TrayItem {
   media: PostMedia | null
   failed: string | null
   ctrl: AbortController
+  /** Round 39: the file picked, its upload's answer (null when it failed or was stopped), and a picture's size once read. */
+  file: File
+  done: Promise<PostMedia | null>
+  w: number
+  h: number
+}
+
+/** What a bubble draws for a file still going up (round 39): the picture or video picked, or the file's name and size. */
+function placeholderOf(t: TrayItem): PostMedia {
+  if (t.kind === "image" && t.preview) return { type: "image", url: t.preview, ...(t.w && t.h ? { w: t.w, h: t.h } : {}) }
+  const assetId = `local-${t.key}`
+  if (t.kind === "video" && t.preview) keepLocalVideo(assetId, t.preview)
+  return { type: "file", assetId, name: t.name, size: t.file.size }
 }
 
 export function ChatSurface(p: ChatSurfaceProps) {
@@ -440,8 +453,23 @@ export function ChatSurface(p: ChatSurfaceProps) {
     [url],
   )
 
+  /* A message sent while its pictures were going up: on screen already; to the server once they are in (or Not sent, to try again). */
+  const deliver = useCallback(
+    async (item: ChatItem, again: boolean) => {
+      const real = item.upload ? await item.upload(again) : null
+      if (!real) {
+        setItems((cur) => cur.map((m) => (m.id === item.id ? { ...m, state: "failed", error: "A picture or file did not upload. Try again." } : m)))
+        return
+      }
+      const next: ChatItem = { ...item, attachments: real, sendBody: { ...item.sendBody, attachments: real }, upload: undefined }
+      setItems((cur) => cur.map((m) => (m.id === item.id ? { ...m, attachments: real, sendBody: next.sendBody, upload: undefined } : m)))
+      void post(next)
+    },
+    [post],
+  )
+
   const send = useCallback(
-    (text: string, media: PostMedia[]) => {
+    (text: string, media: PostMedia[], finish?: (again: boolean) => Promise<PostMedia[] | null>) => {
       if (!me) return
       const body = text.trim()
       if (!body && !media.length) return
@@ -463,20 +491,21 @@ export function ChatSurface(p: ChatSurfaceProps) {
         canModerate: false,
         state: "sending",
         sendBody,
+        ...(finish ? { upload: finish } : {}),
       }
       atBottom.current = true
       setReply(null)
       setUnseen(0)
       setItems((cur) => mergeMessages(cur, [item]))
       typing.stop()
-      void post(item)
+      void (finish ? deliver(item, false) : post(item))
     },
-    [me, reply, post, typing],
+    [me, reply, post, deliver, typing],
   )
 
   const retry = (m: ChatItem) => {
     setItems((cur) => cur.map((x) => (x.id === m.id ? { ...x, state: "sending", error: undefined } : x)))
-    void post(m)
+    void (m.upload ? deliver(m, true) : post(m))
   }
 
   const saveEdit = async (text: string) => {
@@ -1146,7 +1175,7 @@ function Composer({
   editing: ChatItem | null
   onCancelReply: () => void
   onCancelEdit: () => void
-  onSend: (text: string, media: PostMedia[]) => void
+  onSend: (text: string, media: PostMedia[], finish?: (again: boolean) => Promise<PostMedia[] | null>) => void
   onSaveEdit: (text: string) => void
   onTyping: () => void
   onFocus: () => void
@@ -1180,6 +1209,13 @@ function Composer({
     if (reply) requestAnimationFrame(() => box.current?.focus())
   }, [reply])
 
+  /* One file up: a picture through the picture pipeline (made lighter first, media-compress.ts), anything else through the community's file route. */
+  const upload = useCallback(
+    (f: File, what: UploadKind, key: string, ctrl: AbortController, onProgress?: (n: number) => void): Promise<PostMedia> =>
+      what === "image" ? uploadPicture(f, me?.id ?? "", communityId, { key, onProgress }) : uploadCommunityFile({ communityId, file: f, onProgress, signal: ctrl.signal }),
+    [me?.id, communityId],
+  )
+
   const add = useCallback(
     (files: File[]) => {
       if (!me || !attachments) return
@@ -1188,25 +1224,32 @@ function Composer({
       for (const f of files.slice(0, room)) {
         const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         const what = uploadKindOf(f)
-        const isPic = what === "image"
         /* A video is a file to the server (the community's file folder, played from its signed address); here it is a video, drawn from the file picked. */
-        const item: TrayItem = { key, name: f.name, kind: what, preview: what === "file" ? null : URL.createObjectURL(f), progress: 0, media: null, failed: null, ctrl: new AbortController() }
-        setTray((cur) => [...cur, item])
+        const preview = what === "file" ? null : URL.createObjectURL(f)
+        const ctrl = new AbortController()
         const progress = (n: number) => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: n } : x)))
-        const done = (media: PostMedia) => {
-          if (media.type === "file" && item.kind === "video" && item.preview) keepLocalVideo(media.assetId, item.preview)
-          setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+        const done = upload(f, what, key, ctrl, progress).then(
+          (media) => {
+            if (media.type === "file" && what === "video" && preview) keepLocalVideo(media.assetId, preview)
+            setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+            return media
+          },
+          (e: unknown) => {
+            const msg = e instanceof Error ? e.message : "That did not upload."
+            if (msg !== "Upload stopped" && !ctrl.signal.aborted) setTray((cur) => cur.map((x) => (x.key === key ? { ...x, failed: msg } : x)))
+            return null
+          },
+        )
+        setTray((cur) => [...cur, { key, name: f.name, kind: what, preview, progress: 0, media: null, failed: null, ctrl, file: f, done, w: 0, h: 0 }])
+        /* Its shape, so the bubble of a message sent before it finishes uploading is the right size from its first frame. */
+        if (what === "image" && preview) {
+          const img = new Image()
+          img.onload = () => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, w: img.naturalWidth, h: img.naturalHeight } : x)))
+          img.src = preview
         }
-        const fail = (e: unknown) => {
-          const msg = e instanceof Error ? e.message : "That did not upload."
-          if (msg === "Upload stopped" || item.ctrl.signal.aborted) return
-          setTray((cur) => cur.map((x) => (x.key === key ? { ...x, failed: msg } : x)))
-        }
-        if (isPic) void uploadPicture(f, me.id, communityId, { key, onProgress: progress }).then(done, fail)
-        else void uploadCommunityFile({ communityId, file: f, onProgress: progress, signal: item.ctrl.signal }).then(done, fail)
       }
     },
-    [me, attachments, tray.length, communityId],
+    [me, attachments, tray.length, upload],
   )
 
   /* Files dropped anywhere on this chat. */
@@ -1231,9 +1274,14 @@ function Composer({
     })
   }
 
-  const uploading = tray.some((t) => !t.media && !t.failed)
-  const ready = tray.filter((t) => t.media).map((t) => t.media as PostMedia)
-  const canSend = editing ? !!text.trim() || !!editing.attachments.length : (!!text.trim() || ready.length > 0) && !uploading
+  /*
+    SEND WHILE IT UPLOADS (round 39, the owner: "attaching things must feel smooth"). Send no longer waits, dimmed, for
+    the tray: pressed while a picture is still going up, the message is on screen at once with the picture picked in
+    its bubble, and goes to the server when its uploads are in (ChatSurface deliver). A tile that failed stays behind in
+    the tray with its reason and is not sent.
+  */
+  const live = tray.filter((t) => !t.failed)
+  const canSend = editing ? !!text.trim() || !!editing.attachments.length : !!text.trim() || live.length > 0
 
   /* A link in the words: its card, read by the server a moment after typing stops, shown above the box; the cross sends without it. */
   const draftUrl = useMemo(() => (editing ? null : firstLink(text)), [text, editing])
@@ -1270,10 +1318,20 @@ function Composer({
       return
     }
     if (!canSend) return
-    const withCard = linkCard && ready.length < CHAT_ATTACHMENTS_MAX ? [...ready, { type: "link", ...linkCard } as PostMedia] : ready
-    onSend(text, withCard)
+    const link = linkCard && live.length < CHAT_ATTACHMENTS_MAX ? [{ type: "link", ...linkCard } as PostMedia] : []
+    if (live.every((t) => t.media)) onSend(text, [...live.map((t) => t.media as PostMedia), ...link])
+    else {
+      const first = live.map((t) => (t.media ? Promise.resolve(t.media) : t.done))
+      /* The uploads' answers; sent again, each one that failed is uploaded once more. Null while any is missing. */
+      const finish = async (again: boolean): Promise<PostMedia[] | null> => {
+        const all = await Promise.all(first.map(async (p, i) => (await p) ?? (again ? await upload(live[i].file, live[i].kind, `${live[i].key}-again`, new AbortController()).catch(() => null) : null)))
+        return all.some((m) => !m) ? null : [...(all as PostMedia[]), ...link]
+      }
+      onSend(text, [...live.map((t) => t.media ?? placeholderOf(t)), ...link], finish)
+    }
     setText("")
-    setTray([])
+    /* Failed tiles stay, with their reason; the rest went with the message. */
+    setTray((cur) => cur.filter((t) => t.failed))
     setDropped(null)
     /* The keyboard stays up on a phone: the box keeps its focus. */
     requestAnimationFrame(() => box.current?.focus())
@@ -1315,7 +1373,7 @@ function Composer({
       {tray.length ? (
         <div className="mb-2 flex gap-2 overflow-x-auto px-1 pb-1 pt-1" data-chat-tray="">
           {tray.map((t) => (
-            <div key={t.key} className="relative shrink-0" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
+            <div key={t.key} className="relative shrink-0 animate-in fade-in-0 zoom-in-95 duration-150 motion-reduce:animate-none" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
               {t.preview && t.kind === "video" ? (
                 <video src={`${t.preview}#t=0.1`} muted playsInline preload="metadata" className={`h-16 w-16 rounded-xl bg-black object-cover ${t.media ? "" : "opacity-70"}`} data-chat-upload-video="" />
               ) : t.preview ? (
@@ -1429,7 +1487,7 @@ function Composer({
           className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#1a1a2e] text-white outline-none transition-[background-color,scale,opacity] hover:bg-[#2b2b42] active:scale-[0.92] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 disabled:cursor-default disabled:opacity-30"
           data-chat-send=""
         >
-          {/* Uploading, the button waits, dimmed: each picture in the tray shows its own progress. */}
+          {/* Round 39: pressable while pictures are still going up; the message waits for them in its own bubble. */}
           {editing ? <Check className="h-[18px] w-[18px]" strokeWidth={2.5} /> : <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />}
         </button>
       </div>
