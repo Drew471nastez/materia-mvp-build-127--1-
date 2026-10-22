@@ -300,7 +300,8 @@ export type PostMedia =
   | { type: "video"; videoId: string; poster?: string; w?: number; h?: number; blur?: string }
   /** `store: "community"`: a member's file in the community's own folder (lib/communities/server/post-files.ts); none is a product file (digital_assets). */
   | { type: "file"; assetId: string; name: string; size?: number; store?: "community" }
-  | { type: "link"; url: string; title?: string; image?: string }
+  /** A link's card. `description` and `site` (round 38): a chat message's card, as the server read the page (lib/communities/server/chat-unfurl.ts). */
+  | { type: "link"; url: string; title?: string; image?: string; description?: string; site?: string }
   /** A YouTube or Vimeo video by its address, played in their privacy player (lib/communities/post-media.ts). */
   | { type: "embed"; provider: "youtube" | "vimeo" | "loom"; id: string; url: string; hash?: string; thumb?: string; title?: string }
   /** A GIF from Giphy: its address and a still for the card. */

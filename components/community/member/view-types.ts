@@ -294,6 +294,8 @@ export interface LinkPreview {
   title: string | null
   image: string | null
   site: string | null
+  /** Round 38: the page's own line about itself (og:description), for a chat message's card. */
+  description?: string | null
 }
 
 export interface LeaderboardRow {
