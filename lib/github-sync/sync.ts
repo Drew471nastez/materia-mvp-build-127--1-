@@ -58,7 +58,7 @@ import {
 } from "./core"
 import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, noteOnCommit, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
 import { GENERATED, PLATFORM_SETTINGS_PATH, SETTINGS_DATA_PATH, SETTINGS_PATH, gitBlobSha, jsonError, mergePages, platformContext, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
-import { checkPlatformValues, withoutPlatformDefaults } from "@/lib/storelib-theme/platform-settings"
+import { checkPlatformValues, placementNotes, withoutPlatformDefaults } from "@/lib/storelib-theme/platform-settings"
 import { writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { explainFailure, failureLine } from "./errors"
@@ -569,6 +569,8 @@ export async function applyFiles(
     out.shas[f.path] = f.sha
     /* What the builder cannot show of a schema it took (a setting with no control): said on the commit and in the builder. */
     for (const note of saved.notes ?? []) out.notes.push({ path: f.path, note })
+    /* Storelib's own settings this schema now places, or no longer does: where each shows in the builder, said on the commit. */
+    if (snap.compat && f.path === SETTINGS_SCHEMA_FILE) for (const note of placementNotes(snap.files[f.path] ?? null, text)) out.notes.push({ path: f.path, note: `${f.path}: ${note}.` })
     const m = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(f.path)
     if (m) savedTypes.add(m[1])
     if (role === "source" && !snap.compat && repoMayWrite(f.path, compat).ok && (f.path in snap.defaults || (m && SECTION_SCHEMAS[m[1]]))) {
