@@ -21,6 +21,8 @@
  *   shift       layout shift (CLS style) summed over the switch
  *   ms          first frame of the new section and the first frame of its content
  *
+ * Page is left out of the walk: it owns the whole screen (round 37, page-editor/screen.tsx) and is left by its own Back.
+ *
  * Passes: "first" opens each tab for the first time (read ahead, so the router answers within a frame or two; with
  * COLD=1 it answers after 450ms and the frame is on screen meanwhile), "back" walks the row back over held sections,
  * "scrolled" presses the next tab with the section scrolled 600px down.
@@ -390,7 +392,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const phone = w === "390"
     for (const cpu of cpus) {
       const { p, cdp, errors } = await open(vp, cpu)
-      const tabs = await p.evaluate(() => [...document.querySelectorAll("[data-tab]")].map((t) => t.getAttribute("data-tab")))
+      /*
+        Page owns the whole screen since round 37 (page-editor/screen.tsx): it covers the row of tabs and is left by its own
+        way back, so it is not one of the tabs walked here (its own probe films it). PAGE=1 walks it anyway.
+      */
+      const tabs = (await p.evaluate(() => [...document.querySelectorAll("[data-tab]")].map((t) => t.getAttribute("data-tab")))).filter((t) => process.env.PAGE || t !== "page")
       const dir = join(film, `${w}-${cpu}x`)
       rmSync(dir, { recursive: true, force: true })
       mkdirSync(dir, { recursive: true })
