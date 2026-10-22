@@ -440,8 +440,10 @@ export function pushPreviewText(previews: boolean, text: string, media: readonly
 }
 
 /** "Photo", "3 photos", "Video", "File": what a message with no words carries. */
-export function attachmentLine(media: readonly MediaLike[]): string {
-  if (!media.length) return ""
+export function attachmentLine(all: readonly MediaLike[]): string {
+  /* A link's card (round 38) is about the words, not something the message carries. */
+  const media = all.filter((m) => m.type !== "link")
+  if (!media.length) return all.length ? "Link" : ""
   const pics = media.filter((m) => m.type === "image" || m.type === "gif").length
   const vids = media.filter((m) => m.type === "video").length
   const files = media.filter((m) => m.type === "file").length

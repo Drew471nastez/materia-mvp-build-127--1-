@@ -1221,7 +1221,8 @@ export function parsePreview(html: string, pageUrl: string): LinkPreview {
       site = null
     }
   }
-  return { url: pageUrl, title: title ? title.slice(0, 200) : null, image, site: site ? site.slice(0, 80) : null }
+  const description = metaContent(head, ["og:description", "twitter:description", "description"])
+  return { url: pageUrl, title: title ? title.slice(0, 200) : null, image, site: site ? site.slice(0, 80) : null, description: description ? description.slice(0, 300) : null }
 }
 
 /**

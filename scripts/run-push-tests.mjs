@@ -642,6 +642,8 @@ const SUITES = [
   "tests/community-chat-r37.test.ts",
   /* Round 38: who may start a conversation (level, days, the team), who can post in a channel, the Chat tab, Message on profiles, automated messages each member once and in batches, part 272. */
   "tests/community-chat-r38.test.ts",
+  /* Round 38: community chat speed (kept pages and list, asked for early, no spinner) and rich content (signed link cards, YouTube, GIFs, video, emoji). */
+  "tests/community-chat-speed-r38.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",

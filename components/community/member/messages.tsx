@@ -45,6 +45,7 @@ import { memberHref } from "./person-href"
 import { toast } from "./toast"
 import { RoleBadge } from "./role-badge"
 import { ChatSurface, MuteButton, type StreamHandlers } from "./chat-surface"
+import { chatCacheKey, keepList, keepValue, keptList, keptValue, warmChat } from "./chat-core"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
 import type { ChatIntroView, ChatLine } from "./view-types"
 
@@ -193,9 +194,29 @@ export function useUnreadMessages(communityId: string, userId: string | null, in
   const [count, setCount] = useState(initial)
   useEffect(() => setCount(initial), [initial])
   const refresh = useCallback(async () => {
-    const r = await api<{ ready: boolean; unread: number }>(`${apiBase(communityId)}/dms`)
-    if (r.ok && r.data.ready) setCount(r.data.unread)
-  }, [communityId])
+    const r = await api<{ ready: boolean; unread: number; conversations?: Conversation[]; groups?: Group[] }>(`${apiBase(communityId)}/dms`)
+    if (!r.ok || !r.data.ready) return
+    setCount(r.data.unread)
+    /* The same answer is the panel's list (round 38): kept, so opening the panel draws it at once. */
+    if (Array.isArray(r.data.conversations)) keepList(communityId, userId, { conversations: r.data.conversations, groups: r.data.groups ?? [] })
+  }, [communityId, userId])
+  /*
+    THE LIST BEFORE THE PANEL OPENS (round 38): once per tab and community, while the page is idle, the list is read
+    and kept (one ask, the one the badge makes anyway), so the first press on the chat button draws rows, not a
+    skeleton.
+  */
+  useEffect(() => {
+    if (!userId || initial === null || keptList(communityId, userId)) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const go = () => void refresh()
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(go, { timeout: 4000 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(go, 1500)
+    return () => window.clearTimeout(t)
+  }, [communityId, userId, initial, refresh])
+
   useEffect(() => {
     if (!userId || initial === null) return
     let timer: number | undefined
@@ -228,7 +249,15 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
   const [leaving, setLeaving] = useState(false)
   const [view, setView] = useState<View>({ kind: "list" })
   const [back, setBack] = useState(false)
-  const [intro, setIntro] = useState<Intro | null>(null)
+  /* Kept for the tab (round 38): a conversation opened again has its rules, names and switches in its first frame. */
+  const [intro, setIntroRaw] = useState<Intro | null>(() => keptValue<Intro>(`intro:${communityId}`))
+  const setIntro = useCallback(
+    (v: Intro) => {
+      keepValue(`intro:${communityId}`, v)
+      setIntroRaw(v)
+    },
+    [communityId],
+  )
 
   useEffect(() => {
     if (open) {
@@ -256,9 +285,9 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
     return () => {
       gone = true
     }
-  }, [open, communityId])
+  }, [open, communityId, setIntro])
 
-  /* Opened on a member: their conversation, made on the server if new. Opened on a group: that group. */
+  /* Opened on a member: their conversation, made on the server if new (and kept for the tab, so the next time opens it at once). Opened on a group: that group. */
   useEffect(() => {
     if (!open || (!start?.userId && !start?.groupId)) return
     let gone = false
@@ -268,10 +297,17 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
       setView({ kind: "group", id: start.groupId, name: "Group" })
       return
     }
+    const known = keptValue<{ id: string; other: Person | null }>(`dm-with:${communityId}:${start.userId}`)
+    if (known) {
+      setBack(false)
+      setView({ kind: "thread", id: known.id, other: known.other })
+      return
+    }
     void (async () => {
       const r = await api<{ conversation: { id: string; other: Person | null } }>(`${apiBase(communityId)}/dms`, { body: { userId: start.userId } })
       if (gone) return
       if (!r.ok) return toast(r.error)
+      keepValue(`dm-with:${communityId}:${start.userId}`, r.data.conversation)
       setBack(false)
       setView({ kind: "thread", id: r.data.conversation.id, other: r.data.conversation.other })
     })()
@@ -385,14 +421,26 @@ const ROW = "flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-
 
 /* ── the list of conversations and groups ──────────────────────────────── */
 
-/* The list as it was last drawn, so opening the panel again shows it at once. */
-let inboxKept: { conversations: Conversation[]; groups: Group[] } | null = null
+/*
+  THE LIST AS IT WAS LAST DRAWN (round 38, the owner: "when I go back to the conversations it takes too much to load,
+  loading skeleton"). Kept per community and member, in memory and in the tab's sessionStorage (chat-core.ts
+  keptList), and filled before the panel is first opened (useUnreadMessages): Back, the panel opened again and the page
+  loaded again in the same tab all draw it in their first frame, and the server's answer replaces it quietly. The
+  skeleton, row shaped, is only for a list never read in this tab.
+
+  ITS CHATS ASKED FOR EARLY: the first rows as the list is drawn, and any row the pointer rests on or a finger touches
+  (chat-core.ts warmChat), so the conversation opened is already here.
+*/
+type InboxData = { conversations: Conversation[]; groups: Group[] }
+const WARM_TOP = 3
 
 function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back, phone }: { communityId: string; userId: string | null; onClose: () => void; onNew: () => void; onOpen: (c: Conversation) => void; onOpenGroup: (g: Group) => void; back: boolean; phone: boolean }) {
-  const [data, setData] = useState<{ conversations: Conversation[]; groups: Group[] } | null>(inboxKept)
+  const [data, setData] = useState<InboxData | null>(() => keptList<InboxData>(communityId, userId))
   const [failed, setFailed] = useState(false)
+  const askedAt = useRef(0)
 
   const load = useCallback(async () => {
+    askedAt.current = Date.now()
     const r = await api<{ ready: boolean; conversations: Conversation[]; groups?: Group[] }>(`${apiBase(communityId)}/dms`)
     if (!r.ok) {
       setFailed(true)
@@ -400,9 +448,14 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back,
     }
     setFailed(false)
     const next = { conversations: r.data.conversations, groups: r.data.groups ?? [] }
-    inboxKept = next
+    keepList(communityId, userId, next)
     setData(next)
-  }, [communityId])
+  }, [communityId, userId])
+
+  const warm = useCallback(
+    (kind: "dm" | "group", id: string, lastAt: string | null) => warmChat(chatCacheKey(userId, kind, id), `${apiBase(communityId)}/${kind === "dm" ? "dms" : "groups"}/${id}`, lastAt),
+    [communityId, userId],
+  )
 
   useEffect(() => {
     void load()
@@ -415,7 +468,11 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back,
       window.clearTimeout(timer)
       timer = window.setTimeout(() => void load(), 150)
     }
-    const stop = liveStream(`community-dm-list:${communityId}:${userId}`, "community_conversations", `community_id=eq.${communityId}`, later, () => void load(), 15_000)
+    /* The stream's join asks again, unless the list was just asked for as it opened (one ask, not two). */
+    const poll = () => {
+      if (Date.now() - askedAt.current > 2000) void load()
+    }
+    const stop = liveStream(`community-dm-list:${communityId}:${userId}`, "community_conversations", `community_id=eq.${communityId}`, later, poll, 15_000)
     const stopGroups = liveStream(`community-group-list:${communityId}:${userId}`, "community_chat_groups", `community_id=eq.${communityId}`, later, () => undefined, 30_000)
     return () => {
       window.clearTimeout(timer)
@@ -433,6 +490,26 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back,
     return all.sort((a, b) => b.at - a.at)
   }, [data])
 
+  /* The first rows, asked for while the list is read (after it is drawn, when the page is idle). */
+  const top = rows ? rows.slice(0, WARM_TOP).map((r) => (r.t === "dm" ? `dm:${r.c.id}:${r.c.lastAt}` : `group:${r.g.id}:${r.g.lastAt}`)).join("|") : ""
+  useEffect(() => {
+    if (!top) return
+    const go = () => {
+      for (const part of top.split("|")) {
+        const [kind, id, ...at] = part.split(":")
+        const lastAt = at.join(":")
+        warm(kind as "dm" | "group", id, lastAt && lastAt !== "null" ? lastAt : null)
+      }
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(go, { timeout: 300 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(go, 60)
+    return () => window.clearTimeout(t)
+  }, [top, warm])
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${slideClass(back)}`}>
       <Bar
@@ -447,17 +524,22 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back,
       />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5">
         {rows === null && !failed ? (
-          <div className="space-y-1 px-2" aria-label="Loading conversations">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl px-2.5 py-2.5">
-                <span className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-[#f1f2f4]" />
-                <span className="flex-1 space-y-2">
-                  <span className="block h-3 w-28 animate-pulse rounded-full bg-[#f1f2f4]" />
-                  <span className="block h-3 w-44 animate-pulse rounded-full bg-[#f4f5f7]" />
+          /* A row's own box: the same padding, the 44px picture, a name line and a words line of the row's heights, so the rows land where these were. */
+          <ul className="px-1.5" role="status" aria-label="Loading conversations" data-messages-skeleton="">
+            {[72, 56, 80, 64, 48].map((w, i) => (
+              <li key={i} className="flex items-center gap-3 rounded-xl px-2.5 py-2.5">
+                <span className="h-11 w-11 shrink-0 rounded-full bg-[#f1f2f4] motion-safe:animate-pulse" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex h-[22px] items-center">
+                    <span className="block h-3 rounded-full bg-[#eceef1] motion-safe:animate-pulse" style={{ width: `${Math.round(w * 0.55)}%` }} />
+                  </span>
+                  <span className="mt-0.5 flex h-5 items-center">
+                    <span className="block h-2.5 rounded-full bg-[#f1f2f4] motion-safe:animate-pulse" style={{ width: `${w}%` }} />
+                  </span>
                 </span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : failed && !rows ? (
           <div className="px-6 py-14 text-center">
             <p className="text-[14px] text-[#6b7280]">Your messages did not load.</p>
@@ -481,14 +563,14 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, onOpenGroup, back,
             {(rows ?? []).map((r) =>
               r.t === "dm" ? (
                 <li key={`d-${r.c.id}`}>
-                  <button type="button" onClick={() => onOpen(r.c)} data-conversation={r.c.id} className={ROW}>
+                  <button type="button" onClick={() => onOpen(r.c)} onPointerEnter={() => warm("dm", r.c.id, r.c.lastAt)} onTouchStart={() => warm("dm", r.c.id, r.c.lastAt)} onFocus={() => warm("dm", r.c.id, r.c.lastAt)} data-conversation={r.c.id} className={ROW}>
                     <MemberAvatar src={r.c.other?.avatarUrl ?? null} name={r.c.other?.name ?? "Member"} alt="" size={44} />
                     <Line name={r.c.other?.name ?? "Former member"} at={r.c.lastAt} unread={r.c.unread} muted={!!r.c.muted} text={`${r.c.lastFromMe ? "You: " : ""}${r.c.lastBody}`} />
                   </button>
                 </li>
               ) : (
                 <li key={`g-${r.g.id}`}>
-                  <button type="button" onClick={() => onOpenGroup(r.g)} data-group={r.g.id} className={ROW}>
+                  <button type="button" onClick={() => onOpenGroup(r.g)} onPointerEnter={() => warm("group", r.g.id, r.g.lastAt)} onTouchStart={() => warm("group", r.g.id, r.g.lastAt)} onFocus={() => warm("group", r.g.id, r.g.lastAt)} data-group={r.g.id} className={ROW}>
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ede9fe] text-[16px] font-semibold text-[#6d28d9]">{r.g.name.slice(0, 1).toUpperCase()}</span>
                     <Line name={r.g.name} at={r.g.lastAt} unread={r.g.unread} muted={r.g.muted} text={`${r.g.lastFromMe ? "You: " : ""}${r.g.lastBody || `${r.g.memberCount} people`}`} />
                   </button>
@@ -811,7 +893,7 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
 
 function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, onRead, onInfo, back }: { communityId: string; userId: string | null; intro: Intro | null; id: string; name: string; onBack: () => void; onClose: () => void; onRead: () => void; onInfo: (name: string) => void; back: boolean }) {
   const base = `${apiBase(communityId)}/groups/${id}`
-  const [detail, setDetail] = useState<GroupDetail | null>(null)
+  const [detail, setDetail] = useState<GroupDetail | null>(() => keptValue<GroupDetail>(`group:${id}`))
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const backRef = useRef(onBack)
   backRef.current = onBack
@@ -824,12 +906,15 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
         backRef.current()
         return
       }
-      if (r.data.group) setDetail(r.data.group)
+      if (r.data.group) {
+        keepValue(`group:${id}`, r.data.group)
+        setDetail(r.data.group)
+      }
     })
     return () => {
       gone = true
     }
-  }, [base])
+  }, [base, id])
 
   const subscribe = useCallback(
     (h: StreamHandlers) =>
@@ -892,8 +977,9 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
 
 function GroupInfo({ communityId, slug, userId, id, onBack, onLeft, back }: { communityId: string; slug: string; userId: string | null; id: string; onBack: () => void; onLeft: () => void; back: boolean }) {
   const base = `${apiBase(communityId)}/groups/${id}`
-  const [detail, setDetail] = useState<GroupDetail | null>(null)
-  const [name, setName] = useState("")
+  /* The group as its chat last read it (round 38): its people at once, read again behind them. */
+  const [detail, setDetail] = useState<GroupDetail | null>(() => keptValue<GroupDetail>(`group:${id}`))
+  const [name, setName] = useState(() => keptValue<GroupDetail>(`group:${id}`)?.name ?? "")
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState("")
   const { found } = useMemberSearch(communityId, userId, q)
@@ -901,16 +987,20 @@ function GroupInfo({ communityId, slug, userId, id, onBack, onLeft, back }: { co
   useEffect(() => {
     void api<{ group?: GroupDetail }>(`${base}?detail=1&after=${encodeURIComponent(new Date().toISOString())}`).then((r) => {
       if (r.ok && r.data.group) {
+        keepValue(`group:${id}`, r.data.group)
         setDetail(r.data.group)
         setName(r.data.group.name)
       }
     })
-  }, [base])
+  }, [base, id])
 
   const change = async (body: Record<string, unknown>, done?: string) => {
     const r = await api<{ group: GroupDetail | null }>(base, { method: "PATCH", body })
     if (!r.ok) return toast(r.error)
-    if (r.data.group) setDetail(r.data.group)
+    if (r.data.group) {
+      keepValue(`group:${id}`, r.data.group)
+      setDetail(r.data.group)
+    }
     if (done) toast(done)
   }
   const leave = async () => {

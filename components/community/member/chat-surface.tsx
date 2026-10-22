@@ -41,25 +41,54 @@
  *
  * Who writes where is the server's: this screen only draws what it is
  * handed and sends to the addresses it is given.
+ *
+ * ROUND 38 (the owner: "it takes too much to load, it shows that iOS-style
+ * loading thing; make sure the sending feels smooth; GIFs, images, videos,
+ * emojis, links, YouTube"):
+ *
+ *   OPENING   a chat opens on its kept page (chat-core.ts: the newest
+ *             messages, in memory and the tab's sessionStorage, asked for
+ *             early by the list), at the bottom, in the frame it opens; the
+ *             server is asked for what changed behind it. Never opened and
+ *             never asked for, it draws skeleton bubbles at the foot of the
+ *             list, where the messages land with no jump. No spinner, here
+ *             or for older messages (three quiet dots) or on Send.
+ *   SENDING   the bubble is drawn in the frame of the press, at full
+ *             strength; a clock shows only when the server takes longer than
+ *             a moment. The bubble is keyed by its client id, so the server's
+ *             copy takes its place without drawing it again. Each bubble is
+ *             drawn again only when it changed (memo), so a send redraws one
+ *             bubble, not the whole chat.
+ *   RICH      emoji and GIF search in the box (both loaded after the chat is
+ *             up, so they cost the chat nothing), an animated GIF from the
+ *             device kept as a GIF, a video played in place, a link's card as
+ *             the server read it, previewed above the box while it is
+ *             written, a YouTube, Vimeo or Loom link as a still that plays in
+ *             their privacy player when pressed (chat-rich.tsx).
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { ArrowDown, ArrowUp, Bell, BellOff, Check, CheckCheck, Clock, Copy, CornerUpLeft, FileText, Flag, Heart, MoreHorizontal, Paperclip, Pencil, Play, RotateCw, Shield, Trash2, X } from "lucide-react"
+import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { ArrowDown, ArrowUp, Bell, BellOff, Check, CheckCheck, Clock, Copy, CornerUpLeft, FileText, Flag, Heart, MoreHorizontal, Paperclip, Pencil, RotateCw, Shield, Smile, Trash2, X } from "lucide-react"
 import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
 import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, newClientId, sameBubbleGroup, typingLine, type ChatKind } from "@/lib/communities/chat-rules"
+import { chatVideoOf, firstLink, type ChatLinkCard } from "@/lib/communities/chat-links"
 import { fileSizeLabel, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { hapticTap } from "@/lib/native-bridge"
 import type { ChatIntroView, ChatLine } from "./view-types"
 import { api, apiBase } from "./api"
 import { inline } from "./body-text"
-import { cachedPage, clockOf, dayLabelOf, keepPage, useTyping, useViewingBeat, type ChatItem } from "./chat-core"
+import { cachedPage, chatCacheKey, chatPageUp, clockOf, dayLabelOf, freshFor, keepPage, keepValue, keptValue, markChatPageUp, prefetchPage, useTyping, useViewingBeat, type ChatItem, type KeptPage } from "./chat-core"
+import { ChatEmbed, ChatLinkCardView, ChatVideo, LinkDraft, keepLocalVideo, localVideo, useLinkDraft } from "./chat-rich"
 import { ConfirmDialog, type ConfirmState } from "./dialogs"
 import { Lightbox } from "./lightbox"
 import { MemberAvatar } from "./member-avatar"
 import { localPicture, stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
-import { Spinner } from "./place-spinner"
 import { toast } from "./toast"
+
+/* The box's emoji and GIF search: their own chunks, loaded once the chat is up (Composer), never on the way to it. */
+const EmojiTool = lazy(() => import("@/components/app/rich-text/emoji-picker").then((m) => ({ default: m.EmojiControl })))
+const GifTool = lazy(() => import("./media-gif").then((m) => ({ default: m.GifButton })))
 
 export interface StreamHandlers {
   /** Something was written: ask the server what is new. */
@@ -102,6 +131,8 @@ export interface ChatSurfaceProps {
 }
 
 const AT_BOTTOM_PX = 120
+/** How many of the newest messages a chat draws in the frame it opens; the rest of its page follows when the page is idle. */
+const FIRST_DRAW = 24
 /** How far back a catch up asks, so a message written a moment before the newest one shown is never skipped. */
 export const CATCH_UP_OVERLAP_MS = 15_000
 const LONG_PRESS_MS = 420
@@ -122,10 +153,42 @@ function isVideoFile(m: PostMedia): boolean {
   return m.type === "file" && /\.(mp4|m4v|mov|webm)$/i.test(m.name)
 }
 
+/** A picture uploaded from the device that is a GIF: drawn as it is, and as a GIF in the viewer (never through the optimizer, which keeps one frame). */
+function isGifPicture(m: PostMedia): boolean {
+  return m.type === "image" && /\.gif$/i.test(m.url.split(/[?#]/)[0])
+}
+
+/**
+ * The server's answer for messages already on screen, with each unchanged message kept as the very object that is
+ * drawn, so a kept chat refreshed behind the reader redraws only what changed (Bubble is memoised).
+ */
+function sameAsBefore(cur: ChatItem[], next: ChatItem[]): ChatItem[] {
+  const before = new Map(cur.map((m) => [m.id, m]))
+  let changed = cur.length !== next.length
+  const out = next.map((m, i) => {
+    const old = before.get(m.id)
+    const same =
+      !!old &&
+      !old.state &&
+      !m.state &&
+      old.body === m.body &&
+      old.editedAt === m.editedAt &&
+      (old.reactionCount ?? 0) === (m.reactionCount ?? 0) &&
+      !!old.reacted === !!m.reacted &&
+      (old.replyTo?.id ?? null) === (m.replyTo?.id ?? null) &&
+      (old.author?.name ?? null) === (m.author?.name ?? null) &&
+      (old.author?.avatarUrl ?? null) === (m.author?.avatarUrl ?? null) &&
+      JSON.stringify(old.attachments ?? []) === JSON.stringify(m.attachments ?? [])
+    if (!same || cur[i] !== old) changed = true
+    return same && old ? old : m
+  })
+  return changed ? out : cur
+}
+
 interface TrayItem {
   key: string
   name: string
-  kind: "image" | "file"
+  kind: "image" | "video" | "file"
   preview: string | null
   progress: number
   media: PostMedia | null
@@ -135,11 +198,30 @@ interface TrayItem {
 
 export function ChatSurface(p: ChatSurfaceProps) {
   const { communityId, kind, chatId, me, url } = p
-  const cacheKey = `${kind}:${chatId}`
+  const cacheKey = chatCacheKey(me?.id, kind, chatId)
   const phone = usePhone()
-  const start = p.initial ?? cachedPage(cacheKey)
+  /* What the chat opens on: the page the server drew it with, else the kept page (chat-core.ts), read once. */
+  const [start] = useState<KeptPage | null>(() => p.initial ?? cachedPage(cacheKey))
+  const extra = useRef(start?.extra)
   const [items, setItems] = useState<ChatItem[]>(() => (start ? mergeMessages([], start.messages) : []))
   const [loaded, setLoaded] = useState(!!start)
+  /*
+    THE NEWEST FIRST (round 38): a chat opens drawing only its newest FIRST_DRAW messages, the screen and more, and
+    draws the rest of its page above them once the page is idle, the reader still at the bottom. Its first frame lays
+    out half the bubbles (measured on a slow phone: the opening frame was mostly the layout of fifty bubbles).
+  */
+  const [tail, setTail] = useState<number | null>(FIRST_DRAW)
+  useEffect(() => {
+    if (tail === null) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setTail(null), { timeout: 400 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(() => setTail(null), 120)
+    return () => window.clearTimeout(t)
+  }, [tail])
+  const shown = tail === null || items.length <= tail ? items : items.slice(-tail)
   const [hasMore, setHasMore] = useState(start?.hasMore ?? false)
   const [older, setOlder] = useState(false)
   const [unseen, setUnseen] = useState(0)
@@ -164,10 +246,13 @@ export function ChatSurface(p: ChatSurfaceProps) {
   onPageRef.current = p.onPage
 
   useEffect(() => setNeedsRules(!!p.intro?.needsRules), [p.intro?.needsRules])
+  useEffect(() => markChatPageUp(), [])
+  const loadedRef = useRef(loaded)
+  loadedRef.current = loaded
 
   /* Every change to the list is kept for the next visit. */
   useEffect(() => {
-    if (loaded) keepPage(cacheKey, items, hasMore)
+    if (loaded) keepPage(cacheKey, items, hasMore, extra.current)
   }, [cacheKey, items, hasMore, loaded])
 
   const merge = useCallback((incoming: ChatItem[], from: "mine" | "theirs" | "older") => {
@@ -175,7 +260,7 @@ export function ChatSurface(p: ChatSurfaceProps) {
     const el = listRef.current
     if (from === "older" && el) keepFrom.current = el.scrollHeight - el.scrollTop
     setItems((cur) => {
-      const next = mergeMessages(cur, incoming)
+      const next = sameAsBefore(cur, mergeMessages(cur, incoming))
       if (from === "theirs" && !atBottom.current) {
         const known = new Set(cur.map((m) => m.id))
         const fresh = incoming.filter((m) => !known.has(m.id) && !m.mine).length
@@ -185,23 +270,33 @@ export function ChatSurface(p: ChatSurfaceProps) {
     })
   }, [])
 
-  /* The first page, when the server did not hand one over (a conversation, a group); the cached copy is shown meanwhile. */
+  /*
+    The first page, when the server did not hand one over (a conversation, a group). The kept copy is on screen
+    already; the server's answer takes its place behind it. When the list asked for it a moment ago the kept copy is
+    that answer, and nothing is asked again; when the list's ask is still on its way, this waits for that one.
+  */
   useEffect(() => {
     if (p.initial) return
     let gone = false
-    void (async () => {
-      const r = await api<{ messages: ChatLine[]; hasMore: boolean } & Record<string, unknown>>(url)
+    if (start?.extra) onPageRef.current?.(start.extra)
+    if (start && freshFor(cacheKey, 4000)) return
+    void prefetchPage(cacheKey, url, { force: !!start }).then((r) => {
       if (gone) return
       setLoaded(true)
-      if (!r.ok) return toast(r.error)
-      onPageRef.current?.(r.data)
-      setItems((cur) => mergeMessages(cur.filter((m) => m.state), r.data.messages))
-      setHasMore(r.data.hasMore)
-    })()
+      if (!r.ok) {
+        if (!start) toast(r.error)
+        return
+      }
+      extra.current = r.page.extra
+      if (r.page.extra) onPageRef.current?.(r.page.extra)
+      setItems((cur) => sameAsBefore(cur, mergeMessages(cur.filter((m) => m.state), r.page.messages)))
+      setHasMore(r.page.hasMore)
+    })
     return () => {
       gone = true
     }
-  }, [url, p.initial])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, p.initial, cacheKey])
 
   /*
     A LITTLE BEFORE THE NEWEST, NOT AFTER IT (measured, scripts/check-community-chat-r37.mjs ORDER): two people writing at
@@ -211,6 +306,8 @@ export function ChatSurface(p: ChatSurfaceProps) {
   */
   const catchUp = useCallback(async () => {
     const last = lastSettled(latest.current)
+    /* Nothing here yet and the first page on its way: that page is the catch up (the stream's join asked a second, whole page). */
+    if (!last && !loadedRef.current) return
     const from = last ? new Date(Date.parse(last.createdAt) - CATCH_UP_OVERLAP_MS).toISOString() : null
     const r = await api<{ messages: ChatLine[] } & Record<string, unknown>>(`${url}${from ? `${url.includes("?") ? "&" : "?"}after=${encodeURIComponent(from)}` : ""}`)
     if (!r.ok) return
@@ -258,7 +355,7 @@ export function ChatSurface(p: ChatSurfaceProps) {
     } else if (atBottom.current) {
       el.scrollTop = el.scrollHeight
     }
-  }, [items, loaded])
+  }, [items, loaded, tail])
 
   /* A picture decoding, the typing line, the keyboard: whatever changes the height keeps the reader at the bottom when they were there. */
   useEffect(() => {
@@ -288,11 +385,11 @@ export function ChatSurface(p: ChatSurfaceProps) {
   useEffect(() => {
     const el = topRef.current
     const root = listRef.current
-    if (!el || !root || !hasMore || typeof IntersectionObserver === "undefined") return
+    if (!el || !root || !hasMore || tail !== null || typeof IntersectionObserver === "undefined") return
     const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && void loadOlder(), { root, rootMargin: "600px 0px 0px 0px" })
     io.observe(el)
     return () => io.disconnect()
-  }, [hasMore, loadOlder])
+  }, [hasMore, loadOlder, tail])
 
   const toBottom = useCallback((smooth: boolean) => {
     const el = listRef.current
@@ -453,12 +550,30 @@ export function ChatSurface(p: ChatSurfaceProps) {
     let startAt = 0
     m.attachments.forEach((a, i) => {
       if (i === index) startAt = list.length
-      if (a.type === "image") list.push({ kind: "image", url: localPicture(a.url) ?? a.url, ...(a.w ? { w: a.w, h: a.h } : {}) })
+      if (a.type === "image" && isGifPicture(a)) list.push({ kind: "gif", url: localPicture(a.url) ?? a.url, still: a.url, ...(a.w ? { w: a.w, h: a.h } : {}) })
+      else if (a.type === "image") list.push({ kind: "image", url: localPicture(a.url) ?? a.url, ...(a.w ? { w: a.w, h: a.h } : {}) })
       else if (a.type === "gif") list.push({ kind: "gif", url: a.url, still: a.still, ...(a.w ? { w: a.w, h: a.h } : {}) })
-      else if (isVideoFile(a) && !m.state) list.push({ kind: "clip", url: fileHref(communityId, kind, m.id, a) })
     })
     if (list.length) setViewer({ items: list, start: startAt })
   }
+
+  /*
+    WHAT A BUBBLE CAN DO, AS ONE OBJECT THAT NEVER CHANGES: each call reads this render's handlers, so Bubble (memo)
+    is drawn again only when its own message, place or marks change, not on every keystroke, send or arrival.
+  */
+  const handlers = useRef({ menu: openMenu, retry, reply: (m: ChatItem) => setReply(m), jump: jumpTo, open: openViewer, like: (m: ChatItem) => void like(m) })
+  handlers.current = { menu: openMenu, retry, reply: (m: ChatItem) => setReply(m), jump: jumpTo, open: openViewer, like: (m: ChatItem) => void like(m) }
+  const acts = useMemo<BubbleActs>(
+    () => ({
+      menu: (m, el, at) => handlers.current.menu(m, el, at),
+      retry: (m) => handlers.current.retry(m),
+      reply: (m) => handlers.current.reply(m),
+      jump: (id) => handlers.current.jump(id),
+      open: (m, i) => handlers.current.open(m, i),
+      like: (m) => handlers.current.like(m),
+    }),
+    [],
+  )
 
   /* ── Drawing ─────────────────────────────────────────────────────────── */
 
@@ -499,25 +614,27 @@ export function ChatSurface(p: ChatSurfaceProps) {
           <div ref={topRef} aria-hidden className="h-px" />
           {hasMore ? (
             <div className="flex h-10 items-center justify-center" data-chat-older="">
-              {older ? <Spinner size={16} /> : (
+              {older ? (
+                <span role="status" aria-label="Loading earlier messages" className="text-[12.5px] text-[#8a8f98]">
+                  <TypingDots />
+                </span>
+              ) : (
                 <button type="button" onClick={() => void loadOlder()} className="h-8 rounded-full px-3 text-[12.5px] font-medium text-[#6b7280] hover:bg-[#f1f2f4]">
                   Earlier messages
                 </button>
               )}
             </div>
           ) : null}
-          {!loaded ? (
-            <div className="flex flex-1 items-center justify-center py-16">
-              <Spinner label="Loading" />
-            </div>
+          {!loaded && items.length === 0 ? (
+            <SkeletonBubbles />
           ) : items.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center" data-chat-empty="">
               {p.empty}
             </div>
           ) : null}
-          {items.map((m, i) => {
-            const prev = items[i - 1]
-            const next = items[i + 1]
+          {shown.map((m, i) => {
+            const prev = shown[i - 1]
+            const next = shown[i + 1]
             const newDay = !prev || localDay(prev.createdAt) !== localDay(m.createdAt)
             if (m.kind === "event") {
               return (
@@ -531,8 +648,9 @@ export function ChatSurface(p: ChatSurfaceProps) {
             }
             const first = newDay || !sameBubbleGroup(prev && prev.kind !== "event" ? prev : undefined, m)
             const last = !next || next.kind === "event" || localDay(next.createdAt) !== localDay(m.createdAt) || !sameBubbleGroup(m, next)
+            /* Keyed by the sender's own id where there is one: the server's copy of a message just sent takes the place of the one on screen without drawing it again. */
             return (
-              <div key={m.id}>
+              <div key={m.clientId ? `c:${m.clientId}` : m.id}>
                 {newDay ? <DayLine iso={m.createdAt} /> : null}
                 <Bubble
                   m={m}
@@ -548,12 +666,9 @@ export function ChatSurface(p: ChatSurfaceProps) {
                   phone={phone}
                   renderAvatar={p.renderAvatar}
                   renderName={p.renderName}
-                  onMenu={openMenu}
-                  onRetry={retry}
-                  onReply={!p.closed && me ? () => setReply(m) : undefined}
-                  onJump={jumpTo}
-                  onOpen={openViewer}
-                  onLike={p.reactions && me ? () => void like(m) : undefined}
+                  acts={acts}
+                  canReply={!p.closed && !!me}
+                  canLike={!!p.reactions && !!me}
                   hasActions={actionsFor(m).length > 0}
                 />
               </div>
@@ -630,9 +745,34 @@ export function fileHref(communityId: string, kind: ChatKind, messageId: string,
   return `${apiBase(communityId)}/chat/files?chat=${kind}&message=${messageId}&asset=${asset}`
 }
 
+/*
+  A COLD OPEN (round 38): a chat never opened in this tab and not yet asked for. The shape of a few messages at the
+  foot of the list, where the real ones land: each is a one line bubble's height (34px, the 7px padding and a line of
+  15px words), so the newest message arrives where the last of these was and the list is already at its bottom.
+*/
+const SKELETON: [mine: boolean, width: number][] = [
+  [false, 46],
+  [false, 62],
+  [true, 38],
+  [false, 54],
+  [true, 58],
+  [true, 30],
+]
+function SkeletonBubbles() {
+  return (
+    <div className="flex flex-col" data-chat-skeleton="" role="status" aria-label="Loading messages">
+      {SKELETON.map(([mine, width], i) => (
+        <div key={i} className={`flex ${mine ? "justify-end" : "justify-start"} ${i && SKELETON[i - 1][0] === mine ? "mt-[3px]" : "mt-2"}`}>
+          <span className={`h-[34px] rounded-[18px] motion-safe:animate-pulse ${mine ? "bg-[#e6e7eb]" : "bg-[#f1f2f4]"}`} style={{ width: `${width}%` }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function DayLine({ iso }: { iso: string }) {
-  const [label, setLabel] = useState<string | null>(null)
-  /* The reader's own day names, after the first paint (the server does not know their time zone). */
+  const [label, setLabel] = useState<string | null>(() => (chatPageUp() ? dayLabelOf(iso) : null))
+  /* The reader's own day names, after the first paint of a page the server drew (it does not know their time zone). */
   useEffect(() => setLabel(dayLabelOf(iso)), [iso])
   return (
     <div className="sticky top-1 z-[1] my-2.5 flex justify-center" data-chat-day="">
@@ -653,7 +793,19 @@ function TypingDots() {
 
 /* ── One message ───────────────────────────────────────────────────────── */
 
-function Bubble({
+interface BubbleActs {
+  menu: (m: ChatItem, el: HTMLElement, at?: { x: number; y: number }) => void
+  retry: (m: ChatItem) => void
+  reply: (m: ChatItem) => void
+  jump: (id: string) => void
+  open: (m: ChatItem, index: number) => void
+  like: (m: ChatItem) => void
+}
+
+/** How long a send may take before its bubble shows the clock: most land first, and show none. */
+const PENDING_CLOCK_MS = 400
+
+const Bubble = memo(function Bubble({
   m,
   first,
   last,
@@ -667,12 +819,9 @@ function Bubble({
   phone,
   renderAvatar,
   renderName,
-  onMenu,
-  onRetry,
-  onReply,
-  onJump,
-  onOpen,
-  onLike,
+  acts,
+  canReply,
+  canLike,
   hasActions,
 }: {
   m: ChatItem
@@ -688,22 +837,37 @@ function Bubble({
   phone: boolean
   renderAvatar?: (m: ChatLine) => React.ReactNode
   renderName?: (m: ChatLine) => React.ReactNode
-  onMenu: (m: ChatItem, el: HTMLElement, at?: { x: number; y: number }) => void
-  onRetry: (m: ChatItem) => void
-  onReply?: () => void
-  onJump: (id: string) => void
-  onOpen: (m: ChatItem, index: number) => void
-  onLike?: () => void
+  acts: BubbleActs
+  canReply: boolean
+  canLike: boolean
   hasActions: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const press = useRef<{ t: number; x: number; y: number } | null>(null)
-  const [clock, setClock] = useState<string | null>(null)
-  useEffect(() => setClock(clockOf(m.createdAt)), [m.createdAt])
+  const [clock, setClock] = useState<string | null>(() => (chatPageUp() ? clockOf(m.createdAt) : null))
+  useEffect(() => {
+    const c = clockOf(m.createdAt)
+    setClock((was) => (was === c ? was : c))
+  }, [m.createdAt])
+  /* Sending: the clock only once the send has taken a moment; a send that lands first is never marked at all. */
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (m.state !== "sending") return setSlow(false)
+    const t = window.setTimeout(() => setSlow(true), PENDING_CLOCK_MS)
+    return () => window.clearTimeout(t)
+  }, [m.state])
+  const onMenu = acts.menu
+  const onRetry = acts.retry
+  const onJump = acts.jump
+  const onOpen = acts.open
+  const onReply = canReply ? () => acts.reply(m) : undefined
+  const onLike = canLike ? () => acts.like(m) : undefined
   const mine = m.mine
   const media = m.attachments ?? []
   const pics = media.filter((a) => a.type === "image" || a.type === "gif")
   const files = media.filter((a) => a.type === "file")
+  const card = (media.find((a) => a.type === "link") as ChatLinkCard | undefined) ?? null
+  const video = useMemo(() => chatVideoOf(m.body, card), [m.body, card])
   const onlyPics = pics.length > 0 && !m.body && !files.length && !m.replyTo
   /* Telegram's shape: a run of bubbles from one person is one column, square where they touch, the last one with its tail corner. */
   const corner = mine ? `${first ? "" : "rounded-tr-[6px]"} rounded-br-[6px]` : `${first ? "" : "rounded-tl-[6px]"} rounded-bl-[6px]`
@@ -712,7 +876,7 @@ function Bubble({
     <span className={`ml-2 inline-flex translate-y-[3px] items-center gap-0.5 whitespace-nowrap align-baseline text-[11px] ${mine ? "text-white/60" : "text-[#8a8f98]"}`}>
       {m.editedAt ? "edited " : ""}
       {clock ?? ""}
-      {mine ? m.state === "sending" ? <Clock className="h-3 w-3" aria-label="Sending" /> : m.state === "failed" ? null : seen ? <CheckCheck className="h-3.5 w-3.5" aria-label="Seen" /> : delivered ? <Check className="h-3.5 w-3.5" aria-label="Sent" /> : null : null}
+      {mine ? m.state === "sending" ? (slow ? <Clock className="h-3.5 w-3.5 p-px" aria-label="Sending" /> : <span className="inline-block h-3.5 w-3.5" aria-label="Sending" />) : m.state === "failed" ? null : seen ? <CheckCheck className="h-3.5 w-3.5" aria-label="Seen" /> : delivered ? <Check className="h-3.5 w-3.5" aria-label="Sent" /> : null : null}
     </span>
   )
 
@@ -739,7 +903,7 @@ function Bubble({
 
   return (
     <div
-      className={`group/msg relative flex items-end gap-1.5 ${mine ? "justify-end" : "justify-start"} ${first ? "mt-2" : "mt-[3px]"} ${m.state === "sending" ? "opacity-70" : ""} transition-opacity duration-150`}
+      className={`group/msg relative flex items-end gap-1.5 ${mine ? "justify-end" : "justify-start"} ${first ? "mt-2" : "mt-[3px]"}`}
       data-chat-message={m.id}
       data-mine={mine ? "" : undefined}
       data-state={m.state}
@@ -770,11 +934,8 @@ function Bubble({
           ) : null}
           {pics.length ? <Pictures m={m} pics={pics} onOpen={onOpen} rounded={!onlyPics} /> : null}
           {files.map((f, i) =>
-            f.type === "file" && isVideoFile(f) && !m.state ? (
-              <button key={f.assetId} type="button" onClick={() => onOpen(m, media.indexOf(f))} className="relative my-1 flex aspect-video w-[min(280px,70vw)] items-center justify-center overflow-hidden rounded-xl bg-black/80 text-white" data-chat-video="">
-                <video src={`${fileHref(communityId, kind, m.id, f)}#t=0.1`} preload="metadata" muted playsInline className="absolute inset-0 h-full w-full object-cover" />
-                <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-black/55"><Play className="h-5 w-5 translate-x-[1px]" fill="currentColor" /></span>
-              </button>
+            f.type === "file" && isVideoFile(f) && (!m.state || localVideo(f.assetId)) ? (
+              <ChatVideo key={f.assetId} src={m.state ? null : fileHref(communityId, kind, m.id, f)} local={localVideo(f.assetId)} />
             ) : f.type === "file" ? (
               <a key={`${f.assetId}-${i}`} href={m.state ? undefined : fileHref(communityId, kind, m.id, f)} className={`my-1 flex min-w-[200px] items-center gap-2.5 rounded-xl px-2 py-1.5 ${mine ? "bg-white/10 hover:bg-white/15" : "bg-white hover:bg-[#fafafa]"}`} data-chat-file="">
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${mine ? "bg-white/15" : "bg-[#f1f2f4]"}`}><FileText className="h-4 w-4" /></span>
@@ -795,6 +956,7 @@ function Bubble({
           ) : (
             <div className="text-right">{meta}</div>
           )}
+          {video ? <ChatEmbed video={video} card={card} mine={mine} /> : card ? <ChatLinkCardView card={card} mine={mine} /> : null}
         </div>
         {m.state === "failed" ? (
           <button type="button" onClick={() => onRetry(m)} className="mt-1 flex items-center gap-1 px-1 text-[12px] font-medium text-[#c4290c]" data-chat-retry="">
@@ -825,7 +987,7 @@ function Bubble({
       ) : null}
     </div>
   )
-}
+})
 
 function Pictures({ m, pics, onOpen, rounded }: { m: ChatItem; pics: PostMedia[]; onOpen: (m: ChatItem, index: number) => void; rounded: boolean }) {
   const all = m.attachments
@@ -883,6 +1045,22 @@ function RulesGate({ communityId, rules, onAccepted }: { communityId: string; ru
 }
 
 /* ── The box at the bottom ─────────────────────────────────────────────── */
+
+const TOOL = "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-[#e9eaee] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+
+/**
+ * The emoji button until it is first pressed: the same size and mark as the picker's own, which takes its place,
+ * already open, on that press. The picker (five hundred emoji, kept built on a phone) is never built for a chat
+ * nobody picks an emoji in: built on every chat it cost a slow phone 130ms each time it went Back to the list
+ * (measured, scripts/check-community-chat-r38.mjs).
+ */
+function ToolStandIn({ onPress }: { onPress?: () => void }) {
+  return (
+    <button type="button" aria-label="Emoji" tabIndex={-1} disabled={!onPress} onMouseDown={(e) => e.preventDefault()} onClick={onPress} className={`${TOOL} disabled:cursor-default`} data-chat-emoji="">
+      <Smile aria-hidden className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2} />
+    </button>
+  )
+}
 
 function Composer({
   communityId,
@@ -951,11 +1129,16 @@ function Composer({
       if (room <= 0) return toast(`Up to ${CHAT_ATTACHMENTS_MAX} at a time.`)
       for (const f of files.slice(0, room)) {
         const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        const isPic = uploadKindOf(f) === "image"
-        const item: TrayItem = { key, name: f.name, kind: isPic ? "image" : "file", preview: isPic ? URL.createObjectURL(f) : null, progress: 0, media: null, failed: null, ctrl: new AbortController() }
+        const what = uploadKindOf(f)
+        const isPic = what === "image"
+        /* A video is a file to the server (the community's file folder, played from its signed address); here it is a video, drawn from the file picked. */
+        const item: TrayItem = { key, name: f.name, kind: what, preview: what === "file" ? null : URL.createObjectURL(f), progress: 0, media: null, failed: null, ctrl: new AbortController() }
         setTray((cur) => [...cur, item])
         const progress = (n: number) => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: n } : x)))
-        const done = (media: PostMedia) => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+        const done = (media: PostMedia) => {
+          if (media.type === "file" && item.kind === "video" && item.preview) keepLocalVideo(media.assetId, item.preview)
+          setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+        }
         const fail = (e: unknown) => {
           const msg = e instanceof Error ? e.message : "That did not upload."
           if (msg === "Upload stopped" || item.ctrl.signal.aborted) return
@@ -994,6 +1177,33 @@ function Composer({
   const ready = tray.filter((t) => t.media).map((t) => t.media as PostMedia)
   const canSend = editing ? !!text.trim() || !!editing.attachments.length : (!!text.trim() || ready.length > 0) && !uploading
 
+  /* A link in the words: its card, read by the server a moment after typing stops, shown above the box; the cross sends without it. */
+  const draftUrl = useMemo(() => (editing ? null : firstLink(text)), [text, editing])
+  const draft = useLinkDraft(communityId, draftUrl)
+  const [dropped, setDropped] = useState<string | null>(null)
+  const linkCard = draft && draftUrl && dropped !== draftUrl && (draft.title || draft.image) ? draft : null
+
+  /*
+    The emoji and GIF tools, loaded once the chat is up: their chunks are never on the way to the first message. The
+    GIF button is drawn then (it asks once whether GIFs are connected); the emoji picker's code is fetched then, and
+    the picker is drawn on the first press of its button (ToolStandIn).
+  */
+  const [tools, setTools] = useState(false)
+  const [emoji, setEmoji] = useState(false)
+  useEffect(() => {
+    const go = () => {
+      setTools(true)
+      void import("@/components/app/rich-text/emoji-picker").catch(() => undefined)
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(go, { timeout: 1200 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(go, 300)
+    return () => window.clearTimeout(t)
+  }, [])
+
   const submit = () => {
     if (editing) {
       onSaveEdit(text)
@@ -1002,9 +1212,11 @@ function Composer({
       return
     }
     if (!canSend) return
-    onSend(text, ready)
+    const withCard = linkCard && ready.length < CHAT_ATTACHMENTS_MAX ? [...ready, { type: "link", ...linkCard } as PostMedia] : ready
+    onSend(text, withCard)
     setText("")
     setTray([])
+    setDropped(null)
     /* The keyboard stays up on a phone: the box keeps its focus. */
     requestAnimationFrame(() => box.current?.focus())
   }
@@ -1041,11 +1253,14 @@ function Composer({
           </button>
         </div>
       ) : null}
+      {linkCard && draftUrl ? <LinkDraft card={linkCard} onDrop={() => setDropped(draftUrl)} /> : null}
       {tray.length ? (
         <div className="mb-2 flex gap-2 overflow-x-auto px-1 pb-1 pt-1" data-chat-tray="">
           {tray.map((t) => (
             <div key={t.key} className="relative shrink-0" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
-              {t.preview ? (
+              {t.preview && t.kind === "video" ? (
+                <video src={`${t.preview}#t=0.1`} muted playsInline preload="metadata" className={`h-16 w-16 rounded-xl bg-black object-cover ${t.media ? "" : "opacity-70"}`} data-chat-upload-video="" />
+              ) : t.preview ? (
                 <img src={t.preview} alt="" className={`h-16 w-16 rounded-xl object-cover ${t.media ? "" : "opacity-70"}`} />
               ) : (
                 <div className="flex h-16 w-40 items-center gap-2 rounded-xl bg-[#f3f4f6] px-2.5">
@@ -1092,7 +1307,7 @@ function Composer({
           </>
         ) : null}
         <div
-          className="min-w-0 flex-1 rounded-[20px] border border-transparent bg-[#f3f4f6] transition-[border-color,background-color] focus-within:border-[#e3e5e8] focus-within:bg-white"
+          className="flex min-w-0 flex-1 items-end rounded-[20px] border border-transparent bg-[#f3f4f6] transition-[border-color,background-color] focus-within:border-[#e3e5e8] focus-within:bg-white"
           data-chat-field=""
           onPaste={(e) => {
             const files = [...e.clipboardData.files]
@@ -1128,8 +1343,24 @@ function Composer({
                 } else onCancelReply()
               }
             }}
-            className="max-h-40 min-h-[38px] px-4 py-[7px] text-[16px] leading-6 text-[#1a1a2e] sm:text-[15px]"
+            className="max-h-40 min-h-[38px] py-[7px] pl-4 pr-1 text-[16px] leading-6 text-[#1a1a2e] sm:text-[15px]"
           />
+          {!editing ? (
+            <div className="flex shrink-0 items-center pb-px pr-1" data-chat-tools="">
+              {tools && attachments ? (
+                <Suspense fallback={null}>
+                  <GifTool communityId={communityId} className={TOOL} hideWhenOff onPick={(gif) => onSend("", [gif])} />
+                </Suspense>
+              ) : null}
+              {emoji ? (
+                <Suspense fallback={<ToolStandIn />}>
+                  <EmojiTool className={TOOL} size={{ w: 320, h: 340 }} startOpen onBeforeOpen={() => undefined} onInsert={(e) => box.current?.insert(e)} />
+                </Suspense>
+              ) : (
+                <ToolStandIn onPress={() => setEmoji(true)} />
+              )}
+            </div>
+          ) : null}
         </div>
         <button
           type="submit"
@@ -1139,7 +1370,8 @@ function Composer({
           className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#1a1a2e] text-white outline-none transition-[background-color,scale,opacity] hover:bg-[#2b2b42] active:scale-[0.92] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 disabled:cursor-default disabled:opacity-30"
           data-chat-send=""
         >
-          {editing ? <Check className="h-[18px] w-[18px]" strokeWidth={2.5} /> : uploading ? <Spinner size={16} /> : <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />}
+          {/* Uploading, the button waits, dimmed: each picture in the tray shows its own progress. */}
+          {editing ? <Check className="h-[18px] w-[18px]" strokeWidth={2.5} /> : <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />}
         </button>
       </div>
     </form>
@@ -1149,17 +1381,25 @@ function Composer({
 /* ── Mute, for a chat's header ─────────────────────────────────────────── */
 
 export function MuteButton({ communityId, kind, chatId }: { communityId: string; kind: ChatKind; chatId: string }) {
-  const [state, setState] = useState<{ notify: string; mutedUntil: string | null } | null>(null)
+  /* Kept for the tab (round 38): a chat opened again has its bell at once, and its header never shifts when the answer lands. */
+  const prefKey = `prefs:${kind}:${chatId}`
+  const [state, setStateRaw] = useState<{ notify: string; mutedUntil: string | null } | null>(() => keptValue(prefKey))
+  const setState = (v: { notify: string; mutedUntil: string | null }) => {
+    keepValue(prefKey, v)
+    setStateRaw(v)
+  }
   useEffect(() => {
     let gone = false
     void api<{ notify: string; mutedUntil: string | null }>(`${apiBase(communityId)}/chat/prefs?type=${kind}&id=${chatId}`).then((r) => {
-      if (!gone && r.ok) setState(r.data)
+      if (gone || !r.ok) return
+      keepValue(`prefs:${kind}:${chatId}`, r.data)
+      setStateRaw(r.data)
     })
     return () => {
       gone = true
     }
   }, [communityId, kind, chatId])
-  if (!state) return null
+  if (!state) return <span aria-hidden className="h-10 w-10 shrink-0" data-chat-mute="" />
   const muted = state.notify === "none" || (!!state.mutedUntil && Date.parse(state.mutedUntil) > Date.now())
   /* A channel's default is mentions only; "on" there is every message. */
   const loud = kind === "space" ? state.notify === "all" : !muted

@@ -100,6 +100,8 @@ export const RATE_LIMITS = {
   /** Round 37: opening a file or a video sent in a chat, and the chat's own switches (mute, block, rules). */
   chatFile: [{ limit: 240, seconds: 600 }],
   chatPrefs: [{ limit: 60, seconds: 600 }],
+  /** Round 38: a link's card read for the chat box, one per pause in typing; read pages are kept on the server. */
+  chatUnfurl: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
   /** The presence heartbeat: one a minute per open page, room for a few tabs, never a loop. */
   presence: [{ limit: 40, seconds: 600 }],
   /** A person's hover card: one per name rested on, cached a minute in the page; room to browse, not to sweep a directory. */
