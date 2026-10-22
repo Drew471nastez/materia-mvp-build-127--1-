@@ -1048,12 +1048,17 @@ function RulesGate({ communityId, rules, onAccepted }: { communityId: string; ru
 
 const TOOL = "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-[#e9eaee] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
 
-/** The emoji button as it is drawn while its picker loads: the same size and the same mark, so nothing moves when it comes. */
-function ToolStandIn() {
+/**
+ * The emoji button until it is first pressed: the same size and mark as the picker's own, which takes its place,
+ * already open, on that press. The picker (five hundred emoji, kept built on a phone) is never built for a chat
+ * nobody picks an emoji in: built on every chat it cost a slow phone 130ms each time it went Back to the list
+ * (measured, scripts/check-community-chat-r38.mjs).
+ */
+function ToolStandIn({ onPress }: { onPress?: () => void }) {
   return (
-    <span aria-hidden className={TOOL} data-chat-emoji="">
-      <Smile className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2} />
-    </span>
+    <button type="button" aria-label="Emoji" tabIndex={-1} disabled={!onPress} onMouseDown={(e) => e.preventDefault()} onClick={onPress} className={`${TOOL} disabled:cursor-default`} data-chat-emoji="">
+      <Smile aria-hidden className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2} />
+    </button>
   )
 }
 
@@ -1178,15 +1183,24 @@ function Composer({
   const [dropped, setDropped] = useState<string | null>(null)
   const linkCard = draft && draftUrl && dropped !== draftUrl && (draft.title || draft.image) ? draft : null
 
-  /* The emoji and GIF tools, loaded once the chat is up: their chunks are never on the way to the first message. */
+  /*
+    The emoji and GIF tools, loaded once the chat is up: their chunks are never on the way to the first message. The
+    GIF button is drawn then (it asks once whether GIFs are connected); the emoji picker's code is fetched then, and
+    the picker is drawn on the first press of its button (ToolStandIn).
+  */
   const [tools, setTools] = useState(false)
+  const [emoji, setEmoji] = useState(false)
   useEffect(() => {
+    const go = () => {
+      setTools(true)
+      void import("@/components/app/rich-text/emoji-picker").catch(() => undefined)
+    }
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => setTools(true), { timeout: 1200 })
+      const id = w.requestIdleCallback(go, { timeout: 1200 })
       return () => w.cancelIdleCallback?.(id)
     }
-    const t = window.setTimeout(() => setTools(true), 300)
+    const t = window.setTimeout(go, 300)
     return () => window.clearTimeout(t)
   }, [])
 
@@ -1245,7 +1259,7 @@ function Composer({
           {tray.map((t) => (
             <div key={t.key} className="relative shrink-0" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
               {t.preview && t.kind === "video" ? (
-                <video src={`${t.preview}#t=0.1`} muted playsInline preload="metadata" className={`h-16 w-16 rounded-xl bg-[#111113] object-cover ${t.media ? "" : "opacity-70"}`} data-chat-upload-video="" />
+                <video src={`${t.preview}#t=0.1`} muted playsInline preload="metadata" className={`h-16 w-16 rounded-xl bg-black object-cover ${t.media ? "" : "opacity-70"}`} data-chat-upload-video="" />
               ) : t.preview ? (
                 <img src={t.preview} alt="" className={`h-16 w-16 rounded-xl object-cover ${t.media ? "" : "opacity-70"}`} />
               ) : (
@@ -1333,13 +1347,17 @@ function Composer({
           />
           {!editing ? (
             <div className="flex shrink-0 items-center pb-px pr-1" data-chat-tools="">
-              {tools ? (
+              {tools && attachments ? (
+                <Suspense fallback={null}>
+                  <GifTool communityId={communityId} className={TOOL} hideWhenOff onPick={(gif) => onSend("", [gif])} />
+                </Suspense>
+              ) : null}
+              {emoji ? (
                 <Suspense fallback={<ToolStandIn />}>
-                  {attachments ? <GifTool communityId={communityId} className={TOOL} hideWhenOff onPick={(gif) => onSend("", [gif])} /> : null}
-                  <EmojiTool className={TOOL} size={{ w: 320, h: 340 }} onBeforeOpen={() => undefined} onInsert={(e) => box.current?.insert(e)} />
+                  <EmojiTool className={TOOL} size={{ w: 320, h: 340 }} startOpen onBeforeOpen={() => undefined} onInsert={(e) => box.current?.insert(e)} />
                 </Suspense>
               ) : (
-                <ToolStandIn />
+                <ToolStandIn onPress={() => setEmoji(true)} />
               )}
             </div>
           ) : null}

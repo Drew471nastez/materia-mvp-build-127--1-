@@ -32,6 +32,8 @@ import { webUrl, type ChatLinkCard } from "@/lib/communities/chat-links"
 import { api, apiBase } from "./api"
 
 const BOX = "w-[min(300px,68vw)]"
+/* A player is black in the light look and the dark one alike (a style, so the dark look's colour map leaves it be). */
+const PLAYER = { backgroundColor: "#000" } as const
 
 /* ── A video by link ───────────────────────────────────────────────────── */
 
@@ -42,7 +44,7 @@ export function ChatEmbed({ video, card, mine }: { video: PostEmbedRef; card: Ch
   const title = card?.title || `${name} video`
   return (
     <div className={`my-1 overflow-hidden rounded-xl ${BOX} ${mine ? "bg-white/10" : "bg-white"}`} data-chat-embed={video.provider}>
-      <div className="relative aspect-video w-full bg-[#111113]">
+      <div className="relative aspect-video w-full" style={PLAYER}>
         {playing ? (
           <iframe
             src={embedPlayerSrc(video)}
@@ -62,8 +64,8 @@ export function ChatEmbed({ video, card, mine }: { video: PostEmbedRef; card: Ch
         )}
       </div>
       <a href={video.url} target="_blank" rel="noopener noreferrer nofollow ugc" className="block px-2.5 py-1.5" data-chat-embed-link="">
-        <span className={`block text-[11.5px] font-medium ${mine ? "text-white/60" : "text-[#8a8f98]"}`}>{name}</span>
-        <span className={`line-clamp-2 text-[13.5px] font-medium leading-snug ${mine ? "text-white" : "text-[#1a1a2e]"}`}>{title}</span>
+        {card?.title ? <span className={`block text-[11.5px] font-medium ${mine ? "text-white/60" : "text-[#8a8f98]"}`}>{name}</span> : null}
+        <span className={`line-clamp-2 text-[13.5px] font-medium leading-snug ${mine ? "text-white" : "text-[#1a1a2e]"}`}>{card?.title || `Watch on ${name}`}</span>
       </a>
     </div>
   )
@@ -136,7 +138,7 @@ export function ChatVideo({ src, local }: { src: string | null; local: string | 
   }
 
   return (
-    <div ref={box} className={`relative my-1 aspect-video ${BOX} overflow-hidden rounded-xl bg-[#111113]`} data-chat-video="">
+    <div ref={box} className={`relative my-1 aspect-video ${BOX} overflow-hidden rounded-xl`} style={PLAYER} data-chat-video="">
       {near && url ? (
         <video
           ref={video}

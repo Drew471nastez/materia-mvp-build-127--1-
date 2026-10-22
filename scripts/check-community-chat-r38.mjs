@@ -179,7 +179,7 @@ function makeServer() {
         const last = rows[rows.length - 1]
         return { id: c.id, other: c.other, lastBody: last.body || "Photo", lastAt: last.createdAt, lastFromMe: last.author === ME.id, unread: last.author !== ME.id, muted: false }
       }).sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1))
-      return json({ ready: true, conversations, groups: [], unread: 2 })
+      return json({ ready: true, conversations, groups: [], unread: 2 }, 200, s.listWait ?? READ_MS)
     }
     const m = /^\/dms\/([0-9a-f-]{36})$/.exec(path)
     if (m && method === "GET") {
@@ -466,6 +466,30 @@ for (const [label, viewport] of [
     await sleep(50)
     r.openReload = await watchAfter(page, BUBBLE, () => pressRow(page, 0))
 
+    /* The two skeletons, drawn: a conversation never opened, and the list in a tab that never read it. */
+    if (cpu === 1) {
+      await page.click("[data-community-messages] button[aria-label='Back']")
+      await sel(page, ROW(0))
+      await sleep(200)
+      await pressRow(page, 5)
+      await sleep(90)
+      await page.screenshot({ path: join(shots, `${label}-cold-skeleton.png`) })
+      await sel(page, BUBBLE)
+      /* Past the kept list's own write (a moment after each answer), then a tab with nothing kept. */
+      await sleep(900)
+      await page.evaluate(() => sessionStorage.clear())
+      server.listWait = 2500
+      await page.reload({ waitUntil: "load" })
+      await sel(page, "[data-probe-open]")
+      await page.click("[data-probe-open]")
+      await sleep(120)
+      await page.screenshot({ path: join(shots, `${label}-list-skeleton.png`) })
+      server.listWait = undefined
+      await sel(page, ROW(0))
+      await sleep(300)
+      await page.screenshot({ path: join(shots, `${label}-list.png`) })
+    }
+
     const line = (k) => `${k.padEnd(12)} ${String(r[k].ms).padStart(5)}ms  ${r[k].skeleton ? "skeleton" : "        "} ${r[k].spinner ? "SPINNER" : ""}`
     for (const k of ["listFirst", "listBack", "listReopen", "listReload", "openTop", "openAgain", "openCold", "openReload"]) console.log(`    ${line(k)}`)
     console.log(`    send         ${r.send.ms}ms, ${r.send.frames} frame(s) from the key to the bubble; box empty ${r.send.empty}, focused ${r.send.focused}; pinned gap ${r.sentGap.gap}px`)
@@ -534,6 +558,12 @@ for (const [label, viewport] of [
     expect(rich.rel && !rich.js, "links open in a new tab, noopener noreferrer nofollow; javascript: is never a link", rich)
     expect(rich.emoji && rich.attach, "the box has emoji and attachments", rich)
     await page.screenshot({ path: join(shots, `${label}-${theme}-rich.png`) })
+    /* And a screen further up: the YouTube still and the link card. */
+    await page.$eval("[data-community-messages] [data-chat-embed]", (e) => e.scrollIntoView({ block: "start" }))
+    await sleep(250)
+    await page.screenshot({ path: join(shots, `${label}-${theme}-links.png`) })
+    await page.$eval("[data-community-messages] [data-chat-list]", (el) => (el.scrollTop = el.scrollHeight))
+    await sleep(150)
     /* The card's height is the same before and after its picture loads (its box is its own). */
     if (theme === "light") {
       await page.$eval("[data-community-messages] [data-chat-embed] button", (b) => b.click()).catch(() => null)
@@ -543,6 +573,28 @@ for (const [label, viewport] of [
         return f ? { src: f.getAttribute("src"), allow: f.getAttribute("allow") } : null
       })
       expect(!!frame && frame.src.startsWith("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"), "a press plays it in the youtube-nocookie player", frame)
+      /* Emoji: the button draws the picker, open, on its first press; a pick goes into the box. */
+      await page.$eval("[data-community-messages] [data-chat-emoji]", (b) => b.click())
+      const grid = await sel(page, "[data-emoji-grid] button[data-emoji]", 4000)
+      let picked = null
+      if (grid) {
+        picked = await page.$eval("[data-emoji-grid] button[data-emoji]", (b) => {
+          b.click()
+          return b.getAttribute("data-emoji")
+        })
+        await sleep(200)
+      }
+      const boxText = await page.$eval("[data-community-messages] [data-chat-form] textarea", (t) => t.value)
+      expect(!!grid && !!picked && boxText.includes(picked), "the emoji button opens the picker on its first press, and a pick goes into the box", { grid: !!grid, picked, boxText })
+      if (viewport.isMobile) await page.screenshot({ path: join(shots, `${label}-emoji.png`) })
+      /* Closed again by its own button (Escape would close the whole panel). On a phone a pick already closed the sheet. */
+      if (!viewport.isMobile) await page.$eval("[data-community-messages] [data-emoji-trigger]", (b) => b.click()).catch(() => null)
+      await sleep(250)
+      await page.$eval("[data-community-messages] [data-chat-form] textarea", (t) => {
+        const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set
+        set.call(t, "")
+        t.dispatchEvent(new Event("input", { bubbles: true }))
+      })
       /* A link typed in the box: its card shows above the box before it is sent. */
       const box = await page.$("[data-community-messages] [data-chat-form] textarea")
       await box.focus()

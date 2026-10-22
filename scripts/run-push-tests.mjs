@@ -634,6 +634,8 @@ const SUITES = [
   "tests/push-bridge.test.ts",
   /* Round 37: community chat (order and duplicates, who may message whom, admin settings, when a phone is told, authorization, part 270). */
   "tests/community-chat-r37.test.ts",
+  /* Round 38: community chat speed (kept pages and list, asked for early, no spinner) and rich content (signed link cards, YouTube, GIFs, video, emoji). */
+  "tests/community-chat-r38.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",
