@@ -21,16 +21,30 @@ import "server-only"
  *
  * Before part 83 is run the tables are missing: every read answers empty with
  * `ready: false`, and the shell does not draw the chat button at all.
+ *
+ * ROUND 37 (part 270). Who may message whom follows the admins' Chat
+ * settings (everyone, the team only, or off), a block either way, and the
+ * other person's own choice (lib/communities/chat-rules.ts dmDecision). A
+ * message can carry pictures and files and answer another one, can be
+ * edited, and is written once however often its send is retried (client_id).
+ * The other person's phone hears it unless they muted the conversation or
+ * have it open right now (./chat-push.ts directPushWanted).
  */
+import { attachmentLine, dmDecision, pushPreviewText } from "../chat-rules"
 import { LENGTHS } from "../limits"
-import type { AuthorView, CommunityRow } from "../types"
+import type { AuthorView, CommunityRow, PostMedia, Role } from "../types"
+import type { ChatLine } from "@/components/community/member/view-types"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
 import { cleanText, refused, type Checked } from "./feed"
 import { touchMember } from "./activity"
 import { pushDirectMessage, pushSoon } from "@/lib/notifications/push-bridge"
-import { screenWrite } from "./safety"
+import { screenEdit, screenWrite } from "./safety"
+import { blockedBetween, chatGate, chatMemberState, chatPrefsFor, loadChatSettings } from "./chat-settings"
+import { chatMediaOf, checkChatMedia } from "./chat-media"
+import { directPushWanted } from "./chat-push"
+import { replyPreviews } from "./chat"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const DM_PAGE = 50
@@ -39,8 +53,10 @@ const PREVIEW_MAX = 200
 
 const CONVERSATION_COLUMNS = "id, community_id, user_a, user_b, started_by, last_message_at, last_author_id, last_body, a_read_at, b_read_at, created_at"
 const MESSAGE_COLUMNS = "id, conversation_id, community_id, author_id, body, status, created_at, edited_at"
+/** Part 270's columns too: what it carries, what it answers, the sender's own id. */
+const MESSAGE_COLUMNS_270 = `${MESSAGE_COLUMNS}, attachments, reply_to_id, client_id`
 
-interface ConversationRow {
+export interface ConversationRow {
   id: string
   community_id: string
   user_a: string
@@ -63,6 +79,9 @@ interface DirectMessageRow {
   status: "published" | "deleted" | "removed"
   created_at: string
   edited_at: string | null
+  attachments?: unknown
+  reply_to_id?: string | null
+  client_id?: string | null
 }
 
 export interface ConversationView {
@@ -72,15 +91,12 @@ export interface ConversationView {
   lastAt: string | null
   lastFromMe: boolean
   unread: boolean
+  /** Round 37: the viewer muted it. */
+  muted?: boolean
 }
 
-export interface DirectMessageView {
-  id: string
+export interface DirectMessageView extends ChatLine {
   conversationId: string
-  body: string
-  mine: boolean
-  createdAt: string
-  editedAt: string | null
 }
 
 /** Who sits on which side of a pair. */
@@ -111,6 +127,13 @@ function otherOf(c: Pick<ConversationRow, "user_a" | "user_b">, me: string): str
   return c.user_a === me ? c.user_b : c.user_a
 }
 
+/** A select with part 270's columns, or without them before the part ran. */
+async function selectRows<T>(run: (columns: string) => PromiseLike<{ data: T | null; error: { code?: string; message?: string } | null }>): Promise<{ data: T | null; error: { code?: string; message?: string } | null }> {
+  const first = await run(MESSAGE_COLUMNS_270)
+  if (first.error && missing(first.error)) return run(MESSAGE_COLUMNS)
+  return first
+}
+
 /** Whether member messages can be used here at all: chat on and part 83 run. */
 export async function directReady(db: Db, community: Pick<CommunityRow, "id" | "chat_enabled">): Promise<boolean> {
   if (!community.chat_enabled) return false
@@ -127,6 +150,20 @@ async function activeMember(db: Db, communityId: string, userId: string): Promis
   const { data } = await db.from("community_members").select("status, banned_at").eq("community_id", communityId).eq("user_id", userId).maybeSingle()
   const row = data as { status: string; banned_at: string | null } | null
   return !!row && row.status === "active" && !row.banned_at
+}
+
+/**
+ * Whether the viewer may write to `otherId` here, by the admins' rule, a
+ * block either way and the other person's own choice. The owner counts as
+ * the team whatever their member row says.
+ */
+async function mayMessage(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer, otherId: string): Promise<Checked<true>> {
+  const [settings, other, blocked] = await Promise.all([loadChatSettings(db, community.id), chatMemberState(db, community.id, otherId), blockedBetween(db, String(viewer.userId), otherId)])
+  if (!other || !other.active) return { ok: false, error: "That member is no longer in this community.", status: 404 }
+  const otherRole: Role | null = otherId === community.owner_user_id ? "owner" : other.role
+  const senderRole: Role | null = viewer.userId === community.owner_user_id ? "owner" : viewer.role
+  const d = dmDecision({ policy: settings.dmPolicy, senderId: String(viewer.userId), senderRole, recipientId: otherId, recipientRole: otherRole, recipientDms: other.chatDms, blocked })
+  return d.ok ? { ok: true, value: true } : { ok: false, error: d.error, status: 403 }
 }
 
 /** A conversation of this community that the viewer is in, or null. */
@@ -154,7 +191,10 @@ export async function openConversation(db: Db, community: CommunityRow, viewer: 
     return { ok: false, error: "That did not open. Try again.", status: 500 }
   }
   let id = (found.data as { id: string } | null)?.id ?? null
+  /* A conversation that already exists opens to read; a new one only when the viewer may write to them. */
   if (!id) {
+    const may = await mayMessage(db, community, viewer, otherId)
+    if (!may.ok) return refused(may)
     const made = await db.from("community_conversations").insert({ community_id: community.id, ...pair, started_by: viewer.userId }).select("id").single()
     if (made.error) {
       /* Both opened it at the same moment: the other insert won, and its row is the row. */
@@ -190,7 +230,7 @@ export async function listConversations(db: Db, community: CommunityRow, viewer:
     }
     const rows = (data as ConversationRow[] | null) ?? []
     const me = viewer.userId
-    const people = await authorViews(db, community.id, rows.map((r) => otherOf(r, me)))
+    const [people, prefs] = await Promise.all([authorViews(db, community.id, rows.map((r) => otherOf(r, me))), mutedOf(db, me, "dm", rows.map((r) => r.id))])
     const conversations = rows.map((r) => ({
       id: r.id,
       other: people.get(otherOf(r, me)) ?? null,
@@ -198,6 +238,7 @@ export async function listConversations(db: Db, community: CommunityRow, viewer:
       lastAt: r.last_message_at,
       lastFromMe: r.last_author_id === me,
       unread: isUnread(r, me),
+      muted: prefs.has(r.id),
     }))
     return { ready: true, conversations, unread: conversations.filter((c) => c.unread).length }
   } catch (e) {
@@ -206,7 +247,22 @@ export async function listConversations(db: Db, community: CommunityRow, viewer:
   }
 }
 
-/** How many conversations have something unread, for the shell's badge; null when messages are not available here. */
+/** Which of these chats the person muted (or set to nothing) right now. */
+export async function mutedOf(db: Db, userId: string, chatType: "dm" | "group" | "space", chatIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (!chatIds.length) return out
+  try {
+    const { data, error } = await db.from("community_chat_prefs").select("chat_id, notify, muted_until").eq("user_id", userId).eq("chat_type", chatType).in("chat_id", chatIds.slice(0, 200))
+    if (error) return out
+    const now = Date.now()
+    for (const r of (data as { chat_id: string; notify: string; muted_until: string | null }[] | null) ?? []) if (r.notify === "none" || (r.muted_until && Date.parse(r.muted_until) > now)) out.add(r.chat_id)
+  } catch {
+    /* Nothing muted. */
+  }
+  return out
+}
+
+/** How many conversations and groups have something unread, for the shell's badge; null when messages are not available here. */
 export async function unreadConversations(db: Db, community: CommunityRow, viewer: Viewer): Promise<number | null> {
   if (!viewer.userId || !community.chat_enabled) return null
   const me = viewer.userId
@@ -221,47 +277,80 @@ export async function unreadConversations(db: Db, community: CommunityRow, viewe
       .order("last_message_at", { ascending: false })
       .limit(INBOX_MAX)
     if (error) return null
-    return ((data as ConversationRow[] | null) ?? []).filter((r) => isUnread(r, me)).length
+    const direct = ((data as ConversationRow[] | null) ?? []).filter((r) => isUnread(r, me)).length
+    return direct + (await unreadGroups(db, community.id, me))
   } catch {
     return null
   }
 }
 
-function toViews(rows: DirectMessageRow[], me: string): DirectMessageView[] {
-  return rows.map((r) => ({
-    id: r.id,
-    conversationId: r.conversation_id,
-    body: r.status === "published" ? r.body : "",
-    mine: r.author_id === me,
-    createdAt: r.created_at,
-    editedAt: r.edited_at,
-  }))
+/** Groups with a message from somebody else since the member last looked (0 before part 270). */
+async function unreadGroups(db: Db, communityId: string, me: string): Promise<number> {
+  try {
+    const { data, error } = await db.from("community_chat_group_members").select("last_read_at, joined_at, community_chat_groups!inner(last_message_at, last_author_id, archived_at)").eq("user_id", me).eq("community_id", communityId).limit(INBOX_MAX)
+    if (error) return 0
+    type G = { last_message_at: string | null; last_author_id: string | null; archived_at: string | null }
+    return ((data as { last_read_at: string | null; joined_at: string; community_chat_groups: G | G[] }[] | null) ?? []).filter((r) => {
+      const g = Array.isArray(r.community_chat_groups) ? r.community_chat_groups[0] : r.community_chat_groups
+      if (!g || g.archived_at || !g.last_message_at || g.last_author_id === me) return false
+      return Date.parse(g.last_message_at) > Date.parse(r.last_read_at ?? r.joined_at)
+    }).length
+  } catch {
+    return 0
+  }
+}
+
+async function toViews(db: Db, communityId: string, rows: DirectMessageRow[], me: string): Promise<DirectMessageView[]> {
+  const [authors, replies] = await Promise.all([
+    authorViews(db, communityId, rows.map((r) => r.author_id)),
+    replyPreviews(db, communityId, "community_direct_messages", rows.map((r) => r.reply_to_id ?? null), new Map(rows.map((r) => [r.id, r]))),
+  ])
+  return rows.map((r) => {
+    const live = r.status === "published"
+    const mine = r.author_id === me
+    return {
+      id: r.id,
+      conversationId: r.conversation_id,
+      authorId: r.author_id,
+      author: r.author_id ? (authors.get(r.author_id) ?? null) : null,
+      body: live ? r.body : "",
+      attachments: live ? chatMediaOf(r.attachments) : [],
+      replyTo: r.reply_to_id ? (replies.get(r.reply_to_id) ?? null) : null,
+      clientId: r.client_id ?? null,
+      mine,
+      createdAt: r.created_at,
+      editedAt: r.edited_at,
+      canEdit: live && mine,
+      canDelete: live && mine,
+      canModerate: false,
+    }
+  })
 }
 
 /** Messages, oldest first. `before` pages back; `after` catches up after the stream moved; neither is the latest page. */
-export async function listDirectMessages(db: Db, conversation: ConversationRow, viewer: Viewer, opts: { before?: unknown; after?: unknown }): Promise<{ messages: DirectMessageView[]; hasMore: boolean }> {
+export async function listDirectMessages(db: Db, conversation: ConversationRow, viewer: Viewer, opts: { before?: unknown; after?: unknown }): Promise<{ messages: DirectMessageView[]; hasMore: boolean; otherReadAt: string | null }> {
   const me = viewer.userId ?? ""
+  const otherReadAt = conversation.user_a === me ? conversation.b_read_at : conversation.a_read_at
   try {
     const before = isoOrNull(opts.before)
     const after = isoOrNull(opts.after)
-    let q = db.from("community_direct_messages").select(MESSAGE_COLUMNS).eq("conversation_id", conversation.id).eq("status", "published")
+    const base = (c: string) => db.from("community_direct_messages").select(c).eq("conversation_id", conversation.id).eq("status", "published")
     if (after) {
-      const { data, error } = await q.gt("created_at", after).order("created_at", { ascending: true }).limit(DM_PAGE * 2 + 1)
-      if (error) return { messages: [], hasMore: false }
-      const rows = (data as DirectMessageRow[] | null) ?? []
-      return { messages: toViews(rows.slice(0, DM_PAGE * 2), me), hasMore: rows.length > DM_PAGE * 2 }
+      const { data, error } = await selectRows<DirectMessageRow[]>((c) => base(c).gt("created_at", after).order("created_at", { ascending: true }).limit(DM_PAGE * 2 + 1))
+      if (error) return { messages: [], hasMore: false, otherReadAt }
+      const rows = data ?? []
+      return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE * 2), me), hasMore: rows.length > DM_PAGE * 2, otherReadAt }
     }
-    if (before) q = q.lt("created_at", before)
-    const { data, error } = await q.order("created_at", { ascending: false }).limit(DM_PAGE + 1)
+    const { data, error } = await selectRows<DirectMessageRow[]>((c) => (before ? base(c).lt("created_at", before) : base(c)).order("created_at", { ascending: false }).limit(DM_PAGE + 1))
     if (error) {
       if (!missing(error)) console.error(`[communities] messages read: ${reasonOf(error)}`)
-      return { messages: [], hasMore: false }
+      return { messages: [], hasMore: false, otherReadAt }
     }
-    const rows = (data as DirectMessageRow[] | null) ?? []
-    return { messages: toViews(rows.slice(0, DM_PAGE).reverse(), me), hasMore: rows.length > DM_PAGE }
+    const rows = data ?? []
+    return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE).reverse(), me), hasMore: rows.length > DM_PAGE, otherReadAt }
   } catch (e) {
     console.error(`[communities] messages read: ${reasonOf(e)}`)
-    return { messages: [], hasMore: false }
+    return { messages: [], hasMore: false, otherReadAt }
   }
 }
 
@@ -276,22 +365,59 @@ export async function markConversationRead(db: Db, conversation: ConversationRow
   }
 }
 
-export async function sendDirectMessage(db: Db, community: CommunityRow, viewer: Viewer, conversation: ConversationRow, raw: unknown): Promise<Checked<DirectMessageView>> {
+async function sentBefore(db: Db, conversationId: string, userId: string, clientId: string | null): Promise<DirectMessageRow | null> {
+  if (!clientId) return null
+  try {
+    const { data, error } = await db.from("community_direct_messages").select(MESSAGE_COLUMNS_270).eq("author_id", userId).eq("client_id", clientId).maybeSingle()
+    const row = error ? null : ((data as DirectMessageRow | null) ?? null)
+    return row && row.conversation_id === conversationId ? row : null
+  } catch {
+    return null
+  }
+}
+
+export async function sendDirectMessage(db: Db, community: CommunityRow, viewer: Viewer, conversation: ConversationRow, raw: unknown): Promise<Checked<DirectMessageView> & { code?: string }> {
   if (!viewer.userId) return { ok: false, error: "Sign in to send a message.", status: 401 }
   if (!community.chat_enabled) return { ok: false, error: "Messages are turned off in this community.", status: 403 }
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const clientId = typeof r.clientId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(r.clientId) ? r.clientId : null
+  const again = await sentBefore(db, conversation.id, viewer.userId, clientId)
+  if (again) return { ok: true, value: (await toViews(db, community.id, [again], viewer.userId))[0] }
+  const gate = await chatGate(db, community, viewer)
+  if (!gate.ok) return gate
   const body = cleanText(r.body, LENGTHS.messageBody.max)
-  if (!body) return { ok: false, error: "Write a message first.", status: 400 }
+  const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
+  if (!media.ok) return refused(media)
+  const attachments: PostMedia[] = media.value
+  if (!body && !attachments.length) return { ok: false, error: "Write a message first.", status: 400 }
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   const other = otherOf(conversation, viewer.userId)
   if (!(await activeMember(db, community.id, other))) return { ok: false, error: "That member is no longer in this community.", status: 403 }
-  const screen = await screenWrite({ db, community, viewer }, "dm", { text: body })
+  const may = await mayMessage(db, community, viewer, other)
+  if (!may.ok) return refused(may)
+  let replyTo: string | null = null
+  if (typeof r.replyToId === "string" && UUID.test(r.replyToId)) {
+    const { data } = await db.from("community_direct_messages").select("id, conversation_id, status").eq("id", r.replyToId).maybeSingle()
+    if (data && data.conversation_id === conversation.id && data.status === "published") replyTo = data.id
+  }
+  const screen = await screenWrite({ db, community, viewer }, "dm", { text: body, media: attachments })
   if (!screen.ok) return refused(screen)
-  const { data, error } = await db
+  const plain = { conversation_id: conversation.id, community_id: community.id, author_id: viewer.userId, body }
+  const extended = { ...plain, ...(attachments.length ? { attachments } : {}), ...(replyTo ? { reply_to_id: replyTo } : {}), ...(clientId ? { client_id: clientId } : {}) }
+  const has270 = attachments.length > 0 || !!replyTo || !!clientId
+  let { data, error } = await db
     .from("community_direct_messages")
-    .insert({ conversation_id: conversation.id, community_id: community.id, author_id: viewer.userId, body })
-    .select(MESSAGE_COLUMNS)
+    .insert(has270 ? extended : plain)
+    .select(has270 ? MESSAGE_COLUMNS_270 : MESSAGE_COLUMNS)
     .single()
+  if (error && has270 && missing(error)) {
+    if (attachments.length) return { ok: false, error: "Pictures and files in messages are not switched on yet. Send the words alone for now.", status: 503 }
+    ;({ data, error } = await db.from("community_direct_messages").insert(plain).select(MESSAGE_COLUMNS).single())
+  }
+  if (error?.code === "23505" && clientId) {
+    const first = await sentBefore(db, conversation.id, viewer.userId, clientId)
+    if (first) return { ok: true, value: (await toViews(db, community.id, [first], viewer.userId))[0] }
+  }
   if (error || !data) {
     console.error(`[communities] message not written: ${reasonOf(error)}`)
     return { ok: false, error: "The message did not send. Try again.", status: missing(error) ? 503 : 500 }
@@ -299,10 +425,11 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   const row = data as DirectMessageRow
   /* The list's line and order move with it, and the sender has read their own message. */
   const readColumn = conversation.user_a === viewer.userId ? "a_read_at" : "b_read_at"
+  const line = body || attachmentLine(attachments) || "Message"
   await Promise.all([
     db
       .from("community_conversations")
-      .update({ last_message_at: row.created_at, last_author_id: viewer.userId, last_body: previewOf(body), [readColumn]: row.created_at })
+      .update({ last_message_at: row.created_at, last_author_id: viewer.userId, last_body: previewOf(line), [readColumn]: row.created_at })
       .eq("id", conversation.id)
       .then(
         () => undefined,
@@ -310,10 +437,41 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
       ),
     touchMember(db, community.id, viewer.userId),
   ])
-  /* The other person's phone, right away (after the response): lib/notifications/push-bridge.ts. A message has no bell row; the push is its notice. */
+  /*
+    The other person's phone, right away (after the response): lib/notifications/push-bridge.ts. A message has no bell row; the push is its notice.
+    Round 37: not while they muted the conversation or have it open (their read mark is fresh), and the words only when the admins show previews.
+  */
   const senderId = viewer.userId
-  await pushSoon(() => pushDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, text: body }))
-  return { ok: true, value: toViews([row], viewer.userId)[0] }
+  const otherReadAt = conversation.user_a === other ? conversation.a_read_at : conversation.b_read_at
+  const pushText = pushPreviewText(gate.settings.pushPreviews, body, attachments)
+  await pushSoon(async () => {
+    if (!(await directPushWanted(db, { conversationId: conversation.id, senderId, recipientId: other, recipientReadAt: otherReadAt }))) return
+    await pushDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, text: pushText })
+  })
+  return { ok: true, value: (await toViews(db, community.id, [row], viewer.userId))[0] }
+}
+
+/** The author changes the words of their own message. */
+export async function editDirectMessage(db: Db, community: CommunityRow, conversation: ConversationRow, viewer: Viewer, messageId: string, raw: unknown): Promise<Checked<DirectMessageView>> {
+  if (!viewer.userId || !UUID.test(messageId)) return { ok: false, error: "That message is gone.", status: 404 }
+  const { data: found } = await selectRows<DirectMessageRow>((c) => db.from("community_direct_messages").select(c).eq("id", messageId).eq("conversation_id", conversation.id).maybeSingle())
+  if (!found || found.status !== "published") return { ok: false, error: "That message is gone.", status: 404 }
+  if (found.author_id !== viewer.userId) return { ok: false, error: "Only the author can edit a message.", status: 403 }
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const body = cleanText(r.body, LENGTHS.messageBody.max)
+  if (!body && !chatMediaOf(found.attachments).length) return { ok: false, error: "Write a message first.", status: 400 }
+  if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
+  const edited = await screenEdit({ db, community, viewer }, "dm", { text: body, before: found.body })
+  if (!edited.ok) return refused(edited)
+  const { data, error } = await selectRows<DirectMessageRow>((c) => db.from("community_direct_messages").update({ body, edited_at: nowIso() }).eq("id", messageId).eq("author_id", viewer.userId).select(c).single())
+  if (error || !data) return { ok: false, error: "The change did not save. Try again.", status: 500 }
+  if (conversation.last_message_at && Date.parse(conversation.last_message_at) === Date.parse(found.created_at)) {
+    await db.from("community_conversations").update({ last_body: previewOf(body || "Message") }).eq("id", conversation.id).then(
+      () => undefined,
+      () => undefined,
+    )
+  }
+  return { ok: true, value: (await toViews(db, community.id, [data], viewer.userId))[0] }
 }
 
 /** The author deletes their own message; its words are blanked in the same update. */
@@ -323,7 +481,8 @@ export async function deleteDirectMessage(db: Db, conversation: ConversationRow,
   const row = data as { id: string; author_id: string | null; status: string; created_at: string } | null
   if (!row || row.status !== "published") return { ok: false, error: "That message is gone.", status: 404 }
   if (row.author_id !== viewer.userId) return { ok: false, error: "Only the author can delete a message.", status: 403 }
-  const { error } = await db.from("community_direct_messages").update({ status: "deleted", body: "", deleted_at: nowIso() }).eq("id", messageId).eq("author_id", viewer.userId)
+  let { error } = await db.from("community_direct_messages").update({ status: "deleted", body: "", deleted_at: nowIso(), attachments: [] }).eq("id", messageId).eq("author_id", viewer.userId)
+  if (error && missing(error)) ({ error } = await db.from("community_direct_messages").update({ status: "deleted", body: "", deleted_at: nowIso() }).eq("id", messageId).eq("author_id", viewer.userId))
   if (error) return { ok: false, error: "The message was not deleted. Try again.", status: 500 }
   /* When it was the last one, the list's line goes with it. */
   if (conversation.last_message_at && Date.parse(conversation.last_message_at) === Date.parse(row.created_at)) {
@@ -333,4 +492,10 @@ export async function deleteDirectMessage(db: Db, conversation: ConversationRow,
     )
   }
   return { ok: true, value: true }
+}
+
+/** The muted state the thread's bell shows. */
+export async function conversationPref(db: Db, conversation: ConversationRow, viewer: Viewer) {
+  if (!viewer.userId) return { notify: "default" as const, mutedUntil: null }
+  return (await chatPrefsFor(db, "dm", conversation.id, [viewer.userId])).get(viewer.userId) ?? { notify: "default" as const, mutedUntil: null }
 }

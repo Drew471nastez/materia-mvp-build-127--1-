@@ -1127,6 +1127,8 @@ export const SETTINGS_TABS = [
   "address",
   "discovery",
   "features",
+  /* Round 37: the community's chat (components/community/creator/chat-panel.tsx). */
+  "chat",
   "advanced",
   "roles",
   "policies",
@@ -1156,6 +1158,10 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
       return "discovery"
     case "welcome":
       return "features"
+    case "messages":
+    case "dms":
+    case "groups":
+      return "chat"
     case "rules":
     case "contact":
       return "policies"

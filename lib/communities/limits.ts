@@ -94,6 +94,12 @@ export const RATE_LIMITS = {
   dmTouch: [{ limit: 240, seconds: 600 }],
   /** New conversations: enough to talk to people, not enough to message a whole community. */
   dmOpen: [{ limit: 20, seconds: 3600 }, { limit: 60, seconds: 86400 }],
+  /** Round 37: new group chats, and a group changed (renamed, people added or removed). */
+  groupMake: [{ limit: 10, seconds: 3600 }, { limit: 30, seconds: 86400 }],
+  groupChange: [{ limit: 60, seconds: 600 }],
+  /** Round 37: opening a file or a video sent in a chat, and the chat's own switches (mute, block, rules). */
+  chatFile: [{ limit: 240, seconds: 600 }],
+  chatPrefs: [{ limit: 60, seconds: 600 }],
   /** The presence heartbeat: one a minute per open page, room for a few tabs, never a loop. */
   presence: [{ limit: 40, seconds: 600 }],
   /** A person's hover card: one per name rested on, cached a minute in the page; room to browse, not to sweep a directory. */

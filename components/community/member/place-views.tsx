@@ -143,7 +143,7 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
       return (
         <div className="max-w-[760px]">
           <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
-          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} />
+          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} />
         </div>
       )
     case "learn":

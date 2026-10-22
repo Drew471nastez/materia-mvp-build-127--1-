@@ -4,8 +4,8 @@ import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { conversationOf, deleteDirectMessage } from "@/lib/communities/server/direct"
-import { NO_STORE, memberSubject, sessionUserId } from "@/lib/communities/server/feed"
+import { conversationOf, deleteDirectMessage, editDirectMessage } from "@/lib/communities/server/direct"
+import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,4 +32,26 @@ export async function DELETE(_request: Request, { params }: Params) {
   const result = await deleteDirectMessage(db, conversation, gate.viewer, messageId)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
   return NextResponse.json({ ok: true }, { headers: NO_STORE })
+}
+
+/** PATCH { body }: the author changes the words of their own message (round 37). */
+export async function PATCH(request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
+  const { communityId, conversationId, messageId } = await params
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "chat")
+  if (gate instanceof NextResponse) return gate
+  const limited = await rateLimit({
+    bucket: rateBucket("dmTouch"),
+    subjects: [memberSubject(String(gate.viewer.userId))],
+    windows: RATE_LIMITS.dmTouch,
+    message: "Slow down a little. Try again in a moment.",
+  })
+  if (limited) return limited
+  const conversation = await conversationOf(db, gate.community, gate.viewer, conversationId)
+  if (!conversation) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
+  const result = await editDirectMessage(db, gate.community, conversation, gate.viewer, messageId, await readJson(request))
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
+  return NextResponse.json({ message: result.value }, { headers: NO_STORE })
 }

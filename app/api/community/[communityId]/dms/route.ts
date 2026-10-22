@@ -5,6 +5,7 @@ import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { listConversations, openConversation } from "@/lib/communities/server/direct"
+import { listGroups } from "@/lib/communities/server/groups"
 import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 
 export const runtime = "nodejs"
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic"
 
 type Params = { params: Promise<{ communityId: string }> }
 
-/** GET: { ready, conversations (newest first), unread }. Only the viewer's own. */
+/** GET: { ready, conversations (newest first), groups, unread }. Only the viewer's own; round 37 adds the groups they are in, counted in unread. */
 export async function GET(_request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
@@ -20,7 +21,8 @@ export async function GET(_request: Request, { params }: Params) {
   const db = admin()
   const gate = await requireMember(db, communityId, await sessionUserId(), "view")
   if (gate instanceof NextResponse) return gate
-  return NextResponse.json(await listConversations(db, gate.community, gate.viewer), { headers: NO_STORE })
+  const [direct, groups] = await Promise.all([listConversations(db, gate.community, gate.viewer), listGroups(db, gate.community, gate.viewer)])
+  return NextResponse.json({ ...direct, groups: groups.groups, unread: direct.unread + groups.groups.filter((g) => g.unread).length }, { headers: NO_STORE })
 }
 
 /** POST { userId }: { conversation: { id, other } }, the viewer's conversation with that member, made if new. */
