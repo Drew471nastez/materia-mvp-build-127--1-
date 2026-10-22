@@ -66,6 +66,9 @@ const LearnLibrary = preloadable(() => import("@/components/community/learn/lear
 const ProgramPlayer = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.ProgramPlayer))
 const LockedProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.LockedProgram))
 const EmptyProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.EmptyProgram))
+/* Round 39: the Library and one item in it. */
+const LibraryShelf = preloadable(() => import("@/components/community/library/library-shelf").then((m) => m.LibraryShelf))
+const LibraryItem = preloadable(() => import("@/components/community/library/library-item").then((m) => m.LibraryItem))
 const EventsPage = preloadable(() => import("@/components/community/events/events-page").then((m) => m.EventsPage))
 const EventDetail = preloadable(() => import("@/components/community/events/event-detail").then((m) => m.EventDetail))
 const MembersDirectory = preloadable(() => import("./members").then((m) => m.MembersDirectory))
@@ -81,6 +84,8 @@ const VIEWS: Partial<Record<Place["kind"] | "chat", { preload: () => Promise<unk
   space: [ChatView],
   learn: [LearnLibrary],
   program: [ProgramPlayer, LockedProgram],
+  library: [LibraryShelf],
+  resource: [LibraryItem],
   calendar: [EventsPage],
   event: [EventDetail],
   members: [MembersDirectory],
@@ -109,6 +114,8 @@ export function placeTitle(place: Place): string | null {
   switch (place.kind) {
     case "learn":
       return "Learn"
+    case "library":
+      return "Library"
     case "calendar":
       return "Events"
     case "members":
@@ -171,6 +178,10 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
       if (data.mode === "empty") return <EmptyProgram program={data.program} learnHref={data.learnHref} manageHref={data.manageHref} />
       return <ProgramPlayer data={data.data} learnHref={data.learnHref} />
     }
+    case "library":
+      return <LibraryShelf shelf={data.shelf} />
+    case "resource":
+      return <LibraryItem data={data.page} />
     case "calendar": {
       const { kind: _k, ...props } = data
       return <EventsPage {...props} />

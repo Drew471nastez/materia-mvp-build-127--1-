@@ -189,7 +189,7 @@ export function accessLine(i: Pick<AdminLibraryItem, "mode" | "minLevel" | "tier
       return tt("From level {level}", { level: i.minLevel ?? 2 })
     case "tier": {
       const names = i.tierIds.map((id) => tiers.find((t) => t.id === id)?.name).filter((n): n is string => !!n)
-      return names.length ? tt("Members of {names}", { names: names.join(", ") }) : tt("Members of some plans")
+      return names.length ? tt("Members of {names}", { names: names.join(", ") }) : tt("Members of some tiers")
     }
     case "private":
       return tt("Private, {n, plural, one {# member} other {# members}}", { n: i.members.length })

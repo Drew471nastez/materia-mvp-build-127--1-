@@ -28,6 +28,7 @@ import { canWriteIn, channelFacts, listMessages, pinnedLine } from "@/lib/commun
 import { channelPostNote, channelPostOf } from "@/lib/communities/chat-rules"
 import { chatIntro, dmStartFor } from "@/lib/communities/server/chat-settings"
 import { findProgram, listPrograms, programCard, programOutline, programPlayer } from "@/lib/communities/server/learn"
+import { libraryItemPage, libraryShelf, touchItem } from "@/lib/communities/server/library"
 import { eventDetail, isEventId, listEvents, monthEvents } from "@/lib/communities/server/events"
 import { authorViews, leaderboardRows, levelNames, listMembers, locationsReady } from "@/lib/communities/server/directory"
 import { leaderboard } from "@/lib/communities/server/points"
@@ -129,6 +130,19 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       const data = await programPlayer(db, community, viewer, row, asked)
       if (!data) return ok({ kind: "program", mode: "empty", program: card, learnHref: back, manageHref: manageLearn })
       return ok({ kind: "program", mode: "player", data, learnHref: back })
+    }
+    case "library": {
+      /* Round 39: the Library (./library.ts), a 404 while an admin has it off. */
+      const shelf = await libraryShelf(db, community, viewer)
+      return shelf ? ok({ kind: "library", shelf }) : off
+    }
+    case "resource": {
+      if (!UUID.test(place.id)) return missing
+      const creatorId = community.creator_id
+      const page = await libraryItemPage(db, community, viewer, place.id, { canBuy: async () => (creatorId ? (await import("@/lib/payments/service")).checkoutReadyForCreator(creatorId) : false) })
+      if (!page) return missing
+      await touchItem(db, page.item.id, viewer.userId, "view")
+      return ok({ kind: "resource", page })
     }
     case "calendar": {
       if (!community.events_enabled) return off

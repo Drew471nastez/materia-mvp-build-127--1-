@@ -411,6 +411,18 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
     setFeatures((f) => ({ ...f, [key]: v }))
     if (!(await instant({ [key]: v }, v ? tt("Turned on") : tt("Turned off")))) setFeatures((f) => ({ ...f, [key]: !v }))
   }
+  /* Round 39: the Library is its own switch (part 278, community_library_settings), not a column of the community. */
+  const [library, setLibrary] = React.useState(head.libraryEnabled === true)
+  const flipLibrary = async (v: boolean) => {
+    setLibrary(v)
+    const res = await send(`/api/app/community/${head.id}/library`, "PATCH", { enabled: v })
+    if (!res.ok) {
+      setLibrary(!v)
+      return toast(res.data.error || errorText(undefined))
+    }
+    toast(v ? tt("Turned on") : tt("Turned off"))
+    router.refresh()
+  }
   const save = async () => {
     setBusy(true)
     const res = await send(`/api/app/community/${head.id}`, "PATCH", { onboarding: w })
@@ -427,6 +439,7 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
       <EditorCard title={tt("Sections")} hint={tt("Turned off, a section is hidden from members. Nothing in it is deleted.")}>
         <div className="-my-1 divide-y divide-[#f1f2f4]">
           <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title={tt("Learn")} hint={tt("Your programs and lessons, inside the community.")} />
+          <Toggle checked={library} onChange={(v) => void flipLibrary(v)} title={tt("Library")} hint={tt("Files, links and products for members: free, for some of them, or for sale.")} />
           <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title={tt("Calendar")} hint={tt("Calls, workshops and meetups with RSVPs.")} />
           <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title={tt("Chat")} hint={tt("Spaces of the chat kind, and messages between members.")} />
           <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title={tt("Member directory")} hint={tt("Members can see who else is here.")} />

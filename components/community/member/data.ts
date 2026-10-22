@@ -16,6 +16,7 @@ import { unreadCounts } from "@/lib/communities/server/chat"
 import { unreadConversations } from "@/lib/communities/server/direct"
 import { loadChatSettings } from "@/lib/communities/server/chat-settings"
 import { chatTabOf } from "@/lib/communities/chat-rules"
+import { librarySettings } from "@/lib/communities/server/library"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
@@ -90,6 +91,8 @@ export interface ShellData {
 /** The spaces the viewer may see (with unread chat counts) and their unread conversations, once per request. */
 export const shellData = cache(async (communityId: string, viewer: Viewer, community: CommunityRow): Promise<ShellData> => {
   const db = admin()
+  /* Round 39: whether the Library is a place here (part 278), read beside the spaces. */
+  const libraryRead = librarySettings(db, communityId).catch(() => ({ ready: false, enabled: false }))
   const rows = await listSpaces(db, communityId)
   const chatIds = rows.filter((s) => s.kind === "chat").map((s) => s.id)
   const [unread, messages, chatSettings] = await Promise.all([
@@ -98,7 +101,8 @@ export const shellData = cache(async (communityId: string, viewer: Viewer, commu
     community.chat_enabled && chatIds.length ? loadChatSettings(db, communityId) : Promise.resolve(null),
   ])
   const spaces = spaceViews(rows, viewer, community, unread)
-  return { community: { ...toShellCommunity(community), chatTab: chatTabOf(spaces, chatSettings) }, spaces, rows, unreadMessages: messages }
+  const library = await libraryRead
+  return { community: { ...toShellCommunity(community), chatTab: chatTabOf(spaces, chatSettings), libraryEnabled: library.enabled }, spaces, rows, unreadMessages: messages }
 })
 
 /** The product a creator's post files are uploaded under: one that sells this community, when it has one. */

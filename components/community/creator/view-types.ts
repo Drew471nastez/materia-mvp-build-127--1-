@@ -39,7 +39,7 @@ import type { MemberLink } from "@/lib/communities/member-links"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
-export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
+export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "library" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
 
 /** The community as every section's header shows it. */
 export interface CommunityHead {
@@ -61,6 +61,8 @@ export interface CommunityHead {
   gamificationEnabled: boolean
   classroomEnabled: boolean
   eventsEnabled: boolean
+  /** Round 39: the Library is on (part 278), so it has a tab. */
+  libraryEnabled?: boolean
   /** What the signed in person may do here (lib/communities/permissions.ts). */
   role: Role
   can: Partial<Record<CommunityAction, boolean>>
