@@ -36,7 +36,8 @@ console.log("\nAn imported theme names the website's own address")
 const site = read("lib/storelib-theme/compat/site.ts")
 check("its languages (hreflang) at the website's primary address", /const host = site\.canonicalHost \?\? site\.host/.test(site))
 check("its canonical too", /canonical_url: page\.canonicalHost \?\? page\.host \?/.test(read("lib/storelib-theme/compat/theme.ts")))
-check("read from the same place a built website reads it", /siteOrigin\(found\.site\.creatorId, name\)/.test(read("lib/website-builder/compat-site.ts")))
+/* Changed on purpose (live speed, Oct 21): asked beside the install, by the creator the name found, rather than after the whole site. */
+check("read from the same place a built website reads it", /siteOrigin\(creator\.creatorId, name\)/.test(read("lib/website-builder/compat-site.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

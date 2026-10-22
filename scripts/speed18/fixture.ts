@@ -162,7 +162,7 @@ export function buildFixture(): Fixture {
   const creators = [a.creator, b.creator, ...marketCreators.map((c) => c.creator)]
   /* The public views (run-now part 63): the same rows without the private columns. */
   const publicOf = (rows: Row[], hidden: string[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !hidden.includes(k))))
-  return {
+  const fixture: Fixture = {
     tables: {
       profiles_public: publicOf(profiles, ["email"]),
       creators_public: publicOf(creators, ["stripe_account_id"]),
@@ -232,5 +232,39 @@ export function buildFixture(): Fixture {
       "product_channel_listings>sales_channels": { local: "channel_id", foreign: "id", many: false },
     },
     rpc: {},
+  }
+  /* SQL part 257, as it reads these same tables (supabase/sql/run-now/257_site_route_facts.sql). Delete it from `rpc` for a database where the part has not run. */
+  fixture.rpc!.site_route_facts = (args) => siteRouteFacts(fixture, String(args.p_name ?? ""))
+  return fixture
+}
+
+/** What public.site_route_facts(name) answers, over the fixture's tables (and failing where the fixture fails one of them). */
+export function siteRouteFacts(f: Fixture, name: string): Record<string, unknown> {
+  const t = (table: string) => {
+    if (f.fail?.includes(table)) throw new Error(`the database did not answer (${table})`)
+    return f.tables[table] ?? []
+  }
+  const lower = name.toLowerCase()
+  const none = { creator_id: null, published: false, compat: false }
+  if (!lower) return none
+  const profile = t("profiles").find((p) => p.username === lower)
+  let creator = profile ? t("creators").find((c) => c.user_id === profile.id) : undefined
+  if (!creator) creator = t("creators").find((c) => c.slug === lower)
+  if (!creator) return none
+  const install = t("store_theme_installs")
+    .filter((i) => i.creator_id === creator!.id && i.status === "published")
+    .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0))[0]
+  const settings = install ? t("store_theme_settings").find((s) => s.install_id === install.id) : undefined
+  const kind = ((settings?.settings as { compat?: { kind?: unknown } } | undefined)?.compat?.kind ?? null) as string | null
+  const loc = (f.tables.store_localization ?? []).find((l) => l.creator_id === creator!.id) ?? null
+  const store = (f.tables.store_settings ?? []).find((s) => s.creator_id === creator!.id)
+  const domain = install ? t("custom_domains").find((d) => d.creator_id === creator!.id && d.status === "active" && d.purpose === "website" && d.is_primary === true) : undefined
+  return {
+    creator_id: creator.id,
+    published: !!install,
+    compat: kind === "shopify",
+    localization: loc,
+    store: store ? { default_country: store.default_country ?? null, currency: store.currency ?? null } : null,
+    website_domain: domain ? { domain: domain.domain, ssl_status: (domain.ssl_status as string | undefined) ?? null } : null,
   }
 }

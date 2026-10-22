@@ -97,7 +97,22 @@ export const unstable_noStore = () => {}
    * (tests/_journey sets globalThis.__PUSH_TEST_AFTER__ to collect them and
    * runs each once the route has answered, as Next does).
    */
-  "next/server": `export class NextResponse extends Response {
+  "next/server": `class NextURL extends URL {
+  clone() { return new NextURL(this.href) }
+}
+/* A cookie jar over headers, as Next's RequestCookies and ResponseCookies read and write them: enough for proxy.ts. */
+const jar = (read) => ({
+  get(name) {
+    for (const part of (read() ?? "").split(";")) {
+      const at = part.indexOf("=")
+      if (at > 0 && part.slice(0, at).trim() === name) return { name, value: decodeURIComponent(part.slice(at + 1).trim()) }
+    }
+    return undefined
+  },
+  has(name) { return this.get(name) !== undefined },
+  getAll() { return (read() ?? "").split(";").map((p) => p.trim()).filter(Boolean).map((p) => ({ name: p.split("=")[0], value: p.slice(p.indexOf("=") + 1) })) },
+})
+export class NextResponse extends Response {
   static json(body, init) {
     const headers = new Headers(init?.headers)
     if (!headers.has("content-type")) headers.set("content-type", "application/json")
@@ -108,8 +123,44 @@ export const unstable_noStore = () => {}
     return new NextResponse(null, { status, headers: { location: String(url) } })
   }
   static next() { return new NextResponse(null) }
+  /* A rewrite as Next writes it for the server: the address in x-middleware-rewrite, and the request's headers, when given, as overrides. */
+  static rewrite(url, init) {
+    const r = new NextResponse(null)
+    r.headers.set("x-middleware-rewrite", String(url))
+    const sent = init?.request?.headers
+    if (sent) {
+      const names = []
+      for (const [k, v] of new Headers(sent).entries()) {
+        names.push(k)
+        r.headers.set("x-middleware-request-" + k, v)
+      }
+      r.headers.set("x-middleware-override-headers", names.join(","))
+    }
+    return r
+  }
+  get cookies() {
+    const headers = this.headers
+    return {
+      set(name, value, opts) {
+        const o = typeof name === "object" ? name : { name, value, ...(opts ?? {}) }
+        const parts = [o.name + "=" + encodeURIComponent(o.value ?? "")]
+        if (o.path) parts.push("Path=" + o.path)
+        if (o.maxAge !== undefined) parts.push("Max-Age=" + o.maxAge)
+        if (o.sameSite) parts.push("SameSite=" + o.sameSite)
+        if (o.secure) parts.push("Secure")
+        if (o.httpOnly) parts.push("HttpOnly")
+        headers.append("set-cookie", parts.join("; "))
+      },
+      delete(name) { headers.append("set-cookie", name + "=; Path=/; Max-Age=0") },
+      get() { return undefined },
+      getAll() { return [] },
+    }
+  }
 }
-export class NextRequest extends Request {}
+export class NextRequest extends Request {
+  get nextUrl() { return (this._nextUrl ??= new NextURL(this.url)) }
+  get cookies() { return jar(() => this.headers.get("cookie")) }
+}
 export const after = (task) => globalThis.__PUSH_TEST_AFTER__?.(task)
 `,
   /**
