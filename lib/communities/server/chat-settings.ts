@@ -15,7 +15,7 @@ import "server-only"
  * accepted when the community has them (409 with `code: "rules"`, which the
  * page answers by showing the rules once).
  */
-import { chatRestriction, chatSettingsOf, chatSettingsPatch, memberDmsOf, rulesNeeded, type ChatKind, type ChatNotify, type ChatPref, type ChatSettings, type MemberDms } from "../chat-rules"
+import { chatRestriction, chatSettingsOf, chatSettingsPatch, memberDmsOf, rulesNeeded, type ChatKind, type ChatNotify, type ChatPref, type ChatSettings, type DmStartView, type MemberDms } from "../chat-rules"
 import { ROLE_RANK } from "../permissions"
 import type { CommunityRow, Role } from "../types"
 import { audit } from "./audit"
@@ -130,6 +130,21 @@ export async function chatGate(db: Db, community: Pick<CommunityRow, "id" | "cha
   if (r?.kind === "muted") return { ok: false, error: `You can send messages again ${new Date(r.until).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`, status: 403, code: "chat_muted" }
   if (rulesNeeded(settings, state?.rulesVersion)) return { ok: false, error: "Read and accept the chat rules first.", status: 409, code: "rules" }
   return { ok: true, settings, state }
+}
+
+/** The viewer's own standing for starting a conversation (round 38), for the members list. */
+export async function dmStartFor(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer): Promise<DmStartView | null> {
+  if (!viewer.userId) return null
+  const s = await loadChatSettings(db, community.id)
+  return {
+    policy: s.dmPolicy,
+    minLevel: s.dmMinLevel,
+    minDays: s.dmMinDays,
+    toStaff: s.dmToStaff,
+    myRole: viewer.userId === community.owner_user_id ? "owner" : viewer.role,
+    myLevel: viewer.member?.level ?? 1,
+    myJoinedAt: viewer.member?.joined_at ?? viewer.member?.created_at ?? null,
+  }
 }
 
 /** The member accepted the rules as they read now. */

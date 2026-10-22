@@ -14,6 +14,8 @@ import { admin } from "@/lib/communities/server/db"
 import { listSpaces, spaceViews } from "@/lib/communities/server/feed"
 import { unreadCounts } from "@/lib/communities/server/chat"
 import { unreadConversations } from "@/lib/communities/server/direct"
+import { loadChatSettings } from "@/lib/communities/server/chat-settings"
+import { chatTabOf } from "@/lib/communities/chat-rules"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
@@ -90,11 +92,13 @@ export const shellData = cache(async (communityId: string, viewer: Viewer, commu
   const db = admin()
   const rows = await listSpaces(db, communityId)
   const chatIds = rows.filter((s) => s.kind === "chat").map((s) => s.id)
-  const [unread, messages] = await Promise.all([
+  const [unread, messages, chatSettings] = await Promise.all([
     community.chat_enabled && chatIds.length ? unreadCounts(db, viewer, chatIds) : Promise.resolve(new Map<string, number>()),
     unreadConversations(db, community, viewer),
+    community.chat_enabled && chatIds.length ? loadChatSettings(db, communityId) : Promise.resolve(null),
   ])
-  return { community: toShellCommunity(community), spaces: spaceViews(rows, viewer, community, unread), rows, unreadMessages: messages }
+  const spaces = spaceViews(rows, viewer, community, unread)
+  return { community: { ...toShellCommunity(community), chatTab: chatTabOf(spaces, chatSettings) }, spaces, rows, unreadMessages: messages }
 })
 
 /** The product a creator's post files are uploaded under: one that sells this community, when it has one. */

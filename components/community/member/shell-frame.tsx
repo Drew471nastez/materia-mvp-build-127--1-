@@ -432,7 +432,9 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, viewer, readOnly: community.archived || !!viewer.mutedUntil, children })
   hooksRef.current = screens.hooks
   const shown = screens.shown
-  const tab = placeTab(nav.place)
+  /* Round 38: with a Chat tab, a chat channel lights Chat rather than Community. */
+  const chatTabSet = useMemo(() => (community.chatTab ? new Set(chatSpaces.map((c) => c.toLowerCase())) : null), [community.chatTab, chatSpaces])
+  const tab = placeTab(nav.place, chatTabSet)
   const about = shown.kind === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
   const lessonPage = shown.kind === "program"

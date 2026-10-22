@@ -59,6 +59,8 @@ export interface ShellCommunity {
   links?: SocialLinkView[]
   /** Round 26: published (not a draft), for whether the card's cover offers Share. */
   published?: boolean
+  /** Round 38: the Chat tab, opening this channel (the admins' main one, else the first the member may read); null without the tab. */
+  chatTab?: { slug: string } | null
 }
 
 /** A community as the top bar and its switcher draw it. */

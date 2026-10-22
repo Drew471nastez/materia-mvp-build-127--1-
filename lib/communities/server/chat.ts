@@ -221,6 +221,20 @@ async function lastMineAt(db: Db, spaceId: string, userId: string): Promise<numb
   return at ? Date.parse(at) : null
 }
 
+/** A channel's pinned message as one line (round 38), or null when there is none or it was taken down. */
+export async function pinnedLine(db: Db, communityId: string, spaceId: string, messageId: string | null): Promise<{ id: string; authorName: string; text: string } | null> {
+  if (!messageId || !UUID.test(messageId)) return null
+  try {
+    const { data } = await db.from("community_messages").select("id, space_id, author_id, body, status, attachments").eq("id", messageId).eq("community_id", communityId).maybeSingle()
+    const row = data as { id: string; space_id: string; author_id: string | null; body: string; status: string; attachments?: unknown } | null
+    if (!row || row.space_id !== spaceId || row.status !== "published") return null
+    const author = row.author_id ? (await authorViews(db, communityId, [row.author_id])).get(row.author_id) : null
+    return { id: row.id, authorName: author?.name ?? "Member", text: snippet(row.body, 140) || attachmentLine(chatMediaOf(row.attachments)) || "Message" }
+  } catch {
+    return null
+  }
+}
+
 /** A message this sender already wrote under this client id (a retried send), or null. */
 async function sentBefore(db: Db, userId: string, clientId: string | null): Promise<Row | null> {
   if (!clientId) return null

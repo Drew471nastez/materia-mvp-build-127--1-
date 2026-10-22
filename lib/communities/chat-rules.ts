@@ -319,6 +319,27 @@ export function dmButtonReason(v: DmStartView | null | undefined, recipientRole:
   return "error" in d ? dmShortReason(d.reason, v) : null
 }
 
+/* ── The Chat tab (round 38) ─────────────────────────────────────────── */
+
+/**
+ * The channel the community's Chat tab opens, or null for no tab: the
+ * admins switched it off, or the member can read no chat channel. The main
+ * channel when the admins picked one the member can read, else the first.
+ */
+export function chatTabOf(spaces: readonly { id: string; slug: string; kind: string }[], settings: Pick<ChatSettings, "chatTab" | "mainSpaceId"> | null | undefined): { slug: string } | null {
+  if (!settings || !settings.chatTab) return null
+  const chats = spaces.filter((s) => s.kind === "chat")
+  const main = chats.find((s) => s.id === settings.mainSpaceId) ?? chats[0]
+  return main ? { slug: main.slug } : null
+}
+
+/** The chat channels in the order the Chat tab lists them: the main one first, then the rest as the admins ordered them. */
+export function chatTabChannels<T extends { slug: string; kind: string }>(spaces: readonly T[], mainSlug: string | null | undefined): T[] {
+  const chats = spaces.filter((s) => s.kind === "chat")
+  const main = chats.find((s) => s.slug === mainSlug)
+  return main ? [main, ...chats.filter((s) => s !== main)] : chats
+}
+
 /* ── Who may post in a channel (round 38) ─────────────────────────────── */
 
 export type ChannelPost = "everyone" | "level" | "team"
