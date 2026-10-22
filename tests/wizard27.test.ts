@@ -136,12 +136,11 @@ console.log("\nThe setup pill and the bottom bars")
 console.log("\nA community's analytics")
 {
   const a = code("components/community/creator/analytics-section.tsx")
-  const tabs = a.slice(a.indexOf("function SectionTabs"), a.indexOf("function Overview"))
-  check("the sections are tabs on a hairline, not a grey track", /border-b border-\[#e5e7eb\]/.test(tabs) && !/bg-\[#f1f2f4\] p-0\.5/.test(tabs))
-  check("one 2px line under the chosen word, sliding on the compositor", /data-tab-line=""/.test(tabs) && /h-\[2px\]/.test(tabs) && /transition-\[translate,width\]/.test(tabs) && /translate: `\$\{line\.x\}px 0`/.test(tabs))
-  check("  measured again when the row changes size", /new ResizeObserver\(place\)/.test(tabs))
-  check("44px to a finger, 40px from sm", /h-11/.test(tabs) && /sm:h-10/.test(tabs))
-  check("32px under the overview, 20px over the panel", /relative mt-8 overflow-x-auto/.test(tabs) && /"mt-5 space-y-4", dim/.test(a) && !/className="space-y-4" data-analytics=""/.test(a))
+  /* Changed on purpose (round 37): the owner asked for the chart and its switchers only, so the sections' row of tabs on a hairline is gone. What stands in its place is /app Analytics' figure strip over the one chart, and one details card under it. */
+  check("no sections' row any more", !/function SectionTabs|data-analytics-sections/.test(a))
+  check("the figure tabs are /app Analytics' MetricTab in the strip that scrolls sideways on a phone", /<MetricTab/.test(a) && /useTabStrip<HTMLDivElement>/.test(a) && /overflow-x-auto scrollbar-hide/.test(a))
+  check("each figure an equal share of the row, never under 124px", /const STRIP_TAB = "min-w-\[124px\] flex-1 basis-0 shrink-0"/.test(a))
+  check("16px between the period, the chart card and the details", (a.match(/cn\("mt-4", dim\)/g) ?? []).length === 2)
 }
 
 console.log("\nCopy")

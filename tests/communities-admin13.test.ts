@@ -297,7 +297,8 @@ async function main() {
   check("a community that sells nothing has no revenue block", freeStats.revenue === null)
   const ana = code("components/community/creator/analytics-section.tsx")
   /* Changed on purpose (round 31): the revenue strip became a chart of five figures (Revenue, Monthly revenue, Active subscribers, New, Cancellations), with the churn rate under Cancellations and refunds in the line under Revenue; tests/community-analytics-r31.test.ts holds the rest. */
-  check("the revenue strip is the /app Analytics figure tabs", /from "@\/components\/app\/metric-tab"/.test(ana) && /useTabStrip/.test(ana) && ["Revenue", "Monthly revenue", "Active subscribers", "Cancellations", "Churn rate", "refunded in this period"].every((w) => ana.includes(w)))
+  /* Changed on purpose (round 37): Revenue is one of the figure tabs over the one chart; the paid members (paying, started paying, cancelled with the churn rate) and the refunds are in the details card under it. */
+  check("revenue is a figure tab of /app Analytics' strip, its paid members in the details", /from "@\/components\/app\/metric-tab"/.test(ana) && /useTabStrip/.test(ana) && ["Revenue", "Paid members", "Started paying", "Cancelled", "Churn rate", "refunded in this period"].every((w) => ana.includes(w)))
   check("the joins and invite cards", /How people joined/.test(ana) && /Invite links/.test(ana))
   const anaRoute = code("app/api/app/community/[id]/analytics/route.ts")
   check("the analytics route answers money too, behind view_analytics", /requireCreatorCommunity\(id, "view_analytics"\)/.test(anaRoute) && /loadMoneyAndGrowth/.test(anaRoute))
