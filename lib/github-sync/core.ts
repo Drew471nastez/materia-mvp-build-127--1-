@@ -19,6 +19,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 /* The one rulebook, so a repository's agents read what the builder and MCP agents read. Pure text, no Next. */
 import { RULEBOOK_VERSION, ruleGroupsMarkdown } from "@/lib/agent-rules"
+/* Pure text: what Storelib adds to Theme settings, and what the canvas tells a theme's script. */
+import { LIVE_PREVIEW_EVENTS, PLATFORM_SETTINGS_PATH } from "@/lib/storelib-theme/platform-settings"
 
 /** The one kind of file a push can change on a site. Same rule as a connected agent. */
 export const SYNCED = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
@@ -361,10 +363,27 @@ README.md says what each folder is and which ones Storelib reads back.
 2. Commit and push to \`${opts.branch}\`.
 3. Storelib reads every changed file and saves it to the site as a draft. A
    builder that is open shows it within a few seconds.
-4. The commit gets a status named "Storelib", and when a file was not taken
-   a comment on the commit lists each one with its line and what to fix. The
-   other files in the same push are still taken. Fix the file and push again.
+4. The commit gets a status named "Storelib" and a comment saying which
+   files were taken, and listing each one that was not with its line and what
+   to fix. The other files in the same push are still taken. Fix the file and
+   push again. How to read them is below.
 5. Nothing is live until the creator presses Publish in the builder.
+
+## Reading what Storelib said about a push
+
+Storelib writes the same words three ways, so whatever access you have, one
+of them reaches you:
+
+- **A git note**, with nothing but this clone:
+  \`git fetch origin refs/notes/storelib:refs/notes/storelib\` then
+  \`git notes --ref=storelib show HEAD\` (or \`git log --notes=storelib\`).
+- **The commit comment**, readable by anyone who can read the code:
+  \`gh api repos/{owner}/{repo}/commits/<sha>/comments\`.
+- **The commit status** named "Storelib" (\`gh api repos/{owner}/{repo}/commits/<sha>/status\`,
+  which needs read access to commit statuses). Its Details link is the comment.
+
+A push Storelib read with nothing to change ("Already up to date") gets only
+the status. Give it a few seconds after the push.
 
 ${shopify
     ? "Every section here is the theme's own; change it in place. Keep the `<template compat=\"shopify\">` line and the schema block after it."
@@ -404,6 +423,32 @@ in \`config/settings.json\`; a \`config/settings_data.json\` shaped
 \`{ "current": { ... } }\` is taken the same way, and what it leaves
 out stays as it is. A file that does not read is refused with its line. A
 change to a \`sections/<type>.json\` is refused and the commit says so.`}
+
+## Settings Storelib adds to Theme settings
+
+${shopify
+    ? `The builder shows the theme's own groups and then Storelib's Hover and
+focus: Buttons on hover (Background, Text, Border, Effect), Links on hover
+(Colour) and Fields (Border, Focus ring, Corner radius). They are not in the
+theme's schema.`
+    : `Theme settings are Storelib's groups (Logo and brand, Page colors,
+Typography, Buttons and inputs, Layout, Product cards, Cart, Social links,
+Cookie banner, Animations, Menus) with \`config/settings_schema.json\` laid
+over them.`} \`${PLATFORM_SETTINGS_PATH}\` lists every one: id, type, label,
+options, default and the group it shows in. Storelib writes that file, so
+change values, not the file: each value is in \`config/settings.json\`${shopify ? ' under\n\`"shopify"\`' : ""}, written out with its default where none was chosen. A
+default you leave as it is stays the default.${shopify ? ` To draw one of
+these where the theme wants it, declare its id in
+\`shopify/config/settings_schema.json\`: the builder then shows it there and
+leaves it out of Hover and focus, and the value stays where it is.` : ""} Menus
+are \`menus\` in the same file, as Navigation in the builder shows them.${shopify ? " Colour schemes are under \`\"shopify\"\` by the theme's own setting id, usually \`color_schemes\`." : ` Colour schemes are \`color_schemes\`: a built-in one keeps there only what differs from its colours, which \`${PLATFORM_SETTINGS_PATH}\` lists.`}
+
+## Live preview in the builder
+
+A change in the builder is drawn in the canvas without reloading the page.
+A script of the theme's that sets itself up once hears it on \`document\`:
+
+${LIVE_PREVIEW_EVENTS.map((e) => `- \`${e.event}\`: ${e.when}`).join("\n")}
 
 ${formatGuide({ imported: shopify, examples: opts.examples })}
 README.md, AGENTS.md, CLAUDE.md and storelib.json are rewritten by Storelib,

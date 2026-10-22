@@ -13,6 +13,7 @@ import { compatOf, ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { builtInSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { ThemeSnapshot } from "./layout"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -53,16 +54,24 @@ export function referenceSchemas(): Record<string, unknown> {
 export async function readSnapshot(
   db: Db,
   installId: string,
-  opts: { name: string; fetchMedia?: (url: string, maxBytes: number) => Promise<Uint8Array | null> },
+  /* creatorId: whose store's menus the builder shows (lib/website-builder/store-menus-server.ts). */
+  opts: { name: string; creatorId?: string | null; fetchMedia?: (url: string, maxBytes: number) => Promise<Uint8Array | null> },
 ): Promise<ThemeSnapshot> {
-  const [settingsRow, pagesRes, files] = await Promise.all([
+  const [settingsRow, pagesRes, files, storeMenus] = await Promise.all([
     db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle(),
     db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId),
     allFiles(db, installId),
+    opts.creatorId ? storeMenusOrNull(db, opts.creatorId) : Promise.resolve(null),
   ])
   if (settingsRow.error) throw new SnapshotError("Could not read this website's settings. Try again.")
   if (pagesRes.error) throw new SnapshotError("Could not read this website's pages. Try again.")
-  const settings = ((settingsRow.data?.draft_settings ?? settingsRow.data?.settings) ?? {}) as Record<string, unknown>
+  /*
+    The menus the builder's Navigation shows: the store's, once it keeps
+    them, over the theme's own copy. Without this the repository held the
+    menus as they were before the store took them over, and an agent edited
+    menus nobody sees.
+  */
+  const settings = withStoreMenus(((settingsRow.data?.draft_settings ?? settingsRow.data?.settings) ?? {}) as Record<string, unknown>, storeMenus)
   const pages = ((pagesRes.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[])
     .map((p) => ({ page_key: p.page_key, sections: (p.draft_sections ?? p.sections ?? []) as unknown }))
     .sort((a, b) => (a.page_key < b.page_key ? -1 : 1))
@@ -77,6 +86,7 @@ export async function readSnapshot(
     defaults: compat ? {} : { ...(DEFAULT_THEME_SOURCES as Record<string, string>) },
     referenceSchemas: compat ? undefined : referenceSchemas(),
     settingsSchema: compat ? undefined : builtInSettingsSchema(),
+    storeMenus: storeMenus !== null,
   }
 
   /* An imported theme's pictures live in storage; the repository gets their bytes, within limits. */
