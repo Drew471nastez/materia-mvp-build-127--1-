@@ -322,25 +322,21 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const canSend = viewer.active && !readOnly
   /* The dialogs are built the first time one is asked for, then kept (so they can animate out). */
   const asked = useRef(false)
-  const askedSend = useRef(false)
   if (confirm || report) asked.current = true
+  const dialogs = asked.current ? (
+    <>
+      <ConfirmSheet state={confirm} onClose={() => setConfirm(null)} />
+      <ReportSheet communityId={post.communityId} target={report} onClose={() => setReport(null)} />
+    </>
+  ) : null
+  /* Send in a message, the same way: built on its first press, then kept. */
+  const askedSend = useRef(false)
   if (sending) askedSend.current = true
-  const dialogs =
-    asked.current || askedSend.current ? (
-      <>
-        {asked.current ? (
-          <>
-            <ConfirmSheet state={confirm} onClose={() => setConfirm(null)} />
-            <ReportSheet communityId={post.communityId} target={report} onClose={() => setReport(null)} />
-          </>
-        ) : null}
-        {askedSend.current ? (
-          <Suspense fallback={null}>
-            <SendInMessage post={{ id: post.id, communityId: post.communityId, title: post.title, bodyText: post.bodyText }} open={sending} onClose={() => setSending(false)} />
-          </Suspense>
-        ) : null}
-      </>
-    ) : null
+  const sendPicker = askedSend.current ? (
+    <Suspense fallback={null}>
+      <SendInMessage post={{ id: post.id, communityId: post.communityId, title: post.title, bodyText: post.bodyText }} open={sending} onClose={() => setSending(false)} />
+    </Suspense>
+  ) : null
   /* Its height, remembered for the next time the feed is drawn (A PAGE OF POSTS COSTS ONE SCREENFUL). */
   const cardRef = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -759,6 +755,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         </footer>
 
         {dialogs}
+        {sendPicker}
         {opened ? (
           <PostOverlay
             post={post}
@@ -842,6 +839,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       </footer>
 
       {dialogs}
+      {sendPicker}
     </article>
   )
 }

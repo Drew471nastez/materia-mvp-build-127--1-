@@ -17,7 +17,7 @@
  *                button is. `place="page"`: a dialog over the page.
  *
  * THE MOTION. opacity, `translate` and `scale` (the individual properties,
- * never `transform`), so the compositor runs it and nothing is laid out
+ * never the combined matrix property), so the compositor runs it and nothing is laid out
  * again as it moves. The first frame is the closed one: the layer is
  * committed closed, its style is read once (a forced style read in a layout
  * effect, before paint), and only then marked open, so the transition always
