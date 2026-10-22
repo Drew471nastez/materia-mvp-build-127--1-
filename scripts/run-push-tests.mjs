@@ -148,6 +148,10 @@ const SUITES = [
   "tests/editor-live-edit-34.test.ts",
   /* Round 35: a section's setting and a theme value dragged on an imported theme follow the finger; scripts/check-compat-live-edit.ts measures them. */
   "tests/compat-live-edit-35.test.ts",
+  /* Round 36: a theme value only the layout's CSS reads, on an imported theme, written as the layout's styles drawn alone; scripts/check-compat-live-edit.ts measures it. */
+  "tests/compat-theme-css-36.test.ts",
+  /* Round 36: the builder's canvas draws a .storelib section's scheme colours as its root's variables, so a scheme colour under a finger draws no section again; scripts/check-scheme-vars.ts compares the computed styles, scripts/check-editor-live-edit.mjs measures the drag. */
+  "tests/scheme-vars-36.test.ts",
   "tests/theme-freedom.test.ts",
   "tests/reference-diff.test.ts",
   "tests/ai-runs-admin.test.ts",
@@ -185,6 +189,9 @@ const SUITES = [
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
   "tests/analytics-audience.test.ts",
+  /* Round ana-1021: a visitor's browser to the seller's report through the real tracker, collect, the reports' answer and a database fake (every surface, bots, repeats, orders); every timeframe, the comparison, product and place on every number, the seller's clock, the sections a seller sees and the reports they add (scripts/check-analytics-tabs.mjs measures the tabs, shifts and switching). */
+  "tests/analytics-e2e.test.ts",
+  "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",

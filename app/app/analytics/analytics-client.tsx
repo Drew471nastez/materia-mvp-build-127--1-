@@ -26,14 +26,26 @@
  * or a return keeps it. The old OnePage view (`?mode=onepage`) is the OnePage
  * property.
  *
- * THERE IS NO COMPARISON CONTROL. Every percentage is against the period
- * just before, the same number of days ending the day before
- * (lib/date-range/range compareBounds), sent with the question.
+ * THERE IS NO COMPARISON CONTROL ("get rid of the comparison selector").
+ * Every percentage is against the period just before, the same number of
+ * days ending the day before, cut at the same hour while the period is still
+ * running (lib/date-range/range compareBounds), and All time against nothing.
+ * Those very instants go to every read on the page: the chart and its cards,
+ * the sales reports and the communities, so every "was" on it is the same
+ * stretch of time.
+ *
+ * WHAT IS DRAWN FOLLOWS WHAT THE SELLER SELLS AND HAS (lib/analytics/
+ * sections): shipping and fulfilment for one who ships or has a published
+ * website, downloads for digital products, the OnePage's links for the
+ * OnePage, communities for one who runs one. And the reports they added,
+ * read on the server with the page so they are on the first paint
+ * (./add-reports), as cards of their own after the rest.
  */
 
 import { CommerceReports } from "./commerce-reports"
-import { AddReports, sellsDigital, useAddedReports } from "./add-reports"
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { CommunityReports, type CommunityPlace } from "./community-reports"
+import { AddReportButton, ReportPicker, reportActions, useAddedReports } from "./add-reports"
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
 import { TrendingDown, TrendingUp } from "lucide-react"
@@ -45,6 +57,7 @@ import { ProductPicker } from "@/components/app/product-picker"
 import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
+import { kindOfProduct, profileOf, reportOptions, reportShown, sectionsFor, type ReportId } from "@/lib/analytics/sections"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
@@ -79,6 +92,10 @@ interface AnalyticsClientProps {
   products: Product[]
   /** The creator's places, read on the server (lib/analytics/report-read creatorProperties). */
   properties: CreatorProperties
+  /** The communities the seller runs, published or archived (a draft has had no visitor). */
+  communities?: CommunityPlace[]
+  /** The reports the seller added, read on the server; null when none were ever saved there. */
+  savedReports?: ReportId[] | null
 }
 
 type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion"
@@ -198,7 +215,7 @@ function propertyFromAddress(params: URLSearchParams, properties: CreatorPropert
   return ownsProperty(properties, p) ? p : DEFAULT_PROPERTY
 }
 
-export function AnalyticsClient({ products, userId, properties }: AnalyticsClientProps) {
+export function AnalyticsClient({ products, userId, creatorId, properties, communities = [], savedReports = null }: AnalyticsClientProps) {
   const searchParams = useSearchParams()
   const { t } = useLanguage()
 
@@ -251,11 +268,34 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
 
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [selectedProduct, setSelectedProduct] = useState("all")
-  const [added, setAdded] = useAddedReports()
-  const sellsPhysical = products.some((p) => (p.type || "").toLowerCase() === "physical")
-  const hasPublishedSite = properties.websites.some((w) => w.published !== false)
-  const showFulfillment = sellsPhysical || hasPublishedSite
-  const offerDownloads = sellsDigital(products)
+  /* What this seller sells and has, and so which sections are drawn for what is chosen (lib/analytics/sections). */
+  const profile = useMemo(() => profileOf({ products, onePageId: properties.onePageId, websites: properties.websites, communities: communities.length }), [products, properties, communities.length])
+  const chosenProduct = selectedProduct === "all" ? null : products.find((p) => p.id === selectedProduct) ?? null
+  const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null })
+  /* The reports the seller added: cards of their own after the rest, never more tabs on the chart. */
+  const [added, saveAdded] = useAddedReports(creatorId, savedReports)
+  const reportChoices = useMemo(() => reportOptions(profile), [profile])
+  const shownAdded = added.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null }))
+  const actions = reportActions(added, saveAdded)
+  const [picking, setPicking] = useState(false)
+  /* A report just added is brought into view once it is on screen, wherever the picker was opened from. */
+  const reveal = useRef<ReportId | null>(null)
+  const saveFromPicker = useCallback(
+    (next: ReportId[]) => {
+      reveal.current = next.find((id) => !added.includes(id)) ?? null
+      saveAdded(next)
+    },
+    [added, saveAdded],
+  )
+  useLayoutEffect(() => {
+    const id = reveal.current
+    if (!id) return
+    reveal.current = null
+    const el = document.querySelector<HTMLElement>(`[data-card="${id}"]`)
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" })
+  }, [added])
   /* The chart is these four. Added reports are cards under it, never more tabs here. */
   const tabOrder = CORE_TABS
 
@@ -468,7 +508,10 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
       */}
       <PullToRefreshEvent scope="app-analytics">
       <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
-        <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
+          <AddReportButton marker="add-report" label={tt("Add report")} onClick={() => setPicking(true)} className="h-9 sm:h-10" />
+        </div>
 
         {/* The period and the place side by side, the product at the end. No comparison control.
             On a phone one row that scrolls sideways, as the figures below do: a longer label
@@ -516,8 +559,8 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
                 /* The placeholder is not blurred: the frame IS the loading
                    state. The blur belongs to a refetch, where real numbers
                    are being replaced and going soft says so. */
-                className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                  chartIsLoading ? "opacity-100 blur-0" : isRefreshing ? "opacity-40 blur-[1.5px]" : "opacity-100 blur-0"
+                className={`transition-opacity duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                  chartIsLoading ? "opacity-100" : isRefreshing ? "opacity-40" : "opacity-100"
                 }`}
               >
                 <AnalyticsChartWithTooltip
@@ -558,14 +601,32 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
           </div>
         </div>
 
-        {/* No separate physical panel: physical sales are in the chart, the figures and the reports below (Top products splits Physical and Digital), like any other sale. Fulfillment shows only for a store that ships or has a published website. */}
-        {/* The store's sales reports, for the same period, place and product as the chart (./commerce-reports). */}
-        <CommerceReports span={safeSpan} product={selectedProduct} property={propertyKey} showFulfillment={showFulfillment} />
-        {/* The reports under the chart, from the same answer. */}
-        <AnalyticsReports state={reportsState} property={property} cards={added.cards} />
+        {/* The store's sales reports, for the same period, comparison, place and product as the chart (./commerce-reports). Physical sales are in the chart, the figures and Top products like any other sale; shipping and fulfilment only for a seller who ships or has a published website. */}
+        {sections.sales ? (
+          <CommerceReports
+            span={safeSpan}
+            compare={against}
+            timeZone={timeZone}
+            product={selectedProduct}
+            property={propertyKey}
+            showShipping={sections.shipping}
+            showFulfillment={sections.fulfillment}
+            viewer={userId}
+            refresh={tick}
+          />
+        ) : null}
+        {/* The reports under the chart, from the same answer, with the communities and the reports the seller added. */}
+        <AnalyticsReports
+          state={reportsState}
+          property={property}
+          sections={sections}
+          extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} /> : null}
+          added={{ ids: shownAdded, ...actions }}
+        />
         <div className="flex justify-center pt-1">
-          <AddReports added={added} onChange={setAdded} offerDownloads={offerDownloads} />
+          <AddReportButton marker="add-more" label={tt("Add more")} onClick={() => setPicking(true)} />
         </div>
+        <ReportPicker open={picking} onOpenChange={setPicking} options={reportChoices} added={added} onSave={saveFromPicker} />
       </div>
       </PullToRefreshEvent>
 

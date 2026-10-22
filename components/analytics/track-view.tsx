@@ -14,6 +14,7 @@ import {
 } from "@/lib/analytics-utils"
 import { schedulePageView, skipReason, watchOutboundLinks } from "@/lib/analytics/page-tracker"
 import { pixelEvent } from "@/lib/analytics/pixels"
+import { cameFromExplore } from "@/lib/analytics/events"
 
 interface TrackViewProps {
   /**
@@ -86,6 +87,14 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
             pageTitle: (document.title || "").trim().slice(0, 200) || undefined,
             /* How WhatsApp and the in-app browsers are told apart when there is no referrer. */
             clientApp: attr.clientApp || null,
+            /* Opened from Storelib Explore in this tab (components/analytics/explore-mark). */
+            via: (() => {
+              try {
+                return cameFromExplore(window.sessionStorage) ? "explore" : undefined
+              } catch {
+                return undefined
+              }
+            })(),
           }
         },
       })

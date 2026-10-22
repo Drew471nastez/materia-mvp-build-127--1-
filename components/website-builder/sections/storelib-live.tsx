@@ -90,6 +90,15 @@ export function editorPageExtras(template: string, products: Card[], data?: Stor
 }
 
 /** What the builder canvas draws its sections with, past the sources: the page's template, the shop's products, its facts and the header's logo. */
+/*
+  The builder's canvas draws a section's scheme colours as the variables its
+  root holds, where its template allows (lib/storelib-theme/scheme-vars.ts):
+  a scheme colour under a finger is then those variables alone, written by
+  hand (editor page.tsx canvasThemePatcher). Only the canvas: the picker's
+  previews and the published page print the colours.
+*/
+const CANVAS_RENDER = { schemeVariables: true } as const
+
 export interface CanvasLive {
   page?: { template: string }
   products?: RenderContext["products"]
@@ -177,8 +186,8 @@ export function StorelibLiveProvider({
   const extras = useMemo(() => editorPageExtras(template, products ?? [], data), [template, products, data])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals),
-    [sources, template, inEditor, products, data, globals, extras, headerLogo],
+      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals, canvas ? CANVAS_RENDER : undefined),
+    [sources, template, inEditor, products, data, globals, extras, headerLogo, canvas],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

@@ -73,6 +73,7 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
+import { schemeColoursOnly, schemeVarWriter, type SchemeRoot } from "@/lib/website-builder/scheme-var-patch"
 import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
@@ -12150,17 +12151,28 @@ function canvasThemePatcher(get: {
   committed: () => ThemeSettingsValues
   ids: () => readonly string[]
   onScreen: (id: string) => boolean
-}): (theme: ThemeSettingsValues) => void {
+  settingsOf: (id: string) => Record<string, unknown> | undefined
+}): ((theme: ThemeSettingsValues) => void) & { byVariables: (id: string) => boolean } {
   const written = new Map<HTMLElement, Set<string>>()
   let rootBackground: HTMLElement | null = null
+  /*
+    A SCHEME COLOUR, ONLY ITS VARIABLES (round 36). A section drawn with its
+    scheme as variables (lib/storelib-theme/scheme-vars.ts, its root marked
+    data-scheme-vars) is not drawn again while a colour of a scheme moves:
+    the variables of its root that the colour changes are written there
+    (lib/website-builder/scheme-var-patch.ts), and EditorCanvasPage keeps
+    the committed theme for it (byVariables).
+  */
+  const schemes = schemeVarWriter()
   const letGo = (el: HTMLElement, keys: Set<string>) => {
     for (const k of keys) el.style.removeProperty(k)
     written.delete(el)
   }
-  return (theme) => {
+  const patch = (theme: ThemeSettingsValues) => {
     const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
     const base = get.committed()
     if (theme === base) {
+      schemes.letGo(base as unknown as Record<string, unknown>)
       for (const [el, keys] of [...written]) letGo(el, keys)
       if (rootBackground) { rootBackground.style.removeProperty("background-color"); rootBackground = null }
       if (!root) return
@@ -12169,6 +12181,15 @@ function canvasThemePatcher(get: {
       }
       return
     }
+    if (schemeColoursOnly(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>)) {
+      const roots: SchemeRoot[] = []
+      for (const id of get.ids()) {
+        if (!get.onScreen(id)) continue
+        const el = document.getElementById(`wb-section-${id}`)?.querySelector<HTMLElement>("[data-scheme-vars]")
+        if (el) roots.push({ id, root: el, settings: get.settingsOf(id) ?? {} })
+      }
+      schemes.write(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>, roots)
+    } else schemes.letGo(base as unknown as Record<string, unknown>)
     const want = themeVars(theme)
     const was = themeVars(base)
     const changed = Object.keys(want).filter((k) => want[k] !== was[k])
@@ -12199,6 +12220,7 @@ function canvasThemePatcher(get: {
       rootBackground = null
     }
   }
+  return Object.assign(patch, { byVariables: schemes.has })
 }
 
 /**
@@ -12312,8 +12334,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   committedRef.current = committedTheme
   const idsRef = useRef<readonly string[]>([])
   const onScreenRef = useRef<(id: string) => boolean>(() => true)
+  const sectionsNowRef = useRef(sections)
+  sectionsNowRef.current = sections
   const [patchCanvasThemeVars] = useState(() =>
-    canvasThemePatcher({ committed: () => committedRef.current, ids: () => idsRef.current, onScreen: (id) => onScreenRef.current(id) }),
+    canvasThemePatcher({
+      committed: () => committedRef.current,
+      ids: () => idsRef.current,
+      onScreen: (id) => onScreenRef.current(id),
+      settingsOf: (id) => sectionsNowRef.current.find((s) => s.id === id)?.settings as Record<string, unknown> | undefined,
+    }),
   )
   const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
   /*
@@ -12326,7 +12355,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   const onScreen = useOnScreenSections(sectionIds, themeLive, CANVAS_ON_SCREEN)
   idsRef.current = sectionIds
   onScreenRef.current = onScreen
-  const themeFor = (id: string) => (!themeLive || onScreen(id) ? theme : committedTheme)
+  /* A section whose scheme colours are written as its variables keeps the committed theme too (canvasThemePatcher, A SCHEME COLOUR, ONLY ITS VARIABLES). */
+  const themeFor = (id: string) => (!themeLive || (onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme)
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render

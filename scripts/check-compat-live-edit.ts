@@ -51,7 +51,28 @@
  *   theme spacing         283/587, 401/825    199/739, 163/498  1198/1941, 1546/1891  822/1738, 760/1976
  *   theme button radius   313/562, 264/524    200/353, 161/322  1069/1881, 1459/2654  857/1263, 677/1050
  *
- *   npx tsx scripts/check-compat-live-edit.ts <dawn.zip>
+ * Round 36, theme values only the layout's CSS reads written as the layout's
+ * styles drawn alone (lib/storelib-theme/compat/theme-css.ts), the bundle
+ * before the round and after it; latency p50/p95 in ms, longest task, long
+ * tasks. Dawn, each gesture run on its own page:
+ *
+ *                         1x before            1x after            4x before              4x after
+ *   theme spacing         174/366, 143ms, 16   28/63, 85ms, 1      554/1254, 438ms, 50    161/252, 395ms*, 28
+ *   theme button radius   131/251, 98ms, 8     42/75, 0ms, 0       562/960, 388ms, 49     149/206, 105ms, 20
+ *   scheme colour (Bg)    53/130, 97ms, 7      11/33, 0ms, 0       331/1136, 357ms, 30    106/191, 137ms, 34
+ *     updates a second    9.9                  46                  2.2                    7.9
+ *   (* one page drawn whole when the gesture follows the header's; alone, 134ms)
+ *   The rest at 4x is the frame restyling the page for a variable on :root
+ *   (Dawn's 400KB header among it): ~70ms a value here, the browser's own.
+ *   Materia fixture (tests/fixtures/shopify-materia, given a {% style %} of
+ *   variables by withLayoutVariables): theme spacing 38/119 -> 18/61 at 1x,
+ *   126/246 -> 86/171 at 4x; its accent colour 2/35 -> 3/36 at 1x and
+ *   19/65 -> 35/144 at 4x (drawn from the page's template before, which on
+ *   a page this small costs less than the layout drawn alone; a jump back
+ *   after the release at 4x before, none after). Header height unchanged
+ *   (103/223 -> 121/224 at 4x, run beside it).
+ *
+ *   npx tsx scripts/check-compat-live-edit.ts <dawn.zip | theme folder>
  *   CPU=4                 only the slowed run
  *   EDITOR_BUNDLE=<file>  reuse a bundle (one from another commit, to compare)
  *   ONLY=<regexp>         only the gestures whose name matches
@@ -61,7 +82,7 @@
  *   BUDGET=0              report without failing
  */
 import { createServer } from "node:http"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import JSZip from "jszip"
 import puppeteer, { type CDPSession, type Frame, type Page } from "puppeteer-core"
@@ -86,17 +107,68 @@ function withSchema(liquid: string, add: (schema: { settings?: unknown[] }) => v
   })
 }
 
+/** A theme's zip, or a folder of its files (tests/fixtures/shopify-materia) zipped as Shopify exports one. */
+async function themeZip(path: string): Promise<JSZip> {
+  if (!statSync(path).isDirectory()) return JSZip.loadAsync(readFileSync(path))
+  const zip = new JSZip()
+  const walk = (dir: string, rel: string) => {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n)
+      if (statSync(p).isDirectory()) walk(p, `${rel}${n}/`)
+      else zip.file(`${rel}${n}`, readFileSync(p))
+    }
+  }
+  walk(path, "")
+  return zip
+}
+
+/**
+ * A theme whose layout prints no theme setting of its own (the Materia
+ * fixture) is given what a custom theme's layout writes (round 36): its
+ * accent and a section spacing as variables on :root, the phone's spacing
+ * branching on the value as Dawn's does, and a rule that reads them.
+ */
+async function withLayoutVariables(zip: JSZip): Promise<boolean> {
+  const layoutPath = Object.keys(zip.files).find((p) => p.endsWith("layout/theme.liquid"))
+  const schemaPath = Object.keys(zip.files).find((p) => p.endsWith("config/settings_schema.json"))
+  if (!layoutPath || !schemaPath) return false
+  let layout = await zip.file(layoutPath)!.async("string")
+  if (/\{%-?\s*style\s*-?%\}/.test(layout)) return false
+  layout = layout.replace("</head>", `{% style %}
+      :root {
+        --accent: {{ settings.accent }};
+        --spacing-sections-desktop: {{ settings.spacing_sections }}px;
+        --spacing-sections-mobile: {% if settings.spacing_sections < 24 %}{{ settings.spacing_sections }}{% else %}{{ settings.spacing_sections | times: 0.7 | round }}{% endif %}px;
+      }
+      .shopify-section + .shopify-section { margin-top: var(--spacing-sections-desktop); }
+      a, .button { color: var(--accent); }
+    {% endstyle %}
+  </head>`)
+  zip.file(layoutPath, layout)
+  const schema = JSON.parse(await zip.file(schemaPath)!.async("string")) as { name: string; settings?: unknown[] }[]
+  schema.push({ name: "Layout", settings: [{ type: "range", id: "spacing_sections", min: 0, max: 100, step: 4, unit: "px", label: "Space between template sections", default: 0 }] })
+  zip.file(schemaPath, JSON.stringify(schema, null, 2))
+  return true
+}
+
 async function theme(zipPath: string) {
-  const zip = await JSZip.loadAsync(readFileSync(zipPath))
-  const find = (name: string) => Object.keys(zip.files).find((p) => p.endsWith(`sections/${name}`))!
+  const zip = await themeZip(zipPath)
+  const find = (name: string) => Object.keys(zip.files).find((p) => p.endsWith(`sections/${name}`))
+  if (!find("announcement-bar.liquid")) {
+    /* Not Dawn: the layout's variables only, and the gestures that find nothing to press say so. */
+    await withLayoutVariables(zip)
+    const r = await convertShopifyTheme(zip)
+    if (!r.ok) throw new Error(r.error)
+    return r.theme
+  }
   /* The header's height, in the section's own <style>, as a minimum height. */
-  const headerPath = find("header.liquid")
+  const headerPath = find("header.liquid")!
   let header = await zip.file(headerPath)!.async("string")
   header = header.replace("<style>", "<style>\n  .header { min-height: {{ section.settings.header_height }}px; }\n")
   header = withSchema(header, (s) => { s.settings = [{ type: "range", id: "header_height", min: 40, max: 160, step: 2, unit: "px", label: "Header height", default: 76 }, ...(s.settings ?? [])] })
   zip.file(headerPath, header)
   /* The announcement bar's height and colour, in an inline style. */
-  const barPath = find("announcement-bar.liquid")
+  const barPath = find("announcement-bar.liquid")!
   let bar = await zip.file(barPath)!.async("string")
   bar = bar.replace('<div\n  class="utility-bar', '<div\n  style="min-height: {{ section.settings.bar_height }}px; background-color: {{ section.settings.bar_color }};"\n  class="utility-bar')
   bar = withSchema(bar, (s) => { s.settings = [{ type: "range", id: "bar_height", min: 20, max: 120, step: 1, unit: "px", label: "Bar height", default: 36 }, { type: "color", id: "bar_color", label: "Bar colour", default: "#f3f3f3" }, ...(s.settings ?? [])] })
@@ -424,7 +496,8 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
       }
       report[g.name] = out
       console.log(`  ${g.name.padEnd(22)} ${String(out.updatesPerSecond).padStart(5)}/s shown ${out.shown}/${out.values}  latency p50 ${out.latencyP50}ms p95 ${out.latencyP95}ms  editor longest ${out.editorLongest}ms (${out.editorLongTasks} long)  frame longest ${out.frameLongest}ms  renders ${out.renders} (editor ${out.editorRenders}, canvas ${out.canvasRenders})  section msgs ${out.sectionMessages}  fetches ${out.fetches}  final ${out.last === out.final ? "ok" : `${out.last} != ${out.final}`}${out.jumped.length ? `  JUMPED ${JSON.stringify(out.jumped.slice(0, 4))}` : ""}`)
-      if (process.env.TOP) console.log(`      all: ${out.top.join("  ")}\n      while moving (${out.rendersWhileMoving}): ${out.movingTop.join("  ")}`)
+      if (process.env.SAMPLES) console.log(`      last values on the page (ms from release): ${m.samples.slice(-8).map(([t, v]) => `${Math.round(t - released)}:${v}`).join("  ")}`)
+      if (process.env.TOP) console.log(`      all:${out.top.join("  ")}\n      while moving (${out.rendersWhileMoving}): ${out.movingTop.join("  ")}`)
     }
 
     /* A slider dragged with real input: across and back, a move every 8ms (a 120Hz pointer), the value each move gave read from the thumb. */
@@ -561,6 +634,47 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
         expected: (v) => `${v}px`,
       }, () => drag(/^Corner radius/, 0.9))
     }
+    /* ── Theme › Colors › Scheme 1 › Background, dragged in the picker: the scheme's variables on the page's root (round 36) ── */
+    if (!ONLY || ONLY.test("theme scheme colour")) {
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-compat-theme-group] [data-panel-back] button")][0]?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Theme")?.click())
+      await sleep(600)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => /^colou?rs$/i.test((b.textContent ?? "").trim()))?.click())
+      await sleep(800)
+      const chip = await page.evaluate(() => {
+        for (const b of document.querySelectorAll<HTMLElement>("[data-compat-theme-group] button[aria-expanded], [data-compat-theme-group] button[aria-label='Pick color']")) {
+          if (b.hasAttribute("data-compat-scheme")) continue
+          const row = b.closest("div")?.parentElement
+          /* A colour scheme's Background (Dawn), or a theme's one accent colour (the Materia fixture). */
+          if (!/^\s*(Background(?! gradient)|Accent)/i.test(row?.textContent ?? "")) continue
+          b.scrollIntoView({ block: "center" })
+          const r = b.getBoundingClientRect()
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+        }
+        return null
+      })
+      if (chip) {
+        await page.mouse.click(chip.x, chip.y)
+        await sleep(500)
+        const box = await page.evaluate(() => { const b = document.querySelector(".cursor-crosshair[data-sheet-no-drag]"); if (!b) return null; const r = b.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height } })
+        if (box) {
+          await gesture({ name: "theme scheme colour", select: null, label: /x/, read: `function () { var s = getComputedStyle(document.documentElement); return (s.getPropertyValue("--color-background") || s.getPropertyValue("--accent")).trim() }`, expected: (v) => v, byChange: true }, async () => {
+            await page.evaluate(() => { const w = window as unknown as { __vals: { t: number; v: string }[]; __mv: (e: PointerEvent) => void }; w.__vals = []; w.__mv = (e) => { if (e.buttons === 1) w.__vals.push({ t: performance.timeOrigin + performance.now(), v: "" }) }; document.addEventListener("pointermove", w.__mv, true) })
+            await page.mouse.move(box.left + box.w * 0.2, box.top + box.h * 0.2)
+            await page.mouse.down()
+            for (let k = 0; k <= 60; k++) {
+              const f = k / 60
+              await page.mouse.move(box.left + box.w * (0.2 + 0.6 * f), box.top + box.h * (0.2 + 0.5 * Math.sin(f * Math.PI)))
+              await sleep(8)
+            }
+            await page.mouse.up()
+            return page.evaluate(() => { const w = window as unknown as { __vals: { t: number; v: string }[]; __mv: (e: PointerEvent) => void }; document.removeEventListener("pointermove", w.__mv, true); return w.__vals })
+          })
+        } else expect(false, "the scheme's colour picker opened")
+        await page.keyboard.press("Escape")
+      } else expect(false, "the first colour scheme has its Background chip in the sidebar")
+    }
     if (errors.length) console.log(`  page errors: ${errors.slice(0, 3).join(" | ")}`)
     report.errors = errors
     report.isolatedFrame = isolated
@@ -622,12 +736,13 @@ async function main() {
   if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(all, null, 2))
 
   console.log("\nBUDGETS")
-  type G = { updatesPerSecond: number; latencyP95: number | null; editorRenders: number; last: string; final: string; jumped: string[]; fetches: number }
+  type G = { values: number; updatesPerSecond: number; latencyP95: number | null; editorRenders: number; last: string; final: string; jumped: string[]; fetches: number }
   for (const [cpu, r] of Object.entries(all) as [string, Record<string, G>][]) {
     const slow = cpu !== "1"
     for (const name of ["header height", "header top padding", "announcement height", "section padding", "theme spacing", "theme button radius"]) {
       const d = r[name]
-      if (!d) continue
+      /* A gesture this theme has no control for (the Materia fixture has no buttons) was said above. */
+      if (!d || !d.values) continue
       expect(d.updatesPerSecond >= (slow ? 20 : 45), `${cpu}x ${name}: the page follows the thumb every frame or near it (updates a second)`, d.updatesPerSecond)
       expect(d.latencyP95 !== null && d.latencyP95 <= (slow ? 80 : 40), `${cpu}x ${name}: a value is on the page soon after the finger (p95)`, d.latencyP95)
       expect(d.editorRenders >= 1 && d.editorRenders <= 3, `${cpu}x ${name}: the editor renders for the commit, not per move`, d.editorRenders)
@@ -638,6 +753,12 @@ async function main() {
     if (typed) expect(typed.latencyP95 !== null && typed.latencyP95 <= (slow ? 120 : 50), `${cpu}x typing: each key on the page soon after (p95)`, typed.latencyP95)
     const colour = r["announcement colour"]
     if (colour) expect(colour.updatesPerSecond >= (slow ? 15 : 30), `${cpu}x announcement colour: the page follows the picker`, colour.updatesPerSecond)
+    const scheme = r["theme scheme colour"]
+    if (scheme) {
+      expect(scheme.updatesPerSecond >= (slow ? 15 : 30), `${cpu}x theme scheme colour: the page follows the picker`, scheme.updatesPerSecond)
+      expect(scheme.editorRenders >= 1 && scheme.editorRenders <= 3, `${cpu}x theme scheme colour: the editor renders for the commit, not per move`, scheme.editorRenders)
+      expect(scheme.jumped.length === 0, `${cpu}x theme scheme colour: once released the page shows the last colour, with no jump`, scheme.jumped.slice(0, 4))
+    }
   }
   console.log(`\n${broken ? `${broken} over budget` : "all within budget"}`)
   process.exit(broken ? 1 : 0)

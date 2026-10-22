@@ -137,7 +137,8 @@ async function main() {
     check("  so the next read does not ask for the column again for a while", next.join() === "product")
     check("the embedded product is taken off the rows", JSON.stringify(ownRows([{ id: "o", products: { creator_id: "c" } }, { id: "p" }])) === JSON.stringify([{ id: "o" }, { id: "p" }]))
 
-    const route = code("app/api/analytics/reports/route.ts")
+    /* Changed on purpose: the route's counting is lib/analytics/report-answer.ts (tests/analytics-e2e.test.ts drives it against a fake database). */
+    const route = code("app/api/analytics/reports/route.ts") + code("lib/analytics/report-answer.ts")
     const reads = code("lib/analytics/report-read.ts")
     check("the reports route lists no product ids for orders", !/\.in\("product_id"/.test(route + reads) && !/productIds/.test(route + reads))
     check("  and reads the period's orders and the all time orders through byCreator",
