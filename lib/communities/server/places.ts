@@ -71,6 +71,12 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     case "feed":
     case "saved":
     case "space": {
+      /*
+        Round 39: All's first page needs nothing from the spaces the shell reads (listFeed reads its own), so it is asked
+        beside them, with the composer's facts, rather than after (scripts/measure-community-member-server.mjs).
+      */
+      const allFeed = place.kind === "feed" ? Promise.all([listFeed(db, community, viewer, { sort: "default" }), composeFor(db, community, viewer)]) : null
+      allFeed?.catch(() => undefined)
       const shell = await shellData(community.id, viewer, community)
       const readOnly = shell.community.archived || !!viewer.mutedUntil
       if (place.kind === "space") {
@@ -93,7 +99,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         const [saved, compose] = await Promise.all([listSaved(db, community, viewer, null), composeFor(db, community, viewer)])
         return ok({ kind: "feed", start: { kind: "saved" }, spaces: shell.spaces, viewer: viewerView(viewer), initial: { pinned: [], posts: saved.posts, nextCursor: saved.nextCursor }, servedAt: Date.now(), readOnly, onboarding: null, compose })
       }
-      const [feed, compose] = await Promise.all([listFeed(db, community, viewer, { sort: "default" }), composeFor(db, community, viewer)])
+      const [feed, compose] = await allFeed!
       return ok({ kind: "feed", start: { kind: "all" }, spaces: shell.spaces, viewer: viewerView(viewer), initial: feed, servedAt: Date.now(), readOnly, onboarding: onboardingFor(community, viewer, shell.spaces), compose })
     }
     case "learn": {
@@ -174,7 +180,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       return ok({ kind: "leaderboard", communityId: community.id, slug: community.slug, initial: entries, me: { userId: viewer.userId, points: viewer.points, level: viewer.level }, levels })
     }
     case "about": {
-      const load = await loadSalesPage(community.slug, viewer.userId, db)
+      const load = await loadSalesPage(community.slug, viewer.userId, db, { known: { community, viewer } })
       if (!load) return missing
       const [extras, askWhy] = await Promise.all([aboutExtras(db, load.community), load.data.join.canLeave ? leaveReasonsReady(db) : Promise.resolve(false)])
       return ok({ kind: "about", sales: { ...load.data, extras, askWhy } })
@@ -186,7 +192,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     }
     case "membership": {
       if (!viewer.userId) return missing
-      const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, db, { light: true }), leaveReasonsReady(db)])
+      const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, db, { light: true, known: { community, viewer } }), leaveReasonsReady(db)])
       if (!load) return missing
       const m = viewer.member
       const facts: MembershipFacts = {

@@ -20,6 +20,8 @@ import { bucketsOf, type CommunityReport, type Line } from "@/lib/communities/an
 import type { CommunityHead } from "@/components/community/creator/view-types"
 
 const which = new URLSearchParams(location.search).get("case") || "full"
+/* Round 39 (scripts/check-community-analytics-round39.mjs): ?long=1 gives the lists more rows than a card shows, so View all and its search have something to find; ?access=paid is a community that charges. */
+const long = new URLSearchParams(location.search).has("long")
 const w = window as unknown as { __asks: string[]; __fetches: { at: number; url: string; aborted?: boolean }[]; __delay: number; __tick?: () => void; __remount: () => void }
 w.__asks = []
 /* Round 32: every request with when it was made, how long an answer takes (?delay=, or the probe sets it), and the minute's refresh handed to the probe. */
@@ -42,7 +44,7 @@ const head = {
   logoUrl: null,
   coverUrl: null,
   status: "published",
-  access: "free",
+  access: new URLSearchParams(location.search).get("access") || "free",
   visibility: "public",
   memberCount: 412,
   postCount: 230,
@@ -103,6 +105,7 @@ function report(q: URLSearchParams): CommunityReport {
         churnRate: quiet ? null : 4.8,
         refunds: { count: quiet ? 0 : 2, totalCents: quiet ? 0 : 4000 },
         bySource: quiet ? [] : [{ key: "memberships" as const, cents: 371000 }, { key: "tickets" as const, cents: 27000 }, { key: "programs" as const, cents: 14000 }],
+        byPlan: quiet ? [] : [{ key: "p1", label: "Members", cents: 281000, paying: 121, previous: compared ? 240000 : undefined }, { key: "p2", label: "Lifetime", cents: 90000, paying: 0, previous: compared ? 59800 : undefined }, { key: "p3", label: "", cents: 0, paying: 13 }],
         reasons: quiet ? [] : [{ reason: "too_busy", count: 3 }, { reason: "too_expensive", count: 2 }, { reason: "none", count: 1 }],
       }
     : null
@@ -139,9 +142,9 @@ function report(q: URLSearchParams): CommunityReport {
     traffic: counted
       ? {
           source: rows([["direct", 410], ["social_instagram", 260], ["explore", 190], ["organic_search", 120], ["storelib", 80], ["email", 40], ["referral", 22]]),
-          referrer: rows([["l.instagram.com", 240], ["google.com", 118], ["potterymag.example.com", 22]]),
+          referrer: rows([["l.instagram.com", 240], ["google.com", 118], ["potterymag.example.com", 22], ...(long ? ([["facebook.com", 19], ["t.co", 14], ["pinterest.com", 12], ["youtube.com", 9], ["reddit.com", 7], ["bing.com", 5], ["duckduckgo.com", 4], ["ceramicsguild.example.org", 3]] as [string, number][]) : [])]),
           device: rows([["mobile", 820], ["desktop", 270], ["tablet", 32]]),
-          country: rows([["RO", 420], ["US", 300], ["DE", 140], ["GB", 90], ["FR", 60], ["IT", 41]]),
+          country: rows([["RO", 420], ["US", 300], ["DE", 140], ["GB", 90], ["FR", 60], ["IT", 41], ...(long ? ([["ES", 33], ["NL", 28], ["PL", 21], ["BR", 17], ["CA", 15], ["JP", 11], ["SE", 8], ["PT", 6]] as [string, number][]) : [])]),
         }
       : null,
     joins: { bySource: quiet ? [] : [{ key: "free", label: "free", value: 61 }, { key: "subscription", label: "subscription", value: 19 }, { key: "invite", label: "invite", value: 8 }], invites: quiet ? [] : [{ key: "i1", label: "Link made Sep 20", value: 6, note: null }, { key: "i2", label: "Invite to ana@example.com", value: 1, note: "off" }] },

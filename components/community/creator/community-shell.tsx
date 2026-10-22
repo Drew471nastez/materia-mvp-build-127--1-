@@ -48,8 +48,10 @@
  *           changed, is read again quietly behind what is shown.
  *   STILL   (round 37) a section is shown in one change, with no motion: the
  *           section before it is there until the one pressed is (FRAME_GRACE_MS
- *           at most, then its frame), the row of tabs and the bar never move,
- *           and only the lit tab's pill glides to the tab pressed.
+ *           at most, then its frame), the row of tabs and the bar never move.
+ *           Round 39: nothing glides either. The tab pressed lights where it
+ *           is, on the frame of the press, painted before the section is
+ *           drawn; the section follows on the next frame.
  *
  * NOT <Activity>. The member side hides its places with React's <Activity>,
  * which stops a hidden tree's effects and runs them again when it is shown;
@@ -89,8 +91,6 @@ export const SECTION_ARRIVE_FROM = 0.55
 /** A section taking its frame's place: from 55% to all of it, opacity only (its cards are already where they will be). */
 export const SECTION_FILL_MS = 120
 const SECTION_ARRIVE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-/** The lit tab's pill gliding from the tab before to the tab pressed. */
-export const TAB_PILL_MS = 200
 
 /**
  * THE WIDTH OF THE PAGE (round 32, the owner: "everything on desktop is too
@@ -378,25 +378,14 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
     s.scrollTo({ left, behavior: still ? "auto" : "smooth" })
   }, [active])
   /*
-    THE PILL GLIDES (round 37, the owner: switching "has bumps"). The lit tab's ground was a class: it went out on one tab
-    and came on at the other in the same frame. It is a box of its own inside the lit tab now (so it is right in the
-    server's markup, before any script), and after a press it starts where the last one was, in the row's own
-    coordinates (the row may have scrolled sideways since), and glides to the new tab, its width with it (a scale from its left edge). Before the
-    paint, so no frame shows it in its new place first. At once with reduced motion.
+    THE LIT TAB LIGHTS WHERE IT IS (round 39, the owner: "click, clean, no exaggerated animations, no bumps"). Round 37
+    made the lit tab's pill glide from the tab before over 200ms. Filmed (scripts/check-community-admin-round39.mjs), that
+    was 9 or 10 frames of a grey box crossing the row on every press, and under load (4x CPU, a section drawn for the
+    first time) it stalled behind the section's render and then jumped: 0 to 2 frames between, the rest at once. /app's
+    own sidebar and its tabs never carry a box from one item to another: the item pressed lights where it is. So does
+    this row: the pill is the lit tab's own ground, there on the frame of the press, and gone from the tab before on
+    that same frame. The shell paints that frame before it draws the section pressed (CommunityShell `pressed`).
   */
-  const pillWas = React.useRef<{ x: number; w: number } | null>(null)
-  React.useLayoutEffect(() => {
-    const s = strip.current
-    const pill = s?.querySelector<HTMLElement>("[data-tab-pill]")
-    if (!s || !pill) return
-    const at = (el: HTMLElement) => ({ x: el.getBoundingClientRect().left - s.getBoundingClientRect().left + s.scrollLeft, w: el.offsetWidth })
-    const now = at(pill)
-    const was = pillWas.current
-    pillWas.current = now
-    if (!was || (Math.abs(was.x - now.x) < 1 && Math.abs(was.w - now.w) < 1) || typeof pill.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    /* Translate and scale only, which the compositor runs: it glides on while the section pressed is being drawn (a long task). */
-    pill.animate([{ translate: `${was.x - now.x}px 0`, scale: `${was.w / Math.max(1, now.w)} 1` }, { translate: "0 0", scale: "1 1" }], { duration: TAB_PILL_MS, easing: SECTION_ARRIVE_EASE })
-  }, [active])
   const fade = "pointer-events-none absolute inset-y-0 z-[1] w-6 opacity-0 transition-opacity duration-150 motion-reduce:transition-none"
   return (
     <nav ref={nav} aria-label={tt("Community sections")} data-community-tabs="" className="group/tabs relative">
@@ -425,11 +414,10 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
               )}
             >
               {/*
-                The lit tab's ground, the box that glides (above), in the tab's own corners. Every tab's words are a layer
-                above every pill (z-[1] over z-0, and no tab is a stacking context of its own), so the pill passing under
-                the tabs between never covers their words. It carries the focus ring, which it would otherwise cover.
+                The lit tab's ground, in the tab's own corners and under its words (z-[1] over z-0): a box of its own, so the
+                server's markup has it before any script. It carries the focus ring, which it would otherwise cover.
               */}
-              {on ? <span aria-hidden data-tab-pill="" className="absolute inset-y-0 left-0 z-0 w-full origin-left rounded-[10px] bg-[#e6e8ec] shadow-[0_1px_2px_rgba(16,18,27,0.06),inset_0_0_0_1px_rgba(16,18,27,0.04)] group-focus-visible/tab:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)]" /> : null}
+              {on ? <span aria-hidden data-tab-pill="" className="absolute inset-y-0 left-0 z-0 w-full rounded-[10px] bg-[#e6e8ec] shadow-[0_1px_2px_rgba(16,18,27,0.06),inset_0_0_0_1px_rgba(16,18,27,0.04)] group-focus-visible/tab:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)]" /> : null}
               <span className="relative z-[1] inline-flex items-center gap-1.5">
                 {t.label}
                 {typeof t.count === "number" ? <span className={cn("tabular-nums", t.id === "moderation" ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString(appLocale())}</span> : null}
@@ -529,8 +517,14 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     el.addEventListener("scroll", on, { passive: true })
     return () => el.removeEventListener("scroll", on)
   }, [])
+  /* The tab pressed, lit a frame ahead of its section (round 39, THE TAB FIRST below). */
+  const [pressed, setPressed] = React.useState<AdminSection | null>(null)
+  const pressedRef = React.useRef<AdminSection | null>(null)
   const show = React.useCallback(
     (id: AdminSection, how: { traversal?: boolean } = {}) => {
+      /* The tab lit ahead of its section (`pressed`, below) is the section shown now. */
+      pressedRef.current = null
+      setPressed(null)
       traversing.current = !!how.traversal
       activeRef.current = id
       setActive(id)
@@ -573,6 +567,13 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     section is in (usually at once: every section is read ahead as the shell mounts).
   */
   const fetching = React.useRef<{ id: AdminSection; at: number } | null>(null)
+  /*
+    THE TAB FIRST, THEN THE SECTION (round 39). A held section was shown in the render of the press itself, so the tab
+    lit only once the section had been laid out and painted: 7 to 10ms after the press at 1x, 65 to 158ms on a phone at
+    4x CPU, with nothing on screen answering the finger meanwhile (scripts/check-community-admin-round39.mjs LIT). Now the
+    press lights its tab in a render of its own, which costs the row alone, that frame is painted, and the section is
+    shown in the task after it (afterPaint), as a native tab bar answers the touch before the screen it opens.
+  */
   const go = React.useCallback(
     (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
@@ -584,12 +585,18 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
         return
       }
       e.preventDefault()
-      if (move === "stay") return
+      if (move === "stay" && pressedRef.current === null) return
       fetching.current = null
-      /* Pressed again before the router's page came: the address never moved, so it is not a new entry in the history. */
-      if (window.location.pathname === tab.href) window.history.replaceState(null, "", tab.href)
-      else window.history.pushState(null, "", tab.href)
-      show(id)
+      pressedRef.current = id
+      setPressed(id)
+      afterPaint(() => {
+        /* Another tab was pressed since (show() let go of this one): that press shows its own section. */
+        if (pressedRef.current !== id) return
+        /* Pressed again before the router's page came: the address never moved, so it is not a new entry in the history. */
+        if (window.location.pathname === tab.href) window.history.replaceState(null, "", tab.href)
+        else window.history.pushState(null, "", tab.href)
+        show(id)
+      })
     },
     [show],
   )
@@ -736,7 +743,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       <Host.Provider value={hostValue}>
         <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={shown} data-routed={routed ?? ""}>
           {/* The tab lit is the one pressed, at once, even while the section before stays a moment (FRAME_GRACE_MS). */}
-          <CommunityHeader head={head} shown={lit} onGo={go} onWarm={warm} />
+          <CommunityHeader head={head} shown={pressed ?? lit} onGo={go} onWarm={warm} />
           {/*
             ROOM FOR THE SAVE BARS (round 33): each bar that is up (./parts EditorFoot) adds FOOT_ROOM_PX under the last card,
             so scrolled to the end nothing is under a bar; with none up the foot is as before. At least the pane's height, so
@@ -778,6 +785,24 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       </Host.Provider>
     </ToastHost>
   )
+}
+
+/**
+ * Runs `fn` once the frame being prepared has been painted: a task queued from the next animation frame. A hidden
+ * window has no animation frames, so a timer stands in for one.
+ */
+function afterPaint(fn: () => void) {
+  let done = false
+  const run = () => {
+    if (done) return
+    done = true
+    fn()
+  }
+  const fallback = window.setTimeout(run, 100)
+  window.requestAnimationFrame(() => {
+    window.clearTimeout(fallback)
+    window.setTimeout(run, 0)
+  })
 }
 
 /** A section drawn over the whole window (page-editor/screen.tsx OWN_SCREEN_ATTR): no arrival plays on it. */

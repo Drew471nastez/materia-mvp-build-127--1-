@@ -229,7 +229,7 @@ console.log("\nLOCATION: where people are from")
 console.log("\nLIBRARY: no height that is not there")
 {
   const bar = code("components/nav/buyer-tab-bar.tsx")
-  check("where the tab bar is drawn the body does not pad for the home indicator a second time", /export const TAB_BAR_BODY = "@media \(max-width: 767px\)\{body\{padding-bottom:0\}\}"/.test(bar) && /<style>\{TAB_BAR_BODY\}<\/style>/.test(bar) && /padding-bottom: env\(safe-area-inset-bottom\);/.test(readSource("app/globals.css")))
+  check("where the tab bar is drawn the body does not pad for the home indicator a second time", /export const TAB_BAR_BODY = "@media \(max-width: 767px\)\{body\{padding-bottom:0\}\}"/.test(bar) && /* Changed on purpose (round 39): while the page does not yet know who is signed in, only where the bar will be seen. */ /<style>\{pending \? TAB_BAR_BODY_PENDING : TAB_BAR_BODY\}<\/style>/.test(bar) && /padding-bottom: env\(safe-area-inset-bottom\);/.test(readSource("app/globals.css")))
 }
 
 console.log("\nPROBES")

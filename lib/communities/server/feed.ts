@@ -422,14 +422,18 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
   const order = feedSort(req.sort)
   const limit = Math.max(1, Math.min(40, Math.floor(req.limit ?? FEED_PAGE)))
   try {
-    const spaces = await listSpaces(db, community.id)
+    /* Round 39: the spaces and the archived ones at once (scripts/measure-community-member-server.mjs): neither needs the other. */
+    const [spaces, archivedRead] = await Promise.all([
+      listSpaces(db, community.id),
+      req.spaceId ? Promise.resolve(null) : db.from("community_spaces").select("id").eq("community_id", community.id).not("archived_at", "is", null),
+    ])
     let hidden: string[] = []
     if (req.spaceId) {
       const space = spaces.find((s) => s.id === req.spaceId)
       if (!space || space.kind === "chat" || !canSeeSpace(space, accessOf(viewer))) return empty
     } else {
       hidden = hiddenSpaceIds(spaces, viewer)
-      const { data: archived } = await db.from("community_spaces").select("id").eq("community_id", community.id).not("archived_at", "is", null)
+      const archived = archivedRead?.data
       hidden.push(...((archived as { id: string }[] | null) ?? []).map((s) => s.id))
     }
     const scope = (q: Db) => {
@@ -440,14 +444,16 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const scopeOr = hidden.length ? `space_id.is.null,space_id.not.in.(${hidden.join(",")})` : null
 
     const cursor = decodeCursor(req.cursor, order)
-    let pinnedRows: PostRow[] = []
     /* Only Default lifts the pinned posts to the top; the other orders keep them in their place. */
-    if (!cursor && order === "default") {
+    /* Round 39: asked beside the page's own read below, not before it: neither needs the other. */
+    const pinnedRead = (async (): Promise<PostRow[]> => {
+      if (cursor || order !== "default") return []
       let pq = scope(db.from("community_feed_posts").select(POST_COLUMNS)).eq("pinned", true)
       if (scopeOr) pq = pq.or(scopeOr)
       const { data } = await pq.order("created_at", { ascending: false }).limit(PINNED_MAX)
-      pinnedRows = (data as PostRow[] | null) ?? []
-    }
+      return (data as PostRow[] | null) ?? []
+    })()
+    pinnedRead.catch(() => undefined)
 
     let q = scope(db.from("community_feed_posts").select(POST_COLUMNS))
     if (order === "default") q = q.eq("pinned", false)
@@ -465,10 +471,13 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
       ? Math.min(FEED_RANK_MAX_CANDIDATES, Math.max(limit * FEED_RANK_CANDIDATE_MULT, limit))
       : limit
     const readLimit = candidateCap + 1
-    const { data, error } = await q
-      .order(byActivity(order) ? "last_activity_at" : "created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(readLimit)
+    const [{ data, error }, pinnedRows] = await Promise.all([
+      q
+        .order(byActivity(order) ? "last_activity_at" : "created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(readLimit),
+      pinnedRead,
+    ])
     if (error) {
       if (!missing(error)) console.error(`[communities] feed read: ${reasonOf(error)}`)
       return empty

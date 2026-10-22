@@ -58,6 +58,8 @@
  *   ?case=contrib          a profile's contributions: their own posts (Edit) and a shared community's (stats line)
  *   &cover=only            the about cases: the creator chose no gallery, so the media is the cover picture alone
  *   &extras=1              the about cases: the server's extra facts (posts in 30 days, courses, since, a bio)
+ *   ?case=chat             round 39: the Chat tab (/community/clay-studio/space/kiln-room), drawn by place-views.tsx as the
+ *                          real place draws it, the community showing the Chat tab
  */
 import { placeFromUrl, slotKeyOf } from "@/lib/communities/client/places"
 import React from "react"
@@ -90,6 +92,8 @@ import { CommunityContributions } from "@/components/profile/community-contribut
 import type { ContributionSection } from "@/lib/profile/shared-view"
 import { LeaveCopy } from "@/components/navigation/leave-copy"
 import { noteHeadingIntoCommunity } from "@/lib/navigation/arrival-still"
+import { PlaceView } from "@/components/community/member/place-views"
+import type { ChatMessageView } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -134,6 +138,8 @@ const community: ShellCommunity = {
   chatEnabled: true,
   gamificationEnabled: true,
   archived: false,
+  /* Round 39: ?case=chat is the community with the Chat tab (round 38), its main channel the Kiln room. */
+  ...(which === "chat" ? { chatTab: { slug: "kiln-room" } } : {}),
 }
 
 const viewer: ViewerView = {
@@ -541,6 +547,23 @@ function Screen() {
     />
   )
   if (which === "nav") return shell(<PageSlot feed={feed} />)
+  if (which === "chat") {
+    const kiln = spaces[4]
+    const who = [people.mara, people.priya, people.jonas, people.leo, people.me]
+    const say = ["Kiln is loaded for Thursday, bisque only.", "Can I add two small bowls?", "Yes, bottom shelf has room.", "Thanks! Dropping them off tonight.", "Anyone have spare cone 6 witness cones?", "I do, I will leave some by the door.", "Firing log is pinned in About.", "Glaze test tiles came out great this week."]
+    const first: ChatMessageView[] = say.map((body, i) => {
+      const a = who[i % who.length]
+      return { id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`, spaceId: kiln.id, status: "published", authorId: a.id, author: { id: a.id, name: a.name, username: a.username, avatarUrl: a.avatarUrl, role: a.role, level: a.level }, mine: a.id === "u-me", body, attachments: [], replyToId: null, replyTo: null, clientId: null, createdAt: iso(NOW - (say.length - i) * 7 * 60_000), editedAt: null, reactionCount: 0, reacted: false, canEdit: a.id === "u-me", canDelete: a.id === "u-me", canModerate: false } as unknown as ChatMessageView
+    })
+    const intro = { ready: true, rules: "", rulesVersion: 0, needsRules: false, dmPolicy: "level", groupsPolicy: "members", attachments: true, myDms: "everyone", restriction: null, myName: people.me.name } as never
+    return (
+      <ShellFrame community={community} viewer={viewer} topBar={topBar()} unreadMessages={2} wall={wall} chatSpaces={["kiln-room"]}>
+        <div data-place-seed="chat:kiln-room" style={{ display: "contents" }}>
+          <PlaceView data={{ kind: "chat", space: kiln, spaces, viewer, first: { messages: first, hasMore: false }, readOnly: false, intro, chatTab: "kiln-room" }} place={{ kind: "space", slug: "kiln-room" }} slug={community.slug} communityId={CID} />
+        </div>
+      </ShellFrame>
+    )
+  }
   if (which === "space") return shell(feed(spaces[2]))
   if (which === "saved") return shell(feed(null, true))
   if (which === "classroom")

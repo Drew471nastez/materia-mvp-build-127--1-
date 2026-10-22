@@ -62,6 +62,14 @@ export interface ConnectState {
   /** Milliseconds since the epoch. */
   exp: number
   nonce: string
+  /**
+   * Started in the phone app, which opened the provider in its in-app
+   * browser (lib/native-connect.ts): the callback hands itself back to the
+   * app rather than finishing in that browser, which has none of the app's
+   * cookies (lib/connect/app-return.ts). Signed with the rest, so a link
+   * cannot add it.
+   */
+  app?: "ios" | "android"
 }
 
 /**

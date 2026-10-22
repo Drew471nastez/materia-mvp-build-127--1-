@@ -18,6 +18,8 @@ import { loadChatSettings } from "@/lib/communities/server/chat-settings"
 import { chatTabOf } from "@/lib/communities/chat-rules"
 import { librarySettings } from "@/lib/communities/server/library"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { warmTopBar } from "@/lib/communities/server/public"
+import { warmWall } from "@/lib/communities/server/wall"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView } from "./view-types"
@@ -38,10 +40,26 @@ export interface MemberPage {
 export const memberPage = cache(async (slug: string): Promise<MemberPage> => {
   if (!(await communitiesEnabled())) return { state: "off", community: null, viewer: null }
   const db = admin()
-  const community = await loadCommunity(db, { slug })
+  /*
+    ROUND 39: THE COMMUNITY AND WHO IS LOOKING AT ONCE. Neither needs the other, and every page of a community (its frame
+    included) waited on one and then the other: one round trip to the database and one to the sign in, in a row, before
+    anything else could start (scripts/measure-community-member-server.mjs).
+  */
+  const [community, current] = await Promise.all([loadCommunity(db, { slug }), currentUserForRequest()])
   if (!community) return { state: "missing", community: null, viewer: null }
-  const current = await currentUserForRequest()
   const userId = current.user?.id ?? null
+  /*
+    AND WHAT THE FRAME NEEDS WITHOUT THE VIEWER'S STANDING, ASKED NOW, beside it (round 39): the top bar's reads (both
+    frames draw the bar), and for somebody signed in the community's spaces, its chat settings and the wall's own facts
+    (the member frame's: lib/communities/server/wall.ts warmWall, held WALL_CACHE_S for every member).
+    The frame takes the same answers (React's cache, one per request) instead of asking after the standing is in.
+  */
+  warmTopBar(community, userId)
+  if (userId) {
+    warmWall(community)
+    spacesForRequest(community.id).catch(() => undefined)
+    if (community.chat_enabled) chatSettingsForRequest(community.id).catch(() => undefined)
+  }
   if (!userId) return { state: current.state === "indeterminate" ? "unknown" : "signed_out", community, viewer: null }
   const viewer = await viewerContext(db, community, userId)
   if (!communityOpen(community) && !viewer.isOwner) return { state: "closed", community, viewer }
@@ -88,17 +106,24 @@ export interface ShellData {
   unreadMessages: number | null
 }
 
+/** The community's spaces and its chat settings, once per request: memberPage asks them as soon as the community is known. */
+const spacesForRequest = cache((communityId: string) => listSpaces(admin(), communityId))
+const chatSettingsForRequest = cache((communityId: string) => loadChatSettings(admin(), communityId))
+
 /** The spaces the viewer may see (with unread chat counts) and their unread conversations, once per request. */
 export const shellData = cache(async (communityId: string, viewer: Viewer, community: CommunityRow): Promise<ShellData> => {
   const db = admin()
-  /* Round 39: whether the Library is a place here (part 278), read beside the spaces. */
+  /* Round 39: the member's unread conversations need nothing from the spaces, so they are asked beside them, not after. */
+  const conversations = unreadConversations(db, community, viewer)
+  conversations.catch(() => undefined)
+  /* Round 39: whether the Library is a place here (part 278), read beside the spaces too. */
   const libraryRead = librarySettings(db, communityId).catch(() => ({ ready: false, enabled: false }))
-  const rows = await listSpaces(db, communityId)
+  const rows = await spacesForRequest(communityId)
   const chatIds = rows.filter((s) => s.kind === "chat").map((s) => s.id)
   const [unread, messages, chatSettings] = await Promise.all([
     community.chat_enabled && chatIds.length ? unreadCounts(db, viewer, chatIds) : Promise.resolve(new Map<string, number>()),
-    unreadConversations(db, community, viewer),
-    community.chat_enabled && chatIds.length ? loadChatSettings(db, communityId) : Promise.resolve(null),
+    conversations,
+    community.chat_enabled && chatIds.length ? chatSettingsForRequest(communityId) : Promise.resolve(null),
   ])
   const spaces = spaceViews(rows, viewer, community, unread)
   const library = await libraryRead

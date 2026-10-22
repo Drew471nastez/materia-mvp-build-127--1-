@@ -34,6 +34,7 @@ import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/com
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
 import { tt, msg } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { CONNECT_CLOSED_EVENT, inNativeApp, startConnect } from "@/lib/native-connect"
 
 interface Link {
   account: string
@@ -316,6 +317,13 @@ export function GitHubSyncPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installId])
 
+  /* The GitHub sheet closed without handing back (Done, a swipe down): what GitHub has now, read again. */
+  useEffect(() => {
+    const again = () => void load()
+    window.addEventListener(CONNECT_CLOSED_EVENT, again)
+    return () => window.removeEventListener(CONNECT_CLOSED_EVENT, again)
+  }, [load])
+
   const post = async (body: Record<string, unknown>, kind: Action) => {
     setBusy(kind)
     setError(null)
@@ -365,7 +373,19 @@ export function GitHubSyncPanel({
 
   const connectButtons = status ? (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-      <a href={`/api/github/connect?installId=${encodeURIComponent(installId)}`} className={primaryButtonClass}>
+      <a
+        href={`/api/github/connect?installId=${encodeURIComponent(installId)}`}
+        className={primaryButtonClass}
+        onClick={(e) => {
+          /* In the phone app: GitHub in the in-app browser sheet, never out to Safari or Chrome (lib/native-connect.ts). */
+          if (!inNativeApp()) return
+          e.preventDefault()
+          setError(null)
+          void startConnect(e.currentTarget.getAttribute("href") ?? "").then((r) => {
+            if (r.ok === false) setError(r.error)
+          })
+        }}
+      >
         <GitHubMark className="h-4 w-4" />
         {tt("Continue to GitHub")}
       </a>

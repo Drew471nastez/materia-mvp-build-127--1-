@@ -12,6 +12,7 @@
  */
 import { useEffect } from "react"
 import { X } from "lucide-react"
+import { ProductImg } from "@/components/media/missing-image"
 
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { useSiteCart } from "../site-cart"
@@ -50,10 +51,7 @@ export function CartNotice() {
         boxShadow: "var(--theme-popup-shadow, 0 12px 32px -12px rgba(15, 23, 42, 0.28))",
       }}
     >
-      {notice.thumbnailUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={notice.thumbnailUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-md object-cover" />
-      ) : null}
+      <ProductImg src={notice.thumbnailUrl} width={48} height={48} className="h-12 w-12 shrink-0 rounded-md object-cover" />
       <div className="min-w-0 flex-1">
         <p className="m-0 text-[13px] opacity-70">{w("added_to_cart")}</p>
         <p className="m-0 mt-0.5 text-[15px] font-semibold truncate">{notice.title}{notice.variantName ? `, ${notice.variantName}` : ""}</p>
