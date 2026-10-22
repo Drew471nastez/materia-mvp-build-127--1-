@@ -20,6 +20,8 @@
 export const CANVAS_BRIDGE = `
 (function () {
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  /* The layout's own <style>s in the body, around the sections, as drawn (compat-canvas.tsx docShape bodyStyles): marked now, before the theme's deferred scripts can add one. */
+  try { Array.prototype.forEach.call(document.body.querySelectorAll("style"), function (x) { if (!x.closest(".shopify-section") && !x.hasAttribute("data-sl")) x.__slDrawn = true; }); } catch (e) {}
   /*
     COPY AND PASTE FROM INSIDE THE PAGE. A click in the canvas puts the
     keyboard in this frame, so Cmd/Ctrl+C and V never reached the builder,
@@ -205,6 +207,40 @@ export const CANVAS_BRIDGE = `
     clearTimeout(streamTimer);
     streamTimer = setTimeout(function () { streamingUntil = 0; reportSoon(); }, 260);
   };
+  /*
+    A VALUE FROM THE BUILDER IS SHOWN, NOT EASED TOWARDS (round 1022). A
+    theme that eases its buttons (\`transition: all .25s\`, common in store
+    themes) eased every value of a slider from wherever the last one had got
+    to: the corner radius under a finger arrived a second after the finger
+    stopped (scripts/check-editor-live.mjs, imported theme radius: 1 value
+    of 61 drawn as itself). So for a moment after the builder changes the
+    page, an ease that starts is taken to its end before the frame is drawn.
+    Only eases that start then: a hover already under way keeps its own,
+    and so does motion (opacity, a transform, visibility): that is a section
+    revealed as it is scrolled to, which plays as on the website, never a
+    value from the sidebar. Never a rule over the whole page, which restyles
+    all of it.
+  */
+  var stillUntil = 0, stillFrame = 0, stillFrom = 0;
+  var MOTION = /^(opacity|transform|translate|scale|rotate|visibility|filter|clip-path)$/;
+  var finishEased = function () {
+    stillFrame = 0;
+    if (document.getAnimations) document.getAnimations().forEach(function (a) {
+      if (typeof a.transitionProperty !== "string" || MOTION.test(a.transitionProperty)) return;
+      if (a.startTime !== null && a.startTime < stillFrom) return;
+      try { a.finish(); } catch (e) {}
+    });
+    if (performance.now() < stillUntil) stillFrame = requestAnimationFrame(finishEased);
+    else stillUntil = 0;
+  };
+  /* \`now\`: the change was just made, so its eases are ended here, in its own task, and the frame that follows draws the value. */
+  var holdStill = function (now) {
+    if (!stillUntil) stillFrom = document.timeline && typeof document.timeline.currentTime === "number" ? document.timeline.currentTime : performance.now();
+    stillUntil = performance.now() + 300;
+    if (now === true) { if (stillFrame) cancelAnimationFrame(stillFrame); finishEased(); return; }
+    if (!stillFrame) stillFrame = requestAnimationFrame(finishEased);
+  };
+  var stillNow = function () { holdStill(true); };
   var visibleRect = function (el, inset) {
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
@@ -514,6 +550,15 @@ export const CANVAS_BRIDGE = `
     post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
+  /*
+    STORELIB'S OWN EVENTS (round 1022, content/developers/imported-shopify-themes.md).
+    storelib:section-load on a section once the builder has drawn it again,
+    whether it was swapped (after shopify:section:load) or changed in place
+    (no Shopify event, the element is the same); storelib:settings-change on
+    the document when a theme setting changes, with the ids and values that
+    changed, while a finger is on a control too (detail.live).
+  */
+  var sectionLoaded = function (id) { var el = document.getElementById("shopify-section-" + id); if (el) fire(el, "storelib:section-load", { sectionId: id }); };
   /*
     A SECTION PUT IN BELOW THE SCREEN STILL ARRIVES AS IT DOES LIVE. Told
     shopify:section:load, a Dawn family theme (animations.js) marks every
@@ -1235,6 +1280,13 @@ export const CANVAS_BRIDGE = `
   };
   /* A named change anywhere in the page: every place holding what it was is written; a page already showing it needs nothing. */
   var editAnywhere = function (e) {
+    /* One stylesheet named by the builder (Storelib's Hover and focus): written whatever it holds now. */
+    if (e.style && e.sel) {
+      var named = document.querySelector(e.sel);
+      if (!named) return false;
+      if (textOf(named) !== e.to) setText(named, e.to);
+      return true;
+    }
     if (e.style) {
       var all = ownStyles(document.documentElement);
       var hits = all.filter(function (x) { return textOf(x) === e.from; });
@@ -1305,10 +1357,35 @@ export const CANVAS_BRIDGE = `
   };
   var patch = function (m) {
     if (m.styles) {
-      var mine = Array.prototype.filter.call(document.head.querySelectorAll("style"), function (x) { return !x.hasAttribute("data-sl"); });
+      /* The page's own stylesheets as drawn (compat-canvas.tsx markDrawnStyles), not one a script added since. */
+      var mine = Array.prototype.slice.call(document.head.querySelectorAll("style[data-sl-d]"));
       if (mine.length !== m.styles.length) return reload("styles");
       /* A style already showing the text (written into its rules while a finger was down) is left as it is. */
       mine.forEach(function (x, i) { if (textOf(x) !== m.styles[i]) { x.__slText = undefined; x.textContent = m.styles[i]; } });
+    }
+    /* The head's meta and links as drawn (a theme's colour in its theme-color, a font's preload), changed where they are. A stylesheet's link is let go of once the new one has loaded, so nothing shows unstyled. */
+    if (m.headNodes) {
+      var nodes = Array.prototype.filter.call(document.head.children, function (x) { return x.hasAttribute("data-sl-d") && x.tagName !== "STYLE" && x.tagName !== "SCRIPT" && !x.hasAttribute("data-storelib-font"); });
+      if (nodes.length !== m.headNodes.length) return reload("head");
+      nodes.forEach(function (x, i) {
+        if (x.outerHTML === m.headNodes[i]) return;
+        var tp = document.createElement("template");
+        tp.innerHTML = m.headNodes[i];
+        var y = tp.content.firstElementChild;
+        if (!y) return;
+        if (x.tagName === "LINK" && y.tagName === "LINK" && /stylesheet/i.test(x.getAttribute("rel") || "")) {
+          var gone = function () { x.remove(); };
+          y.addEventListener("load", gone, { once: true });
+          y.addEventListener("error", gone, { once: true });
+          x.after(y);
+        } else x.replaceWith(y);
+      });
+    }
+    /* The layout's own <style>s in the body, around the sections: as drawn, not one a script added since. */
+    if (m.bodyStyles) {
+      var inBody = Array.prototype.filter.call(document.body.querySelectorAll("style"), function (x) { return x.__slDrawn === true; });
+      if (inBody.length !== m.bodyStyles.length) return reload("body styles");
+      inBody.forEach(function (x, i) { if (textOf(x) !== m.bodyStyles[i]) { x.__slText = undefined; x.textContent = m.bodyStyles[i]; } });
     }
     if (m.fonts) {
       var have = Array.prototype.slice.call(document.querySelectorAll("link[data-storelib-font]"));
@@ -1360,6 +1437,7 @@ export const CANVAS_BRIDGE = `
       var id = el.getAttribute("data-section-id");
       runScripts(el);
       fire(el, "shopify:section:load", { sectionId: id, load: true });
+      fire(el, "storelib:section-load", { sectionId: id });
       wake(el);
       rewatch([], el);
     });
@@ -1499,13 +1577,22 @@ export const CANVAS_BRIDGE = `
     var m = e.data;
     if (!m || m.storelib !== 1) return;
     if (m.type === "hold-view") { holdView(!!m.on); return; }
+    /* After whatever was asked before it is on the page: a listener reads the page as it now is. */
+    if (m.type === "settings") {
+      queue = queue.then(function () {
+        try { document.dispatchEvent(new CustomEvent("storelib:settings-change", { detail: { settings: m.settings || {}, live: !!m.live } })); } catch (err) {}
+      }).catch(function () {});
+      return;
+    }
+    if (m.type === "patch" || m.type === "edits" || m.type === "section") holdStill();
     if (m.type === "patch") {
       /* After the section swaps already asked for, in order. */
-      queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
+      queue = queue.then(function () { patch(m); holdStill(true); }).catch(function (err) { reload(String(err)); });
     } else if (m.type === "edits") {
       /* A theme value under a finger, written in every place the page prints it (live-draw.ts placeEdits); a place not found asks for the page to be drawn. */
       queue = queue.then(function () {
         var ok = (m.edits || []).every(function (e) { try { return editAnywhere(e); } catch (err) { return false; } });
+        holdStill(true);
         if (watcher) watcher.takeRecords();
         streaming();
         reportSoon();
@@ -1527,8 +1614,9 @@ export const CANVAS_BRIDGE = `
         if (m.edit) { try { done = edit(m.id, m.edit, html); } catch (err) { done = false; } }
         if (!done) { try { done = restyle(m.id, html, before); } catch (err) { done = false; } }
         if (!done) { try { done = morph(m.id, html, before); } catch (err) { done = false; } }
-        if (!done) return swap(m.id, html, before);
-      }).catch(function () {});
+        if (!done) return Promise.resolve(swap(m.id, html, before)).then(function () { sectionLoaded(m.id); });
+        sectionLoaded(m.id);
+      }).then(stillNow).catch(function () {});
     } else if (m.type === "section") {
       /* In order: a swap that waits for a stylesheet holds the ones after it. Changed in place when it can be (morph); only the newest of a burst is drawn (a cut after it is made from it, so it is never the one skipped). */
       var n = (asked[m.id] = (asked[m.id] || 0) + 1);
@@ -1537,8 +1625,9 @@ export const CANVAS_BRIDGE = `
         var done = false;
         try { done = restyle(m.id, m.html, m.prev); } catch (err) { done = false; }
         if (!done) try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
-        if (!done) return swap(m.id, m.html, m.prev);
-      }).catch(function () {});
+        if (!done) return Promise.resolve(swap(m.id, m.html, m.prev)).then(function () { sectionLoaded(m.id); });
+        sectionLoaded(m.id);
+      }).then(stillNow).catch(function () {});
     } else if (m.type === "select") {
       leaving = false;
       if ("inspect" in m) setInspect(m.inspect);

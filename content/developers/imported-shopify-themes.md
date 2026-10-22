@@ -147,7 +147,28 @@ On the live site the scripts keep their order but stop holding up the page, as S
 The canvas draws an imported theme's page in a sandboxed frame with no origin of its own, so the theme's scripts run as they do on the website and reach nothing of the builder or the signed in person. The builder adds one script, which talks to it by `postMessage` and does what a theme editor is expected to do:
 
 - A click selects the section and the block under it. Links and forms do not leave the page. A link is only followed after every listener the theme has on the click has run, so a header cart icon that opens the drawer opens only the drawer.
-- A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it.
+- A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it. Only the sections whose markup a change touches are drawn again: turning on Show currency codes redraws the sections that print prices and nothing else.
+- **A theme setting changes the page where it is, never by loading it again.** The theme's settings stylesheets (a `{% style %}` of CSS variables in the layout, a `css-variables` snippet), the `<meta>` and `<link>` tags in the head and the `<style>` tags around the sections are written again in place, and the page keeps its scroll. A stylesheet a theme's script adds to the head is left alone. The page is loaded again only when the markup around the sections or the head's scripts change, and then behind the page on screen, at the same scroll.
+- While a slider or a colour is under a finger, the value is written straight into the places the page prints it, every frame. A theme's own transitions do not ease a value from the sidebar: an ease that starts with a builder change is taken to its end in the same frame (a reveal, a fade or a transform as the page is scrolled still plays).
+- Storelib's **Hover and focus** group (buttons on hover, links on hover, fields) is one stylesheet after the theme's own, rewritten in place as its values move.
+
+Two events of Storelib's own let a theme's code follow the builder:
+
+| Event | Dispatched on | `event.detail` | When |
+| --- | --- | --- | --- |
+| `storelib:settings-change` | `document` | `{ settings, live }`: the theme settings that changed, by id, with their new values; `live` is `true` while a finger is still on the control | After the page shows a theme setting change: every value of a slider or a colour while it moves, and once more when it is let go |
+| `storelib:section-load` | the section's element (`#shopify-section-<id>`), bubbling | `{ sectionId }` | After a section is drawn again, whether it was swapped (after `shopify:section:load`) or changed in place, where Shopify's editor sends nothing |
+
+```js
+document.addEventListener("storelib:settings-change", (event) => {
+  if ("cart_type" in event.detail.settings) cartDrawer.refresh()
+})
+document.addEventListener("storelib:section-load", (event) => {
+  if (event.detail.sectionId === "slideshow") slider.reset()
+})
+```
+
+Neither event is sent on the live site, where settings do not change under a visitor.
 - Selecting sends `shopify:section:select` and `shopify:block:select` (and the `deselect` pair), so a theme opens the slide or tab that was picked.
 - What the theme's scripts ask the shop for (the cart, `?sections=`, `/products/<handle>.js`, search suggestions, a quick view) is answered by the builder, with the same code as the live site, from the page being edited and a cart kept in the builder's memory while it is open. **Add to cart, the cart drawer, quantities and Remove work in the canvas.**
 - **Checkout is the live site's.** Check out, Buy it now, a link to `/checkout` and a cart permalink are stopped, and the builder says that checkout only works on the live site. Nothing is bought from the builder.

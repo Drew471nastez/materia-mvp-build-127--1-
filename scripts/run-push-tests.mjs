@@ -48,6 +48,8 @@ const SUITES = [
   /* Round X3: light or dark in Website Settings (the shared choice), the quieter language chip, Copy under the creator's message, a product's translations one language at a time; scripts/check-ui-polish-x.mjs measures them. */
   "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
+  /* Round ed-1022: every edit on the canvas at once (the ease, the overlay kept after a drag, the currency code, variables-only theme values); scripts/check-editor-live.mjs measures them. */
+  "tests/editor-live-updates.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",
@@ -464,6 +466,10 @@ const SUITES = [
   "tests/github-publish-sync.test.ts",
   /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
   "tests/github-format-z4.test.ts",
+  /* Round repo-1022: Storelib's own Theme settings (Hover and focus, the built-in groups) in the repository both ways, the theme's placement winning in the builder, the store's menus, push results as a comment, a git note and the status's Details; everything the builder shows is in the export; Add block lists what the schema allows, and MCP adds the same blocks. */
+  "tests/repo-export-platform-settings.test.ts",
+  "tests/repo-export-coverage.test.ts",
+  "tests/repo-export-blocks.test.ts",
   "tests/schema-edits-sidebar.test.ts",
   "tests/theme-config-files-v.test.ts",
   "tests/collection-binding-v.test.ts",

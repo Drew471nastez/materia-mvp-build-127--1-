@@ -20,13 +20,14 @@
 //     don't re-run every section on unrelated state changes.
 // ============================================================
 
-import { memo, type ReactNode } from "react"
+import { memo, useLayoutEffect, type ReactNode } from "react"
 import { SectionErrorBoundary } from "./SectionErrorBoundary"
 import { sectionTokenAttrs, type SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
 import { entranceSetting, ownAnchor, sectionAnchor, SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
 import { useLiveSection } from "@/lib/website-builder/live-settings"
+import { holdStill, STILL_SECTION_ATTR } from "@/lib/website-builder/edit-still"
 
 /** A section's `animation` setting as the page reads it; "theme" and anything unknown are no attribute. */
 function sectionAnimationAttr(v: unknown): string | undefined {
@@ -184,6 +185,16 @@ export function renderSection(props: SectionProps) {
 function SectionRendererInner(props: SectionProps) {
   /* A setting under a finger on a slider is drawn by this section alone, before the editor commits it (lib/website-builder/live-settings.ts). */
   const section = useLiveSection(props.section)
+  /*
+    And drawn at the value, not eased towards it: while what is drawn is ahead
+    of the editor's copy, the section holds still (lib/website-builder/
+    edit-still.ts). Let go of once the two agree, when nothing moves.
+  */
+  const editing = section !== props.section
+  const boxId = (props as { wrapperId?: string }).wrapperId
+  useLayoutEffect(() => {
+    if (boxId) holdStill(document.getElementById(boxId), STILL_SECTION_ATTR, editing)
+  }, [editing, boxId])
   return renderSection(section === props.section ? props : { ...props, section }) ?? null
 }
 

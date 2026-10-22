@@ -87,7 +87,7 @@ console.log("\nWIRED")
   check("the editor's section, block and theme writers draw live during a gesture and defer their commit", /if \(isLive\(\)\) \{\s*setLiveSectionSetting/.test(page) && /setLiveBlockSetting\(sectionId, blockKey, key, value\)/.test(page) && /if \(isLive\(\)\) \{\s*setLiveThemeSetting/.test(page))
   check("only the section a value belongs to renders it", /const section = useLiveSection\(props\.section\)/.test(read("components/website-builder/sections/SectionRenderer.tsx")))
   /* Changed on purpose (round 34): onto the sections on screen while the finger is down, and onto the root once committed (canvasThemePatcher; tests/editor-live-edit-34.test.ts). */
-  check("a theme value is written onto the canvas on the move, before any render", /useLiveTheme\(committedTheme, patchCanvasThemeVars\)/.test(page) && /* Changed on purpose (round 36): its arguments one to a line. */ /canvasThemePatcher\(\{\s*committed: /.test(page))
+  check("a theme value is written onto the canvas on the move, before any render", /* Changed on purpose (round ed-1022): the Storelib canvas draws a committed setting's echo too (live-settings.ts echoThemeSetting). */ /useLiveTheme\(committedTheme, patchCanvasThemeVars, \{ echoes: true \}\)/.test(page) && /* Changed on purpose (round 36): its arguments one to a line. */ /canvasThemePatcher\(\{\s*committed: /.test(page))
   const commit = read("components/website-builder/editor/use-frame-commit.ts")
   check("a commit's cost is what its frame ran over the screen's frame, not the whole frame", /gap - \(Number\.isFinite\(frameMs\.current\)/.test(commit))
   const css = read("app/globals.css")

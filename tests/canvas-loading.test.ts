@@ -105,7 +105,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("the frame's own load event shows a page that has said nothing, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) \{\s*if \(!slot\.ready\) window\.setTimeout\(\(\) => setPainted\(true\), 400\)/.test(canvas))
     check("a frame that says nothing is shown as it is after FRAME_CAP_MS", /const FRAME_CAP_MS = 6_000/.test(canvas) && /\}, FRAME_CAP_MS\)/.test(canvas))
     check("a page behind that never says it loaded still comes forward", /window\.setTimeout\(\(\) => promote\(slot\.n\), BEHIND_CAP_MS\)/.test(canvas))
-    check("a page that comes forward takes the outline away with it (a first page replaced before it said ready)", /const at = list\.findIndex\(\(x\) => x\.n === n\)\s*\n\s*if \(at <= 0\) return[\s\S]{0,240}setPainted\(true\)/.test(canvas))
+    check("a page that comes forward takes the outline away with it (a first page replaced before it said ready)", /* Changed on purpose (round ed-1022): another page is told apart by its page id first (otherPage), so the lines between are longer. */ /const at = list\.findIndex\(\(x\) => x\.n === n\)\s*\n\s*if \(at <= 0\) return[\s\S]{0,420}setPainted\(true\)/.test(canvas))
     check("nothing to show after SLOW_MS says so", /const SLOW_MS = 15_000/.test(canvas) && /setFailure\(\(f\) => f \?\? "slow"\)/.test(canvas))
     check("the editor's loader steps aside for a failure as for a page", /if \(!shown && !stuck\) return\s*\n\s*let id = requestAnimationFrame\(\(\) => \{ id = requestAnimationFrame\(\(\) => onPainted\.current\?\.\(\)\) \}\)/.test(canvas))
     check("and every one of these is told to the error log", (canvas.match(/reportLoadProblem\("compat-canvas"/g) ?? []).length >= 3 && /reportLoadProblem\("compat-canvas", e\)/.test(filesCode))
@@ -114,7 +114,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("the page answers hello with ready, in whatever order the two happen", /m\.type === "hello"\) \{[\s\S]{0,200}ready\(\);/.test(bridge))
     check("  and says ready anyway when a deferred script of the theme's holds DOMContentLoaded back", /setTimeout\(function \(\) \{ if \(!saidReady\) ready\(\); \}, 2500\)/.test(bridge))
     const settings = code("components/website-builder/compat/compat-theme-settings.tsx")
-    check("Theme settings never stays on Loading when the files do not come", /\}, \(\) => \{\s*if \(live\) setGroups\(\[OVERRIDE_GROUP as unknown as Group\]\)/.test(settings))
+    /* Changed on purpose: Storelib's group comes through compatThemeGroups (lib/storelib-theme/platform-settings.ts), which leaves out what the theme places itself; tests/repo-export-platform-settings.test.ts runs it. */
+    check("Theme settings never stays on Loading when the files do not come", /\}, \(\) => \{\s*if \(live\) setGroups\(themeGroups\(\[\]\)\)/.test(settings))
   }
 
   console.log("\nThe editor (app/website-builder/editor/[installId]/page.tsx)\n")

@@ -48,7 +48,8 @@ import { REVIEW_WIDGET_SECTION_TYPE } from "@/lib/storelib-theme/compat/storelib
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
-import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
+import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
+import { overrideCss } from "@/lib/storelib-theme/compat/overrides"
 import { drawLayoutStyles, drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import { isCompatSource, splitCompatFile, type CompatPage, type CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { layoutPathIn, onlyInCss, probeValues, sameButStyles, settingAt, settingUses, styleEdits, type SettingUses } from "@/lib/storelib-theme/compat/theme-css"
@@ -271,6 +272,40 @@ const usesOf = (rows: object, theme: CompatTheme, page: CompatPage, list: readon
   const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), { template, sections }) : null
   byPage.set(key, uses)
   return uses
+}
+
+/**
+ * EVERY <style> (AND META AND LINK) THE HEAD WAS DRAWN WITH, MARKED (round 1022). A change to the
+ * theme's settings is sent to the frame as its head's stylesheets by
+ * position (canvas-bridge.ts, patch), and the frame counted every <style>
+ * in its head: one a theme's own script had added (a slider's, a popup's,
+ * an app widget's) made the counts differ, and the page was loaded again
+ * behind the one on screen and swapped in a few seconds later, back at its
+ * top. The frame now counts only these, and changes the head's meta and
+ * links (planPatch, headNodes) among these alone.
+ */
+export function markDrawnStyles(html: string): string {
+  const end = html.search(/<\/head\s*>/i)
+  if (end < 0) return html
+  /* Never inside a script's text, which may write such a tag as a string. */
+  return html.slice(0, end).split(/(<script\b[\s\S]*?<\/script\s*>)/i).map((part) => (/^<script\b/i.test(part) ? part : part.replace(/<(style|meta|link|title|base)(?=[\s>])/gi, "<$1 data-sl-d"))).join("") + html.slice(end)
+}
+
+/**
+ * The theme's settings that differ between two drawings, said to the page
+ * as `storelib:settings-change` (canvas-bridge.ts), with their new values.
+ */
+export function changedCompatSettings(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
+  const a = compatValues(before)
+  const b = compatValues(after)
+  const out: Record<string, unknown> = {}
+  if (a === b) return out
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && JSON.stringify(a[k]) !== JSON.stringify(b[k])) out[k] = b[k]
+  return out
+}
+function tellSettings(win: Window, before: Record<string, unknown>, after: Record<string, unknown>, live: boolean) {
+  const settings = changedCompatSettings(before, after)
+  if (Object.keys(settings).length) win.postMessage({ storelib: 1, type: "settings", settings, live }, "*")
 }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
@@ -602,7 +637,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${langCode}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${account ?? ""}`
+  /* Which page it is (the address a visitor would be on), then which files it is drawn from (a file added or taken away is loaded again). */
+  const pageIdFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${langCode}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${account ?? ""}`
+  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${pageIdFor(pageKey, productId, account)}|${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const docKey = docKeyFor(pageKey, productId, accountPath)
   /* What a page drawn now is drawn with besides its sections (themeId, above). */
   const stamp = `${themeId(compatTheme)}|${dataKey}|${stockKey}|${props.siteUrl ?? ""}`
@@ -628,7 +665,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
-    return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
+    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
   }
 
   /*
@@ -835,10 +872,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
     /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
-    if (front() && front()!.key !== docKey) scrollY.current = 0
+    /*
+      Not when only its files changed (round 1022): a file the theme gained
+      or lost (a push, an agent, a save that adds one) loads the same page
+      again, where it was scrolled to. It was taken for another page, and
+      the canvas came back at the top a few seconds after the change.
+    */
+    if (front() && front()!.key.split("|")[0] !== pageIdFor(pageKey, productId, accountPath)) scrollY.current = 0
     /* Another page, kept loaded as it would be drawn now: brought forward, nothing drawn or loaded (KEPT PAGES). */
     if (front() && front()!.key !== docKey && !accountPath && slotsRef.current[1]?.key !== docKey && bringKept(docKey, list)) return
-    if (!isLive() && commitShown(list)) return
+    if (!isLive()) {
+      const before = drawnWith.current?.settings
+      if (commitShown(list)) {
+        /* Released: the value the finger left, said once more as committed. */
+        const w = frontWindow()
+        if (w && before && drawnWith.current) tellSettings(w, before, drawnWith.current.settings, false)
+        return
+      }
+    }
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
@@ -853,8 +904,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     /* What the page on screen is now drawn with: a theme value under a finger is written from here (applyLiveTheme). */
+    const settingsBefore = drawnWith.current?.settings
     drawnWith.current = { settings: settingsOfTheme.get(compatTheme) ?? drawSettingsRef.current, theme: compatTheme, page, list }
+    /* Said to the theme's code once the page has it (storelib:settings-change), on the same page only: another page is loaded with its settings. */
+    const shownNow = front()
+    const tell = (win: Window | null, live: boolean) => { if (win && settingsBefore && shownNow?.key === docKey) tellSettings(win, settingsBefore, drawnWith.current!.settings, live) }
     liveThemeShown.current = null
+    overridesShown.current = null
     const now = front()
     if (!now) { loadBehind(html, docKey, list); return }
     /*
@@ -874,6 +930,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (e) {
         liveWin.postMessage({ storelib: 1, type: "edits", edits: [e], key: "" }, "*")
         now.lastHtml = html
+        tell(liveWin, true)
         return
       }
     }
@@ -898,10 +955,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     now.stamp = stampRef.current
     now.lastHtml = html
-    if (plan.empty) { now.shape = next; return }
+    if (plan.empty) { now.shape = next; tell(win, isLive()); return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
     for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
+    tell(win, isLive())
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, jsonOf(s))
     for (const id of [...now.drawnFrom.keys()]) if (!list.some((s) => s.id === id)) now.drawnFrom.delete(id)
@@ -934,6 +992,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     before.
   */
   const drawnWith = useRef<{ settings: Record<string, unknown>; theme: unknown; page: CompatPage; list: StoredSection[] } | null>(null)
+  /* The Hover and focus stylesheet as last written while a finger is down (applyLiveTheme); the page drawn again lets go of it. */
+  const overridesShown = useRef<string | null>(null)
   const drawSettingsRef = useRef(drawSettings)
   drawSettingsRef.current = drawSettings
   const themeTemplates = useRef(new Map<string, { at: string; t: LiveTemplate | null; places: Place[] | null }>())
@@ -1132,6 +1192,32 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const next = { ...(propsThemeRef.current as Record<string, unknown>), ...overlay }
     const change = oneChange(base.settings, next)
     if (!change || change.path.length < 2) return
+    /* The value under the finger, said to the theme's code (storelib:settings-change, live) once the page shows it. */
+    const sayLive = () => {
+      const k = change.path[1]
+      if (change.path[0] === "shopify" && typeof k === "string") win.postMessage({ storelib: 1, type: "settings", settings: { [k]: compatValues(next)[k] }, live: true }, "*")
+    }
+    /*
+      STORELIB'S OWN HOVER AND FOCUS (lib/storelib-theme/compat/overrides.ts)
+      is one stylesheet Storelib writes after the theme's: a value of it is
+      that stylesheet written again, in place, never the page drawn by Liquid
+      (a colour picked from empty has no template to learn: the page was
+      drawn whole for each value, 2 of 41 shown, round 1022).
+    */
+    if (change.path[0] === "shopify" && typeof change.path[1] === "string" && change.path[1].startsWith("storelib_")) {
+      const from = overridesShown.current ?? overrideCss(compatValues(base.settings))
+      const to = overrideCss(compatValues(next))
+      cancelRedraw()
+      if (from !== to) win.postMessage({ storelib: 1, type: "edits", edits: [{ style: true, sel: "style[data-storelib-overrides]", from, to }], key: "storelib-overrides" }, "*")
+      sayLive()
+      overridesShown.current = to
+      liveThemeShown.current = null
+      if (!held) {
+        heldFor.current = propsThemeRef.current
+        setHeld(base.settings)
+      }
+      return
+    }
     /* By the theme's files, not the theme object: a value drawn by Liquid while the template was being learned is a new theme object with the same files. */
     const key = `${themeId(rowsRef.current ?? {})}|${pageIdOf(base.page)}|${JSON.stringify(change.path)}`
     const at = JSON.stringify(withLeaf(next, change.path, null))
@@ -1139,7 +1225,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const cached = cssPlans.current.get(key)
     const plan = cached && cached.at === at ? cached : learnCss(key, at, base, change.path, change.from)
     if (!plan) { if (cssLearning.current.has(key)) return }
-    else if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) return
+    else if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) { sayLive(); return }
     const known = themeTemplates.current.get(key)
     if (!known || known.at !== at) {
       learnTheme(key, at, base.settings, change.path, change.from, base.page, base.list)
@@ -1152,6 +1238,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* A drawing of an older value waiting for its turn would put that value back over this one. */
     cancelRedraw()
     if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    sayLive()
     liveThemeShown.current = { key, value: change.to }
     window.clearTimeout(themeCheck.current)
     const t = known.t, value = change.to, files = rowsRef.current
@@ -1558,10 +1645,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const at = list.findIndex((x) => x.n === n)
     if (at <= 0) return
     /* Another page: the one being left fades off it. The same page drawn again (an edit) is a cut: it looks as the one it replaces does. */
-    if (paintedRef.current && list[0].key !== list[at].key && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
+    const otherPage = list[0].key.split("|")[0] !== list[at].key.split("|")[0]
+    if (paintedRef.current && otherPage && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
     setPainted(true)
     /* Another page: the one being left is kept, loaded, for going back to it (KEPT PAGES), as it now stands. */
-    if (list[0].key !== list[at].key && !list[0].account && list[0].ready) {
+    if (otherPage && !list[0].account && list[0].ready) {
       list[0].stamp = stampRef.current
       keep(list[0])
     }
@@ -1648,7 +1736,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
         if (isFront) setPainted(true)
         /* Where it should stand (the same page drawn again stays where it was; another page opens at its top), and told to say when it is drawn there. */
         if (!isFront) {
-          const same = slot.key === slotsRef.current[0]?.key
+          /* The same page, whatever files it is drawn from (pageIdFor). */
+          const same = slot.key.split("|")[0] === slotsRef.current[0]?.key.split("|")[0]
           /* The same page drawn again (an edit): settled where it ends before it replaces the one in front (canvas-network.ts, instant). */
           if (same) win.postMessage({ storelib: 1, type: "shown", instant: true }, "*")
           win.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
@@ -1898,13 +1987,21 @@ const PROBLEM_WORDS = {
 /* ── What a drawn page is, to compare one with the next ───────────────────── */
 
 export interface DocShape {
-  /** Everything in <head> but the text of its inline styles and the font links: a change here is a different page. */
+  /** The head's scripts, by address: a change here is a different page. */
   head: string
+  /**
+   * The rest of the head (meta, link, title), each as drawn, by position: a
+   * theme that prints a setting there (`<meta name="theme-color">`, a font's
+   * preload) has it changed in place, never the page loaded again.
+   */
+  headNodes: string[]
   styles: string[]
+  /** The <style>s the layout draws in the body, around the sections, by position. */
+  bodyStyles: string[]
   fonts: string[]
   htmlAttrs: Record<string, string>
   bodyAttrs: Record<string, string>
-  /** <body> with every section and script taken out: what the layout draws around the sections. */
+  /** <body> with every section, script and style taken out: what the layout draws around the sections. */
   skeleton: string
   /** Every section, in the order drawn, by id: its markup. */
   sections: Map<string, string>
@@ -1918,11 +2015,14 @@ export function docShape(html: string): DocShape {
   const styles: string[] = []
   const fonts: string[] = []
   const head: string[] = []
+  const headNodes: string[] = []
   for (const el of Array.from(doc.head.children)) {
-    if (el.tagName === "STYLE") { styles.push(el.textContent ?? ""); head.push("<style>"); continue }
+    if (el.tagName === "STYLE") { styles.push(el.textContent ?? ""); continue }
     if (el.tagName === "LINK" && el.hasAttribute("data-storelib-font")) { fonts.push(el.getAttribute("href") ?? ""); continue }
     if (el.tagName === "SCRIPT") { head.push(`<script ${el.getAttribute("src") ?? ""}>`); continue }
-    head.push(el.outerHTML)
+    /* Read as text by a page that runs scripts and as markup here: never compared. */
+    if (el.tagName === "NOSCRIPT" || el.tagName === "TEMPLATE") continue
+    headNodes.push(el.outerHTML)
   }
   const sections = new Map<string, string>()
   const order: { id: string; group: string }[] = []
@@ -1933,22 +2033,34 @@ export function docShape(html: string): DocShape {
   }
   const body = doc.body.cloneNode(true) as HTMLElement
   body.querySelectorAll(".shopify-section[data-section-id], script").forEach((el) => el.remove())
-  return { head: head.join("\n"), styles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order }
+  const bodyStyles: string[] = []
+  body.querySelectorAll("style").forEach((el) => {
+    bodyStyles.push(el.textContent ?? "")
+    el.remove()
+  })
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
   const ka = Object.keys(a)
   return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
 }
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
 /**
  * What to send a page drawn as `from` so it reads as `to`, or null when the
- * page has to be loaded again (its head or its skeleton changed).
+ * page has to be loaded again: its head's scripts or the markup around its
+ * sections changed, or a stylesheet came or went. A stylesheet's text, the
+ * head's meta and links and the body's own styles are changed in place
+ * (round 1022: a theme printing its accent in `<meta name="theme-color">`
+ * had the page loaded again for every value of a colour dragged, 36 times).
  */
 export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
-  if (from.head !== to.head || from.skeleton !== to.skeleton || from.styles.length !== to.styles.length) return null
+  if (from.head !== to.head || from.skeleton !== to.skeleton || from.styles.length !== to.styles.length || from.bodyStyles.length !== to.bodyStyles.length) return null
   const message: Record<string, unknown> = {}
   if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
+  if (from.bodyStyles.some((x, i) => x !== to.bodyStyles[i])) message.bodyStyles = to.bodyStyles
+  if (!sameList(from.headNodes, to.headNodes)) message.headNodes = to.headNodes
   if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
   if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) message.htmlAttrs = to.htmlAttrs
   if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) message.bodyAttrs = to.bodyAttrs

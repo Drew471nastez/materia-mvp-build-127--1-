@@ -32,6 +32,8 @@ import { useOverlayHooks } from "./overlay-hooks"
 import { enhanceReviewWidgets } from "@/lib/reviews/widgets/enhance"
 import { morphInto } from "@/lib/website-builder/morph-html"
 import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
+import { drawLive } from "@/lib/website-builder/storelib-live-fill"
+import { isLive } from "@/lib/website-builder/live-settings"
 
 /** The markup each section element holds, once it has been changed after React drew it. */
 const drawn = new WeakMap<Element, string>()
@@ -111,7 +113,8 @@ export function StorelibSection({
         capabilities: ready.capabilities ?? [],
       }
     }
-    if (render) return render(section, theme)
+    /* A value under a finger: from the section's template once it is learned (lib/website-builder/storelib-live-fill.ts). */
+    if (render) return drawLive(section, theme, render, isLive())
     return {
       ok: false as const,
       errors: [{

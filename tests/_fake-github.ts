@@ -24,8 +24,8 @@ interface Repo {
   trees: Map<string, Tree>
   blobs: Map<string, Buffer>
   protected: Set<string>
-  statuses: { sha: string; state: string; description: string; context: string }[]
-  comments: { sha: string; body: string }[]
+  statuses: { sha: string; state: string; description: string; context: string; target_url?: string }[]
+  comments: { sha: string; body: string; html_url: string }[]
 }
 
 export interface Planned {
@@ -94,6 +94,8 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
   }
 
   const text = (name: string, ref: string, path: string) => filesAt(name, ref)[path]?.toString("utf8")
+  /** The git note on a commit in refs/notes/storelib, as `git notes --ref=storelib show <sha>` prints it. */
+  const note = (name: string, sha: string) => text(name, "refs/notes/storelib", sha)
 
   function isAncestor(r: Repo, maybe: string, of: string): boolean {
     const seen = new Set<string>()
@@ -142,6 +144,19 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       if (empty) return json(409, { message: "Git Repository is empty." })
       const sha = r.refs.get(m[1])
       return sha ? json(200, { object: { sha } }) : json(404, { message: "Not Found" })
+    }
+    /* Any other ref (refs/notes/storelib): kept under its full name, beside the branches. */
+    if ((m = /^\/git\/ref\/((?!heads\/).+)$/.exec(rest)) && method === "GET") {
+      const sha = r.refs.get(`refs/${m[1]}`)
+      return sha ? json(200, { object: { sha } }) : json(404, { message: "Not Found" })
+    }
+    if ((m = /^\/git\/refs\/((?!heads\/).+)$/.exec(rest)) && method === "PATCH") {
+      const name = `refs/${m[1]}`
+      const cur = r.refs.get(name)
+      if (!cur) return json(422, { message: "Reference does not exist" })
+      if (!body.force && !isAncestor(r, cur, body.sha)) return json(422, { message: "Update is not a fast forward" })
+      r.refs.set(name, body.sha)
+      return json(200, { object: { sha: body.sha } })
     }
     if (rest === "/git/refs" && method === "POST") {
       const b = String(body.ref).replace(/^refs\/heads\//, "")
@@ -212,12 +227,13 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       return json(200, { status, files })
     }
     if ((m = /^\/statuses\/([0-9a-f]+)$/.exec(rest)) && method === "POST") {
-      r.statuses.push({ sha: m[1], state: body.state, description: body.description, context: body.context })
+      r.statuses.push({ sha: m[1], state: body.state, description: body.description, context: body.context, target_url: body.target_url })
       return json(201, {})
     }
     if ((m = /^\/commits\/([0-9a-f]+)\/comments$/.exec(rest)) && method === "POST") {
-      r.comments.push({ sha: m[1], body: body.body })
-      return json(201, {})
+      const html_url = `https://github.com/${name}/commit/${m[1]}#commitcomment-${r.comments.length + 1}`
+      r.comments.push({ sha: m[1], body: body.body, html_url })
+      return json(201, { html_url })
     }
     return json(404, { message: `fake GitHub has no ${method} ${rest}` })
   }
@@ -229,6 +245,7 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
     commitFiles,
     filesAt,
     text,
+    note,
     fail: (p: Planned) => planned.push(p),
     hooks,
     transport: (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => handle(url, init),

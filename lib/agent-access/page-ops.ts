@@ -26,7 +26,7 @@
  */
 
 import { blockAt, countAll, resolvePath } from "@/lib/website-builder/block-tree"
-import { addableBlocks, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { addableBlocks } from "@/lib/website-builder/storelib-schemas"
 import {
   applyOp,
   blockFieldsFor,
@@ -38,10 +38,12 @@ import {
   type ThemeOp,
   type ThemeState,
 } from "@/lib/website-builder/agent/operations"
-import { schemaOf, type SchemaMap } from "@/lib/website-builder/agent/schemas"
+import { blockCatalogFor, installContextFor, schemaOf, type SchemaMap } from "@/lib/website-builder/agent/schemas"
 import { themeExtraFields, typographyWrite } from "@/lib/website-builder/agent/theme-extras"
 import { tabSwitchUpgrade } from "@/lib/website-builder/section-anchors"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
+import { platformValueFields } from "@/lib/storelib-theme/platform-settings"
+import { themeSettingsGroupsFor } from "@/lib/storelib-theme/theme-config"
 
 /** What an agent sends: an operation with settings as objects, ids its own. */
 export type PageOpInput =
@@ -180,7 +182,7 @@ export function checkOp(
       const parentPath = parentKey ? resolvePath(found.blocks, parentKey) : []
       if (!parentPath) return { error: `${found.type} has no block "${parentKey}" to add inside.` }
       const parentBlock = parentPath.length ? blockAt(found.blocks, parentPath)?.block ?? null : null
-      const catalog = themeBlockCatalog()
+      const catalog = blockCatalogFor(schemas)
       const specs = parentBlock ? addableBlocks({ accepts: catalog[parentBlock.type]?.accepts }, catalog) : blockSpecs(found.type, schemas)
       if (!specs.some((b) => b.type === blockType)) {
         return { error: `${parentBlock ? `A ${parentBlock.type} block` : found.type} does not take a "${blockType}" block. It takes: ${specs.map((b) => b.type).join(", ") || "no blocks"}.` }
@@ -249,10 +251,32 @@ export function checkOp(
         typography = t
         delete rest.typography_styles
       }
-      const checked = Object.keys(rest).length ? checkSettings([...themeFieldsFor(), ...themeExtraFields(state.settings as Record<string, unknown>)], rest, "The theme") : { settings: {}, notes: [] as string[] }
+      /*
+        Storelib's own settings on an imported theme (Hover and focus,
+        lib/storelib-theme/platform-settings.ts): taken by id and kept where
+        the builder keeps them, beside the theme's values under `shopify`.
+      */
+      const install = installContextFor(schemas)
+      let platform: Record<string, unknown> | null = null
+      const platformNotes: string[] = []
+      if (install.compat) {
+        const fields = platformValueFields("shopify", { declared: install.declared })
+        const mine = Object.fromEntries(Object.entries(rest).filter(([k]) => fields.some((f) => f.id === k)))
+        if (Object.keys(mine).length) {
+          const c = checkSettings(fields, mine, "Hover and focus")
+          if (c.error) return { error: c.error }
+          for (const k of Object.keys(mine)) delete rest[k]
+          const shopify = state.settings.shopify && typeof state.settings.shopify === "object" ? (state.settings.shopify as Record<string, unknown>) : {}
+          platform = { ...shopify, ...c.settings! }
+          platformNotes.push(...c.notes)
+        }
+      }
+      /* A Storelib theme's own settings_schema.json adds settings and moves defaults: the same groups Theme settings draws. */
+      const groups = install.compat ? undefined : themeSettingsGroupsFor(install.themeSchemaText)
+      const checked = Object.keys(rest).length ? checkSettings([...themeFieldsFor(groups), ...themeExtraFields(state.settings as Record<string, unknown>)], rest, "The theme") : { settings: {}, notes: [] as string[] }
       if (checked.error) return { error: checked.error }
-      const settings = { ...checked.settings!, ...(typography ? { typography_styles: typography.value } : {}) }
-      const notes = [...checked.notes, ...(typography?.notes ?? [])]
+      const settings = { ...checked.settings!, ...(typography ? { typography_styles: typography.value } : {}), ...(platform ? { shopify: platform } : {}) }
+      const notes = [...checked.notes, ...platformNotes, ...(typography?.notes ?? [])]
       return { op: { kind: "update_theme", settings }, note: notes.join("; ") || undefined }
     }
 

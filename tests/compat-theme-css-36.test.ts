@@ -147,7 +147,7 @@ const plain = (s: string) => (isCompatSource(s) ? splitCompatFile(s).markup : s)
     check("which settings those are is read from the files at the first value, never after a page drawn whole", /if \(uses && onlyInCss\(uses, path\)\) \{/.test(canvas) && /const plan = cached && cached\.at === at \? cached : learnCss\(/.test(canvas))
     check("a setting the files do not vouch for is tried with values in the background, one drawing a task", /sameButStyles\(ahead\.page, \{ html: pagePure\(files, values, base\.page, base\.list\), styles \}\)/.test(canvas) && /if \(r === null && steps\.length\) window\.setTimeout\(next, 0\)/.test(canvas))
     check("what the frame holds is checked before the first value is written", /!shown\.every\(\(s\) => html\.includes\(s\)\)/.test(canvas))
-    check("the release's commit of a value the files vouch for keeps the page on screen as drawn", /if \(!isLive\(\) && commitShown\(list\)\) return/.test(canvas) && /!shown\.plan\.files/.test(canvas))
+    check("the release's commit of a value the files vouch for keeps the page on screen as drawn", /* Changed on purpose (round ed-1022): and the committed value is said to the theme's code, storelib:settings-change. */ /if \(!isLive\(\)\) \{\s*const before = drawnWith\.current\?\.settings\s*if \(commitShown\(list\)\) \{[\s\S]{0,240}return\s*\}\s*\}/.test(canvas) && /!shown\.plan\.files/.test(canvas))
     check("after the release the page is held to the committed settings until the live layer lets go", /if \(held !== props\.theme\) setHeld\(props\.theme as Record<string, unknown>\)\s*\n\s*else if \(settings === \(props\.theme as unknown\)\) setHeld\(null\)/.test(canvas))
   }
 
