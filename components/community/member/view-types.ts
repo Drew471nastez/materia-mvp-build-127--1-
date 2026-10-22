@@ -225,17 +225,56 @@ export interface SearchIndex {
   events: SearchEventHit[]
 }
 
-export interface ChatMessageView {
+/** What a reply shows of the message it answers (round 37). */
+export interface ChatReplyPreview {
   id: string
-  spaceId: string
-  body: string
-  status: "published" | "removed" | "deleted"
+  authorName: string
+  /** One line of its words, or what it carried ("Photo"), or "Message deleted". */
+  text: string
+}
+
+/**
+ * ONE MESSAGE, THE SAME SHAPE IN A CHANNEL, A CONVERSATION AND A GROUP
+ * (round 37), so one chat screen (chat-surface.tsx) draws all three.
+ */
+export interface ChatLine {
+  id: string
+  authorId: string | null
   author: AuthorView | null
-  replyToId: string | null
+  mine: boolean
+  body: string
+  attachments: PostMedia[]
+  replyTo: ChatReplyPreview | null
+  /** The sender's own id for the message, so the copy it sent and the copy realtime brings are one. */
+  clientId: string | null
   createdAt: string
   editedAt: string | null
+  /** "event": a line about the group itself ("Ana added Ben"). */
+  kind?: "message" | "event"
+  reactionCount?: number
+  reacted?: boolean
   canEdit: boolean
+  canDelete: boolean
   canModerate: boolean
+}
+
+/** What a member is told about chat before they write (lib/communities/server/chat-settings.ts chatIntro). */
+export interface ChatIntroView {
+  ready: boolean
+  rules: string
+  rulesVersion: number
+  needsRules: boolean
+  dmPolicy: "everyone" | "staff" | "off"
+  groupsPolicy: "members" | "staff" | "off"
+  attachments: boolean
+  myDms: "everyone" | "staff" | "nobody"
+  restriction: { kind: "banned" } | { kind: "muted"; until: string } | null
+}
+
+export interface ChatMessageView extends ChatLine {
+  spaceId: string
+  status: "published" | "removed" | "deleted"
+  replyToId: string | null
 }
 
 export interface NotificationView {

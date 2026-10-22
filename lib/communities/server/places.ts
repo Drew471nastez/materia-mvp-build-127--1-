@@ -24,7 +24,8 @@ import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
 import type { Db } from "@/lib/communities/server/db"
 import { listFeed, listSaved } from "@/lib/communities/server/feed"
-import { listMessages } from "@/lib/communities/server/chat"
+import { canWriteIn, listMessages } from "@/lib/communities/server/chat"
+import { chatIntro } from "@/lib/communities/server/chat-settings"
 import { findProgram, listPrograms, programCard, programOutline, programPlayer } from "@/lib/communities/server/learn"
 import { eventDetail, isEventId, listEvents, monthEvents } from "@/lib/communities/server/events"
 import { authorViews, leaderboardRows, levelNames, listMembers, locationsReady } from "@/lib/communities/server/directory"
@@ -75,8 +76,10 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         const row = space ? shell.rows.find((r) => r.id === space.id) : null
         if (!space || !row) return missing
         if (space.kind === "chat") {
-          const first = await listMessages(db, community, viewer, row, {})
-          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || !space.canPost })
+          /* Round 37: the chat rules and the member's standing come with the first page, so the screen never jumps when they arrive. */
+          const [first, intro] = await Promise.all([listMessages(db, community, viewer, row, {}), chatIntro(db, community, viewer)])
+          const closed = !space.canPost || !canWriteIn(row, viewer, community.chat_enabled) || intro.restriction?.kind === "banned"
+          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || closed, intro })
         }
         const [feed, compose] = await Promise.all([listFeed(db, community, viewer, { sort: "default", spaceId: space.id }), composeFor(db, community, viewer)])
         return ok({ kind: "feed", start: { kind: "space", id: space.id }, spaces: shell.spaces, viewer: viewerView(viewer), initial: feed, servedAt: Date.now(), readOnly, onboarding: null, compose })
