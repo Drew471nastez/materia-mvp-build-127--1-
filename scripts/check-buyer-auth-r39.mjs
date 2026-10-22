@@ -159,7 +159,7 @@ if (process.env.NO_SERVER !== "1") {
     ...process.env, PORT: String(PORT), NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${STUB_PORT}`, NEXT_PUBLIC_SUPABASE_ANON_KEY: "probe-anon-key", SUPABASE_SERVICE_ROLE_KEY: "probe-service-role-key-long-enough",
     STRIPE_SECRET_KEY: "sk_test_placeholder", RESEND_API_KEY: "re_placeholder", NEXT_TELEMETRY_DISABLED: "1", NEXT_PUBLIC_SITE_URL: BASE,
   }
-  next = spawn(process.execPath, ["--max-old-space-size=6144", NEXT_BIN, "dev", "--webpack", "-p", String(PORT), "-H", "localhost"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] })
+  next = spawn(process.execPath, ["--max-old-space-size=6144", NEXT_BIN, "dev", process.env.WEBPACK === "1" ? "--webpack" : "--turbopack", "-p", String(PORT), "-H", "localhost"], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] })
   let out = ""
   const log = process.env.NEXT_LOG || null
   next.stdout.on("data", (d) => { out += d; if (log) appendFileSync(log, d) })
@@ -181,7 +181,14 @@ for (const path of [`/receipt/${GUEST_TOKEN}`, "/maria/film-presets", "/login", 
   console.log(`  warm ${path} ${r.status} ${Date.now() - t0}ms`)
 }
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] })
+/* And the routes the pages call, so the first real call is not a compile. */
+for (const [method, path, body] of [["POST", "/api/receipt/remember", { receiptToken: "warmwarmwarmwarmwarm" }], ["GET", `/api/download/${ASSET}`], ["GET", "/api/receipt/open?order=x"], ["POST", "/api/auth/account-origin", { email: "warm@example.com" }], ["GET", "/auth/continue"], ["POST", "/api/purchases/verify", { productId: PRODUCT, receiptTokens: [] }]]) {
+  const t0 = Date.now()
+  const r = await fetch(`${BASE}${path}`, { method, redirect: "manual", headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined }).catch((e) => ({ status: String(e) }))
+  console.log(`  warm ${method} ${path} ${r.status} ${Date.now() - t0}ms`)
+}
+
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, timeout: 180_000, protocolTimeout: 600_000, args: ["--no-sandbox", "--disable-dev-shm-usage"] })
 const DESK = { name: "1440", vp: { width: 1440, height: 900, deviceScaleFactor: 1 } }
 const PHONE = { name: "390", vp: { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } }
 const consent = { name: "storelib_consent", value: `2.p1.a0.m0.${Math.floor(Date.now() / 1000)}`, url: BASE }
@@ -204,22 +211,23 @@ async function shot(page, name) {
 }
 const text = (page) => page.evaluate(() => document.body.innerText)
 async function go(page, path) {
-  await page.goto(`${BASE}${path}`, { waitUntil: "networkidle0", timeout: 180_000 })
-  await sleep(600)
+  await page.goto(`${BASE}${path}`, { waitUntil: "load", timeout: 240_000 })
+  await sleep(2500)
 }
 
 for (const view of [DESK, PHONE]) {
   console.log(`\n${view.name}: GUEST, a guest order's receipt`)
   const { ctx, page } = await fresh(view)
+  const rememberAnswer = page.waitForResponse((r) => r.url().endsWith("/api/receipt/remember"), { timeout: 240_000 }).then((r) => r.json()).catch(() => null)
   await go(page, `/receipt/${GUEST_TOKEN}`)
+  const remembered = await rememberAnswer
   const door = await page.$eval("[data-receipt-account]", (e) => e.getAttribute("data-receipt-account")).catch(() => null)
   expect(door === "create", "signed out, an address with no account: Create account and Sign in", door)
   const card = await page.$eval("[data-receipt-account]", (e) => e.innerText).catch(() => "")
   expect(/Save it to your account/.test(card) && /Create account/.test(card) && /Sign in/.test(card), "  it says Save it to your account", card.replace(/\n+/g, " | "))
   const signupHref = await page.$eval("[data-receipt-create]", (a) => a.getAttribute("href")).catch(() => "")
   expect(signupHref === `/signup?redirect=%2Freceipt%2F${GUEST_TOKEN}`, "  Create account comes back to this receipt, and claims nothing on the way", signupHref)
-  expect(page.__requests.some((r) => r === "POST /api/receipt/remember"), "the receipt asks the server to remember this purchase")
-  await sleep(500)
+  expect(page.__requests.some((r) => r === "POST /api/receipt/remember") && remembered?.ok === true && remembered?.remembered === 1, "the receipt asks the server to remember this purchase", remembered)
   const cookies = await page.cookies(BASE)
   const owned = cookies.find((c) => c.name === "sl_owned")
   expect(!!owned && owned.httpOnly && owned.sameSite === "Lax" && owned.path === "/", "  the browser holds sl_owned: httpOnly, SameSite=Lax, path /", owned ? { httpOnly: owned.httpOnly, sameSite: owned.sameSite, secure: owned.secure } : null)
@@ -238,7 +246,7 @@ for (const view of [DESK, PHONE]) {
   await shot(page, `${view.name}-2-product-owned`)
   const dl = await page.evaluate(async (asset) => { const r = await fetch(`/api/download/${asset}`); return { status: r.status, body: await r.text() } }, ASSET)
   expect(dl.status !== 403 && dl.status !== 401, "  a file asked for with no receipt link is not refused (the stand in has no storage, so it cannot be signed)", dl)
-  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0", timeout: 180_000 }), page.click("[data-open-receipt]")])
+  await Promise.all([page.waitForNavigation({ waitUntil: "load", timeout: 240_000 }), page.click("[data-open-receipt]")])
   expect(page.url() === `${BASE}/receipt/${GUEST_TOKEN}`, "  Open receipt lands on the receipt", page.url().replace(BASE, ""))
   await ctx.close()
 
@@ -263,7 +271,7 @@ for (const view of [DESK, PHONE]) {
   /* Create account with the account's address, the way the owner did. */
   await go(page, `/signup?redirect=%2Freceipt%2F${ACCOUNT_TOKEN}`)
   await page.type("#email", BUYER.email)
-  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0", timeout: 180_000 }), page.click("button[type=submit]")])
+  await Promise.all([page.waitForNavigation({ waitUntil: "load", timeout: 240_000 }), page.click("button[type=submit]")])
   await sleep(1200)
   const at = new URL(page.url())
   expect(at.pathname === "/login" && at.searchParams.get("exists") === "1" && at.searchParams.get("next") === `/receipt/${ACCOUNT_TOKEN}`, "Create account with an existing address moves to sign in, the receipt kept", `${at.pathname}${at.search}`)
@@ -276,7 +284,7 @@ for (const view of [DESK, PHONE]) {
   await shot(page, `${view.name}-5-login-existing`)
 
   await page.type("#password", "correct horse battery")
-  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0", timeout: 180_000 }), page.click("button[type=submit]")])
+  await Promise.all([page.waitForNavigation({ waitUntil: "load", timeout: 240_000 }), page.click("button[type=submit]")])
   for (let i = 0; i < 20 && !page.url().includes("/receipt/"); i++) await sleep(1000)
   await sleep(1500)
   expect(page.url() === `${BASE}/receipt/${ACCOUNT_TOKEN}`, "signed in, back on the receipt", page.url().replace(BASE, ""))
