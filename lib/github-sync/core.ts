@@ -446,7 +446,8 @@ are \`menus\` in the same file, as Navigation in the builder shows them.${shopif
 ## Live preview in the builder
 
 A change in the builder is drawn in the canvas without reloading the page.
-A script of the theme's that sets itself up once hears it on \`document\`:
+In an imported theme's canvas, a script of the theme's that sets itself up
+once can listen on \`document\` for:
 
 ${LIVE_PREVIEW_EVENTS.map((e) => `- \`${e.event}\`: ${e.when}`).join("\n")}
 
