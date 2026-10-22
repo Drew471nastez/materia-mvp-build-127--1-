@@ -1326,6 +1326,8 @@ export function FilesLibrary({
     <div
       className={cn(fill ? "flex min-h-0 flex-1 flex-col" : "space-y-3")}
       data-files-library={mode}
+      /* A tile that will not draw shows its own placeholder with its type, and leaves the list when gone: not the site-wide grey box (lib/media/missing-image.ts). */
+      data-keep-broken-images=""
       data-files-multiple={selecting ? "" : undefined}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {

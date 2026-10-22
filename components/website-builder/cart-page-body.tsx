@@ -27,6 +27,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ShoppingBag, Minus, Plus, Trash2, X } from "lucide-react"
+import { ProductImg, isDarkColor } from "@/components/media/missing-image"
 import { useSiteCart } from "./site-cart"
 import { checkoutItems, lineKey } from "@/lib/website-builder/cart"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -258,10 +259,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
                   className="h-[84px] w-[84px] shrink-0 overflow-hidden sm:h-[96px] sm:w-[96px]"
                   style={{ background: palette.border, borderRadius: radius }}
                 >
-                  {l.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  ) : null}
+                  <ProductImg src={l.thumbnailUrl} className="h-full w-full object-cover" loading="lazy" dark={isDarkColor(palette.bg)} />
                 </a>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <a

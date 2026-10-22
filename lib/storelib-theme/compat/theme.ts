@@ -75,6 +75,7 @@ import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
 import type { CompiledSection, SectionInstanceData } from "../types"
 import { themeVars } from "@/lib/website-builder/theme-css"
+import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
@@ -1203,7 +1204,7 @@ export class CompatTheme {
     /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
     const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
-    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
+    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content
     const drawnIds = new Set<string>()
     ctx.registers.drawnIds = drawnIds
@@ -1238,6 +1239,13 @@ export class CompatTheme {
       their own rings untouched.
     */
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${FOCUS_RING_FIX}</head>`) : `${FOCUS_RING_FIX}${html}`
+    /*
+      A PICTURE THAT IS NOT THERE IS A GREY BOX WITH A CAMERA (round 39,
+      lib/media/missing-image.ts): a product photo since deleted, a cart
+      drawer's thumbnail with no address. In the head, so it is listening
+      before the body's first picture can fail; live and on the canvas alike.
+    */
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${MISSING_IMAGE_HEAD}</head>`) : `${MISSING_IMAGE_HEAD}${html}`
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`
     if (head.extraBodyEnd) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${head.extraBodyEnd}</body>`) : `${html}${head.extraBodyEnd}`

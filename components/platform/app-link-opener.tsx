@@ -22,6 +22,7 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { APP_SEEN_COOKIE, APP_SEEN_DAYS, openTarget } from "@/lib/platform/open-in-app"
+import { finishConnect } from "@/lib/native-connect"
 
 const LAUNCH_KEY = "storelib:launch-link"
 
@@ -47,6 +48,8 @@ export function AppLinkOpener() {
     let handle: { remove: () => void } | null = null
     let gone = false
     const go = (url: string | null | undefined) => {
+      /* A sign in handed back from the in-app browser sheet (Connect GitHub, Connect Supabase): the sheet closes and the callback finishes here (lib/native-connect.ts). */
+      if (url && finishConnect(url)) return
       const target = url ? openTarget(url) : null
       if (!target) return
       const here = `${window.location.pathname}${window.location.search}`

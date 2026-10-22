@@ -8,6 +8,7 @@ import { Card, GOES_LIVE, Row, buttonClass, inputClass, primaryButtonClass } fro
 import type { SettingsContext } from "./types"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { startConnect } from "@/lib/native-connect"
 
 /**
  * ===========================================================================
@@ -53,7 +54,13 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
     }
   }, [ctx.installId])
 
-  const signIn = () => ctx.onNavigate(`/api/website-builder/supabase/connect?installId=${encodeURIComponent(ctx.installId)}`)
+  /* In the phone app, Supabase's sign in opens in the in-app browser sheet and comes back here (lib/native-connect.ts); elsewhere, followed as before. */
+  const signIn = () => {
+    setProblem(null)
+    void startConnect(`/api/website-builder/supabase/connect?installId=${encodeURIComponent(ctx.installId)}`, ctx.onNavigate).then((r) => {
+      if (r.ok === false) setProblem(r.error)
+    })
+  }
 
   const pick = async (ref: string) => {
     setPicking(ref)
