@@ -79,6 +79,7 @@ import { api, apiBase } from "./api"
 import { inline } from "./body-text"
 import { cachedPage, chatCacheKey, chatPageUp, clockOf, dayLabelOf, freshFor, keepPage, keepValue, keptValue, markChatPageUp, prefetchPage, useTyping, useViewingBeat, type ChatItem, type KeptPage } from "./chat-core"
 import { ChatEmbed, ChatLinkCardView, ChatVideo, LinkDraft, keepLocalVideo, localVideo, useLinkDraft } from "./chat-rich"
+import { ChatPostCard } from "./chat-post-card"
 import { ConfirmDialog, type ConfirmState } from "./dialogs"
 import { Lightbox } from "./lightbox"
 import { MemberAvatar } from "./member-avatar"
@@ -178,7 +179,8 @@ function sameAsBefore(cur: ChatItem[], next: ChatItem[]): ChatItem[] {
       (old.replyTo?.id ?? null) === (m.replyTo?.id ?? null) &&
       (old.author?.name ?? null) === (m.author?.name ?? null) &&
       (old.author?.avatarUrl ?? null) === (m.author?.avatarUrl ?? null) &&
-      JSON.stringify(old.attachments ?? []) === JSON.stringify(m.attachments ?? [])
+      JSON.stringify(old.attachments ?? []) === JSON.stringify(m.attachments ?? []) &&
+      JSON.stringify(old.post ?? null) === JSON.stringify(m.post ?? null)
     if (!same || cur[i] !== old) changed = true
     return same && old ? old : m
   })
@@ -946,6 +948,7 @@ const Bubble = memo(function Bubble({
               </a>
             ) : null,
           )}
+          {m.post ? <ChatPostCard post={m.post} mine={mine} /> : null}
           {m.body ? (
             <p className="whitespace-pre-wrap break-words text-[15.5px] leading-[1.38] [overflow-wrap:anywhere] sm:text-[15px]">
               {inline(m.body)}

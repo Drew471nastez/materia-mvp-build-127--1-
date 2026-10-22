@@ -25,6 +25,9 @@ import "server-only"
  *               a card without that signature keeps its address and its
  *               host's name and nothing else). A card is words about a link,
  *               not an upload, so it goes when pictures and files are off.
+ *   a post      (round 39) one per message, by its id alone, checked against
+ *               what the sender may see (./chat-post.ts); like a link card it
+ *               is not an upload.
  *
  * The admins can switch attachments off for members (Settings, Chat); the
  * team can always send them.
@@ -40,6 +43,7 @@ import type { Viewer } from "./context"
 import type { Db } from "./db"
 import { checkMedia, linkUrl, ownedMedia, permsOf, refused, type Checked } from "./feed"
 import { chatCardSigned } from "./chat-unfurl"
+import { withoutPostRefs } from "../chat-people"
 
 const CHAT_TYPES = new Set(["image", "gif", "file", "link"])
 
@@ -63,7 +67,9 @@ export function chatLinkOf(raw: Record<string, unknown>): LinkMedia | null {
   return { type: "link", url, ...(site ? { site } : {}) }
 }
 
-export async function checkChatMedia(db: Db, community: CommunityRow, viewer: Viewer, raw: unknown, settings: Pick<ChatSettings, "attachmentsEnabled">): Promise<Checked<PostMedia[]>> {
+export async function checkChatMedia(db: Db, community: CommunityRow, viewer: Viewer, sent: unknown, settings: Pick<ChatSettings, "attachmentsEnabled">): Promise<Checked<PostMedia[]>> {
+  /* A post (round 39) is checked on its own, against what the sender may see (./chat-post.ts checkPostShare). */
+  const raw = withoutPostRefs(sent)
   if (raw === undefined || raw === null) return { ok: true, value: [] }
   if (!Array.isArray(raw)) return { ok: false, error: "That could not be added to the message.", status: 400 }
   if (!raw.length) return { ok: true, value: [] }

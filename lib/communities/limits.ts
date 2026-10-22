@@ -102,6 +102,9 @@ export const RATE_LIMITS = {
   chatPrefs: [{ limit: 60, seconds: 600 }],
   /** Round 38: a link's card read for the chat box, one per pause in typing; read pages are kept on the server. */
   chatUnfurl: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
+  /** Round 39: a post sent in a message (up to five chats a time); and the picker's people search, one ask per pause in typing. */
+  chatShare: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
+  chatPeople: [{ limit: 90, seconds: 60 }, { limit: 900, seconds: 3600 }],
   /** The presence heartbeat: one a minute per open page, room for a few tabs, never a loop. */
   presence: [{ limit: 40, seconds: 600 }],
   /** A person's hover card: one per name rested on, cached a minute in the page; room to browse, not to sweep a directory. */

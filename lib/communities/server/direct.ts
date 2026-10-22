@@ -45,6 +45,7 @@ import { blockedBetween, chatGate, chatMemberState, chatPrefsFor, loadChatSettin
 import { chatMediaOf, checkChatMedia } from "./chat-media"
 import { directPushWanted } from "./chat-push"
 import { replyPreviews } from "./chat"
+import { checkPostShare, postCardOf, sharedPostViews, withPost } from "./chat-post"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const DM_PAGE = 50
@@ -349,10 +350,12 @@ async function unreadGroups(db: Db, communityId: string, me: string): Promise<nu
   }
 }
 
-async function toViews(db: Db, communityId: string, rows: DirectMessageRow[], me: string): Promise<DirectMessageView[]> {
-  const [authors, replies] = await Promise.all([
+async function toViews(db: Db, communityId: string, rows: DirectMessageRow[], viewer: Viewer): Promise<DirectMessageView[]> {
+  const me = viewer.userId ?? ""
+  const [authors, replies, posts] = await Promise.all([
     authorViews(db, communityId, rows.map((r) => r.author_id)),
     replyPreviews(db, communityId, "community_direct_messages", rows.map((r) => r.reply_to_id ?? null), new Map(rows.map((r) => [r.id, r]))),
+    sharedPostViews(db, communityId, viewer, rows.map((r) => (r.status === "published" ? r.attachments : null))),
   ])
   return rows.map((r) => {
     const live = r.status === "published"
@@ -364,6 +367,7 @@ async function toViews(db: Db, communityId: string, rows: DirectMessageRow[], me
       author: r.author_id ? (authors.get(r.author_id) ?? null) : null,
       body: live ? r.body : "",
       attachments: live ? chatMediaOf(r.attachments) : [],
+      ...withPost(postCardOf(posts, r.attachments, live)),
       replyTo: r.reply_to_id ? (replies.get(r.reply_to_id) ?? null) : null,
       clientId: r.client_id ?? null,
       mine,
@@ -388,7 +392,7 @@ export async function listDirectMessages(db: Db, conversation: ConversationRow, 
       const { data, error } = await selectRows<DirectMessageRow[]>((c) => base(c).gt("created_at", after).order("created_at", { ascending: true }).limit(DM_PAGE * 2 + 1))
       if (error) return { messages: [], hasMore: false, otherReadAt }
       const rows = data ?? []
-      return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE * 2), me), hasMore: rows.length > DM_PAGE * 2, otherReadAt }
+      return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE * 2), viewer), hasMore: rows.length > DM_PAGE * 2, otherReadAt }
     }
     const { data, error } = await selectRows<DirectMessageRow[]>((c) => (before ? base(c).lt("created_at", before) : base(c)).order("created_at", { ascending: false }).limit(DM_PAGE + 1))
     if (error) {
@@ -396,7 +400,7 @@ export async function listDirectMessages(db: Db, conversation: ConversationRow, 
       return { messages: [], hasMore: false, otherReadAt }
     }
     const rows = data ?? []
-    return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE).reverse(), me), hasMore: rows.length > DM_PAGE, otherReadAt }
+    return { messages: await toViews(db, conversation.community_id, rows.slice(0, DM_PAGE).reverse(), viewer), hasMore: rows.length > DM_PAGE, otherReadAt }
   } catch (e) {
     console.error(`[communities] messages read: ${reasonOf(e)}`)
     return { messages: [], hasMore: false, otherReadAt }
@@ -431,14 +435,18 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const clientId = typeof r.clientId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(r.clientId) ? r.clientId : null
   const again = await sentBefore(db, conversation.id, viewer.userId, clientId)
-  if (again) return { ok: true, value: (await toViews(db, community.id, [again], viewer.userId))[0] }
+  if (again) return { ok: true, value: (await toViews(db, community.id, [again], viewer))[0] }
   const gate = await chatGate(db, community, viewer)
   if ("error" in gate) return gate
   const body = cleanText(r.body, LENGTHS.messageBody.max)
   const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
   if (!media.ok) return refused(media)
   const attachments: PostMedia[] = media.value
-  if (!body && !attachments.length) return { ok: false, error: "Write a message first.", status: 400 }
+  /* Round 39: a post the sender may see, kept by its id alone (./chat-post.ts). */
+  const shared = await checkPostShare(db, community, viewer, r.attachments)
+  if (!shared.ok) return refused(shared)
+  const stored = shared.value ? [...attachments, shared.value] : attachments
+  if (!body && !stored.length) return { ok: false, error: "Write a message first.", status: 400 }
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   const other = otherOf(conversation, viewer.userId)
   if (!(await activeMember(db, community.id, other))) return { ok: false, error: "That member is no longer in this community.", status: 403 }
@@ -452,20 +460,20 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   const screen = await screenWrite({ db, community, viewer }, "dm", { text: body, media: attachments })
   if (!screen.ok) return refused(screen)
   const plain = { conversation_id: conversation.id, community_id: community.id, author_id: viewer.userId, body }
-  const extended = { ...plain, ...(attachments.length ? { attachments } : {}), ...(replyTo ? { reply_to_id: replyTo } : {}), ...(clientId ? { client_id: clientId } : {}) }
-  const has270 = attachments.length > 0 || !!replyTo || !!clientId
+  const extended = { ...plain, ...(stored.length ? { attachments: stored } : {}), ...(replyTo ? { reply_to_id: replyTo } : {}), ...(clientId ? { client_id: clientId } : {}) }
+  const has270 = stored.length > 0 || !!replyTo || !!clientId
   let { data, error } = await db
     .from("community_direct_messages")
     .insert(has270 ? extended : plain)
     .select(has270 ? MESSAGE_COLUMNS_270 : MESSAGE_COLUMNS)
     .single()
   if (error && has270 && missing(error)) {
-    if (attachments.length) return { ok: false, error: "Pictures and files in messages are not switched on yet. Send the words alone for now.", status: 503 }
+    if (stored.length) return { ok: false, error: "Pictures and files in messages are not switched on yet. Send the words alone for now.", status: 503 }
     ;({ data, error } = await db.from("community_direct_messages").insert(plain).select(MESSAGE_COLUMNS).single())
   }
   if (error?.code === "23505" && clientId) {
     const first = await sentBefore(db, conversation.id, viewer.userId, clientId)
-    if (first) return { ok: true, value: (await toViews(db, community.id, [first], viewer.userId))[0] }
+    if (first) return { ok: true, value: (await toViews(db, community.id, [first], viewer))[0] }
   }
   if (error || !data) {
     console.error(`[communities] message not written: ${reasonOf(error)}`)
@@ -474,7 +482,7 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   const row = data as DirectMessageRow
   /* The list's line and order move with it, and the sender has read their own message. */
   const readColumn = conversation.user_a === viewer.userId ? "a_read_at" : "b_read_at"
-  const line = body || attachmentLine(attachments) || "Message"
+  const line = body || attachmentLine(stored) || "Message"
   await Promise.all([
     db
       .from("community_conversations")
@@ -492,12 +500,12 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   */
   const senderId = viewer.userId
   const otherReadAt = conversation.user_a === other ? conversation.a_read_at : conversation.b_read_at
-  const pushText = pushPreviewText(gate.settings.pushPreviews, body, attachments)
+  const pushText = pushPreviewText(gate.settings.pushPreviews, body, stored)
   await pushSoon(async () => {
     if (!(await directPushWanted(db, { conversationId: conversation.id, senderId, recipientId: other, recipientReadAt: otherReadAt }))) return
     await pushDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, text: pushText })
   })
-  return { ok: true, value: (await toViews(db, community.id, [row], viewer.userId))[0] }
+  return { ok: true, value: (await toViews(db, community.id, [row], viewer))[0] }
 }
 
 /** The author changes the words of their own message. */
@@ -520,7 +528,7 @@ export async function editDirectMessage(db: Db, community: CommunityRow, convers
       () => undefined,
     )
   }
-  return { ok: true, value: (await toViews(db, community.id, [data], viewer.userId))[0] }
+  return { ok: true, value: (await toViews(db, community.id, [data], viewer))[0] }
 }
 
 /** The author deletes their own message; its words are blanked in the same update. */

@@ -4,6 +4,7 @@
  * component and a server module can both import this file.
  */
 import type { SocialLinkView } from "@/lib/communities/social-links"
+import type { ChatSharedPost } from "@/lib/communities/chat-people"
 import type { AuthorView, CommentView, CommunityAccess, CommunityVisibility, FeedPostView, MemberView, PostMedia, Role, SpaceKind } from "@/lib/communities/types"
 
 export type { AuthorView, CommentView, FeedPostView, MemberView }
@@ -246,6 +247,8 @@ export interface ChatLine {
   mine: boolean
   body: string
   attachments: PostMedia[]
+  /** Round 39: a post sent in the message, as this reader may see it ("Post not available" otherwise). */
+  post?: ChatSharedPost
   replyTo: ChatReplyPreview | null
   /** The sender's own id for the message, so the copy it sent and the copy realtime brings are one. */
   clientId: string | null
