@@ -33,6 +33,8 @@ function App() {
     window.addEventListener(Messages.MESSAGES_EVENT, on)
     return () => window.removeEventListener(Messages.MESSAGES_EVENT, on)
   }, [])
+  /* What the frame runs on every member page: the badge's count (and, from round 39, the member saying they are here). */
+  Messages.useUnreadMessages(p.communityId, p.me.id, 0)
   const ahead = () => warm?.(p.communityId, p.me.id, p.other.id)
   return (
     <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:99px] lg:[--community-top:107px]">

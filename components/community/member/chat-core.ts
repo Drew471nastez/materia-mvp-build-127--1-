@@ -169,6 +169,15 @@ export function prefetchPage(key: string, url: string, opts: { force?: boolean }
   return ask
 }
 
+/** A chat's newest page that came with another answer (round 39: a conversation opened or found ahead), kept as if it had been asked for. */
+export function keepAnswered(key: string, raw: unknown): void {
+  if (!raw || typeof raw !== "object") return
+  const { messages, hasMore, ...extra } = raw as { messages?: unknown; hasMore?: unknown } & Record<string, unknown>
+  if (!Array.isArray(messages)) return
+  FRESH.set(key, Date.now())
+  keepPage(key, messages as ChatLine[], !!hasMore, extra)
+}
+
 /** The kept chat's newest settled message time, to tell whether a list row has moved past what is kept. */
 export function keptNewest(key: string): string | null {
   const page = cachedPage(key)

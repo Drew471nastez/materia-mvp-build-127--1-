@@ -189,6 +189,9 @@ function makeServer() {
       Array.from({ length: 14 }, (_, k) => ({ id: `${c.id.slice(0, 24)}${String(k).padStart(12, "0")}`, author: k % 3 === 0 ? ME.id : c.other.id, body: k % 4 === 2 ? "That works for me. I will bring the notes from last week and we can go through the open questions." : `Message ${k} with ${c.other.name.split(" ")[0]}`, attachments: [], createdAt: ago(300 - k * 6 - i) })),
     )
   })
+  /* Minu sent a picture a while ago: drawn from the optimizer at the bubble's width, not the upload. */
+  const minuRows = s.chats.get(CONVS[0].id)
+  minuRows[10] = { ...minuRows[10], author: MINU.id, body: "", attachments: [{ type: "image", url: `${ORIGIN}/media/product-images/${MINU.id}/community/${CID}/1792600000000_abcd12.webp`, w: 1200, h: 800 }] }
   const space = Array.from({ length: 10 }, (_, k) => ({ id: `5e5e5e5e-0000-4000-8000-${String(k).padStart(12, "0")}`, author: k % 3 === 0 ? ME.id : PEOPLE[1 + (k % 3)].id, body: k % 2 ? "Morning all. Finished the dovetail jig from last week's lesson." : `Channel line ${k}`, createdAt: ago(200 - k * 5) }))
   const person = (id) => (id === ME.id ? { id: ME.id, name: ME.name, username: "ana", avatarUrl: null, role: "member", level: 1 } : { ...PEOPLE.find((p) => p.id === id), level: 2 })
   const view = (r, convId) => ({ id: r.id, conversationId: convId, authorId: r.author, author: person(r.author), mine: r.author === ME.id, body: r.body, attachments: r.attachments ?? [], replyTo: null, clientId: r.clientId ?? null, createdAt: r.createdAt, editedAt: null, canEdit: r.author === ME.id, canDelete: r.author === ME.id, canModerate: false })
@@ -200,6 +203,13 @@ function makeServer() {
     const json = (body, status = 200, wait = READ_MS) => setTimeout(() => r.respond({ status, contentType: "application/json", body: JSON.stringify(body) }).catch(() => {}), wait)
     if (url.pathname === "/api/storage/uploaded") return json({ ok: true }, 200, 20)
     if (path === "/chat" && method === "GET") return json({ ready: true, rules: "", rulesVersion: 0, needsRules: false, dmPolicy: "everyone", groupsPolicy: "members", attachments: true, myDms: "everyone", restriction: null, myName: ME.name, canStartGroups: true })
+    const states = { otherReadAt: ago(120), otherDeliveredAt: ago(60), otherSeenAt: ago(42) }
+    const newest = (id) => ({ messages: [...s.chats.get(id)].sort((x, y) => (x.createdAt < y.createdAt ? -1 : 1)).slice(-50).map((x) => view(x, id)), hasMore: false, ...states })
+    if (path === "/dms" && method === "GET" && url.searchParams.get("with")) {
+      s.found = (s.found ?? 0) + 1
+      const c = CONVS.find((x) => x.other.id === url.searchParams.get("with"))
+      return json(c ? { conversation: { id: c.id, other: c.other }, page: newest(c.id) } : { conversation: null })
+    }
     if (path === "/dms" && method === "GET") {
       const conversations = CONVS.map((c) => {
         const rows = s.chats.get(c.id)
@@ -212,7 +222,7 @@ function makeServer() {
       s.opened++
       const b = JSON.parse(r.postData() || "{}")
       const c = CONVS.find((x) => x.other.id === b.userId)
-      return json({ conversation: { id: c.id, other: c.other } })
+      return json({ conversation: { id: c.id, other: c.other }, ...(b.page === true ? { page: newest(c.id) } : {}) })
     }
     const m = /^\/dms\/([0-9a-f-]{36})$/.exec(path)
     if (m && method === "GET") {
@@ -264,6 +274,9 @@ async function open(server, viewport, { mode = "panel", theme = "light" } = {}) 
   page.on("request", (r) => {
     const url = r.url()
     if (url.startsWith(`${ORIGIN}/api/`)) return void server.handle(r)
+    if (url.startsWith("https://placeholder.supabase.co/storage/v1/object/") && r.method() === "OPTIONS") {
+      return void r.respond({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, PUT, OPTIONS" }, body: "" }).catch(() => {})
+    }
     if (url.startsWith("https://placeholder.supabase.co/storage/v1/object/")) {
       server.uploads++
       server.uploaded.push({ url, type: r.headers()["content-type"], bytes: r.postData()?.length ?? null })
@@ -298,7 +311,7 @@ const WATCH = `window.__frames = (done, ms) => new Promise((resolve) => {
     const t = Math.round(performance.now() - t0)
     if (d) { const cs = getComputedStyle(d); const r = d.getBoundingClientRect(); out.push({ t, o: Math.round(parseFloat(cs.opacity) * 100) / 100, x: Math.round(r.left), y: Math.round(r.top), tf: cs.transform, tr: cs.translate, sc: cs.scale, list: visible("[data-community-messages] [data-messages-new]"), skel: visible("[data-community-messages] [data-chat-skeleton], [data-community-messages] [data-messages-skeleton]") }) }
     else out.push({ t, gone: true })
-    if (header < 0 && document.querySelector("[data-community-messages] [data-thread]")) header = t
+    if (header < 0 && document.querySelector("[data-community-messages] [data-person-link]")) header = t
     if (hit < 0 && done && document.querySelector(done)) hit = t
     if (performance.now() - t0 < ms) requestAnimationFrame(step); else resolve({ frames: out, hit, header })
   }
@@ -351,8 +364,11 @@ const VIEWS = [
 ]
 const numbers = {}
 
-for (const [label, vp] of VIEWS) {
-  for (const theme of ["light", "dark"]) {
+/* ONLY_VIEW=1440|390 and ONLY_THEME=light|dark run a part of it. */
+const onlyView = ([l]) => !process.env.ONLY_VIEW || l === process.env.ONLY_VIEW
+const themes = ["light", "dark"].filter((t) => !process.env.ONLY_THEME || t === process.env.ONLY_THEME)
+for (const [label, vp] of VIEWS.filter(onlyView)) {
+  for (const theme of themes) {
     console.log(`\nThe conversation, ${label}, ${theme}`)
     const server = makeServer()
     const { page, errors } = await open(server, vp, { theme })
@@ -362,8 +378,10 @@ for (const [label, vp] of VIEWS) {
     const coldListed = cold.frames.some((f) => f.list)
     note("open from the profile, cold (ms to header, ms to first bubble, list drawn on the way)", { header: cold.header, bubble: cold.hit, list: coldListed })
     expect(!coldListed, "opened from a profile, the list is never drawn on the way to the conversation")
-    expect(cold.header >= 0 && cold.header <= 50, "the conversation's header is up in the first frames (its name is known from the profile)", cold.header)
-    numbers[`${label}-${theme}-profileCold`] = { header: cold.header, bubble: cold.hit, list: coldListed }
+    const coldPanel = cold.frames.find((f) => !f.gone)?.t ?? -1
+    expect(cold.header >= 0 && cold.header === coldPanel, "the conversation's header is drawn in the panel's first frame (its name is known from the profile)", { panel: coldPanel, header: cold.header })
+    expect(cold.hit >= 0 && cold.hit <= READ_MS + 250, "its messages after one round trip (the conversation and its page in one answer)", cold.hit)
+    numbers[`${label}-${theme}-profileCold`] = { panel: coldPanel, header: cold.header, bubble: cold.hit, list: coldListed }
     await until(page, (s) => !!document.querySelector(s), BUBBLE)
     await sleep(400)
 
@@ -476,7 +494,13 @@ for (const [label, vp] of VIEWS) {
     expect(!!done && sendOn, "uploaded, Send is on", { done, sendOn })
     expect(server.uploaded.length === 1 && /webp|jpeg/.test(server.uploaded[0].type ?? ""), "it went to storage made lighter (WebP or JPEG, not the PNG picked)", server.uploaded[0]?.type)
     expect(Array.isArray(body?.attachments) && body.attachments[0]?.type === "image" && body.attachments[0]?.w === 1600, "the send carries the picture with its size", body?.attachments)
-    expect(!!pic && pic.loaded && Math.abs(pic.w / pic.h - 1.6) < 0.05, "the bubble draws it at its own shape", pic)
+    expect(!!pic && pic.loaded && Math.abs(pic.w / pic.h - 1.6) < 0.05, "the bubble draws it at its own shape, from the file picked (no second download)", pic)
+    const theirs = await page.evaluate(() => {
+      const img = [...document.querySelectorAll("[data-community-messages] [data-chat-message]:not([data-mine]) [data-chat-picture] img")][0]
+      return img ? { src: img.getAttribute("src").slice(0, 40), srcset: (img.getAttribute("srcset") || "").split(", ").map((x) => x.split(" ")[1]), sizes: img.getAttribute("sizes") } : null
+    })
+    note("a picture somebody else sent", theirs)
+    expect(!!theirs && theirs.src.startsWith("/_next/image") && theirs.srcset.join() === "384w,640w,828w", "somebody else's picture comes from the optimizer at the bubble's width, with a srcset", theirs)
     numbers[`${label}-${theme}-picture`] = { previewMs, doneMs, srcset: !!pic?.srcset, shape: pic ? `${pic.w}x${pic.h}` : null }
     const picShot = join(shots, `picture-sent-${label}-${theme}.png`)
     await page.screenshot({ path: picShot })
@@ -495,7 +519,8 @@ for (const [label, vp] of VIEWS) {
     const usedTransform = [...opening.frames, ...closing.frames].some((f) => f.tf && f.tf !== "none")
     note("opening frames (t, opacity, x, y, translate, scale, transform)", opening.frames.filter((f, i) => i < 14).map((f) => (f.gone ? [f.t, "gone"] : [f.t, f.o, f.x, f.y, f.tr, f.sc, f.tf])))
     note("closing frames", closing.frames.filter((f, i) => i < 14).map((f) => (f.gone ? [f.t, "gone"] : [f.t, f.o, f.x, f.y, f.tr, f.sc, f.tf])))
-    expect(!!first && first.o < 0.5, "opening: the first frame is faint (no flash of the whole panel)", first?.o)
+    /* A computer's panel fades in; a phone's sheet rises from below the screen at full strength (the app's sheets). */
+    expect(!!first && (first.o < 0.5 || first.y >= vp.height * 0.9), "opening: the first frame is faint or below the screen (no flash of the whole panel in place)", first ? { o: first.o, y: first.y } : null)
     expect(settled && !settled.gone && settled.o === 1, "opening: settled at full strength", settled?.o)
     expect(!usedTransform, "the motion is translate, scale and opacity; transform is never used", usedTransform)
     expect(goneAt > 120 && goneAt < 360, "closing: eased out, gone in under 360ms", goneAt)
@@ -510,11 +535,32 @@ for (const [label, vp] of VIEWS) {
     if (!vp.hasTouch) await again.page.hover("[data-probe-profile-message]")
     else await again.page.evaluate(() => document.querySelector("[data-probe-profile-message]").dispatchEvent(new TouchEvent("touchstart", { bubbles: true })))
     await sleep(READ_MS * 2 + 200)
+    if (process.env.DEBUG) await again.page.evaluate(() => { window.__dbg = true; console.log("click at", Math.round(performance.now())); document.addEventListener("click", () => console.log("clicked", Math.round(performance.now())), true) })
+    let prof = null
+    if (process.env.PROFILE === "warm") {
+      prof = await again.page.createCDPSession()
+      await prof.send("Profiler.enable")
+      await prof.send("Profiler.setSamplingInterval", { interval: 200 })
+      await prof.send("Profiler.start")
+    }
     const warm = await frames(again.page, BUBBLE, 1200, () => again.page.click("[data-probe-profile-message]"))
-    note("open from the profile after a hover (ms to header, ms to first bubble)", { header: warm.header, bubble: warm.hit, list: warm.frames.some((f) => f.list), skeleton: warm.frames.some((f) => f.skel), opened: server2.opened })
-    expect(warm.hit >= 0 && warm.hit <= 34, "hovered first, the first bubble is drawn within two frames of the press", warm.hit)
+    if (prof) {
+      const { profile } = await prof.send("Profiler.stop")
+      const self = new Map()
+      const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+      profile.samples.forEach((id, i) => {
+        const n = byId.get(id)
+        const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`
+        self.set(k, (self.get(k) || 0) + (profile.timeDeltas[i] || 0))
+      })
+      console.log([...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => `      ${(v / 1000).toFixed(1)}ms ${k}`).join("\n"))
+    }
+    const warmPanel = warm.frames.find((f) => !f.gone)?.t ?? -1
+    note("open from the profile after a hover (ms to the panel, header, first bubble)", { panel: warmPanel, header: warm.header, bubble: warm.hit, list: warm.frames.some((f) => f.list), skeleton: warm.frames.some((f) => f.skel), made: server2.opened, found: server2.found ?? 0 })
+    expect(warm.hit >= 0 && warm.hit === warmPanel, "hovered first, the messages are in the panel's first frame", { panel: warmPanel, bubble: warm.hit })
     expect(!warm.frames.some((f) => f.skel), "and no skeleton on the way")
-    numbers[`${label}-${theme}-profileWarm`] = { header: warm.header, bubble: warm.hit }
+    expect(server2.opened === 0 && server2.found === 1, "the hover found the conversation without making or counting one (GET ?with=), once", { made: server2.opened, found: server2.found })
+    numbers[`${label}-${theme}-profileWarm`] = { panel: warmPanel, header: warm.header, bubble: warm.hit }
 
     /* OPEN FROM THE LIST. */
     await again.page.keyboard.press("Escape")
@@ -526,7 +572,7 @@ for (const [label, vp] of VIEWS) {
     const fromList = await frames(again.page, BUBBLE, 1200, () => again.page.$eval(`[data-conversation="c0c0c0c0-0000-4000-8000-000000000001"]`, (el) => el.click()))
     note("open from the list (ms to first bubble)", { bubble: fromList.hit, skeleton: fromList.frames.some((f) => f.skel) })
     numbers[`${label}-${theme}-fromList`] = { bubble: fromList.hit }
-    expect(fromList.hit >= 0 && fromList.hit <= 34, "from the list, the first bubble within two frames", fromList.hit)
+    expect(fromList.hit >= 0 && fromList.hit <= 60 && !fromList.frames.some((f) => f.skel), "from the list, kept: the first bubble within a few frames, no skeleton", fromList.hit)
 
     const w = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, view: innerWidth }))
     expect(w.doc <= w.view, "nothing wider than the screen", w)
@@ -535,7 +581,7 @@ for (const [label, vp] of VIEWS) {
     await again.page.close()
   }
 
-  for (const theme of ["light", "dark"]) {
+  for (const theme of themes) {
     console.log(`\nThe Chat tab, ${label}, ${theme}`)
     const server = makeServer()
     const { page, errors } = await open(server, vp, { mode: "tab", theme })

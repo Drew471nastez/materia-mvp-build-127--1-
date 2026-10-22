@@ -261,6 +261,27 @@ export async function openConversation(db: Db, community: CommunityRow, viewer: 
   return { ok: true, value: { id, other } }
 }
 
+/**
+ * Round 39: the viewer's conversation with another member when there is one, never made, never counted against
+ * starting conversations; what a Message button asks while the pointer rests on it.
+ */
+export async function findConversation(db: Db, community: CommunityRow, viewer: Viewer, otherId: unknown): Promise<ConversationRow | null> {
+  if (!viewer.userId || !community.chat_enabled || typeof otherId !== "string" || !UUID.test(otherId) || otherId === viewer.userId) return null
+  try {
+    const pair = pairOf(viewer.userId, otherId)
+    const { data, error } = await db.from("community_conversations").select(CONVERSATION_COLUMNS).eq("community_id", community.id).eq("user_a", pair.user_a).eq("user_b", pair.user_b).maybeSingle()
+    return error ? null : ((data as ConversationRow | null) ?? null)
+  } catch {
+    return null
+  }
+}
+
+/** A conversation's newest page with the other side's marks: what the conversation's own GET answers with no cursor. */
+export async function newestPage(db: Db, conversation: ConversationRow, viewer: Viewer): Promise<Record<string, unknown>> {
+  const [page, marks] = await Promise.all([listDirectMessages(db, conversation, viewer, {}), conversationMarks(db, conversation, viewer)])
+  return { ...page, ...marks }
+}
+
 /** The viewer's conversations that have a message in them, newest first, and how many are unread. */
 export async function listConversations(db: Db, community: CommunityRow, viewer: Viewer): Promise<{ ready: boolean; conversations: ConversationView[]; unread: number }> {
   if (!viewer.userId || !community.chat_enabled) return { ready: false, conversations: [], unread: 0 }

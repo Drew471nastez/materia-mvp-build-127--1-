@@ -353,15 +353,15 @@ export async function listGroupMessages(db: Db, opened: Opened, viewer: Viewer, 
 /**
  * Round 39: how far each other person in the group has the chat, as the latest page and a catch up carry it, so the
  * sender's own messages say delivered, seen, and "Seen by N". Read marks before part 275 (no delivered column yet),
- * nothing on any other failure. Times only, never who: the names are in the group's people.
+ * nothing on any other failure. By id, so a mark that moves over realtime replaces its own.
  */
-export async function groupMarks(db: Db, opened: Opened, viewer: Viewer): Promise<{ read: string | null; delivered: string | null }[]> {
+export async function groupMarks(db: Db, opened: Opened, viewer: Viewer): Promise<{ userId: string; read: string | null; delivered: string | null }[]> {
   try {
     const ask = (columns: string) => db.from("community_chat_group_members").select(columns).eq("group_id", opened.group.id).neq("user_id", viewer.userId ?? "").limit(GROUP_PEOPLE_MAX)
     let { data, error } = await ask("user_id, last_read_at, delivered_at")
     if (error && missing(error)) ({ data, error } = await ask("user_id, last_read_at"))
     if (error) return []
-    return ((data as { last_read_at: string | null; delivered_at?: string | null }[] | null) ?? []).map((r) => ({ read: r.last_read_at ?? null, delivered: r.delivered_at ?? null }))
+    return ((data as { user_id: string; last_read_at: string | null; delivered_at?: string | null }[] | null) ?? []).map((r) => ({ userId: r.user_id, read: r.last_read_at ?? null, delivered: r.delivered_at ?? null }))
   } catch {
     return []
   }

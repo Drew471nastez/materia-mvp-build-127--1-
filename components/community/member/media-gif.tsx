@@ -70,6 +70,7 @@ export function GifButton({
   onPick,
   disabled = false,
   hideWhenOff = false,
+  mark,
 }: {
   communityId: string
   className: string
@@ -77,6 +78,8 @@ export function GifButton({
   disabled?: boolean
   /** Round 38, the chat's box: no button at all until GIFs are known to be connected (a quiet one is clutter there). */
   hideWhenOff?: boolean
+  /** Round 39, the chat's box: its own mark in place of the letters, an icon drawn like the emoji button's. */
+  mark?: React.ReactNode
 }) {
   const phone = usePhone()
   const [open, setOpen] = useState(false)
@@ -118,7 +121,7 @@ export function GifButton({
       onClick={() => setOpen((o) => !o)}
       className={`${className} ${connected === false ? "opacity-50" : ""}`}
     >
-      <GifMark />
+      {mark ?? <GifMark />}
     </button>
   )
 

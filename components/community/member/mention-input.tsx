@@ -48,6 +48,8 @@ interface Props {
   minRows?: number
   maxHeight?: number
   className?: string
+  /** The box around the textarea (round 39, the chat's field: `min-w-0 flex-1`, so the words are as wide as the field in a row). */
+  wrapClassName?: string
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
   onFocus?: () => void
   ariaLabel?: string
@@ -60,7 +62,7 @@ interface Props {
 }
 
 export const MentionTextarea = forwardRef<MentionTextareaHandle, Props>(function MentionTextarea(
-  { communityId, value, onChange, placeholder, minRows = 1, maxHeight = 320, className = "", onKeyDown, onFocus, ariaLabel, maxLength, autoFocus, caretAtEnd = false, nearby },
+  { communityId, value, onChange, placeholder, minRows = 1, maxHeight = 320, className = "", wrapClassName = "", onKeyDown, onFocus, ariaLabel, maxLength, autoFocus, caretAtEnd = false, nearby },
   ref,
 ) {
   const area = useRef<HTMLTextAreaElement>(null)
@@ -163,7 +165,7 @@ export const MentionTextarea = forwardRef<MentionTextareaHandle, Props>(function
   }, [open, value])
 
   return (
-    <div className="relative">
+    <div className={`relative ${wrapClassName}`}>
       <textarea
         ref={area}
         value={value}
