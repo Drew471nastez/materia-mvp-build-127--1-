@@ -108,6 +108,8 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     let raf = 0
     const measure = () => {
       raf = 0
+      /* Hidden (the admin keeps visited sections mounted and hidden): nothing to measure, and a reading now would be the 120px floor; the grip's ResizeObserver measures again when it is shown. */
+      if (!el.getClientRects().length) return
       const bar = el.closest<HTMLElement>("[data-page-editor]")?.querySelector<HTMLElement>("[data-page-editor-bar]")
       const top = (bar ? bar.getBoundingClientRect().bottom : 0) + TOP_GAP
       const vv = window.visualViewport
