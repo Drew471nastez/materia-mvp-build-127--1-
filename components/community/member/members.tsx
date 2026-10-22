@@ -26,6 +26,8 @@ import type { MemberView, Role } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
 import { openMessages } from "./messages"
+import { toast } from "./toast"
+import { dmButtonReason, type DmStartView } from "@/lib/communities/chat-rules"
 import { memberHref } from "./person-href"
 import { PlaceEmpty } from "./place-empty"
 import { Spinner } from "./place-spinner"
@@ -50,7 +52,7 @@ function keptAnswer(key: string): MembersAnswer | null {
   return k && Date.now() - k.at < FRESH_MS ? k.answer : null
 }
 
-export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false, countryFilter = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean; /** Profiles can say where people are from (part 98): offer the country filter. */ countryFilter?: boolean }) {
+export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false, dmStart = null, countryFilter = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean; /** Round 38: the viewer's own standing for messages, so a Message they may not send is greyed with its reason. */ dmStart?: DmStartView | null; /** Profiles can say where people are from (part 98): offer the country filter. */ countryFilter?: boolean }) {
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
   /* A two letter code, or "" for everywhere (round 12). */
@@ -223,7 +225,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
         <ul ref={listRef} className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-member-list="">
           {members.map((m) => (
             <li key={m.userId}>
-              <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} />
+              <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} dmStart={dmStart} />
             </li>
           ))}
         </ul>
@@ -239,7 +241,9 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   )
 }
 
-export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront" | "location">; slug: string; canMessage?: boolean }) {
+export function MemberRow({ m, slug, canMessage = false, dmStart = null }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront" | "location">; slug: string; canMessage?: boolean; dmStart?: DmStartView | null }) {
+  /* Round 38: the admins' rule for starting a conversation (a level, days here, the team only), read for this row's role. Their own choice is told on the press. */
+  const why = canMessage ? dmButtonReason(dmStart, m.role ?? "member") : null
   return (
     <div className="flex items-center pr-2 transition-colors [@media(hover:hover)]:hover:bg-[#f8f9fa] sm:pr-3">
     <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" data-person-id={m.userId} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
@@ -260,7 +264,15 @@ export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView,
       <span className="hidden shrink-0 text-[12.5px] text-[#8a8f98] sm:block">Level {m.level}</span>
     </Link>
     {canMessage ? (
-      <button type="button" onClick={() => openMessages({ userId: m.userId })} aria-label={`Message ${m.name}`} className={ICON_BTN} data-member-message="">
+      <button
+        type="button"
+        onClick={() => (why ? toast(why) : openMessages({ userId: m.userId }))}
+        aria-label={why ? `Message ${m.name}: ${why}` : `Message ${m.name}`}
+        aria-disabled={why ? true : undefined}
+        title={why ?? undefined}
+        className={`${ICON_BTN} ${why ? "opacity-40" : ""}`}
+        data-member-message={why ? "off" : "on"}
+      >
         <ChatRoundDotsIcon size={20} />
       </button>
     ) : null}

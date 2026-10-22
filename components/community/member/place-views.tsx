@@ -35,6 +35,7 @@ import { CommunityFeed } from "./feed"
 import { PlaceLoading, PlaceSpinner } from "./place-spinner"
 import { SpaceChips } from "./space-chips"
 import { adminHref } from "./edit-hint"
+import { chatTabChannels } from "@/lib/communities/chat-rules"
 
 /**
  * A view whose code is its own chunk, drawn synchronously once that code is here. `preload` asks for it (once, with the
@@ -139,13 +140,27 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
     case "feed":
       /* The pull on the feed is the frame's one wrapper (community-pull-refresh.tsx), which tells the feed (feed-live.tsx), on All, a space and Saved alike. */
       return <CommunityFeed communityId={communityId} slug={slug} viewer={data.viewer} spaces={data.spaces} start={data.start} initial={data.initial} servedAt={data.servedAt} readOnly={data.readOnly} onboarding={data.onboarding} compose={data.compose} />
-    case "chat":
+    case "chat": {
+      /*
+        ROUND 38, THE CHAT TAB. With the tab, a channel is drawn as the community's group chat: its chips are the chat
+        channels alone, the main one first, and none at all when there is one channel (one group, as Telegram has it).
+      */
+      const channels = data.chatTab ? chatTabChannels(data.spaces, data.chatTab) : null
       return (
         <div className="max-w-[760px]">
-          <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
-          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} />
+          {channels ? (
+            channels.length > 1 ? (
+              <div className="max-sm:hidden">
+                <SpaceChips slug={slug} spaces={channels} active={data.space.slug} noAll />
+              </div>
+            ) : null
+          ) : (
+            <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
+          )}
+          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} channels={channels} />
         </div>
       )
+    }
     case "learn":
       return <LearnLibrary programs={data.programs} manageHref={data.manageHref} />
     case "program": {

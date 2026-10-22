@@ -8,6 +8,7 @@ import { runCommunityJobs } from "@/lib/communities/server/notify"
 import { releaseDeadHolds } from "@/lib/communities/server/event-tickets"
 import { publishDuePosts } from "@/lib/communities/server/scheduled-posts"
 import { runDueDeletions } from "@/lib/communities/server/community-deletion"
+import { runChatAutomations } from "@/lib/communities/server/chat-automations"
 import { PLATFORM_JOB_KINDS } from "@/lib/communities/types"
 
 /**
@@ -57,12 +58,17 @@ async function runJob(request: Request) {
     const seatsFreed = on ? await releaseDeadHolds(db).catch(() => 0) : 0
     /* SCHEDULED DELETIONS (round 33): memberships stopped, due communities deleted; nothing before part 202. */
     const deletions = on ? await runDueDeletions(db, 10_000).catch(() => ({ available: false, checked: 0, completed: 0, stopped: 0, failed: 0 })) : { available: false, checked: 0, completed: 0, stopped: 0, failed: 0 }
+    /*
+      AUTOMATED CHAT MESSAGES (round 38, part 272): broadcasts that are due and days after joining add their next page of
+      members, then at most 300 messages go out (150 for one community), each once; fifteen seconds at most.
+    */
+    const automations = on ? await runChatAutomations(db, Date.now(), 15_000).catch(() => ({ available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 })) : { available: false, queued: 0, sent: 0, failed: 0, skipped: 0, finished: 0 }
     /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
-    const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed + posts.published + posts.failed + deletions.stopped + deletions.completed + deletions.failed > 0
+    const didWork = summary.claimed + summary.scheduled + summary.failed + seatsFreed + posts.published + posts.failed + deletions.stopped + deletions.completed + deletions.failed + automations.queued + automations.sent + automations.failed > 0
     if (didWork) console.log(
-      `[cron/community] ${summary.available ? "ran" : "not available (part 81 has not run)"}${on ? "" : " platform jobs only (communities off)"}: ${summary.claimed} claimed, ${summary.done} done, ${summary.continued} continued, ${summary.retried} retried, ${summary.failed} failed, ${summary.scheduled} scheduled, ${seatsFreed} held seats back, ${posts.published} scheduled posts up, ${posts.failed} failed, ${deletions.stopped} memberships stopped for a deletion, ${deletions.completed} communities deleted, ${deletions.failed} deletion steps failed, ${summary.ms}ms`,
+      `[cron/community] ${summary.available ? "ran" : "not available (part 81 has not run)"}${on ? "" : " platform jobs only (communities off)"}: ${summary.claimed} claimed, ${summary.done} done, ${summary.continued} continued, ${summary.retried} retried, ${summary.failed} failed, ${summary.scheduled} scheduled, ${seatsFreed} held seats back, ${posts.published} scheduled posts up, ${posts.failed} failed, ${deletions.stopped} memberships stopped for a deletion, ${deletions.completed} communities deleted, ${deletions.failed} deletion steps failed, ${automations.sent} automated messages sent, ${automations.failed + automations.skipped} not sent, ${summary.ms}ms`,
     )
-    return NextResponse.json(on ? { ...summary, seatsFreed, scheduledPosts: posts, deletions } : { ...summary, skipped: "communities_off" }, { headers: NO_STORE })
+    return NextResponse.json(on ? { ...summary, seatsFreed, scheduledPosts: posts, deletions, automations } : { ...summary, skipped: "communities_off" }, { headers: NO_STORE })
   } catch (e) {
     console.error("[cron/community] the run failed:", e instanceof Error ? e.message : e)
     return NextResponse.json({ error: "Run failed" }, { status: 500, headers: NO_STORE })

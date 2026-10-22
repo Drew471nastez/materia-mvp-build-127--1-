@@ -15,7 +15,7 @@ import "server-only"
  * accepted when the community has them (409 with `code: "rules"`, which the
  * page answers by showing the rules once).
  */
-import { chatRestriction, chatSettingsOf, chatSettingsPatch, memberDmsOf, rulesNeeded, type ChatKind, type ChatNotify, type ChatPref, type ChatSettings, type MemberDms } from "../chat-rules"
+import { chatRestriction, chatSettingsOf, chatSettingsPatch, memberDmsOf, rulesNeeded, type ChatKind, type ChatNotify, type ChatPref, type ChatSettings, type DmStartView, type MemberDms } from "../chat-rules"
 import { ROLE_RANK } from "../permissions"
 import type { CommunityRow, Role } from "../types"
 import { audit } from "./audit"
@@ -36,15 +36,24 @@ export interface ChatMemberState {
 
 export type ChatRefusal = { ok: false; error: string; status: number; code?: "rules" | "chat_banned" | "chat_muted" | "off" }
 
-/** The community's chat settings; the defaults before part 270, or when the row is not there yet. */
-export async function loadChatSettings(db: Db, communityId: string): Promise<ChatSettings & { ready: boolean }> {
+const SETTINGS_270 = "dm_policy, groups_policy, attachments_enabled, push_previews, rules, rules_version"
+/** Round 38 (part 272): the thresholds for starting a conversation, the Chat tab and its main channel. */
+const SETTINGS_272 = `${SETTINGS_270}, dm_min_level, dm_min_days, dm_to_staff, chat_tab, main_space_id`
+
+/** The community's chat settings; the defaults before part 270, or when the row is not there yet. `ready272`: part 272's columns are there. */
+export async function loadChatSettings(db: Db, communityId: string): Promise<ChatSettings & { ready: boolean; ready272?: boolean }> {
   try {
-    const { data, error } = await db.from("community_chat_settings").select("dm_policy, groups_policy, attachments_enabled, push_previews, rules, rules_version").eq("community_id", communityId).maybeSingle()
+    let ready272 = true
+    let { data, error } = await db.from("community_chat_settings").select(SETTINGS_272).eq("community_id", communityId).maybeSingle()
+    if (error && missing(error)) {
+      ready272 = false
+      ;({ data, error } = await db.from("community_chat_settings").select(SETTINGS_270).eq("community_id", communityId).maybeSingle())
+    }
     if (error) {
       if (!missing(error)) console.error(`[communities] chat settings read: ${reasonOf(error)}`)
-      return { ...chatSettingsOf(null), ready: !missing(error) }
+      return { ...chatSettingsOf(null), ready: !missing(error), ready272: false }
     }
-    return { ...chatSettingsOf(data as Record<string, unknown> | null), ready: true }
+    return { ...chatSettingsOf(data as Record<string, unknown> | null), ready: true, ready272 }
   } catch (e) {
     console.error(`[communities] chat settings read: ${reasonOf(e)}`)
     return { ...chatSettingsOf(null), ready: false }
@@ -57,7 +66,8 @@ export async function saveChatSettings(db: Db, communityId: string, actorId: str
   if (!current.ready) return { ok: false, error: "Chat settings are not set up yet. Run the database update (part 270) first.", status: 503 }
   const patch = chatSettingsPatch(raw, current)
   if ("error" in patch) return { ok: false, error: patch.error, status: 400 }
-  const { error } = await db.from("community_chat_settings").upsert({ community_id: communityId, ...patch.columns, updated_by: actorId, updated_at: nowIso() }, { onConflict: "community_id" })
+  if (patch.extra && !current.ready272) return { ok: false, error: "These chat settings need the database update for chat (part 272) first.", status: 503 }
+  const { error } = await db.from("community_chat_settings").upsert({ community_id: communityId, ...patch.columns, ...(patch.extra ?? {}), updated_by: actorId, updated_at: nowIso() }, { onConflict: "community_id" })
   if (error) {
     console.error(`[communities] chat settings save: ${reasonOf(error)}`)
     return { ok: false, error: "That did not save. Try again.", status: missing(error) ? 503 : 500 }
@@ -120,6 +130,21 @@ export async function chatGate(db: Db, community: Pick<CommunityRow, "id" | "cha
   if (r?.kind === "muted") return { ok: false, error: `You can send messages again ${new Date(r.until).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`, status: 403, code: "chat_muted" }
   if (rulesNeeded(settings, state?.rulesVersion)) return { ok: false, error: "Read and accept the chat rules first.", status: 409, code: "rules" }
   return { ok: true, settings, state }
+}
+
+/** The viewer's own standing for starting a conversation (round 38), for the members list. */
+export async function dmStartFor(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer): Promise<DmStartView | null> {
+  if (!viewer.userId) return null
+  const s = await loadChatSettings(db, community.id)
+  return {
+    policy: s.dmPolicy,
+    minLevel: s.dmMinLevel,
+    minDays: s.dmMinDays,
+    toStaff: s.dmToStaff,
+    myRole: viewer.userId === community.owner_user_id ? "owner" : viewer.role,
+    myLevel: viewer.member?.level ?? 1,
+    myJoinedAt: viewer.member?.joined_at ?? viewer.member?.created_at ?? null,
+  }
 }
 
 /** The member accepted the rules as they read now. */

@@ -131,6 +131,11 @@ export interface MemberProfileData {
   board?: MemberBoard | null
   /** The server's clock for the first render, so times read the same after hydration. */
   now: number
+  /**
+   * Round 38: the Message button on somebody else's profile. `can` false draws it greyed with `reason` (the admins' rule,
+   * a level or days to wait, their own choice, a block). Absent or null: no button (my own profile, chat off).
+   */
+  message?: { can: boolean; reason: string | null } | null
 }
 
 /**

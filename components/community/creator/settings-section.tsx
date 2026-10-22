@@ -74,6 +74,7 @@ import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permiss
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CommunityDomainPanel } from "./community-domain-panel"
 import { ChatPanel } from "./chat-panel"
+import { AutomationsPanel } from "./automations-panel"
 import { DeleteCommunity } from "./delete-community"
 import { JoinQuestionsPanel } from "./join-questions-panel"
 import { OnboardingPanel } from "./onboarding-panel"
@@ -119,6 +120,8 @@ const PANELS: SettingsPanel[] = [
   { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") }, render: (p) => <Features head={p.head} data={p.data} /> },
   /* Round 37: chat on its own panel: channels and slow mode, who may message whom, groups, files, the chat rules, who is kept out. */
   { value: "chat", get label() { return tt("Chat") }, needs: "mute", group: "community", get line() { return tt("Channels, messages, groups and chat rules") }, render: (p) => <ChatPanel head={p.head} /> },
+  /* Round 38: messages the community sends by itself (welcome, levels, days in, paid memberships, broadcasts). */
+  { value: "automations", get label() { return tt("Automated messages") }, needs: "manage_settings", group: "community", get line() { return tt("Welcome messages, level messages and broadcasts") }, render: (p) => <AutomationsPanel head={p.head} /> },
   { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") }, render: (p) => <Advanced head={p.head} videoProviders={p.videoProviders} /> },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
   { value: "roles", get label() { return tt("Roles and permissions") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },

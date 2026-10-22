@@ -30,7 +30,7 @@ import "server-only"
  * push (./chat-push.ts). Before part 270 every read and write works as it
  * did, without the new columns.
  */
-import { slowModeOfSpace, slowModeWait, waitText, attachmentLine } from "../chat-rules"
+import { channelPostOf, levelLetsPost, slowModeOfSpace, slowModeWait, waitText, attachmentLine } from "../chat-rules"
 import { LENGTHS, extractMentions } from "../limits"
 import { can, meetsRole, ROLE_RANK } from "../permissions"
 import { MESSAGE_COLUMNS, type CommunityRow, type MessageRow, type Role, type SpaceRow } from "../types"
@@ -196,14 +196,21 @@ export async function listMessages(
   }
 }
 
-/** The channel's own slow mode (part 270), 0 before the part. */
-async function spaceSlowMode(db: Db, spaceId: string): Promise<number> {
+/**
+ * A channel's own rules beside its post_role: its slow mode (part 270), the
+ * points level a member needs to post and its pinned message (part 272).
+ * Each is "none" before its part ran.
+ */
+export async function channelFacts(db: Db, spaceId: string): Promise<{ slowMode: number; minLevel: number; pinnedId: string | null }> {
+  const none = { slowMode: 0, minLevel: 0, pinnedId: null }
   try {
-    const { data, error } = await db.from("community_spaces").select("slow_mode_seconds").eq("id", spaceId).maybeSingle()
-    if (error) return 0
-    return slowModeOfSpace((data as { slow_mode_seconds?: unknown } | null)?.slow_mode_seconds)
+    let { data, error } = await db.from("community_spaces").select("slow_mode_seconds, post_min_level, pinned_message_id").eq("id", spaceId).maybeSingle()
+    if (error && missing(error)) ({ data, error } = await db.from("community_spaces").select("slow_mode_seconds").eq("id", spaceId).maybeSingle())
+    if (error || !data) return none
+    const row = data as { slow_mode_seconds?: unknown; post_min_level?: unknown; pinned_message_id?: string | null }
+    return { slowMode: slowModeOfSpace(row.slow_mode_seconds), minLevel: channelPostOf("member", row.post_min_level).minLevel, pinnedId: row.pinned_message_id ?? null }
   } catch {
-    return 0
+    return none
   }
 }
 
@@ -212,6 +219,20 @@ async function lastMineAt(db: Db, spaceId: string, userId: string): Promise<numb
   const { data } = await db.from("community_messages").select("created_at").eq("space_id", spaceId).eq("author_id", userId).order("created_at", { ascending: false }).limit(1)
   const at = (data as { created_at: string }[] | null)?.[0]?.created_at
   return at ? Date.parse(at) : null
+}
+
+/** A channel's pinned message as one line (round 38), or null when there is none or it was taken down. */
+export async function pinnedLine(db: Db, communityId: string, spaceId: string, messageId: string | null): Promise<{ id: string; authorName: string; text: string } | null> {
+  if (!messageId || !UUID.test(messageId)) return null
+  try {
+    const { data } = await db.from("community_messages").select("id, space_id, author_id, body, status, attachments").eq("id", messageId).eq("community_id", communityId).maybeSingle()
+    const row = data as { id: string; space_id: string; author_id: string | null; body: string; status: string; attachments?: unknown } | null
+    if (!row || row.space_id !== spaceId || row.status !== "published") return null
+    const author = row.author_id ? (await authorViews(db, communityId, [row.author_id])).get(row.author_id) : null
+    return { id: row.id, authorName: author?.name ?? "Member", text: snippet(row.body, 140) || attachmentLine(chatMediaOf(row.attachments)) || "Message" }
+  } catch {
+    return null
+  }
 }
 
 /** A message this sender already wrote under this client id (a retried send), or null. */
@@ -233,6 +254,9 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
   if (space.post_role && !meetsRole(viewer.role, space.post_role)) return { ok: false, error: "Only the community's team can post in this channel.", status: 403 }
   const gate = await chatGate(db, community, viewer)
   if ("error" in gate) return gate
+  /* Round 38: a channel can ask for a points level before a member posts (the team always may). */
+  const facts = await channelFacts(db, space.id)
+  if (!levelLetsPost(viewer.role, viewer.member?.level ?? 1, facts.minLevel)) return { ok: false, error: `Members from level ${facts.minLevel} can post in this channel.`, status: 403 }
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const clientId = typeof r.clientId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(r.clientId) ? r.clientId : null
   const again = await sentBefore(db, viewer.userId, clientId)
@@ -246,7 +270,7 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
   /* The channel's own slow mode, for members (the team is never slowed). */
   const team = viewer.role ? ROLE_RANK[viewer.role] >= ROLE_RANK.moderator : false
   if (!team) {
-    const slow = await spaceSlowMode(db, space.id)
+    const slow = facts.slowMode
     const wait = slow ? slowModeWait(await lastMineAt(db, space.id, viewer.userId), slow) : 0
     if (wait > 0) return { ok: false, error: `Slow mode is on: one message every ${waitText(slow)}. Try again in ${waitText(wait)}.`, status: 429 }
   }

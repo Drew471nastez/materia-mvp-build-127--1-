@@ -634,6 +634,8 @@ const SUITES = [
   "tests/push-bridge.test.ts",
   /* Round 37: community chat (order and duplicates, who may message whom, admin settings, when a phone is told, authorization, part 270). */
   "tests/community-chat-r37.test.ts",
+  /* Round 38: who may start a conversation (level, days, the team), who can post in a channel, the Chat tab, Message on profiles, automated messages each member once and in batches, part 272. */
+  "tests/community-chat-r38.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",

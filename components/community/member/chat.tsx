@@ -37,6 +37,7 @@ import { SpaceIcon } from "./space-icon"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
 import { ChatSurface, MuteButton, type StreamHandlers } from "./chat-surface"
+import { SpaceChips } from "./space-chips"
 import type { ChatIntroView, ChatLine, ChatMessageView, SpaceView } from "./view-types"
 
 /** Messages from one person within this long of each other are drawn as one group. */
@@ -64,9 +65,14 @@ export interface ChatViewProps {
   initial: { messages: ChatMessageView[]; hasMore: boolean }
   readOnly?: boolean
   intro?: ChatIntroView | null
+  /**
+   * Round 38, the Chat tab with several channels: on a phone the channel covers the page under the bar, chips and all,
+   * so the channels ride under its name instead (from 640px they stay above the chat, place-views.tsx).
+   */
+  channels?: SpaceView[] | null
 }
 
-export function ChatView({ communityId, slug, space, viewer, initial, readOnly = false, intro = null }: ChatViewProps) {
+export function ChatView({ communityId, slug, space, viewer, initial, readOnly = false, intro = null, channels = null }: ChatViewProps) {
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const base = apiBase(communityId)
 
@@ -130,7 +136,9 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
   )
 
   const me = viewer.userId ? { id: viewer.userId, name: intro?.myName ?? "Someone" } : null
-  const closed = readOnly ? (intro?.restriction?.kind === "banned" ? "You can't send messages in this community's chat." : "You can read this chat, but not send messages here.") : null
+  /* Round 38: a channel the team alone posts in, or one that asks for a level, says so in its own words. */
+  const closed = readOnly ? (intro?.restriction?.kind === "banned" ? "You can't send messages in this community's chat." : intro?.postNote || "You can read this chat, but not send messages here.") : null
+  const pinned = intro?.pinned ?? null
 
   const avatar = (m: ChatLine) =>
     m.author ? (
@@ -177,6 +185,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
           renderName={name}
           onReport={viewer.can.report ? (m) => setReport({ type: "message", id: m.id, what: "message" }) : undefined}
           header={
+            <>
             <header className="flex shrink-0 items-center gap-2.5 border-b border-[#eceef1] px-4 py-2.5 max-sm:[html[data-keyboard=open]_&]:pt-[calc(env(safe-area-inset-top)+10px)]">
               <span className="text-[#6b7280]">
                 <SpaceIcon icon={space.icon} kind={space.kind} />
@@ -187,6 +196,24 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
               </div>
               {me ? <MuteButton communityId={communityId} kind="space" chatId={space.id} /> : null}
             </header>
+            {channels && channels.length > 1 ? (
+              <div className="shrink-0 border-b border-[#eceef1] px-4 pt-2 sm:hidden max-sm:[html[data-keyboard=open]_&]:hidden [&_[data-space-chips]]:mb-1.5" data-chat-channels-phone="">
+                <SpaceChips slug={slug} spaces={channels} active={space.slug} noAll />
+              </div>
+            ) : null}
+            {pinned ? (
+              /* Round 38: the message the team pinned, one line under the channel's name, as Telegram shows it. */
+              <div className="flex shrink-0 items-center gap-2.5 border-b border-[#eceef1] bg-[#fafafb] px-4 py-2" data-chat-pinned={pinned.id}>
+                <span aria-hidden className="h-8 w-[3px] shrink-0 rounded-full bg-[#1a1a2e]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-semibold leading-4 text-[#1a1a2e]">Pinned</p>
+                  <p className="truncate text-[13px] leading-5 text-[#4b5563]">
+                    <span className="font-medium text-[#1a1a2e]">{pinned.authorName}:</span> {pinned.text}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+            </>
           }
           empty={
             <>

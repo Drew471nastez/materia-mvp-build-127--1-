@@ -265,8 +265,12 @@ export function slotKeyOf(place: Place, chatSpaces?: ReadonlySet<string> | null)
 /** The same rule under the host's older name. */
 export const screenKey = slotKeyOf
 
-/** The tab a place marks in the row of places: everything under the feed (a space, a profile, Saved, the inbox) is Community. */
-export function placeTab(place: Place): "home" | "classroom" | "events" | "members" | "leaderboard" | "about" {
+/**
+ * The tab a place marks in the row of places: everything under the feed (a space, a profile, Saved, the inbox) is Community.
+ * Round 38: a chat channel is the Chat tab's when the community shows one (`chatTab`: its chat channels' slugs).
+ */
+export function placeTab(place: Place, chatTab?: ReadonlySet<string> | null): "home" | "chat" | "classroom" | "events" | "members" | "leaderboard" | "about" {
+  if (place.kind === "space" && chatTab?.has(place.slug.toLowerCase())) return "chat"
   switch (place.kind) {
     case "learn":
     case "program":

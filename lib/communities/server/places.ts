@@ -24,8 +24,9 @@ import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
 import type { Db } from "@/lib/communities/server/db"
 import { listFeed, listSaved } from "@/lib/communities/server/feed"
-import { canWriteIn, listMessages } from "@/lib/communities/server/chat"
-import { chatIntro } from "@/lib/communities/server/chat-settings"
+import { canWriteIn, channelFacts, listMessages, pinnedLine } from "@/lib/communities/server/chat"
+import { channelPostNote, channelPostOf } from "@/lib/communities/chat-rules"
+import { chatIntro, dmStartFor } from "@/lib/communities/server/chat-settings"
 import { findProgram, listPrograms, programCard, programOutline, programPlayer } from "@/lib/communities/server/learn"
 import { eventDetail, isEventId, listEvents, monthEvents } from "@/lib/communities/server/events"
 import { authorViews, leaderboardRows, levelNames, listMembers, locationsReady } from "@/lib/communities/server/directory"
@@ -77,9 +78,12 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         if (!space || !row) return missing
         if (space.kind === "chat") {
           /* Round 37: the chat rules and the member's standing come with the first page, so the screen never jumps when they arrive. */
-          const [first, intro] = await Promise.all([listMessages(db, community, viewer, row, {}), chatIntro(db, community, viewer)])
-          const closed = !space.canPost || !canWriteIn(row, viewer, community.chat_enabled) || intro.restriction?.kind === "banned"
-          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || closed, intro })
+          /* Round 38: the channel's pinned message and, for a member who cannot post, why (the team only, a level). */
+          const [first, intro, facts] = await Promise.all([listMessages(db, community, viewer, row, {}), chatIntro(db, community, viewer), channelFacts(db, row.id)])
+          const postNote = channelPostNote(channelPostOf(row.post_role, facts.minLevel), viewer.role, viewer.member?.level ?? 1)
+          const pinned = await pinnedLine(db, community.id, row.id, facts.pinnedId)
+          const closed = !space.canPost || !canWriteIn(row, viewer, community.chat_enabled) || intro.restriction?.kind === "banned" || !!postNote
+          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || closed, intro: { ...intro, pinned, postNote }, chatTab: shell.community.chatTab?.slug ?? null })
         }
         const [feed, compose] = await Promise.all([listFeed(db, community, viewer, { sort: "default", spaceId: space.id }), composeFor(db, community, viewer)])
         return ok({ kind: "feed", start: { kind: "space", id: space.id }, spaces: shell.spaces, viewer: viewerView(viewer), initial: feed, servedAt: Date.now(), readOnly, onboarding: null, compose })
@@ -145,7 +149,9 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     case "members": {
       if (!community.directory_enabled && !can(viewer.role, "manage_members")) return off
       const [first, byCountry] = await Promise.all([listMembers(db, community.id, {}), locationsReady(db)])
-      return ok({ kind: "members", communityId: community.id, slug: community.slug, memberCount: community.member_count, initial: first, meId: viewer.userId, canMessage: community.chat_enabled, countryFilter: byCountry })
+      /* Round 38: the viewer's standing for starting a conversation, so the list greys a Message they may not send. */
+      const dmStart = community.chat_enabled ? await dmStartFor(db, community, viewer) : null
+      return ok({ kind: "members", communityId: community.id, slug: community.slug, memberCount: community.member_count, initial: first, meId: viewer.userId, canMessage: community.chat_enabled, dmStart, countryFilter: byCountry })
     }
     case "leaderboard": {
       if (!community.gamification_enabled) return off

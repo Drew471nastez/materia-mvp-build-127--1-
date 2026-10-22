@@ -394,6 +394,11 @@ export async function communityCancellationAfterMembership(db: Db, row: Pick<Mem
     const communityId = (data?.community_id as string | null | undefined) ?? null
     if (!communityId) return
     await recordCancellation(db, { communityId, userId: row.buyer_id, membershipId: row.id, endsAt: row.current_period_end, why: null })
+    /* Round 38: the community's automated message for a cancelled paid membership, once per member (./chat-automations.ts). */
+    if (row.buyer_id) {
+      const { automationsOnEvent } = await import("./chat-automations")
+      await automationsOnEvent(db, communityId, row.buyer_id, [{ kind: "paid_cancel" }])
+    }
   } catch (e) {
     console.error(`[communities] cancellation hook: ${reasonOf(e)}`)
   }

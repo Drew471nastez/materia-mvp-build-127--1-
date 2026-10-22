@@ -11,6 +11,7 @@
  * decoration that is not the thing itself.
  *
  *   Community     a house: the community's home
+ *   Chat          a speech bubble with two lines in it (round 38)
  *   Learn         a lesson: a screen with a play mark and the progress
  *                 line under it (round 13, when the Classroom became Learn
  *                 and its courses programs of video lessons)
@@ -33,6 +34,10 @@ const DRAWN: Record<TabKey, { lines: string[]; fill?: string[] }> = {
   home: {
     lines: ["M4.5 10.2 12 4.25l7.5 5.95v8.3a1.75 1.75 0 0 1-1.75 1.75h-3.5V15a2.25 2.25 0 0 0-4.5 0v5.25h-3.5A1.75 1.75 0 0 1 4.5 18.5z"],
     fill: ["M4.5 10.2 12 4.25l7.5 5.95v8.3a1.75 1.75 0 0 1-1.75 1.75h-3.5V15a2.25 2.25 0 0 0-4.5 0v5.25h-3.5A1.75 1.75 0 0 1 4.5 18.5z"],
+  },
+  chat: {
+    lines: ["M6.25 4.75h11.5A2.25 2.25 0 0 1 20 7v7.5a2.25 2.25 0 0 1-2.25 2.25h-6.5L7.5 19.9v-3.15H6.25A2.25 2.25 0 0 1 4 14.5V7a2.25 2.25 0 0 1 2.25-2.25z", "M8.25 9.25h7.5", "M8.25 12.5h4.5"],
+    fill: ["M6.25 4.75h11.5A2.25 2.25 0 0 1 20 7v7.5a2.25 2.25 0 0 1-2.25 2.25h-6.5L7.5 19.9v-3.15H6.25A2.25 2.25 0 0 1 4 14.5V7a2.25 2.25 0 0 1 2.25-2.25z"],
   },
   classroom: {
     lines: ["M6.25 4.5h11.5A2.25 2.25 0 0 1 20 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H6.25A2.25 2.25 0 0 1 4 14.25v-7.5A2.25 2.25 0 0 1 6.25 4.5z", "M10.5 8.1v4.8l4-2.4z", "M4 19.75h5.45", "M13.55 19.75H20", "M11.5 21a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"],

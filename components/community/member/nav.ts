@@ -63,8 +63,8 @@ export function sectionFromPath(pathname: string | null | undefined, slug: strin
   return "home"
 }
 
-/** The places: Community, Learn, Calendar, Members, Leaderboards, About. */
-export type TabKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
+/** The places: Community, Chat (round 38), Learn, Calendar, Members, Leaderboards, About. */
+export type TabKey = "home" | "chat" | "classroom" | "events" | "members" | "leaderboard" | "about"
 
 export interface NavEntry {
   key: TabKey
@@ -77,9 +77,11 @@ export interface NavEntry {
  * community has it switched on. Members shows for staff even with the
  * directory off (they run it); the community and About are always there.
  */
-export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsEnabled: boolean; directoryEnabled: boolean; gamificationEnabled: boolean }, staff: boolean): NavEntry[] {
+export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsEnabled: boolean; directoryEnabled: boolean; gamificationEnabled: boolean; chatEnabled?: boolean; chatTab?: { slug: string } | null }, staff: boolean): NavEntry[] {
   const base = `/community/${c.slug}`
   const out: NavEntry[] = [{ key: "home", label: "Community", href: base }]
+  /* Round 38: the community's group chat, right after the feed: its main channel (lib/communities/chat-rules.ts chatTabOf). */
+  if (c.chatEnabled !== false && c.chatTab) out.push({ key: "chat", label: "Chat", href: `${base}/space/${encodeURIComponent(c.chatTab.slug)}` })
   if (c.classroomEnabled) out.push({ key: "classroom", label: "Learn", href: `${base}/learn` })
   if (c.eventsEnabled) out.push({ key: "events", label: "Calendar", href: `${base}/events` })
   if (c.directoryEnabled || staff) out.push({ key: "members", label: "Members", href: `${base}/members` })
@@ -89,7 +91,8 @@ export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsE
 }
 
 /** The tab a section marks: a space, a post, Saved and the inbox all live under Community. */
-export function tabFor(section: ShellSection): TabKey {
+export function tabFor(section: ShellSection, chatSpaces?: ReadonlySet<string> | null): TabKey {
+  if (chatSpaces && section.startsWith("space:") && chatSpaces.has(section.slice(6).toLowerCase())) return "chat"
   if (section === "classroom" || section === "events" || section === "members" || section === "leaderboard" || section === "about") return section
   return "home"
 }

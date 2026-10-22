@@ -142,6 +142,8 @@ export interface SpaceChipsProps {
   sort?: React.ReactNode
   /** Round 33: the admin's Spaces, for somebody who may change them (edit-hint.tsx adminHref); a small pencil at the row's end. */
   editHref?: string | null
+  /** Round 38: no All chip (the Chat tab's row is its channels alone). */
+  noAll?: boolean
 }
 
 /*
@@ -207,8 +209,8 @@ let tookAt = 0
   address a tap puts up; this one is for a new tab, a reload or a page with no script.
 */
 
-export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort, editHref = null }: SpaceChipsProps) {
-  if (typeof window !== "undefined") drawn.set(slug, spaces)
+export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort, editHref = null, noAll = false }: SpaceChipsProps) {
+  if (typeof window !== "undefined" && !noAll) drawn.set(slug, spaces)
   const base = `/community/${slug}`
   const allOn = active === null && !savedOn
   /* The props a chip that can switch in place carries; a page link otherwise. */
@@ -273,11 +275,13 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
       >
         {/* 6px above and below: the pills' hit areas reach into it, and a pill's one pixel shadow is not cut by the scrolling track. */}
         <div className="relative isolate flex w-max items-center gap-2 py-1.5 pl-4 pr-6 sm:pl-0">
-          <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>
-            <span aria-hidden data-chip-press="" className={PRESS} />
-            <Fill on={allOn} />
-            <Label text="All" on={allOn} />
-          </Link>
+          {noAll ? null : (
+            <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>
+              <span aria-hidden data-chip-press="" className={PRESS} />
+              <Fill on={allOn} />
+              <Label text="All" on={allOn} />
+            </Link>
+          )}
           {spaces.map((s) => {
             const on = active === s.slug
             const glyph = spaceGlyph(s.icon, s.kind)
