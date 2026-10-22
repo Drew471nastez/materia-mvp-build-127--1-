@@ -14,7 +14,7 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { CAMERA_PATHS, FALLBACK_SRC, MISSING_BG, MISSING_BG_DARK, MISSING_IMAGE_CSS, MISSING_INK, installMissingImageGuard } from "@/lib/media/missing-image"
+import { CAMERA_PATHS, FALLBACK_SRC, MISSING_BG_DARK, MISSING_IMAGE_CSS, MISSING_INK, installMissingImageGuard } from "@/lib/media/missing-image"
 
 export function MissingImageGuard() {
   React.useEffect(() => installMissingImageGuard(document, FALLBACK_SRC), [])
@@ -34,7 +34,7 @@ export function isDarkColor(color: string | null | undefined): boolean {
 /**
  * The box. It fills whatever holds it (h-full w-full by default), so it
  * takes the exact place a picture would; the camera is a third of the
- * box's width, between 14 and 56 pixels.
+ * box's width, between 18 and 56 pixels.
  */
 export function MissingImage({ className, dark = false, label }: { className?: string; dark?: boolean; label?: string }) {
   return (
@@ -43,10 +43,11 @@ export function MissingImage({ className, dark = false, label }: { className?: s
       aria-label={label}
       aria-hidden={label ? undefined : true}
       data-missing-image=""
-      className={cn("flex h-full w-full items-center justify-center overflow-hidden", className)}
-      style={{ backgroundColor: dark ? MISSING_BG_DARK : MISSING_BG }}
+      /* bg-[#f3f4f6] (MISSING_BG) as a class, so Storelib's dark buyer pages give it their dark grey (app/theme-dark.css); a site's dark scheme says `dark`. */
+      className={cn("flex h-full w-full items-center justify-center overflow-hidden bg-[#f3f4f6]", className)}
+      style={dark ? { backgroundColor: MISSING_BG_DARK } : undefined}
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke={MISSING_INK} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="aspect-square h-auto w-[34%] min-w-[14px] max-w-[56px]" dangerouslySetInnerHTML={{ __html: CAMERA_PATHS }} />
+      <svg viewBox="0 0 24 24" fill="none" stroke={MISSING_INK} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="aspect-square h-auto w-[34%] min-w-[18px] max-w-[56px]" dangerouslySetInnerHTML={{ __html: CAMERA_PATHS }} />
     </span>
   )
 }
