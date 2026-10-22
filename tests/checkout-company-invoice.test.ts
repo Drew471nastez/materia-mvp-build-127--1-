@@ -85,7 +85,7 @@ console.log("\nA cart that ships keeps the company too, on every order line (SQL
   check("the held checkout keeps it before a free or cash order is placed in the same call", server.indexOf('update({ business_details: business })') > 0 && server.indexOf('update({ business_details: business })') < server.indexOf("const done = await completeCheckout"))
   const sql = read("supabase/sql/run-now/259_checkout_business_details.sql")
   check("part 259: one column on the checkout, shaped like the order's, no rows changed", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(sql) && /pg_column_size\(business_details\) <= 4096\)\) NOT VALID/.test(sql) && !/UPDATE|DELETE/i.test(sql) && sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
-  check("  its migration copy, its column in the check after, its README row", read("supabase/migrations/20270206_checkout_business_details.sql") === sql && /as p259_checkout_business_details;/.test(read("supabase/sql/run-now/99_check_after.sql")) && /`259_checkout_business_details\.sql`/.test(read("supabase/sql/run-now/README.md")))
+  check("  its migration copy, its column in the check after, its README row", read("supabase/migrations/20270206_checkout_business_details.sql") === sql && /* Changed on purpose: later parts are checked after it. */ /as p259_checkout_business_details[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /`259_checkout_business_details\.sql`/.test(read("supabase/sql/run-now/README.md")))
 
   /* The paid checkout, for real: completeCheckout against a small stand in for the database. */
   type Row = Record<string, unknown>
