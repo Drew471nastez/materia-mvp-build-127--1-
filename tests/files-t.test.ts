@@ -172,7 +172,8 @@ async function main() {
   check("  and one file dropped while picking is the one picked", /if \(mode === "pick" && added\.length === 1 && good\.length === 1\) onPickRef\.current\?\.\(added\[0\]\.url, \{ file: good\[0\] \}\)/.test(lib))
   check("each tile has a menu: Use, Download, Copy link, Open in Files, Delete (asked first)", ["\"Use this picture\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Delete\""].every((l) => lib.includes(`label: ${l}`)) && /href: `\/app\/files\?file=\$\{encodeURIComponent\(f\.id\)\}`/.test(lib) && /data-file-confirm/.test(lib))
   check("  shown on hover with a mouse and always on a phone", /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:opacity-0 group-hover\/tile:opacity-100/.test(lib))
-  check("Delete goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
+  /* Changed on purpose (round 39): the answer is typed (RemoveAnswer), it says which files were kept where they show. */
+  check("Delete goes through the API, which checks the file is the caller's", /api<RemoveAnswer>\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
   check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? \(multiple \? "Choose videos" : "Choose a video"\) : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
   check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" kind="media" openId=\{openId\} \/>/.test(read("app/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")

@@ -169,7 +169,8 @@ async function main() {
     check("the large view is the original at full resolution, the tile's copy under it", /src=\{file\.url\}/.test(lib) && /data-file-preview-under=""/.test(lib) && !/filePreview\(/.test(lib))
     check("the files on either side are fetched ahead", /function useNeighbours/.test(lib) && /img\.src = f\.url/.test(lib))
     const confirm = lib.slice(lib.indexOf("function ConfirmDelete("), lib.indexOf("function ConfirmDeleteMany("))
-    check("delete asks first, and names the places a file in use will leave blank", /useUsage\(file\)/.test(confirm) && /data-file-confirm-in-use=""/.test(confirm) && /Those places will show nothing where it was\./.test(confirm))
+    /* Changed on purpose (round 39): a file in use is taken out of Files and kept where it shows (lib/files/keep.ts), so those places no longer go blank. */
+    check("delete asks first, and names the places a file in use stays in", /useUsage\(file\)/.test(confirm) && /data-file-confirm-in-use=""/.test(confirm) && /It leaves Files and stays in those places\./.test(confirm))
     check("  a file not used anywhere says so", /It is not used on your products or website\./.test(confirm))
     check("  and the used-in answer is asked again once a file is deleted", /usage\.delete\(f\.id\)/.test(lib))
   }

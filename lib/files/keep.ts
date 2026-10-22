@@ -106,7 +106,8 @@ export async function removeFromFiles(admin: Admin, owner: Owner, list: unknown)
   const deleted: string[] = []
   if (clear.length) {
     const gone = await deleteLibraryFiles(admin, owner, clear.map((f) => ({ bucket: f.bucket, path: f.path })))
-    if (!gone.ok) return gone
+    /* `=== false`, not `!gone.ok`: the push tests compile without strict, where only this narrows. */
+    if (gone.ok === false) return { ok: false, error: gone.error, status: gone.status }
     deleted.push(...clear.map((f) => f.id))
     /* Their alt text goes with them. Best effort: a row left behind names nothing that exists. */
     for (const f of clear) {
