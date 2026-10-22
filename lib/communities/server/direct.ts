@@ -30,7 +30,7 @@ import "server-only"
  * The other person's phone hears it unless they muted the conversation or
  * have it open right now (./chat-push.ts directPushWanted).
  */
-import { attachmentLine, dmDecision, pushPreviewText } from "../chat-rules"
+import { attachmentLine, dmDecision, dmShortReason, pushPreviewText, type DmVerdict } from "../chat-rules"
 import { LENGTHS } from "../limits"
 import type { AuthorView, CommunityRow, PostMedia, Role } from "../types"
 import type { ChatLine } from "@/components/community/member/view-types"
@@ -155,15 +155,65 @@ async function activeMember(db: Db, communityId: string, userId: string): Promis
 /**
  * Whether the viewer may write to `otherId` here, by the admins' rule, a
  * block either way and the other person's own choice. The owner counts as
- * the team whatever their member row says.
+ * the team whatever their member row says. Round 38: the rule can ask for a
+ * points level or some days in the community before a member STARTS a
+ * conversation (the viewer's own member row says both); answering one the
+ * other person started (`replying`) is never held back by them.
  */
-async function mayMessage(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer, otherId: string): Promise<Checked<true>> {
+async function dmVerdict(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer, otherId: string, replying: boolean): Promise<DmVerdict & { minLevel: number; minDays: number; gone?: boolean }> {
   const [settings, other, blocked] = await Promise.all([loadChatSettings(db, community.id), chatMemberState(db, community.id, otherId), blockedBetween(db, String(viewer.userId), otherId)])
-  if (!other || !other.active) return { ok: false, error: "That member is no longer in this community.", status: 404 }
+  const limits = { minLevel: settings.dmMinLevel, minDays: settings.dmMinDays }
+  if (!other || !other.active) return { ok: false, reason: "off", error: "That member is no longer in this community.", gone: true, ...limits }
   const otherRole: Role | null = otherId === community.owner_user_id ? "owner" : other.role
   const senderRole: Role | null = viewer.userId === community.owner_user_id ? "owner" : viewer.role
-  const d = dmDecision({ policy: settings.dmPolicy, senderId: String(viewer.userId), senderRole, recipientId: otherId, recipientRole: otherRole, recipientDms: other.chatDms, blocked })
+  const d = dmDecision({
+    policy: settings.dmPolicy,
+    senderId: String(viewer.userId),
+    senderRole,
+    recipientId: otherId,
+    recipientRole: otherRole,
+    recipientDms: other.chatDms,
+    blocked,
+    senderLevel: viewer.member?.level ?? 1,
+    senderJoinedAt: viewer.member?.joined_at ?? viewer.member?.created_at ?? null,
+    minLevel: settings.dmMinLevel,
+    minDays: settings.dmMinDays,
+    toStaff: settings.dmToStaff,
+    replying,
+  })
+  return { ...d, ...limits }
+}
+
+async function mayMessage(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer, otherId: string, replying = false): Promise<Checked<true>> {
+  const d = await dmVerdict(db, community, viewer, otherId, replying)
+  if (d.gone) return { ok: false, error: d.error, status: 404 }
   return "error" in d ? { ok: false, error: d.error, status: 403 } : { ok: true, value: true }
+}
+
+/** The other person started this conversation: an answer, not a start. */
+function answering(conversation: Pick<ConversationRow, "started_by">, me: string): boolean {
+  return !!conversation.started_by && conversation.started_by !== me
+}
+
+/**
+ * A profile's Message button (round 38): pressable, or greyed with a short
+ * reason. A conversation that already exists always opens (to read it), so
+ * the button is pressable then whatever the rule says now.
+ */
+export async function messageButton(db: Db, community: CommunityRow, viewer: Viewer, otherId: string): Promise<{ can: boolean; reason: string | null } | null> {
+  if (!viewer.userId || !community.chat_enabled || otherId === viewer.userId || !UUID.test(otherId)) return null
+  try {
+    const pair = pairOf(viewer.userId, otherId)
+    const found = await db.from("community_conversations").select("id, started_by").eq("community_id", community.id).eq("user_a", pair.user_a).eq("user_b", pair.user_b).maybeSingle()
+    if (found.error) return missing(found.error) ? null : { can: true, reason: null }
+    const existing = found.data as { id: string; started_by: string | null } | null
+    if (existing) return { can: true, reason: null }
+    const d = await dmVerdict(db, community, viewer, otherId, false)
+    if (d.gone) return null
+    return "error" in d ? { can: false, reason: dmShortReason(d.reason, d) } : { can: true, reason: null }
+  } catch {
+    return { can: true, reason: null }
+  }
 }
 
 /** A conversation of this community that the viewer is in, or null. */
@@ -393,7 +443,7 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   const other = otherOf(conversation, viewer.userId)
   if (!(await activeMember(db, community.id, other))) return { ok: false, error: "That member is no longer in this community.", status: 403 }
-  const may = await mayMessage(db, community, viewer, other)
+  const may = await mayMessage(db, community, viewer, other, answering(conversation, viewer.userId))
   if (!may.ok) return refused(may)
   let replyTo: string | null = null
   if (typeof r.replyToId === "string" && UUID.test(r.replyToId)) {

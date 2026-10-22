@@ -264,12 +264,16 @@ export interface ChatIntroView {
   rules: string
   rulesVersion: number
   needsRules: boolean
-  dmPolicy: "everyone" | "staff" | "off"
+  dmPolicy: "everyone" | "level" | "days" | "staff" | "off"
   groupsPolicy: "members" | "staff" | "off"
   attachments: boolean
   myDms: "everyone" | "staff" | "nobody"
   restriction: { kind: "banned" } | { kind: "muted"; until: string } | null
   myName?: string | null
+  /** Round 38, a channel only: its pinned message, as one line. */
+  pinned?: { id: string; authorName: string; text: string } | null
+  /** Round 38, a channel only: why this member cannot post here (the team only, or a level they have not reached). */
+  postNote?: string | null
 }
 
 export interface ChatMessageView extends ChatLine {

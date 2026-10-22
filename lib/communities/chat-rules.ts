@@ -11,7 +11,12 @@
  * tests/community-chat-r37.test.ts checks it directly.
  */
 
-export type DmPolicy = "everyone" | "staff" | "off"
+/**
+ * Who may start a conversation (round 38 adds "level" and "days": members
+ * from a points level, or after some days in the community; "staff" is the
+ * team only, and whether members may still write to the team is dmToStaff).
+ */
+export type DmPolicy = "everyone" | "level" | "days" | "staff" | "off"
 export type GroupsPolicy = "members" | "staff" | "off"
 /** What a member lets others do: anyone here, only the team, or nobody but the team. */
 export type MemberDms = "everyone" | "staff" | "nobody"
@@ -25,6 +30,17 @@ export interface ChatSettings {
   pushPreviews: boolean
   rules: string
   rulesVersion: number
+  /* Round 38 (part 272). */
+  /** The points level a member needs before they start a conversation, when dmPolicy is "level". */
+  dmMinLevel: number
+  /** Days in the community before a member starts a conversation, when dmPolicy is "days". */
+  dmMinDays: number
+  /** Members may write to the owner, admins and moderators whatever dmPolicy says (not when it is "off"). */
+  dmToStaff: boolean
+  /** A Chat tab in the community's row of places, opening the main channel. */
+  chatTab: boolean
+  /** The channel the Chat tab opens; null is the first chat channel the member may read. */
+  mainSpaceId: string | null
 }
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
@@ -34,7 +50,17 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   pushPreviews: true,
   rules: "",
   rulesVersion: 0,
+  dmMinLevel: 2,
+  dmMinDays: 7,
+  dmToStaff: true,
+  chatTab: true,
+  mainSpaceId: null,
 }
+
+export const DM_MIN_LEVEL_MAX = 100
+export const DM_MIN_DAYS_MAX = 365
+/** A channel's "from level N" for posting, at most this. */
+export const POST_MIN_LEVEL_MAX = 100
 
 export const CHAT_RULES_MAX = 4000
 export const GROUP_NAME_MAX = 80
@@ -49,7 +75,7 @@ export const VIEWING_BEAT_MS = 20_000
 export const PUSH_BURST = 3
 export const PUSH_BURST_SECONDS = 10
 
-const DM_POLICIES: readonly DmPolicy[] = ["everyone", "staff", "off"]
+const DM_POLICIES: readonly DmPolicy[] = ["everyone", "level", "days", "staff", "off"]
 const GROUP_POLICIES: readonly GroupsPolicy[] = ["members", "staff", "off"]
 const MEMBER_DMS: readonly MemberDms[] = ["everyone", "staff", "nobody"]
 const STAFF = new Set(["owner", "admin", "moderator"])
@@ -72,7 +98,20 @@ export function chatSettingsOf(row: Record<string, unknown> | null | undefined):
     pushPreviews: row.push_previews !== false,
     rules: typeof row.rules === "string" ? row.rules.slice(0, CHAT_RULES_MAX) : "",
     rulesVersion: Number.isInteger(row.rules_version) && (row.rules_version as number) > 0 ? (row.rules_version as number) : 0,
+    dmMinLevel: intIn(row.dm_min_level, 1, DM_MIN_LEVEL_MAX) ?? DEFAULT_CHAT_SETTINGS.dmMinLevel,
+    dmMinDays: intIn(row.dm_min_days, 1, DM_MIN_DAYS_MAX) ?? DEFAULT_CHAT_SETTINGS.dmMinDays,
+    dmToStaff: row.dm_to_staff !== false,
+    chatTab: row.chat_tab !== false,
+    mainSpaceId: typeof row.main_space_id === "string" && UUID_RE.test(row.main_space_id) ? row.main_space_id : null,
   }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A whole number from min to max, or null. */
+export function intIn(v: unknown, min: number, max: number): number | null {
+  const n = typeof v === "string" && v.trim() ? Number(v) : v
+  return typeof n === "number" && Number.isInteger(n) && n >= min && n <= max ? n : null
 }
 
 /**
@@ -80,7 +119,7 @@ export function chatSettingsOf(row: Record<string, unknown> | null | undefined):
  * value of the wrong kind is an error. New rules words bump the version, so
  * every member is asked to accept them again before their next message.
  */
-export function chatSettingsPatch(raw: unknown, current: ChatSettings): { ok: true; columns: Record<string, unknown>; next: ChatSettings } | { ok: false; error: string } {
+export function chatSettingsPatch(raw: unknown, current: ChatSettings): { ok: true; columns: Record<string, unknown>; extra: Record<string, unknown> | null; next: ChatSettings } | { ok: false; error: string } {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const next: ChatSettings = { ...current }
   if ("dmPolicy" in r) {
@@ -91,11 +130,25 @@ export function chatSettingsPatch(raw: unknown, current: ChatSettings): { ok: tr
     if (!GROUP_POLICIES.includes(r.groupsPolicy as GroupsPolicy)) return { ok: false, error: "Pick who can start a group." }
     next.groupsPolicy = r.groupsPolicy as GroupsPolicy
   }
-  for (const k of ["attachmentsEnabled", "pushPreviews"] as const) {
+  for (const k of ["attachmentsEnabled", "pushPreviews", "dmToStaff", "chatTab"] as const) {
     if (k in r) {
       if (typeof r[k] !== "boolean") return { ok: false, error: "That switch could not be saved." }
       next[k] = r[k] as boolean
     }
+  }
+  if ("dmMinLevel" in r) {
+    const n = intIn(r.dmMinLevel, 1, DM_MIN_LEVEL_MAX)
+    if (n === null) return { ok: false, error: "Pick a level from 1 to 100." }
+    next.dmMinLevel = n
+  }
+  if ("dmMinDays" in r) {
+    const n = intIn(r.dmMinDays, 1, DM_MIN_DAYS_MAX)
+    if (n === null) return { ok: false, error: "Pick from 1 to 365 days." }
+    next.dmMinDays = n
+  }
+  if ("mainSpaceId" in r) {
+    if (r.mainSpaceId !== null && (typeof r.mainSpaceId !== "string" || !UUID_RE.test(r.mainSpaceId))) return { ok: false, error: "Pick a channel." }
+    next.mainSpaceId = (r.mainSpaceId as string | null) ?? null
   }
   if ("rules" in r) {
     if (typeof r.rules !== "string") return { ok: false, error: "The rules could not be saved." }
@@ -106,6 +159,8 @@ export function chatSettingsPatch(raw: unknown, current: ChatSettings): { ok: tr
       next.rulesVersion = rules ? current.rulesVersion + 1 : current.rulesVersion
     }
   }
+  /* Part 272's columns only when one of its settings was sent (or the rule needs them), so the rest still saves before the part ran. */
+  const touches272 = ["dmMinLevel", "dmMinDays", "dmToStaff", "chatTab", "mainSpaceId"].some((k) => k in r) || next.dmPolicy === "level" || next.dmPolicy === "days"
   return {
     ok: true,
     next,
@@ -117,6 +172,7 @@ export function chatSettingsPatch(raw: unknown, current: ChatSettings): { ok: tr
       rules: next.rules,
       rules_version: next.rulesVersion,
     },
+    extra: touches272 ? { dm_min_level: next.dmMinLevel, dm_min_days: next.dmMinDays, dm_to_staff: next.dmToStaff, chat_tab: next.chatTab, main_space_id: next.mainSpaceId } : null,
   }
 }
 
@@ -142,16 +198,15 @@ export function chatRestriction(state: { chatBannedAt?: string | null; chatMuted
   return null
 }
 
-export type DmRefusal = "off" | "blocked" | "staff_only" | "they_staff_only" | "they_nobody" | "self"
+export type DmRefusal = "off" | "blocked" | "staff_only" | "they_staff_only" | "they_nobody" | "self" | "level" | "days" | "no_staff"
 
-/**
- * May this person start or continue a conversation with that one? The
- * community's rule first, then a block either way, then the other person's
- * own choice. The team (owner, admins, moderators) can always reach a member
- * while messages are on, so a member who chose "nobody" can still be told
- * something by the people running the community.
- */
-export function dmDecision(i: {
+/** Whole days since a member joined, 0 when unknown. */
+export function daysSince(iso: string | null | undefined, now: number = Date.now()): number {
+  const t = iso ? Date.parse(iso) : NaN
+  return Number.isFinite(t) && now > t ? Math.floor((now - t) / 86_400_000) : 0
+}
+
+export interface DmInput {
   policy: DmPolicy
   senderId: string
   senderRole: string | null
@@ -159,16 +214,146 @@ export function dmDecision(i: {
   recipientRole: string | null
   recipientDms: MemberDms
   blocked: boolean
-}): { ok: true } | { ok: false; reason: DmRefusal; error: string } {
+  /* Round 38: the sender's standing and the admins' thresholds. Left out, a member meets every threshold. */
+  senderLevel?: number | null
+  senderJoinedAt?: string | null
+  minLevel?: number
+  minDays?: number
+  /** Members may write to the team (true when left out). */
+  toStaff?: boolean
+  /** The other person started this conversation: answering is not starting, so the level and days thresholds do not apply. */
+  replying?: boolean
+  now?: number
+}
+
+export type DmVerdict = { ok: true } | { ok: false; reason: DmRefusal; error: string }
+
+/**
+ * The sender's half of the decision: the community's rule and the sender's
+ * standing, with only the other person's role known. What the members list
+ * uses to grey a Message button out without reading every member's own
+ * choice; dmDecision runs it too, so the two never differ.
+ */
+export function dmStartDecision(i: Pick<DmInput, "policy" | "senderRole" | "recipientRole" | "senderLevel" | "senderJoinedAt" | "minLevel" | "minDays" | "toStaff" | "replying" | "now">): DmVerdict {
+  if (i.policy === "off") return { ok: false, reason: "off", error: "Messages between members are turned off in this community." }
+  if (isStaffRole(i.senderRole)) return { ok: true }
+  if (isStaffRole(i.recipientRole)) {
+    if (i.toStaff === false && !i.replying) return { ok: false, reason: "no_staff", error: "Members can't message the team in this community." }
+    return { ok: true }
+  }
+  if (i.policy === "staff") return { ok: false, reason: "staff_only", error: i.toStaff === false ? "Only the team can start conversations in this community." : "In this community you can message the admins and moderators only." }
+  if (i.replying) return { ok: true }
+  if (i.policy === "level") {
+    const need = i.minLevel ?? 1
+    if ((i.senderLevel ?? 1) < need) return { ok: false, reason: "level", error: `Members from level ${need} can send messages. You are level ${i.senderLevel ?? 1}.` }
+  }
+  if (i.policy === "days") {
+    const need = i.minDays ?? 0
+    if (daysSince(i.senderJoinedAt, i.now) < need) return { ok: false, reason: "days", error: `You can send messages after ${need} ${need === 1 ? "day" : "days"} in this community.` }
+  }
+  return { ok: true }
+}
+
+/**
+ * May this person start or continue a conversation with that one? The
+ * community's rule first, then a block either way, then the other person's
+ * own choice. The team (owner, admins, moderators) can always reach a member
+ * while messages are on, so a member who chose "nobody" can still be told
+ * something by the people running the community.
+ *
+ * Round 38: the rule can ask for a points level or some days in the
+ * community before a member starts a conversation (answering one is always
+ * fine), and the admins choose whether members may write to the team.
+ */
+export function dmDecision(i: DmInput): DmVerdict {
   if (i.senderId === i.recipientId) return { ok: false, reason: "self", error: "You cannot message yourself." }
   if (i.policy === "off") return { ok: false, reason: "off", error: "Messages between members are turned off in this community." }
   if (i.blocked) return { ok: false, reason: "blocked", error: "You can't message this person." }
-  const senderStaff = isStaffRole(i.senderRole)
-  if (senderStaff) return { ok: true }
-  if (i.policy === "staff" && !isStaffRole(i.recipientRole)) return { ok: false, reason: "staff_only", error: "In this community you can message the admins and moderators only." }
+  if (isStaffRole(i.senderRole)) return { ok: true }
+  const start = dmStartDecision(i)
+  if ("error" in start) return start
   if (i.recipientDms === "nobody") return { ok: false, reason: "they_nobody", error: "This member is not taking messages." }
   if (i.recipientDms === "staff") return { ok: false, reason: "they_staff_only", error: "This member takes messages from the admins only." }
   return { ok: true }
+}
+
+/** The short line beside a Message button that cannot be pressed. */
+export function dmShortReason(reason: DmRefusal, i: { minLevel?: number; minDays?: number } = {}): string {
+  switch (reason) {
+    case "off":
+      return "Messages are off in this community"
+    case "level":
+      return `Messages open at level ${i.minLevel ?? 2}`
+    case "days":
+      return `Messages open after ${i.minDays ?? 7} ${(i.minDays ?? 7) === 1 ? "day" : "days"} here`
+    case "staff_only":
+      return "Only the team can message members here"
+    case "no_staff":
+      return "The team takes no messages here"
+    case "they_nobody":
+      return "Not taking messages"
+    case "they_staff_only":
+      return "Takes messages from the team only"
+    case "blocked":
+      return "You can't message them"
+    default:
+      return ""
+  }
+}
+
+/** What the browser is told about the viewer's own standing for messages (the members list greys its buttons with it). */
+export interface DmStartView {
+  policy: DmPolicy
+  minLevel: number
+  minDays: number
+  toStaff: boolean
+  myRole: string | null
+  myLevel: number
+  myJoinedAt: string | null
+}
+
+/** A Message button's state for one person in a list: null when it may be pressed, else the short reason. */
+export function dmButtonReason(v: DmStartView | null | undefined, recipientRole: string | null, now: number = Date.now()): string | null {
+  if (!v) return null
+  const d = dmStartDecision({ policy: v.policy, senderRole: v.myRole, recipientRole, senderLevel: v.myLevel, senderJoinedAt: v.myJoinedAt, minLevel: v.minLevel, minDays: v.minDays, toStaff: v.toStaff, now })
+  return "error" in d ? dmShortReason(d.reason, v) : null
+}
+
+/* ── Who may post in a channel (round 38) ─────────────────────────────── */
+
+export type ChannelPost = "everyone" | "level" | "team"
+
+/** A channel's "who can post" as the admin picks it, from its stored post_role and post_min_level. */
+export function channelPostOf(postRole: string | null | undefined, minLevel: unknown): { post: ChannelPost; minLevel: number } {
+  if (postRole && postRole !== "member") return { post: "team", minLevel: 0 }
+  const n = intIn(minLevel, 0, POST_MIN_LEVEL_MAX) ?? 0
+  return n > 1 ? { post: "level", minLevel: n } : { post: "everyone", minLevel: 0 }
+}
+
+/** The columns an admin's "who can post" writes. */
+export function channelPostColumns(raw: { post?: unknown; minLevel?: unknown }): { ok: true; columns: { post_role: "member" | "moderator"; post_min_level: number } } | { ok: false; error: string } {
+  if (raw.post === "everyone") return { ok: true, columns: { post_role: "member", post_min_level: 0 } }
+  if (raw.post === "team") return { ok: true, columns: { post_role: "moderator", post_min_level: 0 } }
+  if (raw.post === "level") {
+    const n = intIn(raw.minLevel, 2, POST_MIN_LEVEL_MAX)
+    if (n === null) return { ok: false, error: "Pick a level from 2 to 100." }
+    return { ok: true, columns: { post_role: "member", post_min_level: n } }
+  }
+  return { ok: false, error: "Pick who can post." }
+}
+
+/** Whether a member's level lets them post in a channel that asks for one; the team always may. */
+export function levelLetsPost(role: string | null | undefined, level: number | null | undefined, minLevel: number): boolean {
+  if (isStaffRole(role) || !minLevel || minLevel <= 1) return true
+  return (level ?? 1) >= minLevel
+}
+
+/** What a channel says to a member who cannot post in it, or null. */
+export function channelPostNote(p: { post: ChannelPost; minLevel: number }, role: string | null | undefined, level: number | null | undefined): string | null {
+  if (isStaffRole(role)) return null
+  if (p.post === "team") return "Only the team posts in this channel."
+  if (p.post === "level" && !levelLetsPost(role, level, p.minLevel)) return `Members from level ${p.minLevel} can post here. You are level ${level ?? 1}.`
+  return null
 }
 
 export function groupCreateAllowed(policy: GroupsPolicy, role: string | null): boolean {
